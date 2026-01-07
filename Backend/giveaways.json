@@ -1,0 +1,67 @@
+[
+  {
+    "id": "a2t34zNZ8T",
+    "title": "Valentins Weihnachts-Giveaway",
+    "prize": "1-Month 7TV Subscription (Nametag Paint, Animated Profile, Personal Emote, Subscriber Badge)",
+    "quantity": 4,
+    "requirements": [
+      {
+        "id": "twitch-follow",
+        "type": "twitch-follow",
+        "label": "Twitch-Follower (vnmvalentin)",
+        "data": {
+          "channelId": "160224748",
+          "channelLogin": "vnmvalentin",
+          "channelUrl": "https://twitch.tv/vnmvalentin"
+        }
+      }
+    ],
+    "endDate": 1766242800000,
+    "createdAt": 1765732438397,
+    "createdBy": "160224748",
+    "participants": {
+      "72441962": {
+        "id": "72441962",
+        "displayName": "Gh0stQQ",
+        "profileImageUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/1ae7d8b0-4962-4590-ba91-1f949c6e101a-profile_image-300x300.png"
+      },
+      "102402662": {
+        "id": "102402662",
+        "displayName": "paraskiill",
+        "profileImageUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/ffff5b55-a07b-4cad-9adc-5f96a6a81a0e-profile_image-300x300.png"
+      },
+      "144336895": {
+        "id": "144336895",
+        "displayName": "fynn2410",
+        "profileImageUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/b0e66294-b803-48b6-901d-a80d947b90e8-profile_image-300x300.png"
+      },
+      "144452560": {
+        "id": "144452560",
+        "displayName": "cornflakesmuncher",
+        "profileImageUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/81f6f775-4b95-41eb-a8b7-7e39109d3fb6-profile_image-300x300.jpg"
+      },
+      "225883100": {
+        "id": "225883100",
+        "displayName": "froanzi",
+        "profileImageUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/19ffdb3b-89ff-4bbc-bc13-52e504639e4f-profile_image-300x300.png"
+      },
+      "547136294": {
+        "id": "547136294",
+        "displayName": "swagosaurier",
+        "profileImageUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/4574b3ed-9347-4087-a0c0-c32437832d60-profile_image-300x300.png"
+      },
+      "674179580": {
+        "id": "674179580",
+        "displayName": "FlluffAttack",
+        "profileImageUrl": "https://static-cdn.jtvnw.net/jtv_user_pictures/103f20e1-4037-433e-8ab1-71bb140baa06-profile_image-300x300.jpeg"
+      }
+    },
+    "winners": [
+      "674179580",
+      "144452560",
+      "102402662",
+      "72441962"
+    ],
+    "discordNotified": true
+  }
+]

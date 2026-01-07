@@ -1,0 +1,172 @@
+{
+  "72441962": {
+    "twitchId": "72441962",
+    "owned": {
+      "card-510": 1,
+      "card-566": 1,
+      "card-012": 1,
+      "card-606": 1
+    },
+    "gallery": [],
+    "packTokens": 0,
+    "lastTokenEarnedAt": 1764406653478,
+    "lastPack": {
+      "openedAt": 1764406655959,
+      "cardIds": [
+        "card-510",
+        "card-566",
+        "card-012",
+        "card-606"
+      ]
+    }
+  },
+  "111885284": {
+    "twitchId": "111885284",
+    "owned": {
+      "card-016": 1,
+      "card-207": 1,
+      "card-202": 1,
+      "card-114": 2,
+      "card-615": 1,
+      "card-005": 1,
+      "card-258": 1,
+      "card-219": 1,
+      "card-413": 1,
+      "card-310": 1,
+      "card-470": 1,
+      "card-405": 1,
+      "card-267": 1,
+      "card-257": 1,
+      "card-503": 1,
+      "card-312": 1,
+      "card-303": 1,
+      "card-554": 1,
+      "card-013": 1
+    },
+    "gallery": [],
+    "packTokens": 0,
+    "lastTokenEarnedAt": 1765355730283,
+    "lastPack": {
+      "openedAt": 1765355929650,
+      "cardIds": [
+        "card-312",
+        "card-303",
+        "card-554",
+        "card-013"
+      ]
+    }
+  },
+  "144452560": {
+    "twitchId": "144452560",
+    "owned": {
+      "card-065": 1,
+      "card-015": 1,
+      "card-016": 1,
+      "card-519": 1
+    },
+    "gallery": [],
+    "packTokens": 0,
+    "lastTokenEarnedAt": 1765148950606,
+    "lastPack": {
+      "openedAt": 1765148952093,
+      "cardIds": [
+        "card-065",
+        "card-015",
+        "card-016",
+        "card-519"
+      ]
+    }
+  },
+  "160224748": {
+    "twitchId": "160224748",
+    "owned": {
+      "card-101": 1,
+      "card-052": 1,
+      "card-506": 1,
+      "card-468": 1,
+      "card-002": 1,
+      "card-551": 1,
+      "card-062": 1,
+      "card-505": 1,
+      "card-163": 1,
+      "card-001": 1,
+      "card-016": 1,
+      "card-253": 1,
+      "card-406": 2,
+      "card-111": 1,
+      "card-267": 1,
+      "card-164": 1,
+      "card-169": 1,
+      "card-118": 1,
+      "card-351": 1,
+      "card-604": 1,
+      "card-270": 1,
+      "card-555": 1,
+      "card-503": 2,
+      "card-170": 1,
+      "card-509": 1,
+      "card-160": 1,
+      "card-355": 1,
+      "card-515": 1,
+      "card-454": 1,
+      "card-264": 1,
+      "card-563": 1,
+      "card-103": 1,
+      "card-218": 1,
+      "card-252": 1,
+      "card-404": 1,
+      "card-320": 1,
+      "card-562": 1,
+      "card-460": 1,
+      "card-415": 1,
+      "card-561": 1,
+      "card-204": 1,
+      "card-518": 1,
+      "card-262": 1,
+      "card-219": 1,
+      "card-104": 1,
+      "card-208": 1,
+      "card-212": 1,
+      "card-316": 1,
+      "card-363": 1,
+      "card-004": 1,
+      "card-165": 1,
+      "card-414": 1,
+      "card-107": 1,
+      "card-366": 1
+    },
+    "gallery": [],
+    "packTokens": 0,
+    "lastTokenEarnedAt": 1765427402840,
+    "lastPack": {
+      "openedAt": 1765496580766,
+      "cardIds": [
+        "card-165",
+        "card-414",
+        "card-107",
+        "card-366"
+      ]
+    }
+  },
+  "537042436": {
+    "twitchId": "537042436",
+    "owned": {
+      "card-058": 1,
+      "card-107": 1,
+      "card-260": 1,
+      "card-310": 1
+    },
+    "gallery": [],
+    "packTokens": 0,
+    "lastTokenEarnedAt": 1764437224381,
+    "lastPack": {
+      "openedAt": 1764437228158,
+      "cardIds": [
+        "card-058",
+        "card-107",
+        "card-260",
+        "card-310"
+      ]
+    }
+  }
+}

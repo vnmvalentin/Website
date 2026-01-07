@@ -1,0 +1,91 @@
+{
+  "submissions": [
+    {
+      "id": "yKjzTqY_5NGh",
+      "twitchId": "144452560",
+      "twitchLogin": "cornflakesmuncher",
+      "season": 2026,
+      "answers": {
+        "best-chatter": [
+          "corni"
+        ],
+        "worst-chatter": [
+          "alex"
+        ],
+        "best-mod": [
+          "flluffattack"
+        ],
+        "worst-mod": [
+          "gh0stqq"
+        ],
+        "best-stream-game": [
+          "valorant"
+        ],
+        "best-meme": [
+          "kackthias"
+        ]
+      },
+      "createdAt": 1765536511546,
+      "updatedAt": 1766638901602
+    },
+    {
+      "id": "uoARrCTQ9C_w",
+      "twitchId": "111885284",
+      "twitchLogin": "dust1n__",
+      "season": 2026,
+      "answers": {
+        "best-chatter": [
+          "Ich"
+        ],
+        "worst-chatter": [
+          "Dieser Valentin war schon ziemlich nervig"
+        ],
+        "best-mod": [
+          "gh0stqq"
+        ],
+        "worst-mod": [
+          "flluffattack"
+        ],
+        "best-vip": [
+          "Auch Ich"
+        ],
+        "best-stream-game": [
+          "My Femboy Roommate"
+        ],
+        "best-event": [
+          "da wo du League gespielt hast"
+        ],
+        "best-clip": [
+          "Dings ähmm keine ahnung"
+        ],
+        "best-new-viewer": [
+          "Würde schon sagen ich"
+        ],
+        "best-meme": [
+          "deine Psychose"
+        ],
+        "best-community-moment": [
+          "Der Moment wo du mich entband hast"
+        ]
+      },
+      "createdAt": 1765794501729,
+      "updatedAt": 1765794501729
+    },
+    {
+      "id": "gN8iId6ScR2Y",
+      "twitchId": "102402662",
+      "twitchLogin": "paraskiill",
+      "season": 2026,
+      "answers": {
+        "best-mod": [
+          "paraskiill"
+        ],
+        "worst-mod": [
+          "flluffattack"
+        ]
+      },
+      "createdAt": 1766168373770,
+      "updatedAt": 1766168373770
+    }
+  ]
+}

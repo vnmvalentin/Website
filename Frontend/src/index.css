@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* Slot Machine: Schnellerer Blur für mehr "Speed" Gefühl */
+@keyframes spin-slot {
+  0% { transform: translateY(-100%); filter: blur(2px); }
+  100% { transform: translateY(100%); filter: blur(2px); }
+}
+.animate-spin-custom {
+  /* 0.08s ist sehr schnell -> sieht aus wie rotieren */
+  animation: spin-slot 0.08s linear infinite;
+}
+
+/* Blackjack: Karten fliegen vom "Stapel" (oben rechts versetzt) rein */
+@keyframes dealCardAnim {
+  0% { 
+    transform: translateY(-200px) translateX(100px) rotate(180deg) scale(0.5); 
+    opacity: 0; 
+  }
+  100% { 
+    transform: translateY(0) translateX(0) rotate(0) scale(1); 
+    opacity: 1; 
+  }
+}
+
+.animate-deal-card {
+  animation: dealCardAnim 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}

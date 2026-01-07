@@ -1,0 +1,105 @@
+[
+  {
+    "id": 1760100154586,
+    "title": "Halloween-Stream",
+    "background": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTlHPZd-DP537j1CpNl2y5jRh3PNQAW5yC5oA&s",
+    "endDate": "2025-10-20T20:00",
+    "questions": [
+      {
+        "id": 1760100004066,
+        "question": "Wann soll der Stream sein?",
+        "type": "single",
+        "options": [
+          "31.10.2025",
+          "01.11.2025"
+        ]
+      },
+      {
+        "id": 1760100040735,
+        "question": "Was soll an dem Tag gemacht werden?",
+        "type": "multiple",
+        "options": [
+          "Horrorfilme mit Amazon Prime Video",
+          "Solo-Horrorspiele ",
+          "Multiplayer Horrorspiele"
+        ]
+      },
+      {
+        "id": 1760100128225,
+        "question": "Falls noch andere Ideen bestehen, gerne noch dazu schreiben:",
+        "type": "text",
+        "options": [
+          ""
+        ]
+      }
+    ],
+    "votes": {
+      "160224748": {
+        "1760100004066": "31.10.2025",
+        "1760100040735": [
+          "Horrorfilme mit Amazon Prime Video",
+          "Solo-Horrorspiele ",
+          "Multiplayer Horrorspiele"
+        ]
+      },
+      "466216534": {
+        "1760100004066": "31.10.2025",
+        "1760100040735": [
+          "Horrorfilme mit Amazon Prime Video",
+          "Solo-Horrorspiele ",
+          "Multiplayer Horrorspiele"
+        ]
+      }
+    }
+  },
+  {
+    "id": 1765871081673,
+    "title": "Mehr Gambling???",
+    "background": "",
+    "endDate": "2025-12-31T08:39",
+    "questions": [
+      {
+        "id": 1765870789812,
+        "question": "Soll ich statt Pack-Tokens sowas wie Credits hinzufügen die man täglich bekommt (z.b. 100 Stück) mit denen man sich ein Pack \"kaufen\" kann. Man kann aber die Credits per Gambling auch versuchen zu vermehren (oder verlieren)? ",
+        "type": "single",
+        "options": [
+          "Ja MEHR GAMBLING",
+          "Nein, lass so wie es ist"
+        ]
+      },
+      {
+        "id": 1765870968068,
+        "question": "Habt ihr Ideen für mehr Gambling (z.B. auch Modi für Credits-Gambling) bzw. andere Ideen für die Website?",
+        "type": "text",
+        "options": [
+          ""
+        ]
+      }
+    ],
+    "votes": {
+      "72441962": {
+        "1765870789812": "Ja MEHR GAMBLING",
+        "1765870968068": "Gold gold gold sex hajaaah"
+      },
+      "102402662": {
+        "1765870789812": "Ja MEHR GAMBLING"
+      },
+      "111885284": {
+        "1765870789812": "Ja MEHR GAMBLING",
+        "1765870968068": "man kann so nudes einschicken für mehr credits "
+      },
+      "144452560": {
+        "1765870789812": "Ja MEHR GAMBLING"
+      },
+      "160224748": {
+        "1765870789812": "Ja MEHR GAMBLING"
+      },
+      "674179580": {
+        "1765870789812": "Ja MEHR GAMBLING",
+        "1765870968068": "Mach ein Casino auf "
+      }
+    },
+    "createdAt": 1765871081673,
+    "createdBy": "160224748"
+  }
+]

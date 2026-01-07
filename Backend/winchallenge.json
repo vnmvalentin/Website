@@ -1,0 +1,615 @@
+{
+  "72441962": {
+    "userId": "72441962",
+    "title": "Win-Challenge",
+    "items": [],
+    "style": {
+      "boxBg": "#0B0F1A",
+      "textColor": "#ffffff",
+      "accent": "#9146FF",
+      "opacity": 0.6,
+      "borderRadius": 12,
+      "scale": 1,
+      "boxWidth": 520,
+      "titleAlign": "left",
+      "titleColor": "#ffffff"
+    },
+    "timer": {
+      "running": false,
+      "startedAt": 0,
+      "elapsedMs": 0,
+      "visible": true
+    },
+    "pager": {
+      "enabled": false,
+      "pageSize": 5,
+      "intervalSec": 20
+    },
+    "controlPermissions": {
+      "allowModsTimer": true,
+      "allowModsTitle": false,
+      "allowModsChallenges": false
+    },
+    "overlayKey": "QCV9odNz4kqH",
+    "controlKey": "5CZG3X4GfxmE",
+    "refreshNonce": 1,
+    "updatedAt": 1763195118332
+  },
+  "102402662": {
+    "userId": "102402662",
+    "title": "Win-Challenge",
+    "items": [],
+    "style": {
+      "boxBg": "#000000",
+      "textColor": "#ffffff",
+      "accent": "#ffffff",
+      "opacity": 0.6,
+      "borderRadius": 12,
+      "scale": 1,
+      "boxWidth": 280,
+      "titleAlign": "left",
+      "titleColor": "#ffffff",
+      "headerBg": "#000000",
+      "titleFontSize": 18,
+      "itemFontSize": 16,
+      "itemBg": "#282424",
+      "headerOpacity": 0.6
+    },
+    "timer": {
+      "running": false,
+      "startedAt": 0,
+      "elapsedMs": 0,
+      "visible": true
+    },
+    "pager": {
+      "enabled": false,
+      "pageSize": 5,
+      "intervalSec": 20
+    },
+    "controlPermissions": {
+      "allowModsTimer": true,
+      "allowModsTitle": false,
+      "allowModsChallenges": false
+    },
+    "overlayKey": "3L45WZjPYMdW",
+    "controlKey": "Wxv98xUCw3gP",
+    "refreshNonce": 1,
+    "updatedAt": 1766268124261
+  },
+  "144452560": {
+    "userId": "144452560",
+    "title": "Win-Challenge",
+    "items": [],
+    "style": {
+      "boxBg": "#000000",
+      "textColor": "#ffffff",
+      "accent": "#ffffff",
+      "opacity": 0.6,
+      "borderRadius": 12,
+      "scale": 1,
+      "boxWidth": 280,
+      "titleAlign": "left",
+      "titleColor": "#ffffff",
+      "headerBg": "#000000",
+      "titleFontSize": 18,
+      "itemFontSize": 16,
+      "itemBg": "#282424",
+      "headerOpacity": 0.6
+    },
+    "timer": {
+      "running": false,
+      "startedAt": 0,
+      "elapsedMs": 0,
+      "visible": true
+    },
+    "pager": {
+      "enabled": false,
+      "pageSize": 5,
+      "intervalSec": 20
+    },
+    "controlPermissions": {
+      "allowModsTimer": true,
+      "allowModsTitle": false,
+      "allowModsChallenges": false
+    },
+    "overlayKey": "-SGBeKfVxbke",
+    "controlKey": "chr-3AkaHx2y",
+    "refreshNonce": 1,
+    "updatedAt": 1766638916485
+  },
+  "160224748": {
+    "userId": "160224748",
+    "title": "Win-Challenge",
+    "items": [
+      {
+        "id": "kErDYP2q",
+        "name": "Test",
+        "useWins": true,
+        "target": 1,
+        "progress": 0,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "AWU0ufd7",
+        "name": "Test",
+        "useWins": false,
+        "target": 1,
+        "progress": 0,
+        "done": false,
+        "pinned": false
+      }
+    ],
+    "style": {
+      "boxBg": "#000000",
+      "textColor": "#ffffff",
+      "accent": "#ffffff",
+      "opacity": 0.6,
+      "borderRadius": 16,
+      "scale": 1,
+      "boxWidth": 280,
+      "titleAlign": "center",
+      "titleColor": "#ffffff",
+      "headerBg": "#000000",
+      "titleFontSize": 18,
+      "itemFontSize": 16,
+      "itemBg": "#564d4d",
+      "headerOpacity": 0.6
+    },
+    "timer": {
+      "running": false,
+      "startedAt": 0,
+      "elapsedMs": 0,
+      "visible": true
+    },
+    "pager": {
+      "enabled": true,
+      "pageSize": 2,
+      "intervalSec": 20
+    },
+    "animation": {
+      "enabled": true,
+      "mode": "paging",
+      "paging": {
+        "pageSize": 2,
+        "intervalSec": 20
+      },
+      "scrolling": {
+        "speedPxPerSec": 5,
+        "visibleRows": 2,
+        "pauseSec": 2
+      }
+    },
+    "controlPermissions": {
+      "allowModsTimer": true,
+      "allowModsTitle": true,
+      "allowModsChallenges": true
+    },
+    "overlayKey": "Lu7YUUJOzCP_",
+    "controlKey": "_I3kCw2aW6fi",
+    "refreshNonce": 1,
+    "updatedAt": 1766789990204
+  },
+  "225883100": {
+    "userId": "225883100",
+    "title": "Win-Challenge",
+    "items": [],
+    "style": {
+      "boxBg": "#858585",
+      "textColor": "#ffffff",
+      "accent": "#a088a5",
+      "opacity": 1,
+      "borderRadius": 32,
+      "scale": 1.05,
+      "boxWidth": 520,
+      "titleAlign": "left",
+      "titleColor": "#ffffff"
+    },
+    "timer": {
+      "running": true,
+      "startedAt": 1763152673061,
+      "elapsedMs": 0,
+      "visible": true
+    },
+    "pager": {
+      "enabled": true,
+      "pageSize": 1,
+      "intervalSec": 20
+    },
+    "controlPermissions": {
+      "allowModsTimer": true,
+      "allowModsTitle": false,
+      "allowModsChallenges": false
+    },
+    "overlayKey": "k3k6ny0ij-mQ",
+    "controlKey": "LLuoIJfKxpEe",
+    "refreshNonce": 1,
+    "updatedAt": 1763152783809
+  },
+  "475223114": {
+    "userId": "475223114",
+    "title": "Win-Challenge",
+    "items": [],
+    "style": {
+      "boxBg": "#0b0f1a",
+      "textColor": "#ffffff",
+      "accent": "#9146ff",
+      "opacity": 0.6,
+      "borderRadius": 12,
+      "scale": 1,
+      "boxWidth": 520,
+      "titleAlign": "left",
+      "titleColor": "#ffffff"
+    },
+    "timer": {
+      "running": false,
+      "startedAt": 0,
+      "elapsedMs": 0,
+      "visible": true
+    },
+    "pager": {
+      "enabled": false,
+      "pageSize": 5,
+      "intervalSec": 20
+    },
+    "controlPermissions": {
+      "allowModsTimer": true,
+      "allowModsTitle": false,
+      "allowModsChallenges": false
+    },
+    "overlayKey": "-Exl-D9gWRxF",
+    "controlKey": "vwjA3qooWY1R",
+    "refreshNonce": 1,
+    "updatedAt": 1764114224064
+  },
+  "486176129": {
+    "userId": "486176129",
+    "title": "Win-Challenge",
+    "items": [
+      {
+        "id": "ZNjmVGAa",
+        "name": "Warzone",
+        "useWins": true,
+        "target": 2,
+        "progress": 2,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "e1JjY0Qf",
+        "name": "F1 Top5 B2B",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "-OOI432e",
+        "name": "LoL Rank",
+        "useWins": true,
+        "target": 3,
+        "progress": 3,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "pde0O_Ah",
+        "name": "LoL B3B ",
+        "useWins": true,
+        "target": 2,
+        "progress": 2,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "6vtiPeRS",
+        "name": "LoL ",
+        "useWins": true,
+        "target": 2,
+        "progress": 2,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "tm3c3wa5",
+        "name": "FIFA",
+        "useWins": true,
+        "target": 3,
+        "progress": 3,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "uX9zN3rQ",
+        "name": "DBD B4B",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "Ngws5DOe",
+        "name": "DBD",
+        "useWins": true,
+        "target": 4,
+        "progress": 4,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "NtBjreRr",
+        "name": "Multiplayer B2B",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "hoOtXtpE",
+        "name": "Multiplayer 40Kills",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "4-Rr44ns",
+        "name": "Multiplayer ",
+        "useWins": true,
+        "target": 2,
+        "progress": 2,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "YMwjXLeR",
+        "name": "Multiplayer Messer Runde Erster",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "89AT2nUr",
+        "name": "Overwatch2 B2B",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "LqZglOU9",
+        "name": "Overwatch2",
+        "useWins": true,
+        "target": 3,
+        "progress": 3,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "sCcX5RTN",
+        "name": "Valo B2B",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "YmV5DLci",
+        "name": "Valo ",
+        "useWins": true,
+        "target": 3,
+        "progress": 3,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "waKOCBcO",
+        "name": "Marvel Rivals",
+        "useWins": true,
+        "target": 2,
+        "progress": 2,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "1F-ukSeX",
+        "name": "Rocket League B2B",
+        "useWins": true,
+        "target": 2,
+        "progress": 2,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "RaHejvzH",
+        "name": "Rainbow Six Siege B3B",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "1yJIcxNY",
+        "name": "Rainbow Six Siege",
+        "useWins": true,
+        "target": 3,
+        "progress": 3,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "632bcXEM",
+        "name": "REPO Level 5",
+        "useWins": true,
+        "target": 1,
+        "progress": 0,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "CXg1w2iS",
+        "name": "FallGuys",
+        "useWins": true,
+        "target": 3,
+        "progress": 3,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "wLJ9dMke",
+        "name": "Fortnite ",
+        "useWins": true,
+        "target": 2,
+        "progress": 2,
+        "done": false,
+        "pinned": false
+      },
+      {
+        "id": "RHPeZ-_z",
+        "name": "Fortnite B2B",
+        "useWins": true,
+        "target": 1,
+        "progress": 1,
+        "done": false,
+        "pinned": false
+      }
+    ],
+    "style": {
+      "boxBg": "#000000",
+      "textColor": "#ffffff",
+      "accent": "#ffffff",
+      "opacity": 0.6,
+      "borderRadius": 12,
+      "scale": 1,
+      "boxWidth": 280,
+      "titleAlign": "center",
+      "titleColor": "#ffffff",
+      "headerBg": "#000000",
+      "titleFontSize": 18,
+      "itemFontSize": 16,
+      "itemBg": "#282424",
+      "headerOpacity": 0.6
+    },
+    "timer": {
+      "running": false,
+      "startedAt": 0,
+      "elapsedMs": 281327390,
+      "visible": true
+    },
+    "pager": {
+      "enabled": true,
+      "pageSize": 5,
+      "intervalSec": 10
+    },
+    "controlPermissions": {
+      "allowModsTimer": true,
+      "allowModsTitle": false,
+      "allowModsChallenges": false
+    },
+    "overlayKey": "9NBWtVaEnI3q",
+    "controlKey": "ZWJfWdkvQA-_",
+    "refreshNonce": 1,
+    "updatedAt": 1765992234222
+  },
+  "674179580": {
+    "userId": "674179580",
+    "title": "Win-Challenge",
+    "items": [],
+    "style": {
+      "boxBg": "#000000",
+      "textColor": "#ffffff",
+      "accent": "#ffffff",
+      "opacity": 0.6,
+      "borderRadius": 12,
+      "scale": 1,
+      "boxWidth": 280,
+      "titleAlign": "left",
+      "titleColor": "#ffffff",
+      "headerBg": "#000000",
+      "titleFontSize": 18,
+      "itemFontSize": 16,
+      "itemBg": "#282424",
+      "headerOpacity": 0.6
+    },
+    "timer": {
+      "running": false,
+      "startedAt": 0,
+      "elapsedMs": 0,
+      "visible": true
+    },
+    "pager": {
+      "enabled": false,
+      "pageSize": 5,
+      "intervalSec": 20
+    },
+    "controlPermissions": {
+      "allowModsTimer": true,
+      "allowModsTitle": false,
+      "allowModsChallenges": false
+    },
+    "overlayKey": "12lQ5eUyRqxg",
+    "controlKey": "R8gfaxZJHiwO",
+    "refreshNonce": 1,
+    "updatedAt": 1765802004770
+  },
+  "724204990": {
+    "userId": "724204990",
+    "title": "ROAD to 5 Millionen",
+    "items": [
+      {
+        "id": "7XFqHTIy",
+        "name": "2.859.531",
+        "useWins": true,
+        "target": 1,
+        "progress": 0,
+        "done": false,
+        "pinned": false
+      }
+    ],
+    "style": {
+      "boxBg": "#000000",
+      "textColor": "#ffffff",
+      "accent": "#ffffff",
+      "opacity": 0,
+      "borderRadius": 16,
+      "scale": 0.95,
+      "boxWidth": 280,
+      "titleAlign": "center",
+      "titleColor": "#e349ee",
+      "headerBg": "#121212",
+      "titleFontSize": 17,
+      "itemFontSize": 24,
+      "itemBg": "#282424",
+      "headerOpacity": 0
+    },
+    "timer": {
+      "running": false,
+      "startedAt": 0,
+      "elapsedMs": 0,
+      "visible": false
+    },
+    "pager": {
+      "enabled": false,
+      "pageSize": 1,
+      "intervalSec": 20
+    },
+    "controlPermissions": {
+      "allowModsTimer": false,
+      "allowModsTitle": true,
+      "allowModsChallenges": true
+    },
+    "overlayKey": "m4y1F4dAZSrg",
+    "controlKey": "N0UlbR2ZXpVf",
+    "refreshNonce": 1,
+    "updatedAt": 1766344189974
+  }
+}
