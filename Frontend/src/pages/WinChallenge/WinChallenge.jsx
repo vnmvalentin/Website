@@ -697,7 +697,7 @@ export default function WinChallenge() {
             konfigurieren.
           </p>
           <button
-            onClick={() => login(true)}
+            onClick={() => login()}
             className="bg-[#9146FF] hover:bg-[#7d36ff] px-4 py-2 rounded-lg"
           >
             Mit Twitch anmelden

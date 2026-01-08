@@ -7,6 +7,24 @@ const USER_STORAGE_KEY = "twitchUser";
 const TOKEN_STORAGE_KEY = "twitchAccessToken";
 const RETURN_KEY = "twitchReturnTo";
 
+// Hilfsfunktion: Einheitliche Datenstruktur erzwingen
+function normalizeUser(u) {
+  if (!u) return null;
+  return {
+    ...u, // Behalte Originalfelder (id, login, display_name etc.)
+    
+    // Mappe auf CamelCase für deine Komponenten
+    displayName: u.display_name || u.displayName || u.login,
+    profileImageUrl: u.profile_image_url || u.profileImageUrl,
+    
+    // Aliases für ID und Login (manche Komponenten nutzen twitchId/twitchLogin)
+    id: u.id || u.twitchId,
+    twitchId: u.id || u.twitchId,
+    login: u.login || u.twitchLogin,
+    twitchLogin: u.login || u.twitchLogin,
+  };
+}
+
 export default function TwitchAuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [clientId, setClientId] = useState(null);
@@ -14,7 +32,7 @@ export default function TwitchAuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const redirectUri = window.location.origin + "/auth/twitch";
-  // helper
+
   const clearAuth = () => {
     localStorage.removeItem(USER_STORAGE_KEY);
     localStorage.removeItem(TOKEN_STORAGE_KEY);
@@ -23,29 +41,24 @@ export default function TwitchAuthProvider({ children }) {
     setAccessToken(null);
   };
 
-  // ✅ Backend-Session check (Cookie)
   const syncBackendSession = async () => {
     try {
       const res = await fetch("/api/auth/me", { credentials: "include" });
       if (!res.ok) {
-        // Cookie-Session ist weg/ungültig -> Frontend auch ausloggen
         clearAuth();
         return null;
       }
-      return await res.json(); // { twitchId, twitchLogin }
+      return await res.json();
     } catch {
       return null;
     }
   };
 
-
-  // Twitch Client ID vom Backend holen
+  // 1. Client ID laden
   useEffect(() => {
-    console.log("[TwitchAuth] Hole Twitch Client ID…");
     fetch("/api/twitch/clientid")
       .then((r) => r.json())
       .then((data) => {
-        console.log("[TwitchAuth] Client ID vom Backend:", data.clientId);
         setClientId(data.clientId);
         setLoading(false);
       })
@@ -55,176 +68,117 @@ export default function TwitchAuthProvider({ children }) {
       });
   }, []);
 
-  // Login-Flow + Restore aus localStorage
+  // 2. Login-Logik & Restore
   useEffect(() => {
     if (!clientId) return;
 
     const hash = window.location.hash;
-    console.log("[TwitchAuth] Aktueller Hash:", hash);
 
-    // 1) Gerade von Twitch zurückgekommen
+    // A) Frischer Login von Twitch (Redirect zurück zur Seite)
     if (hash.includes("access_token")) {
       const token = new URLSearchParams(hash.substring(1)).get("access_token");
-      console.log("[TwitchAuth] Access Token gefunden:", !!token);
 
-      if (!token) return;
-
-      (async () => {
-        try {
-          // Session im Backend setzen
-          const sessRes = await fetch("/api/auth/twitch", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
-            credentials: "include",
-          });
-
-          console.log("[TwitchAuth] /api/auth/twitch Antwort:", sessRes.status);
-          if (!sessRes.ok) {
-            throw new Error("Backend-Authentifizierung fehlgeschlagen");
-          }
-
-          // Userdaten von Twitch holen
-          const userRes = await fetch("https://api.twitch.tv/helix/users", {
-            headers: {
-              "Client-ID": clientId,
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          const data = await userRes.json();
-          console.log("[TwitchAuth] Helix /users Antwort:", data);
-
-          const u = data.data?.[0];
-          if (!u) throw new Error("Kein User von Twitch erhalten");
-
+      if (token) {
+        (async () => {
           try {
-            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
+            // Session im Backend setzen
+            const sessRes = await fetch("/api/auth/twitch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token }),
+              credentials: "include",
+            });
+
+            if (!sessRes.ok) throw new Error("Backend-Auth fehlgeschlagen");
+
+            // Userdaten von Helix laden
+            const userRes = await fetch("https://api.twitch.tv/helix/users", {
+              headers: {
+                "Client-ID": clientId,
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            const data = await userRes.json();
+            const rawUser = data.data?.[0];
+
+            if (!rawUser) throw new Error("Keine Userdaten erhalten");
+
+            // HIER: Normalisieren bevor wir speichern
+            const normalized = normalizeUser(rawUser);
+
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(normalized));
             localStorage.setItem(TOKEN_STORAGE_KEY, token);
-            console.log(
-              "[TwitchAuth] User + Token in localStorage gespeichert",
-              USER_STORAGE_KEY,
-              TOKEN_STORAGE_KEY
-            );
-          } catch (e) {
-            console.error(
-              "[TwitchAuth] Konnte Daten nicht in localStorage speichern:",
-              e
-            );
+
+            setUser(normalized);
+            setAccessToken(token);
+            await syncBackendSession();
+
+            // URL bereinigen
+            const cleanUrl = window.location.pathname + window.location.search;
+            window.history.replaceState({}, document.title, cleanUrl);
+          } catch (err) {
+            console.error("Login failed:", err);
           }
-
-          setUser(u);
-          setAccessToken(token);
-          await syncBackendSession();
-          console.log("[TwitchAuth] Login erfolgreich, User gesetzt:", u);
-
-          // Hash aus URL entfernen
-          const cleanUrl = window.location.pathname + window.location.search;
-          window.history.replaceState({}, document.title, cleanUrl);
-        } catch (err) {
-          console.error("Login-Flow fehlgeschlagen:", err);
-        }
-      })();
-
-      return; // danach nicht mehr weiter im else-Zweig
+        })();
+        return;
+      }
     }
 
-    // 2) Kein frischer Token: User + Token aus localStorage wiederherstellen
+    // B) Restore aus localStorage
     const savedUserStr = localStorage.getItem(USER_STORAGE_KEY);
     const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-    console.log("[TwitchAuth] savedUser aus localStorage:", savedUserStr);
-    console.log("[TwitchAuth] savedToken aus localStorage:", !!savedToken);
 
     if (savedUserStr && savedToken) {
       try {
-        const u = JSON.parse(savedUserStr);
-        if (u && u.id) {
-          console.log(
-            "[TwitchAuth] Stelle User + Token aus localStorage wieder her:",
-            u
-          );
-          setUser(u);
+        const parsed = JSON.parse(savedUserStr);
+        // Auch beim Laden sicherstellen, dass Struktur stimmt
+        const normalized = normalizeUser(parsed);
+        if (normalized && normalized.id) {
+          setUser(normalized);
           setAccessToken(savedToken);
           syncBackendSession();
         } else {
-          console.warn(
-            "[TwitchAuth] Gespeicherter User ungültig, lösche Storage."
-          );
-          localStorage.removeItem(USER_STORAGE_KEY);
-          localStorage.removeItem(TOKEN_STORAGE_KEY);
+          clearAuth();
         }
       } catch (e) {
-        console.error(
-          "[TwitchAuth] Fehler beim Lesen von twitchUser aus localStorage:",
-          e
-        );
-        localStorage.removeItem(USER_STORAGE_KEY);
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        clearAuth();
       }
-    } else {
-      console.log(
-        "[TwitchAuth] Kein twitchUser oder kein Token in localStorage gefunden."
-      );
     }
   }, [clientId]);
 
+  // Session-Check bei Fokus
   useEffect(() => {
-    const onFocus = () => syncBackendSession();
-    const onVis = () => { if (!document.hidden) syncBackendSession(); };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVis);
-
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVis);
-    };
+    const check = () => { if (!document.hidden) syncBackendSession(); };
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
   }, []);
 
-  // Login starten
   const login = (force = false) => {
-    if (!clientId) {
-      alert("Twitch Client ID noch nicht geladen.");
-      return;
-    }
-
-    const currentPath = window.location.pathname + window.location.search;
-    sessionStorage.setItem(RETURN_KEY, currentPath);
+    if (!clientId) return;
+    sessionStorage.setItem(RETURN_KEY, window.location.pathname + window.location.search);
 
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "token",
-      // ⬇️ NEU: Follows-Scopes dazu
       scope: "user:read:email user:read:follows",
     });
-
     if (force) params.append("force_verify", "true");
 
-    const url =
-      "https://id.twitch.tv/oauth2/authorize?" + params.toString();
-
-    console.log("[TwitchAuth] Leite zu Twitch weiter:", url);
-    window.location.href = url;
+    window.location.href = "https://id.twitch.tv/oauth2/authorize?" + params.toString();
   };
 
-  // Logout
   const logout = () => {
     fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     clearAuth();
-    alert("Du wurdest ausgeloggt. Beim nächsten Login kannst du einen anderen Twitch-Account wählen.");
+    // Optional: Reload, um UI komplett zu resetten
+    // window.location.reload(); 
   };
 
-  if (loading) {
-    console.log("[TwitchAuth] Noch am Laden, rendere nichts.");
-    return null;
-  }
-
-  console.log("[TwitchAuth] Render mit user:", user);
+  if (loading) return null;
 
   return (
-    <TwitchAuthContext.Provider
-      value={{ user, login, logout, clientId, accessToken }}
-    >
+    <TwitchAuthContext.Provider value={{ user, login, logout, clientId, accessToken }}>
       {children}
     </TwitchAuthContext.Provider>
   );

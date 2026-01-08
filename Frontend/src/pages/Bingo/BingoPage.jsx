@@ -1,11 +1,14 @@
+// src/pages/BingoPage.jsx
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+// Context nutzen statt manuellem Fetch
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { createSession, deleteSession, getMySessions, getThemes } from "../../utils/bingoApi";
 import { parseJoinKey } from "../../components/bingo/bingoUtils";
 
 export default function BingoPage() {
   const navigate = useNavigate();
+  // Zugriff auf globalen Login
   const { user, login } = useContext(TwitchAuthContext);
 
   const [tab, setTab] = useState("create"); // create | my
@@ -40,7 +43,6 @@ export default function BingoPage() {
 
   useEffect(() => {
     loadThemes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshMy = async () => {
@@ -60,7 +62,6 @@ export default function BingoPage() {
 
   useEffect(() => {
     if (user) refreshMy();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const themeOptions = useMemo(() => {
@@ -79,7 +80,7 @@ export default function BingoPage() {
   const startCreate = async () => {
     setError("");
     if (!user) {
-      login?.();
+      login(); // Context Login aufrufen
       return;
     }
     if (!selectedThemeId) return;
@@ -154,7 +155,7 @@ export default function BingoPage() {
       </div>
 
       {error && (
-        <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-4 text-red-200">
+        <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-4 text-red-200 mb-4">
           {error}
         </div>
       )}
@@ -235,22 +236,25 @@ export default function BingoPage() {
                   ))}
                 </div>
 
-                <button
-                  disabled={!canCreate || creating}
-                  className={`w-full px-4 py-3 rounded-xl font-semibold border border-white/10 ${
-                    canCreate && !creating
-                      ? "bg-violet-600/70 hover:bg-violet-600 active:scale-[0.99]"
-                      : "bg-white/5 text-white/40 cursor-not-allowed"
-                  }`}
-                  onClick={startCreate}
-                >
-                  {creating ? "Erstelle…" : "Session erstellen"}
-                </button>
-
-                {!user && (
-                  <div className="text-xs text-white/60">
-                    Du musst eingeloggt sein, um eine Session zu erstellen.
-                  </div>
+                {!user ? (
+                  <button
+                    onClick={login}
+                    className="w-full px-4 py-3 rounded-xl font-semibold bg-[#9146FF] hover:bg-[#7d36ff] text-white transition shadow-lg"
+                  >
+                    Login mit Twitch zum Erstellen
+                  </button>
+                ) : (
+                  <button
+                    disabled={creating || !selectedThemeId}
+                    className={`w-full px-4 py-3 rounded-xl font-semibold border border-white/10 ${
+                      !creating && selectedThemeId
+                        ? "bg-violet-600/70 hover:bg-violet-600 active:scale-[0.99]"
+                        : "bg-white/5 text-white/40 cursor-not-allowed"
+                    }`}
+                    onClick={startCreate}
+                  >
+                    {creating ? "Erstelle…" : "Session erstellen"}
+                  </button>
                 )}
               </div>
             )}
@@ -271,7 +275,17 @@ export default function BingoPage() {
             </button>
           </div>
 
-          {!user && <div className="text-white/70">Bitte einloggen.</div>}
+          {!user && (
+             <div className="flex flex-col items-center justify-center p-8 bg-white/5 rounded-xl border border-white/5">
+                <p className="text-white/70 mb-4">Bitte logge dich ein, um deine Sessions zu sehen.</p>
+                <button 
+                    onClick={login}
+                    className="px-4 py-2 bg-[#9146FF] hover:bg-[#7d36ff] text-white rounded-lg font-bold"
+                >
+                    Login mit Twitch
+                </button>
+             </div>
+          )}
 
           {user && my.length === 0 && !loadingMy && (
             <div className="text-white/70">Keine Sessions gefunden.</div>

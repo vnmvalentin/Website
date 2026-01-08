@@ -1,8 +1,8 @@
 // src/pages/Layout.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useContext, useRef } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import Iridescence from "../components/Iridescence";
-import TwitchLoginButton from "../components/TwitchLoginButton";
+import { TwitchAuthContext } from "../components/TwitchAuthContext";
 
 const navItems = [
   { label: "About",
@@ -39,16 +39,28 @@ const navItems = [
 ];
 
 const ACTIVE_STATUS_ENDPOINTS = {
-  // Diese Endpunkte existieren in deinem Backend (siehe giveawayRoutes.js / pollRoutes.js)
   giveaways: "/api/giveaways",
   polls: "/api/polls",
 };
 
 export default function Layout() {
   const location = useLocation();
+  const { user, login, logout } = useContext(TwitchAuthContext);
 
   const [hasActiveGiveaway, setHasActiveGiveaway] = useState(false);
   const [hasActiveAbstimmung, setHasActiveAbstimmung] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -56,14 +68,12 @@ export default function Layout() {
     const parseTime = (value) => {
       if (value == null) return NaN;
       if (typeof value === "number") return value;
-
       if (typeof value === "string") {
         const asNumber = Number(value);
         if (!Number.isNaN(asNumber) && asNumber > 0) return asNumber;
         const asDate = Date.parse(value);
         return asDate;
       }
-
       return NaN;
     };
 
@@ -74,7 +84,6 @@ export default function Layout() {
     };
 
     const refresh = async () => {
-      // Giveaways: Backend liefert { active: [...], expired: [...] }
       try {
         const res = await fetch(ACTIVE_STATUS_ENDPOINTS.giveaways, {
           credentials: "include",
@@ -85,11 +94,8 @@ export default function Layout() {
           const activeList = Array.isArray(data?.active) ? data.active : [];
           setHasActiveGiveaway(activeList.length > 0);
         }
-      } catch {
-        // Wenn Backend/Route nicht erreichbar ist, bleibt der Dot einfach aus.
-      }
+      } catch {}
 
-      // Polls/Abstimmungen: Backend liefert ein Array an Polls (/api/polls)
       try {
         const res = await fetch(ACTIVE_STATUS_ENDPOINTS.polls, {
           credentials: "include",
@@ -100,9 +106,7 @@ export default function Layout() {
           const polls = Array.isArray(data) ? data : Array.isArray(data?.polls) ? data.polls : [];
           setHasActiveAbstimmung(polls.some(isPollActive));
         }
-      } catch {
-        // same as above
-      }
+      } catch {}
     };
 
     refresh();
@@ -114,7 +118,6 @@ export default function Layout() {
     };
   }, []);
 
-
   const [openSections, setOpenSections] = useState(() => {
     const initial = {};
     navItems.forEach((item) => (initial[item.label] = true));
@@ -123,12 +126,10 @@ export default function Layout() {
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // Mobile Drawer automatisch schließen beim Navigieren
   useEffect(() => {
     setMobileNavOpen(false);
   }, [location.pathname]);
 
-  // ESC schließt Drawer
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") setMobileNavOpen(false);
@@ -229,13 +230,12 @@ export default function Layout() {
 
   return (
     <div className="relative min-h-screen text-white">
-      {/* Hintergrund */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <Iridescence color={bgColor} mouseReact={false} amplitude={0.1} speed={0.1} />
       </div>
 
       <div className="relative z-10 flex min-h-screen">
-        {/* Desktop Sidebar (nur md+) */}
+        {/* Desktop Sidebar */}
         <aside className="hidden md:flex w-[20%] min-w-[220px] max-w-[320px] bg-black/80 backdrop-blur border-r border-white/10 flex-col">
           <div className="p-4 border-b border-white/10">
             <Link to="/" className="flex items-center gap-3">
@@ -248,14 +248,12 @@ export default function Layout() {
           <NavContent />
         </aside>
 
-        {/* Mobile Drawer (nur < md) */}
+        {/* Mobile Drawer */}
         <div className={`md:hidden ${mobileNavOpen ? "block" : "hidden"}`}>
-          {/* Overlay */}
           <div
             className="fixed inset-0 z-40 bg-black/60"
             onClick={() => setMobileNavOpen(false)}
           />
-          {/* Panel */}
           <div
             className={`fixed inset-y-0 left-0 z-50 w-[85%] max-w-[320px] bg-black/90 backdrop-blur border-r border-white/10
                         transform transition-transform duration-200 ${
@@ -285,8 +283,7 @@ export default function Layout() {
 
         {/* Rechts: Header + Content */}
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-16 bg-black/80 backdrop-blur border-b border-white/10 flex items-center px-4 md:px-6">
-            {/* Links: (Mobile Burger / ggf. Desktop empty spacer) */}
+          <header className="relative z-50 h-16 bg-black/80 backdrop-blur border-b border-white/10 flex items-center px-4 md:px-6">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -298,16 +295,67 @@ export default function Layout() {
               </button>
             </div>
 
-            {/* Mitte: Mobile Titel */}
             <div className="md:hidden flex-1 flex justify-center">
               <Link to="/" className="text-sm font-semibold tracking-wide uppercase text-white/80">
                 vnmvalentin
               </Link>
             </div>
 
-            {/* Rechts: Login immer ganz rechts */}
-            <div className="ml-auto flex items-center">
-              <TwitchLoginButton />
+            <div className="ml-auto flex items-center relative" ref={userMenuRef}>
+              {!user ? (
+                <button
+                  onClick={() => login(false)} // Normaler Login (kein force)
+                  className="bg-[#9146FF] hover:bg-[#7d36ff] text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 shadow-lg shadow-purple-900/20"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+                  </svg>
+                  Login
+                </button>
+              ) : (
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 pl-2 pr-4 py-1.5 rounded-full transition-all"
+                  >
+                    <img 
+                      src={user.profileImageUrl} 
+                      alt={user.displayName} 
+                      className="w-8 h-8 rounded-full border border-white/20"
+                    />
+                    <span className="text-sm font-semibold hidden sm:block">{user.displayName}</span>
+                    <svg className={`w-4 h-4 text-white/60 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {userMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-gray-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
+                        <div className="px-4 py-3 border-b border-white/10">
+                            <p className="text-xs text-white/50">Angemeldet als</p>
+                            <p className="font-bold text-white truncate">{user.displayName}</p>
+                        </div>
+                        <div className="p-1">
+                            {/* HIER GEÄNDERT: login(true) statt login() für "Nutzer wechseln" */}
+                            <button 
+                                onClick={() => { login(true); setUserMenuOpen(false); }}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                Nutzer wechseln
+                            </button>
+                            <button 
+                                onClick={() => { logout(); setUserMenuOpen(false); }}
+                                className="w-full text-left px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </header>
 

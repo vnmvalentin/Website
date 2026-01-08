@@ -1,8 +1,9 @@
+// src/pages/Card/AchievementsPage.jsx
 import React, { useContext, useEffect, useState, useMemo } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { Link } from "react-router-dom";
 
-// --- 1. Definition der Typen ---
+// Definition der Typen
 const CARD_TYPES = [
   { id: "natur", title: "Natur", min: 1, max: 50, icon: "🌿" },
   { id: "bestie", title: "Bestie", min: 51, max: 100, icon: "🐾" },
@@ -19,69 +20,52 @@ const CARD_TYPES = [
   { id: "untergrund", title: "Untergrund", min: 601, max: 650, icon: "🔦" },
 ];
 
-// Helper: Generiert Typ-Achievements + Fortschrittslogik
+// Helper: Generiert Typ-Achievements
 const typeAchievements = CARD_TYPES.map((type) => ({
   id: `collection_${type.id}`,
   title: `Meister: ${type.title}`,
   description: `Besitze alle Karten vom Typ ${type.title}.`,
   icon: type.icon,
-  // Berechnet den Fortschritt (current / max)
+  reward: 500, // Credits
   getProgress: (stats, allOwnedCards) => {
-    // 1. Alle existierenden Karten dieses Typs finden
     const cardsInType = allOwnedCards.filter((c) => {
       const num = parseInt(c.number || "0", 10);
       return num >= type.min && num <= type.max;
     });
-    
     const max = cardsInType.length;
-    // 2. Zählen, wie viele davon wir besitzen
     const current = cardsInType.filter(c => (c.count || 0) > 0).length;
-    
     return { current, max, done: max > 0 && current >= max };
   }
 }));
 
-// --- 2. Manuelle Achievements ---
+// Manuelle Achievements
 const MANUAL_ACHIEVEMENTS = [
   {
     id: "first_blood",
     title: "Der Anfang",
     description: "Sammle deine erste Karte.",
     icon: "🃏",
-    getProgress: (stats) => {
-      return { 
-        current: stats.totalOwned > 0 ? 1 : 0, 
-        max: 1, 
-        done: stats.totalOwned > 0 
-      };
-    }
+    reward: 100,
+    getProgress: (stats) => ({ current: stats.totalOwned > 0 ? 1 : 0, max: 1, done: stats.totalOwned > 0 })
   },
   {
     id: "collector_100",
     title: "Sammler",
     description: "Besitze 100 verschiedene Karten.",
     icon: "📚",
-    getProgress: (stats) => {
-      return { 
-        current: Math.min(stats.uniqueOwned, 100), 
-        max: 100, 
-        done: stats.uniqueOwned >= 100 
-      };
-    }
+    reward: 1000,
+    getProgress: (stats) => ({ current: Math.min(stats.uniqueOwned, 100), max: 100, done: stats.uniqueOwned >= 100 })
   },
   {
     id: "mythic_full",
     title: "Mythologie",
     description: "Besitze alle mythischen Karten.",
     icon: "🔮",
+    reward: 2000,
     getProgress: (stats, allOwnedCards) => {
-      const mythics = allOwnedCards.filter(
-        (c) => c.rarity === "mythic" || c.rarityName === "Mythisch"
-      );
+      const mythics = allOwnedCards.filter((c) => c.rarity === "mythic" || c.rarityName === "Mythisch");
       const max = mythics.length;
       const current = mythics.filter(c => (c.count || 0) > 0).length;
-      
-      // Falls es noch keine mythischen gibt, setzen wir max auf 1, damit nicht 0/0 steht, sondern 0/0 (Done false)
       return { current, max, done: max > 0 && current >= max };
     },
   },
@@ -90,10 +74,9 @@ const MANUAL_ACHIEVEMENTS = [
     title: "Geheim",
     description: "Besitze alle geheimen Karten.",
     icon: "🕵️",
+    reward: 5000,
     getProgress: (stats, allOwnedCards) => {
-      const secrets = allOwnedCards.filter(
-        (c) => c.rarity === "secret" || c.rarityName === "Geheim"
-      );
+      const secrets = allOwnedCards.filter((c) => c.rarity === "secret" || c.rarityName === "Geheim");
       const max = secrets.length;
       const current = secrets.filter(c => (c.count || 0) > 0).length;
       return { current, max, done: max > 0 && current >= max };
@@ -104,19 +87,11 @@ const MANUAL_ACHIEVEMENTS = [
     title: "Legendär!",
     description: "Besitze die legendäre Karte.",
     icon: "✨",
+    reward: 5000,
     getProgress: (stats, allOwnedCards) => {
-      const legends = allOwnedCards.filter(
-          (c) => c.rarity === "legendary" || c.rarityName === "Legendär"
-      );
-      // Wir nehmen an, man braucht nur EINE beliebige Legendäre für dieses Achievement?
-      // Oder alle? Hier Logik für "Besitze irgendeine Legendäre":
+      const legends = allOwnedCards.filter((c) => c.rarity === "legendary" || c.rarityName === "Legendär");
       const hasOne = legends.some(c => (c.count || 0) > 0);
-      
-      return { 
-        current: hasOne ? 1 : 0, 
-        max: 1, 
-        done: hasOne 
-      };
+      return { current: hasOne ? 1 : 0, max: 1, done: hasOne };
     },
   },
   {
@@ -124,14 +99,11 @@ const MANUAL_ACHIEVEMENTS = [
     title: "Und was jetzt?",
     description: "Sammle alle Karten.",
     icon: "🎗️",
+    reward: 25000,
     getProgress: (stats, allOwnedCards) => {
         const max = allOwnedCards.length;
         const current = stats.uniqueOwned;
-        return { 
-            current, 
-            max, 
-            done: max > 0 && current >= max 
-        };
+        return { current, max, done: max > 0 && current >= max };
     },
   },
 ];
@@ -142,7 +114,9 @@ export default function AchievementsPage() {
   const { user, login } = useContext(TwitchAuthContext);
   const [loading, setLoading] = useState(true);
   const [ownedCards, setOwnedCards] = useState([]);
+  const [claimedList, setClaimedList] = useState([]); // NEU: Liste der IDs
   const [error, setError] = useState("");
+  const [claimingId, setClaimingId] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -155,6 +129,7 @@ export default function AchievementsPage() {
         if (!res.ok) throw new Error("Fehler beim Laden");
         const data = await res.json();
         setOwnedCards(data.owned || []);
+        setClaimedList(data.claimedAchievements || []); // NEU
       } catch (e) {
         console.error(e);
         setError("Daten konnten nicht geladen werden.");
@@ -165,15 +140,39 @@ export default function AchievementsPage() {
     load();
   }, [user]);
 
+  const handleClaim = async (achId) => {
+      setClaimingId(achId);
+      try {
+          const res = await fetch(`/api/cards/achievement/claim/${user.id}`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ achievementId: achId })
+          });
+          const json = await res.json();
+          if (!res.ok) {
+              alert(json.error || "Fehler beim Abholen");
+          } else {
+              setClaimedList(prev => [...prev, achId]);
+              // Optional: Sound abspielen oder Konfetti
+          }
+      } catch (e) {
+          console.error(e);
+          alert("Netzwerkfehler");
+      } finally {
+          setClaimingId(null);
+      }
+  };
+
   const { list, progress } = useMemo(() => {
     const totalOwned = ownedCards.reduce((acc, c) => acc + (c.count || 0), 0);
     const uniqueOwned = ownedCards.filter((c) => (c.count || 0) > 0).length;
     const stats = { totalOwned, uniqueOwned };
 
-    // Hier rufen wir jetzt getProgress auf statt check
     const calculated = ACHIEVEMENTS_DEF.map((ach) => {
        const info = ach.getProgress(stats, ownedCards);
-       return { ...ach, ...info };
+       const isClaimed = claimedList.includes(ach.id);
+       return { ...ach, ...info, isClaimed };
     });
 
     const doneCount = calculated.filter((a) => a.done).length;
@@ -181,7 +180,7 @@ export default function AchievementsPage() {
       list: calculated,
       progress: { done: doneCount, total: calculated.length },
     };
-  }, [ownedCards]);
+  }, [ownedCards, claimedList]);
 
   if (!user) return (
       <div className="max-w-xl mx-auto mt-8 bg-gray-900/80 p-6 rounded-2xl text-center text-white">
@@ -194,7 +193,6 @@ export default function AchievementsPage() {
 
   return (
     <div className="max-w-[1400px] mx-auto mt-8 text-white px-2">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold mb-1">Deine Achievements</h1>
@@ -210,7 +208,6 @@ export default function AchievementsPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
-        {/* Linke Seite: Grid mit Achievements */}
         <div className="flex-1">
           <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -225,39 +222,52 @@ export default function AchievementsPage() {
                 >
                   <div className={`text-3xl ${ach.done ? "" : "grayscale"}`}>{ach.icon}</div>
                   
-                  <div className="flex-1 z-10 min-w-0">
+                  <div className="flex-1 z-10 min-w-0 flex flex-col h-full justify-center">
                     <h3 className={`font-bold truncate ${ach.done ? "text-green-400" : "text-gray-300"}`}>
                       {ach.title}
                     </h3>
-                    <p className="text-xs text-gray-400 line-clamp-2">{ach.description}</p>
+                    <p className="text-xs text-gray-400 line-clamp-2 mb-2">{ach.description}</p>
                     
-                    {/* Fortschrittsanzeige */}
-                    <div className="mt-2 flex items-center gap-2">
-                        {/* Kleiner Balken */}
-                        <div className="h-1.5 flex-1 bg-gray-700 rounded-full overflow-hidden">
-                            <div 
-                                className={`h-full rounded-full ${ach.done ? "bg-green-500" : "bg-[#9146FF]"}`} 
-                                style={{ width: `${ach.max > 0 ? (ach.current / ach.max) * 100 : 0}%` }}
-                            />
-                        </div>
-                        <span className="text-[10px] font-mono font-bold text-gray-400">
-                            {ach.current} / {ach.max}
-                        </span>
+                    {/* Fortschritt oder Reward Button */}
+                    <div className="mt-auto">
+                        {!ach.done ? (
+                            <div className="flex items-center gap-2">
+                                <div className="h-1.5 flex-1 bg-gray-700 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full rounded-full bg-[#9146FF]" 
+                                        style={{ width: `${ach.max > 0 ? (ach.current / ach.max) * 100 : 0}%` }}
+                                    />
+                                </div>
+                                <span className="text-[10px] font-mono font-bold text-gray-400">
+                                    {ach.current} / {ach.max}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-between mt-1">
+                                <span className="text-xs text-green-400 font-bold">Erledigt!</span>
+                                {ach.isClaimed ? (
+                                    <span className="text-[10px] bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">
+                                        Abgeholt
+                                    </span>
+                                ) : (
+                                    <button 
+                                        onClick={() => handleClaim(ach.id)}
+                                        disabled={claimingId === ach.id}
+                                        className="text-[10px] bg-yellow-600 hover:bg-yellow-500 text-white px-2 py-1 rounded shadow-lg font-bold animate-pulse"
+                                    >
+                                        {claimingId === ach.id ? "..." : `+${ach.reward} 🪙`}
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                   </div>
-
-                  {ach.done && (
-                    <div className="absolute top-2 right-2 text-green-500 text-lg font-bold">
-                      ✓
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Rechte Seite: Menü */}
         <aside className="w-full md:w-56">
           <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-4">
             <h2 className="text-lg font-semibold mb-3">Navigation</h2>

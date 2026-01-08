@@ -1,12 +1,12 @@
+// backend/knowledgeRoutes.js
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const { nanoid } = require("nanoid"); // Falls du nanoid nutzt, sonst eine andere ID-Logik
+const { nanoid } = require("nanoid"); 
 
 const DB_PATH = path.join(__dirname, "knowledge-db.json");
 
-// Liste der Twitch-IDs, die Artikel erstellen/löschen dürfen
-// Hier kannst du deine ID und die von Mods/Freunden eintragen
+// Liste der Twitch-IDs, die Artikel erstellen/löschen/bearbeiten dürfen
 const ALLOWED_EDITORS = [
   "160224748", // Deine ID
 ];
@@ -31,7 +31,7 @@ module.exports = function createKnowledgeRouter({ requireAuth }) {
   // 1. Alle Artikel abrufen (öffentlich)
   router.get("/", (req, res) => {
     const articles = loadArticles();
-    // Sortieren: Neueste zuerst (optional)
+    // Sortieren: Neueste zuerst
     const sorted = articles.sort((a, b) => b.createdAt - a.createdAt);
     res.json(sorted);
   });
@@ -55,9 +55,10 @@ module.exports = function createKnowledgeRouter({ requireAuth }) {
       id: nanoid(10),
       title,
       category: category || "Allgemein",
-      content, // Das ist der HTML-String vom Editor
+      content,
       authorId: userId,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
     articles.push(newArticle);
@@ -66,7 +67,42 @@ module.exports = function createKnowledgeRouter({ requireAuth }) {
     res.json(newArticle);
   });
 
-  // 3. Artikel löschen (Nur Editoren)
+  // 3. Artikel BEARBEITEN (PUT) - NEU
+  router.put("/:id", requireAuth, (req, res) => {
+    const userId = String(req.twitchId);
+    const { id } = req.params;
+
+    if (!ALLOWED_EDITORS.includes(userId)) {
+      return res.status(403).json({ error: "Keine Berechtigung" });
+    }
+
+    const { title, category, content } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ error: "Titel und Inhalt sind Pflicht." });
+    }
+
+    const articles = loadArticles();
+    const index = articles.findIndex((a) => a.id === id);
+
+    if (index === -1) {
+      return res.status(404).json({ error: "Artikel nicht gefunden" });
+    }
+
+    // Artikel aktualisieren
+    articles[index] = {
+      ...articles[index],
+      title,
+      category: category || articles[index].category,
+      content,
+      updatedAt: Date.now(), // Zeitstempel aktualisieren
+      lastEditorId: userId
+    };
+
+    saveArticles(articles);
+    res.json(articles[index]);
+  });
+
+  // 4. Artikel löschen (Nur Editoren)
   router.delete("/:id", requireAuth, (req, res) => {
     const userId = String(req.twitchId);
     const { id } = req.params;
