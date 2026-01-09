@@ -73,7 +73,7 @@ export default class AdventureEngine {
 
       };
 
-      const skinFile = skinFilename || "player.png";
+      const skinFile = skinFilename || "Skins/player.png";
       this.playerProjectile = "proj_basic";
       if(skinFile.includes("ninja")) this.playerProjectile = "proj_shuriken";
       if(skinFile.includes("wizard")) this.playerProjectile = "proj_fireball";
@@ -83,60 +83,60 @@ export default class AdventureEngine {
       const set = (img, file) => { img.src = `/assets/adventure/${file}`; };
       
       set(this.sprites.player, skinFile);
-      set(this.sprites.door_closed, "door.png");
-      set(this.sprites.door_open, "door_open.png");
-      set(this.sprites.coin, "coin.png");
-      set(this.sprites.chest, "chest.png");
-      set(this.sprites.proj_basic, "projectile.png");
-      set(this.sprites.proj_laser, "laserball.png");
-      set(this.sprites.proj_shuriken, "shuriken.png");
-      set(this.sprites.proj_fireball, "fireball.png");
-      set(this.sprites.proj_arrow, "arrow.png");
-      set(this.sprites.proj_sand, "spike.png");
-      set(this.sprites.proj_poison, "spike.png"); 
-      set(this.sprites.proj_grenade, "grenade.png");
-      set(this.sprites.proj_web, "webball.png");
-      set(this.sprites.proj_poisonball, "poisonball.png");
+      set(this.sprites.door_closed, "World/door.png");
+      set(this.sprites.door_open, "World/door_open.png");
+      set(this.sprites.coin, "World/coin.png");
+      set(this.sprites.chest, "World/chest.png");
+      set(this.sprites.proj_basic, "Projectiles/projectile.png");
+      set(this.sprites.proj_laser, "Projectiles/laserball.png");
+      set(this.sprites.proj_shuriken, "Projectiles/shuriken.png");
+      set(this.sprites.proj_fireball, "Projectiles/fireball.png");
+      set(this.sprites.proj_arrow, "Projectiles/arrow.png");
+      set(this.sprites.proj_sand, "Projectiles/spike.png");
+      set(this.sprites.proj_poison, "Projectiles/spike.png"); 
+      set(this.sprites.proj_grenade, "Projectiles/grenade.png");
+      set(this.sprites.proj_web, "Projectiles/webball.png");
+      set(this.sprites.proj_poisonball, "Projectiles/poisonball.png");
       set(this.sprites.decoy, "decoy.png"); 
 
       //Dungeon
-      set(this.sprites.floor_dungeon, "floor_dungeon.png");
-      set(this.sprites.enemy_skeleton, "skeleton.png");
-      set(this.sprites.enemy_goblin, "goblin.png");
-      set(this.sprites.enemy_orc, "orc.png");
-      set(this.sprites.enemy_nekromant, "nekromant.png");
+      set(this.sprites.floor_dungeon, "StageTheme/floor_dungeon.png");
+      set(this.sprites.enemy_skeleton, "Dungeon/skeleton.png");
+      set(this.sprites.enemy_goblin, "Dungeon/goblin.png");
+      set(this.sprites.enemy_orc, "Dungeon/orc.png");
+      set(this.sprites.enemy_nekromant, "Dungeon/nekromant.png");
 
       //Desert
-      set(this.sprites.floor_desert, "floor_desert.png");
-      set(this.sprites.enemy_mummy, "mummy.png");
-      set(this.sprites.enemy_scorpion, "scorpion.png");
-      set(this.sprites.enemy_golem, "golem.png");
+      set(this.sprites.floor_desert, "StageTheme/floor_desert.png");
+      set(this.sprites.enemy_mummy, "Desert/mummy.png");
+      set(this.sprites.enemy_scorpion, "Desert/scorpion.png");
+      set(this.sprites.enemy_golem, "Desert/golem.png");
 
       //Ice
-      set(this.sprites.floor_ice, "floor_ice.png");
-      set(this.sprites.enemy_snowman, "snowman.png");
-      set(this.sprites.enemy_penguin, "penguin.png");
-      set(this.sprites.enemy_yeti, "yeti.png");
+      set(this.sprites.floor_ice, "StageTheme/floor_ice.png");
+      set(this.sprites.enemy_snowman, "Ice/snowman.png");
+      set(this.sprites.enemy_penguin, "Ice/penguin.png");
+      set(this.sprites.enemy_yeti, "Ice/yeti.png");
 
       // Cave
-      set(this.sprites.floor_cave, "floor_cave.png");
-      set(this.sprites.enemy_spider, "spider.png");
-      set(this.sprites.enemy_troll, "troll.png");
-      set(this.sprites.enemy_skeletonwarrior, "skelettwarrior.png");
+      set(this.sprites.floor_cave, "StageTheme/floor_cave.png");
+      set(this.sprites.enemy_spider, "Cave/spider.png");
+      set(this.sprites.enemy_troll, "Cave/troll.png");
+      set(this.sprites.enemy_skeletonwarrior, "Cave/skelettwarrior.png");
 
       //Lava
-      set(this.sprites.floor_lava, "floor_lava.png");
-      set(this.sprites.enemy_firespirit, "firespirit.png");
-      set(this.sprites.enemy_firewizard, "firewizard.png");
-      set(this.sprites.enemy_minotaur, "minotaur.png");
+      set(this.sprites.floor_lava, "StageTheme/floor_lava.png");
+      set(this.sprites.enemy_firespirit, "Lava/firespirit.png");
+      set(this.sprites.enemy_firewizard, "Lava/firewizard.png");
+      set(this.sprites.enemy_minotaur, "Lava/minotaur.png");
 
       //Boss
       set(this.sprites.enemy_boss1, "boss1.png");
 
-      set(this.sprites.tree, "tree.png");
-      set(this.sprites.rock, "rock.png");
-      set(this.sprites.cactus, "cactus.png");
-      set(this.sprites.pillar, "pillar.png");
+      set(this.sprites.tree, "World/tree.png");
+      set(this.sprites.rock, "World/rock.png");
+      set(this.sprites.cactus, "Desert/cactus.png");
+      set(this.sprites.pillar, "World/pillar.png");
 
       this.baseStats = initialData?.baseStats || { 
           damage: 1, speed: 1, maxHp: 100, multishot: 0, lifesteal: 0, luck: 1, magnet: 0 
@@ -933,7 +933,7 @@ export default class AdventureEngine {
                         s.enemyBullets.push({
                             x: e.x, y: e.y,
                             vx: Math.cos(rAngle) * 5, vy: Math.sin(rAngle) * 5,
-                            damage: e.damage, size: 8, life: 100, color: "orange", sprite: this.sprites.proj_fireball
+                            damage: e.damage, size: 8, life: 100, color: "orange", sprite: this.sprites.proj_poisonball
                         });
                     }
                     e.state = 'idle';

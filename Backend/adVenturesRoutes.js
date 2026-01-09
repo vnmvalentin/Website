@@ -7,11 +7,11 @@ const GAME_DATA_PATH = path.join(__dirname, "adventures-users.json");
 const CASINO_PATH = path.join(__dirname, "casinoData.json");
 
 const SKINS_DEF = {
-    "default": { name: "Standard", price: 0, file: "player.png" },
-    "ninja": { name: "Ninja", price: 2000, file: "player_ninja.png" },
-    "knight": { name: "Ritter", price: 5000, file: "player_knight.png" },
-    "wizard": { name: "Magier", price: 8000, file: "player_wizard.png" },
-    "cyber": { name: "Cyberpunk", price: 15000, file: "player_cyber.png" }
+    "default": { name: "Standard", price: 0, file: "Skins/player.png" },
+    "ninja": { name: "Ninja", price: 2000, file: "Skins/player_ninja.png" },
+    "knight": { name: "Ritter", price: 5000, file: "Skins/player_knight.png" },
+    "wizard": { name: "Magier", price: 8000, file: "Skins/player_wizard.png" },
+    "cyber": { name: "Cyberpunk", price: 15000, file: "Skins/player_cyber.png" }
 };
 
 const POWERUPS_DEF = {

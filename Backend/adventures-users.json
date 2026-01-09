@@ -22,6 +22,22 @@
       "potion",
       "grenade"
     ],
-    "unlockedSlots": 4
+    "unlockedSlots": 4,
+    "activeRun": {
+      "hp": 57.25,
+      "maxHp": 100,
+      "gold": 302,
+      "stage": 2,
+      "kills": 44,
+      "baseStats": {
+        "damage": 1,
+        "speed": 1,
+        "maxHp": 100,
+        "multishot": 0,
+        "lifesteal": 0,
+        "luck": 1,
+        "magnet": 0
+      }
+    }
   }
 }
