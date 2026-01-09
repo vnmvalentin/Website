@@ -95,7 +95,9 @@ export default function Blackjack({ updateCredits, currentCredits }) {
         
         const preparedState = {
             ...data,
-            dealerHand: [data.dealerUpCard, null] 
+            dealerHand: [data.dealerUpCard, null],
+            bet: bet
+
         };
 
         setGameState(preparedState);
@@ -295,7 +297,7 @@ export default function Blackjack({ updateCredits, currentCredits }) {
                 <button onClick={() => action("stand")} className="bg-red-600 hover:bg-red-500 text-white font-bold w-24 rounded-xl shadow-[0_4px_0_rgb(153,27,27)] border-b-0 active:translate-y-1 active:shadow-none transition-all">STAND</button>
                 
                 {/* Double Button Check: Wird nur angezeigt, wenn mathematisch möglich, Error Check passiert im Handler */}
-                {safePlayerHand.length === 2 && (bet * 2 <= 5000) && (currentCredits >= gameState.bet) && (
+                {safePlayerHand.length === 2 && (gameState.bet * 2 <= 5000) && (currentCredits >= gameState.bet) && (
                     <button 
                         onClick={() => action("double")} 
                         className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold w-24 rounded-xl shadow-[0_4px_0_rgb(161,98,7)] border-b-0 active:translate-y-1 active:shadow-none transition-all"

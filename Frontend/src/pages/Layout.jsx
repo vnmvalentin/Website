@@ -15,10 +15,8 @@ const navItems = [
     label: "Projects",
     links: [
       { label: "Abstimmungen", to: "/Abstimmungen" },
-      { label: "Pack-Opening", to: "/Packs" },
       { label: "Giveaways", to: "/Giveaways" },
       { label: "The aVards 2026", to: "/avards-2026" },
-      { label: "Casino", to: "/Casino" },
     ],
   },
   {
@@ -27,6 +25,14 @@ const navItems = [
       { label: "Win-Challenge Overlay", to: "/WinChallenge-Overlay" },
       { label: "Clip-Queue", to: "/Clip-Queue" },
       { label: "Bingo-Card Generator", to: "/Bingo" },
+    ],
+  },
+  {
+    label: "Fun",
+    links: [
+      { label: "Casino", to: "/Casino" },
+      { label: "Pack-Opening", to: "/Packs" },
+      { label: "AdVentures", to: "/Adventures" },
     ],
   },
   {
