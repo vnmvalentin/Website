@@ -1,0 +1,27 @@
+{
+  "160224748": {
+    "name": "vnmvalentin",
+    "highScore": 12,
+    "skins": [
+      "default",
+      "ninja"
+    ],
+    "activeSkin": "ninja",
+    "powerups": [
+      "potion",
+      "shield",
+      "spin",
+      "decoy",
+      "grenade",
+      "fastshot",
+      "fastboots"
+    ],
+    "loadout": [
+      "fastshot",
+      "fastboots",
+      "potion",
+      "grenade"
+    ],
+    "unlockedSlots": 4
+  }
+}

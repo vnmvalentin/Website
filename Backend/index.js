@@ -19,6 +19,7 @@ const createWinchallengeRouter = require("./winchallengeRoutes");
 const createPollRouter = require("./pollRoutes");
 const createKnowledgeRouter = require("./knowledgeRoutes")
 const createCasinoRouter = require("./casinoRoutes");
+const createAdventureRouter = require("./adVenturesRoutes");
 
 const app = express();
 
@@ -220,6 +221,8 @@ app.use("/", createPollRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/knowledge", createKnowledgeRouter({ requireAuth }))
 
 app.use("/api/casino", createCasinoRouter({ requireAuth }));
+
+app.use("/api/adventure", createAdventureRouter({ requireAuth }));
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 3001;
