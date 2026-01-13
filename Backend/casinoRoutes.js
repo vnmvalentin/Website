@@ -192,6 +192,19 @@ module.exports = function createCasinoRouter({ requireAuth }) {
     });
   });
 
+
+  router.get("/leaderboard", (req, res) => {
+      const db = loadData(); // Deine Funktion zum Laden der JSON
+      
+      const sorted = Object.values(db)
+          .filter(u => u.name) // Nur User mit Namen
+          .sort((a, b) => (b.credits || 0) - (a.credits || 0)) // Absteigend sortieren
+          .slice(0, 5) // Nur die Top 5
+          .map(u => ({ name: u.name, credits: u.credits })); // Nur nötige Daten senden
+
+      res.json(sorted);
+  });
+
   router.post("/daily", (req, res) => {
     const now = Date.now();
     if (now - req.userData.lastDaily < 24 * 60 * 60 * 1000) return res.status(400).json({ error: "Cooldown" });

@@ -7,21 +7,23 @@ const GAME_DATA_PATH = path.join(__dirname, "adventures-users.json");
 const CASINO_PATH = path.join(__dirname, "casinoData.json");
 
 const SKINS_DEF = {
-    "default": { name: "Standard", price: 0, file: "Skins/player.png" },
-    "ninja": { name: "Ninja", price: 2000, file: "Skins/player_ninja.png" },
-    "knight": { name: "Ritter", price: 5000, file: "Skins/player_knight.png" },
-    "wizard": { name: "Magier", price: 8000, file: "Skins/player_wizard.png" },
-    "cyber": { name: "Cyberpunk", price: 15000, file: "Skins/player_cyber.png" }
+    "default": { name: "Standard", price: 0, file: "skins/player.png" },
+    "ninja": { name: "Ninja", price: 2000, file: "skins/player_ninja.png" },
+    "knight": { name: "Ritter", price: 5000, file: "skins/player_knight.png" },
+    "wizard": { name: "Magier", price: 8000, file: "skins/player_wizard.png" },
+    "cyber": { name: "Cyberpunk", price: 15000, file: "skins/player_cyber.png" },
+    "gh0stqq": { name: "Gh0stQQ", price: 15000, file: "skins/gh0stqq.png" },
+    "bestmod": { name: "Best Mod", price: 15000, file: "skins/bestmod.png" }
 };
 
 const POWERUPS_DEF = {
-    "potion": { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 30000, icon: "🍷" },
-    "shield": { name: "Schutzschild", price: 1500, desc: "5 Sekunden unverwundbar", cooldown: 60000, icon: "🛡️" },
-    "spin": { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 15000, icon: "🌪️" },
-    "decoy": { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 45000, icon: "🧸" },
-    "grenade": { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 10000, icon: "💣" },
-    "fastshot": { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 40000, icon: "🔫" },
-    "fastboots": { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 30000, icon: "👟" }
+    "potion": { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 30000, icon: "assets/adventure/powerups/healpotion.png" },
+    "shield": { name: "Schutzschild", price: 1500, desc: "5 Sekunden unverwundbar", cooldown: 60000, icon: "assets/adventure/powerups/shield.png" },
+    "spin": { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 15000, icon: "assets/adventure/powerups/spinattack.png" },
+    "decoy": { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 45000, icon: "assets/adventure/powerups/decoy.png" },
+    "grenade": { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 10000, icon: "assets/adventure/projectiles/grenade.png" },
+    "fastshot": { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 40000, icon: "assets/adventure/powerups/rapidfire.png" },
+    "fastboots": { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 30000, icon: "assets/adventure/powerups/fastboots.png" }
 };
 
 function loadGameData() { try { if (!fs.existsSync(GAME_DATA_PATH)) return {}; return JSON.parse(fs.readFileSync(GAME_DATA_PATH, "utf8")); } catch (e) { return {}; } }
@@ -211,7 +213,7 @@ module.exports = function createGameRouter({ requireAuth }) {
   router.post("/end-run", requireAuth, (req, res) => {
     const { kills, stage } = req.body;
     const userId = req.twitchId;
-    if (!kills || !stage) return res.status(400).json({ error: "Invalid Data" });
+    if (kills === undefined || stage === undefined) return res.status(400).json({ error: "Invalid Data" });
     const earnedCredits = Math.floor((kills * 0.5) + (stage * 50));
     const gameDb = loadGameData();
     const casinoDb = loadCasinoData();

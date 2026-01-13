@@ -12,6 +12,13 @@ const navItems = [
     ],
   },
   {
+    label: "Fun",
+    links: [
+      { label: "Casino", to: "/Casino" },
+      { label: "Pack-Opening", to: "/Packs" },
+    ],
+  },
+  {
     label: "Projects",
     links: [
       { label: "Abstimmungen", to: "/Abstimmungen" },
@@ -25,14 +32,6 @@ const navItems = [
       { label: "Win-Challenge Overlay", to: "/WinChallenge-Overlay" },
       { label: "Clip-Queue", to: "/Clip-Queue" },
       { label: "Bingo-Card Generator", to: "/Bingo" },
-    ],
-  },
-  {
-    label: "Fun",
-    links: [
-      { label: "Casino", to: "/Casino" },
-      { label: "Pack-Opening", to: "/Packs" },
-      { label: "AdVentures", to: "/Adventures" },
     ],
   },
   {

@@ -104,33 +104,17 @@ export function startSession(sessionId) {
   });
 }
 
-export function markCell(sessionId, cellIndex, mark, markColor) {
-  return apiFetch(`/api/bingo/session/${sessionId}/mark`, {
-    method: "POST",
-    body: JSON.stringify({ cellIndex, mark, markColor }),
-  });
-}
-
-export async function getOverlay(overlayKey, since = 0) {
-  const res = await fetch(`/api/bingo/overlay/${overlayKey}?since=${since}`, {
-    method: "GET",
-    credentials: "omit",
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = json?.error || `HTTP ${res.status}`;
-    const err = new Error(msg);
-    err.status = res.status;
-    err.payload = json;
-    throw err;
-  }
-  return json;
-}
-
 export function stopSession(sessionId) {
   return apiFetch(`/api/bingo/session/${sessionId}/stop`, {
     method: "POST",
     body: "{}",
+  });
+}
+
+export function markCell(sessionId, cellIndex, mark, markColor) {
+  return apiFetch(`/api/bingo/session/${sessionId}/mark`, {
+    method: "POST",
+    body: JSON.stringify({ cellIndex, mark, markColor }),
   });
 }
 
@@ -140,3 +124,27 @@ export function deleteSession(sessionId) {
   });
 }
 
+// ---- Overlay ----
+export async function getOverlay(overlayKey, since = 0) {
+  const res = await fetch(`/api/bingo/overlay/${overlayKey}?since=${since}`, {
+    method: "GET",
+    credentials: "omit",
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json?.error || `HTTP ${res.status}`);
+  }
+  return json;
+}
+
+// NEU: Markieren ohne Session-Login, nur mit OverlayKey
+export function markOverlayCell(overlayKey, cellIndex, mark) {
+  return fetch(`/api/bingo/overlay/${overlayKey}/mark`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cellIndex, mark }),
+  }).then(async (res) => {
+    if (!res.ok) throw new Error("Fehler beim Markieren");
+    return res.json();
+  });
+}

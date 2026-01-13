@@ -1,12 +1,15 @@
 {
   "160224748": {
     "name": "vnmvalentin",
-    "highScore": 12,
+    "highScore": 20,
     "skins": [
       "default",
-      "ninja"
+      "ninja",
+      "gh0stqq",
+      "bestmod",
+      "knight"
     ],
-    "activeSkin": "ninja",
+    "activeSkin": "gh0stqq",
     "powerups": [
       "potion",
       "shield",
@@ -17,27 +20,30 @@
       "fastboots"
     ],
     "loadout": [
-      "fastshot",
-      "fastboots",
       "potion",
-      "grenade"
+      "spin",
+      "grenade",
+      "decoy"
     ],
     "unlockedSlots": 4,
     "activeRun": {
-      "hp": 57.25,
+      "hp": 100,
       "maxHp": 100,
-      "gold": 302,
-      "stage": 2,
-      "kills": 44,
+      "gold": 0,
+      "stage": 10, 
+      "kills": 0,
       "baseStats": {
-        "damage": 1,
-        "speed": 1,
-        "maxHp": 100,
+        "damage": 5,
+        "speed": 2,
+        "maxHp": 500,
         "multishot": 0,
-        "lifesteal": 0,
+        "lifesteal": 1,
         "luck": 1,
-        "magnet": 0
-      }
+        "magnet": 0,
+        "piercing": 0,
+        "fireRate": 1
+      },
+      "currentTheme": 3
     }
   }
 }

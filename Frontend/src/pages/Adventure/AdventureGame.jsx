@@ -3,13 +3,21 @@ import React, { useEffect, useRef, useState, useContext } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import GameEngine from "../../components/Adventure/AdventureEngine"; 
 
-const CANVAS_WIDTH = 1280;
-const CANVAS_HEIGHT = 720;
-
 export default function AdventureGame() {
   const { user } = useContext(TwitchAuthContext);
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
+  const containerRef = useRef(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showHelp, setShowHelp] = useState(false); 
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Initialer State
+  const [dimensions, setDimensions] = useState({ 
+      width: window.innerWidth, 
+      height: window.innerHeight 
+  });
   
   // Game State
   const [gameState, setGameState] = useState({ 
@@ -21,12 +29,15 @@ export default function AdventureGame() {
     killsRequired: 10, 
     stageKills: 0, 
     gameOver: false,
-    stats: { damage: 1, speed: 1, maxHp: 100, multishot: 0, lifesteal: 0, magnet: 0, piercing: 0 },
+    stats: { damage: 1, speed: 1, maxHp: 100, multishot: 0, lifesteal: 0, magnet: 0, piercing: 0,
+             luck: 1, fireRate: 1
+     },
     loadout: [null, null, null],
-    topMessage: null 
+    topMessage: null,
+    boss: null 
   });
   
-  const [boughtCounts, setBoughtCounts] = useState({ damage: 0, maxHp: 0, speed: 0, magnet: 0 });
+  const [boughtCounts, setBoughtCounts] = useState({ damage: 0, maxHp: 0, speed: 0, magnet: 0, fireRate:0, luck:0 });
   const [menuView, setMenuView] = useState('MAIN');
   const [userData, setUserData] = useState(null); 
   const [activeRunData, setActiveRunData] = useState(null); 
@@ -39,31 +50,59 @@ export default function AdventureGame() {
       skins: ["default"],
       activeSkin: "default",
       skinDefs: { 
-          default: { name: "Held", file: "player.png", price: 0 },
+          default: { name: "Standard", file: "player.png", price: 0 },
           ninja: { name: "Ninja", file: "player_ninja.png", price: 2000 },
           knight: { name: "Ritter", file: "player_knight.png", price: 5000 },
           wizard: { name: "Magier", file: "player_wizard.png", price: 8000 },
-          cyber: { name: "Cyberpunk", file: "player_cyber.png", price: 15000 }
+          cyber: { name: "Cyberpunk", file: "player_cyber.png", price: 15000 },
+          gh0stqq: { name: "Gh0stQQ", file: "gh0stqq.png", price: 15000 },
+          bestmod: { name: "Best Mod",  file: "bestmod.png", price: 15000 }
       },
       powerups: [],
       loadout: [null, null, null],
       powerupDefs: {
-        potion: { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 30000, icon: "🍷" },
-        shield: { name: "Schutzschild", price: 1500, desc: "5 Sekunden unverwundbar", cooldown: 60000, icon: "🛡️" },
-        spin: { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 15000, icon: "🌪️" },
-        decoy: { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 45000, icon: "🧸" },
-        grenade: { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 10000, icon: "💣" }
+        potion: { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 30000, icon: "assets/adventure/powerups/healpotion.png" },
+        shield: { name: "Schutzschild", price: 1500, desc: "5 Sekunden unverwundbar", cooldown: 60000, icon: "assets/adventure/powerups/shield.png" },
+        spin: { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 15000, icon: "assets/adventure/powerups/spinattack.png" },
+        decoy: { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 45000, icon: "assets/adventure/powerups/decoy.png" },
+        grenade: { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 10000, icon: "assets/adventure/projectiles/grenade.png" },
+        fastshot: { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 40000, icon: "assets/adventure/powerups/rapidfire.png" },
+        fastboots: { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 30000, icon: "assets/adventure/powerups/fastboots.png" }
       },
       hasActiveRun: false
   };
   
+  // --- NEUER RESIZE HANDLER (ResizeObserver) ---
+  // Passt die Größe an den Container im Layout an, nicht an das Fenster.
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+            // Wir holen uns die exakte Größe des Content-Divs
+            const { width, height } = entry.contentRect;
+            
+            // State updaten
+            setDimensions({ width, height });
+
+            // Engine bescheid geben, falls sie schon läuft
+            if (engineRef.current) {
+                engineRef.current.resize(width, height);
+            }
+        }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
   const refreshData = async () => {
       if(!user) return;
       try {
         const r = await fetch("/api/adventure/profile", { credentials: "include" });
         if(r.ok) {
             const d = await r.json();
-            // Fallback falls DB leer
             if (!d.skinDefs || Object.keys(d.skinDefs).length === 0) d.skinDefs = mockUserData.skinDefs;
             if (!d.powerupDefs || Object.keys(d.powerupDefs).length === 0) d.powerupDefs = mockUserData.powerupDefs;
             
@@ -100,38 +139,82 @@ export default function AdventureGame() {
       launchEngine({ stage: 0 });
   };
 
-
-  // 2. Autospeichern Funktion
   const autoSave = async (saveCurrent = true) => {
         if(!engineRef.current) return;
-        // Hier geben wir mit, ob wir den aktuellen Fortschritt wollen oder den Start-Snapshot
         const stateToSave = engineRef.current.exportState(saveCurrent);
-        
         try {
             await fetch("/api/adventure/save-run", {
                 method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
                 body: JSON.stringify({ gameState: stateToSave })
             });
-            console.log("Autosaved. Current Progress:", saveCurrent);
         } catch(e) { console.error("Autosave failed", e); }
     };
 
   const resumeGame = () => { launchEngine(activeRunData); };
 
+  // NEU: ESC TASTE LISTENER
+  useEffect(() => {
+    const handleEsc = (e) => {
+        if (e.key === "Escape") {
+            if (menuView === 'GAME') {
+                togglePause();
+            } else if (menuView === 'INGAME_SHOP') {
+                // Optional: Shop mit ESC schließen
+                setMenuView('GAME'); 
+            }
+        }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [menuView, isPaused]); // Abhängigkeiten wichtig
+
+  // NEU: Pause Funktion
+  const togglePause = () => {
+      if (!engineRef.current) return;
+      
+      const nextState = !engineRef.current.state.paused;
+      engineRef.current.state.paused = nextState; // Engine direkt pausieren
+      setIsPaused(nextState);
+  };
+
+
   const launchEngine = (initialState) => {
     if(!canvasRef.current || !userData) return;
-    setMenuView('GAME');
+    
+    // Standardmäßig starten wir im Spiel
+    let startView = 'GAME';
+    let startPaused = false;
+
+    // FIX: Prüfen ob wir direkt in einen Shop/Meilenstein laden müssen
+    if (initialState && initialState.stage > 1) { 
+        const prevStage = initialState.stage - 1;
+        
+        // Wir prüfen NUR die Stage Nummer. Da der Savegame-Reset die Stats zurücksetzt,
+        // ist es sicher, den Shop immer anzuzeigen.
+        if (prevStage % 10 === 0) {
+            startView = 'MILESTONE_SELECT';
+            startPaused = true; 
+        } 
+        else if (prevStage % 5 === 0) {
+             startView = 'INGAME_SHOP';
+             startPaused = true; 
+        }
+    }
+    
+
+    setMenuView(startView);
     setEndScreenData(null);
+    setIsPaused(startPaused);
     
     const baseStats = initialState ? initialState.baseStats : { 
-        damage: 1, speed: 1, maxHp: 100, multishot: 0, lifesteal: 0, magnet: 0, piercing: 0 
+        damage: 1, speed: 1, maxHp: 100, multishot: 0, lifesteal: 0, magnet: 0, piercing: 0, luck: 1
     };
 
     setGameState({ 
         hp: initialState ? initialState.hp : 100, 
         maxHp: initialState ? initialState.maxHp : 100, 
         kills: initialState ? initialState.kills : 0, 
-        stage: initialState ? initialState.stage : 1, 
+        stage: (initialState && initialState.stage !== undefined) ? initialState.stage : 1, 
         gold: initialState ? initialState.gold : 0, 
         killsRequired: 10,
         stageKills: 0,
@@ -139,8 +222,11 @@ export default function AdventureGame() {
         gameOver: false,
         stats: baseStats,
         loadout: [null, null, null],
-        topMessage: null
+        topMessage: null,
+        boss: null
     });
+
+    setIsLoading(true); 
 
     engineRef.current = new GameEngine(
         canvasRef.current, 
@@ -150,43 +236,73 @@ export default function AdventureGame() {
                 else setGameState(prev => ({...prev, ...newState}));
             },
             onShopOpen: () => setMenuView('INGAME_SHOP'),
-            onStageComplete: () => setMenuView('STAGE_COMPLETE')
+            onStageComplete: () => {
+                autoSave(true); 
+                setMenuView('STAGE_COMPLETE');
+            },
+            // 2. WICHTIG: Start erst HIER auslösen!
+            onAssetsLoaded: () => {
+                console.log("Assets geladen -> Starte Loop");
+                setIsLoading(false); // Ladebalken weg
+                if (engineRef.current) {
+                    engineRef.current.resize(dimensions.width, dimensions.height);
+                    engineRef.current.start(); // JETZT erst starten!
+                }
+            }
         },
         userData.skinDefs[userData.activeSkin].file, 
         userData.loadout, 
         userData.powerupDefs, 
         initialState 
     );
-    engineRef.current.start();
+    
+    // Engine starten. Die Größe wird durch den ResizeObserver kurz darauf nochmal korrigiert, falls nötig.
+    if(engineRef.current) {
+        engineRef.current.resize(dimensions.width, dimensions.height);
+        
+        if (startPaused) {
+            engineRef.current.state.paused = true;
+            if (startView === 'INGAME_SHOP') engineRef.current.state.inShop = true;
+        }
+        
+        // ENTFERNT: engineRef.current.start();  <-- Das darf hier NICHT mehr stehen!
+    }
   };
 
+  // ÄNDERUNG: saveAndQuit anpassen
   const saveAndQuit = async () => {
       if(!engineRef.current) return;
       
-      // Wenn wir im 'GAME' view sind, spielen wir gerade -> also Reset auf Stage-Anfang (false)
-      // Wenn wir im Shop oder Stage Complete sind -> Fortschritt behalten (true)
-      const isMidGame = menuView === 'GAME'; 
+      // FIX: Wenn wir im STAGE_COMPLETE Screen sind, wollen wir den Fortschritt behalten (Next Stage)
+      if (menuView === 'STAGE_COMPLETE') {
+          // Wir erhöhen die Stage in der Engine manuell, damit der Savegame "Stage X+1" speichert
+          engineRef.current.state.stage++;
+          // 'true' = Speichere aktuelle HP/Gold, nicht die vom Start der Stage
+          await autoSave(true); 
+      } else {
+          // Normales Speichern (Pause mitten drin): Reset auf Stage-Anfang (Schutz vor Save-Scumming)
+          await autoSave(false); 
+      }
       
-      // Speichern
-      await autoSave(!isMidGame);
-
       engineRef.current.stop();
+      setIsPaused(false); 
       setMenuView('MAIN');
       refreshData();
   };
 
   const handleGameOver = async (finalState) => {
       setMenuView('GAMEOVER');
+      const earnedCredits = finalState.kills * 10; // Berechnung
       try {
         const res = await fetch("/api/adventure/end-run", {
-            method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-            body: JSON.stringify({ kills: finalState.kills, stage: finalState.stage })
+            // ... fetch config
         });
         const data = await res.json();
-        setEndScreenData({ ...data, kills: finalState.kills, stage: finalState.stage });
+        setEndScreenData({ ...data, kills: finalState.kills, stage: finalState.stage, earnedCredits: data.earnedCredits || earnedCredits });
         refreshData(); 
       } catch(e) {
-          setEndScreenData({ earnedCredits: finalState.kills * 10, kills: finalState.kills, stage: finalState.stage });
+          // Fallback Credits
+          setEndScreenData({ earnedCredits: earnedCredits, kills: finalState.kills, stage: finalState.stage });
       } 
   };
 
@@ -205,17 +321,26 @@ export default function AdventureGame() {
           autoSave(true);
           setMenuView('GAME');
           const stage = engineRef.current.state.stage;
-          if (stage % 10 === 0) setMenuView('MILESTONE_SELECT');
-          else if (stage % 5 === 0) setMenuView('INGAME_SHOP');
+          if (stage > 0 && stage % 10 === 0) setMenuView('MILESTONE_SELECT');
+          else if (stage > 0 && stage % 5 === 0) setMenuView('INGAME_SHOP');
           else engineRef.current.continueNextStage();
        }
   };
 
-  const continueFromShop = () => { if(engineRef.current) {
-    autoSave(true);
+  const continueFromShop = () => { 
+    if(!engineRef.current) return;
+    const engine = engineRef.current;
+
+    // UI auf Game setzen und Pause entfernen
     setMenuView('GAME');
-    engineRef.current.continueNextStage();
-  } };
+    setIsPaused(false); 
+    engine.state.paused = false; 
+    engine.state.inShop = false; 
+
+    if (engine.state.stageKills >= engine.state.killsRequired) {
+        engine.continueNextStage();
+    }
+  };
   
   const selectMilestone = (type) => {
       if(!engineRef.current) return;
@@ -264,11 +389,12 @@ export default function AdventureGame() {
             case 'maxHp': return 20;
             case 'speed': return 0.1;
             case 'magnet': return 1;
+            case 'fireRate': return 0.2; // +20% Angriffsgeschwindigkeit
+            case 'luck': return 0.5;
             default: return 0;
         }
   };
   
-  // --- CASINO SHOP CALLS ---
   const buySkin = async (skinId) => {
       try {
           const res = await fetch("/api/adventure/buy-skin", {
@@ -311,44 +437,55 @@ export default function AdventureGame() {
   if (!user) return <div className="text-white p-10 text-center">Bitte einloggen.</div>;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] bg-black/90 p-2 select-none">
-      <div className="relative shadow-2xl bg-[#111]" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
-        
-        {/* HUD: 1280x720 VERSION */}
-        {(menuView === 'GAME' || menuView === 'INGAME_SHOP' || menuView === 'STAGE_COMPLETE' || menuView === 'MILESTONE_SELECT') && (
-             <div className="absolute inset-0 z-10 pointer-events-none text-white p-6">
-                <div className="absolute top-4 right-4 pointer-events-auto">
-                    <button onClick={saveAndQuit} className="bg-red-900/80 hover:bg-red-700 text-white text-xs font-bold px-3 py-1 rounded border border-red-500">
-                        SAVE & QUIT
-                    </button>
-                </div>
-                {/* TOP MESSAGE */}
-                {gameState.topMessage && (
-                    <div className="absolute top-8 left-1/2 -translate-x-1/2 flex flex-col items-center animate-in zoom-in duration-300">
-                        <div className="bg-black/60 backdrop-blur-sm px-8 py-2 border-x-4 border-red-600">
-                            <h2 className="text-3xl font-black text-white tracking-widest uppercase drop-shadow-[0_2px_2px_rgba(255,0,0,0.8)]">
-                                {gameState.topMessage}
-                            </h2>
-                        </div>
-                    </div>
-                )}
+    <div ref={containerRef} className="relative w-full h-[calc(100vh-120px)] min-h-[500px] bg-black overflow-hidden rounded-xl shadow-2xl border border-white/10 select-none">
 
-                {/* NEU: BOSS HEALTHBAR (Oben Mitte) */}
-                {gameState.boss && (
-                    <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[500px] flex flex-col items-center z-30">
-                        <div className="text-red-500 font-black text-xl tracking-[0.2em] mb-1 drop-shadow-md">{gameState.boss.name}</div>
-                        <div className="w-full h-6 bg-black/80 border-2 border-red-900 rounded-full overflow-hidden relative shadow-[0_0_15px_rgba(255,0,0,0.5)]">
-                            <div className="absolute inset-0 bg-red-900/20"></div>
-                            <div className="h-full bg-gradient-to-r from-red-600 via-red-500 to-orange-500 transition-all duration-200" 
-                                style={{ width: `${Math.max(0, (gameState.boss.hp / gameState.boss.maxHp) * 100)}%` }}></div>
-                        </div>
-                        <div className="text-xs font-bold text-red-200 mt-1">{Math.floor(gameState.boss.hp)} / {Math.floor(gameState.boss.maxHp)}</div>
+        {/* NEU: LADESCREEN OVERLAY */}
+        {isLoading && menuView !== 'MAIN' && (
+            <div className="absolute inset-0 z-[100] bg-black flex flex-col items-center justify-center">
+                <div className="text-4xl font-black text-yellow-500 mb-4 animate-pulse">LADE WELT...</div>
+                <div className="w-64 h-2 bg-gray-800 rounded overflow-hidden">
+                    <div className="h-full bg-yellow-500 animate-[width_1s_ease-in-out_infinite]" style={{width: '50%'}}></div>
+                </div>
+            </div>
+        )}
+        
+        {/* HUD LAYOUT - 'absolute inset-0' bezieht sich jetzt auf DIESEN Container, nicht das Fenster */}
+        {(menuView === 'GAME' || menuView === 'INGAME_SHOP' || menuView === 'STAGE_COMPLETE' || menuView === 'MILESTONE_SELECT') && (
+             <div className="absolute inset-0 z-10 pointer-events-none text-white p-[2vmin] flex flex-col justify-between">
+                
+                {/* TOP HEADER */}
+                <div className="relative w-full">
+                    {/* MENU BUTTON - Jetzt mit z-50 und pointer-events-auto */}
+                    <div className="absolute top-0 right-0 pointer-events-auto z-50">
+                        <button 
+                            onClick={togglePause} 
+                            className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-lg border border-gray-500 shadow-xl transition-transform active:scale-95 flex items-center justify-center group"
+                            title="Pause / Menü"
+                        >
+                            {/* Pause Icon SVG */}
+                            <svg className="w-8 h-8 text-white drop-shadow-md group-hover:text-yellow-400 transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                            </svg>
+                        </button>
                     </div>
-                )}
-                {/* PLAYER UI (Links & Rechts) */}
-                <div className="flex justify-between items-start mt-2">
-                    {/* LINKS: HP & GOLD */}
-                    <div className="flex flex-col gap-2">
+
+                    {/* BOSS HEALTHBAR */}
+                    {gameState.boss && (
+                        <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[40%] max-w-[600px] flex flex-col items-center z-30">
+                            <div className="text-red-500 font-black text-xl tracking-[0.2em] mb-1 drop-shadow-md">{gameState.boss.name}</div>
+                            <div className="w-full h-6 bg-black/80 border-2 border-red-900 rounded-full overflow-hidden relative shadow-[0_0_15px_rgba(255,0,0,0.5)]">
+                                <div className="absolute inset-0 bg-red-900/20"></div>
+                                <div className="h-full bg-gradient-to-r from-red-600 via-red-500 to-orange-500 transition-all duration-200" 
+                                    style={{ width: `${Math.max(0, (gameState.boss.hp / gameState.boss.maxHp) * 100)}%` }}></div>
+                            </div>
+                            <div className="text-xs font-bold text-red-200 mt-1">{Math.floor(gameState.boss.hp)} / {Math.floor(gameState.boss.maxHp)}</div>
+                        </div>
+                    )}
+                </div>
+
+                {/* MIDDLE UI */}
+                <div className="flex justify-between items-start w-full absolute top-6 left-0 px-6 pointer-events-none">
+                    <div className="flex flex-col gap-2 pointer-events-auto">
                         <div className="relative w-64 h-6 bg-gray-900 border border-gray-600 rounded skew-x-[-10deg] overflow-hidden shadow-lg">
                             <div className="absolute inset-0 bg-red-900/30"></div>
                             <div className="h-full bg-gradient-to-r from-red-700 to-red-500 transition-all duration-300" style={{ width: `${(Math.max(0,gameState.hp)/gameState.maxHp)*100}%`}} />
@@ -360,25 +497,47 @@ export default function AdventureGame() {
                             <span>{gameState.gold} 🪙</span>
                         </div>
                     </div>
-                    {/* RECHTS: STAGE INFO (Tiefer gesetzt durch mt-10) */}
-                    <div className="text-right mt-10 mr-2 bg-black/40 p-2 rounded backdrop-blur-sm border border-white/10">
+                    {/* RECHTE SEITE (Stage & Kills) - FIX: mt-14 schiebt es unter den Pause-Button */}
+                    <div className="mt-14 text-right bg-black/40 p-2 rounded backdrop-blur-sm border border-white/10 pointer-events-auto">
                         <div className="text-2xl text-white font-black italic tracking-wider">STAGE {gameState.stage}</div>
                         <div className="text-gray-400 text-sm font-bold">
                             KILLS: {gameState.stageKills} / {gameState.killsRequired > 999 ? 'BOSS' : gameState.killsRequired}
                         </div>
                     </div>
                 </div>
+
+                {/* BOTTOM LOADOUT */}
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto">
                     {gameState.loadout && gameState.loadout.map((slot, i) => {
                          const def = slot ? userData.powerupDefs[slot.id] : null;
                          const isOnCd = slot && slot.cooldownTimer > 0;
                          const cdPercent = slot && isOnCd ? (slot.cooldownTimer / slot.maxCooldown) * 100 : 0;
+                         const cdSeconds = slot && isOnCd ? Math.ceil(slot.cooldownTimer / 1000) : 0;
                          return (
                             <div key={i} className="w-14 h-14 bg-gray-900/80 border-2 border-gray-600 rounded-lg flex items-center justify-center relative shadow-xl transform transition-transform hover:scale-105">
                                 <span className="absolute -top-3 -left-2 text-xs font-bold text-gray-900 bg-gray-400 px-1.5 rounded-sm border border-white/20">{i+1}</span>
-                                {def ? <span className="text-3xl filter drop-shadow-lg">{def.icon}</span> : <span className="text-gray-700 text-xs">LEER</span>}
-                                {isOnCd && <div className="absolute inset-0 bg-black/70 flex items-center justify-center rounded-lg"><div className="text-sm font-bold text-white">{(slot.cooldownTimer/1000).toFixed(0)}</div></div>}
-                                {isOnCd && <div className="absolute bottom-0 left-0 right-0 bg-blue-500 h-1" style={{width: `${cdPercent}%`}}/>}
+                                {def ? (
+                                    def.icon.includes('.') ? (
+                                        <img src={def.icon} alt={def.name} className="w-10 h-10 object-contain drop-shadow-lg" />
+                                    ) : (
+                                        <span className="text-3xl filter drop-shadow-lg">{def.icon}</span>
+                                    )
+                                ) : (
+                                    <span className="text-gray-700 text-xs">LEER</span>
+                                )}
+                                {isOnCd && (
+                                    <>
+                                        <div 
+                                            className="absolute bottom-0 left-0 w-full bg-black/70 z-20 transition-all duration-100 ease-linear"
+                                            style={{ height: `${cdPercent}%` }} 
+                                        />
+                                        <div className="absolute inset-0 z-30 flex items-center justify-center">
+                                            <span className="text-white font-black text-lg drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
+                                                {cdSeconds}
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                          )
                     })}
@@ -386,21 +545,60 @@ export default function AdventureGame() {
             </div>
         )}
 
-        <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="block bg-[#111]" />
+        {/* TOP MESSAGE - Textgröße angepasst (5vmin statt text-7xl) */}
+        {gameState.topMessage && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center animate-in zoom-in duration-300 z-50 pointer-events-none">
+                <div className="bg-black/60 backdrop-blur-sm px-[4vmin] py-[2vmin] border-x-4 border-red-600 rounded-xl">
+                    <h2 className="text-[5vmin] font-black text-white tracking-widest uppercase drop-shadow-[0_4px_4px_rgba(255,0,0,0.8)]">
+                        {gameState.topMessage}
+                    </h2>
+                </div>
+            </div>
+        )}
 
-        {/* MAIN MENU */}
+        {/* CANVAS: Block für sauberes Rendering */}
+        <canvas 
+            ref={canvasRef} 
+            width={dimensions.width} 
+            height={dimensions.height} 
+            className="block bg-[#111] touch-none w-full h-full"
+        />
+        {/* NEU: PAUSE MENÜ OVERLAY */}
+        {isPaused && menuView === 'GAME' && (
+            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-200">
+                <div className="bg-gray-900 border border-white/10 p-8 rounded-2xl shadow-2xl flex flex-col gap-4 w-64">
+                    <h2 className="text-2xl font-bold text-center text-white mb-2">PAUSE</h2>
+                    <button 
+                        onClick={togglePause} 
+                        className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-colors"
+                    >
+                        WEITERSPIELEN
+                    </button>
+                    <button 
+                        onClick={saveAndQuit} 
+                        className="bg-red-900/50 hover:bg-red-800 text-red-200 font-bold py-3 rounded-xl border border-red-900 transition-colors"
+                    >
+                        SPEICHERN & MENÜ
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {/* MENÜS: Jetzt auch absolute zum Container */}
         {menuView === 'MAIN' && (
             <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
-                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-red-600 mb-4 drop-shadow-xl filter">ADVENTURES</h1>
+                <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-red-600 mb-4 drop-shadow-xl filter text-center">ADVENTURES</h1>
                 
-                <div className="flex gap-10">
-                    <div className="flex flex-col gap-4 w-80">
-                        <button onClick={handleStartRequest} className="bg-red-700 hover:bg-red-600 text-white font-bold py-4 rounded text-2xl shadow-lg border border-red-500 transition-all">
+                <div className="flex flex-col md:flex-row gap-10 items-center">
+                    <div className="flex flex-col gap-4 w-[30vmin] min-w-[250px]">
+                        <button onClick={handleStartRequest} className="bg-red-700 hover:bg-red-600 text-white font-bold py-4 rounded text-xl md:text-2xl shadow-lg border border-red-500 transition-all">
                             {activeRunData ? "WEITER SPIELEN" : "NEUES SPIEL"}
                         </button>
                         <div className="grid grid-cols-2 gap-2">
                             <button onClick={() => setMenuView('SKIN_SHOP')} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600">🎨 SKINS</button>
                             <button onClick={() => setMenuView('LOADOUT_SHOP')} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600">💣 POWERUPS</button>
+                            <button onClick={() => setShowHelp(true)} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600">📖 WISSENSBUCH</button>
+                            <button onClick={() => setShowFeedback(true)} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600">📝 FEEDBACK</button>
                         </div>
                     </div>
 
@@ -419,68 +617,59 @@ export default function AdventureGame() {
                 </div>
             </div>
         )}
-
-        {/* SKIN SHOP (Grid-Layout, mit Credits) */}
+        
+        {/* SHOP MENUS (gekürzt dargestellt, nutzen aber absolute inset-0) */}
         {menuView === 'SKIN_SHOP' && userData && (
-             <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-30 animate-in fade-in">
-                <div className="bg-gray-900 border border-gray-700 p-8 rounded-2xl w-full max-w-4xl h-[600px] flex flex-col">
+             <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-30 animate-in fade-in p-4">
+                <div className="bg-gray-900 border border-gray-700 p-8 rounded-2xl w-full max-w-4xl h-full md:h-[600px] flex flex-col">
                     <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
-                        <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">SKIN SHOP</h2>
+                        <h2 className="text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">SKIN SHOP</h2>
                         <div className="flex items-center gap-2">
-                            <span className="text-gray-400 text-sm">Guthaben:</span>
-                            <span className="bg-purple-900/50 px-4 py-1 rounded-full border border-purple-500 text-purple-300 font-bold text-xl">{casinoCredits} 💎</span>
+                            <span className="text-gray-400 text-sm hidden md:inline">Guthaben:</span>
+                            <span className="bg-purple-900/50 px-4 py-1 rounded-full border border-purple-500 text-purple-300 font-bold text-lg md:text-xl">{casinoCredits} 💎</span>
                         </div>
                     </div>
-                    
-                    <div className="grid grid-cols-4 gap-6 overflow-y-auto p-2 flex-1 custom-scrollbar content-start">
+                    {/* ... Restlicher Skin Shop Code identisch, nur Responsive Grid angepasst ... */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 overflow-y-auto p-2 flex-1 custom-scrollbar content-start">
                         {Object.entries(userData.skinDefs).map(([id, skin]) => {
-                            const owned = userData.skins.includes(id);
-                            const active = userData.activeSkin === id;
+                            const owned = userData.skins.includes(id); const active = userData.activeSkin === id;
                             return (
                                 <div key={id} className={`relative group p-4 rounded-xl border-2 flex flex-col items-center transition-all duration-300 ${active ? 'border-green-500 bg-green-900/20 shadow-[0_0_15px_rgba(0,255,0,0.3)]' : owned ? 'border-gray-600 bg-gray-800 hover:border-gray-400' : 'border-purple-900/30 bg-gray-900/50 hover:border-purple-500 hover:bg-gray-800'}`}>
-                                    {/* Preview Image Container */}
-                                    <div className="w-24 h-24 mb-4 relative flex items-center justify-center">
+                                    <div className="w-16 h-16 md:w-24 md:h-24 mb-4 relative flex items-center justify-center">
                                          <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${active ? 'bg-green-500' : 'bg-purple-600'}`}></div>
                                          <img src={`/assets/adventure/${skin.file}`} alt={skin.name} className="w-full h-full object-contain relative z-10 drop-shadow-lg transition-transform group-hover:scale-110" onError={(e) => {e.target.style.display='none';}} />
                                     </div>
-                                    <h3 className="font-bold text-white text-lg mb-1">{skin.name}</h3>
+                                    <h3 className="font-bold text-white text-sm md:text-lg mb-1">{skin.name}</h3>
                                     <div className="mt-auto w-full pt-2">
-                                        {active ? (
-                                            <div className="text-center text-green-400 text-xs font-bold py-2 border border-green-500/30 rounded bg-green-900/20 tracking-wider">AUSGERÜSTET</div>
-                                        ) : owned ? (
-                                            <button onClick={() => equipSkin(id)} className="w-full bg-gray-700 hover:bg-white hover:text-black text-gray-200 text-xs py-2 rounded font-bold border border-gray-500 transition-colors uppercase tracking-wider">AUSRÜSTEN</button>
-                                        ) : (
-                                            <button onClick={() => buySkin(id)} disabled={casinoCredits < skin.price} className={`w-full text-xs py-2 rounded font-bold border transition-all ${casinoCredits >= skin.price ? 'bg-purple-600 hover:bg-purple-500 border-purple-500 text-white shadow-lg shadow-purple-900/50' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}>
-                                                KAUFEN <span className="block text-sm">{skin.price} 💎</span>
-                                            </button>
-                                        )}
+                                        {active ? (<div className="text-center text-green-400 text-xs font-bold py-2 border border-green-500/30 rounded bg-green-900/20 tracking-wider">AKTIV</div>) : owned ? (<button onClick={() => equipSkin(id)} className="w-full bg-gray-700 hover:bg-white hover:text-black text-gray-200 text-xs py-2 rounded font-bold border border-gray-500 transition-colors uppercase tracking-wider">WÄHLEN</button>) : (<button onClick={() => buySkin(id)} disabled={casinoCredits < skin.price} className={`w-full text-xs py-2 rounded font-bold border transition-all ${casinoCredits >= skin.price ? 'bg-purple-600 hover:bg-purple-500 border-purple-500 text-white shadow-lg shadow-purple-900/50' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}>KAUFEN <span className="block text-sm">{skin.price} 💎</span></button>)}
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-                    <button onClick={() => setMenuView('MAIN')} className="mt-6 self-center px-10 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-full font-bold border border-gray-600 hover:border-white transition-all">ZURÜCK ZUM MENÜ</button>
+                    <button onClick={() => setMenuView('MAIN')} className="mt-6 self-center px-10 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-full font-bold border border-gray-600 hover:border-white transition-all">ZURÜCK</button>
                 </div>
              </div>
         )}
-
-        {/* LOADOUT SHOP (Split View) */}
+        
         {menuView === 'LOADOUT_SHOP' && userData && (
-            <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-30 animate-in fade-in">
-                <div className="bg-gray-900 border border-gray-700 p-6 rounded-2xl w-full max-w-4xl h-[550px] flex gap-6">
-                    {/* LINKS: SHOP LISTE */}
-                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar border-r border-gray-700">
-                        <div className="sticky top-0 bg-gray-900 pb-4 border-b border-gray-800 mb-4 z-10 flex justify-between items-center">
-                            <h2 className="text-2xl font-bold text-white">SHOP</h2>
+            <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-30 animate-in fade-in p-4">
+                <div className="bg-gray-900 border border-gray-700 p-6 rounded-2xl w-full max-w-4xl h-full md:h-[550px] flex flex-col md:flex-row gap-6">
+                    {/* ... Loadout Shop Code (angepasst für flex-row auf desktop) ... */}
+                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar border-b md:border-b-0 md:border-r border-gray-700">
+                         <div className="sticky top-0 bg-gray-900 pb-4 border-b border-gray-800 mb-4 z-10 flex justify-between items-center">
+                            <h2 className="text-xl md:text-2xl font-bold text-white">SHOP</h2>
                             <span className="text-sm font-bold text-purple-400 border border-purple-900 bg-purple-900/20 px-3 py-1 rounded-full">{casinoCredits} Credits</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {Object.entries(userData.powerupDefs).map(([id, def]) => {
                                 const owned = userData.powerups.includes(id);
                                 return (
                                     <div key={id} className={`p-3 rounded border flex flex-col gap-1 transition-all ${owned ? 'bg-gray-800/50 border-gray-700 opacity-60' : 'bg-gray-800 border-gray-600'}`}>
                                         <div className="flex items-center gap-2">
-                                            <div className="text-3xl">{def.icon}</div>
+                                            <div className="w-8 h-8 flex items-center justify-center text-2xl">
+                                                {def.icon.includes('.') ? <img src={def.icon} className="max-w-full max-h-full"/> : def.icon}
+                                            </div>
                                             <div className="font-bold text-white text-sm">{def.name}</div>
                                         </div>
                                         <div className="text-[10px] text-gray-400 leading-tight h-8">{def.desc}</div>
@@ -500,34 +689,32 @@ export default function AdventureGame() {
                             })}
                         </div>
                     </div>
-
-                    {/* RECHTS: LOADOUT & INVENTAR */}
-                    <div className="w-72 flex flex-col">
-                        <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">DEIN LOADOUT</h3>
+                    <div className="w-full md:w-72 flex flex-col">
+                        <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">LOADOUT</h3>
                         <div className="flex flex-col gap-3 mb-6">
-                            {/* FIX: Direkt über Array mappen, statt const im JSX zu nutzen */}
                             {[0, 1, 2, 3].map((_, i) => {
                                 const maxSlots = userData.unlockedSlots || 1; 
                                 const isLocked = i >= maxSlots;
                                 const itemId = userData.loadout[i];
                                 const item = itemId ? userData.powerupDefs[itemId] : null;
                                 const unlockPrice = 5000 * Math.pow(2, i - 1);
-
                                 return (
-                                    <div key={i} className={`p-3 rounded border flex items-center justify-between min-h-[60px] relative group ${isLocked ? 'bg-black/80 border-gray-800' : 'bg-black/40 border-gray-600'}`}>
+                                    <div key={i} className={`p-3 rounded border flex items-center justify-between min-h-[50px] md:min-h-[60px] relative group ${isLocked ? 'bg-black/80 border-gray-800' : 'bg-black/40 border-gray-600'}`}>
                                         <div className="absolute -left-2 top-1/2 -translate-y-1/2 text-gray-600 font-black text-xs -rotate-90">SLOT {i+1}</div>
-                                        
                                         {isLocked ? (
                                             <div className="flex-1 flex justify-center">
-                                                <button onClick={() => buySlot(i)} className="text-xs text-yellow-500 font-bold border border-yellow-600 px-2 py-1 rounded hover:bg-yellow-900/50">
-                                                    🔒 KAUFEN ({unlockPrice} 💎)
-                                                </button>
+                                                <button onClick={() => buySlot(i)} className="text-xs text-yellow-500 font-bold border border-yellow-600 px-2 py-1 rounded hover:bg-yellow-900/50">🔒 KAUFEN ({unlockPrice})</button>
                                             </div>
                                         ) : (
                                             <>
                                                 <div className="flex items-center gap-3 pl-4">
                                                     {item ? (
-                                                        <div className="flex items-center gap-2"><span className="text-2xl">{item.icon}</span><div className="text-sm text-white font-bold">{item.name}</div></div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
+                                                                {item.icon && item.icon.includes('.') ? <img src={item.icon} alt={item.name} className="max-w-full max-h-full object-contain" /> : <span className="text-xl">{item.icon}</span>}
+                                                            </div>
+                                                            <div className="text-sm text-white font-bold">{item.name}</div>
+                                                        </div>
                                                     ) : <span className="text-gray-600 text-sm italic">Leer</span>}
                                                 </div>
                                                 {item && <button onClick={() => equipPowerup(i, null)} className="text-red-500 hover:text-red-400 px-2 py-1 font-bold">✕</button>}
@@ -537,23 +724,21 @@ export default function AdventureGame() {
                                 )
                             })}
                         </div>
-                        <div className="mt-auto flex flex-col">
-                             <h4 className="text-gray-400 font-bold mb-2 text-xs uppercase tracking-wider">Inventar (Klicken zum Ausrüsten)</h4>
-                             <div className="bg-gray-800 p-3 rounded border border-gray-700 min-h-[100px] flex flex-wrap gap-2 content-start">
-                                 {userData.powerups.length === 0 && <span className="text-gray-600 text-xs italic w-full text-center mt-4">Leer - Kaufe Items links!</span>}
-                                 {userData.powerups.map(pid => (
-                                     <button key={pid} onClick={() => {
-                                         const freeSlot = userData.loadout.indexOf(null);
-                                         equipPowerup(freeSlot === -1 ? 0 : freeSlot, pid);
-                                     }} className="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded flex items-center justify-center text-xl border border-gray-600 hover:border-white transition-colors relative group/item">
-                                         {userData.powerupDefs[pid]?.icon}
-                                         <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover/item:opacity-100 pointer-events-none z-20">
-                                             {userData.powerupDefs[pid]?.name}
-                                         </div>
-                                     </button>
-                                 ))}
-                             </div>
-                        </div>
+                        {/* Inventar Anzeige */}
+                         <div className="bg-gray-800 p-3 rounded border border-gray-700 min-h-[80px] flex flex-wrap gap-2 content-start flex-1 overflow-y-auto">
+                             {userData.powerups.length === 0 && <span className="text-gray-600 text-xs italic w-full text-center mt-2">Leer</span>}
+                             {userData.powerups.map(pid => {
+                                const def = userData.powerupDefs[pid];
+                                return (
+                                    <button key={pid} onClick={() => {
+                                        const freeSlot = userData.loadout.indexOf(null);
+                                        equipPowerup(freeSlot === -1 ? 0 : freeSlot, pid);
+                                    }} className="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded flex items-center justify-center text-xl border border-gray-600 hover:border-white transition-colors">
+                                        {def?.icon && def.icon.includes('.') ? <img src={def.icon} alt={def.name} className="w-8 h-8 object-contain" /> : <span>{def?.icon}</span>}
+                                    </button>
+                                )
+                            })}
+                         </div>
                         <button onClick={() => setMenuView('MAIN')} className="mt-4 w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded font-bold border border-gray-500">ZURÜCK</button>
                     </div>
                 </div>
@@ -563,22 +748,22 @@ export default function AdventureGame() {
         {/* STAGE COMPLETE */}
         {menuView === 'STAGE_COMPLETE' && (
              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-30 animate-in zoom-in duration-200">
-                <h2 className="text-6xl font-black text-white mb-2 tracking-tighter">STAGE COMPLETE</h2>
+                <h2 className="text-4xl md:text-6xl font-black text-white mb-2 tracking-tighter text-center">STAGE COMPLETE</h2>
                 <div className="w-32 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent mb-8"></div>
                 <div className="flex gap-6">
-                    <button onClick={saveAndQuit} className="px-8 py-4 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold border border-gray-600">Speichern & Menü</button>
+                    <button onClick={saveAndQuit} className="px-8 py-4 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold border border-gray-600">Menü</button>
                     <button onClick={handleNextStep} className="px-10 py-4 rounded bg-green-700 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-900/50 border border-green-500 transform hover:scale-105 transition-all text-xl">
-                        {(gameState.stage % 5 === 0) ? "ZUM SHOP >>" : "NÄCHSTE STAGE >>"}
+                        {(gameState.stage > 0 && gameState.stage % 5 === 0) ? "SHOP >>" : "WEITER >>"}
                     </button>
                 </div>
             </div>
         )}
 
-        {/* MILESTONE */}
+        {/* MILESTONE & SHOP MENUS (Layouts beibehalten) */}
         {menuView === 'MILESTONE_SELECT' && (
             <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-40">
-                <h2 className="text-5xl font-bold text-purple-400 mb-4">MEILENSTEIN ERREICHT!</h2>
-                <div className="flex gap-6">
+                <h2 className="text-3xl md:text-5xl font-bold text-purple-400 mb-8 text-center">MEILENSTEIN ERREICHT!</h2>
+                <div className="flex flex-col md:flex-row gap-6">
                     <MilestoneCard title="Multishot" icon="🏹" desc="+1 Projektil pro Schuss" onClick={() => selectMilestone('multishot')} />
                     <MilestoneCard title="Vampirismus" icon="🩸" desc="+5% Heilung bei Kill" onClick={() => selectMilestone('lifesteal')} />
                     <MilestoneCard title="Piercing" icon="⚡" desc="Projektile durchschlagen +1 Gegner" onClick={() => selectMilestone('piercing')} />
@@ -586,14 +771,49 @@ export default function AdventureGame() {
             </div>
         )}
 
-        {/* INGAME SHOP */}
-        {menuView === 'INGAME_SHOP' && (
-            <div className="absolute inset-0 bg-[#0a0a0a]/95 backdrop-blur-xl flex flex-col items-center justify-center z-30">
-                <div className="flex justify-between w-full max-w-4xl items-end mb-6 border-b border-white/10 pb-4">
-                    <h2 className="text-5xl font-black text-yellow-500">HÄNDLER</h2>
-                    <div className="text-3xl text-yellow-400 font-mono font-bold">{gameState.gold} 🪙</div>
+        {/* WISSENSBUCH MODAL */}
+        {showHelp && (
+            <div className="absolute inset-0 z-[60] bg-black/90 flex items-center justify-center p-4">
+                <div className="bg-gray-900 border border-gray-600 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl relative">
+                    <button onClick={() => setShowHelp(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">✕</button>
+                    <h2 className="text-3xl font-bold text-yellow-400 mb-6 border-b border-gray-700 pb-2">📖 Abenteurer Handbuch</h2>
+                    
+                    <div className="space-y-4 text-gray-300">
+                        <p>1. Bewege dich mit WASD.<br></br> 2. Schieße mit Leertaste/ linke Maustaste.<br></br> 3. Benutze PowerUps mit 1-4.<br></br> 4. Töte eine bestimmte Anzahl an Gegnern pro Stage und entkomme durch die Tür.<br></br>
+                         5. Alle 5 Stages kommt ein Shop. Alle 10 Stages kommt ein Boss Level.<br></br>
+                         6. Nach dem Boss Level kannst du ein Meilenstein/ besonderes PowerUp auswählen.<br></br> 7. Manche Gegner haben später besondere Effekte (Gift, Brand, Erfrieren, Schock etc.).<br></br>8. Pro Level gibt es 2 Kisten mit extra Gold.
+                        </p>
+                    </div>
+                    
+                    <button onClick={() => setShowHelp(false)} className="mt-8 w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 rounded">Verstanden!</button>
                 </div>
-                <div className="grid grid-cols-2 gap-6 mb-10 w-full max-w-4xl">
+            </div>
+        )}
+
+        {/* Feedback */}
+        {showFeedback && (
+            <div className="absolute inset-0 z-[60] bg-black/90 flex items-center justify-center p-4">
+                <div className="bg-gray-900 border border-gray-600 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl relative">
+                    <button onClick={() => setShowFeedback(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">✕</button>
+                    <h2 className="text-3xl font-bold text-yellow-400 mb-6 border-b border-gray-700 pb-2">Feedback</h2>
+                    
+                    <div className="space-y-4 text-gray-300">
+                        <p>Hast du Feedback, Bugs oder Ideen für das Spiel, melde dich auf meinem Discord:</p>
+                        <a href={"https://discord.gg/V38GBSVNeh"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] px-4 py-2 rounded-lg text-sm font-semibold">💬 Zum Discord</a>
+                    </div>
+                    
+                    <button onClick={() => setShowFeedback(false)} className="mt-8 w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 rounded">Zurück</button>
+                </div>
+            </div>
+        )}
+
+        {menuView === 'INGAME_SHOP' && (
+            <div className="absolute inset-0 bg-[#0a0a0a]/95 backdrop-blur-xl flex flex-col items-center justify-center z-30 p-4">
+                <div className="flex justify-between w-full max-w-4xl items-end mb-6 border-b border-white/10 pb-4">
+                    <h2 className="text-3xl md:text-5xl font-black text-yellow-500">HÄNDLER</h2>
+                    <div className="text-2xl md:text-3xl text-yellow-400 font-mono font-bold">{gameState.gold} 🪙</div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 w-full max-w-4xl overflow-y-auto max-h-[60vh] p-4 custom-scrollbar">
                     <ShopItem title="Waffe schärfen" desc="+0.5 Schaden" baseCost={200} icon="⚔️" currentVal={gameState.stats.damage}
                         onClick={() => buyIngameUpgrade('damage', 200)} gold={gameState.gold} 
                         scaling={true} selected={selectedShopItem === 'damage'} actualCost={getPrice('damage', 200)} />
@@ -609,12 +829,18 @@ export default function AdventureGame() {
                     <ShopItem title="Heiltrank" desc="HP voll heilen" baseCost={100} icon="💖" currentVal={`${Math.floor(gameState.hp)}/${gameState.maxHp}`}
                         onClick={() => buyIngameUpgrade('heal', 100)} gold={gameState.gold} 
                         scaling={false} selected={false} actualCost={100} />
+                    <ShopItem title="Schnellfeuer" desc="+20% Feuerrate" baseCost={350} icon="🔫" currentVal={`${(gameState.stats.fireRate || 1).toFixed(1)}x`}
+                        onClick={() => buyIngameUpgrade('fireRate', 350)} gold={gameState.gold} 
+                        scaling={true} selected={selectedShopItem === 'fireRate'} actualCost={getPrice('fireRate', 350)} />
+                    <ShopItem title="Glücksbringer" desc="+Crit Chance" baseCost={400} icon="🍀" currentVal={gameState.stats.luck || 1}
+                        onClick={() => buyIngameUpgrade('luck', 400)} gold={gameState.gold} 
+                        scaling={true} selected={selectedShopItem === 'luck'} actualCost={getPrice('luck', 400)} />
                 </div>
-                <button onClick={continueFromShop} className="bg-green-700 hover:bg-green-600 text-white font-bold py-4 px-16 rounded text-2xl border border-green-500">WEITER KÄMPFEN</button>
+                <button onClick={continueFromShop} className="bg-green-700 hover:bg-green-600 text-white font-bold py-4 px-16 rounded text-xl md:text-2xl border border-green-500">WEITER KÄMPFEN</button>
             </div>
         )}
 
-        {/* LOAD SAVE MENU */}
+        {/* LOAD SAVE & GAMEOVER - Identisch, nur absolute inset */}
         {menuView === 'LOAD_SAVE' && activeRunData && (
             <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center z-30 animate-in fade-in">
                 <h2 className="text-3xl font-bold text-white mb-6">Spielstand gefunden</h2>
@@ -631,22 +857,30 @@ export default function AdventureGame() {
                 </div>
             </div>
         )}
-
-        {/* GAME OVER */}
+        {/* GAMEOVER SCREEN ANPASSUNG */}
         {menuView === 'GAMEOVER' && (
              <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-20">
                 <div className="text-center">
                     <h2 className="text-6xl text-red-600 font-black mb-4">GESTORBEN</h2>
-                    {endScreenData && <div className="text-2xl text-white mb-8">Stage {endScreenData.stage} erreicht</div>}
-                    <button onClick={() => setMenuView('MAIN')} className="bg-gray-800 text-white px-8 py-3 rounded">Menü</button>
+                    {endScreenData && (
+                        <>
+                            <div className="text-2xl text-white mb-2">Stage {endScreenData.stage} erreicht</div>
+                            <div className="text-xl text-gray-400 mb-6">{endScreenData.kills} Kills</div>
+                            {/* NEU: Credits Anzeige */}
+                            <div className="text-4xl text-yellow-400 font-bold mb-8 border-t border-b border-gray-800 py-4">
+                                + {endScreenData.earnedCredits} 💎 Credits
+                            </div>
+                        </>
+                    )}
+                    <button onClick={() => setMenuView('MAIN')} className="bg-gray-800 text-white px-8 py-3 rounded hover:bg-gray-700">Menü</button>
                 </div>
              </div>
         )}
-      </div>
     </div>
   );
 }
 
+// ShopItem und MilestoneCard bleiben unverändert
 function ShopItem({ title, desc, baseCost, actualCost, icon, onClick, gold, currentVal, scaling, selected }) {
     const canAfford = gold >= actualCost;
     return (

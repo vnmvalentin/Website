@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import BingoGrid from "../../components/bingo/BingoGrid";
-import { getOverlay } from "../../utils/bingoApi";
+import { getOverlay, markOverlayCell } from "../../utils/bingoApi";
 
 export default function BingoOverlayPage() {
   const { overlayKey } = useParams();
@@ -58,7 +58,25 @@ export default function BingoOverlayPage() {
     };
   }, [overlayKey]);
 
-  // IMPORTANT: overlay should be as clean as possible for OBS
+  const handleCellClick = async (idx, cell) => {
+    // Wenn nicht gesperrt/gestartet (bei Group) oder generell erlaubt:
+    // Wir senden einfach den Request. Backend prüft Permission.
+    // Toggle: Wenn X -> None, sonst -> X
+    const nextMark = cell.mark === "x" ? "none" : "x";
+    
+    // Optimistic Update für sofortiges Feedback
+    const newCells = [...state.cells];
+    newCells[idx] = { ...newCells[idx], mark: nextMark };
+    setState(s => ({ ...s, cells: newCells }));
+
+    try {
+      await markOverlayCell(overlayKey, idx, nextMark);
+    } catch (e) {
+      console.error(e);
+      // Revert theoretisch hier nötig, aber nächste Poll korrigiert es eh
+    }
+  };
+
   return (
     <div className="w-screen h-screen p-0 m-0 bg-transparent">
       {state.error ? (
@@ -70,7 +88,8 @@ export default function BingoOverlayPage() {
               gridSize={state.gridSize}
               cells={state.cells}
               style={state.style}
-              interactive={false}
+              interactive={true} // Immer interaktiv für Browserquellen
+              onCellClick={handleCellClick}
             />
           </div>
         </div>

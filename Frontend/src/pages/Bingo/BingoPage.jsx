@@ -1,104 +1,73 @@
-// src/pages/BingoPage.jsx
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-// Context nutzen statt manuellem Fetch
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { createSession, deleteSession, getMySessions, getThemes } from "../../utils/bingoApi";
 import { parseJoinKey } from "../../components/bingo/bingoUtils";
 
 export default function BingoPage() {
   const navigate = useNavigate();
-  // Zugriff auf globalen Login
   const { user, login } = useContext(TwitchAuthContext);
 
-  const [tab, setTab] = useState("create"); // create | my
+  const [tab, setTab] = useState("create");
   const [themes, setThemes] = useState([]);
   const [loadingThemes, setLoadingThemes] = useState(true);
 
-  const [mode, setMode] = useState("single"); // single | group
+  const [mode, setMode] = useState("single");
   const [selectedThemeId, setSelectedThemeId] = useState("");
-
   const [joinInput, setJoinInput] = useState("");
   const [creating, setCreating] = useState(false);
 
   const [my, setMy] = useState([]);
   const [loadingMy, setLoadingMy] = useState(false);
-
   const [error, setError] = useState("");
   const [copiedKey, setCopiedKey] = useState("");
 
   const loadThemes = async () => {
-    setLoadingThemes(true);
-    setError("");
+    setLoadingThemes(true); setError("");
     try {
       const json = await getThemes();
       setThemes(json.themes || []);
-      setSelectedThemeId((prev) => prev || (json.themes?.[0]?.id || ""));
-    } catch (e) {
-      setError(e.message || "Fehler beim Laden der Themes");
-    } finally {
-      setLoadingThemes(false);
-    }
+      setSelectedThemeId(prev => prev || (json.themes?.[0]?.id || ""));
+    } catch (e) { setError(e.message); } finally { setLoadingThemes(false); }
   };
 
-  useEffect(() => {
-    loadThemes();
-  }, []);
+  useEffect(() => { loadThemes(); }, []);
 
   const refreshMy = async () => {
     if (!user) return;
-    setLoadingMy(true);
-    setError("");
+    setLoadingMy(true); setError("");
     try {
       const json = await getMySessions();
       setMy(json.sessions || []);
-    } catch (e) {
-      setError(e.message || "Fehler beim Laden");
-      console.warn(e);
-    } finally {
-      setLoadingMy(false);
-    }
+    } catch (e) { setError(e.message); } finally { setLoadingMy(false); }
   };
 
-  useEffect(() => {
-    if (user) refreshMy();
-  }, [user]);
+  useEffect(() => { if (user) refreshMy(); }, [user]);
 
   const themeOptions = useMemo(() => {
     const list = Array.isArray(themes) ? [...themes] : [];
-    if (!list.some((t) => t.id === "custom")) {
-      list.push({ id: "custom", name: "Custom Theme", wordsCount: 0 });
-    }
+    if (!list.some((t) => t.id === "custom")) list.push({ id: "custom", name: "Custom Theme", wordsCount: 0 });
     return list;
   }, [themes]);
 
-  const canCreate = useMemo(() => {
-    if (!user) return false;
-    return !!selectedThemeId;
-  }, [user, selectedThemeId]);
+  // LIMIT CHECK
+  const sessionLimitReached = user && my.length >= 3;
 
   const startCreate = async () => {
     setError("");
-    if (!user) {
-      login(); // Context Login aufrufen
-      return;
-    }
+    if (!user) { login(); return; }
     if (!selectedThemeId) return;
+    if (sessionLimitReached) {
+        setError("Limit erreicht (3/3). Bitte lösche alte Sessions unter 'Deine Bingos'.");
+        return;
+    }
 
     setCreating(true);
     try {
-      const payload =
-        selectedThemeId === "custom"
-          ? { mode, themeId: "custom", custom: true }
-          : { mode, themeId: selectedThemeId };
-
+      const payload = selectedThemeId === "custom" ? { mode, themeId: "custom", custom: true } : { mode, themeId: selectedThemeId };
       const json = await createSession(payload);
       navigate(`/Bingo/${json.sessionId}`);
-    } catch (e) {
-      setError(e.message || "Fehler beim Erstellen");
-    } finally {
-      setCreating(false);
-    }
+    } catch (e) { setError(e.message); } finally { setCreating(false); }
   };
 
   const join = () => {
@@ -108,153 +77,80 @@ export default function BingoPage() {
   };
 
   const doCopy = async (text, key) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedKey(key);
-      window.setTimeout(() => setCopiedKey(""), 900);
-    } catch {}
+    try { await navigator.clipboard.writeText(text); setCopiedKey(key); setTimeout(() => setCopiedKey(""), 900); } catch {}
   };
 
   const doDelete = async (sessionId) => {
     if (!user) return;
-    const ok = window.confirm("Session wirklich löschen? (wird aus der JSON entfernt)");
-    if (!ok) return;
-
-    setError("");
-    try {
-      await deleteSession(sessionId);
-      await refreshMy();
-    } catch (e) {
-      setError(e.message || "Löschen fehlgeschlagen");
-    }
+    if (!window.confirm("Wirklich löschen?")) return;
+    try { await deleteSession(sessionId); await refreshMy(); } catch (e) { setError(e.message); }
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 text-white">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Bingo</h1>
-
         <div className="flex gap-2">
-          <button
-            className={`px-4 py-2 rounded-xl border border-white/10 ${
-              tab === "create" ? "bg-white/15" : "bg-white/5 hover:bg-white/10"
-            }`}
-            onClick={() => setTab("create")}
-          >
-            Session erstellen
-          </button>
-          <button
-            className={`px-4 py-2 rounded-xl border border-white/10 ${
-              tab === "my" ? "bg-white/15" : "bg-white/5 hover:bg-white/10"
-            }`}
-            onClick={() => setTab("my")}
-          >
-            Deine Bingos
-          </button>
+          <button className={`px-4 py-2 rounded-xl border border-white/10 ${tab === "create" ? "bg-white/15" : "bg-white/5"}`} onClick={() => setTab("create")}>Erstellen</button>
+          <button className={`px-4 py-2 rounded-xl border border-white/10 ${tab === "my" ? "bg-white/15" : "bg-white/5"}`} onClick={() => setTab("my")}>Deine Bingos ({my.length})</button>
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-4 text-red-200 mb-4">
-          {error}
-        </div>
-      )}
+      {error && <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-4 text-red-200 mb-4">{error}</div>}
 
       {tab === "create" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Step 1: Mode + Join */}
           <div className="rounded-2xl bg-black/60 border border-white/10 p-5 space-y-4">
             <h2 className="text-xl font-semibold">1) Session-Typ</h2>
-
             <div className="grid grid-cols-2 gap-3">
-              <button
-                className={`rounded-2xl p-4 border border-white/10 text-left ${
-                  mode === "single" ? "bg-white/15" : "bg-white/5 hover:bg-white/10"
-                }`}
-                onClick={() => setMode("single")}
-              >
+              <button className={`rounded-2xl p-4 border border-white/10 text-left ${mode === "single" ? "bg-white/15" : "bg-white/5"}`} onClick={() => setMode("single")}>
                 <div className="font-semibold">Einzelsession</div>
-                <div className="text-sm text-white/70">
-                  1 Karte. Host kann Editor:innen hinzufügen.
-                </div>
+                <div className="text-sm text-white/70">1 Karte, Host = Spieler</div>
               </button>
-
-              <button
-                className={`rounded-2xl p-4 border border-white/10 text-left ${
-                  mode === "group" ? "bg-white/15" : "bg-white/5 hover:bg-white/10"
-                }`}
-                onClick={() => setMode("group")}
-              >
+              <button className={`rounded-2xl p-4 border border-white/10 text-left ${mode === "group" ? "bg-white/15" : "bg-white/5"}`} onClick={() => setMode("group")}>
                 <div className="font-semibold">Gruppensession</div>
-                <div className="text-sm text-white/70">
-                  Mehrere Leute, jede Person hat eigene Karte & eigenen Browser-Link.
-                </div>
+                <div className="text-sm text-white/70">Mehrere Spieler, Synchroner Start</div>
               </button>
             </div>
-
             <div>
               <label className="text-sm text-white/70">Join-Link</label>
               <div className="mt-1 flex gap-2">
-                <input
-                  className="flex-1 bg-black/40 border border-white/10 rounded-xl p-2"
-                  value={joinInput}
-                  onChange={(e) => setJoinInput(e.target.value)}
-                  placeholder="join_xxx oder kompletter Link"
-                />
-                <button
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10"
-                  onClick={join}
-                >
-                  Join
-                </button>
+                <input className="flex-1 bg-black/40 border border-white/10 rounded-xl p-2" value={joinInput} onChange={e => setJoinInput(e.target.value)} placeholder="Link einfügen" />
+                <button className="px-4 py-2 rounded-xl bg-white/10 border border-white/10" onClick={join}>Join</button>
               </div>
             </div>
           </div>
 
-          {/* Step 2: Theme */}
           <div className="rounded-2xl bg-black/60 border border-white/10 p-5 space-y-4">
-            <h2 className="text-xl font-semibold">2) Theme auswählen</h2>
-
-            {loadingThemes ? (
-              <div className="text-white/70">Lade Themes…</div>
-            ) : (
+            <h2 className="text-xl font-semibold">2) Theme</h2>
+            {loadingThemes ? <div className="text-white/70">Lade...</div> : (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {themeOptions.map((t) => (
-                    <button
-                      key={t.id}
-                      className={`rounded-2xl p-4 border border-white/10 text-left ${
-                        selectedThemeId === t.id ? "bg-white/15" : "bg-white/5 hover:bg-white/10"
-                      }`}
-                      onClick={() => setSelectedThemeId(t.id)}
-                    >
+                  {themeOptions.map(t => (
+                    <button key={t.id} className={`rounded-2xl p-4 border border-white/10 text-left ${selectedThemeId === t.id ? "bg-white/15" : "bg-white/5"}`} onClick={() => setSelectedThemeId(t.id)}>
                       <div className="font-semibold">{t.name}</div>
-                      <div className="text-sm text-white/70">
-                        {t.id === "custom" ? "Wörter im Editor anpassen" : `${t.wordsCount} Wörter`}
-                      </div>
+                      <div className="text-sm text-white/70">{t.id === "custom" ? "Wörter anpassen" : `${t.wordsCount} Wörter`}</div>
                     </button>
                   ))}
                 </div>
-
                 {!user ? (
-                  <button
-                    onClick={login}
-                    className="w-full px-4 py-3 rounded-xl font-semibold bg-[#9146FF] hover:bg-[#7d36ff] text-white transition shadow-lg"
-                  >
-                    Login mit Twitch zum Erstellen
-                  </button>
+                  <button onClick={login} className="w-full px-4 py-3 rounded-xl font-semibold bg-[#9146FF] text-white">Login mit Twitch</button>
                 ) : (
-                  <button
-                    disabled={creating || !selectedThemeId}
-                    className={`w-full px-4 py-3 rounded-xl font-semibold border border-white/10 ${
-                      !creating && selectedThemeId
-                        ? "bg-violet-600/70 hover:bg-violet-600 active:scale-[0.99]"
-                        : "bg-white/5 text-white/40 cursor-not-allowed"
-                    }`}
-                    onClick={startCreate}
-                  >
-                    {creating ? "Erstelle…" : "Session erstellen"}
-                  </button>
+                  <>
+                      {sessionLimitReached && (
+                          <div className="text-red-400 text-sm bg-red-500/10 p-3 rounded-xl border border-red-500/20">
+                              Maximale Anzahl an gleichzeitigen Sessions (3/3) erreicht. <br/>
+                              Bitte navigiere zu "Deine Bingos" und lösche alte Sessions.
+                          </div>
+                      )}
+                      <button
+                        disabled={creating || !selectedThemeId || sessionLimitReached}
+                        className={`w-full px-4 py-3 rounded-xl font-semibold border border-white/10 ${!creating && selectedThemeId && !sessionLimitReached ? "bg-violet-600/70 hover:bg-violet-600" : "bg-white/5 text-white/40 cursor-not-allowed"}`}
+                        onClick={startCreate}
+                      >
+                        {creating ? "Erstelle..." : "Session erstellen"}
+                      </button>
+                  </>
                 )}
               </div>
             )}
@@ -264,87 +160,25 @@ export default function BingoPage() {
 
       {tab === "my" && (
         <div className="rounded-2xl bg-black/60 border border-white/10 p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Deine aktiven Sessions</h2>
-            <button
-              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 active:scale-[0.99]"
-              onClick={refreshMy}
-              disabled={!user || loadingMy}
-            >
-              {loadingMy ? "Lade…" : "Aktualisieren"}
-            </button>
+          <div className="flex justify-between">
+             <h2 className="text-xl font-semibold">Deine Sessions ({my.length}/3)</h2>
+             <button onClick={refreshMy} disabled={loadingMy} className="px-4 py-2 bg-white/10 rounded-xl border border-white/10">Aktualisieren</button>
           </div>
-
-          {!user && (
-             <div className="flex flex-col items-center justify-center p-8 bg-white/5 rounded-xl border border-white/5">
-                <p className="text-white/70 mb-4">Bitte logge dich ein, um deine Sessions zu sehen.</p>
-                <button 
-                    onClick={login}
-                    className="px-4 py-2 bg-[#9146FF] hover:bg-[#7d36ff] text-white rounded-lg font-bold"
-                >
-                    Login mit Twitch
-                </button>
-             </div>
-          )}
-
-          {user && my.length === 0 && !loadingMy && (
-            <div className="text-white/70">Keine Sessions gefunden.</div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {my.map((s) => {
-              const overlayLink = s.overlayKey
-                ? `${window.location.origin}/bingo/overlay/${s.overlayKey}`
-                : "";
-
-              return (
-                <div
-                  key={s.sessionId}
-                  className="rounded-2xl bg-white/5 border border-white/10 p-4 space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
+            {my.map(s => (
+              <div key={s.sessionId} className="rounded-2xl bg-white/5 border border-white/10 p-4 space-y-2">
+                 <div className="flex justify-between">
                     <div>
-                      <div className="font-semibold">{s.themeName}</div>
-                      <div className="text-xs text-white/60">
-                        {s.mode === "single" ? "Einzelsession" : "Gruppensession"} •{" "}
-                        {s.locked ? "gestartet" : "nicht gestartet"} • {s.role}
-                      </div>
+                        <div className="font-semibold">{s.themeName}</div>
+                        <div className="text-xs text-white/60">{s.mode} • {s.role}</div>
                     </div>
-
                     <div className="flex gap-2">
-                      {s.role === "host" && (
-                        <button
-                          className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-xs active:scale-[0.99]"
-                          onClick={() => doDelete(s.sessionId)}
-                        >
-                          Löschen
-                        </button>
-                      )}
-                      <button
-                        className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 active:scale-[0.99]"
-                        onClick={() => navigate(`/Bingo/${s.sessionId}`)}
-                      >
-                        Öffnen
-                      </button>
+                        {s.role === "host" && <button className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-xs" onClick={() => doDelete(s.sessionId)}>Löschen</button>}
+                        <button className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs" onClick={() => navigate(`/Bingo/${s.sessionId}`)}>Öffnen</button>
                     </div>
-                  </div>
-
-                  {overlayLink && (
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs text-white/70 truncate">
-                        Browser: {overlayLink}
-                      </div>
-                      <button
-                        className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs active:scale-[0.99]"
-                        onClick={() => doCopy(overlayLink, s.sessionId)}
-                      >
-                        {copiedKey === s.sessionId ? "Copied!" : "Copy"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                 </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

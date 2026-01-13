@@ -28,7 +28,8 @@ const BingoGrid = React.memo(function BingoGrid({
     const lineColor = style?.lineColor || "#ffffff";
     const lineWidth = Math.max(1, Math.min(8, Number(style?.lineWidth ?? 2)));
 
-    const xThickness = Math.max(4, Math.round(fontSize / 5));
+    // Dicke des X etwas anpassen, damit es nicht zu wuchtig ist
+    const xThickness = Math.max(3, Math.round(fontSize / 6));
 
     return { fontSize, textScale, cardBg, textColor, lineColor, lineWidth, xThickness };
   }, [n, style]);
@@ -62,7 +63,8 @@ const BingoGrid = React.memo(function BingoGrid({
               key={idx}
               type="button"
               onClick={() => handleCellClick(idx, cell)}
-              className={`relative flex items-center justify-center text-center p-2 select-none ${
+              // HIER: overflow-hidden hinzugefügt, damit das X nicht rausragt
+              className={`relative flex items-center justify-center text-center p-1 select-none overflow-hidden ${
                 interactive && !disabled ? "hover:bg-white/10 cursor-pointer" : "cursor-default"
               }`}
               style={{
@@ -74,14 +76,14 @@ const BingoGrid = React.memo(function BingoGrid({
                 lineHeight: 1.1,
               }}
             >
-              <span className="px-1 break-words">{cell.text}</span>
+              <span className="px-1 break-words z-10 relative">{cell.text}</span>
 
               {isX && (
-                <div className="absolute inset-0 pointer-events-none opacity-85">
+                <div className="absolute inset-0 pointer-events-none opacity-85 z-0">
                   <div
                     className="absolute left-1/2 top-1/2"
                     style={{
-                      width: "160%",
+                      width: "142%", // Von 160% auf 142% (Wurzel 2) reduziert -> exakt Ecke zu Ecke
                       height: `${computed.xThickness}px`,
                       backgroundColor: "#ef4444",
                       transform: "translate(-50%, -50%) rotate(45deg)",
@@ -91,7 +93,7 @@ const BingoGrid = React.memo(function BingoGrid({
                   <div
                     className="absolute left-1/2 top-1/2"
                     style={{
-                      width: "160%",
+                      width: "142%",
                       height: `${computed.xThickness}px`,
                       backgroundColor: "#ef4444",
                       transform: "translate(-50%, -50%) rotate(-45deg)",
