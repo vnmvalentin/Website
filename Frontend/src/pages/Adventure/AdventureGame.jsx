@@ -134,8 +134,15 @@ export default function AdventureGame() {
   const handleStartRequest = () => { if(activeRunData) { setMenuView('LOAD_SAVE'); } else { startNewGame(); } };
 
   const startNewGame = async () => {
-      if(activeRunData) { try { await fetch("/api/adventure/clear-run", { method: "POST", credentials: "include" }); } catch(e){} }
+      // FIX: Immer löschen, nicht nur wenn activeRunData existiert.
+      // Nach Game Over ist activeRunData nämlich null, aber auf dem Server liegt noch der alte Run.
+      try { 
+          await fetch("/api/adventure/clear-run", { method: "POST", credentials: "include" }); 
+      } catch(e) { console.error(e); }
+      
+      setActiveRunData(null); // State sicherheitshalber leeren
       setBoughtCounts({ damage: 0, maxHp: 0, speed: 0, magnet: 0 }); 
+      
       launchEngine({ stage: 0 });
   };
 
@@ -243,10 +250,16 @@ export default function AdventureGame() {
             // 2. WICHTIG: Start erst HIER auslösen!
             onAssetsLoaded: () => {
                 console.log("Assets geladen -> Starte Loop");
-                setIsLoading(false); // Ladebalken weg
+                setIsLoading(false); 
                 if (engineRef.current) {
                     engineRef.current.resize(dimensions.width, dimensions.height);
-                    engineRef.current.start(); // JETZT erst starten!
+                    engineRef.current.start();
+                    
+                    // --- FIX: Tutorial-Start sofort speichern ---
+                    // Damit ist der "alte Run" im Backend definitiv überschrieben mit Stage 0.
+                    if (engineRef.current.state.stage === 0) {
+                        autoSave(false);
+                    }
                 }
             }
         },
@@ -292,16 +305,34 @@ export default function AdventureGame() {
 
   const handleGameOver = async (finalState) => {
       setMenuView('GAMEOVER');
-      const earnedCredits = finalState.kills * 10; // Berechnung
+      
+      // Lokal den Run sofort entfernen
+      setActiveRunData(null); 
+
+      const earnedCredits = finalState.kills * 10; 
+
       try {
+        // 1. Run beenden und Belohnungen abholen
         const res = await fetch("/api/adventure/end-run", {
-            // ... fetch config
+            method: "POST", // Vermutlich POST, je nach deiner API
+            credentials: "include"
+            // Ggf. Body falls nötig
         });
         const data = await res.json();
+        
+        // --- FIX: Run SOFORT auf dem Server löschen ---
+        // Damit ist der Spielstand weg. Ein F5 führt jetzt zurück ins Hauptmenü (ohne "Weiter"-Button).
+        await fetch("/api/adventure/clear-run", { method: "POST", credentials: "include" });
+        // ----------------------------------------------
+
         setEndScreenData({ ...data, kills: finalState.kills, stage: finalState.stage, earnedCredits: data.earnedCredits || earnedCredits });
         refreshData(); 
       } catch(e) {
-          // Fallback Credits
+          // --- FIX: Auch bei Fehler (z.B. Internet weg) versuchen zu löschen ---
+          // Verhindert, dass man bei Netzwerkfehlern neu laden kann
+          try { await fetch("/api/adventure/clear-run", { method: "POST", credentials: "include" }); } catch(err) {}
+          // ---------------------------------------------------------------------
+
           setEndScreenData({ earnedCredits: earnedCredits, kills: finalState.kills, stage: finalState.stage });
       } 
   };
@@ -316,14 +347,41 @@ export default function AdventureGame() {
         } catch(e) {}
     };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
        if(engineRef.current) {
-          autoSave(true);
+          const engine = engineRef.current;
+          const completedStage = engine.state.stage; 
+
+          // 1. Stage erhöhen
+          engine.state.stage = completedStage + 1;
+
+          // 2. WICHTIG: ZUERST die neue Stage generieren.
+          // Dadurch wird das neue Theme (Random oder Boss) festgelegt und in engine.state.currentTheme geschrieben.
+          engine.spawnStage(); 
+          
+          // 3. Engine-Status "sauber" machen (Standardmäßig Spiel läuft)
+          engine.state.inShop = false; 
+          engine.state.paused = false;
+
+          // 4. JETZT speichern. 
+          // Jetzt wird das gerade generierte Theme mitgespeichert.
+          await autoSave(true);
+          
           setMenuView('GAME');
-          const stage = engineRef.current.state.stage;
-          if (stage > 0 && stage % 10 === 0) setMenuView('MILESTONE_SELECT');
-          else if (stage > 0 && stage % 5 === 0) setMenuView('INGAME_SHOP');
-          else engineRef.current.continueNextStage();
+          
+          // 5. Routing prüfen (Shop / Meilenstein)
+          // Falls wir in einen Shop müssen, pausieren wir die Engine wieder.
+          // Das Level (Theme) im Hintergrund ist aber schon bereit.
+          if (completedStage > 0 && completedStage % 10 === 0) {
+              setMenuView('MILESTONE_SELECT');
+              engine.state.inShop = true; 
+          }
+          else if (completedStage > 0 && completedStage % 5 === 0) {
+              setMenuView('INGAME_SHOP');
+              engine.state.inShop = true; 
+          }
+          
+          // Falls kein Shop: Spiel läuft einfach weiter (inShop = false haben wir bei Schritt 3 schon gesetzt)
        }
   };
 
@@ -337,8 +395,10 @@ export default function AdventureGame() {
     engine.state.paused = false; 
     engine.state.inShop = false; 
 
-    if (engine.state.stageKills >= engine.state.killsRequired) {
-        engine.continueNextStage();
+    // FIX: Nur spawnStage() aufrufen, nicht continueNextStage()
+    // continueNextStage würde stage++ machen, was wir jetzt schon vorher erledigt haben.
+    if (engine.state.stageKills >= engine.state.killsRequired || engine.state.doorOpen) {
+        engine.spawnStage(); 
     }
   };
   
@@ -387,7 +447,6 @@ export default function AdventureGame() {
         switch(type) {
             case 'damage': return 0.5;
             case 'maxHp': return 20;
-            case 'speed': return 0.1;
             case 'magnet': return 1;
             case 'fireRate': return 0.2; // +20% Angriffsgeschwindigkeit
             case 'luck': return 0.5;
@@ -820,9 +879,6 @@ export default function AdventureGame() {
                     <ShopItem title="Rüstung" desc="+20 Max HP" baseCost={150} icon="🛡️" currentVal={gameState.stats.maxHp}
                         onClick={() => buyIngameUpgrade('maxHp', 150)} gold={gameState.gold} 
                         scaling={true} selected={selectedShopItem === 'maxHp'} actualCost={getPrice('maxHp', 150)} />
-                    <ShopItem title="Leichtfüßig" desc="+10% Speed" baseCost={300} icon="👟" currentVal={gameState.stats.speed.toFixed(1)}
-                        onClick={() => buyIngameUpgrade('speed', 300)} gold={gameState.gold} 
-                        scaling={true} selected={selectedShopItem === 'speed'} actualCost={getPrice('speed', 300)} />
                     <ShopItem title="Münzmagnet" desc="+Reichweite" baseCost={400} icon="🧲" currentVal={Math.floor(gameState.stats.magnet)}
                         onClick={() => buyIngameUpgrade('magnet', 400)} gold={gameState.gold} 
                         scaling={true} selected={selectedShopItem === 'magnet'} actualCost={getPrice('magnet', 400)} />

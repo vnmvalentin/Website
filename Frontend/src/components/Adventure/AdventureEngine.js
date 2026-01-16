@@ -39,6 +39,19 @@ export default class AdventureEngine {
           boss1_slam: new Image(),    
           enemy_slime: new Image(),
 
+          // BOSS BILDER 2
+          boss2_fly1: new Image(), boss2_fly2: new Image(), 
+          boss2_fly3: new Image(), boss2_fly4: new Image(), // NEU: 4 Flug-Frames
+          
+          boss2_walk1: new Image(), boss2_walk2: new Image(), // NEU: Lauf-Frames
+          
+          boss2_idle: new Image(), // Stand
+          
+          boss2_charge: new Image(), // NEU: Aufladen
+          boss2_attack1: new Image(), boss2_attack2: new Image(), // NEU: Attacke/Beam
+          
+          warning_circle: new Image(), lightning_strike: new Image(), electric_ball: new Image(),
+
 
 
       };
@@ -121,11 +134,30 @@ export default class AdventureEngine {
       this.sprites.ice_block = new Image(); set(this.sprites.ice_block, "effects/ice_block.png"); // Ein Eisblock Bild
       this.sprites.fire_particle = new Image(); set(this.sprites.fire_particle, "effects/fire.png"); // Kleine Flamme
 
-      // Boss (Manuell laden)
+      // Boss 1 (Manuell laden)
       set(this.sprites.boss1_idle, "boss1/boss1.png");
       set(this.sprites.boss1_charge1, "boss1/bossattack1.png");
       set(this.sprites.boss1_charge2, "boss1/bossattack2.png");
       set(this.sprites.boss1_slam, "boss1/bossattack3.png");
+
+      // Boss 2 
+      set(this.sprites.boss2_fly1, "boss2/dragon_fly1.png");
+      set(this.sprites.boss2_fly2, "boss2/dragon_fly2.png");
+      set(this.sprites.boss2_fly3, "boss2/dragon_fly3.png"); // NEU
+      set(this.sprites.boss2_fly4, "boss2/dragon_fly4.png"); // NEU
+      
+      set(this.sprites.boss2_walk1, "boss2/dragon_walk1.png"); // NEU
+      set(this.sprites.boss2_walk2, "boss2/dragon_walk2.png"); // NEU
+
+      set(this.sprites.boss2_idle, "boss2/dragon_idle.png");
+      set(this.sprites.boss2_charge, "boss2/dragon_charge.png"); // NEU
+      
+      set(this.sprites.boss2_attack1, "boss2/dragon_attack.png"); // NEU
+      set(this.sprites.boss2_attack2, "boss2/dragon_attack2.png"); // NEU
+      
+      set(this.sprites.warning_circle, "boss2/warning_red.png");
+      set(this.sprites.lightning_strike, "boss2/lightning.png");
+      set(this.sprites.electric_ball, "boss2/electric_ball.png");
 
       // --- 2. AUTOMATISIERTE GEGNER LADEN ---
       // name: Der Key für den Code. file: Die Basis-Datei. 
@@ -194,9 +226,9 @@ export default class AdventureEngine {
       if(imagesToLoad === 0 && this.onAssetsLoaded) this.onAssetsLoaded();
 
       this.baseStats = initialData?.baseStats || { 
-          damage: 1, 
-          speed: 1, 
+          damage: 1,  
           maxHp: 100, 
+          speed: 1,
           multishot: 0, 
           lifesteal: 0, 
           luck: 1, 
@@ -231,7 +263,7 @@ export default class AdventureEngine {
             x: 1000, y: 1000, 
             hp: initialData?.hp || this.baseStats.maxHp, 
             maxHp: this.baseStats.maxHp, 
-            speed: 3, 
+            speed: 3.5, 
             size: 24, 
             gold: initialData?.gold || 0,
             facingLeft: false, 
@@ -240,6 +272,7 @@ export default class AdventureEngine {
             poisonedTimer: 0,
             burnTimer: 0,    // NEU
             freezeTimer: 0,  // NEU
+            stunTimer: 0,
             flashRedTimer: 0,
             fastShotTimer: 0,
             fastBootsTimer: 0
@@ -366,6 +399,17 @@ export default class AdventureEngine {
             currentTheme: this.state.currentTheme,
         };
     }
+    
+    getZoomBase() {
+        if (!this.state) return 1.5;
+        // Prüfen ob Drachen Boss (Stage 20, 40, 60...)
+        // Die Logik muss zur spawnStage Logik passen (bossCycle % 2 === 0)
+        const bossCycle = Math.round(this.state.stage / 10);
+        const isDragonBoss = (this.state.stage > 0 && this.state.stage % 10 === 0 && bossCycle % 2 === 0);
+
+        // Wenn Drache: Zoom 1.0 (weit weg), Sonst: Zoom 1.5 (nah dran)
+        return isDragonBoss ? 1.0 : 1.5;
+    }
 
     getBossData(stage) {
         // Stage 10, 30, 50... -> Slime Boss (Puddle Intro)
@@ -385,16 +429,15 @@ export default class AdventureEngine {
             };
         }
         else {
-            // Stage 20, 40, 60... -> Dark Knight (Skyfall Intro)
+            // STAGE 20, 40 etc -> ELECTRO DRAGON
             return {
-                type: "dark_knight",
-                name: "DARK KNIGHT",
-                sprite: this.sprites.player, // Placeholder: Nutzt Player-Sprite oder lade ein eigenes
-                theme: 6, // Lava Theme als Arena
-                minion: "skeletonwarrior",
-                hpMulti: 1.5,
-                introStyle: "drop", // Fällt vom Himmel
-                color: "red"
+                type: "electric_dragon",
+                name: "THUNDERWING",
+                sprite: this.sprites.boss2_idle, 
+                theme: 6, // Ein dunkleres Theme passt gut zu Blitzen // Oder etwas passendes
+                hpMulti: 1.8,
+                introStyle: "fly_in", // Neue Intro Art
+                color: "yellow"
             };
         }
     }
@@ -403,7 +446,7 @@ export default class AdventureEngine {
     spawnStage() {
         const s = this.state;
         this.stageBaseStatsSnapshot = JSON.parse(JSON.stringify(this.baseStats));
-        s.player.speed = 3 * this.baseStats.speed;
+        s.player.speed = 3.5 * (this.baseStats.speed || 1);
         s.bullets = []; s.enemyBullets = []; s.enemies = []; 
         s.drops = []; s.obstacles = []; s.acidPuddles = []; 
 
@@ -420,25 +463,6 @@ export default class AdventureEngine {
        
         // Reset Top Message
         this.onUpdateUI({ topMessage: null });
-
-        s.isBossStage = (s.stage > 0 && s.stage % 10 === 0);
-        s.bossMinionType = null;
-
-        // Prüfen, ob wir ein Theme aus einem Savegame laden müssen
-        if (s.isBossStage) {
-            // Boss Arena Theme setzen (z.B. Lava für Ritter, Cave für Slime)
-            const bossData = this.getBossData(s.stage);
-            s.currentTheme = bossData.theme;
-            s.bossMinionType = bossData.minion;
-        } 
-        else if (this.pendingTheme !== undefined && this.pendingTheme !== null) {
-            // Theme aus Savegame laden
-             s.currentTheme = this.pendingTheme;
-             this.pendingTheme = null; 
-        } else {
-             // Zufall für normale Stages
-             s.currentTheme = Math.floor(Math.random() * 5); 
-        }
 
         if (s.stage === 0) {
             this.worldWidth = 1000;
@@ -460,36 +484,82 @@ export default class AdventureEngine {
             return; // Keine weitere Generierung
         }
 
+        s.isBossStage = (s.stage > 0 && s.stage % 10 === 0);
+        s.bossMinionType = null;
+
+        const minZoom = this.getZoomBase();
+        this.zoom = Math.max(minZoom, Math.min(this.width / 1400, 3.0));
+
+        // Prüfen, ob wir ein Theme aus einem Savegame laden müssen
         if (s.isBossStage) {
-            // BOSS SETUP
-            // Kills Required hoch setzen, damit Tür erst beim Boss-Tod aufgeht
+            // Boss Arena Theme setzen (z.B. Lava für Ritter, Cave für Slime)
+            const bossData = this.getBossData(s.stage);
+            s.currentTheme = bossData.theme;
+            s.bossMinionType = bossData.minion;
+        } 
+        else if (this.pendingTheme !== undefined && this.pendingTheme !== null) {
+            // Theme aus Savegame laden
+             s.currentTheme = this.pendingTheme;
+             this.pendingTheme = null; 
+        } else {
+             // Zufall für normale Stages
+             s.currentTheme = Math.floor(Math.random() * 5); 
+        }
+
+
+        if (s.isBossStage) {
             s.killsRequired = 99999; 
             
-            // Kleinere Map für Bossfight (Arena)
-            this.worldWidth = 1200;
-            this.worldHeight = 1200;
-
-            // Feste Positionen für Arena-Feeling
-            s.player.x = 600; 
-            s.player.y = 1000;
+            const bossData = this.getBossData(s.stage);
             
-            s.doorPos = { x: 600, y: 200 }; // Boss Thron / Exit Position
+            if (bossData.type === "electric_dragon") {
+                // 1:1 Format, aber kleiner (z.B. 1400x1400)
+                this.worldWidth = 1400;
+                this.worldHeight = 1400;
+                
+                // SPIELER SPAWN: Oben Rechts
+                s.player.x = 1280; 
+                s.player.y = 370;
+                
+                // BOSS SPAWN ZIEL (Mitte)
+                s.doorPos = { x: 690, y: 850 }; 
+                
+                // Kamera auf Spieler setzen
+                s.camera.x = s.player.x - (this.width / this.zoom) / 2;
+                s.camera.y = s.player.y - (this.height / this.zoom) / 2;
 
-            // FIX: Kamera SOFORT auf Spieler zentrieren
-            // Sonst startet sie bei den Koordinaten des vorherigen Levels (z.B. unten rechts)
-            const visibleW = this.width / this.zoom;
-            const visibleH = this.height / this.zoom;
-            s.camera.x = s.player.x - visibleW / 2;
-            s.camera.y = s.player.y - visibleH / 2
+                s.cutscene = {
+                    active: true,
+                    phase: 0, 
+                    timer: 0,
+                    targetX: s.doorPos.x,
+                    targetY: s.doorPos.y
+                };
 
-            // Cutscene initialisieren
-            s.cutscene = {
-                active: true,
-                phase: 0, // 0: Start delay, 1: Move Cam to Boss, 2: Boss Spawn, 3: Move Cam Back, 4: Fight
-                timer: 0,
-                targetX: s.doorPos.x,
-                targetY: s.doorPos.y
-            };
+
+            } else {
+                // ... (Code für Slime Boss / Standard Arena) ...
+                this.worldWidth = 1200;
+                this.worldHeight = 1200;
+                s.player.x = 600; s.player.y = 1000;
+                s.doorPos = { x: 600, y: 200 };
+
+                    // FIX: Kamera SOFORT auf Spieler zentrieren
+                    // Sonst startet sie bei den Koordinaten des vorherigen Levels (z.B. unten rechts)
+                    const visibleW = this.width / this.zoom;
+                    const visibleH = this.height / this.zoom;
+                    s.camera.x = s.player.x - visibleW / 2;
+                    s.camera.y = s.player.y - visibleH / 2
+
+                    // Cutscene initialisieren
+                    s.cutscene = {
+                        active: true,
+                        phase: 0, // 0: Start delay, 1: Move Cam to Boss, 2: Boss Spawn, 3: Move Cam Back, 4: Fight
+                        timer: 0,
+                        targetX: s.doorPos.x,
+                        targetY: s.doorPos.y
+                    };
+                }
             
         } else {
             // NORMAL STAGE
@@ -558,6 +628,23 @@ export default class AdventureEngine {
 
     handleSpawning() {
         const s = this.state;
+        if (s.stage === 0) return;
+
+        if (s.isBossStage) {
+            // Wir holen die Daten für die aktuelle Stage
+            const bossData = this.getBossData(s.stage);
+
+            // FALL A: Electric Dragon (Stage 20, 40...) -> KEINE MINIONS
+            if (bossData.type === "electric_dragon") {
+                return; // Keine Gegner spawnen lassen, nur der Boss ist da
+            }
+            
+            // FALL B: Slime King (Stage 10, 30...) -> MINIONS ERLAUBT
+            // Wir lassen den Code weiterlaufen, damit Slimes spawnen
+            // Aber nur, wenn der Boss schon da ist (Cutscene vorbei)
+            if (!s.bossSpawned) return; 
+        }
+
         const now = Date.now();
         
         if (s.isBossStage) {
@@ -582,10 +669,11 @@ export default class AdventureEngine {
         this.width = w;
         this.height = h;
         
-        // NEU: Zoom dynamisch anpassen
-        // Wenn das Fenster breiter wird, zoomen wir rein, damit die Figuren nicht winzig werden.
-        // Der Wert '800' ist ein Referenzwert. Kleiner = stärkerer Zoom.
-        this.zoom = Math.max(1.5, Math.min(w / 1400, 3.0));
+        // Nutzt jetzt die Logik von oben
+        const minZoom = this.getZoomBase();
+        
+        // Wir nehmen den größeren Wert (minZoom) oder das was der Screen erlaubt
+        this.zoom = Math.max(minZoom, Math.min(w / 1400, 3.0));
     }
 
     spawnBoss() {
@@ -596,28 +684,38 @@ export default class AdventureEngine {
         const dmg = 20 + s.stage * 2;
         
         let startScaleY = 1;
+        
+        // --- KORREKTUR START ---
+        // Wir definieren temporäre Variablen für die Positionen
+        let startX = s.doorPos.x;
         let startY = s.doorPos.y;
+        let targetY = s.doorPos.y;
         
         if (config.introStyle === "grow") {
             startScaleY = 0; 
-        } else if (config.introStyle === "drop") {
-            startY = -400; 
+        } 
+        else if (config.introStyle === "fly_in") {
+            // Startet weit oben außerhalb des Bildschirms (Mitte X)
+            startX = s.doorPos.x;
+            startY = -600; 
+            targetY = s.doorPos.y; // Fliegt zur Mitte
         }
+        // --- KORREKTUR ENDE ---
 
         const bossObj = {
-            x: s.doorPos.x, 
+            x: startX,      // Hier die Variablen nutzen
             y: startY, 
-            targetY: s.doorPos.y, 
+            targetY: targetY, 
             
             hp: hp * config.hpMulti, 
             maxHp: hp * config.hpMulti, 
-            speed: (config.type === "dark_knight" ? 3.5 : 2), 
+            speed: (config.type === "electric_dragon" ? 3.5 : 2), 
             damage: dmg, 
             size: 100, 
             
             type: "boss", 
             bossType: config.type, 
-            name: config.name, // FIX: Name muss hier rein, damit UI ihn findet!
+            name: config.name, 
             ai: "boss", 
             
             sprite: config.sprite, 
@@ -634,14 +732,24 @@ export default class AdventureEngine {
             state: 'intro', 
             stateTimer: 0,
             patternCount: 0,
-            minionType: config.minion 
+            minionType: config.minion,
+            attackAngle: 0
         };
         
         s.enemies.push(bossObj);
         s.bossSpawned = true;
-        return bossObj; // Return für sofortige Verwendung
+        return bossObj; 
     }
 
+    spawnLightningWarning(x, y) {
+        this.state.effects.push({
+            type: "lightning_area",
+            x: x, y: y,
+            r: 60, 
+            timer: 100, // ERHÖHT: Längeres Delay vor dem Einschlag
+            stage: "warn" 
+        });
+    }
     spawnExitGuards() {
         for(let i=0; i<3; i++) {
             const angle = (Math.PI * 2 / 5) * i;
@@ -675,10 +783,10 @@ export default class AdventureEngine {
 
         const difficultyTier = Math.floor((s.stage - 1) / 5);
         
-        let hp = 20 + (s.stage * 8) + (difficultyTier * 60);
-        let dmg = 8 + (s.stage * 1.5) + (difficultyTier * 5);
-        let speed = 2.8 + (difficultyTier * 0.4); 
-        speed = Math.min(7, speed);
+        let hp = 20 + (s.stage * 8) + (difficultyTier * 70);
+        let dmg = 8 + (s.stage * 1.5) + (difficultyTier * 7);
+        let speed = 2.8 + (difficultyTier * 0.2); 
+        speed = Math.min(4, speed);
 
         let type = "basic", sprite = null, ai = "chase", size = 22, color = "red", projectileSprite = "proj_basic";
         const rand = Math.random();
@@ -804,18 +912,14 @@ export default class AdventureEngine {
         const p = this.state.player;
         if(upgrades.maxHp) { this.baseStats.maxHp += upgrades.maxHp; p.maxHp = this.baseStats.maxHp; p.hp += upgrades.maxHp; }
         if(upgrades.damage) this.baseStats.damage += upgrades.damage;
-        if(upgrades.speed) {
-             this.baseStats.speed += upgrades.speed;
-             // FIX: Sofort auf den Spieler anwenden, damit man im Shop-Screen schon den Effekt hat/sieht
-             p.speed = 3 * this.baseStats.speed;
-        }
         if(upgrades.multishot) this.baseStats.multishot += upgrades.multishot;
         if(upgrades.lifesteal) this.baseStats.lifesteal += upgrades.lifesteal;
         if(upgrades.magnet) this.baseStats.magnet += upgrades.magnet; 
         if(upgrades.piercing) this.baseStats.piercing = (this.baseStats.piercing || 0) + upgrades.piercing;
         if(upgrades.fireRate) this.baseStats.fireRate = (this.baseStats.fireRate || 1) + upgrades.fireRate;
         if(upgrades.luck) this.baseStats.luck += upgrades.luck;
-        p.speed = 3 * this.baseStats.speed;
+        this.baseStats.speed = 1;
+        p.speed = 3.5 * this.baseStats.speed;
     }
 
     triggerPowerup(index) {
@@ -880,103 +984,180 @@ export default class AdventureEngine {
     update() {
       if (this.state.paused || this.state.gameOver || this.state.inShop) return;
       const s = this.state;
+
+      let isMoving = false;
+      if (s.player.freezeTimer <= 0 && !s.cutscene.active) {
+          if (s.keys.w || s.keys.s || s.keys.a || s.keys.d) isMoving = true;
+      }
+
+      if (s.player.stunTimer > 0) {
+            s.player.stunTimer--;
+            // Optional: Visueller Effekt über dem Spieler
+            if (s.player.stunTimer % 10 < 5) {
+                this.showFloatingText(s.player.x, s.player.y - 50, "⚡", "yellow", 5);
+            }
+        }
+
+      // 2. Sprite Update (JETZT HIER OBEN)
+      const pAnim = this.animSprites["player"];
+      if (pAnim) {
+          let newSprite = pAnim.idle;
+          if (isMoving && pAnim.run) {
+              const tick = Math.floor(Date.now() / 150);
+              if (tick % 2 === 0) newSprite = pAnim.run;
+          }
+          if ((s.mouse.down || s.keys[" "]) && pAnim.attack.length > 0 && !s.cutscene.active) {
+             newSprite = pAnim.attack[0]; 
+          }
+          s.player.sprite = newSprite;
+      } else {
+          s.player.sprite = this.sprites.player;
+      }
       
       // --- CUTSCENE LOGIC ---
       if (s.cutscene.active) {
           s.cutscene.timer++;
           const t = s.cutscene.timer;
           
+          // Wir holen uns schonmal die Boss-Daten (falls gespawnt) oder generieren sie vorab zur Info
+          // Da der Boss erst in Phase 1 spawnt, schauen wir auf 'getBossData' für die Planung
+          const bossConfig = this.getBossData(s.stage);
+
           if (s.cutscene.phase === 0) {
-               if (t > 30) { s.cutscene.phase = 1; s.cutscene.timer = 0; }
+               // Kurzes Warten bevor es losgeht
+               if (t > 60) { s.cutscene.phase = 1; s.cutscene.timer = 0; }
           }
           else if (s.cutscene.phase === 1) {
-               // FIX: Ziel ist Boss-Position MINUS halbe Bildschirmgröße (durch Zoom geteilt)
+               // --- KAMERA FAHRT ZUM STARTPUNKT ---
                const visibleW = this.width / this.zoom;
                const visibleH = this.height / this.zoom;
                
-               const targetCamX = s.cutscene.targetX - (visibleW / 2);
-               const targetCamY = s.cutscene.targetY - (visibleH / 2);
+               let targetCamX = s.doorPos.x - (visibleW / 2);
+               let targetCamY = s.doorPos.y - (visibleH / 2);
 
-               s.camera.x += (targetCamX - s.camera.x) * 0.05;
-               s.camera.y += (targetCamY - s.camera.y) * 0.05;
+               // SPEZIAL DRACHE: Kamera guckt erst in den Himmel
+               if (bossConfig.type === "electric_dragon") {
+                   targetCamY = -400; 
+               }
+
+               s.camera.x += (targetCamX - s.camera.x) * 0.04;
+               s.camera.y += (targetCamY - s.camera.y) * 0.04;
                
-               if (t > 100) { 
-                   // FIX: Spawn Boss returns object with NAME
+               // Wenn Zeit um ist -> Boss spawnen
+               if (t > 120) { 
                    const newBoss = this.spawnBoss(); 
                    s.cutscene.phase = 2; 
                    s.cutscene.timer = 0; 
-                   
-                   // FIX: Direkt den Namen verwenden
-                   this.onUpdateUI({ topMessage: newBoss.name + " ERSCHEINT!" });
-                   setTimeout(() => { if(this.state.running) this.onUpdateUI({topMessage: null}); }, 1500);
                }
           }
           else if (s.cutscene.phase === 2) {
-               // --- BOSS INTRO ANIMATION ---
+               // --- INTRO ANIMATION (Geteilt) ---
                const boss = s.enemies.find(e => e.isBoss);
+               const visibleH = this.height / this.zoom;
+
                if (boss) {
-                   if (boss.introStyle === "grow") {
-                       boss.visible = true;
-                       boss.scaleY += 0.005; 
-                       if (boss.scaleY >= 1) { boss.scaleY = 1; boss.state = 'idle'; }
+                   // === FALL A: DRACHE (Fliegt rein) ===
+                   if (boss.introStyle === "fly_in") {
+                        boss.visible = true;
+                        
+                        // 1. langsame Bewegung nach unten
+                        boss.y += 5; 
+
+                        // 2. Kamera folgt dem Drachen sanft nach unten
+                        // Wir wollen den Drachen im oberen Drittel behalten
+                        const desiredCamY = boss.y - (visibleH * 0.3);
+                        s.camera.y += (desiredCamY - s.camera.y) * 0.08;
+                        
+                        // Animation
+                        const tick = Math.floor(Date.now() / 150);
+                        const frame = tick % 4;
+                        if(frame === 0) boss.sprite = this.sprites.boss2_fly1;
+                        else if(frame === 1) boss.sprite = this.sprites.boss2_fly2;
+                        else if(frame === 2) boss.sprite = this.sprites.boss2_fly3;
+                        else boss.sprite = this.sprites.boss2_fly4;
+
+                        // Landung prüfen
+                        if (boss.y >= boss.targetY) {
+                            boss.y = boss.targetY;
+                            boss.state = 'idle';
+                            boss.sprite = this.sprites.boss2_idle; 
+                            
+                            // Warten (Delay nach Landung für Dramatik)
+                            if (s.cutscene.timer > 200) { 
+                                 s.cutscene.phase = 3; 
+                                 s.cutscene.timer = 0;
+                            }
+                        }
                    } 
-                   else if (boss.introStyle === "drop") {
-                       boss.y += (boss.targetY - boss.y) * 0.1;
-                       if (Math.abs(boss.y - boss.targetY) < 5) { boss.y = boss.targetY; boss.state = 'idle'; }
+                   // === FALL B: SLIME (Wächst aus Boden) ===
+                   else if (boss.introStyle === "grow") {
+                       boss.visible = true;
+                       boss.scaleY += 0.01;
+                       if (boss.scaleY >= 1) { 
+                           boss.scaleY = 1; 
+                           // Slime geht sofort in Phase 3 über, keine Landepause nötig
+                           s.cutscene.phase = 3; 
+                           s.cutscene.timer = 0; 
+                       }
                    }
-               }
-               if (boss && boss.introStyle === "grow" && boss.scaleY < 1) {
-                   // Warten...
-               } else if (t > 120) { 
-                   if(boss) { boss.scaleY = 1; boss.y = boss.targetY; boss.visible = true; }
-                   s.cutscene.phase = 3; 
-                   s.cutscene.timer = 0; 
                }
           }
           else if (s.cutscene.phase === 3) {
+              // --- BOSS ACTION / SCHREI ---
               const boss = s.enemies.find(e => e.isBoss);
+              
               if (boss) {
-                  if (t < 20) boss.sprite = this.sprites.boss1_charge1;
-                  else if (t < 40) boss.sprite = this.sprites.boss1_charge2;
-                  else boss.sprite = this.sprites.boss1_slam;
-                  if (t === 10) this.showFloatingText(boss.x, boss.y - 100, "ROAAAAR!!!", "red", 60);
+                  // === DRACHE ===
+                  if (boss.bossType === "electric_dragon") {
+                      // Kamera wackelt stark beim Schrei
+                      s.camera.x += (Math.random()-0.5) * 6;
+                      s.camera.y += (Math.random()-0.5) * 6;
+                      
+                      boss.sprite = this.sprites.boss2_attack1; // Mund offen
+                      
+                      if (t === 10) this.showFloatingText(boss.x, boss.y - 120, "ROAAAAR!!!", "red", 80);
+                  } 
+                  // === SLIME ===
+                  else {
+                      // Die alte Slime Animation (Charge -> Slam)
+                      if (t < 20) boss.sprite = this.sprites.boss1_charge1;
+                      else if (t < 40) boss.sprite = this.sprites.boss1_charge2;
+                      else boss.sprite = this.sprites.boss1_slam;
+                      
+                      if (t === 10) this.showFloatingText(boss.x, boss.y - 100, "BLUBB!!", "lime", 60);
+                  }
               }
-              if (t > 80) {
-                  if(boss) boss.sprite = this.sprites.boss1_idle; 
+
+              // Länge der Phase
+              if (t > 100) { 
+                  if(boss) boss.sprite = (boss.bossType === "electric_dragon") ? this.sprites.boss2_idle : this.sprites.boss1_idle; 
                   s.cutscene.phase = 4; 
                   s.cutscene.timer = 0;
+                  this.onUpdateUI({ topMessage: null }); 
               }
           }
           else if (s.cutscene.phase === 4) {
+              // --- ZURÜCK ZUM SPIELER ---
+              // Das ist für beide gleich
               const visibleW = this.width / this.zoom;
               const visibleH = this.height / this.zoom;
-              
               const targetCamX = s.player.x - visibleW / 2;
               const targetCamY = s.player.y - visibleH / 2;
 
-              // Weiche Fahrt zum Spieler
-              s.camera.x += (targetCamX - s.camera.x) * 0.08;
-              s.camera.y += (targetCamY - s.camera.y) * 0.08;
+              s.camera.x += (targetCamX - s.camera.x) * 0.05;
+              s.camera.y += (targetCamY - s.camera.y) * 0.05;
 
               if (t > 60) {
                   s.cutscene.active = false;
+                  // ... Kampf Start ...
                   const boss = s.enemies.find(e => e.isBoss);
                   if(boss) boss.state = 'idle'; 
                   
-                  // START ÄNDERUNG
                   this.onUpdateUI({ topMessage: "FIGHT!" });
-                  
-                  // Nach 2 Sekunden (2000ms) die Nachricht wieder löschen
-                  setTimeout(() => {
-                      // Wir prüfen kurz, ob das Spiel noch läuft, um Fehler zu vermeiden
-                      if(this.state.running) {
-                          this.onUpdateUI({ topMessage: null });
-                      }
-                  }, 2000);
-                  // ENDE ÄNDERUNG
+                  setTimeout(() => { if(this.state.running) this.onUpdateUI({ topMessage: null }); }, 2000);
               }
           }
-          return; // UPDATE HIER ABBRECHEN WÄHREND CUTSCENE
+          return; 
       }
 
       const now = Date.now();
@@ -1036,13 +1217,12 @@ export default class AdventureEngine {
 
       // Player Movement
       const currentSpeed = s.player.speed * (s.player.fastBootsTimer > 0 ? 2 : 1);
-      let isMoving = false;
-      if (s.player.freezeTimer <= 0) {
-          if (s.keys.w) { s.player.y -= currentSpeed; isMoving = true; }
-          if (s.keys.s) { s.player.y += currentSpeed; isMoving = true; }
-          if (s.keys.a) { s.player.x -= currentSpeed; isMoving = true; }
-          if (s.keys.d) { s.player.x += currentSpeed; isMoving = true; }
-      }
+      if (s.player.freezeTimer <= 0 && s.player.stunTimer <= 0) {
+        if (s.keys.w) { s.player.y -= currentSpeed; isMoving = true; }
+        if (s.keys.s) { s.player.y += currentSpeed; isMoving = true; }
+        if (s.keys.a) { s.player.x -= currentSpeed; isMoving = true; }
+        if (s.keys.d) { s.player.x += currentSpeed; isMoving = true; }
+    }
       
       s.player.x = Math.max(s.player.size, Math.min(this.worldWidth - s.player.size, s.player.x));
       s.player.y = Math.max(s.player.size, Math.min(this.worldHeight - s.player.size, s.player.y));
@@ -1078,30 +1258,6 @@ export default class AdventureEngine {
           
           let targetY = s.player.y - visibleHeight / 2;
           s.camera.y = Math.max(minY, Math.min(maxY, targetY));
-      }
-
-      // NEU: Player Sprite Update
-      const pAnim = this.animSprites["player"];
-      if (pAnim) {
-          // Standard: Idle
-          let newSprite = pAnim.idle;
-
-          // Wenn wir laufen und ein Lauf-Bild haben (player2.png)
-          if (isMoving && pAnim.run) {
-              // Wackeln alle 150ms
-              const tick = Math.floor(Date.now() / 150);
-              if (tick % 2 === 0) newSprite = pAnim.run;
-          }
-          
-          // (Optional) Wenn wir schießen (kurz Attack-Frame zeigen, falls geladen)
-          if ((s.mouse.down || s.keys[" "]) && pAnim.attack.length > 0) {
-             newSprite = pAnim.attack[0]; 
-          }
-
-          s.player.sprite = newSprite;
-      } else {
-          // Fallback falls Animationen nicht geladen wurden
-          s.player.sprite = this.sprites.player;
       }
 
       // Mouse Update korrigieren (bleibt gleich, aber wichtig für Verständnis)
@@ -1141,7 +1297,7 @@ export default class AdventureEngine {
 
       if (s.player.fastShotTimer > 0) fireDelay /= 2.5;
 
-      if ((s.mouse.down || s.keys[" "]) && now - s.lastShot > fireDelay) { 
+      if ((s.mouse.down || s.keys[" "]) && now - s.lastShot > fireDelay && s.player.stunTimer <= 0) {
         const worldMouseY = s.mouse.y + s.camera.y;
         const angle = Math.atan2(worldMouseY - s.player.y, worldMouseX - s.player.x);
         const amount = 1 + Math.floor(this.baseStats.multishot);
@@ -1177,7 +1333,9 @@ export default class AdventureEngine {
              s.enemies.forEach(e => {
                   // FIX: Sicherstellen, dass hitList existiert
                   if (!b.hitList) b.hitList = []; 
-                  if (b.hitList.includes(e)) return; // Schon getroffen?
+                  if (b.hitList.includes(e)) return;
+                  
+                  if (e.invincible) return;
                   
                   if(Math.hypot(b.x - e.x, b.y - e.y) < e.size + b.size) {
                       const isCrit = Math.random() < ((this.baseStats.luck || 1) * 0.05);
@@ -1302,8 +1460,235 @@ export default class AdventureEngine {
               this.showFloatingText(s.player.x, s.player.y, "DECOY DESTROYED", "gray");
           }
           
+
           // --- AI BEHAVIOR ---
-          else if (e.ai === 'boss') {
+          if (e.bossType === 'electric_dragon') {
+    
+            const isPhase2 = e.hp < e.maxHp * 0.5;
+
+            // Speed: Etwas langsamer als Spieler
+            e.speed = s.player.speed * 0.85; 
+
+            if (!e.state) e.state = 'idle';
+            if (!e.patternCount) e.patternCount = 0;
+
+            // --- STATES ---
+            
+            if (e.state === 'idle') {
+                e.stateTimer += isPhase2 ? 1.5 : 1;
+                
+                // Movement (Chase)
+                const dist = Math.hypot(s.player.x - e.x, s.player.y - e.y);
+                const angle = Math.atan2(s.player.y - e.y, s.player.x - e.x);
+                
+                if (dist > 150) {
+                    e.x += Math.cos(angle) * e.speed;
+                    e.y += Math.sin(angle) * e.speed;
+                    const tick = Math.floor(Date.now() / 150);
+                    e.sprite = (tick % 2 === 0) ? this.sprites.boss2_walk1 : this.sprites.boss2_walk2;
+                } else {
+                    e.state = 'bite_attack'; e.stateTimer = 0;
+                }
+
+                // Attack Selection
+                const attackThreshold = isPhase2 ? 70 : 100;
+
+                if (e.stateTimer > attackThreshold) { 
+                    e.stateTimer = 0;
+                    e.patternCount++;
+                    
+                    if (e.patternCount % 6 === 0) {
+                        e.state = 'fly_up_start'; 
+                    }
+                    else {
+                        let nextAttack = '';
+                        const rand = Math.random();
+                        if (rand < 0.33) nextAttack = 'triple_beam_charge';
+                        else if (rand < 0.66) nextAttack = 'orb_summon';
+                        else nextAttack = 'wall_sweep_start';
+
+                        if (nextAttack === 'wall_sweep_start' && e.lastAttack === 'wall') {
+                             nextAttack = 'orb_summon';
+                        }
+                        e.state = nextAttack;
+                        if (nextAttack === 'wall_sweep_start') e.lastAttack = 'wall';
+                        else e.lastAttack = 'other';
+                    }
+                }
+            }
+
+            // A. NAHKAMPF BISS
+            else if (e.state === 'bite_attack') {
+                e.stateTimer++;
+                if (e.stateTimer < 20) { e.sprite = this.sprites.boss2_charge; } 
+                else {
+                    e.sprite = this.sprites.boss2_attack1;
+                    if (e.stateTimer === 25) {
+                        if (Math.hypot(s.player.x - e.x, s.player.y - e.y) < e.size + s.player.size + 50) {
+                             if (!s.player.shieldActive) {
+                                s.player.hp -= 20; s.player.flashRedTimer = 10;
+                                if(s.player.hp <= 0) this.triggerGameOver();
+                            }
+                        }
+                    }
+                    if (e.stateTimer > 40) e.state = 'idle';
+                }
+            }
+            
+            // B. TRIPLE BEAM
+            else if (e.state === 'triple_beam_charge') {
+                e.stateTimer++;
+                e.sprite = this.sprites.boss2_charge; 
+                
+                const lockTime = isPhase2 ? 30 : 50; 
+                const fireTime = isPhase2 ? 50 : 70; 
+
+                if (e.stateTimer < lockTime) {
+                    e.attackAngle = Math.atan2(s.player.y - e.y, s.player.x - e.x);
+                } else if (e.stateTimer === lockTime) {
+                    this.showFloatingText(e.x, e.y - 80, "TRIPLE BEAM!", "cyan", 20);
+                }
+                
+                if (e.stateTimer > fireTime) { 
+                    e.state = 'triple_beam_fire';
+                    e.stateTimer = 0;
+                }
+            }
+            else if (e.state === 'triple_beam_fire') {
+                e.stateTimer++;
+                const tick = Math.floor(Date.now() / 100);
+                e.sprite = (tick % 2 === 0) ? this.sprites.boss2_attack1 : this.sprites.boss2_attack2;
+
+                if (e.stateTimer % 4 === 0) { 
+                    const angles = [e.attackAngle, e.attackAngle - 0.35, e.attackAngle + 0.35];
+                    let hit = false;
+                    angles.forEach(ang => {
+                        if (hit) return;
+                        const dx = s.player.x - e.x; const dy = s.player.y - e.y;
+                        const dist = Math.hypot(dx, dy);
+                        const beamDx = Math.cos(ang); const beamDy = Math.sin(ang);
+                        const dot = dx * beamDx + dy * beamDy;
+                        const cross = Math.abs(dx * beamDy - dy * beamDx);
+
+                        if (dot > 0 && dist < 1200 && cross < 40) hit = true;
+                    });
+                    
+                    if (hit && !s.player.shieldActive) {
+                        s.player.hp -= 5; s.player.flashRedTimer = 5;
+                        if(s.player.hp <= 0) this.triggerGameOver();
+                    }
+                }
+                if (e.stateTimer > 60) e.state = 'idle';
+            }
+
+            // C. ORBS (LANGSAMER!)
+            else if (e.state === 'orb_summon') {
+                e.stateTimer++;
+                e.sprite = this.sprites.boss2_attack1; 
+                if (e.stateTimer === 25) {
+                    // SPEED CHANGE: 60% vom Spieler Speed (deutlich langsamer)
+                    const ballSpeed = s.player.speed * 0.7;
+                    
+                    const orbCount = isPhase2 ? 8 : 5;
+                    for(let i=0; i<orbCount; i++) {
+                        const angle = (Math.PI * 2 / orbCount) * i;
+                        s.enemyBullets.push({
+                            x: e.x, y: e.y,
+                            vx: Math.cos(angle) * ballSpeed, vy: Math.sin(angle) * ballSpeed,
+                            damage: 15, size: 14, life: 300, 
+                            type: "homing_orb", color: "cyan", 
+                            sprite: this.sprites.electric_ball 
+                        });
+                    }
+                }
+                if (e.stateTimer > 50) e.state = 'idle';
+            }
+
+            // D. ELECTRIC WALL SWEEP (Optik angepasst)
+            else if (e.state === 'wall_sweep_start') {
+                e.stateTimer++;
+                e.sprite = this.sprites.boss2_attack1;
+                if (e.stateTimer === 1) this.showFloatingText(e.x, e.y - 80, "WALL SWEEP!", "purple", 30);
+                
+                if (e.stateTimer > 30) {
+                    const isHorizontal = Math.random() > 0.5;
+                    const wallSpeed = s.player.speed; 
+                    
+                    // OPTIK CHANGE: Engeres Spacing, kleinere Größe
+                    const spacing = 30; // Bälle näher zusammen
+                    const ballSize = 14; // Originalgröße, nicht verzerrt
+                    
+                    const gapSize = 250;
+                    
+                    if (isHorizontal) {
+                        const fromLeft = s.player.x > this.worldWidth / 2;
+                        const startX = fromLeft ? -100 : this.worldWidth + 100;
+                        const velX = fromLeft ? wallSpeed : -wallSpeed;
+                        const gapY = 100 + Math.random() * (this.worldHeight - 200 - gapSize);
+
+                        for (let y = 0; y < this.worldHeight; y += spacing) {
+                            if (y > gapY && y < gapY + gapSize) continue;
+                            s.enemyBullets.push({
+                                x: startX, y: y, vx: velX, vy: 0,
+                                damage: 20, size: ballSize, life: 800,
+                                type: "wall_segment", sprite: this.sprites.electric_ball 
+                            });
+                        }
+                    } else {
+                        const fromTop = Math.random() > 0.5;
+                        const startY = fromTop ? -100 : this.worldHeight + 100;
+                        const velY = fromTop ? wallSpeed : -wallSpeed;
+                        const gapX = 100 + Math.random() * (this.worldWidth - 200 - gapSize);
+
+                        for (let x = 0; x < this.worldWidth; x += spacing) {
+                            if (x > gapX && x < gapX + gapSize) continue;
+                            s.enemyBullets.push({
+                                x: x, y: startY, vx: 0, vy: velY,
+                                damage: 20, size: ballSize, life: 800,
+                                type: "wall_segment", sprite: this.sprites.electric_ball
+                            });
+                        }
+                    }
+                    e.state = 'idle'; e.stateTimer = 0;
+                }
+            }
+
+            // E. ULTIMATE: RAIN
+            else if (e.state === 'fly_up_start') {
+                e.stateTimer++;
+                const tick = Math.floor(Date.now() / 150);
+                e.sprite = [this.sprites.boss2_fly1, this.sprites.boss2_fly2, this.sprites.boss2_fly3, this.sprites.boss2_fly4][tick % 4];
+                e.y -= 5; e.invincible = true; 
+                if (e.stateTimer > 40) { e.state = 'raining'; e.stateTimer = 0; e.rainWaves = 0; }
+            }
+            else if (e.state === 'raining') {
+                e.stateTimer++;
+                const tick = Math.floor(Date.now() / 150);
+                e.sprite = [this.sprites.boss2_fly1, this.sprites.boss2_fly2, this.sprites.boss2_fly3, this.sprites.boss2_fly4][tick % 4];
+                e.x += Math.sin(Date.now() / 500) * 3;
+                const waveDelay = isPhase2 ? 25 : 45;
+                if (e.stateTimer % waveDelay === 0) { 
+                    e.rainWaves++;
+                    this.spawnLightningWarning(s.player.x, s.player.y); 
+                    const bolts = isPhase2 ? 6 : 3;
+                    for(let i=0; i<bolts; i++) {
+                        const ang = Math.random()*6.28; const d = 100 + Math.random()*500;
+                        this.spawnLightningWarning(s.player.x + Math.cos(ang)*d, s.player.y + Math.sin(ang)*d);
+                    }
+                }
+                if (e.rainWaves >= (isPhase2?10:6)) { e.state = 'land'; e.stateTimer = 0; }
+            }
+            else if (e.state === 'land') {
+                e.sprite = this.sprites.boss2_fly1; e.y += 9; 
+                if (e.y >= s.doorPos.y) {
+                    e.y = s.doorPos.y; this.showFloatingText(e.x, e.y, "BOOM!", "yellow", 40);
+                    e.invincible = false; e.state = 'idle';
+                }
+            }
+        }
+
+
+          else if (e.bossType === 'slime_king') {
                // Boss AI Machine
                // Init State
                if(!e.patternCount) e.patternCount = 0;
@@ -1485,15 +1870,15 @@ export default class AdventureEngine {
               const tier = Math.floor(s.stage / 5);
               
               // Standard Werte
-              let keepDist = 350 + (tier * 20); 
+              let keepDist = 350; 
               let projectileSpeed = 5 + tier;
-              let projectileLife = 80; // Wie weit fliegt es (Frames)
+              let projectileLife = 100; // Wie weit fliegt es (Frames)
 
               // --- SPEZIAL LOGIK FÜR SNIPER ---
               // Ice Spirits und Fire Spewer bekommen mehr Reichweite und Speed
               if (e.animSet === "icespirit" || e.animSet === "firespewer") {
-                  keepDist = 700;        // Halten viel mehr Abstand
-                  projectileSpeed = 9;   // Projektile sind deutlich schneller
+                  keepDist = 500;        // Halten viel mehr Abstand
+                  projectileSpeed = 8 + tier;   // Projektile sind deutlich schneller
                   projectileLife = 140;  // Fliegen doppelt so weit
               }
 
@@ -1584,19 +1969,76 @@ export default class AdventureEngine {
       });
       s.enemies = s.enemies.filter(e => !e.dead);
       
-      s.enemyBullets.forEach(b => { b.x += b.vx; b.y += b.vy; b.life--; });
+      s.enemyBullets.forEach(b => {
+        if (b.type === "homing_orb") {
+            // Zielwinkel berechnen
+            const angle = Math.atan2(s.player.y - b.y, s.player.x - b.x);
+            
+            // Beschleunigung verringern (vorher 0.2, jetzt 0.05 für sanftere Kurven)
+            b.vx += Math.cos(angle) * 0.05; 
+            b.vy += Math.sin(angle) * 0.05;
+
+            // Speed Cap setzen (Maximalgeschwindigkeit)
+            const speed = Math.hypot(b.vx, b.vy);
+            
+            // WICHTIG: Das Cap auf ca. 3.5 setzen (Spieler hat Standard ~3 bis 4).
+            // Vorher war es 6 (viel zu schnell).
+            const maxSpeed = s.player.speed * 0.8 ; 
+            
+            if (speed > maxSpeed) { 
+                // Vektor normalisieren und auf maxSpeed begrenzen
+                const scale = maxSpeed / speed;
+                b.vx *= scale; 
+                b.vy *= scale; 
+            }
+        }
+         b.x += b.vx; b.y += b.vy; b.life--;
+      });
       s.enemyBullets = s.enemyBullets.filter(b => {
           if (b.life <= 0) return false;
+
           const dist = Math.hypot(b.x - s.player.x, b.y - s.player.y);
-          if(dist < s.player.size + b.size) {
+          
+          // Wall Segmente haben eine etwas größere Hitbox, damit man nicht durchglitcht
+          const hitSize = (b.type === 'wall_segment') ? b.size + 10 : b.size;
+
+          // WICHTIG: Hier 'hitSize' nutzen statt b.size
+          if(dist < s.player.size + hitSize) {
               if(!s.player.shieldActive) {
+                  
+                  // 1. Wall Segment Cooldown Check 
+                  // (Verhindert, dass man 60x pro Sekunde Schaden bekommt, wenn die Wand durch einen fliegt)
+                  const now = Date.now();
+                  if (b.type === 'wall_segment' && (now - (s.player.lastWallHit || 0) < 500)) {
+                      return true; // Wand existiert weiter, macht aber gerade keinen Schaden
+                  }
+
+                  // 2. Schaden & Effekte anwenden
                   s.player.hp -= b.damage;
                   s.player.flashRedTimer = 10;
+                  
+                  // Wenn es eine Wand war, Zeitstempel für Cooldown setzen
+                  if (b.type === 'wall_segment') s.player.lastWallHit = now;
+
                   if (b.poison) s.player.poisonedTimer = 300;
-                  if (b.burn) s.player.burnTimer = 180;     // <--- NEU
+                  if (b.burn) s.player.burnTimer = 180;
                   if (b.freeze) s.player.freezeTimer = 60;
+                  
+                  // NEU: Stun Effekt (für Beam, Orbs und Walls)
+                  if (b.stun) {
+                      s.player.stunTimer = 20; 
+                      // Optional: Text anzeigen
+                      // this.showFloatingText(s.player.x, s.player.y - 40, "STUN", "yellow", 10);
+                  }
+
                   if (s.player.hp <= 0) this.triggerGameOver();
               }
+              
+              // 3. Zerstörungs-Logik
+              // Wall Segmente fliegen weiter durch den Spieler durch (return true)
+              // Normale Kugeln gehen beim Treffer kaputt (return false)
+              if (b.type === 'wall_segment') return true;
+              
               return false;
           }
           return true;
@@ -1606,12 +2048,35 @@ export default class AdventureEngine {
           if (eff.type === "beam") {
               eff.life--;
               if(eff.life <= 0) s.effects.splice(i, 1);
-          } else {
+          }
+          if (eff.type === "lightning_area") {
+            eff.timer--;
+            if (eff.timer <= 0 && eff.stage === "warn") {
+                eff.stage = "damage";
+                eff.timer = 10; 
+
+                if (Math.hypot(s.player.x - eff.x, s.player.y - eff.y) < eff.r) {
+                    if(!s.player.shieldActive) {
+                        s.player.hp -= 25;
+                        s.player.flashRedTimer = 10;
+                        s.player.stunTimer = 60; 
+                        
+                        // FIX: Game Over prüfen, damit man nicht ins Minus geht
+                        if (s.player.hp <= 0) this.triggerGameOver();
+                    }
+                }
+            }
+            if (eff.timer <= 0 && eff.stage === "damage") {
+                s.effects.splice(i, 1); // Löschen
+            }
+         } else {
               // Bestehender Puddle/Grenade Effect Code
               eff.r += 5;
               eff.alpha -= 0.05;
               if(eff.alpha <= 0) s.effects.splice(i, 1);
           }
+
+
       });
 
        s.drops = s.drops.filter(d => {
@@ -1771,6 +2236,42 @@ export default class AdventureEngine {
       s.obstacles.forEach(o => { this.drawSprite(ctx, o.sprite, o.x, o.y, o.r*2.5, o.r*2.5, 0, o.color, "circle", true); });
 
       s.effects.forEach(eff => {
+            // 1. LIGHTNING AREA (Warnung & Blitz)
+            if (eff.type === "lightning_area") {
+                ctx.save();
+                ctx.translate(eff.x, eff.y);
+                
+                ctx.shadowBlur = 0; 
+                ctx.shadowColor = 'transparent';
+                ctx.globalCompositeOperation = 'source-over';
+
+                if (eff.stage === "warn") {
+                    const pulse = 0.6 + Math.sin(Date.now() / 100) * 0.4; 
+                    ctx.globalAlpha = pulse;
+                    const size = eff.r * 2.8; 
+
+                    if (this.sprites.warning_circle && this.sprites.warning_circle.complete && this.sprites.warning_circle.naturalWidth > 0) {
+                        ctx.drawImage(this.sprites.warning_circle, -size/2, -size/2, size, size);
+                    } else {
+                        ctx.strokeStyle = "red"; ctx.lineWidth = 3;
+                        ctx.beginPath(); ctx.arc(0,0, eff.r, 0, Math.PI*2); ctx.stroke();
+                    }
+                } 
+                else {
+                    // Damage
+                    ctx.globalAlpha = 1.0;
+                    ctx.fillStyle = "white"; ctx.shadowColor = "cyan"; ctx.shadowBlur = 40; 
+                    ctx.beginPath(); ctx.arc(0,0, eff.r, 0, Math.PI*2); ctx.fill();
+                    ctx.shadowBlur = 0; 
+
+                    if (this.sprites.lightning_strike && this.sprites.lightning_strike.complete) {
+                         const lWidth = 140; const lHeight = 800; 
+                         ctx.drawImage(this.sprites.lightning_strike, -lWidth/2, -lHeight + 50, lWidth, lHeight);
+                    }
+                }
+                ctx.restore();
+                return; // <--- WICHTIG: Hier abbrechen, damit kein schwarzer Kreis drüber gemalt wird!
+            }
           if (eff.type === "beam") {
               ctx.strokeStyle = eff.color;
               ctx.lineWidth = 3;
@@ -1881,6 +2382,34 @@ export default class AdventureEngine {
       }
       
       s.enemies.forEach(e => {
+        if (e.bossType === 'electric_dragon') {
+            // Triple Beam Zeichnen
+            if (e.state === 'triple_beam_charge' || e.state === 'triple_beam_fire') {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                
+                // Wir zeichnen 3 Linien
+                const angles = [e.attackAngle, e.attackAngle - 0.35, e.attackAngle + 0.35];
+                
+                angles.forEach(ang => {
+                    ctx.save();
+                    ctx.rotate(ang);
+                    if (e.state === 'triple_beam_charge') {
+                        // Dünne Warnlinie
+                        ctx.strokeStyle = "rgba(255, 0, 0, 0.5)"; ctx.lineWidth = 2; ctx.setLineDash([10, 10]);
+                        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(1200, 0); ctx.stroke();
+                    } else {
+                        // Dicker Strahl
+                        ctx.strokeStyle = "cyan"; ctx.lineWidth = 30; ctx.shadowBlur = 20; ctx.shadowColor = "blue";
+                        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(1200, 0); ctx.stroke();
+                        ctx.strokeStyle = "white"; ctx.lineWidth = 8; ctx.shadowBlur = 0;
+                        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(1200, 0); ctx.stroke();
+                    }
+                    ctx.restore();
+                });
+                ctx.restore();
+            }
+        }
           if (e.visible === false) return;
           this.drawCharacter(ctx, e.sprite, e.x, e.y, e.size*2, e.size*2, e.facingLeft, e.scaleY || 1);
           
