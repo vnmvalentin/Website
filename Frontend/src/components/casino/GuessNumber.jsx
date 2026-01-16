@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import CoinIcon from "../CoinIcon";
 
 export default function GuessNumber({ updateCredits, currentCredits }) {
   const [bet, setBet] = useState(50);
@@ -61,7 +62,7 @@ export default function GuessNumber({ updateCredits, currentCredits }) {
 
       {!game || game.status === "win" || game.status === "lose" ? (
         <div className="bg-gray-800 p-6 rounded-xl w-full text-center border border-gray-700 shadow-xl">
-           {game?.status === "win" && <div className="text-green-400 font-bold text-xl mb-4">RICHTIG! +{game.winAmount} 🪙</div>}
+           {game?.status === "win" && <div className="text-green-400 font-bold text-xl mb-4">RICHTIG! +{game.winAmount} <CoinIcon size="w-6 h-6" /></div>}
            {game?.status === "lose" && <div className="text-red-400 font-bold text-xl mb-4">Verloren. Es war {game.target}</div>}
            
            <div className="flex gap-2 justify-center items-center mb-4">
@@ -78,7 +79,7 @@ export default function GuessNumber({ updateCredits, currentCredits }) {
            {error && <div className="text-red-400 font-bold mb-4 animate-pulse">{error}</div>}
 
            <button onClick={start} className="bg-violet-600 hover:bg-violet-500 w-full py-3 rounded font-bold transition shadow-[0_4px_0_rgb(109,40,217)] active:translate-y-1 active:shadow-none">
-               Start Game (5 Versuche)
+               Start Game (6 Versuche)
            </button>
         </div>
       ) : (

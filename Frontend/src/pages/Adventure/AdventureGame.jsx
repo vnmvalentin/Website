@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState, useContext } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import GameEngine from "../../components/Adventure/AdventureEngine"; 
+import CoinIcon from "../../components/CoinIcon";
 
 export default function AdventureGame() {
   const { user } = useContext(TwitchAuthContext);
@@ -50,13 +51,13 @@ export default function AdventureGame() {
       skins: ["default"],
       activeSkin: "default",
       skinDefs: { 
-          default: { name: "Standard", file: "player.png", price: 0 },
-          ninja: { name: "Ninja", file: "player_ninja.png", price: 2000 },
-          knight: { name: "Ritter", file: "player_knight.png", price: 5000 },
-          wizard: { name: "Magier", file: "player_wizard.png", price: 8000 },
-          cyber: { name: "Cyberpunk", file: "player_cyber.png", price: 15000 },
-          gh0stqq: { name: "Gh0stQQ", file: "gh0stqq.png", price: 15000 },
-          bestmod: { name: "Best Mod",  file: "bestmod.png", price: 15000 }
+          default: { name: "Standard", file: "player3.png", price: 0 },
+          ninja: { name: "Ninja", file: "player_ninja3.png", price: 2000 },
+          knight: { name: "Ritter", file: "player_knight3.png", price: 5000 },
+          wizard: { name: "Magier", file: "player_wizard3.png", price: 8000 },
+          cyber: { name: "Cyberpunk", file: "player_cyber3.png", price: 15000 },
+          gh0stqq: { name: "Gh0stQQ", file: "gh0stqq3.png", price: 15000 },
+          bestmod: { name: "Best Mod",  file: "bestmod3.png", price: 15000 }
       },
       powerups: [],
       loadout: [null, null, null],
@@ -868,7 +869,7 @@ export default function AdventureGame() {
                             <div className="text-xl text-gray-400 mb-6">{endScreenData.kills} Kills</div>
                             {/* NEU: Credits Anzeige */}
                             <div className="text-4xl text-yellow-400 font-bold mb-8 border-t border-b border-gray-800 py-4">
-                                + {endScreenData.earnedCredits} 💎 Credits
+                                + {endScreenData.earnedCredits} <CoinIcon size="w-6 h-6" />
                             </div>
                         </>
                     )}

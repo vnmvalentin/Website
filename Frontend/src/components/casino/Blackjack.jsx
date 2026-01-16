@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import CoinIcon from "../CoinIcon";
 
 function calculateClientScore(hand) {
   if (!hand || !Array.isArray(hand)) return 0;
@@ -270,7 +271,7 @@ export default function Blackjack({ updateCredits, currentCredits }) {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 animate-in fade-in zoom-in duration-300">
           <div className="bg-black/90 backdrop-blur border-4 border-yellow-500 p-8 rounded-2xl text-center shadow-2xl transform scale-110">
             <h2 className="text-4xl font-extrabold text-yellow-400 mb-2 uppercase">{gameState.status === 'push' ? 'Unentschieden' : gameState.status + '!'}</h2>
-            {gameState.winAmount > 0 ? <p className="text-green-400 font-bold text-2xl">+{gameState.winAmount} 🪙</p> : <p className="text-red-400">Verloren</p>}
+            {gameState.winAmount > 0 ? <p className="text-green-400 font-bold text-2xl">+{gameState.winAmount} <CoinIcon size="w-6 h-6" /></p> : <p className="text-red-400">Verloren</p>}
             <button onClick={() => { setGameState(null); setShowResult(false); }} className="mt-4 bg-white hover:bg-gray-200 text-black font-bold px-6 py-3 rounded-full shadow-lg">Nächste Runde</button>
           </div>
         </div>

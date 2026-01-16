@@ -3,6 +3,7 @@ import React, { useContext, useEffect, useRef, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import Card from "../../components/Card";
+import CoinIcon from "../../components/CoinIcon";
 
 const PACK_ART_URL = "/cards/packs/pack.png";
 const DISCORD_URL = "https://discord.gg/V38GBSVNeh";
@@ -231,7 +232,7 @@ export default function CardPackPage() {
                 <p className="text-sm text-gray-400">Sammle Karten, vervollständige dein Album!</p>
               </div>
               <div className="inline-flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full border border-yellow-500/30 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
-                <span className="text-2xl">🪙</span>
+                <span className="text-2xl"><CoinIcon size="w-8 h-8" /></span>
                 <span className="text-xl font-bold text-yellow-400 font-mono">{credits.toLocaleString()}</span>
               </div>
             </div>
@@ -244,7 +245,7 @@ export default function CardPackPage() {
                         <div className="bg-gray-700 text-gray-400 font-bold py-2 px-6 rounded-lg animate-pulse cursor-wait">Lade Status...</div>
                     ) : dailyReady ? (
                         <button onClick={claimDaily} disabled={isDailyLoading} className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:shadow-green-500/20 transition-all active:scale-95">
-                            {isDailyLoading ? "Lade..." : "+500 Credits abholen"}
+                            {isDailyLoading ? "Lade..." : <span className="flex items-center gap-1">+500 <CoinIcon size="w-4 h-4" /> abholen</span>}
                         </button>
                     ) : (
                         <div className="bg-gray-700/50 px-6 py-2 rounded-lg border border-gray-600">
@@ -264,7 +265,7 @@ export default function CardPackPage() {
                 ) : (
                   <div className="flex flex-col items-center">
                     <span>Pack kaufen</span>
-                    <span className={`text-xs mt-1 ${canBuy ? "text-violet-200" : "text-red-400"}`}>Preis: {packPrice} 🪙</span>
+                    <span className={`text-xs mt-1 ${canBuy ? "text-violet-200" : "text-red-400"}`}>Preis: {packPrice} <CoinIcon size="w-4 h-4" /></span>
                   </div>
                 )}
               </button>
@@ -377,7 +378,7 @@ export default function CardPackPage() {
                 <div className="flex gap-3 mt-4">
                     <button onClick={closeOverlay} className="px-6 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold">Schließen</button>
                     {credits >= packPrice && (
-                        <button onClick={() => { closeOverlay(); openPack(); }} className="px-6 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 font-semibold text-white shadow-lg">Noch eins ({packPrice}🪙)</button>
+                        <button onClick={() => { closeOverlay(); openPack(); }} className="px-6 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 font-semibold text-white shadow-lg">Noch eins ({packPrice}<CoinIcon size="w-4 h-4" />)</button>
                     )}
                 </div>
               </div>

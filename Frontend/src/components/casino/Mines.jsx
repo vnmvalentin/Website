@@ -1,5 +1,6 @@
 // src/components/casino/Mines.jsx
 import React, { useState } from "react";
+import CoinIcon from "../CoinIcon";
 
 // Identische Konstante wie im Backend
 const HOUSE_EDGE = 0.94; 
@@ -159,7 +160,7 @@ export default function Mines({ updateCredits, currentCredits }) {
               <div className="text-gray-400 text-sm">
                  Nächster Hit: <span className="text-white font-bold">{nextMulti}x</span>
               </div>
-              <div className="text-xl font-bold text-green-400 drop-shadow-md">{game.cashoutValue} 🪙</div>
+              <div className="text-xl font-bold text-green-400 drop-shadow-md">{game.cashoutValue} <CoinIcon size="w-6 h-6" /></div>
            </div>
            
            {/* Grid */}
@@ -176,7 +177,7 @@ export default function Mines({ updateCredits, currentCredits }) {
            {(game?.lost || game?.win) && (
              <div className="text-center animate-in zoom-in duration-300">
                 <h3 className={`text-2xl font-bold mb-2 ${game.lost ? 'text-red-500' : 'text-green-500'}`}>
-                  {game.lost ? "BOOM! Verloren." : `Gewonnen: +${game.winAmount} 🪙`}
+                  {game.lost ? "BOOM! Verloren." : `Gewonnen: +${game.winAmount} `}<span><CoinIcon size="w-6 h-6" /></span>
                 </h3>
                 <button onClick={() => setGame(null)} className="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded text-white font-bold transition">Nochmal</button>
              </div>

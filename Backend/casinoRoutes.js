@@ -15,6 +15,89 @@ function saveData(data) {
   fs.writeFileSync(CASINO_PATH, JSON.stringify(data, null, 2));
 }
 
+
+const PLINKO_MULTIPLIERS = {
+  8: {
+    low: [5.6, 2.1, 1.1, 1, 0.5, 1, 1.1, 2.1, 5.6],
+    medium: [13, 3, 1.3, 0.7, 0.4, 0.7, 1.3, 3, 13],
+    high: [29, 4, 1.5, 0.3, 0.2, 0.3, 1.5, 4, 29]
+  },
+  12: {
+    low: [10, 3, 1.6, 1.4, 1.1, 1, 0.5, 1, 1.1, 1.4, 1.6, 3, 10],
+    medium: [33, 11, 4, 2, 1.1, 0.6, 0.3, 0.6, 1.1, 2, 4, 11, 33],
+    high: [170, 24, 8.1, 2, 0.7, 0.2, 0.2, 0.2, 0.7, 2, 8.1, 24, 170]
+  },
+  16: {
+    low: [16, 9, 2, 1.4, 1.4, 1.2, 1.1, 1, 0.5, 1, 1.1, 1.2, 1.4, 1.4, 2, 9, 16],
+    medium: [110, 41, 10, 5, 3, 1.5, 1, 0.5, 0.3, 0.5, 1, 1.5, 3, 5, 10, 41, 110],
+    high: [1000, 130, 26, 9, 4, 2, 0.2, 0.2, 0.2, 0.2, 0.2, 2, 4, 9, 26, 130, 1000]
+  }
+};
+
+function generatePlinkoPath(rows) {
+  // 0 = Links, 1 = Rechts
+  const path = [];
+  for (let i = 0; i < rows; i++) {
+    // 50/50 Chance bei jedem Pin
+    path.push(Math.random() < 0.5 ? 0 : 1);
+  }
+  return path;
+}
+
+// --- Helper: Roulette ---
+const ROULETTE_NUMBERS = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+
+function getRouletteResult() {
+  const randomIndex = Math.floor(Math.random() * 37);
+  const number = ROULETTE_NUMBERS[randomIndex];
+  let color = "green";
+  if (RED_NUMBERS.includes(number)) color = "red";
+  else if (number !== 0) color = "black";
+  return { number, color };
+}
+
+function calculateRoulettePayout(bets, resultNumber, resultColor) {
+  let totalWin = 0;
+  
+  bets.forEach(bet => {
+    const { type, value, amount } = bet; // type: 'number', 'color', 'parity', 'range', 'dozen'
+    
+    // 1. Genaue Zahl (35:1)
+    if (type === 'number' && value === resultNumber) {
+      totalWin += amount * 36; // Einsatz zurück + 35x Gewinn = 36x
+    }
+    
+    // 2. Farben (1:1)
+    if (type === 'color' && value === resultColor) {
+      totalWin += amount * 2;
+    }
+
+    // 3. Gerade/Ungerade (1:1) - 0 zählt meist nicht
+    if (type === 'parity' && resultNumber !== 0) {
+      const isEven = resultNumber % 2 === 0;
+      if ((value === 'even' && isEven) || (value === 'odd' && !isEven)) {
+        totalWin += amount * 2;
+      }
+    }
+
+    // 4. 1-18 / 19-36 (1:1) - 0 verliert
+    if (type === 'half' && resultNumber !== 0) {
+        if (value === 'low' && resultNumber <= 18) totalWin += amount * 2;
+        if (value === 'high' && resultNumber >= 19) totalWin += amount * 2;
+    }
+
+    // 5. Dozens (2:1) - 1st 12, 2nd 12, etc.
+    if (type === 'dozen' && resultNumber !== 0) {
+        if (value === 1 && resultNumber <= 12) totalWin += amount * 3;
+        if (value === 2 && resultNumber > 12 && resultNumber <= 24) totalWin += amount * 3;
+        if (value === 3 && resultNumber > 24) totalWin += amount * 3;
+    }
+  });
+
+  return totalWin;
+}
+
 // ------- HELPER MINES ----------------
 
 const MINES_HOUSE_EDGE = 0.94; 
@@ -87,23 +170,23 @@ function drawRandomCard(excludeCards = []) {
 // --- Helper: Case Opening (Angepasst mit Ranges) ---
 const CASE_ITEMS = [
   // id: common -> Range 0.33 bis 0.70
-  { id: "common", color: "gray", min: 0.10, max: 0.60, label: "Common" },
+  { id: "common", color: "gray", min: 0.15, max: 0.70, label: "Common" },
   
   // id: uncommon -> Range 1.30 bis 1.80
-  { id: "uncommon", color: "blue", min: 1.30, max: 1.70, label: "Uncommon" },
+  { id: "uncommon", color: "blue", min: 1.30, max: 2.00, label: "Uncommon" },
   
   // id: rare -> Range 3.50 bis 6.00
-  { id: "rare", color: "purple", min: 3.50, max: 6.00, label: "Rare" },
+  { id: "rare", color: "purple", min: 3.50, max: 6.50, label: "Rare" },
   
   // id: legendary -> Range 20.00 bis 50.00
-  { id: "legendary", color: "gold", min: 35.00, max: 50.00, label: "LEGENDÄR" }
+  { id: "legendary", color: "gold", min: 40.00, max: 50.00, label: "LEGENDÄR" }
 ];
 
 function getRandomCaseItemBase() {
   const r = Math.random();
   if (r < 0.004) return CASE_ITEMS[3]; // Legendary 
   if (r < 0.07) return CASE_ITEMS[2]; // Rare 
-  if (r < 0.32) return CASE_ITEMS[1]; // Uncommon 
+  if (r < 0.30) return CASE_ITEMS[1]; // Uncommon 
   return CASE_ITEMS[0];               // Common 
 }
 
@@ -180,7 +263,7 @@ module.exports = function createCasinoRouter({ requireAuth }) {
       res.json({ 
           success: true, 
           credits: req.userData.credits, 
-          message: `Erfolgreich ${transferAmount} an ${req.casinoDb[targetId].name || 'den User'} gesendet!` 
+          message: `Erfolgreich ${transferAmount} Coins an ${req.casinoDb[targetId].name || 'den User'} gesendet!` 
       });
   });
 
@@ -194,14 +277,11 @@ module.exports = function createCasinoRouter({ requireAuth }) {
 
 
   router.get("/leaderboard", (req, res) => {
-      const db = loadData(); // Deine Funktion zum Laden der JSON
-      
+      const db = loadData();
       const sorted = Object.values(db)
-          .filter(u => u.name) // Nur User mit Namen
-          .sort((a, b) => (b.credits || 0) - (a.credits || 0)) // Absteigend sortieren
-          .slice(0, 5) // Nur die Top 5
-          .map(u => ({ name: u.name, credits: u.credits })); // Nur nötige Daten senden
-
+          .filter(u => u.name)
+          .sort((a, b) => (b.credits || 0) - (a.credits || 0))
+          .map(u => ({ name: u.name, credits: u.credits }));
       res.json(sorted);
   });
 
@@ -409,34 +489,45 @@ module.exports = function createCasinoRouter({ requireAuth }) {
   // --- CASE, HIGHLOW, MINES, GUESS (Unverändert) ---
 
   // --- CASE ROUTE ANPASSUNG ---
+  // UPDATE: Case Opening mit 'count' Parameter
   router.post("/play/case", (req, res) => {
-    const { bet } = req.body;
-    if (bet <= 0 || req.userData.credits < bet) return res.status(400).json({ error: "Credits?" });
+    const { bet, count = 1 } = req.body; // Default 1
+    const actualCount = Math.max(1, Math.min(3, count)); // Max 3 Cases
+    const totalBet = bet * actualCount;
+
+    if (totalBet <= 0 || req.userData.credits < totalBet) return res.status(400).json({ error: "Zu wenig Credits" });
     
-    req.userData.credits -= bet;
+    req.userData.credits -= totalBet;
 
-    // 1. Wir generieren Items für das "Band" (Strip)
-    // Jedes Item bekommt seinen eigenen zufälligen Multiplier
-    const items = [];
-    const WIN_INDEX = 40; 
-    const TOTAL_ITEMS = 50;
+    const results = [];
+    let totalWin = 0;
 
-    for(let i=0; i<TOTAL_ITEMS; i++) {
-        items.push(generateSpecificItem());
+    for(let c = 0; c < actualCount; c++) {
+        // Items generieren
+        const items = [];
+        const WIN_INDEX = 40; 
+        const TOTAL_ITEMS = 50;
+
+        for(let i=0; i<TOTAL_ITEMS; i++) {
+            items.push(generateSpecificItem());
+        }
+
+        const winner = items[WIN_INDEX];
+        const winAmount = Math.floor(bet * winner.multiplier); // Gewinn pro Case Basis
+        totalWin += winAmount;
+        
+        results.push({
+            items,
+            winIndex: WIN_INDEX,
+            winner,
+            winAmount
+        });
     }
-
-    // 2. Der Gewinner ist das Item am WIN_INDEX
-    const winner = items[WIN_INDEX];
     
-    // 3. Gewinn berechnen (Einsatz * spezifischer Multiplier)
-    const winAmount = Math.floor(bet * winner.multiplier);
-    
-    req.userData.credits += winAmount;
-    
+    req.userData.credits += totalWin;
     saveData(req.casinoDb);
 
-    // Wir senden die Items mit den generierten Multiplikatoren zurück
-    res.json({ items, winIndex: WIN_INDEX, winner, winAmount, credits: req.userData.credits });
+    res.json({ results, totalWin, credits: req.userData.credits });
   });
 
   router.post("/play/highlow", (req, res) => {
@@ -447,7 +538,7 @@ module.exports = function createCasinoRouter({ requireAuth }) {
     let won = false;
     if (guess === "low" && number <= 50) won = true;
     if (guess === "high" && number > 50) won = true;
-    const winAmount = won ? Math.floor(bet * 1.8) : 0; 
+    const winAmount = won ? Math.floor(bet * 2) : 0; 
     req.userData.credits += winAmount;
     saveData(req.casinoDb);
     res.json({ number, winAmount, credits: req.userData.credits });
@@ -519,9 +610,9 @@ module.exports = function createCasinoRouter({ requireAuth }) {
     const { bet } = req.body;
     if (bet <= 0 || req.userData.credits < bet) return res.status(400).json({ error: "Credits?" });
     req.userData.credits -= bet;
-    req.userData.activeGame = { type: "guess", bet, target: Math.floor(Math.random() * 100) + 1, triesLeft: 5, history: [] };
+    req.userData.activeGame = { type: "guess", bet, target: Math.floor(Math.random() * 100) + 1, triesLeft: 6, history: [] };
     saveData(req.casinoDb);
-    res.json({ status: "started", triesLeft: 5, credits: req.userData.credits });
+    res.json({ status: "started", triesLeft: 6, credits: req.userData.credits });
   });
 
   router.post("/play/guess/submit", (req, res) => {
@@ -534,7 +625,7 @@ module.exports = function createCasinoRouter({ requireAuth }) {
     else if (number > game.target) result = "lower";
     game.history.push({ guess: number, hint: result });
     if (result === "equal") {
-      const multipliers = { 4: 10, 3: 5, 2: 3, 1: 2, 0: 1.5 }; 
+      const multipliers = { 5: 20, 4: 12, 3: 8, 2: 4, 1: 2.5, 0: 2 }; 
       const win = Math.floor(game.bet * multipliers[game.triesLeft]);
       req.userData.credits += win;
       req.userData.activeGame = null;
@@ -550,6 +641,154 @@ module.exports = function createCasinoRouter({ requireAuth }) {
     saveData(req.casinoDb);
     res.json({ status: "next", history: game.history, triesLeft: game.triesLeft });
   });
+
+  // --- PLINKO ROUTE ---
+  // --- PLINKO ROUTE (Batch / Massen-Drop) ---
+  router.post("/play/plinko", (req, res) => {
+    const db = loadData();
+    const user = db[req.twitchId];
+    if (!user) return res.status(400).json({ error: "User nicht gefunden" });
+
+    // count default auf 1
+    let { bet, risk = 'medium', rows = 12, count = 1 } = req.body;
+    
+    // Limits
+    count = Math.max(1, Math.min(count, 1000)); 
+
+    // Validierung
+    if (![8, 12, 16].includes(rows)) return res.status(400).json({ error: "Ungültige Reihen" });
+    if (!['low', 'medium', 'high'].includes(risk)) return res.status(400).json({ error: "Ungültiges Risiko" });
+
+    const totalBet = bet * count;
+
+    if (totalBet <= 0 || user.credits < totalBet) {
+        return res.status(400).json({ error: "Nicht genug Credits!" });
+    }
+
+    // --- BERECHNUNG ---
+    let totalWin = 0;
+    const results = [];
+
+    for (let i = 0; i < count; i++) {
+        const path = generatePlinkoPath(rows);
+        const bucketIndex = path.reduce((a, b) => a + b, 0);
+        const multipliers = PLINKO_MULTIPLIERS[rows][risk];
+        const multiplier = multipliers[bucketIndex];
+        const win = Math.floor(bet * multiplier);
+        
+        totalWin += win;
+        
+        results.push({
+            path,
+            bucketIndex,
+            multiplier,
+            winAmount: win
+        });
+    }
+
+    // --- DATENBANK UPDATE (Sofortiger Endstand) ---
+    user.credits -= totalBet; // Einsatz weg
+    user.credits += totalWin; // Gewinn drauf
+    saveData(db);
+
+    // Wir senden die Einzelergebnisse UND den finalen Kontostand zurück
+    res.json({
+      results, 
+      totalBet,
+      totalWin,
+      finalCredits: user.credits // Das ist der "echte" Wert am Ende
+    });
+  });
+
+
+  // NEU: Roulette Route
+  router.post("/play/roulette/spin", (req, res) => {
+      const { bets } = req.body; // Array von Wetten [{type: 'color', value: 'red', amount: 10}, ...]
+      
+      if (!bets || !Array.isArray(bets) || bets.length === 0) {
+          return res.status(400).json({ error: "Keine Einsätze" });
+      }
+
+      // Gesamteinsatz berechnen
+      const totalBet = bets.reduce((sum, b) => sum + (parseInt(b.amount) || 0), 0);
+      
+      if (totalBet <= 0 || req.userData.credits < totalBet) {
+          return res.status(400).json({ error: "Zu wenig Credits" });
+      }
+
+      req.userData.credits -= totalBet;
+
+      // Spin
+      const result = getRouletteResult(); // { number: 17, color: 'black' }
+      
+      // Gewinne checken
+      const winAmount = calculateRoulettePayout(bets, result.number, result.color);
+
+      req.userData.credits += winAmount;
+      saveData(req.casinoDb);
+
+      res.json({ 
+          result, 
+          winAmount, 
+          credits: req.userData.credits 
+      });
+  });
+
+  // --- DICE ROUTE ---
+  router.post("/play/dice", (req, res) => {
+    // 1. DB Laden
+    const db = loadData();
+    const user = db[req.twitchId];
+    if (!user) return res.status(400).json({ error: "User nicht gefunden" });
+
+    const { bet, target, condition } = req.body; 
+    // target: 2 bis 98
+    // condition: 'under' oder 'over'
+
+    // Validierung
+    if (bet <= 0 || user.credits < bet) return res.status(400).json({ error: "Zu wenig Credits" });
+    if (target < 2 || target > 98) return res.status(400).json({ error: "Ziel ungültig (2-98)" });
+
+    // Einsatz abziehen
+    user.credits -= bet;
+
+    // Würfeln (0.00 bis 100.00)
+    const roll = Math.random() * 100;
+    
+    // Gewinn prüfen
+    let isWin = false;
+    let winChance = 0;
+
+    if (condition === 'under') {
+        isWin = roll < target;
+        winChance = target;
+    } else { // 'over'
+        isWin = roll > target;
+        winChance = 100 - target;
+    }
+
+    // Hausvorteil (1% = 0.99 RTP)
+    const houseEdge = 0.99;
+    // Multiplikator berechnen (auf 4 Kommastellen genau)
+    const multiplier = (100 / winChance) * houseEdge;
+    
+    let winAmount = 0;
+    if (isWin) {
+        winAmount = Math.floor(bet * multiplier);
+        user.credits += winAmount;
+    }
+
+    saveData(db);
+
+    res.json({
+        roll: parseFloat(roll.toFixed(2)), // Zahl formatieren z.B. 45.23
+        isWin,
+        multiplier: parseFloat(multiplier.toFixed(4)),
+        winAmount,
+        credits: user.credits
+    });
+  });
+
 
   return router;
 };
