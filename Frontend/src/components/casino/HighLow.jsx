@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import CoinIcon from "../CoinIcon";
 
 // WICHTIG: currentCredits in den Props hinzufügen
 export default function HighLow({ updateCredits, currentCredits }) {
@@ -52,7 +53,7 @@ export default function HighLow({ updateCredits, currentCredits }) {
           <div className="animate-in fade-in zoom-in duration-300">
             <div className="text-6xl font-bold mb-2">{lastResult.number}</div>
             <div className={`text-xl font-bold ${lastResult.winAmount > 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {lastResult.winAmount > 0 ? `Gewonnen! (+${lastResult.winAmount})🪙` : "Verloren"}
+              {lastResult.winAmount > 0 ? <span> Gewonnen! (+${lastResult.winAmount}<CoinIcon size="w-6 h-6" />)</span> : "Verloren"}
             </div>
             <button onClick={() => setLastResult(null)} className="mt-4 text-sm underline text-gray-400">Nochmal</button>
           </div>

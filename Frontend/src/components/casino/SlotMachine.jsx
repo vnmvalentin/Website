@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import CoinIcon from "../CoinIcon";
 
 const SYMBOLS = ["🍒", "🍋", "🍇", "💎", "7️⃣"];
 
@@ -21,16 +22,22 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
   
   // Spinning State pro Walze (col 0, col 1, col 2)
   const [spinning, setSpinning] = useState([false, false, false]);
-  const [isGameActive, setIsGameActive] = useState(false); // Globaler Lock für Button
+  const [isGameActive, setIsGameActive] = useState(false); // Globaler Lock
+  
+  // --- NEU: Auto-Roll States ---
+  const [isAuto, setIsAuto] = useState(false);
+  const autoRef = useRef(false); // Ref für Zugriff innerhalb von Timeouts
   
   const [bet, setBet] = useState(10);
   const [msg, setMsg] = useState("");
+  const [isWin, setIsWin] = useState(false);
   
   const spinningRef = useRef([false, false, false]);
   const resultRef = useRef(null);
 
   const r = () => SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
 
+  // Animation Loop
   useEffect(() => {
     const iv = setInterval(() => {
       setReels(prevReels => {
@@ -48,8 +55,26 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
     return () => clearInterval(iv);
   }, []);
 
+  // --- NEU: Toggle Funktion ---
+  const toggleAuto = () => {
+      const newState = !isAuto;
+      setIsAuto(newState);
+      autoRef.current = newState;
+      
+      // Wenn wir Auto aktivieren und gerade nichts läuft, sofort starten
+      if (newState && !isGameActive) {
+          spin();
+      }
+  };
+
   const spin = async () => {
-    if (bet > currentCredits) { setMsg("Nicht genug Credits!"); return; }
+    // Check, ob genug Geld da ist (auch für Auto-Modus wichtig)
+    if (bet > currentCredits) { 
+        setMsg("Nicht genug Credits!"); 
+        setIsAuto(false);
+        autoRef.current = false;
+        return; 
+    }
     
     setIsGameActive(true);
     setMsg("");
@@ -67,17 +92,41 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
       
       resultRef.current = data.reels; 
 
+      // Walzen stoppen nacheinander
       setTimeout(() => { setSpinning([false, true, true]); spinningRef.current = [false, true, true]; }, 1000);
       setTimeout(() => { setSpinning([false, false, true]); spinningRef.current = [false, false, true]; }, 1600);
+      
+      // ALLES GESTOPPT
       setTimeout(() => {
         setSpinning([false, false, false]);
         spinningRef.current = [false, false, false];
         
-        if (data.winAmount > 0) setMsg(`BIG WIN: ${data.winAmount} CR! 🎉`);
-        else setMsg("Kein Gewinn.");
+        if (data.winAmount > 0) {
+            setMsg(
+                <span className="flex items-center gap-2">
+                    BIG WIN: {data.winAmount} <CoinIcon size="w-6 h-6" /> 
+                </span>
+            );
+            setIsWin(true);
+        } else {
+            setMsg("Kein Gewinn.");
+            setIsWin(false);
+        }
         
         updateCredits();
         setIsGameActive(false);
+
+        // --- NEU: Auto-Loop Logik ---
+        if (autoRef.current) {
+            // Kleiner Delay, damit man das Ergebnis kurz sieht (500ms)
+            setTimeout(() => {
+                // Sicherheitscheck: Nur weitermachen, wenn User nicht inzwischen gestoppt hat
+                if (autoRef.current) {
+                    spin();
+                }
+            }, 500);
+        }
+
       }, 2400);
 
     } catch (e) {
@@ -85,17 +134,15 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
       setSpinning([false, false, false]);
       spinningRef.current = [false, false, false];
       setIsGameActive(false);
+      setIsAuto(false); // Bei Fehler Auto stoppen
+      autoRef.current = false;
     }
   };
 
   return (
-    // Grid-Layout: 
-    // Desktop (xl): 3 Spalten [1fr auto 1fr] -> Links Paytable, Mitte Spiel, Rechts Platzhalter (für perfekte Zentrierung)
-    // Mobile: 1 Spalte -> Spiel oben, Tabelle unten
     <div className="w-full max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[1fr_auto_1fr] gap-8 items-start py-4">
       
-      {/* === LINKES PANEL (Paytable) === */}
-      {/* order-2 auf Mobile (unten), order-1 auf Desktop (links) */}
+      {/* Linkes Panel (Paytable) */}
       <div className="order-2 xl:order-1 flex justify-center xl:justify-end">
         <div className="bg-gray-900/80 p-5 rounded-xl border border-gray-700 shadow-lg w-full max-w-xs backdrop-blur-sm">
             <h3 className="text-yellow-500 font-bold mb-4 border-b border-gray-700 pb-2 text-center uppercase tracking-widest text-sm flex items-center justify-center gap-2">
@@ -118,8 +165,7 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
         </div>
       </div>
 
-      {/* === MITTLERES PANEL (Das Spiel) === */}
-      {/* order-1 auf Mobile (oben), order-2 auf Desktop (mitte) */}
+      {/* Mittleres Panel (Spiel) */}
       <div className="order-1 xl:order-2 flex flex-col items-center gap-8 z-10">
         
         <div className="text-center">
@@ -128,13 +174,12 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
         </div>
       
         <div className="bg-gray-800 p-4 rounded-xl border-4 border-yellow-600 shadow-[0_0_60px_rgba(202,138,4,0.25)] relative">
-            {/* Deko Lights Links */}
+            {/* Deko Lights */}
             <div className="absolute -left-3 top-1/2 -translate-y-1/2 flex flex-col gap-3">
                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_5px_red]"/>
                 <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse delay-75 shadow-[0_0_5px_yellow]"/>
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse delay-150 shadow-[0_0_5px_green]"/>
             </div>
-            {/* Deko Lights Rechts */}
             <div className="absolute -right-3 top-1/2 -translate-y-1/2 flex flex-col gap-3">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_5px_green]"/>
                 <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse delay-75 shadow-[0_0_5px_yellow]"/>
@@ -149,7 +194,6 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
                         <div className={`${spinning[colIndex] ? "animate-spin-custom blur-[2px] opacity-80" : ""} w-full h-full flex items-center justify-center transition-all`}>
                         {symbol}
                         </div>
-                        {/* Glanz-Effekt Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none"></div>
                     </div>
                 ))}
@@ -158,24 +202,49 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
             </div>
         </div>
 
-        {/* Controls */}
+        {/* Controls - JETZT MIT AUTO BUTTON */}
         <div className="flex items-center gap-4 bg-gray-800 p-3 sm:p-4 rounded-full border border-gray-600 shadow-xl w-full max-w-sm justify-center">
-            <div className="flex flex-col items-center border-r border-gray-600 pr-4">
+            
+            {/* Auto Toggle Button (Links außen) */}
+            <button 
+                onClick={toggleAuto}
+                disabled={isGameActive && !isAuto} // Deaktiviert während normalem Spin, aber klickbar zum Stoppen wenn Auto an
+                className={`
+                    w-12 h-12 rounded-full font-bold text-[10px] uppercase flex flex-col items-center justify-center border-2 transition-all
+                    ${isAuto 
+                        ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_15px_rgba(147,51,234,0.6)] animate-pulse' 
+                        : 'bg-gray-700 border-gray-500 text-gray-400 hover:bg-gray-600 hover:text-white'}
+                `}
+            >
+                <span>{isAuto ? 'ON' : 'OFF'}</span>
+                <span>AUTO</span>
+            </button>
+
+            <div className="flex flex-col items-center border-x border-gray-600 px-4">
                 <label className="text-[10px] text-gray-400 uppercase tracking-wider">Einsatz</label>
                 <input 
                 type="number" 
                 value={bet} 
                 onChange={e => setBet(Number(e.target.value))}
-                disabled={isGameActive}
+                disabled={isGameActive || isAuto} // Einsatz gesperrt während Auto läuft
                 className="bg-transparent text-white font-mono text-xl w-16 text-center focus:outline-none focus:text-yellow-400 transition-colors"
                 />
             </div>
+
             <button 
-            onClick={spin} 
-            disabled={isGameActive}
-            className={`bg-gradient-to-b from-yellow-400 to-yellow-600 text-black font-extrabold px-8 py-3 rounded-full shadow-[0_4px_0_rgb(161,98,7)] transition-all uppercase tracking-wider min-w-[140px] flex justify-center ${isGameActive ? 'opacity-70 cursor-not-allowed' : 'hover:from-yellow-300 hover:to-yellow-500 active:translate-y-1 active:shadow-none hover:shadow-[0_0_20px_rgba(234,179,8,0.4)]'}`}
+            onClick={isAuto ? toggleAuto : spin} 
+            disabled={isGameActive && !isAuto} 
+            className={`
+                bg-gradient-to-b text-black font-extrabold px-6 py-3 rounded-full shadow-[0_4px_0_rgb(161,98,7)] transition-all uppercase tracking-wider min-w-[120px] flex justify-center
+                ${isAuto 
+                    ? 'from-red-500 to-red-700 shadow-[0_4px_0_rgb(153,27,27)] hover:from-red-400 hover:to-red-600 text-white' 
+                    : 'from-yellow-400 to-yellow-600 hover:from-yellow-300 hover:to-yellow-500'}
+                ${(isGameActive && !isAuto) ? 'opacity-70 cursor-not-allowed' : 'active:translate-y-1 active:shadow-none hover:shadow-[0_0_20px_rgba(234,179,8,0.4)]'}
+            `}
             >
-            {isGameActive ? (
+            {isAuto ? (
+                <span className="flex items-center gap-2">STOP ⏹</span>
+            ) : isGameActive ? (
                 <span className="animate-pulse">...</span>
             ) : (
                 <span className="flex items-center gap-2">SPIN 🎰</span>
@@ -186,19 +255,15 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
         {/* Message Area */}
         <div className="h-8 flex items-center justify-center">
             {msg && !isGameActive && (
-                <div className={`text-xl font-bold animate-in zoom-in slide-in-from-bottom-2 duration-300 ${msg.includes("WIN") ? "text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]" : "text-gray-400"}`}>
+                <div className={`text-xl font-bold animate-in zoom-in slide-in-from-bottom-2 duration-300 flex items-center gap-2 ${isWin ? "text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]" : "text-gray-400"}`}>
                     {msg}
                 </div>
             )}
         </div>
       </div>
 
-      {/* === RECHTES PANEL (Platzhalter für Balance) === */}
-      {/* Nur sichtbar auf XL Screens, damit Mitte zentriert bleibt */}
-      <div className="hidden xl:block xl:order-3">
-         {/* Hier könnte später noch was hin (z.B. Gewinn-Historie), 
-             aktuell leer, damit Grid symmetrisch ist. */}
-      </div>
+      {/* Rechtes Panel (Platzhalter) */}
+      <div className="hidden xl:block xl:order-3"></div>
 
     </div>
   );

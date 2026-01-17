@@ -2,6 +2,8 @@
 import React, { useContext, useEffect, useState } from "react";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 
+import CoinIcon from "../components/CoinIcon";
+
 // Game Components
 import SlotMachine from "../components/casino/SlotMachine";
 import Blackjack from "../components/casino/Blackjack";
@@ -9,14 +11,21 @@ import HighLow from "../components/casino/HighLow";
 import Mines from "../components/casino/Mines";
 import GuessNumber from "../components/casino/GuessNumber";
 import CaseOpening from "../components/casino/CaseOpening";
+import Roulette from "../components/casino/Roulette"; 
+import Plinko from "../components/casino/Plinko";
+import Dice from "../components/casino/Dice";
+
 
 const GAMES = [
   { id: "slots", name: "🎰 Lucky Slots", desc: "3 Walzen, 3 Reihen, 5 Gewinnlinien!" },
+  { id: "roulette", name: "🎯 Roulette", desc: "Setze auf Farben & Zahlen. Der Klassiker." },
   { id: "blackjack", name: "🃏 Blackjack", desc: "Schlage den Dealer auf 21." },
-  { id: "highlow", name: "📈 High / Low", desc: "Höher oder tiefer als 50?" },
   { id: "mines", name: "💣 Mines", desc: "Finde die Diamanten, meide Bomben." },
-  { id: "guess", name: "🔢 Guess The Number", desc: "Errate die Zahl (1-100) in 5 Versuchen." },
-  { id: "case", name: "📦 Mystery Case", desc: "CS-Style Case Opening." },
+  { id: "highlow", name: "📈 High / Low", desc: "Höher oder tiefer als 50?" },
+  { id: "case", name: "📦 Mystery Case", desc: "CS-Style Case Opening (Multi)." },
+  { id: "guess", name: "🔢 Guess The Number", desc: "Errate die Zahl (1-100) in 6 Versuchen." },
+  { id: "plinko", name: "🔻 Plinko", desc: "Lass den Ball fallen!" },
+  { id: "dice", name: "🎲 Dice", desc: "Schiebe den Regler." },
 ];
 
 function formatCooldown(ms) {
@@ -37,12 +46,14 @@ export default function CasinoPage() {
   
   // Zustände für Transfer
   const [userList, setUserList] = useState([]);
+  const [transferSearch, setTransferSearch] = useState(""); 
   const [transferTarget, setTransferTarget] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferStatus, setTransferStatus] = useState(null);
   
-  // NEU: Leaderboard State
+  // Leaderboard State
   const [leaderboard, setLeaderboard] = useState([]);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false); // NEU: Modal State
   const [userDataLoading, setUserDataLoading] = useState(true);
 
   // Userliste (für Dropdown)
@@ -53,7 +64,6 @@ export default function CasinoPage() {
     } catch(e) { console.error(e); }
   };
 
-  // NEU: Leaderboard laden
   const fetchLeaderboard = async () => {
       try {
           const res = await fetch("/api/casino/leaderboard", { credentials: "include" });
@@ -68,23 +78,13 @@ export default function CasinoPage() {
       const data = await res.json();
       setCredits(data.credits || 0);
       setLastDaily(data.lastDaily || 0);
-
       if (data.lastDaily) {
         const diff = (data.lastDaily + 24 * 60 * 60 * 1000) - Date.now();
         setCooldownTime(Math.max(0, diff));
-      } else {
-        setCooldownTime(0);
-      }
-      
-      // Daten aktualisieren
+      } else { setCooldownTime(0); }
       fetchUserList();
-      fetchLeaderboard(); // Auch Leaderboard neu laden
-
-    } catch (e) { 
-        console.error(e); 
-    } finally {
-        setUserDataLoading(false);
-    }
+      fetchLeaderboard();
+    } catch (e) { console.error(e); } finally { setUserDataLoading(false); }
   };
 
   useEffect(() => { refreshUser(); }, [user]);
@@ -94,9 +94,7 @@ export default function CasinoPage() {
         if (lastDaily > 0) {
             const diff = (lastDaily + 24*60*60*1000) - Date.now();
             setCooldownTime(Math.max(0, diff));
-        } else {
-            setCooldownTime(0);
-        }
+        } else { setCooldownTime(0); }
     }, 1000);
     return () => clearInterval(iv);
   }, [lastDaily]);
@@ -114,7 +112,6 @@ export default function CasinoPage() {
       e.preventDefault();
       setTransferStatus(null);
       if(!transferTarget || !transferAmount) return;
-      
       try {
         const res = await fetch("/api/casino/transfer", {
             method: "POST",
@@ -123,19 +120,33 @@ export default function CasinoPage() {
             credentials: "include"
         });
         const data = await res.json();
-        
         if(res.ok) {
             setTransferStatus({ type: 'success', msg: data.message });
             setCredits(data.credits);
             setTransferAmount("");
-            fetchLeaderboard(); // Nach Transfer könnte sich das Ranking ändern
+            fetchLeaderboard(); 
         } else {
             setTransferStatus({ type: 'error', msg: data.error || "Fehler beim Senden" });
         }
-      } catch(e) {
-          setTransferStatus({ type: 'error', msg: "Netzwerkfehler" });
+      } catch(e) { setTransferStatus({ type: 'error', msg: "Netzwerkfehler" }); }
+  };
+
+  // NEU: Handle User Selection (Dropdown -> Search Field)
+  const handleUserSelect = (e) => {
+      const selectedId = e.target.value;
+      setTransferTarget(selectedId);
+      
+      const selectedUser = userList.find(u => u.id === selectedId);
+      if (selectedUser) {
+          setTransferSearch(selectedUser.name);
       }
   };
+
+  const filteredUsers = userList.filter(u => 
+      u.name.toLowerCase().includes(transferSearch.toLowerCase())
+  );
+
+  const visibleLeaderboard = leaderboard.slice(0, 5); // Immer nur Top 5 im Preview
 
   if (!user) {
     return (
@@ -158,7 +169,7 @@ export default function CasinoPage() {
         <div className="flex items-center gap-6 mt-4 md:mt-0">
           <div className="text-right">
             <p className="text-xs text-gray-400 uppercase tracking-widest">Kontostand</p>
-            <p className="text-2xl font-mono font-bold text-yellow-400">{credits.toLocaleString()}🪙</p>
+            <p className="text-2xl font-mono font-bold text-yellow-400">{credits.toLocaleString()} <CoinIcon size="w-6 h-6" /> </p>
           </div>
           
           {userDataLoading ? (
@@ -186,6 +197,47 @@ export default function CasinoPage() {
         </div>
       </header>
 
+      {/* --- LEADERBOARD MODAL --- */}
+      {showLeaderboardModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl relative">
+                  <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-2xl">
+                      <h2 className="text-2xl font-bold text-yellow-500 flex items-center gap-2">🏆 Die Reichsten User</h2>
+                      <button 
+                        onClick={() => setShowLeaderboardModal(false)}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-700 hover:bg-gray-600 transition"
+                      >
+                          ✕
+                      </button>
+                  </div>
+                  <div className="p-6 overflow-y-auto custom-scrollbar">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {leaderboard.map((u, index) => {
+                                let rankColor = "bg-gray-800 border-gray-700";
+                                let medal = `#${index + 1}`;
+                                if (index === 0) { rankColor = "bg-yellow-900/40 border-yellow-500 text-yellow-200"; medal = "🥇"; }
+                                else if (index === 1) { rankColor = "bg-slate-700/50 border-slate-400 text-slate-200"; medal = "🥈"; }
+                                else if (index === 2) { rankColor = "bg-orange-900/40 border-orange-500 text-orange-200"; medal = "🥉"; }
+
+                                return (
+                                    <div key={index} className={`flex items-center justify-between p-3 rounded-xl border ${rankColor}`}>
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <span className="text-lg font-bold w-8 text-center flex-shrink-0">{medal}</span>
+                                            <span className="font-semibold truncate">{u.name}</span>
+                                        </div>
+                                        <span className="font-mono font-bold text-sm ml-2">{u.credits.toLocaleString()}</span>
+                                    </div>
+                                );
+                          })}
+                      </div>
+                  </div>
+                  <div className="p-4 border-t border-gray-700 bg-gray-800/30 rounded-b-2xl text-center">
+                      <button onClick={() => setShowLeaderboardModal(false)} className="text-gray-400 hover:text-white text-sm">Schließen</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {!activeGame ? (
         <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -196,11 +248,14 @@ export default function CasinoPage() {
                 >
                 <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300 w-12 h-12 flex items-center justify-center">
                     {game.id === 'slots' && '🎰'}
+                    {game.id === 'roulette' && '🎯'}
                     {game.id === 'blackjack' && '🃏'}
                     {game.id === 'highlow' && '📈'}
                     {game.id === 'mines' && '💣'}
                     {game.id === 'guess' && '🔢'}
                     {game.id === 'case' && '📦'}
+                    {game.id === 'plinko' && '🔻'}
+                    {game.id === 'dice' && '🎲'}
                 </div>
                 <h3 className="text-xl font-bold mb-2">{game.name}</h3>
                 <p className="text-sm text-gray-400">{game.desc}</p>
@@ -208,30 +263,64 @@ export default function CasinoPage() {
             ))}
             </div>
 
-            {/* -- BOTTOM SECTION: TRANSFER & LEADERBOARD -- */}
+            {/* -- BOTTOM SECTION -- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
                 
                 {/* 1. TRANSFER */}
-                <div className="bg-gray-900/50 border border-gray-700 p-6 rounded-2xl h-full">
+                <div className="bg-gray-900/50 border border-gray-700 p-6 rounded-2xl h-full flex flex-col">
                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-violet-400">
                         💸 Überweisen
                     </h2>
-                    <form onSubmit={handleTransfer} className="flex flex-col gap-4">
+                    <form onSubmit={handleTransfer} className="flex flex-col gap-4 flex-1">
                         <div>
                             <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Empfänger</label>
+                            
+                            {/* SUCHLEISTE MIT CLEAR BUTTON */}
+                            <div className="relative mb-2">
+                                <input 
+                                    type="text"
+                                    placeholder="Name suchen..."
+                                    value={transferSearch}
+                                    onChange={(e) => setTransferSearch(e.target.value)}
+                                    className="w-full bg-gray-800 border border-gray-600 rounded-lg pl-4 pr-10 py-2 text-white focus:border-violet-500 outline-none"
+                                />
+                                {transferSearch && (
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            setTransferSearch("");
+                                            setTransferTarget(""); // Optional: Auswahl auch resetten
+                                        }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-700 transition"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+                            
                             <select 
                                 value={transferTarget}
-                                onChange={(e) => setTransferTarget(e.target.value)}
+                                onChange={handleUserSelect}
                                 className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-violet-500"
+                                size={5}
                             >
-                                <option value="">-- Wähle einen User --</option>
-                                {userList.map(u => (
-                                    <option key={u.id} value={u.id}>
-                                        {u.name}
-                                    </option>
-                                ))}
+                                <option value="" disabled>-- Wähle einen User --</option>
+                                {filteredUsers.length === 0 ? (
+                                    <option disabled>Kein User gefunden</option>
+                                ) : (
+                                    filteredUsers.map(u => (
+                                        <option 
+                                            key={u.id} 
+                                            value={u.id}
+                                            className="checked:bg-violet-600 checked:text-white hover:bg-gray-700 p-1 rounded"
+                                        >
+                                            {u.name}
+                                        </option>
+                                    ))
+                                )}
                             </select>
                         </div>
+                        {/* ... Rest des Formulars (Menge, Button etc.) bleibt gleich ... */}
                         <div>
                             <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Menge</label>
                             <input 
@@ -261,17 +350,18 @@ export default function CasinoPage() {
                     </form>
                 </div>
 
-                {/* 2. LEADERBOARD */}
-                <div className="bg-gray-900/50 border border-gray-700 p-6 rounded-2xl h-full">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-yellow-500">
-                        🏆 Top 5 Reichste
+                {/* 2. LEADERBOARD PREVIEW */}
+                <div className="bg-gray-900/50 border border-gray-700 p-6 rounded-2xl h-full flex flex-col">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-yellow-500 justify-between">
+                        <span>🏆 Reichtum</span>
+                        <span className="text-xs text-gray-500 font-normal">Top 5 von {leaderboard.length}</span>
                     </h2>
                     <div className="flex flex-col gap-2">
                         {leaderboard.length === 0 ? (
                             <p className="text-gray-500 text-sm italic">Lade Ranking...</p>
                         ) : (
-                            leaderboard.map((u, index) => {
-                                let rankColor = "bg-gray-800 border-gray-700 text-gray-300"; // Default
+                            visibleLeaderboard.map((u, index) => {
+                                let rankColor = "bg-gray-800 border-gray-700 text-gray-300"; 
                                 let medal = `#${index + 1}`;
 
                                 if (index === 0) {
@@ -288,15 +378,24 @@ export default function CasinoPage() {
                                 return (
                                     <div key={index} className={`flex items-center justify-between p-3 rounded-xl border ${rankColor} transition-all hover:scale-[1.02]`}>
                                         <div className="flex items-center gap-3">
-                                            <span className="text-lg font-bold w-8 text-center">{medal}</span>
-                                            <span className="font-semibold">{u.name}</span>
+                                            <span className="text-lg font-bold w-10 text-center">{medal}</span>
+                                            <span className="font-semibold truncate max-w-[150px]">{u.name}</span>
                                         </div>
-                                        <span className="font-mono font-bold">{u.credits.toLocaleString()} 💎</span>
+                                        <span className="font-mono font-bold">{u.credits.toLocaleString()} <CoinIcon size="w-6 h-6" /></span>
                                     </div>
                                 );
                             })
                         )}
                     </div>
+                    
+                    {leaderboard.length > 5 && (
+                        <button 
+                            onClick={() => setShowLeaderboardModal(true)} // Öffnet Modal
+                            className="mt-auto pt-4 w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-sm transition border border-gray-600"
+                        >
+                            Alle anzeigen ({leaderboard.length})
+                        </button>
+                    )}
                 </div>
 
             </div>
@@ -312,11 +411,14 @@ export default function CasinoPage() {
                 </button>
             )}
             {activeGame === "slots" && <SlotMachine updateCredits={refreshUser} currentCredits={credits} />}
+            {activeGame === "roulette" && <Roulette updateCredits={refreshUser} currentCredits={credits} />}
             {activeGame === "blackjack" && <Blackjack updateCredits={refreshUser} currentCredits={credits} />}
             {activeGame === "highlow" && <HighLow updateCredits={refreshUser} currentCredits={credits} />}
             {activeGame === "mines" && <Mines updateCredits={refreshUser} currentCredits={credits} />}
             {activeGame === "guess" && <GuessNumber updateCredits={refreshUser} currentCredits={credits} />}
             {activeGame === "case" && <CaseOpening updateCredits={refreshUser} currentCredits={credits} />}
+            {activeGame === "plinko" && (<Plinko updateCredits={refreshUser} currentCredits={credits} onClientUpdate={(newVal) => setCredits(newVal)} />)}
+            {activeGame === "dice" && <Dice updateCredits={refreshUser} currentCredits={credits} />}
         </div>
       )}
     </div>
