@@ -1,11 +1,13 @@
 {
   "160224748": {
     "name": "vnmvalentin",
-    "highScore": 0,
+    "highScore": 6,
     "skins": [
-      "default"
+      "default",
+      "bestmod",
+      "gh0stqq"
     ],
-    "activeSkin": "default",
+    "activeSkin": "gh0stqq",
     "powerups": [],
     "unlockedSlots": 1,
     "loadout": [
@@ -17,9 +19,9 @@
     "activeRun": {
       "hp": 100,
       "maxHp": 100,
-      "gold": 0,
-      "stage": 20,
-      "kills": 0,
+      "gold": 147,
+      "stage": 2,
+      "kills": 17,
       "baseStats": {
         "damage": 1,
         "maxHp": 100,
@@ -31,7 +33,7 @@
         "piercing": 0,
         "fireRate": 1
       },
-      "currentTheme": 6
+      "currentTheme": 3
     }
   }
 }

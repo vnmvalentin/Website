@@ -17,13 +17,13 @@ const SKINS_DEF = {
 };
 
 const POWERUPS_DEF = {
-    "potion": { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 30000, icon: "assets/adventure/powerups/healpotion.png" },
-    "shield": { name: "Schutzschild", price: 1500, desc: "5 Sekunden unverwundbar", cooldown: 60000, icon: "assets/adventure/powerups/shield.png" },
-    "spin": { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 15000, icon: "assets/adventure/powerups/spinattack.png" },
+    "potion": { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 40000, icon: "assets/adventure/powerups/healpotion.png" },
+    "shield": { name: "Schutzschild", price: 1500, desc: "3 Sekunden unverwundbar", cooldown: 45000, icon: "assets/adventure/powerups/shield.png" },
+    "spin": { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 25000, icon: "assets/adventure/powerups/spinattack.png" },
     "decoy": { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 45000, icon: "assets/adventure/powerups/decoy.png" },
-    "grenade": { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 10000, icon: "assets/adventure/projectiles/grenade.png" },
-    "fastshot": { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 40000, icon: "assets/adventure/powerups/rapidfire.png" },
-    "fastboots": { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 30000, icon: "assets/adventure/powerups/fastboots.png" }
+    "grenade": { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 35000, icon: "assets/adventure/projectiles/grenade.png" },
+    "fastshot": { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 25000, icon: "assets/adventure/powerups/rapidfire.png" },
+    "fastboots": { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 25000, icon: "assets/adventure/powerups/fastboots.png" }
 };
 
 function loadGameData() { try { if (!fs.existsSync(GAME_DATA_PATH)) return {}; return JSON.parse(fs.readFileSync(GAME_DATA_PATH, "utf8")); } catch (e) { return {}; } }
@@ -214,7 +214,9 @@ module.exports = function createGameRouter({ requireAuth }) {
     const { kills, stage } = req.body;
     const userId = req.twitchId;
     if (kills === undefined || stage === undefined) return res.status(400).json({ error: "Invalid Data" });
-    const earnedCredits = Math.floor((kills * 0.5) + (stage * 50));
+    const killBonus = kills * 0.2;
+    const stageBonus = (stage * 10) + (2 * Math.pow(stage, 2));
+    const earnedCredits = Math.floor(killBonus + stageBonus);
     const gameDb = loadGameData();
     const casinoDb = loadCasinoData();
     const user = ensureUser(gameDb, userId, req.twitchLogin);
@@ -225,6 +227,67 @@ module.exports = function createGameRouter({ requireAuth }) {
     saveGameData(gameDb);
     saveCasinoData(casinoDb);
     res.json({ success: true, earnedCredits, highScore: gameDb[userId].highScore });
+  });
+
+  router.post("/feedback", requireAuth, async (req, res) => {
+      const { message } = req.body;
+      const username = req.twitchLogin || "Unbekannt";
+      
+      // HIER DEINE WEBHOOK URL EINTRAGEN:
+      const WEBHOOK_URL = "https://discord.com/api/webhooks/1462290359202615347/I5kLNO6HwScgJ2-ONt0MBtwVQ-y-C_QFpbJF1PiYOwmGC3ccJ46iVMOroPL1zqCoc0_J"; 
+
+      if (!message || message.trim().length === 0) {
+          return res.status(400).json({ error: "Nachricht darf nicht leer sein." });
+      }
+      
+      if (WEBHOOK_URL.includes("HIER_EINFÜGEN")) {
+          console.error("Discord Webhook URL wurde nicht konfiguriert!");
+          return res.status(500).json({ error: "Server Konfigurationsfehler" });
+      }
+
+      try {
+          // Wir senden ein schönes Embed an Discord
+          const discordPayload = {
+              username: "Adventure Feedback Bot",
+              avatar_url: "https://cdn-icons-png.flaticon.com/512/2583/2583166.png", // Optional: Icon für den Bot
+              embeds: [
+                  {
+                      title: "📝 Neues Feedback / Bugreport",
+                      color: 16753920, // Orange
+                      fields: [
+                          {
+                              name: "👤 User",
+                              value: username,
+                              inline: true
+                          },
+                          {
+                              name: "💬 Nachricht",
+                              value: message
+                          }
+                      ],
+                      footer: {
+                          text: `Gesendet am ${new Date().toLocaleString("de-DE")}`
+                      }
+                  }
+              ]
+          };
+
+          const discordRes = await fetch(WEBHOOK_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(discordPayload)
+          });
+
+          if (discordRes.ok) {
+              res.json({ success: true });
+          } else {
+              console.error("Discord Error:", await discordRes.text());
+              res.status(500).json({ error: "Fehler beim Senden an Discord" });
+          }
+      } catch (e) {
+          console.error("Feedback Fetch Error:", e);
+          res.status(500).json({ error: "Interner Serverfehler" });
+      }
   });
 
   return router;
