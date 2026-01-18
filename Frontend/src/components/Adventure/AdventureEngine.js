@@ -25,12 +25,15 @@ export default class AdventureEngine {
           // Projektile
           proj_basic: new Image(), proj_shuriken: new Image(), proj_fireball: new Image(),
           proj_arrow: new Image(), proj_sand: new Image(), proj_grenade: new Image(), 
-          proj_poison: new Image(), proj_laser: new Image(), proj_web: new Image(), proj_poisonball: new Image(),
+          proj_poison: new Image(), proj_laser: new Image(), proj_web: new Image(), proj_poisonball: new Image(), proj_iceball: new Image(),
+          fire_particle: new Image(), ice_block: new Image(), proj_block: new Image(), proj_feather: new Image (),
 
           // Umgebung
           floor_dungeon: new Image(), floor_desert: new Image(), floor_lava: new Image(), 
           floor_ice: new Image(), floor_cave: new Image(), floor_boss1: new Image(), floor_boss2: new Image(),
           tree: new Image(), rock: new Image(), cactus: new Image(), pillar: new Image(), decoy: new Image(),
+          cactus2: new Image(), cactus3: new Image(), icebarrel: new Image (), icespikes: new Image(), vulkan: new Image(), vulkan2: new Image(),
+          stone1: new Image(), stone2: new Image(),
 
           // BOSS BILDER (Müssen manuell bleiben, da spezielle Logik)
           boss1_idle: new Image(),
@@ -64,8 +67,8 @@ export default class AdventureEngine {
       if(skinFile.includes("wizard")) this.playerProjectile = "proj_fireball";
       if(skinFile.includes("knight")) this.playerProjectile = "proj_arrow";
       if(skinFile.includes("cyber")) this.playerProjectile = "proj_laser";
-      if(skinFile.includes("gh0stqq")) this.playerProjectile = "proj_shuriken";
-      if(skinFile.includes("bestmod")) this.playerProjectile = "proj_shuriken";
+      if(skinFile.includes("gh0stqq")) this.playerProjectile = "proj_block";
+      if(skinFile.includes("bestmod")) this.playerProjectile = "proj_feather";
 
       this.onAssetsLoaded = callbacks.onAssetsLoaded; // Callback speichern
 
@@ -114,6 +117,9 @@ export default class AdventureEngine {
       set(this.sprites.proj_grenade, "projectiles/grenade.png");
       set(this.sprites.proj_web, "projectiles/webball.png");
       set(this.sprites.proj_poisonball, "projectiles/poisonball.png");
+      set(this.sprites.proj_iceball, "projectiles/iceball.png");
+      set(this.sprites.proj_block, "projectiles/block.png");
+      set(this.sprites.proj_feather, "projectiles/feather.png");
 
       // Böden
       set(this.sprites.floor_dungeon, "stagetheme/floor_dungeon.png");
@@ -129,10 +135,20 @@ export default class AdventureEngine {
       set(this.sprites.rock, "world/rock.png");
       set(this.sprites.cactus, "desert/cactus.png");
       set(this.sprites.pillar, "world/pillar.png");
+      set(this.sprites.cactus2, "desert/cactus2.png");
+      set(this.sprites.cactus3, "desert/cactus3.png");
+      set(this.sprites.icebarrel, "ice/icebarrel.png");
+      set(this.sprites.icespikes, "ice/icespikes.png");
+      set(this.sprites.vulkan, "lava/vulkan.png");
+      set(this.sprites.vulkan2, "lava/vulkan2.png");
+      set(this.sprites.stone1, "cave/stone1.png");
+      set(this.sprites.stone2, "cave/stone2.png");
+
+
 
       // --- Neue Sprites für Status Effekte ---
-      this.sprites.ice_block = new Image(); set(this.sprites.ice_block, "effects/ice_block.png"); // Ein Eisblock Bild
-      this.sprites.fire_particle = new Image(); set(this.sprites.fire_particle, "effects/fire.png"); // Kleine Flamme
+      this.sprites.ice_block = new Image(); set(this.sprites.ice_block, "projectiles/ice.png"); // Ein Eisblock Bild
+      this.sprites.fire_particle = new Image(); set(this.sprites.fire_particle, "projectiles/fire.png"); // Kleine Flamme
 
       // Boss 1 (Manuell laden)
       set(this.sprites.boss1_idle, "boss1/boss1.png");
@@ -192,19 +208,19 @@ export default class AdventureEngine {
       loadAnim("skeleton", "dungeon/skeleton.png", true, 2); // Beispiel: sucht skeleton2.png
       loadAnim("goblin", "dungeon/goblin.png", true, 1, true);
       loadAnim("orc", "dungeon/orc.png", true, 3, true);
-      loadAnim("nekromant", "dungeon/nekromant.png");
+      loadAnim("nekromant", "dungeon/nekromant.png", true, 1, true);
 
       // Desert Enemies
       loadAnim("mummy", "desert/mummy.png", true, 1);
       loadAnim("scorpion", "desert/scorpion.png", true, 1);
       loadAnim("golem", "desert/golem.png", true, 2);
-      loadAnim("shaman", "desert/shaman.png");
+      loadAnim("shaman", "desert/shaman.png", true, 1, true);
 
       // Ice Enemies
       loadAnim("snowman", "ice/snowman.png", true, 1);
       loadAnim("penguin", "ice/penguin.png", true, 1);
       loadAnim("yeti", "ice/yeti.png", true, 1);
-      loadAnim("icespirit", "ice/icespirit.png")
+      loadAnim("icespirit", "ice/icespirit.png", true, 1)
 
       // Cave Enemies
       loadAnim("spider", "cave/spider.png", true, 1);
@@ -215,11 +231,11 @@ export default class AdventureEngine {
       loadAnim("firespirit", "lava/firespirit.png", true, 1);
       loadAnim("firewizard", "lava/firewizard.png", true, 1);
       loadAnim("minotaur", "lava/minotaur.png", true, 2);
-      loadAnim("firespewer", "lava/firespewer.png")
+      loadAnim("firespewer", "lava/firespewer.png", true, 0, true)
 
 
       // Extra Enemies
-      loadAnim("slime", "boss1/slime.png");
+      loadAnim("slime", "boss1/slime.png", true, 0, true);
 
       assetsRegistered = true;
 
@@ -272,6 +288,7 @@ export default class AdventureEngine {
             poisonedTimer: 0,
             burnTimer: 0,    // NEU
             freezeTimer: 0,  // NEU
+            webbedTimer: 0,
             stunTimer: 0,
             flashRedTimer: 0,
             fastShotTimer: 0,
@@ -435,7 +452,7 @@ export default class AdventureEngine {
                 name: "THUNDERWING",
                 sprite: this.sprites.boss2_idle, 
                 theme: 6, // Ein dunkleres Theme passt gut zu Blitzen // Oder etwas passendes
-                hpMulti: 1.8,
+                hpMulti: 3.5,
                 introStyle: "fly_in", // Neue Intro Art
                 color: "yellow"
             };
@@ -598,29 +615,44 @@ export default class AdventureEngine {
     }
 
     generateObstacles(theme) {
-        const s = this.state;
-        const count = 20 + Math.min(20, s.stage);
-        for(let i=0; i<count; i++) {
-            const x = Math.random() * this.worldWidth;
-            const y = Math.random() * this.worldHeight;
-            if(Math.hypot(x - this.worldWidth/2, y - this.worldHeight/2) < 400) continue; 
+    const s = this.state;
+    const count = 20 + Math.min(20, s.stage);
+    let attempts = 0; // Schutz vor Endlosschleife
 
-            let type = "rock", color = "#555", sprite = this.sprites.rock, radius = 30 + Math.random() * 20;
+    while(s.obstacles.length < count && attempts < 1000) {
+        attempts++;
+        
+        // ÄNDERUNG: Padding von 150px zum Rand, damit nichts out-of-map ragt
+        const x = 150 + Math.random() * (this.worldWidth - 300);
+        const y = 150 + Math.random() * (this.worldHeight - 300);
+        
+        // Abstand zum Spawn (Mitte)
+        if(Math.hypot(x - this.worldWidth/2, y - this.worldHeight/2) < 400) continue; 
+
+        // ÄNDERUNG: Prüfen ob zu nah an anderen Hindernissen (min 150px Abstand)
+        const tooClose = s.obstacles.some(o => Math.hypot(x - o.x, y - o.y) < 150);
+        if (tooClose) continue;
+
+        let type = "rock", color = "#555", sprite = this.sprites.rock, radius = 30 + Math.random() * 20;
             
             if (theme === 1) { // Desert
-                 if (Math.random() > 0.6) { type = "cactus"; sprite = this.sprites.cactus; radius = 20; color="green"; } 
-                 else { color="#8B4513"; }
+                 if (Math.random() < 0.4) { type = "cactus"; sprite = this.sprites.cactus; radius = 25; color="green"; }
+                 else if (Math.random() < 0.7) { type = "cactus2"; sprite = this.sprites.cactus2; radius = 20; color="green"; }
+                 else if (Math.random() > 0.7) { type = "cactus2"; sprite = this.sprites.cactus3; radius = 20; color="green"; }    
             } else if (theme === 2) { // Lava
-                color = "#500"; 
+                if (Math.random() < 0.5) { type = "vulkan"; sprite = this.sprites.vulkan; radius = 30 + Math.random() * 20; color="red"; }
+                else if (Math.random() > 0.5) { type = "vulkan2"; sprite = this.sprites.vulkan2; radius = 25 + Math.random() * 20; color="red"; }
             } else if (theme === 3) { // Ice
-                color = "#A5F2F3"; 
+                if (Math.random() < 0.5) { type = "icebarrel"; sprite = this.sprites.icebarrel; radius = 20; color="blue"; }
+                else if (Math.random() > 0.5) { type = "icespikes"; sprite = this.sprites.icespikes; radius = 30 + Math.random() * 20; color="blue"; }
             } else if (theme === 4) { // Cave
-                 if(Math.random() > 0.5) { type = "pillar"; sprite = this.sprites.pillar; radius = 25; color = "#444"; }
-                 else { sprite = this.sprites.rock; color = "#222"; }
+                 if (Math.random() < 0.5) { type = "stone1"; sprite = this.sprites.stone1; radius = 30 + Math.random() * 20; color="blue"; }
+                 else if (Math.random() > 0.5) { type = "stone2"; sprite = this.sprites.stone2; radius = 25 + Math.random() * 20; color="blue"; }
             } else if (theme === 5) { //Boss 1
 
             } else { // Dungeon
-                if(Math.random() > 0.5) { type = "pillar"; sprite = this.sprites.pillar; radius = 25; color = "#444"; }
+                if(Math.random() > 0.5) { type = "pillar"; sprite = this.sprites.pillar; radius = 30 + Math.random() * 20; color = "#444"; }
+                else if (Math.random() < 0.5) { type = "tree"; sprite = this.sprites.tree; radius = 30 + Math.random() * 20; color="blue"; }
             }
             s.obstacles.push({ x, y, r: radius, type, sprite, color, theme });
         }
@@ -646,6 +678,9 @@ export default class AdventureEngine {
         }
 
         const now = Date.now();
+
+        let currentInterval = s.spawnInterval;
+        if (s.doorOpen) currentInterval = 800; // Sehr schnelles Spawnen (0.8s)
         
         if (s.isBossStage) {
             // Minions nur spawnen, WENN Boss da ist.
@@ -658,8 +693,9 @@ export default class AdventureEngine {
             return;
         }
 
-        const maxEnemies = 10 + Math.floor(s.stage / 2); 
-        if (now - s.lastSpawnTime > s.spawnInterval && s.enemies.length < maxEnemies) {
+        const maxEnemies = s.doorOpen ? 80 : 10 + Math.floor(s.stage / 2); // Limit erhöhen im Rage Mode
+
+        if (now - s.lastSpawnTime > currentInterval && s.enemies.length < maxEnemies) {
             this.spawnSingleEnemy();
             s.lastSpawnTime = now;
         }
@@ -750,15 +786,6 @@ export default class AdventureEngine {
             stage: "warn" 
         });
     }
-    spawnExitGuards() {
-        for(let i=0; i<3; i++) {
-            const angle = (Math.PI * 2 / 5) * i;
-            const dist = 80;
-            const ex = this.state.doorPos.x + Math.cos(angle) * dist;
-            const ey = this.state.doorPos.y + Math.sin(angle) * dist;
-            this.spawnSingleEnemy(false, ex, ey, true);
-        }
-    }
 
     spawnSingleEnemy(isMinion = false, forceX = null, forceY = null, isGuard = false, forceAnim= null) {
         const s = this.state;
@@ -788,11 +815,20 @@ export default class AdventureEngine {
         let speed = 2.8 + (difficultyTier * 0.2); 
         speed = Math.min(4, speed);
 
+        // ÄNDERUNG: RAGE MODE (Wenn Tür offen ist)
+        if (s.doorOpen && !s.isBossStage) {
+            speed *= 1.2;  // Viel schneller
+            hp *= 2.0;     // Viel tankier
+            dmg *= 1.5;
+            // Optional: Farbe ändern oder Effekt
+        }
+
         let type = "basic", sprite = null, ai = "chase", size = 22, color = "red", projectileSprite = "proj_basic";
         const rand = Math.random();
         let canPoison = false; 
         let causesBurn = false;
         let causesFreeze = false;
+        let causesWeb = false;
 
         // --- ENEMY SELECTION BY THEME ---
         let animSet = "goblin"; 
@@ -818,7 +854,7 @@ export default class AdventureEngine {
                         type = "shooter"; animSet = "scorpion"; ai = "range"; color = "purple"; projectileSprite = "proj_sand"; 
                         if (s.stage >= 10) canPoison = true; 
                     } 
-                    else if (s.stage >= 5 && rand < 0.1) { 
+                    else if (s.stage >= 5 && (rand >= 0.15 && rand < 0.3)) { 
                         type = "tank"; animSet = "golem"; size = 50; ai = "chase"; color = "brown"; 
                         hp *= 1.8; speed *= 0.8; 
                     } 
@@ -832,7 +868,7 @@ export default class AdventureEngine {
                     else if (rand > 0.75) {
                         type = "shooter"; animSet = "firewizard"; ai = "range"; color = "orange"; projectileSprite = "proj_fireball";
                         dmg *= 1.2;
-                    } else if (s.stage >= 5 && rand < 0.1) {
+                    } else if (s.stage >= 5 && (rand >= 0.15 && rand < 0.3)) {
                         type = "tank"; animSet = "minotaur"; size = 50; ai = "chase"; color = "#800";
                         hp *= 2.0; speed *= 0.85;
                     } else {
@@ -843,11 +879,11 @@ export default class AdventureEngine {
 
                 case 3: // Ice
                     if (s.stage > 10 && rand < 0.1) {
-                        type = "shooter"; animSet = "icespirit"; ai = "range"; color = "black"; projectileSprite = "proj_basic"; causesFreeze = true;
+                        type = "shooter"; animSet = "icespirit"; ai = "range"; color = "black"; projectileSprite = "proj_iceball"; causesFreeze = true;
                     }
                     else if (rand > 0.7) {
                         type = "shooter"; animSet = "penguin"; ai = "range"; color = "black"; projectileSprite = "proj_basic";
-                    } else if (s.stage >= 5 && rand < 0.1) {
+                    } else if (s.stage >= 5 && (rand >= 0.15 && rand < 0.3)) {
                         type = "tank"; animSet = "yeti"; size = 50; ai = "chase"; color = "white";
                         hp *= 2.2; speed *= 0.75;
                     } else {
@@ -858,7 +894,7 @@ export default class AdventureEngine {
                 case 4: // Cave
                     if (rand > 0.65) {
                         type = "shooter"; animSet = "spider"; ai = "range"; color = "#220033"; projectileSprite = "proj_web";
-                        if (s.stage >= 6) canPoison = true; 
+                        if (s.stage >= 6) causesWeb = true; 
                     } else if (s.stage >= 5 && rand < 0.1) {
                         type = "tank"; animSet = "troll"; size = 50; ai = "chase"; color = "green";
                         hp *= 1.9; 
@@ -875,7 +911,7 @@ export default class AdventureEngine {
                     else if (rand > 0.75) { 
                         type = "shooter"; animSet = "skeleton"; ai = "range"; color = "green"; projectileSprite = "proj_arrow"; 
                     } 
-                    else if (s.stage >= 5 && rand < 0.1) { 
+                    else if (s.stage >= 5 && (rand >= 0.15 && rand < 0.3)) { 
                         type = "tank"; animSet = "orc"; size = 50; ai = "chase"; color = "darkgreen"; 
                         hp *= 1.8; speed *= 0.85;
                     } 
@@ -886,7 +922,10 @@ export default class AdventureEngine {
 
         if (type === "shooter") { hp *= 0.6; dmg *= 1.2; }
         if (isMinion) { hp *= 0.5; size *= 0.8; }
-        if (isGuard) { hp *= 1.5; dmg *= 1.5; size *= 1.2; color = "black"; }
+        if (isMinion && animSet === "skeletonwarrior") {
+            speed *= 1.5; // Sehr schnell -> Spieler muss Necro fokussen oder rennen
+            hp *= 0.8;    // Aber nicht zu viel HP
+        }
         
 
         // Wir übergeben 'animSet' statt 'sprite'
@@ -904,6 +943,7 @@ export default class AdventureEngine {
             poison: canPoison, 
             causesBurn: causesBurn,
             causesFreeze: causesFreeze,
+            causesWeb: causesWeb,
             isMinion: isMinion
         });
     }
@@ -935,11 +975,11 @@ export default class AdventureEngine {
                 break;
             case 'shield':
                 s.player.shieldActive = true;
-                s.player.shieldTimer = 300; 
+                s.player.shieldTimer = 180; 
                 break;
             case 'spin':
                 s.spinAttack.active = true;
-                s.spinAttack.timer = 60; 
+                s.spinAttack.timer = 150; 
                 s.spinAttack.angle = 0;
                 break;
             case 'fastshot':
@@ -1188,6 +1228,14 @@ export default class AdventureEngine {
               if (s.player.hp <= 0) this.triggerGameOver();
           }
       }
+      // Web
+      if (s.player.webbedTimer > 0) {
+            s.player.webbedTimer--;
+            // Optional: Visual Feedback "WEB"
+            if(s.player.webbedTimer % 20 === 0) this.showFloatingText(s.player.x, s.player.y-50, "WEBBED", "white", 10);
+        }
+        // Movement Speed Berechnung
+    
 
       // 3. Freeze (Timer runterzählen)
       if (s.player.freezeTimer > 0) s.player.freezeTimer--;
@@ -1216,7 +1264,8 @@ export default class AdventureEngine {
         }
 
       // Player Movement
-      const currentSpeed = s.player.speed * (s.player.fastBootsTimer > 0 ? 2 : 1);
+      let currentSpeed = s.player.speed * (s.player.fastBootsTimer > 0 ? 2 : 1);
+      if (s.player.webbedTimer > 0) currentSpeed *= 0.4;
       if (s.player.freezeTimer <= 0 && s.player.stunTimer <= 0) {
         if (s.keys.w) { s.player.y -= currentSpeed; isMoving = true; }
         if (s.keys.s) { s.player.y += currentSpeed; isMoving = true; }
@@ -1449,7 +1498,8 @@ export default class AdventureEngine {
                     e.lastAttack = now; 
                     if (e.poison) s.player.poisonedTimer = 300;
                     if (e.causesBurn) s.player.burnTimer = 180; 
-                    if (e.causesFreeze) s.player.freezeTimer = 60; 
+                    if (e.causesFreeze) s.player.freezeTimer = 60;
+                    if (e.web) s.player.webbedTimer = 120; 
                     if(s.player.hp <= 0) this.triggerGameOver();
                   }
               }
@@ -1691,6 +1741,7 @@ export default class AdventureEngine {
           else if (e.bossType === 'slime_king') {
                // Boss AI Machine
                // Init State
+               const isPhase2 = e.hp < e.maxHp * 0.5;
                if(!e.patternCount) e.patternCount = 0;
                let currentSprite = this.sprites.boss1_idle;
                if(!e.state) e.state = 'idle';
@@ -1706,7 +1757,7 @@ export default class AdventureEngine {
                         e.patternCount++;
 
                         // Jedes 4. mal Charge sonst Shoot
-                        if (e.patternCount % 4 === 0) e.state = 'charge_start';
+                        if (isPhase2 ? e.patternCount % 3 === 0 : e.patternCount % 4 === 0) e.state = 'charge_start';
                         else e.state = 'shoot';
                     }
                     currentSprite = this.sprites.boss1_idle;
@@ -1725,20 +1776,15 @@ export default class AdventureEngine {
                }
                else if (e.state === 'charge_start') {
                     // AUFLADE PHASE (Verbesserte Animation)
-                    this.showFloatingText(e.x, e.y-80, "ROAR!!!", "red", 20);
+                    this.showFloatingText(e.x, e.y-80, "!!!", "red", 20);
                     e.stateTimer++;
                     
-                    // Animation: Langsames Ausholen statt Flackern
-                    // Erste Hälfte (0-20 Frames): Ausholen (Hände halb hoch)
-                    if (e.stateTimer < 20) {
-                        currentSprite = this.sprites.boss1_charge1;
-                    } 
-                    // Zweite Hälfte (20-40 Frames): Bereit zum Schlag (Hände ganz hoch)
-                    else {
-                        currentSprite = this.sprites.boss1_charge2;
-                    }
+                    const chargeTimeNeeded = isPhase2 ? 20 : 40; 
+        
+                    if (e.stateTimer < chargeTimeNeeded / 2) currentSprite = this.sprites.boss1_charge1;
+                    else currentSprite = this.sprites.boss1_charge2;
 
-                    if(e.stateTimer > 40) {
+                    if(e.stateTimer > chargeTimeNeeded) {
                         e.state = 'charge_attack';
                         e.stateTimer = 0;
                         e.chargeAngle = Math.atan2(s.player.y - e.y, s.player.x - e.x);
@@ -1747,7 +1793,7 @@ export default class AdventureEngine {
                else if (e.state === 'charge_attack') {
                     e.stateTimer++;
                     // Sehr schnelle Pfützen-Legung
-                    const speed = 25; // Projektil/Legung sehr schnell
+                    const speed = isPhase2 ? 40 : 25; // Projektil/Legung sehr schnell
                     const dist = e.stateTimer * speed;
                     
                     const px = e.x + Math.cos(e.chargeAngle) * dist;
@@ -1840,14 +1886,14 @@ export default class AdventureEngine {
                       vx: Math.cos(angle) * 6, 
                       vy: Math.sin(angle) * 6,
                       damage: e.damage, size: 6, life: 60, 
-                      color: "#4B0082", sprite: this.sprites.proj_poison // Nutzt Gift-Sprite
+                      color: "#4B0082", sprite: this.sprites.proj_laser // Nutzt Gift-Sprite
                   });
                   e.lastAttack = now;
               }
 
               // 3. BESCHWÖRUNG (4 Skelette gleichzeitig)
               if (!e.lastSummon) e.lastSummon = now; // Init
-              if (now - e.lastSummon > 6000) {
+              if (now - e.lastSummon > 10000) {
                    e.isCasting = true; 
                    setTimeout(() => { e.isCasting = false; }, 800);
                    
@@ -1906,7 +1952,8 @@ export default class AdventureEngine {
                       sprite: this.sprites[e.projectileSprite],
                       poison: e.poison,
                       burn: e.causesBurn,       // <--- NEU: Eigenschaft übertragen
-                      freeze: e.causesFreeze
+                      freeze: e.causesFreeze,
+                      web: e.causesWeb
                   });
                   e.lastAttack = now;
               }
@@ -2023,6 +2070,7 @@ export default class AdventureEngine {
                   if (b.poison) s.player.poisonedTimer = 300;
                   if (b.burn) s.player.burnTimer = 180;
                   if (b.freeze) s.player.freezeTimer = 60;
+                  if (b.web) s.player.webbedTimer = 120;
                   
                   // NEU: Stun Effekt (für Beam, Orbs und Walls)
                   if (b.stun) {
@@ -2108,7 +2156,6 @@ export default class AdventureEngine {
               // Sicherheitscheck, ob Spiel noch läuft
               if(this.state.running) this.onUpdateUI({ topMessage: null });
           }, 1000);
-          this.spawnExitGuards();
       }
 
       if(s.doorOpen && Math.hypot(s.player.x - s.doorPos.x, s.player.y - s.doorPos.y) < s.player.size + 30) { 
@@ -2421,13 +2468,46 @@ export default class AdventureEngine {
       });
 
       s.bullets.forEach(b => { 
-          const bAngle = Math.atan2(b.vy, b.vx);
           if (b.type === 'grenade') {
+               // Granaten sollen sich weiter drehen (keine Spiegelung nötig)
+               const bAngle = Math.atan2(b.vy, b.vx);
                this.drawSprite(ctx, b.sprite, b.x, b.y, 16, 16, bAngle + (Date.now()/50), "green", "circle");
           } else {
-              this.drawSprite(ctx, b.sprite, b.x, b.y, b.size*3, b.size*3, bAngle, "yellow", "circle");
+              // --- NEUE LOGIK: SPIEGELN STATT ÜBER KOPF DREHEN ---
+              
+              const isMovingLeft = b.vx < 0;
+              
+              // Winkelberechnung:
+              // Wenn wir nach links fliegen (gespiegelt), müssen wir vx für die Winkelberechnung
+              // negieren, damit die Nase des Projektils relativ zur Spiegelung richtig zeigt.
+              const rotation = isMovingLeft 
+                  ? Math.atan2(b.vy, -b.vx) 
+                  : Math.atan2(b.vy, b.vx);
+
+              ctx.save();
+              ctx.translate(b.x, b.y);
+
+              if (isMovingLeft) {
+                  ctx.scale(-1, 1); // Horizontal spiegeln (wie beim Spieler)
+              }
+
+              ctx.rotate(rotation);
+
+              const w = b.size * 3;
+              const h = b.size * 3;
+
+              if (b.sprite && b.sprite.complete && b.sprite.naturalWidth > 0) {
+                   ctx.drawImage(b.sprite, -w/2, -h/2, w, h);
+              } else {
+                   // Fallback (Gelber Kreis), falls Bild fehlt
+                   ctx.fillStyle = "yellow";
+                   ctx.beginPath(); ctx.arc(0, 0, b.size, 0, Math.PI*2); ctx.fill();
+              }
+              
+              ctx.restore();
           }
       });
+
       s.enemyBullets.forEach(b => {
           const bAngle = Math.atan2(b.vy, b.vx);
           const col = b.poison ? "purple" : "red";

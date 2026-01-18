@@ -71,7 +71,7 @@ export default function App() {
           <Route path="/Packs/Achievements" element={<AchievementsPage />} />
           <Route path="/KnowledgeBase" element={<KnowledgeBase />} />
           <Route path="/Casino" element={<CasinoPage />} />
-          <Route path="/beta_test_adventure_gfx" element={<AdventureGame/>} />
+          <Route path="/adventures" element={<AdventureGame/>} />
 
         </Route>
       </Routes>

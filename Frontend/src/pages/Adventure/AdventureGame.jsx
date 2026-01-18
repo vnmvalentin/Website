@@ -45,30 +45,33 @@ export default function AdventureGame() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [endScreenData, setEndScreenData] = useState(null);
   const [casinoCredits, setCasinoCredits] = useState(0); 
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState("idle");
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
 
   // MOCK DATA (Fallback)
   const mockUserData = {
       skins: ["default"],
       activeSkin: "default",
       skinDefs: { 
-          default: { name: "Standard", file: "player3.png", price: 0 },
-          ninja: { name: "Ninja", file: "player_ninja3.png", price: 2000 },
-          knight: { name: "Ritter", file: "player_knight3.png", price: 5000 },
-          wizard: { name: "Magier", file: "player_wizard3.png", price: 8000 },
-          cyber: { name: "Cyberpunk", file: "player_cyber3.png", price: 15000 },
-          gh0stqq: { name: "Gh0stQQ", file: "gh0stqq3.png", price: 15000 },
-          bestmod: { name: "Best Mod",  file: "bestmod3.png", price: 15000 }
+          default: { name: "Standard", file: "player.png", price: 0 },
+          ninja: { name: "Ninja", file: "player_ninja.png", price: 2000 },
+          knight: { name: "Ritter", file: "player_knight.png", price: 5000 },
+          wizard: { name: "Magier", file: "player_wizard.png", price: 8000 },
+          cyber: { name: "Cyberpunk", file: "player_cyber.png", price: 15000 },
+          gh0stqq: { name: "Gh0stQQ", file: "gh0stqq.png", price: 15000 },
+          bestmod: { name: "Best Mod",  file: "bestmod.png", price: 15000 }
       },
       powerups: [],
       loadout: [null, null, null],
       powerupDefs: {
-        potion: { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 30000, icon: "assets/adventure/powerups/healpotion.png" },
-        shield: { name: "Schutzschild", price: 1500, desc: "5 Sekunden unverwundbar", cooldown: 60000, icon: "assets/adventure/powerups/shield.png" },
-        spin: { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 15000, icon: "assets/adventure/powerups/spinattack.png" },
+        potion: { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 40000, icon: "assets/adventure/powerups/healpotion.png" },
+        shield: { name: "Schutzschild", price: 1500, desc: "3 Sekunden unverwundbar", cooldown: 45000, icon: "assets/adventure/powerups/shield.png" },
+        spin: { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 25000, icon: "assets/adventure/powerups/spinattack.png" },
         decoy: { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 45000, icon: "assets/adventure/powerups/decoy.png" },
-        grenade: { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 10000, icon: "assets/adventure/projectiles/grenade.png" },
-        fastshot: { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 40000, icon: "assets/adventure/powerups/rapidfire.png" },
-        fastboots: { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 30000, icon: "assets/adventure/powerups/fastboots.png" }
+        grenade: { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 35000, icon: "assets/adventure/projectiles/grenade.png" },
+        fastshot: { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 25000, icon: "assets/adventure/powerups/rapidfire.png" },
+        fastboots: { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 25000, icon: "assets/adventure/powerups/fastboots.png" }
       },
       hasActiveRun: false
   };
@@ -316,7 +319,12 @@ export default function AdventureGame() {
         // 1. Run beenden und Belohnungen abholen
         const res = await fetch("/api/adventure/end-run", {
             method: "POST", // Vermutlich POST, je nach deiner API
-            credentials: "include"
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ 
+                kills: finalState.kills, 
+                stage: finalState.stage 
+            })
             // Ggf. Body falls nötig
         });
         const data = await res.json();
@@ -326,16 +334,20 @@ export default function AdventureGame() {
         await fetch("/api/adventure/clear-run", { method: "POST", credentials: "include" });
         // ----------------------------------------------
 
-        setEndScreenData({ ...data, kills: finalState.kills, stage: finalState.stage, earnedCredits: data.earnedCredits || earnedCredits });
-        refreshData(); 
+        setEndScreenData({ 
+            ...data, 
+            kills: finalState.kills, 
+            stage: finalState.stage, 
+            earnedCredits: data.earnedCredits !== undefined ? data.earnedCredits : earnedCredits 
+        });
+        refreshData(); // Lädt Highscore neu
       } catch(e) {
-          // --- FIX: Auch bei Fehler (z.B. Internet weg) versuchen zu löschen ---
-          // Verhindert, dass man bei Netzwerkfehlern neu laden kann
+          console.error("Game Over Error:", e);
+          // --- FIX: Auch bei Fehler versuchen zu löschen ---
           try { await fetch("/api/adventure/clear-run", { method: "POST", credentials: "include" }); } catch(err) {}
-          // ---------------------------------------------------------------------
 
           setEndScreenData({ earnedCredits: earnedCredits, kills: finalState.kills, stage: finalState.stage });
-      } 
+      }
   };
 
 
@@ -422,24 +434,35 @@ export default function AdventureGame() {
 
   const buyIngameUpgrade = (type, baseCost) => {
       if(!engineRef.current) return;
-      if (selectedShopItem !== type && type !== 'heal') { setSelectedShopItem(type); return; }
+      
+      if (selectedShopItem !== type) { 
+          setSelectedShopItem(type); 
+          return; 
+      }
 
       const cost = getPrice(type, baseCost);
       const engine = engineRef.current;
-      
-      if (engine.state.player.gold >= cost) {
-          engine.state.player.gold -= cost;
+    
+      const finalCost = (type === 'heal') ? 100 : cost;
+
+      if (engine.state.player.gold >= finalCost) {
+          engine.state.player.gold -= finalCost;
           const upgradeEffect = {};
-          if(type === "heal") { engine.state.player.hp = engine.state.player.maxHp; } 
+          
+          if(type === "heal") { 
+              engine.state.player.hp = engine.state.player.maxHp; 
+          } 
           else {
               upgradeEffect[type] = getUpgradeValue(type);
               setBoughtCounts(prev => ({ ...prev, [type]: (prev[type] || 0) + 1 }));
           }
+          
           if(type !== "heal") engine.applyUpgrades(upgradeEffect);
           
           setGameState(prev => ({
               ...prev, gold: engine.state.player.gold, hp: engine.state.player.hp, stats: {...engine.baseStats}
           }));
+          
           setSelectedShopItem(null);
       }
   };
@@ -644,35 +667,72 @@ export default function AdventureGame() {
             </div>
         )}
 
-        {/* MENÜS: Jetzt auch absolute zum Container */}
+        {/* HAUPTMENÜ */}
         {menuView === 'MAIN' && (
-            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
-                <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-red-600 mb-4 drop-shadow-xl filter text-center">ADVENTURES</h1>
+            <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm p-8 overflow-y-auto custom-scrollbar">
                 
-                <div className="flex flex-col md:flex-row gap-10 items-center">
-                    <div className="flex flex-col gap-4 w-[30vmin] min-w-[250px]">
-                        <button onClick={handleStartRequest} className="bg-red-700 hover:bg-red-600 text-white font-bold py-4 rounded text-xl md:text-2xl shadow-lg border border-red-500 transition-all">
-                            {activeRunData ? "WEITER SPIELEN" : "NEUES SPIEL"}
-                        </button>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => setMenuView('SKIN_SHOP')} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600">🎨 SKINS</button>
-                            <button onClick={() => setMenuView('LOADOUT_SHOP')} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600">💣 POWERUPS</button>
-                            <button onClick={() => setShowHelp(true)} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600">📖 WISSENSBUCH</button>
-                            <button onClick={() => setShowFeedback(true)} className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600">📝 FEEDBACK</button>
-                        </div>
+                {/* 1. TITEL - FIX: p-4 hinzugefügt, damit das 'S' rechts nicht gecuttet wird */}
+                <h1 className="text-6xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-red-600 mb-6 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] filter text-center tracking-tighter p-4">
+                    ADVENTURES
+                </h1>
+                
+                {/* 2. LEADERBOARD PREVIEW */}
+                <div className="w-full max-w-4xl bg-gray-900/80 border border-gray-600 p-6 rounded-2xl mb-8 relative shadow-2xl group hover:border-yellow-600 transition-colors">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50"></div>
+                    
+                    <h3 className="text-yellow-500 font-bold mb-4 text-center text-2xl tracking-[0.3em] uppercase border-b border-gray-700 pb-2 flex items-center justify-center gap-4">
+                        <span>🏆</span> HALL OF FAME <span>🏆</span>
+                    </h3>
+                    
+                    {/* Top 5 Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        {leaderboard.length === 0 && <span className="text-gray-500 col-span-5 text-center py-4 italic">Noch keine Legenden...</span>}
+                        
+                        {leaderboard.slice(0, 5).map((e, i) => {
+                            let rankColor = "text-gray-400";
+                            let rankIcon = `#${i+1}`;
+                            let bgClass = "bg-gray-800/50 border-gray-700";
+                            
+                            if (i === 0) { rankColor = "text-yellow-400"; rankIcon = "👑"; bgClass = "bg-yellow-900/20 border-yellow-600/50"; }
+                            else if (i === 1) { rankColor = "text-gray-300"; rankIcon = "🥈"; bgClass = "bg-gray-700/50 border-gray-500/50"; }
+                            else if (i === 2) { rankColor = "text-orange-400"; rankIcon = "🥉"; bgClass = "bg-orange-900/20 border-orange-600/50"; }
+
+                            return (
+                                <div key={i} className={`flex flex-col items-center justify-center p-3 rounded-lg border ${bgClass} transition-transform hover:scale-105`}>
+                                    <div className={`text-2xl mb-1 ${rankColor}`}>{rankIcon}</div>
+                                    <div className="font-bold text-white truncate max-w-full px-2" title={e.name}>{e.name}</div>
+                                    <div className="text-xs text-gray-400 font-mono mt-1">STAGE <span className="text-white text-sm font-bold">{e.score}</span></div>
+                                </div>
+                            )
+                        })}
                     </div>
 
-                    <div className="w-64 bg-gray-900/80 border border-gray-700 p-4 rounded text-left overflow-hidden">
-                        <h3 className="text-yellow-500 font-bold mb-2 border-b border-gray-700 pb-1">🏆 TOP RUNS</h3>
-                        <div className="text-xs space-y-2">
-                            {leaderboard.length === 0 && <span className="text-gray-500">Keine Daten...</span>}
-                            {leaderboard.slice(0,5).map((e,i) => (
-                                <div key={i} className="flex justify-between">
-                                    <span className="text-white truncate w-24">{e.name}</span>
-                                    <span className="text-gray-400">Stage: {e.score}</span>
-                                </div>
-                            ))}
-                        </div>
+                    {/* NEU: Button zum Ausklappen (nur wenn mehr als 5 Einträge) */}
+                    {leaderboard.length > 5 && (
+                        <button 
+                            onClick={() => setShowLeaderboardModal(true)}
+                            className="mt-6 w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white font-bold text-sm border border-gray-600 transition-colors uppercase tracking-wider flex items-center justify-center gap-2"
+                        >
+                            <span>📜</span> Alle anzeigen ({leaderboard.length})
+                        </button>
+                    )}
+                </div>
+
+                {/* 3. BUTTONS */}
+                <div className="w-full max-w-4xl flex flex-col gap-4">
+                    <button 
+                        onClick={handleStartRequest} 
+                        className="w-full bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 text-white font-black py-6 rounded-xl text-3xl shadow-[0_0_20px_rgba(220,38,38,0.4)] border border-red-500 transition-all transform hover:scale-[1.01] uppercase tracking-widest relative overflow-hidden"
+                    >
+                        <span className="relative z-10">{activeRunData ? "SPIEL FORTSETZEN" : "NEUES ABENTEUER STARTEN"}</span>
+                        <div className="absolute top-0 left-0 w-full h-full bg-white/5 opacity-0 hover:opacity-100 transition-opacity"></div>
+                    </button>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <MenuButton icon="🎨" label="SKINS" onClick={() => setMenuView('SKIN_SHOP')} />
+                        <MenuButton icon="💣" label="POWERUPS" onClick={() => setMenuView('LOADOUT_SHOP')} />
+                        <MenuButton icon="📖" label="HANDBUCH" onClick={() => setShowHelp(true)} />
+                        <MenuButton icon="📝" label="FEEDBACK" onClick={() => setShowFeedback(true)} />
                     </div>
                 </div>
             </div>
@@ -697,7 +757,12 @@ export default function AdventureGame() {
                                 <div key={id} className={`relative group p-4 rounded-xl border-2 flex flex-col items-center transition-all duration-300 ${active ? 'border-green-500 bg-green-900/20 shadow-[0_0_15px_rgba(0,255,0,0.3)]' : owned ? 'border-gray-600 bg-gray-800 hover:border-gray-400' : 'border-purple-900/30 bg-gray-900/50 hover:border-purple-500 hover:bg-gray-800'}`}>
                                     <div className="w-16 h-16 md:w-24 md:h-24 mb-4 relative flex items-center justify-center">
                                          <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${active ? 'bg-green-500' : 'bg-purple-600'}`}></div>
-                                         <img src={`/assets/adventure/${skin.file}`} alt={skin.name} className="w-full h-full object-contain relative z-10 drop-shadow-lg transition-transform group-hover:scale-110" onError={(e) => {e.target.style.display='none';}} />
+                                         <img 
+                                            src={`/assets/adventure/${skin.file.replace('.png', '3.png')}`} 
+                                            alt={skin.name} 
+                                            className="w-full h-full object-contain relative z-10 drop-shadow-lg transition-transform group-hover:scale-110" 
+                                            onError={(e) => {e.target.style.display='none';}} 
+                                        />
                                     </div>
                                     <h3 className="font-bold text-white text-sm md:text-lg mb-1">{skin.name}</h3>
                                     <div className="mt-auto w-full pt-2">
@@ -841,7 +906,8 @@ export default function AdventureGame() {
                     <div className="space-y-4 text-gray-300">
                         <p>1. Bewege dich mit WASD.<br></br> 2. Schieße mit Leertaste/ linke Maustaste.<br></br> 3. Benutze PowerUps mit 1-4.<br></br> 4. Töte eine bestimmte Anzahl an Gegnern pro Stage und entkomme durch die Tür.<br></br>
                          5. Alle 5 Stages kommt ein Shop. Alle 10 Stages kommt ein Boss Level.<br></br>
-                         6. Nach dem Boss Level kannst du ein Meilenstein/ besonderes PowerUp auswählen.<br></br> 7. Manche Gegner haben später besondere Effekte (Gift, Brand, Erfrieren, Schock etc.).<br></br>8. Pro Level gibt es 2 Kisten mit extra Gold.
+                         6. Nach dem Boss Level kannst du ein Meilenstein/ besonderes PowerUp auswählen.<br></br> 7. Manche Gegner haben später besondere Effekte (Gift, Brand, Erfrieren, Schock etc.).<br></br>8. Pro Level gibt es 2 Kisten mit extra Gold.<br></br>
+                         9. Nach dem Öffnen der Tür, werden Gegner schneller, tankier und brutaler... gehe so schnell es geht zum Ausgang.<br></br>10. Du kriegst Coins für das Casino und Packs nach deinem Run, je höher du kommst desto mehr Credits.
                         </p>
                     </div>
                     
@@ -850,19 +916,122 @@ export default function AdventureGame() {
             </div>
         )}
 
-        {/* Feedback */}
-        {showFeedback && (
-            <div className="absolute inset-0 z-[60] bg-black/90 flex items-center justify-center p-4">
-                <div className="bg-gray-900 border border-gray-600 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl relative">
-                    <button onClick={() => setShowFeedback(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">✕</button>
-                    <h2 className="text-3xl font-bold text-yellow-400 mb-6 border-b border-gray-700 pb-2">Feedback</h2>
-                    
-                    <div className="space-y-4 text-gray-300">
-                        <p>Hast du Feedback, Bugs oder Ideen für das Spiel, melde dich auf meinem Discord:</p>
-                        <a href={"https://discord.gg/V38GBSVNeh"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] px-4 py-2 rounded-lg text-sm font-semibold">💬 Zum Discord</a>
+        {/* LEADERBOARD MODAL - NEU */}
+        {showLeaderboardModal && (
+            <div className="absolute inset-0 z-[70] bg-black/95 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-sm">
+                <div className="bg-gray-900 border border-gray-600 rounded-xl max-w-2xl w-full h-[80%] flex flex-col shadow-2xl relative">
+                    <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-xl">
+                        <h2 className="text-2xl font-bold text-yellow-500 flex items-center gap-2">🏆 Hall of Fame</h2>
+                        <button onClick={() => setShowLeaderboardModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-700 hover:bg-gray-600 text-white transition">✕</button>
                     </div>
                     
-                    <button onClick={() => setShowFeedback(false)} className="mt-8 w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 rounded">Zurück</button>
+                    <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2">
+                        {leaderboard.map((e, i) => {
+                             let rankStyle = "bg-gray-800 border-gray-700 text-gray-300";
+                             let icon = `#${i+1}`;
+                             
+                             if(i===0) { rankStyle = "bg-yellow-900/30 border-yellow-500 text-yellow-200"; icon="🥇"; }
+                             else if(i===1) { rankStyle = "bg-slate-700/50 border-slate-400 text-slate-200"; icon="🥈"; }
+                             else if(i===2) { rankStyle = "bg-orange-900/30 border-orange-500 text-orange-200"; icon="🥉"; }
+
+                             return (
+                                <div key={i} className={`flex justify-between items-center p-3 rounded-lg border ${rankStyle}`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-8 text-center text-lg font-bold">{icon}</div>
+                                        <div className="font-bold text-lg">{e.name}</div>
+                                    </div>
+                                    <div className="font-mono font-bold bg-black/30 px-3 py-1 rounded text-yellow-500">
+                                        Stage {e.score}
+                                    </div>
+                                </div>
+                             )
+                        })}
+                    </div>
+                    
+                    <div className="p-4 border-t border-gray-700 bg-gray-800/30 rounded-b-xl text-center">
+                        <button onClick={() => setShowLeaderboardModal(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-2 rounded font-bold transition">Schließen</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Feedback Modal - NEU */}
+        {showFeedback && (
+            <div className="absolute inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-gray-900 border border-gray-600 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative flex flex-col gap-4">
+                    <button onClick={() => setShowFeedback(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">✕</button>
+                    
+                    <h2 className="text-3xl font-bold text-yellow-400 border-b border-gray-700 pb-2">📝 Feedback & Bugs</h2>
+                    
+                    {feedbackStatus === "success" ? (
+                        <div className="flex flex-col items-center justify-center py-10 animate-in zoom-in">
+                            <div className="text-6xl mb-4">✅</div>
+                            <h3 className="text-2xl font-bold text-white mb-2">Danke für dein Feedback!</h3>
+                            <p className="text-gray-400">Deine Nachricht wurde an den Discord Server gesendet.</p>
+                            <button onClick={() => { setShowFeedback(false); setFeedbackStatus("idle"); setFeedbackText(""); }} className="mt-6 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded">Schließen</button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="space-y-2 text-gray-300">
+                                <p className="text-sm text-gray-400">Beschreibe ausführlich was dein Anliegen ist. Bugs, Wünsche oder Balance-Vorschläge sind willkommen!</p>
+                                <p className="text-xs text-gray-500 italic">Dein Twitch-Name ({user?.login}) wird automatisch mitgesendet.</p>
+                            </div>
+
+                            <textarea 
+                                className="w-full h-40 bg-black/50 border border-gray-700 rounded p-3 text-white focus:border-yellow-500 focus:outline-none resize-none placeholder-gray-600"
+                                placeholder="Schreibe hier dein Feedback..."
+                                value={feedbackText}
+                                onChange={(e) => setFeedbackText(e.target.value)}
+                                disabled={feedbackStatus === "sending"}
+                            />
+                            
+                            {feedbackStatus === "error" && <p className="text-red-500 text-sm font-bold">Fehler beim Senden. Bitte versuche es später erneut.</p>}
+
+                            <div className="flex gap-4 mt-2">
+                                <button 
+                                    onClick={() => setShowFeedback(false)} 
+                                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600 transition-colors"
+                                    disabled={feedbackStatus === "sending"}
+                                >
+                                    Abbrechen
+                                </button>
+                                <button 
+                                    onClick={async () => {
+                                        if (feedbackText.trim().length < 10) return;
+                                        setFeedbackStatus("sending");
+                                        try {
+                                            const res = await fetch("/api/adventure/feedback", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                credentials: "include",
+                                                body: JSON.stringify({ message: feedbackText })
+                                            });
+                                            if (res.ok) {
+                                                setFeedbackStatus("success");
+                                            } else {
+                                                setFeedbackStatus("error");
+                                            }
+                                        } catch (e) {
+                                            setFeedbackStatus("error");
+                                        }
+                                    }} 
+                                    disabled={feedbackText.trim().length < 5 || feedbackStatus === "sending"}
+                                    className={`flex-1 font-bold py-3 rounded border transition-colors flex items-center justify-center gap-2
+                                        ${feedbackText.trim().length < 5 
+                                            ? 'bg-gray-800 text-gray-500 border-gray-800 cursor-not-allowed' 
+                                            : 'bg-blue-700 hover:bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/50'
+                                        }`}
+                                >
+                                    {feedbackStatus === "sending" ? (
+                                        <>
+                                            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                                            Sende...
+                                        </>
+                                    ) : "Absenden 🚀"}
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         )}
@@ -885,7 +1054,7 @@ export default function AdventureGame() {
                         scaling={true} selected={selectedShopItem === 'magnet'} actualCost={getPrice('magnet', 400)} />
                     <ShopItem title="Heiltrank" desc="HP voll heilen" baseCost={100} icon="💖" currentVal={`${Math.floor(gameState.hp)}/${gameState.maxHp}`}
                         onClick={() => buyIngameUpgrade('heal', 100)} gold={gameState.gold} 
-                        scaling={false} selected={false} actualCost={100} />
+                        scaling={false} selected={selectedShopItem === 'heal'} actualCost={100} />
                     <ShopItem title="Schnellfeuer" desc="+20% Feuerrate" baseCost={350} icon="🔫" currentVal={`${(gameState.stats.fireRate || 1).toFixed(1)}x`}
                         onClick={() => buyIngameUpgrade('fireRate', 350)} gold={gameState.gold} 
                         scaling={true} selected={selectedShopItem === 'fireRate'} actualCost={getPrice('fireRate', 350)} />
@@ -925,7 +1094,7 @@ export default function AdventureGame() {
                             <div className="text-xl text-gray-400 mb-6">{endScreenData.kills} Kills</div>
                             {/* NEU: Credits Anzeige */}
                             <div className="text-4xl text-yellow-400 font-bold mb-8 border-t border-b border-gray-800 py-4">
-                                + {endScreenData.earnedCredits} <CoinIcon size="w-6 h-6" />
+                                + {endScreenData.earnedCredits} <CoinIcon size="w-9 h-9" />
                             </div>
                         </>
                     )}
@@ -967,4 +1136,16 @@ function MilestoneCard({ title, icon, desc, onClick }) {
             <div className="mt-auto px-6 py-2 bg-purple-700 text-white font-bold rounded hover:bg-purple-600 transition-colors">WÄHLEN</div>
         </button>
     )
+}
+
+function MenuButton({ icon, label, onClick }) {
+    return (
+        <button 
+            onClick={onClick} 
+            className="group flex items-center justify-center gap-3 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white font-bold py-4 rounded-xl border border-gray-600 hover:border-gray-400 transition-all"
+        >
+            <span className="text-2xl group-hover:scale-110 transition-transform">{icon}</span>
+            <span className="tracking-wider">{label}</span>
+        </button>
+    );
 }

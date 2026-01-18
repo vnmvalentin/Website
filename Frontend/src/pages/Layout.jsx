@@ -16,6 +16,7 @@ const navItems = [
     links: [
       { label: "Casino", to: "/Casino" },
       { label: "Pack-Opening", to: "/Packs" },
+      { label: "adVentures", to: "/adventures" },
     ],
   },
   {
