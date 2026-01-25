@@ -68,7 +68,7 @@ export default class AdventureEngine {
       if(skinFile.includes("knight")) this.playerProjectile = "proj_arrow";
       if(skinFile.includes("cyber")) this.playerProjectile = "proj_laser";
       if(skinFile.includes("gh0stqq")) this.playerProjectile = "proj_block";
-      if(skinFile.includes("bestmod")) this.playerProjectile = "proj_feather";
+      if(skinFile.includes("bestmod")) this.playerProjectile = "proj_poisonball";
 
       this.onAssetsLoaded = callbacks.onAssetsLoaded; // Callback speichern
 
@@ -1197,6 +1197,55 @@ export default class AdventureEngine {
                   setTimeout(() => { if(this.state.running) this.onUpdateUI({ topMessage: null }); }, 2000);
               }
           }
+          // === NEU: PHASE 2 CUTSCENE (Startet bei Phase 10) ===
+          if (s.cutscene.phase === 10) {
+               // CAM TO BOSS
+               const boss = s.enemies.find(e => e.isBoss);
+               if (!boss) { s.cutscene.active = false; return; }
+
+               const visibleW = this.width / this.zoom;
+               const visibleH = this.height / this.zoom;
+               const targetCamX = boss.x - (visibleW / 2);
+               const targetCamY = boss.y - (visibleH / 2);
+
+               s.camera.x += (targetCamX - s.camera.x) * 0.1; // Schnellerer Schwenk
+               s.camera.y += (targetCamY - s.camera.y) * 0.1;
+
+               if (t > 40) { // Nach kurzem Schwenk
+                   s.cutscene.phase = 11;
+                   s.cutscene.timer = 0;
+                   
+                   // Animation setzen & Text
+                   if (boss.bossType === "electric_dragon") boss.sprite = this.sprites.boss2_attack1;
+                   else boss.sprite = this.sprites.boss1_slam;
+                   
+                   this.showFloatingText(boss.x, boss.y - 120, "☠️ RAGE MODE ☠️", "red", 100);
+               }
+          }
+          else if (s.cutscene.phase === 11) {
+               // HOLD / ANIMATION
+               // Hier passiert nichts außer Warten, damit der Spieler den Text lesen kann
+               if (t > 90) { // 1.5 Sekunden Pause
+                   s.cutscene.phase = 12; 
+                   s.cutscene.timer = 0;
+                   const boss = s.enemies.find(e => e.isBoss);
+                   if(boss) boss.sprite = (boss.bossType === "electric_dragon") ? this.sprites.boss2_idle : this.sprites.boss1_idle;
+               }
+          }
+          else if (s.cutscene.phase === 12) {
+               // CAM BACK TO PLAYER
+               const visibleW = this.width / this.zoom;
+               const visibleH = this.height / this.zoom;
+               const targetCamX = s.player.x - visibleW / 2;
+               const targetCamY = s.player.y - visibleH / 2;
+
+               s.camera.x += (targetCamX - s.camera.x) * 0.1;
+               s.camera.y += (targetCamY - s.camera.y) * 0.1;
+
+               if (t > 30) {
+                   s.cutscene.active = false; // Zurück zum Spiel
+               }
+          }
           return; 
       }
 
@@ -1505,6 +1554,22 @@ export default class AdventureEngine {
               }
           }
 
+          if (e.isBoss && !e.phase2Seen && e.hp < e.maxHp * 0.5) {
+              e.phase2Seen = true; // Flag setzen damit es nur 1x passiert
+              
+              // Cutscene starten
+              s.cutscene.active = true;
+              s.cutscene.phase = 10; // Startet unsere neue Logik
+              s.cutscene.timer = 0;
+              
+              // Sicherstellen, dass der Boss kurz stillsteht
+              e.state = 'idle'; 
+              e.stateTimer = 0;
+              
+              // Alle Projektile löschen für fairen Reset? (Optional, hier lassen wir sie mal)
+              return; // Loop für diesen Frame abbrechen
+          }
+
           if(s.decoy && s.decoy.hp <= 0) {
               s.decoy = null;
               this.showFloatingText(s.player.x, s.player.y, "DECOY DESTROYED", "gray");
@@ -1521,6 +1586,8 @@ export default class AdventureEngine {
 
             if (!e.state) e.state = 'idle';
             if (!e.patternCount) e.patternCount = 0;
+
+            if (typeof e.attacksSinceWall === 'undefined') e.attacksSinceWall = 3;
 
             // --- STATES ---
             
@@ -1549,6 +1616,7 @@ export default class AdventureEngine {
                     
                     if (e.patternCount % 6 === 0) {
                         e.state = 'fly_up_start'; 
+                        e.attacksSinceWall++;
                     }
                     else {
                         let nextAttack = '';
@@ -1557,12 +1625,21 @@ export default class AdventureEngine {
                         else if (rand < 0.66) nextAttack = 'orb_summon';
                         else nextAttack = 'wall_sweep_start';
 
-                        if (nextAttack === 'wall_sweep_start' && e.lastAttack === 'wall') {
-                             nextAttack = 'orb_summon';
+                        if (nextAttack === 'wall_sweep_start') {
+                            if (e.attacksSinceWall < 3) { 
+                                // Zu früh! Wähle stattdessen Orbs oder Beam
+                                nextAttack = Math.random() > 0.5 ? 'orb_summon' : 'triple_beam_charge';
+                                e.attacksSinceWall++;
+                            } else {
+                                // Erlaubt! Reset Counter.
+                                e.attacksSinceWall = 0;
+                            }
+                        } else {
+                            // Andere Attacke gewählt -> Counter hochzählen
+                            e.attacksSinceWall++;
                         }
+
                         e.state = nextAttack;
-                        if (nextAttack === 'wall_sweep_start') e.lastAttack = 'wall';
-                        else e.lastAttack = 'other';
                     }
                 }
             }
@@ -1637,7 +1714,7 @@ export default class AdventureEngine {
                 e.sprite = this.sprites.boss2_attack1; 
                 if (e.stateTimer === 25) {
                     // SPEED CHANGE: 60% vom Spieler Speed (deutlich langsamer)
-                    const ballSpeed = s.player.speed * 0.7;
+                    const ballSpeed = s.player.speed * 1;
                     
                     const orbCount = isPhase2 ? 8 : 5;
                     for(let i=0; i<orbCount; i++) {
@@ -1800,7 +1877,7 @@ export default class AdventureEngine {
                     const py = e.y + Math.sin(e.chargeAngle) * dist;
                     
                     // Pfützen legen
-                    if (px > 50 && px < this.worldWidth - 50 && py > 50 && py < this.worldHeight - 50) {
+                    if (px > 0 && px < this.worldWidth && py > 0 && py < this.worldHeight) {
                         s.acidPuddles.push({ 
                             x: px, y: py, r: 35, 
                             life: 800, 
@@ -1809,7 +1886,7 @@ export default class AdventureEngine {
                     }
 
                     // Bis weit hinter den Spieler (z.B. 1500px weit)
-                    if (dist > 1500) e.state = 'idle';
+                    if (dist > 4000) e.state = 'idle';
                   
                     currentSprite = this.sprites.boss1_slam;
                 }

@@ -1,7 +1,7 @@
 {
   "160224748": {
     "name": "vnmvalentin",
-    "highScore": 6,
+    "highScore": 20,
     "skins": [
       "default",
       "bestmod",
@@ -17,13 +17,13 @@
       null
     ],
     "activeRun": {
-      "hp": 100,
+      "hp": 55,
       "maxHp": 100,
-      "gold": 147,
-      "stage": 2,
-      "kills": 17,
+      "gold": 195,
+      "stage": 11,
+      "kills": 1,
       "baseStats": {
-        "damage": 1,
+        "damage": 10,
         "maxHp": 100,
         "speed": 1,
         "multishot": 0,
@@ -33,7 +33,7 @@
         "piercing": 0,
         "fireRate": 1
       },
-      "currentTheme": 3
+      "currentTheme": 1
     }
   }
 }

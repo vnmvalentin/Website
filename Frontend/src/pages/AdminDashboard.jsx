@@ -1,0 +1,459 @@
+import React, { useState, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { TwitchAuthContext } from "../components/TwitchAuthContext";
+
+// DEINE ID
+const STREAMER_ID = "160224748"; 
+
+const SECTIONS = ["overview", "adventures", "casino", "codes", "winchallenge", "bingo"];
+
+export default function AdminDashboard() {
+  const { user, isLoading } = useContext(TwitchAuthContext);
+  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState("overview");
+  const [data, setData] = useState(null);
+  const [search, setSearch] = useState("");
+  const [fetchLoading, setFetchLoading] = useState(false);
+
+  // --- NEUE STATES FÜR CODES ---
+  const [newCode, setNewCode] = useState({ 
+      code: "", 
+      type: "credits", 
+      value: 0, 
+      maxUses: 10, 
+      expiresAt: "" 
+  });
+  const [isUnlimited, setIsUnlimited] = useState(false); // Checkbox State
+
+  // --- SICHERHEITS-CHECK ---
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user || String(user.id) !== STREAMER_ID) {
+        navigate("/"); 
+    }
+  }, [user, isLoading, navigate]);
+
+  // Daten laden
+  const fetchData = async (type) => {
+      setFetchLoading(true);
+      try {
+          let url = `/api/admin/data/${type}`;
+          if (type === "codes") url = "/api/promo/list";
+          if (type === "stats") url = "/api/admin/stats"; // <--- NEU
+
+          const res = await fetch(url);
+          const json = await res.json();
+          setData(json);
+      } catch(e) { console.error(e); }
+      setFetchLoading(false);
+  };
+
+  useEffect(() => {
+      const keyMap = {
+          "overview": "stats",
+          "adventures": "adventure",
+          "casino": "casino",
+          "winchallenge": "winchallenge",
+          "bingo": "bingo",
+          "codes": "codes"
+      };
+      if (keyMap[activeTab]) fetchData(keyMap[activeTab]);
+  }, [activeTab]);
+
+  // --- ACTIONS ---
+
+  const createCode = async () => {
+      // Wenn unbegrenzt ausgewählt ist, senden wir -1, sonst die Zahl
+      const payload = {
+          ...newCode,
+          maxUses: isUnlimited ? -1 : parseInt(newCode.maxUses)
+      };
+
+      await fetch("/api/promo/create", {
+          method: "POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify(payload)
+      });
+      // Reset Form
+      setNewCode({ code: "", type: "credits", value: 0, maxUses: 10, expiresAt: "" });
+      setIsUnlimited(false);
+      fetchData("codes");
+  };
+
+  const deleteCode = async (code) => {
+      if(!window.confirm("Code löschen?")) return;
+      await fetch(`/api/promo/${code}`, { method: "DELETE" });
+      fetchData("codes");
+  };
+
+  const updateUser = async (id, changes) => {
+      await fetch("/api/admin/update/user", {
+          method: "POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ targetId: id, changes })
+      });
+      const keyMap = { "adventures": "adventure", "casino": "casino" };
+      fetchData(keyMap[activeTab]);
+  };
+  
+  const deleteItem = async (type, id) => {
+      if(!window.confirm("Wirklich löschen?")) return;
+      
+      let url = `/api/admin/${type}/${id}`;
+      
+      // FIX: WinChallenge direkt über die winchallenge-Route löschen,
+      // damit der Cache sauber bleibt!
+      if (type === "winchallenge") {
+          url = `/api/winchallenge/${id}`;
+      }
+
+      await fetch(url, { method: "DELETE" });
+      
+      // Kurz warten für Save
+      setTimeout(() => {
+          fetchData(activeTab === "winchallenge" ? "winchallenge" : "bingo");
+      }, 500);
+  };
+
+  // --- RENDER HELPERS ---
+
+  if (isLoading || !user || String(user.id) !== STREAMER_ID) {
+      return <div className="min-h-screen flex items-center justify-center text-gray-500">Checking permissions...</div>;
+  }
+
+  const renderContent = () => {
+      if (fetchLoading) return <div className="p-8 text-center animate-pulse text-purple-400 font-bold">Lade Daten aus der Datenbank...</div>;
+      
+      // FIX: Wenn Data null ist, aber wir im Overview sind, versuche neu zu laden oder zeige Fehler
+      if (!data && activeTab === "overview") return <div className="p-8 text-center text-red-400">Keine Statistik-Daten empfangen. (Backend prüfen)</div>;
+      
+      if (!data) return <div className="p-8 text-center text-gray-500">Wähle einen Bereich</div>;
+
+      // FILTER
+      let entries = Object.entries(data);
+      if (search) {
+          const s = search.toLowerCase();
+          entries = entries.filter(([id, val]) => 
+              id.toLowerCase().includes(s) || 
+              (val.name && val.name.toLowerCase().includes(s)) ||
+              (val.twitchLogin && val.twitchLogin.toLowerCase().includes(s))
+          );
+      }
+      // 0. OVERVIEW (STATS)
+      if (activeTab === "overview") {
+          // Falls data noch null ist (beim ersten Render), kurz warten
+          if (!data) return null;
+
+          return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* CREDITS CARD */}
+                  <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-600/10 p-6 rounded-2xl border border-yellow-500/20">
+                      <div className="text-yellow-500 text-sm font-bold uppercase tracking-wider mb-2">Total Credits</div>
+                      <div className="text-4xl font-black text-white flex items-center gap-2">
+                          {data.totalCredits?.toLocaleString()} 
+                          <span className="text-2xl">🪙</span>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-2">Im Umlauf bei allen Usern</div>
+                  </div>
+
+                  {/* USER CARD */}
+                  <div className="bg-gradient-to-br from-blue-900/40 to-blue-600/10 p-6 rounded-2xl border border-blue-500/20">
+                      <div className="text-blue-500 text-sm font-bold uppercase tracking-wider mb-2">Casino User</div>
+                      <div className="text-4xl font-black text-white">
+                          {data.totalUsers}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-2">Registrierte Datenbank-Einträge</div>
+                  </div>
+
+                  {/* ADVENTURE CARD */}
+                  <div className="bg-gradient-to-br from-green-900/40 to-green-600/10 p-6 rounded-2xl border border-green-500/20">
+                      <div className="text-green-500 text-sm font-bold uppercase tracking-wider mb-2">Adventure Spieler</div>
+                      <div className="text-4xl font-black text-white">
+                          {data.advPlayers}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-2">Haben das RPG gestartet</div>
+                  </div>
+
+                  {/* ACTIVE ITEMS */}
+                  <div className="bg-gray-800 p-6 rounded-2xl border border-white/5">
+                      <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Aktive Bingos</div>
+                      <div className="text-3xl font-bold text-white">{data.activeBingoSessions}</div>
+                  </div>
+
+                  <div className="bg-gray-800 p-6 rounded-2xl border border-white/5">
+                      <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Win-Challenges</div>
+                      <div className="text-3xl font-bold text-white">{data.activeChallenges}</div>
+                  </div>
+
+                  <div className="bg-gray-800 p-6 rounded-2xl border border-white/5">
+                      <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Aktive Promo-Codes</div>
+                      <div className="text-3xl font-bold text-white">{data.activeCodes}</div>
+                  </div>
+              </div>
+          );
+      }
+
+      // 1. CODES TAB (Aktualisiert)
+      if (activeTab === "codes") {
+          return (
+              <div className="space-y-6">
+                  {/* ERSTELLEN FORMULAR */}
+                  <div className="bg-gray-800 p-4 rounded-xl border border-white/10 flex flex-wrap gap-4 items-end">
+                      <div>
+                          <label className="text-xs text-gray-400 block mb-1">Code (leer = auto)</label>
+                          <input className="block bg-black/50 p-2 rounded border border-white/10 w-32" value={newCode.code} onChange={e=>setNewCode({...newCode, code: e.target.value})} placeholder="AUTO" />
+                      </div>
+                      <div>
+                          <label className="text-xs text-gray-400 block mb-1">Typ</label>
+                          <select className="block bg-black/50 p-2 rounded border border-white/10" value={newCode.type} onChange={e=>setNewCode({...newCode, type: e.target.value})}>
+                              <option value="credits">Credits</option>
+                              <option value="skin">Skin</option>
+                          </select>
+                      </div>
+                      <div>
+                          <label className="text-xs text-gray-400 block mb-1">Wert/SkinID</label>
+                          <input className="block bg-black/50 p-2 rounded border border-white/10 w-24" value={newCode.value} onChange={e=>setNewCode({...newCode, value: e.target.value})} />
+                      </div>
+                      
+                      {/* ANZAHL & UNBEGRENZT */}
+                      <div className="flex items-center gap-2">
+                          {!isUnlimited ? (
+                              <div>
+                                  <label className="text-xs text-gray-400 block mb-1">Anzahl</label>
+                                  <input type="number" className="block bg-black/50 p-2 rounded border border-white/10 w-20" value={newCode.maxUses} onChange={e=>setNewCode({...newCode, maxUses: e.target.value})} />
+                              </div>
+                          ) : (
+                             <div className="h-[58px] flex items-end pb-3 px-2">
+                                 <span className="text-2xl font-bold text-green-400">∞</span>
+                             </div>
+                          )}
+                          <div className="h-[58px] flex items-end pb-3">
+                              <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input type="checkbox" checked={isUnlimited} onChange={e => setIsUnlimited(e.target.checked)} className="accent-purple-500" />
+                                  <span className="text-xs text-gray-400">Unbegrenzt</span>
+                              </label>
+                          </div>
+                      </div>
+
+                      {/* DATUM */}
+                      <div>
+                          <label className="text-xs text-gray-400 block mb-1">Ablauf (Optional)</label>
+                          <input 
+                              type="datetime-local" 
+                              className="block bg-black/50 p-2 rounded border border-white/10 text-xs" 
+                              value={newCode.expiresAt} 
+                              onChange={e=>setNewCode({...newCode, expiresAt: e.target.value})} 
+                          />
+                      </div>
+
+                      <button onClick={createCode} className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded font-bold h-[38px] mb-[1px]">Erstellen</button>
+                  </div>
+                  
+                  {/* LISTE */}
+                  <div className="grid gap-2">
+                      {entries.map(([code, info]) => {
+                          const isExpired = info.expiresAt && Date.now() > info.expiresAt;
+                          const isInfinity = info.maxUses === -1;
+                          const usedCount = info.usedBy?.length || 0;
+                          
+                          return (
+                              <div key={code} className={`p-3 rounded flex justify-between items-center border border-white/5 ${isExpired ? 'bg-red-900/10 opacity-60' : 'bg-white/5'}`}>
+                                  <div className="flex items-center gap-4">
+                                      <div className="w-32">
+                                          <span className="font-mono text-yellow-400 font-bold text-lg">{code}</span>
+                                          {isExpired && <span className="ml-2 text-red-500 text-xs font-bold">ABGELAUFEN</span>}
+                                      </div>
+                                      
+                                      <div className="w-40 text-sm text-gray-300">
+                                          <span className="uppercase text-xs text-gray-500 block">Reward</span>
+                                          {info.type === "credits" ? `💰 ${info.value}` : `🎨 ${info.value}`}
+                                      </div>
+
+                                      <div className="w-32 text-sm text-gray-300">
+                                          <span className="uppercase text-xs text-gray-500 block">Genutzt</span>
+                                          <span className={usedCount >= info.maxUses && !isInfinity ? "text-red-400" : "text-green-400"}>
+                                              {usedCount} / {isInfinity ? "∞" : info.maxUses}
+                                          </span>
+                                      </div>
+
+                                      <div className="text-sm text-gray-300">
+                                          <span className="uppercase text-xs text-gray-500 block">Läuft ab</span>
+                                          {info.expiresAt ? new Date(info.expiresAt).toLocaleString() : "Nie"}
+                                      </div>
+                                  </div>
+                                  <button onClick={() => deleteCode(code)} className="text-red-500 hover:text-red-400 bg-black/30 hover:bg-black/50 p-2 rounded">🗑️</button>
+                              </div>
+                          );
+                      })}
+                      {entries.length === 0 && <p className="text-center text-gray-500 italic py-8">Keine Codes vorhanden.</p>}
+                  </div>
+              </div>
+          );
+      }
+
+      // 2. ADVENTURES & CASINO (User List Editor)
+      if (activeTab === "adventures" || activeTab === "casino") {
+          return (
+              <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                      <thead className="bg-white/10 text-xs uppercase">
+                          <tr>
+                              <th className="p-3">User</th>
+                              <th className="p-3">Credits (Casino)</th>
+                              {activeTab === "adventures" && (
+                                  <>
+                                      <th className="p-3">Highscore</th>
+                                      <th className="p-3">Skins</th>
+                                      <th className="p-3">Slots</th>
+                                  </>
+                              )}
+                              <th className="p-3">Actions</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                          {entries.map(([id, user]) => (
+                              <tr key={id} className="hover:bg-white/5">
+                                  <td className="p-3 font-mono text-xs text-gray-400">
+                                      <div className="text-white font-bold text-sm">{user.name || user.twitchLogin || "Unknown"}</div>
+                                      {id}
+                                  </td>
+                                  <td className="p-3">
+                                      <input 
+                                          type="number" 
+                                          defaultValue={user.credits}
+                                          onBlur={(e) => updateUser(id, { credits: e.target.value })}
+                                          className="w-24 bg-black/30 border border-white/10 rounded px-2 py-1"
+                                      />
+                                  </td>
+                                  {activeTab === "adventures" && (
+                                    <>
+                                        <td className="p-3">
+                                          <input 
+                                              type="number" 
+                                              defaultValue={user.highScore}
+                                              onBlur={(e) => updateUser(id, { highScore: e.target.value })}
+                                              className="w-20 bg-black/30 border border-white/10 rounded px-2 py-1"
+                                          />
+                                        </td>
+                                        <td className="p-3 max-w-xs truncate text-xs text-gray-400">
+                                            {user.skins?.join(", ")}
+                                            <button 
+                                                onClick={() => {
+                                                    const newSkins = prompt("Skins (kommagetrennt):", user.skins?.join(","));
+                                                    if(newSkins !== null) updateUser(id, { skins: newSkins.split(",").map(s=>s.trim()) });
+                                                }}
+                                                className="ml-2 text-blue-400"
+                                            >✎</button>
+                                        </td>
+                                        <td className="p-3">
+                                            <input 
+                                              type="number" 
+                                              defaultValue={user.unlockedSlots}
+                                              onBlur={(e) => updateUser(id, { unlockedSlots: e.target.value })}
+                                              className="w-12 bg-black/30 border border-white/10 rounded px-2 py-1"
+                                          />
+                                        </td>
+                                    </>
+                                  )}
+                                  <td className="p-3">
+                                      {/* Platzhalter für Reset Logik falls gewünscht */}
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+          );
+      }
+      
+      if (activeTab === "winchallenge" || activeTab === "bingo") {
+          return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                   {entries.map(([id, item]) => {
+                       // Logik für den Anzeigenamen (HIER IST DIE ÄNDERUNG)
+                       let displayName = "Unknown";
+                       
+                       // Fall 1: WinChallenge (neu - HostName existiert direkt)
+                       if (item.hostName) displayName = item.hostName;
+                       // Fall 2: Bingo (Host ist ein Objekt mit twitchLogin)
+                       else if (item.host?.twitchLogin) displayName = item.host.twitchLogin;
+                       // Fall 3: Fallback auf ID
+                       else displayName = item.userId || item.host?.twitchId || id;
+
+                       return (
+                           <div key={id} className="bg-gray-800 p-4 rounded-xl border border-white/10 relative group">
+                               <h3 className="font-bold text-lg mb-1 text-white">
+                                   {item.title || item.theme?.name || "Unbenannt"}
+                               </h3>
+                               
+                               <div className="text-xs text-gray-400 mb-3 flex items-center gap-2">
+                                   <span className="uppercase font-bold text-gray-600">Host:</span>
+                                   <span className="text-purple-400 font-bold bg-purple-900/20 px-2 py-0.5 rounded">
+                                       {displayName}
+                                   </span>
+                               </div>
+
+                               <pre className="text-[10px] bg-black/50 p-2 rounded overflow-hidden text-gray-500 mb-4 font-mono select-all">
+                                   ID: {id}
+                               </pre>
+                               
+                               <button 
+                                  onClick={() => deleteItem(activeTab, id)}
+                                  className="w-full bg-red-900/20 hover:bg-red-900/80 text-red-400 hover:text-white border border-red-900/50 py-2 rounded text-sm transition-all"
+                               >
+                                   Löschen
+                               </button>
+                           </div>
+                       );
+                   })}
+                   
+                   {entries.length === 0 && (
+                       <div className="col-span-full text-center text-gray-500 italic py-10">
+                           Keine Einträge gefunden.
+                       </div>
+                   )}
+              </div>
+          );
+      }
+
+      return null; // Fallback, falls gar kein Tab passt (sollte nicht passieren)
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      <h1 className="text-3xl font-black italic mb-8">ADMIN DASHBOARD</h1>
+      
+      {/* TABS */}
+      <div className="flex flex-wrap gap-2 mb-8 border-b border-white/10 pb-4">
+          {SECTIONS.map(tab => (
+              <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${
+                      activeTab === tab ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50" : "bg-white/5 hover:bg-white/10 text-gray-400"
+                  }`}
+              >
+                  {tab}
+              </button>
+          ))}
+      </div>
+
+      {/* SEARCH */}
+      {activeTab !== "codes" && (
+          <div className="mb-6">
+              <input 
+                  type="text" 
+                  placeholder="Suche nach User, ID..." 
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full md:w-96 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500 outline-none"
+              />
+          </div>
+      )}
+
+      {/* CONTENT */}
+      <div className="bg-gray-900/50 border border-white/10 rounded-2xl p-6 min-h-[500px]">
+          {renderContent()}
+      </div>
+    </div>
+  );
+}

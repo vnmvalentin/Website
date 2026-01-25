@@ -17,7 +17,7 @@ import Dice from "../components/casino/Dice";
 
 
 const GAMES = [
-  { id: "slots", name: "🎰 Lucky Slots", desc: "3 Walzen, 3 Reihen, 5 Gewinnlinien!" },
+  { id: "slots", name: "🎰 Waifu Slots", desc: "5 Walzen, 3 Reihen, 11 Gewinnlinien!" },
   { id: "blackjack", name: "🃏 Blackjack", desc: "Schlage den Dealer auf 21." },
   { id: "mines", name: "💣 Mines", desc: "Finde die Diamanten, meide Bomben." },
   { id: "highlow", name: "📈 High / Low", desc: "Höher oder tiefer als 50?" },

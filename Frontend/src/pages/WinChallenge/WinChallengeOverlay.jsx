@@ -379,29 +379,6 @@ export default function WinChallengeOverlay() {
             >
               {doc.title || "WinChallenge"}
             </div>
-
-            <div
-              style={{
-                display: showTimer ? "flex" : "none",
-                justifyContent: "flex-end",
-                alignItems: "center",
-                gap: 8,
-                gridColumn: "3",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                }}
-              >
-                {doc.timer?.running ? "🟢" : "🔴"}
-              </span>
-              <span style={{ fontFamily: "monospace", fontWeight: 700 }}>
-                {msToClock(elapsed)}
-              </span>
-            </div>
           </div>
         </div>
 

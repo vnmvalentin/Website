@@ -31,6 +31,7 @@ import BingoOverlayPage from "./pages/Bingo/BingoOverlayPage";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import CasinoPage from "./pages/CasinoPage";
 import AdventureGame from "./pages/Adventure/AdventureGame"
+import AdminDashboard from "./pages/AdminDashboard";
 
 
 // 🔽 NEU: Provider hier importieren
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/KnowledgeBase" element={<KnowledgeBase />} />
           <Route path="/Casino" element={<CasinoPage />} />
           <Route path="/adventures" element={<AdventureGame/>} />
+          <Route path="admin" element={<AdminDashboard />} />
 
         </Route>
       </Routes>

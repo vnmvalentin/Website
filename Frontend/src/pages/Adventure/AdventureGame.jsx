@@ -471,7 +471,7 @@ export default function AdventureGame() {
         switch(type) {
             case 'damage': return 0.5;
             case 'maxHp': return 20;
-            case 'magnet': return 1;
+            case 'magnet': return 0.5;
             case 'fireRate': return 0.2; // +20% Angriffsgeschwindigkeit
             case 'luck': return 0.5;
             default: return 0;
@@ -1015,9 +1015,9 @@ export default function AdventureGame() {
                                             setFeedbackStatus("error");
                                         }
                                     }} 
-                                    disabled={feedbackText.trim().length < 5 || feedbackStatus === "sending"}
+                                    disabled={feedbackText.trim().length < 10 || feedbackStatus === "sending"}
                                     className={`flex-1 font-bold py-3 rounded border transition-colors flex items-center justify-center gap-2
-                                        ${feedbackText.trim().length < 5 
+                                        ${feedbackText.trim().length < 10 
                                             ? 'bg-gray-800 text-gray-500 border-gray-800 cursor-not-allowed' 
                                             : 'bg-blue-700 hover:bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/50'
                                         }`}

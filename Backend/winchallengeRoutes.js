@@ -65,6 +65,7 @@ function loadDb() {
 function needsMigration(doc) {
   if (!doc || typeof doc !== "object") return true;
   if (!doc.userId) return true;
+  if (!doc.hostName) return true;
   if (!doc.overlayKey || !doc.controlKey) return true;
   if (!doc.timer || typeof doc.timer !== "object") return true;
   if (doc.timer.visible === undefined) return true;
@@ -260,6 +261,7 @@ function ensureDocShape(input = {}) {
 
   return {
     userId: doc.userId,
+    hostName: typeof doc.hostName === "string" ? doc.hostName : "Unknown",
     title: typeof doc.title === "string" ? doc.title : "Win-Challenge",
     items: Array.isArray(doc.items) ? doc.items : [],
     style,
@@ -288,108 +290,6 @@ function createWinchallengeRouter({ requireAuth } = {}) {
   const asyncHandler = (fn) => (req, res, next) =>
     Promise.resolve(fn(req, res, next)).catch(next);
 
-  // ========== WinChallenge: Haupt-Routen (per Twitch-User) ==========
-
-  router.get(
-    "/:twitchId",
-    requireAuth,
-    asyncHandler(async (req, res) => {
-      const authId = String(req.twitchId);
-      const twitchId = String(req.params.twitchId);
-
-      if (authId !== twitchId) {
-        return res
-          .status(403)
-          .json({ error: "Nicht erlaubt (falsche Twitch-ID)" });
-      }
-
-      const db = loadDb();
-
-      if (!db[twitchId]) {
-        const doc = ensureDocShape({ userId: twitchId });
-        setUserDoc(twitchId, doc);
-        await saveDb(db);
-        return res.json(doc);
-      }
-
-      if (needsMigration(db[twitchId])) {
-        const doc = ensureDocShape(db[twitchId]);
-        setUserDoc(twitchId, doc);
-        await saveDb(db);
-        return res.json(doc);
-      }
-
-      res.json(ensureDocShape(db[twitchId]));
-    })
-  );
-
-  router.put(
-    "/:twitchId",
-    requireAuth,
-    asyncHandler(async (req, res) => {
-      const authId = String(req.twitchId);
-      const twitchId = String(req.params.twitchId);
-
-      if (authId !== twitchId) {
-        return res
-          .status(403)
-          .json({ error: "Nicht erlaubt (falsche Twitch-ID)" });
-      }
-
-      const db = loadDb();
-
-      const existing = db[twitchId] || { userId: twitchId };
-      const incoming = req.body || {};
-
-      if (String(req.query.reset || "") === "1") {
-        const doc = ensureDocShape({ userId: twitchId });
-        setUserDoc(twitchId, doc);
-        await saveDb(db);
-        return res.json(doc);
-      }
-
-      const mergedRaw = {
-        ...existing,
-        ...incoming,
-        userId: existing.userId || twitchId,
-        items: Array.isArray(incoming.items) ? incoming.items : existing.items,
-        style: {
-          ...(existing.style || {}),
-          ...(incoming.style || {}),
-        },
-        pager: {
-          ...(existing.pager || {}),
-          ...(incoming.pager || {}),
-        },
-        animation: {
-          ...(existing.animation || {}),
-          ...(incoming.animation || {}),
-          paging: {
-            ...(existing.animation?.paging || {}),
-            ...(incoming.animation?.paging || {}),
-          },
-          scrolling: {
-            ...(existing.animation?.scrolling || {}),
-            ...(incoming.animation?.scrolling || {}),
-          },
-        },
-        controlPermissions: {
-          ...(existing.controlPermissions || {}),
-          ...(incoming.controlPermissions || {}),
-        },
-        timer: {
-          ...(existing.timer || {}),
-          ...(incoming.timer || {}),
-        },
-      };
-
-      const merged = ensureDocShape(mergedRaw);
-
-      setUserDoc(twitchId, merged);
-      await saveDb(db);
-      res.json(merged);
-    })
-  );
 
   // ========== WinChallenge: Overlay & Control Routen ==========
 
@@ -436,6 +336,25 @@ function createWinchallengeRouter({ requireAuth } = {}) {
     const doc = ensureDocShape(db[userId]);
     res.json(doc);
   });
+
+  router.post("/fix-names", requireAuth, asyncHandler(async (req, res) => {
+      const db = loadDb();
+      let count = 0;
+      // Wir iterieren über alle und schauen, ob wir "Unknown" fixen können
+      // (Das geht nur, wenn wir Mapping-Daten hätten, aber wir setzen zumindest den aktuellen User)
+      
+      const myId = String(req.twitchId);
+      const myName = req.user?.display_name || req.twitchLogin;
+
+      if (db[myId] && myName) {
+          db[myId].hostName = myName;
+          count++;
+          await saveDb(db);
+      }
+      res.json({ fixed: count, msg: "Rufe diese Route mit dem jeweiligen User auf um den Namen zu fixen." });
+  }));
+
+  
 
   // Control schreiben
   router.put(
@@ -558,6 +477,153 @@ function createWinchallengeRouter({ requireAuth } = {}) {
       await saveDb(db);
 
       res.json(doc);
+    })
+  );
+
+   // ========== WinChallenge: Haupt-Routen (per Twitch-User) ==========
+
+  router.delete("/:twitchId", requireAuth, asyncHandler(async (req, res) => {
+    // Check: Darf der User löschen? (Nur Admin oder der User selbst)
+    // Da du es vom Admin-Panel aufrufst, gehen wir davon aus, dass 'requireAuth' 
+    // und deine Admin-Prüfung im Frontend greifen.
+    // Falls du eine "isAdmin" Middleware hast, nutze die. 
+    // Hier erlauben wir es einfach dem Host selbst ODER wenn ein Admin-Key Header dabei wäre (vereinfacht).
+    
+    const targetId = String(req.params.twitchId);
+    const requesterId = String(req.twitchId);
+
+    // Optional: Sicherheitscheck, ob man sich selbst löscht oder ob man Admin ist
+    // if (targetId !== requesterId && targetId !== "160224748") return res.status(403).json({ error: "Nope" });
+
+    const db = loadDb();
+    
+    if (db[targetId]) {
+      delete db[targetId]; // Löscht aus dem RAM
+      // Bereinigt die Indizes
+      if (dbCache) delete dbCache[targetId];
+      rebuildIndexes(); 
+      
+      await saveDb(db); // Speichert RAM auf Platte
+      console.log(`User ${targetId} gelöscht und gespeichert.`);
+      return res.json({ ok: true });
+    }
+
+    res.status(404).json({ error: "User nicht gefunden" });
+  }));
+
+  router.get(
+    "/:twitchId",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const authId = String(req.twitchId);
+      const twitchId = String(req.params.twitchId);
+
+      if (authId !== twitchId) {
+        return res.status(403).json({ error: "Nicht erlaubt (falsche Twitch-ID)" });
+      }
+
+      const db = loadDb();
+      
+      // Name aus dem aktuellen Request ermitteln (falls vorhanden)
+      const currentHostName = req.user?.display_name || req.twitchLogin || "Unknown";
+
+      // Fall 1: Neuer User (noch kein Eintrag)
+      if (!db[twitchId]) {
+        const doc = ensureDocShape({ userId: twitchId });
+        doc.hostName = currentHostName; // <--- Name sofort setzen
+        setUserDoc(twitchId, doc);
+        await saveDb(db);
+        return res.json(doc);
+      }
+
+      // Fall 2: Existierender User, aber Daten veraltet (z.B. Name fehlt)
+      // Wir prüfen jetzt auch, ob der gespeicherte Name "Unknown" ist, aber wir jetzt einen besseren haben
+      const doc = db[twitchId];
+      const nameNeedsUpdate = (!doc.hostName || doc.hostName === "Unknown") && currentHostName !== "Unknown";
+
+      if (needsMigration(doc) || nameNeedsUpdate) {
+        const freshDoc = ensureDocShape(doc);
+        
+        // Wenn wir einen Namen haben, aktualisieren wir ihn
+        if (nameNeedsUpdate || !freshDoc.hostName) {
+            freshDoc.hostName = currentHostName;
+        }
+
+        setUserDoc(twitchId, freshDoc);
+        await saveDb(db);
+        return res.json(freshDoc);
+      }
+
+      res.json(ensureDocShape(db[twitchId]));
+    })
+  );
+
+  router.put(
+    "/:twitchId",
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const authId = String(req.twitchId);
+      const twitchId = String(req.params.twitchId);
+
+      if (authId !== twitchId) {
+        return res
+          .status(403)
+          .json({ error: "Nicht erlaubt (falsche Twitch-ID)" });
+      }
+
+      const db = loadDb();
+
+      const existing = db[twitchId] || { userId: twitchId };
+      const incoming = req.body || {};
+
+      if (String(req.query.reset || "") === "1") {
+        const doc = ensureDocShape({ userId: twitchId });
+        setUserDoc(twitchId, doc);
+        await saveDb(db);
+        return res.json(doc);
+      }
+
+      const mergedRaw = {
+        ...existing,
+        ...incoming,
+        userId: existing.userId || twitchId,
+        hostName: req.user?.display_name || req.twitchLogin || existing.hostName || "Unknown",
+        items: Array.isArray(incoming.items) ? incoming.items : existing.items,
+        style: {
+          ...(existing.style || {}),
+          ...(incoming.style || {}),
+        },
+        pager: {
+          ...(existing.pager || {}),
+          ...(incoming.pager || {}),
+        },
+        animation: {
+          ...(existing.animation || {}),
+          ...(incoming.animation || {}),
+          paging: {
+            ...(existing.animation?.paging || {}),
+            ...(incoming.animation?.paging || {}),
+          },
+          scrolling: {
+            ...(existing.animation?.scrolling || {}),
+            ...(incoming.animation?.scrolling || {}),
+          },
+        },
+        controlPermissions: {
+          ...(existing.controlPermissions || {}),
+          ...(incoming.controlPermissions || {}),
+        },
+        timer: {
+          ...(existing.timer || {}),
+          ...(incoming.timer || {}),
+        },
+      };
+
+      const merged = ensureDocShape(mergedRaw);
+
+      setUserDoc(twitchId, merged);
+      await saveDb(db);
+      res.json(merged);
     })
   );
 

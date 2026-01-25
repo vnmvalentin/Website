@@ -17,13 +17,13 @@ const SKINS_DEF = {
 };
 
 const POWERUPS_DEF = {
-    "potion": { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 40000, icon: "assets/adventure/powerups/healpotion.png" },
-    "shield": { name: "Schutzschild", price: 1500, desc: "3 Sekunden unverwundbar", cooldown: 45000, icon: "assets/adventure/powerups/shield.png" },
-    "spin": { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 25000, icon: "assets/adventure/powerups/spinattack.png" },
-    "decoy": { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 45000, icon: "assets/adventure/powerups/decoy.png" },
-    "grenade": { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 35000, icon: "assets/adventure/projectiles/grenade.png" },
-    "fastshot": { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 25000, icon: "assets/adventure/powerups/rapidfire.png" },
-    "fastboots": { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 25000, icon: "assets/adventure/powerups/fastboots.png" }
+    "potion": { name: "Heiltrank", price: 500, desc: "Heilt 50 HP", cooldown: 60000, icon: "assets/adventure/powerups/healpotion.png" },
+    "shield": { name: "Schutzschild", price: 1500, desc: "3 Sekunden unverwundbar", cooldown: 6000, icon: "assets/adventure/powerups/shield.png" },
+    "spin": { name: "Wirbelwind", price: 2500, desc: "Schaden um dich herum", cooldown: 50000, icon: "assets/adventure/powerups/spinattack.png" },
+    "decoy": { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 60000, icon: "assets/adventure/powerups/decoy.png" },
+    "grenade": { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 50000, icon: "assets/adventure/projectiles/grenade.png" },
+    "fastshot": { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 40000, icon: "assets/adventure/powerups/rapidfire.png" },
+    "fastboots": { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 40000, icon: "assets/adventure/powerups/fastboots.png" }
 };
 
 function loadGameData() { try { if (!fs.existsSync(GAME_DATA_PATH)) return {}; return JSON.parse(fs.readFileSync(GAME_DATA_PATH, "utf8")); } catch (e) { return {}; } }
@@ -214,8 +214,8 @@ module.exports = function createGameRouter({ requireAuth }) {
     const { kills, stage } = req.body;
     const userId = req.twitchId;
     if (kills === undefined || stage === undefined) return res.status(400).json({ error: "Invalid Data" });
-    const killBonus = kills * 0.2;
-    const stageBonus = (stage * 10) + (2 * Math.pow(stage, 2));
+    const killBonus = kills * 0.1;
+    const stageBonus = (stage * 5) + (2 * Math.pow(stage, 2));
     const earnedCredits = Math.floor(killBonus + stageBonus);
     const gameDb = loadGameData();
     const casinoDb = loadCasinoData();

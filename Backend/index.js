@@ -20,6 +20,8 @@ const createPollRouter = require("./pollRoutes");
 const createKnowledgeRouter = require("./knowledgeRoutes")
 const createCasinoRouter = require("./casinoRoutes");
 const createAdventureRouter = require("./adVenturesRoutes");
+const createAdminRouter = require("./adminRoutes");
+const createPromoRouter = require("./promoRoutes");
 
 const app = express();
 
@@ -223,6 +225,10 @@ app.use("/api/knowledge", createKnowledgeRouter({ requireAuth }))
 app.use("/api/casino", createCasinoRouter({ requireAuth }));
 
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
+
+app.use("/api/admin", createAdminRouter({ requireAuth, STREAMER_TWITCH_ID }));
+
+app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 3001;

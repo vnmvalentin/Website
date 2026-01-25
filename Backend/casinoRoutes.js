@@ -170,13 +170,13 @@ function drawRandomCard(excludeCards = []) {
 // --- Helper: Case Opening (Angepasst mit Ranges) ---
 const CASE_ITEMS = [
   // id: common -> Range 0.33 bis 0.70
-  { id: "common", color: "gray", min: 0.15, max: 0.70, label: "Common" },
+  { id: "common", color: "gray", min: 0.25, max: 0.70, label: "Common" },
   
   // id: uncommon -> Range 1.30 bis 1.80
-  { id: "uncommon", color: "blue", min: 1.30, max: 2.00, label: "Uncommon" },
+  { id: "uncommon", color: "blue", min: 1.35, max: 2.00, label: "Uncommon" },
   
   // id: rare -> Range 3.50 bis 6.00
-  { id: "rare", color: "purple", min: 3.50, max: 6.50, label: "Rare" },
+  { id: "rare", color: "purple", min: 4.00, max: 6.50, label: "Rare" },
   
   // id: legendary -> Range 20.00 bis 50.00
   { id: "legendary", color: "gold", min: 40.00, max: 50.00, label: "LEGENDÄR" }
@@ -294,44 +294,199 @@ module.exports = function createCasinoRouter({ requireAuth }) {
     res.json({ credits: req.userData.credits });
   });
 
-  // --- SLOTS ---
+  // --- SLOTS (Sticky Wilds Layer + Scatter Retrigger) ---
   router.post("/play/slots", (req, res) => {
-    const { bet } = req.body;
-    if (bet <= 0 || req.userData.credits < bet) return res.status(400).json({ error: "Credits" });
-    req.userData.credits -= bet;
+    let { bet } = req.body;
+    const user = req.userData;
+
+    // --- 1. Freispiel Check ---
+    const isFreeSpin = user.freeSpinsLeft > 0;
     
-    // Balanced Symbols (House Edge)
-    const symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣"];
-    const weighted = ["🍒","🍒","🍒","🍒","🍒","🍋","🍋","🍋","🍋","🍇","🍇","🍇","💎","💎","7️⃣"];
-    const r = () => weighted[Math.floor(Math.random()*weighted.length)];
-    const grid = [[r(), r(), r()],[r(), r(), r()],[r(), r(), r()]];
+    // Ursprünglichen Einsatz merken für die Gewinnberechnung in Freispielen
+    // Wir nehmen an, dass das Frontend den ursprünglichen Bet mitschickt, oder wir nutzen 10 als Fallback
+    const calculationBet = isFreeSpin ? (req.body.bet || 10) : bet;
+
+    if (isFreeSpin) {
+        bet = 0; // Kein Abzug bei Freispielen
+    } else {
+        if (bet < 0) return res.status(400).json({ error: "Ungültiger Einsatz" });
+        if (bet > 0 && user.credits < bet) return res.status(400).json({ error: "Zu wenig Credits" });
+        user.credits -= bet;
+        user.stickyWilds = []; // Reset Sticky Wilds bei neuem normalen Spiel
+    }
+
+    // --- NEUE POOL LOGIK: "Balanced Variety" ---
+    // Statt 60% Zitronen machen wir eine flachere Verteilung.
+    // Das erhöht die Vielfalt auf dem Schirm, senkt aber die Chance, dass 
+    // zufällig 3 gleiche Symbole in einer Linie landen.
     
-    const lines = [
-        [grid[0][1], grid[1][1], grid[2][1]], 
-        [grid[0][0], grid[1][0], grid[2][0]], 
-        [grid[0][2], grid[1][2], grid[2][2]], 
-        [grid[0][0], grid[1][1], grid[2][2]], 
-        [grid[0][2], grid[1][1], grid[2][0]]
+    let pool = [];
+    
+    // Low Tier (Alle ca. gleich häufig -> schwerer zu matchen)
+    for(let i=0; i<18; i++) pool.push("🍒"); 
+    for(let i=0; i<18; i++) pool.push("🍋");
+    for(let i=0; i<16; i++) pool.push("🍇");
+    for(let i=0; i<15; i++) pool.push("🔔"); // Banane/Glocke
+    
+    // Mid/High Tier
+    for(let i=0; i<10; i++) pool.push("💎");
+    for(let i=0; i<6; i++) pool.push("7️⃣");  
+    
+    // Specials (Extrem selten!)
+    // Nur EIN Joker im ganzen Deck -> Full Lines fast unmöglich
+    const jokerCount = isFreeSpin ? 3 : 1; 
+    for(let i=0; i<jokerCount; i++) pool.push("🃏"); 
+    
+    // Scatters (Freispiele)
+    for(let i=0; i<2; i++) pool.push("🌟");
+    
+    // Scatters (Freispiele)
+    for(let i=0; i<2; i++) pool.push("🌟");
+
+    const r = () => pool[Math.floor(Math.random() * pool.length)];
+    // Wir generieren die Walzen "roh". Sticky Wilds überschreiben wir NICHT im Grid,
+    // sondern senden sie separat zurück, damit das Frontend sie drüberlegen kann.
+    // ABER: Für die Gewinnberechnung MÜSSEN wir sie hier einsetzen.
+    
+    const rawReels = Array(5).fill(null).map(() => [r(), r(), r()]);
+    
+    // Kopie für Gewinnberechnung erstellen
+    const calculationReels = JSON.parse(JSON.stringify(rawReels));
+
+    // Sticky Wilds in die Berechnung einfügen
+    if (isFreeSpin && user.stickyWilds && user.stickyWilds.length > 0) {
+        user.stickyWilds.forEach(({ col, row }) => {
+            calculationReels[col][row] = "🃏"; 
+        });
+    }
+
+    // Neue Sticky Wilds finden (Nur Joker, die noch keine Stickies waren)
+    if (isFreeSpin) {
+        // Bestehende Stickies behalten
+        const currentStickies = [...(user.stickyWilds || [])];
+        
+        // Neue hinzufügen
+        rawReels.forEach((col, colIdx) => {
+            col.forEach((symbol, rowIdx) => {
+                if (symbol === "🃏") {
+                    // Check ob schon sticky
+                    const exists = currentStickies.some(s => s.col === colIdx && s.row === rowIdx);
+                    if (!exists) {
+                        currentStickies.push({ col: colIdx, row: rowIdx });
+                        // Auch in calculationReels updaten für diesen Spin!
+                        calculationReels[colIdx][rowIdx] = "🃏";
+                    }
+                }
+            });
+        });
+        user.stickyWilds = currentStickies;
+    }
+
+    // --- 3. Gewinnlinien (11 Lines) ---
+    const linesDef = [
+        [[0,1], [1,1], [2,1], [3,1], [4,1]], // Mitte
+        [[0,0], [1,0], [2,0], [3,0], [4,0]], // Oben
+        [[0,2], [1,2], [2,2], [3,2], [4,2]], // Unten
+        [[0,0], [1,1], [2,2], [3,1], [4,0]], // V-Form
+        [[0,2], [1,1], [2,0], [3,1], [4,2]], // Dach-Form
+
+        [[0,0], [1,1], [2,1], [3,1], [4,0]], // ZickZack 1 (Boot oben)
+        [[0,2], [1,1], [2,1], [3,1], [4,2]], // ZickZack 2 (Boot unten)
+
+        [[0,1], [1,0], [2,0], [3,0], [4,1]], // ZickZack 3
+        [[0,1], [1,2], [2,2], [3,2], [4,1]], // ZickZack 4
+
+        [[0,0], [1,1], [2,0], [3,1], [4,0]], // W-Form oben
+        [[0,2], [1,1], [2,2], [3,1], [4,2]], // W-Form unten
     ];
 
     let totalWin = 0;
     const winningLines = [];
-    lines.forEach((line, index) => {
-        if (line[0] === line[1] && line[1] === line[2]) {
-            const s = line[0];
-            let multi = 1.5;
-            if(s === "7️⃣") multi = 25; 
-            else if(s === "💎") multi = 10; 
-            else if(s === "🍇") multi = 5;
-            else if(s === "🍋") multi = 2;
-            totalWin += Math.floor(bet * multi);
-            winningLines.push(index);
+
+    linesDef.forEach((path, lineIndex) => {
+        const symbols = path.map(([c, r]) => calculationReels[c][r]);
+        let firstSymbol = symbols.find(s => s !== "🃏");
+        if (!firstSymbol) firstSymbol = "🃏"; 
+        if (firstSymbol === "🌟") return; 
+
+        let matchCount = 0;
+        for (let s of symbols) {
+            if (s === firstSymbol || (s === "🃏" && firstSymbol !== "🌟")) matchCount++;
+            else break;
+        }
+
+        if (matchCount >= 3) {
+            let baseMult = 0;
+            if (firstSymbol === "🍒") baseMult = 0.5;
+            else if (firstSymbol === "🍋") baseMult = 0.8;
+            else if (firstSymbol === "🍇") baseMult = 1.0;
+            else if (firstSymbol === "🔔") baseMult = 1.5;
+            else if (firstSymbol === "💎") baseMult = 3.0;
+            else if (firstSymbol === "7️⃣") baseMult = 7.0;
+            else if (firstSymbol === "🃏") baseMult = 10.0;
+
+            let lengthMult = 1; 
+            // 3er Reihe = Standard (x1)
+            // 4er Reihe = Nur noch x2 (statt x3)
+            if (matchCount === 4) lengthMult = 2;  
+            // 5er Reihe = Nur noch x5 (statt x10)
+            if (matchCount === 5) lengthMult = 5;
+
+            const win = Math.ceil(calculationBet * baseMult * lengthMult);
+            totalWin += win;
+            winningLines.push({ index: lineIndex, count: matchCount });
         }
     });
+    
+    // --- 4. Scatter Logic (Update) ---
+    // Wir zählen Sterne in den *rohen* Walzen
+    const scatterCount = rawReels.flat().filter(s => s === "🌟").length;
+    let newFreeSpins = 0;
+    let justTriggered = false;
+    
+    if (isFreeSpin) {
+        // RETRIGGER: Jeder Stern gibt +1 Spin
+        if (scatterCount > 0) {
+            user.freeSpinsLeft += scatterCount;
+            newFreeSpins = scatterCount; // Für Frontend Info
+        }
+        user.freeSpinsLeft -= 1; // Den aktuellen Spin abziehen
+    } else {
+        // START TRIGGER:
+        // 3 Scatter = 10 Spins
+        // 4 Scatter = 15 Spins
+        // 5 Scatter = 20 Spins
+        if (scatterCount >= 3) {
+            if (scatterCount === 3) newFreeSpins = 10;
+            else if (scatterCount === 4) newFreeSpins = 15;
+            else if (scatterCount >= 5) newFreeSpins = 20;
+            
+            user.freeSpinsLeft = newFreeSpins;
+            justTriggered = true;
+        }
+    }
 
-    req.userData.credits += totalWin;
+    // Aufräumen wenn vorbei
+    if (user.freeSpinsLeft <= 0) {
+        user.freeSpinsLeft = 0;
+        user.stickyWilds = [];
+    }
+
+    user.credits += totalWin;
     saveData(req.casinoDb);
-    res.json({ reels: grid, winAmount: totalWin, winningLines, credits: req.userData.credits });
+
+    // Wir senden calculationReels zurück, damit der User sieht warum er gewonnen hat (Sticky Wilds an ihrem Platz)
+    // ABER: Das Frontend muss wissen, welche davon "Sticky" sind, um sie nicht zu drehen.
+    res.json({ 
+        reels: calculationReels, 
+        winAmount: totalWin, 
+        winningLines, 
+        newFreeSpins, 
+        freeSpinsLeft: user.freeSpinsLeft || 0,
+        credits: user.credits,
+        stickyWilds: user.stickyWilds || [], // Koordinaten für Frontend Overlay
+        isFreeSpinTrigger: justTriggered
+    });
   });
 
   // --- BLACKJACK ---
