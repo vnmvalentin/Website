@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1769405364871,
+    "user": "vnmvalentin",
+    "rating": 5,
+    "text": "Test",
+    "date": "2026-01-26T05:29:24.871Z"
+  },
+  {
+    "id": 1769406899649,
+    "user": "Anonym",
+    "rating": 3,
+    "text": "Test",
+    "date": "2026-01-26T05:54:59.649Z"
+  },
+  {
+    "id": 1769408104474,
+    "user": "vnmvalentin",
+    "rating": 4,
+    "text": "Joa war gut",
+    "date": "2026-01-26T06:15:04.474Z"
+  }
+]

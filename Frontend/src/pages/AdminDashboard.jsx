@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
+import { Star, MessageSquare, User, Calendar } from "lucide-react";
 
 // DEINE ID
 const STREAMER_ID = "160224748"; 
 
-const SECTIONS = ["overview", "adventures", "casino", "codes", "winchallenge", "bingo"];
+const SECTIONS = ["overview", "adventures", "casino", "codes", "winchallenge", "bingo", "feedback"];
 
 export default function AdminDashboard() {
   const { user, isLoading } = useContext(TwitchAuthContext);
@@ -40,7 +41,8 @@ export default function AdminDashboard() {
       try {
           let url = `/api/admin/data/${type}`;
           if (type === "codes") url = "/api/promo/list";
-          if (type === "stats") url = "/api/admin/stats"; // <--- NEU
+          if (type === "stats") url = "/api/admin/stats";
+          if (type === "feedback") url = "/api/feedback/ytm"; // <--- NEU
 
           const res = await fetch(url);
           const json = await res.json();
@@ -56,7 +58,8 @@ export default function AdminDashboard() {
           "casino": "casino",
           "winchallenge": "winchallenge",
           "bingo": "bingo",
-          "codes": "codes"
+          "codes": "codes",
+          "feedback": "feedback"
       };
       if (keyMap[activeTab]) fetchData(keyMap[activeTab]);
   }, [activeTab]);
@@ -136,6 +139,64 @@ export default function AdminDashboard() {
               id.toLowerCase().includes(s) || 
               (val.name && val.name.toLowerCase().includes(s)) ||
               (val.twitchLogin && val.twitchLogin.toLowerCase().includes(s))
+          );
+      }
+      // 0. FEEDBACK TAB (NEU)
+      if (activeTab === "feedback") {
+          const feedbacks = Array.isArray(data) ? data : [];
+          // Optionaler Search Filter für Feedback
+          const filteredFeedbacks = search 
+            ? feedbacks.filter(f => f.user.toLowerCase().includes(search.toLowerCase()) || f.text.toLowerCase().includes(search.toLowerCase()))
+            : feedbacks;
+
+          return (
+              <div className="space-y-4">
+                  <div className="flex gap-4 mb-4">
+                      <div className="bg-black/30 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+                          <span className="text-gray-400 text-xs uppercase font-bold">Total</span>
+                          <span className="text-xl font-bold text-white">{feedbacks.length}</span>
+                      </div>
+                      <div className="bg-black/30 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+                          <span className="text-gray-400 text-xs uppercase font-bold">Ø Rating</span>
+                          <span className="text-xl font-bold text-yellow-400">
+                              {feedbacks.length > 0 ? (feedbacks.reduce((a,b) => a + b.rating, 0) / feedbacks.length).toFixed(1) : "0.0"}
+                          </span>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredFeedbacks.map((item) => (
+                          <div key={item.id} className="bg-[#18181b] border border-white/10 p-4 rounded-xl flex flex-col gap-3 relative group">
+                              <div className="flex justify-between items-start">
+                                  <div className="flex items-center gap-2">
+                                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50">
+                                          <User size={14} />
+                                      </div>
+                                      <div>
+                                          <div className="font-bold text-sm text-white">{item.user}</div>
+                                          <div className="text-[10px] text-white/40 flex items-center gap-1">
+                                              <Calendar size={10} />
+                                              {new Date(item.date).toLocaleString("de-DE")}
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="flex gap-0.5 bg-black/20 px-2 py-1 rounded-lg">
+                                      <span className="text-yellow-400 font-bold">{item.rating}</span>
+                                      <Star size={14} className="text-yellow-400 fill-current" />
+                                  </div>
+                              </div>
+                              {item.text ? (
+                                  <div className="bg-black/20 p-3 rounded-lg text-sm text-white/80 italic border border-white/5">
+                                      "{item.text}"
+                                  </div>
+                              ) : (
+                                  <div className="text-xs text-white/20 italic pl-1">Kein Kommentar.</div>
+                              )}
+                          </div>
+                      ))}
+                      {filteredFeedbacks.length === 0 && <div className="col-span-full text-center text-gray-500 py-10">Kein Feedback gefunden.</div>}
+                  </div>
+              </div>
           );
       }
       // 0. OVERVIEW (STATS)

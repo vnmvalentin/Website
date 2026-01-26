@@ -3,8 +3,8 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 
-const GAME_DATA_PATH = path.join(__dirname, "adventures-users.json");
-const CASINO_PATH = path.join(__dirname, "casinoData.json");
+const GAME_DATA_PATH = path.join(__dirname, "../data/adventures-users.json");
+const CASINO_PATH = path.join(__dirname, "../data/casinoData.json");
 
 const SKINS_DEF = {
     "default": { name: "Standard", price: 0, file: "skins/player.png" },

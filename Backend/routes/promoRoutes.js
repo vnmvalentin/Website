@@ -3,9 +3,9 @@ const fs = require("fs");
 const path = require("path");
 const { nanoid } = require("nanoid");
 
-const PROMO_PATH = path.join(__dirname, "promo-codes.json");
-const CASINO_PATH = path.join(__dirname, "casinoData.json");
-const ADVENTURE_PATH = path.join(__dirname, "adventures-users.json");
+const PROMO_PATH = path.join(__dirname, "../data/promo-codes.json");
+const CASINO_PATH = path.join(__dirname, "../data/casinoData.json");
+const ADVENTURE_PATH = path.join(__dirname, "../data/adventures-users.json");
 
 function loadJson(p) { try { if (!fs.existsSync(p)) return {}; return JSON.parse(fs.readFileSync(p, "utf8")); } catch(e) { return {}; } }
 function saveJson(p, d) { fs.writeFileSync(p, JSON.stringify(d, null, 2)); }

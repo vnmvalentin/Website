@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import CoinIcon from "../CoinIcon";
+import { Club, Diamond, Heart, Spade, RotateCcw, Play, Hand, ChevronsUp, Plus } from "lucide-react";
 
+// --- LOGIC HELPERS (Original) ---
 function calculateClientScore(hand) {
   if (!hand || !Array.isArray(hand)) return 0;
   let score = 0;
@@ -15,10 +17,18 @@ function calculateClientScore(hand) {
   return score;
 }
 
-// --- CARD COMPONENT (Bleibt unverändert, aber muss dabei sein) ---
+// --- MODERN CARD COMPONENT ---
+// Nutzt exakt deine Props (isHidden, isRevealing, etc.)
 const Card = ({ card, index, isHidden, isRevealing, isDealer }) => {
   if (!isHidden && !card) return null;
   const isRed = card && ["♥", "♦"].includes(card.suit);
+  
+  // Mapping der Suits zu Icons
+  const SuitIcon = card ? {
+      "♥": Heart, "♦": Diamond, "♣": Club, "♠": Spade
+  }[card.suit] : null;
+
+  // Animations-Klassen (Original Logik)
   let animationClass = "";
   let baseOpacity = "";
 
@@ -39,42 +49,50 @@ const Card = ({ card, index, isHidden, isRevealing, isDealer }) => {
 
   if (isHidden) {
     return (
-      <div style={styleDelay} className={`w-20 h-28 bg-red-900 border-2 border-white rounded-lg shadow-xl flex items-center justify-center ${baseOpacity} ${animationClass}`}>
-        <span className="text-4xl select-none">🐉</span>
+      <div 
+        style={styleDelay} 
+        className={`w-24 h-36 bg-gradient-to-br from-red-900 to-red-800 rounded-xl border-2 border-white/10 shadow-2xl flex items-center justify-center ${baseOpacity} ${animationClass}`}
+      >
+        <div className="w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
       </div>
     );
   }
+
   return (
-    <div style={styleDelay} className={`w-20 h-28 bg-white rounded-lg shadow-xl flex flex-col items-center justify-between p-2 border border-gray-300 transform ${baseOpacity} ${animationClass}`}>
-      <span className={`text-xl font-bold self-start ${isRed ? "text-red-600" : "text-black"}`}>{card.value}{card.suit}</span>
-      <span className={`text-4xl ${isRed ? "text-red-600" : "text-black"}`}>{card.suit}</span>
-      <span className={`text-xl font-bold self-end ${isRed ? "text-red-600" : "text-black"}`}>{card.value}{card.suit}</span>
+    <div 
+        style={styleDelay} 
+        className={`relative w-24 h-36 bg-white rounded-xl shadow-2xl flex flex-col items-center justify-between p-2 select-none transform transition-transform hover:-translate-y-2 ${baseOpacity} ${animationClass}`}
+    >
+      <div className={`text-xl font-black self-start leading-none ${isRed ? "text-red-600" : "text-slate-900"}`}>
+          {card.value}
+          <div className="mt-1"><SuitIcon size={14} fill="currentColor" /></div>
+      </div>
+      
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20 ${isRed ? "text-red-600" : "text-slate-900"}`}>
+          <SuitIcon size={48} fill="currentColor" />
+      </div>
+
+      <div className={`text-xl font-black self-end leading-none rotate-180 ${isRed ? "text-red-600" : "text-slate-900"}`}>
+          {card.value}
+          <div className="mt-1"><SuitIcon size={14} fill="currentColor" /></div>
+      </div>
     </div>
   );
 };
 
-// WICHTIG: currentCredits hinzugefügt
 export default function Blackjack({ updateCredits, currentCredits }) {
   const [gameState, setGameState] = useState(null);
   const [bet, setBet] = useState(100);
   const [showResult, setShowResult] = useState(false); 
   const [isDealing, setIsDealing] = useState(false);
   const [isRevealingDealer, setIsRevealingDealer] = useState(false);
-  const [error, setError] = useState(""); // Neuer Error State
+  const [error, setError] = useState("");
 
-  // START
+  // --- LOGIC (1:1 Original) ---
   const deal = async () => {
-    setError(""); // Reset
-    
-    // Client Check
-    if (bet > currentCredits) {
-        setError("Nicht genug Credits!");
-        return;
-    }
-    if (bet <= 0) {
-        setError("Ungültiger Einsatz!");
-        return;
-    }
+    setError("");
+    if (bet > currentCredits) { setError("Nicht genug Credits!"); return; }
+    if (bet <= 0) { setError("Ungültiger Einsatz!"); return; }
 
     setIsDealing(true);
     setShowResult(false);
@@ -88,17 +106,12 @@ export default function Blackjack({ updateCredits, currentCredits }) {
         });
         const data = await res.json();
         
-        if(data.error) { 
-            setError(data.error); 
-            setIsDealing(false); 
-            return; 
-        }
+        if(data.error) { setError(data.error); setIsDealing(false); return; }
         
         const preparedState = {
             ...data,
             dealerHand: [data.dealerUpCard, null],
             bet: bet
-
         };
 
         setGameState(preparedState);
@@ -115,16 +128,11 @@ export default function Blackjack({ updateCredits, currentCredits }) {
     } catch(e) { console.error(e); setError("Fehler beim Starten"); setIsDealing(false); }
   };
 
-  // ACTIONS (Hit, Stand, Double)
   const action = async (act) => {
-    setError(""); // Reset Error im Spiel
-    
-    // Client Check für Double Down
-    if (act === "double") {
-        if (currentCredits < gameState.bet) {
-            setError("Nicht genug Credits für Double!");
-            return;
-        }
+    setError("");
+    if (act === "double" && currentCredits < gameState.bet) {
+        setError("Nicht genug Credits für Double!");
+        return;
     }
 
     setShowResult(false);
@@ -135,22 +143,15 @@ export default function Blackjack({ updateCredits, currentCredits }) {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: act }), credentials: "include"
         });
-        
-        // ÄNDERUNG: Wir lesen ZUERST die Daten, egal ob Status 200 oder 400
         const data = await res.json();
         
-        // Wenn der Request fehlschlug (z.B. 400 Bad Request), prüfen wir auf eine Error-Message
-        if (!res.ok) {
-            if (data.error) {
-                setError(data.error); // Hier setzen wir "Zu wenig Credits..."
-                setIsDealing(false);
-                return;
-            }
-            // Wenn keine spezifische Error-Message da ist, werfen wir einen generischen Fehler
-            throw new Error("Server Error");
+        if (data.error) {
+            setError(data.error);
+            setIsDealing(false);
+            return;
         }
 
-        // --- 1. HIT oder DOUBLE (Player zieht) ---
+        // 1. HIT oder DOUBLE (Player zieht)
         if (act === "hit" || (act === "double" && data.status === "bust")) {
             setGameState(prev => ({ 
                 ...prev, 
@@ -173,7 +174,7 @@ export default function Blackjack({ updateCredits, currentCredits }) {
             return;
         }
 
-        // --- 2. STAND (oder Double ohne Bust) -> Dealer Turn ---
+        // 2. STAND (oder Double ohne Bust) -> Dealer Turn Animation
         if (act === "stand" || (act === "double" && data.status !== "bust")) {
              const finalDealerHand = data.dealerHand || [];
              setIsRevealingDealer(true);
@@ -212,26 +213,35 @@ export default function Blackjack({ updateCredits, currentCredits }) {
       setIsDealing(false);
   };
 
-  // --- UI ---
-  // SCREEN 1: Start Screen
+  // --- RENDER ---
+  // SCREEN 1: Start
   if (!gameState && !isDealing) {
      return (
-      <div className="flex flex-col items-center justify-center h-96 bg-green-900 rounded-2xl border-8 border-yellow-900 shadow-inner">
-        <h2 className="text-3xl font-bold mb-4 text-yellow-400 drop-shadow-md">Blackjack Tisch</h2>
+      <div className="flex flex-col items-center justify-center h-[500px] bg-[#0a1f13] rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-900/40 via-[#0a1f13] to-black opacity-80 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-10 pointer-events-none"></div>
         
-        <div className="flex flex-col items-center gap-2">
-            <div className="flex gap-4 items-center bg-black/40 p-4 rounded-xl">
-            <span className="font-bold">Einsatz:</span>
-            <input 
-                type="number" 
-                value={bet} 
-                onChange={e => { setBet(Number(e.target.value)); setError(""); }} 
-                className="bg-white text-black rounded px-2 py-1 w-24 font-bold text-center" 
-            />
-            <button onClick={deal} className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-6 py-2 rounded shadow-lg active:scale-95 transition">DEAL</button>
+        <div className="relative z-10 text-center animate-in zoom-in-95 duration-500">
+            <h2 className="text-4xl font-black mb-1 text-white flex items-center justify-center gap-3">
+                <Spade className="text-emerald-500 fill-current" /> BLACKJACK
+            </h2>
+            <p className="text-white/40 text-sm mb-8 font-medium">Dealer zieht bis 16, steht bei 17</p>
+            
+            <div className="bg-black/40 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
+                <div className="text-xs font-bold text-white/50 uppercase tracking-widest mb-2">Dein Einsatz</div>
+                <div className="flex items-center justify-center gap-4">
+                    <input 
+                        type="number" 
+                        value={bet} 
+                        onChange={e => { setBet(Number(e.target.value)); setError(""); }} 
+                        className="bg-black/50 border border-white/10 text-white rounded-xl px-4 py-2 w-32 font-mono font-bold text-center focus:border-emerald-500 outline-none text-xl" 
+                    />
+                    <button onClick={deal} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-8 py-3 rounded-xl shadow-lg shadow-emerald-900/20 active:scale-95 transition-all flex items-center gap-2">
+                        <Play size={20} fill="currentColor" /> DEAL
+                    </button>
+                </div>
             </div>
-            {/* Error Anzeige im Start Screen */}
-            {error && <div className="text-red-400 font-bold bg-black/60 px-4 py-1 rounded animate-pulse">{error}</div>}
+            {error && <div className="mt-4 text-red-400 font-bold bg-red-900/20 px-4 py-2 rounded-lg border border-red-900/50 animate-pulse">{error}</div>}
         </div>
       </div>
     );
@@ -239,7 +249,13 @@ export default function Blackjack({ updateCredits, currentCredits }) {
 
   // SCREEN 2: Shuffling
   if ((!gameState) && isDealing) {
-      return <div className="h-96 bg-green-900 rounded-2xl flex items-center justify-center text-white text-xl animate-pulse">Mische Karten...</div>;
+      return (
+        <div className="h-[500px] bg-[#0a1f13] rounded-3xl border border-white/10 flex flex-col items-center justify-center text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-10 pointer-events-none"></div>
+            <div className="animate-spin mb-4"><RotateCcw size={40} className="text-emerald-500 opacity-50" /></div>
+            <span className="font-bold text-lg text-emerald-100/50 animate-pulse">Mische Karten...</span>
+        </div>
+      );
   }
   
   if (!gameState) return null;
@@ -252,58 +268,87 @@ export default function Blackjack({ updateCredits, currentCredits }) {
   const dealerScore = calculateClientScore(visibleDealerCards);
 
   return (
-    <div className="relative flex flex-col items-center justify-between py-8 min-h-[500px] bg-green-800 rounded-2xl border-8 border-yellow-900 shadow-[inset_0_0_100px_rgba(0,0,0,0.5)] overflow-hidden z-10">
-      
+    <div className="relative flex flex-col items-center justify-between py-8 min-h-[500px] bg-[#0a1f13] rounded-3xl border border-white/10 shadow-2xl overflow-hidden z-10 select-none">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/30 via-[#0a1f13] to-black opacity-80 pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-10 pointer-events-none"></div>
+
       {/* Dealer Bereich */}
-      <div className="flex flex-col items-center z-10">
-        <div className="flex gap-2 mb-2 min-h-[112px]">
+      <div className="flex flex-col items-center z-10 w-full">
+        <div className="flex justify-center gap-[-4rem] mb-4 min-h-[144px]">
           {safeDealerHand.map((card, i) => (
-             <Card key={i} card={card} index={i} isDealer={true} isHidden={card === null} isRevealing={i === 1 && isRevealingDealer} />
+             <div key={i} className={i > 0 ? "-ml-12" : ""}>
+                <Card card={card} index={i} isDealer={true} isHidden={card === null} isRevealing={i === 1 && isRevealingDealer} />
+             </div>
           ))}
         </div>
-        <div className="bg-black/50 px-3 py-1 rounded-full text-sm font-bold border border-white/20 shadow-lg">
-            Dealer: {dealerScore}
+        <div className="bg-black/40 backdrop-blur px-4 py-1.5 rounded-full text-xs font-bold text-white/80 border border-white/10 shadow-lg flex items-center gap-2">
+            <span className="uppercase text-white/40">Dealer</span>
+            <span className="font-mono text-lg">{dealerScore}</span>
         </div>
       </div>
 
       {/* Result Overlay */}
       {gameState.status !== "playing" && showResult && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 animate-in fade-in zoom-in duration-300">
-          <div className="bg-black/90 backdrop-blur border-4 border-yellow-500 p-8 rounded-2xl text-center shadow-2xl transform scale-110">
-            <h2 className="text-4xl font-extrabold text-yellow-400 mb-2 uppercase">{gameState.status === 'push' ? 'Unentschieden' : gameState.status + '!'}</h2>
-            {gameState.winAmount > 0 ? <p className="text-green-400 font-bold text-2xl">+{gameState.winAmount} <CoinIcon size="w-6 h-6" /></p> : <p className="text-red-400">Verloren</p>}
-            <button onClick={() => { setGameState(null); setShowResult(false); }} className="mt-4 bg-white hover:bg-gray-200 text-black font-bold px-6 py-3 rounded-full shadow-lg">Nächste Runde</button>
+        <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-[#18181b] border border-white/10 p-8 rounded-3xl text-center shadow-2xl transform scale-110 relative overflow-hidden">
+            <div className={`absolute inset-0 opacity-20 ${gameState.winAmount > 0 ? "bg-green-500" : "bg-red-500"}`}></div>
+            <h2 className="relative text-3xl font-black text-white mb-2 uppercase tracking-wide drop-shadow-md">
+                {gameState.status === 'push' ? 'Unentschieden' : gameState.status === 'blackjack' ? 'Blackjack!' : gameState.winAmount > 0 ? 'Gewonnen!' : 'Verloren'}
+            </h2>
+            
+            {gameState.winAmount > 0 ? (
+                <p className="relative text-green-400 font-black text-4xl mb-6 flex items-center justify-center gap-2 drop-shadow-sm">
+                    +{gameState.winAmount} <CoinIcon size="w-8 h-8" />
+                </p>
+            ) : (
+                <p className="relative text-red-400 font-bold text-xl mb-6">-{bet} Credits</p>
+            )}
+
+            <button onClick={() => { setGameState(null); setShowResult(false); }} className="relative bg-white hover:bg-gray-200 text-black font-bold px-8 py-3 rounded-xl shadow-xl transition-transform hover:scale-105 active:scale-95 flex items-center gap-2 mx-auto">
+                <RotateCcw size={18} /> Nächste Runde
+            </button>
           </div>
         </div>
       )}
 
       {/* Player Bereich */}
-      <div className="flex flex-col items-center z-10 w-full">
-        <div className="bg-black/50 px-3 py-1 rounded-full text-sm font-bold mb-2 border border-white/20">Du: {playerScore}</div>
-        <div className="flex gap-2 justify-center mb-6 min-h-[112px]">
-           {safePlayerHand.map((c, i) => (
-             <Card key={`${c.value}-${c.suit}-${i}`} card={c} index={i} isDealer={false} />
-           ))}
+      <div className="flex flex-col items-center z-10 w-full pb-4">
+        <div className="bg-black/40 backdrop-blur px-4 py-1.5 rounded-full text-xs font-bold text-white/80 border border-white/10 shadow-lg mb-6 flex items-center gap-2">
+            <span className="uppercase text-white/40">Du</span>
+            <span className={`font-mono text-lg ${playerScore > 21 ? "text-red-500" : "text-white"}`}>{playerScore}</span>
+        </div>
+
+        <div className="flex justify-center mb-8 relative w-full px-10">
+            <div className="flex justify-center">
+                {safePlayerHand.map((c, i) => (
+                    <div key={`${c.value}-${c.suit}-${i}`} className={i > 0 ? "-ml-12" : ""}>
+                        <Card card={c} index={i} isDealer={false} />
+                    </div>
+                ))}
+            </div>
         </div>
         
-        {/* Controls & Error */}
-        <div className="flex flex-col items-center gap-2">
-            {/* Error Anzeige im Spiel (z.B. für Double Down) */}
-            {error && <div className="text-red-400 font-bold bg-black/60 px-4 py-1 rounded animate-pulse">{error}</div>}
+        {/* Controls */}
+        <div className="flex flex-col items-center gap-3 w-full px-4">
+            {error && <div className="text-red-400 font-bold text-xs bg-red-900/30 px-3 py-1 rounded border border-red-500/30 animate-pulse">{error}</div>}
 
-            <div className="flex gap-4 h-16">
+            <div className="flex gap-3">
             {gameState.status === "playing" && !isDealing && (
                 <>
-                <button onClick={() => action("hit")} className="bg-green-600 hover:bg-green-500 text-white font-bold w-24 rounded-xl shadow-[0_4px_0_rgb(22,101,52)] border-b-0 active:translate-y-1 active:shadow-none transition-all">HIT</button>
-                <button onClick={() => action("stand")} className="bg-red-600 hover:bg-red-500 text-white font-bold w-24 rounded-xl shadow-[0_4px_0_rgb(153,27,27)] border-b-0 active:translate-y-1 active:shadow-none transition-all">STAND</button>
+                <button onClick={() => action("hit")} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-4 rounded-xl shadow-[0_4px_0_rgb(6,78,59)] border-b-0 active:translate-y-1 active:shadow-none transition-all flex items-center gap-2">
+                    <Plus size={20} strokeWidth={4} /> HIT
+                </button>
+                <button onClick={() => action("stand")} className="bg-red-600 hover:bg-red-500 text-white font-black px-6 py-4 rounded-xl shadow-[0_4px_0_rgb(127,29,29)] border-b-0 active:translate-y-1 active:shadow-none transition-all flex items-center gap-2">
+                    <Hand size={20} /> STAND
+                </button>
                 
-                {/* Double Button Check: Wird nur angezeigt, wenn mathematisch möglich, Error Check passiert im Handler */}
+                {/* Double Button */}
                 {safePlayerHand.length === 2 && (gameState.bet * 2 <= 5000) && (currentCredits >= gameState.bet) && (
                     <button 
                         onClick={() => action("double")} 
-                        className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold w-24 rounded-xl shadow-[0_4px_0_rgb(161,98,7)] border-b-0 active:translate-y-1 active:shadow-none transition-all"
+                        className="bg-amber-500 hover:bg-amber-400 text-black font-black px-6 py-4 rounded-xl shadow-[0_4px_0_rgb(180,83,9)] border-b-0 active:translate-y-1 active:shadow-none transition-all flex items-center gap-2"
                     >
-                        DOUBLE
+                        <ChevronsUp size={20} /> DOUBLE
                     </button>
                 )}
                 </>

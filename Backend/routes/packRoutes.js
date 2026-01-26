@@ -4,11 +4,11 @@ const fs = require("fs");
 const path = require("path");
 
 // DATEI-PFADE
-const CARDS_DEF_PATH = path.join(__dirname, "cards-def.json");
-const CARDS_USER_DB_PATH = path.join(__dirname, "cards-users.json");
-const CARD_SUGGESTIONS_PATH = path.join(__dirname, "card-suggestions.json");
-const CARDS_USER_BACKUP_DIR = path.join(__dirname, "cards-users-backups");
-const CASINO_DB_PATH = path.join(__dirname, "casinoData.json");
+const CARDS_DEF_PATH = path.join(__dirname, "../data/cards-def.json");
+const CARDS_USER_DB_PATH = path.join(__dirname, "../data/cards-users.json");
+const CARD_SUGGESTIONS_PATH = path.join(__dirname, "../data/card-suggestions.json");
+const CARDS_USER_BACKUP_DIR = path.join(__dirname, "../data/cards-users-backups");
+const CASINO_DB_PATH = path.join(__dirname, "../data/casinoData.json");
 
 // KONFIGURATION
 const PACK_PRICE = 500; 

@@ -10,18 +10,17 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args)); // für Twitch-Token-Check
 
 // Feature-Router (wie bingoRoutes)
-const createBingoRouter = require("./bingoRoutes");
-const createAwardsRouter = require("./awardsRoutes");
-const createClipqueueRouter = require("./clipqueueRoutes");
-const createGiveawayRouter = require("./giveawayRoutes");
-const createPackRouter = require("./packRoutes");
-const createWinchallengeRouter = require("./winchallengeRoutes");
-const createPollRouter = require("./pollRoutes");
-const createKnowledgeRouter = require("./knowledgeRoutes")
-const createCasinoRouter = require("./casinoRoutes");
-const createAdventureRouter = require("./adVenturesRoutes");
-const createAdminRouter = require("./adminRoutes");
-const createPromoRouter = require("./promoRoutes");
+const createBingoRouter = require("./routes//bingoRoutes");
+const createAwardsRouter = require("./routes/awardsRoutes");
+const createGiveawayRouter = require("./routes/giveawayRoutes");
+const createPackRouter = require("./routes/packRoutes");
+const createWinchallengeRouter = require("./routes/winchallengeRoutes");
+const createPollRouter = require("./routes/pollRoutes");
+const createCasinoRouter = require("./routes/casinoRoutes");
+const createAdventureRouter = require("./routes/adVenturesRoutes");
+const createAdminRouter = require("./routes/adminRoutes");
+const createPromoRouter = require("./routes/promoRoutes");
+const createFeedbackRouter = require("./routes/feedbackRoutes");
 
 const app = express();
 
@@ -209,8 +208,6 @@ app.use("/api/bingo", createBingoRouter({ requireAuth }));
 
 app.use("/api/awards", createAwardsRouter({ requireAuth, STREAMER_TWITCH_ID }));
 
-app.use("/api/clipqueue", createClipqueueRouter({ requireAuth }));
-
 app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID }));
 
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
@@ -220,8 +217,6 @@ app.use("/api/", createPackRouter({ requireAuth, ADMIN_PW, STREAMER_TWITCH_ID })
 
 app.use("/", createPollRouter({ requireAuth, STREAMER_TWITCH_ID }));
 
-app.use("/api/knowledge", createKnowledgeRouter({ requireAuth }))
-
 app.use("/api/casino", createCasinoRouter({ requireAuth }));
 
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
@@ -229,6 +224,8 @@ app.use("/api/adventure", createAdventureRouter({ requireAuth }));
 app.use("/api/admin", createAdminRouter({ requireAuth, STREAMER_TWITCH_ID }));
 
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
+
+app.use("/api/feedback", createFeedbackRouter());
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 3001;

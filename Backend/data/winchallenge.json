@@ -119,38 +119,12 @@
   },
   "160224748": {
     "userId": "160224748",
+    "hostName": "vnmvalentin",
     "title": "Win-Challenge",
     "items": [
       {
-        "id": "kErDYP2q",
-        "name": "Test",
-        "useWins": true,
-        "target": 1,
-        "progress": 0,
-        "done": false,
-        "pinned": false
-      },
-      {
-        "id": "AWU0ufd7",
-        "name": "Test",
-        "useWins": false,
-        "target": 1,
-        "progress": 0,
-        "done": false,
-        "pinned": false
-      },
-      {
-        "id": "MNY1xoBj",
+        "id": "k3cIHMvP",
         "name": "",
-        "useWins": true,
-        "target": 2,
-        "progress": 0,
-        "done": false,
-        "pinned": false
-      },
-      {
-        "id": "MowWa6ff",
-        "name": "Test",
         "useWins": false,
         "target": 1,
         "progress": 0,
@@ -168,9 +142,9 @@
       "boxWidth": 280,
       "titleAlign": "center",
       "titleColor": "#ffffff",
-      "headerBg": "#15563a",
+      "headerBg": "#000000",
       "titleFontSize": 18,
-      "itemFontSize": 16,
+      "itemFontSize": 15,
       "itemBg": "#000000",
       "headerOpacity": 1
     },
@@ -178,16 +152,16 @@
       "running": false,
       "startedAt": 0,
       "elapsedMs": 0,
-      "visible": true
+      "visible": false
     },
     "pager": {
-      "enabled": false,
+      "enabled": true,
       "pageSize": 2,
       "intervalSec": 20
     },
     "animation": {
-      "enabled": false,
-      "mode": "scrolling",
+      "enabled": true,
+      "mode": "paging",
       "paging": {
         "pageSize": 2,
         "intervalSec": 20
@@ -203,8 +177,8 @@
       "allowModsTitle": true,
       "allowModsChallenges": true
     },
-    "overlayKey": "f4g55Cn3KnIa",
-    "controlKey": "_I3kCw2aW6fi",
+    "overlayKey": "UF0HPhsXQG1X",
+    "controlKey": "yxSYZc0f0Axl",
     "refreshNonce": 1,
     "updatedAt": 1766789990204
   },

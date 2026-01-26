@@ -12,15 +12,16 @@ export default function BingoPage() {
   const [themes, setThemes] = useState([]);
   const [loadingThemes, setLoadingThemes] = useState(true);
 
+  // Setup States
   const [mode, setMode] = useState("single");
   const [selectedThemeId, setSelectedThemeId] = useState("");
   const [joinInput, setJoinInput] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // My Sessions States
   const [my, setMy] = useState([]);
   const [loadingMy, setLoadingMy] = useState(false);
   const [error, setError] = useState("");
-  const [copiedKey, setCopiedKey] = useState("");
 
   const loadThemes = async () => {
     setLoadingThemes(true); setError("");
@@ -50,7 +51,6 @@ export default function BingoPage() {
     return list;
   }, [themes]);
 
-  // LIMIT CHECK
   const sessionLimitReached = user && my.length >= 3;
 
   const startCreate = async () => {
@@ -58,7 +58,7 @@ export default function BingoPage() {
     if (!user) { login(); return; }
     if (!selectedThemeId) return;
     if (sessionLimitReached) {
-        setError("Limit erreicht (3/3). Bitte lösche alte Sessions unter 'Deine Bingos'.");
+        setError("Limit erreicht (3/3). Bitte lösche alte Sessions.");
         return;
     }
 
@@ -76,10 +76,6 @@ export default function BingoPage() {
     navigate(`/Bingo/join/${key}`);
   };
 
-  const doCopy = async (text, key) => {
-    try { await navigator.clipboard.writeText(text); setCopiedKey(key); setTimeout(() => setCopiedKey(""), 900); } catch {}
-  };
-
   const doDelete = async (sessionId) => {
     if (!user) return;
     if (!window.confirm("Wirklich löschen?")) return;
@@ -87,99 +83,162 @@ export default function BingoPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 text-white">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Bingo</h1>
-        <div className="flex gap-2">
-          <button className={`px-4 py-2 rounded-xl border border-white/10 ${tab === "create" ? "bg-white/15" : "bg-white/5"}`} onClick={() => setTab("create")}>Erstellen</button>
-          <button className={`px-4 py-2 rounded-xl border border-white/10 ${tab === "my" ? "bg-white/15" : "bg-white/5"}`} onClick={() => setTab("my")}>Deine Bingos ({my.length})</button>
+    <div className="max-w-3xl mx-auto px-4 py-12 text-white">
+      {/* Header Tabs */}
+      <div className="flex flex-col items-center mb-10">
+        <h1 className="text-4xl font-black tracking-tight mb-6">BINGO</h1>
+        <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10">
+          <button 
+            className={`px-6 py-2 rounded-xl font-medium transition-all ${tab === "create" ? "bg-white/10 text-white shadow-sm" : "text-white/50 hover:text-white"}`} 
+            onClick={() => setTab("create")}
+          >
+            Neue Session
+          </button>
+          <button 
+            className={`px-6 py-2 rounded-xl font-medium transition-all ${tab === "my" ? "bg-white/10 text-white shadow-sm" : "text-white/50 hover:text-white"}`} 
+            onClick={() => setTab("my")}
+          >
+            Deine Bingos ({my.length})
+          </button>
         </div>
       </div>
 
-      {error && <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-4 text-red-200 mb-4">{error}</div>}
+      {error && <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-4 text-red-200 mb-6 text-center">{error}</div>}
 
       {tab === "create" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-2xl bg-black/60 border border-white/10 p-5 space-y-4">
-            <h2 className="text-xl font-semibold">1) Session-Typ</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <button className={`rounded-2xl p-4 border border-white/10 text-left ${mode === "single" ? "bg-white/15" : "bg-white/5"}`} onClick={() => setMode("single")}>
-                <div className="font-semibold">Einzelsession</div>
-                <div className="text-sm text-white/70">1 Karte, Host = Spieler</div>
-              </button>
-              <button className={`rounded-2xl p-4 border border-white/10 text-left ${mode === "group" ? "bg-white/15" : "bg-white/5"}`} onClick={() => setMode("group")}>
-                <div className="font-semibold">Gruppensession</div>
-                <div className="text-sm text-white/70">Mehrere Spieler, Synchroner Start</div>
-              </button>
-            </div>
-            <div>
-              <label className="text-sm text-white/70">Join-Link</label>
-              <div className="mt-1 flex gap-2">
-                <input className="flex-1 bg-black/40 border border-white/10 rounded-xl p-2" value={joinInput} onChange={e => setJoinInput(e.target.value)} placeholder="Link einfügen" />
-                <button className="px-4 py-2 rounded-xl bg-white/10 border border-white/10" onClick={join}>Join</button>
-              </div>
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          
+          {/* STEP 1: MODE */}
+          <div className="space-y-4">
+             <div className="flex items-center gap-3">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 border border-white/10 font-bold text-sm">1</span>
+                <h2 className="text-xl font-bold">Session Typ wählen</h2>
+             </div>
+             
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button 
+                    onClick={() => setMode("single")}
+                    className={`relative p-5 rounded-2xl border text-left transition-all hover:scale-[1.02] active:scale-[0.98] ${mode === "single" ? "bg-violet-500/20 border-violet-500/50 ring-1 ring-violet-500/30" : "bg-[#18181b] border-white/10 hover:border-white/20"}`}
+                >
+                    <div className="font-bold text-lg mb-1">Singleplayer</div>
+                    <div className="text-sm text-white/60">Du spielst alleine. Perfekt für Content Creation oder Just Chatting.</div>
+                </button>
+
+                <button 
+                    onClick={() => setMode("group")}
+                    className={`relative p-5 rounded-2xl border text-left transition-all hover:scale-[1.02] active:scale-[0.98] ${mode === "group" ? "bg-emerald-500/20 border-emerald-500/50 ring-1 ring-emerald-500/30" : "bg-[#18181b] border-white/10 hover:border-white/20"}`}
+                >
+                    <div className="font-bold text-lg mb-1">Multiplayer</div>
+                    <div className="text-sm text-white/60">Spiele live gegen Freunde oder Viewer. Synchronisierter Start.</div>
+                </button>
+             </div>
+          </div>
+
+          <div className="w-full h-px bg-white/5" />
+
+          {/* STEP 2: THEME */}
+          <div className="space-y-4">
+             <div className="flex items-center gap-3">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 border border-white/10 font-bold text-sm">2</span>
+                <h2 className="text-xl font-bold">Thema wählen</h2>
+             </div>
+
+             {loadingThemes ? (
+                 <div className="p-8 text-center text-white/40 bg-white/5 rounded-2xl animate-pulse">Lade Themes...</div>
+             ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {themeOptions.map(t => (
+                        <button 
+                            key={t.id} 
+                            onClick={() => setSelectedThemeId(t.id)}
+                            className={`px-4 py-3 rounded-xl border text-left transition-colors flex justify-between items-center ${selectedThemeId === t.id ? "bg-white/15 border-white/30 text-white" : "bg-[#18181b] border-white/10 text-white/70 hover:bg-white/5"}`}
+                        >
+                            <span className="font-medium">{t.name}</span>
+                            <span className="text-xs bg-black/30 px-2 py-1 rounded text-white/50">
+                                {t.id === "custom" ? "Editor" : t.wordsCount}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+             )}
+          </div>
+
+          {/* ACTION AREA */}
+          <div className="pt-4">
+            {!user ? (
+                <button onClick={login} className="w-full py-4 rounded-2xl font-bold text-lg bg-[#9146FF] hover:bg-[#772ce8] transition-colors text-white shadow-lg shadow-purple-900/20">
+                    Login mit Twitch zum Erstellen
+                </button>
+            ) : (
+                <button
+                    disabled={creating || !selectedThemeId || sessionLimitReached}
+                    onClick={startCreate}
+                    className={`w-full py-4 rounded-2xl font-bold text-lg transition-all shadow-lg ${
+                        creating || !selectedThemeId || sessionLimitReached 
+                        ? "bg-white/5 text-white/20 cursor-not-allowed border border-white/5" 
+                        : "bg-white text-black hover:bg-gray-200 border border-white"
+                    }`}
+                >
+                    {creating ? "Erstelle Lobby..." : sessionLimitReached ? "Limit erreicht" : "Session starten"}
+                </button>
+            )}
+          </div>
+
+          {/* Join Alternative */}
+          <div className="pt-8 mt-8 border-t border-white/10">
+            <label className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3 block">Oder einer Lobby beitreten</label>
+            <div className="flex gap-2">
+                <input 
+                    className="flex-1 bg-[#18181b] border border-white/10 focus:border-white/30 outline-none rounded-xl px-4 py-3 text-white transition-colors" 
+                    value={joinInput} 
+                    onChange={e => setJoinInput(e.target.value)} 
+                    placeholder="Bingo Link einfügen..." 
+                />
+                <button 
+                    onClick={join}
+                    className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-semibold"
+                >
+                    Join
+                </button>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-black/60 border border-white/10 p-5 space-y-4">
-            <h2 className="text-xl font-semibold">2) Theme</h2>
-            {loadingThemes ? <div className="text-white/70">Lade...</div> : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {themeOptions.map(t => (
-                    <button key={t.id} className={`rounded-2xl p-4 border border-white/10 text-left ${selectedThemeId === t.id ? "bg-white/15" : "bg-white/5"}`} onClick={() => setSelectedThemeId(t.id)}>
-                      <div className="font-semibold">{t.name}</div>
-                      <div className="text-sm text-white/70">{t.id === "custom" ? "Wörter anpassen" : `${t.wordsCount} Wörter`}</div>
-                    </button>
-                  ))}
-                </div>
-                {!user ? (
-                  <button onClick={login} className="w-full px-4 py-3 rounded-xl font-semibold bg-[#9146FF] text-white">Login mit Twitch</button>
-                ) : (
-                  <>
-                      {sessionLimitReached && (
-                          <div className="text-red-400 text-sm bg-red-500/10 p-3 rounded-xl border border-red-500/20">
-                              Maximale Anzahl an gleichzeitigen Sessions (3/3) erreicht. <br/>
-                              Bitte navigiere zu "Deine Bingos" und lösche alte Sessions.
-                          </div>
-                      )}
-                      <button
-                        disabled={creating || !selectedThemeId || sessionLimitReached}
-                        className={`w-full px-4 py-3 rounded-xl font-semibold border border-white/10 ${!creating && selectedThemeId && !sessionLimitReached ? "bg-violet-600/70 hover:bg-violet-600" : "bg-white/5 text-white/40 cursor-not-allowed"}`}
-                        onClick={startCreate}
-                      >
-                        {creating ? "Erstelle..." : "Session erstellen"}
-                      </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
       {tab === "my" && (
-        <div className="rounded-2xl bg-black/60 border border-white/10 p-5 space-y-4">
-          <div className="flex justify-between">
-             <h2 className="text-xl font-semibold">Deine Sessions ({my.length}/3)</h2>
-             <button onClick={refreshMy} disabled={loadingMy} className="px-4 py-2 bg-white/10 rounded-xl border border-white/10">Aktualisieren</button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {my.map(s => (
-              <div key={s.sessionId} className="rounded-2xl bg-white/5 border border-white/10 p-4 space-y-2">
-                 <div className="flex justify-between">
-                    <div>
-                        <div className="font-semibold">{s.themeName}</div>
-                        <div className="text-xs text-white/60">{s.mode} • {s.role}</div>
-                    </div>
-                    <div className="flex gap-2">
-                        {s.role === "host" && <button className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-xs" onClick={() => doDelete(s.sessionId)}>Löschen</button>}
-                        <button className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs" onClick={() => navigate(`/Bingo/${s.sessionId}`)}>Öffnen</button>
-                    </div>
-                 </div>
-              </div>
-            ))}
-          </div>
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+             <div className="flex justify-between items-center px-2">
+                 <div className="text-sm text-white/50">Slots belegt: {my.length} / 3</div>
+                 <button onClick={refreshMy} disabled={loadingMy} className="text-sm text-white/70 hover:text-white underline">Refresh</button>
+             </div>
+             
+             {my.length === 0 && <div className="text-center py-12 text-white/30 bg-white/5 rounded-2xl border border-white/5">Keine aktiven Sessions.</div>}
+
+             {my.map(s => (
+                  <div key={s.sessionId} className="group relative bg-[#18181b] border border-white/10 rounded-2xl p-5 hover:border-white/20 transition-colors">
+                      <div className="flex justify-between items-start">
+                          <div>
+                              <h3 className="text-lg font-bold text-white mb-1">{s.themeName || "Unbekanntes Thema"}</h3>
+                              <div className="flex gap-2 text-xs font-mono uppercase tracking-wide text-white/50">
+                                  <span className={s.mode === "group" ? "text-emerald-400" : "text-violet-400"}>{s.mode}</span>
+                                  <span>•</span>
+                                  <span>{s.role}</span>
+                              </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                              {s.role === "host" && (
+                                  <button onClick={() => doDelete(s.sessionId)} className="text-xs text-red-400 hover:text-red-300 px-3 py-2 rounded-lg hover:bg-red-500/10 transition-colors">
+                                      Löschen
+                                  </button>
+                              )}
+                              <button onClick={() => navigate(`/Bingo/${s.sessionId}`)} className="px-5 py-2 rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 transition-colors">
+                                  Öffnen
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+             ))}
         </div>
       )}
     </div>

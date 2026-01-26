@@ -4,6 +4,17 @@ import { Link } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import Card from "../../components/Card";
 import CoinIcon from "../../components/CoinIcon";
+import { 
+  Library, 
+  Images, 
+  Lightbulb, 
+  Trophy, 
+  MessageSquare, 
+  Eye, 
+  EyeOff, 
+  Gift, 
+  Gamepad2 
+} from "lucide-react";
 
 const PACK_ART_URL = "/cards/packs/pack.png";
 const DISCORD_URL = "https://discord.gg/V38GBSVNeh";
@@ -23,6 +34,8 @@ function msToCountdown(ms) {
 
 export default function CardPackPage() {
   const { user, login } = useContext(TwitchAuthContext);
+  
+  // --- STATE & LOGIC ---
   const [pack, setPack] = useState(null);
   const [lastPack, setLastPack] = useState(null);
   const [revealIndex, setRevealIndex] = useState(0);
@@ -38,8 +51,6 @@ export default function CardPackPage() {
   const [cardAnimating, setCardAnimating] = useState(false);
   const [ownedCounts, setOwnedCounts] = useState({});
   const [showFeedback, setShowFeedback] = useState(false);
-  
-  // Achievement Status (roter Punkt)
   const [readyToClaim, setReadyToClaim] = useState(0);
 
   const animTimeoutRef = useRef(null);
@@ -91,7 +102,6 @@ export default function CardPackPage() {
         data.owned.forEach((card) => { map[card.id] = card.count || 0; });
         setOwnedCounts(map);
       }
-      // Achievement Check
       setReadyToClaim(data.achievementsReadyToClaim || 0);
 
       const key = `lastPack_${user.id}`;
@@ -209,10 +219,14 @@ export default function CardPackPage() {
   };
 
   if (!user) return (
-      <div className="max-w-xl mx-auto mt-8 bg-gray-900/80 p-6 rounded-2xl text-center text-white">
-        <h1 className="text-2xl font-bold mb-2">Daily Card Pack</h1>
-        <p className="mb-4">Bitte melde dich mit deinem Twitch-Account an.</p>
-        <button onClick={() => login()} className="bg-[#9146FF] hover:bg-[#7d36ff] px-4 py-2 rounded-lg">Login mit Twitch</button>
+      <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-4">
+        <div className="bg-[#18181b] p-8 rounded-2xl border border-white/10 shadow-2xl max-w-md w-full">
+            <h1 className="text-3xl font-black text-white mb-2">Daily Card Pack</h1>
+            <p className="text-white/50 mb-6">Bitte melde dich mit deinem Twitch-Account an, um Packs zu öffnen.</p>
+            <button onClick={() => login()} className="bg-[#9146FF] hover:bg-[#7d36ff] text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-purple-900/20">
+                Login mit Twitch
+            </button>
+        </div>
       </div>
   );
 
@@ -222,163 +236,266 @@ export default function CardPackPage() {
   const dailyReady = dailyCooldown <= 0;
 
   return (
-    <div className="max-w-5xl mx-auto mt-8 text-white px-2">
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="flex-1 space-y-6">
-          <div className="bg-gray-900/80 rounded-2xl p-4 md:p-6 shadow-xl relative">
-            <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
+      
+      {/* 2-Spalten Layout: Links Main Content, Rechts Sidebar Menü */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* --- MAIN CONTENT AREA --- */}
+        <div className="flex-1 w-full space-y-8">
+          
+          {/* Hero Section */}
+          <div className="bg-[#18181b] rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+            {/* Background Decoration */}
+            <div className="absolute top-0 right-0 p-32 bg-violet-500/5 blur-[100px] rounded-full pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
               <div>
-                <h1 className="text-2xl font-bold mb-1">Card Packs</h1>
-                <p className="text-sm text-gray-400">Sammle Karten, vervollständige dein Album!</p>
+                <h1 className="text-3xl font-black tracking-tight mb-1">Card Packs</h1>
+                <p className="text-white/50">Sammle Karten, vervollständige dein Album!</p>
               </div>
-              <div className="inline-flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full border border-yellow-500/30 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
-                <span className="text-2xl"><CoinIcon size="w-8 h-8" /></span>
-                <span className="text-xl font-bold text-yellow-400 font-mono">{credits.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="bg-gray-800/50 rounded-xl p-4 mb-6 border border-gray-700 flex flex-col items-center justify-center text-center">
-                <h3 className="text-sm uppercase tracking-widest text-gray-400 mb-2">Tägliche Belohnung</h3>
-                <div className="flex items-center gap-4">
-                    <span className="text-2xl">🎁</span>
-                    {userDataLoading ? (
-                        <div className="bg-gray-700 text-gray-400 font-bold py-2 px-6 rounded-lg animate-pulse cursor-wait">Lade Status...</div>
-                    ) : dailyReady ? (
-                        <button onClick={claimDaily} disabled={isDailyLoading} className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:shadow-green-500/20 transition-all active:scale-95">
-                            {isDailyLoading ? "Lade..." : <span className="flex items-center gap-1">+500 <CoinIcon size="w-4 h-4" /> abholen</span>}
-                        </button>
-                    ) : (
-                        <div className="bg-gray-700/50 px-6 py-2 rounded-lg border border-gray-600">
-                             <span className="text-gray-300 font-mono">Komme wieder in {msToCountdown(dailyCooldown)}</span>
-                        </div>
-                    )}
+              
+              {/* Credits Badge */}
+              <div className="flex items-center gap-3 bg-black/40 px-5 py-2.5 rounded-2xl border border-white/5">
+                <div className="text-right">
+                    <div className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Guthaben</div>
+                    <div className="text-xl font-mono font-bold text-yellow-400 leading-none">{credits.toLocaleString()}</div>
                 </div>
+                <CoinIcon size="w-8 h-8" />
+              </div>
             </div>
 
-            <div className="text-center py-4">
-              <button disabled={!canBuy} onClick={openPack} className={`relative group px-8 py-4 rounded-xl font-bold text-lg shadow-xl transition-all transform ${canBuy ? "bg-gradient-to-br from-violet-600 to-indigo-700 hover:from-violet-500 hover:to-indigo-600 hover:scale-105 hover:shadow-violet-500/30 text-white" : "bg-gray-700 text-gray-400 cursor-not-allowed grayscale"}`}>
-                {stage === "opening" ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    Öffne Pack...
-                  </span>
+            {/* Daily Reward Box */}
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center text-2xl">🎁</div>
+                    <div>
+                        <div className="font-bold text-white">Tägliche Belohnung</div>
+                        <div className="text-xs text-white/50">{dailyReady ? "Bereit zum Abholen!" : "Komm später wieder"}</div>
+                    </div>
+                </div>
+                {userDataLoading ? (
+                    <div className="px-6 py-2 rounded-xl bg-white/5 text-white/30 font-bold text-sm animate-pulse">Lade...</div>
+                ) : dailyReady ? (
+                    <button 
+                        onClick={claimDaily} 
+                        disabled={isDailyLoading} 
+                        className="bg-green-600 hover:bg-green-500 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        {isDailyLoading ? "Lade..." : <><CoinIcon className="w-4 h-4"/> +500 Abholen</>}
+                    </button>
                 ) : (
-                  <div className="flex flex-col items-center">
-                    <span>Pack kaufen</span>
-                    <span className={`text-xs mt-1 ${canBuy ? "text-violet-200" : "text-red-400"}`}>Preis: {packPrice} <CoinIcon size="w-4 h-4" /></span>
-                  </div>
+                    <div className="px-6 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white/50 font-mono text-sm">
+                         {msToCountdown(dailyCooldown)}
+                    </div>
                 )}
-              </button>
-              {!canBuy && stage === "idle" && <p className="text-red-400 text-sm mt-3 animate-pulse">Nicht genug Credits! Spiel im Casino oder hol dir den Daily Reward.</p>}
-              {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+            </div>
 
-              <div className="mt-8 pt-6 border-t border-gray-800 text-xs text-gray-500">
-                <p className="uppercase tracking-widest mb-2">Drop Rates</p>
-                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            {/* Pack Buying Area */}
+            <div className="flex flex-col items-center justify-center py-6 gap-6">
+              
+              {/* Pack Image - Nur visuell, nicht mehr klickbar */}
+              <div className="relative group transition-all transform hover:scale-105 duration-500">
+                  {/* Image Glow */}
+                  <div className={`absolute inset-0 bg-violet-500/30 blur-[60px] rounded-full transition-opacity duration-500 ${canBuy ? "opacity-100" : "opacity-0"}`} />
+                  
+                  {stage === "opening" ? (
+                      <div className="w-64 h-80 flex flex-col items-center justify-center bg-black/20 rounded-2xl border-2 border-white/10 backdrop-blur-sm">
+                          <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
+                          <span className="font-bold text-white/70 animate-pulse">Öffne Pack...</span>
+                      </div>
+                  ) : (
+                      <img src={PACK_ART_URL} alt="Pack" className="relative w-64 md:w-72 drop-shadow-2xl z-10 select-none pointer-events-none" />
+                  )}
+              </div>
+
+              <div className="text-center">
+                  <button 
+                    disabled={!canBuy} 
+                    onClick={openPack} 
+                    className={`px-10 py-4 rounded-2xl font-black text-xl flex items-center gap-3 shadow-xl transition-all ${
+                        canBuy 
+                        ? "bg-violet-600 hover:bg-violet-500 text-white shadow-violet-900/20 hover:scale-105 active:scale-95" 
+                        : "bg-white/5 text-white/20 cursor-not-allowed"
+                    }`}
+                  >
+                      <span>Pack kaufen</span>
+                      <span className={`text-sm px-2 py-1 rounded-lg ${canBuy ? "bg-black/20" : "bg-black/30"}`}>{packPrice} <CoinIcon className="w-3 h-3 inline" /></span>
+                  </button>
+                  
+                  {!canBuy && stage === "idle" && (
+                      <p className="text-red-400 text-sm mt-3 font-medium animate-pulse">Nicht genug Credits! Spiel im Casino.</p>
+                  )}
+                  {error && <p className="text-red-400 text-sm mt-3 font-medium bg-red-500/10 px-3 py-1 rounded-lg inline-block">{error}</p>}
+              </div>
+
+              {/* Drop Rates Legend */}
+              <div className="mt-6 pt-6 border-t border-white/5 w-full">
+                <p className="text-[10px] uppercase tracking-widest text-white/30 text-center mb-3 font-bold">Wahrscheinlichkeiten</p>
+                <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-white/60">
                   {rarityChances.map((r) => (
-                    <span key={r.key}>
-                      <span className={r.key === "legendary" ? "text-yellow-500" : ""}>{r.label}</span>: <span className="font-mono">{r.percent.toFixed(1)}%</span>
-                    </span>
+                    <div key={r.key} className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${r.key === 'legendary' ? 'bg-yellow-500 shadow-[0_0_5px_gold]' : 'bg-white/20'}`} />
+                      <span className={r.key === "legendary" ? "text-yellow-400 font-bold" : ""}>{r.label}</span>
+                      <span className="font-mono text-white/30">{r.percent.toFixed(1)}%</span>
+                    </div>
                   ))}
                 </div>
               </div>
             </div>
 
+            {/* Last Pack Grid (Collapsible) */}
             {hasLastPack && showLastPackGrid && (
-              <div className="mt-6 border-t border-gray-700 pt-4 animate-fade-in">
-                <h2 className="text-lg font-semibold mb-3 text-center md:text-left text-gray-300">Dein letztes Pack</h2>
-                <div className="grid gap-4 justify-center" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+              <div className="mt-8 border-t border-white/10 pt-6 animate-in slide-in-from-top-4">
+                <h2 className="text-lg font-bold mb-4 text-white/80">Dein letztes Pack</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                   {lastPack.cards.map((c, idx) => (
-                    <div key={c.id + "-last-" + idx} className="flex justify-center"><Card card={c} /></div>
+                    <div key={c.id + "-last-" + idx} className="transform hover:scale-105 transition-transform duration-200">
+                        <Card card={c} />
+                    </div>
                   ))}
                 </div>
               </div>
             )}
           </div>
 
-           {showFeedback && (
-            <div className="bg-gray-900/80 rounded-2xl p-4 md:p-6 shadow-xl">
-              <h2 className="text-lg font-semibold mb-2">Feedback</h2>
-              <p className="text-sm text-gray-300 mb-3">Ideen? Bugs? Komm auf Discord:</p>
-              <a href={DISCORD_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] px-4 py-2 rounded-lg text-sm font-semibold">💬 Zum Discord</a>
+          {/* Feedback Box */}
+          {showFeedback && (
+            <div className="bg-[#18181b] rounded-2xl p-6 border border-white/10 shadow-lg animate-in fade-in slide-in-from-right">
+              <h2 className="text-lg font-bold mb-2 text-white">Feedback geben</h2>
+              <p className="text-sm text-white/50 mb-4">Hast du Ideen für neue Karten oder hast einen Bug gefunden?</p>
+              <a href={DISCORD_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-colors">
+                  <MessageSquare size={18} /> Zum Discord
+              </a>
             </div>
           )}
         </div>
 
-        <aside className="w-full md:w-64 space-y-4">
-          <div className="bg-gray-900/80 border border-gray-700 rounded-2xl p-4">
-            <h2 className="text-lg font-semibold mb-3 text-gray-200">Menü</h2>
-            <div className="space-y-2 text-sm">
-              <Link to="/Packs/Album" className="w-full flex items-center px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition">📚 Sammlung</Link>
-              <Link to="/Packs/Galerien" className="w-full flex items-center px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition">🖼️ Galerien</Link>
-              {hasLastPack && (
-                <button type="button" onClick={() => setShowLastPackGrid((prev) => !prev)} className="w-full px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-left transition">
-                  {showLastPackGrid ? "👁️ Letztes Pack ausblenden" : "👁️ Letztes Pack anzeigen"}
-                </button>
-              )}
-              <Link to="/Packs/Vorschläge" className="w-full flex items-center px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition">💡 Kartenvorschläge</Link>
+        {/* --- SIDEBAR MENU --- */}
+        <aside className="w-full lg:w-72 shrink-0 space-y-6">
+          
+          <div className="bg-[#18181b] border border-white/10 rounded-2xl p-2 shadow-lg overflow-hidden">
+            <div className="p-4 border-b border-white/5 mb-2">
+                <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Navigation</h2>
+            </div>
+            
+            <div className="space-y-1 px-2 pb-2">
+              <Link to="/Packs/Album" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group">
+                  <Library size={20} className="text-white/40 group-hover:text-violet-400 transition-colors"/> Sammlung (Album)
+              </Link>
+              <Link to="/Packs/Galerien" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group">
+                  <Images size={20} className="text-white/40 group-hover:text-pink-400 transition-colors"/> Galerien
+              </Link>
+              <Link to="/Packs/Vorschläge" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group">
+                  <Lightbulb size={20} className="text-white/40 group-hover:text-yellow-400 transition-colors"/> Vorschläge
+              </Link>
               
-              {/* Achievement Link mit Rotem Punkt */}
-              <Link to="/Packs/Achievements" className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition mb-2">
-                <span>🏆 Achievements</span>
+              {/* Achievement Link */}
+              <Link to="/Packs/Achievements" className="flex items-center justify-between px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group">
+                <div className="flex items-center gap-3">
+                    <Trophy size={20} className="text-white/40 group-hover:text-orange-400 transition-colors"/> Achievements
+                </div>
                 {readyToClaim > 0 && (
-                    <span className="bg-red-500 w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_red]"></span>
+                    <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_red]">
+                        {readyToClaim}
+                    </div>
                 )}
               </Link>
 
-              <button type="button" onClick={() => setShowFeedback((prev) => !prev)} className={`w-full px-3 py-2 rounded-lg border text-left transition ${showFeedback ? "bg-[#9146FF] border-[#9146FF]" : "bg-gray-800 hover:bg-gray-700 border-gray-700"}`}>💬 Feedback</button>
+              {hasLastPack && (
+                <button type="button" onClick={() => setShowLastPackGrid((prev) => !prev)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group text-left">
+                  {showLastPackGrid ? <EyeOff size={20} className="text-white/40"/> : <Eye size={20} className="text-white/40"/>}
+                  {showLastPackGrid ? "Letztes Pack ausblenden" : "Letztes Pack anzeigen"}
+                </button>
+              )}
+
+              <button type="button" onClick={() => setShowFeedback((prev) => !prev)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all font-medium ${showFeedback ? "bg-violet-500/10 text-violet-300" : "text-white/80 hover:bg-white/5"}`}>
+                  <MessageSquare size={20} className={showFeedback ? "text-violet-400" : "text-white/40"}/> Feedback
+              </button>
             </div>
           </div>
-          <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 border border-yellow-700/30 rounded-2xl p-4 text-center">
-                <h3 className="font-bold text-yellow-500 mb-2">Brauchst du Credits?</h3>
-                <p className="text-xs text-gray-300 mb-3">Versuch dein Glück im Casino!</p>
-                <Link to="/Casino" className="inline-block bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-4 rounded-lg shadow-lg">🎰 Zum Casino</Link>
+
+          <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 border border-yellow-500/20 rounded-2xl p-6 text-center shadow-lg relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-16 bg-yellow-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-yellow-500/20 transition-colors" />
+                
+                <h3 className="font-black text-xl text-white mb-2 relative z-10">Brauchst du Credits?</h3>
+                <p className="text-sm text-white/70 mb-4 relative z-10">Versuch dein Glück im Casino!</p>
+                <Link to="/Casino" className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-yellow-500/20 transition-all active:scale-95 relative z-10">
+                    <Gamepad2 size={18} /> Zum Casino
+                </Link>
           </div>
+
         </aside>
       </div>
 
+      {/* --- PACK OPENING MODAL --- */}
       {pack && stage !== "idle" && stage !== "opening" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl relative flex flex-col justify-center min-h-[450px]">
-            {stage === "done" && <button onClick={closeOverlay} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl">✕</button>}
-
-            {stage === "pack" && (
-              <div className="flex flex-col items-center gap-6 animate-zoom-in">
-                <div className="text-center">
-                     <h2 className="text-xl font-bold text-white mb-1">Pack erhalten!</h2>
-                     <p className="text-sm text-gray-400">Tippe auf das Pack zum Öffnen</p>
-                </div>
-                <button type="button" onClick={() => setStage("reveal")} className="focus:outline-none group">
-                  <img src={PACK_ART_URL} alt="Card Pack" className="w-56 h-auto object-contain drop-shadow-2xl transform transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-2" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-4xl flex flex-col items-center justify-center min-h-[500px] relative">
+            
+            {/* Close Button */}
+            {stage === "done" && (
+                <button onClick={closeOverlay} className="absolute top-0 right-0 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
+            )}
+
+            {/* STAGE: SHOW PACK (Closed) */}
+            {stage === "pack" && (
+              <div className="flex flex-col items-center gap-8 animate-in zoom-in-95 duration-500 cursor-pointer group" onClick={() => setStage("reveal")}>
+                <div className="text-center space-y-2">
+                     <h2 className="text-3xl font-black text-white uppercase tracking-wider">Pack erhalten!</h2>
+                     <p className="text-white/50">Klicken zum Öffnen</p>
+                </div>
+                <div className="relative transform transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-2">
+                    <div className="absolute inset-0 bg-violet-500/40 blur-[60px] rounded-full animate-pulse" />
+                    <img src={PACK_ART_URL} alt="Card Pack" className="w-64 md:w-80 h-auto object-contain drop-shadow-2xl relative z-10" />
+                </div>
               </div>
             )}
 
+            {/* STAGE: REVEAL SINGLE CARD */}
             {stage === "reveal" && currentCard && (
-              <div className="flex flex-col items-center gap-4">
-                <p className="text-sm text-gray-400 uppercase tracking-widest">Karte {revealIndex + 1} / {pack.cards.length}</p>
-                <div className={`transform transition-all duration-300 cursor-pointer hover:scale-105 ${cardAnimating ? "-translate-x-full opacity-0" : "translate-x-0 opacity-100"}`} onClick={handleCardClick}>
+              <div className="flex flex-col items-center gap-8 w-full cursor-pointer" onClick={handleCardClick}>
+                <div className="text-center">
+                    <p className="text-sm font-bold text-white/30 uppercase tracking-[0.2em] mb-2">Karte {revealIndex + 1} von {pack.cards.length}</p>
+                </div>
+                
+                {/* Card Container mit Animation */}
+                <div className={`transform transition-all duration-300 relative ${cardAnimating ? "translate-x-[-150%] opacity-0 rotate-[-10deg]" : "translate-x-0 opacity-100 rotate-0 scale-125 md:scale-150"}`}>
+                  <div className={`absolute inset-0 blur-[60px] opacity-30 rounded-full pointer-events-none transition-colors duration-500 ${currentCard.rarity === 'legendary' ? 'bg-yellow-500' : currentCard.rarity === 'mythic' ? 'bg-red-500' : 'bg-white'}`} />
                   <Card card={currentCard} eager />
                 </div>
-                <p className="text-xs text-gray-500 animate-pulse">Klicken für nächste Karte</p>
+
+                <p className="text-sm text-white/50 animate-pulse mt-12">Klicken für nächste Karte</p>
               </div>
             )}
 
+            {/* STAGE: DONE (Summary) */}
             {stage === "done" && (
-              <div className="flex flex-col items-center gap-4">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Pack geöffnet!</h2>
+              <div className="flex flex-col items-center w-full animate-in slide-in-from-bottom-8 duration-500">
+                <h2 className="text-4xl font-black text-white uppercase tracking-tight mb-8">Pack Inhalt</h2>
                 
-                {/* HIER ENTFERNT: Refund Anzeige */}
-                
-                <div className="flex flex-wrap justify-center gap-2 max-h-[60vh] overflow-y-auto p-2">
+                <div className="flex flex-wrap justify-center gap-4 w-full overflow-y-auto max-h-[60vh] p-4">
                   {pack.cards.map((c, idx) => (
-                    <div key={idx} className="scale-75 -m-6 md:scale-90 md:-m-2"><Card card={c} /></div>
+                    <div key={idx} className="transform hover:scale-110 transition-transform duration-300 hover:z-20 hover:-translate-y-4">
+                        <Card card={c} />
+                        {/* HIER WURDE DER GRÜNE BANNER ENTFERNT */}
+                    </div>
                   ))}
                 </div>
-                <div className="flex gap-3 mt-4">
-                    <button onClick={closeOverlay} className="px-6 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold">Schließen</button>
+
+                <div className="flex gap-4 mt-8">
+                    <button onClick={closeOverlay} className="px-8 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold border border-white/10 transition-colors text-white">
+                        Schließen
+                    </button>
                     {credits >= packPrice && (
-                        <button onClick={() => { closeOverlay(); openPack(); }} className="px-6 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 font-semibold text-white shadow-lg">Noch eins ({packPrice}<CoinIcon size="w-4 h-4" />)</button>
+                        <button 
+                            onClick={() => { closeOverlay(); openPack(); }} 
+                            className="px-8 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black shadow-xl hover:scale-105 transition-transform flex items-center gap-2"
+                        >
+                            Noch eins ({packPrice}<CoinIcon size="w-4 h-4" />)
+                        </button>
                     )}
                 </div>
               </div>
@@ -386,6 +503,7 @@ export default function CardPackPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

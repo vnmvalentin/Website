@@ -4,7 +4,7 @@ const fsp = require("fs/promises");
 const path = require("path");
 const { nanoid } = require("nanoid");
 
-const DB_PATH = path.join(__dirname, "winchallenge.json");
+const DB_PATH = path.join(__dirname, "../data/winchallenge.json");
 
 // ===== DB (RAM-Cache + atomisches Speichern + Key-Indizes) =====
 // Wichtig: Diese File-DB ist für EINEN Node-Prozess gedacht (nicht mehrere Instanzen / PM2 cluster).

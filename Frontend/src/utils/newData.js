@@ -1,5 +1,27 @@
 export const NEWS_UPDATES = [
   {
+    date: "26.01.2026",
+    version: "v2: Großes UI Update",
+    sections: [
+      {
+        title: "Layout",
+        items: [
+          "Neuer Hintergrund, neues Menü, neue modernere UI überall!",
+        ]
+      },
+      {
+        title: "Allgemeine Änderungen",
+        items: [
+          "Clipqueue-Seite entfernt aus Streamer-Tools",
+          "Knowledge-Base Seite entfernt aus About (Tutorial oder ähnliches kommen jetzt direkt in passende Kategorie)",
+          "Youtube Music Songrequest für Twitch Tutorial hinzugefügt und unter Streamer-Tools erreichbar",
+          "Youtube Music Einrichtung für Stream Deck hinzugefügt und unter Streamer-Tools erreichbar",
+          "Feedback-Feld in Contact hinterlegt für direkten Kontakt der automatisch in den Discord geschickt wird"
+        ]
+      }
+    ]
+  },
+  {
     date: "24.01.2026",
     version: "v1.1.1",
     sections: [

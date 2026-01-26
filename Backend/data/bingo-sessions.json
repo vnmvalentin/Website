@@ -202,8 +202,8 @@
     "id": "sess_bI4urmVpwr",
     "mode": "group",
     "createdAt": 1768139768414,
-    "updatedAt": 1768140129781,
-    "refreshNonce": 54,
+    "updatedAt": 1769400075286,
+    "refreshNonce": 139,
     "host": {
       "twitchId": "160224748",
       "twitchLogin": "vnmvalentin"
@@ -239,20 +239,30 @@
         "Nice try"
       ]
     },
-    "gridSize": 6,
+    "gridSize": 4,
     "style": {
       "cardBg": "#000000",
       "cardOpacity": 0.6,
       "textColor": "#ffffff",
       "lineColor": "#ffffff",
-      "lineWidth": 1,
-      "textScale": 0.7
+      "lineWidth": 2,
+      "textScale": 0.8
     },
     "locked": false,
     "startedAt": 0,
     "joinKey": "join_gAnKMV81WoBIxFks",
     "openJoin": true,
-    "invites": {},
+    "invites": {
+      "gh0stqq": {
+        "permissions": {
+          "canEditWords": false,
+          "canEditDesign": false,
+          "canRandomize": false,
+          "canMark": false
+        },
+        "invitedAt": 1769399795160
+      }
+    },
     "participants": {
       "160224748": {
         "twitchId": "160224748",
@@ -268,17 +278,7 @@
         "overlayKey": "ov_-cdqO3YKGg8yNCrQ",
         "card": [
           {
-            "text": "Spike planted",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Zeit läuft aus",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Ace",
+            "text": "Flank kommt durch",
             "mark": "none",
             "markColor": ""
           },
@@ -288,7 +288,7 @@
             "markColor": ""
           },
           {
-            "text": "Clutch 1v3 gewonnen",
+            "text": "Raze Nade Kill",
             "mark": "none",
             "markColor": ""
           },
@@ -298,67 +298,12 @@
             "markColor": ""
           },
           {
-            "text": "Ult ready call",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Duelist lurked",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Raze Nade Kill",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Spike defused",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Last round before swap",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Entry-Frag",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Fake Plant",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Operator saven",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Ninja Defuse",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
             "text": "Lurker bekommt Pick",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "Teamflash",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Flawless",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "Team Ace",
+            "text": "Zeit läuft aus",
             "mark": "none",
             "markColor": ""
           },
@@ -368,87 +313,190 @@
             "markColor": ""
           },
           {
-            "text": "Nice try",
+            "text": "Last round before swap",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "Instalock",
+            "text": "Duelist lurked",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "Sova Dart revealed",
+            "text": "Clutch 1v3 gewonnen",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "Flank kommt durch",
+            "text": "Flawless",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "Eco-Round gewonnen",
+            "text": "Spike planted",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "",
+            "text": "Operator saven",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "",
+            "text": "Fake Plant",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "",
+            "text": "Entry-Frag",
             "mark": "none",
             "markColor": ""
           },
           {
-            "text": "",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "",
-            "mark": "none",
-            "markColor": ""
-          },
-          {
-            "text": "",
+            "text": "Team Ace",
             "mark": "none",
             "markColor": ""
           }
         ]
       }
     }
+  },
+  "sess_bSBeu43DQ2": {
+    "id": "sess_bSBeu43DQ2",
+    "mode": "single",
+    "createdAt": 1769398113403,
+    "updatedAt": 1769399457940,
+    "refreshNonce": 135,
+    "host": {
+      "twitchId": "160224748",
+      "twitchLogin": "vnmvalentin"
+    },
+    "theme": {
+      "id": "valorant",
+      "name": "VALORANT",
+      "words": [
+        "Ace",
+        "Clutch 1v3 gewonnen",
+        "Spike planted",
+        "Spike defused",
+        "Operator-Kill",
+        "Entry-Frag",
+        "Flank kommt durch",
+        "Eco-Round gewonnen",
+        "Ult ready call",
+        "Sova Dart revealed",
+        "Team Ace",
+        "Raze Nade Kill",
+        "Duelist lurked",
+        "One-way Smoke",
+        "Fake Plant",
+        "Instalock",
+        "Zeit läuft aus",
+        "Flawless",
+        "Lurker bekommt Pick",
+        "Ninja Defuse",
+        "Teamflash",
+        "Spray durch Smoke",
+        "Last round before swap",
+        "Operator saven",
+        "Nice try"
+      ]
+    },
+    "gridSize": 3,
+    "style": {
+      "cardBg": "#000000",
+      "cardOpacity": 0.5,
+      "textColor": "#ffffff",
+      "lineColor": "#ffffff",
+      "lineWidth": 1,
+      "textScale": 0.7
+    },
+    "locked": false,
+    "startedAt": 0,
+    "joinKey": "join_C5ssuZqbGXrFHWbA",
+    "openJoin": false,
+    "invites": {
+      "flluffattack": {
+        "permissions": {
+          "canEditWords": false,
+          "canEditDesign": false,
+          "canRandomize": false,
+          "canMark": false
+        },
+        "invitedAt": 1769398157261
+      },
+      "gh0stqq": {
+        "permissions": {
+          "canEditWords": false,
+          "canEditDesign": false,
+          "canRandomize": false,
+          "canMark": false
+        },
+        "invitedAt": 1769398169101
+      }
+    },
+    "participants": {
+      "160224748": {
+        "twitchId": "160224748",
+        "twitchLogin": "vnmvalentin",
+        "role": "host",
+        "permissions": {
+          "canEditWords": true,
+          "canEditDesign": true,
+          "canRandomize": true,
+          "canMark": true
+        },
+        "joinedAt": 1769398113403,
+        "overlayKey": ""
+      }
+    },
+    "overlayKey": "ov_msxU6OlXjXA4DjXd",
+    "card": [
+      {
+        "text": "Sova Dart revealed",
+        "mark": "none",
+        "markColor": ""
+      },
+      {
+        "text": "One-way Smoke",
+        "mark": "none",
+        "markColor": ""
+      },
+      {
+        "text": "Last round before swap",
+        "mark": "none",
+        "markColor": ""
+      },
+      {
+        "text": "Spike planted",
+        "mark": "none",
+        "markColor": ""
+      },
+      {
+        "text": "Ace",
+        "mark": "none",
+        "markColor": ""
+      },
+      {
+        "text": "Instalock",
+        "mark": "none",
+        "markColor": ""
+      },
+      {
+        "text": "Nice try",
+        "mark": "none",
+        "markColor": ""
+      },
+      {
+        "text": "Zeit läuft aus",
+        "mark": "none",
+        "markColor": ""
+      },
+      {
+        "text": "Spray durch Smoke",
+        "mark": "none",
+        "markColor": ""
+      }
+    ]
   }
 }

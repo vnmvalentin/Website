@@ -18,7 +18,6 @@ import CardGalleriesIndexPage from "./pages/Card/CardGalleriesIndexPage";
 import AchievementsPage from "./pages/Card/AchievementsPage";
 
 import GiveawaysPage from "./pages/GiveawaysPage";
-import ClipQueue from "./pages/ClipQueue";
 
 import AwardsSubmitPage from "./pages//Award/AwardsSubmitPage";
 import AwardsAdminPage from "./pages/Award/AwardsAdminPage";
@@ -28,14 +27,13 @@ import BingoEditorPage from "./pages/Bingo/BingoEditorPage";
 import BingoJoinPage from "./pages/Bingo/BingoJoinPage";
 import BingoOverlayPage from "./pages/Bingo/BingoOverlayPage";
 
-import KnowledgeBase from "./pages/KnowledgeBase";
 import CasinoPage from "./pages/CasinoPage";
 import AdventureGame from "./pages/Adventure/AdventureGame"
 import AdminDashboard from "./pages/AdminDashboard";
-
-
+import YTMPage from "./pages/YTM/YTMPage";
 // 🔽 NEU: Provider hier importieren
 import TwitchAuthProvider from "./components/TwitchAuthContext";
+import YTMStreamDeckPage from "./pages/YTM/YTMStreamDeckPage";
 
 export default function App() {
   return (
@@ -60,7 +58,6 @@ export default function App() {
           <Route path="Packs/Album" element={<CardAlbumPage />} />
           <Route path="Packs/Vorschläge" element={<CardSuggestionsPage />} />
           <Route path="Giveaways" element={<GiveawaysPage />} />
-          <Route path="Clip-Queue" element={<ClipQueue />} />
           <Route path="avards-2026" element={<AwardsSubmitPage/>} />
           <Route path="/avards-admin" element={<AwardsAdminPage />} />
           <Route path="/Bingo" element={<BingoPage/>} />
@@ -70,10 +67,11 @@ export default function App() {
           <Route path="/Packs/Galerie/:twitchLogin" element={<CardGalleryPublicPage />} />
           <Route path="/Packs/Galerien" element={<CardGalleriesIndexPage />} />
           <Route path="/Packs/Achievements" element={<AchievementsPage />} />
-          <Route path="/KnowledgeBase" element={<KnowledgeBase />} />
           <Route path="/Casino" element={<CasinoPage />} />
           <Route path="/adventures" element={<AdventureGame/>} />
           <Route path="admin" element={<AdminDashboard />} />
+          <Route path="/tutorial/ytm-songrequest" element={<YTMPage />} />
+          <Route path="/tutorial/ytm-streamdeck" element={<YTMStreamDeckPage/>} />
 
         </Route>
       </Routes>

@@ -2,7 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 
-const POLLS_FILE = path.join(__dirname, "polls.json");
+const POLLS_FILE = path.join(__dirname, "../data/polls.json");
 
 // ================ HELPER ==============
 

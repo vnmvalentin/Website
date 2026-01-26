@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { nanoid } = require("nanoid");
 
-const AWARDS_DB_PATH = path.join(__dirname, "awards-submissions.json");
+const AWARDS_DB_PATH = path.join(__dirname, "../data/awards-submissions.json");
 const DEFAULT_AWARDS_SEASON = 2026;
 
 // =================== HELPER =====================================

@@ -2,7 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 
-const CASINO_PATH = path.join(__dirname, "casinoData.json");
+const CASINO_PATH = path.join(__dirname, "../data/casinoData.json");
 
 // --- Helper: DB ---
 function loadData() {
@@ -334,14 +334,13 @@ module.exports = function createCasinoRouter({ requireAuth }) {
     
     // Specials (Extrem selten!)
     // Nur EIN Joker im ganzen Deck -> Full Lines fast unmöglich
-    const jokerCount = isFreeSpin ? 3 : 1; 
+    const jokerCount = isFreeSpin ? 2 : 1; 
     for(let i=0; i<jokerCount; i++) pool.push("🃏"); 
     
     // Scatters (Freispiele)
     for(let i=0; i<2; i++) pool.push("🌟");
     
-    // Scatters (Freispiele)
-    for(let i=0; i<2; i++) pool.push("🌟");
+  
 
     const r = () => pool[Math.floor(Math.random() * pool.length)];
     // Wir generieren die Walzen "roh". Sticky Wilds überschreiben wir NICHT im Grid,

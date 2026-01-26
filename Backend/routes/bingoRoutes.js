@@ -3,8 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const { nanoid } = require("nanoid");
 
-const BINGO_THEMES_PATH = path.join(__dirname, "bingo-themes.json");
-const BINGO_SESSIONS_PATH = path.join(__dirname, "bingo-sessions.json");
+const BINGO_THEMES_PATH = path.join(__dirname, "../data/bingo-themes.json");
+const BINGO_SESSIONS_PATH = path.join(__dirname, "../data/bingo-sessions.json");
 
 // ---- Helpers (readJson, writeJsonAtomic, etc. bleiben gleich) ----
 function readJson(filePath, fallback) {

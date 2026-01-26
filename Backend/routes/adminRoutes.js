@@ -7,12 +7,12 @@ const path = require("path");
 const ROOT_DIR = process.cwd();
 
 const PATHS = {
-  casino: path.join(ROOT_DIR, "casinoData.json"),
-  adventure: path.join(ROOT_DIR, "adventures-users.json"),
-  winchallenge: path.join(ROOT_DIR, "winchallenge.json"),
-  bingo: path.join(ROOT_DIR, "bingo-sessions.json"),
-  cards: path.join(ROOT_DIR, "cards-users.json"),
-  promo: path.join(ROOT_DIR, "promo-codes.json"),
+  casino: path.join(ROOT_DIR, "data/casinoData.json"),
+  adventure: path.join(ROOT_DIR, "data/adventures-users.json"),
+  winchallenge: path.join(ROOT_DIR, "data/winchallenge.json"),
+  bingo: path.join(ROOT_DIR, "data/bingo-sessions.json"),
+  cards: path.join(ROOT_DIR, "data/cards-users.json"),
+  promo: path.join(ROOT_DIR, "data/promo-codes.json"),
 };
 
 function loadJson(key) {

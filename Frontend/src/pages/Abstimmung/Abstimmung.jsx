@@ -1,113 +1,263 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
-import { TwitchAuthContext } from "../../components/TwitchAuthContext"; // <- ggf. Pfad anpassen
+import { TwitchAuthContext } from "../../components/TwitchAuthContext";
+import { Plus, Trash2, Calendar, Clock, BarChart2, X, Check, Image as ImageIcon } from "lucide-react";
 
-const STREAMER_ID = "160224748"; // deine Twitch-ID (wie in Giveaways)
+const STREAMER_ID = "160224748";
 
-const StyledWrapper = styled.div`
-  .card {
-    position: relative;
-    width: 100%;
-    max-width: 900px; /* kleiner als vorher */
-    height: clamp(220px, 28vw, 340px); /* macht die Karte kompakter */
-    margin: 14px auto;
-    color: #fff;
-    cursor: pointer;
-    border-radius: 1.2em;
-    transition: 0.25s;
-    overflow: hidden;
-  }
+// --- HELPER COMPONENTS ---
 
-  .card:hover {
-    transform: translateY(-6px);
-  }
+function PollCard({ poll, onClick, isAdmin, onDelete }) {
+  const isExpired = new Date(poll.endDate) <= new Date();
+  
+  return (
+    <div 
+      onClick={onClick}
+      className="group relative flex items-center gap-4 bg-[#18181b] hover:bg-[#202023] border border-white/10 rounded-2xl p-3 transition-all cursor-pointer hover:border-white/20 hover:shadow-lg active:scale-[0.99]"
+    >
+      {/* Thumbnail */}
+      <div className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-black/40 border border-white/5">
+        {poll.background ? (
+          <img src={poll.background} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-white/10 group-hover:text-white/20 transition-colors">
+            <BarChart2 size={32} />
+          </div>
+        )}
+        {isExpired && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-xs font-bold uppercase tracking-wider text-white/70">Beendet</div>}
+      </div>
 
-  .card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 1.2em;
-    background: linear-gradient(45deg, #ffbc00, #ff0058);
-    z-index: 0;
-  }
+      {/* Content */}
+      <div className="flex-1 min-w-0 py-1">
+        <h3 className="text-lg font-bold text-white group-hover:text-white/90 truncate pr-4">{poll.title}</h3>
+        
+        <div className="flex items-center gap-4 mt-2 text-xs text-white/50">
+           <div className="flex items-center gap-1.5">
+              <Calendar size={14} />
+              <span>{new Date(poll.endDate).toLocaleDateString("de-DE")}</span>
+           </div>
+           <div className="flex items-center gap-1.5">
+              <Clock size={14} />
+              <span>{new Date(poll.endDate).toLocaleTimeString("de-DE", {hour: '2-digit', minute:'2-digit'})}</span>
+           </div>
+        </div>
+      </div>
 
-  .card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 1.2em;
-    background: linear-gradient(45deg, #ffbc00, #ff0058);
-    filter: blur(20px);
-    z-index: 0;
-    opacity: 0.9;
-  }
+      {/* Admin Actions */}
+      {isAdmin && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(poll.id); }}
+          className="p-2 mr-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          title="Löschen"
+        >
+          <Trash2 size={18} />
+        </button>
+      )}
 
-  /* Hintergrundfläche */
-  .card span {
-    position: absolute;
-    inset: 6px;
-    border-radius: 1em;
-    z-index: 1;
+      {/* Chevron Icon for Hint */}
+      <div className="mr-2 text-white/10 group-hover:text-white/30 transition-colors">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+    </div>
+  );
+}
 
-    background-color: rgba(0, 0, 0, 0.35); /* weniger dunkel */
-    background-size: cover;                /* “zoomt” durch Cropping */
-    background-position: center;
-    background-repeat: no-repeat;
-
-    /* Blur entfernt, damit das Bild nicht “matschig” wirkt */
-  }
-
-  .content {
-    position: relative;
-    z-index: 2;
-    padding: 18px 18px;
-    text-align: center;
-    width: 100%;
-    display: grid;
-    place-items: center;
-    height: 100%;
-  }
-
-  .content h2 {
-    margin: 0 0 8px;
-    font-size: 1.7rem;
-    font-weight: 800;
-    text-shadow: 0 0 10px rgba(0, 0, 0, 0.85);
-  }
-
-  .content p {
-    margin: 4px 0;
-    font-size: 1.05rem;
-    color: #e6e6e6;
-    text-shadow: 0 0 8px rgba(0, 0, 0, 0.85);
-  }
-
-  .muted {
-    opacity: 0.9;
-    font-size: 0.95rem;
-  }
-`;
-
-export default function AbstimmungPage() {
-  const { user, login } = useContext(TwitchAuthContext);
-  const navigate = useNavigate();
-
-  const [polls, setPolls] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-
-  const [newPoll, setNewPoll] = useState({
+function CreatePollModal({ onClose, onSave }) {
+  const [step, setStep] = useState(1);
+  const [data, setData] = useState({
     title: "",
     background: "",
     endDate: "",
     questions: [],
   });
 
+  const addQuestion = () => {
+    setData(prev => ({
+        ...prev,
+        questions: [...prev.questions, { id: Date.now(), question: "", type: "single", options: ["", ""] }]
+    }));
+  };
+
+  const updateQuestion = (idx, field, value) => {
+    const qs = [...data.questions];
+    qs[idx] = { ...qs[idx], [field]: value };
+    setData({ ...data, questions: qs });
+  };
+
+  const updateOption = (qIdx, oIdx, val) => {
+    const qs = [...data.questions];
+    const opts = [...qs[qIdx].options];
+    opts[oIdx] = val;
+    qs[qIdx].options = opts;
+    setData({ ...data, questions: qs });
+  };
+
+  const addOption = (qIdx) => {
+    const qs = [...data.questions];
+    qs[qIdx].options.push("");
+    setData({ ...data, questions: qs });
+  };
+
+  const removeOption = (qIdx, oIdx) => {
+    const qs = [...data.questions];
+    qs[qIdx].options.splice(oIdx, 1);
+    setData({ ...data, questions: qs });
+  };
+
+  const removeQuestion = (idx) => {
+      const qs = data.questions.filter((_, i) => i !== idx);
+      setData({ ...data, questions: qs });
+  };
+
+  const handleSave = () => {
+      if(!data.title || !data.endDate) return alert("Titel & Enddatum fehlen!");
+      onSave(data);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      
+      <div className="relative w-full max-w-2xl bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <h2 className="text-xl font-bold">Neue Abstimmung</h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"><X size={20} /></button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            
+            {/* Metadata Section */}
+            <div className="space-y-4 mb-8">
+                <div>
+                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Titel</label>
+                    <input 
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20"
+                        placeholder="Worum geht es?"
+                        value={data.title}
+                        onChange={e => setData({...data, title: e.target.value})}
+                        autoFocus
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Enddatum</label>
+                        <input 
+                            type="datetime-local"
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-white/30 outline-none transition-colors text-sm"
+                            value={data.endDate}
+                            onChange={e => setData({...data, endDate: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Bild URL (Optional)</label>
+                        <div className="relative">
+                            <input 
+                                className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20 text-sm"
+                                placeholder="https://..."
+                                value={data.background}
+                                onChange={e => setData({...data, background: e.target.value})}
+                            />
+                            <ImageIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Questions Section */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                     <label className="text-xs font-bold text-white/50 uppercase tracking-wider block">Fragen ({data.questions.length})</label>
+                     <button onClick={addQuestion} className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+                        <Plus size={14} /> Frage hinzufügen
+                     </button>
+                </div>
+
+                {data.questions.length === 0 && (
+                    <div className="text-center py-8 border border-dashed border-white/10 rounded-xl bg-white/5 text-white/30 text-sm">
+                        Noch keine Fragen hinzugefügt.
+                    </div>
+                )}
+
+                {data.questions.map((q, i) => (
+                    <div key={q.id} className="bg-white/5 border border-white/5 rounded-xl p-4 animate-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex gap-3 mb-3">
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/10 text-xs font-bold text-white/50 mt-1.5">{i+1}</span>
+                            <div className="flex-1 space-y-3">
+                                <div className="flex gap-2">
+                                    <input 
+                                        className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-white/30 outline-none"
+                                        placeholder="Deine Frage..."
+                                        value={q.question}
+                                        onChange={e => updateQuestion(i, 'question', e.target.value)}
+                                    />
+                                    <select 
+                                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-white/30 outline-none"
+                                        value={q.type}
+                                        onChange={e => updateQuestion(i, 'type', e.target.value)}
+                                    >
+                                        <option value="single">Single Choice</option>
+                                        <option value="multiple">Multiple Choice</option>
+                                        <option value="text">Freitext</option>
+                                    </select>
+                                    <button onClick={() => removeQuestion(i)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+
+                                {q.type !== 'text' && (
+                                    <div className="pl-1 space-y-2 border-l-2 border-white/5 ml-1">
+                                        {q.options.map((opt, oi) => (
+                                            <div key={oi} className="flex items-center gap-2 pl-3">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                                                <input 
+                                                    className="flex-1 bg-transparent border-b border-white/10 px-2 py-1 text-sm focus:border-white/30 outline-none placeholder:text-white/10"
+                                                    placeholder={`Option ${oi+1}`}
+                                                    value={opt}
+                                                    onChange={e => updateOption(i, oi, e.target.value)}
+                                                />
+                                                <button onClick={() => removeOption(i, oi)} className="text-white/10 hover:text-red-400 transition-colors"><X size={14} /></button>
+                                            </div>
+                                        ))}
+                                        <button onClick={() => addOption(i)} className="text-xs text-blue-400 hover:text-blue-300 ml-3 pt-1 flex items-center gap-1">
+                                            <Plus size={12} /> Option
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+        </div>
+
+        {/* Footer */}
+        <div className="p-5 border-t border-white/5 flex justify-end gap-3 bg-[#121212]">
+            <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
+            <button onClick={handleSave} className="px-6 py-2.5 rounded-xl font-bold bg-white text-black hover:bg-gray-200 transition-colors shadow-lg">Speichern</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AbstimmungPage() {
+  const { user, login } = useContext(TwitchAuthContext);
+  const navigate = useNavigate();
+
+  const [polls, setPolls] = useState([]);
+  const [activeTab, setActiveTab] = useState("active"); // 'active' | 'expired'
+  const [showModal, setShowModal] = useState(false);
+
   const isAdmin = useMemo(() => {
     return !!user && String(user.id) === String(STREAMER_ID);
   }, [user]);
 
-  // Polls laden
+  // Load Polls
   useEffect(() => {
     fetch("/api/polls", { credentials: "include" })
       .then((res) => res.json())
@@ -121,324 +271,128 @@ export default function AbstimmungPage() {
       const data = await res.json();
       setPolls(Array.isArray(data) ? data : []);
     } catch (e) {
-      console.error("Fehler beim Reload:", e);
+      console.error("Reload Error:", e);
     }
   };
 
-  const addPoll = async () => {
-    if (!isAdmin) return;
-    if (!newPoll.title || !newPoll.endDate) {
-      alert("Bitte Titel und Enddatum angeben.");
-      return;
-    }
-
+  const handleCreate = async (newPollData) => {
     try {
       const res = await fetch("/api/polls", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newPoll.title,
-          background: newPoll.background,
-          endDate: newPoll.endDate,
-          questions: newPoll.questions || [],
-        }),
+        body: JSON.stringify(newPollData),
       });
 
+      if (!res.ok) throw new Error("Failed to create");
+      
       const created = await res.json();
-      if (!res.ok) {
-        alert(created?.error || "Konnte Abstimmung nicht erstellen.");
-        return;
-      }
-
-      setPolls((s) => [...s, created]);
-      setNewPoll({ title: "", background: "", endDate: "", questions: [] });
-      setShowForm(false);
+      setPolls(prev => [...prev, created]);
+      setShowModal(false);
     } catch (err) {
-      console.error("Hinzufügen Fehler:", err);
-      alert("Konnte Abstimmung nicht speichern. API erreichbar?");
+      alert("Fehler beim Erstellen.");
     }
   };
 
-  const removePoll = async (id) => {
-    if (!isAdmin) return;
-    if (!window.confirm("Willst du diese Abstimmung wirklich löschen?")) return;
-
+  const handleDelete = async (id) => {
+    if (!window.confirm("Wirklich löschen?")) return;
     try {
-      const res = await fetch(`/api/polls/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data?.error || "Löschen fehlgeschlagen.");
-        return;
-      }
-      setPolls((s) => s.filter((p) => p.id !== id));
+      await fetch(`/api/polls/${id}`, { method: "DELETE", credentials: "include" });
+      setPolls(s => s.filter(p => p.id !== id));
     } catch (e) {
-      console.error("Delete Fehler:", e);
-      alert("Server nicht erreichbar.");
+      alert("Fehler beim Löschen.");
     }
   };
 
   const now = new Date();
-  const activePolls = polls.filter((p) => new Date(p.endDate) > now);
-  const expiredPolls = polls.filter((p) => new Date(p.endDate) <= now);
+  
+  // Filtern & Sortieren
+  const activePolls = polls
+      .filter((p) => new Date(p.endDate) > now)
+      .sort((a,b) => new Date(a.endDate) - new Date(b.endDate)); // Die am ehesten enden zuerst
 
-  const formatGermanDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("de-DE", { dateStyle: "full", timeStyle: "short" });
-  };
+  const expiredPolls = polls
+      .filter((p) => new Date(p.endDate) <= now)
+      .sort((a,b) => new Date(b.endDate) - new Date(a.endDate)); // Neueste zuerst
+
+  const displayPolls = activeTab === "active" ? activePolls : expiredPolls;
 
   return (
-    <div className="min-h-full p-6">
-      {/* Laufende Abstimmungen */}
-      <section className="mb-12">
-        <h1 className="text-4xl font-extrabold text-center mb-6">Laufende Abstimmungen</h1>
-        <div className="w-full flex flex-col items-center gap-4">
-          {activePolls.map((poll) => (
-            <div key={poll.id} className="w-[95%] max-w-4xl mx-auto">
-              <StyledWrapper>
-                <div className="card" onClick={() => navigate(`/Abstimmungen/${poll.id}`)}>
-                  <span
-                    style={{
-                      backgroundImage: poll.background ? `url(${poll.background})` : "none",
-                    }}
-                  />
-                  <div className="content">
-                    <div>
-                      <h2>{poll.title}</h2>
-                      <p className="muted">Endet am: {formatGermanDate(poll.endDate)}</p>
-
-                      {isAdmin && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removePoll(poll.id);
-                          }}
-                          className="mt-3 px-3 py-1 rounded bg-red-600 text-white text-sm"
-                        >
-                          Löschen
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </StyledWrapper>
-            </div>
-          ))}
+    <div className="max-w-4xl mx-auto p-6 min-h-[80vh]">
+      
+      {/* Header Area */}
+      <div className="flex flex-col items-center mb-10">
+        <h1 className="text-4xl font-black tracking-tight mb-6">ABSTIMMUNGEN</h1>
+        
+        {/* Tabs */}
+        <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10">
+          <button 
+            className={`px-6 py-2 rounded-xl font-medium transition-all ${activeTab === "active" ? "bg-white/10 text-white shadow-sm" : "text-white/50 hover:text-white"}`} 
+            onClick={() => setActiveTab("active")}
+          >
+            Laufend ({activePolls.length})
+          </button>
+          <button 
+            className={`px-6 py-2 rounded-xl font-medium transition-all ${activeTab === "expired" ? "bg-white/10 text-white shadow-sm" : "text-white/50 hover:text-white"}`} 
+            onClick={() => setActiveTab("expired")}
+          >
+            Vergangen ({expiredPolls.length})
+          </button>
         </div>
-      </section>
+      </div>
 
-      {/* Abgelaufene Abstimmungen */}
-      <section className="mb-12">
-        <h1 className="text-4xl font-extrabold text-center mb-6">Abgelaufene Abstimmungen</h1>
-        <div className="w-full flex flex-col items-center gap-4">
-          {expiredPolls.map((poll) => (
-            <div key={poll.id} className="w-[95%] max-w-4xl mx-auto">
-              <StyledWrapper>
-                <div
-                  className="card opacity-80"
-                  onClick={() => navigate(`/Abstimmungen/${poll.id}`)}
-                >
-                  <span
-                    style={{
-                      backgroundImage: poll.background ? `url(${poll.background})` : "none",
-                    }}
+      {/* List Area */}
+      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {displayPolls.length === 0 ? (
+              <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-3xl bg-white/5">
+                 {activeTab === "active" ? "Keine aktiven Abstimmungen." : "Keine vergangenen Abstimmungen."}
+              </div>
+          ) : (
+              displayPolls.map(poll => (
+                  <PollCard 
+                    key={poll.id} 
+                    poll={poll} 
+                    isAdmin={isAdmin} 
+                    onDelete={handleDelete}
+                    onClick={() => navigate(`/Abstimmungen/${poll.id}`)}
                   />
-                  <div className="content">
-                    <div>
-                      <h2>{poll.title}</h2>
-                      <p className="muted">Abgelaufen am: {formatGermanDate(poll.endDate)}</p>
-                    </div>
-                  </div>
-                </div>
-              </StyledWrapper>
-            </div>
-          ))}
-        </div>
-      </section>
+              ))
+          )}
+      </div>
 
-      {/* Admin-Formular */}
-      {isAdmin && showForm && (
-        <div className="max-w-xl mx-auto p-4 bg-gray-800/60 rounded-lg mb-8">
-          <h3 className="text-lg font-semibold mb-3">Neue Abstimmung erstellen</h3>
-
-          <div className="space-y-3">
-            <input
-              type="text"
-              placeholder="Titel"
-              value={newPoll.title}
-              onChange={(e) => setNewPoll((p) => ({ ...p, title: e.target.value }))}
-              className="w-full p-2 rounded bg-gray-700 text-white"
-            />
-
-            <input
-              type="text"
-              placeholder="Hintergrund-Bild URL (optional)"
-              value={newPoll.background}
-              onChange={(e) => setNewPoll((p) => ({ ...p, background: e.target.value }))}
-              className="w-full p-2 rounded bg-gray-700 text-white"
-            />
-
-            <input
-              type="datetime-local"
-              value={newPoll.endDate}
-              onChange={(e) => setNewPoll((p) => ({ ...p, endDate: e.target.value }))}
-              className="w-full p-2 rounded bg-gray-700 text-white"
-            />
-
-            {/* Fragen hinzufügen */}
-            <div className="mt-4 p-3 bg-gray-700/40 rounded-lg">
-              <h4 className="font-semibold mb-2">Fragen</h4>
-
-              {newPoll.questions.map((q, i) => (
-                <div key={q.id} className="mb-4 border-b border-gray-600 pb-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <input
-                      type="text"
-                      placeholder="Fragetext"
-                      value={q.question}
-                      onChange={(e) => {
-                        const updated = [...newPoll.questions];
-                        updated[i] = { ...updated[i], question: e.target.value };
-                        setNewPoll((p) => ({ ...p, questions: updated }));
-                      }}
-                      className="flex-1 p-1 rounded bg-gray-800 text-white mr-2"
-                    />
-                    <button
-                      onClick={() => {
-                        const updated = newPoll.questions.filter((_, idx) => idx !== i);
-                        setNewPoll((p) => ({ ...p, questions: updated }));
-                      }}
-                      className="bg-red-600 px-2 py-1 rounded"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <select
-                    value={q.type}
-                    onChange={(e) => {
-                      const updated = [...newPoll.questions];
-                      updated[i] = { ...updated[i], type: e.target.value };
-                      setNewPoll((p) => ({ ...p, questions: updated }));
-                    }}
-                    className="p-1 bg-gray-800 rounded text-white mb-2"
-                  >
-                    <option value="single">Single Choice</option>
-                    <option value="multiple">Multiple Choice</option>
-                    <option value="text">Freitext</option>
-                  </select>
-
-                  {q.type !== "text" && (
-                    <div className="mt-2 space-y-1">
-                      {q.options.map((opt, oi) => (
-                        <div key={oi} className="flex gap-2">
-                          <input
-                            type="text"
-                            value={opt}
-                            onChange={(e) => {
-                              const updated = [...newPoll.questions];
-                              const options = [...(updated[i].options || [])];
-                              options[oi] = e.target.value;
-                              updated[i] = { ...updated[i], options };
-                              setNewPoll((p) => ({ ...p, questions: updated }));
-                            }}
-                            className="flex-1 p-1 rounded bg-gray-800 text-white"
-                          />
-                          <button
-                            onClick={() => {
-                              const updated = [...newPoll.questions];
-                              const options = [...(updated[i].options || [])];
-                              options.splice(oi, 1);
-                              updated[i] = { ...updated[i], options };
-                              setNewPoll((p) => ({ ...p, questions: updated }));
-                            }}
-                            className="bg-red-600 px-2 rounded"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-
-                      <button
-                        onClick={() => {
-                          const updated = [...newPoll.questions];
-                          const options = [...(updated[i].options || [])];
-                          options.push("");
-                          updated[i] = { ...updated[i], options };
-                          setNewPoll((p) => ({ ...p, questions: updated }));
-                        }}
-                        className="text-sm text-green-400 mt-1"
-                      >
-                        + Option hinzufügen
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <button
-                onClick={() =>
-                  setNewPoll((p) => ({
-                    ...p,
-                    questions: [
-                      ...(p.questions || []),
-                      { id: Date.now(), question: "", type: "single", options: [""] },
-                    ],
-                  }))
-                }
-                className="bg-blue-600 px-3 py-1 rounded text-white mt-2"
+      {/* Admin Floating Action Button */}
+      {isAdmin ? (
+          <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-40">
+              <button 
+                onClick={refreshPolls}
+                className="w-12 h-12 rounded-full bg-[#18181b] border border-white/10 text-white/50 hover:text-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+                title="Reload"
               >
-                + Frage hinzufügen
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
               </button>
-            </div>
-
-            <div className="flex gap-2 mt-4">
-              <button onClick={addPoll} className="px-4 py-2 bg-green-600 rounded text-white">
-                Hinzufügen
-              </button>
-              <button
-                onClick={() => setShowForm(false)}
-                className="px-4 py-2 bg-gray-600 rounded text-white"
+              <button 
+                onClick={() => setShowModal(true)}
+                className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-900/30 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                title="Neue Abstimmung"
               >
-                Abbrechen
+                  <Plus size={28} />
               </button>
-            </div>
           </div>
-        </div>
+      ) : (
+         !user && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+                <button onClick={login} className="px-4 py-2 bg-white/10 backdrop-blur rounded-full border border-white/10 text-xs font-semibold hover:bg-white/20 transition-colors">
+                    Admin Login
+                </button>
+            </div>
+         )
       )}
 
-      {/* Admin Controls (Twitch Login) */}
-      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50">
-        {!isAdmin ? (
-          <button
-            onClick={() => {
-              if (!user) login();
-            }}
-            className="px-3 py-1 rounded bg-black/60 text-white text-sm"
-            title={!user ? "Mit Twitch einloggen" : "Nur der Streamer ist Admin"}
-          >
-            {!user ? "Admin (Twitch Login)" : "Kein Admin"}
-          </button>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowForm((s) => !s)}
-              className="px-3 py-1 rounded bg-blue-600 text-white text-sm"
-            >
-              {showForm ? "Formular schließen" : "Neue Abstimmung"}
-            </button>
-            <button
-              onClick={refreshPolls}
-              className="px-3 py-1 rounded bg-gray-800 text-white text-sm"
-            >
-              Reload
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Modal */}
+      {showModal && (
+          <CreatePollModal onClose={() => setShowModal(false)} onSave={handleCreate} />
+      )}
+
     </div>
   );
 }

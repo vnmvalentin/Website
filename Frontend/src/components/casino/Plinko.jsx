@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import confetti from "canvas-confetti";
 import CoinIcon from "../CoinIcon";
+import { AlertCircle, Play, XCircle } from "lucide-react";
 
-// --- KONFIGURATION ---
+// --- KONFIGURATION (Original) ---
 const ROWS_OPTIONS = [8, 12, 16];
 const RISK_OPTIONS = ['low', 'medium', 'high'];
 const PIN_SPACING = 34; 
 const ROW_HEIGHT = 30;  
 
 const getBucketColor = (val) => {
-    if(val >= 100) return "bg-red-600 shadow-[0_0_15px_red] z-20";
-    if(val >= 20) return "bg-orange-600 shadow-[0_0_10px_orange] z-20";
-    if(val >= 5) return "bg-yellow-500 text-black z-20";
-    if(val >= 2) return "bg-yellow-600/80 z-20";
+    if(val >= 100) return "bg-red-600 shadow-[0_0_15px_red] z-20 border border-red-400";
+    if(val >= 20) return "bg-orange-600 shadow-[0_0_10px_orange] z-20 border border-orange-400";
+    if(val >= 5) return "bg-yellow-500 text-black z-20 border border-yellow-300";
+    if(val >= 2) return "bg-yellow-600/80 z-20 border border-yellow-500/50";
     if(val < 1) return "bg-gray-800 border border-gray-600 opacity-50 z-20";
-    return "bg-gray-700 z-20";
+    return "bg-gray-700 z-20 border border-gray-600";
 };
 
 const MULTIPLIERS = {
@@ -63,7 +64,7 @@ const PlinkoBall = React.memo(({ path, onFinish }) => {
 
     return (
         <div 
-            className="absolute w-3.5 h-3.5 bg-yellow-400 rounded-full shadow-[0_0_8px_yellow] pointer-events-none will-change-transform"
+            className="absolute w-3.5 h-3.5 bg-yellow-400 rounded-full shadow-[0_0_8px_yellow] pointer-events-none will-change-transform border border-white/50"
             style={{
                 top: `${y * ROW_HEIGHT}px`,
                 left: `calc(50% + ${x * PIN_SPACING}px)`,
@@ -78,12 +79,11 @@ const PlinkoBall = React.memo(({ path, onFinish }) => {
 const FloatText = ({ x, amount }) => {
     return (
         <div 
-            className="absolute text-sm font-bold text-green-400 pointer-events-none animate-out fade-out slide-out-to-top-10 duration-1000 z-50 whitespace-nowrap"
+            className="absolute text-sm font-black text-green-400 pointer-events-none animate-out fade-out slide-out-to-top-10 duration-1000 z-50 whitespace-nowrap drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]"
             style={{
                 bottom: '40px', 
                 left: `calc(50% + ${x * PIN_SPACING}px)`,
                 transform: 'translateX(-50%)',
-                textShadow: '0 2px 4px black'
             }}
         >
             +{amount}
@@ -106,7 +106,6 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
   const [sessionStats, setSessionStats] = useState({ invested: 0, won: 0 });
   const [isSpawning, setIsSpawning] = useState(false);
 
-  // NEU: Batch Info State für korrekte Zählung
   const [batchInfo, setBatchInfo] = useState({ total: 0, spawned: 0, finished: 0 });
 
   // 2. REFS
@@ -130,7 +129,6 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
 
   // --- LOGIK: BULK DROP ---
   const handleBulkDrop = async () => {
-      // Toggle Stop
       if (isSpawning) {
           setIsSpawning(false);
           stopSpawningRef.current = true;
@@ -147,17 +145,14 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
 
       if (activeBalls.length === 0) setSessionStats({ invested: 0, won: 0 });
 
-      // Init Batch
       setBatchInfo({ total: count, spawned: 0, finished: 0 });
       setIsSpawning(true);
       stopSpawningRef.current = false;
 
-      // 1. VISUELL ABZIEHEN
       setVisualCredits(visualBalance - totalCost);
       setSessionStats(prev => ({ ...prev, invested: prev.invested + totalCost }));
 
       try {
-          // 2. SERVER ANFRAGE
           const res = await fetch("/api/casino/play/plinko", {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ bet, risk, rows, count }), 
@@ -174,14 +169,10 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
 
           finalServerBalanceRef.current = data.finalCredits; 
           const results = data.results || []; 
-          
-          // Falls Server aus irgendeinem Grund eine andere Anzahl schickt, korrigieren wir Total
           setBatchInfo(prev => ({ ...prev, total: results.length }));
 
-          // 3. BÄLLE SPAWNEN
           for (let i = 0; i < results.length; i++) {
               if (stopSpawningRef.current) {
-                  // Wenn gestoppt: Korrigiere Total auf das, was wirklich gespawnt wurde
                   setBatchInfo(prev => ({ ...prev, total: i })); 
                   break; 
               }
@@ -197,8 +188,6 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
               };
 
               setActiveBalls(prev => [...prev, newBall]);
-              
-              // Zähler hochsetzen (für Button)
               setBatchInfo(prev => ({ ...prev, spawned: i + 1 }));
 
               await new Promise(r => setTimeout(r, 100));
@@ -216,7 +205,6 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
   const handleBallFinish = useCallback((ball) => {
       setActiveBalls(prev => {
           const newState = prev.filter(b => b.id !== ball.id);
-          // Letzter Ball Sync Logic
           if (newState.length === 0 && !stopSpawningRef.current) {
               if (finalServerBalanceRef.current !== null) {
                   setVisualCredits(finalServerBalanceRef.current);
@@ -226,7 +214,6 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
           return newState;
       });
       
-      // Batch Counter update (für Remaining Anzeige)
       setBatchInfo(prev => ({ ...prev, finished: prev.finished + 1 }));
 
       if (ball.winAmount > 0) {
@@ -266,74 +253,61 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
   const currentMultipliers = MULTIPLIERS[rows][risk];
   const containerMinWidth = (rows + 2) * PIN_SPACING;
   const profit = sessionStats.won - sessionStats.invested;
-  
   const remainingBalls = Math.max(0, batchInfo.total - batchInfo.finished);
-  
-  // Gesamteinsatz berechnen
   const totalBetAmount = bet * (parseInt(ballsToDrop) || 1);
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start justify-center w-full max-w-7xl mx-auto py-8">
       
       {/* --- CONTROLS --- */}
-      <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0">
+      <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0 order-2 lg:order-1">
           
-          <div className="bg-black/40 p-4 rounded-xl border border-gray-600 text-center">
-              <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Dein Guthaben</div>
-              <div className="text-3xl font-mono font-bold text-yellow-400 flex items-center justify-center gap-2">
+          <div className="bg-[#18181b] p-4 rounded-2xl border border-white/10 text-center shadow-lg">
+              <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1 font-bold">Guthaben</div>
+              <div className="text-3xl font-mono font-black text-yellow-400 flex items-center justify-center gap-2 drop-shadow-md">
                   {Math.floor(visualBalance).toLocaleString()} <CoinIcon size="w-6 h-6" />
               </div>
           </div>
 
           {/* LIVE STATS */}
-          {(sessionStats.invested > 0 || activeBalls.length > 0) ? (
-              <div className="bg-gray-800/80 p-4 rounded-xl border border-gray-600 animate-in slide-in-from-left">
-                  <div className="text-xs text-gray-400 uppercase tracking-widest mb-1 flex justify-between">
-                      <span>Session Profit</span>
-                      <span className="text-gray-500 font-normal">{remainingBalls} Remaining</span>
+          {(sessionStats.invested > 0 || activeBalls.length > 0) && (
+              <div className="bg-[#18181b]/90 p-4 rounded-2xl border border-white/10 animate-in slide-in-from-left">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1 flex justify-between font-bold">
+                      <span>Profit</span>
+                      <span className="text-gray-500 font-normal">{remainingBalls} Bälle übrig</span>
                   </div>
-                  <div className={`text-2xl font-mono font-bold flex items-center gap-2 ${profit >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {profit >= 0 ? "+" : ""}{profit} <CoinIcon size="w-6 h-6" />
-                  </div>
-                  <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
-                       <span>Bet: {sessionStats.invested}</span>
-                       <span>Won: {sessionStats.won}</span>
+                  <div className={`text-2xl font-mono font-black flex items-center gap-2 ${profit >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {profit >= 0 ? "+" : ""}{profit} <CoinIcon size="w-5 h-5" />
                   </div>
               </div>
-          ) : (
-             <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700 text-center text-gray-400 text-sm">
-                 Bereit für den Drop.
-             </div>
           )}
 
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl flex flex-col gap-6">
+          <div className="bg-[#18181b] p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col gap-6">
               {/* Einsatz */}
               <div>
                 <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Einsatz</label>
-                <div className="flex items-center bg-gray-900 rounded-lg border border-gray-600 mt-2 overflow-hidden">
+                <div className="flex items-center bg-black/40 rounded-xl border border-white/10 mt-2 overflow-hidden px-1">
                     <input type="number" value={bet} onChange={e => setBet(Number(e.target.value))} disabled={isSpawning}
                         className="w-full bg-transparent p-3 font-mono font-bold text-white focus:outline-none" />
-                    <div className="pr-4 text-yellow-500"><CoinIcon size="w-6 h-6" /></div>
+                    <div className="pr-3 text-yellow-500 opacity-50"><CoinIcon size="w-5 h-5" /></div>
                 </div>
                 <div className="flex gap-2 mt-2">
                     {[10, 100, 500, 1000].map(v => (
-                        <button key={v} onClick={()=>setBet(v)} disabled={isSpawning} className="flex-1 bg-gray-700 hover:bg-gray-600 rounded text-xs py-1 font-bold transition">{v}</button>
+                        <button key={v} onClick={()=>setBet(v)} disabled={isSpawning} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-xs py-1.5 font-bold transition text-gray-300">{v}</button>
                     ))}
                 </div>
               </div>
 
               {/* ANZAHL BÄLLE */}
               <div>
-                <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Anzahl Bälle</label>
+                <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Bälle</label>
                 <div className="flex items-center gap-2 mt-2">
                     {[1, 10, 50, 100].map(opt => (
                         <button key={opt} onClick={() => setBallsToDrop(opt)} disabled={isSpawning}
-                            className={`flex-1 py-2 rounded text-xs font-bold transition ${ballsToDrop === opt ? 'bg-violet-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>
+                            className={`flex-1 py-2 rounded-xl text-xs font-bold transition border border-transparent ${ballsToDrop === opt ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20' : 'bg-white/5 text-gray-400 hover:text-white border-white/5'}`}>
                             {opt}
                         </button>
                     ))}
-                    <input type="number" min="1" max="1000" value={ballsToDrop} onChange={(e) => setBallsToDrop(Number(e.target.value))} disabled={isSpawning}
-                        className="w-16 bg-gray-900 border border-gray-600 rounded py-2 text-center font-bold text-white text-xs focus:border-violet-500 outline-none" />
                 </div>
               </div>
 
@@ -343,57 +317,62 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
                     <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Risiko</label>
                     <div className="flex flex-col gap-1 mt-2">
                         {RISK_OPTIONS.map(r => (
-                            <button key={r} onClick={() => setRisk(r)} disabled={activeBalls.length > 0 || isSpawning} className={`py-1.5 px-2 rounded text-xs font-bold uppercase transition ${risk === r ? 'bg-gray-600 border border-gray-500' : 'bg-gray-900 text-gray-500 hover:bg-gray-700'}`}>{r}</button>
+                            <button key={r} onClick={() => setRisk(r)} disabled={activeBalls.length > 0 || isSpawning} className={`py-1.5 px-2 rounded-lg text-xs font-bold uppercase transition border ${risk === r ? 'bg-white/10 border-white/20 text-white' : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300'}`}>{r}</button>
                         ))}
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Rows</label>
+                    <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Reihen</label>
                     <div className="flex flex-col gap-1 mt-2">
                         {ROWS_OPTIONS.map(r => (
-                            <button key={r} onClick={() => setRows(r)} disabled={activeBalls.length > 0 || isSpawning} className={`py-1.5 px-2 rounded text-xs font-bold uppercase transition ${rows === r ? 'bg-gray-600 border border-gray-500' : 'bg-gray-900 text-gray-500 hover:bg-gray-700'}`}>{r}</button>
+                            <button key={r} onClick={() => setRows(r)} disabled={activeBalls.length > 0 || isSpawning} className={`py-1.5 px-2 rounded-lg text-xs font-bold uppercase transition border ${rows === r ? 'bg-white/10 border-white/20 text-white' : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300'}`}>{r}</button>
                         ))}
                     </div>
                   </div>
               </div>
 
-              {/* NEU: Gesamtkosten Anzeige */}
-              <div className="flex justify-between items-center mt-2 px-1">
-                  <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">Gesamtkosten</span>
-                  <div className="text-xl font-mono font-bold text-yellow-400 flex items-center gap-2">
-                      {totalBetAmount.toLocaleString()} <CoinIcon size="w-5 h-5" />
-                  </div>
-              </div>
+              <div className="w-full h-px bg-white/5 my-1"></div>
 
               <button onClick={handleBulkDrop} disabled={!isSpawning && (bet * ballsToDrop) > visualBalance}
-                className={`w-full py-4 font-extrabold text-xl rounded-xl shadow-lg transform active:scale-95 transition-all mt-auto ${isSpawning ? "bg-red-600 hover:bg-red-500 text-white animate-pulse" : "bg-green-500 hover:bg-green-400 text-black disabled:bg-gray-600 disabled:cursor-not-allowed"}`}>
-                  {isSpawning 
-                    ? `STOP (${batchInfo.spawned} / ${batchInfo.total})` 
-                    : `DROP ${ballsToDrop}`}
+                className={`w-full py-4 font-black text-xl rounded-xl shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2 ${isSpawning ? "bg-red-600 hover:bg-red-500 text-white animate-pulse" : "bg-green-600 hover:bg-green-500 text-white shadow-green-900/20 disabled:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"}`}>
+                  {isSpawning ? (
+                      <>
+                        <XCircle size={20} /> STOP ({batchInfo.spawned}/{batchInfo.total})
+                      </>
+                  ) : (
+                      <>
+                        <Play size={20} fill="currentColor" /> DROP {ballsToDrop}
+                      </>
+                  )}
               </button>
           </div>
       </div>
 
       {/* --- GAME BOARD --- */}
-      <div className="flex-1 w-full flex justify-center bg-gray-900 rounded-2xl border-[4px] border-gray-700 overflow-hidden relative min-h-[600px]">
-          <div className="absolute top-4 left-4 z-10 pointer-events-none text-sm font-bold text-gray-500">PLINKO</div>
+      <div className="flex-1 w-full flex justify-center bg-[#0a0a0f] rounded-3xl border border-white/10 overflow-hidden relative min-h-[600px] shadow-2xl order-1 lg:order-2">
           
-          <div className="absolute top-4 right-4 z-10 flex gap-1 h-6 pointer-events-none">
+          {/* Header Overlay */}
+          <div className="absolute top-6 left-6 z-10 pointer-events-none">
+              <h2 className="text-2xl font-black text-white/10 tracking-widest uppercase">Plinko</h2>
+          </div>
+          
+          <div className="absolute top-6 right-6 z-10 flex gap-1 h-6 pointer-events-none">
               {history.map((h, i) => (
-                  <div key={i} className={`px-1.5 rounded text-[10px] font-bold flex items-center ${getBucketColor(h).replace(/z-\d+/g,'')} text-white opacity-80`}>{h}x</div>
+                  <div key={i} className={`px-2 rounded-md text-[10px] font-bold flex items-center shadow-lg ${getBucketColor(h).replace(/z-\d+/g,'')} text-white`}>{h}x</div>
               ))}
           </div>
 
-          <div className="relative mt-12 transition-all duration-300 ease-in-out" style={{ height: `${(rows + 2) * ROW_HEIGHT + 50}px`, width: `${containerMinWidth}px` }} ref={gameBoardRef}>
+          <div className="relative mt-16 transition-all duration-300 ease-in-out" style={{ height: `${(rows + 2) * ROW_HEIGHT + 50}px`, width: `${containerMinWidth}px` }} ref={gameBoardRef}>
              {renderPins()}
              {activeBalls.map((ball) => (<PlinkoBall key={ball.id} path={ball.path} onFinish={() => handleBallFinish(ball)} />))}
              {floatTexts.map(ft => (<FloatText key={ft.id} x={ft.x} amount={ft.amount} />))}
              
+             {/* Multiplier Buckets */}
              <div className="absolute left-0 right-0 flex justify-center items-end" style={{ top: `${(rows + 1) * ROW_HEIGHT - 5}px`, height: '40px', zIndex: 20 }}>
                  {currentMultipliers.map((m, i) => {
                      const isHit = lastHitBucketIndex === i;
                      return (
-                        <div key={i} className={`flex items-center justify-center rounded-sm font-bold text-[10px] sm:text-xs transition-all duration-100 ${getBucketColor(m)} text-white shadow-md border border-black/30 ${isHit ? "translate-y-2 brightness-150 scale-105" : ""}`}
+                        <div key={i} className={`flex items-center justify-center rounded-md font-bold text-[10px] sm:text-xs transition-all duration-100 ${getBucketColor(m)} text-white shadow-lg ${isHit ? "translate-y-1 brightness-150 scale-110 z-30" : ""}`}
                             style={{ width: '30px', height: '36px', margin: '0 2px' }}>
                             {m}x
                         </div>

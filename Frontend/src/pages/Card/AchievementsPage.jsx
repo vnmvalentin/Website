@@ -2,8 +2,9 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { Link } from "react-router-dom";
+import { Trophy, CheckCircle, Lock, ChevronLeft, Gift, Star, Shield, Zap } from "lucide-react";
 
-// Definition der Typen
+// --- KONSTANTEN & LOGIK (Original) ---
 const CARD_TYPES = [
   { id: "natur", title: "Natur", min: 1, max: 50, icon: "🌿" },
   { id: "bestie", title: "Bestie", min: 51, max: 100, icon: "🐾" },
@@ -20,13 +21,12 @@ const CARD_TYPES = [
   { id: "untergrund", title: "Untergrund", min: 601, max: 650, icon: "🔦" },
 ];
 
-// Helper: Generiert Typ-Achievements
 const typeAchievements = CARD_TYPES.map((type) => ({
   id: `collection_${type.id}`,
   title: `Meister: ${type.title}`,
   description: `Besitze alle Karten vom Typ ${type.title}.`,
   icon: type.icon,
-  reward: 500, // Credits
+  reward: 500, 
   getProgress: (stats, allOwnedCards) => {
     const cardsInType = allOwnedCards.filter((c) => {
       const num = parseInt(c.number || "0", 10);
@@ -38,7 +38,6 @@ const typeAchievements = CARD_TYPES.map((type) => ({
   }
 }));
 
-// Manuelle Achievements
 const MANUAL_ACHIEVEMENTS = [
   {
     id: "first_blood",
@@ -101,7 +100,7 @@ const MANUAL_ACHIEVEMENTS = [
     icon: "🎗️",
     reward: 25000,
     getProgress: (stats, allOwnedCards) => {
-        const max = allOwnedCards.length;
+        const max = allOwnedCards.length; // Annahme
         const current = stats.uniqueOwned;
         return { current, max, done: max > 0 && current >= max };
     },
@@ -114,7 +113,7 @@ export default function AchievementsPage() {
   const { user, login } = useContext(TwitchAuthContext);
   const [loading, setLoading] = useState(true);
   const [ownedCards, setOwnedCards] = useState([]);
-  const [claimedList, setClaimedList] = useState([]); // NEU: Liste der IDs
+  const [claimedList, setClaimedList] = useState([]); 
   const [error, setError] = useState("");
   const [claimingId, setClaimingId] = useState(null);
 
@@ -129,7 +128,7 @@ export default function AchievementsPage() {
         if (!res.ok) throw new Error("Fehler beim Laden");
         const data = await res.json();
         setOwnedCards(data.owned || []);
-        setClaimedList(data.claimedAchievements || []); // NEU
+        setClaimedList(data.claimedAchievements || []); 
       } catch (e) {
         console.error(e);
         setError("Daten konnten nicht geladen werden.");
@@ -154,7 +153,6 @@ export default function AchievementsPage() {
               alert(json.error || "Fehler beim Abholen");
           } else {
               setClaimedList(prev => [...prev, achId]);
-              // Optional: Sound abspielen oder Konfetti
           }
       } catch (e) {
           console.error(e);
@@ -183,107 +181,129 @@ export default function AchievementsPage() {
   }, [ownedCards, claimedList]);
 
   if (!user) return (
-      <div className="max-w-xl mx-auto mt-8 bg-gray-900/80 p-6 rounded-2xl text-center text-white">
-        <h1 className="text-2xl font-bold mb-2">Achievements</h1>
-        <button onClick={() => login(true)} className="bg-[#9146FF] px-4 py-2 rounded-lg">Login</button>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-white">
+        <div className="bg-[#18181b] p-10 rounded-3xl border border-white/10 text-center shadow-2xl">
+            <h1 className="text-3xl font-black mb-4">Achievements</h1>
+            <button onClick={() => login(true)} className="bg-[#9146FF] hover:bg-[#7d36ff] text-white px-6 py-3 rounded-xl font-bold transition-transform hover:scale-105">Login</button>
+        </div>
       </div>
   );
-  if (loading) return <div className="text-center text-white mt-8">Lade...</div>;
-  if (error) return <div className="text-center text-red-400 mt-8">{error}</div>;
 
   return (
-    <div className="max-w-[1400px] mx-auto mt-8 text-white px-2">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
+    <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
+      
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8 border-b border-white/10 pb-6">
         <div>
-          <h1 className="text-2xl font-bold mb-1">Deine Achievements</h1>
-          <p className="text-sm text-gray-300">
-            Fortschritt: <span className="font-semibold text-[#9146FF]">{progress.done} / {progress.total}</span> freigeschaltet.
-          </p>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
+             <Trophy className="text-yellow-500" size={32} /> Achievements
+          </h1>
+          <p className="text-white/50 mt-1">Schalte Erfolge frei und verdiene extra Credits.</p>
         </div>
-        <div className="flex justify-end">
-          <Link to="/Packs" className="inline-flex items-center gap-1 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm">
-            ⬅️ Zurück zum Pack
-          </Link>
+        
+        <div className="flex items-center gap-4 bg-[#18181b] px-5 py-3 rounded-2xl border border-white/10">
+            <div className="text-right">
+                <div className="text-[10px] uppercase font-bold text-white/40 tracking-wider">Fortschritt</div>
+                <div className="text-xl font-mono font-bold text-violet-400">
+                    {progress.done} <span className="text-white/40 text-sm">/ {progress.total}</span>
+                </div>
+            </div>
+            <div className="h-10 w-10 relative">
+               <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                  <path className="text-gray-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+                  <path className="text-violet-500" strokeDasharray={`${(progress.done / progress.total) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+               </svg>
+            </div>
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="flex-1">
-          <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {list.map((ach) => (
-                <div
-                  key={ach.id}
-                  className={`relative p-4 rounded-xl border flex items-center gap-4 transition-all overflow-hidden ${
-                    ach.done
-                      ? "bg-green-900/20 border-green-500/30"
-                      : "bg-gray-800/40 border-gray-700/50 opacity-80"
-                  }`}
-                >
-                  <div className={`text-3xl ${ach.done ? "" : "grayscale"}`}>{ach.icon}</div>
-                  
-                  <div className="flex-1 z-10 min-w-0 flex flex-col h-full justify-center">
-                    <h3 className={`font-bold truncate ${ach.done ? "text-green-400" : "text-gray-300"}`}>
-                      {ach.title}
-                    </h3>
-                    <p className="text-xs text-gray-400 line-clamp-2 mb-2">{ach.description}</p>
-                    
-                    {/* Fortschritt oder Reward Button */}
-                    <div className="mt-auto">
-                        {!ach.done ? (
-                            <div className="flex items-center gap-2">
-                                <div className="h-1.5 flex-1 bg-gray-700 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full rounded-full bg-[#9146FF]" 
-                                        style={{ width: `${ach.max > 0 ? (ach.current / ach.max) * 100 : 0}%` }}
-                                    />
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* MAIN LIST */}
+        <div className="flex-1 w-full space-y-6">
+            {loading ? <div className="text-center py-20 text-white/30 animate-pulse">Lade Achievements...</div> : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
+                    {list.map((ach) => {
+                        const percent = ach.max > 0 ? (ach.current / ach.max) * 100 : 0;
+                        return (
+                            <div key={ach.id} className={`group relative bg-[#18181b] border rounded-2xl p-5 shadow-lg transition-all duration-300 ${ach.done ? "border-green-500/30 bg-gradient-to-br from-[#18181b] to-green-900/10" : "border-white/5 hover:border-white/10"}`}>
+                                <div className="flex items-start gap-4 mb-4">
+                                    <div className={`w-12 h-12 flex items-center justify-center rounded-xl text-2xl shadow-inner ${ach.done ? "bg-green-500/20 text-green-400" : "bg-black/40 grayscale opacity-50"}`}>
+                                        {ach.icon}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className={`font-bold truncate ${ach.done ? "text-white" : "text-white/70"}`}>{ach.title}</h3>
+                                        <p className="text-xs text-white/40 line-clamp-2">{ach.description}</p>
+                                    </div>
                                 </div>
-                                <span className="text-[10px] font-mono font-bold text-gray-400">
-                                    {ach.current} / {ach.max}
-                                </span>
+
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[10px] uppercase font-bold text-white/30">
+                                        <span>Progress</span>
+                                        <span>{Math.round(percent)}%</span>
+                                    </div>
+                                    <div className="h-2 w-full bg-black/50 rounded-full overflow-hidden">
+                                        <div className={`h-full transition-all duration-1000 ${ach.done ? "bg-green-500" : "bg-violet-600"}`} style={{ width: `${percent}%` }}></div>
+                                    </div>
+                                    <div className="text-right text-[10px] font-mono text-white/50">{ach.current} / {ach.max}</div>
+                                </div>
+
+                                {/* ACTION BUTTON */}
+                                <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
+                                    <div className="flex items-center gap-1 text-xs font-bold text-yellow-500">
+                                        <Gift size={14} /> +{ach.reward}
+                                    </div>
+                                    
+                                    {ach.done ? (
+                                        ach.isClaimed ? (
+                                            <span className="flex items-center gap-1 text-xs font-bold text-green-500 bg-green-500/10 px-3 py-1.5 rounded-lg border border-green-500/20">
+                                                <CheckCircle size={14} /> Abgeholt
+                                            </span>
+                                        ) : (
+                                            <button 
+                                                onClick={() => handleClaim(ach.id)}
+                                                disabled={claimingId === ach.id}
+                                                className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-black px-4 py-1.5 rounded-lg shadow-lg shadow-yellow-900/20 active:scale-95 transition-all animate-pulse"
+                                            >
+                                                {claimingId === ach.id ? "..." : "CLAIM"}
+                                            </button>
+                                        )
+                                    ) : (
+                                        <div className="flex items-center gap-1 text-xs text-white/20 font-bold px-3 py-1.5">
+                                            <Lock size={14} /> Locked
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        ) : (
-                            <div className="flex items-center justify-between mt-1">
-                                <span className="text-xs text-green-400 font-bold">Erledigt!</span>
-                                {ach.isClaimed ? (
-                                    <span className="text-[10px] bg-gray-800 px-2 py-0.5 rounded text-gray-400 border border-gray-700">
-                                        Abgeholt
-                                    </span>
-                                ) : (
-                                    <button 
-                                        onClick={() => handleClaim(ach.id)}
-                                        disabled={claimingId === ach.id}
-                                        className="text-[10px] bg-yellow-600 hover:bg-yellow-500 text-white px-2 py-1 rounded shadow-lg font-bold animate-pulse"
-                                    >
-                                        {claimingId === ach.id ? "..." : `+${ach.reward} 🪙`}
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                  </div>
+                        );
+                    })}
                 </div>
-              ))}
-            </div>
-          </div>
+            )}
         </div>
 
-        <aside className="w-full md:w-56">
-          <div className="bg-gray-900/70 border border-gray-700 rounded-2xl p-4">
-            <h2 className="text-lg font-semibold mb-3">Navigation</h2>
-            <div className="space-y-2 text-sm">
-              <Link to="/Packs" className="block w-full px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200">
-                📦 Pack Öffnen
-              </Link>
-              <Link to="/Packs/Album" className="block w-full px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200">
-                📚 Sammlung
-              </Link>
-              <div className="block w-full px-3 py-2 rounded-lg bg-[#9146FF] text-white">
-                🏆 Achievements
-              </div>
+        {/* SIDEBAR */}
+        <aside className="w-full lg:w-64 shrink-0 space-y-4">
+            <div className="bg-[#18181b] border border-white/10 rounded-2xl p-2 shadow-lg">
+                <div className="p-4 border-b border-white/5 mb-2">
+                    <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Menü</h2>
+                </div>
+                <nav className="space-y-1 px-2 pb-2">
+                    <Link to="/Packs" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all font-medium">
+                        <ChevronLeft size={18} /> Zurück
+                    </Link>
+                    <Link to="/Packs" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all font-medium">
+                        <Gift size={18} /> Pack Öffnen
+                    </Link>
+                    <Link to="/Packs/Album" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all font-medium">
+                        <Shield size={18} /> Sammlung
+                    </Link>
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-violet-600/10 text-violet-400 font-bold border border-violet-500/20">
+                        <Trophy size={18} /> Achievements
+                    </div>
+                </nav>
             </div>
-          </div>
         </aside>
+
       </div>
     </div>
   );

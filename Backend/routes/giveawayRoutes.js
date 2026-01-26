@@ -15,7 +15,7 @@ async function safeFetch(...args) {
 
 /* ================= KONFIG ================= */
 
-const GIVEAWAYS_PATH = path.join(__dirname, "giveaways.json");
+const GIVEAWAYS_PATH = path.join(__dirname, "../data/giveaways.json");
 const DISCORD_GIVEAWAY_WEBHOOK_URL =
   process.env.DISCORD_GIVEAWAY_WEBHOOK_URL || "";
 
