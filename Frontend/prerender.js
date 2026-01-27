@@ -16,7 +16,8 @@ const routesToPrerender = [
   '/Packs',
   '/Abstimmungen',
   '/Giveaways',
-  '/avards-2026'
+  '/avards-2026',
+  '/tutorial/ytm-songrequest'
 ];
 
 (async () => {

@@ -133,7 +133,17 @@ export default function YTMStreamDeckPage() {
                                             Wichtig, damit das Stream Deck ohne Passwort zugreifen kann.
                                         </div>
                                     </div>
+                                
                                 </div>
+                                <div className="ml-12 bg-black/40 border border-dashed border-white/20 rounded-xl overflow-hidden">
+                                <img 
+                                    src="/assets/tutorial/ytmsettings.png" 
+                                    alt="Remote Settings" 
+                                    // WICHTIG: h-auto sorgt dafür, dass das Bild vollständig angezeigt wird
+                                    // und die Box sich der Höhe des Bildes anpasst.
+                                    className="w-full h-auto block" 
+                                />
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -152,7 +162,14 @@ export default function YTMStreamDeckPage() {
                             <div className="bg-black/30 p-4 rounded-xl border border-white/10 text-sm">
                                 Öffne den Stream Deck Store und installiere das Plugin:
                                 <br />
-                                <span className="font-bold text-white block mt-1 text-base">"API Request" von Mike Beattie</span>
+                                <a 
+                                    href="https://marketplace.elgato.com/product/api-request-dc7f3a02-e32c-4daf-b5a9-48c618deb6d1"
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="font-bold text-white block mt-1 text-base hover:text-blue-300 hover:underline transition-colors"
+                                    >
+                                    {'>'}"API Request" von Mike Beattie{'<'}
+                                    </a>
                             </div>
                         </div>
 

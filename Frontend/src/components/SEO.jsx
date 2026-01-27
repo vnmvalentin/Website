@@ -1,6 +1,7 @@
 import React from "react";
 
-export default function SEO({ title, description, image, path }) {
+// keywords als Prop hinzugefügt
+export default function SEO({ title, description, image, path, keywords }) {
   const siteTitle = "vnmvalentin";
   const fullTitle = title ? `${title} - ${siteTitle}` : siteTitle;
   const domain = "https://vnmvalentin.de"; 
@@ -8,9 +9,11 @@ export default function SEO({ title, description, image, path }) {
 
   return (
     <>
-      {/* React 19 verschiebt diese Tags automatisch in den <head> */}
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      {/* Neue Zeile für Keywords */}
+      {keywords && <meta name="keywords" content={keywords} />}
+      
       <link rel="canonical" href={url} />
 
       {/* Open Graph / Social Media */}
