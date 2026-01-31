@@ -1,27 +1,64 @@
 @import "tailwindcss";
 
-/* Slot Machine: Schnellerer Blur für mehr "Speed" Gefühl */
-@keyframes spin-slot {
-  0% { transform: translateY(-100%); filter: blur(2px); }
-  100% { transform: translateY(100%); filter: blur(2px); }
+/* WAVE ANIMATIONS */
+@keyframes waveMove {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
-.animate-spin-custom {
-  /* 0.08s ist sehr schnell -> sieht aus wie rotieren */
-  animation: spin-slot 0.08s linear infinite;
+.animate-wave-1 { animation: waveMove 10s linear infinite; }
+.animate-wave-2 { animation: waveMove 4s linear infinite; }
+
+/* BUBBLE ANIMATIONS (Verbessert: Stärkere Sichtbarkeit) */
+@keyframes rise {
+  0% { bottom: -20px; opacity: 0; transform: translateX(0); }
+  10% { opacity: 0.8; } /* Geht schneller auf sichtbares Niveau */
+  80% { opacity: 0.9; } /* Bleibt länger sichtbar */
+  100% { bottom: 120%; opacity: 0; transform: translateX(30px); }
 }
 
-/* Blackjack: Karten fliegen vom "Stapel" (oben rechts versetzt) rein */
-@keyframes dealCardAnim {
-  0% { 
-    transform: translateY(-200px) translateX(100px) rotate(180deg) scale(0.5); 
-    opacity: 0; 
-  }
-  100% { 
-    transform: translateY(0) translateX(0) rotate(0) scale(1); 
-    opacity: 1; 
-  }
+.animate-bubble-1 { animation: rise 6s infinite ease-in; }
+.animate-bubble-2 { animation: rise 9s infinite ease-in; animation-delay: 2s; }
+.animate-bubble-3 { animation: rise 7s infinite ease-in; animation-delay: 1s; }
+
+/* BLOOD EFFECT */
+@keyframes bloodDissolve {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.9; }
+    20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+.animate-blood-dissolve {
+    animation: bloodDissolve 1.5s ease-out forwards;
 }
 
-.animate-deal-card {
-  animation: dealCardAnim 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+/* FADE IN/OUT für Ticker */
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(10px); }
+    10% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-10px); }
 }
+.animate-fade-in-out {
+    animation: fadeInOut 5s ease-in-out infinite;
+}
+
+/* NEU: Hypetrain Rainbow */
+@keyframes rainbow-pulse {
+        0% { filter: hue-rotate(0deg) saturate(1.5); }
+        50% { filter: hue-rotate(180deg) saturate(3); }
+        100% { filter: hue-rotate(360deg) saturate(1.5); }
+    }
+    
+    /* NEU: Hypetrain Wobble für Fische */
+@keyframes fish-party {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-35deg); }
+    75% { transform: rotate(35deg); }
+}
+
+    /* NEU: Raid Swarm Animation */
+@keyframes swarm-pass {
+        0% { left: -20%; opacity: 0; }
+        10% { opacity: 0.6; }
+        90% { opacity: 0.6; }
+        100% { left: 120%; opacity: 0; }
+    }

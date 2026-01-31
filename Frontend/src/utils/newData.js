@@ -1,5 +1,24 @@
 export const NEWS_UPDATES = [
   {
+    date: "31.01.2026",
+    version: "v2.1: Neues Stream Tool",
+    sections: [
+      {
+        title: "Viewer Sea",
+        items: [
+          "Neues Overlay für den Stream!",
+          "Streamer.bot wird benötigt",
+          "Aufgebaut wie StreamAvatars, aber kostenlos!",
+          "Fische schwimmen entweder oben am Rand oder unten in einem See",
+          "Wähle deinen Fisch aus für die Streamer die dieses Overlay nutzen und nutze Commands",
+          "Customizable Background und Rollen-Verwaltung für die Auswahl der Fische",
+          "Events wie Raids oder HypeTrains triggern Special Effects",
+          "Steigere deine Zuschauerinteraktivität und lasse Sie als süße Fische im Stream schwimmen"
+        ]
+      },
+    ]
+  },
+  {
     date: "26.01.2026",
     version: "v2: Großes UI Update",
     sections: [

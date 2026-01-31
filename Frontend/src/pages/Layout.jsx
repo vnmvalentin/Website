@@ -55,6 +55,7 @@ const navItems = [
       { label: "Bingo-Card Generator", to: "/Bingo" },
       { label: "Youtube Music Songrequest Twitch", to: "/tutorial/ytm-songrequest" },
       { label: "Youtube Music Stream Deck Control", to: "/tutorial/ytm-streamdeck" },
+      { label: "Viewer Sea Overlay", to: "/pond"},
     ],
   },
   {

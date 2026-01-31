@@ -35,6 +35,10 @@ import YTMPage from "./pages/YTM/YTMPage";
 import TwitchAuthProvider from "./components/TwitchAuthContext";
 import YTMStreamDeckPage from "./pages/YTM/YTMStreamDeckPage";
 
+import ViewerPond from "./pages/ViewerPond/Viewerpond";
+import PondPage from "./pages/ViewerPond/PondPage";
+
+
 export default function App() {
   return (
     <TwitchAuthProvider>
@@ -42,6 +46,7 @@ export default function App() {
         {/* Overlay separat, ohne Layout */}
         <Route path="/WinChallengeOverlay/:overlayKey" element={<WinChallengeOverlay />}/>
         <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
+        <Route path="/overlay/pond/:streamerId" element={<ViewerPond />} />
 
         {/* Alle “normalen” Seiten unter Layout */}
         <Route path="/" element={<Layout />}>
@@ -72,6 +77,9 @@ export default function App() {
           <Route path="admin" element={<AdminDashboard />} />
           <Route path="/tutorial/ytm-songrequest" element={<YTMPage />} />
           <Route path="/tutorial/ytm-streamdeck" element={<YTMStreamDeckPage/>} />
+          <Route path="/pond" element={<PondPage />} />
+          <Route path="/pond/fish/:streamerName" element={<PondPage />} />
+          <Route path="/pond/commands" element={<PondPage />} />
 
         </Route>
       </Routes>
