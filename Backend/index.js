@@ -9,8 +9,12 @@ const { nanoid } = require("nanoid");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args)); // für Twitch-Token-Check
 
+// --- NEU: HTTP & Socket.io ---
+const http = require("http");
+const { Server } = require("socket.io");
+
 // Feature-Router (wie bingoRoutes)
-const createBingoRouter = require("./routes//bingoRoutes");
+const createBingoRouter = require("./routes/bingoRoutes");
 const createAwardsRouter = require("./routes/awardsRoutes");
 const createGiveawayRouter = require("./routes/giveawayRoutes");
 const createPackRouter = require("./routes/packRoutes");
@@ -21,8 +25,12 @@ const createAdventureRouter = require("./routes/adVenturesRoutes");
 const createAdminRouter = require("./routes/adminRoutes");
 const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
+const createPondRouter = require("./routes/pondRoutes");
 
 const app = express();
+
+// --- NEU: Server Wrapper für Socket.io ---
+const server = http.createServer(app);
 
 // --- ÄNDERUNG HIER: Helmet Config gelockert ---
 app.use(
@@ -39,10 +47,13 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Define Allowed Origins zentral, damit Express und Socket.io die gleichen nutzen
+const ALLOWED_ORIGINS = ["https://vnmvalentin.de", "https://www.vnmvalentin.de", "http://localhost:5173"];
+
 // Nur deine Domain erlauben
 app.use(
   cors({
-    origin: ["https://vnmvalentin.de", "https://www.vnmvalentin.de"],
+    origin: ALLOWED_ORIGINS,
     credentials: true,
   })
 );
@@ -227,8 +238,49 @@ app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 
 app.use("/api/feedback", createFeedbackRouter());
 
+app.use("/api/pond", createPondRouter({ requireAuth }));
+
+
+// =================== SOCKET.IO LOGIK ===================
+// 
+// Initialisierung des Socket-Servers
+const io = new Server(server, {
+    cors: {
+        origin: ALLOWED_ORIGINS, // Gleiche Origins wie Express
+        credentials: true
+    },
+    path: "/socket.io" // Standardpfad
+});
+
+io.on('connection', (socket) => {
+    // console.log('Socket Client verbunden:', socket.id);
+
+    // Raum beitreten (z.B. vom Overlay oder Dashboard)
+    socket.on('join_room', (room) => {
+        socket.join(room);
+        // console.log(`Socket ${socket.id} joined room ${room}`);
+    });
+
+    // Config Update empfangen und an alle anderen im Raum senden
+    socket.on('update_pond_config', (data) => {
+        // data erwartet: { streamerId: '...', config: {...} }
+        if (data && data.streamerId && data.config) {
+            // Sende an alle im Raum 'streamer:ID' AUSSER dem Sender
+            socket.to(`streamer:${data.streamerId}`).emit('pond_config_update', data.config);
+            // console.log(`Config Update für ${data.streamerId} verteilt.`);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        // console.log('Socket Client getrennt:', socket.id);
+    });
+});
+
+
 // =================== START SERVER ===================
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () =>
-  console.log(`✅ Admin API läuft auf Port ${PORT}`)
+const PORT = process.env.PORT || 3000;
+
+// WICHTIG: server.listen statt app.listen!
+server.listen(PORT, () =>
+  console.log(`✅ Admin API & Socket.io laufen auf Port ${PORT}`)
 );

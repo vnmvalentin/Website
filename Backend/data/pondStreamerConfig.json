@@ -1,0 +1,39 @@
+{
+  "160224748": {
+    "waterSettings": {
+      "height": 5,
+      "opacity": 0.5,
+      "color": "#06b6d4",
+      "sharkEnabled": true,
+      "showBubbles": true,
+      "showDecorations": true,
+      "activeDecorations": [
+        "ship",
+        "rock_1",
+        "rock_2",
+        "seaweed_2",
+        "seaweed_1"
+      ],
+      "layoutSeed": 1769825696359,
+      "waveIntensity": 0,
+      "position": "top"
+    },
+    "excludedUsers": "nightbot,streamlabs,streamelements,moobot,wizebot,fossabot,soundalerts\n",
+    "fishRequirements": {
+      "goldfish": [
+        "sub"
+      ],
+      "clownfish": [
+        "all"
+      ],
+      "stripedfish": [
+        "sub"
+      ]
+    },
+    "updatedAt": 1769825870131,
+    "eventSettings": {
+      "hypeTrain": true,
+      "raid": true
+    }
+  }
+}
