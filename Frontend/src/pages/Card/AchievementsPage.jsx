@@ -2,6 +2,7 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { Link } from "react-router-dom";
+import SEO from "../../components/SEO";
 import { Trophy, CheckCircle, Lock, ChevronLeft, Gift, Star, Shield, Zap } from "lucide-react";
 
 // --- KONSTANTEN & LOGIK (Original) ---
@@ -191,6 +192,7 @@ export default function AchievementsPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
+      <SEO title = "Achievements Packs"/>
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8 border-b border-white/10 pb-6">

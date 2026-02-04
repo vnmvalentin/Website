@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import PollRenderer from "../../components/PollRenderer";
 import { ArrowLeft, Calendar, Clock, AlertCircle } from "lucide-react";
+import SEO from "../../components/SEO";
 
 export default function AbstimmungDetail() {
   const { id } = useParams();
@@ -39,7 +40,7 @@ export default function AbstimmungDetail() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 min-h-[85vh]">
-      
+      <SEO title = "Abstimmungen Detail"/>
       {/* Back Button */}
       <Link to="/Abstimmungen" className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 text-sm font-medium group">
          <div className="p-1.5 rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors"><ArrowLeft size={16} /></div>

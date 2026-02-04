@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
+import SEO from "../../components/SEO";
 import { Check, ChevronRight, Save, Trophy, AlertCircle, ChevronLeft } from "lucide-react";
 
 const SEASON = 2026;
@@ -142,7 +143,8 @@ export default function AwardsSubmitPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 min-h-[85vh] flex flex-col gap-6">
-      
+      <SEO title = "aVards"/>
+
       {/* Header Mobile / Tablet */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div>

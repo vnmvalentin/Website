@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import SEO from "../../components/SEO";
 import { BarChart3, Users, Clock, Trophy } from "lucide-react";
 
 const AWARDS_SEASON = 2026;
@@ -106,6 +107,7 @@ export default function AwardsAdminPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
+        <SEO title = "aVards Admin"/>
       
       {/* Header & Stats */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">

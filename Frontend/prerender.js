@@ -14,9 +14,6 @@ const routesToPrerender = [
   '/WinChallenge-Overlay',
   '/Bingo',
   '/Packs',
-  '/Abstimmungen',
-  '/Giveaways',
-  '/avards-2026',
   '/tutorial/ytm-songrequest'
 ];
 

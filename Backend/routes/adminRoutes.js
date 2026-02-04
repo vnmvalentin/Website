@@ -2,8 +2,6 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 
-// FIX: Nutze process.cwd(), damit die Dateien im Hauptverzeichnis gesucht werden
-// anstatt im Unterordner der Route.
 const ROOT_DIR = process.cwd();
 
 const PATHS = {
@@ -35,8 +33,16 @@ function saveJson(key, data) {
   }
 }
 
-module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID }) {
+// HIER: 'io' aus den Argumenten entpacken
+module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, io }) {
   const router = express.Router();
+
+  // Helper Funktion: Sendet Update-Signal an das Dashboard
+  const notifyUpdate = (types) => {
+      // Wir senden an den Raum "streamer:ID" (da ist das Dashboard drin)
+      // types kann z.B. ["codes", "stats"] sein
+      io.to(`streamer:${STREAMER_TWITCH_ID}`).emit("admin_data_changed", types);
+  };
 
   // Middleware: Auth Check
   router.use(requireAuth, (req, res, next) => {
@@ -48,33 +54,20 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID })
 
   // --- STATS OVERVIEW ---
   router.get("/stats", (req, res) => {
-      // Nutze überall die sichere loadJson Funktion
       const casino = loadJson("casino");
       const adventure = loadJson("adventure");
       const bingo = loadJson("bingo");
       const winchallenge = loadJson("winchallenge");
-      const promo = loadJson("promo"); // FIX: Nutze loadJson statt direktem fs.readFileSync (verhinder Absturz)
+      const promo = loadJson("promo");
 
-      // Berechnungen (sicherstellen, dass Werte existieren)
       const totalCredits = Object.values(casino).reduce((acc, u) => acc + (parseInt(u.credits) || 0), 0);
       const totalUsers = Object.keys(casino).length;
-      
       const advPlayers = Object.keys(adventure).length;
-      
       const activeBingoSessions = Object.values(bingo).length;
-      
       const activeChallenges = Object.values(winchallenge).length;
-      
       const activeCodes = Object.values(promo).length;
 
-      res.json({
-          totalCredits,
-          totalUsers,
-          advPlayers,
-          activeBingoSessions,
-          activeChallenges,
-          activeCodes
-      });
+      res.json({ totalCredits, totalUsers, advPlayers, activeBingoSessions, activeChallenges, activeCodes });
   });
 
   // --- GENERIC GETTER ---
@@ -90,32 +83,39 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID })
   // CASINO & ADVENTURE CREDITS UPDATE
   router.post("/update/user", (req, res) => {
     const { targetId, changes } = req.body; 
-    
     if (!targetId) return res.status(400).json({ error: "No ID" });
+
+    let updatedCasino = false;
+    let updatedAdventure = false;
 
     // Casino Data
     const casinoDb = loadJson("casino");
     if (!casinoDb[targetId]) casinoDb[targetId] = { credits: 0 };
-    
     if (changes.credits !== undefined) {
         casinoDb[targetId].credits = parseInt(changes.credits);
+        saveJson("casino", casinoDb);
+        updatedCasino = true;
     }
-    saveJson("casino", casinoDb);
 
     // Adventure Data
     const advDb = loadJson("adventure");
-    // Nur updaten wenn User im Adventure existiert oder spezifische Adventure-Werte geändert werden
     if (advDb[targetId] || changes.skins || changes.highScore) { 
-       if (!advDb[targetId]) advDb[targetId] = {}; // Erstelle User falls nötig
-
+       if (!advDb[targetId]) advDb[targetId] = {};
        if (changes.skins) advDb[targetId].skins = changes.skins;
        if (changes.powerups) advDb[targetId].powerups = changes.powerups;
        if (changes.unlockedSlots) advDb[targetId].unlockedSlots = parseInt(changes.unlockedSlots);
        if (changes.highScore) advDb[targetId].highScore = parseInt(changes.highScore);
+       saveJson("adventure", advDb);
+       updatedAdventure = true;
     }
-    saveJson("adventure", advDb);
 
     res.json({ success: true });
+
+    // SOCKET UPDATE TRIGGERN
+    const updates = ["stats"]; // Stats ändern sich immer bei Credits
+    if (updatedCasino) updates.push("casino");
+    if (updatedAdventure) updates.push("adventure");
+    notifyUpdate(updates);
   });
   
   // DELETE ROUTEN
@@ -125,6 +125,9 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID })
           delete db[req.params.targetId];
           saveJson("winchallenge", db);
           res.json({ success: true });
+          
+          // Notify
+          notifyUpdate(["winchallenge", "stats"]);
       } else {
           res.status(404).json({ error: "Not found" });
       }
@@ -136,18 +139,23 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID })
           delete db[req.params.sessionId];
           saveJson("bingo", db);
           res.json({ success: true });
+
+          // Notify
+          notifyUpdate(["bingo", "stats"]);
       } else {
           res.status(404).json({ error: "Not found" });
       }
   });
 
-  // PROMO DELETE (Fehlte im originalen Snippet, aber Dashboard ruft es auf)
   router.delete("/promo/:code", (req, res) => {
     const db = loadJson("promo");
     if (db[req.params.code]) {
         delete db[req.params.code];
         saveJson("promo", db);
         res.json({ success: true });
+
+        // Notify
+        notifyUpdate(["codes", "stats"]);
     } else {
         res.status(404).json({ error: "Not found" });
     }

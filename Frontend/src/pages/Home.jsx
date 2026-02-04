@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import SEO from "../components/SEO";
 
 // --- DATEN ---
 
@@ -216,6 +217,7 @@ export default function Home() {
 
   return (
     <div className="min-h-full w-full pb-20 pt-8 px-4 md:px-8">
+      <SEO title = "Home"/>
       {/* Container jetzt viel breiter: max-w-7xl statt max-w-4xl */}
       <div className="max-w-7xl mx-auto flex flex-col items-center gap-10">
         

@@ -15,6 +15,7 @@ import {
 
 const STREAMER_ID = "160224748"; // deine Twitch-ID
 const STREAMER_LOGIN = "vnmvalentin";
+import SEO from "../components/SEO";
 
 const REQUIREMENT_TEMPLATES = [
   {
@@ -439,6 +440,7 @@ export default function GiveawaysPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 min-h-[80vh]">
+        <SEO title = "Giveaways"/>
         
         {/* Header */}
         <div className="flex flex-col items-center mb-10">

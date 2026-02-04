@@ -2,6 +2,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { Link } from "react-router-dom";
+import SEO from "../../components/SEO";
 import Card from "../../components/Card";
 import { Search, Filter, Trash2, ChevronLeft, Layers, Trophy, Gift, LayoutGrid, AlertCircle } from "lucide-react";
 
@@ -136,6 +137,7 @@ export default function CardAlbumPage() {
 
   return (
     <div className="max-w-[1800px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
+      <SEO title = "Album"/>
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8 border-b border-white/10 pb-6">

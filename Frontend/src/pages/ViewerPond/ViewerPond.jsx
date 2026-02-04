@@ -16,6 +16,15 @@ const FISH_DEFS = {
   sharky: { img: "/assets/viewerpond/babyshark/babyshark.png", name: "Baby Hai" },
   dolphin: { img: "/assets/viewerpond/dolphin/dolphin.png", name: "Delphin" },
   whale: { img: "/assets/viewerpond/whale/whale.png", name: "Wal" },
+  starfish: { img: "/assets/viewerpond/starfish/starfish.png", name: "Seestern" },
+  seal: { img: "/assets/viewerpond/seal/seal.png", name: "Seehund" },
+  hammershark: { img: "/assets/viewerpond/hammershark/hammershark.png", name: "Hammerhai" },
+  rainbow: { img: "/assets/viewerpond/rainbow/rainbow.png", name: "Regenbogenfisch" },
+  schleier: { img: "/assets/viewerpond/schleier/schleier.png", name: "Schleierfisch" },
+  crab: { img: "/assets/viewerpond/crab/crab.png", name: "Krabbe" },
+  eel: { img: "/assets/viewerpond/eel/eel.png", name: "Aal" },
+  ray: { img: "/assets/viewerpond/ray/ray.png", name: "Rochen" },
+  orca: { img: "/assets/viewerpond/orca/orca.png", name: "Orca" },
 };
 
 const DECO_ASSETS = {
@@ -30,8 +39,14 @@ const IS_DEV = window.location.hostname === "localhost" || window.location.hostn
 const API_BASE = IS_DEV ? "http://localhost:5173" : ""; 
 
 const getSafeTargetY = (isTop) => {
-    if (isTop) { return Math.random() * 50 + 10; } 
-    else { return Math.random() * 45 + 40; }
+    if (isTop) {
+        // Oben: 10% bis 55% (etwas konservativer)
+        return Math.random() * 45 + 10; 
+    } else {
+        // Unten: War vorher bis 80%, jetzt max 70%
+        // Das verhindert, dass Fische unten abgeschnitten werden
+        return Math.random() * 40 + 25; 
+    }
 };
 
 function hexToRgba(hex, alpha = 1) {
@@ -178,10 +193,30 @@ const SharkEntity = ({ yPos, targetX, targetFish, onBite, onComplete, scale }) =
 
 const SwarmLayer = ({ active }) => {
     if (!active) return null;
-    const swarmFish = useMemo(() => Array.from({ length: 20 }).map((_, i) => ({ id: i, top: 10 + Math.random() * 80, delay: Math.random() * 2, speed: 3 + Math.random() * 2, size: 15 + Math.random() * 20 })), []);
+    const swarmFish = useMemo(() => Array.from({ length: 20 }).map((_, i) => ({ 
+        id: i, 
+        top: 10 + Math.random() * 60, // Auch hier etwas höher ziehen
+        delay: Math.random() * 2, 
+        speed: 3 + Math.random() * 2, 
+        size: 15 + Math.random() * 20 
+    })), []);
+    
     return (
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-            {swarmFish.map(f => (<img key={f.id} src="/assets/viewerpond/goldfish/goldfish.png" className="absolute" style={{ left: '-20%', top: `${f.top}%`, width: `${f.size}px`, transform: 'scaleX(-1)', animation: `swarm-pass ${f.speed}s linear forwards`, animationDelay: `${f.delay}s`, filter: 'brightness(0) blur(2px)', opacity: 0.3 }} />))}
+            {swarmFish.map(f => (
+                <img key={f.id} src="/assets/viewerpond/goldfish/goldfish.png" className="absolute" 
+                style={{ 
+                    left: '-20%', 
+                    top: `${f.top}%`, 
+                    width: `${f.size}px`, 
+                    transform: 'scaleX(-1)', 
+                    animation: `swarm-pass ${f.speed}s linear forwards`, 
+                    animationDelay: `${f.delay}s`, 
+                    // ÄNDERUNG: Weniger Blur, deutlich mehr Opacity, leicht bläulich statt tiefschwarz
+                    filter: 'brightness(0) drop-shadow(0 0 2px rgba(255,255,255,0.3))', 
+                    opacity: 0.7 
+                }} />
+            ))}
         </div>
     );
 };
@@ -325,35 +360,90 @@ export default function ViewerPond() {
         }
     };
 
+    // --- ÄNDERUNG 3: WebSocket mit Auto-Reconnect ---
     useEffect(() => {
-        const socket = new WebSocket("ws://127.0.0.1:8080/"); 
-        ws.current = socket;
-        socket.onopen = () => { 
-            console.log("🔌 WS Connected to Streamer.bot"); setWsConnected(true);
-            socket.send(JSON.stringify({ request: "Subscribe", id: "pond-sub", events: { "General": ["Custom"] } })); 
-            const trigger = () => { if (socket.readyState === 1) socket.send(JSON.stringify({ request: "GetActiveViewers", id: "pond-poll" })); }; 
-            trigger(); const poll = setInterval(trigger, 5000); socket.pollInterval = poll; 
-        };
-        socket.onclose = () => { console.log("🔌 WS Disconnected"); setWsConnected(false); if(socket.pollInterval) clearInterval(socket.pollInterval); };
+        let socket;
+        let pollInterval;
+        let reconnectTimeout;
 
-        socket.onmessage = (e) => { 
-            const d = JSON.parse(e.data); 
-            if (d.id === "pond-poll" && d.viewers) { handleActiveViewersResponse(d.viewers); }
-            if (d.event && d.event.type === "PondReload") { loadConfig(); }
-            if (d.data && d.event && d.event.source === "General" && d.event.type === "Custom") {
-                let payload = d.data; if (payload.data && typeof payload.data === 'string') { try { payload = JSON.parse(payload.data); } catch (err) { return; } }
-                if (payload.broadcasterId && realStreamerIdRef.current) { if (String(payload.broadcasterId) !== String(realStreamerIdRef.current)) return; }
-                const action = payload.action; 
-                if (action === "shark_attack") triggerManualShark(payload.target);
-                if (action === "fish_say") triggerFishSay(payload.user, payload.message);
-                if (action === "hypetrain_start" && configRef.current.eventSettings.hypeTrain) setIsHypetrain(true);
-                if (action === "hypetrain_end") setIsHypetrain(false);
-                if (action === "raid_swarm" && configRef.current.eventSettings.raid) { setIsRaid(true); setTimeout(() => setIsRaid(false), 8000); }
-                if (action === "kiss") triggerKiss(payload.source, payload.target);
-                if (action === "race") triggerRace(payload.source, payload.target);
-            }
+        const connect = () => {
+            // Falls bereits eine Verbindung besteht, nichts tun
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
+
+            console.log("🔄 Versuche Verbindung zu Streamer.bot...");
+            socket = new WebSocket("ws://127.0.0.1:8080/");
+            ws.current = socket;
+
+            socket.onopen = () => {
+                console.log("🔌 WS Connected to Streamer.bot");
+                setWsConnected(true);
+                
+                // Subscribe requests senden
+                socket.send(JSON.stringify({ request: "Subscribe", id: "pond-sub", events: { "General": ["Custom"] } }));
+                
+                // Viewer Polling starten
+                const trigger = () => { 
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ request: "GetActiveViewers", id: "pond-poll" })); 
+                    }
+                };
+                trigger();
+                pollInterval = setInterval(trigger, 5000);
+            };
+
+            socket.onclose = () => {
+                console.log("🔌 WS Disconnected - Versuche Reconnect in 3s...");
+                setWsConnected(false);
+                
+                // Intervalle aufräumen
+                if (pollInterval) clearInterval(pollInterval);
+                
+                // Automatisch neu verbinden nach 3 Sekunden
+                reconnectTimeout = setTimeout(connect, 3000);
+            };
+
+            socket.onerror = (err) => {
+                // Error wird meistens gefolgt von onclose, daher hier nur Loggen
+                console.log("WS Error", err);
+                socket.close(); // Erzwingt close -> triggert onclose -> triggert reconnect
+            };
+
+            socket.onmessage = (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    if (d.id === "pond-poll" && d.viewers) { handleActiveViewersResponse(d.viewers); }
+                    if (d.event && d.event.type === "PondReload") { loadConfig(); }
+                    if (d.data && d.event && d.event.source === "General" && d.event.type === "Custom") {
+                        let payload = d.data;
+                        if (payload.data && typeof payload.data === 'string') { try { payload = JSON.parse(payload.data); } catch (err) { return; } }
+                        
+                        if (payload.broadcasterId && realStreamerIdRef.current) {
+                            if (String(payload.broadcasterId) !== String(realStreamerIdRef.current)) return;
+                        }
+
+                        const action = payload.action;
+                        if (action === "shark_attack") triggerManualShark(payload.target);
+                        if (action === "fish_say") triggerFishSay(payload.user, payload.message);
+                        if (action === "hypetrain_start" && configRef.current.eventSettings.hypeTrain) setIsHypetrain(true);
+                        if (action === "hypetrain_end") setIsHypetrain(false);
+                        if (action === "raid_swarm" && configRef.current.eventSettings.raid) { setIsRaid(true); setTimeout(() => setIsRaid(false), 8000); }
+                        if (action === "kiss") triggerKiss(payload.source, payload.target);
+                        if (action === "race") triggerRace(payload.source, payload.target);
+                    }
+                } catch (err) {
+                    console.error("WS Message Error", err);
+                }
+            };
         };
-        return () => { if(socket.pollInterval) clearInterval(socket.pollInterval); socket.close(); };
+
+        // Erster Verbindungsversuch
+        connect();
+
+        return () => {
+            if (pollInterval) clearInterval(pollInterval);
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            if (socket) socket.close();
+        };
     }, [streamerId]);
     
     useEffect(() => { 
@@ -362,37 +452,63 @@ export default function ViewerPond() {
             const isDockedTop = currentSettings.position === "top";
 
             fishesRef.current.forEach(f => { 
-                // Sicherheitsnetz: Falls Koordinaten kaputt gehen (NaN), rette den Fisch
+                // 1. NaN Schutz
                 if (isNaN(f.x) || isNaN(f.y)) { f.x = 50; f.y = 50; }
 
-                // Wenn frozen oder im Rennen, hier nichts tun
-                if (f.isDropping || f.isLeaving || f.isDead || f.isFrozen || f.isRacing) return; 
+                // Wenn frozen (Event), nichts tun
+                if (f.isDropping || f.isLeaving || f.isDead || f.isFrozen || f.isRacing) {
+                    f.stuckCounter = 0; // Reset counter if busy properly
+                    return; 
+                }
                 
+                // --- NEU: STUCK DETECTION LOGIC ---
+                // Wir prüfen, ob sich die Position seit dem letzten Frame kaum verändert hat
+                const moveDelta = Math.abs(f.x - (f.lastX || f.x)) + Math.abs(f.y - (f.lastY || f.y));
+                f.lastX = f.x;
+                f.lastY = f.y;
+
+                if (moveDelta < 0.05 && !f.isMovingToEvent) {
+                    f.stuckCounter = (f.stuckCounter || 0) + 1;
+                } else {
+                    f.stuckCounter = 0;
+                }
+
+                // Wenn > 60 Frames (ca. 3 Sekunden) stuck: Respawn Target
+                if (f.stuckCounter > 60) {
+                    console.log(`🐟 Unstucking fish: ${f.username}`);
+                    f.targetX = Math.random() * 90;
+                    f.targetY = getSafeTargetY(isDockedTop);
+                    f.stuckCounter = 0;
+                    // Kleiner Nudge, damit er sofort loslegt
+                    f.x += (Math.random() > 0.5 ? 1 : -1);
+                }
+                // ----------------------------------
+
                 const dx = f.targetX - f.x, dy = f.targetY - f.y, dist = Math.sqrt(dx*dx + dy*dy); 
                 
-                // FIX: Toleranz erhöht (von 1 auf 4). Verhindert, dass Fische um das Ziel "zittern" und stecken bleiben.
                 if (dist < 4) { 
-                    // Wenn wir uns zum Event bewegen: Hier einrasten und warten
                     if (f.isMovingToEvent) {
                         f.x = f.targetX; 
                         f.y = f.targetY;
                         return; 
                     }
 
-                    // Normale Random AI: Neues Ziel suchen
                     f.targetX = Math.random() * 90; 
                     f.targetY = getSafeTargetY(isDockedTop);
                     f.direction = f.targetX > f.x ? 'right' : 'left'; 
                 } else { 
-                    // Bewegung
                     const moveSpeed = f.isMovingToEvent ? 2.0 : f.speed;
                     f.x += (dx/dist)*moveSpeed; 
                     f.y += (dy/dist)*moveSpeed; 
                 }
                 
-                // Boundaries (Wände)
-                if (isDockedTop) { f.y = Math.max(5, Math.min(65, f.y)); } 
-                else { f.y = Math.max(35, Math.min(90, f.y)); }
+                // GRENZEN: Hier härter begrenzen für Issue #1
+                if (isDockedTop) { 
+                    f.y = Math.max(5, Math.min(60, f.y)); // Max 60%
+                } else { 
+                    // Max 75% -> Damit bleibt unten ca. 25% Platz für Flossen/Namen
+                    f.y = Math.max(25, Math.min(75, f.y)); 
+                }
                 f.x = Math.max(2, Math.min(93, f.x));
             }); 
             setFishes([...fishesRef.current]); 

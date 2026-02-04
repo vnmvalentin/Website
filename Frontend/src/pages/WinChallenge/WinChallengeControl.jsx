@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { nanoid } from "nanoid";
+import SEO from "../../components/SEO";
 
 function msToClock(ms) {
   if (!ms || ms < 0) ms = 0;
@@ -198,6 +199,7 @@ export default function WinChallengeControl() {
       className="min-h-screen text-gray-100 flex justify-center p-4"
       style={{ background: "transparent" }}
     >
+      <SEO title = "Control"/>
       <div className="w-full max-w-xl bg-gray-900/80 rounded-2xl p-4 border border-gray-800 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold">WinChallenge Control</h1>

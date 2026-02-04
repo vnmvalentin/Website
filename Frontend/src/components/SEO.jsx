@@ -1,25 +1,26 @@
 import React from "react";
 
-// keywords als Prop hinzugefügt
 export default function SEO({ title, description, image, path, keywords }) {
   const siteTitle = "vnmvalentin";
   const fullTitle = title ? `${title} - ${siteTitle}` : siteTitle;
-  const domain = "https://vnmvalentin.de"; 
-  const url = `${domain}${path || ""}`;
+  const domain = "https://vnmvalentin.de";
+  
+  // Wichtig für den "Umleitungsfehler": Pfad muss sauber sein
+  const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : "";
+  const url = `${domain}${cleanPath}`;
 
   return (
     <>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
-      {/* Neue Zeile für Keywords */}
       {keywords && <meta name="keywords" content={keywords} />}
-      
       <link rel="canonical" href={url} />
 
-      {/* Open Graph / Social Media */}
+      {/* Open Graph */}
       <meta property="og:type" content="website" />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
+      <meta property="og:url" content={url} />
       {image && <meta property="og:image" content={image} />}
 
       {/* Twitter */}

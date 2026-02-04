@@ -96,16 +96,19 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
   const [bet, setBet] = useState(100);
   const [risk, setRisk] = useState('medium');
   const [rows, setRows] = useState(16);
-  const [ballsToDrop, setBallsToDrop] = useState(1);
+  const [ballsToDrop, setBallsToDrop] = useState(1); 
   const [visualBalance, setVisualBalance] = useState(currentCredits);
   
   const [activeBalls, setActiveBalls] = useState([]); 
   const [floatTexts, setFloatTexts] = useState([]);
   const [history, setHistory] = useState([]);
   const [lastHitBucketIndex, setLastHitBucketIndex] = useState(null);
+  
+  // Stats
   const [sessionStats, setSessionStats] = useState({ invested: 0, won: 0 });
-  const [isSpawning, setIsSpawning] = useState(false);
+  const [lastSessionResult, setLastSessionResult] = useState(null);
 
+  const [isSpawning, setIsSpawning] = useState(false);
   const [batchInfo, setBatchInfo] = useState({ total: 0, spawned: 0, finished: 0 });
 
   // 2. REFS
@@ -113,6 +116,9 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
   const stopSpawningRef = useRef(false);
   const gameBoardRef = useRef(null);
   const finalServerBalanceRef = useRef(null); 
+  
+  // Ref für den Reset-Timer
+  const resetTimerRef = useRef(null);
 
   // 3. USE EFFECTS
   useEffect(() => {
@@ -121,6 +127,13 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
           setVisualBalance(currentCredits);
       }
   }, [currentCredits, activeBalls.length, isSpawning]);
+
+  // Cleanup bei Unmount
+  useEffect(() => {
+      return () => {
+          if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+      };
+  }, []);
 
   const setVisualCredits = (val) => {
       setVisualBalance(val);
@@ -135,6 +148,12 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
           return;
       }
 
+      // 1. Reset-Timer sofort killen, damit er nicht dazwischenfunkt!
+      if (resetTimerRef.current) {
+          clearTimeout(resetTimerRef.current);
+          resetTimerRef.current = null;
+      }
+
       const count = parseInt(ballsToDrop) || 1;
       const totalCost = bet * count;
 
@@ -143,14 +162,23 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
           return;
       }
 
-      if (activeBalls.length === 0) setSessionStats({ invested: 0, won: 0 });
+      // 2. STATS LOGIK: Hard Overwrite oder Additiv?
+      if (activeBalls.length === 0) {
+          // NEUE RUNDE: Wir setzen die Werte hart. 
+          // Kein Reset auf 0 und dann Addieren, sondern direkt den Zielwert setzen.
+          setSessionStats({ invested: totalCost, won: 0 });
+          setLastSessionResult(null); // Altes Ergebnis sofort weg
+      } else {
+          // LÄUFT NOCH: Wir addieren einfach dazu (Spam Clicking)
+          setSessionStats(prev => ({ ...prev, invested: prev.invested + totalCost }));
+      }
 
       setBatchInfo({ total: count, spawned: 0, finished: 0 });
       setIsSpawning(true);
       stopSpawningRef.current = false;
 
+      // Visual: Geld sofort abziehen
       setVisualCredits(visualBalance - totalCost);
-      setSessionStats(prev => ({ ...prev, invested: prev.invested + totalCost }));
 
       try {
           const res = await fetch("/api/casino/play/plinko", {
@@ -190,7 +218,7 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
               setActiveBalls(prev => [...prev, newBall]);
               setBatchInfo(prev => ({ ...prev, spawned: i + 1 }));
 
-              await new Promise(r => setTimeout(r, 100));
+              await new Promise(r => setTimeout(r, 100)); // Delay zwischen Bällen
           }
 
       } catch (e) {
@@ -203,19 +231,7 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
   };
 
   const handleBallFinish = useCallback((ball) => {
-      setActiveBalls(prev => {
-          const newState = prev.filter(b => b.id !== ball.id);
-          if (newState.length === 0 && !stopSpawningRef.current) {
-              if (finalServerBalanceRef.current !== null) {
-                  setVisualCredits(finalServerBalanceRef.current);
-                  updateCredits(); 
-              }
-          }
-          return newState;
-      });
-      
-      setBatchInfo(prev => ({ ...prev, finished: prev.finished + 1 }));
-
+      // 1. Visuelles Feedback
       if (ball.winAmount > 0) {
           setVisualBalance(prev => prev + ball.winAmount);
           const newText = { id: Date.now(), x: ball.endX, amount: ball.winAmount };
@@ -223,15 +239,45 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
           setTimeout(() => setFloatTexts(prev => prev.filter(t => t.id !== newText.id)), 1000);
       }
       
-      setSessionStats(prev => ({ ...prev, won: prev.won + ball.winAmount }));
+      if(ball.winAmount > bet * 10) {
+           confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 }, colors: ['#fbbf24', '#ef4444'] });
+      }
+
       setHistory(prev => [ball.multiplier, ...prev].slice(0, 10));
       setLastHitBucketIndex(ball.bucketIndex);
       setTimeout(() => setLastHitBucketIndex(null), 150);
 
-      if(ball.winAmount > bet * 10) {
-           confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 }, colors: ['#fbbf24', '#ef4444'] });
-      }
-  }, [bet, updateCredits, onClientUpdate]); 
+      // 2. Active Balls & Session Management
+      setActiveBalls(prev => {
+          const newState = prev.filter(b => b.id !== ball.id);
+          
+          if (newState.length === 0 && !stopSpawningRef.current) {
+              // RUNDE ZU ENDE
+              
+              if (finalServerBalanceRef.current !== null) {
+                  setVisualCredits(finalServerBalanceRef.current);
+                  updateCredits(); 
+              }
+
+              // Ergebnis berechnen
+              const finalWon = sessionStats.won + ball.winAmount;
+              const finalProfit = finalWon - sessionStats.invested;
+              
+              // Ergebnis unten anzeigen
+              setLastSessionResult(finalProfit);
+
+              // 2 SEKUNDEN DELAY FÜR RESET
+              // Wir speichern die ID, damit handleBulkDrop sie löschen kann, falls user klickt
+              setSessionStats({ invested: 0, won: 0 });
+              
+          }
+          return newState;
+      });
+      
+      setBatchInfo(prev => ({ ...prev, finished: prev.finished + 1 }));
+      setSessionStats(prev => ({ ...prev, won: prev.won + ball.winAmount }));
+
+  }, [bet, updateCredits, onClientUpdate, sessionStats]); 
 
 
   // RENDER HELPERS
@@ -252,14 +298,24 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
 
   const currentMultipliers = MULTIPLIERS[rows][risk];
   const containerMinWidth = (rows + 2) * PIN_SPACING;
-  const profit = sessionStats.won - sessionStats.invested;
+  
+  // --- PROFIT BERECHNUNG ---
+  // Aktiv wenn Invest > 0 (auch wenn keine Bälle mehr da sind, aber der Timer noch läuft)
+  const isSessionActive = sessionStats.invested > 0;
+  
+  const safeBallCount = parseInt(ballsToDrop) || 0;
+  const currentTotalBet = bet * safeBallCount;
+  
+  const displayProfit = isSessionActive 
+    ? (sessionStats.won - sessionStats.invested) 
+    : -currentTotalBet;
+
   const remainingBalls = Math.max(0, batchInfo.total - batchInfo.finished);
-  const totalBetAmount = bet * (parseInt(ballsToDrop) || 1);
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start justify-center w-full max-w-7xl mx-auto py-8">
       
-      {/* --- CONTROLS --- */}
+      {/* --- LINKS: CONTROLS --- */}
       <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0 order-2 lg:order-1">
           
           <div className="bg-[#18181b] p-4 rounded-2xl border border-white/10 text-center shadow-lg">
@@ -269,23 +325,23 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
               </div>
           </div>
 
-          {/* LIVE STATS */}
-          {(sessionStats.invested > 0 || activeBalls.length > 0) && (
-              <div className="bg-[#18181b]/90 p-4 rounded-2xl border border-white/10 animate-in slide-in-from-left">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1 flex justify-between font-bold">
-                      <span>Profit</span>
-                      <span className="text-gray-500 font-normal">{remainingBalls} Bälle übrig</span>
-                  </div>
-                  <div className={`text-2xl font-mono font-black flex items-center gap-2 ${profit >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {profit >= 0 ? "+" : ""}{profit} <CoinIcon size="w-5 h-5" />
-                  </div>
+          {/* LIVE STATS (Sidebar) */}
+          <div className="bg-[#18181b]/90 p-4 rounded-2xl border border-white/10 transition-colors duration-300">
+              <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1 flex justify-between font-bold">
+                  <span>{isSessionActive ? "Session Profit" : "Einsatz Gesamt"}</span>
+                  {isSessionActive && remainingBalls > 0 && (
+                      <span className="text-gray-500 font-normal">{remainingBalls} left</span>
+                  )}
               </div>
-          )}
+              <div className={`text-2xl font-mono font-black flex items-center gap-2 ${displayProfit >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {displayProfit > 0 ? "+" : ""}{displayProfit} <CoinIcon size="w-5 h-5" />
+              </div>
+          </div>
 
           <div className="bg-[#18181b] p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col gap-6">
               {/* Einsatz */}
               <div>
-                <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Einsatz</label>
+                <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Einsatz pro Ball</label>
                 <div className="flex items-center bg-black/40 rounded-xl border border-white/10 mt-2 overflow-hidden px-1">
                     <input type="number" value={bet} onChange={e => setBet(Number(e.target.value))} disabled={isSpawning}
                         className="w-full bg-transparent p-3 font-mono font-bold text-white focus:outline-none" />
@@ -300,7 +356,16 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
 
               {/* ANZAHL BÄLLE */}
               <div>
-                <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Bälle</label>
+                <label className="text-xs text-gray-400 uppercase tracking-widest font-bold">Anzahl Bälle</label>
+                <div className="flex items-center bg-black/40 rounded-xl border border-white/10 mt-2 overflow-hidden px-1">
+                    <input 
+                        type="number" 
+                        value={ballsToDrop} 
+                        onChange={e => setBallsToDrop(Math.max(1, parseInt(e.target.value) || 0))} 
+                        disabled={isSpawning}
+                        className="w-full bg-transparent p-3 font-mono font-bold text-white focus:outline-none" 
+                    />
+                </div>
                 <div className="flex items-center gap-2 mt-2">
                     {[1, 10, 50, 100].map(opt => (
                         <button key={opt} onClick={() => setBallsToDrop(opt)} disabled={isSpawning}
@@ -333,7 +398,7 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
 
               <div className="w-full h-px bg-white/5 my-1"></div>
 
-              <button onClick={handleBulkDrop} disabled={!isSpawning && (bet * ballsToDrop) > visualBalance}
+              <button onClick={handleBulkDrop} disabled={!isSpawning && (bet * (parseInt(ballsToDrop) || 1)) > visualBalance}
                 className={`w-full py-4 font-black text-xl rounded-xl shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2 ${isSpawning ? "bg-red-600 hover:bg-red-500 text-white animate-pulse" : "bg-green-600 hover:bg-green-500 text-white shadow-green-900/20 disabled:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"}`}>
                   {isSpawning ? (
                       <>
@@ -348,38 +413,56 @@ export default function Plinko({ updateCredits, currentCredits, onClientUpdate }
           </div>
       </div>
 
-      {/* --- GAME BOARD --- */}
-      <div className="flex-1 w-full flex justify-center bg-[#0a0a0f] rounded-3xl border border-white/10 overflow-hidden relative min-h-[600px] shadow-2xl order-1 lg:order-2">
+      {/* --- RECHTS: GAME BOARD & RESULT BOX --- */}
+      <div className="flex-1 flex flex-col gap-6 order-1 lg:order-2 min-w-0">
           
-          {/* Header Overlay */}
-          <div className="absolute top-6 left-6 z-10 pointer-events-none">
-              <h2 className="text-2xl font-black text-white/10 tracking-widest uppercase">Plinko</h2>
-          </div>
-          
-          <div className="absolute top-6 right-6 z-10 flex gap-1 h-6 pointer-events-none">
-              {history.map((h, i) => (
-                  <div key={i} className={`px-2 rounded-md text-[10px] font-bold flex items-center shadow-lg ${getBucketColor(h).replace(/z-\d+/g,'')} text-white`}>{h}x</div>
-              ))}
+          {/* 1. DAS PLINKO BOARD */}
+          <div className="w-full flex justify-center bg-[#0a0a0f] rounded-3xl border border-white/10 overflow-hidden relative min-h-[600px] shadow-2xl">
+              
+              {/* Header Overlay */}
+              <div className="absolute top-6 left-6 z-10 pointer-events-none">
+                  <h2 className="text-2xl font-black text-white/10 tracking-widest uppercase">Plinko</h2>
+              </div>
+              
+              <div className="absolute top-6 right-6 z-10 flex gap-1 h-6 pointer-events-none">
+                  {history.map((h, i) => (
+                      <div key={i} className={`px-2 rounded-md text-[10px] font-bold flex items-center shadow-lg ${getBucketColor(h).replace(/z-\d+/g,'')} text-white`}>{h}x</div>
+                  ))}
+              </div>
+
+              <div className="relative mt-16 transition-all duration-300 ease-in-out" style={{ height: `${(rows + 2) * ROW_HEIGHT + 50}px`, width: `${containerMinWidth}px` }} ref={gameBoardRef}>
+                 {renderPins()}
+                 {activeBalls.map((ball) => (<PlinkoBall key={ball.id} path={ball.path} onFinish={() => handleBallFinish(ball)} />))}
+                 {floatTexts.map(ft => (<FloatText key={ft.id} x={ft.x} amount={ft.amount} />))}
+                 
+                 {/* Multiplier Buckets */}
+                 <div className="absolute left-0 right-0 flex justify-center items-end" style={{ top: `${(rows + 1) * ROW_HEIGHT - 5}px`, height: '40px', zIndex: 20 }}>
+                     {currentMultipliers.map((m, i) => {
+                         const isHit = lastHitBucketIndex === i;
+                         return (
+                            <div key={i} className={`flex items-center justify-center rounded-md font-bold text-[10px] sm:text-xs transition-all duration-100 ${getBucketColor(m)} text-white shadow-lg ${isHit ? "translate-y-1 brightness-150 scale-110 z-30" : ""}`}
+                                style={{ width: '30px', height: '36px', margin: '0 2px' }}>
+                                {m}x
+                            </div>
+                         );
+                     })}
+                 </div>
+              </div>
           </div>
 
-          <div className="relative mt-16 transition-all duration-300 ease-in-out" style={{ height: `${(rows + 2) * ROW_HEIGHT + 50}px`, width: `${containerMinWidth}px` }} ref={gameBoardRef}>
-             {renderPins()}
-             {activeBalls.map((ball) => (<PlinkoBall key={ball.id} path={ball.path} onFinish={() => handleBallFinish(ball)} />))}
-             {floatTexts.map(ft => (<FloatText key={ft.id} x={ft.x} amount={ft.amount} />))}
-             
-             {/* Multiplier Buckets */}
-             <div className="absolute left-0 right-0 flex justify-center items-end" style={{ top: `${(rows + 1) * ROW_HEIGHT - 5}px`, height: '40px', zIndex: 20 }}>
-                 {currentMultipliers.map((m, i) => {
-                     const isHit = lastHitBucketIndex === i;
-                     return (
-                        <div key={i} className={`flex items-center justify-center rounded-md font-bold text-[10px] sm:text-xs transition-all duration-100 ${getBucketColor(m)} text-white shadow-lg ${isHit ? "translate-y-1 brightness-150 scale-110 z-30" : ""}`}
-                            style={{ width: '30px', height: '36px', margin: '0 2px' }}>
-                            {m}x
-                        </div>
-                     );
-                 })}
+          {/* 2. ERGEBNIS FENSTER (UNTER DEM BOARD) */}
+          {lastSessionResult !== null && activeBalls.length === 0 && (
+             <div className="w-full bg-[#18181b] p-6 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between animate-in fade-in slide-in-from-top-4">
+                 <div className="flex flex-col">
+                    <span className="text-gray-400 font-bold uppercase tracking-widest text-xs mb-1">Letzte Runde</span>
+                    <span className="text-white/50 text-xs">Ergebnis aus {ballsToDrop} Bällen</span>
+                 </div>
+                 <div className={`text-3xl font-mono font-black flex items-center gap-2 ${lastSessionResult >= 0 ? "text-green-400" : "text-red-400"}`}>
+                     {lastSessionResult > 0 ? "+" : ""}{lastSessionResult} <CoinIcon size="w-7 h-7" />
+                 </div>
              </div>
-          </div>
+          )}
+
       </div>
     </div>
   );

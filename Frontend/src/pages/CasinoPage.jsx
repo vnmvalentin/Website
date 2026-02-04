@@ -13,6 +13,7 @@ import {
   Wallet,
   ArrowLeft
 } from "lucide-react";
+import SEO from "../components/SEO";
 
 import CoinIcon from "../components/CoinIcon";
 
@@ -171,6 +172,7 @@ export default function CasinoPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white pb-20">
+        <SEO title = "Casino"/>
       
       {/* --- HEADER --- */}
       <header className="flex flex-col md:flex-row justify-between items-center bg-[#18181b] p-6 rounded-3xl mb-8 border border-white/10 shadow-xl relative overflow-hidden">

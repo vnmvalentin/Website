@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { Plus, Trash2, Calendar, Clock, BarChart2, X, Check, Image as ImageIcon } from "lucide-react";
+import SEO from "../../components/SEO";
 
 const STREAMER_ID = "160224748";
 
@@ -319,7 +320,7 @@ export default function AbstimmungPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 min-h-[80vh]">
-      
+      <SEO title = "Abstimmungen"/>
       {/* Header Area */}
       <div className="flex flex-col items-center mb-10">
         <h1 className="text-4xl font-black tracking-tight mb-6">ABSTIMMUNGEN</h1>

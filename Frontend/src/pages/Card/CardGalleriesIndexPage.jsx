@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import Card from "../../components/Card";
+import SEO from "../../components/SEO";
 import { Search, Image, ExternalLink, Loader2, AlertCircle, ChevronLeft, Edit3, LogIn } from "lucide-react";
 
 export default function CardGalleriesIndexPage() {
@@ -49,6 +50,7 @@ export default function CardGalleriesIndexPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen">
+      <SEO title = "Galerien"/>
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8 border-b border-white/10 pb-6">

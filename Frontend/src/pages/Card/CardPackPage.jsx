@@ -15,6 +15,7 @@ import {
   Gift, 
   Gamepad2 
 } from "lucide-react";
+import SEO from "../../components/SEO";
 
 const PACK_ART_URL = "/cards/packs/pack.png";
 const DISCORD_URL = "https://discord.gg/V38GBSVNeh";
@@ -237,6 +238,7 @@ export default function CardPackPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
+      <SEO title = "Packs"/>
       
       {/* 2-Spalten Layout: Links Main Content, Rechts Sidebar Menü */}
       <div className="flex flex-col lg:flex-row gap-8 items-start">

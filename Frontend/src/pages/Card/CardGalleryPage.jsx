@@ -1,5 +1,6 @@
 // src/pages/CardGalleryPage.jsx
 import React, { useContext, useEffect, useMemo, useState } from "react";
+import SEO from "../../components/SEO";
 import { Link } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import Card from "../../components/Card";
@@ -245,6 +246,7 @@ export default function CardGalleryPage() {
 
   return (
     <div className="max-w-[1800px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
+      <SEO title = "Galerie"/>
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8 border-b border-white/10 pb-6">

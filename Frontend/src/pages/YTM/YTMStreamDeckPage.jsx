@@ -11,6 +11,7 @@ import {
   Keyboard,
   CheckCircle2
 } from "lucide-react";
+import SEO from "../../components/SEO";
 
 const STEPS = [
   { id: "requirements", label: "Voraussetzungen", icon: Download },
@@ -27,6 +28,7 @@ export default function YTMStreamDeckPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 min-h-[85vh] flex flex-col gap-6 text-white">
+        <SEO title = "YTM Stream Deck Buttons"/>
       
       <div className="mb-4">
         <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">

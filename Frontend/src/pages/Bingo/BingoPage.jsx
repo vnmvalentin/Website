@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { createSession, deleteSession, getMySessions, getThemes } from "../../utils/bingoApi";
 import { parseJoinKey } from "../../components/bingo/bingoUtils";
+import SEO from "../../components/SEO";
 
 export default function BingoPage() {
   const navigate = useNavigate();
@@ -84,6 +85,7 @@ export default function BingoPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12 text-white">
+      <SEO title = "Bingo"/>
       {/* Header Tabs */}
       <div className="flex flex-col items-center mb-10">
         <h1 className="text-4xl font-black tracking-tight mb-6">BINGO</h1>

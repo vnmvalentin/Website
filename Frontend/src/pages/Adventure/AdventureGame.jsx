@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useContext } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import GameEngine from "../../components/Adventure/AdventureEngine"; 
 import CoinIcon from "../../components/CoinIcon";
+import SEO from "../../components/SEO";
 
 export default function AdventureGame() {
   const { user } = useContext(TwitchAuthContext);
@@ -521,7 +522,7 @@ export default function AdventureGame() {
 
   return (
     <div ref={containerRef} className="relative w-full h-[calc(100vh-120px)] min-h-[500px] bg-black overflow-hidden rounded-xl shadow-2xl border border-white/10 select-none">
-
+        <SEO title = "Adventure"/>
         {/* NEU: LADESCREEN OVERLAY */}
         {isLoading && menuView !== 'MAIN' && (
             <div className="absolute inset-0 z-[100] bg-black flex flex-col items-center justify-center">

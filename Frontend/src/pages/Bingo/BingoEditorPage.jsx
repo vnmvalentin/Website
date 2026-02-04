@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import BingoGrid from "../../components/bingo/BingoGrid";
+import SEO from "../../components/SEO";
 import {
   getSession,
   getThemes,
@@ -299,6 +300,7 @@ export default function BingoEditorPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 text-white">
+        <SEO title = "Bingo Edit"/>
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-white/10">
         <div>

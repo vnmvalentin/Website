@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import { Star, MessageSquare, User, Calendar } from "lucide-react";
+import { io } from "socket.io-client"; // <--- IMPORT
+import SEO from "../components/SEO";
 
 // DEINE ID
 const STREAMER_ID = "160224748"; 
@@ -16,16 +18,15 @@ export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
   const [fetchLoading, setFetchLoading] = useState(false);
+  
+  // Ref für Socket, damit wir nicht bei jedem Render neu verbinden
+  const socketRef = useRef(null);
 
   // --- NEUE STATES FÜR CODES ---
   const [newCode, setNewCode] = useState({ 
-      code: "", 
-      type: "credits", 
-      value: 0, 
-      maxUses: 10, 
-      expiresAt: "" 
+      code: "", type: "credits", value: 0, maxUses: 10, expiresAt: "" 
   });
-  const [isUnlimited, setIsUnlimited] = useState(false); // Checkbox State
+  const [isUnlimited, setIsUnlimited] = useState(false);
 
   // --- SICHERHEITS-CHECK ---
   useEffect(() => {
@@ -35,22 +36,25 @@ export default function AdminDashboard() {
     }
   }, [user, isLoading, navigate]);
 
-  // Daten laden
+  // Daten laden Funktion
   const fetchData = async (type) => {
-      setFetchLoading(true);
+      // Kleiner Schutz: Nicht laden, wenn gerade schon geladen wird, außer es ist ein Refetch im Hintergrund
+      // Aber für Admin Dashboard ist es okay, kurz zu flackern oder setFetchLoading wegzulassen für Silent Updates.
+      // Wir lassen setFetchLoading hier für initiale Loads, aber könnten es optimieren.
+      
       try {
           let url = `/api/admin/data/${type}`;
           if (type === "codes") url = "/api/promo/list";
           if (type === "stats") url = "/api/admin/stats";
-          if (type === "feedback") url = "/api/feedback/ytm"; // <--- NEU
+          if (type === "feedback") url = "/api/feedback/ytm";
 
           const res = await fetch(url);
           const json = await res.json();
           setData(json);
       } catch(e) { console.error(e); }
-      setFetchLoading(false);
   };
 
+  // Initial Fetch bei Tab-Wechsel
   useEffect(() => {
       const keyMap = {
           "overview": "stats",
@@ -61,18 +65,68 @@ export default function AdminDashboard() {
           "codes": "codes",
           "feedback": "feedback"
       };
-      if (keyMap[activeTab]) fetchData(keyMap[activeTab]);
+      
+      if (keyMap[activeTab]) {
+          setFetchLoading(true);
+          fetchData(keyMap[activeTab]).then(() => setFetchLoading(false));
+      }
   }, [activeTab]);
 
-  // --- ACTIONS ---
+  // --- SOCKET IO INTEGRATION (NEU) ---
+  useEffect(() => {
+      // Verbindung aufbauen
+      socketRef.current = io("https://vnmvalentin.de", { // Oder deine URL dynamisch
+          path: "/socket.io",
+          withCredentials: true
+      });
+
+      const socket = socketRef.current;
+
+      socket.on("connect", () => {
+          // Wir treten dem Streamer-Raum bei, damit wir Events bekommen
+          socket.emit("join_room", `streamer:${STREAMER_ID}`);
+          console.log("Admin Socket connected");
+      });
+
+      // HIER KOMMT DAS UPDATE VOM SERVER
+      socket.on("admin_data_changed", (updatedTypes) => {
+          // updatedTypes ist z.B. ["codes", "stats"]
+          console.log("Update received:", updatedTypes);
+
+          // Mapping von Tab-Namen zu API-Typen
+           const keyMap = {
+              "overview": "stats",
+              "adventures": "adventure",
+              "casino": "casino",
+              "winchallenge": "winchallenge",
+              "bingo": "bingo",
+              "codes": "codes",
+              "feedback": "feedback"
+          };
+
+          const currentApiType = keyMap[activeTab];
+
+          // Wenn der aktuelle Tab von den Änderungen betroffen ist -> Silent Reload
+          if (updatedTypes.includes(currentApiType)) {
+              fetchData(currentApiType);
+          }
+      });
+
+      return () => {
+          socket.disconnect();
+      };
+  }, [activeTab]); // Dependency auf activeTab, damit der Listener den aktuellen Tab kennt (oder via Ref lösen)
+
+
+  // --- ACTIONS (Angepasst: Kein manuelles fetchData mehr nötig, da Socket triggert!) ---
+  // Aber: FetchData kann zur Sicherheit drin bleiben, falls Socket mal hängt.
+  // Ich lasse fetchData drin für sofortiges Feedback, Socket fängt dann Cross-Device Updates.
 
   const createCode = async () => {
-      // Wenn unbegrenzt ausgewählt ist, senden wir -1, sonst die Zahl
       const payload = {
           ...newCode,
           maxUses: isUnlimited ? -1 : parseInt(newCode.maxUses)
       };
-
       await fetch("/api/promo/create", {
           method: "POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify(payload)
@@ -80,12 +134,14 @@ export default function AdminDashboard() {
       // Reset Form
       setNewCode({ code: "", type: "credits", value: 0, maxUses: 10, expiresAt: "" });
       setIsUnlimited(false);
-      fetchData("codes");
+      // fetchData("codes"); // <-- Nicht mehr zwingend nötig, da Server Event sendet, aber schadet nicht für Latenz.
+      fetchData("codes"); 
   };
 
   const deleteCode = async (code) => {
       if(!window.confirm("Code löschen?")) return;
       await fetch(`/api/promo/${code}`, { method: "DELETE" });
+      // fetchData wird durch Socket getriggert
       fetchData("codes");
   };
 
@@ -94,27 +150,22 @@ export default function AdminDashboard() {
           method: "POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ targetId: id, changes })
       });
-      const keyMap = { "adventures": "adventure", "casino": "casino" };
-      fetchData(keyMap[activeTab]);
+      // fetchData wird durch Socket getriggert
   };
   
   const deleteItem = async (type, id) => {
       if(!window.confirm("Wirklich löschen?")) return;
       
       let url = `/api/admin/${type}/${id}`;
-      
-      // FIX: WinChallenge direkt über die winchallenge-Route löschen,
-      // damit der Cache sauber bleibt!
-      if (type === "winchallenge") {
-          url = `/api/winchallenge/${id}`;
-      }
+      if (type === "winchallenge") url = `/api/winchallenge/${id}`;
 
       await fetch(url, { method: "DELETE" });
       
-      // Kurz warten für Save
+      // Kleiner Timeout nicht mehr nötig, Server sendet wenn fertig
       setTimeout(() => {
-          fetchData(activeTab === "winchallenge" ? "winchallenge" : "bingo");
-      }, 500);
+          if(activeTab === "winchallenge") fetchData("winchallenge");
+          if(activeTab === "bingo") fetchData("bingo");
+      }, 200);
   };
 
   // --- RENDER HELPERS ---
@@ -430,10 +481,10 @@ export default function AdminDashboard() {
           return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                    {entries.map(([id, item]) => {
-                       // Logik für den Anzeigenamen (HIER IST DIE ÄNDERUNG)
+                       // Logik für den Anzeigenamen
                        let displayName = "Unknown";
                        
-                       // Fall 1: WinChallenge (neu - HostName existiert direkt)
+                       // Fall 1: WinChallenge (HostName existiert direkt)
                        if (item.hostName) displayName = item.hostName;
                        // Fall 2: Bingo (Host ist ein Objekt mit twitchLogin)
                        else if (item.host?.twitchLogin) displayName = item.host.twitchLogin;
@@ -448,9 +499,20 @@ export default function AdminDashboard() {
                                
                                <div className="text-xs text-gray-400 mb-3 flex items-center gap-2">
                                    <span className="uppercase font-bold text-gray-600">Host:</span>
-                                   <span className="text-purple-400 font-bold bg-purple-900/20 px-2 py-0.5 rounded">
+                                   
+                                   {/* --- HIER IST DIE ÄNDERUNG: LINK STATT SPAN --- */}
+                                   <a 
+                                       href={`https://twitch.tv/${displayName}`}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       className="text-purple-400 font-bold bg-purple-900/20 px-2 py-0.5 rounded hover:bg-purple-600 hover:text-white transition-colors cursor-pointer flex items-center gap-1"
+                                       title={`Gehe zu twitch.tv/${displayName}`}
+                                   >
                                        {displayName}
-                                   </span>
+                                       {/* Optional: Kleines Icon für externen Link */}
+                                       <span className="text-[10px] opacity-50">↗</span>
+                                   </a>
+                                   {/* --------------------------------------------- */}
                                </div>
 
                                <pre className="text-[10px] bg-black/50 p-2 rounded overflow-hidden text-gray-500 mb-4 font-mono select-all">
@@ -481,6 +543,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto p-6">
+        <SEO title = "Admin"/>
       <h1 className="text-3xl font-black italic mb-8">ADMIN DASHBOARD</h1>
       
       {/* TABS */}

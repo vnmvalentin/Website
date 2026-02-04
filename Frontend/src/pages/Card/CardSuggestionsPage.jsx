@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Sparkles
 } from "lucide-react";
+import SEO from "../../components/SEO";
 
 const CARD_TYPES = [
   "natur",
@@ -212,6 +213,7 @@ export default function CardSuggestionsPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
+      <SEO title = "Vorschläge Karten"/>
       
       {/* HEADER SECTION */}
       <div className="bg-[#18181b] rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl relative overflow-hidden mb-8">

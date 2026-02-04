@@ -317,7 +317,11 @@ export default function WinChallenge() {
 
   return (
     <div className="min-h-full w-full p-4 md:p-8 text-white">
-      <SEO title="WinChallenge" description="Challenges und Timer Overlay." path="WinChallenge" />
+      <SEO 
+        title="Win Challenge Overlay"
+        description="Win Challenge Overlay für OBS. Hohe Customization für Streamer." 
+        path="/WinChallenge-Overlay/"
+        keywords="Win Challenge Overlay, Win Challenge, OBS Overlay, Twitch, WinChallenge, Overlay" />
 
       {!user ? (
         <div className="flex h-[50vh] items-center justify-center">

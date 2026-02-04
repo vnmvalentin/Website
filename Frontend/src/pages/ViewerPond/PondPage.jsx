@@ -3,6 +3,7 @@ import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { useParams, useLocation } from "react-router-dom"; 
 // NEU: Socket Client
 import io from "socket.io-client";
+import SEO from "../../components/SEO";
 import { 
   Fish, Monitor, Save, MessageSquare, Flag, Heart, Play, Sparkles, Copy, Check, RefreshCw, Award, Waves, Droplets, UserX, Sliders, Lock, Search, Crown, Shield, Terminal, Server, Download, LayoutDashboard, ChevronDown, ChevronRight, Image as ImageIcon, Shuffle, Zap
 } from "lucide-react";
@@ -19,9 +20,19 @@ const FISH_TYPES = [
   { id: "seahorse", name: "Seepferdchen", img: "/assets/viewerpond/seahorse/seahorse.png" },
   { id: "jellyfish", name: "Qualle", img: "/assets/viewerpond/jellyfish/jellyfish.png" },
   { id: "turtle", name: "Schildkröte", img: "/assets/viewerpond/turtle/turtle.png" },
+  { id: "octopus", name: "Oktopus", img: "/assets/viewerpond/octopus/octopus.png" },
   { id: "sharky", name: "Baby Hai", img: "/assets/viewerpond/babyshark/babyshark.png" },
   { id: "dolphin", name: "Delphin", img: "/assets/viewerpond/dolphin/dolphin.png" },
   { id: "whale", name: "Wal", img: "/assets/viewerpond/whale/whale.png" },
+  { id: "starfish", name: "Seestern", img: "/assets/viewerpond/starfish/starfish.png" },
+  { id: "seal", name: "Seehund", img: "/assets/viewerpond/seal/seal.png" },
+  { id: "hammershark", name: "Hammerhai", img: "/assets/viewerpond/hammershark/hammershark.png" },
+  { id: "rainbow", name: "Regenbogenfisch", img: "/assets/viewerpond/rainbow/rainbow.png" },
+  { id: "schleier", name: "Schleierfisch", img: "/assets/viewerpond/schleier/schleier.png" },
+  { id: "crab", name: "Krabbe", img: "/assets/viewerpond/crab/crab.png" },
+  { id: "eel", name: "Aal", img: "/assets/viewerpond/eel/eel.png" },
+  { id: "ray", name: "Rochen", img: "/assets/viewerpond/ray/ray.png" },
+  { id: "orca", name: "Orca", img: "/assets/viewerpond/orca/orca.png" },
 ];
 
 // NEU: Command Liste
@@ -422,6 +433,7 @@ export default function PondPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen">
+        <SEO title = "Viewer Sea Overlay"/>
       <div className="bg-[#18181b] rounded-3xl p-6 md:p-8 border border-white/10 shadow-xl mb-8 relative overflow-hidden">
          <div className="absolute top-0 right-0 p-32 bg-cyan-500/10 blur-[100px] rounded-full pointer-events-none" />
          <div className="relative z-10"><h1 className="text-3xl font-black tracking-tight mb-2 flex items-center gap-3"><Waves className="text-cyan-400" /> Viewer Sea </h1><span>(Lasse deine Viewer als Fische im Stream schwimmen | ähnlich wie Stream Avatars)</span></div>
@@ -617,24 +629,6 @@ export default function PondPage() {
                             </div>
                         </div>
 
-                        {/* Step C: Commands Liste */}
-                        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                            <h4 className="text-sm font-bold text-white mb-3">Verfügbare Befehle (Vergiss nicht, diese im Reiter "Commands" zu aktivieren!)</h4>
-                            <div className="space-y-2 text-xs">
-                                <div className="flex gap-3 items-center">
-                                    <span className="font-mono text-cyan-300 bg-cyan-900/30 px-2 py-1 rounded">!shark [user]</span>
-                                    <span className="text-white/60">Lässt den Hai auf einen bestimmten User los.</span>
-                                </div>
-                                <div className="flex gap-3 items-center">
-                                    <span className="font-mono text-cyan-300 bg-cyan-900/30 px-2 py-1 rounded">!say [nachricht]</span>
-                                    <span className="text-white/60">Dein Fisch zeigt eine Sprechblase mit der Nachricht an.</span>
-                                </div>
-                                <div className="flex gap-3 items-center">
-                                    <span className="font-mono text-cyan-300 bg-cyan-900/30 px-2 py-1 rounded">!fish</span>
-                                    <span className="text-white/60">Postet den Link zur Auswahlseite im Chat.</span>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     {/* 2. OBS & Link Setup */}
