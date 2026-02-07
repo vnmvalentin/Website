@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import PollRenderer from "../../components/PollRenderer";
 import { ArrowLeft, Calendar, Clock, AlertCircle } from "lucide-react";
 import SEO from "../../components/SEO";
+import { socket } from "../../utils/socket";
 
 export default function AbstimmungDetail() {
   const { id } = useParams();
@@ -11,18 +12,37 @@ export default function AbstimmungDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`/api/polls/${id}`, { credentials: "include" });
-        if (!res.ok) throw new Error("Not found");
-        const data = await res.json();
-        setPoll(data || null);
-      } catch (e) {
-        setPoll(null);
-      } finally {
-        setLoading(false);
-      }
-    })();
+      setLoading(true); // Reset bei ID Wechsel
+
+      // 1. Fetch Initial
+      fetch(`/api/polls/${id}`)
+        .then(r => {
+            if (!r.ok) throw new Error("Poll not found");
+            return r.json();
+        })
+        .then(data => {
+            setPoll(data);
+            setLoading(false); // <--- WICHTIG: Loading beenden!
+        })
+        .catch(() => {
+            setPoll(null);
+            setLoading(false); // <--- WICHTIG: Auch bei Fehler beenden!
+        });
+
+      // 2. Listen for Updates
+      const handleUpdate = (allPolls) => {
+          const updatedMe = allPolls.find(p => String(p.id) === String(id));
+          // Wenn der Poll gelöscht wurde (nicht mehr in der Liste), setzen wir ihn auf null
+          if (updatedMe) {
+              setPoll(updatedMe); 
+          } else {
+             // Optional: Wenn er plötzlich weg ist (gelöscht), könntest du hier reloaden oder null setzen
+             // setPoll(null); 
+          }
+      };
+
+      socket.on("polls_update", handleUpdate);
+      return () => socket.off("polls_update", handleUpdate);
   }, [id]);
 
   if (loading) return <div className="p-20 text-center text-white/30 animate-pulse">Lade Abstimmung...</div>;

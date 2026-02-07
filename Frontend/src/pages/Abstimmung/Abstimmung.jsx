@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { Plus, Trash2, Calendar, Clock, BarChart2, X, Check, Image as ImageIcon } from "lucide-react";
 import SEO from "../../components/SEO";
+import { socket } from "../../utils/socket";
 
 const STREAMER_ID = "160224748";
 
@@ -260,10 +261,20 @@ export default function AbstimmungPage() {
 
   // Load Polls
   useEffect(() => {
+    // Initial laden
     fetch("/api/polls", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => setPolls(Array.isArray(data) ? data : []))
-      .catch((err) => console.error("Fehler beim Laden der Polls:", err));
+      .then(r => r.json())
+      .then(d => setPolls(d));
+
+    // Live Updates
+    const handleUpdate = (updatedList) => {
+        if(Array.isArray(updatedList)) {
+            setPolls(updatedList);
+        }
+    };
+
+    socket.on("polls_update", handleUpdate);
+    return () => socket.off("polls_update", handleUpdate);
   }, []);
 
   const refreshPolls = async () => {
@@ -286,9 +297,6 @@ export default function AbstimmungPage() {
       });
 
       if (!res.ok) throw new Error("Failed to create");
-      
-      const created = await res.json();
-      setPolls(prev => [...prev, created]);
       setShowModal(false);
     } catch (err) {
       alert("Fehler beim Erstellen.");
@@ -299,7 +307,6 @@ export default function AbstimmungPage() {
     if (!window.confirm("Wirklich löschen?")) return;
     try {
       await fetch(`/api/polls/${id}`, { method: "DELETE", credentials: "include" });
-      setPolls(s => s.filter(p => p.id !== id));
     } catch (e) {
       alert("Fehler beim Löschen.");
     }

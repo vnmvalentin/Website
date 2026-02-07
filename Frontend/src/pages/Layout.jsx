@@ -3,11 +3,12 @@ import React, { useEffect, useState, useContext, useRef } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import { NEWS_UPDATES } from "../utils/newData"; 
+import { socket } from "../utils/socket";
 
 const STREAMER_ID = "160224748";
 const TWITCH_URL = "https://twitch.tv/vnmvalentin";
 
-// Icons für die Sektionen (Optional, sieht aber gut aus)
+// Icons
 const NAV_ICONS = {
     About: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -46,6 +47,7 @@ const navItems = [
       { label: "Abstimmungen", to: "/Abstimmungen" },
       { label: "Giveaways", to: "/Giveaways" },
       { label: "The aVards 2026", to: "/avards-2026" },
+      { label: "Perk Shop", to: "/shop" },
     ],
   },
   {
@@ -63,7 +65,7 @@ const navItems = [
     links: [
       { label: "Discord", href: "https://discord.gg/ecRJSx2R6x" },
       { label: "Instagram", href: "https://instagram.com/vnmvalentin" },
-      { label: "Feedback", to: "#feedback" }, // NEU: Trigger für Modal
+      { label: "Feedback", to: "#feedback" },
     ],
   },
 ];
@@ -79,8 +81,10 @@ export default function Layout() {
   const { user, login, logout } = useContext(TwitchAuthContext);
   const isAdmin = !!user && String(user.id) === STREAMER_ID;
 
-  const [hasActiveGiveaway, setHasActiveGiveaway] = useState(false);
-  const [hasActiveAbstimmung, setHasActiveAbstimmung] = useState(false);
+  // Umbenannt zu "actionable", damit klar ist: Hier muss man noch was tun
+  const [hasActionableGiveaway, setHasActionableGiveaway] = useState(false);
+  const [hasActionableAbstimmung, setHasActionableAbstimmung] = useState(false);
+  
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
   
@@ -94,6 +98,60 @@ export default function Layout() {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("idle");
+
+
+  // --- SOCKET LISTENERS ---
+  useEffect(() => {
+    // 1. Initial einmal abrufen, falls man die Seite neu lädt
+    const fetchInitial = async () => {
+        try {
+            const [resG, resP] = await Promise.all([
+                fetch("/api/giveaways"),
+                fetch("/api/polls")
+            ]);
+            // Fehler abfangen, falls JSON invalid
+            if (resG.ok && resP.ok) {
+                const gData = await resG.json();
+                const pData = await resP.json();
+                checkGiveaways(gData);
+                checkPolls(pData);
+            }
+        } catch(e) { console.error("Initial check failed", e); }
+    };
+    fetchInitial();
+
+    // 2. Helper Funktionen (Logik wann der Punkt leuchtet)
+    const checkGiveaways = (data) => {
+        const activeList = data?.active || [];
+        const needsAction = activeList.some(g => {
+             if (!user) return true; 
+             const participants = g.participants || {};
+             return !participants[user.id]; 
+        });
+        setHasActionableGiveaway(needsAction);
+    };
+
+    const checkPolls = (data) => {
+        const polls = Array.isArray(data) ? data : data?.polls || [];
+        const activePolls = polls.filter(p => new Date(p.endDate).getTime() > Date.now());
+        const needsAction = activePolls.some(p => {
+             if (!user) return true;
+             const votes = p.votes || {};
+             return !votes[user.id];
+        });
+        setHasActionableAbstimmung(needsAction);
+    };
+
+    // 3. Socket Events abonnieren (Das ersetzt das Polling!)
+    socket.on("giveaways_update", checkGiveaways);
+    socket.on("polls_update", checkPolls);
+
+    return () => {
+        socket.off("giveaways_update", checkGiveaways);
+        socket.off("polls_update", checkPolls);
+    };
+  }, [user]);
+
 
   // --- NEWS LOGIC ---
   useEffect(() => {
@@ -124,26 +182,6 @@ export default function Layout() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- POLLING LOGIC ---
-  useEffect(() => {
-    const controller = new AbortController();
-    const refresh = async () => {
-      try {
-         const res = await fetch(ACTIVE_STATUS_ENDPOINTS.giveaways, { signal: controller.signal });
-         if (res.ok) { const data = await res.json(); setHasActiveGiveaway(data?.active?.length > 0); }
-      } catch {}
-      try {
-         const res = await fetch(ACTIVE_STATUS_ENDPOINTS.polls, { signal: controller.signal });
-         if (res.ok) { const data = await res.json(); 
-             const polls = Array.isArray(data) ? data : data?.polls || [];
-             setHasActiveAbstimmung(polls.some(p => new Date(p.endDate).getTime() > Date.now())); 
-         }
-      } catch {}
-    };
-    refresh();
-    const interval = setInterval(refresh, 30000);
-    return () => { clearInterval(interval); controller.abort(); };
-  }, []);
 
   const handleRedeem = async () => {
     try {
@@ -170,6 +208,12 @@ export default function Layout() {
       {navItems.map((section) => {
         const isOpen = openSection === section.label;
         
+        // Prüfen, ob für diese Hauptsektion ein Punkt angezeigt werden muss
+        const isSectionActive = section.links.some(link => 
+            (link.label === "Giveaways" && hasActionableGiveaway) ||
+            (link.label === "Abstimmungen" && hasActionableAbstimmung)
+        );
+
         return (
             <div key={section.label} className="group relative">
             <button
@@ -193,6 +237,14 @@ export default function Layout() {
                     <span className={`text-base font-bold tracking-wide uppercase bg-clip-text text-transparent bg-gradient-to-r ${isOpen ? "from-cyan-400 to-fuchsia-400" : "from-gray-200 to-gray-400"} drop-shadow-sm`}>
                         {section.label}
                     </span>
+
+                    {/* HAUPTKATEGORIE PUNKT */}
+                    {isSectionActive && (
+                        <span className="flex h-2.5 w-2.5 relative ml-1">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500 shadow-[0_0_10px_#22d3ee]"></span>
+                        </span>
+                    )}
                 </div>
 
                 <span className={`relative z-10 text-cyan-400 transition-transform duration-300 ${isOpen ? "rotate-180" : "rotate-0"}`}>
@@ -209,13 +261,13 @@ export default function Layout() {
                 <div className="pl-2 space-y-2 pb-2">
                 {section.links.map((link) => {
                     const isExternal = !!link.href;
-                    // NEU: Feedback Check
                     const isFeedback = link.to === "#feedback";
                     const isActive = !isExternal && !isFeedback && location.pathname === link.to;
 
+                    // Hier prüfen wir auf die "Actionable" States
                     const showDot =
-                    (link.label === "Giveaways" && hasActiveGiveaway) ||
-                    (link.label === "Abstimmungen" && hasActiveAbstimmung);
+                    (link.label === "Giveaways" && hasActionableGiveaway) ||
+                    (link.label === "Abstimmungen" && hasActionableAbstimmung);
 
                     const classes = `
                         block w-full text-left rounded-xl border-l-2 pl-4 py-3 pr-4 text-sm font-medium transition-all relative overflow-hidden
@@ -237,7 +289,7 @@ export default function Layout() {
                     }
 
                     if (isFeedback) {
-                        return (
+                         return (
                              <button 
                                 key={link.label} 
                                 onClick={() => { setFeedbackModalOpen(true); if(compact) setMobileNavOpen(false); }} 
@@ -253,6 +305,7 @@ export default function Layout() {
                     return (
                     <Link key={link.label} to={link.to} onClick={() => { if(compact) setMobileNavOpen(false); }} className={classes}>
                             <span className="relative z-10">{link.label}</span>
+                            {/* UNTERMENÜ PUNKT */}
                             {showDot && (
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
                             )}
@@ -506,7 +559,7 @@ export default function Layout() {
               </div>
           )}
 
-          {/* FEEDBACK MODAL (NEU) */}
+          {/* FEEDBACK MODAL */}
           {feedbackModalOpen && (
              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
                 <div className="bg-[#121216] border border-cyan-500/20 rounded-2xl p-8 w-full max-w-lg shadow-2xl relative flex flex-col gap-4">
@@ -550,11 +603,9 @@ export default function Layout() {
                                     if (feedbackText.trim().length < 5) return;
                                     setFeedbackStatus("sending");
                                     try {
-                                        // HIER DIE NEUE ROUTE VERWENDEN:
                                         const res = await fetch("/api/feedback/main", {
                                             method: "POST",
                                             headers: { "Content-Type": "application/json" },
-                                            // USERNAME MITSENDEN:
                                             body: JSON.stringify({ message: feedbackText, user: user.displayName })
                                         });
                                         if (res.ok) setFeedbackStatus("success");

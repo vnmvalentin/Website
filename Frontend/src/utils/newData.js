@@ -1,5 +1,25 @@
 export const NEWS_UPDATES = [
   {
+    date: "07.02.2026",
+    version: "v2.2: Neuer Perk Shop",
+    sections: [
+      {
+        title: "Perk Shop",
+        items: [
+          "Kaufe Perks mit Casino Coins für den Stream",
+          "Erreichbar unter dem Community-Tab oder vnmvalentin.de/shop",
+          "Inventar zeigt an welche Perks man hat und einlösen per Commands"
+        ]
+      },
+      {
+        title: "Allgemein",
+        items: [
+          "Kleine UI Changes für aktive Abstimmungen und Giveaways"
+        ]
+      },
+    ]
+  },
+  {
     date: "31.01.2026",
     version: "v2.1: Neues Stream Tool",
     sections: [

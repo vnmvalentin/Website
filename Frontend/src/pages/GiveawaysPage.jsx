@@ -12,6 +12,7 @@ import {
   Clock, 
   AlertCircle 
 } from "lucide-react";
+import { socket } from "../utils/socket";
 
 const STREAMER_ID = "160224748"; // deine Twitch-ID
 const STREAMER_LOGIN = "vnmvalentin";
@@ -325,6 +326,22 @@ export default function GiveawaysPage() {
     }
   };
 
+  useEffect(() => {
+      // Initial
+      fetch("/api/giveaways", { credentials: "include" })
+        .then(r => r.json())
+        .then(setData);
+
+      // Live Listener
+      const handleUpdate = (newData) => {
+          // newData hat schon die Struktur { active: [], expired: [] } vom Server
+          setData(newData);
+      };
+
+      socket.on("giveaways_update", handleUpdate);
+      return () => socket.off("giveaways_update", handleUpdate);
+  }, []);
+
   useEffect(() => { refresh(); }, []);
 
   // Twitch Follow Check
@@ -382,7 +399,6 @@ export default function GiveawaysPage() {
         });
         if (!res.ok) throw new Error("Fehler");
         setShowModal(false);
-        refresh();
       } catch (e) {
           alert("Fehler beim Erstellen.");
       }
@@ -391,7 +407,6 @@ export default function GiveawaysPage() {
   const handleDelete = async (id) => {
       if(!window.confirm("Löschen?")) return;
       await fetch(`/api/giveaways/${id}`, { method: "DELETE", credentials: "include" });
-      refresh();
   };
 
   const checkRequirement = (r) => {
@@ -426,7 +441,6 @@ export default function GiveawaysPage() {
               body
           });
           if(!res.ok) throw new Error("Fehler");
-          refresh();
       } catch (e) {
           alert("Aktion fehlgeschlagen.");
       }

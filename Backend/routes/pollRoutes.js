@@ -1,148 +1,100 @@
+// routes/pollRoutes.js
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
 
 const POLLS_FILE = path.join(__dirname, "../data/polls.json");
 
-// ================ HELPER ==============
-
 function loadPolls() {
   try {
     if (!fs.existsSync(POLLS_FILE)) return [];
     const data = fs.readFileSync(POLLS_FILE, "utf-8");
-    if (!data.trim()) return [];
-    const parsed = JSON.parse(data);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.error("❌ Fehler beim Laden der Polls:", err);
-    return [];
-  }
+    return JSON.parse(data) || [];
+  } catch (err) { return []; }
 }
 
 function savePolls(polls) {
-  try {
-    fs.writeFileSync(POLLS_FILE, JSON.stringify(polls, null, 2), "utf-8");
-  } catch (err) {
-    console.error("❌ Fehler beim Speichern der Polls:", err);
-  }
+  try { fs.writeFileSync(POLLS_FILE, JSON.stringify(polls, null, 2), "utf-8"); } catch (e) {}
 }
 
-// ---------------- ROUTER FACTORY ----------------
-//
-// Hinweis: In deinem index.js wird dieser Router auf "/" gemountet,
-// deshalb bleiben die Pfade /api/polls/* unverändert.
-module.exports = function createPollRouter({
-  requireAuth: requireAuthIn,
-  STREAMER_TWITCH_ID: STREAMER_TWITCH_ID_IN,
-} = {}) {
+// Helper: Liste laden und via Socket senden
+const broadcastPolls = (io) => {
+    if (!io) return;
+    const polls = loadPolls();
+    io.emit("polls_update", polls); // Sende an ALLE verbundenen Clients
+};
+
+module.exports = function createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }) {
   const router = express.Router();
+  
+  // Auth Middleware (wie gehabt)
+  const checkAuth = requireAuth || ((_req, res, next) => next()); 
+  const isStreamer = (req) => String(req.twitchId) === String(STREAMER_TWITCH_ID);
 
-  const requireAuth =
-    requireAuthIn ||
-    function requireAuthFallback(_req, res) {
-      return res.status(401).json({ error: "Unauthorized" });
-    };
+  // GET
+  router.get("/api/polls", (req, res) => res.json(loadPolls()));
 
-  const STREAMER_TWITCH_ID =
-    STREAMER_TWITCH_ID_IN || process.env.STREAMER_TWITCH_ID || "";
-
-  const isStreamer = (req) => {
-    const authId = String(req.twitchId || "");
-    return !!STREAMER_TWITCH_ID && authId === String(STREAMER_TWITCH_ID);
-  };
-
-  // Alle Polls
-  router.get("/api/polls", (_req, res) => {
-    res.json(loadPolls());
-  });
-
-  // Einzelnen Poll
+  // GET SINGLE
   router.get("/api/polls/:id", (req, res) => {
-    const pollId = Number(req.params.id);
-    const polls = loadPolls();
-    const poll = polls.find((p) => Number(p.id) === pollId);
-    if (!poll) return res.status(404).json({ error: "Poll nicht gefunden" });
-    res.json(poll);
+    const p = loadPolls().find(x => x.id === Number(req.params.id));
+    p ? res.json(p) : res.status(404).json({ error: "Not found" });
   });
 
-  // Poll erstellen (nur Streamer)
-  router.post("/api/polls", requireAuth, (req, res) => {
-    if (!isStreamer(req)) {
-      return res.status(403).json({ error: "Nur der Streamer darf Abstimmungen erstellen." });
-    }
-
-    const { title, background, endDate, questions } = req.body || {};
-    if (!title || !endDate) {
-      return res.status(400).json({ error: "Titel und Enddatum erforderlich" });
-    }
-
+  // CREATE
+  router.post("/api/polls", checkAuth, (req, res) => {
+    if (!isStreamer(req)) return res.status(403).json({ error: "Forbidden" });
+    
     const polls = loadPolls();
-
     const newPoll = {
-      id: Date.now(), // bewusst so gelassen (Frontend nutzt das auch)
-      title: String(title).trim(),
-      background: background ? String(background).trim() : "",
-      endDate,
-      questions: Array.isArray(questions) ? questions : [],
+      id: Date.now(),
+      title: req.body.title,
+      background: req.body.background || "",
+      endDate: req.body.endDate,
+      questions: req.body.questions || [],
       votes: {},
       createdAt: Date.now(),
-      createdBy: String(req.twitchId),
+      createdBy: req.twitchId
     };
-
+    
     polls.push(newPoll);
     savePolls(polls);
+    
+    broadcastPolls(io); // <--- LIVE UPDATE
     res.status(201).json(newPoll);
   });
 
-  // Abstimmen (nur eingeloggte User; ein User nur einmal)
-  router.put("/api/polls/:id", (req, res) => {
-    try {
-      const polls = loadPolls();
-
-      const pollId = parseInt(req.params.id, 10);
-      const index = polls.findIndex((p) => p.id === pollId);
-
-      if (index === -1) {
-        return res.status(404).json({ error: "Poll nicht gefunden" });
-      }
-
-      const currentPoll = polls[index];
-      const { votes, replace } = req.body; // 👈 NEU
-
-      const userIds = Object.keys(votes || {});
-      if (userIds.length === 0) {
-        return res.status(400).json({ error: "Keine User-ID übergeben" });
-      }
-
-      const userId = userIds[0];
-      const userVote = votes[userId];
-
-      if (!userVote) {
-        return res.status(400).json({ error: "Keine Antwort übergeben" });
-      }
-
-      // 👇 nur blocken, wenn NICHT replace=true
-      if (currentPoll.votes && currentPoll.votes[userId] && !replace) {
-        return res.status(400).json({ error: "User hat bereits abgestimmt" });
-      }
-
-      // 👇 bei replace überschreiben wir einfach den Wert
-      currentPoll.votes = { ...(currentPoll.votes || {}), [userId]: userVote };
-
-      polls[index] = currentPoll;
-      savePolls(polls);
-
-      return res.json(currentPoll);
-    } catch (err) {
-      console.error("❌ Fehler beim Aktualisieren der Abstimmung:", err);
-      res.status(500).json({ error: "Fehler beim Speichern der Stimme" });
+  // DELETE
+  router.delete("/api/polls/:id", checkAuth, (req, res) => {
+    if (!isStreamer(req)) return res.status(403).json({ error: "Forbidden" });
+    
+    let polls = loadPolls();
+    const initLen = polls.length;
+    polls = polls.filter(p => p.id !== Number(req.params.id));
+    
+    if (polls.length !== initLen) {
+        savePolls(polls);
+        broadcastPolls(io); // <--- LIVE UPDATE
     }
+    res.json({ ok: true });
+  });
+
+  // VOTE (PUT)
+  router.put("/api/polls/:id", (req, res) => {
+    const polls = loadPolls();
+    const idx = polls.findIndex(p => p.id === Number(req.params.id));
+    if (idx === -1) return res.status(404).json({ error: "Not found" });
+
+    const { votes } = req.body; // { "userid": "vote" }
+    const userId = Object.keys(votes)[0];
+    
+    // Simpler Vote Merge
+    polls[idx].votes = { ...polls[idx].votes, [userId]: votes[userId] };
+    
+    savePolls(polls);
+    broadcastPolls(io); // <--- LIVE UPDATE
+    
+    res.json(polls[idx]);
   });
 
   return router;
 };
-
-// optional: helpers exportierbar lassen
-module.exports.loadPolls = loadPolls;
-module.exports.savePolls = savePolls;
-module.exports.POLLS_FILE = POLLS_FILE;

@@ -26,6 +26,7 @@ const createAdminRouter = require("./routes/adminRoutes");
 const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
 const createPondRouter = require("./routes/pondRoutes");
+const createPerkRouter = require("./routes/perkRoutes");
 
 const app = express();
 
@@ -157,15 +158,16 @@ app.use("/api/admin", createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, io })
 // Andere Routen
 app.use("/api/bingo", createBingoRouter({ requireAuth }));
 app.use("/api/awards", createAwardsRouter({ requireAuth, STREAMER_TWITCH_ID }));
-app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID }));
+app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
 app.use("/api/", createPackRouter({ requireAuth, ADMIN_PW, STREAMER_TWITCH_ID }));
-app.use("/", createPollRouter({ requireAuth, STREAMER_TWITCH_ID }));
+app.use("/", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/casino", createCasinoRouter({ requireAuth }));
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
 app.use("/api/pond", createPondRouter({ requireAuth }));
+app.use("/api/perks", createPerkRouter({ requireAuth, io }));
 
 
 // =================== SOCKET.IO LOGIC ===================

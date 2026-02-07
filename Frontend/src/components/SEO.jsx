@@ -5,9 +5,15 @@ export default function SEO({ title, description, image, path, keywords }) {
   const fullTitle = title ? `${title} - ${siteTitle}` : siteTitle;
   const domain = "https://vnmvalentin.de";
   
-  // Wichtig für den "Umleitungsfehler": Pfad muss sauber sein
+  
+  // In SEO.jsx ändern:
   const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : "";
-  const url = `${domain}${cleanPath}`;
+  // Sicherstellen, dass KEIN Slash am Ende steht (außer bei der Root)
+  const finalPath = (cleanPath.endsWith('/') && cleanPath.length > 1) 
+      ? cleanPath.slice(0, -1) 
+      : cleanPath;
+
+  const url = `${domain}${finalPath}`;
 
   return (
     <>

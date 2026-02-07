@@ -38,6 +38,8 @@ import YTMStreamDeckPage from "./pages/YTM/YTMStreamDeckPage";
 import ViewerPond from "./pages/ViewerPond/Viewerpond";
 import PondPage from "./pages/ViewerPond/PondPage";
 
+import PerkShopPage from "./pages/PerkShopPage";
+
 
 export default function App() {
   return (
@@ -80,6 +82,8 @@ export default function App() {
           <Route path="/pond" element={<PondPage />} />
           <Route path="/pond/fish/:streamerName" element={<PondPage />} />
           <Route path="/pond/commands" element={<PondPage />} />
+          <Route path="/shop" element={<PerkShopPage />} />
+
 
         </Route>
       </Routes>

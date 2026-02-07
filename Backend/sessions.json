@@ -1,9 +1,4 @@
 {
-  "XLizuCwlVZi4O-F7tu_JOms7": {
-    "twitchId": "160224748",
-    "twitchLogin": "vnmvalentin",
-    "expiresAt": 1770097121369
-  },
   "HBCE_KRvGXi4O20tjDGvOMtq": {
     "twitchId": "160224748",
     "twitchLogin": "vnmvalentin",
@@ -53,5 +48,10 @@
     "twitchId": "160224748",
     "twitchLogin": "vnmvalentin",
     "expiresAt": 1772500657639
+  },
+  "lGr_4RUIr8niTe7xkMmD7tIB": {
+    "twitchId": "466216534",
+    "twitchLogin": "vnmlive",
+    "expiresAt": 1772918505481
   }
 }

@@ -64,6 +64,17 @@ function normalizeGiveaway(raw = {}) {
   };
 }
 
+const broadcastGiveaways = (io) => {
+    if (!io) return;
+    const list = loadGiveaways().map(normalizeGiveaway); // Deine normalize Funktion nutzen!
+    const now = Date.now();
+    // Wir senden das gleiche Format wie beim GET Endpoint
+    io.emit("giveaways_update", {
+        active: list.filter((g) => g.endDate > now),
+        expired: list.filter((g) => g.endDate <= now),
+    });
+};
+
 /* ================= GIVEAWAY FINALIZE ================= */
 
 async function maybeFinalizeGiveaway(giveaway) {
@@ -108,7 +119,8 @@ async function maybeFinalizeGiveaway(giveaway) {
 
 /* ================= HINTERGRUND-JOB ================= */
 
-async function finalizeExpiredGiveaways() {
+// Jetzt akzeptiert die Funktion 'io' als Parameter
+async function finalizeExpiredGiveaways(io) {
   let list = loadGiveaways().map(normalizeGiveaway);
   let changed = false;
 
@@ -123,21 +135,25 @@ async function finalizeExpiredGiveaways() {
   if (changed) {
     saveGiveaways(list);
     console.log("[Giveaways] Automatisch finalisiert");
+    // WICHTIG: Live-Update an alle senden, wenn ein Gewinner gezogen wurde!
+    if (io) broadcastGiveaways(io); 
   }
 }
-
-// ⏱ alle 60 Sekunden prüfen
-setInterval(() => {
-  finalizeExpiredGiveaways().catch(console.error);
-}, 60 * 1000);
 
 /* ================= ROUTER ================= */
 
 module.exports = function createGiveawayRouter({
   requireAuth,
   STREAMER_TWITCH_ID,
+  io, // IO wird hier empfangen
 } = {}) {
   const router = express.Router();
+
+  // START INTERVAL HIER (damit 'io' verfügbar ist)
+  // Vorherigen globalen setInterval Code löschen und hier einfügen:
+  const intervalId = setInterval(() => {
+    finalizeExpiredGiveaways(io).catch(console.error);
+  }, 60 * 1000);
 
   /* ---------- GET LIST ---------- */
 
@@ -178,6 +194,7 @@ module.exports = function createGiveawayRouter({
     );
 
     saveGiveaways(list);
+    broadcastGiveaways(io); // <--- LIVE
     res.status(201).json({ ok: true });
   });
 
@@ -197,6 +214,7 @@ module.exports = function createGiveawayRouter({
 
     list.splice(idx, 1);
     saveGiveaways(list);
+    broadcastGiveaways(io); // <--- LIVE
     res.json({ ok: true });
   });
 
@@ -217,6 +235,7 @@ module.exports = function createGiveawayRouter({
     };
 
     saveGiveaways(list);
+    broadcastGiveaways(io); // <--- LIVE
     res.json({ ok: true });
   });
 
@@ -232,6 +251,7 @@ module.exports = function createGiveawayRouter({
 
     delete g.participants[req.twitchId];
     saveGiveaways(list);
+    broadcastGiveaways(io); // <--- LIVE
     res.json({ ok: true });
   });
 
