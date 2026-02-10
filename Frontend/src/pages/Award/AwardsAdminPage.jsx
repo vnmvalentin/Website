@@ -76,11 +76,68 @@ function StatCard({ title, value, icon: Icon, color }) {
         </div>
     )
 }
+function SubmissionDetailModal({ sub, onClose }) {
+  if (!sub) return null;
+
+  // Schließen bei Klick auf den Hintergrund
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+      <div 
+        className="bg-[#18181b] border border-white/10 w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()} // Klick im Modal soll nicht schließen
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-white/10 bg-white/5 flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              Votes von <span className="text-emerald-400">{sub.twitchLogin || sub.twitchId}</span>
+            </h2>
+            <div className="text-xs text-white/50 mt-1">
+              Eingereicht am: {new Date(sub.updatedAt).toLocaleString("de-DE")}
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors">
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          {CATEGORIES.map((cat) => {
+            // Antworten holen (Backend speichert Array)
+            const answerRaw = sub.answers?.[cat.id];
+            const hasAnswer = Array.isArray(answerRaw) && answerRaw.length > 0;
+            
+            return (
+              <div key={cat.id} className="border-b border-white/5 last:border-0 pb-4 last:pb-0">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-1">
+                  {cat.label}
+                </h4>
+                {hasAnswer ? (
+                  <div className="flex flex-wrap gap-2">
+                    {answerRaw.map((ans, i) => (
+                      <span key={i} className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-lg text-sm font-medium">
+                        {ans}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-white/20 text-sm italic">- Keine Angabe -</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AwardsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [db, setDb] = useState(null);
   const [error, setError] = useState(null);
+  const [selectedSub, setSelectedSub] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -186,6 +243,8 @@ export default function AwardsAdminPage() {
       {/* Raw Data Table (Collapsibleish) */}
       <div className="mt-12 pt-8 border-t border-white/10">
          <h2 className="text-xl font-bold mb-4">Letzte Einsendungen (Log)</h2>
+         <p className="text-sm text-white/50 mb-4">Klicke auf eine Zeile, um die Details zu sehen.</p> {/* Hinweis hinzugefügt */}
+         
          <div className="bg-black/40 rounded-2xl border border-white/10 overflow-hidden">
              <div className="overflow-x-auto">
                  <table className="w-full text-left text-sm text-white/70">
@@ -200,14 +259,27 @@ export default function AwardsAdminPage() {
                         {db.submissions
                             .filter(s => Number(s.season) === Number(AWARDS_SEASON))
                             .sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-                            .slice(0, 50) // Limit to last 50 for performance
+                            // .slice(0, 50) // Optional: Slice entfernen, wenn du alle sehen willst
                             .map(sub => {
                                 const filledCount = Object.keys(sub.answers || {}).length;
                                 return (
-                                    <tr key={sub.id} className="hover:bg-white/5 transition-colors">
-                                        <td className="p-4 font-medium text-white">{sub.twitchLogin || sub.twitchId}</td>
+                                    <tr 
+                                        key={sub.id} 
+                                        // NEU: OnClick Handler
+                                        onClick={() => setSelectedSub(sub)}
+                                        // NEU: Cursor Pointer und besserer Hover-Effekt
+                                        className="hover:bg-white/10 transition-colors cursor-pointer active:bg-white/20"
+                                    >
+                                        <td className="p-4 font-medium text-white">
+                                            {sub.twitchLogin || sub.twitchId}
+                                        </td>
                                         <td className="p-4">{formatDate(sub.updatedAt)}</td>
-                                        <td className="p-4 text-right font-mono">{filledCount} / {CATEGORIES.length}</td>
+                                        <td className="p-4 text-right font-mono">
+                                            <span className={filledCount === CATEGORIES.length ? "text-emerald-400" : ""}>
+                                                {filledCount}
+                                            </span> 
+                                            <span className="text-white/30"> / {CATEGORIES.length}</span>
+                                        </td>
                                     </tr>
                                 )
                             })
@@ -217,6 +289,14 @@ export default function AwardsAdminPage() {
              </div>
          </div>
       </div>
+
+      {/* NEU: Modal rendern, wenn etwas ausgewählt ist */}
+      {selectedSub && (
+        <SubmissionDetailModal 
+            sub={selectedSub} 
+            onClose={() => setSelectedSub(null)} 
+        />
+      )}
 
     </div>
   );

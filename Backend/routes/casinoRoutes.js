@@ -170,40 +170,40 @@ function drawRandomCard(excludeCards = []) {
 // --- Helper: Case Opening (Angepasst mit Ranges) ---
 const CASE_ITEMS = [
   // id: common -> Range 0.33 bis 0.70
-  { id: "common", color: "gray", min: 0.25, max: 0.70, label: "Common" },
+  { id: "common", color: "gray", min: 0.2, max: 0.70, label: "Common" },
   
   // id: uncommon -> Range 1.30 bis 1.80
-  { id: "uncommon", color: "blue", min: 1.35, max: 2.00, label: "Uncommon" },
+  { id: "uncommon", color: "blue", min: 1.25, max: 2.00, label: "Uncommon" },
   
   // id: rare -> Range 3.50 bis 6.00
-  { id: "rare", color: "purple", min: 4.00, max: 6.50, label: "Rare" },
+  { id: "rare", color: "purple", min: 3.50, max: 6.50, label: "Rare" },
   
   // id: legendary -> Range 20.00 bis 50.00
-  { id: "legendary", color: "gold", min: 40.00, max: 50.00, label: "LEGENDÄR" }
+  { id: "legendary", color: "gold", min: 35.00, max: 50.00, label: "LEGENDÄR" }
 ];
 
 function getRandomCaseItemBase() {
   const r = Math.random();
-  if (r < 0.004) return CASE_ITEMS[3]; // Legendary 
-  if (r < 0.07) return CASE_ITEMS[2]; // Rare 
+  if (r < 0.003) return CASE_ITEMS[3]; // Legendary 
+  if (r < 0.05) return CASE_ITEMS[2]; // Rare 
   if (r < 0.30) return CASE_ITEMS[1]; // Uncommon 
   return CASE_ITEMS[0];               // Common 
 }
 
-// Hilfsfunktion: Berechnet genauen Multiplier (2 Dezimalstellen)
+// Hilfsfunktion
 function generateSpecificItem() {
     const base = getRandomCaseItemBase();
-    // Zufallswert zwischen min und max
+    // Zufallswert
     const randomMult = Math.random() * (base.max - base.min) + base.min;
     
-    // Wir geben ein neues Objekt zurück, das den konkreten Multiplier hat
+    
     return {
         ...base,
-        multiplier: parseFloat(randomMult.toFixed(2)) // z.B. 0.45 oder 1.72
+        multiplier: parseFloat(randomMult.toFixed(2)) 
     };
 }
 
-module.exports = function createCasinoRouter({ requireAuth }) {
+module.exports = function createCasinoRouter({ requireAuth, io }) {
   const router = express.Router();
 
   router.use(requireAuth, (req, res, next) => {
@@ -259,6 +259,19 @@ module.exports = function createCasinoRouter({ requireAuth }) {
       req.casinoDb[targetId].credits += transferAmount;
 
       saveData(req.casinoDb);
+
+      if (io) {
+          // 1. Update an den Empfänger senden (damit sein Guthaben sofort hochgeht)
+          io.to(`user:${targetId}`).emit("casino_credit_update", { 
+              credits: req.casinoDb[targetId].credits,
+              message: `Du hast ${transferAmount} Coins erhalten!`
+          });
+
+          // 2. Update an den Sender senden (optional, zur Sicherheit)
+          io.to(`user:${req.twitchId}`).emit("casino_credit_update", { 
+              credits: req.userData.credits 
+          });
+      }
 
       res.json({ 
           success: true, 

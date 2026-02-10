@@ -1,5 +1,33 @@
 export const NEWS_UPDATES = [
   {
+    date: "09.02.2026",
+    version: "v2.3: Quality Of Life",
+    sections: [
+      {
+        title: "Allgemein",
+        items: [
+          "Parameter für Socials, Setup in Home -> man kann die beiden Fenster direkt per URL aufrufen",
+          "Parameter für Casino Games (Das gleiche)",
+          "Direkte Aktualisierung bei Überweisung von Credits beim Empfänger",
+        ]
+      },
+      {
+        title: "Viewer Sea",
+        items: [
+          "Neue Slider für Dekorationsgröße und Fischgröße",
+          "Border verbessert damit Fische nicht mehr drüberschwimmen",
+          "Exklusive Fisch-Skins für einzelne Streamer jetzt möglich",
+        ]
+      },
+      {
+        title: "Casino",
+        items: [
+          "Neuer Button in Roulette um letzten Einsatz zu wiederholen"
+        ]
+      },
+    ]
+  },
+  {
     date: "07.02.2026",
     version: "v2.2: Neuer Perk Shop",
     sections: [

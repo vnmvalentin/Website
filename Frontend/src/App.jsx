@@ -35,7 +35,7 @@ import YTMPage from "./pages/YTM/YTMPage";
 import TwitchAuthProvider from "./components/TwitchAuthContext";
 import YTMStreamDeckPage from "./pages/YTM/YTMStreamDeckPage";
 
-import ViewerPond from "./pages/ViewerPond/Viewerpond";
+import ViewerPond from "./pages/ViewerPond/ViewerPond";
 import PondPage from "./pages/ViewerPond/PondPage";
 
 import PerkShopPage from "./pages/PerkShopPage";

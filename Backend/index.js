@@ -162,7 +162,7 @@ app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
 app.use("/api/", createPackRouter({ requireAuth, ADMIN_PW, STREAMER_TWITCH_ID }));
 app.use("/", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
-app.use("/api/casino", createCasinoRouter({ requireAuth }));
+app.use("/api/casino", createCasinoRouter({ requireAuth, io }));
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
@@ -190,8 +190,8 @@ io.on('connection', (socket) => {
 });
 
 // =================== START SERVER ===================
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () =>
-  console.log(`✅ Admin API & Socket.io laufen auf Port ${PORT}`)
+server.listen(PORT, "0.0.0.0", () =>
+  console.log(`✅ Admin API & Socket.io laufen auf Port ${PORT} (IPv4)`)
 );

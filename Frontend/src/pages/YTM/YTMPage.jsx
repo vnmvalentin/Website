@@ -264,7 +264,7 @@ export default function YTMPage() {
         title={t.metaTitle} 
         description={t.metaDesc} 
         keywords={t.metaKeywords}
-        path="/tutorial/ytm-songrequest/"
+        path="/tutorial/ytm-songrequest"
       />
 
       {/* Header */}

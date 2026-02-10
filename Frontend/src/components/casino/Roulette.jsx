@@ -14,11 +14,29 @@ export default function Roulette({ updateCredits, currentCredits }) {
   const [bets, setBets] = useState([]); 
   const [selectedChip, setSelectedChip] = useState(10);
   const [lastWin, setLastWin] = useState(null);
+  const [previousBets, setPreviousBets] = useState([]);
   const [history, setHistory] = useState([]);
   const [lastTotalBet, setLastTotalBet] = useState(0);
 
   const wheelRef = useRef(null);
   const ballRef = useRef(null);
+
+  const applyLastBet = () => {
+    if (spinning || previousBets.length === 0) return;
+
+    // Berechne Gesamtkosten der letzten Wette
+    const totalCost = previousBets.reduce((sum, bet) => sum + bet.amount, 0);
+
+    // Prüfen, ob genug Guthaben vorhanden ist
+    if (totalCost > currentCredits) {
+        alert("Nicht genug Guthaben, um die letzte Wette zu wiederholen!");
+        return;
+    }
+
+    // Wetten setzen (kopieren, um Referenzprobleme zu vermeiden)
+    setBets([...previousBets]);
+  };
+
 
   // --- WETTEN LOGIK (Original) ---
   const placeBet = (type, value, id) => {
@@ -40,6 +58,8 @@ export default function Roulette({ updateCredits, currentCredits }) {
   // --- GAMEPLAY (Original) ---
   const spin = async () => {
     if (bets.length === 0) return;
+
+    setPreviousBets(bets);
 
     const currentTotalBet = bets.reduce((a, b) => a + b.amount, 0);
     setLastTotalBet(currentTotalBet);
@@ -137,6 +157,7 @@ export default function Roulette({ updateCredits, currentCredits }) {
       );
   };
 
+  
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-7xl mx-auto py-8">
       
@@ -275,6 +296,17 @@ export default function Roulette({ updateCredits, currentCredits }) {
                   <button onClick={clearBets} disabled={spinning} className="px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold disabled:opacity-50 transition border border-white/10 flex items-center gap-2">
                       <Trash2 size={18} />
                   </button>
+
+                  {/* NEU: Last Bet Button */}
+                  <button 
+                    onClick={applyLastBet} 
+                    disabled={spinning || previousBets.length === 0} 
+                    className="px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold disabled:opacity-50 transition border border-white/10 flex items-center gap-2 group"
+                    title="Letzten Einsatz wiederholen"
+                  >
+                      <RotateCcw size={18} className={`group-hover:-rotate-180 transition-transform duration-500 ${previousBets.length === 0 ? 'opacity-50' : ''}`} />
+                  </button>
+                  
                   <button 
                     onClick={spin} 
                     disabled={spinning || bets.length === 0}

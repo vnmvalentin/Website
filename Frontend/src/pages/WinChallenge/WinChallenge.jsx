@@ -320,7 +320,7 @@ export default function WinChallenge() {
       <SEO 
         title="Win Challenge Overlay"
         description="Win Challenge Overlay für OBS. Hohe Customization für Streamer." 
-        path="/WinChallenge-Overlay/"
+        path="/WinChallenge-Overlay"
         keywords="Win Challenge Overlay, Win Challenge, OBS Overlay, Twitch, WinChallenge, Overlay" />
 
       {!user ? (

@@ -25,6 +25,8 @@ const FISH_DEFS = {
   eel: { img: "/assets/viewerpond/eel/eel.png", name: "Aal" },
   ray: { img: "/assets/viewerpond/ray/ray.png", name: "Rochen" },
   orca: { img: "/assets/viewerpond/orca/orca.png", name: "Orca" },
+
+  modente: { img: "/assets/viewerpond/exclusive/modente.png", name: "Mod-Ente" },
 };
 
 const DECO_ASSETS = {
@@ -75,7 +77,7 @@ function stringToHash(string) {
     return Math.abs(hash);
 }
 
-const Preloader = () => <div className="hidden"><img src="/assets/viewerpond/shark/shark_bite.png"/><img src="/assets/viewerpond/shark/shark_normal.png"/></div>;
+const Preloader = () => <div className="hidden"><img src="/assets/viewerpond/shark/shark_attack.png"/><img src="/assets/viewerpond/shark/shark_normal.png"/></div>;
 
 const BloodCloud = ({ x, y, scale = 1 }) => (
     <div className="absolute z-40 pointer-events-none animate-blood-dissolve" 
@@ -146,7 +148,8 @@ const FishEntity = ({ fish, pondPosition, scale, isHypetrain }) => {
       <div className="absolute pointer-events-none" 
            style={{ 
                left: `${fish.x}%`, top: `${fish.y}%`, width: `${w}px`, height: `${h}px`, 
-               transform: `scaleX(${scaleX})`, 
+               // ÄNDERUNG: translate(-50%, -50%) setzt den Ankerpunkt exakt in die Mitte des Bildes
+               transform: `translate(-50%, -50%) scaleX(${scaleX})`, 
                transition: fish.isDropping ? "top 1s ease-in" : "left 0.5s linear, top 0.5s linear, width 0.3s ease, opacity 0.2s", 
                opacity: fish.isDead ? 0 : 1, 
                zIndex: 20 
@@ -229,7 +232,7 @@ export default function ViewerPond() {
     const [wsConnected, setWsConnected] = useState(false); 
     const [config, setConfig] = useState({ 
         fishRequirements: {}, 
-        waterSettings: { height: 15, opacity: 0.5, color: "#06b6d4", sharkEnabled: true, showBubbles: true, showDecorations: true, activeDecorations: [], layoutSeed: 12345, waveIntensity: 1, position: "bottom" }, 
+        waterSettings: { height: 15, opacity: 0.5, color: "#06b6d4", sharkEnabled: true, showBubbles: true, showDecorations: true, activeDecorations: [], layoutSeed: 12345, waveIntensity: 1, position: "bottom", fishScale: 1.0, decoScale: 1.0 }, 
         eventSettings: { hypeTrain: true, raid: true },
         excludedUsers: [] 
     });
@@ -450,6 +453,16 @@ export default function ViewerPond() {
         const loop = setInterval(() => { 
             const currentSettings = configRef.current?.waterSettings || {};
             const isDockedTop = currentSettings.position === "top";
+            
+            // NEU: Scale und Margin Berechnung innerhalb des Loops
+            const hPercent = currentSettings.height || 15;
+            const baseScale = Math.min(1.5, Math.max(0.2, hPercent / 6));
+            const userFishScale = currentSettings.fishScale || 1.0;
+            const totalScale = baseScale * userFishScale;
+
+            // Dynamischer Sicherheitsabstand: Je größer der Scale, desto mehr Platz lassen wir
+            // 12 ist ein Erfahrungswert (ca. halbe Fischhöhe in %)
+            const safetyMargin = 12 * totalScale;
 
             fishesRef.current.forEach(f => { 
                 // 1. NaN Schutz
@@ -504,12 +517,16 @@ export default function ViewerPond() {
                 
                 // GRENZEN: Hier härter begrenzen für Issue #1
                 if (isDockedTop) { 
-                    f.y = Math.max(5, Math.min(60, f.y)); // Max 60%
+                    // Oben: Von "Margin" bis "60%"
+                    f.y = Math.max(safetyMargin, Math.min(60, f.y)); 
                 } else { 
-                    // Max 75% -> Damit bleibt unten ca. 25% Platz für Flossen/Namen
-                    f.y = Math.max(25, Math.min(75, f.y)); 
+                    // Unten: Von "20%" bis "100% minus Margin"
+                    // Das ist der Fix: 100 - safetyMargin sorgt dafür, dass die Mitte nie tiefer geht als erlaubt
+                    f.y = Math.max(20, Math.min(100 - safetyMargin, f.y)); 
                 }
-                f.x = Math.max(2, Math.min(93, f.x));
+                
+                // Auch X anpassen, da wir jetzt zentriert sind (nicht mehr 0 bis 93, sondern Margin bis 100-Margin)
+                f.x = Math.max(2, Math.min(98, f.x));
             }); 
             setFishes([...fishesRef.current]); 
         }, 50); 
@@ -723,32 +740,39 @@ export default function ViewerPond() {
         );
     }
 
-    const { height, opacity, color, showBubbles, showDecorations, activeDecorations, waveIntensity, position, layoutSeed } = config.waterSettings;
+    const { height, opacity, color, showBubbles, showDecorations, activeDecorations, waveIntensity, position, layoutSeed, fishScale, decoScale } = config.waterSettings;
     const rgbaColor = hexToRgba(color, opacity);
     const isTop = position === "top";
-    const scaleFactor = Math.min(1.2, Math.max(0.2, height / 6));
+    // 1. Basis-Skalierung (nur anhand der Höhe)
+    const baseScale = Math.min(1.5, Math.max(0.2, height / 6));
+
+    // 2. Separate Multiplikatoren anwenden
+    const fishFinalScale = baseScale * (fishScale || 1);
+    const decoFinalScale = baseScale * (decoScale || 1);
     
     return (
         <div className="fixed inset-0 w-full h-full pointer-events-none z-50">
             <Preloader />
             <div className="absolute w-full transition-all duration-1000" style={{ height: `${height}%`, [isTop ? 'top' : 'bottom']: 0, animation: isHypetrain ? 'rainbow-pulse 5s infinite' : 'none' }}>
                 {waveIntensity > 0 && (
-                     <div className="absolute w-full leading-[0]" style={{ [isTop ? 'top' : 'bottom']: '100%', [isTop ? 'marginTop' : 'marginBottom']: '1px', height: `${30 * scaleFactor}px`, zIndex: 10, overflow: 'hidden', transform: isTop ? 'rotate(180deg)' : 'none' }}>
+                     <div className="absolute w-full leading-[0]" style={{ [isTop ? 'top' : 'bottom']: '100%', [isTop ? 'marginTop' : 'marginBottom']: '1px', height: `${30 * baseScale}px`, zIndex: 10, overflow: 'hidden', transform: isTop ? 'rotate(180deg)' : 'none' }}>
                         <svg className={`relative block w-[200%] h-full animate-wave-${waveIntensity}`} style={{ transform: 'scaleY(1.05)' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 25" preserveAspectRatio="none"><path d="M0,25 V15 c150,-15 300,10 600,0 c300,-10 450,15 600,0 V25 H0 Z" fill={rgbaColor} /></svg>
                      </div>
                 )}
                 <SwarmLayer active={isRaid} />
                 <div className="absolute inset-0 backdrop-blur-[2px]" style={{ backgroundColor: rgbaColor, boxShadow: `0 0 0 1px ${rgbaColor}` }}>
                     <WaterTexture isTop={isTop} />
-                    {showDecorations && <Decorations activeDecos={activeDecorations} scale={scaleFactor} color={color} layoutSeed={layoutSeed} />}
-                    {showBubbles && <Bubbles scale={scaleFactor} />}
+                    {/* DEKO nutzt decoFinalScale */}
+                    {showDecorations && <Decorations activeDecos={activeDecorations} scale={decoFinalScale} color={color} layoutSeed={layoutSeed} isTop={isTop} />}
+                    {showBubbles && <Bubbles scale={decoFinalScale} />}
                 </div>
-                {fishes.map(f => (<FishEntity key={f.username} fish={f} pondPosition={position} scale={scaleFactor} isHypetrain={isHypetrain} />))}
+                {/* FISCHE & HAIE nutzen fishFinalScale */}
+                {fishes.map(f => (<FishEntity key={f.username} fish={f} pondPosition={position} scale={fishFinalScale} isHypetrain={isHypetrain} />))}
                 {effects.map(ef => (
                     <div key={ef.id} className="absolute z-[60] animate-out fade-out slide-out-to-top-10 duration-2000 fill-mode-forwards font-black text-white drop-shadow-md text-2xl" style={{ left: `${ef.x}%`, top: `${ef.y}%` }}>{ef.type === 'heart' && "❤️"}</div>
                 ))}
-                {sharkAttacks.map(a => (<SharkEntity key={a.id} yPos={a.y} targetX={a.targetX} targetFish={a.targetFish} scale={scaleFactor} onBite={(name) => { const fish = fishesRef.current.find(f => f.username === name); if (fish) { fish.isDead = true; setBloodEffects(prev => [...prev, { id: Date.now(), x: fish.x, y: fish.y }]); setTimeout(() => setBloodEffects(prev => prev.filter(b => b.id < Date.now() - 1500)), 2000); setFishes([...fishesRef.current]); } }} onComplete={(name) => { fishesRef.current = fishesRef.current.filter(f => f.username !== name); setSharkAttacks(prev => prev.filter(a => a.targetFish !== name)); setFishes([...fishesRef.current]); }} />))}
-                {bloodEffects.map(b => <BloodCloud key={b.id} x={b.x} y={b.y} scale={scaleFactor} />)}
+                {sharkAttacks.map(a => (<SharkEntity key={a.id} yPos={a.y} targetX={a.targetX} targetFish={a.targetFish} scale={fishFinalScale} onBite={(name) => { const fish = fishesRef.current.find(f => f.username === name); if (fish) { fish.isDead = true; setBloodEffects(prev => [...prev, { id: Date.now(), x: fish.x, y: fish.y }]); setTimeout(() => setBloodEffects(prev => prev.filter(b => b.id < Date.now() - 1500)), 2000); setFishes([...fishesRef.current]); } }} onComplete={(name) => { fishesRef.current = fishesRef.current.filter(f => f.username !== name); setSharkAttacks(prev => prev.filter(a => a.targetFish !== name)); setFishes([...fishesRef.current]); }} />))}
+                {bloodEffects.map(b => <BloodCloud key={b.id} x={b.x} y={b.y} scale={fishFinalScale} />)}
             </div>
         </div>
     );

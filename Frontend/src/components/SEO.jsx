@@ -5,21 +5,29 @@ export default function SEO({ title, description, image, path, keywords }) {
   const fullTitle = title ? `${title} - ${siteTitle}` : siteTitle;
   const domain = "https://vnmvalentin.de";
   
+  // FIX: Trailing Slashes ENTFERNEN (Normalize to no-slash)
+  let cleanPath = path || "";
   
-  // In SEO.jsx ändern:
-  const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : "";
-  // Sicherstellen, dass KEIN Slash am Ende steht (außer bei der Root)
-  const finalPath = (cleanPath.endsWith('/') && cleanPath.length > 1) 
-      ? cleanPath.slice(0, -1) 
-      : cleanPath;
+  if (cleanPath === "/" || cleanPath === "") {
+      cleanPath = ""; // Root bleibt leer -> domain + "" = https://vnmvalentin.de
+  } else {
+      // Sicherstellen, dass es mit / beginnt
+      if (!cleanPath.startsWith("/")) cleanPath = "/" + cleanPath;
+      
+      // WICHTIG: Wenn ein Slash am Ende ist, WEG DAMIT (außer es ist nur "/")
+      if (cleanPath.endsWith("/") && cleanPath.length > 1) {
+          cleanPath = cleanPath.slice(0, -1);
+      }
+  }
 
-  const url = `${domain}${finalPath}`;
+  const url = `${domain}${cleanPath}`;
 
   return (
     <>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
       {keywords && <meta name="keywords" content={keywords} />}
+      {/* Canonical zeigt jetzt IMMER auf die Version OHNE Slash */}
       <link rel="canonical" href={url} />
 
       {/* Open Graph */}

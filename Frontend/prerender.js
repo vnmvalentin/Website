@@ -11,7 +11,6 @@ const routesToPrerender = [
   '/',
   '/WinChallenge-Overlay',
   '/Bingo',
-  '/Packs',
   '/tutorial/ytm-songrequest'
 ];
 
@@ -45,27 +44,50 @@ const routesToPrerender = [
       }
 
       // 3. CLEANUP-SCRIPT: Entferne doppelte Tags und korrigiere Canonical
+      // 3. CLEANUP-SCRIPT: Brutales Aufräumen von Duplikaten
       await page.evaluate((currentRoute) => {
-        const heads = document.head;
-        const titles = heads.querySelectorAll('title');
-        const canonicals = heads.querySelectorAll('link[rel="canonical"]');
-        
-        // Behalte nur den LETZTEN Titel (den React 19 gesetzt hat)
+        // A. TITEL BEREINIGEN
+        // Wir nehmen an, der LETZTE Titel im DOM ist der korrekte (von React gesetzte)
+        const titles = Array.from(document.querySelectorAll('title'));
         if (titles.length > 1) {
-          for (let i = 0; i < titles.length - 1; i++) titles[i].remove();
+            // Alle entfernen außer dem allerletzten
+            for (let i = 0; i < titles.length - 1; i++) {
+                titles[i].remove();
+            }
         }
 
-        // Korrigiere Canonical URLs (kein Trailing Slash!)
-        canonicals.forEach((link, index) => {
-          if (index < canonicals.length - 1) {
-            link.remove(); // Entferne Duplikate
-          } else {
-            let href = link.getAttribute('href');
-            if (href && href.endsWith('/') && href !== 'https://vnmvalentin.de/') {
-              link.setAttribute('href', href.slice(0, -1));
+        // B. META TAGS BEREINIGEN (Description & OG)
+        // Wir suchen nach Duplikaten bei property="og:..." und name="description"
+        const metaTypes = ['name="description"', 'property="og:title"', 'property="og:description"', 'property="og:url"'];
+        
+        metaTypes.forEach(selector => {
+            const tags = Array.from(document.querySelectorAll(`meta[${selector}]`));
+            if (tags.length > 1) {
+                // Auch hier: Wir behalten nur den letzten (den von React 19)
+                for (let i = 0; i < tags.length - 1; i++) {
+                    tags[i].remove();
+                }
             }
-          }
         });
+
+        // C. CANONICAL BEREINIGEN & FIXEN
+        const canonicals = Array.from(document.querySelectorAll('link[rel="canonical"]'));
+        if (canonicals.length > 0) {
+            // Alle außer dem letzten entfernen
+            for (let i = 0; i < canonicals.length - 1; i++) {
+                canonicals[i].remove();
+            }
+            
+            // FIX: Canonical auf "No-Slash" zwingen
+            const link = document.querySelector('link[rel="canonical"]');
+            if (link) {
+                let href = link.getAttribute('href');
+                // Wenn nicht Root und endet auf Slash -> Slash entfernen
+                if (href !== 'https://vnmvalentin.de' && href !== 'https://vnmvalentin.de/' && href.endsWith('/')) {
+                    link.setAttribute('href', href.slice(0, -1));
+                }
+            }
+        }
       }, route);
 
       const html = await page.content();

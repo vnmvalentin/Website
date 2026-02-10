@@ -16,7 +16,9 @@
       ],
       "layoutSeed": 1769825696359,
       "waveIntensity": 0,
-      "position": "bottom"
+      "position": "bottom",
+      "fishScale": 1.5,
+      "decoScale": 1.1
     },
     "excludedUsers": "nightbot,streamlabs,streamelements,moobot,wizebot,fossabot,soundalerts\n",
     "fishRequirements": {
@@ -30,7 +32,7 @@
         "sub"
       ]
     },
-    "updatedAt": 1770004360460,
+    "updatedAt": 1770651874614,
     "eventSettings": {
       "hypeTrain": true,
       "raid": true

@@ -1,16 +1,46 @@
-import { useMemo, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom"; // NEU: useSearchParams
 import SEO from "../components/SEO";
 
 // --- DATEN ---
 
 const SOCIAL_LINKS = [
-  { label: "Twitch", href: "https://twitch.tv/vnmvalentin", color: "hover:bg-[#9146FF] hover:text-white" },
-  { label: "Discord", href: "https://discord.gg/ecRJSx2R6x", color: "hover:bg-[#5865F2] hover:text-white" },
-  { label: "Instagram", href: "https://instagram.com/vnmvalentin", color: "hover:bg-[#E1306C] hover:text-white" },
-  { label: "YouTube", href: "https://youtube.com/@vnmvalentin", color: "hover:bg-[#FF0000] hover:text-white" },
-  { label: "Twitter / X", href: "https://x.com/vnmvalentin", color: "hover:bg-black hover:text-white" },
-  { label: "TikTok", href: "https://tiktok.com/@vnmvalentin", color: "hover:bg-[#00f2ea] hover:text-black" },
+  { 
+    label: "Twitch", 
+    href: "https://twitch.tv/vnmvalentin", 
+    color: "hover:bg-[#9146FF] hover:text-white",
+    icon: "https://cdn.simpleicons.org/twitch/white" 
+  },
+  { 
+    label: "Discord", 
+    href: "https://discord.gg/ecRJSx2R6x", 
+    color: "hover:bg-[#5865F2] hover:text-white",
+    icon: "https://cdn.simpleicons.org/discord/white"
+  },
+  { 
+    label: "Instagram", 
+    href: "https://instagram.com/vnmvalentin", 
+    color: "hover:bg-[#E1306C] hover:text-white",
+    icon: "https://cdn.simpleicons.org/instagram/white"
+  },
+  { 
+    label: "YouTube", 
+    href: "https://youtube.com/@vnmvalentin", 
+    color: "hover:bg-[#FF0000] hover:text-white",
+    icon: "https://cdn.simpleicons.org/youtube/white"
+  },
+  { 
+    label: "Twitter / X", 
+    href: "https://x.com/vnmvalentin", 
+    color: "hover:bg-black hover:text-white",
+    icon: "https://cdn.simpleicons.org/x/white"
+  },
+  { 
+    label: "TikTok", 
+    href: "https://tiktok.com/@vnmvalentin", 
+    color: "hover:bg-[#00f2ea] hover:text-black",
+    icon: "https://cdn.simpleicons.org/tiktok/white"
+  },
 ];
 
 const SETUP_HARDWARE = [
@@ -95,7 +125,20 @@ function SocialContent() {
             className={`group relative overflow-hidden rounded-xl bg-white/5 border border-white/5 px-4 py-4 transition-all duration-300 ${item.color}`}
           >
             <div className="relative z-10 flex items-center justify-between">
-              <span className="text-sm font-medium">{item.label}</span>
+              
+              {/* NEU: Container für Icon und Text */}
+              <div className="flex items-center gap-3">
+                  {item.icon && (
+                      <img 
+                        src={item.icon} 
+                        alt={item.label} 
+                        className="w-5 h-5 object-contain opacity-80 group-hover:opacity-100 transition-opacity" 
+                      />
+                  )}
+                  <span className="text-sm font-medium">{item.label}</span>
+              </div>
+
+              {/* Pfeil bleibt rechts */}
               <span className="text-xs opacity-50 group-hover:opacity-100 transition-opacity">↗</span>
             </div>
           </SmartLink>
@@ -213,24 +256,39 @@ function TwitchTV() {
 }
 
 export default function Home() {
-  const [activeModal, setActiveModal] = useState(null); // 'social', 'setup', or null
+  // NEU: URL Params statt useState
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeModal = searchParams.get("view"); // 'social', 'setup', oder null
+
+  // Funktionen zum Öffnen und Schließen, die URL Parameter manipulieren
+  const openModal = (viewName) => {
+    setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set("view", viewName);
+        return newParams;
+    });
+  };
+
+  const closeModal = () => {
+    setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev);
+        newParams.delete("view");
+        return newParams;
+    });
+  };
 
   return (
     <div className="min-h-full w-full pb-20 pt-8 px-4 md:px-8">
       <SEO title = "Home"/>
-      {/* Container jetzt viel breiter: max-w-7xl statt max-w-4xl */}
       <div className="max-w-7xl mx-auto flex flex-col items-center gap-10">
         
-        {/* Sektion 1: Der Fernseher */}
         <section className="w-full">
            <TwitchTV />
         </section>
 
-        {/* Sektion 2: Buttons unter dem TV */}
         <section className="flex flex-wrap justify-center gap-6 w-full">
             <button
-                onClick={() => setActiveModal('social')}
-                // Button breiter gemacht mit min-w-[320px] und mehr padding
+                onClick={() => openModal('social')}
                 className="group relative px-8 py-4 min-w-[320px] bg-[#18181b] border border-white/10 rounded-full overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-all shadow-lg active:scale-95"
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -240,7 +298,7 @@ export default function Home() {
             </button>
 
             <button
-                onClick={() => setActiveModal('setup')}
+                onClick={() => openModal('setup')}
                 className="group relative px-8 py-4 min-w-[320px] bg-[#18181b] border border-white/10 rounded-full overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-all shadow-lg active:scale-95"
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -250,15 +308,15 @@ export default function Home() {
             </button>
         </section>
 
-        {/* Overlays / Modals */}
+        {/* Modals prüfen jetzt auf den URL Parameter 'view' */}
         {activeModal === 'social' && (
-            <InfoModal title="Social Media" onClose={() => setActiveModal(null)}>
+            <InfoModal title="Social Media" onClose={closeModal}>
                 <SocialContent />
             </InfoModal>
         )}
 
         {activeModal === 'setup' && (
-            <InfoModal title="Mein Streaming Setup" onClose={() => setActiveModal(null)}>
+            <InfoModal title="Mein Streaming Setup" onClose={closeModal}>
                 <HardwareContent />
             </InfoModal>
         )}

@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useCallback, useRef } from "react";
+import React, { useContext, useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { useParams, useLocation } from "react-router-dom"; 
 // NEU: Socket Client
@@ -8,9 +8,15 @@ import {
   Fish, Monitor, Save, MessageSquare, Flag, Heart, Play, Sparkles, Copy, Check, RefreshCw, Award, Waves, Droplets, UserX, Sliders, Lock, Search, Crown, Shield, Terminal, Server, Download, LayoutDashboard, ChevronDown, ChevronRight, Image as ImageIcon, Shuffle, Zap
 } from "lucide-react";
 
-// --- KONSTANTEN ---
-// !!! BITTE HIER DEINEN ECHTEN IMPORT STRING EINFÜGEN !!!
+
 const SB_POND_IMPORT_CODE = `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`;
+
+const STREAMER_EXCLUSIVES = {
+    "160224748": [ 
+        { id: "modente", name: "Mod-Ente", img: "/assets/viewerpond/exclusive/modente.png" }
+    ],
+    
+};
 
 const FISH_TYPES = [
   { id: "goldfish", name: "Goldfisch", img: "/assets/viewerpond/goldfish/goldfish.png" },
@@ -35,7 +41,7 @@ const FISH_TYPES = [
   { id: "orca", name: "Orca", img: "/assets/viewerpond/orca/orca.png" },
 ];
 
-// NEU: Command Liste
+// Command Liste
 const COMMAND_LIST = [
     { cmd: "!shark [user]", desc: "Lässt den Hai auf den User los", icon: <Fish size={14} /> },
     { cmd: "!say [msg]", desc: "Dein Fisch gibt die Nachricht aus", icon: <MessageSquare size={14} /> },
@@ -44,7 +50,7 @@ const COMMAND_LIST = [
     { cmd: "!fish", desc: "Link zum Ändern des Fisches", icon: <Check size={14} /> },
 ];
 
-// NEU: Verfügbare Dekorationen
+// Verfügbare Dekorationen
 const DECO_OPTIONS = [
     { id: "seaweed_1", name: "Seetang Hoch", img: "/assets/viewerpond/decorations/seaweed_tall.png" },
     { id: "seaweed_2", name: "Seetang Busch", img: "/assets/viewerpond/decorations/seaweed_bush.png" },
@@ -63,7 +69,6 @@ const DEFAULT_BOTS = "nightbot,streamlabs,streamelements,moobot,wizebot,fossabot
 // --- HELPER ---
 
 // --- HELPER: Socket ---
-// Verbindung zum Backend aufbauen (Port anpassen wenn nötig)
 const socket = io(window.location.origin, { path: "/socket.io", autoConnect: false });
 
 // --- HELPER: Debounce Hook ---
@@ -217,7 +222,7 @@ export default function PondPage() {
         height: 10, opacity: 0.5, color: "#06b6d4", 
         sharkEnabled: true, showBubbles: true, showDecorations: true, 
         activeDecorations: ["seaweed_1", "rock_1", "ship"],
-        layoutSeed: 12345, waveIntensity: 1, position: "bottom" 
+        layoutSeed: 12345, waveIntensity: 1, position: "bottom", fishScale: 1.0, decoScale: 1.0 
     });
   const [excludedUsers, setExcludedUsers] = useState("");
   const [savingConfig, setSavingConfig] = useState(false);
@@ -235,6 +240,28 @@ export default function PondPage() {
   const debouncedRequirements = useDebounce(requirements, 500);
   const debouncedExcluded = useDebounce(excludedUsers, 800);
   const debouncedEvents = useDebounce(eventSettings, 500);
+
+  const availableFishList = useMemo(() => {
+      let baseList = [...FISH_TYPES];
+      
+      if (selectedStreamer && STREAMER_EXCLUSIVES[selectedStreamer.id]) {
+          // Füge die exklusiven Fische hinzu, wenn der richtige Streamer ausgewählt ist
+          baseList = [...baseList, ...STREAMER_EXCLUSIVES[selectedStreamer.id]];
+      }
+      
+      return baseList;
+  }, [selectedStreamer]);
+
+  const configFishList = useMemo(() => {
+    let baseList = [...FISH_TYPES];
+    
+    // Prüfen, ob der aktuell eingeloggte User exklusive Fische hat
+    if (user && STREAMER_EXCLUSIVES[user.id]) {
+        baseList = [...baseList, ...STREAMER_EXCLUSIVES[user.id]];
+    }
+    
+    return baseList;
+}, [user]);
 
   // --- SOCKET SETUP FOR STREAMER (OWN ROOM) ---
   useEffect(() => {
@@ -530,8 +557,8 @@ export default function PondPage() {
                                     </div>
                                     
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                                        {FISH_TYPES.map((fish) => { 
-                                            const isSelected = myFish === fish.id; 
+                                        {availableFishList.map((fish) => { 
+                                            const isSelected = myFish === fish.id;
                                             const reqs = targetConfig?.fishRequirements?.[fish.id] || ["all"]; 
                                             return (
                                                 <div key={fish.id} onClick={() => setMyFish(fish.id)} className={`relative rounded-2xl p-4 border-2 transition-all cursor-pointer group flex flex-col items-center gap-3 overflow-hidden ${isSelected ? "bg-cyan-500/10 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.2)]" : "bg-black/20 border-white/5 hover:border-white/20 hover:bg-white/5"}`}>
@@ -679,16 +706,31 @@ export default function PondPage() {
                         </div>
                     </div>
                     
+                    {/* Sub-Tabs Navigation */}
                     <div className="flex space-x-2 border-b border-white/10 mb-6">
                         {[{ id: "fish", label: "Fisch Regeln", icon: Award }, { id: "water", label: "Wasser & Design", icon: Droplets },{ id: "events", label: "Events", icon: Sparkles }, { id: "exclude", label: "Ignorierte User", icon: UserX }].map(sub => (<button key={sub.id} onClick={() => setSubTab(sub.id)} className={`flex items-center gap-2 px-4 py-2 text-sm font-bold border-b-2 transition-colors ${subTab === sub.id ? "border-cyan-500 text-white" : "border-transparent text-white/40 hover:text-white"}`}><sub.icon size={16}/> {sub.label}</button>))}
                     </div>
 
-                    {subTab === "fish" && configLoaded && (
-                        <div className="space-y-3 animate-in fade-in">
-                             {FISH_TYPES.map(fish => (
+                    {/* --- KORREKTUR START: Bedingung hinzugefügt --- */}
+                    {subTab === "fish" && (
+                        <div className="space-y-4 animate-in fade-in">
+                            {configFishList.map(fish => (
                                 <div key={fish.id} className="flex items-center justify-between bg-black/20 border border-white/5 rounded-xl p-4 hover:bg-black/30 transition-colors">
-                                    <div className="flex items-center gap-4"><div className="w-14 h-14 bg-white/5 rounded-xl p-2 flex items-center justify-center border border-white/10"><img src={fish.img} alt={fish.name} className="w-full h-full object-contain" /></div><div className="font-bold text-white text-lg">{fish.name}</div></div>
-                                    <div className="flex flex-col items-end gap-2"><label className="text-[10px] font-bold text-white/40 uppercase flex items-center gap-1"><Lock size={10}/> Erlaubte Rollen</label><RoleMultiSelect selected={requirements[fish.id] || ["all"]} onChange={(newRoles) => setRequirements({...requirements, [fish.id]: newRoles})}/></div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 bg-white/5 rounded-xl p-2 flex items-center justify-center border border-white/10">
+                                            <img src={fish.img} alt={fish.name} className="w-full h-full object-contain" />
+                                        </div>
+                                        <div className="font-bold text-white text-lg">{fish.name}</div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                        <label className="text-[10px] font-bold text-white/40 uppercase flex items-center gap-1">
+                                            <Lock size={10}/> Erlaubte Rollen
+                                        </label>
+                                        <RoleMultiSelect 
+                                            selected={requirements[fish.id] || ["all"]} 
+                                            onChange={(newRoles) => setRequirements({...requirements, [fish.id]: newRoles})}
+                                        />
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -701,6 +743,21 @@ export default function PondPage() {
                                 <RangeControl label="Höhe im Overlay" value={waterSettings.height} min={2} max={100} step={1} unit="%" onChange={(v) => setWaterSettings({...waterSettings, height: v})} />
                                 <RangeControl label="Transparenz" value={waterSettings.opacity} min={0} max={1} step={0.1} onChange={(v) => setWaterSettings({...waterSettings, opacity: v})} />
                                 <RangeControl label="Wellen Intensität" value={waterSettings.waveIntensity || 0} min={0} max={2} step={1} onChange={(v) => setWaterSettings({...waterSettings, waveIntensity: v})} />
+                                {/* --- NEU: SLIDER FÜR FISCH GRÖSSE --- */}
+                                <RangeControl 
+                                    label="Fisch Größe (Multiplikator)" 
+                                    value={waterSettings.fishScale || 1} 
+                                    min={0.5} max={2.5} step={0.1} 
+                                    unit="x" 
+                                    onChange={(v) => setWaterSettings({...waterSettings, fishScale: v})} 
+                                />
+                                {/* --- NEU: SLIDER FÜR DEKO GRÖSSE --- */}
+                                <RangeControl 
+                                    label="Deko Größe (Multiplikator)" 
+                                    value={waterSettings.decoScale || 1} 
+                                    min={0.5} max={2.5} step={0.1} unit="x" 
+                                    onChange={(v) => setWaterSettings({...waterSettings, decoScale: v})} 
+                                />
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import { 
   Gamepad2, 
@@ -14,6 +15,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import SEO from "../components/SEO";
+import io from "socket.io-client";
 
 import CoinIcon from "../components/CoinIcon";
 
@@ -51,8 +53,10 @@ function formatCooldown(ms) {
 export default function CasinoPage() {
   const { user, login } = useContext(TwitchAuthContext);
   const [credits, setCredits] = useState(0);
+  // NEU: URL Params statt lokalem State für das Spiel
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeGame = searchParams.get("game");
   const [lastDaily, setLastDaily] = useState(0);
-  const [activeGame, setActiveGame] = useState(null); 
   const [loading, setLoading] = useState(false);
   const [cooldownTime, setCooldownTime] = useState(0);
   
@@ -67,6 +71,28 @@ export default function CasinoPage() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [userDataLoading, setUserDataLoading] = useState(true);
+
+  useEffect(() => {
+      if (!user) return;
+
+      // Verbindung aufbauen
+      const socket = io(window.location.origin, { path: "/socket.io" });
+      
+      // Eigenem Raum beitreten (user:ID)
+      socket.emit("join_room", `user:${user.id}`);
+
+      // Auf Credit-Updates hören
+      socket.on("casino_credit_update", (data) => {
+          console.log("Live Credit Update:", data);
+          if (data.credits !== undefined) {
+              setCredits(data.credits);
+          }
+      });
+
+      return () => {
+          socket.disconnect();
+      };
+  }, [user]);
 
   // --- DATA FETCHING ---
   const fetchUserList = async () => {
@@ -154,6 +180,16 @@ export default function CasinoPage() {
       u.name.toLowerCase().includes(transferSearch.toLowerCase())
   );
 
+  // Helper zum Setzen des Spiels via URL
+  const openGame = (gameId) => {
+      setSearchParams({ game: gameId });
+  };
+
+  const closeGame = () => {
+      setSearchParams({}); // Entfernt ?game=...
+      refreshUser();
+  };
+
   const visibleLeaderboard = leaderboard.slice(0, 5);
 
   if (!user) {
@@ -237,7 +273,7 @@ export default function CasinoPage() {
                     {GAMES.map(game => (
                         <button 
                             key={game.id} 
-                            onClick={() => setActiveGame(game.id)}
+                            onClick={() => openGame(game.id)}
                             className={`group relative flex items-center gap-4 p-4 rounded-2xl border transition-all hover:-translate-y-1 hover:shadow-xl text-left bg-[#18181b] hover:bg-[#202025] border-white/5 hover:border-white/10`}
                         >
                             {/* Icon Box */}
@@ -382,14 +418,15 @@ export default function CasinoPage() {
         <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 min-h-[600px] relative shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="absolute top-6 right-6 z-50">
                 <button 
-                    onClick={() => { setActiveGame(null); refreshUser(); }}
+                    // ÄNDERUNG: closeGame statt setActiveGame(null)
+                    onClick={closeGame}
                     className="bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-xl font-bold border border-white/10 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
                 >
                     <ArrowLeft size={18} /> Zurück zur Lobby
                 </button>
             </div>
             
-            {/* Game Components Rendering */}
+            {/* Game Components Rendering (bleibt fast gleich, nutzt aber Variable activeGame aus URL) */}
             <div className="pt-10">
                 {activeGame === "slots" && <SlotMachine updateCredits={refreshUser} currentCredits={credits} />}
                 {activeGame === "roulette" && <Roulette updateCredits={refreshUser} currentCredits={credits} />}

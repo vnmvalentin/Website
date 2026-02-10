@@ -24,7 +24,9 @@ const DEFAULT_CONFIG = {
         sharkEnabled: true, 
         showBubbles: true, 
         waveIntensity: 1,
-        position: "bottom"
+        position: "bottom",
+        fishScale: 1.0,
+        decoScale: 1.0
     },
     // NEU: Default Event Settings hinzufügen
     eventSettings: {
