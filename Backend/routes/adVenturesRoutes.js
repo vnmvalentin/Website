@@ -214,8 +214,8 @@ module.exports = function createGameRouter({ requireAuth }) {
     const { kills, stage } = req.body;
     const userId = req.twitchId;
     if (kills === undefined || stage === undefined) return res.status(400).json({ error: "Invalid Data" });
-    const killBonus = kills * 0.1;
-    const stageBonus = (stage * 5) + (2 * Math.pow(stage, 2));
+    const killBonus = kills * 3;
+    const stageBonus = (stage * 50) + (3 * Math.pow(stage, 2));
     const earnedCredits = Math.floor(killBonus + stageBonus);
     const gameDb = loadGameData();
     const casinoDb = loadCasinoData();

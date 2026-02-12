@@ -21,11 +21,11 @@ const SYMBOL_MAP = {
 const PAYTABLE = [
   { char: "🃏", base: 10.0, label: "Wild" },
   { char: "7️⃣", base: 7.0, label: "Seven" },
-  { char: "💎", base: 3.0, label: "Gem" },
+  { char: "💎", base: 3.5, label: "Gem" },
   { char: "🔔", base: 1.5, label: "Bell" },
-  { char: "🍇", base: 1.0, label: "Grape" },
-  { char: "🍋", base: 0.8, label: "Lemon" },
-  { char: "🍒", base: 0.5, label: "Cherry" },
+  { char: "🍇", base: 1.2, label: "Grape" },
+  { char: "🍋", base: 1.0, label: "Lemon" },
+  { char: "🍒", base: 0.8, label: "Cherry" },
 ];
 
 const WIN_LINES = [
@@ -318,8 +318,8 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
     lineAnimationTimeouts.current.forEach(clearTimeout);
     lineAnimationTimeouts.current = [];
 
-    if (freeSpinsLeft === 0) {
-        setVisibleStickyWilds([]);
+    if (freeSpinsLeft === 0 && !isAuto) {
+         setVisibleStickyWilds([]);
     }
     
     spinResultData.current = null;
@@ -377,7 +377,10 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
           setFsTotalWin(0);
           
           if (isAutoActive || hasFreeSpins) {
-              setTimeout(() => spin(), 3500);
+              setTimeout(() => {
+                  // Sicherheitscheck: Spielstatus prüfen
+                  spin();
+              }, 3500);
           } else {
               setIsGameActive(false);
           }

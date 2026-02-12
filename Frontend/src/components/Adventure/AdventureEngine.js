@@ -683,8 +683,11 @@ export default class AdventureEngine {
         if (s.doorOpen) currentInterval = 800; // Sehr schnelles Spawnen (0.8s)
         
         if (s.isBossStage) {
-            // Minions nur spawnen, WENN Boss da ist.
-            if (s.bossSpawned) {
+            // Minions nur spawnen, WENN Boss da ist UND noch lebt.
+            // NEU: Wir prüfen, ob sich ein Boss in der s.enemies Liste befindet
+            const isBossAlive = s.enemies.some(e => e.isBoss);
+
+            if (s.bossSpawned && isBossAlive) { // <-- HIER "&& isBossAlive" HINZUFÜGEN
                 if (now - s.lastSpawnTime > 4000 && s.enemies.length < 5) {
                     this.spawnSingleEnemy(true);
                     s.lastSpawnTime = now;
@@ -810,8 +813,8 @@ export default class AdventureEngine {
 
         const difficultyTier = Math.floor((s.stage - 1) / 5);
         
-        let hp = 20 + (s.stage * 8) + (difficultyTier * 70);
-        let dmg = 8 + (s.stage * 1.5) + (difficultyTier * 7);
+        let hp = 20 + (s.stage * 4) + (difficultyTier * 40);
+        let dmg = 8 + (s.stage * 1.5) + (difficultyTier * 5);
         let speed = 2.8 + (difficultyTier * 0.2); 
         speed = Math.min(4, speed);
 
@@ -1547,8 +1550,8 @@ export default class AdventureEngine {
                     e.lastAttack = now; 
                     if (e.poison) s.player.poisonedTimer = 300;
                     if (e.causesBurn) s.player.burnTimer = 180; 
-                    if (e.causesFreeze) s.player.freezeTimer = 60;
-                    if (e.web) s.player.webbedTimer = 120; 
+                    if (e.causesFreeze) s.player.freezeTimer = 30;
+                    if (e.web) s.player.webbedTimer = 90; 
                     if(s.player.hp <= 0) this.triggerGameOver();
                   }
               }
@@ -2146,8 +2149,8 @@ export default class AdventureEngine {
 
                   if (b.poison) s.player.poisonedTimer = 300;
                   if (b.burn) s.player.burnTimer = 180;
-                  if (b.freeze) s.player.freezeTimer = 60;
-                  if (b.web) s.player.webbedTimer = 120;
+                  if (b.freeze) s.player.freezeTimer = 30;
+                  if (b.web) s.player.webbedTimer = 90;
                   
                   // NEU: Stun Effekt (für Beam, Orbs und Walls)
                   if (b.stun) {

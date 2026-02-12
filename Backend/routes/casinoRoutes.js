@@ -429,11 +429,11 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
 
         if (matchCount >= 3) {
             let baseMult = 0;
-            if (firstSymbol === "🍒") baseMult = 0.5;
-            else if (firstSymbol === "🍋") baseMult = 0.8;
-            else if (firstSymbol === "🍇") baseMult = 1.0;
+            if (firstSymbol === "🍒") baseMult = 0.8;
+            else if (firstSymbol === "🍋") baseMult = 1.0;
+            else if (firstSymbol === "🍇") baseMult = 1.2;
             else if (firstSymbol === "🔔") baseMult = 1.5;
-            else if (firstSymbol === "💎") baseMult = 3.0;
+            else if (firstSymbol === "💎") baseMult = 3.5;
             else if (firstSymbol === "7️⃣") baseMult = 7.0;
             else if (firstSymbol === "🃏") baseMult = 10.0;
 
@@ -452,7 +452,21 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
     
     // --- 4. Scatter Logic (Update) ---
     // Wir zählen Sterne in den *rohen* Walzen
-    const scatterCount = rawReels.flat().filter(s => s === "🌟").length;
+    let scatterCount = 0;
+    rawReels.forEach((col, cIdx) => {
+        col.forEach((sym, rIdx) => {
+            if (sym === "🌟") {
+                // Prüfen, ob an dieser Stelle ein Sticky Wild liegt (aus user.stickyWilds)
+                // Wichtig: Wir prüfen hier gegen die Liste VOR dem Hinzufügen neuer Stickies,
+                // da diese bereits das Feld verdecken.
+                const isCovered = isFreeSpin && user.stickyWilds && user.stickyWilds.some(w => w.col === cIdx && w.row === rIdx);
+                
+                if (!isCovered) {
+                    scatterCount++;
+                }
+            }
+        });
+    });
     let newFreeSpins = 0;
     let justTriggered = false;
     
