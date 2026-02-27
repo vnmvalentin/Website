@@ -1,0 +1,45 @@
+{
+  "waterSettings": {
+    "height": 5,
+    "opacity": 0.5,
+    "color": "#06b6d4",
+    "sharkEnabled": true,
+    "showBubbles": true,
+    "waveIntensity": 0,
+    "position": "bottom",
+    "fishScale": 1.5,
+    "decoScale": 1,
+    "activeDecorations": [
+      "seaweed_1",
+      "rock_1",
+      "ship",
+      "rock_2",
+      "seaweed_2"
+    ],
+    "showDecorations": true,
+    "layoutSeed": 2848
+  },
+  "eventSettings": {
+    "hypeTrain": true,
+    "raid": true
+  },
+  "excludedUsers": "StreamElements, Nightbot, StreamerBot, Moobot, Wizebot, Hexe_bot",
+  "fishRequirements": {
+    "goldfish": [],
+    "modente": [
+      "mod"
+    ],
+    "octopus": [
+      "vip"
+    ],
+    "whale": [
+      "sub"
+    ],
+    "hammershark": [
+      "sub",
+      "vip",
+      "mod"
+    ]
+  },
+  "updatedAt": 1772083619327
+}

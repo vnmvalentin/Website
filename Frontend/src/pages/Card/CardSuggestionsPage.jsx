@@ -1,10 +1,8 @@
-// src/pages/CardSuggestionsPage.jsx
+// src/pages/Card/CardSuggestionsPage.jsx
 import React, { useContext, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { 
   Lightbulb, 
-  ArrowLeft, 
   Plus, 
   Send, 
   X, 
@@ -14,413 +12,233 @@ import {
   MessageSquare,
   Sparkles
 } from "lucide-react";
-import SEO from "../../components/SEO";
 
-const CARD_TYPES = [
-  "natur",
-  "bestie",
-  "drache",
-  "dunkelheit",
-  "cyber",
-  "magie",
-  "ozean",
-  "himmel",
-  "mechanisch",
-  "kristall",
-  "hölle",
-  "wüste",
-  "untergrund",
-];
-
+// --- NEUE SELTENHEITEN OHNE KATEGORIEN ---
 const RARITIES = [
   "common",
   "uncommon",
   "rare",
-  "very-rare",
+  "epic",
   "mythic",
-  "secret",
   "legendary",
+  "secret",
+  "divine"
 ];
 
 const RARITY_LABELS = {
   common: "Gewöhnlich",
   uncommon: "Ungewöhnlich",
   rare: "Selten",
-  "very-rare": "Sehr selten",
+  epic: "Episch",
   mythic: "Mythisch",
-  secret: "Geheim",
   legendary: "Legendär",
+  secret: "Geheim",
+  divine: "Göttlich",
 };
 
-// Twitch-ID für Admin-Buttons (löschen)
-const STREAMER_TWITCH_ID = "160224748"; // ggf. anpassen
+const RARITY_COLORS = {
+  common: "text-gray-400",
+  uncommon: "text-green-400",
+  rare: "text-blue-400",
+  epic: "text-purple-400",
+  mythic: "text-pink-400",
+  secret: "text-red-400",
+  legendary: "text-yellow-400",
+  divine: "text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]"
+};
 
 export default function CardSuggestionsPage() {
-  const { user, login } = useContext(TwitchAuthContext);
+  const { user } = useContext(TwitchAuthContext);
+  const userIsStreamer = user && String(user.id) === "160224748";
 
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    type: "",
-    rarity: "",
-    description: "",
-  });
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [rarity, setRarity] = useState("common");
 
-  const userIsStreamer = user && String(user.id) === STREAMER_TWITCH_ID;
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const fetchSuggestions = async () => {
+    try {
+      const res = await fetch("/api/cards/suggestions");
+      setSuggestions(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch("/api/card-suggestions", {
-          credentials: "include",
-        });
-        if (!res.ok) {
-          throw new Error("Fehler beim Laden der Vorschläge");
-        }
-        const data = await res.json();
-        setSuggestions(Array.isArray(data) ? data : []);
-      } catch (e) {
-        console.error(e);
-        setError("Vorschläge konnten nicht geladen werden.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    fetchSuggestions();
   }, []);
-
-  const sortedSuggestions = [...suggestions].sort(
-    (a, b) => (b.votes || 0) - (a.votes || 0)
-  );
-
-  const handleFormChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
-
-    try {
-      const res = await fetch("/api/card-suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name: form.name,
-          type: form.type,
-          rarity: form.rarity,
-          description: form.description,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Fehler beim Einreichen des Vorschlags");
-      }
-
-      const created = await res.json();
-      setSuggestions((prev) => [created, ...prev]);
-      setForm({ name: "", type: "", rarity: "", description: "" });
-      setShowForm(false);
-    } catch (e) {
-      console.error(e);
-      setError("Vorschlag konnte nicht eingereicht werden.");
-    }
-  };
-
-  const handleVote = async (id, delta) => {
-    if (!user) return;
     setError("");
+    setSuccess("");
 
-    // Doppeltes Klicken auf die gleiche Richtung verhindern (Client-Seite)
-    const current = suggestions.find((s) => s.id === id);
-    if (current && current._myVote === delta) {
-      return; // schon so gevotet → kein weiterer Request
-    }
+    if (!title.trim()) return setError("Bitte gib deiner Idee einen Namen.");
 
+    setSubmitting(true);
     try {
-      const res = await fetch(`/api/card-suggestions/${id}/vote`, {
+      const res = await fetch("/api/cards/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ delta }),
+        // Wir senden "Katze" als Platzhalter, damit das Backend (das noch "category" verlangt) glücklich ist
+        body: JSON.stringify({ title, description, category: "Katze", rarity }),
+        credentials: "include"
       });
-      if (!res.ok) {
-        throw new Error("Fehler beim Voting");
-      }
-      const updated = await res.json();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Fehler beim Senden.");
 
-      // Lokales Feld _myVote anhängen, um die Buttons zu stylen
-      updated._myVote = delta;
+      setSuccess("Dein Vorschlag wurde erfolgreich eingereicht!");
+      setTitle("");
+      setDescription("");
+      setRarity("common");
+      setShowForm(false);
+      fetchSuggestions();
 
-      setSuggestions((prev) =>
-        prev.map((s) =>
-          s.id === updated.id ? { ...updated, _myVote: delta } : s
-        )
-      );
-    } catch (e) {
-      console.error(e);
-      setError("Deine Stimme konnte nicht gespeichert werden.");
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (err) {
+      setError(err.message);
     }
+    setSubmitting(false);
   };
 
   const handleDelete = async (id) => {
-    if (!userIsStreamer) return;
-
-    if (!window.confirm("Diesen Vorschlag wirklich löschen?")) return;
-
+    if (!window.confirm("Vorschlag wirklich löschen?")) return;
     try {
-      const res = await fetch(`/api/card-suggestions/${id}`, {
+      await fetch(`/api/cards/suggestions/${id}`, {
         method: "DELETE",
-        credentials: "include",
+        credentials: "include"
       });
-      if (!res.ok) {
-        throw new Error("Fehler beim Löschen");
-      }
-      setSuggestions((prev) => prev.filter((s) => s.id !== id));
+      fetchSuggestions();
     } catch (e) {
       console.error(e);
-      setError("Vorschlag konnte nicht gelöscht werden.");
     }
   };
 
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-white p-4">
-        <div className="bg-[#18181b] p-10 rounded-3xl border border-white/10 text-center shadow-2xl max-w-lg w-full">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-violet-500/10 text-violet-400 mb-6">
-                <Lightbulb size={32} />
-            </div>
-            <h1 className="text-3xl font-black mb-4 text-white">Ideen einreichen</h1>
-            <p className="text-white/50 mb-8 leading-relaxed">
-              Melde dich mit deinem Twitch-Account an, um Vorschläge zu sehen,
-              zu voten und eigene Ideen für neue Karten einzureichen.
-            </p>
-            <button
-              onClick={() => login(true)}
-              className="bg-[#9146FF] hover:bg-[#7d36ff] text-white px-8 py-3 rounded-xl font-bold transition-transform hover:scale-105 shadow-lg shadow-violet-900/20"
-            >
-              Mit Twitch einloggen
-            </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="text-center text-white/50 p-20">Lade Vorschläge...</div>;
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
-      <SEO title = "Vorschläge Karten"/>
+    <div className="w-full">
       
-      {/* HEADER SECTION */}
-      <div className="bg-[#18181b] rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl relative overflow-hidden mb-8">
-         <div className="absolute top-0 right-0 p-32 bg-violet-500/5 blur-[100px] rounded-full pointer-events-none" />
-         
-         <div className="relative z-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3 mb-2">
-                <Lightbulb className="text-yellow-400 fill-yellow-400/20" size={36} /> Kartenvorschläge
-              </h1>
-              <p className="text-white/50 max-w-xl">
-                Die Community entscheidet! Stimme über Vorschläge ab oder reiche deine eigene Karten-Idee ein, die vielleicht bald im Spiel landet.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                to="/Packs"
-                className="inline-flex items-center gap-2 bg-black/40 hover:bg-white/5 border border-white/10 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors"
-              >
-                <ArrowLeft size={16} /> Zurück
-              </Link>
-            </div>
-         </div>
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 border-b border-white/10 pb-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
+             <Lightbulb className="text-orange-400" size={32} /> Katzen Ideen
+          </h1>
+          <p className="text-white/50 mt-1">
+            Reiche deine Ideen für neue Karten ein oder bewerte die Vorschläge der Community.
+          </p>
+        </div>
+        <button 
+            onClick={() => setShowForm(!showForm)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg ${showForm ? "bg-white/10 text-white hover:bg-white/20" : "bg-orange-500 hover:bg-orange-400 text-black shadow-orange-900/20"}`}
+        >
+            {showForm ? <><X size={18}/> Abbrechen</> : <><Plus size={18}/> Idee einreichen</>}
+        </button>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-200 rounded-xl flex items-center gap-3 animate-in fade-in">
-           <X size={20} /> {error}
-        </div>
+      {success && (
+          <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 text-green-400 font-bold rounded-xl flex items-center gap-3 animate-in fade-in">
+              <Sparkles size={20} /> {success}
+          </div>
       )}
 
-      {/* FORMULAR SECTION */}
-      <div className="bg-[#18181b] rounded-2xl p-6 border border-white/10 shadow-xl mb-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Sparkles className="text-violet-400" size={20}/> Eigene Idee einreichen
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowForm((prev) => !prev)}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${showForm ? "bg-white/5 text-white/60 hover:text-white" : "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-900/20"}`}
-          >
-            {showForm ? <><X size={16}/> Schließen</> : <><Plus size={16}/> Neuer Vorschlag</>}
-          </button>
-        </div>
+      {/* FORMULAR */}
+      <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showForm ? "max-h-[800px] opacity-100 mb-8" : "max-h-0 opacity-0 m-0"}`}>
+          <form onSubmit={handleSubmit} className="bg-[#18181b] border border-orange-500/30 rounded-3xl p-6 md:p-8 shadow-2xl relative">
+              <div className="absolute top-0 right-0 p-32 bg-orange-500/5 blur-[100px] rounded-full pointer-events-none" />
+              
+              <h2 className="text-2xl font-bold text-white mb-6">Neue Katze erschaffen</h2>
 
-        {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="bg-black/20 border border-white/5 rounded-2xl p-6 space-y-6 animate-in slide-in-from-top-4"
-          >
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-wide text-white/40 font-bold ml-1">
-                  Name der Karte
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => handleFormChange("name", e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all placeholder:text-white/20"
-                  placeholder="z.B. Cyber Drache"
-                />
+              {error && <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm font-bold">{error}</div>}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-10">
+                  <div className="space-y-6">
+                      <div>
+                          <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Name der Katze *</label>
+                          <input 
+                              type="text" 
+                              value={title}
+                              onChange={(e) => setTitle(e.target.value)}
+                              placeholder="z.B. Feuerwehr-Katze, Hacker-Cat"
+                              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 focus:outline-none transition-colors"
+                          />
+                      </div>
+                      
+                      <div>
+                          <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Gewünschte Seltenheit *</label>
+                          <select 
+                              value={rarity}
+                              onChange={(e) => setRarity(e.target.value)}
+                              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 focus:outline-none transition-colors appearance-none"
+                          >
+                              {RARITIES.map(r => (
+                                  <option key={r} value={r} className="bg-[#18181b]">{RARITY_LABELS[r]}</option>
+                              ))}
+                          </select>
+                      </div>
+                  </div>
+
+                  <div>
+                      <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Details & Aussehen (Optional)</label>
+                      <textarea 
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Wie sieht sie aus? Hat sie ein spezielles Item? Was ist der Witz dahinter?"
+                          className="w-full h-[120px] bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 focus:outline-none transition-colors resize-none custom-scrollbar"
+                      />
+                  </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-wide text-white/40 font-bold ml-1">
-                    Typ
-                    </label>
-                    <select
-                    value={form.type}
-                    onChange={(e) => handleFormChange("type", e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-violet-500 transition-all appearance-none cursor-pointer"
-                    >
-                    <option value="" className="bg-[#18181b]">Bitte auswählen</option>
-                    {CARD_TYPES.map((t) => (
-                        <option key={t} value={t} className="bg-[#18181b]">
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
-                        </option>
-                    ))}
-                    </select>
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-wide text-white/40 font-bold ml-1">
-                    Seltenheit
-                    </label>
-                    <select
-                    value={form.rarity}
-                    onChange={(e) => handleFormChange("rarity", e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-violet-500 transition-all appearance-none cursor-pointer"
-                    >
-                    <option value="" className="bg-[#18181b]">Bitte auswählen</option>
-                    {RARITIES.map((r) => (
-                        <option key={r} value={r} className="bg-[#18181b]">
-                        {RARITY_LABELS[r] || r}
-                        </option>
-                    ))}
-                    </select>
-                </div>
+              <div className="flex justify-end relative z-10">
+                  <button 
+                      type="submit" 
+                      disabled={submitting}
+                      className="bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-black px-8 py-3 rounded-xl font-black flex items-center gap-2 transition-all shadow-lg shadow-orange-900/20"
+                  >
+                      <Send size={18} /> {submitting ? "Wird gesendet..." : "Vorschlag einreichen"}
+                  </button>
               </div>
-
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-xs uppercase tracking-wide text-white/40 font-bold ml-1">
-                  Beschreibung & Fähigkeiten
-                </label>
-                <textarea
-                  rows={3}
-                  value={form.description}
-                  onChange={(e) => handleFormChange("description", e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all placeholder:text-white/20"
-                  placeholder="Was macht diese Karte besonders?"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-white/5">
-              <button
-                type="submit"
-                className="px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold shadow-lg shadow-violet-900/20 transition-transform active:scale-95 flex items-center gap-2"
-              >
-                <Send size={16} /> Einreichen
-              </button>
-            </div>
           </form>
-        )}
       </div>
 
-      {/* LISTE */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-white/60 px-2 uppercase tracking-wider">
-          Aktuelle Vorschläge ({sortedSuggestions.length})
+      {/* LISTE DER VORSCHLÄGE */}
+      <div>
+        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+            Community Vorschläge <span className="bg-white/10 text-white/50 text-xs px-2 py-0.5 rounded-full">{suggestions.length}</span>
         </h2>
         
-        {loading ? (
-          <div className="p-8 text-center text-white/40 animate-pulse">
-            Vorschläge werden geladen…
-          </div>
-        ) : sortedSuggestions.length === 0 ? (
-          <div className="p-8 text-center bg-[#18181b] rounded-2xl border border-white/10 border-dashed text-white/40">
-            Es wurden noch keine Vorschläge eingereicht. Sei der Erste!
+        {suggestions.length === 0 ? (
+          <div className="py-20 text-center text-white/30 border-2 border-dashed border-white/5 rounded-3xl">
+              <Lightbulb size={48} className="mx-auto mb-4 opacity-20" />
+              <p>Noch keine Ideen vorhanden. Mach den Anfang!</p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-            {sortedSuggestions.map((s) => {
-            const myVote = s._myVote || 0;
-
-            return (
-                <div
-                key={s.id}
-                className="bg-[#18181b] border border-white/10 rounded-2xl p-5 hover:border-white/20 transition-all group shadow-lg flex flex-col justify-between"
-                >
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {suggestions.slice().reverse().map(s => {
+               const badgeColor = RARITY_COLORS[s.rarity] || "text-white";
+               return (
+                <div key={s.id} className="bg-[#18181b] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-colors group">
                     <div>
-                        <div className="flex items-start justify-between gap-4 mb-3">
-                            <div>
-                                <h3 className="font-bold text-lg text-white group-hover:text-violet-400 transition-colors">
-                                {s.name || "Ohne Titel"}
-                                </h3>
-                                <div className="flex items-center gap-2 mt-2">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-white/60 px-2 py-1 rounded-md">
-                                        {s.type || "Kein Typ"}
-                                    </span>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-white/60 px-2 py-1 rounded-md">
-                                        {RARITY_LABELS[s.rarity] || s.rarity || "Unbekannt"}
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            {/* Voting Actions */}
-                            <div className="flex items-center bg-black/40 rounded-xl p-1 border border-white/5">
-                                <button
-                                    type="button"
-                                    disabled={!user}
-                                    onClick={() => handleVote(s.id, 1)}
-                                    className={`p-2 rounded-lg transition-all ${
-                                        myVote === 1
-                                        ? "bg-green-500/20 text-green-400"
-                                        : "hover:bg-white/10 text-white/40 hover:text-green-400"
-                                    }`}
-                                >
-                                    <ThumbsUp size={16} fill={myVote === 1 ? "currentColor" : "none"} />
-                                </button>
-                                
-                                <span className={`font-mono font-bold text-sm w-8 text-center ${s.votes > 0 ? "text-green-400" : s.votes < 0 ? "text-red-400" : "text-white/60"}`}>
-                                    {s.votes || 0}
-                                </span>
-
-                                <button
-                                    type="button"
-                                    disabled={!user}
-                                    onClick={() => handleVote(s.id, -1)}
-                                    className={`p-2 rounded-lg transition-all ${
-                                        myVote === -1
-                                        ? "bg-red-500/20 text-red-400"
-                                        : "hover:bg-white/10 text-white/40 hover:text-red-400"
-                                    }`}
-                                >
-                                    <ThumbsDown size={16} fill={myVote === -1 ? "currentColor" : "none"} />
-                                </button>
-                            </div>
+                        <div className="flex gap-2 mb-3">
+                            <span className={`text-[10px] uppercase font-black tracking-wider px-2 py-1 rounded bg-white/5 border border-white/10 ${badgeColor}`}>
+                                {RARITY_LABELS[s.rarity] || s.rarity}
+                            </span>
                         </div>
-
+                        
+                        <h3 className="font-bold text-lg text-white mb-2 leading-tight">{s.title}</h3>
+                        
                         {s.description && (
-                            <div className="bg-black/20 rounded-xl p-3 mb-4 border border-white/5">
+                            <div className="bg-black/30 p-3 rounded-xl border border-white/5 mb-4">
                                 <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed flex gap-2">
                                     <MessageSquare size={14} className="mt-0.5 text-white/20 shrink-0" />
                                     {s.description}

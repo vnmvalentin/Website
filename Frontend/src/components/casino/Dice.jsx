@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useOutletContext } from "react-router-dom";
 import CoinIcon from "../CoinIcon"; 
 import confetti from "canvas-confetti";
 import { ArrowDown, ArrowUp, Dices, Percent, X } from "lucide-react";
 
 export default function Dice({ updateCredits, currentCredits }) {
+  // Globaler Mute-Status aus dem Layout
+  const context = useOutletContext();
+  const isMuted = context?.isMuted || false;
+
   const [bet, setBet] = useState(100);
   const [target, setTarget] = useState(50); 
   const [condition, setCondition] = useState("under"); 
@@ -13,15 +18,52 @@ export default function Dice({ updateCredits, currentCredits }) {
   
   const resultRef = useRef(null);
 
+  // --- AUDIO SETUP ---
+  const clickAudio = useRef(null);
+  const diceAudio = useRef(null);
+
+  useEffect(() => {
+      clickAudio.current = new Audio("/assets/sounds/dice/click.mp3");
+      clickAudio.current.volume = 0.05;
+
+      diceAudio.current = new Audio("/assets/sounds/dice/dice.mp3");
+      diceAudio.current.volume = 0.1;
+  }, []);
+
+  // Sync Mute State
+  useEffect(() => {
+      if (clickAudio.current) clickAudio.current.muted = isMuted;
+      if (diceAudio.current) diceAudio.current.muted = isMuted;
+  }, [isMuted]);
+
+  const playClickSound = () => {
+      if (isMuted || !clickAudio.current) return;
+      clickAudio.current.currentTime = 0;
+      clickAudio.current.play().catch(e => console.log(e));
+  };
+
+  const playDiceSound = () => {
+      if (isMuted || !diceAudio.current) return;
+      diceAudio.current.currentTime = 0;
+      diceAudio.current.play().catch(e => console.log(e));
+  };
+
   // --- LOGIK (Original) ---
   const winChance = condition === "under" ? target : 100 - target;
   const multiplier = (99 / winChance).toFixed(4);
   const profit = (bet * multiplier).toFixed(0);
 
   const play = async () => {
+    playClickSound(); // Button Click Sound
+    
     if (bet > currentCredits) return alert("Zu wenig Credits!");
+    if (bet <= 0) return alert("Ungültiger Einsatz!");
+
     setIsPlaying(true);
     setLastResult(null);
+
+    // Würfel-Sound abspielen (Dauert 1 Sekunde)
+    playDiceSound();
 
     try {
         const res = await fetch("/api/casino/play/dice", {
@@ -33,13 +75,14 @@ export default function Dice({ updateCredits, currentCredits }) {
         if (data.error) {
             alert(data.error);
             setIsPlaying(false);
+            if (diceAudio.current) diceAudio.current.pause();
             return;
         }
 
-        // Animation
+        // Animation für genau 1 Sekunde (20 Steps à 50ms)
         let steps = 0;
         const interval = setInterval(() => {
-            if(steps > 10) {
+            if(steps >= 20) {
                 clearInterval(interval);
                 finishGame(data);
             } else {
@@ -51,6 +94,7 @@ export default function Dice({ updateCredits, currentCredits }) {
     } catch (e) {
         console.error(e);
         setIsPlaying(false);
+        if (diceAudio.current) diceAudio.current.pause();
     }
   };
 
@@ -59,7 +103,10 @@ export default function Dice({ updateCredits, currentCredits }) {
       updateCredits();
       setIsPlaying(false);
 
-      if (data.isWin) {
+      // Support für beide Backend-Typen (isWin oder winAmount > 0)
+      const isWin = data.isWin !== undefined ? data.isWin : data.winAmount > 0;
+
+      if (isWin) {
           confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 }, colors: ['#4ade80'] });
       }
   };
@@ -73,6 +120,11 @@ export default function Dice({ updateCredits, currentCredits }) {
       }
   };
 
+  // SICHERUNG: fängt "Cannot read properties of undefined (reading 'roll')" ab
+  const rollValue = lastResult ? (lastResult.result?.roll ?? lastResult.roll) : null;
+  const isWin = lastResult ? (lastResult.isWin !== undefined ? lastResult.isWin : lastResult.winAmount > 0) : false;
+  const winAmount = lastResult ? lastResult.winAmount : 0;
+
   return (
     <div className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto py-6 gap-8">
       
@@ -83,16 +135,16 @@ export default function Dice({ updateCredits, currentCredits }) {
               <div 
                 ref={resultRef}
                 className={`text-7xl md:text-9xl font-black font-mono tracking-tighter transition-all duration-300 drop-shadow-2xl 
-                    ${!lastResult ? 'text-gray-700' : lastResult.isWin ? 'text-emerald-400 drop-shadow-[0_0_35px_rgba(52,211,153,0.6)]' : 'text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.4)]'}
+                    ${!lastResult ? 'text-gray-700' : isWin ? 'text-emerald-400 drop-shadow-[0_0_35px_rgba(52,211,153,0.6)]' : 'text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.4)]'}
                 `}
               >
-                  {lastResult ? lastResult.roll.toFixed(2) : "50.00"}
+                  {lastResult && rollValue !== null ? rollValue.toFixed(2) : "50.00"}
               </div>
               
               {/* Win/Loss Badge */}
               {lastResult && (
-                  <div className={`absolute left-1/2 -translate-x-1/2 -bottom-8 px-6 py-2 rounded-full font-black text-lg border animate-in slide-in-from-top-4 ${lastResult.isWin ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
-                      {lastResult.isWin ? `+${lastResult.winAmount}` : `-${bet}`} <CoinIcon className="inline w-5 h-5 ml-1"/>
+                  <div className={`absolute left-1/2 -translate-x-1/2 -bottom-8 px-6 py-2 rounded-full font-black text-lg border animate-in slide-in-from-top-4 ${isWin ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
+                      {isWin ? `+${winAmount}` : `-${bet}`} <CoinIcon className="inline w-5 h-5 ml-1"/>
                   </div>
               )}
           </div>
@@ -122,10 +174,10 @@ export default function Dice({ updateCredits, currentCredits }) {
               />
               
               {/* Result Marker (Needle) */}
-              {lastResult && (
+              {lastResult && rollValue !== null && (
                   <div 
                     className="absolute top-0 bottom-0 w-1 bg-white z-10 shadow-[0_0_15px_white] transition-all duration-500 h-full mix-blend-overlay"
-                    style={{ left: `${lastResult.roll}%` }}
+                    style={{ left: `${rollValue}%` }}
                   >
                       <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_white]"></div>
                   </div>
@@ -181,13 +233,13 @@ export default function Dice({ updateCredits, currentCredits }) {
               <div className="flex flex-col gap-3 justify-center">
                   <div className="flex bg-black/30 p-1 rounded-xl border border-white/5">
                       <button 
-                        onClick={() => setCondition("under")} 
+                        onClick={() => { playClickSound(); setCondition("under"); }} 
                         className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-1 ${condition === 'under' ? 'bg-emerald-600 text-white shadow' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
                       >
                           <ArrowDown size={14} /> Under
                       </button>
                       <button 
-                        onClick={() => setCondition("over")} 
+                        onClick={() => { playClickSound(); setCondition("over"); }} 
                         className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-1 ${condition === 'over' ? 'bg-emerald-600 text-white shadow' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
                       >
                           <ArrowUp size={14} /> Over

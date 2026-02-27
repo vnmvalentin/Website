@@ -1,17 +1,90 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useOutletContext } from "react-router-dom";
 import CoinIcon from "../CoinIcon";
-import { Bomb, Diamond, Play, LogOut } from "lucide-react";
+import { Bomb, Diamond, Play, LogOut, RotateCcw, Menu } from "lucide-react";
 
 // Identische Konstante wie im Backend
 const HOUSE_EDGE = 0.94; 
 
 export default function Mines({ updateCredits, currentCredits }) {
+  // Globaler Mute-Status aus dem Layout
+  const context = useOutletContext();
+  const isMuted = context?.isMuted || false;
+
   const [bet, setBet] = useState(50);
   const [bombs, setBombs] = useState(3);
   const [game, setGame] = useState(null); 
   const [revealed, setRevealed] = useState(Array(25).fill(false)); 
   const [error, setError] = useState(""); 
 
+  // --- AUDIO SETUP ---
+  const clickAudio = useRef(null);
+  const bombAudio = useRef(null);
+  const diamondAudios = useRef([]);
+
+  useEffect(() => {
+      clickAudio.current = new Audio("/assets/sounds/mines/click.mp3");
+      clickAudio.current.volume = 0.05;
+
+      bombAudio.current = new Audio("/assets/sounds/mines/bomb.mp3");
+      bombAudio.current.volume = 0.1;
+
+      // Pool aus 5 Diamond-Sounds für schnelles Klicken
+      diamondAudios.current = Array.from({ length: 5 }).map(() => {
+          const audio = new Audio("/assets/sounds/mines/diamond.mp3");
+          audio.volume = 0.1;
+          return audio;
+      });
+  }, []);
+
+  // Sync Mute State
+  useEffect(() => {
+      const allAudios = [clickAudio.current, bombAudio.current, ...diamondAudios.current];
+      allAudios.forEach(audio => {
+          if (audio) audio.muted = isMuted;
+      });
+  }, [isMuted]);
+
+  // Audio Entsperrung für Browser-Richtlinien
+  const unlockAudio = () => {
+      const allAudios = [clickAudio.current, bombAudio.current, ...diamondAudios.current];
+      allAudios.forEach(audio => {
+          if (audio && audio.paused && audio.currentTime === 0) {
+              audio.muted = true; 
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                  playPromise.then(() => {
+                      audio.pause();
+                      audio.currentTime = 0;
+                      audio.muted = isMuted; 
+                  }).catch(() => {});
+              }
+          }
+      });
+  };
+
+  const playClickSound = () => {
+      if (isMuted || !clickAudio.current) return;
+      clickAudio.current.currentTime = 0;
+      clickAudio.current.play().catch(e => console.log(e));
+  };
+
+  const playBombSound = () => {
+      if (isMuted || !bombAudio.current) return;
+      bombAudio.current.currentTime = 0;
+      bombAudio.current.play().catch(e => console.log(e));
+  };
+
+  const playDiamondSound = () => {
+      if (isMuted) return;
+      const availableAudio = diamondAudios.current.find(a => a.paused || a.ended) || diamondAudios.current[0];
+      if (availableAudio) {
+          availableAudio.currentTime = 0;
+          availableAudio.play().catch(e => console.log("Sound error:", e));
+      }
+  };
+
+  // --- LOGIC ---
   const calculateNextMultiplier = (currentRevealedCount) => {
       const nextCount = currentRevealedCount + 1; 
       if (nextCount > (25 - (game?.bombCount || bombs))) return 0;
@@ -29,6 +102,8 @@ export default function Mines({ updateCredits, currentCredits }) {
   };
 
   const startGame = async () => {
+    playClickSound(); // Button Click Sound
+    unlockAudio();    // Sounds für diese Session entsperren
     setError("");
     if (bet > currentCredits) { setError("Nicht genug Credits!"); return; }
     if (bet <= 0) { setError("Ungültiger Einsatz!"); return; }
@@ -42,7 +117,6 @@ export default function Mines({ updateCredits, currentCredits }) {
       
       if(data.error) { setError(data.error); return; }
       
-      // WICHTIG: Kompletten Reset erzwingen, field auf null setzen
       setGame({ active: true, cashoutValue: bet, bombCount: bombs, field: null, lost: false, win: false });
       setRevealed(Array(25).fill(false));
       updateCredits();
@@ -65,16 +139,18 @@ export default function Mines({ updateCredits, currentCredits }) {
       setRevealed(newRev);
 
       if (data.status === "boom") {
-        // Spiel verloren -> field wird vom Server gesetzt
+        playBombSound(); // Bomb Sound
         setGame({ ...game, active: false, lost: true, field: data.field });
         updateCredits();
       } else {
+        playDiamondSound(); // Diamond Sound
         setGame(prev => ({ ...prev, cashoutValue: data.cashoutValue }));
       }
     } catch(e) { console.error(e); }
   };
 
   const cashout = async () => {
+    playClickSound(); // Button Click Sound
     try {
       const res = await fetch("/api/casino/play/mines/cashout", { method: "POST", credentials: "include" });
       const data = await res.json();
@@ -87,47 +163,34 @@ export default function Mines({ updateCredits, currentCredits }) {
 
   // --- RENDERING ---
   const renderTile = (i) => {
-      const isRevealed = revealed[i]; // Hat der Spieler draufgeklickt?
-      const isGameOver = game?.lost || game?.win; // Ist das Spiel vorbei?
+      const isRevealed = revealed[i]; 
+      const isGameOver = game?.lost || game?.win; 
       
-      // Standard: Geschlossen
       let content = null;
       let classes = "bg-[#151925] border-white/5 hover:border-white/20 shadow-inner";
 
-      // ---------------------------------------------------------
-      // FALL 1: SPIEL VORBEI (Alles aufdecken basierend auf Server-Daten)
-      // ---------------------------------------------------------
       if (isGameOver && game?.field) {
-          const type = game.field[i]; // "bomb" oder "diamond"
+          const type = game.field[i]; 
 
           if (type === "bomb") {
               if (isRevealed) {
-                  // Diese Bombe hat der Spieler angeklickt -> EXPLOSION
                   classes = "bg-red-600 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.8)] z-10 scale-105";
                   content = <Bomb className="text-white animate-pulse" size={28} fill="currentColor" />;
               } else {
-                  // Andere Bomben anzeigen (aber gedimmt)
                   classes = "bg-[#151925] border-red-900/40 opacity-50"; 
                   content = <Bomb className="text-red-600" size={24} />;
               }
           } else {
-              // Es ist ein Diamant
               if (isRevealed) {
-                  // Vom Spieler gefundener Diamant
                   classes = "bg-green-500/10 border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.3)]";
                   content = <Diamond className="text-green-400" size={24} fill="currentColor" />;
               } else {
-                  // Nicht gefundener Diamant (gedimmt anzeigen)
                   classes = "bg-[#151925] border-white/5 opacity-20 grayscale";
                   content = <Diamond className="text-gray-500" size={20} />;
               }
           }
       } 
-      // ---------------------------------------------------------
-      // FALL 2: SPIEL LÄUFT NOCH
-      // ---------------------------------------------------------
       else if (isRevealed) {
-          // Im laufenden Spiel ist alles Aufgedeckte sicher ein Diamant
           classes = "bg-green-500/10 border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.3)]"; 
           content = <Diamond className="text-green-400 animate-in zoom-in spin-in-180 duration-300" size={24} fill="currentColor" />;
       }
@@ -171,7 +234,7 @@ export default function Mines({ updateCredits, currentCredits }) {
                 {Array.from({length: 25}, (_, i) => renderTile(i))}
              </div>
              
-             {/* Game Over Controls (JETZT UNTER DEM GRID) */}
+             {/* Game Over Controls */}
              {(game?.lost || game?.win) && (
                  <div className="bg-black/40 border border-white/5 rounded-2xl p-6 animate-in slide-in-from-top-4 flex flex-col items-center gap-4">
                     <div className={`text-2xl font-black uppercase tracking-wider ${game.lost ? 'text-red-500' : 'text-green-400'}`}>
@@ -184,16 +247,29 @@ export default function Mines({ updateCredits, currentCredits }) {
                         </div>
                     )}
 
-                    <button 
-                        onClick={() => {
-                            // Reset State lokal, dann StartGame triggern oder einfach UI resetten
-                            setGame(null); // Setzt UI auf "Start Settings" zurück
-                            setRevealed(Array(25).fill(false));
-                        }} 
-                        className="bg-white hover:bg-gray-200 text-black font-bold px-8 py-3 rounded-xl shadow-lg transition-transform active:scale-95 w-full md:w-auto"
-                    >
-                        Neues Spiel
-                    </button>
+                    {/* NEU: Menü und Noch mal Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-3 w-full mt-2 justify-center">
+                        <button 
+                            onClick={() => {
+                                playClickSound(); 
+                                setGame(null); 
+                                setRevealed(Array(25).fill(false));
+                            }} 
+                            className="bg-gray-800 hover:bg-gray-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition-transform active:scale-95 flex-1 max-w-[200px] flex justify-center items-center gap-2 border border-white/10"
+                        >
+                            <Menu size={18} /> Menü
+                        </button>
+
+                        <button 
+                            onClick={() => {
+                                // StartGame feuert direkt mit den aktuellen Werten für bet und bombs!
+                                startGame();
+                            }} 
+                            className="bg-green-600 hover:bg-green-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition-transform active:scale-95 flex-1 max-w-[200px] flex justify-center items-center gap-2"
+                        >
+                            <RotateCcw size={18} /> Noch mal
+                        </button>
+                    </div>
                  </div>
              )}
           </div>
@@ -202,7 +278,6 @@ export default function Mines({ updateCredits, currentCredits }) {
           <div className="w-full md:w-80 flex flex-col gap-4 order-1 md:order-2">
               
               {!game?.active && !game?.lost && !game?.win ? (
-                  // START SETTINGS (Nur sichtbar wenn kein Spiel läuft und kein Ergebnis angezeigt wird)
                   <div className="bg-[#18181b] p-6 rounded-3xl border border-white/10 shadow-lg space-y-6">
                       
                       <div className="space-y-2">
@@ -244,8 +319,6 @@ export default function Mines({ updateCredits, currentCredits }) {
                       </button>
                   </div>
               ) : (
-                  // ACTIVE GAME / RESULT INFO
-                  // Diese Box bleibt sichtbar, auch wenn Game Over ist, bis "Neues Spiel" geklickt wird
                   <div className="bg-[#18181b] p-6 rounded-3xl border border-white/10 shadow-lg space-y-6 relative overflow-hidden">
                       {game?.active && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 animate-pulse" />}
                       
@@ -275,7 +348,6 @@ export default function Mines({ updateCredits, currentCredits }) {
                           </div>
                       </div>
                     
-                      {/* Cashout Button nur aktiv wenn Spiel läuft */}
                       <button 
                         onClick={cashout} 
                         disabled={!game?.active}

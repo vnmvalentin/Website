@@ -1,381 +1,196 @@
+/* src/components/Card.css */
+
 /* ===== Basis ===== */
-
 .card {
-  --card-width: min(320px, 92vw);
-  --card-height: calc(var(--card-width) * 1.4375); /* 460/320 */
-  --border-radius: 16px;
-
+  container-type: inline-size;
+  width: 100%;
+  aspect-ratio: 1 / 1.48; /* Etwas höher, damit der Inhalt mehr Luft hat */
+  height: auto;
   position: relative;
-  width: var(--card-width);
-  height: var(--card-height);
-  font-family: "Times New Roman", serif;
-  color: #222;
-  overflow: hidden;
-  border-radius: var(--border-radius);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: #fff;
+  border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  
+  /* Fallback-Hintergrund (Dunkelgrau), falls das Bild gar nicht lädt */
+  background-color: #18181b; 
 }
 
-/* Layer 1: Grund-Hintergrund (Theme) */
+/* Background Image Layer */
 .card-bg {
   position: absolute;
   inset: 0;
-  background-image: var(--card-theme-url);
+  /* Das Bild wird hier geladen */
+  background-image: var(--card-theme-url, none);
   background-size: cover;
   background-position: center;
-  filter: saturate(1) contrast(1);
   z-index: 1;
+  opacity: 1; /* Volle Deckkraft für dein Bild */
 }
 
-/* Layer 2: Rahmen */
+/* Rahmen */
 .card-frame {
   position: absolute;
   inset: 0;
-  border-radius: var(--border-radius);
-  border: 10px solid #b58b55; /* Standard: bronze */
+  border-radius: 12px;
+  border: 4px solid rgba(255,255,255,0.1);
   box-sizing: border-box;
   z-index: 2;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+  pointer-events: none;
 }
 
-/* Layer 3: Artwork – jetzt quadratisch mit sauberem Rahmen */
-.card-art {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  top: 60px;
-  aspect-ratio: 1 / 1;              /* 1:1 Format */
-  background-image: var(--card-artwork-url);
-  background-size: cover;           /* füllt den Rahmen komplett */
-  background-repeat: no-repeat;
-  background-position: center;
-  border: 4px solid rgba(255,255,255,0.6);
-  border-radius: 12px;
-  box-shadow:
-    0 0 8px rgba(0,0,0,0.4),
-    inset 0 0 8px rgba(255,255,255,0.2);
-  z-index: 3;
+/* Content Layout */
+.card-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Verteilt Header, Bild, Footer */
+  height: 100%;
+  padding: clamp(4px, 3cqw, 8px); /* Etwas weniger Padding an den Rändern für mehr Platz */
 }
 
-/* Header (Name + Typ) */
+/* Header (Titel) */
 .card-header {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  top: 12px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  background: rgba(245, 238, 220, 0.92);
-  border-radius: 10px;
-  z-index: 4;
-}
-
-.card-name {
-  font-weight: 700;
-  font-size: 18px;
-  flex: 1;
-}
-
-.card-type-icon {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 6px;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.1);
-}
-
-/* Textfeld unter Artwork */
-.card-text {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 40px;
-  min-height: 70px;
-  padding: 8px 10px;
-  background: rgba(245, 238, 220, 0.95);
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.3;
-  z-index: 4;
-}
-
-/* Footer: Nummer mit eigener kleinen Box */
-.card-footer {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 10px;
-  height: 24px;
-  display: flex;
-  justify-content: space-between; /* <-- neu */
-  align-items: center;
-  z-index: 4;
-}
-
-.card-number-badge {
-  padding: 2px 8px;
-  min-width: 32px;
   text-align: center;
-  font-size: 10px;
-  font-weight: 600;
-  border-radius: 6px;
-  background: rgba(245, 238, 220, 0.96); /* helles Feld */
-  color: #333;                            /* gut lesbar */
-  box-shadow: 0 0 4px rgba(0,0,0,0.25);
-}
-
-.card-rarity-badge {
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 600;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #f5f5f5;
-  box-shadow: 0 0 4px rgba(0,0,0,0.35);
-  max-width: 90px;
-  text-overflow: ellipsis;
+  font-weight: 900;
+  /* Dynamische Schriftgröße */
+  font-size: clamp(0.5rem, 6cqw, 0.9rem); 
+  line-height: 1.1;
+  text-transform: uppercase;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  
+  /* Design der Badge */
+  background: rgba(0, 0, 0, 0.7); 
+  backdrop-filter: blur(4px); 
+  padding: 3px 8px; 
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  
+  /* FIX: Zentrierung und Breite */
+  margin: 0 auto 4px auto; 
+  width: 100%; /* Darf volle Breite nutzen */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   white-space: nowrap;
   overflow: hidden;
 }
 
-.card-new-badge {
-  position: absolute;
-  top: 4px;
-  left: 4px;
+/* Damit der Text schön kürzt falls er IMMER NOCH zu lang ist */
+.card-header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* 1:1 Artwork Image Box */
+.card-art-container {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.2);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.3); /* Leicht abgedunkelt hinter dem Bild */
+  flex-shrink: 0; 
+  margin-bottom: auto; /* Drückt den Footer nach unten */
+}
+
+.card-art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-art-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, #222, #444);
+}
+
+/* Footer (Unten) */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  font-size: clamp(0.45rem, 4.5cqw, 0.75rem); /* Schriftgröße angepasst */
+  font-weight: 800;
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  margin-top: 4px;
+}
+
+/* Badges unten */
+.card-rarity, 
+.card-number {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
   padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #ffffff;
-  background: #3b82f6; /* blau */
   border-radius: 6px;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
-  z-index: 5;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  white-space: nowrap;
 }
 
-/* ===== RARITY-BADGE-FARBEN ===== */
-
-.card[data-rarity="common"] .card-rarity-badge {
-  background: rgba(140, 140, 140, 0.8);
+.card-rarity { 
+  opacity: 1; 
+  flex-shrink: 1; /* Darf kleiner werden wenn nötig */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.card[data-rarity="uncommon"] .card-rarity-badge {
-  background: rgba(160, 200, 255, 0.85);
+.card-number {
+  flex-shrink: 0; /* Nummer bleibt immer sichtbar */
 }
 
-.card[data-rarity="rare"] .card-rarity-badge {
-  background: rgba(120, 170, 255, 0.9);
-}
-
-.card[data-rarity="very-rare"] .card-rarity-badge {
-  background: rgba(180, 120, 255, 0.9);
-}
-
-.card[data-rarity="mythic"] .card-rarity-badge {
-  background: rgba(255, 140, 80, 0.95);
-}
-
-.card[data-rarity="secret"] .card-rarity-badge {
-  background: rgba(255, 215, 120, 0.95);
-  color: #3a2800;
-}
-
-.card[data-rarity="legendary"] .card-rarity-badge {
-  background: rgba(250, 230, 140, 0.98);
-  color: #3a2800;
-}
-
-/* ===== RARITY-STYLES (Layout & Effekte) ===== */
-
-/* Gewöhnlich: leicht entsättigt, Bronze-Rand */
-.card[data-rarity="common"] .card-bg {
-  filter: saturate(0.9) brightness(0.95);
-}
-.card[data-rarity="common"] .card-frame {
-  border-color: #b58b55; /* Bronze */
-}
-
-/* Ungewöhnlich: Silber-Rahmen mit leichtem Glanz */
-.card[data-rarity="uncommon"] .card-frame {
-  border-color: #c0c0c0; /* Silber */
-  box-shadow:
-    0 0 6px rgba(192, 192, 192, 0.8),
-    0 0 18px rgba(192, 192, 192, 0.6);
-}
-
-/* Selten: blauer, rundum leuchtender Rand */
-.card[data-rarity="rare"] .card-frame {
-  border-color: #5fa3ff;
-  box-shadow:
-    0 0 8px rgba(95, 163, 255, 0.9),
-    0 0 20px rgba(95, 163, 255, 0.6);
-}
-
-/* Sehr selten: violetter, leuchtender Rand + Glitzer auf dem Artwork */
-.card[data-rarity="very-rare"] .card-frame {
-  border-color: #c46bff;
-  box-shadow:
-    0 0 8px rgba(196, 107, 255, 0.9),
-    0 0 22px rgba(196, 107, 255, 0.6);
-}
-
-.card[data-rarity="very-rare"] .card-art::after {
-  content: "";
+/* NEU: Level Badge oben rechts */
+.card-level-badge {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background-image:
-    radial-gradient(circle at 10% 0%, rgba(255,255,255,0.35), transparent 50%),
-    radial-gradient(circle at 90% 100%, rgba(255,255,255,0.25), transparent 55%);
-  mix-blend-mode: screen;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(253, 224, 71, 0.5); /* Gelber Rand */
+  font-size: clamp(0.5rem, 5cqw, 0.8rem);
+  font-weight: 900;
+  color: #fde047; /* Gelbe Schrift */
+  z-index: 20;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  gap: 3px;
   pointer-events: none;
 }
 
-/* === FULL-ART RARITIES (mythic, secret, legendary) === */
-
-/* Gemeinsame Overlays: dunkler Header/Text + weiße Schrift */
-.card[data-rarity="mythic"] .card-header,
-.card[data-rarity="secret"] .card-header,
-.card[data-rarity="legendary"] .card-header {
-  background: rgba(0, 0, 0, 0.55);
-  color: #f9fafb;
+/* "Neu" Badge links */
+.card-new-badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  background: #ef4444;
+  color: white;
+  padding: 2px 8px;
+  font-size: clamp(0.5rem, 5cqw, 0.7rem);
+  font-weight: 900;
+  text-transform: uppercase;
+  border-radius: 12px;
+  z-index: 20;
+  transform: rotate(-10deg);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  border: 1px solid white;
 }
 
-.card[data-rarity="mythic"] .card-name,
-.card[data-rarity="mythic"] .card-type-icon,
-.card[data-rarity="secret"] .card-name,
-.card[data-rarity="secret"] .card-type-icon,
-.card[data-rarity="legendary"] .card-name,
-.card[data-rarity="legendary"] .card-type-icon {
-  color: #f9fafb;
-}
-
-.card[data-rarity="mythic"] .card-type-icon,
-.card[data-rarity="secret"] .card-type-icon,
-.card[data-rarity="legendary"] .card-type-icon {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.card[data-rarity="mythic"] .card-text,
-.card[data-rarity="secret"] .card-text,
-.card[data-rarity="legendary"] .card-text {
-  background: rgba(0, 0, 0, 0.55);
-  color: #f2f2f2;
-}
-
-.card[data-rarity="mythic"] .card-footer .card-number-badge,
-.card[data-rarity="mythic"] .card-footer .card-rarity-badge,
-.card[data-rarity="secret"] .card-footer .card-number-badge,
-.card[data-rarity="secret"] .card-footer .card-rarity-badge,
-.card[data-rarity="legendary"] .card-footer .card-number-badge,
-.card[data-rarity="legendary"] .card-footer .card-rarity-badge {
-  background: rgba(0, 0, 0, 0.6);
-  color: #f9fafb;
-}
-
-/* Mythisch: Full Art über komplette Karte, Theme weg */
-.card[data-rarity="mythic"] .card-bg {
-  opacity: 0; /* Theme verschwindet */
-}
-
-.card[data-rarity="mythic"] .card-frame {
-  border-color: #ff8a3c;
-  box-shadow:
-    0 0 12px rgba(255,138,60,0.8),
-    0 0 26px rgba(255,138,60,0.6);
-}
-
-.card[data-rarity="mythic"] .card-art {
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  aspect-ratio: auto;
-  border-radius: var(--border-radius); /* gleiche Rundung wie Karte */
-  border: none;
-  box-shadow: none;
-}
-
-/* Secret: Full Art + schwarzer Hintergrund & Rand, Artwork leicht transparent
-   und Rand über dem Artwork sichtbar */
-.card[data-rarity="secret"] .card-bg {
-  background: #000;
-  opacity: 1;
-}
-
-.card[data-rarity="secret"] .card-art {
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  aspect-ratio: auto;
-  border-radius: var(--border-radius);
-  border: none;
-  box-shadow: none;
-  opacity: 0.5;           /* leicht transparent */
-  z-index: 3;             /* unter dem Rahmen */
-}
-
-.card[data-rarity="secret"] .card-frame {
-  border-color: #000;
-  box-shadow:
-    0 0 14px rgba(0,0,0,0.9),
-    0 0 30px rgba(0,0,0,0.9);
-  z-index: 4;             /* über dem Artwork */
-  background: transparent;
-}
-
-/* Legendär: Full Art mit goldenem Hintergrund + Rand, Artwork ~50% transparent */
-.card[data-rarity="legendary"] .card-bg {
-  background-image: linear-gradient(135deg, #f5e6a3, #d9b45f);
-  opacity: 1;
-}
-
-.card[data-rarity="legendary"] .card-frame {
-  border-color: #f9e27a;
-  box-shadow:
-    0 0 16px rgba(249,226,122,0.9),
-    0 0 32px rgba(249,226,122,0.7);
-}
-
-.card[data-rarity="legendary"] .card-art {
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  aspect-ratio: auto;
-  border-radius: var(--border-radius);
-  border: none;
-  box-shadow: none;
-  opacity: 0.5; /* ca. 50% durchsichtig */
-}
-
-/* ===== Mobile Boost gegen "zu dunkel" ===== */
-.card {
-  background: #000;        /* verhindert komische Alpha-/Blend-Effekte */
-  isolation: isolate;      /* wichtig wenn irgendwo mix-blend-mode vorkommt */
-}
-
-@media (max-width: 640px) {
-  /* Theme & Artwork etwas heller/knackiger */
-  .card-bg {
-    filter: saturate(1.06) contrast(1.04) brightness(1.06);
-  }
-
-  .card-art {
-    filter: brightness(1.18) contrast(1.07) saturate(1.05);
-    box-shadow: 0 0 6px rgba(0,0,0,0.30), inset 0 0 6px rgba(255,255,255,0.18);
-  }
-
-  /* Full-art Karten nicht so stark abdunkeln */
-  .card[data-rarity="secret"] .card-art,
-  .card[data-rarity="legendary"] .card-art {
-    opacity: 0.65; /* statt 0.5 */
-  }
-}
-
-/* optional: common-theme nicht zu dunkel */
-@media (max-width: 640px) {
-  .card[data-rarity="common"] .card-bg {
-    filter: saturate(0.95) brightness(1.02);
-  }
-}
+/* --- Rahmenfarben --- */
+.card[data-rarity="common"] .card-frame { border-color: #9ca3af; }
+.card[data-rarity="uncommon"] .card-frame { border-color: #4ade80; }
+.card[data-rarity="rare"] .card-frame { border-color: #60a5fa; }
+.card[data-rarity="epic"] .card-frame { border-color: #c084fc; box-shadow: inset 0 0 15px rgba(192,132,252,0.5); }
+.card[data-rarity="mythic"] .card-frame { border-color: #f472b6; box-shadow: inset 0 0 20px rgba(244,114,182,0.6); }
+.card[data-rarity="legendary"] .card-frame { border-color: #fbbf24; box-shadow: inset 0 0 25px rgba(251,191,36,0.7); }

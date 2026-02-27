@@ -10,495 +10,346 @@ const CARD_SUGGESTIONS_PATH = path.join(__dirname, "../data/card-suggestions.jso
 const CARDS_USER_BACKUP_DIR = path.join(__dirname, "../data/cards-users-backups");
 const CASINO_DB_PATH = path.join(__dirname, "../data/casinoData.json");
 
-// KONFIGURATION
-const PACK_PRICE = 500; 
+// --- NEUE KONFIGURATION ---
+const PACK_PRICE = 250; // Neuer günstigerer Preis
 
-// Credits-Werte für Verkauf
-const REFUND_VALUES = {
-  common: 10,
-  uncommon: 25,
-  rare: 50,
-  "very-rare": 100,
-  mythic: 250,
-  secret: 500,
-  legendary: 2500
+// ALTE Refund-Werte (NUR für das Migrations-Skript, damit niemand Coins verliert)
+const OLD_REFUND_VALUES = {
+  common: 10, uncommon: 25, rare: 50, "very-rare": 100, mythic: 250, secret: 500, legendary: 2500
 };
 
+const MAX_BANK_DAYS = 5;
+
+// --- NEUE IDLE & CRAFTING KONSTANTEN ---
+const IDLE_BASE_RATES = {
+  common: 10,       // 10 Coins / Tag
+  uncommon: 20,
+  rare: 35,
+  epic: 50,
+  mythic: 100,
+  legendary: 250,     
+};
+
+// Spezifische Set-Boni (IDs der Katzen anpassen, falls nötig!)
+const CAT_SETS = [
+    { id: "heroes", name: "Die Helden", cats: ["13", "50", "51"], bonus: 100 },
+    { id: "elements", name: "Elemente", cats: ["25", "70", "71"], bonus: 100 },
+    { id: "heavenhell", name: "Himmel & Hölle", cats: ["43", "44"], bonus: 200 },
+    { id: "sweet", name: "Süße Katzen", cats: ["75", "77", "74"], bonus: 250 },
+    { id: "gems", name: "Edelsteine", cats: ["73", "40", "79"], bonus: 300 },
+    { id: "dn", name: "Tag & Nacht", cats: ["48", "63"], bonus: 500 },
+    { id: "yy", name: "Yin & Yang", cats: ["67", "68"], bonus: 1500},
+    { id: "flower", name: "Flowerpower", cats: ["32", "34", "57", "82"], bonus: 1500 }
+];
+
+const LEVEL_MULTIPLIERS = [1.0, 1.4, 1.9, 2.5, 3.2]; // Level 1 bis 5
+
+function calculateIdleRate(equippedIds, levels, defs) {
+    if (!equippedIds || equippedIds.length === 0) return { base: 0, total: 0, setBonusTotal: 0, activeSets: [] };
+    
+    let baseRate = 0;
+    
+    equippedIds.forEach(id => {
+       const def = defs.find(c => String(c.id) === String(id));
+       if (def) {
+           const base = IDLE_BASE_RATES[def.rarity] || 10;
+           const lvl = levels[id] || 1;
+           const multiplier = LEVEL_MULTIPLIERS[lvl - 1] || 1.0; // Holt den passenden Multiplikator
+           baseRate += (base * multiplier);
+       }
+    });
+
+    let setBonusTotal = 0;
+    let activeSets = [];
+
+    // Prüfe alle Sets
+    CAT_SETS.forEach(set => {
+        const hasAllCats = set.cats.every(catId => equippedIds.includes(String(catId)));
+        if (hasAllCats) {
+            setBonusTotal += set.bonus;
+            activeSets.push(set.id);
+        }
+    });
+
+    const totalRate = Math.floor(baseRate + setBonusTotal);
+
+    return { 
+        base: Math.floor(baseRate), 
+        total: totalRate, 
+        setBonusTotal, 
+        activeSets 
+    };
+}
+
+// Crafting Kosten abhängig von der Seltenheit
+const CRAFT_COSTS = {
+    common:    { dupes: [3, 4, 5, 6], coins: [50, 100, 200, 400] },
+    uncommon:  { dupes: [2, 3, 4, 5], coins: [100, 250, 500, 1000] },
+    rare:      { dupes: [2, 3, 3, 4], coins: [250, 500, 1000, 2000] },
+    epic:      { dupes: [1, 2, 2, 3], coins: [500, 1000, 2500, 5000] },
+    mythic:    { dupes: [1, 1, 2, 2], coins: [1000, 2500, 5000, 10000] },
+    legendary: { dupes: [1, 1, 1, 1], coins: [5000, 10000, 25000, 50000] }, 
+};
+
+function getUpgradeCost(currentLevel, rarity) {
+    if (currentLevel >= 5) return null;
+    const rarityCosts = CRAFT_COSTS[rarity] || CRAFT_COSTS.common;
+    const index = currentLevel - 1;
+    return {
+        dupes: rarityCosts.dupes[index],
+        coins: rarityCosts.coins[index]
+    };
+}
+
+
+// NEUE Achievements (Mit Platzhaltern für Fische und Farben)
 const ACHIEVEMENT_REWARDS = {
-  "first_blood": 100,
-  "collector_100": 1000,
-  "mythic_full": 2000,
-  "secret_full": 5000,
-  "legend_found": 5000,
-  "ultimate_collector": 25000,
-  "collection_natur": 1500,
-  "collection_bestie": 1500,
-  "collection_drache": 1500,
-  "collection_dunkelheit": 1500,
-  "collection_cyber": 1500,
-  "collection_magie": 1500,
-  "collection_ozean": 1500,
-  "collection_himmel": 1500,
-  "collection_mechanisch": 1500,
-  "collection_kristall": 1500,
-  "collection_hoelle": 1500,
-  "collection_wueste": 1500,
-  "collection_untergrund": 1500
+  "first_blood": { coins: 100 },
+  "collector_50": { coins: 500, color: "blue" },
+  "collector_75": { coins: 1000, fish: "rainbow" },
+  "epic_found": { coins: 500 },
+  "mythic_found": { coins: 1000, color: "purple" },
+  "legend_found": { coins: 5000, fish: "sharky" },
+  "ultimate_collector": { coins: 25000, fish: "orca", color: "rainbow-animated" },
 };
 
-// HELPER
-function loadCasinoDb() { try { if (!fs.existsSync(CASINO_DB_PATH)) return {}; return JSON.parse(fs.readFileSync(CASINO_DB_PATH, "utf8")); } catch (e) { return {}; } }
-function saveCasinoDb(db) { try { fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(db, null, 2), "utf8"); } catch (e) {} }
-function loadCardsDef() { try { if (!fs.existsSync(CARDS_DEF_PATH)) return []; return JSON.parse(fs.readFileSync(CARDS_DEF_PATH, "utf8")); } catch (e) { return []; } }
-function loadUserCardsDb() { try { if (!fs.existsSync(CARDS_USER_DB_PATH)) return {}; return JSON.parse(fs.readFileSync(CARDS_USER_DB_PATH, "utf8")); } catch (e) { return {}; } }
-function saveUserCardsDb(db) { try { fs.writeFileSync(CARDS_USER_DB_PATH, JSON.stringify(db, null, 2), "utf8"); } catch (e) {} }
-function loadCardSuggestions() { try { if (!fs.existsSync(CARD_SUGGESTIONS_PATH)) return []; return JSON.parse(fs.readFileSync(CARD_SUGGESTIONS_PATH, "utf8")); } catch (e) { return []; } }
-function saveCardSuggestions(list) { try { fs.writeFileSync(CARD_SUGGESTIONS_PATH, JSON.stringify(list, null, 2), "utf8"); } catch (e) {} }
-
-const RARITY_ORDER = ["common", "uncommon", "rare", "very-rare", "mythic", "secret", "legendary"];
-const RARITY_WEIGHTS = { common: 55, uncommon: 22, rare: 15, "very-rare": 8, mythic: 3.5, secret: 0.8, legendary: 0.1 };
-const PACK_SIZE = 4;
-
-function ensureUserCardsEntry(db, twitchId) {
-  const id = String(twitchId);
-  if (!db[id]) {
-    db[id] = {
-      twitchId: id,
-      twitchLogin: "",
-      owned: {},
-      gallery: [],
-      galleryPublished: false,
-      lastPack: null,
-      claimedAchievements: [] 
-    };
-  }
-  if (!db[id].claimedAchievements) db[id].claimedAchievements = [];
-  return db[id];
+// --- Helper: JSON ---
+function loadJson(file) {
+  try {
+    if (!fs.existsSync(file)) return {};
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (e) { return {}; }
 }
 
-function pickRarityRandom() {
-  const entries = Object.entries(RARITY_WEIGHTS);
-  const total = entries.reduce((sum, [, w]) => sum + w, 0);
-  let r = Math.random() * total;
-  for (const [rarity, weight] of entries) {
-    if (r < weight) return rarity;
-    r -= weight;
-  }
-  return "common";
+function loadCardsDef() {
+  try {
+    if (!fs.existsSync(CARDS_DEF_PATH)) return [];
+    return JSON.parse(fs.readFileSync(CARDS_DEF_PATH, "utf8"));
+  } catch (e) { return []; }
 }
 
-function sortByRarityIncreasing(cards) {
-  return [...cards].sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
+function loadUserCardsDb() {
+  try {
+    if (!fs.existsSync(CARDS_USER_DB_PATH)) return {};
+    return JSON.parse(fs.readFileSync(CARDS_USER_DB_PATH, "utf8"));
+  } catch (e) { return {}; }
 }
 
-// Check Logic für Achievements
-function checkAchievement(achId, allOwnedCards, ownedStats) {
-    const defs = loadCardsDef(); 
-    
-    if (achId === "first_blood") return ownedStats.totalOwned > 0;
-    if (achId === "collector_100") return ownedStats.uniqueOwned >= 100;
-    if (achId === "ultimate_collector") return ownedStats.uniqueOwned >= defs.length && defs.length > 0;
-    if (achId === "legend_found") return allOwnedCards.some(c => c.rarity === "legendary" && c.count > 0);
-    
-    if (achId === "mythic_full") {
-        const mythics = defs.filter(c => c.rarity === "mythic");
-        if (mythics.length === 0) return false;
-        return mythics.every(m => allOwnedCards.some(owned => owned.id === m.id && owned.count > 0));
-    }
-    if (achId === "secret_full") {
-        const secrets = defs.filter(c => c.rarity === "secret");
-        if (secrets.length === 0) return false;
-        return secrets.every(s => allOwnedCards.some(owned => owned.id === s.id && owned.count > 0));
+function saveUserCardsDb(data) {
+  try {
+    fs.writeFileSync(CARDS_USER_DB_PATH, JSON.stringify(data, null, 2), "utf8");
+  } catch (e) { console.error("Konnte User-Cards DB nicht speichern", e); }
+}
+
+// Backup-Helper
+function backupUserCardsDb() {
+  try {
+    if (!fs.existsSync(CARDS_USER_BACKUP_DIR)) {
+      fs.mkdirSync(CARDS_USER_BACKUP_DIR, { recursive: true });
     }
     
-    if (achId.startsWith("collection_")) {
-        const typeId = achId.replace("collection_", "");
-        const TYPE_RANGES = {
-            "natur": [1, 50], "bestie": [51, 100], "drache": [101, 150],
-            "dunkelheit": [151, 200], "cyber": [201, 250], "magie": [251, 300],
-            "ozean": [301, 350], "himmel": [351, 400], "mechanisch": [401, 450],
-            "kristall": [451, 500], "hoelle": [501, 550], "wueste": [551, 600],
-            "untergrund": [601, 650]
-        };
-        const range = TYPE_RANGES[typeId];
-        if (!range) return false;
-        
-        const cardsInType = defs.filter(c => {
-            const num = parseInt(c.number || "0", 10);
-            return num >= range[0] && num <= range[1];
-        });
-        if (cardsInType.length === 0) return false;
-        return cardsInType.every(target => allOwnedCards.some(owned => owned.id === target.id && owned.count > 0));
+    // Fester Dateiname, damit das Backup immer überschrieben wird
+    const dest = path.join(CARDS_USER_BACKUP_DIR, "cards-users-backup.json");
+    
+    if (fs.existsSync(CARDS_USER_DB_PATH)) {
+      fs.copyFileSync(CARDS_USER_DB_PATH, dest);
     }
-    return false;
+  } catch (e) { console.error("Backup failed", e); }
 }
 
-module.exports = function createPackRouter({ requireAuth, ADMIN_PW: ADMIN_PW_IN, STREAMER_TWITCH_ID: STREAMER_TWITCH_ID_IN } = {}) {
+// Jeden Tag um 4 Uhr morgens Backup
+setInterval(() => {
+  const h = new Date().getHours();
+  if (h === 4) backupUserCardsDb();
+}, 1000 * 60 * 60);
+
+// ==========================================
+// ROUTER EXPORT
+// ==========================================
+module.exports = function createPackRouter({ requireAuth, wss }) {
   const router = express.Router();
-  const ADMIN_PW = typeof ADMIN_PW_IN === "string" ? ADMIN_PW_IN : (process.env.ADMIN_PW || "");
-  const STREAMER_TWITCH_ID = (STREAMER_TWITCH_ID_IN ?? process.env.STREAMER_TWITCH_ID) || "";
 
-  router.get("/cards/all", (req, res) => {
-    res.json(loadCardsDef());
-  });
+  // --- MIGRATIONS-SKRIPT ---
+  router.post("/cards/admin/migrate-to-cats", requireAuth, (req, res) => {
+    const STREAMER_ID = "160224748";
+    if (req.twitchId !== STREAMER_ID) return res.status(403).json({ error: "Admin only" });
 
-  // GET USER DATA + ACHIEVEMENT CHECK
-  router.get("/cards/user/:twitchId", requireAuth, (req, res) => {
-    const authId = String(req.twitchId);
-    const twitchId = String(req.params.twitchId);
-    if (authId !== twitchId) return res.status(403).json({ error: "Forbidden" });
-
-    let cardsDb = loadUserCardsDb();
-    const userEntry = ensureUserCardsEntry(cardsDb, twitchId);
-    userEntry.twitchLogin = String(req.twitchLogin || userEntry.twitchLogin || "");
-    saveUserCardsDb(cardsDb);
-
-    const casinoDb = loadCasinoDb();
-    const casinoUser = casinoDb[twitchId] || { credits: 0, lastDaily: 0 };
-
+    backupUserCardsDb();
+    const userDb = loadUserCardsDb();
+    const casinoDb = loadJson(CASINO_DB_PATH);
     const defs = loadCardsDef();
-    const ownedArray = defs.map((card) => ({
-      ...card,
-      count: userEntry.owned[card.id] || 0,
-    }));
 
-    // --- Achievements Status ---
-    const claimed = userEntry.claimedAchievements || [];
-    const stats = {
-        totalOwned: ownedArray.reduce((acc, c) => acc + c.count, 0),
-        uniqueOwned: ownedArray.filter(c => c.count > 0).length
+    const getOldRarity = (cardId) => {
+        const card = defs.find(c => c.id === cardId);
+        return card ? card.rarity : "common"; 
     };
-    
-    let achievementsReadyToClaim = 0;
-    for (const achId of Object.keys(ACHIEVEMENT_REWARDS)) {
-        if (!claimed.includes(achId)) {
-            if (checkAchievement(achId, ownedArray, stats)) {
-                achievementsReadyToClaim++;
+
+    let totalRefunded = 0, usersRefunded = 0;
+
+    for (const [userId, userData] of Object.entries(userDb)) {
+        let userTotalValue = 0;
+        if (userData.owned) {
+            for (const [cardId, amount] of Object.entries(userData.owned)) {
+                const rarity = getOldRarity(cardId);
+                const cardValue = OLD_REFUND_VALUES[rarity] || 10;
+                userTotalValue += (amount * cardValue);
             }
         }
-    }
+        if (userTotalValue > 0) {
+            if (!casinoDb[userId]) casinoDb[userId] = { credits: 0, name: userData.twitchLogin || userId };
+            casinoDb[userId].credits += userTotalValue;
+            totalRefunded += userTotalValue;
+            usersRefunded++;
+        }
 
-    let lastPack = null;
-    if (userEntry.lastPack) {
-      if (Array.isArray(userEntry.lastPack.cards)) {
-        lastPack = userEntry.lastPack;
-      } else if (Array.isArray(userEntry.lastPack.cardIds)) {
-        const cardsById = new Map(defs.map((c) => [c.id, c]));
-        const newSet = new Set(userEntry.lastPack.newCardIds || []);
-        const cards = userEntry.lastPack.cardIds
-          .map((id) => {
-            const base = cardsById.get(id);
-            if (!base) return null;
-            return { ...base, isNew: newSet.has(id) };
-          })
-          .filter(Boolean);
-        lastPack = { openedAt: userEntry.lastPack.openedAt || 0, cards };
-      }
+        // RESET & SETUP NEUES IDLE SYSTEM
+        userDb[userId].owned = {};
+        userDb[userId].claimedAchievements = [];
+        // Neue Idle-Felder:
+        userDb[userId].equipped = [];
+        userDb[userId].cardLevels = {};
+        userDb[userId].lastClaimed = Date.now();
+        
+        // Müll löschen
+        delete userDb[userId].gallery;
+        delete userDb[userId].galleryPublished;
+        delete userDb[userId].lastPack; 
+        delete userDb[userId].packTokens;        
+        delete userDb[userId].lastTokenEarnedAt; 
     }
-
-    res.json({
-      twitchId,
-      twitchLogin: userEntry.twitchLogin,
-      galleryPublished: !!userEntry.galleryPublished,
-      gallery: userEntry.gallery || [],
-      owned: ownedArray,
-      lastPack,
-      credits: casinoUser.credits || 0,
-      lastDaily: casinoUser.lastDaily || 0,
-      packPrice: PACK_PRICE,
-      claimedAchievements: claimed,
-      achievementsReadyToClaim 
-    });
+    saveUserCardsDb(userDb);
+    fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2), "utf8");
+    res.json({ success: true, message: `Refunded: ${totalRefunded} Coins to ${usersRefunded} Users. Idle System initialized.` });
   });
 
-  // PACK KAUFEN (KEIN Refund hier, nur Karten sammeln)
-  router.post("/cards/open-pack/:twitchId", requireAuth, (req, res) => {
-    const authId = String(req.twitchId);
-    const twitchId = String(req.params.twitchId);
-    if (authId !== twitchId) return res.status(403).json({ error: "Forbidden" });
+  // --- KARTEN & USER LADEN ---
+  router.get("/cards/def", (req, res) => res.json(loadCardsDef()));
 
-    const casinoDb = loadCasinoDb();
-    if (!casinoDb[twitchId]) {
-      casinoDb[twitchId] = { credits: 0, lastDaily: 0 };
-    }
-    const userCredits = casinoDb[twitchId].credits || 0;
+  router.get("/cards/user", requireAuth, (req, res) => {
+    const db = loadUserCardsDb();
+    const user = db[req.twitchId] || { 
+        owned: {}, equipped: [], cardLevels: {}, lastClaimed: Date.now(), claimedAchievements: [], unclaimedCoins: 0 
+    };
+    res.json(user);
+  });
 
-    if (userCredits < PACK_PRICE) {
-      return res.status(400).json({ error: "Nicht genug Credits!", credits: userCredits });
+  // --- PACK ÖFFNEN (wie zuvor) ---
+  router.post("/cards/open", requireAuth, (req, res) => {
+    const casinoDb = loadJson(CASINO_DB_PATH);
+    const cUser = casinoDb[req.twitchId];
+    const userCredits = cUser ? cUser.credits : 0;
+    const cardsDb = loadUserCardsDb();
+    
+    if (!cardsDb[req.twitchId]) {
+      cardsDb[req.twitchId] = {
+        twitchId: req.twitchId, twitchLogin: req.twitchLogin,
+        owned: {}, equipped: [], cardLevels: {}, lastClaimed: Date.now(), claimedAchievements: []
+      };
     }
+    const userCards = cardsDb[req.twitchId];
+    userCards.twitchLogin = req.twitchLogin; 
+
+    if (userCredits < PACK_PRICE) return res.status(400).json({ error: "Zu wenig Credits" });
+    casinoDb[req.twitchId].credits -= PACK_PRICE;
+    fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2));
 
     const defs = loadCardsDef();
-    if (!defs.length) return res.status(500).json({ error: "Keine Karten definiert" });
+    if (defs.length === 0) return res.status(500).json({ error: "Keine Karten-Definitionen" });
 
-    const packCards = [];
-    for (let i = 0; i < PACK_SIZE; i++) {
-      const rarity = pickRarityRandom();
-      const pool = defs.filter((c) => c.rarity === rarity);
-      if (!pool.length) packCards.push(defs[Math.floor(Math.random() * defs.length)]);
-      else packCards.push(pool[Math.floor(Math.random() * pool.length)]);
+    const rarityPools = { common: [], uncommon: [], rare: [], epic: [], mythic: [], legendary: [] };
+    for (const c of defs) {
+      if (rarityPools[c.rarity]) rarityPools[c.rarity].push(c);
+      else rarityPools.common.push(c);
     }
 
-    const sortedPack = sortByRarityIncreasing(packCards);
+    function getRandomCard() {
+      const r = Math.random() * 100;
+      let rarity = "common";
+      if (r < 0.05) rarity = "legendary";
+      else if (r < 3.0) rarity = "mythic";
+      else if (r < 15.0) rarity = "epic";
+      else if (r < 30.0) rarity = "rare";
+      else if (r < 65.0) rarity = "uncommon";
 
-    let cardsDb = loadUserCardsDb();
-    const userCardEntry = ensureUserCardsEntry(cardsDb, twitchId);
-    userCardEntry.twitchLogin = String(req.twitchLogin || userCardEntry.twitchLogin || "");
-
-    const newCardIds = [];
-
-    // HIER GEÄNDERT: Kein Refund mehr, nur Zähler hoch
-    for (const card of sortedPack) {
-      const prevCount = userCardEntry.owned[card.id] || 0;
-      if (prevCount === 0) {
-        newCardIds.push(card.id);
-        userCardEntry.owned[card.id] = 1;
-      } else {
-        // Karte einfach addieren -> erlaubt späteres Verkaufen im Album
-        userCardEntry.owned[card.id] += 1;
-      }
+      const pool = rarityPools[rarity] && rarityPools[rarity].length > 0 ? rarityPools[rarity] : rarityPools.common;
+      if (pool.length === 0) return defs[Math.floor(Math.random() * defs.length)];
+      return pool[Math.floor(Math.random() * pool.length)];
     }
 
-    userCardEntry.lastPack = {
-      openedAt: Date.now(),
-      cardIds: sortedPack.map((c) => c.id),
-      newCardIds,
-    };
+    const pulled = [];
+    for (let i = 0; i < 3; i++) pulled.push(getRandomCard());
 
+    if (!userCards.owned) userCards.owned = {};
+    for (const c of pulled) {
+      userCards.owned[c.id] = (userCards.owned[c.id] || 0) + 1;
+    }
+
+    userCards.lastPack = { openedAt: Date.now(), cardIds: pulled.map((c) => c.id) };
     saveUserCardsDb(cardsDb);
 
-    // Vollen Preis abziehen
-    casinoDb[twitchId].credits = userCredits - PACK_PRICE;
-    saveCasinoDb(casinoDb);
+    res.json({ ok: true, newCredits: userCredits - PACK_PRICE, cards: pulled });
+  });
 
-    const cardsWithNewFlag = sortedPack.map((c) => ({
-      ...c,
-      isNew: newCardIds.includes(c.id),
-    }));
+  // --- NEUE ACHIEVEMENT ROUTE (Unterstützt Fische & Farben) ---
+  router.post("/cards/achievements/claim", requireAuth, (req, res) => {
+    const { achId } = req.body;
+    const db = loadUserCardsDb();
+    if (!db[req.twitchId]) return res.status(400).json({ error: "Kein User" });
+    const user = db[req.twitchId];
 
-    res.json({
-      twitchId,
-      openedAt: Date.now(),
-      cards: cardsWithNewFlag,
-      lastPack: userCardEntry.lastPack,
-      credits: casinoDb[twitchId].credits,
-      packPrice: PACK_PRICE,
-      refundAmount: 0 // Immer 0 hier
+    if (!user.claimedAchievements) user.claimedAchievements = [];
+    if (user.claimedAchievements.includes(achId)) return res.status(400).json({ error: "Bereits abgeholt" });
+
+    const reward = ACHIEVEMENT_REWARDS[achId];
+    if (!reward) return res.status(400).json({ error: "Unbekanntes Achievement" });
+
+    // (Die Validierung, ob er es wirklich verdient hat, geschieht sicherheitshalber im Frontend, 
+    // aber wir nehmen es hier für den Moment als valide an)
+    user.claimedAchievements.push(achId);
+    saveUserCardsDb(db);
+
+    const casinoDb = loadJson(CASINO_DB_PATH);
+    if (!casinoDb[req.twitchId]) casinoDb[req.twitchId] = { credits: 0, name: req.twitchLogin };
+    
+    const coinsEarned = reward.coins || 0;
+    if (coinsEarned > 0) {
+        casinoDb[req.twitchId].credits += coinsEarned;
+        fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2));
+    }
+    
+    res.json({ 
+        ok: true, 
+        reward: coinsEarned, 
+        unlockedFish: reward.fish || null,
+        unlockedColor: reward.color || null,
+        claimed: user.claimedAchievements 
     });
   });
 
-  // ALTE DUPLIKATE VERKAUFEN (Trade-In)
-  router.post("/cards/sell-duplicates/:twitchId", requireAuth, (req, res) => {
-      const authId = String(req.twitchId);
-      const twitchId = String(req.params.twitchId);
-      if (authId !== twitchId) return res.status(403).json({ error: "Forbidden" });
+  // --- GALERIE ROUTEN (Bleiben gleich) ---
+  router.post("/cards/gallery", requireAuth, (req, res) => {
+    const { cardIds } = req.body;
+    if (!Array.isArray(cardIds) || cardIds.length > 10) return res.status(400).json({ error: "Max 10 Karten" });
 
-      const defs = loadCardsDef();
-      const byId = new Map(defs.map(c => [c.id, c]));
+    const db = loadUserCardsDb();
+    if (!db[req.twitchId]) db[req.twitchId] = { owned: {}, gallery: [] };
+    const user = db[req.twitchId];
 
-      let cardsDb = loadUserCardsDb();
-      const userEntry = ensureUserCardsEntry(cardsDb, twitchId);
-      
-      let totalRefund = 0;
-      let soldCount = 0;
-
-      for (const [cardId, count] of Object.entries(userEntry.owned)) {
-          if (count > 1) {
-              const cardDef = byId.get(cardId);
-              if (!cardDef) continue;
-              
-              const rarity = cardDef.rarity || "common";
-              const valuePerCard = REFUND_VALUES[rarity] || 5;
-              const toSell = count - 1;
-
-              totalRefund += (toSell * valuePerCard);
-              soldCount += toSell;
-              userEntry.owned[cardId] = 1; // Reset auf 1
-          }
-      }
-
-      if (soldCount === 0) {
-          return res.status(400).json({ error: "Keine doppelten Karten vorhanden." });
-      }
-
-      saveUserCardsDb(cardsDb);
-
-      const casinoDb = loadCasinoDb();
-      if (!casinoDb[twitchId]) casinoDb[twitchId] = { credits: 0, lastDaily: 0 };
-      casinoDb[twitchId].credits += totalRefund;
-      saveCasinoDb(casinoDb);
-
-      res.json({ 
-          ok: true, 
-          soldCount, 
-          creditsEarned: totalRefund, 
-          newCredits: casinoDb[twitchId].credits 
-      });
-  });
-
-  // CLAIM ACHIEVEMENT
-  router.post("/cards/achievement/claim/:twitchId", requireAuth, (req, res) => {
-      const authId = String(req.twitchId);
-      const twitchId = String(req.params.twitchId);
-      if (authId !== twitchId) return res.status(403).json({ error: "Forbidden" });
-
-      const { achievementId } = req.body;
-      if (!achievementId) return res.status(400).json({ error: "Missing ID" });
-
-      let cardsDb = loadUserCardsDb();
-      const userEntry = ensureUserCardsEntry(cardsDb, twitchId);
-      
-      if (userEntry.claimedAchievements.includes(achievementId)) {
-          return res.status(400).json({ error: "Bereits abgeholt!" });
-      }
-
-      const defs = loadCardsDef();
-      const ownedArray = defs.map((card) => ({
-        ...card,
-        count: userEntry.owned[card.id] || 0,
-      }));
-      const stats = {
-          totalOwned: ownedArray.reduce((acc, c) => acc + c.count, 0),
-          uniqueOwned: ownedArray.filter(c => c.count > 0).length
-      };
-
-      const isDone = checkAchievement(achievementId, ownedArray, stats);
-      if (!isDone) {
-          return res.status(400).json({ error: "Achievement noch nicht erreicht!" });
-      }
-
-      const reward = ACHIEVEMENT_REWARDS[achievementId] || 100;
-      
-      const casinoDb = loadCasinoDb();
-      if (!casinoDb[twitchId]) casinoDb[twitchId] = { credits: 0, lastDaily: 0 };
-      
-      casinoDb[twitchId].credits += reward;
-      userEntry.claimedAchievements.push(achievementId);
-
-      saveCasinoDb(casinoDb);
-      saveUserCardsDb(cardsDb);
-
-      res.json({ 
-          ok: true, 
-          credits: casinoDb[twitchId].credits,
-          claimedId: achievementId,
-          reward
-      });
-  });
-  
-  router.all("/cards/admin/add-credits", (req, res) => {
-    const data = { ...req.query, ...req.body };
-    const { adminPw, twitchId, amount } = data;
-    const serverPw = process.env.ADMIN_PW || ADMIN_PW;
-    if (!adminPw || adminPw !== serverPw) return res.status(401).json({ error: "Unauthorized" });
-    if (!twitchId) return res.status(400).json({ error: "Missing twitchId" });
-    const delta = parseInt(amount, 10);
-    if (!Number.isFinite(delta)) return res.status(400).json({ error: "Invalid amount" });
-    const casinoDb = loadCasinoDb();
-    if (!casinoDb[twitchId]) casinoDb[twitchId] = { credits: 0, lastDaily: 0 };
-    casinoDb[twitchId].credits = Math.max(0, (casinoDb[twitchId].credits || 0) + delta);
-    saveCasinoDb(casinoDb);
-    res.json({ twitchId, credits: casinoDb[twitchId].credits, added: delta });
-  });
-
-  router.get("/card-suggestions", (req, res) => {
-    const list = loadCardSuggestions();
-    const usersDb = loadUserCardsDb();
-    let changed = false;
-    for (const s of list) {
-      if (!s.authorTwitchLogin && s.authorTwitchId) {
-        const u = usersDb[String(s.authorTwitchId)];
-        if (u?.twitchLogin) { s.authorTwitchLogin = String(u.twitchLogin); changed = true; }
-      }
+    for (const id of cardIds) {
+      if (!user.owned[id] || user.owned[id] < 1) return res.status(400).json({ error: "Du besitzt nicht alle dieser Karten." });
     }
-    if (changed) saveCardSuggestions(list);
-    const sorted = [...list].sort((a, b) => (b.votes || 0) - (a.votes || 0) || (b.createdAt || 0) - (a.createdAt || 0));
-    res.json(sorted.map((s) => ({ ...s, authorName: s.authorTwitchLogin || s.authorTwitchId || "unknown" })));
-  });
 
-  router.post("/card-suggestions", requireAuth, (req, res) => {
-    const twitchId = String(req.twitchId);
-    const { name, type, rarity, description } = req.body || {};
-    if (!name || typeof name !== "string") return res.status(400).json({ error: "Invalid name" });
-    let authorLogin = String(req.twitchLogin || "").trim();
-    if (!authorLogin) {
-      const usersDb = loadUserCardsDb();
-      const u = usersDb[twitchId];
-      if (u?.twitchLogin) authorLogin = String(u.twitchLogin).trim();
-    }
-    const now = Date.now();
-    const list = loadCardSuggestions();
-    const suggestion = {
-      id: now.toString(),
-      name: name.trim(),
-      type: typeof type === "string" ? type.trim() : "",
-      rarity: typeof rarity === "string" ? rarity.trim() : "",
-      description: typeof description === "string" ? description.trim() : "",
-      votes: 0,
-      createdAt: now,
-      authorTwitchId: twitchId,
-      authorTwitchLogin: authorLogin,
-    };
-    list.push(suggestion);
-    saveCardSuggestions(list);
-    res.status(201).json(suggestion);
-  });
-
-  router.post("/card-suggestions/:id/vote", requireAuth, (req, res) => {
-    const { id } = req.params;
-    const { delta } = req.body || {};
-    const d = Number(delta);
-    if (!Number.isFinite(d) || ![1, -1].includes(d)) return res.status(400).json({ error: "Invalid vote" });
-    const twitchId = String(req.twitchId);
-    const list = loadCardSuggestions();
-    const idx = list.findIndex((s) => String(s.id) === String(id));
-    if (idx === -1) return res.status(404).json({ error: "Not found" });
-    const suggestion = list[idx];
-    if (!suggestion.voters) suggestion.voters = {};
-    const prev = Number(suggestion.voters[twitchId] || 0);
-    if (prev === d) return res.json(suggestion);
-    suggestion.votes = (suggestion.votes || 0) - prev + d;
-    suggestion.voters[twitchId] = d;
-    list[idx] = suggestion;
-    saveCardSuggestions(list);
-    res.json(suggestion);
-  });
-
-  router.delete("/card-suggestions/:id", requireAuth, (req, res) => {
-    const { id } = req.params;
-    const authId = String(req.twitchId);
-    if (authId !== STREAMER_TWITCH_ID) return res.status(403).json({ error: "Admin only" });
-    const list = loadCardSuggestions();
-    const updated = list.filter((s) => String(s.id) !== String(id));
-    saveCardSuggestions(updated);
-    res.json({ ok: true });
-  });
-
-  router.put("/cards/user/:twitchId/gallery", requireAuth, (req, res) => {
-    const authId = String(req.twitchId);
-    const twitchId = String(req.params.twitchId);
-    if (authId !== twitchId) return res.status(403).json({ error: "Forbidden" });
-    const raw = Array.isArray(req.body?.gallery) ? req.body.gallery : [];
-    const ids = [...new Set(raw.map((x) => String(x)).filter(Boolean))];
-    if (ids.length > 10) return res.status(400).json({ error: "Max 10 cards" });
-    const defs = loadCardsDef();
-    const validIds = new Set(defs.map((c) => String(c.id)));
-    let db = loadUserCardsDb();
-    const user = ensureUserCardsEntry(db, twitchId);
-    for (const id of ids) {
-      if (!validIds.has(id) || !user.owned?.[id]) return res.status(400).json({ error: "Invalid/Not owned" });
-    }
-    user.gallery = ids;
+    user.gallery = cardIds;
+    user.twitchLogin = req.twitchLogin; 
     saveUserCardsDb(db);
     res.json({ ok: true, gallery: user.gallery });
   });
 
-  router.put("/cards/user/:twitchId/gallery/publish", requireAuth, (req, res) => {
-    const authId = String(req.twitchId);
-    const twitchId = String(req.params.twitchId);
-    if (authId !== twitchId) return res.status(403).json({ error: "Forbidden" });
-    const published = !!req.body?.published;
-    let db = loadUserCardsDb();
-    const user = ensureUserCardsEntry(db, twitchId);
+  router.post("/cards/gallery/publish", requireAuth, (req, res) => {
+    const { published } = req.body;
+    const db = loadUserCardsDb();
+    if (!db[req.twitchId]) return res.status(400).json({ error: "Kein Profil" });
+    const user = db[req.twitchId];
     user.galleryPublished = published;
     saveUserCardsDb(db);
     res.json({ ok: true, galleryPublished: user.galleryPublished });
@@ -526,10 +377,160 @@ module.exports = function createPackRouter({ requireAuth, ADMIN_PW: ADMIN_PW_IN,
       .filter((u) => u && u.galleryPublished && u.twitchLogin)
       .map((u) => {
         const cards = (u.gallery || []).map((id) => byId.get(String(id))).filter(Boolean);
-        return { twitchLogin: u.twitchLogin, cardsCount: cards.length, previewCards: cards.slice(0, 3) };
-      })
-      .sort((a, b) => a.twitchLogin.localeCompare(b.twitchLogin, "de"));
+        return { twitchLogin: u.twitchLogin, preview: cards.slice(0, 3) };
+      });
     res.json({ galleries });
+  });
+
+  // --- VORSCHLÄGE (Bleiben gleich) ---
+  router.get("/cards/suggestions", (req, res) => {
+    try {
+      if (!fs.existsSync(CARD_SUGGESTIONS_PATH)) return res.json([]);
+      res.json(JSON.parse(fs.readFileSync(CARD_SUGGESTIONS_PATH, "utf8")));
+    } catch (e) { res.json([]); }
+  });
+
+  router.post("/cards/suggestions", requireAuth, (req, res) => {
+    const { title, description, category, rarity } = req.body;
+    if (!title || !category || !rarity) return res.status(400).json({ error: "Pflichtfelder fehlen" });
+    let suggestions = [];
+    try {
+      if (fs.existsSync(CARD_SUGGESTIONS_PATH)) {
+        suggestions = JSON.parse(fs.readFileSync(CARD_SUGGESTIONS_PATH, "utf8"));
+      }
+    } catch (e) {}
+
+    const newSuggestion = {
+      id: "sugg-" + Date.now(),
+      title,
+      description,
+      category,
+      rarity,
+      authorTwitchId: req.twitchId,
+      authorTwitchLogin: req.twitchLogin,
+      createdAt: Date.now(),
+      votes: {}
+    };
+    suggestions.push(newSuggestion);
+    fs.writeFileSync(CARD_SUGGESTIONS_PATH, JSON.stringify(suggestions, null, 2), "utf8");
+    res.json({ ok: true, suggestion: newSuggestion });
+  });
+
+  router.delete("/cards/suggestions/:id", requireAuth, (req, res) => {
+    const STREAMER_ID = "160224748";
+    if (req.twitchId !== STREAMER_ID) return res.status(403).json({ error: "Only streamer" });
+    let suggestions = [];
+    try {
+      if (fs.existsSync(CARD_SUGGESTIONS_PATH)) {
+        suggestions = JSON.parse(fs.readFileSync(CARD_SUGGESTIONS_PATH, "utf8"));
+      }
+    } catch (e) {}
+    suggestions = suggestions.filter(s => s.id !== req.params.id);
+    fs.writeFileSync(CARD_SUGGESTIONS_PATH, JSON.stringify(suggestions, null, 2), "utf8");
+    res.json({ ok: true });
+  });
+
+  // 1. Ausrüstung speichern
+  router.post("/cards/idle/equip", requireAuth, (req, res) => {
+      const { equipped } = req.body;
+      if (!Array.isArray(equipped) || equipped.length > 5) return res.status(400).json({ error: "Maximal 5 Katzen" });
+      
+      const db = loadUserCardsDb();
+      if (!db[req.twitchId]) return res.status(400).json({ error: "User nicht gefunden" });
+      
+      const user = db[req.twitchId];
+      for (const id of equipped) {
+          if (!user.owned[id]) return res.status(400).json({ error: "Du besitzt diese Katze nicht." });
+      }
+
+      const defs = loadCardsDef();
+      const rateObj = calculateIdleRate(user.equipped || [], user.cardLevels || {}, defs);
+      
+      const now = Date.now();
+      const daysPassed = (now - (user.lastClaimed || now)) / (1000 * 60 * 60 * 24);
+      
+      // Limit anwenden
+      const maxCapacity = MAX_BANK_DAYS * rateObj.total;
+      let generated = daysPassed * rateObj.total;
+      
+      // Das neue Limit auf die unbeanspruchten Coins anwenden
+      user.unclaimedCoins = Math.min(maxCapacity, (user.unclaimedCoins || 0) + generated);
+      
+      user.equipped = equipped;
+      user.lastClaimed = now; 
+      saveUserCardsDb(db);
+
+      res.json({ ok: true, equipped: user.equipped });
+  });
+
+  // 2. Passives Einkommen abholen
+  router.post("/cards/idle/claim", requireAuth, (req, res) => {
+      const db = loadUserCardsDb();
+      if (!db[req.twitchId]) return res.status(400).json({ error: "User nicht gefunden" });
+      
+      const user = db[req.twitchId];
+      const defs = loadCardsDef();
+      const rateObj = calculateIdleRate(user.equipped || [], user.cardLevels || {}, defs);
+
+      const now = Date.now();
+      const daysPassed = (now - (user.lastClaimed || now)) / (1000 * 60 * 60 * 24);
+      
+      const maxCapacity = MAX_BANK_DAYS * rateObj.total;
+      const totalGeneratedExact = Math.min(maxCapacity, (user.unclaimedCoins || 0) + (daysPassed * rateObj.total));
+      const totalToClaim = Math.floor(totalGeneratedExact); 
+
+      if (totalToClaim <= 0) return res.status(400).json({ error: "Nichts zu claimen" });
+
+      const casinoDb = loadJson(CASINO_DB_PATH);
+      if (!casinoDb[req.twitchId]) casinoDb[req.twitchId] = { credits: 0, name: req.twitchLogin };
+      casinoDb[req.twitchId].credits += totalToClaim;
+      fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2));
+
+      // Komma-Rest behalten
+      user.unclaimedCoins = totalGeneratedExact - totalToClaim; 
+      user.lastClaimed = now;
+      saveUserCardsDb(db);
+
+      res.json({ ok: true, claimed: totalToClaim, newCredits: casinoDb[req.twitchId].credits });
+  });
+
+  // 3. Karten leveln (Crafting)
+  router.post("/cards/idle/craft", requireAuth, (req, res) => {
+      const { cardId } = req.body;
+      const db = loadUserCardsDb();
+      if (!db[req.twitchId]) return res.status(400).json({ error: "User nicht gefunden" });
+      
+      const user = db[req.twitchId];
+      const currentLevel = (user.cardLevels && user.cardLevels[cardId]) ? user.cardLevels[cardId] : 1;
+      const amountOwned = user.owned[cardId] || 0;
+
+      const defs = loadCardsDef();
+      const cardDef = defs.find(c => String(c.id) === String(cardId));
+      if (!cardDef) return res.status(400).json({ error: "Karte existiert nicht." });
+
+      const cost = getUpgradeCost(currentLevel, cardDef.rarity);
+      if (!cost) return res.status(400).json({ error: "Maximales Level erreicht!" });
+
+      if (amountOwned < (cost.dupes + 1)) {
+          return res.status(400).json({ error: `Du brauchst ${cost.dupes} Duplikate. Du hast nur ${amountOwned - 1}.` });
+      }
+
+      const casinoDb = loadJson(CASINO_DB_PATH);
+      const userCredits = casinoDb[req.twitchId] ? casinoDb[req.twitchId].credits : 0;
+      if (userCredits < cost.coins) {
+          return res.status(400).json({ error: `Nicht genug Coins. Brauche ${cost.coins}.` });
+      }
+
+      casinoDb[req.twitchId].credits -= cost.coins;
+      fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2));
+
+      user.owned[cardId] -= cost.dupes;
+      if (!user.cardLevels) user.cardLevels = {};
+      user.cardLevels[cardId] = currentLevel + 1;
+      
+      saveUserCardsDb(db);
+
+      res.json({ ok: true, newLevel: currentLevel + 1, newCredits: casinoDb[req.twitchId].credits });
   });
 
   return router;

@@ -279,7 +279,11 @@ export default function Home() {
 
   return (
     <div className="min-h-full w-full pb-20 pt-8 px-4 md:px-8">
-      <SEO title = "Home"/>
+      <SEO 
+        title="Home" 
+        description="Die offizielle Website von vnmvalentin. Streaming, Tools und Community."
+        path="/"
+      />
       <div className="max-w-7xl mx-auto flex flex-col items-center gap-10">
         
         <section className="w-full">

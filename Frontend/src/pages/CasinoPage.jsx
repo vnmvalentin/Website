@@ -5,14 +5,11 @@ import {
   Gamepad2, 
   Trophy, 
   Send, 
-  History, 
   Timer, 
   Gift, 
   ChevronRight, 
-  Search, 
-  Users, 
-  Wallet,
-  ArrowLeft
+  Search,
+  Home 
 } from "lucide-react";
 import SEO from "../components/SEO";
 import io from "socket.io-client";
@@ -42,23 +39,11 @@ const GAMES = [
   { id: "guess", name: "Guess Number", desc: "Errate die Zahl (1-100)", icon: "🔢", color: "text-white", bg: "bg-white/5 border-white/10" },
 ];
 
-function formatCooldown(ms) {
-  if (ms <= 0) return null;
-  const h = Math.floor(ms / (1000 * 60 * 60));
-  const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  const s = Math.floor((ms % (1000 * 60)) / 1000);
-  return `${h}h ${m}m ${s}s`;
-}
-
 export default function CasinoPage() {
   const { user, login } = useContext(TwitchAuthContext);
   const [credits, setCredits] = useState(0);
-  // NEU: URL Params statt lokalem State für das Spiel
   const [searchParams, setSearchParams] = useSearchParams();
   const activeGame = searchParams.get("game");
-  const [lastDaily, setLastDaily] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [cooldownTime, setCooldownTime] = useState(0);
   
   // Transfer
   const [userList, setUserList] = useState([]);
@@ -74,27 +59,14 @@ export default function CasinoPage() {
 
   useEffect(() => {
       if (!user) return;
-
-      // Verbindung aufbauen
       const socket = io(window.location.origin, { path: "/socket.io" });
-      
-      // Eigenem Raum beitreten (user:ID)
       socket.emit("join_room", `user:${user.id}`);
-
-      // Auf Credit-Updates hören
       socket.on("casino_credit_update", (data) => {
-          console.log("Live Credit Update:", data);
-          if (data.credits !== undefined) {
-              setCredits(data.credits);
-          }
+          if (data.credits !== undefined) setCredits(data.credits);
       });
-
-      return () => {
-          socket.disconnect();
-      };
+      return () => socket.disconnect();
   }, [user]);
 
-  // --- DATA FETCHING ---
   const fetchUserList = async () => {
     try {
         const res = await fetch("/api/casino/users", { credentials: "include" });
@@ -115,11 +87,6 @@ export default function CasinoPage() {
       const res = await fetch("/api/casino/user", { credentials: "include" });
       const data = await res.json();
       setCredits(data.credits || 0);
-      setLastDaily(data.lastDaily || 0);
-      if (data.lastDaily) {
-        const diff = (data.lastDaily + 24 * 60 * 60 * 1000) - Date.now();
-        setCooldownTime(Math.max(0, diff));
-      } else { setCooldownTime(0); }
       fetchUserList();
       fetchLeaderboard();
     } catch (e) { console.error(e); } finally { setUserDataLoading(false); }
@@ -127,24 +94,6 @@ export default function CasinoPage() {
 
   useEffect(() => { refreshUser(); }, [user]);
 
-  useEffect(() => {
-    const iv = setInterval(() => {
-        if (lastDaily > 0) {
-            const diff = (lastDaily + 24*60*60*1000) - Date.now();
-            setCooldownTime(Math.max(0, diff));
-        } else { setCooldownTime(0); }
-    }, 1000);
-    return () => clearInterval(iv);
-  }, [lastDaily]);
-
-  const claimDaily = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/casino/daily", { method: "POST", credentials: "include" });
-      if (res.ok) await refreshUser();
-    } catch (e) {}
-    setLoading(false);
-  };
 
   const handleTransfer = async (e) => {
       e.preventDefault();
@@ -169,28 +118,20 @@ export default function CasinoPage() {
       } catch(e) { setTransferStatus({ type: 'error', msg: "Netzwerkfehler" }); }
   };
 
-  const handleUserSelect = (e) => {
-      const selectedId = e.target.value;
-      setTransferTarget(selectedId);
-      const selectedUser = userList.find(u => u.id === selectedId);
-      if (selectedUser) setTransferSearch(selectedUser.name);
-  };
-
   const filteredUsers = userList.filter(u => 
       u.name.toLowerCase().includes(transferSearch.toLowerCase())
   );
 
-  // Helper zum Setzen des Spiels via URL
   const openGame = (gameId) => {
       setSearchParams({ game: gameId });
   };
 
-  const closeGame = () => {
-      setSearchParams({}); // Entfernt ?game=...
+  const goToLobby = () => {
+      setSearchParams({});
       refreshUser();
   };
 
-  const visibleLeaderboard = leaderboard.slice(0, 5);
+  const visibleLeaderboard = leaderboard.slice(0, 10);
 
   if (!user) {
     return (
@@ -207,8 +148,8 @@ export default function CasinoPage() {
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white pb-20">
-        <SEO title = "Casino"/>
+    <div className="max-w-[1800px] mx-auto p-4 md:p-8 text-white pb-20">
+        <SEO title="Casino"/>
       
       {/* --- HEADER --- */}
       <header className="flex flex-col md:flex-row justify-between items-center bg-[#18181b] p-6 rounded-3xl mb-8 border border-white/10 shadow-xl relative overflow-hidden">
@@ -229,217 +170,202 @@ export default function CasinoPage() {
             </div>
             <CoinIcon className="w-8 h-8 text-yellow-500 drop-shadow-md" />
           </div>
-          
-          <button 
-                onClick={claimDaily}
-                disabled={cooldownTime > 0 || loading}
-                className={`relative overflow-hidden px-6 py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center gap-2 ${
-                    cooldownTime <= 0 
-                    ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border border-green-400/30" 
-                    : "bg-white/5 border border-white/10 text-white/40 cursor-not-allowed"
-                }`}
-            >
-                {loading ? (
-                    "Lade..." 
-                ) : cooldownTime > 0 ? (
-                    <>
-                        <Timer size={18} />
-                        <span className="font-mono">{formatCooldown(cooldownTime)}</span>
-                    </>
-                ) : (
-                    <>
-                        <Gift size={18} />
-                        <span>Daily +500</span>
-                    </>
-                )}
-            </button>
         </div>
       </header>
 
-      {/* --- CONTENT --- */}
-      {!activeGame ? (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+      {/* --- MAIN LAYOUT (Flexbox statt Grid) --- */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
             
-            {/* LINKER BEREICH: SPIELE LISTE (8 Cols) */}
-            <div className="xl:col-span-8 space-y-6">
-                <div className="flex items-center justify-between px-2">
-                    <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-                        <Gamepad2 className="text-violet-400" /> Spiele Auswahl
-                    </h2>
-                    <span className="text-xs font-bold bg-white/10 px-2 py-1 rounded text-white/60">{GAMES.length} Games</span>
+        {/* === LINKE SIDEBAR: FESTE BREITE (z.B. w-72 oder w-80) === */}
+        <div className="w-full lg:w-72 xl:w-80 shrink-0 space-y-2 bg-[#18181b] border border-white/10 rounded-3xl p-4 shadow-lg sticky top-8">
+            <div className="px-2 pb-2 mb-2 border-b border-white/5">
+                <h2 className="text-xs font-bold text-white/40 uppercase tracking-wider">Navigation</h2>
+            </div>
+            
+            {/* Lobby Button */}
+            <button 
+                onClick={goToLobby}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${
+                    !activeGame 
+                    ? "bg-white/10 text-white shadow-md border border-white/10" 
+                    : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                }`}
+            >
+                <div className={`p-1.5 rounded-lg ${!activeGame ? "bg-yellow-500/20 text-yellow-400" : "bg-white/5"}`}>
+                    <Home size={18} />
                 </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {GAMES.map(game => (
+                <span className="font-bold text-sm">Lobby & Tools</span>
+            </button>
+
+            <div className="px-2 pt-4 pb-2 mt-4 border-b border-white/5">
+                <h2 className="text-xs font-bold text-white/40 uppercase tracking-wider">Spiele</h2>
+            </div>
+
+            {/* Game List */}
+            <div className="space-y-1 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
+                {GAMES.map(game => {
+                    const isActive = activeGame === game.id;
+                    return (
                         <button 
                             key={game.id} 
                             onClick={() => openGame(game.id)}
-                            className={`group relative flex items-center gap-4 p-4 rounded-2xl border transition-all hover:-translate-y-1 hover:shadow-xl text-left bg-[#18181b] hover:bg-[#202025] border-white/5 hover:border-white/10`}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all text-left group ${
+                                isActive 
+                                ? "bg-white/10 text-white shadow-md border border-white/10" 
+                                : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                            }`}
                         >
-                            {/* Icon Box */}
-                            <div className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-white/5 ${game.bg || "bg-white/5"}`}>
+                            <div className="text-lg w-6 text-center shrink-0">
                                 {game.icon}
                             </div>
-                            
-                            {/* Text */}
                             <div className="flex-1 min-w-0">
-                                <h3 className={`font-bold text-lg truncate ${game.color || "text-white"}`}>{game.name}</h3>
-                                <p className="text-xs text-white/40 truncate">{game.desc}</p>
+                                <span className={`font-bold text-sm block truncate ${isActive ? game.color : "text-white/80 group-hover:text-white"}`}>
+                                    {game.name}
+                                </span>
                             </div>
-
-                            {/* Arrow */}
-                            <div className="p-2 rounded-full bg-white/5 text-white/30 group-hover:text-white group-hover:bg-white/10 transition-colors">
-                                <ChevronRight size={18} />
-                            </div>
+                            {isActive && <ChevronRight size={16} className="text-white/40 shrink-0" />}
                         </button>
-                    ))}
-                </div>
+                    );
+                })}
             </div>
+        </div>
 
-            {/* RECHTER BEREICH: TOOLS (4 Cols) */}
-            <div className="xl:col-span-4 space-y-6">
-                
-                {/* 1. CARD: ÜBERWEISEN */}
-                <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 shadow-lg">
-                    <h3 className="font-bold text-white mb-4 flex items-center gap-2 border-b border-white/5 pb-4">
-                        <Send size={18} className="text-blue-400" /> Überweisung
-                    </h3>
+        {/* === RECHTER BEREICH: NIMMT DEN KOMPLETTEN RESTLICHEN PLATZ (flex-1) === */}
+        <div className="flex-1 min-w-0 w-full">
+            {!activeGame ? (
+                /* LOBBY VIEW */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-300">
                     
-                    <form onSubmit={handleTransfer} className="space-y-4">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Empfänger</label>
-                            <div className="relative">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
-                                    <Search size={14} />
-                                </div>
-                                <input 
-                                    type="text"
-                                    placeholder="User suchen..."
-                                    value={transferSearch}
-                                    onChange={(e) => setTransferSearch(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-8 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
-                                />
-                                {transferSearch && (
-                                    <button type="button" onClick={() => { setTransferSearch(""); setTransferTarget(""); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white">✕</button>
-                                )}
-
-                                {/* HIER WAR DER FEHLER: Dropdown jetzt w-full und left-0 */}
-                                {transferSearch && !transferTarget && (
-                                    <div className="absolute z-10 w-full left-0 bg-[#25252a] border border-white/10 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto custom-scrollbar p-1">
-                                        {filteredUsers.length === 0 ? <div className="p-2 text-xs text-white/30">Kein User gefunden</div> : 
-                                            filteredUsers.map(u => (
-                                                <button key={u.id} type="button" onClick={() => { setTransferTarget(u.id); setTransferSearch(u.name); }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg">
-                                                    {u.name}
-                                                </button>
-                                            ))
-                                        }
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Betrag</label>
-                            <div className="relative">
-                                <input 
-                                    type="number" 
-                                    min="1" 
-                                    max={credits}
-                                    value={transferAmount}
-                                    onChange={(e) => setTransferAmount(e.target.value)}
-                                    placeholder="0"
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-10 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors font-mono"
-                                />
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-                                    <CoinIcon className="w-4 h-4" />
-                                </div>
-                            </div>
-                        </div>
-
-                        {transferStatus && (
-                            <div className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 ${transferStatus.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                                {transferStatus.type === 'success' ? "✅" : "⚠️"} {transferStatus.msg}
-                            </div>
-                        )}
-
-                        <button 
-                            type="submit" 
-                            disabled={!transferTarget || !transferAmount || credits < transferAmount}
-                            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 disabled:text-white/20 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition shadow-lg active:scale-95"
-                        >
-                            Senden
-                        </button>
-                    </form>
-                </div>
-
-                {/* 2. CARD: LEADERBOARD */}
-                <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 shadow-lg flex flex-col h-fit">
-                    <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
-                        <h3 className="font-bold text-white flex items-center gap-2">
-                            <Trophy size={18} className="text-yellow-500" /> Top Liste
+                    {/* Überweisung */}
+                    <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 shadow-lg h-fit">
+                        <h3 className="font-bold text-white mb-4 flex items-center gap-2 border-b border-white/5 pb-4">
+                            <Send size={18} className="text-blue-400" /> Überweisung
                         </h3>
-                        {leaderboard.length > 5 && (
-                            <button onClick={() => setShowLeaderboardModal(true)} className="text-[10px] uppercase font-bold text-white/40 hover:text-white transition-colors bg-white/5 px-2 py-1 rounded">
-                                Alle
-                            </button>
-                        )}
-                    </div>
-                    
-                    <div className="space-y-2">
-                        {leaderboard.length === 0 ? (
-                            <p className="text-white/30 text-xs italic text-center py-4">Lade Daten...</p>
-                        ) : (
-                            visibleLeaderboard.map((u, index) => {
-                                let badgeColor = "bg-white/5 text-white/40";
-                                if (index === 0) badgeColor = "bg-yellow-500 text-black shadow-lg shadow-yellow-500/20";
-                                if (index === 1) badgeColor = "bg-gray-400 text-black";
-                                if (index === 2) badgeColor = "bg-orange-700 text-white";
-
-                                return (
-                                    <div key={index} className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors group">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${badgeColor}`}>
-                                                {index + 1}
-                                            </div>
-                                            <span className="font-semibold text-sm text-white/80 group-hover:text-white truncate">{u.name}</span>
-                                        </div>
-                                        <span className="font-mono text-xs text-white/50">{u.credits.toLocaleString()}</span>
+                        
+                        <form onSubmit={handleTransfer} className="space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Empfänger</label>
+                                <div className="relative">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+                                        <Search size={14} />
                                     </div>
-                                );
-                            })
-                        )}
+                                    <input 
+                                        type="text"
+                                        placeholder="User suchen..."
+                                        value={transferSearch}
+                                        onChange={(e) => setTransferSearch(e.target.value)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-8 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
+                                    />
+                                    {transferSearch && (
+                                        <button type="button" onClick={() => { setTransferSearch(""); setTransferTarget(""); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white">✕</button>
+                                    )}
+
+                                    {transferSearch && !transferTarget && (
+                                        <div className="absolute z-10 w-full left-0 bg-[#25252a] border border-white/10 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto custom-scrollbar p-1">
+                                            {filteredUsers.length === 0 ? <div className="p-2 text-xs text-white/30">Kein User gefunden</div> : 
+                                                filteredUsers.map(u => (
+                                                    <button key={u.id} type="button" onClick={() => { setTransferTarget(u.id); setTransferSearch(u.name); }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg">
+                                                        {u.name}
+                                                    </button>
+                                                ))
+                                            }
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Betrag</label>
+                                <div className="relative">
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max={credits}
+                                        value={transferAmount}
+                                        onChange={(e) => setTransferAmount(e.target.value)}
+                                        placeholder="0"
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-10 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors font-mono"
+                                    />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                                        <CoinIcon className="w-4 h-4" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {transferStatus && (
+                                <div className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 ${transferStatus.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                    {transferStatus.type === 'success' ? "✅" : "⚠️"} {transferStatus.msg}
+                                </div>
+                            )}
+
+                            <button 
+                                type="submit" 
+                                disabled={!transferTarget || !transferAmount || credits < transferAmount}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 disabled:text-white/20 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition shadow-lg active:scale-95"
+                            >
+                                Senden
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Leaderboard */}
+                    <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 shadow-lg flex flex-col h-fit">
+                        <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
+                            <h3 className="font-bold text-white flex items-center gap-2">
+                                <Trophy size={18} className="text-yellow-500" /> Top Liste
+                            </h3>
+                            {leaderboard.length > 10 && (
+                                <button onClick={() => setShowLeaderboardModal(true)} className="text-[10px] uppercase font-bold text-white/40 hover:text-white transition-colors bg-white/5 px-2 py-1 rounded">
+                                    Alle
+                                </button>
+                            )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                            {leaderboard.length === 0 ? (
+                                <p className="text-white/30 text-xs italic text-center py-4">Lade Daten...</p>
+                            ) : (
+                                visibleLeaderboard.map((u, index) => {
+                                    let badgeColor = "bg-white/5 text-white/40";
+                                    if (index === 0) badgeColor = "bg-yellow-500 text-black shadow-lg shadow-yellow-500/20";
+                                    if (index === 1) badgeColor = "bg-gray-400 text-black";
+                                    if (index === 2) badgeColor = "bg-orange-700 text-white";
+
+                                    return (
+                                        <div key={index} className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors group">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${badgeColor}`}>
+                                                    {index + 1}
+                                                </div>
+                                                <span className="font-semibold text-sm text-white/80 group-hover:text-white truncate">{u.name}</span>
+                                            </div>
+                                            <span className="font-mono text-xs text-white/50">{u.credits.toLocaleString()}</span>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
                     </div>
                 </div>
-
-            </div>
+            ) : (
+                /* GAME VIEW */
+                <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 min-h-[600px] shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                    {/* Game Components */}
+                    <div className="pt-2">
+                        {activeGame === "slots" && <SlotMachine updateCredits={refreshUser} currentCredits={credits} />}
+                        {activeGame === "roulette" && <Roulette updateCredits={refreshUser} currentCredits={credits} />}
+                        {activeGame === "blackjack" && <Blackjack updateCredits={refreshUser} currentCredits={credits} />}
+                        {activeGame === "highlow" && <HighLow updateCredits={refreshUser} currentCredits={credits} />}
+                        {activeGame === "mines" && <Mines updateCredits={refreshUser} currentCredits={credits} />}
+                        {activeGame === "guess" && <GuessNumber updateCredits={refreshUser} currentCredits={credits} />}
+                        {activeGame === "case" && <CaseOpening updateCredits={refreshUser} currentCredits={credits} />}
+                        {activeGame === "plinko" && (<Plinko updateCredits={refreshUser} currentCredits={credits} onClientUpdate={(newVal) => setCredits(newVal)} />)}
+                        {activeGame === "dice" && <Dice updateCredits={refreshUser} currentCredits={credits} />}
+                    </div>
+                </div>
+            )}
         </div>
-      ) : (
-        // --- ACTIVE GAME VIEW ---
-        <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 min-h-[600px] relative shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="absolute top-6 right-6 z-50">
-                <button 
-                    // ÄNDERUNG: closeGame statt setActiveGame(null)
-                    onClick={closeGame}
-                    className="bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-xl font-bold border border-white/10 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
-                >
-                    <ArrowLeft size={18} /> Zurück zur Lobby
-                </button>
-            </div>
-            
-            {/* Game Components Rendering (bleibt fast gleich, nutzt aber Variable activeGame aus URL) */}
-            <div className="pt-10">
-                {activeGame === "slots" && <SlotMachine updateCredits={refreshUser} currentCredits={credits} />}
-                {activeGame === "roulette" && <Roulette updateCredits={refreshUser} currentCredits={credits} />}
-                {activeGame === "blackjack" && <Blackjack updateCredits={refreshUser} currentCredits={credits} />}
-                {activeGame === "highlow" && <HighLow updateCredits={refreshUser} currentCredits={credits} />}
-                {activeGame === "mines" && <Mines updateCredits={refreshUser} currentCredits={credits} />}
-                {activeGame === "guess" && <GuessNumber updateCredits={refreshUser} currentCredits={credits} />}
-                {activeGame === "case" && <CaseOpening updateCredits={refreshUser} currentCredits={credits} />}
-                {activeGame === "plinko" && (<Plinko updateCredits={refreshUser} currentCredits={credits} onClientUpdate={(newVal) => setCredits(newVal)} />)}
-                {activeGame === "dice" && <Dice updateCredits={refreshUser} currentCredits={credits} />}
-            </div>
-        </div>
-      )}
+      </div>
 
       {/* MODAL FÜR FULL LEADERBOARD */}
       {showLeaderboardModal && (

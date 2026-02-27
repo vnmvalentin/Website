@@ -284,6 +284,7 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
     res.json({
       credits: req.userData.credits,
       lastDaily: req.userData.lastDaily,
+      dailyStreak: req.userData.dailyStreak || 0, // <-- DIESE ZEILE HINZUFÜGEN
       activeGameType: req.userData.activeGame ? req.userData.activeGame.type : null
     });
   });
@@ -300,11 +301,45 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
 
   router.post("/daily", (req, res) => {
     const now = Date.now();
-    if (now - req.userData.lastDaily < 24 * 60 * 60 * 1000) return res.status(400).json({ error: "Cooldown" });
-    req.userData.credits += 500;
-    req.userData.lastDaily = now;
+    const user = req.userData;
+    
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    const TWO_DAYS = 48 * 60 * 60 * 1000;
+    
+    if (user.lastDaily) {
+        const timeSinceLast = now - user.lastDaily;
+        if (timeSinceLast < ONE_DAY) {
+            return res.status(400).json({ error: "Cooldown" });
+        }
+        
+        // Hat der User einen Tag verpasst?
+        if (timeSinceLast > TWO_DAYS) {
+            user.dailyStreak = 1; // Streak gebrochen, fängt bei 1 an
+        } else {
+            user.dailyStreak += 1; // Streak bleibt erhalten
+        }
+    } else {
+        // Erstes Mal eingesammelt
+        user.dailyStreak = 1;
+    }
+    
+    // Basis ist 500. Pro weiterem Tag in der Streak gibt es 100 Coins extra. 
+    // Maximales Cap: z.B. 10 Tage (1500 Coins)
+    const streakBonus = Math.min((user.dailyStreak - 1), 10) * 100;
+    const rewardAmount = 500 + Math.max(0, streakBonus);
+    
+    user.credits += rewardAmount;
+    user.lastDaily = now;
     saveData(req.casinoDb);
-    res.json({ credits: req.userData.credits });
+    
+    // Push sofort ans Frontend falls offene Tabs existieren
+    if (io) {
+        io.to(`user:${req.twitchId}`).emit("casino_credit_update", { 
+            credits: user.credits 
+        });
+    }
+
+    res.json({ credits: user.credits, dailyStreak: user.dailyStreak, reward: rewardAmount });
   });
 
   // --- SLOTS (Sticky Wilds Layer + Scatter Retrigger) ---
@@ -336,18 +371,18 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
     let pool = [];
     
     // Low Tier (Alle ca. gleich häufig -> schwerer zu matchen)
-    for(let i=0; i<18; i++) pool.push("🍒"); 
+    for(let i=0; i<20; i++) pool.push("🍒"); 
     for(let i=0; i<18; i++) pool.push("🍋");
-    for(let i=0; i<16; i++) pool.push("🍇");
-    for(let i=0; i<15; i++) pool.push("🔔"); // Banane/Glocke
+    for(let i=0; i<15; i++) pool.push("🍇");
+    for(let i=0; i<12; i++) pool.push("🔔"); // Banane/Glocke
     
     // Mid/High Tier
-    for(let i=0; i<10; i++) pool.push("💎");
-    for(let i=0; i<6; i++) pool.push("7️⃣");  
+    for(let i=0; i<8; i++) pool.push("💎");
+    for(let i=0; i<4; i++) pool.push("7️⃣");  
     
     // Specials (Extrem selten!)
     // Nur EIN Joker im ganzen Deck -> Full Lines fast unmöglich
-    const jokerCount = isFreeSpin ? 2 : 1; 
+    const jokerCount = isFreeSpin ? 3 : 2; 
     for(let i=0; i<jokerCount; i++) pool.push("🃏"); 
     
     // Scatters (Freispiele)
@@ -429,20 +464,20 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
 
         if (matchCount >= 3) {
             let baseMult = 0;
-            if (firstSymbol === "🍒") baseMult = 0.8;
-            else if (firstSymbol === "🍋") baseMult = 1.0;
-            else if (firstSymbol === "🍇") baseMult = 1.2;
-            else if (firstSymbol === "🔔") baseMult = 1.5;
-            else if (firstSymbol === "💎") baseMult = 3.5;
-            else if (firstSymbol === "7️⃣") baseMult = 7.0;
-            else if (firstSymbol === "🃏") baseMult = 10.0;
+            if (firstSymbol === "🍒") baseMult = 1.0;
+            else if (firstSymbol === "🍋") baseMult = 1.2;
+            else if (firstSymbol === "🍇") baseMult = 1.5;
+            else if (firstSymbol === "🔔") baseMult = 2.0;
+            else if (firstSymbol === "💎") baseMult = 5.0;
+            else if (firstSymbol === "7️⃣") baseMult = 10.0;
+            else if (firstSymbol === "🃏") baseMult = 15.0;
 
             let lengthMult = 1; 
             // 3er Reihe = Standard (x1)
             // 4er Reihe = Nur noch x2 (statt x3)
-            if (matchCount === 4) lengthMult = 2;  
+            if (matchCount === 4) lengthMult = 3;  
             // 5er Reihe = Nur noch x5 (statt x10)
-            if (matchCount === 5) lengthMult = 5;
+            if (matchCount === 5) lengthMult = 7;
 
             const win = Math.ceil(calculationBet * baseMult * lengthMult);
             totalWin += win;

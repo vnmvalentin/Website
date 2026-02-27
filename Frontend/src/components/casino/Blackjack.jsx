@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useOutletContext } from "react-router-dom";
 import CoinIcon from "../CoinIcon";
 import { Club, Diamond, Heart, Spade, RotateCcw, Play, Hand, ChevronsUp, Plus } from "lucide-react";
 
-// --- LOGIC HELPERS (Original) ---
+// --- LOGIC HELPERS ---
 function calculateClientScore(hand) {
   if (!hand || !Array.isArray(hand)) return 0;
   let score = 0;
@@ -18,40 +19,50 @@ function calculateClientScore(hand) {
 }
 
 // --- MODERN CARD COMPONENT ---
-// Nutzt exakt deine Props (isHidden, isRevealing, etc.)
-const Card = ({ card, index, isHidden, isRevealing, isDealer }) => {
+const Card = ({ card, index, isHidden, isRevealing, isDealer, playSound }) => {
   if (!isHidden && !card) return null;
   const isRed = card && ["♥", "♦"].includes(card.suit);
   
-  // Mapping der Suits zu Icons
   const SuitIcon = card ? {
       "♥": Heart, "♦": Diamond, "♣": Club, "♠": Spade
   }[card.suit] : null;
 
-  // Animations-Klassen (Original Logik)
   let animationClass = "";
-  let baseOpacity = "";
-
   if (isHidden) {
-      animationClass = "animate-deal-card"; 
-      baseOpacity = "opacity-0"; 
+      animationClass = "animate-deal-card";
   } else if (isRevealing) {
-      animationClass = "animate-flip-card"; 
+      animationClass = "animate-flip-card";
   } else {
       if (isDealer && index === 1) {
           animationClass = ""; 
       } else {
           animationClass = "animate-deal-card";
-          baseOpacity = "opacity-0"; 
       }
   }
-  const styleDelay = { animationDelay: `${isRevealing ? 0 : index * 0.2}s` };
+
+  let delay = 0;
+  if (!isRevealing && animationClass !== "") {
+      if (isDealer) {
+          delay = index === 0 ? 0.2 : (index === 1 ? 0.6 : 0);
+      } else {
+          delay = index === 0 ? 0 : (index === 1 ? 0.4 : 0);
+      }
+  }
+
+  const styleDelay = animationClass ? { animationDelay: `${delay}s` } : {};
+
+  const handleAnimationStart = (e) => {
+      if (e.animationName === "deal-card" || e.animationName === "flip-card") {
+          if (playSound) playSound();
+      }
+  };
 
   if (isHidden) {
     return (
       <div 
+        onAnimationStart={handleAnimationStart}
         style={styleDelay} 
-        className={`w-24 h-36 bg-gradient-to-br from-red-900 to-red-800 rounded-xl border-2 border-white/10 shadow-2xl flex items-center justify-center ${baseOpacity} ${animationClass}`}
+        className={`w-24 h-36 bg-gradient-to-br from-red-900 to-red-800 rounded-xl border-2 border-white/10 shadow-2xl flex items-center justify-center ${animationClass}`}
       >
         <div className="w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
       </div>
@@ -60,8 +71,9 @@ const Card = ({ card, index, isHidden, isRevealing, isDealer }) => {
 
   return (
     <div 
+        onAnimationStart={handleAnimationStart}
         style={styleDelay} 
-        className={`relative w-24 h-36 bg-white rounded-xl shadow-2xl flex flex-col items-center justify-between p-2 select-none transform transition-transform hover:-translate-y-2 ${baseOpacity} ${animationClass}`}
+        className={`relative w-24 h-36 bg-white rounded-xl shadow-2xl flex flex-col items-center justify-between p-2 select-none transform transition-transform hover:-translate-y-2 ${animationClass}`}
     >
       <div className={`text-xl font-black self-start leading-none ${isRed ? "text-red-600" : "text-slate-900"}`}>
           {card.value}
@@ -81,6 +93,9 @@ const Card = ({ card, index, isHidden, isRevealing, isDealer }) => {
 };
 
 export default function Blackjack({ updateCredits, currentCredits }) {
+  const context = useOutletContext();
+  const isMuted = context?.isMuted || false;
+
   const [gameState, setGameState] = useState(null);
   const [bet, setBet] = useState(100);
   const [showResult, setShowResult] = useState(false); 
@@ -88,11 +103,97 @@ export default function Blackjack({ updateCredits, currentCredits }) {
   const [isRevealingDealer, setIsRevealingDealer] = useState(false);
   const [error, setError] = useState("");
 
-  // --- LOGIC (1:1 Original) ---
+  // --- AUDIO SETUP ---
+  const cardAudios = useRef([]);
+  const clickAudio = useRef(null);
+  const winAudio = useRef(null);
+  const loseAudio = useRef(null);
+
+  useEffect(() => {
+      cardAudios.current = Array.from({ length: 10 }).map(() => {
+          const audio = new Audio("/assets/sounds/blackjack/cards.mp3");
+          audio.volume = 0.2;
+          return audio;
+      });
+
+      clickAudio.current = new Audio("/assets/sounds/blackjack/click.mp3");
+      clickAudio.current.volume = 0.05;
+
+      winAudio.current = new Audio("/assets/sounds/blackjack/win.mp3");
+      winAudio.current.volume = 0.2;
+
+      loseAudio.current = new Audio("/assets/sounds/blackjack/lose.mp3");
+      loseAudio.current.volume = 0.2;
+  }, []);
+
+  // Sync Mute State
+  useEffect(() => {
+      const allAudios = [...cardAudios.current, clickAudio.current, winAudio.current, loseAudio.current];
+      allAudios.forEach(audio => {
+          if (audio) audio.muted = isMuted;
+      });
+  }, [isMuted]);
+
+  // Win/Lose Sound triggern, wenn Result Screen auftaucht
+  useEffect(() => {
+      if (showResult && gameState && !isMuted) {
+          if (gameState.status === 'push') {
+              // Unentschieden: Kein spezieller Sound
+          } else if (gameState.status === 'blackjack' || gameState.winAmount > 0) {
+              if (winAudio.current) {
+                  winAudio.current.currentTime = 0;
+                  winAudio.current.play().catch(e => console.log(e));
+              }
+          } else {
+              if (loseAudio.current) {
+                  loseAudio.current.currentTime = 0;
+                  loseAudio.current.play().catch(e => console.log(e));
+              }
+          }
+      }
+  }, [showResult, gameState, isMuted]);
+
+  // Click Sound Funktion
+  const playClickSound = () => {
+      if (isMuted || !clickAudio.current) return;
+      clickAudio.current.currentTime = 0;
+      clickAudio.current.play().catch(e => console.log(e));
+  };
+
+  const unlockAudio = () => {
+      const allAudios = [...cardAudios.current, clickAudio.current, winAudio.current, loseAudio.current];
+      allAudios.forEach(audio => {
+          if (audio && audio.paused && audio.currentTime === 0) {
+              audio.muted = true; 
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                  playPromise.then(() => {
+                      audio.pause();
+                      audio.currentTime = 0;
+                      audio.muted = isMuted; 
+                  }).catch(() => {});
+              }
+          }
+      });
+  };
+
+  const playCardSound = () => {
+      if (isMuted) return;
+      const availableAudio = cardAudios.current.find(a => a.paused || a.ended) || cardAudios.current[0];
+      if (availableAudio) {
+          availableAudio.currentTime = 0;
+          availableAudio.play().catch(e => console.log("Sound error:", e));
+      }
+  };
+
+  // --- LOGIC ---
   const deal = async () => {
+    playClickSound(); // Click Sound
     setError("");
     if (bet > currentCredits) { setError("Nicht genug Credits!"); return; }
     if (bet <= 0) { setError("Ungültiger Einsatz!"); return; }
+
+    unlockAudio(); 
 
     setIsDealing(true);
     setShowResult(false);
@@ -129,11 +230,14 @@ export default function Blackjack({ updateCredits, currentCredits }) {
   };
 
   const action = async (act) => {
+    playClickSound(); // Click Sound
     setError("");
     if (act === "double" && currentCredits < gameState.bet) {
         setError("Nicht genug Credits für Double!");
         return;
     }
+
+    unlockAudio();
 
     setShowResult(false);
     setIsDealing(true);
@@ -151,7 +255,6 @@ export default function Blackjack({ updateCredits, currentCredits }) {
             return;
         }
 
-        // 1. HIT oder DOUBLE (Player zieht)
         if (act === "hit" || (act === "double" && data.status === "bust")) {
             setGameState(prev => ({ 
                 ...prev, 
@@ -174,7 +277,6 @@ export default function Blackjack({ updateCredits, currentCredits }) {
             return;
         }
 
-        // 2. STAND (oder Double ohne Bust) -> Dealer Turn Animation
         if (act === "stand" || (act === "double" && data.status !== "bust")) {
              const finalDealerHand = data.dealerHand || [];
              setIsRevealingDealer(true);
@@ -214,7 +316,6 @@ export default function Blackjack({ updateCredits, currentCredits }) {
   };
 
   // --- RENDER ---
-  // SCREEN 1: Start
   if (!gameState && !isDealing) {
      return (
       <div className="flex flex-col items-center justify-center h-[500px] bg-[#0a1f13] rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group">
@@ -247,7 +348,6 @@ export default function Blackjack({ updateCredits, currentCredits }) {
     );
   }
 
-  // SCREEN 2: Shuffling
   if ((!gameState) && isDealing) {
       return (
         <div className="h-[500px] bg-[#0a1f13] rounded-3xl border border-white/10 flex flex-col items-center justify-center text-white relative overflow-hidden">
@@ -260,7 +360,6 @@ export default function Blackjack({ updateCredits, currentCredits }) {
   
   if (!gameState) return null;
 
-  // SCREEN 3: Active Game
   const safeDealerHand = gameState.dealerHand || [];
   const safePlayerHand = gameState.playerHand || [];
   const playerScore = calculateClientScore(safePlayerHand);
@@ -277,7 +376,14 @@ export default function Blackjack({ updateCredits, currentCredits }) {
         <div className="flex justify-center gap-[-4rem] mb-4 min-h-[144px]">
           {safeDealerHand.map((card, i) => (
              <div key={i} className={i > 0 ? "-ml-12" : ""}>
-                <Card card={card} index={i} isDealer={true} isHidden={card === null} isRevealing={i === 1 && isRevealingDealer} />
+                <Card 
+                  card={card} 
+                  index={i} 
+                  isDealer={true} 
+                  isHidden={card === null} 
+                  isRevealing={i === 1 && isRevealingDealer} 
+                  playSound={playCardSound} 
+                />
              </div>
           ))}
         </div>
@@ -304,7 +410,7 @@ export default function Blackjack({ updateCredits, currentCredits }) {
                 <p className="relative text-red-400 font-bold text-xl mb-6">-{bet} Credits</p>
             )}
 
-            <button onClick={() => { setGameState(null); setShowResult(false); }} className="relative bg-white hover:bg-gray-200 text-black font-bold px-8 py-3 rounded-xl shadow-xl transition-transform hover:scale-105 active:scale-95 flex items-center gap-2 mx-auto">
+            <button onClick={() => { playClickSound(); setGameState(null); setShowResult(false); }} className="relative bg-white hover:bg-gray-200 text-black font-bold px-8 py-3 rounded-xl shadow-xl transition-transform hover:scale-105 active:scale-95 flex items-center gap-2 mx-auto">
                 <RotateCcw size={18} /> Nächste Runde
             </button>
           </div>
@@ -322,7 +428,12 @@ export default function Blackjack({ updateCredits, currentCredits }) {
             <div className="flex justify-center">
                 {safePlayerHand.map((c, i) => (
                     <div key={`${c.value}-${c.suit}-${i}`} className={i > 0 ? "-ml-12" : ""}>
-                        <Card card={c} index={i} isDealer={false} />
+                        <Card 
+                          card={c} 
+                          index={i} 
+                          isDealer={false} 
+                          playSound={playCardSound} 
+                        />
                     </div>
                 ))}
             </div>
@@ -360,7 +471,7 @@ export default function Blackjack({ updateCredits, currentCredits }) {
       <style>{`
         @keyframes deal-card { from { opacity: 0; transform: translateY(-50px) scale(0.5); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes flip-card { 0% { transform: rotateY(0deg); } 50% { transform: rotateY(90deg); background: #7f1d1d; } 100% { transform: rotateY(0deg); } }
-        .animate-deal-card { animation: deal-card 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .animate-deal-card { animation: deal-card 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
         .animate-flip-card { animation: flip-card 0.6s ease-in-out forwards; }
       `}</style>
     </div>

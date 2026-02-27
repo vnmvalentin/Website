@@ -1,9 +1,17 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { useParams } from "react-router-dom";
 import { WifiOff } from "lucide-react";
 import io from "socket.io-client";
 
 // --- KONSTANTEN & HELPER ---
+
+const COLOR_CLASSES = {
+    default: "text-white",
+    blue: "text-blue-400 drop-shadow-[0_0_5px_rgba(59,130,246,0.8)]",
+    purple: "text-purple-400 drop-shadow-[0_0_5px_rgba(168,85,247,0.8)]",
+    gold: "text-yellow-300 drop-shadow-[0_0_8px_rgba(234,179,8,1)] font-black",
+    rainbow: "animate-text-rainbow bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-transparent bg-clip-text font-black"
+};
+
 const FISH_DEFS = {
   goldfish: { img: "/assets/viewerpond/goldfish/goldfish.png", name: "Goldfisch" },
   clownfish: { img: "/assets/viewerpond/clownfish/clownfish.png", name: "Nemo" },
@@ -25,7 +33,6 @@ const FISH_DEFS = {
   eel: { img: "/assets/viewerpond/eel/eel.png", name: "Aal" },
   ray: { img: "/assets/viewerpond/ray/ray.png", name: "Rochen" },
   orca: { img: "/assets/viewerpond/orca/orca.png", name: "Orca" },
-
   modente: { img: "/assets/viewerpond/exclusive/modente.png", name: "Mod-Ente" },
 };
 
@@ -42,11 +49,8 @@ const API_BASE = IS_DEV ? "http://localhost:5173" : "";
 
 const getSafeTargetY = (isTop) => {
     if (isTop) {
-        // Oben: 10% bis 55% (etwas konservativer)
         return Math.random() * 45 + 10; 
     } else {
-        // Unten: War vorher bis 80%, jetzt max 70%
-        // Das verhindert, dass Fische unten abgeschnitten werden
         return Math.random() * 40 + 25; 
     }
 };
@@ -77,7 +81,7 @@ function stringToHash(string) {
     return Math.abs(hash);
 }
 
-const Preloader = () => <div className="hidden"><img src="/assets/viewerpond/shark/shark_attack.png"/><img src="/assets/viewerpond/shark/shark_normal.png"/></div>;
+const Preloader = () => <div className="hidden"><img src="/assets/viewerpond/shark/shark_attack.png" alt=""/><img src="/assets/viewerpond/shark/shark_normal.png" alt=""/></div>;
 
 const BloodCloud = ({ x, y, scale = 1 }) => (
     <div className="absolute z-40 pointer-events-none animate-blood-dissolve" 
@@ -123,7 +127,7 @@ const Decorations = ({ activeDecos, scale, layoutSeed = 12345, isTop }) => {
             }
         });
         return objects.sort((a,b) => a.z - b.z);
-    }, [activeDecos, layoutSeed]);
+    }, [activeDecos, layoutSeed, scale]);
 
     return (
         <div className="absolute w-full pointer-events-none z-0 overflow-hidden" style={{ [isTop ? 'top' : 'bottom']: 0, height: 'calc(100% + 20px)' }}>
@@ -144,11 +148,13 @@ const FishEntity = ({ fish, pondPosition, scale, isHypetrain }) => {
   const h = (fish.size / 1.5) * scale;
   const imgAnimationClass = isHypetrain ? 'animate-[fish-party_0.8s_linear_infinite]' : '';
 
+  // FARBE ERMITTELN
+  const colorClass = COLOR_CLASSES[fish.color] || COLOR_CLASSES.default;
+
   return (
       <div className="absolute pointer-events-none" 
            style={{ 
                left: `${fish.x}%`, top: `${fish.y}%`, width: `${w}px`, height: `${h}px`, 
-               // ÄNDERUNG: translate(-50%, -50%) setzt den Ankerpunkt exakt in die Mitte des Bildes
                transform: `translate(-50%, -50%) scaleX(${scaleX})`, 
                transition: fish.isDropping ? "top 1s ease-in" : "left 0.5s linear, top 0.5s linear, width 0.3s ease, opacity 0.2s", 
                opacity: fish.isDead ? 0 : 1, 
@@ -161,7 +167,14 @@ const FishEntity = ({ fish, pondPosition, scale, isHypetrain }) => {
                   <div className={`absolute left-1/2 -translate-x-1/2 w-2 h-2 bg-white rotate-45 ${isTop ? "-top-1 border-l-2 border-t-2 border-black/10" : "-bottom-1 border-r-2 border-b-2 border-black/10"}`} />
               </div>
           )}
-          <div className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-white font-bold drop-shadow-md bg-black/40 px-1.5 rounded-full backdrop-blur-sm ${isTop ? "top-full mt-1" : "bottom-full mb-2"}`} style={{ transform: `scaleX(${scaleX})`, fontSize: `12px`, padding: `4px 5px` }}>{fish.username}</div>
+          {/* NAMENS-TAG: JETZT MIT FARBE! */}
+          <div 
+            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm ${isTop ? "top-full mt-1" : "bottom-full mb-2"} ${colorClass}`} 
+            style={{ transform: `scaleX(${scaleX})`, fontSize: `12px` }}
+          >
+              {fish.username}
+          </div>
+
           <img src={skinDef.img} alt={fish.skin} className={`w-full h-full object-contain drop-shadow-xl transition-transform ${imgAnimationClass}`}/>
       </div>
   );
@@ -176,6 +189,9 @@ const SharkEntity = ({ yPos, targetX, targetFish, onBite, onComplete, scale }) =
     const END_X = startFromLeft ? 130 : -30; 
 
     useEffect(() => { requestAnimationFrame(() => setPhase('attack-move')); }, []);
+    
+    // FIX: Hier dürfen NUR [phase] rein, sonst bricht der Game-Loop (50ms) 
+    // den Timer immer wieder ab und der Hai friert ein!
     useEffect(() => {
         if (phase === 'attack-move') { const t = setTimeout(() => { onBite(targetFish); setPhase('leave-move'); }, 1500); return () => clearTimeout(t); }
         if (phase === 'leave-move') { const t = setTimeout(() => { onComplete(targetFish); }, 1500); return () => clearTimeout(t); }
@@ -198,7 +214,7 @@ const SwarmLayer = ({ active }) => {
     if (!active) return null;
     const swarmFish = useMemo(() => Array.from({ length: 20 }).map((_, i) => ({ 
         id: i, 
-        top: 10 + Math.random() * 60, // Auch hier etwas höher ziehen
+        top: 10 + Math.random() * 60, 
         delay: Math.random() * 2, 
         speed: 3 + Math.random() * 2, 
         size: 15 + Math.random() * 20 
@@ -207,7 +223,7 @@ const SwarmLayer = ({ active }) => {
     return (
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
             {swarmFish.map(f => (
-                <img key={f.id} src="/assets/viewerpond/goldfish/goldfish.png" className="absolute" 
+                <img key={f.id} src="/assets/viewerpond/goldfish/goldfish.png" alt="" className="absolute" 
                 style={{ 
                     left: '-20%', 
                     top: `${f.top}%`, 
@@ -215,7 +231,6 @@ const SwarmLayer = ({ active }) => {
                     transform: 'scaleX(-1)', 
                     animation: `swarm-pass ${f.speed}s linear forwards`, 
                     animationDelay: `${f.delay}s`, 
-                    // ÄNDERUNG: Weniger Blur, deutlich mehr Opacity, leicht bläulich statt tiefschwarz
                     filter: 'brightness(0) drop-shadow(0 0 2px rgba(255,255,255,0.3))', 
                     opacity: 0.7 
                 }} />
@@ -225,18 +240,17 @@ const SwarmLayer = ({ active }) => {
 };
 
 export default function ViewerPond() {
-    const { streamerId } = useParams();
+    // KEIN useParams() MEHR! 
     const [fishes, setFishes] = useState([]);
     const [sharkAttacks, setSharkAttacks] = useState([]);
     const [bloodEffects, setBloodEffects] = useState([]); 
     const [wsConnected, setWsConnected] = useState(false); 
     const [config, setConfig] = useState({ 
-        fishRequirements: {}, 
         waterSettings: { height: 15, opacity: 0.5, color: "#06b6d4", sharkEnabled: true, showBubbles: true, showDecorations: true, activeDecorations: [], layoutSeed: 12345, waveIntensity: 1, position: "bottom", fishScale: 1.0, decoScale: 1.0 }, 
         eventSettings: { hypeTrain: true, raid: true },
         excludedUsers: [] 
     });
-    const [realStreamerId, setRealStreamerId] = useState(null);
+    
     const [currentVersion, setCurrentVersion] = useState(0);
     const [hideMe, setHideMe] = useState(false); 
     const timeoutsRef = useRef({});
@@ -249,44 +263,70 @@ export default function ViewerPond() {
     const fishesRef = useRef([]); 
     const knownSkinsRef = useRef({}); 
     const configRef = useRef(config);
-    const realStreamerIdRef = useRef(null);
 
     useEffect(() => { configRef.current = config; }, [config]);
-    useEffect(() => { realStreamerIdRef.current = realStreamerId; }, [realStreamerId]);
 
-    const loadConfig = () => { if(!streamerId) return; fetch(`${API_BASE}/api/pond/config/public/${streamerId}`).then(res => res.json()).then(data => { const excludedArr = Array.isArray(data.excludedUsers) ? data.excludedUsers : (data.excludedUsers || "").split(",").map(s => s.trim().toLowerCase()).filter(s => s.length > 0); setConfig({ fishRequirements: data.fishRequirements || {}, waterSettings: { ...config.waterSettings, ...(data.waterSettings || {}) }, eventSettings: { ...config.eventSettings, ...(data.eventSettings || {}) }, excludedUsers: [...new Set(excludedArr)] }); if(data.resolvedStreamerId) setRealStreamerId(data.resolvedStreamerId); if(data.version) setCurrentVersion(data.version); }).catch(e => console.error("Config Load Error", e)); };
+    // EINFACHES CONFIG LADEN (Global)
+    const loadConfig = () => { 
+        fetch(`${API_BASE}/api/pond/config`)
+        .then(res => res.json())
+        .then(data => { 
+            const excludedArr = Array.isArray(data.excludedUsers) ? data.excludedUsers : (data.excludedUsers || "").split(",").map(s => s.trim().toLowerCase()).filter(s => s.length > 0); 
+            setConfig({ 
+                waterSettings: { ...config.waterSettings, ...(data.waterSettings || {}) }, 
+                eventSettings: { ...config.eventSettings, ...(data.eventSettings || {}) }, 
+                excludedUsers: [...new Set(excludedArr)] 
+            }); 
+            if(data.version) setCurrentVersion(data.version); 
+        }).catch(e => console.error("Config Load Error", e)); 
+    };
     
+    // SOCKET.IO FÜR SKIN UPDATES IN ECHTZEIT (Statisch "pond_main")
     useEffect(() => {
-        if (!streamerId) return;
         const s = io(window.location.origin, { path: "/socket.io" });
         backendSocket.current = s;
-        s.on('pond_config_update', (newConfig) => {
-            console.log("⚡ Realtime Config Update!", newConfig);
-            setConfig(prev => ({ ...prev, fishRequirements: newConfig.fishRequirements || prev.fishRequirements, waterSettings: { ...prev.waterSettings, ...newConfig.waterSettings }, eventSettings: newConfig.eventSettings || prev.eventSettings, excludedUsers: newConfig.excludedUsers || prev.excludedUsers }));
+        
+        s.on('connect', () => { s.emit('join_room', "pond_main"); });
+
+        // UPDATE: Empfängt jetzt auch Color
+        s.on('pond_skin_update', ({ userId, skinId, colorId }) => {
+            console.log("🎨 Update:", userId, skinId, colorId);
+            
+            // Speichere beides in knownSkinsRef
+            if (!knownSkinsRef.current[userId]) knownSkinsRef.current[userId] = {};
+            knownSkinsRef.current[userId].skin = skinId;
+            knownSkinsRef.current[userId].color = colorId;
+
+            const existingFish = fishesRef.current.find(f => f.id === userId);
+            if (existingFish) {
+                if (skinId) existingFish.skin = skinId;
+                if (colorId) existingFish.color = colorId;
+                setFishes([...fishesRef.current]);
+            }
         });
         return () => { s.disconnect(); };
-    }, [streamerId]);
+    }, []);
 
-    useEffect(() => { if(realStreamerId && backendSocket.current) { backendSocket.current.emit('join_room', `streamer:${realStreamerId}`); } }, [realStreamerId]);
-    useEffect(() => { loadConfig(); }, [streamerId]);
-    useEffect(() => { if(!streamerId) return; const interval = setInterval(() => { fetch(`${API_BASE}/api/pond/config/version/${streamerId}`).then(r => r.json()).then(d => { if (d.version && d.version > currentVersion) loadConfig(); }).catch(() => {}); }, 3000); return () => clearInterval(interval); }, [streamerId, currentVersion]);
+    useEffect(() => { loadConfig(); }, []);
+    
+    // POLLING FÜR CONFIG UPDATES
+    useEffect(() => { 
+        const interval = setInterval(() => { 
+            fetch(`${API_BASE}/api/pond/config/version`)
+            .then(r => r.json())
+            .then(d => { if (d.version && d.version > currentVersion) loadConfig(); })
+            .catch(() => {}); 
+        }, 3000); 
+        return () => clearInterval(interval); 
+    }, [currentVersion]);
 
-    const fetchSkins = async (users) => {
-        const sId = realStreamerIdRef.current; if (!sId) return;
-        const userIds = users.map(u => u.id).filter(Boolean); if (userIds.length === 0) return;
-        try { const res = await fetch(`${API_BASE}/api/pond/users`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: userIds, streamerId: sId }) }); const data = await res.json(); knownSkinsRef.current = { ...knownSkinsRef.current, ...data }; } catch(e) {}
-    };
-
-    const checkRequirement = (user, reqRoles) => {
-        if (!reqRoles) return true;
-        const roles = Array.isArray(reqRoles) ? reqRoles : [reqRoles];
-        if (roles.includes("all")) return true;
-        const userRole = (user.role || "").toLowerCase();
-        if (userRole === "broadcaster" || userRole === "owner" || userRole === "moderator") return true; 
-        if (roles.includes("sub") && (user.subscribed || userRole === "subscriber")) return true;
-        if (roles.includes("vip") && userRole === "vip") return true;
-        if (roles.includes("mod") && userRole === "moderator") return true;
-        return false;
+    // ALLE SKINS LADEN (Für alle User)
+    const fetchAllSkins = async () => {
+        try { 
+            const res = await fetch(`${API_BASE}/api/pond/all-users`); 
+            const data = await res.json(); 
+            knownSkinsRef.current = data; 
+        } catch(e) {}
     };
 
     const handleActiveViewersResponse = async (viewers) => {
@@ -303,28 +343,30 @@ export default function ViewerPond() {
             return true;
         });
 
-        await fetchSkins(cleanList);
+        // Skins für alle updaten
+        await fetchAllSkins();
         const activeNames = new Set(cleanList.map(u => u.username));
 
         cleanList.forEach(u => {
-            const desiredSkinId = knownSkinsRef.current[u.id] || "goldfish";
-            const reqRoles = currentConfig.fishRequirements[desiredSkinId] || ["all"];
-            const allowed = checkRequirement(u, reqRoles);
-            const finalSkin = allowed ? desiredSkinId : "goldfish";
+            // Jeder bekommt den Fisch, den er gewählt hat. Standard ist Goldfisch.
+            const userData = knownSkinsRef.current[u.id] || {};
+            const finalSkin = userData.skin || "goldfish";
+            const finalColor = userData.color || "default";
 
             const existing = fishesRef.current.find(f => f.username === u.username);
             if (existing) {
                 existing.isDead = false; existing.isLeaving = false;
                 if (existing.skin !== finalSkin) existing.skin = finalSkin;
+                if (existing.color !== finalColor) existing.color = finalColor; // Farbe updaten
             } else {
                 const startX = Math.random() * 90; const startTargetX = Math.random() * 90;
                 const safeTargetY = getSafeTargetY(isDockedTop);
 
                 fishesRef.current.push({
-                    id: u.id, username: u.username, skin: finalSkin, x: startX, y: -20, 
+                    id: u.id, username: u.username, skin: finalSkin, color: finalColor, x: startX, y: -20, 
                     targetX: startTargetX, targetY: safeTargetY,
                     size: 50, direction: startTargetX > startX ? 'right' : 'left', speed: 0.15 + Math.random() * 0.2, isDropping: true, isDead: false,
-                    isMovingToEvent: false // NEU: Initial false
+                    isMovingToEvent: false
                 });
                 setTimeout(() => {
                     const f = fishesRef.current.find(x => x.username === u.username);
@@ -343,12 +385,10 @@ export default function ViewerPond() {
         setFishes([...fishesRef.current]);
     };
 
-    // Helper Check: Ist der Fisch beschäftigt?
     const isBusy = (f) => f.isRacing || f.isKissing || f.isMovingToEvent || f.isFrozen || f.isDead;
 
     const triggerManualShark = (targetUsername) => {
         const fish = fishesRef.current.find(f => f.username.toLowerCase() === targetUsername.toLowerCase());
-        // FIX: Abbruch wenn beschäftigt
         if (fish && !isBusy(fish)) {
             fish.isFrozen = true;
             setSharkAttacks(prev => [...prev, { id: Date.now(), y: fish.y, targetFish: fish.username, targetX: fish.x }]);
@@ -363,14 +403,13 @@ export default function ViewerPond() {
         }
     };
 
-    // --- ÄNDERUNG 3: WebSocket mit Auto-Reconnect ---
+    // --- WEBSOCKET ZU DEINEM STREAMER.BOT ---
     useEffect(() => {
         let socket;
         let pollInterval;
         let reconnectTimeout;
 
         const connect = () => {
-            // Falls bereits eine Verbindung besteht, nichts tun
             if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
 
             console.log("🔄 Versuche Verbindung zu Streamer.bot...");
@@ -381,10 +420,8 @@ export default function ViewerPond() {
                 console.log("🔌 WS Connected to Streamer.bot");
                 setWsConnected(true);
                 
-                // Subscribe requests senden
                 socket.send(JSON.stringify({ request: "Subscribe", id: "pond-sub", events: { "General": ["Custom"] } }));
                 
-                // Viewer Polling starten
                 const trigger = () => { 
                     if (socket.readyState === WebSocket.OPEN) {
                         socket.send(JSON.stringify({ request: "GetActiveViewers", id: "pond-poll" })); 
@@ -397,19 +434,11 @@ export default function ViewerPond() {
             socket.onclose = () => {
                 console.log("🔌 WS Disconnected - Versuche Reconnect in 3s...");
                 setWsConnected(false);
-                
-                // Intervalle aufräumen
                 if (pollInterval) clearInterval(pollInterval);
-                
-                // Automatisch neu verbinden nach 3 Sekunden
                 reconnectTimeout = setTimeout(connect, 3000);
             };
 
-            socket.onerror = (err) => {
-                // Error wird meistens gefolgt von onclose, daher hier nur Loggen
-                console.log("WS Error", err);
-                socket.close(); // Erzwingt close -> triggert onclose -> triggert reconnect
-            };
+            socket.onerror = (err) => { socket.close(); };
 
             socket.onmessage = (e) => {
                 try {
@@ -420,10 +449,7 @@ export default function ViewerPond() {
                         let payload = d.data;
                         if (payload.data && typeof payload.data === 'string') { try { payload = JSON.parse(payload.data); } catch (err) { return; } }
                         
-                        if (payload.broadcasterId && realStreamerIdRef.current) {
-                            if (String(payload.broadcasterId) !== String(realStreamerIdRef.current)) return;
-                        }
-
+                        // KEIN Broadcaster-Check mehr nötig, es ist dein eigener Bot!
                         const action = payload.action;
                         if (action === "shark_attack") triggerManualShark(payload.target);
                         if (action === "fish_say") triggerFishSay(payload.user, payload.message);
@@ -433,13 +459,10 @@ export default function ViewerPond() {
                         if (action === "kiss") triggerKiss(payload.source, payload.target);
                         if (action === "race") triggerRace(payload.source, payload.target);
                     }
-                } catch (err) {
-                    console.error("WS Message Error", err);
-                }
+                } catch (err) { console.error("WS Message Error", err); }
             };
         };
 
-        // Erster Verbindungsversuch
         connect();
 
         return () => {
@@ -447,35 +470,29 @@ export default function ViewerPond() {
             if (reconnectTimeout) clearTimeout(reconnectTimeout);
             if (socket) socket.close();
         };
-    }, [streamerId]);
+    }, []);
     
+    // --- MAIN GAME LOOP ---
     useEffect(() => { 
         const loop = setInterval(() => { 
             const currentSettings = configRef.current?.waterSettings || {};
             const isDockedTop = currentSettings.position === "top";
             
-            // NEU: Scale und Margin Berechnung innerhalb des Loops
             const hPercent = currentSettings.height || 15;
             const baseScale = Math.min(1.5, Math.max(0.2, hPercent / 6));
             const userFishScale = currentSettings.fishScale || 1.0;
             const totalScale = baseScale * userFishScale;
 
-            // Dynamischer Sicherheitsabstand: Je größer der Scale, desto mehr Platz lassen wir
-            // 12 ist ein Erfahrungswert (ca. halbe Fischhöhe in %)
             const safetyMargin = 12 * totalScale;
 
             fishesRef.current.forEach(f => { 
-                // 1. NaN Schutz
                 if (isNaN(f.x) || isNaN(f.y)) { f.x = 50; f.y = 50; }
 
-                // Wenn frozen (Event), nichts tun
                 if (f.isDropping || f.isLeaving || f.isDead || f.isFrozen || f.isRacing) {
-                    f.stuckCounter = 0; // Reset counter if busy properly
+                    f.stuckCounter = 0; 
                     return; 
                 }
                 
-                // --- NEU: STUCK DETECTION LOGIC ---
-                // Wir prüfen, ob sich die Position seit dem letzten Frame kaum verändert hat
                 const moveDelta = Math.abs(f.x - (f.lastX || f.x)) + Math.abs(f.y - (f.lastY || f.y));
                 f.lastX = f.x;
                 f.lastY = f.y;
@@ -486,16 +503,12 @@ export default function ViewerPond() {
                     f.stuckCounter = 0;
                 }
 
-                // Wenn > 60 Frames (ca. 3 Sekunden) stuck: Respawn Target
                 if (f.stuckCounter > 60) {
-                    console.log(`🐟 Unstucking fish: ${f.username}`);
                     f.targetX = Math.random() * 90;
                     f.targetY = getSafeTargetY(isDockedTop);
                     f.stuckCounter = 0;
-                    // Kleiner Nudge, damit er sofort loslegt
                     f.x += (Math.random() > 0.5 ? 1 : -1);
                 }
-                // ----------------------------------
 
                 const dx = f.targetX - f.x, dy = f.targetY - f.y, dist = Math.sqrt(dx*dx + dy*dy); 
                 
@@ -515,17 +528,12 @@ export default function ViewerPond() {
                     f.y += (dy/dist)*moveSpeed; 
                 }
                 
-                // GRENZEN: Hier härter begrenzen für Issue #1
                 if (isDockedTop) { 
-                    // Oben: Von "Margin" bis "60%"
                     f.y = Math.max(safetyMargin, Math.min(60, f.y)); 
                 } else { 
-                    // Unten: Von "20%" bis "100% minus Margin"
-                    // Das ist der Fix: 100 - safetyMargin sorgt dafür, dass die Mitte nie tiefer geht als erlaubt
                     f.y = Math.max(20, Math.min(100 - safetyMargin, f.y)); 
                 }
                 
-                // Auch X anpassen, da wir jetzt zentriert sind (nicht mehr 0 bis 93, sondern Margin bis 100-Margin)
                 f.x = Math.max(2, Math.min(98, f.x));
             }); 
             setFishes([...fishesRef.current]); 
@@ -533,7 +541,6 @@ export default function ViewerPond() {
         return () => clearInterval(loop); 
     }, []);
 
-   // --- HELPER: WARTEN AUF ANKUNFT ---
     const waitForArrival = (fishList, callback) => {
         let checkInterval = null;
         let fallbackTimeout = null;
@@ -551,15 +558,12 @@ export default function ViewerPond() {
             const allArrived = fishList.every(f => {
                 const dx = f.targetX - f.x;
                 const dy = f.targetY - f.y;
-                // Toleranz muss hier auch etwas größer sein
                 return Math.sqrt(dx*dx + dy*dy) < 5; 
             });
 
             if (allArrived) finish();
         }, 100);
         
-        // FIX: Timeout auf 15 Sekunden erhöht (vorher 5s).
-        // Verhindert, dass das Event startet, bevor die Fische sich berühren.
         fallbackTimeout = setTimeout(finish, 15000);
     };
 
@@ -576,11 +580,8 @@ export default function ViewerPond() {
             const midX = (leftFish.x + rightFish.x) / 2;
             const midY = (leftFish.y + rightFish.y) / 2;
             
-            // OFFSET EINSTELLUNG: 1.2 ist ein guter Wert (nah, aber kein Clipping)
-            // Wenn du es enger willst, mach 0.9 oder 0.8
             const KISS_OFFSET = 1.2; 
 
-            // Ziele berechnen
             const targetX_Left = midX - KISS_OFFSET;
             const targetX_Right = midX + KISS_OFFSET;
 
@@ -591,16 +592,12 @@ export default function ViewerPond() {
             rightFish.direction = 'left';
 
             waitForArrival([leftFish, rightFish], () => {
-                // FIX: HARD SNAP - Erzwinge exakte Position
-                // Das entfernt jegliche "Zufälligkeit" beim Abstand
                 leftFish.x = targetX_Left; leftFish.y = midY;
                 rightFish.x = targetX_Right; rightFish.y = midY;
 
-                // Freeze
                 leftFish.isFrozen = true; rightFish.isFrozen = true;
-                setFishes([...fishesRef.current]); // Sofortiges Update für den Snap
+                setFishes([...fishesRef.current]); 
 
-                // Kurze Pause vor Herz
                 setTimeout(() => {
                     leftFish.isKissing = true; rightFish.isKissing = true;
                     setFishes([...fishesRef.current]); 
@@ -609,7 +606,6 @@ export default function ViewerPond() {
                     setEffects(prev => [...prev, { id: effectId, type: 'heart', x: midX, y: midY - 15 }]);
                     setTimeout(() => setEffects(prev => prev.filter(e => e.id !== effectId)), 2000);
 
-                    // Auflösen
                     setTimeout(() => {
                         const currentSettings = configRef.current?.waterSettings || {};
                         const isDockedTop = currentSettings.position === "top";
@@ -639,7 +635,6 @@ export default function ViewerPond() {
         const raceY = isDockedTop ? 20 + Math.random() * 30 : 50 + Math.random() * 30;
 
         if (fishA && fishB && !isBusy(fishA) && !isBusy(fishB)) {
-            // 1. Zur Startlinie
             [fishA, fishB].forEach(f => {
                 f.isMovingToEvent = true; 
                 f.targetX = startX;
@@ -649,46 +644,34 @@ export default function ViewerPond() {
             setFishes([...fishesRef.current]);
 
             waitForArrival([fishA, fishB], () => {
-                // 2. Ready Phase (Freeze & Snap)
                 [fishA, fishB].forEach(f => {
                     f.isFrozen = true; 
                     f.direction = 'right'; 
-                    f.x = startX; f.y = raceY; // Hard Snap auf Linie
+                    f.x = startX; f.y = raceY; 
                 });
                 setFishes([...fishesRef.current]);
                 
-                // 3. Warten...
                 setTimeout(() => {
-                    // 4. START!
                     [fishA, fishB].forEach(f => {
                         f.isFrozen = false;
                         f.isMovingToEvent = false; 
                         f.isRacing = true; 
-                        // FIX: Startgeschwindigkeit sehr niedrig für Spannung
                         f.raceSpeed = 0.05; 
                     });
-                    
-                    console.log("🔫 Race Start!"); 
 
                     const raceInterval = setInterval(() => {
                         let finished = false;
                         [fishA, fishB].forEach(f => {
                             const luck = Math.random();
                             
-                            // LOGIK FÜR SPANNUNG:
-                            // 1. Chance auf Schub (Sprint)
                             if (luck > 0.85) { 
                                 f.raceSpeed += 0.05 + Math.random() * 0.05; 
                             }
-                            // 2. Chance auf Ermüdung (Stolpern) - macht es spannend!
                             else if (luck < 0.10) {
-                                f.raceSpeed *= 0.5; // Verliert die Hälfte an Speed
+                                f.raceSpeed *= 0.5; 
                             }
                             
-                            // Reibung (sie werden langsam wieder langsamer nach einem Sprint)
                             f.raceSpeed *= 0.99; 
-                            
-                            // Limits: Nicht stehenbleiben (min 0.02), nicht teleportieren (max 0.6)
                             f.raceSpeed = Math.max(0.02, Math.min(0.6, f.raceSpeed));
 
                             f.x += f.raceSpeed;
@@ -707,8 +690,7 @@ export default function ViewerPond() {
 
     const endRace = (winnerName, participants, intervalId) => {
         clearInterval(intervalId);
-        console.log(`🏁 Race beendet! Gewinner: ${winnerName}`);
-
+        
         if (ws.current && ws.current.readyState === 1) {
             const payload = { request: "DoAction", action: { name: "PondRaceWinner" }, args: { winner: winnerName }, id: "PondRaceEnd" };
             ws.current.send(JSON.stringify(payload));
@@ -720,7 +702,7 @@ export default function ViewerPond() {
 
             participants.forEach(f => {
                 f.isFrozen = false; f.isRacing = false; f.raceSpeed = 0;
-                f.isMovingToEvent = false; // KI wieder erlauben
+                f.isMovingToEvent = false; 
                 
                 f.targetX = Math.random() * 90;
                 f.targetY = getSafeTargetY(isDockedTop);
@@ -743,10 +725,8 @@ export default function ViewerPond() {
     const { height, opacity, color, showBubbles, showDecorations, activeDecorations, waveIntensity, position, layoutSeed, fishScale, decoScale } = config.waterSettings;
     const rgbaColor = hexToRgba(color, opacity);
     const isTop = position === "top";
-    // 1. Basis-Skalierung (nur anhand der Höhe)
+    
     const baseScale = Math.min(1.5, Math.max(0.2, height / 6));
-
-    // 2. Separate Multiplikatoren anwenden
     const fishFinalScale = baseScale * (fishScale || 1);
     const decoFinalScale = baseScale * (decoScale || 1);
     
@@ -762,11 +742,9 @@ export default function ViewerPond() {
                 <SwarmLayer active={isRaid} />
                 <div className="absolute inset-0 backdrop-blur-[2px]" style={{ backgroundColor: rgbaColor, boxShadow: `0 0 0 1px ${rgbaColor}` }}>
                     <WaterTexture isTop={isTop} />
-                    {/* DEKO nutzt decoFinalScale */}
                     {showDecorations && <Decorations activeDecos={activeDecorations} scale={decoFinalScale} color={color} layoutSeed={layoutSeed} isTop={isTop} />}
                     {showBubbles && <Bubbles scale={decoFinalScale} />}
                 </div>
-                {/* FISCHE & HAIE nutzen fishFinalScale */}
                 {fishes.map(f => (<FishEntity key={f.username} fish={f} pondPosition={position} scale={fishFinalScale} isHypetrain={isHypetrain} />))}
                 {effects.map(ef => (
                     <div key={ef.id} className="absolute z-[60] animate-out fade-out slide-out-to-top-10 duration-2000 fill-mode-forwards font-black text-white drop-shadow-md text-2xl" style={{ left: `${ef.x}%`, top: `${ef.y}%` }}>{ef.type === 'heart' && "❤️"}</div>

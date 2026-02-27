@@ -5,43 +5,51 @@ export default function SEO({ title, description, image, path, keywords }) {
   const fullTitle = title ? `${title} - ${siteTitle}` : siteTitle;
   const domain = "https://vnmvalentin.de";
   
-  // FIX: Trailing Slashes ENTFERNEN (Normalize to no-slash)
+  // 1. Pfad-Logik (wie besprochen mit Slash am Ende für Unterseiten)
   let cleanPath = path || "";
-  
   if (cleanPath === "/" || cleanPath === "") {
-      cleanPath = ""; // Root bleibt leer -> domain + "" = https://vnmvalentin.de
+      cleanPath = ""; 
   } else {
-      // Sicherstellen, dass es mit / beginnt
       if (!cleanPath.startsWith("/")) cleanPath = "/" + cleanPath;
-      
-      // WICHTIG: Wenn ein Slash am Ende ist, WEG DAMIT (außer es ist nur "/")
-      if (cleanPath.endsWith("/") && cleanPath.length > 1) {
-          cleanPath = cleanPath.slice(0, -1);
-      }
+      if (!cleanPath.endsWith("/")) cleanPath = cleanPath + "/";
   }
-
   const url = `${domain}${cleanPath}`;
+
+  // 2. BILD-LOGIK (NEU)
+  // Hast du ein Bild übergeben? Wenn nein, nutze ein Standardbild (z.B. Logo oder Banner)
+  // WICHTIG: Erstelle ein Bild 'social-share.jpg' (1200x630px empfohlen) in deinem 'public/logos' Ordner.
+  const defaultImage = `${domain}/logos/logo.png`; // Oder besser ein breites Banner: /assets/social-card.jpg
+  
+  let metaImage = image;
+
+  if (!metaImage) {
+    metaImage = defaultImage;
+  } else {
+    // Falls das übergebene Bild relativ ist (z.B. "/img/test.png"), mach es absolut
+    if (!metaImage.startsWith("http")) {
+      metaImage = `${domain}${metaImage.startsWith("/") ? "" : "/"}${metaImage}`;
+    }
+  }
 
   return (
     <>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
       {keywords && <meta name="keywords" content={keywords} />}
-      {/* Canonical zeigt jetzt IMMER auf die Version OHNE Slash */}
       <link rel="canonical" href={url} />
 
-      {/* Open Graph */}
+      {/* Open Graph (Facebook, Discord, WhatsApp) */}
       <meta property="og:type" content="website" />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={url} />
-      {image && <meta property="og:image" content={image} />}
+      <meta property="og:image" content={metaImage} />
 
-      {/* Twitter */}
+      {/* Twitter (X) */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
-      {image && <meta name="twitter:image" content={image} />}
+      <meta name="twitter:image" content={metaImage} />
     </>
   );
 }

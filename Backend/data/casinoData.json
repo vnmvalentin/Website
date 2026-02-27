@@ -1,9 +1,21 @@
 {
   "72441962": {
-    "credits": 2512,
+    "credits": 4862,
     "lastDaily": 1767701276793,
     "activeGame": null,
     "name": "gh0stqq"
+  },
+  "102402662": {
+    "credits": 2155,
+    "name": "paraskiill"
+  },
+  "111885284": {
+    "credits": 1405,
+    "name": "dust1n__"
+  },
+  "144452560": {
+    "credits": 2095,
+    "name": "cornflakesmuncher"
   },
   "160224744": {
     "credits": 3600,
@@ -18,15 +30,20 @@
     "name": "vnmvalentin2"
   },
   "160224748": {
-    "credits": 884834,
-    "lastDaily": 1770632362976,
+    "credits": 2610203,
     "activeGame": null,
     "name": "vnmvalentin",
     "stickyWilds": [],
-    "freeSpinsLeft": 0
+    "freeSpinsLeft": 0,
+    "dailyStreak": 4,
+    "lastDaily": 1772163511211
+  },
+  "537042436": {
+    "credits": 40,
+    "name": "537042436"
   },
   "674179580": {
-    "credits": 500,
+    "credits": 895,
     "lastDaily": 1767703246278,
     "activeGame": null,
     "name": "flluffattack"

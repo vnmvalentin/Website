@@ -1,2604 +1,702 @@
 [
     {
-        "id": "card-001",
+        "id": "1",
         "number": "001",
-        "name": "Waldflüsterer-Käfer",
+        "name": "Chill-Katze",
         "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/beetle.png",
-        "text": "Ein unscheinbarer Winzling, dessen Flügel im Wind wie Blätter rauschen."
+        "artworkUrl": "assets/artworkscats/1.jpg"
     },
     {
-        "id": "card-002",
+        "id": "2",
         "number": "002",
-        "name": "Mooshüter-Eule",
-        "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/owl.png",
-        "text": "Bewacht ihre Baumhöhle mit bedächtiger Weisheit."
+        "name": "Strand-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/2.jpg"
     },
     {
-        "id": "card-003",
+        "id": "3",
         "number": "003",
-        "name": "Rankenwolf",
-        "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/rankenwolf.png",
-        "text": "Eine Bestie, deren Fell mit lebenden Ranken verwachsen ist."
+        "name": "Skelett-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/3.jpg"
     },
     {
-        "id": "card-004",
+        "id": "4",
         "number": "004",
-        "name": "Blütenpfad-Nymphe",
+        "name": "Wüsten-Katze",
         "rarity": "uncommon",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/blütennymphe.png",
-        "text": "Wandert still durch Wälder und lässt Blüten hinter sich entstehen."
+        "artworkUrl": "assets/artworkscats/4.jpg"
     },
     {
-        "id": "card-005",
+        "id": "5",
         "number": "005",
-        "name": "Farngeist",
-        "rarity": "uncommon",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/farngeist.png",
-        "text": "Ein scheuer Naturgeist, der sich bei Gefahr in Nebel auflöst."
+        "name": "Dschungel-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/5.jpg"
     },
     {
-        "id": "card-006",
+        "id": "6",
         "number": "006",
-        "name": "Tiefwurzel-Bär",
+        "name": "Riesen-Katze",
         "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/tiefwurzelbär.png",
-        "text": "Ein schwerfälliger Hüter alter Baumriesen."
+        "artworkUrl": "assets/artworkscats/6.jpg"
     },
     {
-        "id": "card-007",
+        "id": "7",
         "number": "007",
-        "name": "Grünklingen-Elfe",
+        "name": "Fette-Katze",
         "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/grünklingenelf.png",
-        "text": "Verteidigt heilige Lichtungen mit pflanzlichen Klingen."
+        "artworkUrl": "assets/artworkscats/7.jpg"
     },
     {
-        "id": "card-008",
+        "id": "8",
         "number": "008",
-        "name": "Kronenhirsch",
-        "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/kronenhirsch.png",
-        "text": "Sein Geweih leuchtet im Mondlicht."
+        "name": "Cyborg-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/8.jpg"
     },
     {
-        "id": "card-009",
+        "id": "9",
         "number": "009",
-        "name": "Waldwächter-Riese",
-        "rarity": "rare",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/waldwächterriese.png",
-        "text": "Ein Koloss aus Moos, Wurzeln und uralten Steinen."
+        "name": "Lego-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/9.jpg"
     },
     {
-        "id": "card-010",
+        "id": "10",
         "number": "010",
-        "name": "Tauflügel-Schmetterling",
-        "rarity": "rare",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/tauflügelschmetterling.png",
-        "text": "Sein Flügelschimmer beruhigt wilde Kreaturen."
+        "name": "Sushi-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/10.jpg"
     },
     {
-        "id": "card-011",
+        "id": "11",
         "number": "011",
-        "name": "Dornenpfad-Luchs",
-        "rarity": "uncommon",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/dornenpfadluchs.png",
-        "text": "Lautlose Jägerin mit dornigen Klingen an den Pfoten."
+        "name": "Nudel-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/11.jpg"
     },
     {
-        "id": "card-012",
+        "id": "12",
         "number": "012",
-        "name": "Blattwind-Falke",
-        "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/blattwindfalke.png",
-        "text": "Beherrscht die Luftströme über uralten Wäldern."
+        "name": "Ritter-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/12.jpg"
     },
     {
-        "id": "card-013",
+        "id": "13",
         "number": "013",
-        "name": "Echorn des Frühlings",
-        "rarity": "very-rare",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/echorndesfrühlings.png",
-        "text": "Ein Naturwesen, das den Wechsel der Jahreszeiten einleitet."
+        "name": "Feuerwehr-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/13.jpg"
     },
     {
-        "id": "card-014",
+        "id": "14",
         "number": "014",
-        "name": "Holzkern-Wächter",
-        "rarity": "uncommon",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/holzkernwächter.png",
-        "text": "Ein alter Beschützer heiliger Haine."
+        "name": "Gamer-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/14.jpg"
     },
     {
-        "id": "card-015",
+        "id": "15",
         "number": "015",
-        "name": "Nebelkamm-Bock",
+        "name": "Boxer-Katze",
         "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/nebelkammbock.png",
-        "text": "Sein Geweih stößt feine Sporenwolken aus."
+        "artworkUrl": "assets/artworkscats/15.jpg"
     },
     {
-        "id": "card-016",
+        "id": "16",
         "number": "016",
-        "name": "Moorsänger-Pflanze",
-        "rarity": "uncommon",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/moorsängerpflanze.png",
-        "text": "Eine lebende Pflanze, die seltsame Gesänge erzeugt."
+        "name": "Business-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/16.jpg"
     },
     {
-        "id": "card-017",
+        "id": "17",
         "number": "017",
-        "name": "Flussufer-Nymphe",
-        "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/flussufernymphe.png",
-        "text": "Bindet die Strömung kleiner Flüsse an ihren Willen."
+        "name": "Orakel-Katze",
+        "rarity": "mythic",
+        "artworkUrl": "assets/artworkscats/17.jpg"
     },
     {
-        "id": "card-018",
+        "id": "18",
         "number": "018",
-        "name": "Laubkugel-Käfer",
-        "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/laubkugelkäfer.png",
-        "text": "Rollt riesige Blätterbälle durch den Wald."
+        "name": "Pilz-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/18.jpg"
     },
     {
-        "id": "card-019",
+        "id": "19",
         "number": "019",
-        "name": "Borkenhaut-Krieger",
-        "rarity": "rare",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/borkenhautkrieger.png",
-        "text": "Ein Naturkrieger mit einer Rüstung aus Baumrinde."
+        "name": "Phoenix-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/19.jpg"
     },
     {
-        "id": "card-020",
+        "id": "20",
         "number": "020",
-        "name": "Lebensquell-Hüter",
-        "rarity": "common",
-        "type": "natur",
-        "themeUrl": "/cards/themes/nature.png",
-        "artworkUrl": "/cards/artworks/Natur/lebensquellhüter.png",
-        "text": "Wächter einer verborgenen, natürlichen Energiequelle."
+        "name": "Schatten-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/20.jpg"
     },
     {
-        "id": "card-051",
+        "id": "21",
+        "number": "021",
+        "name": "Runen-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/21.jpg"
+    },
+    {
+        "id": "22",
+        "number": "022",
+        "name": "Frost-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/22.jpg"
+    },
+    {
+        "id": "23",
+        "number": "023",
+        "name": "Bambus-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/23.jpg"
+    },
+    {
+        "id": "24",
+        "number": "024",
+        "name": "Bernstein-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/24.jpg"
+    },
+    {
+        "id": "25",
+        "number": "025",
+        "name": "Feuer-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/25.jpg"
+    },
+    {
+        "id": "26",
+        "number": "026",
+        "name": "Zeitsprung-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/26.jpg"
+    },
+    {
+        "id": "27",
+        "number": "027",
+        "name": "Wächter-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/27.jpg"
+    },
+    {
+        "id": "28",
+        "number": "028",
+        "name": "Moos-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/28.jpg"
+    },
+    {
+        "id": "29",
+        "number": "029",
+        "name": "Hirsch-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/29.jpg"
+    },
+    {
+        "id": "30",
+        "number": "030",
+        "name": "Schmetterlings-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/30.jpg"
+    },
+    {
+        "id": "31",
+        "number": "031",
+        "name": "Korallen-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/31.jpg"
+    },
+    {
+        "id": "32",
+        "number": "032",
+        "name": "Löwenzahn-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/32.jpg"
+    },
+    {
+        "id": "33",
+        "number": "033",
+        "name": "Laub-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/33.jpg"
+    },
+    {
+        "id": "34",
+        "number": "034",
+        "name": "Sonnenblumen-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/34.jpg"
+    },
+    {
+        "id": "35",
+        "number": "035",
+        "name": "Engels-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/35.jpg"
+    },
+    {
+        "id": "36",
+        "number": "036",
+        "name": "Kaktus-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/36.jpg"
+    },
+    {
+        "id": "37",
+        "number": "037",
+        "name": "Tarn-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/37.jpg"
+    },
+    {
+        "id": "38",
+        "number": "038",
+        "name": "Wolken-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/38.jpg"
+    },
+    {
+        "id": "39",
+        "number": "039",
+        "name": "Farb-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/39.jpg"
+    },
+    {
+        "id": "40",
+        "number": "040",
+        "name": "Kristall-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/40.jpg"
+    },
+    {
+        "id": "41",
+        "number": "041",
+        "name": "Drachen-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/41.jpg"
+    },
+    {
+        "id": "42",
+        "number": "042",
+        "name": "Geist-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/42.jpg"
+    },
+    {
+        "id": "43",
+        "number": "043",
+        "name": "Höllen-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/43.jpg"
+    },
+    {
+        "id": "44",
+        "number": "044",
+        "name": "Himmels-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/44.jpg"
+    },
+    {
+        "id": "45",
+        "number": "045",
+        "name": "Licht-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/45.jpg"
+    },
+    {
+        "id": "46",
+        "number": "046",
+        "name": "Magie-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/46.jpg"
+    },
+    {
+        "id": "47",
+        "number": "047",
+        "name": "Mecha-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/47.jpg"
+    },
+    {
+        "id": "48",
+        "number": "048",
+        "name": "Mond-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/48.jpg"
+    },
+    {
+        "id": "49",
+        "number": "049",
+        "name": "Piraten-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/49.jpg"
+    },
+    {
+        "id": "50",
+        "number": "050",
+        "name": "Arzt-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/50.jpg"
+    },
+    {
+        "id": "51",
         "number": "051",
-        "name": "Schattenmähnen-Wolf",
+        "name": "Polizei-Katze",
         "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/schattenmähnenwolf.png",
-        "text": "Ein Jäger, dessen Fell im Mondlicht silbern flackert."
+        "artworkUrl": "assets/artworkscats/51.jpg"
     },
     {
-        "id": "card-052",
+        "id": "52",
         "number": "052",
-        "name": "Knochenklaue",
-        "rarity": "uncommon",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/knochenklaue.png",
-        "text": "Eine Bestie, deren Krallen aus versteinertem Horn bestehen."
+        "name": "Pool-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/52.jpg"
     },
     {
-        "id": "card-053",
+        "id": "53",
         "number": "053",
-        "name": "Moorfang-Echse",
+        "name": "Alchemie-Katze",
         "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/moorfangechse.png",
-        "text": "Lauerjäger aus trübem Sumpfgebiet."
+        "artworkUrl": "assets/artworkscats/53.jpg"
     },
     {
-        "id": "card-054",
+        "id": "54",
         "number": "054",
-        "name": "Felsbock-Rammler",
-        "rarity": "uncommon",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/felsbockrammler.png",
-        "text": "Sein Schädel zersplittert Stein."
+        "name": "Regenbogen-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/54.jpg"
     },
     {
-        "id": "card-055",
+        "id": "55",
         "number": "055",
-        "name": "Nachtpelz-Luchs",
-        "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/nachtpelzluchs.png",
-        "text": "Ungesehen, ungehört, unaufhaltbar."
+        "name": "Reptilien-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/55.jpg"
     },
     {
-        "id": "card-056",
+        "id": "56",
         "number": "056",
-        "name": "Sturmfell-Bär",
-        "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/sturmfellbär.png",
-        "text": "Sein Brüllen ruft kurzen Windstoß hervor."
+        "name": "Cyber-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/56.jpg"
     },
     {
-        "id": "card-057",
+        "id": "57",
         "number": "057",
-        "name": "Dornenrücken-Eber",
-        "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/dornenrückeneber.png",
-        "text": "Sein Rücken ist mit harten Stacheln übersät."
+        "name": "Rosen-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/57.jpg"
     },
     {
-        "id": "card-058",
+        "id": "58",
         "number": "058",
-        "name": "Blutmond-Hyäne",
+        "name": "Schlaf-Katze",
         "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/blutmondhyäne.png",
-        "text": "Wird bei Vollmond unkontrollierbar."
+        "artworkUrl": "assets/artworkscats/58.jpg"
     },
     {
-        "id": "card-059",
+        "id": "59",
         "number": "059",
-        "name": "Sumpfmauler",
-        "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/sumpfmauler.png",
-        "text": "Halb Amphibie, halb Raubtier."
+        "name": "Spion-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/59.jpg"
     },
     {
-        "id": "card-060",
+        "id": "60",
         "number": "060",
-        "name": "Klippenwandler",
-        "rarity": "uncommon",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/klippenwandler.png",
-        "text": "Läuft senkrechte Felswände hoch."
+        "name": "Galaxie-Katze",
+        "rarity": "mythic",
+        "artworkUrl": "assets/artworkscats/60.jpg"
     },
     {
-        "id": "card-061",
+        "id": "61",
         "number": "061",
-        "name": "Froschpanzer-Koloss",
-        "rarity": "very-rare",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/froschpanzerkoloss.png",
-        "text": "Schwerfällige Amphibie mit hartem Rückenschild."
+        "name": "Stoff-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/61.jpg"
     },
     {
-        "id": "card-062",
+        "id": "62",
         "number": "062",
-        "name": "Stahlkralle",
-        "rarity": "rare",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/stahlkralle.png",
-        "text": "Mutation mit kaum durchdringbaren Klauen."
+        "name": "Fels-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/62.jpg"
     },
     {
-        "id": "card-063",
+        "id": "63",
         "number": "063",
-        "name": "Nebelfell-Reißer",
-        "rarity": "uncommon",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/nebelfellreißer.png",
-        "text": "Greift aus dichtem Nebel an."
+        "name": "Sonnen-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/63.jpg"
     },
     {
-        "id": "card-064",
+        "id": "64",
         "number": "064",
-        "name": "Riesenhorn-Büffel",
+        "name": "Sumpf-Katze",
         "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/riesenhornbüffel.png",
-        "text": "Ein Koloss, der ganze Bäume niederwalzt."
+        "artworkUrl": "assets/artworkscats/64.jpg"
     },
     {
-        "id": "card-065",
+        "id": "65",
         "number": "065",
-        "name": "Tiefwald-Panther",
-        "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/tiefwaldpanther.png",
-        "text": "Schleicht zwischen alten Wurzeln."
+        "name": "Gewitter-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/65.jpg"
     },
     {
-        "id": "card-066",
+        "id": "66",
         "number": "066",
-        "name": "Strandwüter",
-        "rarity": "rare",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/strandwüter.png",
-        "text": "Küstenjäger mit salzverkrustetem Fell."
+        "name": "Vampir-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/66.jpg"
     },
     {
-        "id": "card-067",
+        "id": "67",
         "number": "067",
-        "name": "Sandklaue",
-        "rarity": "rare",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/sandklaue.png",
-        "text": "Blitzschnell wie trockener Wüstenwind."
+        "name": "Yin-Katze",
+        "rarity": "mythic",
+        "artworkUrl": "assets/artworkscats/67.jpg"
     },
     {
-        "id": "card-068",
+        "id": "68",
         "number": "068",
-        "name": "Frosthauer-Eber",
-        "rarity": "uncommon",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/frosthauereber.png",
-        "text": "Seine Stoßzähne gefrieren die Luft."
+        "name": "Yang-Katze",
+        "rarity": "mythic",
+        "artworkUrl": "assets/artworkscats/68.jpg"
     },
     {
-        "id": "card-069",
+        "id": "69",
         "number": "069",
-        "name": "Borkengeist-Wolf",
-        "rarity": "common",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/borkengeistwolf.png",
-        "text": "Teilweise aus Rinde bestehend."
+        "name": "Zombie-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/69.jpg"
     },
     {
-        "id": "card-070",
+        "id": "70",
         "number": "070",
-        "name": "Titanhorn-Gaul",
-        "rarity": "mythic",
-        "type": "bestie",
-        "themeUrl": "/cards/themes/bestie.png",
-        "artworkUrl": "/cards/artworks/Bestie/titanhorngaul.png",
-        "text": "Gewaltige Bestie mit metallischem Horn."
-    },
-    {
-        "id": "card-101",
-        "number": "101",
-        "name": "Flammenschwingen-Drache",
+        "name": "Pflanzen-Katze",
         "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/flammenschwingendrache.png",
-        "text": "Ein geflügeltes Reptil, dessen Atem die Luft zum Flimmern bringt."
+        "artworkUrl": "assets/artworkscats/70.jpg"
     },
     {
-        "id": "card-102",
-        "number": "102",
-        "name": "Himmelszorn-Wyrm",
-        "rarity": "secret",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/himmelszornwyrm.png",
-        "text": "Beherrscht die Wolken und ruft donnernde Böen herab."
+        "id": "71",
+        "number": "071",
+        "name": "Wasser-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/71.jpg"
     },
     {
-        "id": "card-103",
-        "number": "103",
-        "name": "Frostzahn-Drache",
+        "id": "72",
+        "number": "072",
+        "name": "Zuckerwatte-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/72.jpg"
+    },
+    {
+        "id": "73",
+        "number": "073",
+        "name": "Smaragd-Katze",
         "rarity": "rare",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/frostzahndrache.png",
-        "text": "Seine gefrorenen Schuppen erzeugen ein frostiges Knacken."
-
+        "artworkUrl": "assets/artworkscats/73.jpg"
     },
     {
-        "id": "card-104",
-        "number": "104",
-        "name": "Schwarzschimmer-Serpentos",
+        "id": "74",
+        "number": "074",
+        "name": "Honig-Katze",
         "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/schwarzschimmerserpentos.png",
-        "text": "Ein schlanker Schattenwurm mit metallischem Glanz."
+        "artworkUrl": "assets/artworkscats/74.jpg"
     },
     {
-        "id": "card-105",
-        "number": "105",
-        "name": "Glutkern-Drache",
-        "rarity": "uncommon",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/glutkerndrache.png",
-        "text": "Sein Brustkorb glüht wie geschmolzene Lava."
-    },
-    {
-        "id": "card-106",
-        "number": "106",
-        "name": "Nebelstreif-Lindwurm",
+        "id": "75",
+        "number": "075",
+        "name": "Popcorn-Katze",
         "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/nebelstreiflindwurm.png",
-        "text": "Bewegt sich durch Nebel, als würde er darin verschwinden."
+        "artworkUrl": "assets/artworkscats/75.jpg"
     },
     {
-        "id": "card-107",
-        "number": "107",
-        "name": "Dornenflug-Drakonid",
+        "id": "76",
+        "number": "076",
+        "name": "Chili-Katze",
         "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/dornenflugdrakonid.png",
-        "text": "Mit stacheligen Flügeln, die Funken erzeugen."
+        "artworkUrl": "assets/artworkscats/76.jpg"
     },
     {
-        "id": "card-108",
-        "number": "108",
-        "name": "Erschütterfang-Wurm",
+        "id": "77",
+        "number": "077",
+        "name": "Kaugummi-Katze",
         "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/erschütterfangwurm.png",
-        "text": "Seine Bewegungen lassen die Erde erzittern."
+        "artworkUrl": "assets/artworkscats/77.jpg"
     },
     {
-        "id": "card-109",
-        "number": "109",
-        "name": "Mondlicht-Drache",
-        "rarity": "uncommon",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/mondlichtdrache.png",
-        "text": "Ein elegantes Wesen, dessen Schuppen wie Silber glänzen."
-    },
-    {
-        "id": "card-110",
-        "number": "110",
-        "name": "Krallensturm-Impaktor",
-        "rarity": "uncommon",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/krallensturmimpaktor.png",
-        "text": "Ein Drache, der im Sturzflug Felsen spalten kann."
-    },
-    {
-        "id": "card-111",
-        "number": "111",
-        "name": "Feuerschopf-Basaltdrache",
-        "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/feuerschopfbasaltdrache.png",
-        "text": "Sein Horn besteht aus vulkanischem Gestein."
-    },
-    {
-        "id": "card-112",
-        "number": "112",
-        "name": "Dämmerwind-Wyrm",
-        "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/dämmerwindwyrm.png",
-        "text": "Ein ruhiges, aber mächtiges Wesen der Grenzzeit."
-    },
-    {
-        "id": "card-113",
-        "number": "113",
-        "name": "Dornenschuppe-Drache",
-        "rarity": "uncommon",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/dornenschuppendrache.png",
-        "text": "Seine Panzerplatten ragen in gefährlichen Spitzen hervor."
-    },
-    {
-        "id": "card-114",
-        "number": "114",
-        "name": "Glanzflügel-Archidrake",
+        "id": "78",
+        "number": "078",
+        "name": "Gold-Katze",
         "rarity": "rare",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/glanzflügelarchidrake.png",
-        "text": "Sein Flügelschlag erzeugt prismenartige Lichtstreifen."
+        "artworkUrl": "assets/artworkscats/78.jpg"
     },
     {
-        "id": "card-115",
-        "number": "115",
-        "name": "Schattenrachen",
-        "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/schattenrachen.png",
-        "text": "Ein Drache, der im Dunkel der Berge lauert."
-    },
-    {
-        "id": "card-116",
-        "number": "116",
-        "name": "Sturmkamm-Serpentor",
-        "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/sturmkammserpentor.png",
-        "text": "Seine Schuppen surren elektrisch."
-    },
-    {
-        "id": "card-117",
-        "number": "117",
-        "name": "Schieferhorn-Draco",
+        "id": "79",
+        "number": "079",
+        "name": "Rubin-Katze",
         "rarity": "rare",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/schieferhorndraco.png",
-        "text": "Mit massivem Kopfknochen, der alles durchbricht."
+        "artworkUrl": "assets/artworkscats/79.jpg"
     },
     {
-        "id": "card-118",
-        "number": "118",
-        "name": "Flüsterzahn-Wyrm",
+        "id": "80",
+        "number": "080",
+        "name": "Tannenbaum-Katze",
         "rarity": "common",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/flüsterzahnwyrm.png",
-        "text": "Sein Atem trägt unheilvolle Stimmen."
+        "artworkUrl": "assets/artworkscats/80.jpg"
     },
     {
-        "id": "card-119",
-        "number": "119",
-        "name": "Aschenhaut-Drakel",
+        "id": "81",
+        "number": "081",
+        "name": "Seerosen-Katze",
         "rarity": "uncommon",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/aschenhautdrakel.png",
-        "text": "Ein junger Drache mit rußbedecktem Schuppenkleid."
+        "artworkUrl": "assets/artworkscats/81.jpg"
     },
     {
-        "id": "card-120",
-        "number": "120",
-        "name": "Titanfelsen-Drakun",
-        "rarity": "very-rare",
-        "type": "drache",
-        "themeUrl": "/cards/themes/drache.png",
-        "artworkUrl": "/cards/artworks/Drache/titanfelsendrakun.png",
-        "text": "Eine gewaltige Kreatur, die selbst Berge herausfordert."
+        "id": "82",
+        "number": "082",
+        "name": "Kirschblüten-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/82.jpg"
     },
     {
-        "id": "card-151",
-        "number": "151",
-        "name": "Schattenseelen-Wandler",
+        "id": "83",
+        "number": "083",
+        "name": "Rinden-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/83.jpg"
+    },
+    {
+        "id": "84",
+        "number": "084",
+        "name": "Tornado-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/84.jpg"
+    },
+    {
+        "id": "85",
+        "number": "085",
+        "name": "Polarlicht-Katze",
         "rarity": "rare",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/schattenseelenwandler.png",
-        "text": "Eine Gestalt, die aus purem Nachtnebel besteht."
+        "artworkUrl": "assets/artworkscats/85.jpg"
     },
     {
-        "id": "card-152",
-        "number": "152",
-        "name": "Mondtrinker-Dämon",
+        "id": "86",
+        "number": "086",
+        "name": "Hologram-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/86.jpg"
+    },
+    {
+        "id": "87",
+        "number": "087",
+        "name": "Anubis-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/87.jpg"
+    },
+    {
+        "id": "88",
+        "number": "088",
+        "name": "Medusa-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/88.jpg"
+    },
+    {
+        "id": "89",
+        "number": "089",
+        "name": "Laser-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/89.jpg"
+    },
+    {
+        "id": "90",
+        "number": "090",
+        "name": "Origami-Katze",
         "rarity": "rare",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/mondtrinkerdämon.png",
-        "text": "Absorbiert das fahle Licht der Nacht."
+        "artworkUrl": "assets/artworkscats/90.jpg"
     },
     {
-        "id": "card-153",
-        "number": "153",
-        "name": "Finsternis-Wolf",
+        "id": "91",
+        "number": "091",
+        "name": "Marmor-Katze",
         "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/finsterniswolf.png",
-        "text": "Seine Augen leuchten wie kalte Glut."
+        "artworkUrl": "assets/artworkscats/91.jpg"
     },
     {
-        "id": "card-154",
-        "number": "154",
-        "name": "Schleierkriecher",
+        "id": "92",
+        "number": "092",
+        "name": "Statuen-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/92.jpg"
+    },
+    {
+        "id": "93",
+        "number": "093",
+        "name": "Fossil-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/93.jpg"
+    },
+    {
+        "id": "94",
+        "number": "094",
+        "name": "Pixel-Katze",
         "rarity": "uncommon",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/schleicherkriecher.png",
-        "text": "Ein Wesen, das in Schatten schmilzt."
+        "artworkUrl": "assets/artworkscats/94.jpg"
     },
     {
-        "id": "card-155",
-        "number": "155",
-        "name": "Grimmhaucher",
+        "id": "95",
+        "number": "095",
+        "name": "Radioaktive-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/95.jpg"
+    },
+    {
+        "id": "96",
+        "number": "096",
+        "name": "Magnet-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/96.jpg"
+    },
+    {
+        "id": "97",
+        "number": "097",
+        "name": "Spiegel-Katze",
         "rarity": "rare",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/grimmhaucher.png",
-        "text": "Flüstert Stimmen, die Mut rauben."
+        "artworkUrl": "assets/artworkscats/97.jpg"
     },
     {
-        "id": "card-156",
-        "number": "156",
-        "name": "Tiefgrau-Scheusal",
+        "id": "98",
+        "number": "098",
+        "name": "Portal-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/98.jpg"
+    },
+    {
+        "id": "99",
+        "number": "099",
+        "name": "Säure-Katze",
         "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/tiefgrauscheusal.png",
-        "text": "Seine Haut wirkt wie bewegt, als lebte der Schatten selbst."
+        "artworkUrl": "assets/artworkscats/99.jpg"
     },
     {
-        "id": "card-157",
-        "number": "157",
-        "name": "Abgrundflüsterer",
-        "rarity": "uncommon",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/abgrundflüsterer.png",
-        "text": "Versteht die Sprache der Finsternis."
-    },
-    {
-        "id": "card-158",
-        "number": "158",
-        "name": "Schwarzdorn-Häscher",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/schwarzdornhäscher.png",
-        "text": "Jäger mit dornigen, peitschenden Gliedern."
-    },
-    {
-        "id": "card-159",
-        "number": "159",
-        "name": "Nachtriss-Wyrmling",
-        "rarity": "uncommon",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/nachtrisswyrmling.png",
-        "text": "Ein junges Dunkelwesen, das Licht meidet."
-    },
-    {
-        "id": "card-160",
-        "number": "160",
-        "name": "Seelenfresser-Lurker",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/seelenfresserlurker.png",
-        "text": "Kriecher aus der Dunkelzone."
-    },
-    {
-        "id": "card-161",
-        "number": "161",
-        "name": "Schattensprung-Katze",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/schattensprungkatze.png",
-        "text": "Springt zwischen Schatten wie durch Portale."
-    },
-    {
-        "id": "card-162",
-        "number": "162",
-        "name": "Dämmerzahn-Häscher",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/dämmerzahnhäscher.png",
-        "text": "Ein Raubwesen mit blauem Glimmen."
-    },
-    {
-        "id": "card-163",
-        "number": "163",
-        "name": "Finsterherz-Ghast",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/finterherzghast.png",
-        "text": "Schwebende Manifestation verlorener Angst."
-    },
-    {
-        "id": "card-164",
-        "number": "164",
-        "name": "Leerenblick-Spectrus",
-        "rarity": "mythic",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/leerenblickspectrus.png",
-        "text": "Geflügelter Geist der Raumzwischenräume."
-    },
-    {
-        "id": "card-165",
-        "number": "165",
-        "name": "Kerzenschatten-Greifer",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/kerzenschattengreifer.png",
-        "text": "Taucht aus flackerndem Licht hervor."
-    },
-    {
-        "id": "card-166",
-        "number": "166",
-        "name": "Abyss-Kriecher",
-        "rarity": "uncommon",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/abysskriecher.png",
-        "text": "Lehnt an den Mauern des Nichts."
-    },
-    {
-        "id": "card-167",
-        "number": "167",
-        "name": "Dunkelrauch-Vogel",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/dunkelrauchvogel.png",
-        "text": "Eine Silhouette, die ständig verwischt."
-    },
-    {
-        "id": "card-168",
-        "number": "168",
-        "name": "Schattenfluch-Hund",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/schattenfluchhund.png",
-        "text": "Ein Nachtjäger mit erstickendem Atem."
-    },
-    {
-        "id": "card-169",
-        "number": "169",
-        "name": "Hohlkrallen-Revenant",
-        "rarity": "common",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/hohlkrallenrevenant.png",
-        "text": "Von finsteren Energien erfüllt."
-    },
-    {
-        "id": "card-170",
-        "number": "170",
-        "name": "Schwärzling-Morph",
-        "rarity": "very-rare",
-        "type": "dunkelheit",
-        "themeUrl": "/cards/themes/dunkelheit.png",
-        "artworkUrl": "/cards/artworks/Dunkelheit/schwärzlingmorph.png",
-        "text": "Passt seine Form lautlos an seine Umgebung an."
-    },
-    {
-        "id": "card-201",
-        "number": "201",
-        "name": "Plasmasegler-Unit 09",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/plasmaseglerunit09.png",
-        "text": "Ein schwebender Scout mit schwach pulsierenden Linien."
-    },
-    {
-        "id": "card-202",
-        "number": "202",
-        "name": "Neonklingen-Sentinel",
-        "rarity": "rare",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/neonklingensentinel.png",
-        "text": "Cyber-Wächter mit hellen Energieschwertern."
-    },
-    {
-        "id": "card-203",
-        "number": "203",
-        "name": "Datenstrom-Runner",
-        "rarity": "uncommon",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/datenstromrunner.png",
-        "text": "Läuft als Lichtersilhouette durch Netzwerke."
-    },
-    {
-        "id": "card-204",
-        "number": "204",
-        "name": "Aufklährungs-Drohne",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/aufklärungsdrohne.png",
-        "text": "Kleine, aber aggressive Konstruktionsdrohne."
-    },
-    {
-        "id": "card-205",
-        "number": "205",
-        "name": "Synthhaut-Android",
-        "rarity": "uncommon",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/synthhautandroid.png",
-        "text": "Sein Körper schimmert metallisch-organisch."
-    },
-    {
-        "id": "card-206",
-        "number": "206",
-        "name": "Optik-Scherbenbot",
-        "rarity": "mythic",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/optikscherbenbot.png",
-        "text": "Zersplittert Licht in tödliche Spektren."
-    },
-    {
-        "id": "card-207",
-        "number": "207",
-        "name": "Byte-Raptor",
-        "rarity": "uncommon",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/byteraptor.png",
-        "text": "Mechanische Jagddrohne mit scharfen Photonenklingen."
-    },
-    {
-        "id": "card-208",
-        "number": "208",
-        "name": "Nanoschuppen-Schlange",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/nanoschuppenschlange.png",
-        "text": "Eine flexible Cyber-Kreatur aus mikroskopischen Modulen."
-    },
-    {
-        "id": "card-209",
-        "number": "209",
-        "name": "Rüstungs-Wolf",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/rüstungswolf.png",
-        "text": "Gepanzerter Wolf mit einem technischen Herz."
-    },
-    {
-        "id": "card-210",
-        "number": "210",
-        "name": "Plasmaherz-Cyborg",
-        "rarity": "uncommon",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/plasmaherzcyborg.png",
-        "text": "Sein Kern leuchtet elektrisch."
-    },
-    {
-        "id": "card-211",
-        "number": "211",
-        "name": "Rauschsignal-Phantom",
-        "rarity": "rare",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/rauchsignalphantom.png",
-        "text": "Ein digitales Echo in physischer Form."
-    },
-    {
-        "id": "card-212",
-        "number": "212",
-        "name": "Titanmodul-Krieger",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/titanmodulkrieger.png",
-        "text": "Schwere Einheit aus gehärteten Carbidschichten."
-    },
-    {
-        "id": "card-213",
-        "number": "213",
-        "name": "Kernspektral-Drohne",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/kernspektraldrohne.png",
-        "text": "Ortet Energiequellen über weite Distanz."
-    },
-    {
-        "id": "card-214",
-        "number": "214",
-        "name": "Quantum-Wächter",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/quantumwächter.png",
-        "text": "Ein High-Tech-Konstrukt, das nur teilweise in unserer Realität existiert."
-    },
-    {
-        "id": "card-215",
-        "number": "215",
-        "name": "Stahltekt-Kommandant",
-        "rarity": "rare",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/stahltektkommandant.png",
-        "text": "Leitet maschinelle Armeen über Funkgewebe."
-    },
-    {
-        "id": "card-216",
-        "number": "216",
-        "name": "Fluxpanzer-Robustell",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/fluxpanzerrobustell.png",
-        "text": "Eine bullige Maschine mit wechselnden Panelen."
-    },
-    {
-        "id": "card-217",
-        "number": "217",
-        "name": "Cyberseele-Specter",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/cyberseelespecter.png",
-        "text": "Mischung aus Geist und KI-Echo."
-    },
-    {
-        "id": "card-218",
-        "number": "218",
-        "name": "Digitalklaue-Beastmk2",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/digitalklauebeastmk2.png",
-        "text": "Eine künstliche Kampfbestie aus Titan."
-    },
-    {
-        "id": "card-219",
-        "number": "219",
-        "name": "Frequenzschatten-Hackerling",
-        "rarity": "common",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/frequenschattenhackerling.png",
-        "text": "Stört Signale und verzerrt Wahrnehmung."
-    },
-    {
-        "id": "card-220",
-        "number": "220",
-        "name": "Nullzone-Operator",
-        "rarity": "secret",
-        "type": "cyber",
-        "themeUrl": "/cards/themes/cyber.png",
-        "artworkUrl": "/cards/artworks/Cyber/nullzoneoperator.png",
-        "text": "Ein cybergenerierter Exorzist digitaler Störungen."
-    },
-    {
-        "id": "card-251",
-        "number": "251",
-        "name": "Runenherz-Mystikerin",
-        "rarity": "uncommon",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/runenherzmystikerin.png",
-        "text": "Eine stille Zauberin, deren Haut feine, pulsierende Runen trägt."
-    },
-    {
-        "id": "card-252",
-        "number": "252",
-        "name": "Flammenlied-Magus",
-        "rarity": "uncommon",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/flammenliedmagus.png",
-        "text": "Seine Worte entzünden die Luft zu tanzenden Feuerlinien."
-    },
-    {
-        "id": "card-253",
-        "number": "253",
-        "name": "Arkanfeder-Beschwörer",
-        "rarity": "very-rare",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/arkanfederbeschwörer.png",
-        "text": "Nutzt schwebende Glyphenfedern, die selbständig zaubern."
-    },
-    {
-        "id": "card-254",
-        "number": "254",
-        "name": "Sternenfokus-Seher",
-        "rarity": "uncommon",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/sternenfokusseher.png",
-        "text": "Blickt in Lichtknoten des Himmels und liest darin Zukunftsbilder."
-    },
-    {
-        "id": "card-255",
-        "number": "255",
-        "name": "Edelstein-Thaumaturg",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/edelsteinthaumaturg.png",
-        "text": "Fasst seine Magie in klar geschliffene Kristalle."
-    },
-    {
-        "id": "card-256",
-        "number": "256",
-        "name": "Schweigezirkel-Magier",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/schweigezirkelmagier.png",
-        "text": "Ein Zauberer, dessen Magie nur in absoluter Stille funktioniert."
-    },
-    {
-        "id": "card-257",
-        "number": "257",
-        "name": "Dunstschrift-Scriba",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/dunstschriftscriba.png",
-        "text": "Lässt Nebel zu beweglichen Worten formen."
-    },
-    {
-        "id": "card-258",
-        "number": "258",
-        "name": "Runenfunken-Adept",
-        "rarity": "uncommon",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/runenfunkenadept.png",
-        "text": "Seine Hände hinterlassen nach jedem Zauber ein Funkenmuster."
-    },
-    {
-        "id": "card-259",
-        "number": "259",
-        "name": "Altglut-Hexer",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/altgluthexer.png",
-        "text": "Hüter uralter magischer Asche, die nie ganz erkaltet."
-    },
-    {
-        "id": "card-260",
-        "number": "260",
-        "name": "Mondrufer-Mystik",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/mondrufermystik.png",
-        "text": "Ein Zauberwirker, der das schwache Mondlicht zu Bannflüssen formt."
-    },
-    {
-        "id": "card-261",
-        "number": "261",
-        "name": "Arkanwoge-Katalyst",
-        "rarity": "mythic",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/arkanwogekatalyst.png",
-        "text": "Seine Aura pulsiert im Rhythmus wilder Magieströme."
-    },
-    {
-        "id": "card-262",
-        "number": "262",
-        "name": "Sandzeit-Illusionist",
-        "rarity": "rare",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/sandzeitillusionist.png",
-        "text": "Verdichtet Staub zu lebendigen Illusionen."
-    },
-    {
-        "id": "card-263",
-        "number": "263",
-        "name": "Buchseiten-Herbeirufer",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/buchseitenherbeirufer.png",
-        "text": "Ruft Wesen aus leeren Seiten alter Grimoire."
-    },
-    {
-        "id": "card-264",
-        "number": "264",
-        "name": "Schimmerwind-Hexe",
-        "rarity": "uncommon",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/schimmerwindhexe.png",
-        "text": "Webt glitzernde Luftwirbel, die Licht brechen."
-    },
-    {
-        "id": "card-265",
-        "number": "265",
-        "name": "Klangsigil-Zauberweber",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/klangsigilzauberweber.png",
-        "text": "Erzeugt Magie aus Summen und Resonanzen."
-    },
-    {
-        "id": "card-266",
-        "number": "266",
-        "name": "Schattenfaden-Arkanist",
-        "rarity": "rare",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/schattenfadenarkanist.png",
-        "text": "Verwebt dünne Schattenstränge zu Zauberfesseln."
-    },
-    {
-        "id": "card-267",
-        "number": "267",
-        "name": "Glimmerstaub-Weiser",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/glimmerstaubweiser.png",
-        "text": "Ein alter Magier, dessen Mantel ständig glitzernden Staub verliert."
-    },
-    {
-        "id": "card-268",
-        "number": "268",
-        "name": "Runenkern-Sänger",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/runenkernsänger.png",
-        "text": "Seine Stimme aktiviert uralte Siegel in Fels und Metall."
-    },
-    {
-        "id": "card-269",
-        "number": "269",
-        "name": "Tintenwogen-Geheimwirker",
-        "rarity": "rare",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/tintenwogengeheimwirker.png",
-        "text": "Beherrscht lebendige, dunkle Tinte, die sich wie Wasser verhält."
-    },
-    {
-        "id": "card-270",
-        "number": "270",
-        "name": "Harmonia-Hohezauberin",
-        "rarity": "common",
-        "type": "magie",
-        "themeUrl": "/cards/themes/magie.png",
-        "artworkUrl": "/cards/artworks/Magie/harmoniahohezauberin.png",
-        "text": "Verkörpert reine magische Balance, ihr Blick strahlt sanfte Autorität aus."
-    },
-    {
-        "id": "card-301",
-        "number": "301",
-        "name": "Gezeitenrufer-Sirene",
-        "rarity": "rare",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/gezeitenrufersirene.png",
-        "text": "Eine schlanke Gestalt, deren Stimme Ebbe und Flut beeinflusst."
-    },
-    {
-        "id": "card-302",
-        "number": "302",
-        "name": "Korallenhaut-Wächter",
-        "rarity": "very-rare",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/korallenhautwächter.png",
-        "text": "Ein robustes Wesen, dessen Körper mit lebender Koralle verwächst."
-    },
-    {
-        "id": "card-303",
-        "number": "303",
-        "name": "Tiefenlicht-Qualle",
-        "rarity": "uncommon",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/tiefenlichtqualle.png",
-        "text": "Schwebt langsam, während ihr Körper in Blau und Violett pulsiert."
-    },
-    {
-        "id": "card-304",
-        "number": "304",
-        "name": "Brandungsschuppen-Drakoid",
-        "rarity": "uncommon",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/brandungsschuppendrakoid.png",
-        "text": "Ein Wasserdrache mit schimmernden, glatten Schuppen."
-    },
-    {
-        "id": "card-305",
-        "number": "305",
-        "name": "Schlickkriecher-Krabbenwesen",
-        "rarity": "rare",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/schlickkriecherkrabbenwesen.png",
-        "text": "Ein gepanzerter Jäger, der den Meeresboden umpflügt."
-    },
-    {
-        "id": "card-306",
-        "number": "306",
-        "name": "Tintenwogen-Schattenfisch",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/tintenwogenschattenfisch.png",
-        "text": "Schwimmt lautlos wie ein wandelnder Schatten."
-    },
-    {
-        "id": "card-307",
-        "number": "307",
-        "name": "Schwertflossen-Jäger",
-        "rarity": "rare",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/schwertflossenjäger.png",
-        "text": "Ein schneller Raubfisch mit messerscharfen Brustflossen."
-    },
-    {
-        "id": "card-308",
-        "number": "308",
-        "name": "Nebelklang-Mariner",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/nebelklangmariner.png",
-        "text": "Verschmilzt mit Meeresnebel, fast unsichtbar."
-    },
-    {
-        "id": "card-309",
-        "number": "309",
-        "name": "Perlenkern-Nixe",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/perlenkernnixe.png",
-        "text": "Beschützt seltene Perlen mit beinahe heiliger Hingabe."
-    },
-    {
-        "id": "card-310",
-        "number": "310",
-        "name": "Sturmflut-Seeschlange",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/sturmflutseeschlange.png",
-        "text": "Wälzt sich durch Wellen wie ein lebender Strudel."
-    },
-    {
-        "id": "card-311",
-        "number": "311",
-        "name": "Abyssauge",
-        "rarity": "uncommon",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/abyssauge.png",
-        "text": "Ein Wesen mit einem strahlend weißen Auge in pechschwarzer Tiefe."
-    },
-    {
-        "id": "card-312",
-        "number": "312",
-        "name": "Muschelpanzermönch",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/muschelpanzermönch.png",
-        "text": "Gelassen, aber mit einem harten, verzierten Muschelschild."
-    },
-    {
-        "id": "card-313",
-        "number": "313",
-        "name": "Flussspalt-Krakenling",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/flussspaltkrakenling.png",
-        "text": "Ein junger Tintenfisch mit ungewöhnlicher Beweglichkeit."
-    },
-    {
-        "id": "card-314",
-        "number": "314",
-        "name": "Wogenhorn-Basilisk",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/wogenhornbasilisk.png",
-        "text": "Seine Flossen erzeugen vibrierende Druckwellen."
-    },
-    {
-        "id": "card-315",
-        "number": "315",
-        "name": "Schaumhaut-Geistling",
-        "rarity": "uncommon",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/schaumhautgeistling.png",
-        "text": "Ein ätherisches Wesen, das aus weißem Meerschaum entsteht."
-    },
-    {
-        "id": "card-316",
-        "number": "316",
-        "name": "Tiefsee-Taucher",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/tiefseetaucher.png",
-        "text": "Eine amphibische Kreatur mit rauer, kristalliner Haut."
-    },
-    {
-        "id": "card-317",
-        "number": "317",
-        "name": "Strudelfeder-Seevogel",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/strudelfederseevogel.png",
-        "text": "Beherrscht die Aufwinde über Strudeln und Klippen."
-    },
-    {
-        "id": "card-318",
-        "number": "318",
-        "name": "Reefsplitter-Manta",
-        "rarity": "uncommon",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/reefsplittermanta.png",
-        "text": "Gleitendes Großwesen, das Korallen wie Sand durchtrennt."
-    },
-    {
-        "id": "card-319",
-        "number": "319",
-        "name": "Aalgift-Schlängler",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/aalgiftschlängler.png",
-        "text": "Sein Körper sondert leuchtendes Toxin aus."
-    },
-    {
-        "id": "card-320",
-        "number": "320",
-        "name": "Dämmerglanz-Meerelfe",
-        "rarity": "common",
-        "type": "ozean",
-        "themeUrl": "/cards/themes/ozean.png",
-        "artworkUrl": "/cards/artworks/Ozean/dämmerglanzmeerelfe.png",
-        "text": "Hüterin der stillsten Tiefen, wo kaum Licht hinfällt."
-    },
-    {
-        "id": "card-351",
-        "number": "351",
-        "name": "Wolkenkamm-Greif",
-        "rarity": "uncommon",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/wolkenkammgreif.png",
-        "text": "Ein majestätischer Raubvogel mit Löwenkörper und hellen Federn."
-    },
-    {
-        "id": "card-352",
-        "number": "352",
-        "name": "Sonnenwind-Falke",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/sonnenwindfalke.png",
-        "text": "Sein Flug hinterlässt eine goldene Spur."
-    },
-    {
-        "id": "card-353",
-        "number": "353",
-        "name": "Himmelsbogen-Sturmvogel",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/himmelsbogensturmvogel.png",
-        "text": "Segelt durch Gewitterfronten ohne Kratzer."
-    },
-    {
-        "id": "card-354",
-        "number": "354",
-        "name": "Schimmerflügel-Harpyie",
-        "rarity": "uncommon",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/schimmerflügelharpyie.png",
-        "text": "Eine elegante, aber gefährliche Kreatur des Hochwinds."
-    },
-    {
-        "id": "card-355",
-        "number": "355",
-        "name": "Blauglanz-Adler",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/blauglanzadler.png",
-        "text": "Seine Federn brechen das Licht wie Glas."
-    },
-    {
-        "id": "card-356",
-        "number": "356",
-        "name": "Donnerklang-Kondor",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/donnerklangkondor.png",
-        "text": "Sein Ruf klingt wie entferntes Grollen."
-    },
-    {
-        "id": "card-357",
-        "number": "357",
-        "name": "Wolkenwandler-Drakonid",
-        "rarity": "uncommon",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/wolkenwandlerdrakonid.png",
-        "text": "Halb Drache, halb Greif – geboren im Höhenwind."
-    },
-    {
-        "id": "card-358",
-        "number": "358",
-        "name": "Hochflug-Pegasus",
-        "rarity": "rare",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/hochflugpegasus.png",
-        "text": "Ein stolzes, ruhiges Himmelswesen."
-    },
-    {
-        "id": "card-359",
-        "number": "359",
-        "name": "Silberdunst-Schwalbe",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/silberdunstschwalbe.png",
-        "text": "Hinterlässt schimmernde Schweiflinien."
-    },
-    {
-        "id": "card-360",
-        "number": "360",
-        "name": "Aurorasturm-Engelwesen",
+        "id": "100",
+        "number": "100",
+        "name": "Götter-Katze",
         "rarity": "legendary",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/aurorasturmengelwesen.png",
-        "text": "Sein Erscheinen füllt die Luft mit farbigem Licht."
-    },
-    {
-        "id": "card-361",
-        "number": "361",
-        "name": "Windschatten-Krähe",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/windschattenkrähe.png",
-        "text": "Kann lautlos mehrere Kilometer gleiten."
-    },
-    {
-        "id": "card-362",
-        "number": "362",
-        "name": "Lichtflügel-Seraphid",
-        "rarity": "uncommon",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/lichtflügelseraphid.png",
-        "text": "Ein ätherisches Wesen des reinen Himmelslichts."
-    },
-    {
-        "id": "card-363",
-        "number": "363",
-        "name": "Windpfad-Luchs",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/windpfadluchs.png",
-        "text": "Ein mystisches Tier, das kurzzeitig laufen kann, wo kein Boden ist."
-    },
-    {
-        "id": "card-364",
-        "number": "364",
-        "name": "Wallwolken-Bär",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/wallwolkenbär.png",
-        "text": "Massiver Körper, aber federleichter Schritt."
-    },
-    {
-        "id": "card-365",
-        "number": "365",
-        "name": "Höhenjäger-Waelkin",
-        "rarity": "very-rare",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/höhenjägerwaelkin.png",
-        "text": "Erspäht Beute weit unter den Wolken."
-    },
-    {
-        "id": "card-366",
-        "number": "366",
-        "name": "Regenbogenstreif-Milan",
-        "rarity": "uncommon",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/regenbogenstreifmilan.png",
-        "text": "Seine Flügel reflektieren das gesamte Farbspektrum."
-    },
-    {
-        "id": "card-367",
-        "number": "367",
-        "name": "Himmelssäum-Reitergeist",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/himmelssäumreitergeist.png",
-        "text": "Eine verirrte Seele, die auf Windwegen reitet."
-    },
-    {
-        "id": "card-368",
-        "number": "368",
-        "name": "Dahlia-Harpyenpriesterin",
-        "rarity": "rare",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/dahliaharpyenpriesterin.png",
-        "text": "Meisterin der hymnischen Winde."
-    },
-    {
-        "id": "card-369",
-        "number": "369",
-        "name": "Dunstwirbel-Flederer",
-        "rarity": "rare",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/dunstwirbelflederer.png",
-        "text": "Kontrolliert kleine Wirbel und Böen."
-    },
-    {
-        "id": "card-370",
-        "number": "370",
-        "name": "Sonnenkralle-Wespe",
-        "rarity": "common",
-        "type": "himmel",
-        "themeUrl": "/cards/themes/himmel.png",
-        "artworkUrl": "/cards/artworks/Himmel/sonnenkrallewespe.png",
-        "text": "Ein Rieseninsekt, dessen Stachel golden glüht."
-    },
-    {
-        "id": "card-401",
-        "number": "401",
-        "name": "Dampfkolben-Golem",
-        "rarity": "uncommon",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/dampfkolbengolem.png",
-        "text": "Ein schweres, klopfendes Konstrukt aus Eisen und Bronze."
-    },
-    {
-        "id": "card-402",
-        "number": "402",
-        "name": "Rostschrauber-Käferbot",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/rostschrauberkäferbot.png",
-        "text": "Kleines Reparaturinstrument mit überraschender Wendigkeit."
-    },
-    {
-        "id": "card-403",
-        "number": "403",
-        "name": "Stahlpanzer-Bison",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/stahlpanzerbison.png",
-        "text": "Stampft mit metallenen Hufen, Funken sprühend."
-    },
-    {
-        "id": "card-404",
-        "number": "404",
-        "name": "Kupferzahn-Automat",
-        "rarity": "rare",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/kupferzahnautomat.png",
-        "text": "Ein humanoider Arbeiter, präzise und kalt."
-    },
-    {
-        "id": "card-405",
-        "number": "405",
-        "name": "Vulkantrieb-Exo-Mech",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/vulkantriebexomech.png",
-        "text": "Ein hitzeresistenter Kampfmech."
-    },
-    {
-        "id": "card-406",
-        "number": "406",
-        "name": "Bohrspitzen-Wühler",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/bohrspitzenwühler.png",
-        "text": "Durchtrennt Erde mühelos."
-    },
-    {
-        "id": "card-407",
-        "number": "407",
-        "name": "Ritzmetal-Schlange",
-        "rarity": "uncommon",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/ritzmetalschlange.png",
-        "text": "Bewegliche Kettenelemente formen ihren Körper."
-    },
-    {
-        "id": "card-408",
-        "number": "408",
-        "name": "Zahnrad-Falkon",
-        "rarity": "uncommon",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/zahnradfalkon.png",
-        "text": "Ein mechanischer Vogel mit rotierenden Rotorflügeln."
-    },
-    {
-        "id": "card-409",
-        "number": "409",
-        "name": "Kolbenherz-Schreiter",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/kolbenherzschreiter.png",
-        "text": "Läuft auf drei druckgesteuerten Beinen."
-    },
-    {
-        "id": "card-410",
-        "number": "410",
-        "name": "Messingwolf",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/messingwolf.png",
-        "text": "Eine metallene Bestie mit glühenden roten Augen."
-    },
-    {
-        "id": "card-411",
-        "number": "411",
-        "name": "Schmierölaffe",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/schmierölaffe.png",
-        "text": "Klein, flink, effizient, ölverschmiert."
-    },
-    {
-        "id": "card-412",
-        "number": "412",
-        "name": "Revolverkrallen-Sentinel",
-        "rarity": "rare",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/revolverkrallensentinel.png",
-        "text": "Bewaffnet mit rotierenden Klingen."
-    },
-    {
-        "id": "card-413",
-        "number": "413",
-        "name": "Plattenhelm-Konstrukt",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/plattenhelmkonstrukt.png",
-        "text": "Eine Ritterstatue aus reinem Stahl."
-    },
-    {
-        "id": "card-414",
-        "number": "414",
-        "name": "Funkenlauf-Spinne",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/funkenlaufspinne.png",
-        "text": "Winzige Maschine, die elektrische Impulse sammelt."
-    },
-    {
-        "id": "card-415",
-        "number": "415",
-        "name": "Ankerkern-Titan",
-        "rarity": "very-rare",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/ankerkerntitan.png",
-        "text": "Massive Maschine, kaum beweglich, aber unzerstörbar."
-    },
-    {
-        "id": "card-416",
-        "number": "416",
-        "name": "Kettenarm-Derrick",
-        "rarity": "rare",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/kettenarmderrick.png",
-        "text": "Halb Kran, halb Wächterkreatur."
-    },
-    {
-        "id": "card-417",
-        "number": "417",
-        "name": "Stahlschlund-Maulwurf",
-        "rarity": "uncommon",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/stahlschlundmaulwurf.png",
-        "text": "Verschlingt Erde wie eine Presse."
-    },
-    {
-        "id": "card-418",
-        "number": "418",
-        "name": "Kupferfirn-Golem",
-        "rarity": "common",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/kupferfirngolem.png",
-        "text": "Eine Konstruktion aus gefrorenem Metall."
-    },
-    {
-        "id": "card-419",
-        "number": "419",
-        "name": "Schmiedefeuer-Metallmönch",
-        "rarity": "rare",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/schmiedefeuermetallmönch.png",
-        "text": "Meditativ, aber mit magmatischem Kern."
-    },
-    {
-        "id": "card-420",
-        "number": "420",
-        "name": "Stahllicht-Archon",
-        "rarity": "mythic",
-        "type": "mechanisch",
-        "themeUrl": "/cards/themes/mechanisch.png",
-        "artworkUrl": "/cards/artworks/Mechanisch/stahllichtarchon.png",
-        "text": "Ein mechanischer Wächter mit leuchtendem Energiekern."
-    },
-    {
-        "id": "card-451",
-        "number": "451",
-        "name": "Glasadern-Spinne",
-        "rarity": "uncommon",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/glasadernspinne.png",
-        "text": "Seine Scheren sind aus hauchdünnem, scharfem Kristall."
-    },
-    {
-        "id": "card-452",
-        "number": "452",
-        "name": "Amethyst-Sängerin",
-        "rarity": "very-rare",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/amethystsängerin.png",
-        "text": "Eine schimmernde Figur, deren Stimme Kristalle wachsen lässt."
-    },
-    {
-        "id": "card-453",
-        "number": "453",
-        "name": "Prismenhorn-Hirsch",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/prismenhornhirsch.png",
-        "text": "Sein Geweih funkelt wie Regenbogenquarz."
-    },
-    {
-        "id": "card-454",
-        "number": "454",
-        "name": "Kristallpanzer-Käfer",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/kristallpanzerkäfer.png",
-        "text": "Robuste Kreatur mit schimmernder Panzerung."
-    },
-    {
-        "id": "card-455",
-        "number": "455",
-        "name": "Splittermantel-Geist",
-        "rarity": "rare",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/splittermantelgeist.png",
-        "text": "Umhüllt von schwebenden Kristallfragmenten."
-    },
-    {
-        "id": "card-456",
-        "number": "456",
-        "name": "Saphirschuppen-Drakeling",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/saphirschuppendrakeling.png",
-        "text": "Ein junger Drache mit glatten, blauen Schuppen."
-    },
-    {
-        "id": "card-457",
-        "number": "457",
-        "name": "Scherbenspur-Wolf",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/scherbenspurwolf.png",
-        "text": "Lässt zerbrochene Kristallsplitter hinter sich."
-    },
-    {
-        "id": "card-458",
-        "number": "458",
-        "name": "Rubinblick-Panther",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/rubinblickpanther.png",
-        "text": "Seine Augen glühen rot wie glühende Edelsteine."
-    },
-    {
-        "id": "card-459",
-        "number": "459",
-        "name": "Quarzzahn-Basilisk",
-        "rarity": "rare",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/quarzzahnbasilisk.png",
-        "text": "Sein Blick kann Stein zu Glas wandeln."
-    },
-    {
-        "id": "card-460",
-        "number": "460",
-        "name": "Funkelstrom-Schlange",
-        "rarity": "uncommon",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/funkelstromschlange.png",
-        "text": "Eine glänzende Serpente aus lebendem Mineral."
-    },
-    {
-        "id": "card-461",
-        "number": "461",
-        "name": "Diamantkrone-Golem",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/diamantkronegolem.png",
-        "text": "Ein schwerfälliges Wesen aus reinem, klarem Kristall."
-    },
-    {
-        "id": "card-462",
-        "number": "462",
-        "name": "Splitterflug-Falke",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/splitterflugfalke.png",
-        "text": "Seine Federn bestehen aus flachen, glitzernden Prismen."
-    },
-    {
-        "id": "card-463",
-        "number": "463",
-        "name": "Azurflammen-Salamander",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/azurflammensalamander.png",
-        "text": "Brennt mit magischem, kobaltblauem Feuer."
-    },
-    {
-        "id": "card-464",
-        "number": "464",
-        "name": "Glanzmantel-Elfe",
-        "rarity": "rare",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/glanzmantelelfe.png",
-        "text": "Ihr Körper reflektiert Licht in flüssigen Farben."
-    },
-    {
-        "id": "card-465",
-        "number": "465",
-        "name": "Kryolith-Ritter",
-        "rarity": "rare",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/kryolithritter.png",
-        "text": "Ein Krieger aus hartem, kalten Farbkristall."
-    },
-    {
-        "id": "card-466",
-        "number": "466",
-        "name": "Prismageist",
-        "rarity": "very-rare",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/prismageist.png",
-        "text": "Ein ätherisches Wesen, das in Lichtreflexen lebt."
-    },
-    {
-        "id": "card-467",
-        "number": "467",
-        "name": "Zircon-Wächter",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/zirconwächter.png",
-        "text": "Stoischer Beschützer alter Kristallhöhlen."
-    },
-    {
-        "id": "card-468",
-        "number": "468",
-        "name": "Schimmerader-Nymphe",
-        "rarity": "uncommon",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/schimmeradernymphe.png",
-        "text": "Verkörpert die lebendige Energie tiefer Adern."
-    },
-    {
-        "id": "card-469",
-        "number": "469",
-        "name": "Jadeherz-Puma",
-        "rarity": "common",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/jadeherzpuma.png",
-        "text": "Ein harmonisches, ruhiges Bergwesen aus dichtem Stein."
-    },
-    {
-        "id": "card-470",
-        "number": "470",
-        "name": "Mondsplitter-Dryade",
-        "rarity": "uncommon",
-        "type": "kristall",
-        "themeUrl": "/cards/themes/kristall.png",
-        "artworkUrl": "/cards/artworks/Kristall/mondsplitterdryade.png",
-        "text": "Ihre Haut wirkt, als sei sie aus Mondlicht geschnitzt."
-    },
-    {
-        "id": "card-501",
-        "number": "501",
-        "name": "Gluthauch-Dämon",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/gluthauchdämon.png",
-        "text": "Ein feuriges Wesen mit glimmenden Adern, aus denen Funken sprühen."
-    },
-    {
-        "id": "card-502",
-        "number": "502",
-        "name": "Schwefelhorn-Moloch",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/schwefelhornmoloch.png",
-        "text": "Langsam, schwer und brutal, seine Haut riecht nach verbrannter Erde."
-    },
-    {
-        "id": "card-503",
-        "number": "503",
-        "name": "Flammenschlund-Ghul",
-        "rarity": "uncommon",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/flammenschlundghul.png",
-        "text": "Aus seinem Rachen treten flackernde Feuerzungen."
-    },
-    {
-        "id": "card-504",
-        "number": "504",
-        "name": "Blutgruben-Wächter",
-        "rarity": "rare",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/blutgrubenwächter.png",
-        "text": "Ein brutaler Riese, geschmiedet aus Pein und Eisensplittern."
-    },
-    {
-        "id": "card-505",
-        "number": "505",
-        "name": "Schattenpein-Succubus",
-        "rarity": "very-rare",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/schattenpeinsuccubus.png",
-        "text": "Ein verführerischer Dämon, der mit einem Blick lähmt."
-    },
-    {
-        "id": "card-506",
-        "number": "506",
-        "name": "Höllenbrand-Wyrmling",
-        "rarity": "uncommon",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/höllenbrandwyrmling.png",
-        "text": "Ein junger Feuerdrache aus pechschwarzer Lavahaut."
-    },
-    {
-        "id": "card-507",
-        "number": "507",
-        "name": "Peitschenglut-Dreizack",
-        "rarity": "very-rare",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/peitschenglutdreizack.png",
-        "text": "Ein dreischwänziges Dämonenbiest, dessen Enden brennen."
-    },
-    {
-        "id": "card-508",
-        "number": "508",
-        "name": "Aschenklaue-Krallenwolf",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/aschenklauekrallenwolf.png",
-        "text": "Ein höllischer Wolf mit glühenden Klauen."
-    },
-    {
-        "id": "card-509",
-        "number": "509",
-        "name": "Feuerkerker-Minotaur",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/feuerkerkerminotaur.png",
-        "text": "Sein Körper besteht teils aus glühender Schlacke."
-    },
-    {
-        "id": "card-510",
-        "number": "510",
-        "name": "Flammenmarionette",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/flammenmarionette.png",
-        "text": "Eine verkohlte Holzfigur, die von infernalen Fäden bewegt wird."
-    },
-    {
-        "id": "card-511",
-        "number": "511",
-        "name": "Lavaschrei-Bestie",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/lavaschreibestie.png",
-        "text": "Jeder Atemzug verursacht ein knisterndes Grollen."
-    },
-    {
-        "id": "card-512",
-        "number": "512",
-        "name": "Schwarzflammen-Priester",
-        "rarity": "uncommon",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/schwarzflammenpriester.png",
-        "text": "Beschwört dunkle Feuer, die selbst Licht verschlucken."
-    },
-    {
-        "id": "card-513",
-        "number": "513",
-        "name": "Brandmal-Teufelchen",
-        "rarity": "uncommon",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/brandmalteufelchen.png",
-        "text": "Klein, aber tückisch, mit heißer glühender Haut."
-    },
-    {
-        "id": "card-514",
-        "number": "514",
-        "name": "Feuerschlund-Koloss",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/feuerschlundkoloss.png",
-        "text": "Eine gigantische, brennende Konstruktion aus Stein und Zorn."
-    },
-    {
-        "id": "card-515",
-        "number": "515",
-        "name": "Rußhorn-Höllenbock",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/russhornhöllenbock.png",
-        "text": "Spuckt Funken aus seinen Nüstern."
-    },
-    {
-        "id": "card-516",
-        "number": "516",
-        "name": "Verdammnisflüsterer",
-        "rarity": "rare",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/verdammnisflüsterer.png",
-        "text": "Ein dämonischer Prophet, umgeben von pechschwarzem Rauch."
-    },
-    {
-        "id": "card-517",
-        "number": "517",
-        "name": "Glutkamm-Drakonid",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/glutkammdrakonid.png",
-        "text": "Halb Drache, halb Dämon, geboren im Tieffeuer."
-    },
-    {
-        "id": "card-518",
-        "number": "518",
-        "name": "Infernoschritt-Skelett",
-        "rarity": "common",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/infernoschrittskelett.png",
-        "text": "Knochen, die wie Schmiedemetall glühen."
-    },
-    {
-        "id": "card-519",
-        "number": "519",
-        "name": "Hitzemantel-Ifrit",
-        "rarity": "rare",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/hitzemantelifrit.png",
-        "text": "Seine Präsenz verzieht die Luft wie flirrende Hitze."
-    },
-    {
-        "id": "card-520",
-        "number": "520",
-        "name": "Schattenflammen-Archdemon",
-        "rarity": "mythic",
-        "type": "hölle",
-        "themeUrl": "/cards/themes/hölle.png",
-        "artworkUrl": "/cards/artworks/Hölle/schattenflammenarchdemon.png",
-        "text": "Ein dunkles Oberwesen, das Feuer und Schatten gleichzeitig beherrscht."
-    },
-    {
-        "id": "card-551",
-        "number": "551",
-        "name": "Sandklingen-Skorpion",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/sandklingenskorpion.png",
-        "text": "Riesiger Skorpion, dessen Scheren wie geschliffener Stein wirken."
-    },
-    {
-        "id": "card-552",
-        "number": "552",
-        "name": "Dünenläufer-Schakal",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/dünenläuferschakal.png",
-        "text": "Ein flinker Jäger mit hellem, hitzeresistentem Fell."
-    },
-    {
-        "id": "card-553",
-        "number": "553",
-        "name": "Oasenrufer-Nymphe",
-        "rarity": "uncommon",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/oasenrufernymphe.png",
-        "text": "Ein sanftes Wüstenwesen, das kleine Quellen entstehen lässt."
-    },
-    {
-        "id": "card-554",
-        "number": "554",
-        "name": "Sandsturm-Drifter",
-        "rarity": "rare",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/sandsturmdrifter.png",
-        "text": "Tritt in Erscheinung wie ein wandelnder Staubwirbel."
-    },
-    {
-        "id": "card-555",
-        "number": "555",
-        "name": "Dornfell-Luchs",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/dornfellluchs.png",
-        "text": "Hartnäckiger Jäger aus stacheligen Dornbüschen."
-    },
-    {
-        "id": "card-556",
-        "number": "556",
-        "name": "Sonnenstahl-Käfer",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/sonnenstahlkäfer.png",
-        "text": "Sein Panzer reflektiert das Licht wie Metall."
-    },
-    {
-        "id": "card-557",
-        "number": "557",
-        "name": "Schluchtenhorn-Basilisk",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/schluchtenhornbasilisk.png",
-        "text": "Ein Reptil, das tief in Felsenhöhlen lauert."
-    },
-    {
-        "id": "card-558",
-        "number": "558",
-        "name": "Staubschemen-Geist",
-        "rarity": "rare",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/staubschemengeist.png",
-        "text": "Entsteht aus verlorenen Seelen der Wüste."
-    },
-    {
-        "id": "card-559",
-        "number": "559",
-        "name": "Knochensand-Riesenwurm",
-        "rarity": "very-rare",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/knochensandriesenwurm.png",
-        "text": "Riesige Kreatur, die im Sand verschwindet."
-    },
-    {
-        "id": "card-560",
-        "number": "560",
-        "name": "Wüstenkind-Driade",
-        "rarity": "uncommon",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/wüstenkinddriade.png",
-        "text": "Eine Baumgeisterin der spärlichen Oasen."
-    },
-    {
-        "id": "card-561",
-        "number": "561",
-        "name": "Schattendüne-Panther",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/schattendünepanther.png",
-        "text": "Läuft lautlos im heißen Windschatten."
-    },
-    {
-        "id": "card-562",
-        "number": "562",
-        "name": "Sonnenbrand-Golem",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/sonnenbrandgolem.png",
-        "text": "Ein riesiger Koloss aus erhitztem Fels."
-    },
-    {
-        "id": "card-563",
-        "number": "563",
-        "name": "Kramnsand-Wühler",
-        "rarity": "uncommon",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/kramnsandwühler.png",
-        "text": "Ein plumper, kräftiger Buddler mit steiniger Haut."
-    },
-    {
-        "id": "card-564",
-        "number": "564",
-        "name": "Salzrücken-Krabbenkoloss",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/salzrückenkrabbenkoloss.png",
-        "text": "Von Salzkrusten überzogen und schwer wie Stein."
-    },
-    {
-        "id": "card-565",
-        "number": "565",
-        "name": "Nomadenflügel-Harpyie",
-        "rarity": "mythic",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/nomadenflügelharpyie.png",
-        "text": "Eine Wüstenvogelkriegerin, geschult im Überleben."
-    },
-    {
-        "id": "card-566",
-        "number": "566",
-        "name": "Glasflammen-Salamander",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/glasflammensalamander.png",
-        "text": "Seine Haut wirkt wie geschmolzenes Glas."
-    },
-    {
-        "id": "card-567",
-        "number": "567",
-        "name": "Sandzirkel-Seher",
-        "rarity": "common",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/sandzirkelseher.png",
-        "text": "Kann Muster im Sand lesen und zukünftige Stürme vorausahnen."
-    },
-    {
-        "id": "card-568",
-        "number": "568",
-        "name": "Kieselschuppen-Drakeling",
-        "rarity": "uncommon",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/kieselschuppendrakeling.png",
-        "text": "Kleiner Wüstenoffshoot der Drachenfamilie."
-    },
-    {
-        "id": "card-569",
-        "number": "569",
-        "name": "Brennwind-Schreiter",
-        "rarity": "uncommon",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/brennwindschreiter.png",
-        "text": "Ein leichtfüßiges, schwankend gehendes Wüstenwesen."
-    },
-    {
-        "id": "card-570",
-        "number": "570",
-        "name": "Oasengold-Paladin",
-        "rarity": "rare",
-        "type": "wüste",
-        "themeUrl": "/cards/themes/wüste.png",
-        "artworkUrl": "/cards/artworks/Wüste/oasengoldpaladin.png",
-        "text": "Ein ritterlicher Hüter der wenigen Wasserstellen."
-    },
-    {
-        "id": "card-601",
-        "number": "601",
-        "name": "Schachtläufer-Ratte",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/schachtläuferratte.png",
-        "text": "Lebt in tiefen, feuchten Höhlen und ist extrem wendig."
-    },
-    {
-        "id": "card-602",
-        "number": "602",
-        "name": "Felsrücken-Krabbelkriecher",
-        "rarity": "uncommon",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/felsrückenkrabbelkriecher.png",
-        "text": "Eine stachelige Kreatur mit hartem, felsartigen Panzer."
-    },
-    {
-        "id": "card-603",
-        "number": "603",
-        "name": "Schattenwurm der Tiefen",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/schattenwurmdertiefen.png",
-        "text": "Ein gefräßiger Tunnelbewohner ohne Augen."
-    },
-    {
-        "id": "card-604",
-        "number": "604",
-        "name": "Tropfstein-Spiegelgeist",
-        "rarity": "very-rare",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/tropfsteinspiegelgeist.png",
-        "text": "Ein geisterhaftes Wesen in glänzenden Stalaktiten."
-    },
-    {
-        "id": "card-605",
-        "number": "605",
-        "name": "Glimmkrallen-Maulwurf",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/glimmkrallenmaulwurf.png",
-        "text": "Seine Krallen glühen im Dunkeln."
-    },
-    {
-        "id": "card-606",
-        "number": "606",
-        "name": "Gesteinklaue-Gargoloth",
-        "rarity": "uncommon",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/gesteinklauegargoloth.png",
-        "text": "Ein schwerer Höhlenwächter aus Steinplatten."
-    },
-    {
-        "id": "card-607",
-        "number": "607",
-        "name": "Nebeladern-Spinnenmutter",
-        "rarity": "secret",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/nebeladernspinnenmutter.png",
-        "text": "Webt Netze aus kaltem, feuchtem Nebel."
-    },
-    {
-        "id": "card-608",
-        "number": "608",
-        "name": "Echoschlurf-Kreatur",
-        "rarity": "rare",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/echoschlurfkreatur.png",
-        "text": "Man hört sie, bevor man sie sieht – ein schleppendes Echo."
-    },
-    {
-        "id": "card-609",
-        "number": "609",
-        "name": "Felsbeißer-Käfer",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/felsbeißerkäfer.png",
-        "text": "Frisst durch harte Gesteinsschichten."
-    },
-    {
-        "id": "card-610",
-        "number": "610",
-        "name": "Finstermantel-Salamander",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/finstermantelsalamander.png",
-        "text": "Wärmt sich an geothermischen Steinen."
-    },
-    {
-        "id": "card-611",
-        "number": "611",
-        "name": "Stollenhorn-Rammler",
-        "rarity": "rare",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/stollenhornrammler.png",
-        "text": "Ein stämmiges Wesen, das Felsen durchstößt."
-    },
-    {
-        "id": "card-612",
-        "number": "612",
-        "name": "Erdkamm-Wächter",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/erdkammwächter.png",
-        "text": "Beschützt uralte unterirdische Kammern."
-    },
-    {
-        "id": "card-613",
-        "number": "613",
-        "name": "Höhlenklang-Geistling",
-        "rarity": "rare",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/höhlenklanggeistling.png",
-        "text": "Erzeugt flüsternde Töne, wenn er sich bewegt."
-    },
-    {
-        "id": "card-614",
-        "number": "614",
-        "name": "Rissschuppen-Krabbler",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/rissschuppenkrabbler.png",
-        "text": "Passt sich den Spalten der Erde perfekt an."
-    },
-    {
-        "id": "card-615",
-        "number": "615",
-        "name": "Schlammhaut-Kriecher",
-        "rarity": "uncommon",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/schlammhautkriecher.png",
-        "text": "Ein feuchtes, glitschiges Wesen mit widerstandsfähiger Haut."
-    },
-    {
-        "id": "card-616",
-        "number": "616",
-        "name": "Basalthorn-Golem",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/basalthorngolem.png",
-        "text": "Ein dunkler Koloss aus kompaktem Vulkangestein."
-    },
-    {
-        "id": "card-617",
-        "number": "617",
-        "name": "Tiefglanz-Echse",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/tiefglanzechse.png",
-        "text": "Ihr Körper leuchtet in sanften, erdigen Farben."
-    },
-    {
-        "id": "card-618",
-        "number": "618",
-        "name": "Steinflüsterer-Druide",
-        "rarity": "uncommon",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/steinflüstererdruide.png",
-        "text": "Ein merkwürdiges Wesen, das mit Gestein kommuniziert."
-    },
-    {
-        "id": "card-619",
-        "number": "619",
-        "name": "Grubenschimmer-Fledermaus",
-        "rarity": "common",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/grubenschimmerfledermaus.png",
-        "text": "Ihre Flügel glitzern in schmalen Mustern."
-    },
-    {
-        "id": "card-620",
-        "number": "620",
-        "name": "Erdfall-Monarch",
-        "rarity": "uncommon",
-        "type": "untergrund",
-        "themeUrl": "/cards/themes/untergrund.png",
-        "artworkUrl": "/cards/artworks/Untergrund/erdfallmonarch.png",
-        "text": "Ein uraltes, ruhendes Wesen, in Schichten von Stein gehüllt."
+        "artworkUrl": "assets/artworkscats/100.jpg"
     }
-
 ]

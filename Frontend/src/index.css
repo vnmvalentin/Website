@@ -62,3 +62,12 @@
         90% { opacity: 0.6; }
         100% { left: 120%; opacity: 0; }
     }
+
+@keyframes text-rainbow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-text-rainbow {
+  background-size: 200% auto;
+  animation: text-rainbow 4s linear infinite;
+}

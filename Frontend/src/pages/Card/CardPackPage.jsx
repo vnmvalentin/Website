@@ -1,511 +1,344 @@
-// src/pages/CardPackPage.jsx
-import React, { useContext, useEffect, useRef, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+// src/pages/Card/CardPackPage.jsx
+import React, { useContext, useEffect, useState } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import Card from "../../components/Card";
 import CoinIcon from "../../components/CoinIcon";
-import { 
-  Library, 
-  Images, 
-  Lightbulb, 
-  Trophy, 
-  MessageSquare, 
-  Eye, 
-  EyeOff, 
-  Gift, 
-  Gamepad2 
-} from "lucide-react";
-import SEO from "../../components/SEO";
+import { MessageSquare, Gift, Sparkles, Loader2, Hand } from "lucide-react";
 
-const PACK_ART_URL = "/cards/packs/pack.png";
+const PACK_PRICE = 250; 
+const PACK_ART_URL = "/assets/pack.png"; 
 const DISCORD_URL = "https://discord.gg/V38GBSVNeh";
 
-const RARITY_WEIGHTS = { common: 55, uncommon: 22, rare: 15, "very-rare": 8, mythic: 3.5, secret: 0.8, legendary: 0.1 };
-const RARITY_LABELS = { common: "Gewöhnlich", uncommon: "Ungewöhnlich", rare: "Selten", "very-rare": "Sehr selten", mythic: "Mythisch", secret: "Geheim", legendary: "Legendär" };
-const RARITY_ORDER = ["common", "uncommon", "rare", "very-rare", "mythic", "secret", "legendary"];
+const RARITY_ORDER = [
+  "common", "uncommon", "rare", "epic", "mythic", "legendary"
+];
 
-function msToCountdown(ms) {
-  if (ms <= 0) return "Bereit!";
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
+const RARITY_LABELS = { 
+    common: "Gewöhnlich", 
+    uncommon: "Ungewöhnlich", 
+    rare: "Selten", 
+    epic: "Episch", 
+    mythic: "Mythisch", 
+    legendary: "Legendär",
+};
+
+// Nur noch Leuchten, kein Text und kein bg-black!
+const RARITY_GLOW = {
+    common: "shadow-gray-500/20",
+    uncommon: "shadow-green-500/30",
+    rare: "shadow-blue-500/40",
+    epic: "shadow-purple-500/50 ring-2 ring-purple-500",
+    mythic: "shadow-pink-500/60 ring-2 ring-pink-500 animate-pulse",
+    legendary: "shadow-yellow-400/80 ring-4 ring-yellow-400 animate-pulse"
+};
+
+const RARITY_TEXT = {
+    common: "text-gray-400",
+    uncommon: "text-green-400",
+    rare: "text-blue-400",
+    epic: "text-purple-400",
+    mythic: "text-pink-400",
+    legendary: "text-yellow-400"
+};
 
 export default function CardPackPage() {
-  const { user, login } = useContext(TwitchAuthContext);
-  
-  // --- STATE & LOGIC ---
-  const [pack, setPack] = useState(null);
-  const [lastPack, setLastPack] = useState(null);
-  const [revealIndex, setRevealIndex] = useState(0);
-  const [stage, setStage] = useState("idle"); 
+  const { user } = useContext(TwitchAuthContext);
+
   const [credits, setCredits] = useState(0);
-  const [packPrice, setPackPrice] = useState(500); 
-  const [lastDaily, setLastDaily] = useState(0);
-  const [dailyCooldown, setDailyCooldown] = useState(0);
-  const [isDailyLoading, setIsDailyLoading] = useState(false); 
-  const [userDataLoading, setUserDataLoading] = useState(true);
+  const [userCards, setUserCards] = useState({ owned: {} });
+  const [cardsDef, setCardsDef] = useState([]);
+  
+  const [loading, setLoading] = useState(true);
+  const [buyingPack, setBuyingPack] = useState(false);
   const [error, setError] = useState("");
-  const [showLastPackGrid, setShowLastPackGrid] = useState(false);
-  const [cardAnimating, setCardAnimating] = useState(false);
-  const [ownedCounts, setOwnedCounts] = useState({});
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [readyToClaim, setReadyToClaim] = useState(0);
 
-  const animTimeoutRef = useRef(null);
-
-  const rarityChances = useMemo(() => {
-    const entries = Object.entries(RARITY_WEIGHTS);
-    const total = entries.reduce((sum, [, w]) => sum + w, 0);
-    return RARITY_ORDER.map((key) => {
-      const weight = RARITY_WEIGHTS[key];
-      const label = RARITY_LABELS[key] || key;
-      const percent = total > 0 ? (weight / total) * 100 : 0;
-      return { key, label, percent };
-    });
-  }, []);
-
-  useEffect(() => {
-    const iv = setInterval(() => {
-      if (lastDaily > 0) {
-        const diff = (lastDaily + 24 * 60 * 60 * 1000) - Date.now();
-        setDailyCooldown(Math.max(0, diff));
-      } else {
-        setDailyCooldown(0);
-      }
-    }, 1000);
-    return () => clearInterval(iv);
-  }, [lastDaily]);
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [pack, setPack] = useState(null);
+  const [packPhase, setPackPhase] = useState("idle"); 
+  const [currentCardIdx, setCurrentCardIdx] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    fetchUserData();
+    Promise.all([
+      fetch("/api/cards/def").then(r => r.json()),
+      fetch("/api/cards/user", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/casino/user", { credentials: "include" }).then(r => r.json())
+    ]).then(([defData, cardData, casinoData]) => {
+      setCardsDef(defData || []);
+      setUserCards(cardData || { owned: {} });
+      if (casinoData && casinoData.credits !== undefined) {
+          setCredits(casinoData.credits);
+      }
+      setLoading(false);
+    }).catch(e => {
+        console.error("Fehler beim Laden", e);
+        setLoading(false);
+    });
   }, [user]);
 
-  const fetchUserData = async () => {
-    try {
-      const res = await fetch(`/api/cards/user/${user.id}`, { credentials: "include" });
-      if (!res.ok) return;
-      const data = await res.json();
-      setCredits(data.credits || 0);
-      setLastDaily(data.lastDaily || 0);
-      if (data.packPrice) setPackPrice(data.packPrice);
-      if (data.lastDaily) {
-          const diff = (data.lastDaily + 24 * 60 * 60 * 1000) - Date.now();
-          setDailyCooldown(Math.max(0, diff));
-      } else {
-          setDailyCooldown(0);
-      }
-      if (Array.isArray(data.owned)) {
-        const map = {};
-        data.owned.forEach((card) => { map[card.id] = card.count || 0; });
-        setOwnedCounts(map);
-      }
-      setReadyToClaim(data.achievementsReadyToClaim || 0);
-
-      const key = `lastPack_${user.id}`;
-      if (data.lastPack && Array.isArray(data.lastPack.cards) && data.lastPack.cards.length > 0) {
-        setLastPack(data.lastPack);
-      }
-    } catch (e) { console.error(e); } finally { setUserDataLoading(false); }
-  };
-
-  const claimDaily = async () => {
-    setIsDailyLoading(true);
-    try {
-      const res = await fetch("/api/casino/daily", { method: "POST", credentials: "include" });
-      if (res.ok) { await fetchUserData(); setError(""); } 
-      else { setError("Konnte Daily Reward nicht abholen."); }
-    } catch (e) { setError("Verbindungsfehler."); }
-    setIsDailyLoading(false);
-  };
-
-  const preloadPackImages = (packData) => {
-    if (!packData || !Array.isArray(packData.cards)) return;
-    packData.cards.forEach((card) => {
-      if (card.artworkUrl) new Image().src = card.artworkUrl;
-      if (card.themeUrl) new Image().src = card.themeUrl;
-    });
-  };
-
   const openPack = async () => {
-    if (!user || credits < packPrice) return;
+    if (credits < PACK_PRICE) {
+        setError("Nicht genug Coins!");
+        setTimeout(() => setError(""), 3000);
+        return;
+    }
+
     setError("");
-    setShowLastPackGrid(false);
-    setStage("opening");
-
+    setBuyingPack(true);
+    
     try {
-      const res = await fetch(`/api/cards/open-pack/${user.id}`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const res = await fetch("/api/cards/open", { method: "POST", credentials: "include" });
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Fehler beim Öffnen.");
-        setStage("idle");
-        if (typeof data.credits === "number") setCredits(data.credits);
-        return;
-      }
-
-      if (!data || !Array.isArray(data.cards)) {
-        setError("Unerwartete Antwort vom Server.");
-        setStage("idle");
-        return;
-      }
-
-      const updatedOwned = { ...ownedCounts };
-      const newCardIds = new Set();
-      data.cards.forEach((card) => {
-        const prevCount = updatedOwned[card.id] || 0;
-        if (prevCount === 0) newCardIds.add(card.id);
-        updatedOwned[card.id] = prevCount + 1;
-      });
-      setOwnedCounts(updatedOwned);
-
-      const cardsWithNewFlag = data.cards.map((card) => ({
-        ...card,
-        isNew: newCardIds.has(card.id),
-      }));
-
-      setPack({
-        twitchId: data.twitchId,
-        openedAt: data.openedAt,
-        cards: cardsWithNewFlag,
-      });
-
-      preloadPackImages({ cards: cardsWithNewFlag });
-
-      setRevealIndex(0);
-      setStage("pack");
       
-      if (typeof data.credits === "number") setCredits(data.credits);
+      if (!res.ok) {
+        setBuyingPack(false);
+        setError(data.error || "Fehler beim Öffnen.");
+        return;
+      }
 
-      const lastPackPayload = { openedAt: data.openedAt, cards: cardsWithNewFlag };
-      setLastPack(lastPackPayload);
-      try { localStorage.setItem(`lastPack_${user.id}`, JSON.stringify(lastPackPayload)); } catch (e) {}
+      data.cards.sort((a, b) => {
+          return RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity);
+      });
+
+      setPack(data);
+      setCredits(data.newCredits);
+      setBuyingPack(false);
+      setPackPhase("closed");
+      setOverlayOpen(true);
+
+      fetch("/api/cards/user", { credentials: "include" })
+        .then(r => r.json())
+        .then(uData => setUserCards(uData));
 
     } catch (e) {
-      console.error(e);
-      setError("Fehler beim Öffnen des Packs.");
-      setStage("idle");
+      setBuyingPack(false);
+      setError("Netzwerkfehler.");
     }
   };
 
-  const advanceCard = () => {
-    if (!pack || !pack.cards) return;
-    setCardAnimating(false);
-    setRevealIndex((prev) => {
-      if (prev < pack.cards.length - 1) return prev + 1;
-      else { setStage("done"); return prev; }
-    });
+  const handleTearPack = () => {
+      if (packPhase !== "closed") return;
+      setPackPhase("shaking");
+      setTimeout(() => {
+          setPackPhase("revealing");
+          setCurrentCardIdx(0);
+      }, 1200);
   };
 
-  const handleCardClick = () => {
-    if (stage !== "reveal" || !currentCard) return;
-    if (cardAnimating) return;
-    setCardAnimating(true);
-    if (animTimeoutRef.current) clearTimeout(animTimeoutRef.current);
-    animTimeoutRef.current = setTimeout(() => { advanceCard(); }, 280);
+  const handleNextCard = () => {
+      if (packPhase !== "revealing") return;
+      if (currentCardIdx < pack.cards.length - 1) {
+          setCurrentCardIdx(prev => prev + 1);
+      } else {
+          setPackPhase("summary");
+      }
   };
 
   const closeOverlay = () => {
-    if (animTimeoutRef.current) clearTimeout(animTimeoutRef.current);
+    setOverlayOpen(false);
     setPack(null);
-    setStage("idle");
-    setRevealIndex(0);
-    setCardAnimating(false);
+    setPackPhase("idle");
   };
 
-  if (!user) return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-4">
-        <div className="bg-[#18181b] p-8 rounded-2xl border border-white/10 shadow-2xl max-w-md w-full">
-            <h1 className="text-3xl font-black text-white mb-2">Daily Card Pack</h1>
-            <p className="text-white/50 mb-6">Bitte melde dich mit deinem Twitch-Account an, um Packs zu öffnen.</p>
-            <button onClick={() => login()} className="bg-[#9146FF] hover:bg-[#7d36ff] text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-purple-900/20">
-                Login mit Twitch
-            </button>
-        </div>
-      </div>
-  );
+  const getLastPackCards = () => {
+    if (!userCards.lastPack || !userCards.lastPack.cardIds) return [];
+    return userCards.lastPack.cardIds
+      .map(id => cardsDef.find(c => String(c.id) === String(id)))
+      .filter(Boolean);
+  };
 
-  const hasLastPack = lastPack && lastPack.cards && lastPack.cards.length > 0;
-  const currentCard = pack && pack.cards && pack.cards[revealIndex] ? pack.cards[revealIndex] : null;
-  const canBuy = credits >= packPrice && stage === "idle";
-  const dailyReady = dailyCooldown <= 0;
+  if (loading) return <div className="text-center text-white/50 p-20 flex flex-col items-center gap-4"><Loader2 className="animate-spin text-violet-500" size={32} /> Lade Pack-Station...</div>;
+
+  const lastCards = getLastPackCards();
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 md:p-8 text-white min-h-screen pb-20">
-      <SEO title = "Packs"/>
+    <div className="w-full space-y-8">
       
-      {/* 2-Spalten Layout: Links Main Content, Rechts Sidebar Menü */}
-      <div className="flex flex-col lg:flex-row gap-8 items-start">
-        
-        {/* --- MAIN CONTENT AREA --- */}
-        <div className="flex-1 w-full space-y-8">
-          
-          {/* Hero Section */}
-          <div className="bg-[#18181b] rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl relative overflow-hidden">
-            {/* Background Decoration */}
-            <div className="absolute top-0 right-0 p-32 bg-violet-500/5 blur-[100px] rounded-full pointer-events-none" />
+      <style>{`
+        @keyframes shake-pack {
+          0%, 100% { transform: rotate(0deg) scale(1.1); }
+          25% { transform: rotate(-5deg) scale(1.1); }
+          50% { transform: rotate(5deg) scale(1.1); }
+          75% { transform: rotate(-5deg) scale(1.1); }
+        }
+        .animate-shake-pack { animation: shake-pack 0.3s ease-in-out infinite; }
+        @keyframes shimmer { 100% { transform: translateX(100%); } }
+        @keyframes pop-in {
+          0% { transform: scale(0.5) translateY(50px); opacity: 0; }
+          60% { transform: scale(1.1) translateY(-10px); opacity: 1; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .animate-pop-in { animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+      `}</style>
 
-            <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-              <div>
-                <h1 className="text-3xl font-black tracking-tight mb-1">Card Packs</h1>
-                <p className="text-white/50">Sammle Karten, vervollständige dein Album!</p>
-              </div>
-              
-              {/* Credits Badge */}
-              <div className="flex items-center gap-3 bg-black/40 px-5 py-2.5 rounded-2xl border border-white/5">
-                <div className="text-right">
-                    <div className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Guthaben</div>
-                    <div className="text-xl font-mono font-bold text-yellow-400 leading-none">{credits.toLocaleString()}</div>
+      <div className="bg-[#18181b] rounded-3xl p-6 md:p-10 border border-white/10 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-40 bg-violet-500/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 p-40 bg-fuchsia-500/10 blur-[120px] rounded-full pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="flex items-center justify-between w-full mb-8">
+                <h1 className="text-3xl md:text-4xl font-black text-white flex items-center gap-3">
+                    <Gift className="text-violet-400" size={36} /> Shop
+                </h1>
+                <div className="bg-black/40 border border-white/10 px-5 py-2.5 rounded-2xl flex items-center gap-3 backdrop-blur-sm">
+                    <div className="text-right">
+                        <p className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Dein Guthaben</p>
+                        <p className="text-xl font-mono font-bold text-yellow-400 leading-none">{credits.toLocaleString()}</p>
+                    </div>
+                    <CoinIcon className="w-8 h-8 text-yellow-500 drop-shadow-md" />
                 </div>
-                <CoinIcon size="w-8 h-8" />
-              </div>
             </div>
 
-            {/* Daily Reward Box */}
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center text-2xl">🎁</div>
-                    <div>
-                        <div className="font-bold text-white">Tägliche Belohnung</div>
-                        <div className="text-xs text-white/50">{dailyReady ? "Bereit zum Abholen!" : "Komm später wieder"}</div>
-                    </div>
+            <div className="flex flex-col items-center mt-4">
+                <div className="relative transition-all duration-300 hover:scale-105 hover:drop-shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+                    <img src={PACK_ART_URL} alt="Karten Pack" className="w-48 md:w-64 h-auto object-contain" />
                 </div>
-                {userDataLoading ? (
-                    <div className="px-6 py-2 rounded-xl bg-white/5 text-white/30 font-bold text-sm animate-pulse">Lade...</div>
-                ) : dailyReady ? (
-                    <button 
-                        onClick={claimDaily} 
-                        disabled={isDailyLoading} 
-                        className="bg-green-600 hover:bg-green-500 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2"
-                    >
-                        {isDailyLoading ? "Lade..." : <><CoinIcon className="w-4 h-4"/> +500 Abholen</>}
-                    </button>
-                ) : (
-                    <div className="px-6 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white/50 font-mono text-sm">
-                         {msToCountdown(dailyCooldown)}
+
+                {error && (
+                    <div className="mt-6 text-red-400 bg-red-500/10 px-4 py-2 rounded-xl font-bold border border-red-500/20 animate-in fade-in">
+                        {error}
                     </div>
                 )}
-            </div>
 
-            {/* Pack Buying Area */}
-            <div className="flex flex-col items-center justify-center py-6 gap-6">
-              
-              {/* Pack Image - Nur visuell, nicht mehr klickbar */}
-              <div className="relative group transition-all transform hover:scale-105 duration-500">
-                  {/* Image Glow */}
-                  <div className={`absolute inset-0 bg-violet-500/30 blur-[60px] rounded-full transition-opacity duration-500 ${canBuy ? "opacity-100" : "opacity-0"}`} />
-                  
-                  {stage === "opening" ? (
-                      <div className="w-64 h-80 flex flex-col items-center justify-center bg-black/20 rounded-2xl border-2 border-white/10 backdrop-blur-sm">
-                          <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
-                          <span className="font-bold text-white/70 animate-pulse">Öffne Pack...</span>
-                      </div>
-                  ) : (
-                      <img src={PACK_ART_URL} alt="Pack" className="relative w-64 md:w-72 drop-shadow-2xl z-10 select-none pointer-events-none" />
-                  )}
-              </div>
-
-              <div className="text-center">
-                  <button 
-                    disabled={!canBuy} 
-                    onClick={openPack} 
-                    className={`px-10 py-4 rounded-2xl font-black text-xl flex items-center gap-3 shadow-xl transition-all ${
-                        canBuy 
-                        ? "bg-violet-600 hover:bg-violet-500 text-white shadow-violet-900/20 hover:scale-105 active:scale-95" 
-                        : "bg-white/5 text-white/20 cursor-not-allowed"
-                    }`}
-                  >
-                      <span>Pack kaufen</span>
-                      <span className={`text-sm px-2 py-1 rounded-lg ${canBuy ? "bg-black/20" : "bg-black/30"}`}>{packPrice} <CoinIcon className="w-3 h-3 inline" /></span>
-                  </button>
-                  
-                  {!canBuy && stage === "idle" && (
-                      <p className="text-red-400 text-sm mt-3 font-medium animate-pulse">Nicht genug Credits! Spiel im Casino.</p>
-                  )}
-                  {error && <p className="text-red-400 text-sm mt-3 font-medium bg-red-500/10 px-3 py-1 rounded-lg inline-block">{error}</p>}
-              </div>
-
-              {/* Drop Rates Legend */}
-              <div className="mt-6 pt-6 border-t border-white/5 w-full">
-                <p className="text-[10px] uppercase tracking-widest text-white/30 text-center mb-3 font-bold">Wahrscheinlichkeiten</p>
-                <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-white/60">
-                  {rarityChances.map((r) => (
-                    <div key={r.key} className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${r.key === 'legendary' ? 'bg-yellow-500 shadow-[0_0_5px_gold]' : 'bg-white/20'}`} />
-                      <span className={r.key === "legendary" ? "text-yellow-400 font-bold" : ""}>{r.label}</span>
-                      <span className="font-mono text-white/30">{r.percent.toFixed(1)}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Last Pack Grid (Collapsible) */}
-            {hasLastPack && showLastPackGrid && (
-              <div className="mt-8 border-t border-white/10 pt-6 animate-in slide-in-from-top-4">
-                <h2 className="text-lg font-bold mb-4 text-white/80">Dein letztes Pack</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                  {lastPack.cards.map((c, idx) => (
-                    <div key={c.id + "-last-" + idx} className="transform hover:scale-105 transition-transform duration-200">
-                        <Card card={c} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Feedback Box */}
-          {showFeedback && (
-            <div className="bg-[#18181b] rounded-2xl p-6 border border-white/10 shadow-lg animate-in fade-in slide-in-from-right">
-              <h2 className="text-lg font-bold mb-2 text-white">Feedback geben</h2>
-              <p className="text-sm text-white/50 mb-4">Hast du Ideen für neue Karten oder hast einen Bug gefunden?</p>
-              <a href={DISCORD_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-colors">
-                  <MessageSquare size={18} /> Zum Discord
-              </a>
-            </div>
-          )}
-        </div>
-
-        {/* --- SIDEBAR MENU --- */}
-        <aside className="w-full lg:w-72 shrink-0 space-y-6">
-          
-          <div className="bg-[#18181b] border border-white/10 rounded-2xl p-2 shadow-lg overflow-hidden">
-            <div className="p-4 border-b border-white/5 mb-2">
-                <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Navigation</h2>
-            </div>
-            
-            <div className="space-y-1 px-2 pb-2">
-              <Link to="/Packs/Album" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group">
-                  <Library size={20} className="text-white/40 group-hover:text-violet-400 transition-colors"/> Sammlung (Album)
-              </Link>
-              <Link to="/Packs/Galerien" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group">
-                  <Images size={20} className="text-white/40 group-hover:text-pink-400 transition-colors"/> Galerien
-              </Link>
-              <Link to="/Packs/Vorschläge" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group">
-                  <Lightbulb size={20} className="text-white/40 group-hover:text-yellow-400 transition-colors"/> Vorschläge
-              </Link>
-              
-              {/* Achievement Link */}
-              <Link to="/Packs/Achievements" className="flex items-center justify-between px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group">
-                <div className="flex items-center gap-3">
-                    <Trophy size={20} className="text-white/40 group-hover:text-orange-400 transition-colors"/> Achievements
-                </div>
-                {readyToClaim > 0 && (
-                    <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_red]">
-                        {readyToClaim}
-                    </div>
-                )}
-              </Link>
-
-              {hasLastPack && (
-                <button type="button" onClick={() => setShowLastPackGrid((prev) => !prev)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:text-white hover:bg-white/5 transition-all font-medium group text-left">
-                  {showLastPackGrid ? <EyeOff size={20} className="text-white/40"/> : <Eye size={20} className="text-white/40"/>}
-                  {showLastPackGrid ? "Letztes Pack ausblenden" : "Letztes Pack anzeigen"}
+                <button 
+                    onClick={openPack}
+                    disabled={buyingPack || credits < PACK_PRICE}
+                    className="mt-8 relative group overflow-hidden bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-white/30 text-white px-10 py-4 rounded-2xl font-black text-lg shadow-xl shadow-violet-900/20 transition-all active:scale-95 flex items-center gap-3"
+                >
+                    <span className="relative z-10 flex items-center gap-3">
+                        {buyingPack ? "Lade..." : "Pack kaufen"} <span className="flex items-center gap-1 bg-black/30 px-3 py-1 rounded-lg text-yellow-400">{PACK_PRICE} <CoinIcon size="w-4 h-4"/></span>
+                    </span>
+                    {!buyingPack && credits >= PACK_PRICE && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                    )}
                 </button>
-              )}
-
-              <button type="button" onClick={() => setShowFeedback((prev) => !prev)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all font-medium ${showFeedback ? "bg-violet-500/10 text-violet-300" : "text-white/80 hover:bg-white/5"}`}>
-                  <MessageSquare size={20} className={showFeedback ? "text-violet-400" : "text-white/40"}/> Feedback
-              </button>
             </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 border border-yellow-500/20 rounded-2xl p-6 text-center shadow-lg relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-16 bg-yellow-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-yellow-500/20 transition-colors" />
-                
-                <h3 className="font-black text-xl text-white mb-2 relative z-10">Brauchst du Credits?</h3>
-                <p className="text-sm text-white/70 mb-4 relative z-10">Versuch dein Glück im Casino!</p>
-                <Link to="/Casino" className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-yellow-500/20 transition-all active:scale-95 relative z-10">
-                    <Gamepad2 size={18} /> Zum Casino
-                </Link>
-          </div>
-
-        </aside>
+        </div>
       </div>
 
-      {/* --- PACK OPENING MODAL --- */}
-      {pack && stage !== "idle" && stage !== "opening" && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-in fade-in duration-300">
-          <div className="w-full max-w-4xl flex flex-col items-center justify-center min-h-[500px] relative">
-            
-            {/* Close Button */}
-            {stage === "done" && (
-                <button onClick={closeOverlay} className="absolute top-0 right-0 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                </button>
-            )}
-
-            {/* STAGE: SHOW PACK (Closed) */}
-            {stage === "pack" && (
-              <div className="flex flex-col items-center gap-8 animate-in zoom-in-95 duration-500 cursor-pointer group" onClick={() => setStage("reveal")}>
-                <div className="text-center space-y-2">
-                     <h2 className="text-3xl font-black text-white uppercase tracking-wider">Pack erhalten!</h2>
-                     <p className="text-white/50">Klicken zum Öffnen</p>
-                </div>
-                <div className="relative transform transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-2">
-                    <div className="absolute inset-0 bg-violet-500/40 blur-[60px] rounded-full animate-pulse" />
-                    <img src={PACK_ART_URL} alt="Card Pack" className="w-64 md:w-80 h-auto object-contain drop-shadow-2xl relative z-10" />
-                </div>
-              </div>
-            )}
-
-            {/* STAGE: REVEAL SINGLE CARD */}
-            {stage === "reveal" && currentCard && (
-              <div className="flex flex-col items-center gap-8 w-full cursor-pointer" onClick={handleCardClick}>
-                <div className="text-center">
-                    <p className="text-sm font-bold text-white/30 uppercase tracking-[0.2em] mb-2">Karte {revealIndex + 1} von {pack.cards.length}</p>
-                </div>
-                
-                {/* Card Container mit Animation */}
-                <div className={`transform transition-all duration-300 relative ${cardAnimating ? "translate-x-[-150%] opacity-0 rotate-[-10deg]" : "translate-x-0 opacity-100 rotate-0 scale-125 md:scale-150"}`}>
-                  <div className={`absolute inset-0 blur-[60px] opacity-30 rounded-full pointer-events-none transition-colors duration-500 ${currentCard.rarity === 'legendary' ? 'bg-yellow-500' : currentCard.rarity === 'mythic' ? 'bg-red-500' : 'bg-white'}`} />
-                  <Card card={currentCard} eager />
-                </div>
-
-                <p className="text-sm text-white/50 animate-pulse mt-12">Klicken für nächste Karte</p>
-              </div>
-            )}
-
-            {/* STAGE: DONE (Summary) */}
-            {stage === "done" && (
-              <div className="flex flex-col items-center w-full animate-in slide-in-from-bottom-8 duration-500">
-                <h2 className="text-4xl font-black text-white uppercase tracking-tight mb-8">Pack Inhalt</h2>
-                
-                <div className="flex flex-wrap justify-center gap-4 w-full overflow-y-auto max-h-[60vh] p-4">
-                  {pack.cards.map((c, idx) => (
-                    <div key={idx} className="transform hover:scale-110 transition-transform duration-300 hover:z-20 hover:-translate-y-4">
-                        <Card card={c} />
-                        {/* HIER WURDE DER GRÜNE BANNER ENTFERNT */}
+      {lastCards.length > 0 && (
+          <div className="bg-[#18181b] rounded-3xl p-6 border border-white/10 shadow-lg overflow-hidden">
+              <h3 className="font-bold text-white/50 uppercase tracking-wider text-sm mb-4">Dein letztes Pack</h3>
+              <div className="flex flex-wrap justify-center sm:justify-start gap-4">
+                  {lastCards.map((c, i) => (
+                    <div key={i} className="opacity-70 hover:opacity-100 transition-opacity w-[150px] h-[240px] flex justify-center rounded-xl">
+                        <div className="scale-[0.62] origin-top">
+                            <div className="w-[240px]">
+                                <Card card={c} />
+                            </div>
+                        </div>
                     </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-4 mt-8">
-                    <button onClick={closeOverlay} className="px-8 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold border border-white/10 transition-colors text-white">
-                        Schließen
-                    </button>
-                    {credits >= packPrice && (
-                        <button 
-                            onClick={() => { closeOverlay(); openPack(); }} 
-                            className="px-8 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black shadow-xl hover:scale-105 transition-transform flex items-center gap-2"
-                        >
-                            Noch eins ({packPrice}<CoinIcon size="w-4 h-4" />)
-                        </button>
-                    )}
-                </div>
+                ))}
               </div>
-            )}
+          </div>
+      )}
+
+      {overlayOpen && pack && (
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md overflow-y-auto overflow-x-hidden select-none">
+          <div className="fixed inset-0 pointer-events-none flex justify-center items-center opacity-30">
+              <Sparkles size={600} className="text-yellow-500 animate-[spin_15s_linear_infinite]" />
+          </div>
+
+          <div className="min-h-screen flex flex-col items-center justify-start py-12 px-4 relative z-10">
+            <div className="m-auto flex flex-col items-center w-full max-w-5xl">
+
+                {(packPhase === "closed" || packPhase === "shaking") && (
+                    <div className="relative z-10 flex flex-col items-center animate-in zoom-in duration-300">
+                        <h2 className="text-2xl font-black text-white uppercase tracking-widest mb-12 drop-shadow-lg text-center mt-4">
+                            Klicke zum Öffnen!
+                        </h2>
+                        <img 
+                            src={PACK_ART_URL} 
+                            alt="Pack" 
+                            onClick={handleTearPack}
+                            className={`w-64 md:w-80 cursor-pointer transition-transform hover:scale-110 drop-shadow-[0_0_30px_rgba(139,92,246,0.6)] ${packPhase === 'shaking' ? 'animate-shake-pack' : ''}`}
+                        />
+                    </div>
+                )}
+
+                {packPhase === "revealing" && (
+                    <div 
+                        className="fixed inset-0 z-20 flex flex-col items-center justify-center cursor-pointer" 
+                        onClick={handleNextCard}
+                    >
+                        {(() => {
+                            const currentCard = pack.cards[currentCardIdx];
+                            const glowClass = RARITY_GLOW[currentCard.rarity] || "shadow-white/10";
+                            const textColor = RARITY_TEXT[currentCard.rarity] || "text-white";
+
+                            return (
+                                <div key={currentCardIdx} className="flex flex-col items-center animate-pop-in mt-6">
+                                    <div className="mb-10 text-center">
+                                        <span className={`text-2xl md:text-4xl uppercase font-black tracking-widest drop-shadow-lg ${textColor}`}>
+                                            {RARITY_LABELS[currentCard.rarity]}
+                                        </span>
+                                    </div>
+                                    
+                                    {/* FIX: Feste Breite (w-[240px]), kein bg-black mehr! */}
+                                    <div className={`relative rounded-[16px] shadow-2xl ${glowClass} scale-125 md:scale-150 transition-all w-[240px] mx-auto`}>
+                                        <Card card={currentCard} />
+                                    </div>
+
+                                    <div className="mt-32 md:mt-40 text-white/50 animate-pulse text-sm md:text-base font-medium bg-black/40 px-6 py-2 rounded-full backdrop-blur-md">
+                                        Klicke irgendwo für die nächste Karte...
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {packPhase === "summary" && (
+                    <div className="relative z-20 w-full flex flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-500">
+                        <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-widest mb-10 drop-shadow-lg text-center mt-4">
+                            Pack Inhalt
+                        </h2>
+                        
+                        <div className="flex flex-wrap justify-center gap-6 md:gap-8 w-full">
+                            {pack.cards.map((c, idx) => {
+                                const glowClass = RARITY_GLOW[c.rarity] || "shadow-white/10";
+                                const textColor = RARITY_TEXT[c.rarity] || "text-white";
+                                
+                                return (
+                                    <div 
+                                        key={idx} 
+                                        className="transform transition-all duration-300 hover:scale-110 hover:z-30 hover:-translate-y-4 flex flex-col items-center"
+                                    >
+                                        {/* FIX: Feste Breite (w-[240px]), kein bg-black mehr! */}
+                                        <div className={`relative rounded-[16px] shadow-2xl ${glowClass} w-[240px] mx-auto`}>
+                                            <Card card={c} />
+                                        </div>
+                                        <div className="text-center mt-4">
+                                            <span className={`text-[11px] uppercase font-black tracking-widest px-3 py-1.5 rounded bg-black/50 backdrop-blur-md border border-white/10 ${textColor}`}>
+                                                {RARITY_LABELS[c.rarity]}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-4 mt-16 mb-4">
+                            <button onClick={closeOverlay} className="px-8 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold border border-white/10 transition-colors text-white">
+                                Ins Album legen
+                            </button>
+                            {credits >= PACK_PRICE && (
+                                <button 
+                                    onClick={() => { closeOverlay(); openPack(); }} 
+                                    className="px-8 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black shadow-[0_0_20px_rgba(139,92,246,0.4)] hover:scale-105 transition-transform flex items-center gap-2 group"
+                                >
+                                    <Gift size={18} className="group-hover:rotate-12 transition-transform" />
+                                    Noch eins ({PACK_PRICE}<CoinIcon size="w-4 h-4" />)
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+            </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }

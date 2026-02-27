@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import CoinIcon from "../CoinIcon";
 import confetti from "canvas-confetti";
+import { X, Info, Volume2, VolumeX } from "lucide-react";
+import { useOutletContext } from "react-router-dom";
 
 const CACHE_BUST = "?v=1";
 
@@ -15,17 +17,14 @@ const SYMBOL_MAP = {
   "🌟": "/assets/slots/star.png" + CACHE_BUST    
 };
 
-// Berechnete Multiplikatoren basierend auf Backend-Logik:
-// Win = Bet * Base * LengthMult
-// LengthMult: 3er=1, 4er=3, 5er=10
 const PAYTABLE = [
-  { char: "🃏", base: 10.0, label: "Wild" },
-  { char: "7️⃣", base: 7.0, label: "Seven" },
-  { char: "💎", base: 3.5, label: "Gem" },
-  { char: "🔔", base: 1.5, label: "Bell" },
-  { char: "🍇", base: 1.2, label: "Grape" },
-  { char: "🍋", base: 1.0, label: "Lemon" },
-  { char: "🍒", base: 0.8, label: "Cherry" },
+  { char: "🃏", base: 15.0, label: "Wild" },
+  { char: "7️⃣", base: 10.0, label: "Seven" },
+  { char: "💎", base: 5.0, label: "Gem" },
+  { char: "🔔", base: 2.0, label: "Bell" },
+  { char: "🍇", base: 1.5, label: "Grape" },
+  { char: "🍋", base: 1.2, label: "Lemon" },
+  { char: "🍒", base: 1.0, label: "Cherry" },
 ];
 
 const WIN_LINES = [
@@ -48,7 +47,6 @@ const REEL_HEIGHT = SYMBOL_HEIGHT * 3;
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// --- SLOT REEL ---
 function SlotReel({ index, targetSymbols, isSpinning, onStop, isTeaser, duration }) {
     const [strip, setStrip] = useState(
         ["7️⃣", "7️⃣", "7️⃣"].map(s => ({ id: generateId(), char: s }))
@@ -118,7 +116,7 @@ function SlotReel({ index, targetSymbols, isSpinning, onStop, isTeaser, duration
                 style={{ height: strip.length * SYMBOL_HEIGHT }} 
             >
                 {strip.map((item) => {
-                    const isScatter = item.char === "🌟"; // Prüfen, ob es ein Scatter ist
+                    const isScatter = item.char === "🌟";
 
                     return (
                         <div 
@@ -126,14 +124,11 @@ function SlotReel({ index, targetSymbols, isSpinning, onStop, isTeaser, duration
                             className="w-full flex items-center justify-center relative"
                             style={{ height: SYMBOL_HEIGHT }} 
                         >
-                             {/* HIER: Extra Effekte nur für Scatter */}
                              {isScatter && (
                                 <>
-                                    {/* Hintergrund-Glow */}
                                     <div className="absolute inset-0 flex items-center justify-center">
                                         <div className="w-24 h-24 bg-yellow-500/20 rounded-full blur-xl animate-pulse"></div>
                                     </div>
-                                    {/* Feiner rotierender Rahmen (optional, wirkt sehr edel) */}
                                     <div className="absolute w-28 h-28 border border-yellow-400/30 rounded-full animate-[spin_4s_linear_infinite]"></div>
                                 </>
                              )}
@@ -141,7 +136,6 @@ function SlotReel({ index, targetSymbols, isSpinning, onStop, isTeaser, duration
                              <img 
                                 src={SYMBOL_MAP[item.char]} 
                                 alt={item.char}
-                                // HIER: Scatter bekommt Scale & stärkeren Shadow
                                 className={`
                                     object-contain z-10 transition-transform duration-300
                                     ${isScatter 
@@ -155,7 +149,6 @@ function SlotReel({ index, targetSymbols, isSpinning, onStop, isTeaser, duration
                     );
                 })}
             </div>
-            {/* ... Rest der Komponente (Overlay-Lines) bleibt gleich ... */}
             <div className="absolute inset-0 pointer-events-none border-y border-gray-800/50" 
                  style={{ 
                      background: `linear-gradient(to bottom, 
@@ -168,13 +161,11 @@ function SlotReel({ index, targetSymbols, isSpinning, onStop, isTeaser, duration
     );
 }
 
-// --- PAYTABLE COMPONENT ---
 function PaytableSideBar() {
     return (
         <div className="hidden xl:flex flex-col gap-4 bg-gray-900/80 p-4 rounded-xl border border-gray-700 w-64 shadow-xl">
              <h3 className="text-xl font-bold text-gray-200 text-center uppercase tracking-widest border-b border-gray-700 pb-2">Paytable</h3>
              
-             {/* SCATTER INFO */}
              <div className="bg-gradient-to-r from-purple-900/50 to-blue-900/50 p-2 rounded-lg border border-purple-500/30">
                  <div className="flex items-center gap-2 mb-1">
                      <img src={SYMBOL_MAP["🌟"]} alt="Scatter" className="w-8 h-8"/>
@@ -187,7 +178,6 @@ function PaytableSideBar() {
                  </div>
              </div>
 
-             {/* SYMBOL TABLE */}
              <div className="space-y-1">
                  <div className="grid grid-cols-4 text-[10px] text-gray-500 font-bold uppercase text-center pb-1">
                      <div className="text-left pl-2">Sym</div>
@@ -200,8 +190,8 @@ function PaytableSideBar() {
                          <div className="flex justify-center w-8">
                             <img src={SYMBOL_MAP[item.char]} alt={item.label} className="w-6 h-6 object-contain"/>
                          </div>
-                         <div className="text-center text-yellow-400 font-mono text-xs shadow-black drop-shadow-md">{(item.base * 5).toFixed(0)}x</div>
-                         <div className="text-center text-gray-300 font-mono text-xs">{(item.base * 2).toFixed(1)}x</div>
+                         <div className="text-center text-yellow-400 font-mono text-xs shadow-black drop-shadow-md">{(item.base * 7).toFixed(1)}x</div>
+                         <div className="text-center text-gray-300 font-mono text-xs">{(item.base * 3).toFixed(1)}x</div>
                          <div className="text-center text-gray-500 font-mono text-xs">{item.base.toFixed(1)}x</div>
                      </div>
                  ))}
@@ -214,7 +204,6 @@ function PaytableSideBar() {
     );
 }
 
-
 export default function SlotMachine({ updateCredits, currentCredits }) {
   const [finalReels, setFinalReels] = useState(Array(5).fill(["7️⃣", "7️⃣", "7️⃣"]));
   
@@ -225,6 +214,10 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
   const [freeSpinsLeft, setFreeSpinsLeft] = useState(0);
   const [isAuto, setIsAuto] = useState(false);
   const autoRef = useRef(false);
+  const [showPaylines, setShowPaylines] = useState(false);
+
+  
+  const { isMuted } = useOutletContext();
 
   const [winLines, setWinLines] = useState([]); 
   const [visibleLineIndex, setVisibleLineIndex] = useState(null); 
@@ -232,7 +225,63 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
   const [allReelsStopped, setAllReelsStopped] = useState(false); 
 
   const [teaserActive, setTeaserActive] = useState([false, false, false, false, false]);
-  const [reelDurations, setReelDurations] = useState([2000, 2400, 2800, 3200, 3600]);
+  
+  // BIG WIN STATE
+  const [bigWinState, setBigWinState] = useState(null);
+
+  const spinAudio = useRef(null);
+  const freeSpinAudio = useRef(null);
+  const slotPay1Audio = useRef(null);
+  const slotPay2Audio = useRef(null);
+  const slotPay3Audio = useRef(null);
+  const plopAudios = useRef([]);
+
+  useEffect(() => {
+      spinAudio.current = new Audio("/assets/sounds/slots/spin.mp3");
+      spinAudio.current.volume = 0.05;
+
+      freeSpinAudio.current = new Audio("/assets/sounds/slots/freespins.mp3");
+      freeSpinAudio.current.volume = 0.1;
+
+      slotPay1Audio.current = new Audio("/assets/sounds/slots/slotspay1.mp3");
+      slotPay1Audio.current.volume = 0.1;
+      slotPay2Audio.current = new Audio("/assets/sounds/slots/slotspay2.mp3");
+      slotPay2Audio.current.volume = 0.1;
+      slotPay3Audio.current = new Audio("/assets/sounds/slots/slotspay3.mp3");
+      slotPay3Audio.current.volume = 0.1;
+
+      plopAudios.current = Array.from({ length: 9 }).map((_, i) => {
+          const audio = new Audio(`/assets/sounds/slots/plopp${i + 1}.mp3`);
+          audio.volume = 0.1;
+          return audio;
+      });
+  }, []);
+
+  // Sync Mute Status für alle Audio-Elemente
+  useEffect(() => {
+      const allAudios = [
+          spinAudio.current, freeSpinAudio.current, 
+          slotPay1Audio.current, slotPay2Audio.current, slotPay3Audio.current,
+          ...plopAudios.current
+      ];
+      allAudios.forEach(audio => {
+          if (audio) audio.muted = isMuted;
+      });
+  }, [isMuted]);
+
+  useEffect(() => {
+      if (allReelsStopped && visibleLineIndex !== null && plopAudios.current.length > 0) {
+          const safeIndex = Math.min(visibleLineIndex, plopAudios.current.length - 1);
+          const audio = plopAudios.current[safeIndex];
+          
+          if (audio) {
+              audio.currentTime = 0;
+              audio.play().catch(e => console.log("Sound error (Plopp):", e));
+          }
+      }
+  }, [visibleLineIndex, allReelsStopped]);
+
+  const [reelDurations, setReelDurations] = useState([1100, 1300, 1500, 1700, 1900]);
 
   const [showFsStart, setShowFsStart] = useState(false);
   const [showFsSummary, setShowFsSummary] = useState(null);
@@ -266,6 +315,27 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
     setIsAuto(newState);
     autoRef.current = newState;
     if (newState && !isGameActive) spin();
+  };
+
+  const PaylineMiniMap = ({ pattern, label, colorClass }) => {
+    return (
+        <div className="bg-black/30 border border-white/5 p-2 rounded-xl flex flex-col items-center gap-2">
+            <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{label}</span>
+            <div className="grid grid-cols-5 gap-1 w-full max-w-[120px]">
+                {[0, 1, 2].map(row => (
+                    [0, 1, 2, 3, 4].map(col => {
+                        const isLine = pattern[col] === row;
+                        return (
+                            <div 
+                                key={`${row}-${col}`} 
+                                className={`aspect-square rounded-[3px] ${isLine ? colorClass : 'bg-white/5'}`}
+                            />
+                        );
+                    })
+                ))}
+            </div>
+        </div>
+    );
   };
 
   const handleReelStop = (index) => {
@@ -302,9 +372,21 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
       setIsAuto(false); autoRef.current = false; return;
     }
 
+    // Audio Unlock
+    plopAudios.current.forEach(audio => audio.load());
+    if (slotPay1Audio.current) slotPay1Audio.current.load();
+    if (slotPay2Audio.current) slotPay2Audio.current.load();
+    if (slotPay3Audio.current) slotPay3Audio.current.load();
+
+    if (spinAudio.current) {
+        spinAudio.current.currentTime = 0;
+        spinAudio.current.play().catch(e => console.log("Spin Sound Error:", e));
+    }
+
     setIsGameActive(true);
     setIsSpinning(true); 
     setMsg(""); 
+    setBigWinState(null);
     
     if (freeSpinsLeft > 0) {
         setFreeSpinsLeft(prev => Math.max(0, prev - 1));
@@ -324,7 +406,7 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
     
     spinResultData.current = null;
     reelsStoppedCount.current = 0;
-    setReelDurations([2000, 2400, 2800, 3200, 3600]);
+    setReelDurations([1100, 1300, 1500, 1700, 1900]); 
 
     try {
       const res = await fetch("/api/casino/play/slots", {
@@ -357,110 +439,143 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
       setFreeSpinsLeft(data.freeSpinsLeft || 0);
       updateCredits();
 
+      const currentBetAmt = typeof bet === 'number' ? bet : 10;
+      const hasWin = data.winAmount > 0;
+      const hasFreeSpins = data.freeSpinsLeft > 0;
+      const isAutoActive = autoRef.current;
+      const winMultiplier = hasWin ? (data.winAmount / currentBetAmt) : 0;
+
+      // Status Text Setzen
       let msgText = "";
       if (data.newFreeSpins > 0 && !data.isFreeSpinTrigger) {
           msgText = `+${data.newFreeSpins} SPINS! GEWINN: ${data.winAmount}`;
           confetti({ particleCount: 50, spread: 40, origin: { y: 0.8 }, colors: ['#FFFF00'] });
       } else {
-          msgText = data.winAmount > 0 ? `GEWINN: ${data.winAmount}` : "Kein Gewinn";
+          msgText = hasWin ? `GEWINN: ${data.winAmount}` : "Kein Gewinn";
       }
       setMsg(msgText);
 
-      const hasWin = data.winAmount > 0;
-      const hasFreeSpins = data.freeSpinsLeft > 0;
-      const isAutoActive = autoRef.current;
-      
-      if (data.isFreeSpinTrigger) {
-          setShowFsStart(true);
-          confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-          setTimeout(() => setShowFsStart(false), 3000);
-          setFsTotalWin(0);
-          
-          if (isAutoActive || hasFreeSpins) {
-              setTimeout(() => {
-                  // Sicherheitscheck: Spielstatus prüfen
-                  spin();
-              }, 3500);
-          } else {
-              setIsGameActive(false);
-          }
-          return;
-      }
-
+      // Freispiel-Total-Win erhöhen (auch schon beim Auslösen, falls es direkt einen Gewinn gab)
       if (freeSpinsLeft > 0 || hasFreeSpins) {
           setFsTotalWin(prev => prev + data.winAmount);
       }
 
-      if (data.freeSpinsLeft === 0 && fsTotalWin > 0) {
-          const linesTime = hasWin ? (data.winningLines.length * 1000) : 0;
-          const delayUntilSummary = linesTime + 1000;
-          
-          if (hasWin) {
-              setWinLines(data.winningLines);
-              setVisibleLineIndex(0);
-              
-              if (data.winningLines.length > 1) {
-                  data.winningLines.forEach((_, idx) => {
-                      if (idx === 0) return; 
-                      const t = setTimeout(() => {
-                          setVisibleLineIndex(idx);
-                      }, idx * 1000);
-                      lineAnimationTimeouts.current.push(t);
-                  });
-              }
-          }
+      // --- ZEIT-BERECHNUNG FÜR DIE CHRONOLOGISCHE ABFOLGE ---
+      const linesDuration = (hasWin && data.winningLines) ? (data.winningLines.length * 1000) : 0;
+      
+      let bigWinDuration = 0;
+      // Entferne das !data.isFreeSpinTrigger, damit Big Win AUCH beim Freispiel-Start passieren kann
+      if (hasWin && winMultiplier >= 10) {
+          bigWinDuration = 3000;
+      }
 
-          setTimeout(() => {
+      let fsTriggerDuration = 0;
+      if (data.isFreeSpinTrigger) {
+          fsTriggerDuration = 3500; // 3.5 Sekunden für die Freispiel-Animation
+      }
+
+      // PHASE 1: LINIEN ZEICHNEN (Startet sofort)
+      if (hasWin && data.winningLines) {
+          setWinLines(data.winningLines);
+          setVisibleLineIndex(0); // Löst useEffect für ersten Plopp-Sound aus
+
+          if (data.winningLines.length > 1) {
+              data.winningLines.forEach((_, idx) => {
+                  if (idx === 0) return; 
+                  const t = setTimeout(() => {
+                      setVisibleLineIndex(idx);
+                  }, idx * 1000);
+                  lineAnimationTimeouts.current.push(t);
+              });
+          }
+      }
+
+      // PHASE 2: BIG WIN FENSTER (Startet exakt nach den Linien)
+      if (bigWinDuration > 0) {
+          const tBigWin = setTimeout(() => {
+              if (winMultiplier >= 50) {
+                  setBigWinState({ text: "ABSURD WIN!", amount: data.winAmount });
+                  if (slotPay3Audio.current) { slotPay3Audio.current.currentTime = 0; slotPay3Audio.current.play().catch(e=>console.log(e)); }
+              } else if (winMultiplier >= 20) {
+                  setBigWinState({ text: "MASSIVE WIN!", amount: data.winAmount });
+                  if (slotPay2Audio.current) { slotPay2Audio.current.currentTime = 0; slotPay2Audio.current.play().catch(e=>console.log(e)); }
+              } else {
+                  setBigWinState({ text: "BIG WIN!", amount: data.winAmount });
+                  if (slotPay1Audio.current) { slotPay1Audio.current.currentTime = 0; slotPay1Audio.current.play().catch(e=>console.log(e)); }
+              }
+              confetti({ particleCount: 200, spread: 90, origin: { y: 0.7 } });
+
+              const tHide = setTimeout(() => setBigWinState(null), 3000);
+              lineAnimationTimeouts.current.push(tHide);
+          }, linesDuration);
+          lineAnimationTimeouts.current.push(tBigWin);
+      }
+
+      // PHASE 3: FREISPIEL TRIGGER OVERLAY (Startet nach Linien UND Big Win)
+      if (data.isFreeSpinTrigger) {
+          const tFs = setTimeout(() => {
+              // Reset Total Win beim NEUEN Auslösen von Freispielen
+              setFsTotalWin(data.winAmount); // Falls der Trigger-Spin schon was zahlt, hier eintragen
+
+              if(freeSpinAudio.current) {
+                  freeSpinAudio.current.currentTime = 0;
+                  freeSpinAudio.current.play().catch(e => console.log(e));
+              }
+
+              setShowFsStart(true);
+              confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+              
+              const tHideFs = setTimeout(() => setShowFsStart(false), 3000);
+              lineAnimationTimeouts.current.push(tHideFs);
+          }, linesDuration + bigWinDuration);
+          lineAnimationTimeouts.current.push(tFs);
+      }
+
+      // PHASE 4: NÄCHSTER SCHRITT (Zusammenfassung, Autospin oder Spiel-Ende)
+      const totalAnimationTime = linesDuration + bigWinDuration + fsTriggerDuration;
+      
+      if (data.freeSpinsLeft === 0 && fsTotalWin > 0 && !data.isFreeSpinTrigger) {
+          // FREISPIELE ZUENDE GEHEN (Zusammenfassung anzeigen)
+          const delayUntilSummary = totalAnimationTime + 1000; // 1 Sekunde Puffer
+          
+          const tSummary = setTimeout(() => {
               const total = fsTotalWin + data.winAmount;
               setShowFsSummary({ win: total });
               confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
               
-              setTimeout(() => {
+              const tHideSummary = setTimeout(() => {
                   setShowFsSummary(null);
                   setFsTotalWin(0);
                   setVisibleStickyWilds([]); 
                   setIsGameActive(false);
                   autoRef.current = false; 
               }, 5000);
+              lineAnimationTimeouts.current.push(tHideSummary);
           }, delayUntilSummary);
-          
-          return;
-      }
+          lineAnimationTimeouts.current.push(tSummary);
 
-      if (!hasWin) {
-          if (isAutoActive || hasFreeSpins) {
-              setTimeout(() => spin(), 100); 
-          } else {
-              setIsGameActive(false);
-          }
       } else {
-          setWinLines(data.winningLines || []);
-          setVisibleLineIndex(0); 
-
-          if (data.winningLines.length > 1) {
-              for (let i = 1; i < data.winningLines.length; i++) {
-                  const t = setTimeout(() => {
-                      setVisibleLineIndex(i);
-                  }, i * 1000); 
-                  lineAnimationTimeouts.current.push(t);
+          // NORMALES SPIEL ODER MITTEN IN DEN FREISPIELEN
+          if (!hasWin && !data.isFreeSpinTrigger) {
+              // Gar nichts passiert -> 2 Sekunden Pause, dann evtl. weiterdrehen
+              if (isAutoActive || hasFreeSpins) {
+                  const tNext = setTimeout(() => spin(), 1500); 
+                  lineAnimationTimeouts.current.push(tNext);
+              } else {
+                  setIsGameActive(false);
               }
-          }
-
-          if (isAutoActive || hasFreeSpins) {
-              const displayDuration = data.winningLines.length * 1000;
-              const extraDelay = 1000; 
+          } else {
+              // Gewinn oder Trigger passiert -> Warten bis alle Phasen durch sind
+              const waitTime = totalAnimationTime + 1000; // 1 Sekunde Extra-Puffer am Ende
               
-              const t = setTimeout(() => {
-                  if (autoRef.current || data.freeSpinsLeft > 0) {
+              const tNext = setTimeout(() => {
+                  if (autoRef.current || data.freeSpinsLeft > 0 || data.isFreeSpinTrigger) {
                       spin();
                   } else {
                       setIsGameActive(false);
                   }
-              }, displayDuration + extraDelay);
-              lineAnimationTimeouts.current.push(t);
-
-          } else {
-              setIsGameActive(false);
+              }, waitTime);
+              lineAnimationTimeouts.current.push(tNext);
           }
       }
   };
@@ -510,10 +625,9 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
   };
 
   return (
-    // LAYOUT UPDATE: Jetzt flex-row auf großen Bildschirmen für Paytable
     <div className="w-full max-w-7xl mx-auto flex flex-col xl:flex-row items-start gap-8 py-8 select-none relative">
       
-      {/* OVERLAYS (Bleiben gleich) */}
+      {/* OVERLAYS */}
       {showFsStart && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 rounded-2xl animate-in fade-in zoom-in duration-300">
               <div className="text-center">
@@ -521,6 +635,7 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
               </div>
           </div>
       )}
+      
       {showFsSummary && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 rounded-2xl animate-in fade-in zoom-in duration-300">
               <div className="text-center p-10 border-4 border-yellow-500 rounded-xl bg-gray-900 shadow-[0_0_50px_rgba(250,204,21,0.5)]">
@@ -532,13 +647,38 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
           </div>
       )}
 
-      {/* NEU: Paytable Sidebar (Links) */}
-      <PaytableSideBar />
+      {/* BIG WIN OVERLAY */}
+      {bigWinState && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 rounded-2xl animate-in fade-in duration-300">
+              <div className="text-center p-8 animate-in zoom-in spin-in-2 duration-500">
+                  <h1 className="text-6xl md:text-8xl font-black text-yellow-400 drop-shadow-[0_0_40px_rgba(250,204,21,1)] animate-pulse">
+                      {bigWinState.text}
+                  </h1>
+                  <div className="text-5xl md:text-7xl font-bold text-white mt-4 drop-shadow-lg">
+                      +{bigWinState.amount} <CoinIcon className="inline w-10 h-10"/>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Paytable Sidebar */}
+      <div className="hidden xl:flex flex-col w-64 shrink-0">
+          <PaytableSideBar />
+          
+          <button 
+              onClick={() => setShowPaylines(true)}
+              className="w-full mt-4 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white py-2.5 rounded-xl text-xs font-bold border border-white/10 transition-colors flex items-center justify-center gap-2"
+          >
+              <Info size={16} /> Gewinnlinien ansehen
+          </button>
+      </div>
 
       {/* RECHTS: Das eigentliche Spiel */}
-      <div className="flex-1 flex flex-col items-center w-full">
+      <div className="flex-1 flex flex-col items-center w-full relative">
+        
         {/* HEADER */}
-        <div className="text-center space-y-2 mb-4">
+        <div className="text-center space-y-2 mb-4 relative w-full flex flex-col items-center">
+            
             <h2 className="text-4xl md:text-5xl font-black italic bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg">Waifu Fruits</h2>
             <div className="flex justify-center gap-4 text-xs font-mono text-gray-400">
                 <span className="text-yellow-400 font-bold">{freeSpinsLeft > 0 ? `${freeSpinsLeft} FREE SPINS` : "STANDARD MODE"}</span>
@@ -565,13 +705,10 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
                         return (
                             <div 
                                 key={`sticky-${s.col}-${s.row}`}
-                                // HIER: "w-full h-full" sorgt dafür, dass es die Grid-Zelle ausfüllt
                                 className="relative w-full h-full flex items-center justify-center"
                                 style={{ 
                                     gridColumnStart: s.col + 1, 
                                     gridRowStart: s.row + 1
-                                    // WICHTIG: "height: SYMBOL_HEIGHT" HIER ENTFERNEN! 
-                                    // Das Grid regelt die Höhe jetzt selbst durch grid-rows-3.
                                 }}
                             >
                                 <div className="relative w-24 h-24 flex items-center justify-center animate-pulse">
@@ -669,6 +806,42 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
             )}
         </div>
       </div>
+      
+      {/* PAYLINES MODAL */}
+            {showPaylines && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-[#18181b] border border-white/10 p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-2xl relative">
+                        <button 
+                            onClick={() => setShowPaylines(false)}
+                            className="absolute top-4 right-4 text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-all"
+                        >
+                            <X size={20} />
+                        </button>
+
+                        <h3 className="text-xl md:text-2xl font-black mb-6 text-white text-center">
+                            Aktive Gewinnlinien
+                        </h3>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <PaylineMiniMap pattern={[1,1,1,1,1]} label="Linie 1" colorClass="bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.5)]" />
+                            <PaylineMiniMap pattern={[0,0,0,0,0]} label="Linie 2" colorClass="bg-yellow-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                            <PaylineMiniMap pattern={[2,2,2,2,2]} label="Linie 3" colorClass="bg-yellow-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]" />
+                            <PaylineMiniMap pattern={[0,1,2,1,0]} label="Linie 4" colorClass="bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]" />
+                            <PaylineMiniMap pattern={[2,1,0,1,2]} label="Linie 5" colorClass="bg-purple-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]" />
+                            <PaylineMiniMap pattern={[0,1,0,1,0]} label="Linie 6" colorClass="bg-pink-400 shadow-[0_0_8px_rgba(251,146,60,0.5)]" />
+                            <PaylineMiniMap pattern={[2,1,2,1,2]} label="Linie 7" colorClass="bg-pink-400 shadow-[0_0_8px_rgba(251,146,60,0.5)]" />
+                            <PaylineMiniMap pattern={[1,2,2,2,1]} label="Linie 8" colorClass="bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.5)]" />
+                            <PaylineMiniMap pattern={[1,0,0,0,1]} label="Linie 9" colorClass="bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.5)]" />
+                            <PaylineMiniMap pattern={[0,1,1,1,0]} label="Linie 10" colorClass="bg-blue-400 shadow-[0_0_8px_rgba(251,146,60,0.5)]" />
+                            <PaylineMiniMap pattern={[2,1,1,1,2]} label="Linie 11" colorClass="bg-blue-400 shadow-[0_0_8px_rgba(251,146,60,0.5)]" />
+                        </div>
+                        
+                        <div className="mt-8 text-xs text-center text-white/40 bg-black/30 p-3 rounded-xl border border-white/5">
+                            Gewinne werden von links nach rechts gewertet. Es müssen mindestens 3 gleiche Symbole ununterbrochen auf einer Linie liegen.
+                        </div>
+                    </div>
+                </div>
+            )}
     </div>
   );
 }

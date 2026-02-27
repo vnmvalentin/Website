@@ -1,5 +1,52 @@
 export const NEWS_UPDATES = [
   {
+    date: "27.02.2026",
+    version: "v3: Großer Schritt in die richtige Richtung",
+    sections: [
+      {
+        title: "Allgemein",
+        items: [
+          "UI wieder vereinfach aber dafür User-freundlicher",
+          "Navigations-Menü hat direkt alle Punkte wieder (kein mehrfaches Klicken um auf Seiten zu kommen)",
+          "Schlichteres, kompakteres Design statt zu moderne und unübersichtliche Overlays",
+          "Daily jetzt überall abholbar in dem Layout und einen Streak-Bonus als Belohnung für Aktivität (Capped bei 1500)",
+          "Channel Point Belohnung auf Twitch gibt jetzt 1500 statt 500 Coins",
+          "Mute-Button für Sounds im Header"
+        ]
+      },
+      {
+        title: "Packs",
+        items: [
+          "All in One: Am Beispiel vom Casino jetzt alles in einem Menü erreichbar",
+          "Neues Pack: Cartoon-Katzen",
+          "Günstigerer Preis von 500 auf 250",
+          "Reduzierte Anzahl an Karten pro Pack von 4 auf 3",
+          "Compensation der letzten Karten gegeben",
+          "Neuer Tab: Ausrüstung - Passives Einkommen mit Karten und Set-Boni",
+          "Neuer Tab: Schmiede - Werte Karten mit doppelten auf um Sie besseres Einkommen generieren zu lassen",
+          "Bank nach 5 Tagen voll - regelmäßig entleeren"
+        ]
+      },
+      {
+        title: "Casino",
+        items: [
+          "Alles unter einer Haube: Vereinfachung der Navigation indem man von Game zu Game springen kann",
+          "Slots wurden verbessert (mehr Joker und höhere Multiplikator für Standard und Ketten)",
+          "Sounds wurden hinzugefügt für: Slots, Roulette, Mines, Blackjack, Dice",
+          "In Mines kann man über Neues Spiel direkt mit den selben Einstellungen wieder reinstarten ohne Mines und Cash noch mal anzupassen (dafür ist der neue Menü-Button)",
+        ]
+      },
+      {
+        title: "Viewer Sea",
+        items: [
+          "Begrenzt auf meine Community statt als globales Tool",
+          "Bessere Integration mit Website und Besonderheit für meinen Stream",
+          "Neue Farben die per Pack-Achievements erhältlich sind"
+        ]
+      },
+    ]
+  },
+  {
     date: "09.02.2026",
     version: "v2.3: Quality Of Life",
     sections: [

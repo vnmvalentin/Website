@@ -26,7 +26,7 @@ const createAdminRouter = require("./routes/adminRoutes");
 const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
 const createPondRouter = require("./routes/pondRoutes");
-const createPerkRouter = require("./routes/perkRoutes");
+const createGameSessionRouter = require("./routes/gameSessionRoutes");
 
 const app = express();
 
@@ -166,9 +166,8 @@ app.use("/api/casino", createCasinoRouter({ requireAuth, io }));
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
-app.use("/api/pond", createPondRouter({ requireAuth }));
-app.use("/api/perks", createPerkRouter({ requireAuth, io }));
-
+app.use("/api/pond", createPondRouter({ requireAuth, io }));
+app.use("/api/sessions", createGameSessionRouter({ requireAuth, io }));
 
 // =================== SOCKET.IO LOGIC ===================
 io.on('connection', (socket) => {

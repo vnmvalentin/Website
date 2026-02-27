@@ -1,4 +1,5 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
 import confetti from "canvas-confetti";
 import CoinIcon from "../CoinIcon";
 import { RotateCcw, Trash2 } from "lucide-react";
@@ -9,6 +10,10 @@ const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 
 const CHIP_VALUES = [1, 10, 50, 100, 500, 1000];
 
 export default function Roulette({ updateCredits, currentCredits }) {
+  // Globaler Mute-Status aus dem Layout
+  const context = useOutletContext();
+  const isMuted = context?.isMuted || false;
+
   const [spinning, setSpinning] = useState(false);
   const [ballDrop, setBallDrop] = useState(false); 
   const [bets, setBets] = useState([]); 
@@ -21,28 +26,78 @@ export default function Roulette({ updateCredits, currentCredits }) {
   const wheelRef = useRef(null);
   const ballRef = useRef(null);
 
+  // --- AUDIO SETUP ---
+  const clickAudio = useRef(null);
+  const spinAudio = useRef(null);
+  const chipAudios = useRef([]);
+
+  useEffect(() => {
+      clickAudio.current = new Audio("/assets/sounds/roulette/click.mp3");
+      clickAudio.current.volume = 0.05;
+
+      spinAudio.current = new Audio("/assets/sounds/roulette/roulette.mp3");
+      spinAudio.current.volume = 0.1;
+
+      // Pool aus 15 Chip-Sounds, greift alles auf dieselbe Datei zu!
+      chipAudios.current = Array.from({ length: 15 }).map(() => {
+          const audio = new Audio("/assets/sounds/roulette/chip.mp3");
+          audio.volume = 0.1;
+          return audio;
+      });
+  }, []);
+
+  // Sync Mute State
+  useEffect(() => {
+      const allAudios = [clickAudio.current, spinAudio.current, ...chipAudios.current];
+      allAudios.forEach(audio => {
+          if (audio) audio.muted = isMuted;
+      });
+  }, [isMuted]);
+
+  const playClickSound = () => {
+      if (isMuted || !clickAudio.current) return;
+      clickAudio.current.currentTime = 0;
+      clickAudio.current.play().catch(e => console.log(e));
+  };
+
+  const playSpinSound = () => {
+      if (isMuted || !spinAudio.current) return;
+      spinAudio.current.currentTime = 0;
+      spinAudio.current.play().catch(e => console.log(e));
+  };
+
+  const playChipSound = () => {
+      if (isMuted) return;
+      // Sucht einen freien Sound aus den 15 Instanzen
+      const availableAudio = chipAudios.current.find(a => a.paused || a.ended) || chipAudios.current[0];
+      if (availableAudio) {
+          availableAudio.currentTime = 0;
+          availableAudio.play().catch(e => console.log("Sound error:", e));
+      }
+  };
+
+  // --- WETTEN LOGIK ---
   const applyLastBet = () => {
+    playClickSound();
     if (spinning || previousBets.length === 0) return;
 
-    // Berechne Gesamtkosten der letzten Wette
     const totalCost = previousBets.reduce((sum, bet) => sum + bet.amount, 0);
 
-    // Prüfen, ob genug Guthaben vorhanden ist
     if (totalCost > currentCredits) {
         alert("Nicht genug Guthaben, um die letzte Wette zu wiederholen!");
         return;
     }
 
-    // Wetten setzen (kopieren, um Referenzprobleme zu vermeiden)
     setBets([...previousBets]);
   };
 
-
-  // --- WETTEN LOGIK (Original) ---
   const placeBet = (type, value, id) => {
     if (spinning) return;
     const currentTotal = bets.reduce((s, b) => s + b.amount, 0);
     if (currentTotal + selectedChip > currentCredits) return; 
+
+    // Nur noch playChipSound, kein unlockAudio() mehr, was den Sound unterbricht!
+    playChipSound();
 
     setBets(prev => {
       const existing = prev.find(b => b.id === id);
@@ -53,10 +108,14 @@ export default function Roulette({ updateCredits, currentCredits }) {
     });
   };
 
-  const clearBets = () => setBets([]);
+  const clearBets = () => {
+      playClickSound();
+      setBets([]);
+  };
 
-  // --- GAMEPLAY (Original) ---
+  // --- GAMEPLAY ---
   const spin = async () => {
+    playClickSound();
     if (bets.length === 0) return;
 
     setPreviousBets(bets);
@@ -68,6 +127,10 @@ export default function Roulette({ updateCredits, currentCredits }) {
     setBallDrop(false); 
     setLastWin(null);
 
+    // HIER STARTET DER SOUND FÜR 9 SEKUNDEN
+    // Startet sofort, damit es nicht vom await verzögert wird
+    playSpinSound();
+
     try {
       const res = await fetch("/api/casino/play/roulette/spin", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -78,15 +141,17 @@ export default function Roulette({ updateCredits, currentCredits }) {
       if (data.error) {
           alert(data.error);
           setSpinning(false);
+          // Spin Sound abbrechen falls Error
+          if(spinAudio.current) spinAudio.current.pause(); 
           return;
       }
 
       const winningIndex = WHEEL_NUMBERS.indexOf(data.result.number);
       const degreePerSegment = 360 / 37;
-      const spinDuration = 5000; 
+      
+      const spinDuration = 10000; 
 
-      // Animation Calculation (1:1 Original)
-      const wheelSpins = 5; 
+      const wheelSpins = 9; 
       const targetAngle = winningIndex * degreePerSegment; 
       const finalWheelRotation = (360 * wheelSpins) - targetAngle;
       const ballContainerRotation = -360 * (wheelSpins - 1); 
@@ -101,12 +166,10 @@ export default function Roulette({ updateCredits, currentCredits }) {
            ballRef.current.style.transform = `rotate(${ballContainerRotation}deg)`;
       }
 
-      // Ball Drop (Original Timing)
       setTimeout(() => {
           setBallDrop(true);
-      }, spinDuration * 0.65);
+      }, spinDuration * 0.70);
 
-      // Finish (Original Timing)
       setTimeout(() => {
         setSpinning(false);
         setHistory(prev => [data.result, ...prev].slice(0, 10));
@@ -119,7 +182,6 @@ export default function Roulette({ updateCredits, currentCredits }) {
         updateCredits();
         setBets([]);
         
-        // Reset Positionen (Silent Reset)
         setTimeout(() => {
              if(wheelRef.current) {
                  wheelRef.current.style.transition = "none";
@@ -137,6 +199,7 @@ export default function Roulette({ updateCredits, currentCredits }) {
     } catch (e) {
       console.error(e);
       setSpinning(false);
+      if(spinAudio.current) spinAudio.current.pause();
     }
   };
 
@@ -157,7 +220,6 @@ export default function Roulette({ updateCredits, currentCredits }) {
       );
   };
 
-  
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-7xl mx-auto py-8">
       
@@ -182,16 +244,11 @@ export default function Roulette({ updateCredits, currentCredits }) {
 
       <div className="flex flex-col xl:flex-row gap-12 items-center xl:items-start w-full justify-center">
           
-          {/* --- DAS RAD (Modernisiert) --- */}
+          {/* --- DAS RAD --- */}
           <div className="relative w-[360px] h-[360px] shrink-0 border-[16px] border-[#1a1a1a] rounded-full shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8)] bg-[#0f0f0f] overflow-hidden">
-              
-              {/* Holzbahn */}
               <div className="absolute inset-0 rounded-full border-[24px] border-[#3e2723] shadow-[inset_0_0_20px_black] z-10"></div>
-
-              {/* Silberner Ring */}
               <div className="absolute inset-[24px] rounded-full border-[2px] border-gray-500 z-10 pointer-events-none shadow-md opacity-50"></div>
 
-              {/* Zahlenkranz */}
               <div ref={wheelRef} className="absolute inset-7 rounded-full transition-transform will-change-transform z-0">
                   {WHEEL_NUMBERS.map((num, i) => {
                       const angle = (360 / 37) * i;
@@ -214,7 +271,6 @@ export default function Roulette({ updateCredits, currentCredits }) {
                   </div>
               </div>
 
-              {/* Ball */}
               <div ref={ballRef} className="absolute inset-0 rounded-full pointer-events-none z-40 will-change-transform">
                   <div 
                     className="absolute left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_10px_white] transition-all duration-1000 ease-in-out"
@@ -223,7 +279,7 @@ export default function Roulette({ updateCredits, currentCredits }) {
               </div>
           </div>
 
-          {/* --- TISCH (Betting Board - Modern Felt) --- */}
+          {/* --- TISCH --- */}
           <div className="flex-1 w-full max-w-4xl bg-emerald-900/90 p-4 md:p-8 rounded-3xl border-8 border-[#3e2723] shadow-2xl relative select-none">
                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-20 pointer-events-none mix-blend-overlay"></div>
                
@@ -272,7 +328,10 @@ export default function Roulette({ updateCredits, currentCredits }) {
               {CHIP_VALUES.map(val => (
                   <button 
                     key={val} 
-                    onClick={() => setSelectedChip(val)}
+                    onClick={() => {
+                        playClickSound();
+                        setSelectedChip(val);
+                    }}
                     className={`w-12 h-12 rounded-full border-2 font-black shadow-lg transition-all hover:scale-110 flex items-center justify-center text-xs sm:text-sm
                         ${selectedChip === val ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-gray-900 scale-110' : 'opacity-80 hover:opacity-100'} 
                         ${val === 1 ? 'bg-gray-300 text-black border-gray-400' :
@@ -297,7 +356,6 @@ export default function Roulette({ updateCredits, currentCredits }) {
                       <Trash2 size={18} />
                   </button>
 
-                  {/* NEU: Last Bet Button */}
                   <button 
                     onClick={applyLastBet} 
                     disabled={spinning || previousBets.length === 0} 

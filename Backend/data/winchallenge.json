@@ -121,17 +121,7 @@
     "userId": "160224748",
     "hostName": "vnmvalentin",
     "title": "Win-Challenge",
-    "items": [
-      {
-        "id": "k3cIHMvP",
-        "name": "",
-        "useWins": false,
-        "target": 1,
-        "progress": 0,
-        "done": false,
-        "pinned": false
-      }
-    ],
+    "items": [],
     "style": {
       "boxBg": "#fefbfb",
       "textColor": "#ffffff",
