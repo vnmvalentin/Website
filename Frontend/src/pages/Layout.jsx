@@ -2,9 +2,8 @@
 import React, { useEffect, useState, useContext, useRef } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
-import { NEWS_UPDATES } from "../utils/newData"; 
 import { socket } from "../utils/socket";
-import { Volume2, VolumeX } from "lucide-react"; // HINZUGEFÜGT: Audio Icons
+import { Volume2, VolumeX, AlertTriangle, Info } from "lucide-react";
 
 const STREAMER_ID = "160224748";
 const TWITCH_URL = "https://twitch.tv/vnmvalentin";
@@ -33,6 +32,7 @@ const navItems = [
   {
     label: "Fun",
     links: [
+      { label: "Seasons", to: "/season" },
       { label: "Casino", to: "/Casino" },
       { label: "Pack-Opening", to: "/Packs" },
       { label: "adVentures", to: "/adventures" },
@@ -84,7 +84,6 @@ const NavContent = ({
     hasActionableAbstimmung, 
     setFeedbackModalOpen, 
     setMobileNavOpen, 
-    openNews 
 }) => (
     <nav className={`flex-1 overflow-y-auto flex flex-col ${compact ? "p-4" : "p-5"} custom-scrollbar`}>
       <div className="space-y-6 flex-1">
@@ -183,19 +182,21 @@ const NavContent = ({
       </div>
 
       <div className="mt-8 pt-4 border-t border-white/5">
-          <button 
-              onClick={() => { openNews(); if(compact) setMobileNavOpen(false); }} 
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
-          >
-              <span className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></span>
-              <span className="font-medium text-sm text-gray-400 group-hover:text-white transition-colors">Updates & News</span>
-          </button>
+          <Link 
+                to="/updates"
+                onClick={() => { if(compact) setMobileNavOpen(false); }} 
+                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
+            >
+                <span className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></span>
+                <span className="font-medium text-sm text-gray-400 group-hover:text-white transition-colors">Updates & News</span>
+            </Link>
       </div>
     </nav>
 );
 
 export default function Layout() {
   const location = useLocation();
+  const [systemBroadcast, setSystemBroadcast] = useState(null);
   const navigate = useNavigate();
   const { user, login, logout } = useContext(TwitchAuthContext);
   const isAdmin = !!user && String(user.id) === STREAMER_ID;
@@ -218,7 +219,6 @@ export default function Layout() {
   const [redeemModalOpen, setRedeemModalOpen] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
-  const [showNews, setShowNews] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
@@ -241,6 +241,37 @@ export default function Layout() {
   const toggleSection = (label) => {
     setOpenSections((prev) => ({ ...prev, [label]: !prev[label] }));
   };
+
+  useEffect(() => {
+      // 1. Beim initialen Laden prüfen, ob serverseitig noch ein Broadcast aktiv ist
+      const fetchActiveBroadcast = async () => {
+          try {
+              const res = await fetch("/api/system/broadcast");
+              if (res.ok) {
+                  const data = await res.json();
+                  if (data && data.message) {
+                      setSystemBroadcast(data);
+                  }
+              }
+          } catch (e) {
+              console.error("Konnte aktiven Broadcast nicht laden", e);
+          }
+      };
+      
+      fetchActiveBroadcast();
+
+      // 2. Auf Live-Broadcasts über Socket lauschen
+      if (socket) {
+          socket.on("system_broadcast", (data) => {
+              // data sollte { message, type, expiresAt } enthalten
+              setSystemBroadcast(data);
+          });
+
+          return () => {
+              socket.off("system_broadcast");
+          };
+      }
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -326,23 +357,6 @@ export default function Layout() {
     };
   }, [user]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    setShowNews(params.has("news"));
-  }, [location.search]);
-
-  const openNews = () => {
-      const params = new URLSearchParams(location.search);
-      params.set("news", "true");
-      navigate({ search: params.toString() });
-  };
-
-  const closeNews = () => {
-      const params = new URLSearchParams(location.search);
-      params.delete("news");
-      navigate({ search: params.toString() });
-      setShowNews(false);
-  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -375,11 +389,41 @@ export default function Layout() {
     hasActionableAbstimmung,
     setFeedbackModalOpen,
     setMobileNavOpen,
-    openNews
   };
 
   return (
     <div className="relative min-h-screen text-gray-200 font-sans selection:bg-cyan-500/30 selection:text-white bg-[#0f0f13]">
+        {/* SYSTEM BROADCAST MODAL */}
+      {systemBroadcast && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+              <div className={`max-w-lg w-full p-8 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center border-2 ${
+                  systemBroadcast.type === 'warning' 
+                  ? 'bg-red-950/90 border-red-500 shadow-red-500/20 text-red-50' 
+                  : 'bg-blue-950/90 border-blue-500 shadow-blue-500/20 text-blue-50'
+              }`}>
+                  {systemBroadcast.type === 'warning' ? (
+                      <AlertTriangle className="w-20 h-20 mx-auto mb-6 text-red-500 animate-pulse" />
+                  ) : (
+                      <Info className="w-20 h-20 mx-auto mb-6 text-blue-400 animate-pulse" />
+                  )}
+                  
+                  <h2 className="text-3xl font-black uppercase tracking-widest mb-4">
+                      {systemBroadcast.type === 'warning' ? 'System Warnung' : 'System Info'}
+                  </h2>
+                  
+                  <p className="text-xl font-medium mb-10 leading-relaxed">
+                      {systemBroadcast.message}
+                  </p>
+                  
+                  <button 
+                      onClick={() => setSystemBroadcast(null)} 
+                      className="bg-white/10 hover:bg-white/20 text-white font-bold py-4 px-10 rounded-xl transition-all active:scale-95 text-lg w-full sm:w-auto"
+                  >
+                      Verstanden
+                  </button>
+              </div>
+          </div>
+      )}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
             <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-cyan-500/10 blur-[120px] rounded-full mix-blend-screen" />
             <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-pink-500/10 blur-[120px] rounded-full mix-blend-screen" />
@@ -482,41 +526,6 @@ export default function Layout() {
               )}
             </div>
           </header>
-
-          {/* NEWS OVERLAY */}
-          {showNews && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                  <div className="absolute inset-0" onClick={closeNews}></div>
-                  <div className="bg-[#1a1a20] border border-white/10 rounded-xl w-full max-w-2xl relative flex flex-col max-h-[85vh] shadow-2xl">
-                      <div className="p-5 border-b border-white/5 flex justify-between items-center bg-[#202028] rounded-t-xl">
-                          <div><h2 className="text-xl font-bold text-white">Update News</h2><p className="text-xs text-gray-400 mt-1">Die neuesten Änderungen am System</p></div>
-                          <button onClick={closeNews} className="text-gray-400 hover:text-white p-1">✕</button>
-                      </div>
-                      <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                          {NEWS_UPDATES.map((update, idx) => (
-                              <div key={idx} className="border-b border-white/5 pb-6 last:border-0 last:pb-0">
-                                  <div className="flex items-baseline justify-between mb-4">
-                                      <h3 className="text-lg font-bold text-white">{update.version}</h3>
-                                      <span className="text-xs font-mono text-gray-400 bg-black/30 px-2 py-1 rounded">{update.date}</span>
-                                  </div>
-                                  <div className="space-y-4">
-                                      {update.sections.map((sec, sIdx) => (
-                                          <div key={sIdx}>
-                                              <h4 className="font-semibold text-cyan-400 text-sm mb-2">{sec.title}</h4>
-                                              <ul className="space-y-1.5">
-                                                  {sec.items.map((item, iIdx) => (
-                                                      <li key={iIdx} className="text-gray-300 text-sm flex items-start gap-2"><span className="text-gray-500 mt-0.5">-</span><span className="leading-relaxed">{item}</span></li>
-                                                  ))}
-                                              </ul>
-                                          </div>
-                                      ))}
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              </div>
-          )}
 
           {/* REDEEM MODAL */}
           {redeemModalOpen && (

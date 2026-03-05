@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
-import { Star, MessageSquare, User, Calendar } from "lucide-react";
+import { Star, MessageSquare, User, Calendar, Radio, AlertTriangle } from "lucide-react";
 import { io } from "socket.io-client"; // <--- IMPORT
 import SEO from "../components/SEO";
 
 // DEINE ID
 const STREAMER_ID = "160224748"; 
 
-const SECTIONS = ["overview", "adventures", "casino", "codes", "winchallenge", "bingo", "feedback"];
+const SECTIONS = ["overview", "adventures", "casino", "codes", "winchallenge", "bingo", "feedback", "broadcast"]; // <-- 'broadcast' hinzugefügt
 
 export default function AdminDashboard() {
   const { user, isLoading } = useContext(TwitchAuthContext);
@@ -18,9 +18,41 @@ export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
   const [fetchLoading, setFetchLoading] = useState(false);
+  // --- BROADCAST STATES ---
+  const [bcMessage, setBcMessage] = useState("");
+  const [bcDuration, setBcDuration] = useState(15); // in Minuten
+  const [bcType, setBcType] = useState("warning");
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
   
   // Ref für Socket, damit wir nicht bei jedem Render neu verbinden
   const socketRef = useRef(null);
+
+  const handleSendBroadcast = async () => {
+      if (!bcMessage.trim()) return;
+      setIsBroadcasting(true);
+      try {
+          // Erwartet, dass dein Backend diesen Call annimmt, speichert und via Socket "system_broadcast" an alle emittet
+          const res = await fetch("/api/admin/broadcast", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                  message: bcMessage,
+                  duration: bcDuration,
+                  type: bcType
+              }),
+              credentials: "include"
+          });
+          if (res.ok) {
+              setBcMessage("");
+              alert("Broadcast erfolgreich gesendet!");
+          } else {
+              alert("Fehler beim Senden des Broadcasts.");
+          }
+      } catch (e) {
+          console.error(e);
+      }
+      setIsBroadcasting(false);
+  };
 
   // --- NEUE STATES FÜR CODES ---
   const [newCode, setNewCode] = useState({ 
@@ -180,11 +212,12 @@ export default function AdminDashboard() {
       // FIX: Wenn Data null ist, aber wir im Overview sind, versuche neu zu laden oder zeige Fehler
       if (!data && activeTab === "overview") return <div className="p-8 text-center text-red-400">Keine Statistik-Daten empfangen. (Backend prüfen)</div>;
       
-      if (!data) return <div className="p-8 text-center text-gray-500">Wähle einen Bereich</div>;
+      // FIX: Der Broadcast-Tab braucht kein "data", also überspringen wir diesen Check für ihn!
+      if (!data && activeTab !== "broadcast") return <div className="p-8 text-center text-gray-500">Wähle einen Bereich</div>;
 
       // FILTER
-      let entries = Object.entries(data);
-      if (search) {
+      let entries = data ? Object.entries(data) : [];
+      if (search && data) {
           const s = search.toLowerCase();
           entries = entries.filter(([id, val]) => 
               id.toLowerCase().includes(s) || 
@@ -192,13 +225,71 @@ export default function AdminDashboard() {
               (val.twitchLogin && val.twitchLogin.toLowerCase().includes(s))
           );
       }
-      // 0. FEEDBACK TAB (NEU)
+
+      // --- BROADCAST TAB (muss GANZ OBEN stehen oder ein eigenes "if" mit "return" haben) ---
+      if (activeTab === "broadcast") {
+          return (
+              <div className="bg-[#18181b] border border-red-500/30 p-6 rounded-3xl shadow-2xl animate-in fade-in">
+                  <h2 className="text-2xl font-black text-red-400 flex items-center gap-3 mb-6">
+                      <Radio size={28} className="animate-pulse" /> System Broadcast
+                  </h2>
+                  <p className="text-white/50 mb-6">
+                      Sende eine Nachricht an alle gerade aktiven User. Die Nachricht wird als Pop-Up angezeigt und bleibt für die eingestellte Dauer auch bei Seiten-Reloads aktiv.
+                  </p>
+    
+                  <div className="space-y-4 max-w-2xl">
+                      <div>
+                          <label className="block text-sm font-bold text-white/70 mb-2">Nachricht</label>
+                          <textarea
+                              value={bcMessage}
+                              onChange={(e) => setBcMessage(e.target.value)}
+                              placeholder="z.B. Website wird in 5 Minuten für ein Update kurz neugestartet!"
+                              className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder:text-white/30 focus:border-red-500/50 outline-none resize-none h-24"
+                          />
+                      </div>
+    
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-sm font-bold text-white/70 mb-2">Dauer (in Minuten)</label>
+                              <input
+                                  type="number"
+                                  value={bcDuration}
+                                  onChange={(e) => setBcDuration(Number(e.target.value))}
+                                  min="1"
+                                  className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-red-500/50 outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-bold text-white/70 mb-2">Art des Hinweises</label>
+                              <select
+                                  value={bcType}
+                                  onChange={(e) => setBcType(e.target.value)}
+                                  className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-red-500/50 outline-none appearance-none"
+                              >
+                                  <option value="warning">Warnung (Rot)</option>
+                                  <option value="info">Info (Blau)</option>
+                              </select>
+                          </div>
+                      </div>
+    
+                      <button
+                          onClick={handleSendBroadcast}
+                          disabled={isBroadcasting || !bcMessage.trim()}
+                          className="mt-4 w-full bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:text-white/30 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                      >
+                          {isBroadcasting ? "Sendet..." : "Broadcast jetzt auslösen"}
+                      </button>
+                  </div>
+              </div>
+          );
+      }
+
+      // 0. FEEDBACK TAB
       if (activeTab === "feedback") {
           const feedbacks = Array.isArray(data) ? data : [];
-          // Optionaler Search Filter für Feedback
           const filteredFeedbacks = search 
-            ? feedbacks.filter(f => f.user.toLowerCase().includes(search.toLowerCase()) || f.text.toLowerCase().includes(search.toLowerCase()))
-            : feedbacks;
+              ? feedbacks.filter(f => f.user.toLowerCase().includes(search.toLowerCase()) || f.text.toLowerCase().includes(search.toLowerCase()))
+              : feedbacks;
 
           return (
               <div className="space-y-4">
@@ -250,9 +341,9 @@ export default function AdminDashboard() {
               </div>
           );
       }
+      
       // 0. OVERVIEW (STATS)
       if (activeTab === "overview") {
-          // Falls data noch null ist (beim ersten Render), kurz warten
           if (!data) return null;
 
           return (
@@ -304,7 +395,7 @@ export default function AdminDashboard() {
           );
       }
 
-      // 1. CODES TAB (Aktualisiert)
+      // 1. CODES TAB
       if (activeTab === "codes") {
           return (
               <div className="space-y-6">
@@ -402,7 +493,7 @@ export default function AdminDashboard() {
           );
       }
 
-      // 2. ADVENTURES & CASINO (User List Editor)
+      // 2. ADVENTURES & CASINO
       if (activeTab === "adventures" || activeTab === "casino") {
           return (
               <div className="overflow-x-auto">
@@ -437,38 +528,36 @@ export default function AdminDashboard() {
                                       />
                                   </td>
                                   {activeTab === "adventures" && (
-                                    <>
-                                        <td className="p-3">
-                                          <input 
-                                              type="number" 
-                                              defaultValue={user.highScore}
-                                              onBlur={(e) => updateUser(id, { highScore: e.target.value })}
-                                              className="w-20 bg-black/30 border border-white/10 rounded px-2 py-1"
-                                          />
-                                        </td>
-                                        <td className="p-3 max-w-xs truncate text-xs text-gray-400">
-                                            {user.skins?.join(", ")}
-                                            <button 
-                                                onClick={() => {
-                                                    const newSkins = prompt("Skins (kommagetrennt):", user.skins?.join(","));
-                                                    if(newSkins !== null) updateUser(id, { skins: newSkins.split(",").map(s=>s.trim()) });
-                                                }}
-                                                className="ml-2 text-blue-400"
-                                            >✎</button>
-                                        </td>
-                                        <td className="p-3">
-                                            <input 
-                                              type="number" 
-                                              defaultValue={user.unlockedSlots}
-                                              onBlur={(e) => updateUser(id, { unlockedSlots: e.target.value })}
-                                              className="w-12 bg-black/30 border border-white/10 rounded px-2 py-1"
-                                          />
-                                        </td>
-                                    </>
+                                      <>
+                                          <td className="p-3">
+                                              <input 
+                                                  type="number" 
+                                                  defaultValue={user.highScore}
+                                                  onBlur={(e) => updateUser(id, { highScore: e.target.value })}
+                                                  className="w-20 bg-black/30 border border-white/10 rounded px-2 py-1"
+                                              />
+                                          </td>
+                                          <td className="p-3 max-w-xs truncate text-xs text-gray-400">
+                                              {user.skins?.join(", ")}
+                                              <button 
+                                                  onClick={() => {
+                                                      const newSkins = prompt("Skins (kommagetrennt):", user.skins?.join(","));
+                                                      if(newSkins !== null) updateUser(id, { skins: newSkins.split(",").map(s=>s.trim()) });
+                                                  }}
+                                                  className="ml-2 text-blue-400"
+                                              >✎</button>
+                                          </td>
+                                          <td className="p-3">
+                                              <input 
+                                                  type="number" 
+                                                  defaultValue={user.unlockedSlots}
+                                                  onBlur={(e) => updateUser(id, { unlockedSlots: e.target.value })}
+                                                  className="w-12 bg-black/30 border border-white/10 rounded px-2 py-1"
+                                              />
+                                          </td>
+                                      </>
                                   )}
-                                  <td className="p-3">
-                                      {/* Platzhalter für Reset Logik falls gewünscht */}
-                                  </td>
+                                  <td className="p-3"></td>
                               </tr>
                           ))}
                       </tbody>
@@ -477,18 +566,14 @@ export default function AdminDashboard() {
           );
       }
       
+      // 3. WINCHALLENGE & BINGO
       if (activeTab === "winchallenge" || activeTab === "bingo") {
           return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                    {entries.map(([id, item]) => {
-                       // Logik für den Anzeigenamen
                        let displayName = "Unknown";
-                       
-                       // Fall 1: WinChallenge (HostName existiert direkt)
                        if (item.hostName) displayName = item.hostName;
-                       // Fall 2: Bingo (Host ist ein Objekt mit twitchLogin)
                        else if (item.host?.twitchLogin) displayName = item.host.twitchLogin;
-                       // Fall 3: Fallback auf ID
                        else displayName = item.userId || item.host?.twitchId || id;
 
                        return (
@@ -499,8 +584,6 @@ export default function AdminDashboard() {
                                
                                <div className="text-xs text-gray-400 mb-3 flex items-center gap-2">
                                    <span className="uppercase font-bold text-gray-600">Host:</span>
-                                   
-                                   {/* --- HIER IST DIE ÄNDERUNG: LINK STATT SPAN --- */}
                                    <a 
                                        href={`https://twitch.tv/${displayName}`}
                                        target="_blank"
@@ -509,10 +592,8 @@ export default function AdminDashboard() {
                                        title={`Gehe zu twitch.tv/${displayName}`}
                                    >
                                        {displayName}
-                                       {/* Optional: Kleines Icon für externen Link */}
                                        <span className="text-[10px] opacity-50">↗</span>
                                    </a>
-                                   {/* --------------------------------------------- */}
                                </div>
 
                                <pre className="text-[10px] bg-black/50 p-2 rounded overflow-hidden text-gray-500 mb-4 font-mono select-all">
@@ -538,7 +619,7 @@ export default function AdminDashboard() {
           );
       }
 
-      return null; // Fallback, falls gar kein Tab passt (sollte nicht passieren)
+      return null;
   };
 
   return (

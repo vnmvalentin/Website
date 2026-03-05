@@ -71,12 +71,12 @@ const ACHIEVEMENTS_DEF = [
     }
   },
   {
-    id: "collection_hauskatze",
+    id: "collection_crew",
     title: "Rettungstruppe",
     desc: "Sammle die Feuerwehr-, Polizei- und Krankenwagen-Katze.",
     rewardCoins: 1000,
     // HIER DIE IDS DEINER SPEZIELLEN KATZEN EINTRAGEN:
-    requiredIds: ["12", "15", "16"], 
+    requiredIds: ["51", "50", "13"], 
     checkProgress: function(owned, defs) {
       const current = this.requiredIds.filter(id => owned[id]).length;
       return { current, max: this.requiredIds.length, isUnlocked: current >= this.requiredIds.length };

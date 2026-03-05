@@ -1,69 +1,95 @@
 {
   "72441962": {
-    "credits": 4862,
-    "lastDaily": 1767701276793,
+    "credits": 1000,
+    "lastDaily": 0,
     "activeGame": null,
-    "name": "gh0stqq"
+    "name": "gh0stqq",
+    "dailyStreak": 0,
+    "badges": [
+      "s1_coins_2"
+    ]
   },
   "102402662": {
-    "credits": 2155,
-    "name": "paraskiill"
+    "credits": 1000,
+    "name": "paraskiill",
+    "dailyStreak": 0,
+    "lastDaily": 0,
+    "badges": [
+      "s1_coins_3"
+    ]
   },
   "111885284": {
-    "credits": 1405,
-    "name": "dust1n__"
+    "credits": 1000,
+    "name": "dust1n__",
+    "dailyStreak": 0,
+    "lastDaily": 0
   },
   "144452560": {
-    "credits": 2095,
-    "name": "cornflakesmuncher"
+    "credits": 1000,
+    "name": "cornflakesmuncher",
+    "dailyStreak": 0,
+    "lastDaily": 0
   },
   "160224744": {
-    "credits": 3600,
-    "lastDaily": 1768397237576,
+    "credits": 1000,
+    "lastDaily": 0,
     "activeGame": null,
-    "name": "vnmvalentin1"
+    "name": "vnmvalentin1",
+    "dailyStreak": 0
   },
   "160224745": {
-    "credits": 15764,
-    "lastDaily": 1768397237576,
+    "credits": 1000,
+    "lastDaily": 0,
     "activeGame": null,
-    "name": "vnmvalentin2"
+    "name": "vnmvalentin2",
+    "dailyStreak": 0
   },
   "160224748": {
-    "credits": 2610203,
+    "credits": 1200,
     "activeGame": null,
     "name": "vnmvalentin",
     "stickyWilds": [],
     "freeSpinsLeft": 0,
-    "dailyStreak": 4,
-    "lastDaily": 1772163511211
+    "dailyStreak": 1,
+    "lastDaily": 1772551225020,
+    "badges": [
+      "s1_adventure_1",
+      "s1_coins_1",
+      "s1_cards_1"
+    ]
   },
   "537042436": {
-    "credits": 40,
-    "name": "537042436"
+    "credits": 1000,
+    "name": "537042436",
+    "dailyStreak": 0,
+    "lastDaily": 0
   },
   "674179580": {
-    "credits": 895,
-    "lastDaily": 1767703246278,
+    "credits": 1000,
+    "lastDaily": 0,
     "activeGame": null,
-    "name": "flluffattack"
+    "name": "flluffattack",
+    "dailyStreak": 0
   },
   "674179581": {
-    "credits": 700,
-    "lastDaily": 1767703246278,
+    "credits": 1000,
+    "lastDaily": 0,
     "activeGame": null,
-    "name": "flluffattack1"
+    "name": "flluffattack1",
+    "dailyStreak": 0
   },
   "674179582": {
-    "credits": 500,
-    "lastDaily": 1767703246278,
+    "credits": 1000,
+    "lastDaily": 0,
     "activeGame": null,
-    "name": "flluffattack2"
+    "name": "flluffattack2",
+    "dailyStreak": 0
   },
   "674179583": {
-    "credits": 500,
-    "lastDaily": 1767703246278,
+    "credits": 1000,
+    "lastDaily": 0,
     "activeGame": null,
-    "name": "flluffattack3"
+    "name": "flluffattack3",
+    "dailyStreak": 0
   }
 }

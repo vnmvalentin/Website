@@ -305,6 +305,11 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
     
     const ONE_DAY = 24 * 60 * 60 * 1000;
     const TWO_DAYS = 48 * 60 * 60 * 1000;
+
+    // SICHERHEIT: Falls durch den Bug credits noch null/NaN sind, resetten wir sie auf einen Fallback
+    if (user.credits === null || isNaN(user.credits)) {
+        user.credits = 1000; // Oder 0, je nachdem was dein Standard ist
+    }
     
     if (user.lastDaily) {
         const timeSinceLast = now - user.lastDaily;
@@ -316,7 +321,8 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
         if (timeSinceLast > TWO_DAYS) {
             user.dailyStreak = 1; // Streak gebrochen, fängt bei 1 an
         } else {
-            user.dailyStreak += 1; // Streak bleibt erhalten
+            // FIX: Fallback auf 0, falls die Streak in der DB noch fehlt
+            user.dailyStreak = (user.dailyStreak || 0) + 1; 
         }
     } else {
         // Erstes Mal eingesammelt
@@ -362,38 +368,30 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
         user.credits -= bet;
         user.stickyWilds = []; // Reset Sticky Wilds bei neuem normalen Spiel
     }
-
-    // --- NEUE POOL LOGIK: "Balanced Variety" ---
-    // Statt 60% Zitronen machen wir eine flachere Verteilung.
-    // Das erhöht die Vielfalt auf dem Schirm, senkt aber die Chance, dass 
-    // zufällig 3 gleiche Symbole in einer Linie landen.
     
     let pool = [];
     
-    // Low Tier (Alle ca. gleich häufig -> schwerer zu matchen)
-    for(let i=0; i<20; i++) pool.push("🍒"); 
-    for(let i=0; i<18; i++) pool.push("🍋");
-    for(let i=0; i<15; i++) pool.push("🍇");
-    for(let i=0; i<12; i++) pool.push("🔔"); // Banane/Glocke
+    // Low Tier (Häufig, kleine Gewinne, füllen das Feld)
+    for(let i=0; i<60; i++) pool.push("🍒"); 
+    for(let i=0; i<45; i++) pool.push("🍋");
+    for(let i=0; i<35; i++) pool.push("🍇");
+    for(let i=0; i<25; i++) pool.push("🔔"); 
+    for(let i=0; i<15; i++) pool.push("🥭"); 
     
-    // Mid/High Tier
+    // Mid/High Tier (Selten)
     for(let i=0; i<8; i++) pool.push("💎");
-    for(let i=0; i<4; i++) pool.push("7️⃣");  
+    for(let i=0; i<3; i++) pool.push("7️⃣");  
     
-    // Specials (Extrem selten!)
-    // Nur EIN Joker im ganzen Deck -> Full Lines fast unmöglich
+    // Wilds (Joker)
+    // Ein einziger Joker im Basegame. In Freispielen 2, um die Sticky Wilds nicht komplett eskalieren zu lassen.
     const jokerCount = isFreeSpin ? 3 : 2; 
     for(let i=0; i<jokerCount; i++) pool.push("🃏"); 
     
     // Scatters (Freispiele)
-    for(let i=0; i<2; i++) pool.push("🌟");
-    
-  
+    // 4 Stück im Pool bedeutet ca. 2% Chance pro Feld. Ergibt etwa 1 Trigger pro 250-300 Spins.
+    for(let i=0; i<3; i++) pool.push("🌟");
 
     const r = () => pool[Math.floor(Math.random() * pool.length)];
-    // Wir generieren die Walzen "roh". Sticky Wilds überschreiben wir NICHT im Grid,
-    // sondern senden sie separat zurück, damit das Frontend sie drüberlegen kann.
-    // ABER: Für die Gewinnberechnung MÜSSEN wir sie hier einsetzen.
     
     const rawReels = Array(5).fill(null).map(() => [r(), r(), r()]);
     
@@ -463,25 +461,32 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
         }
 
         if (matchCount >= 3) {
-            let baseMult = 0;
-            if (firstSymbol === "🍒") baseMult = 1.0;
-            else if (firstSymbol === "🍋") baseMult = 1.2;
-            else if (firstSymbol === "🍇") baseMult = 1.5;
-            else if (firstSymbol === "🔔") baseMult = 2.0;
-            else if (firstSymbol === "💎") baseMult = 5.0;
-            else if (firstSymbol === "7️⃣") baseMult = 10.0;
-            else if (firstSymbol === "🃏") baseMult = 15.0;
+            let winMult = 0;
+            
+            // Reale Slot-Odds: [3er Reihe, 4er Reihe, 5er Reihe]
+            // Werte sind Faktoren des GESAMTEINSATZES!
+            const paytable = {
+                "🍒": [0.6, 1.2, 3.5],
+                "🍋": [0.7, 1.4, 4.5],
+                "🍇": [0.8, 1.6, 5.5],
+                "🔔": [1.0, 2.0, 7.0],
+                "🥭": [1.5, 3.5, 10.0],
+                "💎": [3.0, 6.0, 18.0],
+                "7️⃣": [5.0, 15.0, 50.0],
+                "🃏": [7.0, 20.0, 100.0]
+            };
 
-            let lengthMult = 1; 
-            // 3er Reihe = Standard (x1)
-            // 4er Reihe = Nur noch x2 (statt x3)
-            if (matchCount === 4) lengthMult = 3;  
-            // 5er Reihe = Nur noch x5 (statt x10)
-            if (matchCount === 5) lengthMult = 7;
+            // Falls das Symbol nicht gefunden wird, Fallback auf Kirsche
+            const multipliers = paytable[firstSymbol] || paytable["🍒"];
+            winMult = multipliers[matchCount - 3]; // Index 0 (3er), 1 (4er) oder 2 (5er)
 
-            const win = Math.ceil(calculationBet * baseMult * lengthMult);
-            totalWin += win;
-            winningLines.push({ index: lineIndex, count: matchCount });
+            // Betrag runden, damit keine krummen Nachkommastellen entstehen
+            const win = Math.floor(calculationBet * winMult);
+            
+            if (win > 0) {
+                totalWin += win;
+                winningLines.push({ index: lineIndex, count: matchCount });
+            }
         }
     });
     

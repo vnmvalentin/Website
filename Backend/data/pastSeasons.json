@@ -1,0 +1,33 @@
+[
+  {
+    "seasonNum": 1,
+    "seasonName": "Season 1",
+    "endedAt": 1772550991914,
+    "topCoins": [
+      {
+        "name": "vnmvalentin",
+        "credits": 1500
+      },
+      {
+        "name": "gh0stqq",
+        "credits": 1000
+      },
+      {
+        "name": "paraskiill",
+        "credits": 1000
+      }
+    ],
+    "topAdventure": [
+      {
+        "name": "vnmvalentin",
+        "stage": 0
+      }
+    ],
+    "topCards": [
+      {
+        "name": "vnmvalentin",
+        "uniqueCards": 0
+      }
+    ]
+  }
+]

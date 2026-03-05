@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import CoinIcon from "../CoinIcon";
 import confetti from "canvas-confetti";
 import { X, Info, Volume2, VolumeX } from "lucide-react";
@@ -11,6 +11,7 @@ const SYMBOL_MAP = {
   "🍋": "/assets/slots/lemon.png" + CACHE_BUST,
   "🍇": "/assets/slots/grape.png" + CACHE_BUST,
   "🔔": "/assets/slots/banana.png" + CACHE_BUST,
+  "🥭": "/assets/slots/papaya.png" + CACHE_BUST,
   "💎": "/assets/slots/diamond.png" + CACHE_BUST,
   "7️⃣": "/assets/slots/seven.png" + CACHE_BUST,
   "🃏": "/assets/slots/joker.png" + CACHE_BUST,   
@@ -18,13 +19,14 @@ const SYMBOL_MAP = {
 };
 
 const PAYTABLE = [
-  { char: "🃏", base: 15.0, label: "Wild" },
-  { char: "7️⃣", base: 10.0, label: "Seven" },
-  { char: "💎", base: 5.0, label: "Gem" },
-  { char: "🔔", base: 2.0, label: "Bell" },
-  { char: "🍇", base: 1.5, label: "Grape" },
-  { char: "🍋", base: 1.2, label: "Lemon" },
-  { char: "🍒", base: 1.0, label: "Cherry" },
+  { char: "🃏", pays: [7.0, 20.0, 100.0], label: "Wild" },
+  { char: "7️⃣", pays: [5.0, 15.0, 50.0], label: "Seven" },
+  { char: "💎", pays: [3.0, 6.0, 18.0], label: "Gem" },
+  { char: "🥭", pays: [1.5, 3.5, 10.0], label: "Papaya" },
+  { char: "🔔", pays: [1.0, 2.0, 7.0], label: "Bell" },
+  { char: "🍇", pays: [0.8, 1.6, 5.5], label: "Grape" },
+  { char: "🍋", pays: [0.7, 1.4, 4.5], label: "Lemon" },
+  { char: "🍒", pays: [0.6, 1.2, 3.5], label: "Cherry" },
 ];
 
 const WIN_LINES = [
@@ -46,6 +48,48 @@ const SYMBOL_HEIGHT = 140;
 const REEL_HEIGHT = SYMBOL_HEIGHT * 3; 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+function FallingFruitsBg() {
+    const fruitKeys = ["🍒", "🍋", "🍇", "🍎", "🥭", "🍉", "🥝"];
+    
+    const fallingItems = useMemo(() => {
+        return Array.from({ length: 20 }).map((_, i) => ({
+            id: i,
+            char: fruitKeys[Math.floor(Math.random() * fruitKeys.length)],
+            left: `${Math.random() * 100}%`,
+            duration: `${15 + Math.random() * 20}s`,
+            delay: `-${Math.random() * 20}s`,
+            size: `${40 + Math.random() * 60}px`,
+            blur: `blur(${2 + Math.random() * 5}px)`,
+            opacity: 0.15 + Math.random() * 0.25,
+            rotation: Math.random() * 360
+        }));
+    }, []);
+
+    return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            {fallingItems.map((item) => (
+                <div
+                    key={item.id}
+                    className="absolute select-none" // select-none verhindert, dass man die Emojis aus Versehen markiert
+                    style={{
+                        left: item.left,
+                        fontSize: item.size, // Hier nutzen wir fontSize statt width/height
+                        lineHeight: 1,       // Verhindert ungewollte Abstände
+                        filter: item.blur,
+                        opacity: item.opacity,
+                        top: "-15%",
+                        animation: `fall-fruit ${item.duration} linear infinite`,
+                        animationDelay: item.delay,
+                        transform: `rotate(${item.rotation}deg)`
+                    }}
+                >
+                    {item.char}
+                </div>
+            ))}
+        </div>
+    );
+}
 
 function SlotReel({ index, targetSymbols, isSpinning, onStop, isTeaser, duration }) {
     const [strip, setStrip] = useState(
@@ -186,15 +230,16 @@ function PaytableSideBar() {
                      <div>3x</div>
                  </div>
                  {PAYTABLE.map((item) => (
-                     <div key={item.char} className="grid grid-cols-4 items-center bg-gray-800/50 rounded p-1 hover:bg-gray-800 transition-colors">
-                         <div className="flex justify-center w-8">
+                    <div key={item.char} className="grid grid-cols-4 items-center bg-gray-800/50 rounded p-1 hover:bg-gray-800 transition-colors">
+                        <div className="flex justify-center w-8">
                             <img src={SYMBOL_MAP[item.char]} alt={item.label} className="w-6 h-6 object-contain"/>
-                         </div>
-                         <div className="text-center text-yellow-400 font-mono text-xs shadow-black drop-shadow-md">{(item.base * 7).toFixed(1)}x</div>
-                         <div className="text-center text-gray-300 font-mono text-xs">{(item.base * 3).toFixed(1)}x</div>
-                         <div className="text-center text-gray-500 font-mono text-xs">{item.base.toFixed(1)}x</div>
-                     </div>
-                 ))}
+                        </div>
+                        {/* Hier greifen wir jetzt auf das neue 'pays' Array zu */}
+                        <div className="text-center text-yellow-400 font-mono text-xs shadow-black drop-shadow-md">{item.pays[2].toFixed(1)}x</div>
+                        <div className="text-center text-gray-300 font-mono text-xs">{item.pays[1].toFixed(1)}x</div>
+                        <div className="text-center text-gray-500 font-mono text-xs">{item.pays[0].toFixed(1)}x</div>
+                    </div>
+                ))}
              </div>
              
              <div className="text-[10px] text-center text-gray-600 italic mt-2">
@@ -304,6 +349,11 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
           animation: spin-teaser 0.4s infinite alternate !important;
           z-index: 20;
           border: 2px solid yellow !important;
+      }
+      /* NEU: Animation für die fallenden Früchte */
+      @keyframes fall-fruit {
+          0% { transform: translateY(0vh) rotate(0deg); }
+          100% { transform: translateY(120vh) rotate(360deg); }
       }
     `;
     document.head.appendChild(style);
@@ -547,12 +597,19 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
                   setShowFsSummary(null);
                   setFsTotalWin(0);
                   setVisibleStickyWilds([]); 
-                  setIsGameActive(false);
-                  autoRef.current = false; 
+                  
+                  // HIER IST DIE ÄNDERUNG:
+                  if (autoRef.current) {
+                      // Wenn Autospin an ist, direkt den nächsten Dreh starten
+                      spin();
+                   } else {
+                     // Sonst Spiel ganz normal anhalten
+                       setIsGameActive(false);
+                  }
               }, 5000);
               lineAnimationTimeouts.current.push(tHideSummary);
-          }, delayUntilSummary);
-          lineAnimationTimeouts.current.push(tSummary);
+         }, delayUntilSummary);
+         lineAnimationTimeouts.current.push(tSummary);
 
       } else {
           // NORMALES SPIEL ODER MITTEN IN DEN FREISPIELEN
@@ -625,10 +682,18 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto flex flex-col xl:flex-row items-start gap-8 py-8 select-none relative">
-      
-      {/* OVERLAYS */}
-      {showFsStart && (
+    /* NEUER CONTAINER: Farbenfroher Gradient (Pink/Lila/Blau) und füllt den ganzen Bildschirm */
+    <div className="relative w-full bg-gradient-to-br from-green-900 via-blue-900 to-indigo-950 overflow-hidden flex justify-center">
+        
+        {/* Unser neuer Frucht-Regen im Hintergrund */}
+        <FallingFruitsBg />
+
+        {/* Dein alter Wrapper, der jetzt über dem Hintergrund liegt (z-10) */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col xl:flex-row items-start gap-8 py-8 px-4 select-none">
+          
+          
+          {/* OVERLAYS */}
+          {showFsStart && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 rounded-2xl animate-in fade-in zoom-in duration-300">
               <div className="text-center">
                   <h1 className="text-6xl md:text-8xl font-black text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.8)] animate-bounce">FREISPIELE!</h1>
@@ -666,11 +731,11 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
           <PaytableSideBar />
           
           <button 
-              onClick={() => setShowPaylines(true)}
-              className="w-full mt-4 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white py-2.5 rounded-xl text-xs font-bold border border-white/10 transition-colors flex items-center justify-center gap-2"
-          >
-              <Info size={16} /> Gewinnlinien ansehen
-          </button>
+                onClick={() => setShowPaylines(true)}
+                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-100 py-2.5 rounded-xl text-xs font-bold border border-gray-600 transition-colors flex items-center justify-center gap-2 shadow-md"
+            >
+                <Info size={16} /> Gewinnlinien ansehen
+            </button>
       </div>
 
       {/* RECHTS: Das eigentliche Spiel */}
@@ -842,6 +907,7 @@ export default function SlotMachine({ updateCredits, currentCredits }) {
                     </div>
                 </div>
             )}
+    </div>
     </div>
   );
 }

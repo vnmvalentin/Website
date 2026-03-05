@@ -6,12 +6,15 @@ const fs = require("fs");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const { nanoid } = require("nanoid");
+const cron = require("node-cron");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args)); 
 
 // --- NEU: HTTP & Socket.io ---
 const http = require("http");
 const { Server } = require("socket.io");
+
+const { executeSeasonReset } = require("./utils/seasonManager");
 
 // Feature-Router
 const createBingoRouter = require("./routes/bingoRoutes");
@@ -27,6 +30,7 @@ const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
 const createPondRouter = require("./routes/pondRoutes");
 const createGameSessionRouter = require("./routes/gameSessionRoutes");
+const createSeasonRouter = require("./routes/seasonRoutes");
 
 const app = express();
 
@@ -63,11 +67,27 @@ app.use(
   })
 );
 
+cron.schedule("1 0 * * *", () => {
+    try {
+        const configPath = path.join(__dirname, "data/seasonConfig.json");
+        if (fs.existsSync(configPath)) {
+            const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+            
+            // Wenn der aktuelle Zeitpunkt das in der Config gespeicherte Ende überschritten hat...
+            if (Date.now() > config.endsAt) {
+                console.log("⏳ SEASON ENDE ERREICHT! Automatischer Reset startet...");
+                executeSeasonReset();
+            }
+        }
+    } catch (e) {
+        console.error("❌ Fehler beim Cronjob Season Reset:", e);
+    }
+});
+
 // =================== CONFIG & HELPER & SESSIONS ===================
-// (Hier dein bestehender Session Code, unverändert lassen...)
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSIONS_PATH = path.join(__dirname, "sessions.json");
-const STREAMER_TWITCH_ID = process.env.STREAMER_TWITCH_ID
+const STREAMER_TWITCH_ID = process.env.STREAMER_TWITCH_ID;
 const ADMIN_PW = process.env.ADMIN_PW || "";
 
 function loadSessionsFromFile() {
@@ -150,6 +170,56 @@ app.post("/api/auth/logout", (req, res) => {
 app.get("/api/auth/me", requireAuth, (req, res) => res.json({ twitchId: req.twitchId, twitchLogin: req.twitchLogin }));
 
 
+// =================== SYSTEM BROADCAST ===================
+// Globale Variablen für den aktuellen Broadcast
+let activeBroadcast = null;
+let broadcastTimeout = null;
+
+// Public Route (Wird beim Laden der Seite aufgerufen)
+app.get('/api/system/broadcast', (req, res) => {
+    // Prüfen, ob der Broadcast schon abgelaufen ist
+    if (activeBroadcast && Date.now() > activeBroadcast.expiresAt) {
+        activeBroadcast = null;
+    }
+    res.json(activeBroadcast || {});
+});
+
+// Admin Route (Setzt den Broadcast)
+app.post('/api/admin/broadcast', requireAuth, (req, res) => {
+    // Sicherheitscheck: Ist es wirklich der Streamer/Admin?
+    if (String(req.twitchId) !== String(STREAMER_TWITCH_ID)) { 
+      return res.status(403).json({ error: "Access Denied" });
+    }
+
+    const { message, duration, type } = req.body;
+    
+    if (!message || !duration) {
+        return res.status(400).json({ error: "Nachricht und Dauer erforderlich." });
+    }
+
+    // Falls schon ein Broadcast lief, den alten Timer abbrechen
+    if (broadcastTimeout) clearTimeout(broadcastTimeout);
+
+    // Neuen Broadcast setzen
+    activeBroadcast = {
+        message,
+        type: type || 'warning',
+        expiresAt: Date.now() + (duration * 60 * 1000) // Dauer in Minuten -> Millisekunden
+    };
+
+    // Broadcast an ALLE User pushen
+    io.emit('system_broadcast', activeBroadcast);
+
+    // Timer starten, um den Broadcast nach Ablauf der Zeit automatisch zu löschen
+    broadcastTimeout = setTimeout(() => {
+        activeBroadcast = null;
+        io.emit('system_broadcast', null); // Pop-up bei den Usern wieder ausblenden
+    }, duration * 60 * 1000);
+
+    res.json({ success: true, broadcast: activeBroadcast });
+});
+
+
 // =================== FEATURE ROUTES ===================
 
 // Jetzt existiert 'io' bereits und kann sicher übergeben werden!
@@ -168,6 +238,7 @@ app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
 app.use("/api/pond", createPondRouter({ requireAuth, io }));
 app.use("/api/sessions", createGameSessionRouter({ requireAuth, io }));
+app.use("/api/seasons", createSeasonRouter({ requireAuth, io }));
 
 // =================== SOCKET.IO LOGIC ===================
 io.on('connection', (socket) => {

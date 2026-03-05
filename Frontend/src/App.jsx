@@ -24,8 +24,9 @@ import YTMStreamDeckPage from "./pages/YTM/YTMStreamDeckPage";
 import ViewerPond from "./pages/ViewerPond/ViewerPond";
 import PondPage from "./pages/ViewerPond/PondPage";
 import GameSessions from "./pages/GameSession";
-
+import Updates from "./pages/Updates";
 import CardDashboard from "./pages/Card/CardDashboard";
+import Season from "./pages/Seasons";
 
 export default function App() {
   return (
@@ -61,6 +62,8 @@ export default function App() {
           <Route path="tutorial/ytm-streamdeck" element={<YTMStreamDeckPage/>} />
           <Route path="pond" element={<PondPage />} />
           <Route path="sessions" element={<GameSessions />} />
+          <Route path="updates" element={<Updates />} />
+          <Route path="season" element={<Season />} />
 
 
         </Route>

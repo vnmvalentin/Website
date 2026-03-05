@@ -1,6 +1,32 @@
 export const NEWS_UPDATES = [
   {
     date: "27.02.2026",
+    version: "v3.1: Hotfix",
+    sections: [
+      {
+        title: "Allgemein",
+        items: [
+          "Broadcast Popup für Meldungen implementiert",
+          "Promo-Code: catsandgambling"
+        ]
+      },
+      {
+        title: "Packs",
+        items: [
+          "Ausrüstungsseite verbessert beim Hinzufügen von Karten",
+          "Ein Achievement gefixt was nicht einlösbar war"
+        ]
+      },
+      {
+        title: "Casino",
+        items: [
+          "Slots Multiplikator angepasst nachdem ein Fehler im Backend zu falschen Berechnungen geführt hat"
+        ]
+      },
+    ]
+  },
+  {
+    date: "27.02.2026",
     version: "v3: Großer Schritt in die richtige Richtung",
     sections: [
       {

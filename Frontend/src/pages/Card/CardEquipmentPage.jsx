@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import Card from "../../components/Card";
 import CoinIcon from "../../components/CoinIcon";
-import { Sword, Save, Coins, Zap, Shield, Loader2, X, AlertTriangle } from "lucide-react";
+import { Sword, Save, Coins, Zap, Shield, Loader2, X, AlertTriangle, Search } from "lucide-react";
 
 const IDLE_BASE_RATES = { common: 10, uncommon: 20, rare: 35, epic: 50, mythic: 100, legendary: 250};
 const MAX_BANK_DAYS = 5; // Synchron mit Backend! Bank voll nach 5 Tagen
@@ -36,6 +36,13 @@ export default function CardEquipmentPage() {
 
   const [bankBalance, setBankBalance] = useState(0);
   const [dailyRate, setDailyRate] = useState({ base: 0, total: 0, setBonusTotal: 0, activeSets: [] });
+
+  // --- STATES FÜR FILTER & SUCHE ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterRarity, setFilterRarity] = useState("all");
+  const [filterLevel, setFilterLevel] = useState("all");
+  const [filterSet, setFilterSet] = useState("all");
+  // --------------------------------------
 
   const fetchData = async () => {
     try {
@@ -77,7 +84,8 @@ export default function CardEquipmentPage() {
       let activeSets = [];
 
       CAT_SETS.forEach(set => {
-          if (set.cats.every(catId => eq.includes(String(catId)))) {
+          const requiredCats = set.cats || set.border || []; 
+          if (requiredCats.every(catId => eq.includes(String(catId)))) {
               setBonusTotal += set.bonus;
               activeSets.push(set.id);
           }
@@ -91,8 +99,6 @@ export default function CardEquipmentPage() {
       });
   };
 
-  // Kein sekündlicher Ticker mehr, sondern eine ruhige, statische Berechnung
-  // Aktualisiert sich nur beim Laden oder alle 60 Sekunden unbemerkt
   useEffect(() => {
       if (loading || dailyRate.total === 0 || claiming) return;
       
@@ -104,8 +110,8 @@ export default function CardEquipmentPage() {
           setBankBalance(currentTotal);
       };
 
-      updateBank(); // Direkt beim Start
-      const interval = setInterval(updateBank, 60000); // 1x pro Minute prüfen reicht völlig!
+      updateBank(); 
+      const interval = setInterval(updateBank, 60000); 
       return () => clearInterval(interval);
   }, [dailyRate, userCards, loading, claiming]);
 
@@ -124,6 +130,14 @@ export default function CardEquipmentPage() {
           }
       } catch(e) { console.error(e); }
       setSaving(false);
+  };
+
+  const handleCancelEdit = () => {
+      // Setzt das Setup auf das zurück, was als letztes in der Datenbank gespeichert war
+      const originalEq = userCards.equipped || [];
+      setEquipped(originalEq);
+      calculateRate(originalEq, userCards.cardLevels || {}, cardsDef);
+      setIsEditing(false);
   };
 
   const handleClaim = async () => {
@@ -178,11 +192,29 @@ export default function CardEquipmentPage() {
         .map(id => cardsDef.find(c => String(c.id) === String(id)))
         .filter(Boolean);
 
+  // --- FILTER LOGIK ---
+  const filteredOwnedCards = ownedCards.filter(c => {
+      if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (filterRarity !== "all" && c.rarity !== filterRarity) return false;
+      
+      const lvl = (userCards.cardLevels && userCards.cardLevels[c.id]) || 1;
+      if (filterLevel !== "all" && String(lvl) !== filterLevel) return false;
+      
+      if (filterSet !== "all") {
+          const targetSet = CAT_SETS.find(s => s.id === filterSet);
+          const requiredCats = targetSet?.cats || targetSet?.border || [];
+          if (!requiredCats.includes(String(c.id))) return false;
+      }
+      return true;
+  });
+
   const maxBankCapacity = dailyRate.total * MAX_BANK_DAYS;
   const isBankFull = Math.floor(bankBalance) >= maxBankCapacity && maxBankCapacity > 0;
 
   return (
     <div className="w-full space-y-8 animate-in fade-in pb-10">
+      
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/10 pb-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
@@ -208,21 +240,18 @@ export default function CardEquipmentPage() {
           </div>
       )}
 
+      {/* HAUPT INHALT */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           
           <div className="xl:col-span-2 space-y-6">
+              
+              {/* AKTUELLE AUFSTELLUNG (MAIN VIEW) */}
               <div className="bg-[#18181b] border border-white/10 p-6 rounded-3xl shadow-xl">
                   <div className="flex justify-between items-center mb-6">
                       <h2 className="text-xl font-bold">Aktuelle Aufstellung</h2>
-                      {isEditing ? (
-                          <button onClick={handleSaveEquip} disabled={saving} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all active:scale-95">
-                              <Save size={18} /> {saving ? "Speichert..." : "Speichern"}
-                          </button>
-                      ) : (
-                          <button onClick={() => setIsEditing(true)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold transition-all active:scale-95">
-                              Bearbeiten
-                          </button>
-                      )}
+                      <button onClick={() => setIsEditing(true)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold transition-all active:scale-95">
+                          Bearbeiten
+                      </button>
                   </div>
 
                   <div className="flex flex-wrap justify-center gap-4">
@@ -236,18 +265,12 @@ export default function CardEquipmentPage() {
                                       {cardDef ? (
                                           <div className="w-full h-full p-2 relative">
                                               <Card card={cardDef} level={(userCards.cardLevels && userCards.cardLevels[cardDef.id]) || 1} />
-                                              {isEditing && (
-                                                  <button onClick={() => toggleEquip(cardDef.id)} className="absolute -top-1 -right-1 bg-red-500 text-white p-2 rounded-full shadow-xl hover:scale-110 transition-transform z-20">
-                                                      <X size={16} />
-                                                  </button>
-                                              )}
                                           </div>
                                       ) : (
                                           <div className="text-white/20 text-center font-bold">Slot {idx+1}</div>
                                       )}
                                   </div>
                                   
-                                  {/* NEU: Badge unter der Karte */}
                                   {cardDef && (
                                       <div className="bg-green-500/10 border border-green-500/20 text-green-400 font-black text-xs px-3 py-1.5 rounded-full shadow-lg">
                                           +{getSingleCardDailyRate(cardDef.id, cardDef.rarity)}/d
@@ -259,16 +282,18 @@ export default function CardEquipmentPage() {
                   </div>
               </div>
 
+              {/* SET BONI */}
               <div className="bg-[#18181b] border border-white/10 p-6 rounded-3xl shadow-xl">
                   <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Shield className="text-blue-400" size={20}/> Set-Boni</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {CAT_SETS.map(set => {
                           const isActive = dailyRate.activeSets.includes(set.id);
+                          const requiredCats = set.cats || set.border || [];
                           return (
                               <div key={set.id} className={`p-4 rounded-xl border ${isActive ? 'bg-blue-500/10 border-blue-500/50' : 'bg-black/20 border-white/5'} flex justify-between items-center transition-colors`}>
                                   <div>
                                       <h3 className={`font-bold ${isActive ? 'text-blue-400' : 'text-white/70'}`}>{set.name}</h3>
-                                      <p className="text-xs text-white/40 mt-1">Benötigt: {getCatNamesForSet(set.cats)}</p>
+                                      <p className="text-xs text-white/40 mt-1">Benötigt: {getCatNamesForSet(requiredCats)}</p>
                                   </div>
                                   <div className={`font-black ${isActive ? 'text-green-400' : 'text-white/30'}`}>
                                       +{set.bonus}/d
@@ -280,6 +305,7 @@ export default function CardEquipmentPage() {
               </div>
           </div>
 
+          {/* SIDEBAR (PRODUKTION & BANK) */}
           <div className="bg-[#18181b] border border-white/10 p-6 rounded-3xl shadow-xl flex flex-col justify-between h-fit xl:sticky xl:top-24">
               <div>
                   <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Zap className="text-yellow-400" /> Tägliche Produktion</h2>
@@ -313,7 +339,6 @@ export default function CardEquipmentPage() {
                       {Math.floor(bankBalance).toLocaleString()}
                   </div>
 
-                  {/* NEU: Fortschrittsbalken & Kapazitätsanzeige */}
                   {maxBankCapacity > 0 && (
                       <div className="mb-6 space-y-2">
                           <div className="flex justify-between text-[10px] font-bold text-white/40 uppercase tracking-widest px-1">
@@ -341,29 +366,137 @@ export default function CardEquipmentPage() {
           </div>
       </div>
 
+      {/* --- BEARBEITEN MODAL (POP-UP) --- */}
       {isEditing && (
-          <div className="bg-[#18181b] border border-red-500/30 p-6 rounded-3xl shadow-2xl animate-in slide-in-from-bottom-8">
-              <h2 className="text-xl font-bold mb-6">Wähle deine Katzen</h2>
-              <div className="flex flex-wrap gap-6 justify-center sm:justify-start">
-                  {ownedCards.map(c => {
-                      const isSelected = equipped.includes(c.id);
-                      const lvl = (userCards.cardLevels && userCards.cardLevels[c.id]) || 1;
-
-                      return (
-                          <div key={c.id} className="flex flex-col items-center gap-2">
-                              <div 
-                                  onClick={() => toggleEquip(c.id)}
-                                  className={`w-[120px] sm:w-[140px] shrink-0 cursor-pointer transition-transform hover:scale-105 rounded-xl overflow-hidden relative ${isSelected ? "ring-4 ring-red-500 opacity-50" : ""}`}
-                              >
-                                  <Card card={c} level={lvl} />
-                                  {isSelected && <div className="absolute inset-0 flex items-center justify-center bg-black/50 font-black text-white text-xl z-20 backdrop-blur-sm">Ausgerüstet</div>}
-                              </div>
-                              <div className="bg-green-500/10 border border-green-500/20 text-green-400 font-black text-[10px] px-2 py-0.5 rounded-full">
-                                  +{getSingleCardDailyRate(c.id, c.rarity)}/d
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200">
+              
+              <div className="bg-[#18181b] border border-red-500/50 rounded-3xl shadow-2xl w-full max-w-7xl max-h-full flex flex-col overflow-hidden">
+                  
+                  {/* MODAL HEADER (Sticky Top) */}
+                  <div className="p-6 border-b border-white/10 shrink-0 bg-black/20">
+                      
+                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
+                          <div>
+                              <h2 className="text-2xl font-black flex items-center gap-3 mb-4">
+                                  Wähle deine Katzen
+                                  <span className={`text-sm px-3 py-1 rounded-full border ${equipped.length === 5 ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
+                                      {equipped.length} / 5 ausgerüstet
+                                  </span>
+                              </h2>
+                              
+                              {/* MINI VORSCHAU-SLOTS IM MODAL */}
+                              <div className="flex gap-3 overflow-x-auto pb-2">
+                                  {[0,1,2,3,4].map(idx => {
+                                      const cardId = equipped[idx];
+                                      const cardDef = cardId ? cardsDef.find(c => String(c.id) === String(cardId)) : null;
+                                      
+                                      return (
+                                          <div key={idx} className="w-[70px] sm:w-[90px] shrink-0 aspect-[1/1.42] bg-black/60 border border-dashed border-white/20 rounded-xl flex items-center justify-center relative">
+                                              {cardDef ? (
+                                                  <div className="w-full h-full p-1 relative">
+                                                      <Card card={cardDef} level={(userCards.cardLevels && userCards.cardLevels[cardDef.id]) || 1} />
+                                                      <button onClick={() => toggleEquip(cardDef.id)} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-xl hover:scale-110 transition-transform z-20">
+                                                          <X size={14} />
+                                                      </button>
+                                                  </div>
+                                              ) : (
+                                                  <div className="text-white/20 text-[10px] sm:text-xs font-bold text-center">Slot {idx+1}</div>
+                                              )}
+                                          </div>
+                                      );
+                                  })}
                               </div>
                           </div>
-                      );
-                  })}
+                          
+                          {/* BUTTONS (Speichern & Abbrechen) */}
+                          <div className="flex gap-3 w-full lg:w-auto mt-4 lg:mt-0">
+                              <button onClick={handleCancelEdit} className="flex-1 lg:flex-none bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-xl font-bold transition-all active:scale-95">
+                                  Abbrechen
+                              </button>
+                              <button onClick={handleSaveEquip} disabled={saving} className="flex-1 lg:flex-none bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95">
+                                  <Save size={20} /> {saving ? "Speichert..." : "Speichern"}
+                              </button>
+                          </div>
+                      </div>
+
+                      {/* FILTER LEISTE */}
+                      <div className="flex flex-wrap items-center gap-3 w-full">
+                          <div className="relative flex-1 min-w-[150px]">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+                              <input 
+                                  type="text" 
+                                  placeholder="Name suchen..." 
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  className="w-full bg-black/40 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-red-500/50 transition-colors"
+                              />
+                          </div>
+                          
+                          <select 
+                              value={filterRarity} 
+                              onChange={(e) => setFilterRarity(e.target.value)}
+                              className="bg-black/40 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-red-500/50 appearance-none cursor-pointer"
+                          >
+                              <option value="all">Alle Seltenheiten</option>
+                              {Object.keys(IDLE_BASE_RATES).map(r => (
+                                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                              ))}
+                          </select>
+
+                          <select 
+                              value={filterLevel} 
+                              onChange={(e) => setFilterLevel(e.target.value)}
+                              className="bg-black/40 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-red-500/50 appearance-none cursor-pointer"
+                          >
+                              <option value="all">Alle Level</option>
+                              {[1,2,3,4,5].map(l => (
+                                  <option key={l} value={String(l)}>Level {l}</option>
+                              ))}
+                          </select>
+
+                          <select 
+                              value={filterSet} 
+                              onChange={(e) => setFilterSet(e.target.value)}
+                              className="bg-black/40 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-red-500/50 appearance-none cursor-pointer"
+                          >
+                              <option value="all">Alle Sets</option>
+                              {CAT_SETS.map(set => (
+                                  <option key={set.id} value={set.id}>{set.name}</option>
+                              ))}
+                          </select>
+                      </div>
+                  </div>
+
+                  {/* MODAL BODY (Scrollable Kartengrid) */}
+                  <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-[#18181b]">
+                      <div className="flex flex-wrap gap-4 sm:gap-6 justify-center sm:justify-start">
+                          {filteredOwnedCards.map(c => {
+                              const isSelected = equipped.includes(c.id);
+                              const lvl = (userCards.cardLevels && userCards.cardLevels[c.id]) || 1;
+
+                              return (
+                                  <div key={c.id} className="flex flex-col items-center gap-2">
+                                      <div 
+                                          onClick={() => toggleEquip(c.id)}
+                                          className={`w-[110px] sm:w-[130px] shrink-0 cursor-pointer transition-transform hover:scale-105 rounded-xl overflow-hidden relative ${isSelected ? "ring-4 ring-red-500 opacity-50" : ""}`}
+                                      >
+                                          <Card card={c} level={lvl} />
+                                          {isSelected && <div className="absolute inset-0 flex items-center justify-center bg-black/50 font-black text-white text-lg z-20 backdrop-blur-sm">Aktiv</div>}
+                                      </div>
+                                      <div className="bg-green-500/10 border border-green-500/20 text-green-400 font-black text-[10px] px-2 py-0.5 rounded-full">
+                                          +{getSingleCardDailyRate(c.id, c.rarity)}/d
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                          {filteredOwnedCards.length === 0 && (
+                              <div className="w-full text-center text-white/40 py-10 italic">
+                                  Keine Karten für diese Filtereinstellungen gefunden.
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
               </div>
           </div>
       )}

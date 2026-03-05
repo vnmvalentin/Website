@@ -11,12 +11,7 @@ const CARDS_USER_BACKUP_DIR = path.join(__dirname, "../data/cards-users-backups"
 const CASINO_DB_PATH = path.join(__dirname, "../data/casinoData.json");
 
 // --- NEUE KONFIGURATION ---
-const PACK_PRICE = 250; // Neuer günstigerer Preis
-
-// ALTE Refund-Werte (NUR für das Migrations-Skript, damit niemand Coins verliert)
-const OLD_REFUND_VALUES = {
-  common: 10, uncommon: 25, rare: 50, "very-rare": 100, mythic: 250, secret: 500, legendary: 2500
-};
+const PACK_PRICE = 250; 
 
 const MAX_BANK_DAYS = 5;
 
@@ -109,6 +104,7 @@ const ACHIEVEMENT_REWARDS = {
   "collector_75": { coins: 1000, fish: "rainbow" },
   "epic_found": { coins: 500 },
   "mythic_found": { coins: 1000, color: "purple" },
+  "collection_crew": { coins: 1000 },
   "legend_found": { coins: 5000, fish: "sharky" },
   "ultimate_collector": { coins: 25000, fish: "orca", color: "rainbow-animated" },
 };
@@ -169,59 +165,6 @@ setInterval(() => {
 module.exports = function createPackRouter({ requireAuth, wss }) {
   const router = express.Router();
 
-  // --- MIGRATIONS-SKRIPT ---
-  router.post("/cards/admin/migrate-to-cats", requireAuth, (req, res) => {
-    const STREAMER_ID = "160224748";
-    if (req.twitchId !== STREAMER_ID) return res.status(403).json({ error: "Admin only" });
-
-    backupUserCardsDb();
-    const userDb = loadUserCardsDb();
-    const casinoDb = loadJson(CASINO_DB_PATH);
-    const defs = loadCardsDef();
-
-    const getOldRarity = (cardId) => {
-        const card = defs.find(c => c.id === cardId);
-        return card ? card.rarity : "common"; 
-    };
-
-    let totalRefunded = 0, usersRefunded = 0;
-
-    for (const [userId, userData] of Object.entries(userDb)) {
-        let userTotalValue = 0;
-        if (userData.owned) {
-            for (const [cardId, amount] of Object.entries(userData.owned)) {
-                const rarity = getOldRarity(cardId);
-                const cardValue = OLD_REFUND_VALUES[rarity] || 10;
-                userTotalValue += (amount * cardValue);
-            }
-        }
-        if (userTotalValue > 0) {
-            if (!casinoDb[userId]) casinoDb[userId] = { credits: 0, name: userData.twitchLogin || userId };
-            casinoDb[userId].credits += userTotalValue;
-            totalRefunded += userTotalValue;
-            usersRefunded++;
-        }
-
-        // RESET & SETUP NEUES IDLE SYSTEM
-        userDb[userId].owned = {};
-        userDb[userId].claimedAchievements = [];
-        // Neue Idle-Felder:
-        userDb[userId].equipped = [];
-        userDb[userId].cardLevels = {};
-        userDb[userId].lastClaimed = Date.now();
-        
-        // Müll löschen
-        delete userDb[userId].gallery;
-        delete userDb[userId].galleryPublished;
-        delete userDb[userId].lastPack; 
-        delete userDb[userId].packTokens;        
-        delete userDb[userId].lastTokenEarnedAt; 
-    }
-    saveUserCardsDb(userDb);
-    fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2), "utf8");
-    res.json({ success: true, message: `Refunded: ${totalRefunded} Coins to ${usersRefunded} Users. Idle System initialized.` });
-  });
-
   // --- KARTEN & USER LADEN ---
   router.get("/cards/def", (req, res) => res.json(loadCardsDef()));
 
@@ -265,9 +208,9 @@ module.exports = function createPackRouter({ requireAuth, wss }) {
     function getRandomCard() {
       const r = Math.random() * 100;
       let rarity = "common";
-      if (r < 0.05) rarity = "legendary";
-      else if (r < 3.0) rarity = "mythic";
-      else if (r < 15.0) rarity = "epic";
+      if (r < 0.03) rarity = "legendary";
+      else if (r < 0.5) rarity = "mythic";
+      else if (r < 3.0) rarity = "epic";
       else if (r < 30.0) rarity = "rare";
       else if (r < 65.0) rarity = "uncommon";
 
