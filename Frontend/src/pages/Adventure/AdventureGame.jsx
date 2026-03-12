@@ -747,7 +747,7 @@ export default function AdventureGame() {
                         <h2 className="text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">SKIN SHOP</h2>
                         <div className="flex items-center gap-2">
                             <span className="text-gray-400 text-sm hidden md:inline">Guthaben:</span>
-                            <span className="bg-purple-900/50 px-4 py-1 rounded-full border border-purple-500 text-purple-300 font-bold text-lg md:text-xl">{casinoCredits} 💎</span>
+                            <span className="bg-purple-900/50 px-4 py-1 rounded-full border border-purple-500 text-purple-300 font-bold text-lg md:text-xl">{casinoCredits} <CoinIcon className="w-6 h-6 text-yellow-500 drop-shadow-md" /></span>
                         </div>
                     </div>
                     {/* ... Restlicher Skin Shop Code identisch, nur Responsive Grid angepasst ... */}
@@ -767,7 +767,7 @@ export default function AdventureGame() {
                                     </div>
                                     <h3 className="font-bold text-white text-sm md:text-lg mb-1">{skin.name}</h3>
                                     <div className="mt-auto w-full pt-2">
-                                        {active ? (<div className="text-center text-green-400 text-xs font-bold py-2 border border-green-500/30 rounded bg-green-900/20 tracking-wider">AKTIV</div>) : owned ? (<button onClick={() => equipSkin(id)} className="w-full bg-gray-700 hover:bg-white hover:text-black text-gray-200 text-xs py-2 rounded font-bold border border-gray-500 transition-colors uppercase tracking-wider">WÄHLEN</button>) : (<button onClick={() => buySkin(id)} disabled={casinoCredits < skin.price} className={`w-full text-xs py-2 rounded font-bold border transition-all ${casinoCredits >= skin.price ? 'bg-purple-600 hover:bg-purple-500 border-purple-500 text-white shadow-lg shadow-purple-900/50' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}>KAUFEN <span className="block text-sm">{skin.price} 💎</span></button>)}
+                                        {active ? (<div className="text-center text-green-400 text-xs font-bold py-2 border border-green-500/30 rounded bg-green-900/20 tracking-wider">AKTIV</div>) : owned ? (<button onClick={() => equipSkin(id)} className="w-full bg-gray-700 hover:bg-white hover:text-black text-gray-200 text-xs py-2 rounded font-bold border border-gray-500 transition-colors uppercase tracking-wider">WÄHLEN</button>) : (<button onClick={() => buySkin(id)} disabled={casinoCredits < skin.price} className={`w-full text-xs py-2 rounded font-bold border transition-all ${casinoCredits >= skin.price ? 'bg-purple-600 hover:bg-purple-500 border-purple-500 text-white shadow-lg shadow-purple-900/50' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}>KAUFEN <span className="block text-sm">{skin.price} <CoinIcon className="w-4 h-4 text-yellow-500 drop-shadow-md" /></span></button>)}
                                     </div>
                                 </div>
                             );

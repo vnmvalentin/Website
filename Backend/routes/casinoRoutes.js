@@ -372,15 +372,14 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
     let pool = [];
     
     // Low Tier (Häufig, kleine Gewinne, füllen das Feld)
-    for(let i=0; i<60; i++) pool.push("🍒"); 
+    for(let i=0; i<55; i++) pool.push("🍒"); 
     for(let i=0; i<45; i++) pool.push("🍋");
     for(let i=0; i<35; i++) pool.push("🍇");
-    for(let i=0; i<25; i++) pool.push("🔔"); 
-    for(let i=0; i<15; i++) pool.push("🥭"); 
+    for(let i=0; i<25; i++) pool.push("🔔");  
     
     // Mid/High Tier (Selten)
     for(let i=0; i<8; i++) pool.push("💎");
-    for(let i=0; i<3; i++) pool.push("7️⃣");  
+    for(let i=0; i<4; i++) pool.push("7️⃣");  
     
     // Wilds (Joker)
     // Ein einziger Joker im Basegame. In Freispielen 2, um die Sticky Wilds nicht komplett eskalieren zu lassen.
@@ -467,10 +466,9 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
             // Werte sind Faktoren des GESAMTEINSATZES!
             const paytable = {
                 "🍒": [0.6, 1.2, 3.5],
-                "🍋": [0.7, 1.4, 4.5],
-                "🍇": [0.8, 1.6, 5.5],
-                "🔔": [1.0, 2.0, 7.0],
-                "🥭": [1.5, 3.5, 10.0],
+                "🍋": [0.8, 1.6, 4.5],
+                "🍇": [1.0, 2.0, 6.0],
+                "🔔": [1.2, 2.5, 7.5],
                 "💎": [3.0, 6.0, 18.0],
                 "7️⃣": [5.0, 15.0, 50.0],
                 "🃏": [7.0, 20.0, 100.0]

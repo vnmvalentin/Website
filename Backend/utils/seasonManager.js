@@ -87,11 +87,8 @@ function executeSeasonReset() {
         advData.powerups = []; 
         advData.loadout = [null, null, null, null]; 
     }
-    for (const [userId, cardData] of Object.entries(cardsDb)) {
-        cardData.owned = {};
-        cardData.equipped = [];
-        cardData.cardLevels = {};
-        cardData.unclaimedCoins = 0;
+    for (const userId of Object.keys(cardsDb)) {
+        delete cardsDb[userId.id];
     }
 
     // 5. NEUE SEASON KONFIGURIEREN

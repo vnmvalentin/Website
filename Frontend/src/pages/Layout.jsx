@@ -6,7 +6,6 @@ import { socket } from "../utils/socket";
 import { Volume2, VolumeX, AlertTriangle, Info } from "lucide-react";
 
 const STREAMER_ID = "160224748";
-const TWITCH_URL = "https://twitch.tv/vnmvalentin";
 
 // Icons
 const NAV_ICONS = {
@@ -32,7 +31,7 @@ const navItems = [
   {
     label: "Fun",
     links: [
-      { label: "Seasons", to: "/season" },
+      { label: "Hub", to: "/season" },
       { label: "Casino", to: "/Casino" },
       { label: "Pack-Opening", to: "/Packs" },
       { label: "adVentures", to: "/adventures" },
@@ -66,14 +65,6 @@ const navItems = [
     ],
   },
 ];
-
-function formatCooldown(ms) {
-  if (ms <= 0) return null;
-  const h = Math.floor(ms / (1000 * 60 * 60));
-  const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  const s = Math.floor((ms % (1000 * 60)) / 1000);
-  return `${h}h ${m}m ${s}s`;
-}
 
 const NavContent = ({ 
     compact = false, 
@@ -201,7 +192,6 @@ export default function Layout() {
   const { user, login, logout } = useContext(TwitchAuthContext);
   const isAdmin = !!user && String(user.id) === STREAMER_ID;
 
-  // HINZUGEFÜGT: Globaler Mute State mit localStorage Speicherung
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('globalIsMuted') === 'true';
   });
@@ -225,12 +215,6 @@ export default function Layout() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("idle");
 
-  const [lastDaily, setLastDaily] = useState(0);
-  const [dailyStreak, setDailyStreak] = useState(0);
-  const [cooldownTime, setCooldownTime] = useState(0);
-  const [loadingDaily, setLoadingDaily] = useState(false);
-  const [rewardMessage, setRewardMessage] = useState(null);
-
   const [openSections, setOpenSections] = useState({
     Fun: true,
     Community: true,
@@ -243,7 +227,6 @@ export default function Layout() {
   };
 
   useEffect(() => {
-      // 1. Beim initialen Laden prüfen, ob serverseitig noch ein Broadcast aktiv ist
       const fetchActiveBroadcast = async () => {
           try {
               const res = await fetch("/api/system/broadcast");
@@ -260,10 +243,8 @@ export default function Layout() {
       
       fetchActiveBroadcast();
 
-      // 2. Auf Live-Broadcasts über Socket lauschen
       if (socket) {
           socket.on("system_broadcast", (data) => {
-              // data sollte { message, type, expiresAt } enthalten
               setSystemBroadcast(data);
           });
 
@@ -272,46 +253,6 @@ export default function Layout() {
           };
       }
   }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchUserData = async () => {
-        try {
-            const res = await fetch("/api/casino/user", { credentials: "include" });
-            if (res.ok) {
-                const data = await res.json();
-                setLastDaily(data.lastDaily || 0);
-                setDailyStreak(data.dailyStreak || 0);
-            }
-        } catch(e) {}
-    };
-    fetchUserData();
-  }, [user]);
-
-  useEffect(() => {
-    const iv = setInterval(() => {
-        if (lastDaily > 0) {
-            const diff = (lastDaily + 24*60*60*1000) - Date.now();
-            setCooldownTime(Math.max(0, diff));
-        } else { setCooldownTime(0); }
-    }, 1000);
-    return () => clearInterval(iv);
-  }, [lastDaily]);
-
-  const claimDaily = async () => {
-      setLoadingDaily(true);
-      try {
-        const res = await fetch("/api/casino/daily", { method: "POST", credentials: "include" });
-        if (res.ok) {
-            const data = await res.json();
-            setRewardMessage(`+${data.reward}`);
-            setLastDaily(Date.now());
-            setDailyStreak(data.dailyStreak || 1);
-            setTimeout(() => { setRewardMessage(null); }, 3000);
-        }
-      } catch (e) {}
-      setLoadingDaily(false);
-  };
 
   useEffect(() => {
     const fetchInitial = async () => {
@@ -357,7 +298,6 @@ export default function Layout() {
     };
   }, [user]);
 
-
   useEffect(() => {
     function handleClickOutside(event) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
@@ -393,7 +333,6 @@ export default function Layout() {
 
   return (
     <div className="relative min-h-screen text-gray-200 font-sans selection:bg-cyan-500/30 selection:text-white bg-[#0f0f13]">
-        {/* SYSTEM BROADCAST MODAL */}
       {systemBroadcast && (
           <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
               <div className={`max-w-lg w-full p-8 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center border-2 ${
@@ -463,34 +402,9 @@ export default function Layout() {
                 <button onClick={() => setMobileNavOpen(true)} className="md:hidden p-2 text-gray-400 hover:text-white">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                 </button>
-                {user && (
-                    <button 
-                        onClick={claimDaily}
-                        disabled={cooldownTime > 0 || loadingDaily || rewardMessage !== null}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-medium text-sm transition-all duration-300 ${
-                            rewardMessage 
-                            ? "bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.5)] scale-105"
-                            : cooldownTime <= 0 
-                            ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white shadow-lg shadow-green-900/20" 
-                            : "bg-white/5 border border-white/5 text-white/40 cursor-not-allowed"
-                        }`}
-                    >
-                        {loadingDaily ? "Lade..." : rewardMessage ? (<><span>🎉</span><span className="font-bold tracking-wider">{rewardMessage}</span></>) : cooldownTime > 0 ? (
-                            <><span>⏱️</span><span className="font-mono">{formatCooldown(cooldownTime)}</span>{dailyStreak > 0 && <span className="text-orange-400 ml-1">🔥 {dailyStreak}</span>}</>
-                        ) : (<><span>🎁</span><span className="hidden sm:inline">Daily Bonus</span><span className="sm:hidden">Daily</span>{dailyStreak > 0 && <span className="text-orange-400 ml-1">🔥 {dailyStreak}</span>}</>)}
-                    </button>
-                )}
-            </div>
-
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:block">
-                 <a href={TWITCH_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#9146FF]/30 text-[#9146FF] hover:bg-[#9146FF] hover:text-white transition-colors">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" /></svg>
-                    <span className="text-xs font-semibold">vnmvalentin</span>
-                 </a>
             </div>
 
             <div className="flex items-center relative" ref={userMenuRef}>
-              {/* HINZUGEFÜGT: Globaler Audio Toggle */}
               <button 
                   onClick={() => setIsMuted(!isMuted)}
                   className="p-2 mr-4 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -564,7 +478,6 @@ export default function Layout() {
 
           {/* PAGE CONTENT */}
           <section className="flex-1 overflow-y-auto p-4 md:p-8 relative z-0 custom-scrollbar">
-            {/* HINZUGEFÜGT: isMuted wird via Context an alle Unterseiten weitergegeben */}
             <Outlet context={{ isMuted }} />
           </section>
         </div>

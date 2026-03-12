@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import Card from "../../components/Card";
 import CoinIcon from "../../components/CoinIcon";
-import { Anvil, ArrowUpCircle, Loader2 } from "lucide-react";
+import { Anvil, ArrowUpCircle, Loader2, Search, ArrowRight } from "lucide-react";
 
 const CRAFT_COSTS = {
     common:    { dupes: [3, 4, 5, 6], coins: [50, 100, 200, 400] },
@@ -21,12 +21,17 @@ export default function CardCraftingPage() {
   const { user } = useContext(TwitchAuthContext);
 
   const [cardsDef, setCardsDef] = useState([]);
-  const [userCards, setUserCards] = useState({ owned: {}, cardLevels: {} });
+  const [userCards, setUserCards] = useState({ owned: {}, equipped: [], cardLevels: {} });
   const [casinoCredits, setCasinoCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   
   const [craftingId, setCraftingId] = useState(null);
-  const [successMsg, setSuccessMsg] = useState("");
+  
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterRarity, setFilterRarity] = useState("all");
+  const [filterLevel, setFilterLevel] = useState("all");
+  const [showActiveOnly, setShowActiveOnly] = useState(false); // NEU: Checkbox State
 
   const fetchData = async () => {
     try {
@@ -80,7 +85,6 @@ export default function CardCraftingPage() {
 
   const handleCraft = async (cardId) => {
       setCraftingId(cardId);
-      setSuccessMsg("");
       try {
           const res = await fetch("/api/cards/idle/craft", {
               method: "POST",
@@ -88,11 +92,8 @@ export default function CardCraftingPage() {
               body: JSON.stringify({ cardId }),
               credentials: "include"
           });
-          const data = await res.json();
           if (res.ok) {
-              setSuccessMsg(`Katze erfolgreich auf Level ${data.newLevel} aufgewertet!`);
               await fetchData();
-              setTimeout(() => setSuccessMsg(""), 4000);
           }
       } catch(e) {}
       setCraftingId(null);
@@ -100,7 +101,6 @@ export default function CardCraftingPage() {
 
   if (loading) return <div className="p-20 text-center text-white/50"><Loader2 className="animate-spin mx-auto mb-4" size={32} /> Lade Schmiede...</div>;
 
-  // Filtern & Sortieren
   let craftableCards = Object.keys(userCards.owned || {})
       .filter(id => {
           const amount = userCards.owned[id] || 0;
@@ -110,7 +110,21 @@ export default function CardCraftingPage() {
       .map(id => cardsDef.find(c => String(c.id) === String(id)))
       .filter(Boolean);
 
+  craftableCards = craftableCards.filter(c => {
+      // NEU: Checkbox Logik
+      if (showActiveOnly && !(userCards.equipped || []).includes(String(c.id))) return false;
+      
+      if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (filterRarity !== "all" && c.rarity !== filterRarity) return false;
+      
+      const lvl = (userCards.cardLevels && userCards.cardLevels[c.id]) || 1;
+      if (filterLevel !== "all" && String(lvl) !== filterLevel) return false;
+      
+      return true;
+  });
+
   craftableCards.sort((a, b) => {
+      // Sortierung nach "Aktiv" entfernt
       const upgA = getUpgradeData(a.id, a.rarity);
       const upgB = getUpgradeData(b.id, b.rarity);
       
@@ -127,6 +141,7 @@ export default function CardCraftingPage() {
 
   return (
     <div className="w-full space-y-8 animate-in fade-in pb-10">
+      
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/10 pb-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
@@ -146,54 +161,108 @@ export default function CardCraftingPage() {
         </div>
       </div>
 
-      {successMsg && (
-          <div className="bg-orange-500/20 border border-orange-500/50 text-orange-400 p-4 rounded-2xl font-black text-center text-xl shadow-[0_0_20px_rgba(249,115,22,0.3)] animate-pop-in">
-              ⚒️ {successMsg}
+      <div className="flex flex-wrap items-center gap-3 w-full bg-[#18181b] p-4 rounded-2xl border border-white/10 shadow-lg">
+          <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+              <input 
+                  type="text" 
+                  placeholder="Katze suchen..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-orange-500/50 transition-colors"
+              />
           </div>
-      )}
+          
+          <select 
+              value={filterRarity} 
+              onChange={(e) => setFilterRarity(e.target.value)}
+              className="bg-black/40 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-orange-500/50 appearance-none cursor-pointer"
+          >
+              <option value="all">Alle Seltenheiten</option>
+              {Object.keys(IDLE_BASE_RATES).map(r => (
+                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+              ))}
+          </select>
+
+          <select 
+              value={filterLevel} 
+              onChange={(e) => setFilterLevel(e.target.value)}
+              className="bg-black/40 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-orange-500/50 appearance-none cursor-pointer"
+          >
+              <option value="all">Alle Level</option>
+              {[1,2,3,4,5].map(l => (
+                  <option key={l} value={String(l)}>Level {l}</option>
+              ))}
+          </select>
+
+          {/* NEU: Checkbox für Aktive Karten */}
+          <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer bg-black/40 border border-white/10 rounded-xl py-2.5 px-4 hover:border-orange-500/50 transition-colors select-none">
+              <input 
+                  type="checkbox" 
+                  checked={showActiveOnly}
+                  onChange={(e) => setShowActiveOnly(e.target.checked)}
+                  className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
+              />
+              <span className="whitespace-nowrap">Nur Aktive</span>
+          </label>
+      </div>
 
       {craftableCards.length === 0 ? (
           <div className="py-20 text-center text-white/30 border-2 border-dashed border-white/10 rounded-3xl">
               <Anvil size={48} className="mx-auto mb-4 opacity-20" />
-              <p>Du hast keine doppelten Karten, die du verschmelzen könntest.</p>
+              <p>Keine Karten gefunden, die deinen Kriterien entsprechen.</p>
           </div>
       ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
               {craftableCards.map(c => {
                   const upg = getUpgradeData(c.id, c.rarity);
                   const lvl = upg.isMax ? 5 : upg.currentLevel;
+                  const isEquipped = (userCards.equipped || []).includes(String(c.id));
 
                   return (
-                      <div key={c.id} className="bg-[#18181b] border border-white/10 rounded-3xl p-5 shadow-xl flex gap-5 items-center">
+                      <div key={c.id} className={`bg-[#18181b] border ${isEquipped ? 'border-orange-500/30' : 'border-white/10'} rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col sm:flex-row gap-5 items-center sm:items-stretch relative overflow-hidden`}>
                           
-                          {/* NEU: Karte und Badge getrennt, aber als Gruppe */}
-                          <div className="w-[100px] sm:w-[120px] shrink-0 flex flex-col items-center gap-3">
+                          {isEquipped && <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -z-0"></div>}
+
+                          <div className="w-[120px] shrink-0 flex flex-col items-center gap-3 relative z-10">
                               <Card card={c} level={lvl} />
                               <div className="bg-green-500/10 border border-green-500/20 text-green-400 font-black text-xs px-2 py-1 rounded-full w-full text-center">
                                   +{getSingleCardDailyRate(c.rarity, lvl)}/d
                               </div>
                           </div>
 
-                          <div className="flex-1 flex flex-col justify-between h-full">
+                          <div className="w-full sm:flex-1 flex flex-col justify-between h-full relative z-10">
                               <div>
-                                  <h3 className="font-bold text-lg leading-tight mb-1">{c.name}</h3>
+                                  {/* Badge entfernt, nur noch der Name steht hier */}
+                                  <div className="mb-2">
+                                      <h3 className="font-bold text-lg leading-tight">{c.name}</h3>
+                                  </div>
+
                                   {upg.isMax ? (
-                                      <div className="text-yellow-400 text-sm font-black flex items-center gap-1 mt-2">
+                                      <div className="text-yellow-400 text-sm font-black flex items-center gap-1 mt-2 bg-yellow-500/10 p-2 rounded-xl border border-yellow-500/20 w-fit">
                                           ⭐ MAX LEVEL
                                       </div>
                                   ) : (
                                       <div className="text-white/60 text-xs font-medium space-y-2 mt-2">
-                                          <div className="flex justify-between items-center">
+                                          
+                                          <div className="flex flex-wrap justify-between items-center bg-black/30 p-2.5 rounded-lg border border-white/5 mb-3 gap-2">
+                                              <span className="text-white/60 text-xs">Aufwertung:</span>
+                                              <span className="font-black text-sm flex items-center gap-1.5 text-orange-400 whitespace-nowrap">
+                                                  Lvl {upg.currentLevel} <ArrowRight size={14} /> Lvl {upg.nextLevel}
+                                              </span>
+                                          </div>
+
+                                          <div className="flex flex-wrap justify-between items-center gap-2">
                                               <span>Duplikate:</span>
                                               <span className={upg.canAffordDupes ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
                                                   {upg.availableDupes} / {upg.cost.dupes}
                                               </span>
                                           </div>
-                                          <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                                          <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden mt-1">
                                               <div className={`h-full transition-all ${upg.canAffordDupes ? 'bg-green-500' : 'bg-orange-500'}`} style={{ width: `${Math.min(100, (upg.availableDupes / upg.cost.dupes)*100)}%` }} />
                                           </div>
 
-                                          <div className="flex justify-between items-center mt-3">
+                                          <div className="flex flex-wrap justify-between items-center mt-3 gap-2">
                                               <span>Kosten:</span>
                                               <span className={`flex items-center gap-1 ${upg.canAffordCoins ? "text-yellow-400" : "text-red-400"}`}>
                                                   {upg.cost.coins} <CoinIcon className="w-3 h-3" />
@@ -207,7 +276,7 @@ export default function CardCraftingPage() {
                                   <button 
                                       onClick={() => handleCraft(c.id)}
                                       disabled={!upg.canCraft || craftingId === c.id}
-                                      className="w-full mt-4 bg-orange-600 hover:bg-orange-500 disabled:bg-white/5 disabled:text-white/20 text-white font-black py-2.5 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2 text-sm"
+                                      className="w-full mt-4 bg-orange-600 hover:bg-orange-500 disabled:bg-white/5 disabled:text-white/20 text-white font-black py-2.5 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2 text-sm shrink-0"
                                   >
                                       {craftingId === c.id ? <><Loader2 className="animate-spin" size={16}/> Schmiede...</> : <><ArrowUpCircle size={16} /> Aufwerten</>}
                                   </button>

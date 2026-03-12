@@ -11,7 +11,6 @@ const SYMBOL_MAP = {
   "🍋": "/assets/slots/lemon.png" + CACHE_BUST,
   "🍇": "/assets/slots/grape.png" + CACHE_BUST,
   "🔔": "/assets/slots/banana.png" + CACHE_BUST,
-  "🥭": "/assets/slots/papaya.png" + CACHE_BUST,
   "💎": "/assets/slots/diamond.png" + CACHE_BUST,
   "7️⃣": "/assets/slots/seven.png" + CACHE_BUST,
   "🃏": "/assets/slots/joker.png" + CACHE_BUST,   
@@ -22,10 +21,9 @@ const PAYTABLE = [
   { char: "🃏", pays: [7.0, 20.0, 100.0], label: "Wild" },
   { char: "7️⃣", pays: [5.0, 15.0, 50.0], label: "Seven" },
   { char: "💎", pays: [3.0, 6.0, 18.0], label: "Gem" },
-  { char: "🥭", pays: [1.5, 3.5, 10.0], label: "Papaya" },
-  { char: "🔔", pays: [1.0, 2.0, 7.0], label: "Bell" },
-  { char: "🍇", pays: [0.8, 1.6, 5.5], label: "Grape" },
-  { char: "🍋", pays: [0.7, 1.4, 4.5], label: "Lemon" },
+  { char: "🔔", pays: [1.2, 2.5, 7.5], label: "Bell" },
+  { char: "🍇", pays: [1.0, 2.0, 6.0], label: "Grape" },
+  { char: "🍋", pays: [0.8, 1.6, 4.5], label: "Lemon" },
   { char: "🍒", pays: [0.6, 1.2, 3.5], label: "Cherry" },
 ];
 

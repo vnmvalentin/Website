@@ -45,7 +45,11 @@ module.exports = function createSeasonRouter({ requireAuth }) {
                 adventureMaxStage: advData.highScore || 0,
                 uniqueCards: uniqueCardsCount,
                 hasFullSet: hasFullSet,
-                badges: casinoData.badges || [] // Wichtig fürs Frontend-Flexing!
+                badges: casinoData.badges || [],
+                // NEU: Zusätzliche Profil-Daten
+                achievements: cardData.claimedAchievements || [],
+                activeSkin: advData.activeSkin || "default",
+                loadout: advData.loadout || [null, null, null, null]
             });
         }
 
