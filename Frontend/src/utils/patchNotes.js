@@ -1,27 +1,3 @@
-// src/data/patchNotes.js
-
-export const patchNotes = [
-    {
-        version: "Season 1",
-        date: "2026-03-15",
-        title: "Balance Updates",
-        categories: [
-            {
-                name: "💰 Casino",
-                changes: [
-                    "Slots sind jetzt keine Gelddruckmaschine mehr",
-                ]
-            },
-            {
-                name: "Packs",
-                changes: [
-                    "Boss-HP in Stage 10 um 15% erhöht."
-                ]
-            }
-        ]
-    }
-];
-
 // Definition aller möglichen Badges für die Tooltips (Das ist unser Flex-System!)
 export const BADGE_DICTIONARY = {
     "s1_coins_1": { 

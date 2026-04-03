@@ -27,6 +27,7 @@ import GameSessions from "./pages/GameSession";
 import Updates from "./pages/Updates";
 import CardDashboard from "./pages/Card/CardDashboard";
 import Season from "./pages/Seasons";
+import StreamCredits from "./pages/StreamCredits";
 
 export default function App() {
   return (
@@ -34,6 +35,8 @@ export default function App() {
       <Routes>
         {/* Overlay separat, ohne Layout */}
         <Route path="/WinChallengeOverlay/:overlayKey" element={<WinChallengeOverlay />}/>
+        <Route path="/overlay/credits" element={<StreamCredits />} />
+        
         <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
         <Route path="/overlay/pond" element={<ViewerPond />} />
 

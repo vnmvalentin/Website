@@ -13,11 +13,20 @@ const CAT_SETS = [
     { id: "heroes", name: "Die Helden", cats: ["13", "50", "51"], bonus: 100 },
     { id: "elements", name: "Elemente", cats: ["25", "70", "71"], bonus: 100 },
     { id: "heavenhell", name: "Himmel & Hölle", cats: ["43", "44"], bonus: 200 },
+    { id: "relax", name: "Urlaubs-Vibes", cats: ["1", "2", "52", "58"], bonus: 200 },
     { id: "sweet", name: "Süße Katzen", cats: ["75", "77", "74"], bonus: 250 },
     { id: "gems", name: "Edelsteine", cats: ["73", "40", "79"], bonus: 300 },
+    { id: "egypt", name: "Wüstenherrscher", cats: ["4", "87", "135"], bonus: 300 },
+    { id: "weather", name: "Naturgewalten", cats: ["65", "84", "85"], bonus: 350 },
+    { id: "food", name: "Fresskoma", cats: ["10", "11", "103", "109", "140"], bonus: 350 },
+    { id: "seasons", name: "Die vier Jahreszeiten", cats: ["125", "126", "127", "128"], bonus: 400 },
+    { id: "cyber", name: "Cyber-Squad", cats: ["8", "47", "56", "116"], bonus: 450 },
+    { id: "spooky", name: "Gruselkabinett", cats: ["3", "42", "66", "69", "108"], bonus: 500 },
     { id: "dn", name: "Tag & Nacht", cats: ["48", "63"], bonus: 500 },
+    { id: "space", name: "Space Force", cats: ["48", "60", "106", "145"], bonus: 600 },
     { id: "yy", name: "Yin & Yang", cats: ["67", "68"], bonus: 1500},
-    { id: "flower", name: "Flowerpower", cats: ["32", "34", "57", "82"], bonus: 1500 }
+    { id: "flower", name: "Flowerpower", cats: ["32", "34", "57", "82"], bonus: 1500 },
+    { id: "memes", name: "Meme-Lords", cats: ["112", "149", "150"], bonus: 2000 }
 ];
 
 export default function CardEquipmentPage() {

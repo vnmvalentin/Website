@@ -1,5 +1,44 @@
 export const NEWS_UPDATES = [
   {
+    date: "14.03.2026",
+    version: "v3.2: Seasons",
+    sections: [
+      {
+        title: "Allgemein",
+        items: [
+          "Neues Season-System im Hub bei der Fun Kategorie mit Leaderboard und Dailys"
+        ]
+      },
+      {
+        title: "Packs",
+        items: [
+          "50 neue Karten",
+          "Verbesserung bei Schmiede",
+          "10 Packs als Option zum Kaufen hinzugefügt"
+        ]
+      },
+      {
+        title: "Casino",
+        items: [
+          "Odds angepasst -> Ab jetzt wirklich ein Casino (keine Gelddruckmaschine)",
+          "Geld wird in den meisten Fällen verloren... spielen auf eigene Gefahr"
+        ]
+      },
+      {
+        title: "Win-Challenge",
+        items: [
+          "Neues Overlay mit einem kompletten Fenster für mehr Übersicht"
+        ]
+      },
+      {
+        title: "Viewer-Sea",
+        items: [
+          "Neuer Fisch"
+        ]
+      }
+    ]
+  },
+  {
     date: "27.02.2026",
     version: "v3.1: Hotfix",
     sections: [

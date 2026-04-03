@@ -71,3 +71,12 @@
   background-size: 200% auto;
   animation: text-rainbow 4s linear infinite;
 }
+
+/* MOVIE CREDITS ANIMATION */
+@keyframes scroll-credits {
+    0% { top: 100%; transform: translateY(0); }
+    100% { top: 0; transform: translateY(-100%); }
+}
+.animate-scroll-credits {
+    animation: scroll-credits 100s linear forwards; 
+}

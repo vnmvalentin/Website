@@ -6,7 +6,9 @@
     "name": "gh0stqq",
     "dailyStreak": 0,
     "badges": [
-      "s1_coins_2"
+      "s1_coins_2",
+      "s2_coins_2",
+      "s3_coins_2"
     ]
   },
   "102402662": {
@@ -15,7 +17,9 @@
     "dailyStreak": 0,
     "lastDaily": 0,
     "badges": [
-      "s1_coins_3"
+      "s1_coins_3",
+      "s2_coins_3",
+      "s3_coins_3"
     ]
   },
   "111885284": {
@@ -45,17 +49,23 @@
     "dailyStreak": 0
   },
   "160224748": {
-    "credits": 994658,
+    "credits": 2342750,
     "activeGame": null,
     "name": "vnmvalentin",
     "stickyWilds": [],
     "freeSpinsLeft": 0,
     "dailyStreak": 1,
-    "lastDaily": 1773320178514,
+    "lastDaily": 1775191863493,
     "badges": [
       "s1_adventure_1",
       "s1_coins_1",
-      "s1_cards_1"
+      "s1_cards_1",
+      "s2_adventure_1",
+      "s2_coins_1",
+      "s2_cards_1",
+      "s3_adventure_1",
+      "s3_coins_1",
+      "s3_cards_1"
     ]
   },
   "537042436": {

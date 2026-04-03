@@ -30,11 +30,20 @@ const CAT_SETS = [
     { id: "heroes", name: "Die Helden", cats: ["13", "50", "51"], bonus: 100 },
     { id: "elements", name: "Elemente", cats: ["25", "70", "71"], bonus: 100 },
     { id: "heavenhell", name: "Himmel & Hölle", cats: ["43", "44"], bonus: 200 },
+    { id: "relax", name: "Urlaubs-Vibes", cats: ["1", "2", "52", "58"], bonus: 200 },
     { id: "sweet", name: "Süße Katzen", cats: ["75", "77", "74"], bonus: 250 },
     { id: "gems", name: "Edelsteine", cats: ["73", "40", "79"], bonus: 300 },
+    { id: "egypt", name: "Wüstenherrscher", cats: ["4", "87", "135"], bonus: 300 },
+    { id: "weather", name: "Naturgewalten", cats: ["65", "84", "85"], bonus: 350 },
+    { id: "food", name: "Fresskoma", cats: ["10", "11", "103", "109", "140"], bonus: 350 },
+    { id: "seasons", name: "Die vier Jahreszeiten", cats: ["125", "126", "127", "128"], bonus: 400 },
+    { id: "cyber", name: "Cyber-Squad", cats: ["8", "47", "56", "116"], bonus: 450 },
+    { id: "spooky", name: "Gruselkabinett", cats: ["3", "42", "66", "69", "108"], bonus: 500 },
     { id: "dn", name: "Tag & Nacht", cats: ["48", "63"], bonus: 500 },
+    { id: "space", name: "Space Force", cats: ["48", "60", "106", "145"], bonus: 600 },
     { id: "yy", name: "Yin & Yang", cats: ["67", "68"], bonus: 1500},
-    { id: "flower", name: "Flowerpower", cats: ["32", "34", "57", "82"], bonus: 1500 }
+    { id: "flower", name: "Flowerpower", cats: ["32", "34", "57", "82"], bonus: 1500 },
+    { id: "memes", name: "Meme-Lords", cats: ["112", "149", "150"], bonus: 2000 }
 ];
 
 const LEVEL_MULTIPLIERS = [1.0, 1.4, 1.9, 2.5, 3.2]; // Level 1 bis 5
@@ -101,12 +110,14 @@ function getUpgradeCost(currentLevel, rarity) {
 const ACHIEVEMENT_REWARDS = {
   "first_blood": { coins: 100 },
   "collector_50": { coins: 500, color: "blue" },
-  "collector_75": { coins: 1000, fish: "rainbow" },
+  "collector_75": { coins: 1000},
+  "collector_100": { coins: 1500},
   "epic_found": { coins: 500 },
   "mythic_found": { coins: 1000, color: "purple" },
   "collection_crew": { coins: 1000 },
-  "legend_found": { coins: 5000, fish: "sharky" },
-  "ultimate_collector": { coins: 25000, fish: "orca", color: "rainbow-animated" },
+  "meme_collector": { coins: 2000, fish: "catfish" },
+  "legend_found": { coins: 5000, color: "gold" },
+  "ultimate_collector": { coins: 25000, fish: "pepe", color: "rainbow-animated" },
 };
 
 // --- Helper: JSON ---
@@ -208,10 +219,10 @@ module.exports = function createPackRouter({ requireAuth, wss }) {
     function getRandomCard() {
       const r = Math.random() * 100;
       let rarity = "common";
-      if (r < 0.03) rarity = "legendary";
-      else if (r < 0.5) rarity = "mythic";
-      else if (r < 3.0) rarity = "epic";
-      else if (r < 30.0) rarity = "rare";
+      if (r < 0.02) rarity = "legendary";
+      else if (r < 0.3) rarity = "mythic";
+      else if (r < 2.5) rarity = "epic";
+      else if (r < 25.0) rarity = "rare";
       else if (r < 65.0) rarity = "uncommon";
 
       const pool = rarityPools[rarity] && rarityPools[rarity].length > 0 ? rarityPools[rarity] : rarityPools.common;
@@ -474,6 +485,45 @@ module.exports = function createPackRouter({ requireAuth, wss }) {
       saveUserCardsDb(db);
 
       res.json({ ok: true, newLevel: currentLevel + 1, newCredits: casinoDb[req.twitchId].credits });
+  });
+
+  // --- ADMIN ROUTE FÜR KANALPUNKTE (STREAMER.BOT) ---
+  router.get("/cards/admin/add-credits", (req, res) => {
+    const { adminPw, amount, twitchId } = req.query;
+
+    // Überprüfung gegen die .env Variable
+    if (adminPw !== process.env.ADMIN_PW) {
+      return res.status(403).json({ error: "Falsches Admin-Passwort" });
+    }
+
+    if (!twitchId) {
+      return res.status(400).json({ error: "Fehlende twitchId" });
+    }
+
+    const addAmount = parseInt(amount, 10);
+    if (isNaN(addAmount) || addAmount <= 0) {
+      return res.status(400).json({ error: "Ungültiger Betrag" });
+    }
+
+    // Casino-Datenbank laden
+    const casinoDb = loadJson(CASINO_DB_PATH);
+    
+    // Falls der User noch nicht im Casino existiert, legen wir ihn an
+    if (!casinoDb[twitchId]) {
+      casinoDb[twitchId] = { credits: 0 };
+    }
+    
+    // Credits hinzufügen
+    casinoDb[twitchId].credits += addAmount;
+    
+    // In der JSON-Datei speichern
+    fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2));
+
+    res.json({ 
+        ok: true, 
+        message: `${addAmount} Credits an ${twitchId} vergeben.`,
+        newCredits: casinoDb[twitchId].credits 
+    });
   });
 
   return router;

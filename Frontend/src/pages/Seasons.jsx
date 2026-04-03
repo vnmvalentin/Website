@@ -5,6 +5,7 @@ import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import CoinIcon from "../components/CoinIcon"; 
 import { Trophy, Shield, Award, Users, X, Star, User, Gift, Gamepad2, ChevronRight } from "lucide-react";
 import { BADGE_DICTIONARY } from "../utils/patchNotes";
+import SEO from "../components/SEO";
 
 const TABS = [
   { id: "hub", label: "Minigames", icon: <Gamepad2 size={16} /> },
@@ -160,15 +161,18 @@ export default function Season() {
             const diff = (lastDaily + 24*60*60*1000) - now;
             setCooldownTime(Math.max(0, diff));
             
-            if (now - lastDaily > 48 * 60 * 60 * 1000) {
+            // Live-Ausblenden, falls die Zeit abläuft WÄHREND man auf der Seite ist
+            if (dailyStreak > 0 && (now - lastDaily > 48 * 60 * 60 * 1000)) {
                 setDailyStreak(0);
             }
         } else { 
             setCooldownTime(0); 
         }
     }, 1000);
+    
+    // WICHTIG: dailyStreak als Abhängigkeit hinzufügen
     return () => clearInterval(iv);
-  }, [lastDaily]);
+  }, [lastDaily, dailyStreak]);
 
   const claimDaily = async () => {
       setLoadingDaily(true);
@@ -249,6 +253,7 @@ export default function Season() {
 
   return (
     <div className="max-w-7xl mx-auto py-8 relative">
+        <SEO title="Seasonhub"/>
       
       {/* Profil Modal (Spielerübersicht) */}
       {selectedUser && (
@@ -380,7 +385,7 @@ export default function Season() {
 
       {/* --- TAB 1: MINIGAMES (HAUPTHUB) --- */}
       {activeTab === "hub" && (
-        <div className="animate-in fade-in flex flex-col gap-8">
+        <div className="animate-in fade-in flex flex-col gap-1">
             
             {/* DAILY BONUS BANNER */}
             {user && (

@@ -20,10 +20,10 @@ const SYMBOL_MAP = {
 const PAYTABLE = [
   { char: "🃏", pays: [7.0, 20.0, 100.0], label: "Wild" },
   { char: "7️⃣", pays: [5.0, 15.0, 50.0], label: "Seven" },
-  { char: "💎", pays: [3.0, 6.0, 18.0], label: "Gem" },
-  { char: "🔔", pays: [1.2, 2.5, 7.5], label: "Bell" },
-  { char: "🍇", pays: [1.0, 2.0, 6.0], label: "Grape" },
-  { char: "🍋", pays: [0.8, 1.6, 4.5], label: "Lemon" },
+  { char: "💎", pays: [3.0, 6.0, 20.0], label: "Gem" },
+  { char: "🔔", pays: [1.2, 2.5, 8.0], label: "Bell" },
+  { char: "🍇", pays: [1.0, 2.0, 6.5], label: "Grape" },
+  { char: "🍋", pays: [0.8, 1.6, 5.0], label: "Lemon" },
   { char: "🍒", pays: [0.6, 1.2, 3.5], label: "Cherry" },
 ];
 

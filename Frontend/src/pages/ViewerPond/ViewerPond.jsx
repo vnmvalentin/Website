@@ -34,6 +34,8 @@ const FISH_DEFS = {
   ray: { img: "/assets/viewerpond/ray/ray.png", name: "Rochen" },
   orca: { img: "/assets/viewerpond/orca/orca.png", name: "Orca" },
   modente: { img: "/assets/viewerpond/exclusive/modente.png", name: "Mod-Ente" },
+  pepe: { img: "/assets/viewerpond/pepe/pepe.png", name: "Pepe-Fisch" },
+  catfish: { img: "/assets/viewerpond/catfish/catfish.png", name: "Cat-Fish" },
 };
 
 const DECO_ASSETS = {

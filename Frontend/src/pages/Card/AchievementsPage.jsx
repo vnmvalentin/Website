@@ -39,6 +39,16 @@ const ACHIEVEMENTS_DEF = [
     }
   },
   {
+    id: "collector_100",
+    title: "Katzen-Mensch",
+    desc: "Sammle 100 einzigartige Katzen.",
+    rewardCoins: 1500,
+    checkProgress: (owned, defs) => {
+      const current = Object.keys(owned).length;
+      return { current, max: 100, isUnlocked: current >= 75 };
+    }
+  },
+  {
     id: "epic_found",
     title: "Epischer Fund",
     desc: "Ziehe deine erste Epische Katze.",
@@ -83,12 +93,24 @@ const ACHIEVEMENTS_DEF = [
     }
   },
   {
+    id: "meme_collector",
+    title: "Memer",
+    desc: "Sammle die Meme-Katzen: 67, 420 und Meme-Katze",
+    rewardCoins: 2000,
+    // HIER DIE IDS DEINER SPEZIELLEN KATZEN EINTRAGEN:
+    requiredIds: ["112","149", "150"], 
+    checkProgress: function(owned, defs) {
+      const current = this.requiredIds.filter(id => owned[id]).length;
+      return { current, max: this.requiredIds.length, isUnlocked: current >= this.requiredIds.length };
+    }
+  },
+  {
     id: "ultimate_collector",
     title: "Der Katzen-Gott",
     desc: "Sammle ausnahmslos ALLE existierenden Katzen.",
     rewardCoins: 25000,
     rewardColor: "Regenbogen",
-    rewardFish: "Rainbow",
+    rewardFish: "Pepe-Fish",
     checkProgress: (owned, defs) => {
       const totalDef = defs.length;
       const current = Object.keys(owned).length;

@@ -2,13 +2,13 @@
 import React from "react";
 import "./Card.css";
 
-// Prüfe bitte genau, ob dieser Pfad in deinem Projekt existiert!
-// Falls das Bild nicht angezeigt wird, liegt es meistens am falschen Pfad.
 const DEFAULT_BG = "/assets/artworkscats/background.jpg"; 
 
-export default function Card({ card, level = 1 }) {
+// HIER: isNew als direkten Prop hinzufügen (Standardwert: false)
+export default function Card({ card, level = 1, isNew = false }) {
   if (!card) return null;
 
+  // HIER: isNew aus der Destrukturierung entfernen
   const {
     name,
     number,
@@ -16,10 +16,8 @@ export default function Card({ card, level = 1 }) {
     themeUrl,
     artworkUrl,
     artUrl, 
-    isNew,
   } = card;
 
-  // Theme Logik
   const theme = themeUrl || DEFAULT_BG;
   const artwork = artworkUrl || artUrl || "";
 
@@ -39,30 +37,26 @@ export default function Card({ card, level = 1 }) {
       className="card"
       data-rarity={rarity}
       style={{
-        "--card-theme-url": `url('${theme}')`, // Anführungszeichen hinzugefügt für Sicherheit
+        "--card-theme-url": `url('${theme}')`, 
       }}
     >
-      {/* 1. "Neu" Badge - Oben Links */}
+      {/* Das "Neu" Badge wird jetzt über den neuen Prop gesteuert */}
       {isNew && <div className="card-new-badge">Neu</div>}
 
-      {/* 2. Level Badge - Oben Rechts (Absolut positioniert) */}
       {level > 1 && (
           <div className="card-level-badge">
               ⭐ {level}
           </div>
       )}
       
-      {/* Hintergrund Layer */}
       <div className="card-bg" />
       <div className="card-frame" />
 
       <div className="card-content">
-        {/* Header: Name (Jetzt mit voller Breite) */}
         <div className="card-header text-shadow-sm">
           <span>{name}</span>
         </div>
 
-        {/* Artwork */}
         <div className="card-art-container">
             {artwork ? (
                 <img src={artwork} alt={name} className="card-art-img" />
@@ -71,7 +65,6 @@ export default function Card({ card, level = 1 }) {
             )}
         </div>
 
-        {/* Footer: Seltenheit & ID (Immer sichtbar!) */}
         <div className="card-footer">
           <span className="card-rarity">{rarityLabel}</span>
           <span className="card-number">#{number}</span>

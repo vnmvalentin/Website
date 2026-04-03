@@ -33,13 +33,15 @@ const ALL_FISHES = [
   { id: "starfish", name: "Seestern", img: "/assets/viewerpond/starfish/starfish.png" },
   { id: "seal", name: "Seehund", img: "/assets/viewerpond/seal/seal.png" },
   { id: "hammershark", name: "Hammerhai", img: "/assets/viewerpond/hammershark/hammershark.png" },
-  { id: "rainbow", name: "Regenbogen", img: "/assets/viewerpond/rainbow/rainbow.png", reqAchievement: "ultimate_collector" },
+  { id: "rainbow", name: "Regenbogen", img: "/assets/viewerpond/rainbow/rainbow.png" },
   { id: "schleier", name: "Schleierfisch", img: "/assets/viewerpond/schleier/schleier.png" },
   { id: "crab", name: "Krabbe", img: "/assets/viewerpond/crab/crab.png" },
   { id: "eel", name: "Aal", img: "/assets/viewerpond/eel/eel.png" },
   { id: "ray", name: "Rochen", img: "/assets/viewerpond/ray/ray.png" },
   { id: "orca", name: "Orca", img: "/assets/viewerpond/orca/orca.png" },
   { id: "modente", name: "Mod-Ente", img: "/assets/viewerpond/exclusive/modente.png" },
+  { id: "pepe", name: "Pepe-Fisch", img: "/assets/viewerpond/pepe/pepe.png", reqAchievement: "ultimate_collector" },
+  { id: "catfish", name: "Cat-Fish", img: "/assets/viewerpond/catfish/catfish.png", reqAchievement: "meme_collector" },
 ];
 
 const ALL_COLORS = [

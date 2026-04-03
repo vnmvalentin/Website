@@ -43,7 +43,6 @@ const TRANSLATIONS = {
       "requirements": "Voraussetzungen",
       "ytm-setup": "Setup YTM App",
       "sb-setup": "Setup Streamer.bot",
-      "spotify": "Spotify Credentials",
       "feedback": "Feedback"
     },
     
@@ -74,20 +73,10 @@ const TRANSLATIONS = {
       { title: "Action 1: SETUP IF DUAL PC", desc: "NUR anfassen, wenn Streamer.bot und YTM auf verschiedenen PCs laufen. Sonst IP bei '127.0.0.1' lassen (Nichts tun, Finger weg)." },
       { title: "Action 2: QueueCheck", desc: "Zeigt die nächsten Songs. Tipp: Du kannst in den SubActions das Argument 'maxSongs' auf eine andere Zahl ändern die dann die Anzahl der Songs in der Antwort ausgibt. (Lasse es zwischen 3-5 damit die Antwort nicht zu lang ist.)" },
       { title: "Action 3: Song Info", desc: "Gibt laufenden Song per Command aus. Gehe in den Reiter 'Commands' und stelle sicher, dass der Trigger-Command aktiv ist." },
-      { title: "Action 4: Song Request", desc: "Dies ist die Hauptfunktion. Richte hier den Trigger ein (z.B. Kanalpunkte Reward per Doppelklick). Du kannst bei dem Argument maxSongDurationMinutes einstellen, wie lang Songs maximal gehen sollen beim Request. WICHTIG: Hier müssen gleich die Spotify Credentials rein damit auch Spotify-Links beim Request funktionieren. (siehe nächster Schritt)." },
+      { title: "Action 4: Song Request", desc: "Dies ist die Hauptfunktion. Richte hier den Trigger ein (z.B. Kanalpunkte Reward per Doppelklick). Du kannst bei dem Argument maxSongDurationMinutes einstellen, wie lang Songs maximal gehen sollen beim Request." },
       { title: "Action 5: Song Skip", desc: "Ermöglicht das Skippen per Kanalpunkte oder Command (Mod only). Trigger nach Wahl hinzufügen." }
     ],
     
-    spTitle: "Spotify Credentials",
-    spText: "Damit Streamer.bot Spotify-Links in YouTube-Links umwandeln kann, brauchen wir einen API-Zugriff.",
-    spBtn: "Zum Spotify Dashboard",
-    spStep1: "1. Logge dich ein und klicke auf Create App.",
-    spStep2: "2. Name: z.B. \"TwitchBot\", Redirect URI kann leer bleiben.",
-    spStep3: "3. Nach dem Erstellen klicke auf Settings.",
-    spStep4: "4. Kopiere die Client ID und das Client Secret.",
-    spStep5: "5. Gehe zurück zu Streamer.bot in die Action Songrequest.",
-    spStep6: "6. Öffne die Sub-Actions und suche die Felder für spotifyId und spotifySecret.",
-    spStep7: "7. Füge deine kopierten Werte dort ein.",
     
     fbTitle: "Feedback & Support",
     fbHelpTitle: "Hilfe benötigt?",
@@ -123,7 +112,6 @@ const TRANSLATIONS = {
       "requirements": "Requirements",
       "ytm-setup": "Setup YTM App",
       "sb-setup": "Setup Streamer.bot",
-      "spotify": "Spotify Credentials",
       "feedback": "Feedback"
     },
     
@@ -154,20 +142,9 @@ const TRANSLATIONS = {
       { title: "Action 1: SETUP IF DUAL PC", desc: "ONLY touch if Streamer.bot and YTM are on different PCs. Otherwise leave IP at '127.0.0.1' (Do nothing)." },
       { title: "Action 2: QueueCheck", desc: "Shows the next songs. Tip: You can change the 'maxSongs' argument in SubActions to output a different number of songs. (Keep it between 3-5 so the response isn't too long.)" },
       { title: "Action 3: Song Info", desc: "Outputs current song via command. Go to 'Commands' tab and ensure the trigger command is active." },
-      { title: "Action 4: Song Request", desc: "This is the main function. Set up the trigger here (e.g., Channel Points Reward via double click). You can set maxSongDurationMinutes argument to limit song length. IMPORTANT: Enter Spotify Credentials here immediately for Spotify links to work (see next step)." },
+      { title: "Action 4: Song Request", desc: "This is the main function. Set up the trigger here (e.g., Channel Points Reward via double click). You can set maxSongDurationMinutes argument to limit song length." },
       { title: "Action 5: Song Skip", desc: "Allows skipping via Channel Points or Command (Mod only). Add trigger of your choice." }
     ],
-    
-    spTitle: "Spotify Credentials",
-    spText: "To allow Streamer.bot to convert Spotify links into YouTube links, we need API access.",
-    spBtn: "To Spotify Dashboard",
-    spStep1: "1. Log in and click Create App.",
-    spStep2: "2. Name: e.g., \"TwitchBot\", Redirect URI can remain empty.",
-    spStep3: "3. After creation click Settings.",
-    spStep4: "4. Copy Client ID and Client Secret.",
-    spStep5: "5. Go back to Streamer.bot into the Songrequest action.",
-    spStep6: "6. Open Sub-Actions and find fields for spotifyId and spotifySecret.",
-    spStep7: "7. Paste your copied values there.",
     
     fbTitle: "Feedback & Support",
     fbHelpTitle: "Need Help?",
@@ -195,7 +172,6 @@ const STEPS = [
   { id: "requirements", icon: Download },
   { id: "ytm-setup", icon: Music },
   { id: "sb-setup", icon: Bot },
-  { id: "spotify", icon: Key },
   { id: "feedback", icon: MessageSquare },
 ];
 
@@ -439,35 +415,6 @@ export default function YTMPage() {
                                     <div className="text-sm text-white/60">{action.desc}</div>
                                 </div>
                             ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* 4. SETUP SPOTIFY */}
-                {activeStep === "spotify" && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <h2 className="text-2xl font-bold border-b border-white/10 pb-4">{t.spTitle}</h2>
-                        <p className="text-white/70">
-                            {t.spText}
-                        </p>
-
-                        <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold px-6 py-3 rounded-xl transition-colors">
-                            {t.spBtn} <ChevronRight size={16} />
-                        </a>
-
-                        <div className="space-y-4 list-decimal list-inside text-white/80 text-sm leading-relaxed">
-                             <div className="bg-black/30 p-4 rounded-xl border border-white/10">
-                                {t.spStep1}<br/>
-                                {t.spStep2}<br/>
-                                {t.spStep3}<br/>
-                                {t.spStep4}
-                             </div>
-                             
-                             <div className="bg-violet-500/10 p-4 rounded-xl border border-violet-500/20 text-violet-200">
-                                {t.spStep5}<br/>
-                                {t.spStep6}<br/>
-                                {t.spStep7}
-                             </div>
                         </div>
                     </div>
                 )}

@@ -87,8 +87,8 @@ function executeSeasonReset() {
         advData.powerups = []; 
         advData.loadout = [null, null, null, null]; 
     }
-    for (const userId of Object.keys(cardsDb)) {
-        delete cardsDb[userId.id];
+    for (const userId in cardsDb) {
+        delete cardsDb[userId];
     }
 
     // 5. NEUE SEASON KONFIGURIEREN

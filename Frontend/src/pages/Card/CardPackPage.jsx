@@ -46,6 +46,9 @@ export default function CardPackPage() {
   const [userCards, setUserCards] = useState({ owned: {} });
   const [cardsDef, setCardsDef] = useState([]);
   
+  // FIX: Snapshot State, um zu wissen, welche Karten vor dem Pull "Neu" waren
+  const [prePullOwned, setPrePullOwned] = useState({});
+  
   const [loading, setLoading] = useState(true);
   const [buyingPack, setBuyingPack] = useState(false);
   const [error, setError] = useState("");
@@ -74,6 +77,22 @@ export default function CardPackPage() {
     });
   }, [user]);
 
+  // FIX: Preloader Funktion für flüssige Animationen
+  const preloadCardImages = async (cardsList) => {
+    const promises = cardsList.map(c => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = resolve;
+        img.onerror = resolve; // Falls ein Bild fehlt, blockiert es nicht alles
+        
+        // ACHTUNG: Passe diesen Pfad so an, wie dein <Card /> Element die Bilder lädt!
+        // Beispiel: c.image, c.url, oder `/assets/cats/${c.id}.png`
+        img.src = c.image || `/assets/cards/${c.id}.png`; 
+      });
+    });
+    await Promise.all(promises);
+  };
+
   const openPack = async () => {
     if (credits < PACK_PRICE) {
         setError("Nicht genug Coins!");
@@ -83,6 +102,7 @@ export default function CardPackPage() {
 
     setError("");
     setBuyingPack(true);
+    setPrePullOwned({ ...userCards.owned }); // Snapshot speichern für "NEU" Badge
     
     try {
       const res = await fetch("/api/cards/open", { method: "POST", credentials: "include" });
@@ -95,6 +115,9 @@ export default function CardPackPage() {
       }
 
       data.cards.sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
+
+      // Lade die Bilder vor, bevor das Overlay öffnet
+      await preloadCardImages(data.cards);
 
       setPack({ isMulti: false, cards: data.cards });
       setCredits(data.newCredits);
@@ -122,10 +145,12 @@ export default function CardPackPage() {
 
     setError("");
     setBuyingPack(true);
+    setPrePullOwned({ ...userCards.owned }); // Snapshot speichern
     
     try {
       let currentCredits = credits;
       const allPacks = [];
+      const allCardsFlat = []; // Für den Preloader
       
       for(let i = 0; i < 10; i++) {
           const res = await fetch("/api/cards/open", { method: "POST", credentials: "include" });
@@ -135,12 +160,16 @@ export default function CardPackPage() {
           currentCredits = data.newCredits;
           data.cards.sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
           allPacks.push(data.cards);
+          allCardsFlat.push(...data.cards);
       }
+
+      // Preload ALL 30 cards before triggering the animation
+      await preloadCardImages(allCardsFlat);
 
       setPack({ isMulti: true, packs: allPacks });
       setCredits(currentCredits);
       setBuyingPack(false);
-      setPackPhase("closed"); // HIER: Vorher "summary", jetzt "closed" damit die Animation triggert
+      setPackPhase("closed"); 
       setOverlayOpen(true);
 
       fetch("/api/cards/user", { credentials: "include" })
@@ -158,7 +187,7 @@ export default function CardPackPage() {
       setPackPhase("shaking");
       setTimeout(() => {
           if (pack?.isMulti) {
-              setPackPhase("summary"); // 10er Pack geht nach dem Shake direkt in die Übersicht
+              setPackPhase("summary"); 
           } else {
               setPackPhase("revealing");
               setCurrentCardIdx(0);
@@ -195,6 +224,7 @@ export default function CardPackPage() {
   return (
     <div className="w-full space-y-8">
       
+      {/* FIX: CSS Ergänzungen für scharfes Rendering und flüssige Animationen */}
       <style>{`
         @keyframes shake-pack {
           0%, 100% { transform: rotate(0deg) scale(1.1); }
@@ -202,7 +232,10 @@ export default function CardPackPage() {
           50% { transform: rotate(5deg) scale(1.1); }
           75% { transform: rotate(-5deg) scale(1.1); }
         }
-        .animate-shake-pack { animation: shake-pack 0.3s ease-in-out infinite; }
+        .animate-shake-pack { 
+            animation: shake-pack 0.3s ease-in-out infinite; 
+            will-change: transform; /* Lag-Fix für GPU */
+        }
         @keyframes shimmer { 100% { transform: translateX(100%); } }
         @keyframes pop-in {
           0% { transform: scale(0.5) translateY(50px); opacity: 0; }
@@ -215,6 +248,18 @@ export default function CardPackPage() {
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+
+        /* NEU: Zwingt den Browser Bilder knackig zu rendern */
+        .card-render-fix {
+            backface-visibility: hidden;
+            transform: translateZ(0);
+            -webkit-font-smoothing: subpixel-antialiased;
+            will-change: transform;
+        }
+        .card-render-fix img {
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }
       `}</style>
 
       <div className="bg-[#18181b] rounded-3xl p-6 md:p-10 border border-white/10 shadow-2xl relative overflow-hidden">
@@ -279,7 +324,7 @@ export default function CardPackPage() {
               <h3 className="font-bold text-white/50 uppercase tracking-wider text-sm mb-4">Zuletzt geöffnet</h3>
               <div className="flex flex-wrap justify-center sm:justify-start gap-4">
                   {lastCards.map((c, i) => (
-                    <div key={i} className="opacity-70 hover:opacity-100 transition-opacity w-[150px] h-[240px] flex justify-center rounded-xl">
+                    <div key={i} className="opacity-70 hover:opacity-100 transition-opacity w-[150px] h-[240px] flex justify-center rounded-xl card-render-fix">
                         <div className="scale-[0.62] origin-top">
                             <div className="w-[240px]">
                                 <Card card={c} />
@@ -306,7 +351,6 @@ export default function CardPackPage() {
                             Klicke zum Öffnen!
                         </h2>
                         
-                        {/* HIER IST DIE ANIMATION FÜR 10 PACKS */}
                         {pack.isMulti ? (
                             <div 
                                 className={`relative w-64 h-80 md:w-80 md:h-96 cursor-pointer transition-transform hover:scale-110 drop-shadow-[0_0_40px_rgba(217,70,239,0.5)] ${packPhase === 'shaking' ? 'animate-shake-pack' : ''}`}
@@ -345,6 +389,8 @@ export default function CardPackPage() {
                             const currentCard = pack.cards[currentCardIdx];
                             const glowClass = RARITY_GLOW[currentCard.rarity] || "shadow-white/10";
                             const textColor = RARITY_TEXT[currentCard.rarity] || "text-white";
+                            // Überprüfung, ob Karte NEU ist
+                            const isNewCard = !prePullOwned[currentCard.id]; 
 
                             return (
                                 <div key={currentCardIdx} className="flex flex-col items-center animate-pop-in mt-6">
@@ -354,8 +400,9 @@ export default function CardPackPage() {
                                         </span>
                                     </div>
                                     
-                                    <div className={`relative rounded-[16px] shadow-2xl ${glowClass} scale-125 md:scale-150 transition-all w-[240px] mx-auto`}>
-                                        <Card card={currentCard} />
+                                    <div className={`relative rounded-[16px] shadow-2xl ${glowClass} scale-125 md:scale-150 transition-all w-[240px] mx-auto card-render-fix`}>
+                                        <Card card={currentCard} isNew={isNewCard} />
+                                        
                                     </div>
 
                                     <div className="mt-32 md:mt-40 text-white/50 animate-pulse text-sm md:text-base font-medium bg-black/40 px-6 py-2 rounded-full backdrop-blur-md">
@@ -383,36 +430,46 @@ export default function CardPackPage() {
                                                 <Layers size={20} /> Pack {pIdx + 1}
                                             </h3>
                                             <div className="flex flex-wrap justify-center gap-6 md:gap-10 w-full">
-                                                {pCards.map((c, idx) => (
-                                                    <div key={idx} className="flex flex-col items-center transition-transform hover:scale-110">
-                                                        <div className={`relative rounded-[16px] shadow-xl ${RARITY_GLOW[c.rarity] || "shadow-white/10"} w-[150px] md:w-[200px] mx-auto`}>
-                                                            <Card card={c} />
+                                                {pCards.map((c, idx) => {
+                                                    const isNewCard = !prePullOwned[c.id];
+
+                                                    return (
+                                                        <div key={idx} className="flex flex-col items-center transition-transform hover:scale-110">
+                                                            <div className={`relative rounded-[16px] shadow-xl ${RARITY_GLOW[c.rarity] || "shadow-white/10"} w-[150px] md:w-[200px] mx-auto card-render-fix`}>
+                                                                {/* HIER: isNew Prop übergeben, den Rest löschen */}
+                                                                <Card card={c} isNew={isNewCard} />
+                                                            </div>
+                                                            <div className="text-center mt-4">
+                                                                <span className={`text-[10px] md:text-xs uppercase font-black tracking-widest px-2.5 py-1 rounded bg-black/80 backdrop-blur-md border border-white/10 ${RARITY_TEXT[c.rarity] || "text-white"}`}>
+                                                                    {RARITY_LABELS[c.rarity]}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-center mt-4">
-                                                            <span className={`text-[10px] md:text-xs uppercase font-black tracking-widest px-2.5 py-1 rounded bg-black/80 backdrop-blur-md border border-white/10 ${RARITY_TEXT[c.rarity] || "text-white"}`}>
-                                                                {RARITY_LABELS[c.rarity]}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
                                 <div className="flex flex-wrap justify-center gap-6 md:gap-8 w-full h-full items-center">
-                                    {pack.cards.map((c, idx) => (
-                                        <div key={idx} className="transform transition-all duration-300 hover:scale-110 hover:z-30 hover:-translate-y-4 flex flex-col items-center">
-                                            <div className={`relative rounded-[16px] shadow-2xl ${RARITY_GLOW[c.rarity] || "shadow-white/10"} w-[240px] mx-auto`}>
-                                                <Card card={c} />
+                                    {pack.cards.map((c, idx) => {
+                                        const isNewCard = !prePullOwned[c.id];
+
+                                        return (
+                                            <div key={idx} className="transform transition-all duration-300 hover:scale-110 hover:z-30 hover:-translate-y-4 flex flex-col items-center">
+                                                <div className={`relative rounded-[16px] shadow-2xl ${RARITY_GLOW[c.rarity] || "shadow-white/10"} w-[240px] mx-auto card-render-fix`}>
+                                                    <Card card={c} isNew={isNewCard} />
+                                                    
+                                                </div>
+                                                <div className="text-center mt-4">
+                                                    <span className={`text-[11px] uppercase font-black tracking-widest px-3 py-1.5 rounded bg-black/50 backdrop-blur-md border border-white/10 ${RARITY_TEXT[c.rarity] || "text-white"}`}>
+                                                        {RARITY_LABELS[c.rarity]}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="text-center mt-4">
-                                                <span className={`text-[11px] uppercase font-black tracking-widest px-3 py-1.5 rounded bg-black/50 backdrop-blur-md border border-white/10 ${RARITY_TEXT[c.rarity] || "text-white"}`}>
-                                                    {RARITY_LABELS[c.rarity]}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

@@ -170,13 +170,13 @@ function drawRandomCard(excludeCards = []) {
 // --- Helper: Case Opening (Angepasst mit Ranges) ---
 const CASE_ITEMS = [
   // id: common -> Range 0.33 bis 0.70
-  { id: "common", color: "gray", min: 0.2, max: 0.70, label: "Common" },
+  { id: "common", color: "gray", min: 0.20, max: 0.70, label: "Common" },
   
   // id: uncommon -> Range 1.30 bis 1.80
-  { id: "uncommon", color: "blue", min: 1.25, max: 2.00, label: "Uncommon" },
+  { id: "uncommon", color: "blue", min: 1.20, max: 2.00, label: "Uncommon" },
   
   // id: rare -> Range 3.50 bis 6.00
-  { id: "rare", color: "purple", min: 3.50, max: 6.50, label: "Rare" },
+  { id: "rare", color: "purple", min: 3.00, max: 6.00, label: "Rare" },
   
   // id: legendary -> Range 20.00 bis 50.00
   { id: "legendary", color: "gold", min: 35.00, max: 50.00, label: "LEGENDÄR" }
@@ -184,7 +184,7 @@ const CASE_ITEMS = [
 
 function getRandomCaseItemBase() {
   const r = Math.random();
-  if (r < 0.003) return CASE_ITEMS[3]; // Legendary 
+  if (r < 0.004) return CASE_ITEMS[3]; // Legendary 
   if (r < 0.05) return CASE_ITEMS[2]; // Rare 
   if (r < 0.30) return CASE_ITEMS[1]; // Uncommon 
   return CASE_ITEMS[0];               // Common 
@@ -281,10 +281,18 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
   });
 
   router.get("/user", (req, res) => {
+    const now = Date.now();
+    let currentStreak = req.userData.dailyStreak || 0;
+
+    // NEU: Live-Check im Backend! Wenn mehr als 48h vergangen sind, ist die Streak visuell auf 0.
+    if (req.userData.lastDaily && (now - req.userData.lastDaily > 48 * 60 * 60 * 1000)) {
+        currentStreak = 0;
+    }
+
     res.json({
       credits: req.userData.credits,
       lastDaily: req.userData.lastDaily,
-      dailyStreak: req.userData.dailyStreak || 0, // <-- DIESE ZEILE HINZUFÜGEN
+      dailyStreak: currentStreak, // Hier senden wir den validierten Wert
       activeGameType: req.userData.activeGame ? req.userData.activeGame.type : null
     });
   });
@@ -372,9 +380,9 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
     let pool = [];
     
     // Low Tier (Häufig, kleine Gewinne, füllen das Feld)
-    for(let i=0; i<55; i++) pool.push("🍒"); 
-    for(let i=0; i<45; i++) pool.push("🍋");
-    for(let i=0; i<35; i++) pool.push("🍇");
+    for(let i=0; i<45; i++) pool.push("🍒"); 
+    for(let i=0; i<40; i++) pool.push("🍋");
+    for(let i=0; i<30; i++) pool.push("🍇");
     for(let i=0; i<25; i++) pool.push("🔔");  
     
     // Mid/High Tier (Selten)
@@ -466,10 +474,10 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
             // Werte sind Faktoren des GESAMTEINSATZES!
             const paytable = {
                 "🍒": [0.6, 1.2, 3.5],
-                "🍋": [0.8, 1.6, 4.5],
-                "🍇": [1.0, 2.0, 6.0],
-                "🔔": [1.2, 2.5, 7.5],
-                "💎": [3.0, 6.0, 18.0],
+                "🍋": [0.8, 1.6, 5.0],
+                "🍇": [1.0, 2.0, 6.5],
+                "🔔": [1.2, 2.5, 8.0],
+                "💎": [3.0, 6.0, 20.0],
                 "7️⃣": [5.0, 15.0, 50.0],
                 "🃏": [7.0, 20.0, 100.0]
             };

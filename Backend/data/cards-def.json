@@ -698,5 +698,355 @@
         "name": "Götter-Katze",
         "rarity": "legendary",
         "artworkUrl": "assets/artworkscats/100.jpg"
+    },
+    {
+        "id": "101",
+        "number": "101",
+        "name": "Seifenblasen-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/101.jpg"
+    },
+    {
+        "id": "102",
+        "number": "102",
+        "name": "Neon-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/102.jpg"
+    },
+    {
+        "id": "103",
+        "number": "103",
+        "name": "Toast-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/103.jpg"
+    },
+    {
+        "id": "104",
+        "number": "104",
+        "name": "Rockstar-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/104.jpg"
+    },
+    {
+        "id": "105",
+        "number": "105",
+        "name": "Detektiv-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/105.jpg"
+    },
+    {
+        "id": "106",
+        "number": "106",
+        "name": "Astronaut-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/106.jpg"
+    },
+    {
+        "id": "107",
+        "number": "107",
+        "name": "Fußballer-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/107.jpg"
+    },
+    {
+        "id": "108",
+        "number": "108",
+        "name": "Kürbis-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/108.jpg"
+    },
+    {
+        "id": "109",
+        "number": "109",
+        "name": "Brot-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/109.jpg"
+    },
+    {
+        "id": "110",
+        "number": "110",
+        "name": "Glas-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/110.jpg"
+    },
+    {
+        "id": "111",
+        "number": "111",
+        "name": "Sonnenbrillen-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/111.jpg"
+    },
+    {
+        "id": "112",
+        "number": "112",
+        "name": "Meme-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/112.jpg"
+    },
+    {
+        "id": "113",
+        "number": "113",
+        "name": "Dämon-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/113.jpg"
+    },
+    {
+        "id": "114",
+        "number": "114",
+        "name": "Band-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/114.jpg"
+    },
+    {
+        "id": "115",
+        "number": "115",
+        "name": "Süße-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/115.jpg"
+    },
+    {
+        "id": "116",
+        "number": "116",
+        "name": "Tech-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/116.jpg"
+    },
+    {
+        "id": "117",
+        "number": "117",
+        "name": "Ball-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/117.jpg"
+    },
+    {
+        "id": "118",
+        "number": "118",
+        "name": "Block-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/118.jpg"
+    },
+    {
+        "id": "119",
+        "number": "119",
+        "name": "Superhelden-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/119.jpg"
+    },
+    {
+        "id": "120",
+        "number": "120",
+        "name": "Gassen-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/120.jpg"
+    },
+    {
+        "id": "121",
+        "number": "121",
+        "name": "Nackte-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/121.jpg"
+    },
+    {
+        "id": "122",
+        "number": "122",
+        "name": "Zauberwürfel-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/122.jpg"
+    },
+    {
+        "id": "123",
+        "number": "123",
+        "name": "Sternzeichen-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/123.jpg"
+    },
+    {
+        "id": "124",
+        "number": "124",
+        "name": "Wütende-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/124.jpg"
+    },
+    {
+        "id": "125",
+        "number": "125",
+        "name": "Frühlings-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/125.jpg"
+    },
+    {
+        "id": "126",
+        "number": "126",
+        "name": "Sommer-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/126.jpg"
+    },
+    {
+        "id": "127",
+        "number": "127",
+        "name": "Herbst-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/127.jpg"
+    },
+    {
+        "id": "128",
+        "number": "128",
+        "name": "Winter-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/128.jpg"
+    },
+    {
+        "id": "129",
+        "number": "129",
+        "name": "Gang-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/129.jpg"
+    },
+    {
+        "id": "130",
+        "number": "130",
+        "name": "Tresor-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/130.jpg"
+    },
+    {
+        "id": "131",
+        "number": "131",
+        "name": "Biker-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/131.jpg"
+    },
+    {
+        "id": "132",
+        "number": "132",
+        "name": "Stern-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/132.jpg"
+    },
+    {
+        "id": "133",
+        "number": "133",
+        "name": "Junkie-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/133.jpg"
+    },
+    {
+        "id": "134",
+        "number": "134",
+        "name": "Flausch-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/134.jpg"
+    },
+    {
+        "id": "135",
+        "number": "135",
+        "name": "Pharao-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/135.jpg"
+    },
+    {
+        "id": "136",
+        "number": "136",
+        "name": "Neunschwänzige-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/136.jpg"
+    },
+    {
+        "id": "137",
+        "number": "137",
+        "name": "Frankenstein-Katze",
+        "rarity": "epic",
+        "artworkUrl": "assets/artworkscats/137.jpg"
+    },
+    {
+        "id": "138",
+        "number": "138",
+        "name": "Rauch-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/138.jpg"
+    },
+    {
+        "id": "139",
+        "number": "139",
+        "name": "Totem-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/139.jpg"
+    },
+    {
+        "id": "140",
+        "number": "140",
+        "name": "Tomaten-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/140.jpg"
+    },
+    {
+        "id": "141",
+        "number": "141",
+        "name": "Disco-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/141.jpg"
+    },
+    {
+        "id": "142",
+        "number": "142",
+        "name": "Muskel-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/142.jpg"
+    },
+    {
+        "id": "143",
+        "number": "143",
+        "name": "Schnösel-Katze",
+        "rarity": "uncommon",
+        "artworkUrl": "assets/artworkscats/143.jpg"
+    },
+    {
+        "id": "144",
+        "number": "144",
+        "name": "Rennfahrer-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/144.jpg"
+    },
+    {
+        "id": "145",
+        "number": "145",
+        "name": "Alien-Katze",
+        "rarity": "rare",
+        "artworkUrl": "assets/artworkscats/145.jpg"
+    },
+    {
+        "id": "146",
+        "number": "146",
+        "name": "Koch-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/146.jpg"
+    },
+    {
+        "id": "147",
+        "number": "147",
+        "name": "Müll-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/147.jpg"
+    },
+    {
+        "id": "148",
+        "number": "148",
+        "name": "Cowboy-Katze",
+        "rarity": "common",
+        "artworkUrl": "assets/artworkscats/148.jpg"
+    },
+    {
+        "id": "149",
+        "number": "149",
+        "name": "67-Katze",
+        "rarity": "mythic",
+        "artworkUrl": "assets/artworkscats/149.jpg"
+    },
+    {
+        "id": "150",
+        "number": "150",
+        "name": "420-Katze",
+        "rarity": "mythic",
+        "artworkUrl": "assets/artworkscats/150.jpg"
     }
 ]

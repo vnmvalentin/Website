@@ -22,7 +22,7 @@ import {
   Copy, 
   Monitor, 
   ShieldAlert,
-  Pin, // <--- Das neue Icon
+  Pin,
   Layout,
   RefreshCw,
   Eye,
@@ -272,10 +272,10 @@ export default function WinChallenge() {
     const items = (doc.items && doc.items.length > 0 ? doc.items : [{ id: "p1", name: "Beispiel Challenge", pinned: true }, { id: "p2", name: "Gewinne 3 Runden", useWins: true, target: 3, progress: 1 }]).slice(0, 6);
 
     return (
-      <div className={`p-8 rounded-3xl border border-white/5 flex justify-center items-start min-h-[400px] transition-colors duration-500 shadow-inner ${previewLightMode ? "bg-gray-200" : "bg-[#09090b]"}`}>
+      <div className={`flex-1 rounded-3xl border border-white/5 flex justify-center items-center p-4 transition-colors duration-500 shadow-inner overflow-hidden min-h-[300px] ${previewLightMode ? "bg-gray-200" : "bg-[#09090b]"}`}>
         <div style={{
             fontFamily: "Inter, sans-serif", color: style.textColor, borderRadius: style.borderRadius,
-            background: "transparent", width: style.boxWidth, transform: `scale(${style.scale})`, transformOrigin: "top center",
+            background: "transparent", width: style.boxWidth, transform: `scale(${style.scale})`, transformOrigin: "center",
             maxWidth: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)", position: "relative"
         }}>
             <div style={{ position: "absolute", inset: 0, background: style.boxBg, opacity: boxAlpha, zIndex: 0 }} />
@@ -316,7 +316,7 @@ export default function WinChallenge() {
   };
 
   return (
-    <div className="min-h-full w-full p-4 md:p-8 text-white">
+    <div className="w-full text-white flex flex-col min-h-[calc(100vh-8rem)]">
       <SEO 
         title="Win Challenge Overlay"
         description="Win Challenge Overlay für OBS. Hohe Customization für Streamer." 
@@ -324,342 +324,340 @@ export default function WinChallenge() {
         keywords="Win Challenge Overlay, Win Challenge, OBS Overlay, Twitch, WinChallenge, Overlay" />
 
       {!user ? (
-        <div className="flex h-[50vh] items-center justify-center">
+        <div className="flex flex-1 items-center justify-center">
             <button onClick={login} className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-8 py-4 rounded-2xl shadow-2xl transition-transform hover:scale-105">
                 Mit Twitch anmelden um Challenges zu erstellen
             </button>
         </div>
       ) : loading || !doc ? (
-        <div className="text-center p-20 text-white/30 animate-pulse">Lade Konfiguration...</div>
+        <div className="flex-1 flex items-center justify-center text-white/30 animate-pulse">Lade Konfiguration...</div>
       ) : (
-        <div className="max-w-[1600px] mx-auto">
-          {/* TOP BAR */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-             <div>
-                 <h1 className="text-3xl font-black tracking-tight text-white mb-1 flex items-center gap-3">
-                    <Trophy className="text-yellow-500" /> WinChallenge
-                 </h1>
-                 <p className="text-sm text-white/50">Erstelle Challenges und tracke deine Wins live.</p>
-             </div>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+        <div className="flex-1 flex flex-col bg-[#18181b] border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.3)] overflow-hidden">
             
-            {/* EDITOR MAIN CARD */}
-            <div className="xl:col-span-8 bg-[#18181b] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
-                
-                {/* TABS */}
-                <div className="flex border-b border-white/5 bg-black/20 overflow-x-auto">
-                    {[
-                        { id: "challenges", label: "Challenges", icon: Trophy },
-                        { id: "custom", label: "Design", icon: Palette },
-                        { id: "settings", label: "Einstellungen", icon: Settings },
-                    ].map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2.5 px-8 py-5 text-sm font-bold transition-colors relative whitespace-nowrap ${
-                                activeTab === tab.id ? "text-white bg-white/5" : "text-white/40 hover:text-white hover:bg-white/5"
-                            }`}
-                        >
-                            <tab.icon size={18} className={activeTab === tab.id ? "text-violet-400" : "opacity-50"} />
-                            {tab.label}
-                            {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500" />}
-                        </button>
-                    ))}
-                </div>
+            {/* UNIFIED HEADER */}
+            <div className="px-6 py-5 border-b border-white/5 bg-[#121215] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+               <div>
+                   <h1 className="text-2xl font-black tracking-tight text-white mb-1 flex items-center gap-3">
+                      <Trophy className="text-yellow-500" /> WinChallenge
+                   </h1>
+                   <p className="text-xs text-white/50">Erstelle Challenges und tracke deine Wins live.</p>
+               </div>
+            </div>
 
-                {/* TAB CONTENT */}
-                <div className="p-6 md:p-8 min-h-[500px]">
-                    
-                    {/* 1. CHALLENGES TAB */}
-                    {activeTab === "challenges" && (
-                        <div className="space-y-6">
-                            {(doc.items || []).length === 0 && (
-                                <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-2xl bg-white/5">
-                                    <Trophy size={40} className="mx-auto mb-4 text-white/20" />
-                                    <p className="text-white/40 mb-6">Deine Liste ist leer.</p>
-                                    <button onClick={addItem} className="text-violet-400 font-bold hover:text-violet-300">Erste Challenge anlegen</button>
-                                </div>
-                            )}
+            {/* SPLIT CONTENT AREA */}
+            <div className="flex flex-col xl:flex-row flex-1 min-h-0">
+              
+              {/* LEFT: EDITOR MAIN AREA */}
+              <div className="flex-1 flex flex-col border-b xl:border-b-0 xl:border-r border-white/5 min-w-0 bg-[#18181b]">
+                  {/* TABS */}
+                  <div className="flex border-b border-white/5 bg-[#141417] overflow-x-auto shrink-0">
+                      {[
+                          { id: "challenges", label: "Challenges", icon: Trophy },
+                          { id: "custom", label: "Design", icon: Palette },
+                          { id: "settings", label: "Einstellungen", icon: Settings },
+                      ].map((tab) => (
+                          <button
+                              key={tab.id}
+                              onClick={() => setActiveTab(tab.id)}
+                              className={`flex items-center gap-2.5 px-8 py-4 text-sm font-bold transition-colors relative whitespace-nowrap ${
+                                  activeTab === tab.id ? "text-white bg-white/5" : "text-white/40 hover:text-white hover:bg-white/5"
+                              }`}
+                          >
+                              <tab.icon size={18} className={activeTab === tab.id ? "text-violet-400" : "opacity-50"} />
+                              {tab.label}
+                              {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500" />}
+                          </button>
+                      ))}
+                  </div>
 
-                            <div className="space-y-3">
-                                {(doc.items || []).map((it) => {
-                                    const done = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
-                                    return (
-                                        <div key={it.id} onDragOver={onDragOver(it.id)} onDrop={onDrop(it.id)}
-                                             className={`group bg-black/20 hover:bg-black/30 rounded-2xl p-4 border transition-all ${done ? "border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.05)]" : "border-white/5 hover:border-white/10"}`}>
-                                            
-                                            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                                                {/* Drag & Name */}
-                                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                    <div draggable onDragStart={onDragStart(it.id)} className="cursor-grab text-white/20 hover:text-white/50 p-1"><GripVertical size={18}/></div>
-                                                    <input
-                                                        className="flex-1 bg-transparent text-lg font-bold placeholder-white/20 focus:outline-none text-white truncate"
-                                                        placeholder="Challenge Name..."
-                                                        value={it.name}
-                                                        onChange={(e) => updateItem(it.id, { name: e.target.value })}
-                                                    />
-                                                </div>
-
-                                                {/* Actions */}
-                                                <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
-                                                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-white/50 hover:text-white transition-colors select-none">
-                                                        <input type="checkbox" className="accent-violet-500" checked={!!it.useWins} onChange={(e) => updateItem(it.id, { useWins: e.target.checked })} />
-                                                        <span>Zähler</span>
-                                                    </label>
-
-                                                    {it.useWins ? (
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="flex items-center bg-black/40 rounded-lg border border-white/10 px-2 py-1">
-                                                                <span className="text-[10px] uppercase text-white/30 font-bold mr-2">Ziel</span>
-                                                                <input type="number" min={1} className="w-8 bg-transparent text-right text-sm font-mono focus:outline-none text-white" value={it.target || 1} onChange={(e) => updateItem(it.id, { target: Math.max(1, parseInt(e.target.value || "1", 10)) })} />
-                                                            </div>
-                                                            <div className="flex items-center bg-white/5 rounded-lg border border-white/5 overflow-hidden">
-                                                                <button onClick={() => updateItem(it.id, { progress: Math.max(0, (it.progress || 0) - 1) })} className="px-3 py-1 hover:bg-white/10 text-white/50 hover:text-white transition-colors font-mono">−</button>
-                                                                <span className="w-8 text-center font-mono font-bold text-white text-sm">{it.progress || 0}</span>
-                                                                <button onClick={() => updateItem(it.id, { progress: (it.progress || 0) + 1 })} className="px-3 py-1 hover:bg-white/10 text-white/50 hover:text-white transition-colors font-mono">+</button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <button onClick={() => updateItem(it.id, { done: !it.done })} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold ${it.done ? "bg-green-500/20 border-green-500/30 text-green-400" : "bg-white/5 border-white/5 text-white/40 hover:text-white"}`}>
-                                                            {it.done ? <Check size={14}/> : <div className="w-3.5 h-3.5 rounded-full border border-white/30" />}
-                                                            {it.done ? "Erledigt" : "Offen"}
-                                                        </button>
-                                                    )}
-
-                                                    <div className="flex items-center gap-1 border-l border-white/10 pl-2 ml-2">
-                                                        <button onClick={() => updateItem(it.id, { pinned: !it.pinned })} className={`p-2 rounded-lg transition-colors ${it.pinned ? "text-violet-400 bg-violet-500/10" : "text-white/20 hover:text-white hover:bg-white/5"}`} title="Anpinnen"><Pin size={16}/></button>
-                                                        <button onClick={() => removeItem(it.id)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Löschen"><Trash2 size={16}/></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <button onClick={addItem} className="w-full py-4 rounded-2xl border border-dashed border-white/10 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all font-bold flex justify-center items-center gap-2 mt-4">
-                                <Plus size={20} /> Neue Challenge hinzufügen
-                            </button>
-                        </div>
-                    )}
-
-                    {/* 2. CUSTOM TAB */}
-                    {activeTab === "custom" && (
-                        <div className="space-y-10">
-                            
-                            {/* Header & Titel */}
-                            <div>
-                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Layout size={20} className="text-violet-400"/> Header & Titel</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-2xl bg-black/20 border border-white/5">
-                                    <div className="col-span-full">
-                                        <label className="block text-xs font-bold text-white/40 uppercase mb-2">Titel Text</label>
-                                        <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500 focus:outline-none transition-colors" value={doc.title || ""} onChange={(e) => save({ ...doc, title: e.target.value })} placeholder="WinChallenge" />
-                                    </div>
-                                    <RangeSlider label="Schriftgröße" value={doc.style?.titleFontSize ?? 20} min={12} max={48} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, titleFontSize: v }) })} />
-                                    <div>
-                                        <span className="text-xs font-bold text-white/40 uppercase mb-2 block">Ausrichtung</span>
-                                        <div className="flex bg-black/40 rounded-xl p-1 border border-white/5">
-                                            {['left', 'center'].map(align => (
-                                                <button key={align} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${doc.style?.titleAlign === align ? 'bg-violet-600 text-white shadow' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, style: normalizeStyle({ ...doc.style, titleAlign: align }) })}>{align}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Farben */}
-                            <div>
-                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Palette size={20} className="text-pink-400"/> Farben</h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-2xl bg-black/20 border border-white/5">
-                                    <ColorPicker label="Box BG" value={hex3to6(doc.style?.boxBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxBg: v }) })} />
-                                    <ColorPicker label="Header BG" value={hex3to6(doc.style?.headerBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerBg: v }) })} />
-                                    <ColorPicker label="Item BG" value={hex3to6(doc.style?.itemBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemBg: v }) })} />
-                                    <ColorPicker label="Text" value={hex3to6(doc.style?.textColor)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, textColor: v }) })} />
-                                    <ColorPicker label="Titel" value={hex3to6(doc.style?.titleColor)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, titleColor: v }) })} />
-                                    <ColorPicker label="Akzent" value={hex3to6(doc.style?.accent)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, accent: v }) })} />
-                                </div>
-                            </div>
-
-                            {/* Layout & Animation */}
-                            <div>
-                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Settings size={20} className="text-blue-400"/> Layout & Animation</h3>
-                                <div className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                      <RangeSlider label="Breite" value={doc.style?.boxWidth ?? 520} min={280} max={1000} step={10} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxWidth: v }) })} />
-                                      <RangeSlider label="Skalierung" value={doc.style?.scale ?? 1} min={0.5} max={2} step={0.05} unit="x" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, scale: v }) })} />
-                                      <RangeSlider label="Eckenradius" value={doc.style?.borderRadius ?? 12} min={0} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, borderRadius: v }) })} />
-                                      <RangeSlider label="Challenge Größe" value={doc.style?.itemFontSize ?? 16} min={10} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemFontSize: v }) })} />
-                                      
-                                      {/* Hier sind jetzt beide Slider für Deckkraft */}
-                                      <RangeSlider label="Hintergrund Deckkraft" value={doc.style?.opacity ?? 0.6} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, opacity: v }) })} />
-                                      <RangeSlider label="Header Deckkraft" value={doc.style?.headerOpacity ?? 0.9} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerOpacity: v }) })} />
+                  {/* TAB CONTENT (SCROLLABLE) */}
+                  <div className="p-6 md:p-8 flex-1 overflow-y-auto custom-scrollbar">
+                      {/* 1. CHALLENGES TAB */}
+                      {activeTab === "challenges" && (
+                          <div className="space-y-6">
+                              {(doc.items || []).length === 0 && (
+                                  <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-2xl bg-white/5">
+                                      <Trophy size={40} className="mx-auto mb-4 text-white/20" />
+                                      <p className="text-white/40 mb-6">Deine Liste ist leer.</p>
+                                      <button onClick={addItem} className="text-violet-400 font-bold hover:text-violet-300">Erste Challenge anlegen</button>
                                   </div>
-                                    
-                                    <div className="pt-6 border-t border-white/5">
-                                        <label className="flex items-center gap-3 cursor-pointer select-none mb-4">
-                                            <div className={`w-10 h-6 rounded-full p-1 transition-colors ${doc.animation?.enabled ? "bg-green-500" : "bg-white/10"}`}>
-                                                <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${doc.animation?.enabled ? "translate-x-4" : ""}`} />
-                                            </div>
-                                            <span className="text-sm font-bold text-white">Animation aktivieren (Paging/Scrolling)</span>
-                                            <input type="checkbox" className="hidden" checked={!!doc.animation?.enabled} onChange={(e) => save({ ...doc, animation: { ...doc.animation, enabled: e.target.checked } })} />
-                                        </label>
+                              )}
 
-                                        <div className={`transition-all duration-300 ${!doc.animation?.enabled ? "opacity-30 pointer-events-none grayscale" : ""}`}>
-                                            <div className="flex bg-black/40 rounded-xl p-1 border border-white/5 mb-4 max-w-sm">
-                                                <button className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${doc.animation?.mode !== 'scrolling' ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "paging" } })}>Seitenweise (Paging)</button>
-                                                <button className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${doc.animation?.mode === 'scrolling' ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "scrolling" } })}>Laufschrift (Scroll)</button>
-                                            </div>
-                                            {doc.animation?.mode === "scrolling" ? (
-                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <RangeSlider label="Speed" value={doc.animation?.scrolling?.speedPxPerSec ?? 30} min={5} max={200} step={5} unit="px/s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, speedPxPerSec: v } } })} />
-                                                    <RangeSlider label="Sichtbare Zeilen" value={doc.animation?.scrolling?.visibleRows ?? 2} min={1} max={10} step={1} onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, visibleRows: v } } })} />
-                                                    {/* NEU: Pause Einstellung */}
-                                                    <div className="col-span-2">
-                                                        <RangeSlider label="Pause (Oben/Unten)" value={doc.animation?.scrolling?.pauseSec ?? 2} min={0} max={10} step={0.5} unit="s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, pauseSec: v } } })} />
-                                                    </div>
-                                                 </div>
-                                            ) : (
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <RangeSlider label="Items pro Seite" value={doc.animation?.paging?.pageSize ?? 5} min={1} max={10} step={1} onChange={(v) => save({ ...doc, animation: { ...doc.animation, paging: { ...doc.animation?.paging, pageSize: v } } })} />
-                                                    <RangeSlider label="Wechsel-Intervall" value={doc.animation?.paging?.intervalSec ?? 20} min={2} max={60} step={1} unit="s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, paging: { ...doc.animation?.paging, intervalSec: v } } })} />
-                                                </div>
-                                            )}
-                                        </div>
+                              <div className="space-y-3">
+                                  {(doc.items || []).map((it) => {
+                                      const done = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
+                                      return (
+                                          <div key={it.id} onDragOver={onDragOver(it.id)} onDrop={onDrop(it.id)}
+                                               className={`group bg-black/20 hover:bg-black/30 rounded-2xl p-4 border transition-all ${done ? "border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.05)]" : "border-white/5 hover:border-white/10"}`}>
+                                              
+                                              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                                  {/* Drag & Name */}
+                                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                      <div draggable onDragStart={onDragStart(it.id)} className="cursor-grab text-white/20 hover:text-white/50 p-1"><GripVertical size={18}/></div>
+                                                      <input
+                                                          className="flex-1 bg-transparent text-lg font-bold placeholder-white/20 focus:outline-none text-white truncate"
+                                                          placeholder="Challenge Name..."
+                                                          value={it.name}
+                                                          onChange={(e) => updateItem(it.id, { name: e.target.value })}
+                                                      />
+                                                  </div>
+
+                                                  {/* Actions */}
+                                                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                                                      <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-white/50 hover:text-white transition-colors select-none">
+                                                          <input type="checkbox" className="accent-violet-500" checked={!!it.useWins} onChange={(e) => updateItem(it.id, { useWins: e.target.checked })} />
+                                                          <span>Zähler</span>
+                                                      </label>
+
+                                                      {it.useWins ? (
+                                                          <div className="flex items-center gap-3">
+                                                              <div className="flex items-center bg-black/40 rounded-lg border border-white/10 px-2 py-1">
+                                                                  <span className="text-[10px] uppercase text-white/30 font-bold mr-2">Ziel</span>
+                                                                  <input type="number" min={1} className="w-8 bg-transparent text-right text-sm font-mono focus:outline-none text-white" value={it.target || 1} onChange={(e) => updateItem(it.id, { target: Math.max(1, parseInt(e.target.value || "1", 10)) })} />
+                                                              </div>
+                                                              <div className="flex items-center bg-white/5 rounded-lg border border-white/5 overflow-hidden">
+                                                                  <button onClick={() => updateItem(it.id, { progress: Math.max(0, (it.progress || 0) - 1) })} className="px-3 py-1 hover:bg-white/10 text-white/50 hover:text-white transition-colors font-mono">−</button>
+                                                                  <span className="w-8 text-center font-mono font-bold text-white text-sm">{it.progress || 0}</span>
+                                                                  <button onClick={() => updateItem(it.id, { progress: (it.progress || 0) + 1 })} className="px-3 py-1 hover:bg-white/10 text-white/50 hover:text-white transition-colors font-mono">+</button>
+                                                              </div>
+                                                          </div>
+                                                      ) : (
+                                                          <button onClick={() => updateItem(it.id, { done: !it.done })} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold ${it.done ? "bg-green-500/20 border-green-500/30 text-green-400" : "bg-white/5 border-white/5 text-white/40 hover:text-white"}`}>
+                                                              {it.done ? <Check size={14}/> : <div className="w-3.5 h-3.5 rounded-full border border-white/30" />}
+                                                              {it.done ? "Erledigt" : "Offen"}
+                                                          </button>
+                                                      )}
+
+                                                      <div className="flex items-center gap-1 border-l border-white/10 pl-2 ml-2">
+                                                          <button onClick={() => updateItem(it.id, { pinned: !it.pinned })} className={`p-2 rounded-lg transition-colors ${it.pinned ? "text-violet-400 bg-violet-500/10" : "text-white/20 hover:text-white hover:bg-white/5"}`} title="Anpinnen"><Pin size={16}/></button>
+                                                          <button onClick={() => removeItem(it.id)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Löschen"><Trash2 size={16}/></button>
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+
+                              <button onClick={addItem} className="w-full py-4 rounded-2xl border border-dashed border-white/10 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all font-bold flex justify-center items-center gap-2 mt-4">
+                                  <Plus size={20} /> Neue Challenge hinzufügen
+                              </button>
+                          </div>
+                      )}
+
+                      {/* 2. CUSTOM TAB */}
+                      {activeTab === "custom" && (
+                          <div className="space-y-10">
+                              
+                              {/* Header & Titel */}
+                              <div>
+                                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Layout size={20} className="text-violet-400"/> Header & Titel</h3>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-2xl bg-black/20 border border-white/5">
+                                      <div className="col-span-full">
+                                          <label className="block text-xs font-bold text-white/40 uppercase mb-2">Titel Text</label>
+                                          <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500 focus:outline-none transition-colors" value={doc.title || ""} onChange={(e) => save({ ...doc, title: e.target.value })} placeholder="WinChallenge" />
+                                      </div>
+                                      <RangeSlider label="Schriftgröße" value={doc.style?.titleFontSize ?? 20} min={12} max={48} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, titleFontSize: v }) })} />
+                                      <div>
+                                          <span className="text-xs font-bold text-white/40 uppercase mb-2 block">Ausrichtung</span>
+                                          <div className="flex bg-black/40 rounded-xl p-1 border border-white/5">
+                                              {['left', 'center'].map(align => (
+                                                  <button key={align} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${doc.style?.titleAlign === align ? 'bg-violet-600 text-white shadow' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, style: normalizeStyle({ ...doc.style, titleAlign: align }) })}>{align}</button>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+
+                              {/* Farben */}
+                              <div>
+                                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Palette size={20} className="text-pink-400"/> Farben</h3>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-2xl bg-black/20 border border-white/5">
+                                      <ColorPicker label="Box BG" value={hex3to6(doc.style?.boxBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxBg: v }) })} />
+                                      <ColorPicker label="Header BG" value={hex3to6(doc.style?.headerBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerBg: v }) })} />
+                                      <ColorPicker label="Item BG" value={hex3to6(doc.style?.itemBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemBg: v }) })} />
+                                      <ColorPicker label="Text" value={hex3to6(doc.style?.textColor)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, textColor: v }) })} />
+                                      <ColorPicker label="Titel" value={hex3to6(doc.style?.titleColor)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, titleColor: v }) })} />
+                                      <ColorPicker label="Akzent" value={hex3to6(doc.style?.accent)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, accent: v }) })} />
+                                  </div>
+                              </div>
+
+                              {/* Layout & Animation */}
+                              <div>
+                                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Settings size={20} className="text-blue-400"/> Layout & Animation</h3>
+                                  <div className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-6">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                        <RangeSlider label="Breite" value={doc.style?.boxWidth ?? 520} min={280} max={1000} step={10} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxWidth: v }) })} />
+                                        <RangeSlider label="Skalierung" value={doc.style?.scale ?? 1} min={0.5} max={2} step={0.05} unit="x" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, scale: v }) })} />
+                                        <RangeSlider label="Eckenradius" value={doc.style?.borderRadius ?? 12} min={0} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, borderRadius: v }) })} />
+                                        <RangeSlider label="Challenge Größe" value={doc.style?.itemFontSize ?? 16} min={10} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemFontSize: v }) })} />
+                                        
+                                        <RangeSlider label="Hintergrund Deckkraft" value={doc.style?.opacity ?? 0.6} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, opacity: v }) })} />
+                                        <RangeSlider label="Header Deckkraft" value={doc.style?.headerOpacity ?? 0.9} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerOpacity: v }) })} />
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                                      
+                                      <div className="pt-6 border-t border-white/5">
+                                          <label className="flex items-center gap-3 cursor-pointer select-none mb-4">
+                                              <div className={`w-10 h-6 rounded-full p-1 transition-colors ${doc.animation?.enabled ? "bg-green-500" : "bg-white/10"}`}>
+                                                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${doc.animation?.enabled ? "translate-x-4" : ""}`} />
+                                              </div>
+                                              <span className="text-sm font-bold text-white">Animation aktivieren (Paging/Scrolling)</span>
+                                              <input type="checkbox" className="hidden" checked={!!doc.animation?.enabled} onChange={(e) => save({ ...doc, animation: { ...doc.animation, enabled: e.target.checked } })} />
+                                          </label>
 
-                    {/* 3. SETTINGS TAB */}
-                    {activeTab === "settings" && (
-                        <div className="space-y-6">
-                            
-                            {/* OBS Browser Source */}
-                            <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
-                                <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><Monitor size={16}/> OBS Browser Source</h4>
-                                <div className="flex gap-2 mb-2">
-                                    <input readOnly type={showOverlayUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-xl text-sm font-mono text-white/70 border border-white/5 outline-none" value={overlayUrl} />
-                                    <button onClick={() => setShowOverlayUrl(!showOverlayUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 transition-colors">{showOverlayUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
-                                    <button onClick={() => handleCopy(overlayUrl, "overlay")} className="px-5 bg-violet-600 hover:bg-violet-500 rounded-xl text-white font-bold text-sm transition-colors flex items-center gap-2">
-                                        {overlayCopied ? <Check size={16}/> : <Copy size={16}/>}
-                                        {overlayCopied ? "Kopiert" : "Kopieren"}
-                                    </button>
-                                </div>
-                                <button onClick={regenerateOverlayKey} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 mt-2">
-                                    <RefreshCw size={12}/> Link neu generieren (Reset)
-                                </button>
-                            </div>
+                                          <div className={`transition-all duration-300 ${!doc.animation?.enabled ? "opacity-30 pointer-events-none grayscale" : ""}`}>
+                                              <div className="flex bg-black/40 rounded-xl p-1 border border-white/5 mb-4 max-w-sm">
+                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${doc.animation?.mode !== 'scrolling' ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "paging" } })}>Seitenweise (Paging)</button>
+                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${doc.animation?.mode === 'scrolling' ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "scrolling" } })}>Laufschrift (Scroll)</button>
+                                              </div>
+                                              {doc.animation?.mode === "scrolling" ? (
+                                                   <div className="grid grid-cols-2 gap-4">
+                                                      <RangeSlider label="Speed" value={doc.animation?.scrolling?.speedPxPerSec ?? 30} min={5} max={200} step={5} unit="px/s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, speedPxPerSec: v } } })} />
+                                                      <RangeSlider label="Sichtbare Zeilen" value={doc.animation?.scrolling?.visibleRows ?? 2} min={1} max={10} step={1} onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, visibleRows: v } } })} />
+                                                      <div className="col-span-2">
+                                                          <RangeSlider label="Pause (Oben/Unten)" value={doc.animation?.scrolling?.pauseSec ?? 2} min={0} max={10} step={0.5} unit="s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, pauseSec: v } } })} />
+                                                      </div>
+                                                   </div>
+                                              ) : (
+                                                  <div className="grid grid-cols-2 gap-4">
+                                                      <RangeSlider label="Items pro Seite" value={doc.animation?.paging?.pageSize ?? 5} min={1} max={10} step={1} onChange={(v) => save({ ...doc, animation: { ...doc.animation, paging: { ...doc.animation?.paging, pageSize: v } } })} />
+                                                      <RangeSlider label="Wechsel-Intervall" value={doc.animation?.paging?.intervalSec ?? 20} min={2} max={60} step={1} unit="s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, paging: { ...doc.animation?.paging, intervalSec: v } } })} />
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      )}
 
-                            {/* Moderator Link */}
-                            <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
-                                <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><ShieldAlert size={16}/> Moderator Link</h4>
-                                <p className="text-xs text-white/50 mb-4">Teile diesen Link mit Mods, damit sie Timer und Ergebnisse steuern können.</p>
-                                <div className="flex gap-2 mb-2">
-                                    <input readOnly type={showControlUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-xl text-sm font-mono text-white/70 border border-white/5 outline-none" value={controlUrl} />
-                                    <button onClick={() => setShowControlUrl(!showControlUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 transition-colors">{showControlUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
-                                    <button onClick={() => handleCopy(controlUrl, "control")} className="px-5 bg-violet-600 hover:bg-violet-500 rounded-xl text-white font-bold text-sm transition-colors flex items-center gap-2">
-                                        {controlCopied ? <Check size={16}/> : <Copy size={16}/>}
-                                        {controlCopied ? "Kopiert" : "Kopieren"}
-                                    </button>
-                                </div>
-                                <button onClick={regenerateControlKey} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 mt-2">
-                                    <RefreshCw size={12}/> Link neu generieren (Reset)
-                                </button>
-                                
-                                <div className="mt-6 pt-4 border-t border-white/5">
-                                    <h5 className="text-xs font-bold text-white/40 uppercase mb-3">Berechtigungen für Mods</h5>
-                                    <div className="space-y-2">
-                                        {[
-                                            { key: 'allowModsTimer', label: 'Timer steuern (Start/Stop/Reset)' },
-                                            { key: 'allowModsTitle', label: 'Titel ändern' },
-                                            { key: 'allowModsChallenges', label: 'Challenges bearbeiten (Wins/Status)' }
-                                        ].map(perm => (
-                                            <label key={perm.key} className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5 transition-colors">
-                                                <input type="checkbox" className="w-4 h-4 accent-violet-500 bg-transparent" checked={!!doc.controlPermissions?.[perm.key]} onChange={(e) => save({ ...doc, controlPermissions: { ...doc.controlPermissions, [perm.key]: e.target.checked } })} /> 
-                                                <span className="text-sm text-white/80">{perm.label}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                      {/* 3. SETTINGS TAB */}
+                      {activeTab === "settings" && (
+                          <div className="space-y-6">
+                              
+                              {/* OBS Browser Source */}
+                              <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
+                                  <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><Monitor size={16}/> OBS Browser Source</h4>
+                                  <div className="flex gap-2 mb-2">
+                                      <input readOnly type={showOverlayUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-xl text-sm font-mono text-white/70 border border-white/5 outline-none" value={overlayUrl} />
+                                      <button onClick={() => setShowOverlayUrl(!showOverlayUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 transition-colors">{showOverlayUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                                      <button onClick={() => handleCopy(overlayUrl, "overlay")} className="px-5 bg-violet-600 hover:bg-violet-500 rounded-xl text-white font-bold text-sm transition-colors flex items-center gap-2">
+                                          {overlayCopied ? <Check size={16}/> : <Copy size={16}/>}
+                                          {overlayCopied ? "Kopiert" : "Kopieren"}
+                                      </button>
+                                  </div>
+                                  <button onClick={regenerateOverlayKey} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 mt-2">
+                                      <RefreshCw size={12}/> Link neu generieren (Reset)
+                                  </button>
+                              </div>
 
-                            {/* Reset Zone (GANZ UNTEN) */}
-                            <div className="mt-8 p-5 rounded-xl border border-red-900/30 bg-red-900/5">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h4 className="text-sm font-bold text-red-200">Gefahrenzone</h4>
-                                        <p className="text-xs text-red-400/70 mt-1">Setzt Design, alle Challenges und Einstellungen auf Standard zurück.</p>
-                                    </div>
-                                    <button onClick={doFullReset} className="px-4 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-300 border border-red-900/50 rounded-lg text-sm transition-colors font-bold flex items-center gap-2">
-                                        <Trash2 size={16}/> Alles zurücksetzen
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                              {/* Moderator Link */}
+                              <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
+                                  <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><ShieldAlert size={16}/> Moderator Link</h4>
+                                  <p className="text-xs text-white/50 mb-4">Teile diesen Link mit Mods, damit sie Timer und Ergebnisse steuern können.</p>
+                                  <div className="flex gap-2 mb-2">
+                                      <input readOnly type={showControlUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-xl text-sm font-mono text-white/70 border border-white/5 outline-none" value={controlUrl} />
+                                      <button onClick={() => setShowControlUrl(!showControlUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 transition-colors">{showControlUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                                      <button onClick={() => handleCopy(controlUrl, "control")} className="px-5 bg-violet-600 hover:bg-violet-500 rounded-xl text-white font-bold text-sm transition-colors flex items-center gap-2">
+                                          {controlCopied ? <Check size={16}/> : <Copy size={16}/>}
+                                          {controlCopied ? "Kopiert" : "Kopieren"}
+                                      </button>
+                                  </div>
+                                  <button onClick={regenerateControlKey} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 mt-2">
+                                      <RefreshCw size={12}/> Link neu generieren (Reset)
+                                  </button>
+                                  
+                                  <div className="mt-6 pt-4 border-t border-white/5">
+                                      <h5 className="text-xs font-bold text-white/40 uppercase mb-3">Berechtigungen für Mods</h5>
+                                      <div className="space-y-2">
+                                          {[
+                                              { key: 'allowModsTimer', label: 'Timer steuern (Start/Stop/Reset)' },
+                                              { key: 'allowModsTitle', label: 'Titel ändern' },
+                                              { key: 'allowModsChallenges', label: 'Challenges bearbeiten (Wins/Status)' }
+                                          ].map(perm => (
+                                              <label key={perm.key} className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5 transition-colors">
+                                                  <input type="checkbox" className="w-4 h-4 accent-violet-500 bg-transparent" checked={!!doc.controlPermissions?.[perm.key]} onChange={(e) => save({ ...doc, controlPermissions: { ...doc.controlPermissions, [perm.key]: e.target.checked } })} /> 
+                                                  <span className="text-sm text-white/80">{perm.label}</span>
+                                              </label>
+                                          ))}
+                                      </div>
+                                  </div>
+                              </div>
+
+                              {/* Reset Zone (GANZ UNTEN) */}
+                              <div className="mt-8 p-5 rounded-xl border border-red-900/30 bg-red-900/5">
+                                  <div className="flex justify-between items-center">
+                                      <div>
+                                          <h4 className="text-sm font-bold text-red-200">Gefahrenzone</h4>
+                                          <p className="text-xs text-red-400/70 mt-1">Setzt Design, alle Challenges und Einstellungen auf Standard zurück.</p>
+                                      </div>
+                                      <button onClick={doFullReset} className="px-4 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-300 border border-red-900/50 rounded-lg text-sm transition-colors font-bold flex items-center gap-2">
+                                          <Trash2 size={16}/> Alles zurücksetzen
+                                      </button>
+                                  </div>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              </div>
+
+              {/* RIGHT: PREVIEW & TIMER FIXED SIDEBAR */}
+              <div className="w-full xl:w-[450px] 2xl:w-[500px] flex flex-col shrink-0 bg-[#121215] border-l border-white/5">
+                  
+                  {/* PREVIEW BOX */}
+                  <div className="flex-1 p-6 border-b border-white/5 flex flex-col min-h-[400px]">
+                      <div className="flex items-center justify-between mb-3 px-1">
+                          <h3 className="text-white/40 text-xs uppercase tracking-wider font-bold">Live Vorschau</h3>
+                          <button onClick={() => setPreviewLightMode(!previewLightMode)} className="text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white/50 transition-colors border border-white/5">
+                              {previewLightMode ? "BG: Hell" : "BG: Dunkel"}
+                          </button>
+                      </div>
+                      {renderPreview()}
+                  </div>
+
+                  {/* TIMER CONTROLS CARD */}
+                  <div className="p-6 shrink-0 bg-[#151518]">
+                      <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_currentColor] ${running ? "bg-green-500 text-green-500" : "bg-red-500 text-red-500"}`} />
+                              <span className="text-sm font-bold text-white uppercase tracking-wider">Timer Control</span>
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-white/50 hover:text-white transition-colors">
+                              <input type="checkbox" className="accent-violet-500" checked={doc?.timer?.visible !== false} onChange={(e) => save({ ...doc, timer: { ...(doc?.timer || {}), visible: e.target.checked } })} />
+                              Sichtbar
+                          </label>
+                      </div>
+                      
+                      <div className="bg-black/40 rounded-2xl p-4 text-center border border-white/5 mb-4 shadow-inner">
+                          <span className="font-mono text-4xl font-black text-white tracking-widest tabular-nums drop-shadow-lg">{msToClock(runningElapsed)}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                          {!running ? (
+                              <button onClick={startTimer} className="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                  <Play size={18} fill="currentColor" /> START
+                              </button>
+                          ) : (
+                              <button onClick={pauseTimer} className="bg-amber-500 hover:bg-amber-400 text-black py-3 rounded-xl text-sm font-bold shadow-lg shadow-amber-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                  <Pause size={18} fill="currentColor" /> PAUSE
+                              </button>
+                          )}
+                          <button onClick={resetTimer} className="bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/5">
+                              <RotateCcw size={18} /> RESET
+                          </button>
+                      </div>
+                      
+                      <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5">
+                          <button onClick={() => adjustTimer(3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">+1h</button>
+                          <button onClick={() => adjustTimer(60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">+1m</button>
+                          <button onClick={() => adjustTimer(-60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">-1m</button>
+                          <button onClick={() => adjustTimer(-3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">-1h</button>
+                      </div>
+                  </div>
+
+              </div>
+              
             </div>
-
-            {/* RECHTER BEREICH: PREVIEW & TIMER */}
-            <div className="xl:col-span-4 space-y-6 sticky top-6">
-                
-                {/* PREVIEW BOX */}
-                <div>
-                    <div className="flex items-center justify-between mb-3 px-1">
-                        <h3 className="text-white/40 text-xs uppercase tracking-wider font-bold">Live Vorschau</h3>
-                        <button onClick={() => setPreviewLightMode(!previewLightMode)} className="text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white/50 transition-colors border border-white/5">
-                            {previewLightMode ? "BG: Hell" : "BG: Dunkel"}
-                        </button>
-                    </div>
-                    {renderPreview()}
-                </div>
-
-                {/* TIMER CONTROLS CARD */}
-                <div className="bg-[#18181b] rounded-3xl p-6 border border-white/10 shadow-xl">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_currentColor] ${running ? "bg-green-500 text-green-500" : "bg-red-500 text-red-500"}`} />
-                            <span className="text-sm font-bold text-white uppercase tracking-wider">Timer Control</span>
-                        </div>
-                        <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-white/50 hover:text-white transition-colors">
-                            <input type="checkbox" className="accent-violet-500" checked={doc?.timer?.visible !== false} onChange={(e) => save({ ...doc, timer: { ...(doc?.timer || {}), visible: e.target.checked } })} />
-                            Sichtbar
-                        </label>
-                    </div>
-                    
-                    <div className="bg-black/40 rounded-2xl p-4 text-center border border-white/5 mb-4 shadow-inner">
-                        <span className="font-mono text-4xl font-black text-white tracking-widest tabular-nums drop-shadow-lg">{msToClock(runningElapsed)}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                        {!running ? (
-                            <button onClick={startTimer} className="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
-                                <Play size={18} fill="currentColor" /> START
-                            </button>
-                        ) : (
-                            <button onClick={pauseTimer} className="bg-amber-500 hover:bg-amber-400 text-black py-3 rounded-xl text-sm font-bold shadow-lg shadow-amber-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
-                                <Pause size={18} fill="currentColor" /> PAUSE
-                            </button>
-                        )}
-                        <button onClick={resetTimer} className="bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/5">
-                            <RotateCcw size={18} /> RESET
-                        </button>
-                    </div>
-                    
-                    <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5">
-                        <button onClick={() => adjustTimer(3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">+1h</button>
-                        <button onClick={() => adjustTimer(60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">+1m</button>
-                        <button onClick={() => adjustTimer(-60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">-1m</button>
-                        <button onClick={() => adjustTimer(-3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">-1h</button>
-                    </div>
-                </div>
-
-            </div>
-            
-          </div>
         </div>
       )}
     </div>
