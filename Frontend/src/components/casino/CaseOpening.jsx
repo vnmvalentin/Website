@@ -6,6 +6,8 @@ import { Package, Box } from "lucide-react";
 const ITEM_WIDTH = 120; 
 const GAP = 8;          
 const FULL_ITEM_WIDTH = ITEM_WIDTH + GAP; // 128px
+/** Weniger DOM-Knoten als 50 = flüssigeres Scrollen */
+const STRIP_ITEM_COUNT = 36;
 
 // --- ROW COMPONENT (Original Logic + Modern Style) ---
 function CaseRow({ result, isRolling, rowIndex }) {
@@ -70,7 +72,7 @@ function CaseRow({ result, isRolling, rowIndex }) {
 
          <div 
             ref={scrollRef}
-            className="absolute top-1/2 -translate-y-1/2 flex items-center pl-4 will-change-transform"
+            className="absolute top-1/2 -translate-y-1/2 flex items-center pl-4 will-change-transform [contain:layout_style]"
             style={{ gap: GAP }}
          >
             {/* 1. Placeholder wenn noch nix passiert ist */}
@@ -82,7 +84,7 @@ function CaseRow({ result, isRolling, rowIndex }) {
                 ))
             ) : (
                 /* 2. Echte Items während Spin/Result */
-                (result ? result.items : Array.from({length: 50})).map((item, i) => (
+                (result ? result.items : Array.from({ length: STRIP_ITEM_COUNT })).map((item, i) => (
                     <div 
                         key={i} 
                         style={{ width: ITEM_WIDTH, height: 100 }}

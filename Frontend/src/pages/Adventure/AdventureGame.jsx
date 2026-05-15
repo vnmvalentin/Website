@@ -521,7 +521,8 @@ export default function AdventureGame() {
   if (!user) return <div className="text-white p-10 text-center">Bitte einloggen.</div>;
 
   return (
-    <div ref={containerRef} className="relative w-full h-[calc(100vh-120px)] min-h-[500px] bg-black overflow-hidden rounded-xl shadow-2xl border border-white/10 select-none">
+    <div className="h-full w-full min-h-0 flex flex-col flex-1 -mx-0">
+    <div ref={containerRef} className="relative w-full flex-1 min-h-[400px] h-full max-h-full bg-black overflow-hidden md:rounded-xl shadow-2xl border border-white/10 select-none">
         <SEO title = "Adventure"/>
         {/* NEU: LADESCREEN OVERLAY */}
         {isLoading && menuView !== 'MAIN' && (
@@ -1103,6 +1104,7 @@ export default function AdventureGame() {
                 </div>
              </div>
         )}
+    </div>
     </div>
   );
 }

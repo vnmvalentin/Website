@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { WifiOff } from "lucide-react";
 import io from "socket.io-client";
+import { socketServerUrl } from "../../utils/socket";
 
 // --- KONSTANTEN & HELPER ---
 
@@ -285,7 +286,7 @@ export default function ViewerPond() {
     
     // SOCKET.IO FÜR SKIN UPDATES IN ECHTZEIT (Statisch "pond_main")
     useEffect(() => {
-        const s = io(window.location.origin, { path: "/socket.io" });
+        const s = io(socketServerUrl ?? window.location.origin, { path: "/socket.io" });
         backendSocket.current = s;
         
         s.on('connect', () => { s.emit('join_room', "pond_main"); });

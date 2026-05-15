@@ -1,5 +1,43 @@
 export const NEWS_UPDATES = [
   {
+    date: "09.05.2026",
+    version: "v4.1: Big Virtual Farm Update",
+    sections: [
+      {
+        title: "Virtual Farm",
+        items: [
+          "Checked den Ingame Changelog oder den Discord für die Änderungen",
+        ]
+      },
+    ]
+  },
+  {
+    date: "28.04.2026",
+    version: "v4.0: New Game - Virtual Farm",
+    sections: [
+      {
+        title: "Allgemein",
+        items: [
+          "Neues Spiel: Virtual Farm (Testphase)",
+          "Entfernung von einigen Subseiten und Seasons",
+        ]
+      },
+      {
+        title: "Win-Challenge",
+        items: [
+          "Neuer Twitch-Chatbot zum bearbeiten von Timer per Commands (neue Befehle in Zukunft)",
+          "Umzug von .json zu Datenbank"
+        ]
+      },
+      {
+        title: "YTM Songrequest",
+        items: [
+          "Neue eigene App von Github in der Seite hinterlegt (weg von Streamer.bot)"
+        ]
+      },
+    ]
+  },
+  {
     date: "14.03.2026",
     version: "v3.2: Seasons",
     sections: [

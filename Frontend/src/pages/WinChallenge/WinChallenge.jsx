@@ -14,6 +14,7 @@ import {
   Settings, 
   Play, 
   Pause, 
+  Pin,
   RotateCcw, 
   Plus, 
   Trash2, 
@@ -22,11 +23,11 @@ import {
   Copy, 
   Monitor, 
   ShieldAlert,
-  Pin,
-  Layout,
+  MessageSquare,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Layout
 } from "lucide-react";
 
 // --- HELPER FUNCTIONS ---
@@ -72,6 +73,12 @@ const DEFAULT_ANIMATION = {
   scrolling: { speedPxPerSec: 30, visibleRows: 2, pauseSec: 2 },
 };
 const DEFAULT_PERMISSIONS = { allowModsTimer: true, allowModsTitle: false, allowModsChallenges: false };
+const DEFAULT_CHAT_COMMANDS = {
+  enabled: false,
+  channel: "",
+  requireModOrBroadcaster: true,
+  replyInChat: true,
+};
 
 function normalizeAnimation(animation, pagerLike) {
   const hasAnim = animation && typeof animation === "object";
@@ -118,6 +125,7 @@ function ensureDocShape(input = {}) {
     title: "WinChallenge", items: [], updatedAt: Date.now(),
     overlayKey: raw.overlayKey, controlKey: raw.controlKey,
     controlPermissions: { ...DEFAULT_PERMISSIONS, ...(raw.controlPermissions || {}) },
+    chatCommands: { ...DEFAULT_CHAT_COMMANDS, ...(raw.chatCommands || {}) },
     ...raw, timer, style, animation,
   };
 }
@@ -190,11 +198,50 @@ export default function WinChallenge() {
     })();
   }, [user]);
 
+  /** Sync Timer (u. a. nach Chat-Befehl / Control-Link) ohne Reload */
+  useEffect(() => {
+    if (!user?.id) return;
+    const t = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/winchallenge/${user.id}`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        setDoc((prev) => {
+          if (!prev) return ensureDocShape(data);
+          const su = Number(data.updatedAt) || 0;
+          const pu = Number(prev.updatedAt) || 0;
+          if (su <= pu) return prev;
+          return ensureDocShape({
+            ...prev,
+            timer: { ...DEFAULT_TIMER, ...(data.timer || {}) },
+            updatedAt: su,
+            refreshNonce:
+              data.refreshNonce != null ? data.refreshNonce : prev.refreshNonce,
+          });
+        });
+        setLocalNow(Date.now());
+      } catch (e) {}
+    }, 2000);
+    return () => clearInterval(t);
+  }, [user?.id]);
+
   useEffect(() => () => saveTimeoutRef.current && clearTimeout(saveTimeoutRef.current), []);
 
   const saveToServer = async (payload) => {
     if (!user) return;
-    try { await fetch(`/api/winchallenge/${user.id}`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); } catch (e) {}
+    try {
+      const res = await fetch(`/api/winchallenge/${user.id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const j = await res.json();
+        setDoc(ensureDocShape(j));
+        setLocalNow(Date.now());
+      }
+    } catch (e) {}
   };
 
   const save = (nextRaw) => {
@@ -354,6 +401,7 @@ export default function WinChallenge() {
                       {[
                           { id: "challenges", label: "Challenges", icon: Trophy },
                           { id: "custom", label: "Design", icon: Palette },
+                          { id: "chat", label: "Twitch-Chat", icon: MessageSquare },
                           { id: "settings", label: "Einstellungen", icon: Settings },
                       ].map((tab) => (
                           <button
@@ -527,6 +575,98 @@ export default function WinChallenge() {
                                           </div>
                                       </div>
                                   </div>
+                              </div>
+                          </div>
+                      )}
+
+                      {activeTab === "chat" && (
+                          <div className="space-y-6 max-w-2xl">
+                              <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
+                                  <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2">
+                                      <MessageSquare size={16} className="text-cyan-400" /> Twitch-Chat-Befehle
+                                  </h4>
+                                  <label className="flex items-center gap-3 cursor-pointer mb-4">
+                                      <input
+                                          type="checkbox"
+                                          className="w-4 h-4 accent-violet-500"
+                                          checked={!!doc.chatCommands?.enabled}
+                                          onChange={(e) =>
+                                              save({
+                                                  ...doc,
+                                                  chatCommands: {
+                                                      ...DEFAULT_CHAT_COMMANDS,
+                                                      ...doc.chatCommands,
+                                                      enabled: e.target.checked,
+                                                  },
+                                              })
+                                          }
+                                      />
+                                      <span className="text-sm font-medium text-white">Chat-Befehle für dieses Overlay aktivieren</span>
+                                  </label>
+                                  <div className="space-y-2 mb-4">
+                                      <span className="text-[10px] uppercase text-white/40 font-bold tracking-wider">Twitch-Kanal (Kleinbuchstaben, ohne #)</span>
+                                      <input
+                                          type="text"
+                                          placeholder="deinkanalname"
+                                          value={doc.chatCommands?.channel || ""}
+                                          onChange={(e) =>
+                                              save({
+                                                  ...doc,
+                                                  chatCommands: {
+                                                      ...DEFAULT_CHAT_COMMANDS,
+                                                      ...doc.chatCommands,
+                                                      channel: e.target.value.trim().toLowerCase(),
+                                                  },
+                                              })
+                                          }
+                                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white"
+                                      />
+                                  </div>
+                                  <label className="flex items-center gap-3 cursor-pointer">
+                                      <input
+                                          type="checkbox"
+                                          className="w-4 h-4 accent-violet-500"
+                                          checked={doc.chatCommands?.requireModOrBroadcaster !== false}
+                                          onChange={(e) =>
+                                              save({
+                                                  ...doc,
+                                                  chatCommands: {
+                                                      ...DEFAULT_CHAT_COMMANDS,
+                                                      ...doc.chatCommands,
+                                                      requireModOrBroadcaster: e.target.checked,
+                                                  },
+                                              })
+                                          }
+                                      />
+                                      <span className="text-sm text-white/80">Nur Mods und Streamer</span>
+                                  </label>
+                                  <label className="flex items-center gap-3 cursor-pointer pt-2 border-t border-white/5 mt-2">
+                                      <input
+                                          type="checkbox"
+                                          className="w-4 h-4 accent-violet-500"
+                                          checked={doc.chatCommands?.replyInChat !== false}
+                                          onChange={(e) =>
+                                              save({
+                                                  ...doc,
+                                                  chatCommands: {
+                                                      ...DEFAULT_CHAT_COMMANDS,
+                                                      ...doc.chatCommands,
+                                                      replyInChat: e.target.checked,
+                                                  },
+                                              })
+                                          }
+                                      />
+                                      <span className="text-sm text-white/80">Bestätigungen im Chat (z. B. „Timer wurde pausiert“)</span>
+                                  </label>
+                              </div>
+                              <div className="bg-violet-950/20 border border-violet-500/20 rounded-2xl p-5 text-sm text-white/70">
+                                  <p className="font-bold text-violet-200 mb-2">Befehle</p>
+                                  <ul className="list-disc pl-5 space-y-1 font-mono text-xs text-white/60">
+                                      <li>!starttimer</li>
+                                      <li>!stoptimer / !pausetimer</li>
+                                      <li>!resettimer</li>
+                                      <li>!hidetimer / !showtimer</li>
+                                  </ul>
                               </div>
                           </div>
                       )}

@@ -210,7 +210,7 @@ function TwitchTV() {
             className="w-full h-full"
           />
           {/* Scanline Effect */}
-          <div className="absolute inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02]"></div>
+          
         </div>
 
         {/* TV "Kinn" / Control Panel */}

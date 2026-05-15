@@ -1,5 +1,5 @@
 // App.jsx
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./pages/Layout";
 import Home from "./pages/Home";
 import Abstimmung from "./pages/Abstimmung/Abstimmung";
@@ -18,16 +18,15 @@ import BingoOverlayPage from "./pages/Bingo/BingoOverlayPage";
 import CasinoPage from "./pages/CasinoPage";
 import AdventureGame from "./pages/Adventure/AdventureGame"
 import AdminDashboard from "./pages/AdminDashboard";
-import YTMPage from "./pages/YTM/YTMPage";
+import YTMBotPage from "./pages/YTM/YTMBotPage";
 import TwitchAuthProvider from "./components/TwitchAuthContext";
-import YTMStreamDeckPage from "./pages/YTM/YTMStreamDeckPage";
 import ViewerPond from "./pages/ViewerPond/ViewerPond";
 import PondPage from "./pages/ViewerPond/PondPage";
-import GameSessions from "./pages/GameSession";
 import Updates from "./pages/Updates";
 import CardDashboard from "./pages/Card/CardDashboard";
-import Season from "./pages/Seasons";
+import Hub from "./pages/Hub";
 import StreamCredits from "./pages/StreamCredits";
+import GameContainer from "./pages/GardenGame/GameContainer";
 
 export default function App() {
   return (
@@ -60,13 +59,15 @@ export default function App() {
           <Route path="Packs" element={<CardDashboard />} />
           <Route path="Casino" element={<CasinoPage />} />
           <Route path="adventures" element={<AdventureGame/>} />
+          <Route path="garden" element={<GameContainer />} />
           <Route path="admin" element={<AdminDashboard />} />
-          <Route path="tutorial/ytm-songrequest" element={<YTMPage />} />
-          <Route path="tutorial/ytm-streamdeck" element={<YTMStreamDeckPage/>} />
+          <Route path="tutorial/ytm-bot" element={<YTMBotPage />} />
+          <Route path="tutorial/ytm-songrequest" element={<Navigate to="/tutorial/ytm-bot" replace />} />
+          <Route path="tutorial/ytm-streamdeck" element={<Navigate to="/tutorial/ytm-bot" replace />} />
           <Route path="pond" element={<PondPage />} />
-          <Route path="sessions" element={<GameSessions />} />
           <Route path="updates" element={<Updates />} />
-          <Route path="season" element={<Season />} />
+          <Route path="season" element={<Hub />} />
+          
 
 
         </Route>

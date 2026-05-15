@@ -1,18 +1,17 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
+import { Link } from "react-router-dom";
 import { 
-  Gamepad2, 
-  Trophy, 
   Send, 
-  Timer, 
-  Gift, 
-  ChevronRight, 
   Search,
-  Home 
+  Home,
+  Trophy,
+  ChevronRight,
 } from "lucide-react";
 import SEO from "../components/SEO";
 import io from "socket.io-client";
+import { socketServerUrl } from "../utils/socket";
 
 import CoinIcon from "../components/CoinIcon";
 
@@ -52,14 +51,10 @@ export default function CasinoPage() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferStatus, setTransferStatus] = useState(null);
   
-  // Leaderboard
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
-  const [userDataLoading, setUserDataLoading] = useState(true);
 
   useEffect(() => {
       if (!user) return;
-      const socket = io(window.location.origin, { path: "/socket.io" });
+      const socket = io(socketServerUrl ?? window.location.origin, { path: "/socket.io" });
       socket.emit("join_room", `user:${user.id}`);
       socket.on("casino_credit_update", (data) => {
           if (data.credits !== undefined) setCredits(data.credits);
@@ -74,13 +69,6 @@ export default function CasinoPage() {
     } catch(e) {}
   };
 
-  const fetchLeaderboard = async () => {
-      try {
-          const res = await fetch("/api/casino/leaderboard", { credentials: "include" });
-          if(res.ok) setLeaderboard(await res.json());
-      } catch(e) {}
-  };
-
   const refreshUser = async () => {
     if (!user) return;
     try {
@@ -88,8 +76,7 @@ export default function CasinoPage() {
       const data = await res.json();
       setCredits(data.credits || 0);
       fetchUserList();
-      fetchLeaderboard();
-    } catch (e) { console.error(e); } finally { setUserDataLoading(false); }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => { refreshUser(); }, [user]);
@@ -111,7 +98,6 @@ export default function CasinoPage() {
             setTransferStatus({ type: 'success', msg: data.message });
             setCredits(data.credits);
             setTransferAmount("");
-            fetchLeaderboard(); 
         } else {
             setTransferStatus({ type: 'error', msg: data.error || "Fehler beim Senden" });
         }
@@ -131,14 +117,12 @@ export default function CasinoPage() {
       refreshUser();
   };
 
-  const visibleLeaderboard = leaderboard.slice(0, 10);
-
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-white">
         <div className="bg-[#18181b] p-10 rounded-3xl border border-white/10 text-center shadow-2xl">
             <h1 className="text-5xl font-black mb-6 bg-gradient-to-r from-yellow-400 to-amber-600 bg-clip-text text-transparent">VNM CASINO</h1>
-            <p className="text-white/50 mb-8 max-w-md mx-auto">Spiele Slots, Blackjack und mehr. Sammle Credits und steige im Leaderboard auf.</p>
+            <p className="text-white/50 mb-8 max-w-md mx-auto">Spiele Slots, Blackjack und mehr. Sammle Credits — die Bestenliste findest du im Hub.</p>
             <button onClick={() => login()} className="bg-[#9146FF] hover:bg-[#7d36ff] text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-lg shadow-purple-900/30 transition-transform hover:scale-105">
             Login mit Twitch
             </button>
@@ -233,117 +217,84 @@ export default function CasinoPage() {
         {/* === RECHTER BEREICH: NIMMT DEN KOMPLETTEN RESTLICHEN PLATZ (flex-1) === */}
         <div className="flex-1 min-w-0 w-full">
             {!activeGame ? (
-                /* LOBBY VIEW */
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-300">
-                    
-                    {/* Überweisung */}
-                    <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 shadow-lg h-fit">
-                        <h3 className="font-bold text-white mb-4 flex items-center gap-2 border-b border-white/5 pb-4">
-                            <Send size={18} className="text-blue-400" /> Überweisung
-                        </h3>
-                        
-                        <form onSubmit={handleTransfer} className="space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Empfänger</label>
-                                <div className="relative">
-                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
-                                        <Search size={14} />
-                                    </div>
-                                    <input 
-                                        type="text"
-                                        placeholder="User suchen..."
-                                        value={transferSearch}
-                                        onChange={(e) => setTransferSearch(e.target.value)}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-8 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
-                                    />
-                                    {transferSearch && (
-                                        <button type="button" onClick={() => { setTransferSearch(""); setTransferTarget(""); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white">✕</button>
-                                    )}
-
-                                    {transferSearch && !transferTarget && (
-                                        <div className="absolute z-10 w-full left-0 bg-[#25252a] border border-white/10 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto custom-scrollbar p-1">
-                                            {filteredUsers.length === 0 ? <div className="p-2 text-xs text-white/30">Kein User gefunden</div> : 
-                                                filteredUsers.map(u => (
-                                                    <button key={u.id} type="button" onClick={() => { setTransferTarget(u.id); setTransferSearch(u.name); }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg">
-                                                        {u.name}
-                                                    </button>
-                                                ))
-                                            }
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Betrag</label>
-                                <div className="relative">
-                                    <input 
-                                        type="number" 
-                                        min="1" 
-                                        max={credits}
-                                        value={transferAmount}
-                                        onChange={(e) => setTransferAmount(e.target.value)}
-                                        placeholder="0"
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-10 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors font-mono"
-                                    />
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-                                        <CoinIcon className="w-4 h-4" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {transferStatus && (
-                                <div className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 ${transferStatus.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                                    {transferStatus.type === 'success' ? "✅" : "⚠️"} {transferStatus.msg}
-                                </div>
-                            )}
-
-                            <button 
-                                type="submit" 
-                                disabled={!transferTarget || !transferAmount || credits < transferAmount}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 disabled:text-white/20 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition shadow-lg active:scale-95"
-                            >
-                                Senden
-                            </button>
-                        </form>
+                <div className="space-y-8 animate-in fade-in duration-300 max-w-xl mx-auto w-full">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-amber-500/10 to-yellow-500/5 border border-yellow-500/20 rounded-2xl px-5 py-4 text-center sm:text-left">
+                        <p className="text-sm text-white/70 w-full">
+                            <Trophy className="w-4 h-4 text-yellow-400 inline-block mr-2 align-text-bottom" />
+                            Die Münzen-Rangliste aller Spieler:innen liegt im{" "}
+                            <Link to="/season" className="text-yellow-300 font-bold hover:underline">Hub</Link>.
+                        </p>
                     </div>
 
-                    {/* Leaderboard */}
-                    <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 shadow-lg flex flex-col h-fit">
-                        <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
-                            <h3 className="font-bold text-white flex items-center gap-2">
-                                <Trophy size={18} className="text-yellow-500" /> Top Liste
+                    <div className="w-full">
+                        <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 shadow-lg h-fit">
+                            <h3 className="font-bold text-white mb-4 flex items-center justify-center gap-2 border-b border-white/5 pb-4">
+                                <Send size={18} className="text-blue-400" /> Überweisung
                             </h3>
-                            {leaderboard.length > 10 && (
-                                <button onClick={() => setShowLeaderboardModal(true)} className="text-[10px] uppercase font-bold text-white/40 hover:text-white transition-colors bg-white/5 px-2 py-1 rounded">
-                                    Alle
-                                </button>
-                            )}
-                        </div>
-                        
-                        <div className="space-y-2">
-                            {leaderboard.length === 0 ? (
-                                <p className="text-white/30 text-xs italic text-center py-4">Lade Daten...</p>
-                            ) : (
-                                visibleLeaderboard.map((u, index) => {
-                                    let badgeColor = "bg-white/5 text-white/40";
-                                    if (index === 0) badgeColor = "bg-yellow-500 text-black shadow-lg shadow-yellow-500/20";
-                                    if (index === 1) badgeColor = "bg-gray-400 text-black";
-                                    if (index === 2) badgeColor = "bg-orange-700 text-white";
-
-                                    return (
-                                        <div key={index} className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors group">
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${badgeColor}`}>
-                                                    {index + 1}
-                                                </div>
-                                                <span className="font-semibold text-sm text-white/80 group-hover:text-white truncate">{u.name}</span>
-                                            </div>
-                                            <span className="font-mono text-xs text-white/50">{u.credits.toLocaleString()}</span>
+                            <form onSubmit={handleTransfer} className="space-y-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Empfänger</label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+                                            <Search size={14} />
                                         </div>
-                                    );
-                                })
-                            )}
+                                        <input 
+                                            type="text"
+                                            placeholder="User suchen..."
+                                            value={transferSearch}
+                                            onChange={(e) => setTransferSearch(e.target.value)}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-8 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors"
+                                        />
+                                        {transferSearch && (
+                                            <button type="button" onClick={() => { setTransferSearch(""); setTransferTarget(""); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white">✕</button>
+                                        )}
+
+                                        {transferSearch && !transferTarget && (
+                                            <div className="absolute z-10 w-full left-0 bg-[#25252a] border border-white/10 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto custom-scrollbar p-1">
+                                                {filteredUsers.length === 0 ? <div className="p-2 text-xs text-white/30">Kein User gefunden</div> : 
+                                                    filteredUsers.map(u => (
+                                                        <button key={u.id} type="button" onClick={() => { setTransferTarget(u.id); setTransferSearch(u.name); }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg">
+                                                            {u.name}
+                                                        </button>
+                                                    ))
+                                                }
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Betrag</label>
+                                    <div className="relative">
+                                        <input 
+                                            type="number" 
+                                            min="1" 
+                                            max={credits}
+                                            value={transferAmount}
+                                            onChange={(e) => setTransferAmount(e.target.value)}
+                                            placeholder="0"
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-10 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors font-mono"
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                                            <CoinIcon className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {transferStatus && (
+                                    <div className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 ${transferStatus.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                        {transferStatus.type === 'success' ? "✅" : "⚠️"} {transferStatus.msg}
+                                    </div>
+                                )}
+
+                                <button 
+                                    type="submit" 
+                                    disabled={!transferTarget || !transferAmount || credits < transferAmount}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 disabled:text-white/20 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition shadow-lg active:scale-95"
+                                >
+                                    Senden
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -366,39 +317,6 @@ export default function CasinoPage() {
             )}
         </div>
       </div>
-
-      {/* MODAL FÜR FULL LEADERBOARD */}
-      {showLeaderboardModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-              <div className="bg-[#18181b] border border-white/10 rounded-3xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl relative">
-                  <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5 rounded-t-3xl">
-                      <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Trophy className="text-yellow-500" /> Bestenliste</h2>
-                      <button onClick={() => setShowLeaderboardModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition text-white">✕</button>
-                  </div>
-                  <div className="p-6 overflow-y-auto custom-scrollbar">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {leaderboard.map((u, index) => {
-                                let rankStyle = "bg-white/5 border-white/5 text-white/60";
-                                let medal = `#${index + 1}`;
-                                if (index === 0) { rankStyle = "bg-yellow-500/10 border-yellow-500/20 text-yellow-200"; medal = "🥇"; }
-                                else if (index === 1) { rankStyle = "bg-gray-400/10 border-gray-400/20 text-gray-200"; medal = "🥈"; }
-                                else if (index === 2) { rankStyle = "bg-orange-700/10 border-orange-700/20 text-orange-200"; medal = "🥉"; }
-
-                                return (
-                                    <div key={index} className={`flex items-center justify-between p-3 rounded-xl border ${rankStyle}`}>
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <span className="text-lg font-bold w-8 text-center flex-shrink-0">{medal}</span>
-                                            <span className="font-semibold truncate text-white">{u.name}</span>
-                                        </div>
-                                        <span className="font-mono font-bold text-sm ml-2">{u.credits.toLocaleString()}</span>
-                                    </div>
-                                );
-                          })}
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
     </div>
   );
 }

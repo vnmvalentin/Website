@@ -8,7 +8,7 @@ import SEO from "../components/SEO";
 // DEINE ID
 const STREAMER_ID = "160224748"; 
 
-const SECTIONS = ["overview", "adventures", "casino", "codes", "winchallenge", "bingo", "feedback", "broadcast"]; // <-- 'broadcast' hinzugefügt
+const SECTIONS = ["overview", "adventures", "casino", "garden", "codes", "winchallenge", "bingo", "feedback", "broadcast"];
 
 export default function AdminDashboard() {
   const { user, isLoading } = useContext(TwitchAuthContext);
@@ -59,6 +59,9 @@ export default function AdminDashboard() {
       code: "", type: "credits", value: 0, maxUses: 10, expiresAt: "" 
   });
   const [isUnlimited, setIsUnlimited] = useState(false);
+  const [gardenUsers, setGardenUsers] = useState([]);
+  const [gardenEditId, setGardenEditId] = useState(null);
+  const [gardenEditGold, setGardenEditGold] = useState("");
 
   // --- SICHERHEITS-CHECK ---
   useEffect(() => {
@@ -78,6 +81,12 @@ export default function AdminDashboard() {
           let url = `/api/admin/data/${type}`;
           if (type === "codes") url = "/api/promo/list";
           if (type === "stats") url = "/api/admin/stats";
+          if (type === "garden") {
+              const r = await fetch("/api/admin/garden/users", { credentials: "include" });
+              const j = await r.json();
+              setGardenUsers(j.users || []);
+              return;
+          }
           if (type === "feedback") url = "/api/feedback/ytm";
 
           const res = await fetch(url);
@@ -92,12 +101,13 @@ export default function AdminDashboard() {
           "overview": "stats",
           "adventures": "adventure",
           "casino": "casino",
+          "garden": "garden",
           "winchallenge": "winchallenge",
           "bingo": "bingo",
           "codes": "codes",
           "feedback": "feedback"
       };
-      
+
       if (keyMap[activeTab]) {
           setFetchLoading(true);
           fetchData(keyMap[activeTab]).then(() => setFetchLoading(false));
@@ -615,6 +625,94 @@ export default function AdminDashboard() {
                            Keine Einträge gefunden.
                        </div>
                    )}
+              </div>
+          );
+      }
+
+      // GARDEN TAB
+      if (activeTab === "garden") {
+          const filtered = search
+              ? gardenUsers.filter(u =>
+                  u.userId.toLowerCase().includes(search.toLowerCase()) ||
+                  (u.twitchLogin && u.twitchLogin.toLowerCase().includes(search.toLowerCase()))
+                )
+              : gardenUsers;
+          const saveGold = async (uid, gold) => {
+              await fetch(`/api/admin/garden/user/${uid}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ gold: Number(gold) }),
+              });
+              setGardenUsers(prev => prev.map(u => u.userId === uid ? { ...u, gold: Number(gold) } : u));
+              setGardenEditId(null);
+          };
+          return (
+              <div>
+                  <div className="flex gap-4 mb-4 flex-wrap">
+                      <div className="bg-black/30 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+                          <span className="text-gray-400 text-xs uppercase font-bold">Spieler</span>
+                          <span className="text-xl font-bold text-white">{gardenUsers.length}</span>
+                      </div>
+                      <div className="bg-black/30 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+                          <span className="text-gray-400 text-xs uppercase font-bold">Gold gesamt</span>
+                          <span className="text-xl font-bold text-yellow-400">{gardenUsers.reduce((s, u) => s + u.gold, 0).toLocaleString("de-DE")}</span>
+                      </div>
+                      <button onClick={() => fetchData("garden")} className="ml-auto px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-xl text-sm font-bold">🔄 Aktualisieren</button>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border border-white/10">
+                      <table className="w-full text-sm text-left">
+                          <thead className="bg-white/10 text-xs uppercase">
+                              <tr>
+                                  <th className="p-3">Spieler</th>
+                                  <th className="p-3">Gold 🪙</th>
+                                  <th className="p-3">Samen</th>
+                                  <th className="p-3">Ernte</th>
+                                  <th className="p-3">Tiere</th>
+                                  <th className="p-3">Pflanzen</th>
+                                  <th className="p-3">Erw.</th>
+                                  <th className="p-3">Zuletzt aktiv</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                              {filtered.map(u => (
+                                  <tr key={u.userId} className="hover:bg-white/5">
+                                      <td className="p-3">
+                                          {u.twitchLogin && (
+                                              <div className="text-white font-bold text-sm">{u.twitchLogin}</div>
+                                          )}
+                                          <div className="font-mono text-xs text-gray-400">{u.userId}</div>
+                                      </td>
+                                      <td className="p-3">
+                                          {gardenEditId === u.userId ? (
+                                              <div className="flex gap-2 items-center">
+                                                  <input autoFocus type="number" value={gardenEditGold} onChange={e => setGardenEditGold(e.target.value)} placeholder="Wert"
+                                                      className="w-24 bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-xs" />
+                                                  <button onClick={() => saveGold(u.userId, gardenEditGold)} className="text-green-400 font-bold bg-green-900/30 hover:bg-green-800/50 px-2 py-1 rounded text-xs transition-colors">SET</button>
+                                                  <button onClick={() => saveGold(u.userId, Number(u.gold) + Number(gardenEditGold))} className="text-blue-400 font-bold bg-blue-900/30 hover:bg-blue-800/50 px-2 py-1 rounded text-xs transition-colors">ADD</button>
+                                                  <button onClick={() => setGardenEditId(null)} className="text-gray-400 bg-gray-800 hover:text-white px-2 py-1 rounded text-xs transition-colors">X</button>
+                                              </div>
+                                          ) : (
+                                              <div className="flex items-center gap-3">
+                                                  <span className="text-yellow-400 font-bold text-sm">{u.gold.toLocaleString("de-DE")}</span>
+                                                  <button onClick={() => { setGardenEditId(u.userId); setGardenEditGold(""); }} className="text-[10px] text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded transition-colors uppercase font-bold tracking-wider">
+                                                      Edit
+                                                  </button>
+                                              </div>
+                                          )}
+                                      </td>
+                                      <td className="p-3 text-gray-400">{u.inventoryCount}</td>
+                                      <td className="p-3 text-gray-400">{u.harvestedCount}</td>
+                                      <td className="p-3 text-gray-400">{u.petCount}</td>
+                                      <td className="p-3 text-gray-400">{u.plantCount}</td>
+                                      <td className="p-3 text-gray-400">{u.expansions}</td>
+                                      <td className="p-3 text-gray-400 text-xs">{u.updatedAt ? new Date(u.updatedAt).toLocaleString("de-DE") : "—"}</td>
+                                  </tr>
+                              ))}
+                              {filtered.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-gray-500 italic">Keine Spieler gefunden.</td></tr>}
+                          </tbody>
+                      </table>
+                  </div>
               </div>
           );
       }

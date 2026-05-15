@@ -35,6 +35,7 @@ const navItems = [
       { label: "Casino", to: "/Casino" },
       { label: "Pack-Opening", to: "/Packs" },
       { label: "adVentures", to: "/adventures" },
+      { label: "Virtual Farm", to: "/garden" },
     ],
   },
   {
@@ -43,7 +44,6 @@ const navItems = [
       { label: "Abstimmungen", to: "/Abstimmungen" },
       { label: "Giveaways", to: "/Giveaways" },
       { label: "The aVards 2026", to: "/avards-2026" },
-      { label: "Game Sessions", to: "/sessions" },
       { label: "Viewer Sea", to: "/pond"},
     ],
   },
@@ -52,8 +52,7 @@ const navItems = [
     links: [
       { label: "Win-Challenge Overlay", to: "/WinChallenge-Overlay" },
       { label: "Bingo-Card Generator", to: "/Bingo" },
-      { label: "Youtube Music Songrequest", to: "/tutorial/ytm-songrequest" },
-      { label: "Youtube Music Stream Deck", to: "/tutorial/ytm-streamdeck" },
+      { label: "YTM Songrequest (Bot)", to: "/tutorial/ytm-bot" },
     ],
   },
   {
@@ -73,8 +72,7 @@ const NavContent = ({
     toggleSection, 
     hasActionableGiveaway, 
     hasActionableAbstimmung, 
-    setFeedbackModalOpen, 
-    setMobileNavOpen, 
+    setFeedbackModalOpen,
 }) => (
     <nav className={`flex-1 overflow-y-auto flex flex-col ${compact ? "p-4" : "p-5"} custom-scrollbar`}>
       <div className="space-y-6 flex-1">
@@ -172,16 +170,6 @@ const NavContent = ({
         })}
       </div>
 
-      <div className="mt-8 pt-4 border-t border-white/5">
-          <Link 
-                to="/updates"
-                onClick={() => { if(compact) setMobileNavOpen(false); }} 
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
-            >
-                <span className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></span>
-                <span className="font-medium text-sm text-gray-400 group-hover:text-white transition-colors">Updates & News</span>
-            </Link>
-      </div>
     </nav>
 );
 
@@ -191,6 +179,9 @@ export default function Layout() {
   const navigate = useNavigate();
   const { user, login, logout } = useContext(TwitchAuthContext);
   const isAdmin = !!user && String(user.id) === STREAMER_ID;
+
+  const isFullBleedGame =
+    location.pathname === "/garden" || location.pathname === "/adventures";
 
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('globalIsMuted') === 'true';
@@ -367,7 +358,7 @@ export default function Layout() {
             <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-cyan-500/10 blur-[120px] rounded-full mix-blend-screen" />
             <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-pink-500/10 blur-[120px] rounded-full mix-blend-screen" />
         </div>
-      <div className="relative z-10 flex min-h-screen">
+      <div className="relative z-10 flex h-[100dvh] min-h-0 w-full max-w-full overflow-hidden">
         
         {/* Desktop Sidebar */}
         <aside className="hidden md:flex w-[22%] min-w-[260px] max-w-[300px] bg-[#16161a] border-r border-white/5 flex-col z-40">
@@ -396,26 +387,42 @@ export default function Layout() {
         </div>
 
         {/* Header + Content */}
-        <div className="flex-1 flex flex-col min-w-0">
-            <header className="relative z-30 h-16 bg-[#0f0f13]/90 backdrop-blur-md border-b border-white/5 flex items-center px-4 md:px-8 justify-between">
-            <div className="flex items-center gap-4">
-                <button onClick={() => setMobileNavOpen(true)} className="md:hidden p-2 text-gray-400 hover:text-white">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                </button>
-            </div>
+<div className="flex-1 flex flex-col min-w-0 min-h-0">
+    <header className="relative z-30 h-16 bg-[#0f0f13]/90 backdrop-blur-md border-b border-white/5 flex items-center px-4 md:px-8">
+        
+        {/* Linke Seite: Mobile Toggle & Jetzt auch Updates */}
+        <div className="flex items-center gap-4">
+            <button onClick={() => setMobileNavOpen(true)} className="md:hidden p-2 text-gray-400 hover:text-white">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
 
-            <div className="flex items-center relative" ref={userMenuRef}>
-              <button 
-                  onClick={() => setIsMuted(!isMuted)}
-                  className="p-2 mr-4 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                  title={isMuted ? "Sound einschalten" : "Sound ausschalten"}
-              >
-                  {isMuted ? <VolumeX size={18} className="text-red-400"/> : <Volume2 size={18} className="text-green-400"/>}
-              </button>
+            {/* NEU: Updates & News ganz links in der Leiste */}
+            <Link 
+                to="/updates" 
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors group"
+                title="Updates & News"
+            >
+                <span className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></span>
+                <span className="text-sm font-medium text-gray-400 group-hover:text-white">Updates</span>
+            </Link>
+        </div>
 
-              {!user ? (
+        {/* Spacer: Drückt alles Folgende nach rechts */}
+        <div className="flex-1" />
+
+        {/* Rechte Seite: Sound & User Profil */}
+        <div className="flex items-center gap-2 relative" ref={userMenuRef}>
+            <button 
+                onClick={() => setIsMuted(!isMuted)}
+                className="p-2 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                title={isMuted ? "Sound einschalten" : "Sound ausschalten"}
+            >
+                {isMuted ? <VolumeX size={18} className="text-red-400"/> : <Volume2 size={18} className="text-green-400"/>}
+            </button>
+
+            {!user ? (
                 <button onClick={() => login(false)} className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors">Login</button>
-              ) : (
+            ) : (
                 <div className="relative">
                   <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 hover:bg-white/5 pl-1 pr-2 py-1 rounded-full transition-colors">
                     <img src={user.profileImageUrl} alt="User" className="w-8 h-8 rounded-full" />
@@ -476,8 +483,14 @@ export default function Layout() {
              </div>
           )}
 
-          {/* PAGE CONTENT */}
-          <section className="flex-1 overflow-y-auto p-4 md:p-8 relative z-0 custom-scrollbar">
+          {/* PAGE CONTENT: volle Viewport-Höhe für Garten/Adventure ohne Seiten-Scroll */}
+          <section
+            className={
+              isFullBleedGame
+                ? "flex-1 min-h-0 overflow-hidden p-0 relative z-0 flex flex-col"
+                : "flex-1 overflow-y-auto p-4 md:p-8 relative z-0 custom-scrollbar"
+            }
+          >
             <Outlet context={{ isMuted }} />
           </section>
         </div>

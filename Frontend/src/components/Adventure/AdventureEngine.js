@@ -2244,24 +2244,6 @@ export default class AdventureEngine {
 
       s.floatingTexts.forEach(t => { t.y -= 0.5; t.life--; });
       s.floatingTexts = s.floatingTexts.filter(t => t.life > 0);
-      
-      const boss = s.enemies.find(e => e.isBoss);
-      const bossData = boss ? { hp: boss.hp, maxHp: boss.maxHp, name: boss.name } : null;
-
-      this.onUpdateUI({ 
-          hp: s.player.hp, maxHp: s.player.maxHp, 
-          kills: s.kills, stage: s.stage, 
-          gold: s.player.gold, 
-          
-          killsRequired: s.killsRequired,
-          stageKills: s.stageKills,
-          doorOpen: s.doorOpen,
-
-          boss: bossData,
-          
-          stats: this.baseStats,
-          loadout: s.loadout 
-      });
     }
 
     handleEnemyDeath(e) {
@@ -2684,6 +2666,30 @@ export default class AdventureEngine {
         ctx.lineWidth = 5; 
         ctx.strokeRect(0, 0, this.worldWidth, this.worldHeight);
     }
+    /** Synchronisiert Engine-State in React (max. 1× pro sichtbaren Frame statt pro Physik-Step). */
+    pushGameStateToUI() {
+        if (!this.state.running) return;
+        if (this.state.paused || this.state.gameOver || this.state.inShop) return;
+        const s = this.state;
+        const boss = s.enemies.find((e) => e.isBoss);
+        const bossData = boss
+            ? { hp: boss.hp, maxHp: boss.maxHp, name: boss.name }
+            : null;
+        this.onUpdateUI({
+            hp: s.player.hp,
+            maxHp: s.player.maxHp,
+            kills: s.kills,
+            stage: s.stage,
+            gold: s.player.gold,
+            killsRequired: s.killsRequired,
+            stageKills: s.stageKills,
+            doorOpen: s.doorOpen,
+            boss: bossData,
+            stats: this.baseStats,
+            loadout: s.loadout,
+        });
+    }
+
     loop(timestamp) {
         if (!this.state.running) return;
 
@@ -2703,6 +2709,8 @@ export default class AdventureEngine {
             this.update(); 
             this.accumulatedTime -= this.step;
         }
+
+        this.pushGameStateToUI();
 
         // DRAW LOGIK
         // Zeichnen tun wir so oft der Monitor es erlaubt (für flüssige 165hz Animationen)

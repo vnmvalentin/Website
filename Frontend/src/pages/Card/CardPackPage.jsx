@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import Card from "../../components/Card";
 import CoinIcon from "../../components/CoinIcon";
-import { Gift, Sparkles, Loader2, Layers } from "lucide-react";
+import { Gift, Loader2, Layers } from "lucide-react";
 
 const PACK_PRICE = 250; 
 const PACK_ART_URL = "/assets/pack.png"; 
@@ -28,6 +28,16 @@ const RARITY_GLOW = {
     epic: "shadow-purple-500/50 ring-2 ring-purple-500",
     mythic: "shadow-pink-500/60 ring-2 ring-pink-500 animate-pulse",
     legendary: "shadow-yellow-400/80 ring-4 ring-yellow-400 animate-pulse"
+};
+
+/** Ruhigeres Leuchten für Raster mit vielen Karten (bessere FPS) */
+const RARITY_GLOW_STATIC = {
+    common: "shadow-gray-500/20",
+    uncommon: "shadow-green-500/30",
+    rare: "shadow-blue-500/40",
+    epic: "shadow-purple-500/50 ring-2 ring-purple-500/80",
+    mythic: "shadow-pink-500/50 ring-2 ring-pink-500/80",
+    legendary: "shadow-yellow-400/70 ring-2 ring-yellow-400/90"
 };
 
 const RARITY_TEXT = {
@@ -145,37 +155,37 @@ export default function CardPackPage() {
 
     setError("");
     setBuyingPack(true);
-    setPrePullOwned({ ...userCards.owned }); // Snapshot speichern
+    setPrePullOwned({ ...userCards.owned });
     
     try {
-      let currentCredits = credits;
-      const allPacks = [];
-      const allCardsFlat = []; // Für den Preloader
-      
-      for(let i = 0; i < 10; i++) {
-          const res = await fetch("/api/cards/open", { method: "POST", credentials: "include" });
-          if (!res.ok) throw new Error("Fehler beim Öffnen eines Packs.");
-          
-          const data = await res.json();
-          currentCredits = data.newCredits;
-          data.cards.sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
-          allPacks.push(data.cards);
-          allCardsFlat.push(...data.cards);
+      const res = await fetch("/api/cards/open", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: 10 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Fehler beim Öffnen der Packs.");
       }
-
-      // Preload ALL 30 cards before triggering the animation
+      const data = await res.json();
+      const allPacks = (data.packs || []).map((packCards) =>
+        [...packCards].sort(
+          (a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity)
+        )
+      );
+      const allCardsFlat = allPacks.flat();
       await preloadCardImages(allCardsFlat);
 
       setPack({ isMulti: true, packs: allPacks });
-      setCredits(currentCredits);
+      setCredits(data.newCredits);
       setBuyingPack(false);
-      setPackPhase("closed"); 
+      setPackPhase("closed");
       setOverlayOpen(true);
 
       fetch("/api/cards/user", { credentials: "include" })
-        .then(r => r.json())
-        .then(uData => setUserCards(uData));
-
+        .then((r) => r.json())
+        .then((uData) => setUserCards(uData));
     } catch (e) {
       setBuyingPack(false);
       setError(e.message || "Netzwerkfehler.");
@@ -260,6 +270,12 @@ export default function CardPackPage() {
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
         }
+        .pack-open-grid {
+            contain: content;
+        }
+        .pack-open-grid .card {
+            content-visibility: auto;
+        }
       `}</style>
 
       <div className="bg-[#18181b] rounded-3xl p-6 md:p-10 border border-white/10 shadow-2xl relative overflow-hidden">
@@ -338,9 +354,14 @@ export default function CardPackPage() {
 
       {overlayOpen && pack && (
         <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md overflow-y-auto overflow-x-hidden select-none">
-          <div className="fixed inset-0 pointer-events-none flex justify-center items-center opacity-30">
-              <Sparkles size={600} className="text-yellow-500 animate-[spin_15s_linear_infinite]" />
-          </div>
+          <div
+            className="fixed inset-0 pointer-events-none opacity-25"
+            style={{
+              background:
+                "radial-gradient(ellipse 80% 50% at 50% 40%, rgba(234,179,8,0.12), transparent 70%)",
+            }}
+            aria-hidden
+          />
 
           <div className="min-h-screen flex flex-col items-center justify-start py-12 relative z-10">
             <div className="m-auto flex flex-col items-center w-full max-w-6xl px-4">
@@ -352,22 +373,35 @@ export default function CardPackPage() {
                         </h2>
                         
                         {pack.isMulti ? (
-                            <div 
-                                className={`relative w-64 h-80 md:w-80 md:h-96 cursor-pointer transition-transform hover:scale-110 drop-shadow-[0_0_40px_rgba(217,70,239,0.5)] ${packPhase === 'shaking' ? 'animate-shake-pack' : ''}`}
+                            <div
+                                className={`relative w-64 h-80 md:w-80 md:h-96 cursor-pointer transition-transform hover:scale-105 drop-shadow-[0_0_40px_rgba(217,70,239,0.4)] ${packPhase === "shaking" ? "animate-shake-pack" : ""}`}
                                 onClick={handleTearPack}
                             >
-                                {[...Array(10)].map((_, i) => (
-                                    <img 
-                                        key={i}
-                                        src={PACK_ART_URL} 
-                                        alt={`Pack ${i+1}`} 
-                                        className="absolute top-0 left-0 w-full h-full object-contain drop-shadow-xl"
-                                        style={{
-                                            transform: `translate(${i * 15 - 65}px, ${i * -5 + 20}px) rotate(${i * 3 - 12}deg)`,
-                                            zIndex: i
-                                        }}
-                                    />
-                                ))}
+                                <div
+                                    className="absolute inset-0 rounded-2xl"
+                                    style={{
+                                        background: `repeating-linear-gradient(
+                                            125deg,
+                                            transparent,
+                                            transparent 2px,
+                                            rgba(255,255,255,0.04) 2px,
+                                            rgba(255,255,255,0.04) 4px
+                                        )`,
+                                        boxShadow: `
+                                            0 0 0 1px rgba(255,255,255,0.08),
+                                            4px 6px 0 -1px rgba(0,0,0,0.5),
+                                            8px 12px 0 -2px rgba(0,0,0,0.35),
+                                            12px 18px 0 -3px rgba(0,0,0,0.25)`,
+                                    }}
+                                />
+                                <img
+                                    src={PACK_ART_URL}
+                                    alt="10 Packs"
+                                    className="relative z-10 w-full h-full object-contain drop-shadow-xl"
+                                />
+                                <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-fuchsia-600/90 px-4 py-1 text-sm font-black text-white shadow-lg">
+                                    10×
+                                </div>
                             </div>
                         ) : (
                             <img 
@@ -423,24 +457,23 @@ export default function CardPackPage() {
                         <div className="w-full flex-1 overflow-y-auto custom-scrollbar px-2 pb-10">
                             
                             {pack.isMulti ? (
-                                <div className="flex flex-col gap-10 w-full max-w-5xl mx-auto">
+                                <div className="pack-open-grid flex flex-col gap-10 w-full max-w-5xl mx-auto">
                                     {pack.packs.map((pCards, pIdx) => (
                                         <div key={pIdx} className="bg-white/5 border border-white/10 p-6 md:p-8 rounded-3xl flex flex-col items-center shadow-lg">
                                             <h3 className="text-xl font-black text-white/40 uppercase tracking-widest mb-6 flex items-center gap-2">
                                                 <Layers size={20} /> Pack {pIdx + 1}
                                             </h3>
-                                            <div className="flex flex-wrap justify-center gap-6 md:gap-10 w-full">
+                                            <div className="flex flex-wrap justify-center gap-4 md:gap-8 w-full">
                                                 {pCards.map((c, idx) => {
                                                     const isNewCard = !prePullOwned[c.id];
-
+                                                    const staticGlow = RARITY_GLOW_STATIC[c.rarity] || "shadow-white/10";
                                                     return (
-                                                        <div key={idx} className="flex flex-col items-center transition-transform hover:scale-110">
-                                                            <div className={`relative rounded-[16px] shadow-xl ${RARITY_GLOW[c.rarity] || "shadow-white/10"} w-[150px] md:w-[200px] mx-auto card-render-fix`}>
-                                                                {/* HIER: isNew Prop übergeben, den Rest löschen */}
+                                                        <div key={idx} className="flex flex-col items-center">
+                                                            <div className={`relative rounded-[16px] shadow-xl ${staticGlow} w-[140px] sm:w-[160px] md:w-[180px] mx-auto card-render-fix`}>
                                                                 <Card card={c} isNew={isNewCard} />
                                                             </div>
-                                                            <div className="text-center mt-4">
-                                                                <span className={`text-[10px] md:text-xs uppercase font-black tracking-widest px-2.5 py-1 rounded bg-black/80 backdrop-blur-md border border-white/10 ${RARITY_TEXT[c.rarity] || "text-white"}`}>
+                                                            <div className="text-center mt-3">
+                                                                <span className={`text-[10px] md:text-xs uppercase font-black tracking-widest px-2.5 py-1 rounded bg-black/80 border border-white/10 ${RARITY_TEXT[c.rarity] || "text-white"}`}>
                                                                     {RARITY_LABELS[c.rarity]}
                                                                 </span>
                                                             </div>
@@ -452,18 +485,17 @@ export default function CardPackPage() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex flex-wrap justify-center gap-6 md:gap-8 w-full h-full items-center">
+                                <div className="pack-open-grid flex flex-wrap justify-center gap-6 md:gap-8 w-full h-full items-center">
                                     {pack.cards.map((c, idx) => {
                                         const isNewCard = !prePullOwned[c.id];
-
+                                        const g = RARITY_GLOW[c.rarity] || "shadow-white/10";
                                         return (
-                                            <div key={idx} className="transform transition-all duration-300 hover:scale-110 hover:z-30 hover:-translate-y-4 flex flex-col items-center">
-                                                <div className={`relative rounded-[16px] shadow-2xl ${RARITY_GLOW[c.rarity] || "shadow-white/10"} w-[240px] mx-auto card-render-fix`}>
+                                            <div key={idx} className="flex flex-col items-center transition-opacity hover:opacity-95">
+                                                <div className={`relative rounded-[16px] shadow-2xl ${g} w-[220px] sm:w-[240px] mx-auto card-render-fix`}>
                                                     <Card card={c} isNew={isNewCard} />
-                                                    
                                                 </div>
                                                 <div className="text-center mt-4">
-                                                    <span className={`text-[11px] uppercase font-black tracking-widest px-3 py-1.5 rounded bg-black/50 backdrop-blur-md border border-white/10 ${RARITY_TEXT[c.rarity] || "text-white"}`}>
+                                                    <span className={`text-[11px] uppercase font-black tracking-widest px-3 py-1.5 rounded bg-black/50 border border-white/10 ${RARITY_TEXT[c.rarity] || "text-white"}`}>
                                                         {RARITY_LABELS[c.rarity]}
                                                     </span>
                                                 </div>

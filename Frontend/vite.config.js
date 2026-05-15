@@ -36,14 +36,21 @@ export default defineConfig({
     port: 5173, 
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3000', 
+        target: 'http://127.0.0.1:3001', 
         changeOrigin: true,
         secure: false,
       },
       '/logos': {
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:3001',
         changeOrigin: true,
-      }
+      },
+      // Socket.io (Garden MP) — ohne Proxy trifft der Client Vite (5173), nicht den Node-Server → connect_error "server error"
+      '/socket.io': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
     }
   }
 });

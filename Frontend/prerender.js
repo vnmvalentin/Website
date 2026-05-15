@@ -11,7 +11,7 @@ const routesToPrerender = [
   '/',
   '/WinChallenge-Overlay',
   '/Bingo',
-  '/tutorial/ytm-songrequest'
+  '/tutorial/ytm-bot'
 ];
 
 (async () => {
