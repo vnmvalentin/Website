@@ -187,13 +187,20 @@ module.exports = function createPackRouter({ requireAuth, wss }) {
     res.json(user);
   });
 
-  // --- PACK ÖFFNEN (wie zuvor) ---
+  // --- PACK ÖFFNEN (1–10 Packs in einem Request) ---
   router.post("/cards/open", requireAuth, (req, res) => {
+    const rawCount = parseInt(
+      req.body && req.body.count != null ? req.body.count : 1,
+      10
+    );
+    const packCount = Math.min(10, Math.max(1, Number.isFinite(rawCount) ? rawCount : 1));
+    const totalCost = PACK_PRICE * packCount;
+
     const casinoDb = loadJson(CASINO_DB_PATH);
     const cUser = casinoDb[req.twitchId];
     const userCredits = cUser ? cUser.credits : 0;
     const cardsDb = loadUserCardsDb();
-    
+
     if (!cardsDb[req.twitchId]) {
       cardsDb[req.twitchId] = {
         twitchId: req.twitchId, twitchLogin: req.twitchLogin,
@@ -203,12 +210,19 @@ module.exports = function createPackRouter({ requireAuth, wss }) {
     const userCards = cardsDb[req.twitchId];
     userCards.twitchLogin = req.twitchLogin; 
 
-    if (userCredits < PACK_PRICE) return res.status(400).json({ error: "Zu wenig Credits" });
-    casinoDb[req.twitchId].credits -= PACK_PRICE;
+    if (userCredits < totalCost) return res.status(400).json({ error: "Zu wenig Credits" });
+    if (!casinoDb[req.twitchId]) {
+      casinoDb[req.twitchId] = { credits: 0, name: req.twitchLogin };
+    }
+    casinoDb[req.twitchId].credits -= totalCost;
     fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2));
 
     const defs = loadCardsDef();
-    if (defs.length === 0) return res.status(500).json({ error: "Keine Karten-Definitionen" });
+    if (defs.length === 0) {
+      casinoDb[req.twitchId].credits += totalCost;
+      fs.writeFileSync(CASINO_DB_PATH, JSON.stringify(casinoDb, null, 2));
+      return res.status(500).json({ error: "Keine Karten-Definitionen" });
+    }
 
     const rarityPools = { common: [], uncommon: [], rare: [], epic: [], mythic: [], legendary: [] };
     for (const c of defs) {
@@ -230,18 +244,30 @@ module.exports = function createPackRouter({ requireAuth, wss }) {
       return pool[Math.floor(Math.random() * pool.length)];
     }
 
-    const pulled = [];
-    for (let i = 0; i < 3; i++) pulled.push(getRandomCard());
-
     if (!userCards.owned) userCards.owned = {};
-    for (const c of pulled) {
-      userCards.owned[c.id] = (userCards.owned[c.id] || 0) + 1;
+    const packs = [];
+    const lastPackIds = [];
+    for (let p = 0; p < packCount; p++) {
+      const pulled = [];
+      for (let i = 0; i < 3; i++) pulled.push(getRandomCard());
+      for (const c of pulled) {
+        userCards.owned[c.id] = (userCards.owned[c.id] || 0) + 1;
+        lastPackIds.push(c.id);
+      }
+      packs.push(pulled);
     }
 
-    userCards.lastPack = { openedAt: Date.now(), cardIds: pulled.map((c) => c.id) };
+    userCards.lastPack = { openedAt: Date.now(), cardIds: lastPackIds };
     saveUserCardsDb(cardsDb);
 
-    res.json({ ok: true, newCredits: userCredits - PACK_PRICE, cards: pulled });
+    const newCredits = userCredits - totalCost;
+    const out = { ok: true, newCredits };
+    if (packCount === 1) {
+      out.cards = packs[0];
+    } else {
+      out.packs = packs;
+    }
+    res.json(out);
   });
 
   // --- NEUE ACHIEVEMENT ROUTE (Unterstützt Fische & Farben) ---

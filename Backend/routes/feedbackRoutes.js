@@ -7,7 +7,7 @@ const path = require("path");
 const FEEDBACK_FILE = path.join(__dirname, "../data/feedback_ytm.json");
 
 // HIER DEINEN NEUEN WEBHOOK FÜR DAS ALLGEMEINE FEEDBACK EINTRAGEN:
-const WEBHOOK_URL_MAIN = "https://discord.com/api/webhooks/1465312641076695103/tQgqlqafkRw6Pd-bN2nfHOq13RqVNj4bF4T5ggpjVRPDzX7_Q-6IByh1Fs61ULVJBPBD"; 
+const WEBHOOK_URL_MAIN = process.env.DISCORD_WEBHOOK_MAIN;
 
 function loadFeedback() {
   try {

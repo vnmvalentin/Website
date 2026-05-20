@@ -5,6 +5,7 @@ const path = require("path");
 
 const GAME_DATA_PATH = path.join(__dirname, "../data/adventures-users.json");
 const CASINO_PATH = path.join(__dirname, "../data/casinoData.json");
+const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
 const SKINS_DEF = {
     "default": { name: "Standard", price: 0, file: "skins/player.png" },
@@ -234,7 +235,7 @@ module.exports = function createGameRouter({ requireAuth }) {
       const username = req.twitchLogin || "Unbekannt";
       
       // HIER DEINE WEBHOOK URL EINTRAGEN:
-      const WEBHOOK_URL = "https://discord.com/api/webhooks/1462290359202615347/I5kLNO6HwScgJ2-ONt0MBtwVQ-y-C_QFpbJF1PiYOwmGC3ccJ46iVMOroPL1zqCoc0_J"; 
+      const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
       if (!message || message.trim().length === 0) {
           return res.status(400).json({ error: "Nachricht darf nicht leer sein." });

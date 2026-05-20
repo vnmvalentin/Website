@@ -1,13 +1,12 @@
 const express = require("express");
-const fs = require("fs");
-const fsp = require("fs/promises");
-const path = require("path");
 const { nanoid } = require("nanoid");
+const {
+  loadAllDocsObject,
+  persistAllDocsObject,
+} = require("../winchallengeStore");
 
-const DB_PATH = path.join(__dirname, "../data/winchallenge.json");
-
-// ===== DB (RAM-Cache + atomisches Speichern + Key-Indizes) =====
-// Wichtig: Diese File-DB ist für EINEN Node-Prozess gedacht (nicht mehrere Instanzen / PM2 cluster).
+// ===== DB (RAM-Cache + Speichern in SQLite via winchallengeStore) =====
+// Wichtig: Ein Node-Prozess (nicht PM2 cluster ohne gemeinsame DB).
 let dbCache = null; // { [userId]: doc }
 let overlayIndex = new Map(); // overlayKey -> userId
 let controlIndex = new Map(); // controlKey -> userId
@@ -17,25 +16,15 @@ let savePending = false;
 
 function loadDbFromDisk() {
   try {
-    if (!fs.existsSync(DB_PATH)) return {}; // Datei fehlt -> leere DB
-    const raw = fs.readFileSync(DB_PATH, "utf8");
-    if (!raw.trim()) return {}; // leere Datei -> leere DB
-    return JSON.parse(raw);
+    return loadAllDocsObject();
   } catch (e) {
     console.error("loadDb failed:", e);
-    // Korrupt -> nach Backup benennen
-    try {
-      fs.renameSync(DB_PATH, DB_PATH + ".broken." + Date.now());
-    } catch {}
     return {};
   }
 }
 
 async function writeDbAtomic(dbObj) {
-  const json = JSON.stringify(dbObj, null, 2);
-  const tmpPath = `${DB_PATH}.tmp.${process.pid}.${Date.now()}.${nanoid(6)}`;
-  await fsp.writeFile(tmpPath, json, "utf8");
-  await fsp.rename(tmpPath, DB_PATH);
+  persistAllDocsObject(dbObj);
 }
 
 function rebuildIndexes() {
@@ -74,6 +63,7 @@ function needsMigration(doc) {
   if (doc.updatedAt === undefined) return true;
   if (!doc.style) return true;
   if (!doc.pager) return true;
+  if (!doc.chatCommands || typeof doc.chatCommands !== "object") return true;
   return false;
 }
 
@@ -161,6 +151,15 @@ const DEFAULT_PERMISSIONS = {
   allowModsTimer: true,
   allowModsTitle: false,
   allowModsChallenges: false,
+};
+
+const DEFAULT_CHAT_COMMANDS = {
+  enabled: false,
+  /** Twitch-Login, klein, ohne # */
+  channel: "",
+  requireModOrBroadcaster: true,
+  /** tmi: Kurzantworten im Chat (z. B. „Timer wurde pausiert“) */
+  replyInChat: true,
 };
 
 function normalizeStyle(style) {
@@ -259,6 +258,11 @@ function ensureDocShape(input = {}) {
     ...(doc.controlPermissions || {}),
   };
 
+  const chatCommands = {
+    ...DEFAULT_CHAT_COMMANDS,
+    ...(doc.chatCommands || {}),
+  };
+
   return {
     userId: doc.userId,
     hostName: typeof doc.hostName === "string" ? doc.hostName : "Unknown",
@@ -269,6 +273,7 @@ function ensureDocShape(input = {}) {
     pager,
     animation,
     controlPermissions,
+    chatCommands,
     overlayKey: doc.overlayKey,
     controlKey: doc.controlKey,
     refreshNonce:
@@ -580,6 +585,9 @@ function createWinchallengeRouter({ requireAuth } = {}) {
         const doc = ensureDocShape({ userId: twitchId });
         setUserDoc(twitchId, doc);
         await saveDb(db);
+        try {
+          require("../winchallengeIrc").afterWinchallengeConfigSaved();
+        } catch (_) { /* irc optional */ }
         return res.json(doc);
       }
 
@@ -613,6 +621,10 @@ function createWinchallengeRouter({ requireAuth } = {}) {
           ...(existing.controlPermissions || {}),
           ...(incoming.controlPermissions || {}),
         },
+        chatCommands: {
+          ...(existing.chatCommands || {}),
+          ...(incoming.chatCommands || {}),
+        },
         timer: {
           ...(existing.timer || {}),
           ...(incoming.timer || {}),
@@ -623,6 +635,9 @@ function createWinchallengeRouter({ requireAuth } = {}) {
 
       setUserDoc(twitchId, merged);
       await saveDb(db);
+      try {
+        require("../winchallengeIrc").afterWinchallengeConfigSaved();
+      } catch (_) { /* irc optional */ }
       res.json(merged);
     })
   );
@@ -630,9 +645,36 @@ function createWinchallengeRouter({ requireAuth } = {}) {
   return router;
 }
 
+/**
+ * Löscht einen Win-Challenge-Datensatz (z. B. Admin-Panel); aktualisiert Indizes + SQLite.
+ * @param {string} twitchId
+ * @returns {Promise<boolean>}
+ */
+async function removeWinchallengeUser(twitchId) {
+  const db = loadDb();
+  if (!db[twitchId]) return false;
+  delete db[twitchId];
+  rebuildIndexes();
+  await saveDb(db);
+  return true;
+}
+
+/**
+ * @param {string} userId
+ * @param {object} doc rohes oder geformtes Dokument
+ */
+async function setUserAndSaveDoc(userId, doc) {
+  const shaped = ensureDocShape({ ...doc, userId: String(userId) });
+  setUserDoc(String(userId), shaped);
+  await saveDb(loadDb());
+  return shaped;
+}
+
 // optional: helpers weiterhin exportierbar machen (falls du sie irgendwo brauchst)
 createWinchallengeRouter.loadDb = loadDb;
 createWinchallengeRouter.saveDb = saveDb;
-createWinchallengeRouter.DB_PATH = DB_PATH;
+createWinchallengeRouter.removeWinchallengeUser = removeWinchallengeUser;
+createWinchallengeRouter.setUserAndSaveDoc = setUserAndSaveDoc;
+createWinchallengeRouter.ensureDocShape = ensureDocShape;
 
 module.exports = createWinchallengeRouter;

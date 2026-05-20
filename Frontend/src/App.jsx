@@ -27,6 +27,7 @@ import CardDashboard from "./pages/Card/CardDashboard";
 import Hub from "./pages/Hub";
 import StreamCredits from "./pages/StreamCredits";
 import GameContainer from "./pages/GardenGame/GameContainer";
+import DiscordBotDashboard from "./pages/Discord/DiscordBotDashboard";
 
 export default function App() {
   return (
@@ -67,9 +68,8 @@ export default function App() {
           <Route path="pond" element={<PondPage />} />
           <Route path="updates" element={<Updates />} />
           <Route path="season" element={<Hub />} />
+          <Route path="/discord-bot" element={<DiscordBotDashboard />} />
           
-
-
         </Route>
       </Routes>
     </TwitchAuthProvider>

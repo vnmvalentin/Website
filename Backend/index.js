@@ -6,15 +6,12 @@ const fs = require("fs");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const { nanoid } = require("nanoid");
-const cron = require("node-cron");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args)); 
 
 // --- NEU: HTTP & Socket.io ---
 const http = require("http");
 const { Server } = require("socket.io");
-
-const { executeSeasonReset } = require("./utils/seasonManager");
 
 // Feature-Router
 const createBingoRouter = require("./routes/bingoRoutes");
@@ -29,8 +26,14 @@ const createAdminRouter = require("./routes/adminRoutes");
 const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
 const createPondRouter = require("./routes/pondRoutes");
-const createGameSessionRouter = require("./routes/gameSessionRoutes");
-const createSeasonRouter = require("./routes/seasonRoutes");
+const createHubRouter = require("./routes/hubRoutes");
+const createGardenGameRouter = require("./routes/gardenGameRoutes");
+const discordClient = require("./discord/bot/index");
+const createDiscordRouter = require("./discord/api/index");
+const { saveAllFarmsOnExit, initGardenFarmsStore, farmStates } = require("./gardenFarmsStore");
+const { runPlantMigration } = require("./gardenMigration");
+const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./winchallengeStore");
+const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc } = require("./winchallengeIrc");
 
 const app = express();
 
@@ -57,7 +60,8 @@ app.use(
   })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
 
 app.use(
@@ -66,23 +70,6 @@ app.use(
     credentials: true,
   })
 );
-
-cron.schedule("1 0 * * *", () => {
-    try {
-        const configPath = path.join(__dirname, "data/seasonConfig.json");
-        if (fs.existsSync(configPath)) {
-            const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-            
-            // Wenn der aktuelle Zeitpunkt das in der Config gespeicherte Ende überschritten hat...
-            if (Date.now() > config.endsAt) {
-                console.log("⏳ SEASON ENDE ERREICHT! Automatischer Reset startet...");
-                executeSeasonReset();
-            }
-        }
-    } catch (e) {
-        console.error("❌ Fehler beim Cronjob Season Reset:", e);
-    }
-});
 
 // =================== CONFIG & HELPER & SESSIONS ===================
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
@@ -156,7 +143,14 @@ app.post("/api/auth/twitch", async (req, res) => {
   const data = await verifyTwitchToken(token);
   if (!data || !data.user_id) return res.status(401).json({ error: "Ungültiger Token" });
   const sessionId = createSession(data.user_id, data.login);
-  res.cookie("session", sessionId, { httpOnly: true, secure: true, sameSite: "strict", maxAge: SESSION_LIFETIME_MS });
+  // secure: true bricht Session-Cookies auf http://localhost (ohne TLS)
+  const secureCookie = process.env.NODE_ENV === "production";
+  res.cookie("session", sessionId, {
+    httpOnly: true,
+    secure: secureCookie,
+    sameSite: secureCookie ? "strict" : "lax",
+    maxAge: SESSION_LIFETIME_MS,
+  });
   res.json({ ok: true });
 });
 
@@ -231,37 +225,105 @@ app.use("/api/awards", createAwardsRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
 app.use("/api/", createPackRouter({ requireAuth, ADMIN_PW, STREAMER_TWITCH_ID }));
-app.use("/", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
+app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/casino", createCasinoRouter({ requireAuth, io }));
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
 app.use("/api/pond", createPondRouter({ requireAuth, io }));
-app.use("/api/sessions", createGameSessionRouter({ requireAuth, io }));
-app.use("/api/seasons", createSeasonRouter({ requireAuth, io }));
+app.use("/api/hub", createHubRouter());
+const gardenRouter = createGardenGameRouter({ requireAuth, io });
+app.use("/api/garden", gardenRouter);
+app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, sessions, saveSessionsToFile }));
 
 // =================== SOCKET.IO LOGIC ===================
-io.on('connection', (socket) => {
-    // console.log('Socket Client verbunden:', socket.id);
-
-    socket.on('join_room', (room) => {
+io.on("connection", (socket) => {
+ 
+    // ── bestehende Handler (unverändert) ──
+    socket.on("join_room", (room) => {
         socket.join(room);
     });
-
-    socket.on('update_pond_config', (data) => {
+ 
+    socket.on("update_pond_config", (data) => {
         if (data && data.streamerId && data.config) {
-            socket.to(`streamer:${data.streamerId}`).emit('pond_config_update', data.config);
+            socket.to(`streamer:${data.streamerId}`).emit("pond_config_update", data.config);
         }
     });
-
-    socket.on('disconnect', () => {
-        // console.log('Socket Client getrennt');
+ 
+    // ── NEU: Garden-Handler einbinden ──────────────────────────
+    gardenRouter.registerGardenSocketHandlers(socket);
+    // ───────────────────────────────────────────────────────────
+ 
+    socket.on("disconnect", () => {
+        // Garden-Cleanup (falls Spieler in einer Garden-Lobby war)
+        if (socket._gardenDisconnect) socket._gardenDisconnect();
     });
 });
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, "0.0.0.0", () =>
-  console.log(`✅ Admin API & Socket.io laufen auf Port ${PORT} (IPv4)`)
-);
+(async () => {
+  try {
+    await initGardenFarmsStore();
+    runPlantMigration(farmStates);
+  } catch (e) {
+    console.error("[garden] DB-Init (sql.js) fehlgeschlagen:", e);
+    process.exit(1);
+  }
+  try {
+    await initWinchallengeStore();
+  } catch (e) {
+    console.error("[winchallenge] DB-Init (sql.js) fehlgeschlagen:", e);
+    process.exit(1);
+  }
+  try {
+    await initWinchallengeIrc();
+  } catch (e) {
+    console.error("[winchallenge irc] Init:", e.message);
+  }
+  server.once("error", (err) => {
+    if (err && err.code === "EADDRINUSE") {
+      console.error(
+        `❌ Port ${PORT} ist bereits belegt (EADDRINUSE). Anderen node-Prozess beenden, oder in .env z.B. PORT=3001 setzen. Windows: netstat -ano | findstr :${PORT}`
+      );
+    } else {
+      console.error("❌ Server-Fehler:", err);
+    }
+    process.exit(1);
+  });
+  server.listen(PORT, "0.0.0.0", () =>
+    console.log(`✅ Admin API & Socket.io laufen auf Port ${PORT} (IPv4)`)
+  );
+})();
+
+function shutdownGardenFarms() {
+  try {
+    saveAllFarmsOnExit();
+  } catch (e) {
+    console.error("[garden] shutdown save failed:", e);
+  }
+}
+
+function shutdownWinchallenge() {
+  try {
+    stopWinchallengeIrc();
+  } catch (e) {
+    console.error("[winchallenge irc] shutdown:", e);
+  }
+  try {
+    saveWinchallengeOnExit(createWinchallengeRouter.loadDb());
+  } catch (e) {
+    console.error("[winchallenge] shutdown save failed:", e);
+  }
+}
+process.on("SIGINT", () => {
+  shutdownWinchallenge();
+  shutdownGardenFarms();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  shutdownWinchallenge();
+  shutdownGardenFarms();
+  process.exit(0);
+});

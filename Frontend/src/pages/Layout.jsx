@@ -53,6 +53,7 @@ const navItems = [
       { label: "Win-Challenge Overlay", to: "/WinChallenge-Overlay" },
       { label: "Bingo-Card Generator", to: "/Bingo" },
       { label: "YTM Songrequest (Bot)", to: "/tutorial/ytm-bot" },
+      { label: "Discord-Bot", to: "/discord-bot" },
     ],
   },
   {

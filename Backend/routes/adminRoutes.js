@@ -1,13 +1,14 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const createWinchallengeRouter = require("./winchallengeRoutes");
+const { farmStates, setFarmState, scheduleFarmsSave } = require("../gardenFarmsStore");
 
 const ROOT_DIR = process.cwd();
 
 const PATHS = {
   casino: path.join(ROOT_DIR, "data/casinoData.json"),
   adventure: path.join(ROOT_DIR, "data/adventures-users.json"),
-  winchallenge: path.join(ROOT_DIR, "data/winchallenge.json"),
   bingo: path.join(ROOT_DIR, "data/bingo-sessions.json"),
   cards: path.join(ROOT_DIR, "data/cards-users.json"),
   promo: path.join(ROOT_DIR, "data/promo-codes.json"),
@@ -57,7 +58,7 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
       const casino = loadJson("casino");
       const adventure = loadJson("adventure");
       const bingo = loadJson("bingo");
-      const winchallenge = loadJson("winchallenge");
+      const winchallenge = createWinchallengeRouter.loadDb();
       const promo = loadJson("promo");
 
       const totalCredits = Object.values(casino).reduce((acc, u) => acc + (parseInt(u.credits) || 0), 0);
@@ -73,6 +74,9 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
   // --- GENERIC GETTER ---
   router.get("/data/:type", (req, res) => {
     const { type } = req.params;
+    if (type === "winchallenge") {
+      return res.json(createWinchallengeRouter.loadDb());
+    }
     if (!PATHS[type]) return res.status(400).json({ error: "Unknown DB type" });
     const data = loadJson(type);
     res.json(data);
@@ -119,14 +123,12 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
   });
   
   // DELETE ROUTEN
-  router.delete("/winchallenge/:targetId", (req, res) => {
-      const db = loadJson("winchallenge");
-      if (db[req.params.targetId]) {
-          delete db[req.params.targetId];
-          saveJson("winchallenge", db);
+  router.delete("/winchallenge/:targetId", async (req, res) => {
+      const ok = await createWinchallengeRouter.removeWinchallengeUser(
+        String(req.params.targetId)
+      );
+      if (ok) {
           res.json({ success: true });
-          
-          // Notify
           notifyUpdate(["winchallenge", "stats"]);
       } else {
           res.status(404).json({ error: "Not found" });
@@ -159,6 +161,49 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
     } else {
         res.status(404).json({ error: "Not found" });
     }
+  });
+
+  // ─── GARDEN ADMIN ─────────────────────────────────────────────────────────────
+
+  // GET /api/admin/garden/users  — summary list of all garden players
+  router.get("/garden/users", (req, res) => {
+    const rows = [];
+    for (const [userId, state] of farmStates.entries()) {
+      rows.push({
+        userId,
+        twitchLogin: state.twitchLogin || null,
+        gold: state.gold || 0,
+        inventoryCount: (state.inventory || []).length,
+        harvestedCount: (state.harvestedItems || []).length,
+        petCount: (state.petInventory || []).length,
+        plantCount: Object.keys(state.plotPlants || {}).length,
+        expansions: state.plotExpansions || 0,
+        updatedAt: state.updatedAt || 0,
+      });
+    }
+    rows.sort((a, b) => b.gold - a.gold);
+    res.json({ users: rows });
+  });
+
+  // GET /api/admin/garden/user/:userId  — full state for one player
+  router.get("/garden/user/:userId", (req, res) => {
+    const state = farmStates.get(String(req.params.userId));
+    if (!state) return res.status(404).json({ error: "Nicht gefunden" });
+    res.json({ userId: req.params.userId, state });
+  });
+
+  // PUT /api/admin/garden/user/:userId  — patch specific fields (gold, etc.)
+  router.put("/garden/user/:userId", (req, res) => {
+    const uid = String(req.params.userId);
+    const existing = farmStates.get(uid);
+    if (!existing) return res.status(404).json({ error: "Nicht gefunden" });
+    const { gold } = req.body || {};
+    const updated = { ...existing };
+    if (typeof gold === "number" && gold >= 0) updated.gold = Math.floor(gold);
+    updated.updatedAt = Date.now();
+    setFarmState(farmStates, uid, updated);
+    scheduleFarmsSave(farmStates);
+    res.json({ success: true, gold: updated.gold });
   });
 
   return router;
