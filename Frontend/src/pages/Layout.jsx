@@ -44,7 +44,7 @@ const navItems = [
       { label: "Abstimmungen", to: "/Abstimmungen" },
       { label: "Giveaways", to: "/Giveaways" },
       { label: "The aVards 2026", to: "/avards-2026" },
-      { label: "Viewer Sea", to: "/pond"},
+      { label: "Viewer Sky", to: "/sky"},
     ],
   },
   {
@@ -182,7 +182,8 @@ export default function Layout() {
   const isAdmin = !!user && String(user.id) === STREAMER_ID;
 
   const isFullBleedGame =
-    location.pathname === "/garden" || location.pathname === "/adventures";
+    location.pathname === "/garden" || location.pathname === "/adventures" ||
+    location.pathname === "/discord-bot" || location.pathname === "/WinChallenge-Overlay";
 
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('globalIsMuted') === 'true';

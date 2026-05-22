@@ -120,8 +120,8 @@ export default function CasinoPage() {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-white">
-        <div className="bg-[#18181b] p-10 rounded-3xl border border-white/10 text-center shadow-2xl">
-            <h1 className="text-5xl font-black mb-6 bg-gradient-to-r from-yellow-400 to-amber-600 bg-clip-text text-transparent">VNM CASINO</h1>
+        <div className="bg-[#18181b] p-6 md:p-10 rounded-3xl border border-white/10 text-center shadow-2xl">
+            <h1 className="text-4xl md:text-5xl font-black mb-6 bg-gradient-to-r from-yellow-400 to-amber-600 bg-clip-text text-transparent">VNM CASINO</h1>
             <p className="text-white/50 mb-8 max-w-md mx-auto">Spiele Slots, Blackjack und mehr. Sammle Credits — die Bestenliste findest du im Hub.</p>
             <button onClick={() => login()} className="bg-[#9146FF] hover:bg-[#7d36ff] text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-lg shadow-purple-900/30 transition-transform hover:scale-105">
             Login mit Twitch

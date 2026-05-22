@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Github, Music, MessageSquare, Monitor, Sparkles, Download } from "lucide-react";
+import { Github, Music, MessageSquare, Monitor, Sparkles, Download, Tv2, SkipForward, Laptop2 } from "lucide-react";
 import SEO from "../../components/SEO";
 
 
@@ -50,9 +50,29 @@ export default function YTMBotPage() {
           </li>
           <li className="flex gap-3">
             <Music className="w-5 h-5 text-pink-400 shrink-0 mt-0.5" />
-            <span>Hohe Customization der maximalen Länge, geblocke Artists/ Nutzer und extra Commands für den Chat</span>
+            <span>Hohe Customization der maximalen Länge, geblockte Artists / Nutzer und extra Commands für den Chat</span>
+          </li>
+          <li className="flex gap-3">
+            <Tv2 className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" />
+            <span>OBS Overlay — aktueller Song und Queue direkt im Stream anzeigen</span>
+          </li>
+          <li className="flex gap-3">
+            <SkipForward className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
+            <span>SongSkip per Chat-Command oder Channel Points</span>
+          </li>
+          <li className="flex gap-3">
+            <Laptop2 className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+            <span>Dual PC Unterstützung — Bot läuft auf dem Gaming-PC, OBS auf einem separaten Stream-PC</span>
           </li>
         </ul>
+      </div>
+
+      <div className="rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+        <img
+          src="/assets/vorschau_ytmbot.png"
+          alt="YTM Bot Vorschau"
+          className="w-full object-cover"
+        />
       </div>
     </div>
   );

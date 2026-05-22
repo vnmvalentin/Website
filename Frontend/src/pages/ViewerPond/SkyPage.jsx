@@ -1,8 +1,8 @@
 import React, { useContext, useState, useEffect } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import SEO from "../../components/SEO";
-import { 
-  Fish, Save, RefreshCw, Sliders, Check, Anchor, Shield,
+import {
+  Bird, Save, RefreshCw, Sliders, Check, Anchor, Shield,
   Waves, Droplets, Image as ImageIcon, Shuffle, Zap, UserX, Lock, Palette
 } from "lucide-react";
 
@@ -17,31 +17,27 @@ const Toggle = ({ checked, onChange }) => (
   </button>
 );
 
-// --- ALLE FISCHE ---
+// --- ALLE VÖGEL ---
 const ALL_FISHES = [
-  { id: "goldfish", name: "Goldfisch", img: "/assets/viewerpond/goldfish/goldfish.png" },
-  { id: "clownfish", name: "Nemo", img: "/assets/viewerpond/clownfish/clownfish.png" },
-  { id: "stripedfish", name: "Gill", img: "/assets/viewerpond/stripedfish/stripedfish.png" },
-  { id: "puffer", name: "Kugelfisch", img: "/assets/viewerpond/puffer/puffer.png" },
-  { id: "seahorse", name: "Seepferdchen", img: "/assets/viewerpond/seahorse/seahorse.png" },
-  { id: "jellyfish", name: "Qualle", img: "/assets/viewerpond/jellyfish/jellyfish.png" },
-  { id: "turtle", name: "Schildkröte", img: "/assets/viewerpond/turtle/turtle.png" },
-  { id: "octopus", name: "Oktopus", img: "/assets/viewerpond/octopus/octopus.png" },
-  { id: "sharky", name: "Baby Hai", img: "/assets/viewerpond/babyshark/babyshark.png" },
-  { id: "dolphin", name: "Delphin", img: "/assets/viewerpond/dolphin/dolphin.png" },
-  { id: "whale", name: "Wal", img: "/assets/viewerpond/whale/whale.png" },
-  { id: "starfish", name: "Seestern", img: "/assets/viewerpond/starfish/starfish.png" },
-  { id: "seal", name: "Seehund", img: "/assets/viewerpond/seal/seal.png" },
-  { id: "hammershark", name: "Hammerhai", img: "/assets/viewerpond/hammershark/hammershark.png" },
-  { id: "rainbow", name: "Regenbogen", img: "/assets/viewerpond/rainbow/rainbow.png" },
-  { id: "schleier", name: "Schleierfisch", img: "/assets/viewerpond/schleier/schleier.png" },
-  { id: "crab", name: "Krabbe", img: "/assets/viewerpond/crab/crab.png" },
-  { id: "eel", name: "Aal", img: "/assets/viewerpond/eel/eel.png" },
-  { id: "ray", name: "Rochen", img: "/assets/viewerpond/ray/ray.png" },
-  { id: "orca", name: "Orca", img: "/assets/viewerpond/orca/orca.png" },
-  { id: "modente", name: "Mod-Ente", img: "/assets/viewerpond/exclusive/modente.png" },
-  { id: "pepe", name: "Pepe-Fisch", img: "/assets/viewerpond/pepe/pepe.png", reqAchievement: "ultimate_collector" },
-  { id: "catfish", name: "Cat-Fish", img: "/assets/viewerpond/catfish/catfish.png", reqAchievement: "meme_collector" },
+  { id: "spatz",           name: "Spatz",           img: "/assets/ViewerSky/spatz.png" },
+  { id: "papagei",         name: "Papagei",         img: "/assets/ViewerSky/papagei.png" },
+  { id: "rotkehlchen",     name: "Rotkehlchen",     img: "/assets/ViewerSky/rotkehlchen.png" },
+  { id: "tukan",           name: "Tukan",           img: "/assets/ViewerSky/tukan.png" },
+  { id: "moewe",           name: "Möwe",            img: "/assets/ViewerSky/möwe.png" },
+  { id: "adler",           name: "Adler",           img: "/assets/ViewerSky/adler.png" },
+  { id: "eule",            name: "Eule",            img: "/assets/ViewerSky/eule.png" },
+  { id: "schwalbe",        name: "Schwalbe",        img: "/assets/ViewerSky/schwalbe.png" },
+  { id: "schwan",          name: "Schwan",          img: "/assets/ViewerSky/schwan.png" },
+  { id: "kolibri",         name: "Kolibri",         img: "/assets/ViewerSky/kolibri.png" },
+  { id: "pelikan",         name: "Pelikan",         img: "/assets/ViewerSky/pelikan.png" },
+  { id: "falke",           name: "Falke",           img: "/assets/ViewerSky/falke.png" },
+  { id: "regenbogenvogel", name: "Regenbogenvogel", img: "/assets/ViewerSky/regenbogenvogel.png" },
+  { id: "eisvogel",        name: "Eisvogel",        img: "/assets/ViewerSky/eisvogel.png" },
+  { id: "sittich",         name: "Sittich",         img: "/assets/ViewerSky/sittich.png" },
+  { id: "kranich",         name: "Kranich",         img: "/assets/ViewerSky/kranich.png" },
+  { id: "rabe",            name: "Rabe",            img: "/assets/ViewerSky/rabe.png" },
+  { id: "ente",            name: "Ente",            img: "/assets/ViewerSky/ente.png" },
+  { id: "gans",            name: "Gans",            img: "/assets/ViewerSky/gans.png" },
 ];
 
 const ALL_COLORS = [
@@ -50,35 +46,31 @@ const ALL_COLORS = [
     { id: "purple", name: "Mythisch Lila", class: "text-purple-400 drop-shadow-[0_0_5px_rgba(168,85,247,0.8)]", reqAchievement: "mythic_found" },
     { id: "gold", name: "Legendäres Gold", class: "text-yellow-300 drop-shadow-[0_0_8px_rgba(234,179,8,1)] font-black", reqAchievement: "legend_found" },
     { id: "rainbow", name: "Regenbogen", class: "animate-text-rainbow bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-transparent bg-clip-text font-black", reqAchievement: "ultimate_collector" },
-    // Neue Ideen:
 ];
 
-export default function PondPage() {
+export default function SkyPage() {
   const { user, login } = useContext(TwitchAuthContext);
-  // HIER DEINE EIGENE TWITCH ID EINTRAGEN:
   const isAdmin = user && String(user.id) === "160224748";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [
-      activeTab, setActiveTab
-  ] = useState("fish");
+  const [activeTab, setActiveTab] = useState("fish");
   const [success, setSuccess] = useState(false);
-  
+
   // Viewer States
-  const [userFish, setUserFish] = useState("goldfish");
+  const [userFish, setUserFish] = useState("spatz");
   const [userColor, setUserColor] = useState("default");
 
   const [claimedAchievements, setClaimedAchievements] = useState([]);
-  
+
   // Admin Config States
   const [showConfig, setShowConfig] = useState(false);
   const [subTab, setSubTab] = useState("water");
-  
+
   const [waterSettings, setWaterSettings] = useState({
-      height: 15, opacity: 0.5, color: "#06b6d4", sharkEnabled: true, showBubbles: true, 
-      showDecorations: true, activeDecorations: [], layoutSeed: 12345, waveIntensity: 1, 
-      position: "bottom", fishScale: 1.0, decoScale: 1.0
+      height: 15, opacity: 0.5, color: "#87CEEB", sharkEnabled: true, showBubbles: true,
+      showDecorations: true, activeDecorations: [], layoutSeed: 12345, waveIntensity: 1,
+      position: "top", fishScale: 1.0, decoScale: 1.0
   });
   const [eventSettings, setEventSettings] = useState({ hypeTrain: true, raid: true });
   const [excludedUsers, setExcludedUsers] = useState("StreamElements, Nightbot");
@@ -86,15 +78,18 @@ export default function PondPage() {
 
   useEffect(() => {
     if (!user) return;
-    
+    let cancelled = false;
+
     Promise.all([
-        fetch(`/api/pond/user`, { credentials: "include" }).then(r => r.json()),
-        fetch(`/api/pond/config`).then(r => r.json()),
-        fetch(`/api/cards/user`, { credentials: "include" }).then(r => r.json()) // Achievements laden
-    ]).then(([pondUser, configData, cardUser]) => {
-        if (pondUser.selectedFish) setUserFish(pondUser.selectedFish);
-        if (pondUser.selectedColor) setUserColor(pondUser.selectedColor);
-        
+        fetch(`/api/sky/user`, { credentials: "include" }).then(r => r.json()),
+        fetch(`/api/sky/config`).then(r => r.json()),
+        fetch(`/api/cards/user`, { credentials: "include" }).then(r => r.json())
+    ]).then(([skyUser, configData, cardUser]) => {
+        if (cancelled) return;
+
+        if (skyUser.selectedFish) setUserFish(skyUser.selectedFish);
+        if (skyUser.selectedColor) setUserColor(skyUser.selectedColor);
+
         if (cardUser && cardUser.claimedAchievements) {
             setClaimedAchievements(cardUser.claimedAchievements);
         }
@@ -107,7 +102,9 @@ export default function PondPage() {
         }
         setLoading(false);
     });
-  }, [user]);
+
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const saveUserSetting = async (key, value) => {
       if (key === "selectedFish") setUserFish(value);
@@ -116,7 +113,7 @@ export default function PondPage() {
       const payload = {};
       payload[key] = value;
 
-      await fetch("/api/pond/user", {
+      await fetch("/api/sky/user", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -124,19 +121,9 @@ export default function PondPage() {
       });
   };
 
-  const saveFish = async (fishId) => {
-      setUserFish(fishId);
-      await fetch("/api/pond/user", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ selectedFish: fishId }),
-          credentials: "include"
-      });
-  };
-
   const saveAdminConfig = async () => {
       setSaving(true);
-      await fetch("/api/pond/config", {
+      await fetch("/api/sky/config", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ waterSettings, eventSettings, excludedUsers, fishRequirements }),
@@ -148,7 +135,7 @@ export default function PondPage() {
   };
 
   const triggerReload = async () => {
-      await fetch("/api/pond/trigger-reload", { method: "POST", credentials: "include" });
+      await fetch("/api/sky/trigger-reload", { method: "POST", credentials: "include" });
   };
 
   const toggleDeco = (id) => {
@@ -162,8 +149,8 @@ export default function PondPage() {
 
   const toggleRequirement = (fishId, role) => {
       let reqs = fishRequirements[fishId] || [];
-      if (reqs.includes("all")) reqs = []; // Wenn vorher "all", array leeren
-      
+      if (reqs.includes("all")) reqs = [];
+
       if (reqs.includes(role)) {
           reqs = reqs.filter(r => r !== role);
       } else {
@@ -176,9 +163,9 @@ export default function PondPage() {
       return (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-white">
             <div className="bg-[#18181b] p-10 rounded-3xl border border-white/10 text-center shadow-2xl">
-                <Anchor size={48} className="text-cyan-400 mx-auto mb-4" />
-                <h1 className="text-4xl font-black mb-4">Viewer Sea</h1>
-                <p className="text-white/50 mb-8 max-w-md mx-auto">Logge dich ein, um deinen Avatar für den Stream-Teich auszuwählen.</p>
+                <Anchor size={48} className="text-sky-400 mx-auto mb-4" />
+                <h1 className="text-4xl font-black mb-4">Viewer Sky</h1>
+                <p className="text-white/50 mb-8 max-w-md mx-auto">Logge dich ein, um deinen Vogel-Avatar für den Stream-Himmel auszuwählen.</p>
                 <button onClick={() => login(false)} className="bg-[#9146FF] hover:bg-[#7d36ff] text-white px-8 py-4 rounded-2xl font-bold text-lg transition-transform hover:scale-105">
                     Login mit Twitch
                 </button>
@@ -187,19 +174,19 @@ export default function PondPage() {
       );
   }
 
-  if (loading) return <div className="text-center text-white/50 p-20">Lade Teich-Daten...</div>;
+  if (loading) return <div className="text-center text-white/50 p-20">Lade Sky-Daten...</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 text-white min-h-[85vh] space-y-8">
-      <SEO title="Viewer Sea" />
+      <SEO title="Viewer Sky" />
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/10 pb-6">
           <div>
               <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
-                 <Fish className="text-cyan-400" size={32} /> Viewer Sea
+                 <Bird className="text-sky-400" size={32} /> Viewer Sky
               </h1>
-              <p className="text-white/50 mt-1">Gestalte deinen Auftritt im Stream!</p>
+              <p className="text-white/50 mt-1">Gestalte deinen Vogel-Auftritt im Stream-Himmel!</p>
           </div>
           {isAdmin && (
               <button onClick={() => setShowConfig(!showConfig)} className="bg-white/5 px-4 py-2 rounded-xl text-sm font-bold border border-white/10">
@@ -210,45 +197,41 @@ export default function PondPage() {
 
       {!showConfig && (
           <div className="space-y-8 animate-in fade-in">
-              
+
               {/* TABS FÜR USER */}
               <div className="flex gap-4 border-b border-white/10 pb-1">
-                  <button onClick={() => setActiveTab("fish")} className={`pb-3 px-4 font-bold text-sm transition-all border-b-2 ${activeTab === "fish" ? "border-cyan-400 text-cyan-400" : "border-transparent text-white/50 hover:text-white"}`}>
-                      🐟 Avatar
+                  <button onClick={() => setActiveTab("fish")} className={`pb-3 px-4 font-bold text-sm transition-all border-b-2 ${activeTab === "fish" ? "border-sky-400 text-sky-400" : "border-transparent text-white/50 hover:text-white"}`}>
+                      🐦 Avatar
                   </button>
-                  <button onClick={() => setActiveTab("color")} className={`pb-3 px-4 font-bold text-sm transition-all border-b-2 ${activeTab === "color" ? "border-cyan-400 text-cyan-400" : "border-transparent text-white/50 hover:text-white"}`}>
+                  <button onClick={() => setActiveTab("color")} className={`pb-3 px-4 font-bold text-sm transition-all border-b-2 ${activeTab === "color" ? "border-sky-400 text-sky-400" : "border-transparent text-white/50 hover:text-white"}`}>
                       🎨 Namensfarbe
                   </button>
               </div>
 
-              {/* TAB 1: FISCHE */}
+              {/* TAB 1: VÖGEL */}
               {activeTab === "fish" && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {ALL_FISHES.map(f => {
                           const isActive = userFish === f.id;
-                          
-                          // Rollen-Restriktionen laden
+
                           const reqs = fishRequirements[f.id] || [];
-                          
+
                           const isLockedByAch = f.reqAchievement && !claimedAchievements.includes(f.reqAchievement);
-                          // (Optional: Hier könntest du auch checken, ob der User wirklich Mod/Sub ist und ihn sonst sperren.
-                          // Aktuell zeigen wir nur die Badges an.)
 
                           return (
-                              <button 
+                              <button
                                   key={f.id}
                                   onClick={() => !isLockedByAch && saveUserSetting("selectedFish", f.id)}
                                   disabled={isLockedByAch}
                                   className={`relative p-4 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all duration-300 group
-                                      ${isActive 
-                                          ? "bg-cyan-500/20 border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)] scale-105" 
-                                          : isLockedByAch 
+                                      ${isActive
+                                          ? "bg-sky-500/20 border-2 border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] scale-105"
+                                          : isLockedByAch
                                               ? "bg-black/20 border border-white/5 opacity-50 grayscale cursor-not-allowed"
                                               : "bg-[#18181b] border-2 border-transparent hover:bg-white/5 hover:border-white/10"
                                       }
                                   `}
                               >
-                                  {/* ROLLE BADGES - WIEDER EINGEFÜGT! */}
                                   <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
                                       {reqs.includes("mod") && (
                                           <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-[10px] font-black px-1.5 rounded uppercase backdrop-blur-sm">
@@ -270,7 +253,7 @@ export default function PondPage() {
                                   {isLockedByAch && (
                                       <div className="absolute top-2 right-2 text-red-400"><Lock size={14}/></div>
                                   )}
-                                  
+
                                   <div className={`w-16 h-16 ${isActive ? "scale-110" : ""}`}>
                                       <img src={f.img} alt={f.name} className="w-full h-full object-contain drop-shadow-lg" />
                                   </div>
@@ -284,10 +267,10 @@ export default function PondPage() {
               {/* TAB 2: FARBEN */}
               {activeTab === "color" && (
                   <div className="space-y-6">
-                      <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl flex gap-3 items-start">
-                          <Zap className="text-blue-400 shrink-0 mt-1" size={20} />
-                          <div className="text-sm text-blue-200">
-                              <p className="font-bold mb-1">So schaltest du Farben frei:</p>
+                      <div className="bg-sky-500/10 border border-sky-500/20 p-4 rounded-xl flex gap-3 items-start">
+                          <Zap className="text-sky-400 shrink-0 mt-1" size={20} />
+                          <div className="text-sm text-sky-200">
+                              <p className="font-bold mb-1">So schaltest du Namensfarben frei:</p>
                               <p className="opacity-70">Sammle Kartenpacks, vervollständige Sets und hole dir <strong>Achievements</strong> im Karten-Bereich ab. Jedes Achievement kann exklusive Farben freischalten!</p>
                           </div>
                       </div>
@@ -298,15 +281,15 @@ export default function PondPage() {
                               const isLocked = c.reqAchievement && !claimedAchievements.includes(c.reqAchievement);
 
                               return (
-                                  <button 
+                                  <button
                                       key={c.id}
                                       onClick={() => !isLocked && saveUserSetting("selectedColor", c.id)}
                                       disabled={isLocked}
                                       className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                                          isActive 
-                                            ? "border-cyan-400 bg-cyan-500/10" 
-                                            : isLocked 
-                                                ? "border-white/5 bg-black/20 opacity-60 cursor-not-allowed" 
+                                          isActive
+                                            ? "border-cyan-400 bg-cyan-500/10"
+                                            : isLocked
+                                                ? "border-white/5 bg-black/20 opacity-60 cursor-not-allowed"
                                                 : "border-white/10 bg-[#18181b] hover:border-white/20"
                                       }`}
                                   >
@@ -315,7 +298,6 @@ export default function PondPage() {
                                               <Palette size={18} className={isActive ? "text-cyan-400" : "text-white/30"} />
                                           </div>
                                           <div className="text-left">
-                                              {/* VORSCHAU DER FARBE */}
                                               <div className={`font-bold text-lg ${c.class}`}>
                                                   {user.display_name || "DeinName"}
                                               </div>
@@ -343,15 +325,15 @@ export default function PondPage() {
 
       {/* ADMIN KONFIGURATION */}
       {isAdmin && showConfig && (
-          <div className="bg-[#18181b] border border-cyan-500/30 rounded-3xl p-6 shadow-2xl animate-in fade-in slide-in-from-top-4">
-            
+          <div className="bg-[#18181b] border border-sky-500/30 rounded-3xl p-6 shadow-2xl animate-in fade-in slide-in-from-top-4">
+
             {/* Header & Aktionen */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-white/5 pb-6">
-                <h2 className="text-xl font-bold text-cyan-400 flex items-center gap-2">
-                    <Sliders size={20} /> Overlay Einstellungen
+                <h2 className="text-xl font-bold text-sky-400 flex items-center gap-2">
+                    <Sliders size={20} /> Sky Overlay Einstellungen
                 </h2>
                 <div className="flex gap-2">
-                    <button onClick={saveAdminConfig} disabled={saving} className="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 transition-all text-sm">
+                    <button onClick={saveAdminConfig} disabled={saving} className="bg-sky-600 hover:bg-sky-500 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 transition-all text-sm">
                         {success ? <Check size={16} /> : <Save size={16} />} {saving ? "Speichert..." : "Speichern"}
                     </button>
                     <button onClick={triggerReload} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all text-sm">
@@ -363,15 +345,15 @@ export default function PondPage() {
             {/* Tabs */}
             <div className="flex overflow-x-auto gap-2 mb-6 hide-scrollbar">
                 {[
-                    { id: "water", label: "Wasser & Fische", icon: Waves },
+                    { id: "water", label: "Himmel & Vögel", icon: Waves },
                     { id: "deco", label: "Dekorationen", icon: ImageIcon },
                     { id: "events", label: "Events", icon: Zap },
                     { id: "roles", label: "Freischaltungen", icon: Lock },
                     { id: "exclude", label: "Bots ausblenden", icon: Shield }
                 ].map(tab => (
-                    <button 
+                    <button
                         key={tab.id} onClick={() => setSubTab(tab.id)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors ${subTab === tab.id ? "bg-cyan-500/20 text-cyan-400" : "text-white/50 hover:bg-white/5 hover:text-white"}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors ${subTab === tab.id ? "bg-sky-500/20 text-sky-400" : "text-white/50 hover:bg-white/5 hover:text-white"}`}
                     >
                         <tab.icon size={16} /> {tab.label}
                     </button>
@@ -380,38 +362,38 @@ export default function PondPage() {
 
             {/* Tab Contents */}
             <div className="min-h-[300px]">
-                {/* 1. WASSER & FISCHE */}
+                {/* 1. HIMMEL & VÖGEL */}
                 {subTab === "water" && (
                     <div className="space-y-6 animate-in fade-in">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-white/70 mb-2">Wasser Position</label>
+                                    <label className="block text-sm font-bold text-white/70 mb-2">Himmel Position</label>
                                     <select className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none" value={waterSettings.position} onChange={(e) => setWaterSettings({...waterSettings, position: e.target.value})}>
-                                        <option value="bottom">Unten (Boden)</option>
-                                        <option value="top">Oben (Decke)</option>
+                                        <option value="top">Oben (Standard)</option>
+                                        <option value="bottom">Unten</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-white/70 mb-2">Wasser Höhe ({waterSettings.height}%)</label>
-                                    <input type="range" min="5" max="100" className="w-full accent-cyan-500" value={waterSettings.height} onChange={(e) => setWaterSettings({...waterSettings, height: parseInt(e.target.value)})} />
+                                    <label className="block text-sm font-bold text-white/70 mb-2">Himmel Höhe ({waterSettings.height}%)</label>
+                                    <input type="range" min="5" max="100" className="w-full accent-sky-500" value={waterSettings.height} onChange={(e) => setWaterSettings({...waterSettings, height: parseInt(e.target.value)})} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-white/70 mb-2">Transparenz ({(waterSettings.opacity * 100).toFixed(0)}%)</label>
-                                    <input type="range" min="0" max="1" step="0.05" className="w-full accent-cyan-500" value={waterSettings.opacity} onChange={(e) => setWaterSettings({...waterSettings, opacity: parseFloat(e.target.value)})} />
+                                    <input type="range" min="0" max="1" step="0.05" className="w-full accent-sky-500" value={waterSettings.opacity} onChange={(e) => setWaterSettings({...waterSettings, opacity: parseFloat(e.target.value)})} />
                                 </div>
                             </div>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-white/70 mb-2">Wellen Intensität ({waterSettings.waveIntensity})</label>
-                                    <input type="range" min="0" max="5" step="0.1" className="w-full accent-cyan-500" value={waterSettings.waveIntensity} onChange={(e) => setWaterSettings({...waterSettings, waveIntensity: parseFloat(e.target.value)})} />
+                                    <label className="block text-sm font-bold text-white/70 mb-2">Wind Intensität ({waterSettings.waveIntensity})</label>
+                                    <input type="range" min="0" max="5" step="0.1" className="w-full accent-sky-500" value={waterSettings.waveIntensity} onChange={(e) => setWaterSettings({...waterSettings, waveIntensity: parseFloat(e.target.value)})} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-white/70 mb-2">Fisch Skalierung ({waterSettings.fishScale}x)</label>
-                                    <input type="range" min="0.5" max="3" step="0.1" className="w-full accent-cyan-500" value={waterSettings.fishScale} onChange={(e) => setWaterSettings({...waterSettings, fishScale: parseFloat(e.target.value)})} />
+                                    <label className="block text-sm font-bold text-white/70 mb-2">Vogel Skalierung ({waterSettings.fishScale}x)</label>
+                                    <input type="range" min="0.5" max="3" step="0.1" className="w-full accent-sky-500" value={waterSettings.fishScale} onChange={(e) => setWaterSettings({...waterSettings, fishScale: parseFloat(e.target.value)})} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-white/70 mb-2">Wasser Farbe</label>
+                                    <label className="block text-sm font-bold text-white/70 mb-2">Himmel Farbe</label>
                                     <div className="flex items-center gap-3">
                                         <input type="color" className="h-10 w-20 rounded cursor-pointer bg-transparent border-0" value={waterSettings.color} onChange={(e) => setWaterSettings({...waterSettings, color: e.target.value})} />
                                         <span className="text-mono text-sm text-white/50 uppercase">{waterSettings.color}</span>
@@ -428,19 +410,19 @@ export default function PondPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
-                                    <div className="font-bold text-white flex items-center gap-2"><ImageIcon size={18} className="text-cyan-400"/> Dekorationen anzeigen</div>
+                                    <div className="font-bold text-white flex items-center gap-2"><ImageIcon size={18} className="text-sky-400"/> Dekorationen anzeigen</div>
                                     <Toggle checked={waterSettings.showDecorations} onChange={(v) => setWaterSettings({...waterSettings, showDecorations: v})} />
                                 </div>
                                 <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
-                                    <div className="font-bold text-white flex items-center gap-2"><Droplets size={18} className="text-blue-400"/> Blubberblasen</div>
+                                    <div className="font-bold text-white flex items-center gap-2"><Droplets size={18} className="text-blue-300"/> Windpartikel</div>
                                     <Toggle checked={waterSettings.showBubbles} onChange={(v) => setWaterSettings({...waterSettings, showBubbles: v})} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-white/70 mb-2 mt-4">Deko Skalierung ({waterSettings.decoScale}x)</label>
-                                    <input type="range" min="0.5" max="3" step="0.1" className="w-full accent-cyan-500" value={waterSettings.decoScale} onChange={(e) => setWaterSettings({...waterSettings, decoScale: parseFloat(e.target.value)})} />
+                                    <input type="range" min="0.5" max="3" step="0.1" className="w-full accent-sky-500" value={waterSettings.decoScale} onChange={(e) => setWaterSettings({...waterSettings, decoScale: parseFloat(e.target.value)})} />
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <label className="block text-sm font-bold text-white/70">Aktive Objekte</label>
@@ -450,11 +432,11 @@ export default function PondPage() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
-                                        { id: "seaweed_1", label: "Seetang (Groß)" },
-                                        { id: "seaweed_2", label: "Seetang (Busch)" },
-                                        { id: "rock_1", label: "Felsen 1" },
-                                        { id: "rock_2", label: "Felsen 2" },
-                                        { id: "ship", label: "Schiffswrack" },
+                                        { id: "seaweed_1", label: "Wolke (Groß)" },
+                                        { id: "seaweed_2", label: "Wolke (Klein)" },
+                                        { id: "rock_1", label: "Federwolke" },
+                                        { id: "rock_2", label: "Kumuluswolke" },
+                                        { id: "ship", label: "Mondschein" },
                                     ].map(item => (
                                         <label key={item.id} className={`flex items-center gap-2 p-3 rounded-xl cursor-pointer border transition-colors ${(waterSettings.activeDecorations || []).includes(item.id) ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400" : "bg-black/20 border-white/5 text-white/50"}`}>
                                             <input type="checkbox" className="hidden" checked={(waterSettings.activeDecorations || []).includes(item.id)} onChange={() => toggleDeco(item.id)} />
@@ -475,24 +457,24 @@ export default function PondPage() {
                     <div className="space-y-4 animate-in fade-in max-w-2xl">
                         <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
                             <div>
-                                <div className="font-bold text-white flex items-center gap-2">🦈 Hai-Angriffe</div>
-                                <p className="text-xs text-white/50 mt-1">Fische werden von Haien gefressen, wenn User den Chat verlassen (statt einfach zu verpuffen).</p>
+                                <div className="font-bold text-white flex items-center gap-2">🦅 Greifvogel-Angriffe</div>
+                                <p className="text-xs text-white/50 mt-1">Vögel werden von einem Greifvogel geschnappt, wenn User den Chat verlassen (statt einfach zu verpuffen).</p>
                             </div>
                             <Toggle checked={waterSettings.sharkEnabled} onChange={(v) => setWaterSettings({...waterSettings, sharkEnabled: v})} />
                         </div>
-                        
+
                         <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
                             <div>
                                 <div className="font-bold text-white flex items-center gap-2"><Zap size={16} className="text-yellow-400"/> Hype-Train Party</div>
-                                <p className="text-xs text-white/50 mt-1">Löst eine bunte Party im Teich aus, sobald ein Hype-Train startet.</p>
+                                <p className="text-xs text-white/50 mt-1">Löst eine bunte Party im Himmel aus, sobald ein Hype-Train startet.</p>
                             </div>
                             <Toggle checked={eventSettings.hypeTrain} onChange={(v) => setEventSettings({...eventSettings, hypeTrain: v})} />
                         </div>
-                        
+
                         <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl">
                             <div>
-                                <div className="font-bold text-white flex items-center gap-2"><UserX size={16} className="text-purple-400"/> Raid Swarm</div>
-                                <p className="text-xs text-white/50 mt-1">Ein massiver Fischschwarm schwimmt durch das Bild, wenn ein Raid eingeht.</p>
+                                <div className="font-bold text-white flex items-center gap-2"><UserX size={16} className="text-purple-400"/> Raid Vogelflug</div>
+                                <p className="text-xs text-white/50 mt-1">Ein massiver Vogelflug zieht durch das Bild, wenn ein Raid eingeht.</p>
                             </div>
                             <Toggle checked={eventSettings.raid} onChange={(v) => setEventSettings({...eventSettings, raid: v})} />
                         </div>
@@ -503,16 +485,16 @@ export default function PondPage() {
                 {subTab === "roles" && (
                     <div className="space-y-4 animate-in fade-in">
                         <p className="text-sm text-white/60 mb-4">
-                            Lege fest, welche Rolle benötigt wird, um einen bestimmten Fisch im Stream zu erhalten. Wenn nichts ausgewählt ist, ist der Fisch für alle verfügbar.
+                            Lege fest, welche Rolle benötigt wird, um einen bestimmten Vogel im Stream zu erhalten. Wenn nichts ausgewählt ist, ist der Vogel für alle verfügbar.
                         </p>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {ALL_FISHES.map(f => {
                                 const reqs = fishRequirements[f.id] || [];
                                 const isSub = reqs.includes("sub");
                                 const isVip = reqs.includes("vip");
                                 const isMod = reqs.includes("mod");
-                                
+
                                 return (
                                     <div key={f.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/5 p-3 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
                                         <div className="flex items-center gap-3">
@@ -520,20 +502,20 @@ export default function PondPage() {
                                             <span className="font-bold text-sm">{f.name}</span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button 
-                                                onClick={() => toggleRequirement(f.id, "sub")} 
+                                            <button
+                                                onClick={() => toggleRequirement(f.id, "sub")}
                                                 className={`px-3 py-1.5 text-[10px] uppercase font-black rounded-lg transition-all ${isSub ? 'bg-[#9146FF] text-white shadow-lg shadow-purple-900/40' : 'bg-black/30 text-white/40 hover:bg-white/10'}`}
                                             >
                                                 Sub
                                             </button>
-                                            <button 
-                                                onClick={() => toggleRequirement(f.id, "vip")} 
+                                            <button
+                                                onClick={() => toggleRequirement(f.id, "vip")}
                                                 className={`px-3 py-1.5 text-[10px] uppercase font-black rounded-lg transition-all ${isVip ? 'bg-pink-500 text-white shadow-lg shadow-pink-900/40' : 'bg-black/30 text-white/40 hover:bg-white/10'}`}
                                             >
                                                 VIP
                                             </button>
-                                            <button 
-                                                onClick={() => toggleRequirement(f.id, "mod")} 
+                                            <button
+                                                onClick={() => toggleRequirement(f.id, "mod")}
                                                 className={`px-3 py-1.5 text-[10px] uppercase font-black rounded-lg transition-all ${isMod ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/40' : 'bg-black/30 text-white/40 hover:bg-white/10'}`}
                                             >
                                                 Mod
@@ -550,12 +532,12 @@ export default function PondPage() {
                 {subTab === "exclude" && (
                     <div className="space-y-4 animate-in fade-in">
                         <p className="text-sm text-white/60">
-                            Gib hier die Namen von Chat-Bots ein (kommagetrennt), damit diese nicht als Fische im Teich auftauchen.
+                            Gib hier die Namen von Chat-Bots ein (kommagetrennt), damit diese nicht als Vögel im Himmel auftauchen.
                         </p>
-                        <textarea 
-                            className="w-full h-40 bg-black/40 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-cyan-500 focus:outline-none font-mono" 
-                            value={excludedUsers} 
-                            onChange={(e) => setExcludedUsers(e.target.value)} 
+                        <textarea
+                            className="w-full h-40 bg-black/40 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-cyan-500 focus:outline-none font-mono"
+                            value={excludedUsers}
+                            onChange={(e) => setExcludedUsers(e.target.value)}
                             placeholder="StreamElements, Nightbot, Moobot..."
                         />
                     </div>

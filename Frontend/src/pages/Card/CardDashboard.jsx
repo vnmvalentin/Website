@@ -29,7 +29,7 @@ export default function CardDashboard() {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-white">
-        <div className="bg-[#18181b] p-10 rounded-3xl border border-white/10 text-center shadow-2xl">
+        <div className="bg-[#18181b] p-6 md:p-10 rounded-3xl border border-white/10 text-center shadow-2xl">
             <h1 className="text-4xl font-black mb-4 bg-gradient-to-r from-violet-400 to-fuchsia-600 bg-clip-text text-transparent">Card Packs</h1>
             <p className="text-white/50 mb-8 max-w-md mx-auto">Sammle Karten, vervollständige dein Album und stelle sie aus!</p>
             <button onClick={() => login()} className="bg-[#9146FF] hover:bg-[#7d36ff] text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-lg transition-transform hover:scale-105">

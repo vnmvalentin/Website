@@ -293,7 +293,7 @@ export default function Home() {
         <section className="flex flex-wrap justify-center gap-6 w-full">
             <button
                 onClick={() => openModal('social')}
-                className="group relative px-8 py-4 min-w-[320px] bg-[#18181b] border border-white/10 rounded-full overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-all shadow-lg active:scale-95"
+                className="group relative px-8 py-4 w-full sm:w-auto sm:min-w-[320px] bg-[#18181b] border border-white/10 rounded-full overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-all shadow-lg active:scale-95"
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <span className="relative font-bold text-base tracking-wide text-white/80 group-hover:text-white uppercase">
@@ -303,7 +303,7 @@ export default function Home() {
 
             <button
                 onClick={() => openModal('setup')}
-                className="group relative px-8 py-4 min-w-[320px] bg-[#18181b] border border-white/10 rounded-full overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-all shadow-lg active:scale-95"
+                className="group relative px-8 py-4 w-full sm:w-auto sm:min-w-[320px] bg-[#18181b] border border-white/10 rounded-full overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-all shadow-lg active:scale-95"
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <span className="relative font-bold text-base tracking-wide text-white/80 group-hover:text-white uppercase">

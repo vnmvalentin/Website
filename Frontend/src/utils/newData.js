@@ -1,5 +1,43 @@
 export const NEWS_UPDATES = [
   {
+    date: "22.05.2026",
+    version: "v5.0: Discord-Bot Update und mehr",
+    sections: [
+      {
+        title: "Discord-Bot",
+        items: [
+          "Discord-Bot wieder da mit Dashboard-Integration",
+          "Funktionen: Willkommens-Nachricht, Verabschiedungs-Nachricht, Reaktionsrollen, Fun-Commands, Custom Voice Channel, Twitch Benachrichtigung, Tavern-Channel, Auto Roles, Statistiken, Image Only und mehr"
+        ]
+      },
+      {
+        title: "Virtual Farm",
+        items: [
+          "Kleine Bug-Fixes und Datenbank Wechsel von sql.js zu better-sqlite3",
+          "Subscriber-Bonus jetzt aktiv und funktionsfähig (endlich)",
+        ]
+      },
+      {
+        title: "Allgemein",
+        items: [
+          "Handy Nutzerfreundlichkeit erhöht",
+          "Viewer Sea zu Viewer Sky geändert -> Overlay jetzt oben am Bildschirm mit Vögel statt Fischen",
+          "YTM Bot hat jetzt die Funktionen und einen Screenshot aufgelistet",
+
+        ]
+      },
+      {
+        title: "Win Challenge Overlay",
+        items: [
+          "Wechsel der Datenbank von sql.js zu better-sqlite3 mit mehreren Backups",
+          "14 Tage Inaktivität sorgt für den Reset vom Overlay damit Speicherplatz geschont wird (hohe Nachfrage vom Overlay)",
+          "Dashboard nutzt jetzt kompletten Platz"
+
+        ]
+      },
+    ]
+  },
+  {
     date: "09.05.2026",
     version: "v4.1: Big Virtual Farm Update",
     sections: [

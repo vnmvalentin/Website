@@ -21,13 +21,14 @@ import {
   GripVertical, 
   Check, 
   Copy, 
-  Monitor, 
+  Monitor,
   ShieldAlert,
   MessageSquare,
   RefreshCw,
   Eye,
   EyeOff,
-  Layout
+  Layout,
+  Clock
 } from "lucide-react";
 
 // --- HELPER FUNCTIONS ---
@@ -319,7 +320,7 @@ export default function WinChallenge() {
     const items = (doc.items && doc.items.length > 0 ? doc.items : [{ id: "p1", name: "Beispiel Challenge", pinned: true }, { id: "p2", name: "Gewinne 3 Runden", useWins: true, target: 3, progress: 1 }]).slice(0, 6);
 
     return (
-      <div className={`flex-1 rounded-3xl border border-white/5 flex justify-center items-center p-4 transition-colors duration-500 shadow-inner overflow-hidden min-h-[300px] ${previewLightMode ? "bg-gray-200" : "bg-[#09090b]"}`}>
+      <div className={`flex-1 min-h-0 rounded-2xl border border-white/5 flex justify-center items-center p-4 transition-colors duration-500 shadow-inner overflow-hidden ${previewLightMode ? "bg-gray-200" : "bg-[#09090b]"}`}>
         <div style={{
             fontFamily: "Inter, sans-serif", color: style.textColor, borderRadius: style.borderRadius,
             background: "transparent", width: style.boxWidth, transform: `scale(${style.scale})`, transformOrigin: "center",
@@ -363,39 +364,38 @@ export default function WinChallenge() {
   };
 
   return (
-    <div className="w-full text-white flex flex-col min-h-[calc(100vh-8rem)]">
-      <SEO 
+    <div className="h-full flex flex-col overflow-hidden text-white bg-[#18181b]">
+      <SEO
         title="Win Challenge Overlay"
-        description="Win Challenge Overlay für OBS. Hohe Customization für Streamer." 
+        description="Win Challenge Overlay für OBS. Hohe Customization für Streamer."
         path="/WinChallenge-Overlay"
         keywords="Win Challenge Overlay, Win Challenge, OBS Overlay, Twitch, WinChallenge, Overlay" />
 
       {!user ? (
-        <div className="flex flex-1 items-center justify-center">
+        <div className="h-full flex items-center justify-center">
             <button onClick={login} className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-8 py-4 rounded-2xl shadow-2xl transition-transform hover:scale-105">
                 Mit Twitch anmelden um Challenges zu erstellen
             </button>
         </div>
       ) : loading || !doc ? (
-        <div className="flex-1 flex items-center justify-center text-white/30 animate-pulse">Lade Konfiguration...</div>
+        <div className="h-full flex items-center justify-center text-white/30 animate-pulse">Lade Konfiguration...</div>
       ) : (
-        <div className="flex-1 flex flex-col bg-[#18181b] border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.3)] overflow-hidden">
-            
-            {/* UNIFIED HEADER */}
-            <div className="px-6 py-5 border-b border-white/5 bg-[#121215] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+
+            {/* HEADER — never scrolls */}
+            <div className="px-6 py-4 border-b border-white/5 bg-[#121215] flex items-center gap-4 shrink-0">
+               <Trophy size={20} className="text-yellow-500 shrink-0" />
                <div>
-                   <h1 className="text-2xl font-black tracking-tight text-white mb-1 flex items-center gap-3">
-                      <Trophy className="text-yellow-500" /> WinChallenge
-                   </h1>
-                   <p className="text-xs text-white/50">Erstelle Challenges und tracke deine Wins live.</p>
+                   <h1 className="text-lg font-black tracking-tight text-white leading-none">WinChallenge</h1>
+                   <p className="text-[11px] text-white/40 mt-0.5">OBS Overlay Editor</p>
                </div>
             </div>
 
-            {/* SPLIT CONTENT AREA */}
-            <div className="flex flex-col xl:flex-row flex-1 min-h-0">
-              
-              {/* LEFT: EDITOR MAIN AREA */}
-              <div className="flex-1 flex flex-col border-b xl:border-b-0 xl:border-r border-white/5 min-w-0 bg-[#18181b]">
+            {/* BODY — flex-row, fills remaining height */}
+            <div className="flex-1 flex overflow-hidden min-h-0">
+
+              {/* LEFT: EDITOR — only this scrolls */}
+              <div className="flex-1 flex flex-col border-r border-white/5 min-w-0 overflow-hidden">
                   {/* TABS */}
                   <div className="flex border-b border-white/5 bg-[#141417] overflow-x-auto shrink-0">
                       {[
@@ -675,6 +675,14 @@ export default function WinChallenge() {
                       {activeTab === "settings" && (
                           <div className="space-y-6">
                               
+                              {/* 14-day inactivity notice */}
+                              <div className="flex items-start gap-3 bg-amber-950/20 border border-amber-500/20 rounded-xl p-4">
+                                  <Clock size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                                  <p className="text-sm text-amber-200/80">
+                                      Kostenloses Overlay: Bei <strong className="text-amber-200">14 Tagen Inaktivität</strong> (kein OBS-Zugriff auf den Overlay-Link) wird dein Overlay automatisch zurückgesetzt, um Speicherplatz freizugeben.
+                                  </p>
+                              </div>
+
                               {/* OBS Browser Source */}
                               <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
                                   <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><Monitor size={16}/> OBS Browser Source</h4>
@@ -741,12 +749,12 @@ export default function WinChallenge() {
                   </div>
               </div>
 
-              {/* RIGHT: PREVIEW & TIMER FIXED SIDEBAR */}
-              <div className="w-full xl:w-[450px] 2xl:w-[500px] flex flex-col shrink-0 bg-[#121215] border-l border-white/5">
-                  
-                  {/* PREVIEW BOX */}
-                  <div className="flex-1 p-6 border-b border-white/5 flex flex-col min-h-[400px]">
-                      <div className="flex items-center justify-between mb-3 px-1">
+              {/* RIGHT: PREVIEW + TIMER — never scrolls, always fills viewport height */}
+              <div className="w-[420px] shrink-0 flex flex-col bg-[#121215] overflow-hidden">
+
+                  {/* PREVIEW — fills remaining space above timer */}
+                  <div className="flex-1 p-5 border-b border-white/5 flex flex-col min-h-0 overflow-hidden">
+                      <div className="flex items-center justify-between mb-3 px-1 shrink-0">
                           <h3 className="text-white/40 text-xs uppercase tracking-wider font-bold">Live Vorschau</h3>
                           <button onClick={() => setPreviewLightMode(!previewLightMode)} className="text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white/50 transition-colors border border-white/5">
                               {previewLightMode ? "BG: Hell" : "BG: Dunkel"}
@@ -755,8 +763,8 @@ export default function WinChallenge() {
                       {renderPreview()}
                   </div>
 
-                  {/* TIMER CONTROLS CARD */}
-                  <div className="p-6 shrink-0 bg-[#151518]">
+                  {/* TIMER — always visible, never pushed off screen */}
+                  <div className="p-5 shrink-0 bg-[#151518]">
                       <div className="flex items-center justify-between mb-6">
                           <div className="flex items-center gap-3">
                               <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_currentColor] ${running ? "bg-green-500 text-green-500" : "bg-red-500 text-red-500"}`} />

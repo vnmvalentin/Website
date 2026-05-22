@@ -297,28 +297,28 @@ export default function Hub() {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="bg-black/30 border border-white/5 rounded-xl p-4 text-center">
-                <div className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-1">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
+              <div className="bg-black/30 border border-white/5 rounded-xl p-2 sm:p-4 text-center">
+                <div className="text-[9px] sm:text-xs text-gray-500 uppercase tracking-widest font-bold mb-1">
                   Credits
                 </div>
-                <div className="text-lg font-mono text-yellow-400">
+                <div className="text-sm sm:text-lg font-mono text-yellow-400">
                   {selectedUser.credits.toLocaleString("de-DE")}
                 </div>
               </div>
-              <div className="bg-black/30 border border-white/5 rounded-xl p-4 text-center">
-                <div className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-1">
-                  Adventure Stage
+              <div className="bg-black/30 border border-white/5 rounded-xl p-2 sm:p-4 text-center">
+                <div className="text-[9px] sm:text-xs text-gray-500 uppercase tracking-widest font-bold mb-1">
+                  Adv. Stage
                 </div>
-                <div className="text-lg font-mono text-red-400">
+                <div className="text-sm sm:text-lg font-mono text-red-400">
                   {selectedUser.adventureMaxStage}
                 </div>
               </div>
-              <div className="bg-black/30 border border-white/5 rounded-xl p-4 text-center">
-                <div className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-1">
+              <div className="bg-black/30 border border-white/5 rounded-xl p-2 sm:p-4 text-center">
+                <div className="text-[9px] sm:text-xs text-gray-500 uppercase tracking-widest font-bold mb-1">
                   Karten
                 </div>
-                <div className="text-lg font-mono text-purple-400">
+                <div className="text-sm sm:text-lg font-mono text-purple-400">
                   {selectedUser.uniqueCards}
                 </div>
               </div>

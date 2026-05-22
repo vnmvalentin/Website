@@ -258,7 +258,7 @@ export default function AdminDashboard() {
                           />
                       </div>
     
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                               <label className="block text-sm font-bold text-white/70 mb-2">Dauer (in Minuten)</label>
                               <input
@@ -469,19 +469,19 @@ export default function AdminDashboard() {
                           const usedCount = info.usedBy?.length || 0;
                           
                           return (
-                              <div key={code} className={`p-3 rounded flex justify-between items-center border border-white/5 ${isExpired ? 'bg-red-900/10 opacity-60' : 'bg-white/5'}`}>
-                                  <div className="flex items-center gap-4">
-                                      <div className="w-32">
+                              <div key={code} className={`p-3 rounded flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border border-white/5 ${isExpired ? 'bg-red-900/10 opacity-60' : 'bg-white/5'}`}>
+                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                      <div className="min-w-[100px]">
                                           <span className="font-mono text-yellow-400 font-bold text-lg">{code}</span>
                                           {isExpired && <span className="ml-2 text-red-500 text-xs font-bold">ABGELAUFEN</span>}
                                       </div>
-                                      
-                                      <div className="w-40 text-sm text-gray-300">
+
+                                      <div className="text-sm text-gray-300">
                                           <span className="uppercase text-xs text-gray-500 block">Reward</span>
                                           {info.type === "credits" ? `💰 ${info.value}` : `🎨 ${info.value}`}
                                       </div>
 
-                                      <div className="w-32 text-sm text-gray-300">
+                                      <div className="text-sm text-gray-300">
                                           <span className="uppercase text-xs text-gray-500 block">Genutzt</span>
                                           <span className={usedCount >= info.maxUses && !isInfinity ? "text-red-400" : "text-green-400"}>
                                               {usedCount} / {isInfinity ? "∞" : info.maxUses}
@@ -493,7 +493,7 @@ export default function AdminDashboard() {
                                           {info.expiresAt ? new Date(info.expiresAt).toLocaleString() : "Nie"}
                                       </div>
                                   </div>
-                                  <button onClick={() => deleteCode(code)} className="text-red-500 hover:text-red-400 bg-black/30 hover:bg-black/50 p-2 rounded">🗑️</button>
+                                  <button onClick={() => deleteCode(code)} className="text-red-500 hover:text-red-400 bg-black/30 hover:bg-black/50 p-2 rounded self-start sm:self-auto">🗑️</button>
                               </div>
                           );
                       })}

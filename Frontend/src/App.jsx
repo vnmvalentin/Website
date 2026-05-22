@@ -20,8 +20,8 @@ import AdventureGame from "./pages/Adventure/AdventureGame"
 import AdminDashboard from "./pages/AdminDashboard";
 import YTMBotPage from "./pages/YTM/YTMBotPage";
 import TwitchAuthProvider from "./components/TwitchAuthContext";
-import ViewerPond from "./pages/ViewerPond/ViewerPond";
-import PondPage from "./pages/ViewerPond/PondPage";
+import ViewerSky from "./pages/ViewerPond/ViewerSky";
+import SkyPage from "./pages/ViewerPond/SkyPage";
 import Updates from "./pages/Updates";
 import CardDashboard from "./pages/Card/CardDashboard";
 import Hub from "./pages/Hub";
@@ -38,7 +38,7 @@ export default function App() {
         <Route path="/overlay/credits" element={<StreamCredits />} />
         
         <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
-        <Route path="/overlay/pond" element={<ViewerPond />} />
+        <Route path="/overlay/sky" element={<ViewerSky />} />
 
         {/* Alle “normalen” Seiten unter Layout */}
         <Route path="/" element={<Layout />}>
@@ -65,7 +65,7 @@ export default function App() {
           <Route path="tutorial/ytm-bot" element={<YTMBotPage />} />
           <Route path="tutorial/ytm-songrequest" element={<Navigate to="/tutorial/ytm-bot" replace />} />
           <Route path="tutorial/ytm-streamdeck" element={<Navigate to="/tutorial/ytm-bot" replace />} />
-          <Route path="pond" element={<PondPage />} />
+          <Route path="sky" element={<SkyPage />} />
           <Route path="updates" element={<Updates />} />
           <Route path="season" element={<Hub />} />
           <Route path="/discord-bot" element={<DiscordBotDashboard />} />

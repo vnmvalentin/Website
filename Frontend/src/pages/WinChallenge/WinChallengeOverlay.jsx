@@ -1,5 +1,5 @@
 // WinChallengeOverlay.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 function msToClock(ms) {
@@ -20,43 +20,57 @@ function clamp01(v, fallback = 1) {
 export default function WinChallengeOverlay() {
   const { overlayKey } = useParams();
   const [doc, setDoc] = useState(null);
-  const [now, setNow] = useState(Date.now());
+  const [pageIndex, setPageIndex] = useState(0);
   const scrollInnerRef = useRef(null);
   const firstScrollRowRef = useRef(null);
+  const timerDisplayRef = useRef(null);   // direct DOM update — no re-render
+  const timerDotRef = useRef(null);       // running indicator dot
+  const docRef = useRef(null);            // always-current doc without closures
 
   const rafRef = useRef(null);
+  const pageCountRef = useRef(1);
   const lastTsRef = useRef(null);
   const offsetRef = useRef(0);
-  const dirRef = useRef(1); // 1 = runter, -1 = hoch
+  const dirRef = useRef(1);
   const pauseUntilRef = useRef(0);
   const maxOffsetRef = useRef(0);
 
   const [scrollViewportHeight, setScrollViewportHeight] = useState(null);
 
-  // Polling
+  // Keep docRef in sync (used by intervals that must not re-subscribe on every render)
+  useEffect(() => { docRef.current = doc; }, [doc]);
+
+  // Polling — only triggers re-render when updatedAt actually changes
   useEffect(() => {
     let alive = true;
+    const lastUpdatedAt = { v: null };
     const load = async () => {
       try {
         const res = await fetch(`/api/winchallenge/overlay/${overlayKey}`);
         if (!alive) return;
         const data = await res.json();
-        setDoc(data);
+        if (data?.updatedAt !== lastUpdatedAt.v) {
+          lastUpdatedAt.v = data.updatedAt;
+          setDoc(data);
+        }
       } catch {
         // ignore
       }
     };
     load();
     const iv = setInterval(load, 1000);
-    return () => {
-      alive = false;
-      clearInterval(iv);
-    };
+    return () => { alive = false; clearInterval(iv); };
   }, [overlayKey]);
 
-  // Timer-UI tick
+  // Timer display — direct DOM writes, zero React re-renders
   useEffect(() => {
-    const iv = setInterval(() => setNow(Date.now()), 500);
+    const iv = setInterval(() => {
+      const t = docRef.current?.timer;
+      if (!t) return;
+      const ms = t.running ? Date.now() - (t.startedAt || 0) : (t.elapsedMs || 0);
+      if (timerDisplayRef.current) timerDisplayRef.current.textContent = msToClock(ms);
+      if (timerDotRef.current) timerDotRef.current.style.background = t.running ? '#22c55e' : '#ef4444';
+    }, 250);
     return () => clearInterval(iv);
   }, []);
 
@@ -73,13 +87,6 @@ export default function WinChallengeOverlay() {
       window.location.reload();
     }
   }, [doc]);
-
-  const elapsed = useMemo(() => {
-    if (!doc?.timer) return 0;
-    return doc.timer.running
-      ? now - (doc.timer.startedAt || 0)
-      : doc.timer.elapsedMs || 0;
-  }, [doc, now]);
 
   // --- SICHERHEITS-ANPASSUNG ---
   // Wir entfernen hier das "if (!doc) return null;"
@@ -161,7 +168,6 @@ export default function WinChallengeOverlay() {
   let visibleOthers = others;
   let placeholders = 0;
   let pageCount = 1;
-  let pageIndex = 0;
 
   if (pagingEnabled && !scrollingEnabled) {
     const slotsForOthers = Math.max(0, pageSize - pinned.length);
@@ -169,9 +175,6 @@ export default function WinChallengeOverlay() {
 
     if (slotsForOthers > 0) {
       pageCount = Math.max(1, Math.ceil(othersCount / slotsForOthers));
-      const intervalMs =
-        Math.max(2, parseInt(pagingIntervalSec || 20, 10)) * 1000;
-      pageIndex = Math.floor(now / intervalMs) % pageCount;
 
       const pageStart = pageIndex * slotsForOthers;
       visibleOthers = others.slice(pageStart, pageStart + slotsForOthers);
@@ -188,6 +191,7 @@ export default function WinChallengeOverlay() {
     visibleOthers = others;
     placeholders = 0;
   }
+  pageCountRef.current = pageCount;
 
   const showTimer = doc?.timer?.visible !== false;
   const isCenter = titleAlign === "center";
@@ -201,7 +205,7 @@ export default function WinChallengeOverlay() {
       pauseUntilRef.current = 0;
       maxOffsetRef.current = 0;
       if (scrollInnerRef.current) {
-        scrollInnerRef.current.style.transform = "translateY(0px)";
+        scrollInnerRef.current.style.transform = "translate3d(0, 0px, 0)";
       }
       return;
     }
@@ -211,7 +215,7 @@ export default function WinChallengeOverlay() {
     dirRef.current = 1;
     pauseUntilRef.current = Date.now() + scrollPauseMs;
     if (scrollInnerRef.current) {
-      scrollInnerRef.current.style.transform = "translateY(0px)";
+      scrollInnerRef.current.style.transform = "translate3d(0, 0px, 0)";
     }
 
     const measure = () => {
@@ -275,7 +279,7 @@ export default function WinChallengeOverlay() {
 
           offsetRef.current = next;
           if (scrollInnerRef.current) {
-            scrollInnerRef.current.style.transform = `translateY(${-next}px)`;
+            scrollInnerRef.current.style.transform = `translate3d(0, ${-next}px, 0)`;
           }
         }
       }
@@ -290,6 +294,19 @@ export default function WinChallengeOverlay() {
       lastTsRef.current = null;
     };
   }, [scrollingEnabled, scrollSpeedPxPerSec, scrollPauseMs]);
+
+  // Paging interval — only re-renders when the page index actually changes
+  useEffect(() => {
+    if (!pagingEnabled || scrollingEnabled) { setPageIndex(0); return; }
+    const intervalMs = Math.max(2, parseInt(pagingIntervalSec || 20, 10)) * 1000;
+    const iv = setInterval(() => {
+      setPageIndex(prev => {
+        const pCount = pageCountRef.current;
+        return pCount > 1 ? (prev + 1) % pCount : 0;
+      });
+    }, intervalMs);
+    return () => clearInterval(iv);
+  }, [pagingEnabled, scrollingEnabled, pagingIntervalSec]);
 
   // --- JETZT erst prüfen wir auf Null ---
   // Da alle Hooks oben schon deklariert wurden, ist die Reihenfolge stabil.
@@ -470,10 +487,23 @@ export default function WinChallengeOverlay() {
               fontSize: itemFontSize ? `${itemFontSize}px` : 16,
             }}
           >
-            <span style={{ fontSize: "0.7em", opacity: 0.8 }}>
-              {doc.timer?.running ? "🟢" : "🔴"}
+            <span
+              ref={timerDotRef}
+              style={{
+                display: "inline-block",
+                width: "0.7em",
+                height: "0.7em",
+                borderRadius: "50%",
+                background: doc.timer?.running ? "#22c55e" : "#ef4444",
+                opacity: 0.8,
+                flexShrink: 0,
+              }}
+            />
+            <span ref={timerDisplayRef}>
+              {msToClock(doc.timer?.running
+                ? Date.now() - (doc.timer?.startedAt || 0)
+                : (doc.timer?.elapsedMs || 0))}
             </span>
-            <span>{msToClock(elapsed)}</span>
           </div>
         )}
 
