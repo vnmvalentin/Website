@@ -17,7 +17,6 @@ const { Server } = require("socket.io");
 const createBingoRouter = require("./routes/bingoRoutes");
 const createAwardsRouter = require("./routes/awardsRoutes");
 const createGiveawayRouter = require("./routes/giveawayRoutes");
-const createPackRouter = require("./routes/packRoutes");
 const createWinchallengeRouter = require("./routes/winchallengeRoutes");
 const createPollRouter = require("./routes/pollRoutes");
 const createCasinoRouter = require("./routes/casinoRoutes");
@@ -25,15 +24,15 @@ const createAdventureRouter = require("./routes/adVenturesRoutes");
 const createAdminRouter = require("./routes/adminRoutes");
 const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
-const createPondRouter = require("./routes/pondRoutes");
-const createHubRouter = require("./routes/hubRoutes");
 const createGardenGameRouter = require("./routes/gardenGameRoutes");
 const discordClient = require("./discord/bot/index");
 const createDiscordRouter = require("./discord/api/index");
-const { saveAllFarmsOnExit, initGardenFarmsStore, farmStates } = require("./gardenFarmsStore");
-const { runPlantMigration } = require("./gardenMigration");
-const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./winchallengeStore");
-const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc } = require("./winchallengeIrc");
+const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./routes/clashRoyaleRoutes");
+const createBannedCardsRouter = require("./routes/bannedCardsRoutes");
+const { saveAllFarmsOnExit, initGardenFarmsStore, farmStates } = require("./lib/gardenFarmsStore");
+const { runPlantMigration } = require("./lib/gardenMigration");
+const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./lib/winchallengeStore");
+const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc } = require("./lib/winchallengeIrc");
 
 const app = express();
 
@@ -111,6 +110,28 @@ function createSession(twitchId, twitchLogin) {
   sessions[sessionId] = { twitchId: String(twitchId), twitchLogin: String(twitchLogin), expiresAt };
   saveSessionsToFile(sessions);
   return sessionId;
+}
+
+// Liest die Twitch-ID direkt aus dem Session-Cookie des Socket.io-Handshakes
+// (Sockets laufen nicht durch die Express-Middlewarekette, daher hier separat geparst).
+function parseCookieHeader(header) {
+  const out = {};
+  if (!header) return out;
+  header.split(";").forEach((pair) => {
+    const idx = pair.indexOf("=");
+    if (idx === -1) return;
+    out[pair.slice(0, idx).trim()] = decodeURIComponent(pair.slice(idx + 1).trim());
+  });
+  return out;
+}
+
+function getTwitchIdFromSocket(socket) {
+  const cookies = parseCookieHeader(socket.handshake.headers.cookie);
+  const sessionId = cookies.session;
+  if (!sessionId) return null;
+  const session = sessions[sessionId];
+  if (!session || session.expiresAt < Date.now()) return null;
+  return session.twitchId;
 }
 
 function requireAuth(req, res, next) {
@@ -224,17 +245,17 @@ app.use("/api/bingo", createBingoRouter({ requireAuth }));
 app.use("/api/awards", createAwardsRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
-app.use("/api/", createPackRouter({ requireAuth, ADMIN_PW, STREAMER_TWITCH_ID }));
 app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/casino", createCasinoRouter({ requireAuth, io }));
+app.use("/api/", createCasinoRouter.createLegacyCardsAdminRouter());
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
-app.use("/api/pond", createPondRouter({ requireAuth, io }));
-app.use("/api/hub", createHubRouter());
 const gardenRouter = createGardenGameRouter({ requireAuth, io });
 app.use("/api/garden", gardenRouter);
 app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, sessions, saveSessionsToFile }));
+app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID }));
+app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 
 // =================== SOCKET.IO LOGIC ===================
 io.on("connection", (socket) => {
@@ -252,6 +273,9 @@ io.on("connection", (socket) => {
  
     // ── NEU: Garden-Handler einbinden ──────────────────────────
     gardenRouter.registerGardenSocketHandlers(socket);
+    const clashSocketTwitchId = getTwitchIdFromSocket(socket);
+    const isClashAdmin = !!clashSocketTwitchId && String(clashSocketTwitchId) === String(STREAMER_TWITCH_ID);
+    registerClashRoyaleSocket(socket, io, { isAdmin: isClashAdmin });
     // ───────────────────────────────────────────────────────────
  
     socket.on("disconnect", () => {

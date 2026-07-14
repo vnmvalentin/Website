@@ -39,20 +39,20 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
     const triggerName = voiceChannels.find(c => c.id === triggerChannelId)?.name;
 
     return (
-        <div className="space-y-8 max-w-2xl animate-in slide-in-from-right-4 duration-300">
+        <div className="space-y-8 max-w-2xl">
             <div>
                 <h2 className="text-2xl text-white font-bold mb-1">Custom Voice Channels</h2>
                 <p className="text-gray-400 text-sm">Jeder der den Trigger-Channel betritt bekommt automatisch einen eigenen Voice-Channel.</p>
             </div>
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-2xl p-6 space-y-4">
+            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-6 space-y-4">
                 <h3 className="text-white font-semibold flex items-center gap-2">🔊 Trigger Channel</h3>
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Voice Channel auswählen</label>
                     <select
                         value={triggerChannelId}
                         onChange={e => setTriggerChannelId(e.target.value)}
-                        className="w-full bg-[#1a1a20] border border-white/10 rounded-xl p-3 text-white focus:border-cyan-500 outline-none appearance-none"
+                        className="w-full bg-[#1a1a20] border border-white/10 rounded-sm p-3 text-white focus:border-cyan-500 outline-none appearance-none"
                     >
                         <option value="">-- Deaktiviert --</option>
                         {voiceChannels.map(c => (
@@ -67,7 +67,7 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 </div>
             </div>
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-2xl p-5 space-y-3">
+            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 space-y-3">
                 <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
                 <ul className="text-gray-400 text-sm space-y-2">
                     <li>• Bot erstellt <span className="text-cyan-400 font-mono">🔊 Usernames Kanal</span> in der gleichen Kategorie</li>
@@ -79,11 +79,11 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 </ul>
             </div>
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-2xl p-5 space-y-3">
+            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 space-y-3">
                 <h3 className="text-white font-semibold text-sm">🎮 Commands (nur im dedizierten Text-Channel)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {COMMANDS.map(item => (
-                        <div key={item.cmd} className="bg-[#1a1a20] rounded-xl p-3">
+                        <div key={item.cmd} className="bg-[#1a1a20] rounded-sm p-3">
                             <div className="text-cyan-400 font-mono text-xs mb-1">{item.cmd}</div>
                             <div className="text-gray-400 text-xs">{item.desc}</div>
                         </div>
@@ -95,7 +95,7 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="bg-cyan-500 text-black font-bold py-3 px-8 rounded-xl hover:bg-cyan-400 disabled:opacity-50 transition-all"
+                    className="bg-cyan-500 text-black font-bold py-3 px-8 rounded-sm hover:bg-cyan-400 disabled:opacity-50 transition-colors"
                 >
                     {isSaving ? 'Speichere...' : 'Speichern'}
                 </button>
@@ -104,3 +104,4 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
         </div>
     );
 }
+

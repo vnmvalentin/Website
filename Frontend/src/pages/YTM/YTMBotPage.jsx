@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Link } from "react-router-dom";
 import { Github, Music, MessageSquare, Monitor, Sparkles, Download, Tv2, SkipForward, Laptop2 } from "lucide-react";
 import SEO from "../../components/SEO";
@@ -15,7 +15,7 @@ export default function YTMBotPage() {
       />
 
       <div className="text-center space-y-3">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500/20 to-amber-500/10 border border-white/10 mb-2">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-sm bg-[#18181b] border border-white/10 mb-2">
           <Music className="w-8 h-8 text-red-400" />
         </div>
         <h1 className="text-3xl md:text-4xl font-black tracking-tight">
@@ -27,7 +27,7 @@ export default function YTMBotPage() {
         href="https://github.com/vnmvalentin/YTM_Twitch_Bot"
         target="_blank"
         rel="noopener noreferrer"
-        className="flex flex-col sm:flex-row items-center justify-center gap-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-bold text-lg py-5 px-8 rounded-2xl shadow-lg shadow-fuchsia-900/30 transition-transform hover:scale-[1.01] border border-white/10"
+        className="flex flex-col sm:flex-row items-center justify-center gap-4 bg-violet-600 hover:bg-violet-500 text-white font-bold text-lg py-5 px-8 rounded-sm border border-white/10 transition-colors"
       >
         <div className="flex items-center gap-3">
           <Download className="w-7 h-7 shrink-0" />
@@ -35,7 +35,7 @@ export default function YTMBotPage() {
         </div>
       </a>
 
-      <div className="bg-[#18181b] border border-white/10 rounded-2xl p-6 space-y-4">
+      <div className="bg-[#18181b] border border-white/10 rounded-md p-6 space-y-4">
         <h2 className="text-lg font-black flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-amber-400" /> Funktionen
         </h2>
@@ -67,7 +67,7 @@ export default function YTMBotPage() {
         </ul>
       </div>
 
-      <div className="rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+      <div className="rounded-md overflow-hidden border border-white/10">
         <img
           src="/assets/vorschau_ytmbot.png"
           alt="YTM Bot Vorschau"

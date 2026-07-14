@@ -1019,3 +1019,37 @@ module.exports = function createCasinoRouter({ requireAuth, io }) {
 
   return router;
 };
+
+// Übernommen aus dem inzwischen entfernten packRoutes.js — wird extern (Streamer.bot Channel-Points) unter
+// GET /api/cards/admin/add-credits aufgerufen, daher bleibt der Pfad unverändert erhalten.
+module.exports.createLegacyCardsAdminRouter = function createLegacyCardsAdminRouter() {
+  const router = express.Router();
+
+  router.get("/cards/admin/add-credits", (req, res) => {
+    const { adminPw, amount, twitchId } = req.query;
+
+    if (adminPw !== process.env.ADMIN_PW) {
+      return res.status(403).json({ error: "Falsches Admin-Passwort" });
+    }
+    if (!twitchId) {
+      return res.status(400).json({ error: "Fehlende twitchId" });
+    }
+    const addAmount = parseInt(amount, 10);
+    if (isNaN(addAmount) || addAmount <= 0) {
+      return res.status(400).json({ error: "Ungültiger Betrag" });
+    }
+
+    const casinoDb = loadData();
+    if (!casinoDb[twitchId]) casinoDb[twitchId] = { credits: 0 };
+    casinoDb[twitchId].credits += addAmount;
+    saveData(casinoDb);
+
+    res.json({
+      ok: true,
+      message: `${addAmount} Credits an ${twitchId} vergeben.`,
+      newCredits: casinoDb[twitchId].credits,
+    });
+  });
+
+  return router;
+};

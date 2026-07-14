@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import SEO from "../../components/SEO";
 import { BarChart3, Users, Clock, Trophy } from "lucide-react";
 
@@ -65,7 +65,7 @@ function formatDate(value) {
 
 function StatCard({ title, value, icon: Icon, color }) {
     return (
-        <div className="bg-[#18181b] border border-white/10 rounded-2xl p-5 flex items-center gap-4 shadow-lg">
+        <div className="bg-[#18181b] border border-white/10 rounded-sm p-5 flex items-center gap-4">
             <div className={`p-3 rounded-xl ${color} bg-opacity-10 text-opacity-100`}>
                 <Icon size={24} />
             </div>
@@ -81,9 +81,9 @@ function SubmissionDetailModal({ sub, onClose }) {
 
   // Schließen bei Klick auf den Hintergrund
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <div 
-        className="bg-[#18181b] border border-white/10 w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+        className="bg-[#18181b] border border-white/10 w-full max-w-2xl max-h-[80vh] rounded-md flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()} // Klick im Modal soll nicht schließen
       >
         {/* Header */}
@@ -96,7 +96,7 @@ function SubmissionDetailModal({ sub, onClose }) {
               Eingereicht am: {new Date(sub.updatedAt).toLocaleString("de-DE")}
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-sm text-white/50 hover:text-white transition-colors">
             ✕
           </button>
         </div>
@@ -116,7 +116,7 @@ function SubmissionDetailModal({ sub, onClose }) {
                 {hasAnswer ? (
                   <div className="flex flex-wrap gap-2">
                     {answerRaw.map((ans, i) => (
-                      <span key={i} className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-lg text-sm font-medium">
+                      <span key={i} className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-sm text-sm font-medium">
                         {ans}
                       </span>
                     ))}
@@ -160,7 +160,7 @@ export default function AwardsAdminPage() {
   const perCategory = summary?.perCategory || {};
 
   if (loading) return <div className="p-20 text-center animate-pulse text-white/50">Lade Daten...</div>;
-  if (error) return <div className="p-10 text-center text-red-400 border border-red-500/20 bg-red-500/5 rounded-2xl m-10">{error}</div>;
+  if (error) return <div className="p-10 text-center text-red-400 border border-red-500/20 bg-red-500/5 rounded-sm m-10">{error}</div>;
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
@@ -192,7 +192,7 @@ export default function AwardsAdminPage() {
             const topItem = hasData ? s.items[0] : null;
 
             return (
-                <div key={cat.id} className="bg-[#18181b] border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col h-full">
+                <div key={cat.id} className="bg-[#18181b] border border-white/10 rounded-sm p-6 flex flex-col h-full">
                     <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-4">
                         <div>
                             <h3 className="font-bold text-lg text-white">{cat.label}</h3>
@@ -245,7 +245,7 @@ export default function AwardsAdminPage() {
          <h2 className="text-xl font-bold mb-4">Letzte Einsendungen (Log)</h2>
          <p className="text-sm text-white/50 mb-4">Klicke auf eine Zeile, um die Details zu sehen.</p> {/* Hinweis hinzugefügt */}
          
-         <div className="bg-black/40 rounded-2xl border border-white/10 overflow-hidden">
+         <div className="bg-black/40 rounded-md border border-white/10 overflow-hidden">
              <div className="overflow-x-auto">
                  <table className="w-full text-left text-sm text-white/70">
                      <thead className="bg-white/5 text-white/40 uppercase text-xs">

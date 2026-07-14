@@ -6,11 +6,7 @@ const DATA_FILE = path.join(__dirname, '../../../data/pp_data.json');
 
 function loadData() {
     if (!fs.existsSync(DATA_FILE)) return {};
-    try {
-        return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    } catch {
-        return {};
-    }
+    try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch { return {}; }
 }
 
 function saveData(data) {
@@ -35,9 +31,8 @@ async function handlePP(interaction) {
 
     if (data[userId] && data[userId].date === today) {
         const size = data[userId].size;
-        const nextTs = getNextMidnightUnix();
         return interaction.reply({
-            content: `🍆 Dein PP ist **${size}cm** groß.\n*(Nächste Messung möglich: <t:${nextTs}:R>)*`,
+            content: `Immer noch **${size}cm**. Nächste Messung: <t:${getNextMidnightUnix()}:R>`,
         });
     }
 
@@ -46,7 +41,7 @@ async function handlePP(interaction) {
     saveData(data);
 
     await interaction.reply({
-        content: `🍆 Dein PP ist **${size}cm** groß.`,
+        content: `Dein PP ist **${size}cm** groß.`,
     });
 }
 

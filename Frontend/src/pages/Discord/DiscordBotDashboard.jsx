@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import {
     Settings, UserPlus, LogOut, Gamepad2, Tag, CheckSquare,
     Volume2, Users, Tv, Image, Globe, BarChart2, ChevronLeft,
+    Radio, Ticket,
 } from 'lucide-react';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 import SEO from '../../components/SEO';
@@ -17,20 +18,49 @@ import TwitchNotifTab from './tabs/TwitchNotifTab';
 import ImageOnlyTab from './tabs/ImageOnlyTab';
 import StatsTab from './tabs/StatsTab';
 import SyncChatTab from './tabs/SyncChatTab';
+import LiveRoleTab from './tabs/LiveRoleTab';
+import TicketsTab from './tabs/TicketsTab';
 
-const TABS = [
-    { id: 'general',      label: 'Allgemein',      icon: <Settings size={18} /> },
-    { id: 'welcome',      label: 'Willkommen',     icon: <UserPlus size={18} /> },
-    { id: 'leave',        label: 'Austritt',        icon: <LogOut size={18} /> },
-    { id: 'funcommands',  label: 'Fun Commands',   icon: <Gamepad2 size={18} /> },
-    { id: 'reactionroles',label: 'Rollen-Buttons', icon: <Tag size={18} /> },
-    { id: 'approval',     label: 'Genehmigung',    icon: <CheckSquare size={18} /> },
-    { id: 'voice',        label: 'Voice Channels', icon: <Volume2 size={18} /> },
-    { id: 'autoroles',    label: 'Auto Roles',     icon: <Users size={18} /> },
-    { id: 'twitchnotif',  label: 'Twitch Notif.',  icon: <Tv size={18} /> },
-    { id: 'imageonly',    label: 'Image Only',     icon: <Image size={18} /> },
-    { id: 'syncchat',     label: 'Taverne',        icon: <Globe size={18} /> },
-    { id: 'stats',        label: 'Statistiken',    icon: <BarChart2 size={18} /> },
+const GROUPS = [
+    {
+        label: 'Server',
+        tabs: [
+            { id: 'general',      label: 'Allgemein',      icon: <Settings size={16} /> },
+            { id: 'stats',        label: 'Statistiken',    icon: <BarChart2 size={16} /> },
+        ],
+    },
+    {
+        label: 'Mitglieder',
+        tabs: [
+            { id: 'welcome',      label: 'Eintritt',       icon: <UserPlus size={16} /> },
+            { id: 'leave',        label: 'Austritt',       icon: <LogOut size={16} /> },
+        ],
+    },
+    {
+        label: 'Rollen',
+        tabs: [
+            { id: 'reactionroles',label: 'Rollen-Buttons', icon: <Tag size={16} /> },
+            { id: 'approval',     label: 'Genehmigung',    icon: <CheckSquare size={16} /> },
+            { id: 'autoroles',    label: 'Auto Roles',     icon: <Users size={16} /> },
+            { id: 'liverole',     label: 'Live Rolle',     icon: <Radio size={16} /> },
+        ],
+    },
+    {
+        label: 'Kanäle',
+        tabs: [
+            { id: 'voice',        label: 'Voice Channels', icon: <Volume2 size={16} /> },
+            { id: 'imageonly',    label: 'Image Only',     icon: <Image size={16} /> },
+            { id: 'syncchat',     label: 'Taverne',        icon: <Globe size={16} /> },
+        ],
+    },
+    {
+        label: 'Features',
+        tabs: [
+            { id: 'funcommands',  label: 'Fun Commands',   icon: <Gamepad2 size={16} /> },
+            { id: 'twitchnotif',  label: 'Twitch Notif.',  icon: <Tv size={16} /> },
+            { id: 'tickets',      label: 'Tickets',        icon: <Ticket size={16} /> },
+        ],
+    },
 ];
 
 export default function DiscordBotDashboard() {
@@ -110,9 +140,9 @@ export default function DiscordBotDashboard() {
                     funChannel, disabledCommands,
                 }),
             });
-            setSaveStatus(res.ok ? '✅ Gespeichert!' : '❌ Fehler.');
+            setSaveStatus(res.ok ? 'Gespeichert!' : 'Fehler.');
         } catch {
-            setSaveStatus('❌ Netzwerkfehler.');
+            setSaveStatus('Netzwerkfehler.');
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 3000);
@@ -140,7 +170,7 @@ export default function DiscordBotDashboard() {
         <>
             <SEO title="Discord Bot" description="Verwalte deinen Discord Bot." path="/discord-bot" />
             <div className="h-full flex items-center justify-center">
-                <a href={loginUrl} className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-8 py-3 rounded-xl font-bold transition-all duration-200 hover:-translate-y-1">
+                <a href={loginUrl} className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-8 py-3 rounded-sm font-bold transition-colors">
                     Mit Discord Anmelden
                 </a>
             </div>
@@ -154,21 +184,21 @@ export default function DiscordBotDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {servers.map(server => (
                     <div key={server.id}
-                        className="bg-[#1a1a20] border border-white/5 hover:border-white/20 p-6 rounded-2xl flex flex-col items-center group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
-                        <div className="w-20 h-20 rounded-full bg-[#202028] mb-4 overflow-hidden border-4 border-[#202028] group-hover:border-cyan-500/30 transition-all duration-300">
+                        className="bg-[#1a1a20] border border-white/5 hover:border-white/20 p-6 rounded-sm flex flex-col items-center group transition-colors">
+                        <div className="w-20 h-20 rounded-full bg-[#202028] mb-4 overflow-hidden border-4 border-[#202028] group-hover:border-cyan-500/30 transition-colors">
                             {server.icon
-                                ? <img src={server.icon} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={server.name} />
+                                ? <img src={server.icon} className="w-full h-full object-cover " alt={server.name} />
                                 : <div className="text-3xl text-white/50 w-full h-full flex items-center justify-center">{server.name.charAt(0)}</div>}
                         </div>
                         <h3 className="text-white font-bold mb-4 text-base text-center">{server.name}</h3>
                         {server.botPresent ? (
                             <button onClick={() => setSelectedServer(server)}
-                                className="w-full bg-cyan-500/10 hover:bg-cyan-500 hover:text-black text-cyan-400 py-2.5 rounded-xl font-bold transition-all duration-200 text-sm">
+                                className="w-full bg-cyan-500/10 hover:bg-cyan-500 hover:text-black text-cyan-400 py-2.5 rounded-sm font-bold transition-colors text-sm">
                                 Dashboard öffnen
                             </button>
                         ) : (
                             <a href={server.inviteUrl} target="_blank" rel="noopener noreferrer"
-                                className="block w-full text-center bg-white/5 hover:bg-[#5865F2] text-white py-2.5 rounded-xl font-bold transition-all duration-200 text-sm">
+                                className="block w-full text-center bg-white/5 hover:bg-[#5865F2] text-white py-2.5 rounded-sm font-bold transition-colors text-sm">
                                 Bot einladen
                             </a>
                         )}
@@ -180,7 +210,7 @@ export default function DiscordBotDashboard() {
 
     // ── App-like layout: fixed header + sidebar + scrollable content ──────────
     return (
-        <div className="h-full flex flex-col overflow-hidden animate-in fade-in duration-200">
+        <div className="h-full flex flex-col overflow-hidden">
             <SEO
                 title={`${selectedServer.name} – Discord Bot`}
                 description={`Discord Bot Dashboard für den Server ${selectedServer.name}.`}
@@ -207,17 +237,22 @@ export default function DiscordBotDashboard() {
             <div className="flex-1 flex overflow-hidden">
 
                 {/* Sidebar — fixed, never scrolls */}
-                <div className="w-56 shrink-0 bg-[#16161a] border-r border-white/5 flex flex-col py-3 px-2 overflow-y-auto custom-scrollbar">
-                    {TABS.map(item => (
-                        <button key={item.id} onClick={() => setActiveTab(item.id)}
-                            className={`text-left px-4 py-3 rounded-xl font-medium transition-all duration-150 flex items-center gap-3 mb-0.5 ${
-                                activeTab === item.id
-                                    ? 'bg-cyan-500 text-black'
-                                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                            }`}>
-                            <span className="shrink-0">{item.icon}</span>
-                            <span className="text-sm">{item.label}</span>
-                        </button>
+                <div className="w-56 shrink-0 bg-[#16161a] border-r border-white/5 flex flex-col py-2 px-2 overflow-y-auto custom-scrollbar">
+                    {GROUPS.map(group => (
+                        <div key={group.label} className="mb-1">
+                            <p className="text-gray-600 text-[10px] font-semibold uppercase tracking-wider px-3 pt-3 pb-1">{group.label}</p>
+                            {group.tabs.map(item => (
+                                <button key={item.id} onClick={() => setActiveTab(item.id)}
+                                    className={`w-full text-left px-3 py-2 rounded-sm font-medium transition-colors flex items-center gap-2.5 mb-0.5 ${
+                                        activeTab === item.id
+                                            ? 'bg-cyan-500 text-black'
+                                            : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                    }`}>
+                                    <span className="shrink-0">{item.icon}</span>
+                                    <span className="text-sm">{item.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     ))}
                 </div>
 
@@ -311,8 +346,22 @@ export default function DiscordBotDashboard() {
                             selectedServer={selectedServer}
                         />
                     )}
+                    {activeTab === 'liverole' && (
+                        <LiveRoleTab
+                            selectedServer={selectedServer}
+                            serverRoles={serverRoles}
+                        />
+                    )}
+                    {activeTab === 'tickets' && (
+                        <TicketsTab
+                            selectedServer={selectedServer}
+                            channels={channels}
+                            serverRoles={serverRoles}
+                        />
+                    )}
                 </div>
             </div>
         </div>
     );
 }
+

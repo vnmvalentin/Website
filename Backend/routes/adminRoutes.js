@@ -2,7 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const createWinchallengeRouter = require("./winchallengeRoutes");
-const { farmStates, setFarmState, scheduleFarmsSave } = require("../gardenFarmsStore");
+const { farmStates, setFarmState, scheduleFarmsSave } = require("../lib/gardenFarmsStore");
 
 const ROOT_DIR = process.cwd();
 
@@ -10,7 +10,6 @@ const PATHS = {
   casino: path.join(ROOT_DIR, "data/casinoData.json"),
   adventure: path.join(ROOT_DIR, "data/adventures-users.json"),
   bingo: path.join(ROOT_DIR, "data/bingo-sessions.json"),
-  cards: path.join(ROOT_DIR, "data/cards-users.json"),
   promo: path.join(ROOT_DIR, "data/promo-codes.json"),
 };
 

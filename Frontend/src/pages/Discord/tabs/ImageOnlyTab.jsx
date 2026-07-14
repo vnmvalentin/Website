@@ -63,19 +63,19 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
     const usedChannelIds = configs.map(c => c.channelId);
 
     return (
-        <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+        <div className="space-y-8">
             <div>
                 <h2 className="text-2xl text-white font-bold mb-1">Image-Only Kanäle</h2>
                 <p className="text-gray-400 text-sm">Nachrichten ohne Bild werden in diesen Kanälen automatisch gelöscht.</p>
             </div>
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-2xl p-6 space-y-4 max-w-2xl">
+            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-6 space-y-4 max-w-2xl">
                 <h3 className="text-white font-semibold flex items-center gap-2">➕ Kanal hinzufügen</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-white text-sm font-medium mb-2">Kanal</label>
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
-                            className="w-full bg-[#1a1a20] border border-white/10 rounded-xl p-3 text-white focus:border-cyan-500 outline-none appearance-none">
+                            className="w-full bg-[#1a1a20] border border-white/10 rounded-sm p-3 text-white focus:border-cyan-500 outline-none appearance-none">
                             <option value="">-- Kanal auswählen --</option>
                             {channels.filter(c => !usedChannelIds.includes(c.id)).map(c => (
                                 <option key={c.id} value={c.id}># {c.name}</option>
@@ -85,7 +85,7 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                     <div>
                         <label className="block text-white text-sm font-medium mb-2">Slowmode</label>
                         <select value={slowmode} onChange={e => setSlowmode(Number(e.target.value))}
-                            className="w-full bg-[#1a1a20] border border-white/10 rounded-xl p-3 text-white focus:border-cyan-500 outline-none appearance-none">
+                            className="w-full bg-[#1a1a20] border border-white/10 rounded-sm p-3 text-white focus:border-cyan-500 outline-none appearance-none">
                             {SLOWMODE_OPTIONS.map(o => (
                                 <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
@@ -94,7 +94,7 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                 </div>
                 <div className="flex items-center gap-4 pt-1">
                     <button onClick={handleAdd} disabled={isSaving || !channelId}
-                        className="bg-cyan-500 text-black font-bold py-2.5 px-6 rounded-xl hover:bg-cyan-400 disabled:opacity-50 transition-all">
+                        className="bg-cyan-500 text-black font-bold py-2.5 px-6 rounded-sm hover:bg-cyan-400 disabled:opacity-50 transition-colors">
                         {isSaving ? 'Speichere...' : 'Hinzufügen'}
                     </button>
                     {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
@@ -105,7 +105,7 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                 <div className="max-w-2xl space-y-3">
                     <h3 className="text-white font-semibold text-lg">Aktive Kanäle</h3>
                     {configs.map(cfg => (
-                        <div key={cfg.channelId} className="bg-[#0f0f13] border border-white/5 rounded-xl p-4 flex items-center gap-4">
+                        <div key={cfg.channelId} className="bg-[#0f0f13] border border-white/5 rounded-sm p-4 flex items-center gap-4">
                             <div className="text-xl shrink-0">🖼️</div>
                             <div className="flex-1">
                                 <div className="text-white font-semibold">#{channelName(cfg.channelId)}</div>
@@ -114,7 +114,7 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                                 </div>
                             </div>
                             <button onClick={() => handleDelete(cfg.channelId)}
-                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-lg transition-all shrink-0">
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-sm transition-colors shrink-0">
                                 🗑️
                             </button>
                         </div>
@@ -122,7 +122,7 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                 </div>
             )}
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-2xl p-5 max-w-2xl space-y-2">
+            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 max-w-2xl space-y-2">
                 <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
                 <ul className="text-gray-400 text-sm space-y-1">
                     <li>• Nachrichten ohne Bild/GIF werden sofort gelöscht</li>
@@ -134,3 +134,4 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
         </div>
     );
 }
+

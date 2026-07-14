@@ -51,7 +51,7 @@ export default function SyncChatTab({ selectedServer, channels }) {
     const channelName = (id) => channels.find(c => c.id === id)?.name || id;
 
     return (
-        <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+        <div className="space-y-8">
             <div>
                 <h2 className="text-2xl text-white font-bold mb-1">Taverne</h2>
                 <p className="text-gray-400 text-sm">
@@ -61,9 +61,9 @@ export default function SyncChatTab({ selectedServer, channels }) {
             </div>
 
             {taverne ? (
-                <div className="max-w-lg bg-[#0f0f13] border border-cyan-500/20 rounded-2xl p-6 space-y-4">
+                <div className="max-w-lg bg-[#0f0f13] border border-cyan-500/20 rounded-sm p-6 space-y-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-sm bg-cyan-500/10 flex items-center justify-center shrink-0">
                             <Globe size={20} className="text-cyan-400" />
                         </div>
                         <div>
@@ -74,7 +74,7 @@ export default function SyncChatTab({ selectedServer, channels }) {
                             <div className="text-xs text-cyan-400 mt-0.5">Taverne aktiv</div>
                         </div>
                         <button onClick={handleRemove}
-                            className="ml-auto text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-lg transition-all">
+                            className="ml-auto text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-sm transition-colors">
                             <Trash2 size={16} />
                         </button>
                     </div>
@@ -83,18 +83,18 @@ export default function SyncChatTab({ selectedServer, channels }) {
                     </p>
                 </div>
             ) : (
-                <div className="bg-[#0f0f13] border border-white/5 rounded-2xl p-6 space-y-4 max-w-lg">
+                <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-6 space-y-4 max-w-lg">
                     <h3 className="text-white font-semibold flex items-center gap-2">
                         <Plus size={16} /> Taverne einrichten
                     </h3>
                     <div className="flex gap-3">
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
-                            className="flex-1 bg-[#1a1a20] border border-white/10 rounded-xl p-3 text-white focus:border-cyan-500 outline-none appearance-none">
+                            className="flex-1 bg-[#1a1a20] border border-white/10 rounded-sm p-3 text-white focus:border-cyan-500 outline-none appearance-none">
                             <option value="">-- Kanal auswählen --</option>
                             {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                         </select>
                         <button onClick={handleSet} disabled={isAdding || !channelId}
-                            className="bg-cyan-500 text-black font-bold py-3 px-5 rounded-xl hover:bg-cyan-400 disabled:opacity-50 transition-all whitespace-nowrap">
+                            className="bg-cyan-500 text-black font-bold py-3 px-5 rounded-sm hover:bg-cyan-400 disabled:opacity-50 transition-colors whitespace-nowrap">
                             {isAdding ? '...' : 'Aktivieren'}
                         </button>
                     </div>
@@ -102,7 +102,7 @@ export default function SyncChatTab({ selectedServer, channels }) {
                 </div>
             )}
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-2xl p-5 max-w-lg space-y-2">
+            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 max-w-lg space-y-2">
                 <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
                 <ul className="text-gray-400 text-sm space-y-1">
                     <li>• Jeder Server hat genau einen Taverne-Kanal</li>
@@ -115,3 +115,4 @@ export default function SyncChatTab({ selectedServer, channels }) {
         </div>
     );
 }
+

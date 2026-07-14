@@ -5,39 +5,39 @@ import SEO from "../components/SEO";
 // --- DATEN ---
 
 const SOCIAL_LINKS = [
-  { 
-    label: "Twitch", 
-    href: "https://twitch.tv/vnmvalentin", 
+  {
+    label: "Twitch",
+    href: "https://twitch.tv/vnmvalentin",
     color: "hover:bg-[#9146FF] hover:text-white",
-    icon: "https://cdn.simpleicons.org/twitch/white" 
+    icon: "https://cdn.simpleicons.org/twitch/white"
   },
-  { 
-    label: "Discord", 
-    href: "https://discord.gg/ecRJSx2R6x", 
+  {
+    label: "Discord",
+    href: "https://discord.gg/ecRJSx2R6x",
     color: "hover:bg-[#5865F2] hover:text-white",
     icon: "https://cdn.simpleicons.org/discord/white"
   },
-  { 
-    label: "Instagram", 
-    href: "https://instagram.com/vnmvalentin", 
+  {
+    label: "Instagram",
+    href: "https://instagram.com/vnmvalentin",
     color: "hover:bg-[#E1306C] hover:text-white",
     icon: "https://cdn.simpleicons.org/instagram/white"
   },
-  { 
-    label: "YouTube", 
-    href: "https://youtube.com/@vnmvalentin", 
+  {
+    label: "YouTube",
+    href: "https://youtube.com/@vnmvalentin",
     color: "hover:bg-[#FF0000] hover:text-white",
     icon: "https://cdn.simpleicons.org/youtube/white"
   },
-  { 
-    label: "Twitter / X", 
-    href: "https://x.com/vnmvalentin", 
+  {
+    label: "Twitter / X",
+    href: "https://x.com/vnmvalentin",
     color: "hover:bg-black hover:text-white",
     icon: "https://cdn.simpleicons.org/x/white"
   },
-  { 
-    label: "TikTok", 
-    href: "https://tiktok.com/@vnmvalentin", 
+  {
+    label: "TikTok",
+    href: "https://tiktok.com/@vnmvalentin",
     color: "hover:bg-[#00f2ea] hover:text-black",
     icon: "https://cdn.simpleicons.org/tiktok/white"
   },
@@ -89,18 +89,18 @@ function InfoModal({ title, onClose, children }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" 
+      <div
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      
+
       {/* Content Card */}
-      <div className="relative w-full max-w-2xl bg-[#121212] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-2xl bg-[#121212] border border-white/10 rounded-md shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
           <h2 className="text-lg font-bold tracking-wide uppercase text-white/90">{title}</h2>
-          <button 
+          <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+            className="p-2 rounded-sm hover:bg-white/10 text-white/50 hover:text-white transition-colors"
           >
             {/* Simple X Icon fallback */}
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 13 13"/></svg>
@@ -122,17 +122,17 @@ function SocialContent() {
           <SmartLink
             key={item.label}
             href={item.href}
-            className={`group relative overflow-hidden rounded-xl bg-white/5 border border-white/5 px-4 py-4 transition-all duration-300 ${item.color}`}
+            className={`group relative overflow-hidden rounded-sm bg-white/5 border border-white/5 px-4 py-4 transition-colors ${item.color}`}
           >
             <div className="relative z-10 flex items-center justify-between">
-              
+
               {/* NEU: Container für Icon und Text */}
               <div className="flex items-center gap-3">
                   {item.icon && (
-                      <img 
-                        src={item.icon} 
-                        alt={item.label} 
-                        className="w-5 h-5 object-contain opacity-80 group-hover:opacity-100 transition-opacity" 
+                      <img
+                        src={item.icon}
+                        alt={item.label}
+                        className="w-5 h-5 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
                       />
                   )}
                   <span className="text-sm font-medium">{item.label}</span>
@@ -166,7 +166,7 @@ function HardwareContent() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Hardware suchen..."
-          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+          className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
         />
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -174,7 +174,7 @@ function HardwareContent() {
           <SmartLink
             key={idx}
             href={item.href}
-            className="flex items-center justify-between group rounded-lg px-3 py-3 hover:bg-white/5 transition-colors border border-transparent hover:border-white/5"
+            className="flex items-center justify-between group px-3 py-3 hover:bg-white/5 transition-colors border border-transparent hover:border-white/5"
           >
             <span className="text-sm text-white/80 group-hover:text-white truncate pr-4">
               {item.label}
@@ -194,63 +194,25 @@ function HardwareContent() {
 
 function TwitchTV() {
   return (
-    <div className="relative w-full mx-auto group">
-      {/* TV Gehäuse */}
-      <div className="relative bg-[#202023] rounded-t-3xl rounded-b-[2rem] p-3 md:p-5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8)] border-t border-x border-white/10 ring-1 ring-black/80">
-        
-        {/* Screen Container */}
-        <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] border border-white/5">
-          <iframe
-            src="https://player.twitch.tv/?channel=vnmvalentin&parent=vnmvalentin.de&parent=vnmvalentin.com&parent=localhost"
-            width="100%"
-            height="100%"
-            allowFullScreen
-            frameBorder="0"
-            title="Twitch Player"
-            className="w-full h-full"
-          />
-          {/* Scanline Effect */}
-          
-        </div>
-
-        {/* TV "Kinn" / Control Panel */}
-        <div className="mt-5 bg-[#1a1a1d] rounded-xl border-t border-white/5 p-3 md:p-4 flex items-center justify-between shadow-inner relative overflow-hidden">
-          
-          {/* Links: Deko Knöpfe (Volume/Channel) */}
-          <div className="flex items-center gap-4 pl-2">
-            <div className="flex flex-col gap-1.5">
-                <div className="w-10 h-1.5 bg-black/40 rounded-full border-b border-white/5"></div>
-                <div className="w-10 h-1.5 bg-black/40 rounded-full border-b border-white/5"></div>
-            </div>
-            {/* Deko Drehregler */}
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-black to-[#333] border border-white/5 shadow-lg flex items-center justify-center">
-                <div className="w-1 h-3 bg-white/20 rounded-full transform rotate-45"></div>
-            </div>
-          </div>
-
-          {/* Mitte: Power Button */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-             <div className="group/power cursor-pointer relative flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-full bg-[#151515] border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-red-900 group-hover/power:bg-red-500 shadow-[0_0_10px_rgba(220,38,38,0.2)] group-hover/power:shadow-[0_0_15px_rgba(220,38,38,0.8)] transition-all duration-300"></div>
-             </div>
-          </div>
-          
-          {/* Rechts: LEDs & Label */}
-          <div className="flex items-center gap-4 pr-2">
-            <div className="text-[10px] md:text-[11px] font-mono text-white/10 tracking-widest uppercase hidden sm:block">
-               Stereo / 4K
-            </div>
-            <div className="flex gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500/50 shadow-[0_0_4px_rgba(34,197,94,0.5)] animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-yellow-500/30"></div>
-                <div className="w-2 h-2 rounded-full bg-red-500/20"></div>
-            </div>
-          </div>
+    <div className="w-full border border-white/10 bg-black overflow-hidden rounded-sm shadow-lg">
+      <div className="relative w-full aspect-video">
+        <iframe
+          src="https://player.twitch.tv/?channel=vnmvalentin&parent=vnmvalentin.de&parent=vnmvalentin.com&parent=localhost"
+          width="100%"
+          height="100%"
+          allowFullScreen
+          frameBorder="0"
+          title="Twitch Player"
+          className="w-full h-full"
+        />
+      </div>
+      <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/5 bg-[#141414]">
+        <span className="text-xs font-mono text-white/30 tracking-widest uppercase">vnmvalentin</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+          <span className="text-[10px] font-mono text-white/20 uppercase tracking-wider">Live</span>
         </div>
       </div>
-      
-      {/* Ambilight Glow */}
-      <div className="absolute -inset-4 bg-purple-500/20 blur-3xl -z-10 rounded-[40%] opacity-20 pointer-events-none" />
     </div>
   );
 }
@@ -279,13 +241,13 @@ export default function Home() {
 
   return (
     <div className="min-h-full w-full pb-20 pt-8 px-4 md:px-8">
-      <SEO 
-        title="Home" 
+      <SEO
+        title="Home"
         description="Die offizielle Website von vnmvalentin. Streaming, Tools und Community."
         path="/"
       />
       <div className="max-w-7xl mx-auto flex flex-col items-center gap-10">
-        
+
         <section className="w-full">
            <TwitchTV />
         </section>
@@ -293,9 +255,8 @@ export default function Home() {
         <section className="flex flex-wrap justify-center gap-6 w-full">
             <button
                 onClick={() => openModal('social')}
-                className="group relative px-8 py-4 w-full sm:w-auto sm:min-w-[320px] bg-[#18181b] border border-white/10 rounded-full overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-all shadow-lg active:scale-95"
+                className="group relative px-8 py-4 w-full sm:w-auto sm:min-w-[320px] bg-[#18181b] border border-white/10 rounded-sm overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-colors"
             >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <span className="relative font-bold text-base tracking-wide text-white/80 group-hover:text-white uppercase">
                     Social Media
                 </span>
@@ -303,9 +264,8 @@ export default function Home() {
 
             <button
                 onClick={() => openModal('setup')}
-                className="group relative px-8 py-4 w-full sm:w-auto sm:min-w-[320px] bg-[#18181b] border border-white/10 rounded-full overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-all shadow-lg active:scale-95"
+                className="group relative px-8 py-4 w-full sm:w-auto sm:min-w-[320px] bg-[#18181b] border border-white/10 rounded-sm overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-colors"
             >
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <span className="relative font-bold text-base tracking-wide text-white/80 group-hover:text-white uppercase">
                     Mein Setup
                 </span>
@@ -324,7 +284,7 @@ export default function Home() {
                 <HardwareContent />
             </InfoModal>
         )}
-        
+
       </div>
     </div>
   );

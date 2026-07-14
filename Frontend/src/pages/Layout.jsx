@@ -3,7 +3,7 @@ import React, { useEffect, useState, useContext, useRef } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import { socket } from "../utils/socket";
-import { Volume2, VolumeX, AlertTriangle, Info } from "lucide-react";
+import { Volume2, VolumeX, AlertTriangle, Info, Gamepad2 } from "lucide-react";
 
 const STREAMER_ID = "160224748";
 
@@ -21,6 +21,9 @@ const NAV_ICONS = {
     "Streamer-Tools": (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
     ),
+    "Clash Royale": (
+        <Gamepad2 className="w-4 h-4" />
+    ),
     Contact: (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 00-2-2V7a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
     )
@@ -31,9 +34,7 @@ const navItems = [
   {
     label: "Fun",
     links: [
-      { label: "Hub", to: "/season" },
       { label: "Casino", to: "/Casino" },
-      { label: "Pack-Opening", to: "/Packs" },
       { label: "adVentures", to: "/adventures" },
       { label: "Virtual Farm", to: "/garden" },
     ],
@@ -44,7 +45,12 @@ const navItems = [
       { label: "Abstimmungen", to: "/Abstimmungen" },
       { label: "Giveaways", to: "/Giveaways" },
       { label: "The aVards 2026", to: "/avards-2026" },
-      { label: "Viewer Sky", to: "/sky"},
+    ],
+  },
+  {
+    label: "Clash Royale",
+    links: [
+      { label: "Mini Games", to: "/clash-royale" },
     ],
   },
   {
@@ -66,19 +72,19 @@ const navItems = [
   },
 ];
 
-const NavContent = ({ 
-    compact = false, 
-    location, 
-    openSections, 
-    toggleSection, 
-    hasActionableGiveaway, 
-    hasActionableAbstimmung, 
+const NavContent = ({
+    compact = false,
+    location,
+    openSections,
+    toggleSection,
+    hasActionableGiveaway,
+    hasActionableAbstimmung,
     setFeedbackModalOpen,
 }) => (
     <nav className={`flex-1 overflow-y-auto flex flex-col ${compact ? "p-4" : "p-5"} custom-scrollbar`}>
       <div className="space-y-6 flex-1">
         {navItems.map((section) => {
-          const isSectionActive = section.links.some(link => 
+          const isSectionActive = section.links.some(link =>
               (link.label === "Giveaways" && hasActionableGiveaway) ||
               (link.label === "Abstimmungen" && hasActionableAbstimmung)
           );
@@ -89,7 +95,7 @@ const NavContent = ({
           return (
               <div key={section.label} className="flex flex-col">
                   {!isAbout && (
-                      <button 
+                      <button
                           onClick={() => toggleSection(section.label)}
                           className="flex items-center justify-between px-3 mb-2 outline-none group"
                       >
@@ -101,10 +107,7 @@ const NavContent = ({
                                   {section.label}
                               </h3>
                               {isSectionActive && (
-                                  <span className="flex h-2 w-2 ml-1 relative">
-                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
-                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
-                                  </span>
+                                  <span className="h-1.5 w-1.5 ml-1 rounded-full bg-pink-500 shrink-0" />
                               )}
                           </div>
                           <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-300 ${isOpen ? "rotate-180" : "rotate-0"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -121,9 +124,9 @@ const NavContent = ({
                           const showDot = (link.label === "Giveaways" && hasActionableGiveaway) || (link.label === "Abstimmungen" && hasActionableAbstimmung);
 
                           const classes = `
-                              relative overflow-hidden flex items-center justify-between w-full text-left rounded-md px-3 py-2 text-sm transition-all group
-                              ${isActive 
-                                  ? "bg-white/5 text-white font-bold" 
+                              relative overflow-hidden flex items-center justify-between w-full text-left rounded-sm px-3 py-2 text-sm transition-colors group
+                              ${isActive
+                                  ? "bg-white/5 text-white font-bold"
                                   : "text-gray-400 hover:text-white hover:bg-white/5"
                               }
                           `;
@@ -131,15 +134,15 @@ const NavContent = ({
                           const linkContent = (
                               <>
                                   {isActive && (
-                                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.8)] pointer-events-none" />
+                                      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-cyan-500 pointer-events-none" />
                                   )}
-                                  <span className={`relative z-10 transition-colors ${isActive ? "drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]" : ""}`}>
+                                  <span className="relative z-10 transition-colors">
                                       {link.label}
                                   </span>
                                   {isExternal && (
                                       <svg className="w-3 h-3 opacity-50 relative z-10 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                   )}
-                                  {showDot && <span className="relative z-10 h-1.5 w-1.5 rounded-full bg-pink-400 shadow-[0_0_5px_rgba(236,72,153,0.8)] pointer-events-none" />}
+                                  {showDot && <span className="relative z-10 h-1.5 w-1.5 rounded-full bg-pink-400 pointer-events-none" />}
                               </>
                           );
 
@@ -195,10 +198,10 @@ export default function Layout() {
 
   const [hasActionableGiveaway, setHasActionableGiveaway] = useState(false);
   const [hasActionableAbstimmung, setHasActionableAbstimmung] = useState(false);
-  
+
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
-  
+
   const [redeemModalOpen, setRedeemModalOpen] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
@@ -208,9 +211,27 @@ export default function Layout() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("idle");
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    localStorage.getItem('sidebarCollapsed') === 'true'
+  );
+  const toggleSidebar = () => setSidebarCollapsed(prev => {
+    const next = !prev;
+    localStorage.setItem('sidebarCollapsed', next);
+    return next;
+  });
+
+  // Auto-collapse sidebar on full-screen pages
+  useEffect(() => {
+    if (location.pathname === '/clash-royale') {
+      setSidebarCollapsed(true);
+      localStorage.setItem('sidebarCollapsed', 'true');
+    }
+  }, [location.pathname]);
+
   const [openSections, setOpenSections] = useState({
     Fun: true,
     Community: true,
+    "Clash Royale": true,
     "Streamer-Tools": true,
     Contact: true,
   });
@@ -233,7 +254,7 @@ export default function Layout() {
               console.error("Konnte aktiven Broadcast nicht laden", e);
           }
       };
-      
+
       fetchActiveBroadcast();
 
       if (socket) {
@@ -264,9 +285,9 @@ export default function Layout() {
     const checkGiveaways = (data) => {
         const activeList = data?.active || [];
         const needsAction = activeList.some(g => {
-             if (!user) return true; 
+             if (!user) return true;
              const participants = g.participants || {};
-             return !participants[user.id]; 
+             return !participants[user.id];
         });
         setHasActionableGiveaway(needsAction);
     };
@@ -309,9 +330,9 @@ export default function Layout() {
             body: JSON.stringify({ code: promoCode })
         });
         const data = await res.json();
-        setPromoMsg(data.success ? "✅ " + data.message : "❌ " + data.error);
+        setPromoMsg(data.success ? data.message : data.error);
         if(data.success) setPromoCode("");
-    } catch (e) { setPromoMsg("❌ Fehler"); }
+    } catch (e) { setPromoMsg("Fehler"); }
   };
 
   const navProps = {
@@ -327,44 +348,40 @@ export default function Layout() {
   return (
     <div className="relative min-h-screen text-gray-200 font-sans selection:bg-cyan-500/30 selection:text-white bg-[#0f0f13]">
       {systemBroadcast && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-              <div className={`max-w-lg w-full p-8 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center border-2 ${
-                  systemBroadcast.type === 'warning' 
-                  ? 'bg-red-950/90 border-red-500 shadow-red-500/20 text-red-50' 
-                  : 'bg-blue-950/90 border-blue-500 shadow-blue-500/20 text-blue-50'
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <div className={`max-w-lg w-full p-8 rounded-md shadow-xl text-center border ${
+                  systemBroadcast.type === 'warning'
+                  ? 'bg-red-950/90 border-red-500 text-red-50'
+                  : 'bg-blue-950/90 border-blue-500 text-blue-50'
               }`}>
                   {systemBroadcast.type === 'warning' ? (
-                      <AlertTriangle className="w-20 h-20 mx-auto mb-6 text-red-500 animate-pulse" />
+                      <AlertTriangle className="w-12 h-12 mx-auto mb-6 text-red-500" />
                   ) : (
-                      <Info className="w-20 h-20 mx-auto mb-6 text-blue-400 animate-pulse" />
+                      <Info className="w-12 h-12 mx-auto mb-6 text-blue-400" />
                   )}
-                  
+
                   <h2 className="text-3xl font-black uppercase tracking-widest mb-4">
                       {systemBroadcast.type === 'warning' ? 'System Warnung' : 'System Info'}
                   </h2>
-                  
+
                   <p className="text-xl font-medium mb-10 leading-relaxed">
                       {systemBroadcast.message}
                   </p>
-                  
-                  <button 
-                      onClick={() => setSystemBroadcast(null)} 
-                      className="bg-white/10 hover:bg-white/20 text-white font-bold py-4 px-10 rounded-xl transition-all active:scale-95 text-lg w-full sm:w-auto"
+
+                  <button
+                      onClick={() => setSystemBroadcast(null)}
+                      className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-10 rounded-sm transition-colors text-sm w-full sm:w-auto"
                   >
                       Verstanden
                   </button>
               </div>
           </div>
       )}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-            <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-cyan-500/10 blur-[120px] rounded-full mix-blend-screen" />
-            <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-pink-500/10 blur-[120px] rounded-full mix-blend-screen" />
-        </div>
       <div className="relative z-10 flex h-[100dvh] min-h-0 w-full max-w-full overflow-hidden">
-        
+
         {/* Desktop Sidebar */}
-        <aside className="hidden md:flex w-[22%] min-w-[260px] max-w-[300px] bg-[#16161a] border-r border-white/5 flex-col z-40">
-          <div className="p-6 border-b border-white/5">
+        <aside className={`hidden md:flex bg-[#16161a] border-r border-white/5 flex-col z-40 transition-all duration-300 overflow-hidden shrink-0 ${sidebarCollapsed ? 'w-0 min-w-0 border-r-0' : 'w-[22%] min-w-[260px] max-w-[300px]'}`}>
+          <div className="p-6 border-b border-white/5 shrink-0">
             <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <img src="/logos/logo.png" alt="Logo" className="h-8 w-auto" />
               <span className="text-lg font-bold text-white">vnmvalentin</span>
@@ -391,20 +408,30 @@ export default function Layout() {
         {/* Header + Content */}
 <div className="flex-1 flex flex-col min-w-0 min-h-0">
     <header className="relative z-30 h-16 bg-[#0f0f13]/90 backdrop-blur-md border-b border-white/5 flex items-center px-4 md:px-8">
-        
-        {/* Linke Seite: Mobile Toggle & Jetzt auch Updates */}
+
+        {/* Linke Seite: Mobile Toggle & Desktop Sidebar Toggle & Updates */}
         <div className="flex items-center gap-4">
+            {/* Mobile burger */}
             <button onClick={() => setMobileNavOpen(true)} className="md:hidden p-2 text-gray-400 hover:text-white">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
+            {/* Desktop sidebar toggle */}
+            <button onClick={toggleSidebar} className="hidden md:flex p-2 text-gray-400 hover:text-white transition-colors" title={sidebarCollapsed ? 'Menü öffnen' : 'Menü schließen'}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {sidebarCollapsed
+                        ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    }
+                </svg>
+            </button>
 
             {/* NEU: Updates & News ganz links in der Leiste */}
-            <Link 
-                to="/updates" 
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors group"
+            <Link
+                to="/updates"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-sm hover:bg-white/5 transition-colors group"
                 title="Updates & News"
             >
-                <span className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></span>
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
                 <span className="text-sm font-medium text-gray-400 group-hover:text-white">Updates</span>
             </Link>
         </div>
@@ -414,34 +441,34 @@ export default function Layout() {
 
         {/* Rechte Seite: Sound & User Profil */}
         <div className="flex items-center gap-2 relative" ref={userMenuRef}>
-            <button 
+            <button
                 onClick={() => setIsMuted(!isMuted)}
-                className="p-2 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-2 flex items-center justify-center rounded-sm text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
                 title={isMuted ? "Sound einschalten" : "Sound ausschalten"}
             >
                 {isMuted ? <VolumeX size={18} className="text-red-400"/> : <Volume2 size={18} className="text-green-400"/>}
             </button>
 
             {!user ? (
-                <button onClick={() => login(false)} className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors">Login</button>
+                <button onClick={() => login(false)} className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-sm text-sm font-medium transition-colors">Login</button>
             ) : (
                 <div className="relative">
-                  <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 hover:bg-white/5 pl-1 pr-2 py-1 rounded-full transition-colors">
+                  <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 hover:bg-white/5 pl-1 pr-2 py-1 rounded-sm transition-colors">
                     <img src={user.profileImageUrl} alt="User" className="w-8 h-8 rounded-full" />
                     <span className="hidden sm:block text-sm font-medium text-gray-200">{user.displayName}</span>
                     <svg className={`w-4 h-4 text-gray-500 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </button>
                   {userMenuOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a1a20] border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a1a20] border border-white/10 rounded-sm shadow-lg overflow-hidden z-50">
                         <div className="px-4 py-3 border-b border-white/5 bg-[#202028]"><p className="font-semibold text-white truncate">{user.displayName}</p></div>
                         <div className="p-1">
                             {isAdmin && (
-                                <><Link to="/admin" onClick={() => setUserMenuOpen(false)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-colors"><span>🛡️</span> Admin Panel</Link><div className="h-px bg-white/5 my-1 mx-2"></div></>
+                                <><Link to="/admin" onClick={() => setUserMenuOpen(false)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-sm transition-colors">Admin Panel</Link><div className="h-px bg-white/5 my-1 mx-2"></div></>
                             )}
-                            <button onClick={() => { login(true); setUserMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-md transition-colors">Account wechseln</button>
-                            <button onClick={() => { setRedeemModalOpen(true); setUserMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-md transition-colors">Code einlösen</button>
+                            <button onClick={() => { login(true); setUserMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-sm transition-colors">Account wechseln</button>
+                            <button onClick={() => { setRedeemModalOpen(true); setUserMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-sm transition-colors">Code einlösen</button>
                             <div className="h-px bg-white/5 my-1 mx-2"></div>
-                            <button onClick={() => { logout(); setUserMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-md transition-colors">Logout</button>
+                            <button onClick={() => { logout(); setUserMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-sm transition-colors">Logout</button>
                         </div>
                     </div>
                   )}
@@ -453,12 +480,12 @@ export default function Layout() {
           {/* REDEEM MODAL */}
           {redeemModalOpen && (
               <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                  <div className="bg-[#1a1a20] border border-white/10 rounded-xl p-6 w-full max-w-sm relative shadow-2xl">
+                  <div className="bg-[#1a1a20] border border-white/10 rounded-md p-6 w-full max-w-sm relative shadow-xl">
                       <button onClick={() => setRedeemModalOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
                       <h2 className="text-lg font-bold text-white mb-4">Code einlösen</h2>
-                      <input type="text" value={promoCode} onChange={e => setPromoCode(e.target.value)} placeholder="Code eingeben" className="w-full bg-[#0f0f13] border border-white/10 rounded-md px-3 py-2 text-white mb-4 focus:border-cyan-500 outline-none" />
+                      <input type="text" value={promoCode} onChange={e => setPromoCode(e.target.value)} placeholder="Code eingeben" className="w-full bg-[#0f0f13] border border-white/10 rounded-sm px-3 py-2 text-white mb-4 focus:border-cyan-500 outline-none" />
                       {promoMsg && <div className="mb-4 text-sm text-gray-300">{promoMsg}</div>}
-                      <button onClick={handleRedeem} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2 rounded-md transition-colors">Bestätigen</button>
+                      <button onClick={handleRedeem} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2 rounded-sm transition-colors">Bestätigen</button>
                   </div>
               </div>
           )}
@@ -466,19 +493,19 @@ export default function Layout() {
           {/* FEEDBACK MODAL */}
           {feedbackModalOpen && (
              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                <div className="bg-[#1a1a20] border border-white/10 rounded-xl p-6 w-full max-w-lg shadow-2xl relative flex flex-col gap-4">
+                <div className="bg-[#1a1a20] border border-white/10 rounded-md p-6 w-full max-w-lg shadow-xl relative flex flex-col gap-4">
                     <button onClick={() => setFeedbackModalOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
                     <h2 className="text-xl font-bold text-white">Feedback</h2>
                     {!user ? (
-                        <div className="py-4"><p className="text-gray-400 mb-4 text-sm">Du musst eingeloggt sein, um Feedback zu senden.</p><button onClick={() => { setFeedbackModalOpen(false); login(true); }} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-md text-sm font-medium">Login</button></div>
+                        <div className="py-4"><p className="text-gray-400 mb-4 text-sm">Du musst eingeloggt sein, um Feedback zu senden.</p><button onClick={() => { setFeedbackModalOpen(false); login(true); }} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-sm text-sm font-medium transition-colors">Login</button></div>
                     ) : feedbackStatus === "success" ? (
-                        <div className="py-4"><h3 className="text-lg font-medium text-white mb-2">Gesendet!</h3><p className="text-gray-400 text-sm mb-4">Vielen Dank für dein Feedback.</p><button onClick={() => { setFeedbackModalOpen(false); setFeedbackStatus("idle"); setFeedbackText(""); }} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-md text-sm">Schließen</button></div>
+                        <div className="py-4"><h3 className="text-lg font-medium text-white mb-2">Gesendet!</h3><p className="text-gray-400 text-sm mb-4">Vielen Dank für dein Feedback.</p><button onClick={() => { setFeedbackModalOpen(false); setFeedbackStatus("idle"); setFeedbackText(""); }} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-sm text-sm transition-colors">Schließen</button></div>
                     ) : (
                         <>
                             <p className="text-sm text-gray-400">Hast du Ideen oder Fehler gefunden? Lass es mich wissen.</p>
-                            <textarea className="w-full h-32 bg-[#0f0f13] border border-white/10 rounded-md p-3 text-white focus:border-cyan-500 focus:outline-none resize-none custom-scrollbar text-sm" placeholder="Deine Nachricht..." value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} disabled={feedbackStatus === "sending"} />
+                            <textarea className="w-full h-32 bg-[#0f0f13] border border-white/10 rounded-sm p-3 text-white focus:border-cyan-500 focus:outline-none resize-none custom-scrollbar text-sm" placeholder="Deine Nachricht..." value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} disabled={feedbackStatus === "sending"} />
                             {feedbackStatus === "error" && <p className="text-red-400 text-sm">Fehler beim Senden.</p>}
-                            <div className="flex justify-end"><button onClick={async () => { if (feedbackText.trim().length < 5) return; setFeedbackStatus("sending"); try { const res = await fetch("/api/feedback/main", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: feedbackText, user: user.displayName }) }); if (res.ok) setFeedbackStatus("success"); else setFeedbackStatus("error"); } catch (e) { setFeedbackStatus("error"); } }} disabled={feedbackText.trim().length < 5 || feedbackStatus === "sending"} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${feedbackText.trim().length < 5 ? 'bg-white/5 text-gray-500 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}`}>{feedbackStatus === "sending" ? "Sende..." : "Absenden"}</button></div>
+                            <div className="flex justify-end"><button onClick={async () => { if (feedbackText.trim().length < 5) return; setFeedbackStatus("sending"); try { const res = await fetch("/api/feedback/main", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: feedbackText, user: user.displayName }) }); if (res.ok) setFeedbackStatus("success"); else setFeedbackStatus("error"); } catch (e) { setFeedbackStatus("error"); } }} disabled={feedbackText.trim().length < 5 || feedbackStatus === "sending"} className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${feedbackText.trim().length < 5 ? 'bg-white/5 text-gray-500 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}`}>{feedbackStatus === "sending" ? "Sende..." : "Absenden"}</button></div>
                         </>
                     )}
                 </div>

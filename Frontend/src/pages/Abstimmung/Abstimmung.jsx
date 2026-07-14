@@ -11,16 +11,16 @@ const STREAMER_ID = "160224748";
 
 function PollCard({ poll, onClick, isAdmin, onDelete }) {
   const isExpired = new Date(poll.endDate) <= new Date();
-  
+
   return (
-    <div 
+    <div
       onClick={onClick}
-      className="group relative flex items-center gap-4 bg-[#18181b] hover:bg-[#202023] border border-white/10 rounded-2xl p-3 transition-all cursor-pointer hover:border-white/20 hover:shadow-lg active:scale-[0.99]"
+      className="group relative flex items-center gap-4 bg-[#18181b] hover:bg-[#202023] border border-white/10 rounded-sm p-3 transition-colors cursor-pointer hover:border-white/20"
     >
       {/* Thumbnail */}
-      <div className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-black/40 border border-white/5">
+      <div className="relative w-24 h-24 shrink-0 rounded-sm overflow-hidden bg-black/40 border border-white/5">
         {poll.background ? (
-          <img src={poll.background} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+          <img src={poll.background} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-white/10 group-hover:text-white/20 transition-colors">
             <BarChart2 size={32} />
@@ -32,7 +32,7 @@ function PollCard({ poll, onClick, isAdmin, onDelete }) {
       {/* Content */}
       <div className="flex-1 min-w-0 py-1">
         <h3 className="text-lg font-bold text-white group-hover:text-white/90 truncate pr-4">{poll.title}</h3>
-        
+
         <div className="flex items-center gap-4 mt-2 text-xs text-white/50">
            <div className="flex items-center gap-1.5">
               <Calendar size={14} />
@@ -49,7 +49,7 @@ function PollCard({ poll, onClick, isAdmin, onDelete }) {
       {isAdmin && (
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(poll.id); }}
-          className="p-2 mr-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          className="p-2 mr-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors"
           title="Löschen"
         >
           <Trash2 size={18} />
@@ -119,24 +119,24 @@ function CreatePollModal({ onClose, onSave }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="relative w-full max-w-2xl bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
-        
+
+      <div className="relative w-full max-w-2xl bg-[#18181b] border border-white/10 rounded-md shadow-xl flex flex-col max-h-[85vh]">
+
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <h2 className="text-xl font-bold">Neue Abstimmung</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-colors"><X size={20} /></button>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-sm text-white/50 hover:text-white transition-colors"><X size={20} /></button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-            
+
             {/* Metadata Section */}
             <div className="space-y-4 mb-8">
                 <div>
                     <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Titel</label>
-                    <input 
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20"
+                    <input
+                        className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20"
                         placeholder="Worum geht es?"
                         value={data.title}
                         onChange={e => setData({...data, title: e.target.value})}
@@ -147,9 +147,9 @@ function CreatePollModal({ onClose, onSave }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Enddatum</label>
-                        <input 
+                        <input
                             type="datetime-local"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-white/30 outline-none transition-colors text-sm"
+                            className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-white/30 outline-none transition-colors text-sm"
                             value={data.endDate}
                             onChange={e => setData({...data, endDate: e.target.value})}
                         />
@@ -157,8 +157,8 @@ function CreatePollModal({ onClose, onSave }) {
                     <div>
                         <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Bild URL (Optional)</label>
                         <div className="relative">
-                            <input 
-                                className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20 text-sm"
+                            <input
+                                className="w-full bg-black/40 border border-white/10 rounded-sm pl-10 pr-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20 text-sm"
                                 placeholder="https://..."
                                 value={data.background}
                                 onChange={e => setData({...data, background: e.target.value})}
@@ -173,31 +173,31 @@ function CreatePollModal({ onClose, onSave }) {
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                      <label className="text-xs font-bold text-white/50 uppercase tracking-wider block">Fragen ({data.questions.length})</label>
-                     <button onClick={addQuestion} className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+                     <button onClick={addQuestion} className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-sm transition-colors flex items-center gap-1.5">
                         <Plus size={14} /> Frage hinzufügen
                      </button>
                 </div>
 
                 {data.questions.length === 0 && (
-                    <div className="text-center py-8 border border-dashed border-white/10 rounded-xl bg-white/5 text-white/30 text-sm">
+                    <div className="text-center py-8 border border-dashed border-white/10 rounded-sm bg-white/5 text-white/30 text-sm">
                         Noch keine Fragen hinzugefügt.
                     </div>
                 )}
 
                 {data.questions.map((q, i) => (
-                    <div key={q.id} className="bg-white/5 border border-white/5 rounded-xl p-4 animate-in slide-in-from-bottom-2 duration-300">
+                    <div key={q.id} className="bg-white/5 border border-white/5 rounded-sm p-4">
                         <div className="flex gap-3 mb-3">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/10 text-xs font-bold text-white/50 mt-1.5">{i+1}</span>
+                            <span className="flex items-center justify-center w-6 h-6 rounded-sm bg-white/10 text-xs font-bold text-white/50 mt-1.5">{i+1}</span>
                             <div className="flex-1 space-y-3">
                                 <div className="flex gap-2">
-                                    <input 
-                                        className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-white/30 outline-none"
+                                    <input
+                                        className="flex-1 bg-black/20 border border-white/10 rounded-sm px-3 py-2 text-sm focus:border-white/30 outline-none"
                                         placeholder="Deine Frage..."
                                         value={q.question}
                                         onChange={e => updateQuestion(i, 'question', e.target.value)}
                                     />
-                                    <select 
-                                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-white/30 outline-none"
+                                    <select
+                                        className="bg-black/20 border border-white/10 rounded-sm px-3 py-2 text-sm focus:border-white/30 outline-none"
                                         value={q.type}
                                         onChange={e => updateQuestion(i, 'type', e.target.value)}
                                     >
@@ -205,7 +205,7 @@ function CreatePollModal({ onClose, onSave }) {
                                         <option value="multiple">Multiple Choice</option>
                                         <option value="text">Freitext</option>
                                     </select>
-                                    <button onClick={() => removeQuestion(i)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                    <button onClick={() => removeQuestion(i)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors">
                                         <Trash2 size={16} />
                                     </button>
                                 </div>
@@ -215,7 +215,7 @@ function CreatePollModal({ onClose, onSave }) {
                                         {q.options.map((opt, oi) => (
                                             <div key={oi} className="flex items-center gap-2 pl-3">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                                                <input 
+                                                <input
                                                     className="flex-1 bg-transparent border-b border-white/10 px-2 py-1 text-sm focus:border-white/30 outline-none placeholder:text-white/10"
                                                     placeholder={`Option ${oi+1}`}
                                                     value={opt}
@@ -239,8 +239,8 @@ function CreatePollModal({ onClose, onSave }) {
 
         {/* Footer */}
         <div className="p-5 border-t border-white/5 flex justify-end gap-3 bg-[#121212]">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
-            <button onClick={handleSave} className="px-6 py-2.5 rounded-xl font-bold bg-white text-black hover:bg-gray-200 transition-colors shadow-lg">Speichern</button>
+            <button onClick={onClose} className="px-5 py-2.5 rounded-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
+            <button onClick={handleSave} className="px-6 py-2.5 rounded-sm font-bold bg-white text-black hover:bg-gray-200 transition-colors">Speichern</button>
         </div>
       </div>
     </div>
@@ -313,7 +313,7 @@ export default function AbstimmungPage() {
   };
 
   const now = new Date();
-  
+
   // Filtern & Sortieren
   const activePolls = polls
       .filter((p) => new Date(p.endDate) > now)
@@ -330,18 +330,18 @@ export default function AbstimmungPage() {
       <SEO title = "Abstimmungen"/>
       {/* Header Area */}
       <div className="flex flex-col items-center mb-10">
-        <h1 className="text-4xl font-black tracking-tight mb-6">ABSTIMMUNGEN</h1>
-        
-        {/* Tabs */}
-        <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10">
-          <button 
-            className={`px-6 py-2 rounded-xl font-medium transition-all ${activeTab === "active" ? "bg-white/10 text-white shadow-sm" : "text-white/50 hover:text-white"}`} 
+        <h1 className="text-3xl font-bold tracking-tight mb-6">ABSTIMMUNGEN</h1>
+
+        {/* Underline Tabs */}
+        <div className="flex border-b border-white/10">
+          <button
+            className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "active" ? "border-cyan-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}
             onClick={() => setActiveTab("active")}
           >
             Laufend ({activePolls.length})
           </button>
-          <button 
-            className={`px-6 py-2 rounded-xl font-medium transition-all ${activeTab === "expired" ? "bg-white/10 text-white shadow-sm" : "text-white/50 hover:text-white"}`} 
+          <button
+            className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "expired" ? "border-cyan-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}
             onClick={() => setActiveTab("expired")}
           >
             Vergangen ({expiredPolls.length})
@@ -350,17 +350,17 @@ export default function AbstimmungPage() {
       </div>
 
       {/* List Area */}
-      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="space-y-3 mt-6">
           {displayPolls.length === 0 ? (
-              <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-3xl bg-white/5">
+              <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-sm bg-white/5">
                  {activeTab === "active" ? "Keine aktiven Abstimmungen." : "Keine vergangenen Abstimmungen."}
               </div>
           ) : (
               displayPolls.map(poll => (
-                  <PollCard 
-                    key={poll.id} 
-                    poll={poll} 
-                    isAdmin={isAdmin} 
+                  <PollCard
+                    key={poll.id}
+                    poll={poll}
+                    isAdmin={isAdmin}
                     onDelete={handleDelete}
                     onClick={() => navigate(`/Abstimmungen/${poll.id}`)}
                   />
@@ -371,25 +371,25 @@ export default function AbstimmungPage() {
       {/* Admin Floating Action Button */}
       {isAdmin ? (
           <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-40">
-              <button 
+              <button
                 onClick={refreshPolls}
-                className="w-12 h-12 rounded-full bg-[#18181b] border border-white/10 text-white/50 hover:text-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+                className="w-9 h-9 rounded-sm bg-[#18181b] border border-white/10 text-white/50 hover:text-white flex items-center justify-center transition-colors"
                 title="Reload"
               >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
               </button>
-              <button 
+              <button
                 onClick={() => setShowModal(true)}
-                className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-900/30 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                className="w-9 h-9 rounded-sm bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors"
                 title="Neue Abstimmung"
               >
-                  <Plus size={28} />
+                  <Plus size={20} />
               </button>
           </div>
       ) : (
          !user && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-                <button onClick={login} className="px-4 py-2 bg-white/10 backdrop-blur rounded-full border border-white/10 text-xs font-semibold hover:bg-white/20 transition-colors">
+                <button onClick={login} className="px-4 py-2 bg-white/10 rounded-sm border border-white/10 text-xs font-semibold hover:bg-white/20 transition-colors">
                     Admin Login
                 </button>
             </div>

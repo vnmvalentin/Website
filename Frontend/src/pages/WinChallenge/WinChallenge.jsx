@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useContext,
   useEffect,
   useMemo,
@@ -136,7 +136,7 @@ function ensureDocShape(input = {}) {
 const ColorPicker = ({ label, value, onChange }) => (
   <div className="flex flex-col gap-2">
     <span className="text-[10px] uppercase text-white/40 font-bold tracking-wider">{label}</span>
-    <div className="flex items-center gap-3 bg-black/30 p-1.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+    <div className="flex items-center gap-3 bg-black/30 p-1.5 rounded-sm border border-white/5 hover:border-white/10 transition-colors">
       <div className="relative w-8 h-8 rounded-lg overflow-hidden shadow-sm ring-1 ring-white/10 shrink-0">
         <input 
             type="color" 
@@ -151,7 +151,7 @@ const ColorPicker = ({ label, value, onChange }) => (
 );
 
 const RangeSlider = ({ label, value, min, max, step, onChange, unit = "" }) => (
-    <div className="bg-black/20 p-3 rounded-xl border border-white/5">
+    <div className="bg-black/20 p-3 rounded-sm border border-white/5">
         <div className="flex justify-between mb-2">
             <span className="text-xs text-white/60 font-medium">{label}</span>
             <span className="text-xs text-white font-mono bg-white/10 px-1.5 py-0.5 rounded">{value}{unit}</span>
@@ -320,7 +320,7 @@ export default function WinChallenge() {
     const items = (doc.items && doc.items.length > 0 ? doc.items : [{ id: "p1", name: "Beispiel Challenge", pinned: true }, { id: "p2", name: "Gewinne 3 Runden", useWins: true, target: 3, progress: 1 }]).slice(0, 6);
 
     return (
-      <div className={`flex-1 min-h-0 rounded-2xl border border-white/5 flex justify-center items-center p-4 transition-colors duration-500 shadow-inner overflow-hidden ${previewLightMode ? "bg-gray-200" : "bg-[#09090b]"}`}>
+      <div className={`flex-1 min-h-0 rounded-sm border border-white/5 flex justify-center items-center p-4 transition-colors overflow-hidden ${previewLightMode ? "bg-gray-200" : "bg-[#09090b]"}`}>
         <div style={{
             fontFamily: "Inter, sans-serif", color: style.textColor, borderRadius: style.borderRadius,
             background: "transparent", width: style.boxWidth, transform: `scale(${style.scale})`, transformOrigin: "center",
@@ -373,7 +373,7 @@ export default function WinChallenge() {
 
       {!user ? (
         <div className="h-full flex items-center justify-center">
-            <button onClick={login} className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-8 py-4 rounded-2xl shadow-2xl transition-transform hover:scale-105">
+            <button onClick={login} className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-8 py-4 rounded-sm transition-colors">
                 Mit Twitch anmelden um Challenges zu erstellen
             </button>
         </div>
@@ -424,7 +424,7 @@ export default function WinChallenge() {
                       {activeTab === "challenges" && (
                           <div className="space-y-6">
                               {(doc.items || []).length === 0 && (
-                                  <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-2xl bg-white/5">
+                                  <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-sm bg-white/5">
                                       <Trophy size={40} className="mx-auto mb-4 text-white/20" />
                                       <p className="text-white/40 mb-6">Deine Liste ist leer.</p>
                                       <button onClick={addItem} className="text-violet-400 font-bold hover:text-violet-300">Erste Challenge anlegen</button>
@@ -436,7 +436,7 @@ export default function WinChallenge() {
                                       const done = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
                                       return (
                                           <div key={it.id} onDragOver={onDragOver(it.id)} onDrop={onDrop(it.id)}
-                                               className={`group bg-black/20 hover:bg-black/30 rounded-2xl p-4 border transition-all ${done ? "border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.05)]" : "border-white/5 hover:border-white/10"}`}>
+                                               className={`group bg-black/20 hover:bg-black/30 rounded-sm p-4 border transition-colors ${done ? "border-green-500/30" : "border-white/5 hover:border-white/10"}`}>
                                               
                                               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                                                   {/* Drag & Name */}
@@ -470,7 +470,7 @@ export default function WinChallenge() {
                                                               </div>
                                                           </div>
                                                       ) : (
-                                                          <button onClick={() => updateItem(it.id, { done: !it.done })} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold ${it.done ? "bg-green-500/20 border-green-500/30 text-green-400" : "bg-white/5 border-white/5 text-white/40 hover:text-white"}`}>
+                                                          <button onClick={() => updateItem(it.id, { done: !it.done })} className={`flex items-center gap-2 px-3 py-1.5 rounded-sm border transition-colors text-xs font-bold ${it.done ? "bg-green-500/20 border-green-500/30 text-green-400" : "bg-white/5 border-white/5 text-white/40 hover:text-white"}`}>
                                                               {it.done ? <Check size={14}/> : <div className="w-3.5 h-3.5 rounded-full border border-white/30" />}
                                                               {it.done ? "Erledigt" : "Offen"}
                                                           </button>
@@ -487,7 +487,7 @@ export default function WinChallenge() {
                                   })}
                               </div>
 
-                              <button onClick={addItem} className="w-full py-4 rounded-2xl border border-dashed border-white/10 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all font-bold flex justify-center items-center gap-2 mt-4">
+                              <button onClick={addItem} className="w-full py-4 rounded-sm border border-dashed border-white/10 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors font-bold flex justify-center items-center gap-2 mt-4">
                                   <Plus size={20} /> Neue Challenge hinzufügen
                               </button>
                           </div>
@@ -500,15 +500,15 @@ export default function WinChallenge() {
                               {/* Header & Titel */}
                               <div>
                                   <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Layout size={20} className="text-violet-400"/> Header & Titel</h3>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-2xl bg-black/20 border border-white/5">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-sm bg-black/20 border border-white/5">
                                       <div className="col-span-full">
                                           <label className="block text-xs font-bold text-white/40 uppercase mb-2">Titel Text</label>
-                                          <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500 focus:outline-none transition-colors" value={doc.title || ""} onChange={(e) => save({ ...doc, title: e.target.value })} placeholder="WinChallenge" />
+                                          <input className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-violet-500 focus:outline-none transition-colors" value={doc.title || ""} onChange={(e) => save({ ...doc, title: e.target.value })} placeholder="WinChallenge" />
                                       </div>
                                       <RangeSlider label="Schriftgröße" value={doc.style?.titleFontSize ?? 20} min={12} max={48} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, titleFontSize: v }) })} />
                                       <div>
                                           <span className="text-xs font-bold text-white/40 uppercase mb-2 block">Ausrichtung</span>
-                                          <div className="flex bg-black/40 rounded-xl p-1 border border-white/5">
+                                          <div className="flex bg-black/40 rounded-sm p-1 border border-white/5">
                                               {['left', 'center'].map(align => (
                                                   <button key={align} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${doc.style?.titleAlign === align ? 'bg-violet-600 text-white shadow' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, style: normalizeStyle({ ...doc.style, titleAlign: align }) })}>{align}</button>
                                               ))}
@@ -520,7 +520,7 @@ export default function WinChallenge() {
                               {/* Farben */}
                               <div>
                                   <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Palette size={20} className="text-pink-400"/> Farben</h3>
-                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-2xl bg-black/20 border border-white/5">
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-sm bg-black/20 border border-white/5">
                                       <ColorPicker label="Box BG" value={hex3to6(doc.style?.boxBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxBg: v }) })} />
                                       <ColorPicker label="Header BG" value={hex3to6(doc.style?.headerBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerBg: v }) })} />
                                       <ColorPicker label="Item BG" value={hex3to6(doc.style?.itemBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemBg: v }) })} />
@@ -533,7 +533,7 @@ export default function WinChallenge() {
                               {/* Layout & Animation */}
                               <div>
                                   <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Settings size={20} className="text-blue-400"/> Layout & Animation</h3>
-                                  <div className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-6">
+                                  <div className="p-5 rounded-sm bg-black/20 border border-white/5 space-y-6">
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                         <RangeSlider label="Breite" value={doc.style?.boxWidth ?? 520} min={280} max={1000} step={10} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxWidth: v }) })} />
                                         <RangeSlider label="Skalierung" value={doc.style?.scale ?? 1} min={0.5} max={2} step={0.05} unit="x" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, scale: v }) })} />
@@ -554,7 +554,7 @@ export default function WinChallenge() {
                                           </label>
 
                                           <div className={`transition-all duration-300 ${!doc.animation?.enabled ? "opacity-30 pointer-events-none grayscale" : ""}`}>
-                                              <div className="flex bg-black/40 rounded-xl p-1 border border-white/5 mb-4 max-w-sm">
+                                              <div className="flex bg-black/40 rounded-sm p-1 border border-white/5 mb-4 max-w-sm">
                                                   <button className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${doc.animation?.mode !== 'scrolling' ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "paging" } })}>Seitenweise (Paging)</button>
                                                   <button className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${doc.animation?.mode === 'scrolling' ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "scrolling" } })}>Laufschrift (Scroll)</button>
                                               </div>
@@ -581,7 +581,7 @@ export default function WinChallenge() {
 
                       {activeTab === "chat" && (
                           <div className="space-y-6 max-w-2xl">
-                              <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
+                              <div className="bg-black/20 p-5 rounded-sm border border-white/5">
                                   <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2">
                                       <MessageSquare size={16} className="text-cyan-400" /> Twitch-Chat-Befehle
                                   </h4>
@@ -619,7 +619,7 @@ export default function WinChallenge() {
                                                   },
                                               })
                                           }
-                                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white"
+                                          className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-sm text-white"
                                       />
                                   </div>
                                   <label className="flex items-center gap-3 cursor-pointer">
@@ -659,7 +659,7 @@ export default function WinChallenge() {
                                       <span className="text-sm text-white/80">Bestätigungen im Chat (z. B. „Timer wurde pausiert“)</span>
                                   </label>
                               </div>
-                              <div className="bg-violet-950/20 border border-violet-500/20 rounded-2xl p-5 text-sm text-white/70">
+                              <div className="bg-violet-950/20 border border-violet-500/20 rounded-sm p-5 text-sm text-white/70">
                                   <p className="font-bold text-violet-200 mb-2">Befehle</p>
                                   <ul className="list-disc pl-5 space-y-1 font-mono text-xs text-white/60">
                                       <li>!starttimer</li>
@@ -676,7 +676,7 @@ export default function WinChallenge() {
                           <div className="space-y-6">
                               
                               {/* 14-day inactivity notice */}
-                              <div className="flex items-start gap-3 bg-amber-950/20 border border-amber-500/20 rounded-xl p-4">
+                              <div className="flex items-start gap-3 bg-amber-950/20 border border-amber-500/20 rounded-sm p-4">
                                   <Clock size={16} className="text-amber-400 shrink-0 mt-0.5" />
                                   <p className="text-sm text-amber-200/80">
                                       Kostenloses Overlay: Bei <strong className="text-amber-200">14 Tagen Inaktivität</strong> (kein OBS-Zugriff auf den Overlay-Link) wird dein Overlay automatisch zurückgesetzt, um Speicherplatz freizugeben.
@@ -684,12 +684,12 @@ export default function WinChallenge() {
                               </div>
 
                               {/* OBS Browser Source */}
-                              <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
+                              <div className="bg-black/20 p-5 rounded-sm border border-white/5">
                                   <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><Monitor size={16}/> OBS Browser Source</h4>
                                   <div className="flex gap-2 mb-2">
-                                      <input readOnly type={showOverlayUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-xl text-sm font-mono text-white/70 border border-white/5 outline-none" value={overlayUrl} />
-                                      <button onClick={() => setShowOverlayUrl(!showOverlayUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 transition-colors">{showOverlayUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
-                                      <button onClick={() => handleCopy(overlayUrl, "overlay")} className="px-5 bg-violet-600 hover:bg-violet-500 rounded-xl text-white font-bold text-sm transition-colors flex items-center gap-2">
+                                      <input readOnly type={showOverlayUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-sm text-sm font-mono text-white/70 border border-white/5 outline-none" value={overlayUrl} />
+                                      <button onClick={() => setShowOverlayUrl(!showOverlayUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-sm text-white/70 transition-colors">{showOverlayUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                                      <button onClick={() => handleCopy(overlayUrl, "overlay")} className="px-5 bg-violet-600 hover:bg-violet-500 rounded-sm text-white font-bold text-sm transition-colors flex items-center gap-2">
                                           {overlayCopied ? <Check size={16}/> : <Copy size={16}/>}
                                           {overlayCopied ? "Kopiert" : "Kopieren"}
                                       </button>
@@ -700,13 +700,13 @@ export default function WinChallenge() {
                               </div>
 
                               {/* Moderator Link */}
-                              <div className="bg-black/20 p-5 rounded-2xl border border-white/5">
+                              <div className="bg-black/20 p-5 rounded-sm border border-white/5">
                                   <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><ShieldAlert size={16}/> Moderator Link</h4>
                                   <p className="text-xs text-white/50 mb-4">Teile diesen Link mit Mods, damit sie Timer und Ergebnisse steuern können.</p>
                                   <div className="flex gap-2 mb-2">
-                                      <input readOnly type={showControlUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-xl text-sm font-mono text-white/70 border border-white/5 outline-none" value={controlUrl} />
-                                      <button onClick={() => setShowControlUrl(!showControlUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 transition-colors">{showControlUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
-                                      <button onClick={() => handleCopy(controlUrl, "control")} className="px-5 bg-violet-600 hover:bg-violet-500 rounded-xl text-white font-bold text-sm transition-colors flex items-center gap-2">
+                                      <input readOnly type={showControlUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-sm text-sm font-mono text-white/70 border border-white/5 outline-none" value={controlUrl} />
+                                      <button onClick={() => setShowControlUrl(!showControlUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-sm text-white/70 transition-colors">{showControlUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                                      <button onClick={() => handleCopy(controlUrl, "control")} className="px-5 bg-violet-600 hover:bg-violet-500 rounded-sm text-white font-bold text-sm transition-colors flex items-center gap-2">
                                           {controlCopied ? <Check size={16}/> : <Copy size={16}/>}
                                           {controlCopied ? "Kopiert" : "Kopieren"}
                                       </button>
@@ -733,13 +733,13 @@ export default function WinChallenge() {
                               </div>
 
                               {/* Reset Zone (GANZ UNTEN) */}
-                              <div className="mt-8 p-5 rounded-xl border border-red-900/30 bg-red-900/5">
+                              <div className="mt-8 p-5 rounded-sm border border-red-900/30 bg-red-900/5">
                                   <div className="flex justify-between items-center">
                                       <div>
                                           <h4 className="text-sm font-bold text-red-200">Gefahrenzone</h4>
                                           <p className="text-xs text-red-400/70 mt-1">Setzt Design, alle Challenges und Einstellungen auf Standard zurück.</p>
                                       </div>
-                                      <button onClick={doFullReset} className="px-4 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-300 border border-red-900/50 rounded-lg text-sm transition-colors font-bold flex items-center gap-2">
+                                      <button onClick={doFullReset} className="px-4 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-300 border border-red-900/50 rounded-sm text-sm transition-colors font-bold flex items-center gap-2">
                                           <Trash2 size={16}/> Alles zurücksetzen
                                       </button>
                                   </div>
@@ -756,7 +756,7 @@ export default function WinChallenge() {
                   <div className="flex-1 p-5 border-b border-white/5 flex flex-col min-h-0 overflow-hidden">
                       <div className="flex items-center justify-between mb-3 px-1 shrink-0">
                           <h3 className="text-white/40 text-xs uppercase tracking-wider font-bold">Live Vorschau</h3>
-                          <button onClick={() => setPreviewLightMode(!previewLightMode)} className="text-[10px] px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white/50 transition-colors border border-white/5">
+                          <button onClick={() => setPreviewLightMode(!previewLightMode)} className="text-[10px] px-2 py-1 rounded-sm bg-white/5 hover:bg-white/10 text-white/50 transition-colors border border-white/5">
                               {previewLightMode ? "BG: Hell" : "BG: Dunkel"}
                           </button>
                       </div>
@@ -776,30 +776,30 @@ export default function WinChallenge() {
                           </label>
                       </div>
                       
-                      <div className="bg-black/40 rounded-2xl p-4 text-center border border-white/5 mb-4 shadow-inner">
+                      <div className="bg-black/40 rounded-sm p-4 text-center border border-white/5 mb-4">
                           <span className="font-mono text-4xl font-black text-white tracking-widest tabular-nums drop-shadow-lg">{msToClock(runningElapsed)}</span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3 mb-4">
                           {!running ? (
-                              <button onClick={startTimer} className="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                              <button onClick={startTimer} className="bg-green-600 hover:bg-green-500 text-white py-3 rounded-sm text-sm font-bold transition-colors flex items-center justify-center gap-2">
                                   <Play size={18} fill="currentColor" /> START
                               </button>
                           ) : (
-                              <button onClick={pauseTimer} className="bg-amber-500 hover:bg-amber-400 text-black py-3 rounded-xl text-sm font-bold shadow-lg shadow-amber-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                              <button onClick={pauseTimer} className="bg-amber-500 hover:bg-amber-400 text-black py-3 rounded-sm text-sm font-bold transition-colors flex items-center justify-center gap-2">
                                   <Pause size={18} fill="currentColor" /> PAUSE
                               </button>
                           )}
-                          <button onClick={resetTimer} className="bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/5">
+                          <button onClick={resetTimer} className="bg-white/10 hover:bg-white/20 text-white py-3 rounded-sm text-sm font-bold transition-colors flex items-center justify-center gap-2 border border-white/5">
                               <RotateCcw size={18} /> RESET
                           </button>
                       </div>
                       
                       <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5">
-                          <button onClick={() => adjustTimer(3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">+1h</button>
-                          <button onClick={() => adjustTimer(60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">+1m</button>
-                          <button onClick={() => adjustTimer(-60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">-1m</button>
-                          <button onClick={() => adjustTimer(-3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-lg text-[10px] font-mono font-bold">-1h</button>
+                          <button onClick={() => adjustTimer(3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">+1h</button>
+                          <button onClick={() => adjustTimer(60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">+1m</button>
+                          <button onClick={() => adjustTimer(-60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">-1m</button>
+                          <button onClick={() => adjustTimer(-3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">-1h</button>
                       </div>
                   </div>
 

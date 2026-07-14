@@ -1,6 +1,7 @@
 // discord/bot/events/ready.js
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { getAllActiveVoiceChannels, deleteActiveVoiceChannel } = require('../../database/db');
+const { initVoiceTracking } = require('./voiceStateUpdate');
 
 const commands = [
     new SlashCommandBuilder()
@@ -14,6 +15,20 @@ const commands = [
     new SlashCommandBuilder()
         .setName('pp')
         .setDescription('Misst deinen PP für heute. Täglich neu!'),
+    new SlashCommandBuilder()
+        .setName('aussehen')
+        .setDescription('Bewertet dein Aussehen für heute. Täglich neu!'),
+    new SlashCommandBuilder()
+        .setName('iq')
+        .setDescription('Misst deinen IQ für heute. Täglich neu!'),
+    new SlashCommandBuilder()
+        .setName('ship')
+        .setDescription('Berechnet den Liebeswert zwischen zwei Nutzern.')
+        .addUserOption(opt => opt.setName('user1').setDescription('Erster Nutzer').setRequired(true))
+        .addUserOption(opt => opt.setName('user2').setDescription('Zweiter Nutzer').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('coinflip')
+        .setDescription('Wirf eine Münze — Kopf oder Zahl?'),
     new SlashCommandBuilder()
         .setName('voicelimit')
         .setDescription('Setzt das Userlimit deines Voice Channels (nur im Voice-Text-Kanal)')
@@ -29,11 +44,17 @@ const commands = [
         .addStringOption(opt => opt.setName('name').setDescription('Neuer Name').setRequired(true)),
 ].map(cmd => cmd.toJSON());
 
+function getCommandsJSON() { return commands; }
+
 module.exports = {
     name: 'clientReady',
     once: true,
+    getCommandsJSON,
     async execute(client) {
         console.log(`🤖 Discord Bot eingeloggt als ${client.user.tag}`);
+
+        // Nutzer, die bereits im Voice sind, ab jetzt für Zeit-Statistiken tracken
+        initVoiceTracking(client);
 
         // Slash Commands global registrieren
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);

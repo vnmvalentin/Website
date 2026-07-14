@@ -1,64 +1,13 @@
 // backend/feedbackRoutes.js
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
-
-// Existierende JSON-Speicherung für YTM
-const FEEDBACK_FILE = path.join(__dirname, "../data/feedback_ytm.json");
 
 // HIER DEINEN NEUEN WEBHOOK FÜR DAS ALLGEMEINE FEEDBACK EINTRAGEN:
 const WEBHOOK_URL_MAIN = process.env.DISCORD_WEBHOOK_MAIN;
 
-function loadFeedback() {
-  try {
-    if (!fs.existsSync(FEEDBACK_FILE)) return [];
-    const data = fs.readFileSync(FEEDBACK_FILE, "utf-8");
-    return JSON.parse(data);
-  } catch (e) {
-    return [];
-  }
-}
-
 module.exports = function createFeedbackRouter() {
   const router = express.Router();
 
-  // ---------------------------------------------------------
-  // 1. BESTEHENDE ROUTE: YTM Feedback (speichert in JSON)
-  // ---------------------------------------------------------
-  router.post("/ytm", (req, res) => {
-    try {
-      const { user, rating, text } = req.body;
-      if (!rating) return res.status(400).json({ error: "Rating fehlt" });
-
-      const entry = {
-        id: Date.now(),
-        user: user || "Anonym",
-        rating: Number(rating),
-        text: String(text || ""),
-        date: new Date().toISOString()
-      };
-
-      const all = loadFeedback();
-      all.push(entry);
-      
-      fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(all, null, 2), "utf-8");
-      
-      res.json({ ok: true });
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: "Fehler beim Speichern" });
-    }
-  });
-
-  router.get("/ytm", (req, res) => {
-    const data = loadFeedback();
-    data.sort((a, b) => new Date(b.date) - new Date(a.date));
-    res.json(data);
-  });
-
-  // ---------------------------------------------------------
-  // 2. NEUE ROUTE: Allgemeines Feedback (sendet an Discord)
-  // ---------------------------------------------------------
+  // Allgemeines Feedback (sendet an Discord)
   router.post("/main", async (req, res) => {
       const { message, user } = req.body;
       const username = user || "Anonym";

@@ -3,7 +3,7 @@ const { nanoid } = require("nanoid");
 const {
   loadAllDocsObject,
   persistAllDocsObject,
-} = require("../winchallengeStore");
+} = require("../lib/winchallengeStore");
 
 // ===== DB (RAM-Cache + Speichern in SQLite via winchallengeStore) =====
 // Wichtig: Ein Node-Prozess (nicht PM2 cluster ohne gemeinsame DB).
@@ -586,7 +586,7 @@ function createWinchallengeRouter({ requireAuth } = {}) {
         setUserDoc(twitchId, doc);
         await saveDb(db);
         try {
-          require("../winchallengeIrc").afterWinchallengeConfigSaved();
+          require("../lib/winchallengeIrc").afterWinchallengeConfigSaved();
         } catch (_) { /* irc optional */ }
         return res.json(doc);
       }
@@ -636,7 +636,7 @@ function createWinchallengeRouter({ requireAuth } = {}) {
       setUserDoc(twitchId, merged);
       await saveDb(db);
       try {
-        require("../winchallengeIrc").afterWinchallengeConfigSaved();
+        require("../lib/winchallengeIrc").afterWinchallengeConfigSaved();
       } catch (_) { /* irc optional */ }
       res.json(merged);
     })

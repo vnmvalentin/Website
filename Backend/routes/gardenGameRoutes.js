@@ -4,7 +4,7 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
-const { farmStates, setFarmState, scheduleFarmsSave } = require("../gardenFarmsStore");
+const { farmStates, setFarmState, scheduleFarmsSave } = require("../lib/gardenFarmsStore");
 // farmStates: siehe initGardenFarmsStore() in index.js vor server.listen
 
 // ─── In-Memory Stores ─────────────────────────────────────────────────────────

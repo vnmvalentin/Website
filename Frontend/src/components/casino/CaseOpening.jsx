@@ -62,8 +62,8 @@ function CaseRow({ result, isRolling, rowIndex }) {
       >
          {/* Center Marker */}
          <div className="absolute top-0 bottom-0 left-1/2 w-1 bg-yellow-500 z-30 shadow-[0_0_15px_yellow] transform -translate-x-1/2 opacity-80">
-             <div className="absolute top-0 -translate-x-1/2 text-yellow-500 text-[10px]">▼</div>
-             <div className="absolute bottom-0 -translate-x-1/2 text-yellow-500 text-[10px]">▲</div>
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 text-yellow-500 text-[10px]">▼</div>
+             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-yellow-500 text-[10px]">▲</div>
          </div>
          
          {/* Fade Edges */}

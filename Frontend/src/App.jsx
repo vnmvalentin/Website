@@ -20,14 +20,13 @@ import AdventureGame from "./pages/Adventure/AdventureGame"
 import AdminDashboard from "./pages/AdminDashboard";
 import YTMBotPage from "./pages/YTM/YTMBotPage";
 import TwitchAuthProvider from "./components/TwitchAuthContext";
-import ViewerSky from "./pages/ViewerPond/ViewerSky";
-import SkyPage from "./pages/ViewerPond/SkyPage";
 import Updates from "./pages/Updates";
-import CardDashboard from "./pages/Card/CardDashboard";
-import Hub from "./pages/Hub";
 import StreamCredits from "./pages/StreamCredits";
 import GameContainer from "./pages/GardenGame/GameContainer";
 import DiscordBotDashboard from "./pages/Discord/DiscordBotDashboard";
+import ClashRoyalePage from "./pages/ClashRoyale/ClashRoyalePage";
+import BannedCardsModeratorPage from "./pages/ClashRoyale/BannedCards/BannedCardsModeratorPage";
+import BannedCardsOverlayPage from "./pages/ClashRoyale/BannedCards/BannedCardsOverlayPage";
 
 export default function App() {
   return (
@@ -38,7 +37,8 @@ export default function App() {
         <Route path="/overlay/credits" element={<StreamCredits />} />
         
         <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
-        <Route path="/overlay/sky" element={<ViewerSky />} />
+        <Route path="/banned-cards/moderator/:modKey" element={<BannedCardsModeratorPage />} />
+        <Route path="/banned-cards/overlay/:overlayKey" element={<BannedCardsOverlayPage />} />
 
         {/* Alle “normalen” Seiten unter Layout */}
         <Route path="/" element={<Layout />}>
@@ -57,7 +57,6 @@ export default function App() {
           <Route path="Bingo" element={<BingoPage/>} />
           <Route path="Bingo/:sessionId" element={<BingoEditorPage/>} />
           <Route path="Bingo/join/:joinKey" element={<BingoJoinPage/>} />
-          <Route path="Packs" element={<CardDashboard />} />
           <Route path="Casino" element={<CasinoPage />} />
           <Route path="adventures" element={<AdventureGame/>} />
           <Route path="garden" element={<GameContainer />} />
@@ -65,10 +64,9 @@ export default function App() {
           <Route path="tutorial/ytm-bot" element={<YTMBotPage />} />
           <Route path="tutorial/ytm-songrequest" element={<Navigate to="/tutorial/ytm-bot" replace />} />
           <Route path="tutorial/ytm-streamdeck" element={<Navigate to="/tutorial/ytm-bot" replace />} />
-          <Route path="sky" element={<SkyPage />} />
           <Route path="updates" element={<Updates />} />
-          <Route path="season" element={<Hub />} />
           <Route path="/discord-bot" element={<DiscordBotDashboard />} />
+          <Route path="/clash-royale" element={<ClashRoyalePage />} />
           
         </Route>
       </Routes>

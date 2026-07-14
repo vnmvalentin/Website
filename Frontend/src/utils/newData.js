@@ -1,5 +1,38 @@
 export const NEWS_UPDATES = [
   {
+    date: "07.07.2026",
+    version: "v5.1: Casino Daily Bonus, Clash Royale Menü & Aufräumarbeiten",
+    sections: [
+      {
+        title: "Allgemein",
+        items: [
+          "Pack-Opening komplett entfernt (Shop, Sammlung, Ausrüstung, Schmiede, Achievements, Vorschläge)",
+          "Hub entfernt (Münzen-Rangliste, Spielerprofile, Quick-Links)",
+          "Die Clash Royale Kategorie im Menü mit dem Punkt: Minigames wurde hinzugefügt."
+        ]
+      },
+      {
+        title: "Casino",
+        items: [
+          "Daily Bonus jetzt direkt im Casino abholbar statt im (entfernten) Hub",
+          "Mystery Case: Center-Marker-Pfeile jetzt korrekt mit der Linie zentriert",
+        ]
+      },
+      {
+        title: "Virtual Farm & Win-Challenge",
+        items: [
+          "Seltene Abstürze durch übrig gebliebene sql.js-Reste behoben — beide laufen jetzt vollständig auf better-sqlite3",
+        ]
+      },
+      {
+        title: "YTM Songrequest Bot",
+        items: [
+          "Das Vorschaubild wurde aktualisiert um dem neuen Design der App zu entsprechen.",
+        ]
+      },
+    ]
+  },
+  {
     date: "22.05.2026",
     version: "v5.0: Discord-Bot Update und mehr",
     sections: [

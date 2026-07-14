@@ -3,7 +3,38 @@ const { ChannelType, PermissionFlagsBits, EmbedBuilder } = require('discord.js')
 const {
     getVoiceConfig, saveActiveVoiceChannel,
     getActiveVoiceChannel, deleteActiveVoiceChannel, updateVoiceOwner,
+    trackVoiceActivity,
 } = require('../../database/db');
+
+// In-Memory: wann ist ein Nutzer welchem Voice-Channel beigetreten (für Zeit-Tracking)
+const voiceJoinTimestamps = new Map(); // `${guildId}:${userId}` -> { channelId, joinedAt }
+const trackKey = (guildId, userId) => `${guildId}:${userId}`;
+
+function trackJoin(guildId, userId, channelId) {
+    voiceJoinTimestamps.set(trackKey(guildId, userId), { channelId, joinedAt: Date.now() });
+}
+
+function trackLeave(guildId, userId) {
+    const key = trackKey(guildId, userId);
+    const entry = voiceJoinTimestamps.get(key);
+    if (!entry) return;
+    voiceJoinTimestamps.delete(key);
+    const durationSeconds = Math.round((Date.now() - entry.joinedAt) / 1000);
+    if (durationSeconds > 0) trackVoiceActivity(guildId, userId, entry.channelId, durationSeconds);
+}
+
+// Bei Bot-Neustart: Nutzer, die bereits im Voice sind, ab jetzt tracken
+function initVoiceTracking(client) {
+    for (const guild of client.guilds.cache.values()) {
+        for (const channel of guild.channels.cache.values()) {
+            if (channel.type !== ChannelType.GuildVoice) continue;
+            for (const member of channel.members.values()) {
+                if (member.user.bot) continue;
+                trackJoin(guild.id, member.id, channel.id);
+            }
+        }
+    }
+}
 
 const COMMANDS_EMBED = new EmbedBuilder()
     .setColor(0x06b6d4)
@@ -73,6 +104,7 @@ async function handleVCEmpty(guild, vcRecord) {
 module.exports = {
     name: 'voiceStateUpdate',
     once: false,
+    initVoiceTracking,
     async execute(oldState, newState) {
         const guild = newState.guild || oldState.guild;
         const member = newState.member || oldState.member;
@@ -83,6 +115,14 @@ module.exports = {
 
         const leftChannelId = oldState.channelId;
         const joinedChannelId = newState.channelId;
+
+        // ── Zeit-Tracking ────────────────────────────────────────────────────
+        if (leftChannelId && leftChannelId !== joinedChannelId) {
+            trackLeave(guild.id, member.id);
+        }
+        if (joinedChannelId && joinedChannelId !== leftChannelId) {
+            trackJoin(guild.id, member.id, joinedChannelId);
+        }
 
         // ── Verlassen ────────────────────────────────────────────────────────
         if (leftChannelId && leftChannelId !== joinedChannelId) {

@@ -4,10 +4,15 @@ const { MessageFlags } = require('discord.js');
 const { handleConnect3, handleConnect3Button } = require('../commands/connect3');
 const { handleMiesmuschel } = require('../commands/magische_miesmuschel');
 const { handlePP } = require('../commands/pp');
+const { handleAussehen } = require('../commands/aussehen');
+const { handleIQ } = require('../commands/iq');
+const { handleShip } = require('../commands/ship');
+const { handleCoinflip } = require('../commands/coinflip');
 const { handleApply, handleApprove, handleReject } = require('../commands/approval');
 const { handleVoiceCommand } = require('../commands/voice');
+const { handleTicketCreateButton, handleTicketModalSubmit, handleTicketClose } = require('../commands/tickets');
 
-const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'pp'];
+const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'pp', 'aussehen', 'iq', 'ship', 'coinflip'];
 const VOICE_COMMANDS = ['voicelimit', 'voicelock', 'voice_rename'];
 
 module.exports = {
@@ -18,9 +23,12 @@ module.exports = {
         if (interaction.isChatInputCommand()) {
             const cmd = interaction.commandName;
 
-            // Fun Commands: optionaler Kanal-Check
+            // Fun Commands: optionaler Kanal-Check + Disabled-Check
             if (FUN_COMMANDS.includes(cmd)) {
                 const settings = getSettings(interaction.guildId);
+                if (settings.disabledCommands?.includes(cmd)) {
+                    return interaction.reply({ content: '❌ Dieser Command ist auf diesem Server deaktiviert.', flags: MessageFlags.Ephemeral });
+                }
                 if (settings.funChannel && interaction.channelId !== settings.funChannel) {
                     return interaction.reply({
                         content: `❌ Diese Commands sind nur in <#${settings.funChannel}> erlaubt!`,
@@ -30,6 +38,10 @@ module.exports = {
                 if (cmd === 'connect3') return handleConnect3(interaction);
                 if (cmd === 'magische_miesmuschel') return handleMiesmuschel(interaction);
                 if (cmd === 'pp') return handlePP(interaction);
+                if (cmd === 'aussehen') return handleAussehen(interaction);
+                if (cmd === 'iq') return handleIQ(interaction);
+                if (cmd === 'ship') return handleShip(interaction);
+                if (cmd === 'coinflip') return handleCoinflip(interaction);
             }
 
             // Voice Commands
@@ -38,6 +50,11 @@ module.exports = {
             }
 
             return;
+        }
+
+        // ── Modal: Ticket erstellen ───────────────────────────────────────────
+        if (interaction.isModalSubmit() && interaction.customId === 'ticket_modal') {
+            return handleTicketModalSubmit(interaction);
         }
 
         // ── Button: Connect 3 ─────────────────────────────────────────────────
@@ -50,6 +67,12 @@ module.exports = {
             if (interaction.customId.startsWith('apply_')) return handleApply(interaction);
             if (interaction.customId.startsWith('appv_')) return handleApprove(interaction);
             if (interaction.customId.startsWith('appx_')) return handleReject(interaction);
+        }
+
+        // ── Button: Tickets ────────────────────────────────────────────────────
+        if (interaction.isButton()) {
+            if (interaction.customId === 'ticket_create') return handleTicketCreateButton(interaction);
+            if (interaction.customId === 'ticket_close') return handleTicketClose(interaction);
         }
 
         // ── Button: Reaktionsrollen ───────────────────────────────────────────

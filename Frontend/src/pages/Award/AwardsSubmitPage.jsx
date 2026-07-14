@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useMemo } from "react";
+﻿import React, { useEffect, useState, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import SEO from "../../components/SEO";
@@ -159,12 +159,12 @@ export default function AwardsSubmitPage() {
           
           <div className="flex items-center gap-4">
              {isAdmin && (
-                <button onClick={() => navigate("/avards-admin")} className="text-xs bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/10">
+                <button onClick={() => navigate("/avards-admin")} className="text-xs bg-white/5 border border-white/10 px-3 py-1.5 rounded-sm hover:bg-white/10">
                     Admin Panel
                 </button>
              )}
              {!user && (
-                 <button onClick={login} className="bg-[#9146FF] hover:bg-[#772ce8] px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-purple-900/20">
+                 <button onClick={login} className="bg-[#9146FF] hover:bg-[#772ce8] px-4 py-2 rounded-sm text-sm font-bold">
                     Login mit Twitch
                  </button>
              )}
@@ -174,7 +174,7 @@ export default function AwardsSubmitPage() {
       <div className="flex flex-col lg:flex-row gap-6 lg:h-[600px]">
         
         {/* LEFT SIDEBAR (Navigation) */}
-        <div className="lg:w-80 shrink-0 flex flex-col bg-[#18181b] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+        <div className="lg:w-80 shrink-0 flex flex-col bg-[#18181b] border border-white/10 rounded-md overflow-hidden">
            <div className="p-4 border-b border-white/5 bg-black/20">
               <div className="flex justify-between text-xs text-white/50 mb-1">
                  <span>Fortschritt</span>
@@ -195,7 +195,7 @@ export default function AwardsSubmitPage() {
                         key={cat.id}
                         onClick={() => setActiveCatId(cat.id)}
                         className={`
-                            shrink-0 lg:w-full text-left px-4 py-3 rounded-xl flex items-center justify-between gap-3 transition-all relative
+                            shrink-0 lg:w-full text-left px-4 py-3 rounded-sm flex items-center justify-between gap-3 transition-colors relative
                             ${isActive ? "bg-white/10 text-white shadow-md border border-white/5" : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"}
                         `}
                       >
@@ -209,7 +209,7 @@ export default function AwardsSubmitPage() {
         </div>
 
         {/* RIGHT CONTENT (Form) */}
-        <div className="flex-1 bg-[#18181b] border border-white/10 rounded-2xl p-6 md:p-10 shadow-xl flex flex-col relative overflow-hidden">
+        <div className="flex-1 bg-[#18181b] border border-white/10 rounded-md p-6 md:p-10 flex flex-col relative overflow-hidden">
             
             {/* Background Decoration */}
             <div className="absolute top-0 right-0 p-20 bg-violet-500/5 blur-[100px] rounded-full pointer-events-none" />
@@ -224,10 +224,10 @@ export default function AwardsSubmitPage() {
             {/* Input Area */}
             <div className="flex-1 relative z-10">
                 {!user ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-black/20 rounded-2xl border border-dashed border-white/10">
+                    <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-black/20 rounded-sm border border-dashed border-white/10">
                         <AlertCircle size={40} className="text-white/20 mb-4" />
                         <p className="text-white/50 mb-4">Bitte logge dich ein, um teilzunehmen.</p>
-                        <button onClick={login} className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-semibold">Login</button>
+                        <button onClick={login} className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-sm font-semibold">Login</button>
                     </div>
                 ) : (
                     <>
@@ -239,7 +239,7 @@ export default function AwardsSubmitPage() {
                                         <button
                                             key={mod}
                                             onClick={() => handleChange(mod)}
-                                            className={`px-4 py-3 rounded-xl border text-left transition-all ${formData[activeCat.id] === mod ? "bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-900/20" : "bg-white/5 border-white/10 hover:border-white/20"}`}
+                                            className={`px-4 py-3 rounded-sm border text-left transition-colors ${formData[activeCat.id] === mod ? "bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-900/20" : "bg-white/5 border-white/10 hover:border-white/20"}`}
                                         >
                                             {mod}
                                         </button>
@@ -250,7 +250,7 @@ export default function AwardsSubmitPage() {
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-white/70">Deine Antwort:</label>
                                 <textarea 
-                                    className="w-full h-40 bg-black/30 border border-white/10 rounded-2xl p-5 text-base focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none resize-none transition-all placeholder:text-white/10"
+                                    className="w-full h-40 bg-black/30 border border-white/10 rounded-sm p-5 text-base focus:border-white/30 outline-none resize-none transition-colors placeholder:text-white/10"
                                     placeholder="Schreibe hier..."
                                     value={formData[activeCat.id] || ""}
                                     onChange={e => handleChange(e.target.value)}
@@ -269,28 +269,28 @@ export default function AwardsSubmitPage() {
                     <button 
                         onClick={goPrev} 
                         disabled={activeIndex === 0}
-                        className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                        className="px-4 py-2 rounded-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                     >
                         <ChevronLeft size={18} /> Zurück
                     </button>
                     <button 
                         onClick={goNext}
                         disabled={activeIndex === CATEGORIES.length - 1}
-                        className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                        className="px-4 py-2 rounded-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                     >
                         Weiter <ChevronRight size={18} />
                     </button>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {submitSuccess && <span className="text-sm text-green-400 font-medium animate-in fade-in slide-in-from-right-4">Gespeichert!</span>}
+                    {submitSuccess && <span className="text-sm text-green-400 font-medium">Gespeichert!</span>}
                     {submitError && <span className="text-sm text-red-400 font-medium">{submitError}</span>}
                     
                     <button
                         onClick={handleSubmit}
                         disabled={submitting || !user}
                         className={`
-                            px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all active:scale-95
+                            px-6 py-3 rounded-sm font-bold flex items-center gap-2 transition-colors
                             ${submitting ? "bg-white/10 cursor-wait" : "bg-white text-black hover:bg-gray-200"}
                             ${!user ? "opacity-50 cursor-not-allowed" : ""}
                         `}

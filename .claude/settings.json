@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:5173/banned-cards/moderator/dCeijEU_Iw35dUtVWvKLDFPX\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:5173/banned-cards/overlay/LJXt-WH7Jq4o-MPwoyx0rEOz\")",
+      "Bash(curl -s \"http://localhost:5173/src/pages/ClashRoyale/BannedCards/BannedCardsModeratorPage.jsx\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:5173/src/pages/ClashRoyale/BannedCards/BannedCardsModeratorPage.jsx\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:5173/src/pages/ClashRoyale/BannedCards/BannedCardsOverlayPage.jsx\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/banned-cards/mod/dCeijEU_Iw35dUtVWvKLDFPX -H 'Content-Type: application/json' -d '{\"id\":\"knight\",\"name\":\"Knight\",\"rarity\":\"Common\"}')",
+      "Bash(curl -s http://localhost:3001/api/banned-cards/overlay/LJXt-WH7Jq4o-MPwoyx0rEOz)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST \"http://localhost:3001/api/banned-cards/mod/wrongkey\" -H \"Content-Type: application/json\" -d '{\"id\":\"knight\",\"name\":\"Knight\"}')",
+      "Bash(curl -s -X DELETE http://localhost:3001/api/banned-cards/mod/dCeijEU_Iw35dUtVWvKLDFPX/YgIc0bu0Z5)",
+      "Bash(node index.js)",
+      "Bash(npm run *)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id 31816 -Force -ErrorAction SilentlyContinue)",
+      "Bash(curl -s -o /dev/null -w \"start:%{http_code}\\\\n\" \"http://localhost:5174/banned-cards\")",
+      "Bash(curl -s -o /dev/null -w \"mod:%{http_code}\\\\n\" \"http://localhost:5174/banned-cards/moderator/C1m32xf024pI5CdQ\")",
+      "Bash(curl -s -o /dev/null -w \"overlay:%{http_code}\\\\n\" \"http://localhost:5174/banned-cards/overlay/gkJ9IHVW9_335bu3\")",
+      "Bash(curl -s -o /dev/null -w \"start-jsx:%{http_code}\\\\n\" \"http://localhost:5174/src/pages/ClashRoyale/BannedCards/BannedCardsStartPage.jsx\")",
+      "Bash(curl -s -X DELETE \"http://localhost:3001/api/banned-cards/mod/C1m32xf024pI5CdQ/y6UlR2qR24\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3001,5174 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"done\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"killed\")",
+      "Bash(curl -s -o /dev/null -w \"mod:%{http_code}\\\\n\" \"http://localhost:5174/banned-cards/moderator/b3MjDkAwSbbkCvO5\")",
+      "Bash(curl -s -o /dev/null -w \"overlay:%{http_code}\\\\n\" \"http://localhost:5174/banned-cards/overlay/FqWrymAt0Oe8H_EF\")",
+      "Bash(curl -s \"http://localhost:5174/src/pages/ClashRoyale/BannedCards/BannedCardsOverlayPage.jsx\")",
+      "Bash(curl -s -o /dev/null -w \"overlay-jsx:%{http_code}\\\\n\" \"http://localhost:5174/src/pages/ClashRoyale/BannedCards/BannedCardsOverlayPage.jsx\")",
+      "Bash(curl -s -o /dev/null -w \"mod-jsx:%{http_code}\\\\n\" \"http://localhost:5174/src/pages/ClashRoyale/BannedCards/BannedCardsModeratorPage.jsx\")",
+      "Bash(curl -s -X DELETE \"http://localhost:3001/api/banned-cards/mod/b3MjDkAwSbbkCvO5/b9NA8GPgut\")",
+      "Bash(curl -s -X DELETE \"http://localhost:3001/api/banned-cards/mod/b3MjDkAwSbbkCvO5/BW6yTe7vuN\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3001,5174 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"stopped\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 300; \"done\")",
+      "Bash(npm ls *)",
+      "Bash(node _shot_temp.js \"http://localhost:5174/banned-cards/overlay/LBXetgElDUcLULkK\" \"C:\\\\Users\\\\valen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-valen-VisualStudio-WebsiteProjekt\\\\8b26dc0d-a629-434d-9456-0ab3adf0c0bd\\\\scratchpad\\\\overlay_test.png\")"
+    ]
+  }
+}

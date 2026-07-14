@@ -200,7 +200,7 @@ export default function WinChallengeControl() {
       style={{ background: "transparent" }}
     >
       <SEO title = "Control"/>
-      <div className="w-full max-w-xl bg-gray-900/80 rounded-2xl p-4 border border-gray-800 shadow-xl">
+      <div className="w-full max-w-xl bg-gray-900/80 rounded-md p-4 border border-gray-800 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold">WinChallenge Control</h1>
           <span className="text-xs text-gray-400">

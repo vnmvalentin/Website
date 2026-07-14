@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+﻿import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
-import { Star, MessageSquare, User, Calendar, Radio, AlertTriangle } from "lucide-react";
+import { Radio, Gamepad2, Eye } from "lucide-react";
 import { io } from "socket.io-client"; // <--- IMPORT
 import SEO from "../components/SEO";
 
 // DEINE ID
 const STREAMER_ID = "160224748"; 
 
-const SECTIONS = ["overview", "adventures", "casino", "garden", "codes", "winchallenge", "bingo", "feedback", "broadcast"];
+const SECTIONS = ["overview", "adventures", "casino", "garden", "codes", "winchallenge", "bingo", "clashroyale", "broadcast"];
 
 export default function AdminDashboard() {
   const { user, isLoading } = useContext(TwitchAuthContext);
@@ -62,6 +62,7 @@ export default function AdminDashboard() {
   const [gardenUsers, setGardenUsers] = useState([]);
   const [gardenEditId, setGardenEditId] = useState(null);
   const [gardenEditGold, setGardenEditGold] = useState("");
+  const [clashLobbies, setClashLobbies] = useState([]);
 
   // --- SICHERHEITS-CHECK ---
   useEffect(() => {
@@ -87,8 +88,12 @@ export default function AdminDashboard() {
               setGardenUsers(j.users || []);
               return;
           }
-          if (type === "feedback") url = "/api/feedback/ytm";
-
+          if (type === "clashroyale") {
+              const r = await fetch("/api/clash/admin/lobbies", { credentials: "include" });
+              const j = await r.json();
+              setClashLobbies(Array.isArray(j) ? j : []);
+              return;
+          }
           const res = await fetch(url);
           const json = await res.json();
           setData(json);
@@ -105,7 +110,7 @@ export default function AdminDashboard() {
           "winchallenge": "winchallenge",
           "bingo": "bingo",
           "codes": "codes",
-          "feedback": "feedback"
+          "clashroyale": "clashroyale"
       };
 
       if (keyMap[activeTab]) {
@@ -142,8 +147,7 @@ export default function AdminDashboard() {
               "casino": "casino",
               "winchallenge": "winchallenge",
               "bingo": "bingo",
-              "codes": "codes",
-              "feedback": "feedback"
+              "codes": "codes"
           };
 
           const currentApiType = keyMap[activeTab];
@@ -239,9 +243,9 @@ export default function AdminDashboard() {
       // --- BROADCAST TAB (muss GANZ OBEN stehen oder ein eigenes "if" mit "return" haben) ---
       if (activeTab === "broadcast") {
           return (
-              <div className="bg-[#18181b] border border-red-500/30 p-6 rounded-3xl shadow-2xl animate-in fade-in">
+              <div className="bg-[#18181b] border border-red-500/30 p-6 rounded-md">
                   <h2 className="text-2xl font-black text-red-400 flex items-center gap-3 mb-6">
-                      <Radio size={28} className="animate-pulse" /> System Broadcast
+                      <Radio size={28} /> System Broadcast
                   </h2>
                   <p className="text-white/50 mb-6">
                       Sende eine Nachricht an alle gerade aktiven User. Die Nachricht wird als Pop-Up angezeigt und bleibt für die eingestellte Dauer auch bei Seiten-Reloads aktiv.
@@ -254,7 +258,7 @@ export default function AdminDashboard() {
                               value={bcMessage}
                               onChange={(e) => setBcMessage(e.target.value)}
                               placeholder="z.B. Website wird in 5 Minuten für ein Update kurz neugestartet!"
-                              className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder:text-white/30 focus:border-red-500/50 outline-none resize-none h-24"
+                              className="w-full bg-black/50 border border-white/10 rounded-sm p-4 text-white placeholder:text-white/30 focus:border-red-500/50 outline-none resize-none h-24"
                           />
                       </div>
     
@@ -266,7 +270,7 @@ export default function AdminDashboard() {
                                   value={bcDuration}
                                   onChange={(e) => setBcDuration(Number(e.target.value))}
                                   min="1"
-                                  className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-red-500/50 outline-none"
+                                  className="w-full bg-black/50 border border-white/10 rounded-sm p-3 text-white focus:border-red-500/50 outline-none"
                               />
                           </div>
                           <div>
@@ -274,7 +278,7 @@ export default function AdminDashboard() {
                               <select
                                   value={bcType}
                                   onChange={(e) => setBcType(e.target.value)}
-                                  className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-red-500/50 outline-none appearance-none"
+                                  className="w-full bg-black/50 border border-white/10 rounded-sm p-3 text-white focus:border-red-500/50 outline-none appearance-none"
                               >
                                   <option value="warning">Warnung (Rot)</option>
                                   <option value="info">Info (Blau)</option>
@@ -285,7 +289,7 @@ export default function AdminDashboard() {
                       <button
                           onClick={handleSendBroadcast}
                           disabled={isBroadcasting || !bcMessage.trim()}
-                          className="mt-4 w-full bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:text-white/30 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                          className="mt-4 w-full bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:text-white/30 text-white font-black py-4 rounded-sm transition-colors flex items-center justify-center gap-2"
                       >
                           {isBroadcasting ? "Sendet..." : "Broadcast jetzt auslösen"}
                       </button>
@@ -294,64 +298,6 @@ export default function AdminDashboard() {
           );
       }
 
-      // 0. FEEDBACK TAB
-      if (activeTab === "feedback") {
-          const feedbacks = Array.isArray(data) ? data : [];
-          const filteredFeedbacks = search 
-              ? feedbacks.filter(f => f.user.toLowerCase().includes(search.toLowerCase()) || f.text.toLowerCase().includes(search.toLowerCase()))
-              : feedbacks;
-
-          return (
-              <div className="space-y-4">
-                  <div className="flex gap-4 mb-4">
-                      <div className="bg-black/30 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
-                          <span className="text-gray-400 text-xs uppercase font-bold">Total</span>
-                          <span className="text-xl font-bold text-white">{feedbacks.length}</span>
-                      </div>
-                      <div className="bg-black/30 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
-                          <span className="text-gray-400 text-xs uppercase font-bold">Ø Rating</span>
-                          <span className="text-xl font-bold text-yellow-400">
-                              {feedbacks.length > 0 ? (feedbacks.reduce((a,b) => a + b.rating, 0) / feedbacks.length).toFixed(1) : "0.0"}
-                          </span>
-                      </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredFeedbacks.map((item) => (
-                          <div key={item.id} className="bg-[#18181b] border border-white/10 p-4 rounded-xl flex flex-col gap-3 relative group">
-                              <div className="flex justify-between items-start">
-                                  <div className="flex items-center gap-2">
-                                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50">
-                                          <User size={14} />
-                                      </div>
-                                      <div>
-                                          <div className="font-bold text-sm text-white">{item.user}</div>
-                                          <div className="text-[10px] text-white/40 flex items-center gap-1">
-                                              <Calendar size={10} />
-                                              {new Date(item.date).toLocaleString("de-DE")}
-                                          </div>
-                                      </div>
-                                  </div>
-                                  <div className="flex gap-0.5 bg-black/20 px-2 py-1 rounded-lg">
-                                      <span className="text-yellow-400 font-bold">{item.rating}</span>
-                                      <Star size={14} className="text-yellow-400 fill-current" />
-                                  </div>
-                              </div>
-                              {item.text ? (
-                                  <div className="bg-black/20 p-3 rounded-lg text-sm text-white/80 italic border border-white/5">
-                                      "{item.text}"
-                                  </div>
-                              ) : (
-                                  <div className="text-xs text-white/20 italic pl-1">Kein Kommentar.</div>
-                              )}
-                          </div>
-                      ))}
-                      {filteredFeedbacks.length === 0 && <div className="col-span-full text-center text-gray-500 py-10">Kein Feedback gefunden.</div>}
-                  </div>
-              </div>
-          );
-      }
-      
       // 0. OVERVIEW (STATS)
       if (activeTab === "overview") {
           if (!data) return null;
@@ -359,7 +305,7 @@ export default function AdminDashboard() {
           return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* CREDITS CARD */}
-                  <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-600/10 p-6 rounded-2xl border border-yellow-500/20">
+                  <div className="bg-[#18181b] p-6 rounded-md border border-yellow-500/20">
                       <div className="text-yellow-500 text-sm font-bold uppercase tracking-wider mb-2">Total Credits</div>
                       <div className="text-4xl font-black text-white flex items-center gap-2">
                           {data.totalCredits?.toLocaleString()} 
@@ -369,7 +315,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* USER CARD */}
-                  <div className="bg-gradient-to-br from-blue-900/40 to-blue-600/10 p-6 rounded-2xl border border-blue-500/20">
+                  <div className="bg-[#18181b] p-6 rounded-md border border-blue-500/20">
                       <div className="text-blue-500 text-sm font-bold uppercase tracking-wider mb-2">Casino User</div>
                       <div className="text-4xl font-black text-white">
                           {data.totalUsers}
@@ -378,7 +324,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* ADVENTURE CARD */}
-                  <div className="bg-gradient-to-br from-green-900/40 to-green-600/10 p-6 rounded-2xl border border-green-500/20">
+                  <div className="bg-[#18181b] p-6 rounded-md border border-green-500/20">
                       <div className="text-green-500 text-sm font-bold uppercase tracking-wider mb-2">Adventure Spieler</div>
                       <div className="text-4xl font-black text-white">
                           {data.advPlayers}
@@ -387,17 +333,17 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* ACTIVE ITEMS */}
-                  <div className="bg-gray-800 p-6 rounded-2xl border border-white/5">
+                  <div className="bg-gray-800 p-6 rounded-md border border-white/5">
                       <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Aktive Bingos</div>
                       <div className="text-3xl font-bold text-white">{data.activeBingoSessions}</div>
                   </div>
 
-                  <div className="bg-gray-800 p-6 rounded-2xl border border-white/5">
+                  <div className="bg-gray-800 p-6 rounded-md border border-white/5">
                       <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Win-Challenges</div>
                       <div className="text-3xl font-bold text-white">{data.activeChallenges}</div>
                   </div>
 
-                  <div className="bg-gray-800 p-6 rounded-2xl border border-white/5">
+                  <div className="bg-gray-800 p-6 rounded-md border border-white/5">
                       <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Aktive Promo-Codes</div>
                       <div className="text-3xl font-bold text-white">{data.activeCodes}</div>
                   </div>
@@ -650,11 +596,11 @@ export default function AdminDashboard() {
           return (
               <div>
                   <div className="flex gap-4 mb-4 flex-wrap">
-                      <div className="bg-black/30 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+                      <div className="bg-black/30 px-4 py-2 rounded-sm border border-white/10 flex items-center gap-2">
                           <span className="text-gray-400 text-xs uppercase font-bold">Spieler</span>
                           <span className="text-xl font-bold text-white">{gardenUsers.length}</span>
                       </div>
-                      <div className="bg-black/30 px-4 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+                      <div className="bg-black/30 px-4 py-2 rounded-sm border border-white/10 flex items-center gap-2">
                           <span className="text-gray-400 text-xs uppercase font-bold">Gold gesamt</span>
                           <span className="text-xl font-bold text-yellow-400">{gardenUsers.reduce((s, u) => s + u.gold, 0).toLocaleString("de-DE")}</span>
                       </div>
@@ -717,6 +663,56 @@ export default function AdminDashboard() {
           );
       }
 
+      // CLASH ROYALE TAB
+      if (activeTab === "clashroyale") {
+          const modeLabel = { snake: "Snake Royale", auction: "Elixir Auction", bingo: "Bingo Royale" };
+          const phaseLabel = { lobby: "Lobby", playing: "Läuft", finished: "Beendet" };
+          const phaseColor = { lobby: "text-gray-400 border-white/10", playing: "text-green-400 border-green-500/30", finished: "text-amber-400 border-amber-500/30" };
+          const filtered = search
+              ? clashLobbies.filter(l => l.code.toLowerCase().includes(search.toLowerCase()) || l.hostName.toLowerCase().includes(search.toLowerCase()))
+              : clashLobbies;
+          return (
+              <div>
+                  <div className="flex gap-4 mb-4 flex-wrap items-center">
+                      <div className="bg-black/30 px-4 py-2 rounded-sm border border-white/10 flex items-center gap-2">
+                          <span className="text-gray-400 text-xs uppercase font-bold">Aktive Lobbys</span>
+                          <span className="text-xl font-bold text-white">{clashLobbies.length}</span>
+                      </div>
+                      <button onClick={() => fetchData("clashroyale")} className="ml-auto px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-xl text-sm font-bold">🔄 Aktualisieren</button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filtered.map(l => (
+                          <div key={l.code} className="bg-gray-800 p-4 rounded-xl border border-white/10">
+                              <div className="flex items-center justify-between mb-2">
+                                  <span className="font-mono text-lg font-bold text-cyan-400">{l.code}</span>
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm border ${phaseColor[l.phase] || "text-gray-400 border-white/10"}`}>
+                                      {phaseLabel[l.phase] || l.phase}
+                                  </span>
+                              </div>
+                              <div className="text-white font-semibold text-sm mb-1 flex items-center gap-1.5">
+                                  <Gamepad2 size={13} className="text-purple-400" /> {modeLabel[l.mode] || l.mode}
+                              </div>
+                              <div className="text-xs text-gray-400 mb-3">
+                                  Host: <span className="text-gray-300 font-semibold">{l.hostName}</span> · {l.playerCount} Spieler
+                              </div>
+                              <button
+                                  onClick={() => navigate(`/clash-royale?adminCode=${l.code}`)}
+                                  className="w-full bg-cyan-900/20 hover:bg-cyan-600 text-cyan-400 hover:text-white border border-cyan-900/50 py-2 rounded text-sm font-bold transition-all flex items-center justify-center gap-2"
+                              >
+                                  <Eye size={14} /> Ansehen
+                              </button>
+                          </div>
+                      ))}
+                      {filtered.length === 0 && (
+                          <div className="col-span-full text-center text-gray-500 italic py-10">
+                              Keine aktiven Lobbys.
+                          </div>
+                      )}
+                  </div>
+              </div>
+          );
+      }
+
       return null;
   };
 
@@ -731,8 +727,8 @@ export default function AdminDashboard() {
               <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${
-                      activeTab === tab ? "bg-purple-600 text-white shadow-lg shadow-purple-900/50" : "bg-white/5 hover:bg-white/10 text-gray-400"
+                  className={`px-4 py-2 rounded-sm text-sm font-bold uppercase tracking-wider transition-colors ${
+                      activeTab === tab ? "bg-purple-600 text-white" : "bg-white/5 hover:bg-white/10 text-gray-400"
                   }`}
               >
                   {tab}
@@ -748,13 +744,13 @@ export default function AdminDashboard() {
                   placeholder="Suche nach User, ID..." 
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="w-full md:w-96 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500 outline-none"
+                  className="w-full md:w-96 bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-purple-500 outline-none"
               />
           </div>
       )}
 
       {/* CONTENT */}
-      <div className="bg-gray-900/50 border border-white/10 rounded-2xl p-6 min-h-[500px]">
+      <div className="bg-gray-900/50 border border-white/10 rounded-md p-6 min-h-[500px]">
           {renderContent()}
       </div>
     </div>

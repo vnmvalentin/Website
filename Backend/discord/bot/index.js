@@ -2,6 +2,7 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const { startTwitchPoller } = require('./twitchPoller');
 
 const discordClient = new Client({
     intents: [
@@ -40,5 +41,10 @@ if (fs.existsSync(eventsPath)) {
 
 // Bot einloggen
 discordClient.login(process.env.DISCORD_BOT_TOKEN);
+
+// Twitch-Poller nach erfolgreichem Login starten
+discordClient.once('clientReady', () => {
+    startTwitchPoller(discordClient);
+});
 
 module.exports = discordClient;

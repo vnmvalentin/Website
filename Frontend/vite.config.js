@@ -20,6 +20,17 @@ export default defineConfig({
     },
   },
   plugins: [
+    // Unterdrückt den harmlosen "ws proxy socket error: ECONNABORTED" bei Browser-Refresh
+    {
+      name: 'suppress-ws-proxy-errors',
+      configureServer(server) {
+        const orig = server.config.logger.error.bind(server.config.logger);
+        server.config.logger.error = (msg, opts) => {
+          if (typeof msg === 'string' && msg.includes('ws proxy')) return;
+          orig(msg, opts);
+        };
+      },
+    },
     react(),
     tailwindcss(),
     analyze &&
