@@ -54,7 +54,7 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
             setEditingId(rr.id); setTitle(rr.title || ''); setRrChannel(rr.channelId);
             setRrColor(rr.color || '#06b6d4'); setEmbedTitle(rr.embedTitle || '');
             setEmbedText(rr.messageText || ''); setEmbedFooter(rr.embedFooter || '');
-            setRrMode(rr.mode);
+            setRrMode(rr.mode === 'single' ? 'single' : 'multi');
             const mapped = Array.isArray(rr.roleMapping)
                 ? rr.roleMapping.map(m => ({ type: m.emoji?.match(/^\d+$/) ? 'custom' : 'unicode', emoji: m.emoji || '', label: m.label || '', style: m.style || 2, roleId: m.roleId }))
                 : Object.entries(rr.roleMapping).map(([emoji, roleId]) => ({ type: emoji.match(/^\d+$/) ? 'custom' : 'unicode', emoji, label: '', style: 2, roleId }));
@@ -252,13 +252,21 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
 
                 {/* ── SEKTION 3: Buttons ───────────────────────────────── */}
                 <div className="p-5 bg-[#1a1a20] rounded-sm border border-white/5 space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-gray-400">③ Buttons & Rollen</h4>
-                        <select value={rrMode} onChange={e => setRrMode(e.target.value)}
-                            className="bg-[#0f0f13] border border-white/10 rounded-xl p-2 text-white text-sm outline-none">
-                            <option value="multi">Mehrfach-Auswahl</option>
-                            <option value="single">Single-Choice</option>
-                        </select>
+                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-gray-400">③ Buttons & Rollen</h4>
+
+                    {/* Auswahl-Modus: eine oder mehrere Rollen aus diesem Embed */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                            { id: 'multi', label: 'Mehrfach-Auswahl', desc: 'Nutzer können beliebig viele Rollen aus diesem Embed gleichzeitig haben. Erneuter Klick entfernt die Rolle wieder.' },
+                            { id: 'single', label: 'Single-Choice (nur 1 Rolle)', desc: 'Nutzer können nur EINE Rolle aus diesem Embed haben — beim Klick auf einen anderen Button wird die alte Rolle automatisch ausgetauscht.' },
+                        ].map(o => (
+                            <button key={o.id} onClick={() => setRrMode(o.id)}
+                                className={`text-left p-4 rounded-sm border transition-colors ${
+                                    rrMode === o.id ? 'border-cyan-500 bg-cyan-500/10' : 'border-white/10 bg-[#0f0f13] hover:border-white/25'}`}>
+                                <span className={`block text-sm font-bold mb-1 ${rrMode === o.id ? 'text-cyan-300' : 'text-white'}`}>{o.label}</span>
+                                <span className="block text-xs text-gray-500 leading-relaxed">{o.desc}</span>
+                            </button>
+                        ))}
                     </div>
 
                     {mappings.map((m, i) => (

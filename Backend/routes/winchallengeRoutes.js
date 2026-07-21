@@ -64,6 +64,7 @@ function needsMigration(doc) {
   if (!doc.style) return true;
   if (!doc.pager) return true;
   if (!doc.chatCommands || typeof doc.chatCommands !== "object") return true;
+  if (!Array.isArray(doc.chatCommands.channels)) return true;
   return false;
 }
 
@@ -155,12 +156,37 @@ const DEFAULT_PERMISSIONS = {
 
 const DEFAULT_CHAT_COMMANDS = {
   enabled: false,
-  /** Twitch-Login, klein, ohne # */
+  /** Twitch-Login, klein, ohne # (legacy: erster Kanal aus channels) */
   channel: "",
+  /** Mehrere Kanäle möglich — z. B. Gruppen, die ein Overlay teilen */
+  channels: [],
   requireModOrBroadcaster: true,
   /** tmi: Kurzantworten im Chat (z. B. „Timer wurde pausiert“) */
   replyInChat: true,
 };
+
+const MAX_CHAT_CHANNELS = 10;
+
+function normalizeChatCommands(cc) {
+  const merged = { ...DEFAULT_CHAT_COMMANDS, ...(cc || {}) };
+  const set = new Set();
+  const push = (v) => {
+    const c = String(v || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^#/, "")
+      .replace(/[^a-z0-9_]/g, "");
+    if (c) set.add(c);
+  };
+  if (Array.isArray(merged.channels)) merged.channels.forEach(push);
+  push(merged.channel);
+  merged.channels = [...set].slice(0, MAX_CHAT_CHANNELS);
+  merged.channel = merged.channels[0] || "";
+  merged.enabled = !!merged.enabled;
+  merged.requireModOrBroadcaster = merged.requireModOrBroadcaster !== false;
+  merged.replyInChat = merged.replyInChat !== false;
+  return merged;
+}
 
 function normalizeStyle(style) {
   const s = { ...DEFAULT_STYLE, ...style };
@@ -174,7 +200,8 @@ function normalizeStyle(style) {
 
   s.borderRadius = Math.max(0, parseInt(s.borderRadius ?? 12, 10));
   s.scale = Number(s.scale ?? 1);
-  s.boxWidth = Math.min(900, Math.max(280, parseInt(s.boxWidth ?? 520, 10)));
+  // Muss zum Frontend-Slider passen (max 1000), sonst springt der Regler zurück
+  s.boxWidth = Math.min(1600, Math.max(280, parseInt(s.boxWidth ?? 520, 10)));
   s.titleAlign = s.titleAlign === "center" ? "center" : "left";
 
   s.titleFontSize = Math.max(
@@ -211,17 +238,18 @@ function normalizeAnimation(animation, pagerRaw) {
     ),
   };
 
+  // Clamps müssen zu den Frontend-Slidern passen (Speed bis 200, Pause in 0.5er-Schritten)
   const scrolling = {
     ...(a.scrolling || {}),
     speedPxPerSec: Math.max(
-      1,
-      Math.min(60, parseInt(a.scrolling?.speedPxPerSec ?? 5, 10))
+      5,
+      Math.min(200, Number(a.scrolling?.speedPxPerSec ?? 30) || 30)
     ),
     visibleRows: Math.max(
       1,
-      Math.min(20, parseInt(a.scrolling?.visibleRows ?? 5, 10))
+      Math.min(20, parseInt(a.scrolling?.visibleRows ?? 2, 10))
     ),
-    pauseSec: Math.max(0, Math.min(30, parseInt(a.scrolling?.pauseSec ?? 2, 10))),
+    pauseSec: Math.max(0, Math.min(30, Number(a.scrolling?.pauseSec ?? 2) || 0)),
   };
 
   return { enabled, mode, paging, scrolling };
@@ -258,10 +286,7 @@ function ensureDocShape(input = {}) {
     ...(doc.controlPermissions || {}),
   };
 
-  const chatCommands = {
-    ...DEFAULT_CHAT_COMMANDS,
-    ...(doc.chatCommands || {}),
-  };
+  const chatCommands = normalizeChatCommands(doc.chatCommands);
 
   return {
     userId: doc.userId,
@@ -284,11 +309,74 @@ function ensureDocShape(input = {}) {
       Number.isFinite(Number(doc.updatedAt)) && Number(doc.updatedAt) > 0
         ? Number(doc.updatedAt)
         : Date.now(),
+    // Für den 14-Tage-Inaktivitäts-Cleanup — darf beim Neuformen nicht verloren gehen
+    lastOverlayAccessAt: Number(doc.lastOverlayAccessAt) || 0,
   };
+}
+
+// ===== 14-Tage-Inaktivitäts-Cleanup =====
+// Das Overlay-GET (OBS pollt sekündlich) stempelt lastOverlayAccessAt — persistiert
+// aber höchstens einmal pro Stunde, um SQLite nicht mit jedem Poll zu beschreiben.
+const ACCESS_TOUCH_INTERVAL_MS = 60 * 60 * 1000; // 1h
+const INACTIVITY_LIMIT_MS = 14 * 24 * 60 * 60 * 1000; // 14 Tage
+const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // alle 6h prüfen
+
+function touchOverlayAccess(userId) {
+  const db = loadDb();
+  const doc = db[userId];
+  if (!doc) return;
+  const last = Number(doc.lastOverlayAccessAt) || 0;
+  const now = Date.now();
+  if (now - last < ACCESS_TOUCH_INTERVAL_MS) return;
+  doc.lastOverlayAccessAt = now;
+  saveDb(db);
+}
+
+function runInactivityCleanup() {
+  const db = loadDb();
+  const now = Date.now();
+  let touched = 0;
+  let removed = 0;
+  for (const [uid, doc] of Object.entries(db)) {
+    if (!doc || typeof doc !== "object") continue;
+    const last = Number(doc.lastOverlayAccessAt) || 0;
+    if (!last) {
+      // Bestandsdaten ohne Zeitstempel: Gnadenfrist ab jetzt — nichts wird
+      // direkt nach einem Deploy gelöscht, die 14 Tage starten neu.
+      doc.lastOverlayAccessAt = now;
+      touched++;
+      continue;
+    }
+    if (now - last > INACTIVITY_LIMIT_MS) {
+      delete db[uid];
+      removed++;
+    }
+  }
+  if (removed > 0) rebuildIndexes();
+  if (touched > 0 || removed > 0) {
+    saveDb(db);
+    console.log(
+      `[winchallenge] Inaktivitäts-Cleanup: ${removed} Overlay(s) entfernt, ${touched} Zeitstempel initialisiert.`
+    );
+  }
+}
+
+let cleanupTimerStarted = false;
+function startInactivityCleanup() {
+  if (cleanupTimerStarted) return;
+  cleanupTimerStarted = true;
+  // Erster Lauf kurz nach dem Start (DB ist dann sicher initialisiert), danach alle 6h
+  setTimeout(() => {
+    try { runInactivityCleanup(); } catch (e) { console.error("[winchallenge] cleanup:", e); }
+  }, 60 * 1000).unref?.();
+  setInterval(() => {
+    try { runInactivityCleanup(); } catch (e) { console.error("[winchallenge] cleanup:", e); }
+  }, CLEANUP_INTERVAL_MS).unref?.();
 }
 
 // ---- Router factory ----
 function createWinchallengeRouter({ requireAuth } = {}) {
+  startInactivityCleanup();
   const router = express.Router();
 
   // Express 4: async errors sauber an next() weiterreichen
@@ -316,6 +404,7 @@ function createWinchallengeRouter({ requireAuth } = {}) {
       return res.status(404).json({ error: "Overlay nicht gefunden" });
     }
 
+    touchOverlayAccess(userId);
     const doc = ensureDocShape(db[userId]);
     res.json(doc);
   });
@@ -385,7 +474,15 @@ function createWinchallengeRouter({ requireAuth } = {}) {
       let doc = ensureDocShape(db[userId]);
       const perms = doc.controlPermissions || DEFAULT_PERMISSIONS;
 
-      const action = String(req.body?.action || "");
+      // Aliase: die Control-Seite sendete historisch andere Action-Namen
+      const ACTION_ALIASES = {
+        updateTitle: "setTitle",
+        updateItems: "setItems",
+        timerPause: "timerStop",
+        timerSetVisible: "timerToggleVisible",
+      };
+      const rawAction = String(req.body?.action || "");
+      const action = ACTION_ALIASES[rawAction] || rawAction;
 
       if (action === "setTitle") {
         if (!perms.allowModsTitle) {
@@ -470,6 +567,20 @@ function createWinchallengeRouter({ requireAuth } = {}) {
           t.elapsedMs = nextElapsed;
         }
 
+        doc.timer = t;
+      } else if (action === "timerSet") {
+        if (!perms.allowModsTimer) {
+          return res
+            .status(403)
+            .json({ error: "Timer bearbeiten nicht erlaubt" });
+        }
+        const ms = Number(req.body.elapsedMs);
+        if (!Number.isFinite(ms) || ms < 0) {
+          return res.status(400).json({ error: "Ungültiger elapsedMs-Wert" });
+        }
+        const t = doc.timer || { ...DEFAULT_TIMER };
+        t.elapsedMs = Math.min(ms, 999 * 3600 * 1000);
+        if (t.running) t.startedAt = Date.now() - t.elapsedMs;
         doc.timer = t;
       } else if (action === "hardRefresh") {
         doc.refreshNonce = (doc.refreshNonce || 1) + 1;

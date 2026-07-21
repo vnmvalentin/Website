@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import {
   Sword, Copy, Check, Users, Clock, Play, Crown, LogOut,
-  Link2, UserX, Eye, EyeOff, Trophy, Worm, Droplets,
-  LayoutGrid, Rows, Hash, Ban, Shield, ArrowLeftRight, XCircle, X,
+  Link2, UserX, Eye, EyeOff, Trophy, Worm, Droplets, Zap,
+  LayoutGrid, Rows, Hash, Shield, ArrowLeftRight, XCircle, X,
+  ChevronDown, Repeat, AlertTriangle, Ban, Search, Monitor,
 } from 'lucide-react';
+import StreamerConfigPanel from './streamer/StreamerConfigPanel';
 import SEO from '../../components/SEO';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
-import { RARITY_COLOR } from './data/cards';
+import { RARITY_COLOR, ALL_CARDS } from './data/cards';
 import SnakeRoyale from './modes/SnakeRoyale';
 import ElixirAuction from './modes/ElixirAuction';
 import BingoRoyale from './modes/BingoRoyale';
-import { getMyBannedCardsList } from './BannedCards/bannedCardsApi';
-
-const NUZLOCKE_REDIRECT_KEY = 'clash_nuzlocke_redirect';
+import ShadowCarousel from './modes/ShadowCarousel';
+import ElixirRush from './modes/ElixirRush';
 const STREAMER_ID = '160224748';
 
 const MODES = [
@@ -39,9 +39,238 @@ const MODES = [
     desc: 'Fülle deine Bingo-Karte mit Clash Royale Karten. Bingos geben dir PowerUps mit denen du dein Deck verbessern oder gegnerische sabotieren kannst.',
     available: true,
   },
+  {
+    id: 'shadow-carousel',
+    name: 'Blindes Karussel',
+    icon: Repeat,
+    desc: 'Jeder Spieler hat einen Tisch voller verdeckter Karten. Decke pro Runde Karten auf und nimm eine — auch blind. Danach wandern die Tische im Karussell weiter.',
+    available: true,
+  },
+  {
+    id: 'elixir-rush',
+    name: 'Elixir Rush',
+    icon: Zap,
+    desc: 'Dein Elixier lädt sich automatisch auf — auf dem Marktplatz erscheinen Karten mit echten Elixierkosten. Wer zuerst klickt, bekommt die Karte. 8 Käufe = fertiges Deck!',
+    available: true,
+  },
 ];
 
 const TIMER_OPTIONS = [15, 30, 45, 60, 90, 120];
+
+// Hub-/Landingpage UND Lobby sind zweisprachig — die eigentlichen Spielmodi-Bildschirme
+// (Snake Royale, Elixir Auction, Bingo Royale, Blindes Karussel, Elixir Rush selbst)
+// bleiben (vorerst) Deutsch. Englische Namen/Beschreibungen der Modi separat,
+// damit MODES selbst (weiterhin Deutsch als Basis) unverändert bleibt.
+const MODE_DESC_EN = {
+  snake: 'Pick cards from an 11×11 grid — but only ones adjacent to your last pick. Build the best possible deck!',
+  auction: 'Start with 100 elixir and bid on the cards shown each round. Highest bidder wins — losers get a consolation prize!',
+  bingo: 'Fill your bingo card with Clash Royale cards. Bingos grant power-ups to improve your own deck or sabotage opponents.',
+  'shadow-carousel': 'Each player has a table full of face-down cards. Reveal cards each round and take one — even blindly. Tables then rotate carousel-style.',
+  'elixir-rush': 'Your elixir refills automatically — the marketplace shows cards at their real elixir cost. First click gets the card. 8 buys = finished deck!',
+};
+// Modus-Namen sind größtenteils bereits englische Markennamen — nur "Blindes Karussel" braucht eine Übersetzung.
+const MODE_NAME_EN = {
+  'shadow-carousel': 'Shadow Carousel',
+};
+const modeNameFor = (id, lang) => {
+  const m = MODES.find(mm => mm.id === id) || MODES[0];
+  return lang === 'en' ? (MODE_NAME_EN[m.id] || m.name) : m.name;
+};
+const modeDescFor = (id, lang) => {
+  const m = MODES.find(mm => mm.id === id) || MODES[0];
+  return lang === 'en' ? (MODE_DESC_EN[m.id] || m.desc) : m.desc;
+};
+
+const PAGE_I18N = {
+  de: {
+    // Hub
+    subtitle: 'Multiplayer Minigames · Echtzeit · Lobbybasiert',
+    streamerSetup: 'Streamer Setup',
+    streamerSetupTitle: 'OBS-Automatiken & Deck-Overlay konfigurieren',
+    tabCreate: 'Lobby erstellen',
+    tabJoin: 'Lobby beitreten',
+    namePlaceholder: 'Dein Name…',
+    avatarLabel: 'Profilbild wählen',
+    codePlaceholder: 'Lobby-Code eingeben…',
+    createBtn: 'Lobby erstellen',
+    joinBtn: 'Beitreten',
+    errNameRequired: 'Bitte Namen eingeben',
+    errCodeRequired: 'Bitte Lobby-Code eingeben',
+    modesHeading: 'Verfügbare Spielmodi (Beschreibungen)',
+    comingSoon: 'Bald verfügbar',
+    support: 'Support & Feedback:',
+    joinDiscord: 'Discord beitreten',
+
+    // Lobby
+    lobbySeoDesc: 'Warte auf Mitspieler',
+    historyTitle: 'Spielverlauf dieser Sitzung',
+    historyEmpty: 'Noch kein abgeschlossenes Spiel in dieser Sitzung.',
+    historyGame: (n) => `Spiel ${n}`,
+    cardsUnit: 'Karten',
+    waitingForPlayers: 'Warte auf Spieler…',
+    history: 'Verlauf',
+    copy: 'Kopieren',
+    codeLabel: 'Code',
+    linkLabel: 'Link',
+    playersSpectators: (players, spectators) => `${players} Spieler · ${spectators} Zuschauer`,
+    admin: 'Admin',
+    spectator: 'Zuschauer',
+    play: 'Mitspielen',
+    spectate: 'Zuschauen',
+    reactivate: 'Reaktivieren',
+    setSpectator: 'Zuschauer',
+    reactivateTitle: 'Wieder aktivieren',
+    setSpectatorTitle: 'Als Zuschauer setzen',
+    transferHostTitle: 'Host-Status übergeben',
+    kickTitle: 'Kicken',
+    adminAccessNote: 'Admin-Zugriff — du steuerst diese Lobby, ohne Host zu sein.',
+    gameMode: 'Spielmodus',
+    cardPool: 'Kartenpool',
+    allCardsInDraft: (n) => `Alle ${n} Karten im Draft`,
+    excludedInDraft: (excluded, pool) => `${excluded} ausgeschlossen · ${pool} Karten im Draft`,
+    edit: 'Bearbeiten',
+    cardPoolNote: 'Ausgeschlossene Karten tauchen in keinem Spielmodus im Draft auf — gilt für alle Spiele dieser Lobby.',
+    poolTooSmall: (mode, need, have) => `Zu viele Karten ausgeschlossen — ${mode} benötigt mind. ${need} Karten (${have} verfügbar).`,
+    timePerRound: 'Zeit pro Runde',
+    timePerPick: 'Zeit pro Pick',
+    marketplaceCards: 'Karten auf dem Marktplatz',
+    marketplaceCardsNote: 'So viele Karten liegen gleichzeitig auf dem Marktplatz zur Auswahl.',
+    marketplaceLifetime: 'Kartenzeit auf dem Marktplatz',
+    marketplaceLifetimeNote: 'Nicht gekaufte Karten werden nach dieser Zeit gegen neue ausgetauscht.',
+    showOthersElixir: 'Elixier anderer Spieler anzeigen',
+    showOthersElixirNoteRush: 'Blendet die Elixierbalken der Mitspieler in der Seitenleiste ein oder aus',
+    showOthersElixirNoteAuction: 'Alle sehen das Elixier aller Mitspieler in der Seitenleiste',
+    cardsPerTable: 'Karten pro Tisch',
+    cardsPerTableDisabledTitle: (pool, n) => `Kartenpool (${pool}) reicht nicht für 2 Tische à ${n} Karten`,
+    maxPlayersTitle: (n) => `Max. ${n} Spieler`,
+    carouselAllUsed: 'Alle Karten werden verbraucht — am Ende sind alle Tische leer.',
+    carouselSomeUnused: (n) => `Nach den 8 Picks bleiben ${n} Karten pro Tisch ungenutzt — mehr Auswahl, mehr Ungewissheit.`,
+    carouselMaxPlayersNote: (n) => `Max. ${n} Spieler.`,
+    carouselTooMany: (active, pool, n) => `Zu viele aktive Spieler (${active}) — der Kartenpool (${pool}) reicht nicht für ${active} Tische à ${n} Karten.`,
+    revealsPerRound: 'Aufdeckungen pro Runde',
+    revealDynamic: 'Dynamisch',
+    revealAlwaysTwo: 'Immer 2',
+    revealAlwaysOne: 'Immer 1',
+    revealDynamicNote: 'Runde 1–4: 2 Aufdeckungen · ab Runde 5: nur noch 1 (Standard)',
+    revealTwoNote: 'In jeder Runde dürfen 2 Karten aufgedeckt werden.',
+    revealOneNote: 'In jeder Runde darf nur 1 Karte aufgedeckt werden.',
+    gridSize: 'Rastergröße',
+    gridSizeTooSmallTitle: (need, pool) => `Benötigt ${need} Karten — nur ${pool} im Pool`,
+    gridAllCards: 'Alle 121 Karten · kein Zufall',
+    gridRandomCards: (n) => `${n} zufällige Karten aus dem Pool`,
+    poolSuffix: (pool) => ` · Pool: ${pool} Karten`,
+    cardsPerRound: (min) => `Karten pro Runde (min. ${min})`,
+    cardsPerRoundTooBigTitle: (n, pool) => `Benötigt ${8 * n} Karten (8 Runden × ${n}) — nur ${pool} im Pool`,
+    cardsPerRoundNoteBingo: 'Karten die pro Runde zur Auswahl stehen (mindestens 1 pro Spieler)',
+    poolFor8Rounds: (pool) => ` · Pool: ${pool} Karten für 8 Runden`,
+    poolFor8RoundsStandalone: (pool) => `Pool: ${pool} Karten für 8 Runden`,
+    timePerToken: 'Zeit pro Token im Token-Shop',
+    tokenTimeoutNote: 'Wer sein Power-Up nicht rechtzeitig einsetzt, verliert den Token.',
+    startingElixir: 'Start-Elixier',
+    motherWitchVisits: 'Mutterhexen Besuche',
+    motherWitchNote: 'In Runde 2-7: 30% Chance, dass ein zufälliger Spieler von der Mutterhexe eine Fähigkeit angeboten bekommt',
+    startGame: 'Spiel starten',
+    startBlockedCarousel: (max, cards) => `Max. ${max} Spieler bei ${cards} Karten pro Tisch`,
+    startBlockedPool: (have, need) => `Kartenpool zu klein (${have}/${need} Karten)`,
+    startBlockedPlayers: 'Mind. 2 aktive Spieler benötigt',
+    excludedCardsView: (n) => `${n} Karten ausgeschlossen — ansehen`,
+    waitingForHost: 'Warte auf den Host…',
+  },
+  en: {
+    // Hub
+    subtitle: 'Multiplayer minigames · Real-time · Lobby-based',
+    streamerSetup: 'Streamer Setup',
+    streamerSetupTitle: 'Configure OBS automations & deck overlay',
+    tabCreate: 'Create lobby',
+    tabJoin: 'Join lobby',
+    namePlaceholder: 'Your name…',
+    avatarLabel: 'Choose profile picture',
+    codePlaceholder: 'Enter lobby code…',
+    createBtn: 'Create lobby',
+    joinBtn: 'Join',
+    errNameRequired: 'Please enter a name',
+    errCodeRequired: 'Please enter a lobby code',
+    modesHeading: 'Available game modes (descriptions)',
+    comingSoon: 'Coming soon',
+    support: 'Support & Feedback:',
+    joinDiscord: 'Join Discord',
+
+    // Lobby
+    lobbySeoDesc: 'Waiting for players',
+    historyTitle: 'Game history for this session',
+    historyEmpty: 'No completed games in this session yet.',
+    historyGame: (n) => `Game ${n}`,
+    cardsUnit: 'cards',
+    waitingForPlayers: 'Waiting for players…',
+    history: 'History',
+    copy: 'Copy',
+    codeLabel: 'Code',
+    linkLabel: 'Link',
+    playersSpectators: (players, spectators) => `${players} players · ${spectators} spectators`,
+    admin: 'Admin',
+    spectator: 'Spectator',
+    play: 'Play',
+    spectate: 'Spectate',
+    reactivate: 'Reactivate',
+    setSpectator: 'Spectator',
+    reactivateTitle: 'Reactivate',
+    setSpectatorTitle: 'Set as spectator',
+    transferHostTitle: 'Transfer host status',
+    kickTitle: 'Kick',
+    adminAccessNote: 'Admin access — you control this lobby without being the host.',
+    gameMode: 'Game mode',
+    cardPool: 'Card pool',
+    allCardsInDraft: (n) => `All ${n} cards in the draft`,
+    excludedInDraft: (excluded, pool) => `${excluded} excluded · ${pool} cards in the draft`,
+    edit: 'Edit',
+    cardPoolNote: 'Excluded cards never appear in the draft of any game mode — applies to every game in this lobby.',
+    poolTooSmall: (mode, need, have) => `Too many cards excluded — ${mode} needs at least ${need} cards (${have} available).`,
+    timePerRound: 'Time per round',
+    timePerPick: 'Time per pick',
+    marketplaceCards: 'Cards in the marketplace',
+    marketplaceCardsNote: 'This many cards are available in the marketplace at once.',
+    marketplaceLifetime: 'Card lifetime in the marketplace',
+    marketplaceLifetimeNote: 'Unbought cards are swapped for new ones after this time.',
+    showOthersElixir: "Show other players' elixir",
+    showOthersElixirNoteRush: "Shows or hides other players' elixir bars in the sidebar",
+    showOthersElixirNoteAuction: "Everyone sees every player's elixir in the sidebar",
+    cardsPerTable: 'Cards per table',
+    cardsPerTableDisabledTitle: (pool, n) => `Card pool (${pool}) isn't enough for 2 tables of ${n} cards`,
+    maxPlayersTitle: (n) => `Max. ${n} players`,
+    carouselAllUsed: 'All cards get used up — every table ends up empty.',
+    carouselSomeUnused: (n) => `After the 8 picks, ${n} cards per table go unused — more choice, more uncertainty.`,
+    carouselMaxPlayersNote: (n) => `Max. ${n} players.`,
+    carouselTooMany: (active, pool, n) => `Too many active players (${active}) — the card pool (${pool}) isn't enough for ${active} tables of ${n} cards.`,
+    revealsPerRound: 'Reveals per round',
+    revealDynamic: 'Dynamic',
+    revealAlwaysTwo: 'Always 2',
+    revealAlwaysOne: 'Always 1',
+    revealDynamicNote: 'Rounds 1–4: 2 reveals · from round 5: only 1 (default)',
+    revealTwoNote: '2 cards may be revealed each round.',
+    revealOneNote: 'Only 1 card may be revealed each round.',
+    gridSize: 'Grid size',
+    gridSizeTooSmallTitle: (need, pool) => `Needs ${need} cards — only ${pool} in the pool`,
+    gridAllCards: 'All 121 cards · no randomness',
+    gridRandomCards: (n) => `${n} random cards from the pool`,
+    poolSuffix: (pool) => ` · Pool: ${pool} cards`,
+    cardsPerRound: (min) => `Cards per round (min. ${min})`,
+    cardsPerRoundTooBigTitle: (n, pool) => `Needs ${8 * n} cards (8 rounds × ${n}) — only ${pool} in the pool`,
+    cardsPerRoundNoteBingo: 'Cards available to pick from each round (at least 1 per player)',
+    poolFor8Rounds: (pool) => ` · Pool: ${pool} cards for 8 rounds`,
+    poolFor8RoundsStandalone: (pool) => `Pool: ${pool} cards for 8 rounds`,
+    timePerToken: 'Time per token in the token shop',
+    tokenTimeoutNote: "Anyone who doesn't use their power-up in time loses the token.",
+    startingElixir: 'Starting elixir',
+    motherWitchVisits: 'Mother Witch visits',
+    motherWitchNote: 'In rounds 2–7: 30% chance a random player gets offered an ability by the Mother Witch',
+    startGame: 'Start game',
+    startBlockedCarousel: (max, cards) => `Max. ${max} players at ${cards} cards per table`,
+    startBlockedPool: (have, need) => `Card pool too small (${have}/${need} cards)`,
+    startBlockedPlayers: 'Need at least 2 active players',
+    excludedCardsView: (n) => `${n} cards excluded — view`,
+    waitingForHost: 'Waiting for the host…',
+  },
+};
 
 const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
 
@@ -86,13 +315,13 @@ function PlayerAvatar({ avatarId, size = 28, className = '', isAdmin = false }) 
 
 
 export default function ClashRoyalePage() {
-  const navigate = useNavigate();
-  const { user, login } = useContext(TwitchAuthContext);
+  const { user } = useContext(TwitchAuthContext);
   const socketRef      = useRef(null);
   const playerNameRef  = useRef('');
   const avatarRef      = useRef('');
   const [phase, setPhase] = useState('hub');
-  const [selectedMode, setSelectedMode] = useState('snake');
+  const [hubTab, setHubTab] = useState('create'); // 'create' | 'join'
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [playerName, setPlayerName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
@@ -101,6 +330,27 @@ export default function ClashRoyalePage() {
   const [linkHidden, setLinkHidden] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyData, setHistoryData] = useState([]);
+  const [excludeOpen, setExcludeOpen] = useState(false);
+  const [streamerCfgOpen, setStreamerCfgOpen] = useState(false);
+  // Sprache der Hub-/Landingpage (Lobby & Minigames bleiben Deutsch) — per ?lang=en direkt verlinkbar
+  const [lang, setLang] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('lang') === 'en' ? 'en' : 'de'; }
+    catch { return 'de'; }
+  });
+  const t = PAGE_I18N[lang];
+  // Ref für Socket-Handler (registriert einmalig beim Mount) — vermeidet stale closure bei Sprachwechsel
+  const langRef = useRef(lang);
+  useEffect(() => { langRef.current = lang; }, [lang]);
+  const toggleLang = () => {
+    const next = lang === 'de' ? 'en' : 'de';
+    setLang(next);
+    try {
+      const url = new URL(window.location.href);
+      if (next === 'en') url.searchParams.set('lang', 'en');
+      else url.searchParams.delete('lang');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    } catch {}
+  };
 
   const [selectedAvatar, setSelectedAvatar] = useState(() => {
     try { return JSON.parse(localStorage.getItem('clash_session') || '{}').avatar || AVATAR_IDS[0] || ''; }
@@ -127,41 +377,38 @@ export default function ClashRoyalePage() {
   const [motherWitchVisit, setMotherWitchVisit] = useState(null);
   // Bingo-specific
   const [bingoState, setBingoState] = useState(null);
+  // Schatten-Karussel-specific
+  const [carouselState, setCarouselState] = useState(null);
+  // Elixir-Rush-specific
+  const [rushState, setRushState] = useState(null);
+  const [rushDenied, setRushDenied] = useState(null);
 
   // Keep refs in sync for use inside socket handlers (avoid stale closure)
   useEffect(() => { playerNameRef.current = playerName; }, [playerName]);
   useEffect(() => { avatarRef.current = selectedAvatar; }, [selectedAvatar]);
 
-  // Pre-fill code from URL ?code= then immediately clean URL
+  // Pre-fill code from URL ?code= then immediately clean URL.
+  // Ein neuer Einladungslink schlägt eine gespeicherte Sitzung: Zeigt die URL einen ANDEREN
+  // Lobby-Code als localStorage, wird die alte Sitzung verworfen (kein Auto-Rejoin in die
+  // alte Lobby mehr) — Name und Avatar bleiben als Vorbelegung erhalten.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const c = params.get('code');
     if (c) {
-      setJoinCode(c.toUpperCase());
+      const urlCode = c.toUpperCase();
+      setJoinCode(urlCode);
+      setHubTab('join');
+      try {
+        const saved = JSON.parse(localStorage.getItem('clash_session') || 'null');
+        if (saved?.code && saved.code !== urlCode) {
+          localStorage.removeItem('clash_session');
+          if (saved.playerName) { setPlayerName(saved.playerName); playerNameRef.current = saved.playerName; }
+          if (saved.avatar)     { setSelectedAvatar(saved.avatar); avatarRef.current = saved.avatar; }
+        }
+      } catch {}
       window.history.replaceState({}, '', '/clash-royale');
     }
   }, []);
-
-  // Nach Twitch-Login (Redirect-Roundtrip) automatisch zur Moderator-Seite weiterleiten
-  useEffect(() => {
-    if (!user) return;
-    if (sessionStorage.getItem(NUZLOCKE_REDIRECT_KEY) !== '1') return;
-    sessionStorage.removeItem(NUZLOCKE_REDIRECT_KEY);
-    getMyBannedCardsList()
-      .then((doc) => navigate(`/banned-cards/moderator/${doc.modKey}`))
-      .catch(() => {});
-  }, [user, navigate]);
-
-  const handleNuzlockeClick = () => {
-    if (!user) {
-      sessionStorage.setItem(NUZLOCKE_REDIRECT_KEY, '1');
-      login();
-      return;
-    }
-    getMyBannedCardsList()
-      .then((doc) => navigate(`/banned-cards/moderator/${doc.modKey}`))
-      .catch(() => {});
-  };
 
   // Socket setup — guard against React StrictMode double-invoke
   useEffect(() => {
@@ -183,7 +430,8 @@ export default function ClashRoyalePage() {
           setPlayerName(saved.playerName);
           playerNameRef.current = saved.playerName;
           if (saved.avatar) { setSelectedAvatar(saved.avatar); avatarRef.current = saved.avatar; }
-          socket.emit('clash:joinLobby', { code: saved.code, playerName: saved.playerName, avatar: saved.avatar || '' });
+          // auto: true → bei ungültiger Sitzung räumt der Server still auf statt einen Fehler zu zeigen
+          socket.emit('clash:joinLobby', { code: saved.code, playerName: saved.playerName, avatar: saved.avatar || '', auto: true });
         }
       } catch {}
     });
@@ -204,12 +452,13 @@ export default function ClashRoyalePage() {
       setPhase('game'); setGameOver(null);
     });
     socket.on('clash:lobbyUpdate', setLobbyData);
-    socket.on('clash:gameStart', () => { setPhase('game'); setGameOver(null); setAuctionState(null); setAuctionReveal(null); setMyBid(null); setBingoState(null); setMotherWitchVisit(null); });
+    socket.on('clash:gameStart', () => { setPhase('game'); setGameOver(null); setAuctionState(null); setAuctionReveal(null); setMyBid(null); setBingoState(null); setCarouselState(null); setRushState(null); setRushDenied(null); setMotherWitchVisit(null); });
     socket.on('clash:gameState', setGameState);
     socket.on('clash:timerTick', ({ remaining }) => {
       setGameState(prev => prev ? { ...prev, timerRemaining: remaining } : prev);
       setAuctionState(prev => prev ? { ...prev, timerRemaining: remaining } : prev);
       setBingoState(prev => prev ? { ...prev, timerRemaining: remaining } : prev);
+      setCarouselState(prev => prev ? { ...prev, timerRemaining: remaining } : prev);
     });
     socket.on('clash:gameOver', setGameOver);
     socket.on('clash:auctionRound', (data) => { setAuctionState(data); setAuctionReveal(null); setMyBid(null); });
@@ -217,6 +466,23 @@ export default function ClashRoyalePage() {
       setAuctionState(prev => prev ? { ...prev, pendingBidCount } : prev));
     socket.on('clash:auctionReveal', (data) => { setAuctionReveal(data); setAuctionState(data); });
     socket.on('clash:bingo:state', setBingoState);
+    socket.on('clash:carousel:state', setCarouselState);
+    // Elixir Rush: voller State bei jedem Marktereignis, leichter Elixier-Sync jede Sekunde.
+    // clientReceivedAt erlaubt dem Client, den Elixierbalken zwischen Syncs flüssig hochzurechnen.
+    socket.on('clash:rush:state', (data) => setRushState({ ...data, clientReceivedAt: Date.now() }));
+    socket.on('clash:rush:sync', (sync) => setRushState(prev => {
+      if (!prev) return prev;
+      const byId = Object.fromEntries((sync.players || []).map(p => [p.id, p]));
+      return {
+        ...prev,
+        serverNow: sync.serverNow,
+        clientReceivedAt: Date.now(),
+        players: prev.players.map(p => byId[p.id]
+          ? { ...p, elixir: byId[p.id].elixir, fullDeadline: byId[p.id].fullDeadline }
+          : p),
+      };
+    }));
+    socket.on('clash:rush:denied', (d) => setRushDenied({ ...d, ts: Date.now() }));
     socket.on('clash:historyData', setHistoryData);
     socket.on('clash:motherWitch:visit', (data) => setMotherWitchVisit(data));
     socket.on('clash:motherWitch:expire', () => setMotherWitchVisit(null));
@@ -234,17 +500,30 @@ export default function ClashRoyalePage() {
       setPhase('lobby');
       setGameOver(null); setGameState(null);
       setAuctionState(null); setAuctionReveal(null); setMyBid(null);
-      setBingoState(null); setMotherWitchVisit(null);
+      setBingoState(null); setCarouselState(null); setRushState(null); setRushDenied(null); setMotherWitchVisit(null);
       setCodeHidden(true); setLinkHidden(true);
       if (cancelled) {
-        setError('Das Spiel wurde vom Host/Admin abgebrochen.');
+        setError(langRef.current === 'en' ? 'The game was cancelled by the host/admin.' : 'Das Spiel wurde vom Host/Admin abgebrochen.');
         setTimeout(() => setError(''), 4000);
       }
     });
     socket.on('clash:kicked', () => {
       try { localStorage.removeItem('clash_session'); } catch {}
-      setError('Du wurdest aus der Lobby entfernt.');
+      setError(langRef.current === 'en' ? 'You were removed from the lobby.' : 'Du wurdest aus der Lobby entfernt.');
       setPhase('hub'); setLobbyData(null); setGameState(null);
+    });
+    // Gespeicherte Sitzung ist nicht mehr gültig (Lobby existiert nicht mehr o.ä.) — still aufräumen
+    socket.on('clash:sessionExpired', () => {
+      try { localStorage.removeItem('clash_session'); } catch {}
+    });
+    // Ein anderer Tab / eine neue Verbindung hat diese Sitzung übernommen — zurück zum Hub.
+    // localStorage NICHT löschen: die Sitzung gehört jetzt dem anderen Tab.
+    socket.on('clash:sessionTakeover', () => {
+      setPhase('hub'); setLobbyData(null); setGameState(null); setGameOver(null);
+      setAuctionState(null); setAuctionReveal(null); setMyBid(null);
+      setBingoState(null); setCarouselState(null); setMotherWitchVisit(null);
+      setError(langRef.current === 'en' ? 'Your session was taken over in another tab/window.' : 'Deine Sitzung wurde in einem anderen Tab/Fenster übernommen.');
+      setTimeout(() => setError(''), 5000);
     });
     socket.on('clash:error', ({ message }) => {
       setError(message);
@@ -278,15 +557,16 @@ export default function ClashRoyalePage() {
 
   // ── Actions ──────────────────────────────────────────────────────────────
   const handleCreate = () => {
-    if (!playerName.trim()) return setError('Bitte Namen eingeben');
+    if (!playerName.trim()) return setError(t.errNameRequired);
     setError('');
-    emit('clash:createLobby', { playerName: playerName.trim(), mode: selectedMode, timerSeconds: 60, avatar: selectedAvatar });
+    // Modus wird erst in der Lobby gewählt — Lobby startet mit Standardmodus
+    emit('clash:createLobby', { playerName: playerName.trim(), mode: 'snake', timerSeconds: 60, avatar: selectedAvatar });
   };
 
   const handleJoin = (codeOverride) => {
     const code = (codeOverride || joinCode).toUpperCase().trim();
-    if (!playerName.trim()) return setError('Bitte Namen eingeben');
-    if (!code) return setError('Bitte Lobby-Code eingeben');
+    if (!playerName.trim()) return setError(t.errNameRequired);
+    if (!code) return setError(t.errCodeRequired);
     setError('');
     emit('clash:joinLobby', { code, playerName: playerName.trim(), avatar: selectedAvatar });
   };
@@ -305,12 +585,24 @@ export default function ClashRoyalePage() {
 
   const handleLeave = () => {
     try { localStorage.removeItem('clash_session'); } catch {}
-    if (lobbyData?.code) emit('clash:leaveLobby', { code: lobbyData.code });
-    socketRef.current?.disconnect();
-    socketRef.current?.connect();
-    setPhase('hub'); setLobbyData(null); setGameState(null); setGameOver(null); setIsHost(false);
-    setAuctionState(null); setAuctionReveal(null); setMyBid(null); setBingoState(null); setMotherWitchVisit(null);
-    setCodeHidden(true); setLinkHidden(true);
+    // Erst NACH der Server-Bestätigung (Ack) trennen — sonst geht das leaveLobby-Paket
+    // beim sofortigen disconnect() gelegentlich verloren und der Spieler bleibt hängen
+    const finish = () => {
+      socketRef.current?.disconnect();
+      socketRef.current?.connect();
+      setPhase('hub'); setLobbyData(null); setGameState(null); setGameOver(null); setIsHost(false);
+      setAuctionState(null); setAuctionReveal(null); setMyBid(null); setBingoState(null); setCarouselState(null); setRushState(null); setRushDenied(null); setMotherWitchVisit(null);
+      setCodeHidden(true); setLinkHidden(true);
+    };
+    if (lobbyData?.code && socketRef.current?.connected) {
+      let doneCalled = false;
+      const fallback = setTimeout(() => { if (!doneCalled) { doneCalled = true; finish(); } }, 1000);
+      socketRef.current.emit('clash:leaveLobby', { code: lobbyData.code }, () => {
+        if (!doneCalled) { doneCalled = true; clearTimeout(fallback); finish(); }
+      });
+    } else {
+      finish();
+    }
   };
 
   const handleRestart = () => emit('clash:restartLobby', { code: lobbyData?.code });
@@ -322,7 +614,10 @@ export default function ClashRoyalePage() {
   const handleTransferHost = (targetId) => {
     const target = lobbyData?.players?.find(p => p.id === targetId);
     if (!target) return;
-    if (window.confirm(`Host-Status an "${target.name}" übergeben?${effectiveIsHost ? ' Du verlierst danach deine Host-Rechte.' : ''}`)) {
+    const confirmMsg = lang === 'en'
+      ? `Transfer host status to "${target.name}"?${effectiveIsHost ? ' You will lose your host rights afterwards.' : ''}`
+      : `Host-Status an "${target.name}" übergeben?${effectiveIsHost ? ' Du verlierst danach deine Host-Rechte.' : ''}`;
+    if (window.confirm(confirmMsg)) {
       emit('clash:transferHost', { code: lobbyData?.code, targetPlayerId: targetId });
     }
   };
@@ -330,8 +625,23 @@ export default function ClashRoyalePage() {
     emit('clash:setPlayerSpectator', { code: lobbyData?.code, targetPlayerId: targetId, isSpectator });
   const handleBingoPick = useCallback((cardIndex, bingoCell) =>
     emit('clash:bingo:pick', { code: lobbyData?.code, cardIndex, bingoCell }), [emit, lobbyData?.code]);
+  const handleCarouselFlip = useCallback((slotIdx) =>
+    emit('clash:carousel:flip', { code: lobbyData?.code, slotIdx }), [emit, lobbyData?.code]);
+  const handleCarouselPick = useCallback((slotIdx) =>
+    emit('clash:carousel:pick', { code: lobbyData?.code, slotIdx }), [emit, lobbyData?.code]);
+  const handleSetCarouselCards = (count) => emit('clash:setCarouselCards', { code: lobbyData?.code, count });
+  const handleSetCarouselReveal = (mode) => emit('clash:setCarouselReveal', { code: lobbyData?.code, mode });
+  const handleRushBuy = useCallback((slotIdx, seq) =>
+    emit('clash:rush:buy', { code: lobbyData?.code, slotIdx, seq }), [emit, lobbyData?.code]);
+  const handleSetRushMarketSize = (count) => emit('clash:setRushMarketSize', { code: lobbyData?.code, count });
+  const handleSetRushLifetime = (seconds) => emit('clash:setRushLifetime', { code: lobbyData?.code, seconds });
+  const handleSetRushShowElixir = (show) => emit('clash:setRushShowElixir', { code: lobbyData?.code, show });
   const handleBingoPowerup = useCallback((type, params) =>
     emit('clash:bingo:powerup', { code: lobbyData?.code, type, ...params }), [emit, lobbyData?.code]);
+  // Live-Übertragung der Token-Shop-Auswahl an alle Mitspieler
+  const handleBingoTokenAction = useCallback((data) =>
+    emit('clash:bingo:tokenAction', { code: lobbyData?.code, ...data }), [emit, lobbyData?.code]);
+  const handleSetTokenShopTimer = (s) => emit('clash:setTokenShopTimer', { code: lobbyData?.code, seconds: s });
   const handleToggleSpectator = () => emit('clash:toggleSpectator', { code: lobbyData?.code });
   const handleSetShowElixir = (show) => emit('clash:setShowElixir', { code: lobbyData?.code, show });
   const handleSetStartElixir = (amount) => emit('clash:setStartElixir', { code: lobbyData?.code, amount });
@@ -339,6 +649,19 @@ export default function ClashRoyalePage() {
   const handleMotherWitchRespond = useCallback((accept) =>
     emit('clash:motherWitch:respond', { code: lobbyData?.code, accept }), [emit, lobbyData?.code]);
   const handleSetGridSize = (size) => emit('clash:setGridSize', { code: lobbyData?.code, size });
+  // Global ausgeschlossene Karten — gelten für alle Spielmodi dieser Lobby
+  const excludedCards = lobbyData?.excludedCards || [];
+  const handleSetExcludedCards = (cardIds) => emit('clash:setExcludedCards', { code: lobbyData?.code, cardIds });
+  const handleToggleExcludeCard = (cardId) => {
+    const next = excludedCards.includes(cardId)
+      ? excludedCards.filter(id => id !== cardId)
+      : [...excludedCards, cardId];
+    handleSetExcludedCards(next);
+  };
+  const handleSetMode = (mode) => {
+    setModeMenuOpen(false);
+    if (mode !== lobbyData?.mode) emit('clash:setMode', { code: lobbyData?.code, mode });
+  };
   const handleOpenHistory = () => {
     emit('clash:requestHistory', { code: lobbyData?.code });
     setHistoryOpen(true);
@@ -356,7 +679,10 @@ export default function ClashRoyalePage() {
   // ── Hub ───────────────────────────────────────────────────────────────────
   if (phase === 'hub') return (
     <div className="h-full overflow-y-auto custom-scrollbar">
-      <SEO title="Clash Royale Minigames" description="Multiplayer Minigames im Clash Royale Stil." path="/clash-royale" />
+      <SEO
+        title="Clash Royale Minigames"
+        description={lang === 'en' ? 'Multiplayer minigames in Clash Royale style.' : 'Multiplayer Minigames im Clash Royale Stil.'}
+        path="/clash-royale" />
 
       <div className="border-b border-white/5 bg-[#0f0f13] px-6 py-8 text-center relative">
         <div className="flex items-center justify-center gap-4 mb-1">
@@ -368,106 +694,156 @@ export default function ClashRoyalePage() {
           />
           <h1 className="text-4xl font-black text-white tracking-tight">Clash Royale</h1>
         </div>
-        <p className="text-gray-500 text-sm mb-4">Multiplayer Minigames · Echtzeit · Lobbybasiert</p>
-        <div className="flex items-center justify-center gap-2">
+        <p className="text-gray-500 text-sm">{t.subtitle}</p>
+        <div className="absolute right-4 top-4 flex items-center gap-2">
           <button
-            onClick={handleNuzlockeClick}
-            title="Gebannte Karten verwalten (Moderator-Seite)"
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-sm text-xs font-semibold border bg-white/5 border-white/10 text-gray-400 hover:border-red-500/40 hover:text-red-300 transition-colors"
-          >
-            <Ban size={12} />
-            Nuzlocke
+            onClick={toggleLang}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-sm bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-xs font-bold transition-colors"
+            title={lang === 'de' ? 'Switch to English' : 'Auf Deutsch wechseln'}>
+            {lang === 'de' ? 'EN' : 'DE'}
+          </button>
+          <button
+            onClick={() => setStreamerCfgOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-sm bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-xs font-bold transition-colors"
+            title={t.streamerSetupTitle}>
+            <Monitor size={14} />
+            <span className="hidden sm:inline">{t.streamerSetup}</span>
           </button>
         </div>
       </div>
 
+      {streamerCfgOpen && <StreamerConfigPanel onClose={() => setStreamerCfgOpen(false)} lang={lang} />}
+
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
 
-        <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-6 space-y-4">
-          <h2 className="text-white font-bold">Spieler</h2>
-
-          {/* Name + selected avatar preview */}
-          <div className="flex items-center gap-3">
-            <PlayerAvatar avatarId={selectedAvatar} size={40} />
-            <input
-              value={playerName}
-              onChange={e => setPlayerName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleCreate()}
-              placeholder="Dein Name…"
-              maxLength={20}
-              className="flex-1 bg-[#1a1a20] border border-white/10 rounded-sm px-4 py-2.5 text-white placeholder-gray-600 focus:border-cyan-500 outline-none text-sm"
-            />
-          </div>
-
-          {/* Avatar picker — nur anzeigen wenn Bilder vorhanden */}
-          {AVATAR_IDS.length > 0 && (
-            <div>
-              <p className="text-gray-500 text-xs mb-2">Profilbild wählen</p>
-              <div className="flex flex-wrap gap-2">
-                {AVATAR_IDS.map(id => (
-                  <button key={id}
-                    onClick={() => setSelectedAvatar(id)}
-                    title={id.replace(/\.[^.]+$/, '')}
-                    className={`rounded-full overflow-hidden border-2 transition-all shrink-0 ${
-                      selectedAvatar === id
-                        ? 'border-cyan-500 ring-2 ring-cyan-500/30 scale-110'
-                        : 'border-white/15 hover:border-white/40'
-                    }`}
-                    style={{ width: 48, height: 48 }}>
-                    <img src={AVATAR_URL_MAP[id]} alt={id}
-                      className="w-full h-full object-cover object-center" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <input
-              value={joinCode}
-              onChange={e => setJoinCode(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleJoin()}
-              placeholder="Lobby-Code eingeben…"
-              maxLength={6}
-              className="flex-1 bg-[#1a1a20] border border-white/10 rounded-sm px-4 py-2.5 text-white placeholder-gray-600 focus:border-cyan-500 outline-none text-sm font-mono tracking-widest uppercase"
-            />
-            <button onClick={() => handleJoin()}
-              className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-5 py-2.5 rounded-sm text-sm font-semibold transition-colors whitespace-nowrap">
-              Beitreten
+        <div className="bg-[#0f0f13] border border-white/5 rounded-sm overflow-hidden">
+          {/* Aktion wählen: Lobby erstellen oder beitreten */}
+          <div className="grid grid-cols-2 border-b border-white/5">
+            <button onClick={() => setHubTab('create')}
+              className={`flex items-center justify-center gap-2 py-3.5 text-sm font-bold transition-colors border-b-2 ${
+                hubTab === 'create' ? 'border-cyan-500 text-white bg-white/[0.03]' : 'border-transparent text-gray-500 hover:text-gray-300'
+              }`}>
+              <Sword size={14} />
+              {t.tabCreate}
+            </button>
+            <button onClick={() => setHubTab('join')}
+              className={`flex items-center justify-center gap-2 py-3.5 text-sm font-bold transition-colors border-b-2 ${
+                hubTab === 'join' ? 'border-cyan-500 text-white bg-white/[0.03]' : 'border-transparent text-gray-500 hover:text-gray-300'
+              }`}>
+              <Link2 size={14} />
+              {t.tabJoin}
             </button>
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+
+          <div className="p-6 space-y-4">
+            {/* Name + selected avatar preview */}
+            <div className="flex items-center gap-3">
+              <PlayerAvatar avatarId={selectedAvatar} size={40} />
+              <input
+                value={playerName}
+                onChange={e => setPlayerName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (hubTab === 'create' ? handleCreate() : handleJoin())}
+                placeholder={t.namePlaceholder}
+                maxLength={20}
+                className="flex-1 bg-[#1a1a20] border border-white/10 rounded-sm px-4 py-2.5 text-white placeholder-gray-600 focus:border-cyan-500 outline-none text-sm"
+              />
+            </div>
+
+            {/* Avatar picker — nur anzeigen wenn Bilder vorhanden */}
+            {AVATAR_IDS.length > 0 && (
+              <div>
+                <p className="text-gray-500 text-xs mb-2">{t.avatarLabel}</p>
+                <div className="flex flex-wrap gap-2">
+                  {AVATAR_IDS.map(id => (
+                    <button key={id}
+                      onClick={() => setSelectedAvatar(id)}
+                      title={id.replace(/\.[^.]+$/, '')}
+                      className={`rounded-full overflow-hidden border-2 transition-all shrink-0 ${
+                        selectedAvatar === id
+                          ? 'border-cyan-500 ring-2 ring-cyan-500/30 scale-110'
+                          : 'border-white/15 hover:border-white/40'
+                      }`}
+                      style={{ width: 48, height: 48 }}>
+                      <img src={AVATAR_URL_MAP[id]} alt={id}
+                        className="w-full h-full object-cover object-center" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {hubTab === 'join' && (
+              <input
+                value={joinCode}
+                onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === 'Enter' && handleJoin()}
+                placeholder={t.codePlaceholder}
+                maxLength={6}
+                className="w-full bg-[#1a1a20] border border-white/10 rounded-sm px-4 py-2.5 text-white placeholder-gray-600 focus:border-cyan-500 outline-none text-sm font-mono tracking-widest uppercase"
+              />
+            )}
+
+            {hubTab === 'create' ? (
+              <button onClick={handleCreate}
+                className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2">
+                <Sword size={16} />
+                {t.createBtn}
+              </button>
+            ) : (
+              <button onClick={() => handleJoin()}
+                className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2">
+                <Link2 size={16} />
+                {t.joinBtn}
+              </button>
+            )}
+
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+          </div>
         </div>
 
+        {/* Modi-Übersicht — nur Info, die Auswahl erfolgt in der Lobby */}
         <div className="space-y-3">
-          <h2 className="text-white font-bold">Modus wählen</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-white font-bold">{t.modesHeading}</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {MODES.map(m => {
               const Icon = m.icon;
+              const desc = modeDescFor(m.id, lang);
               return (
-                <button key={m.id} disabled={!m.available}
-                  onClick={() => m.available && setSelectedMode(m.id)}
-                  className={`text-left p-5 rounded-sm border transition-all
-                    ${selectedMode === m.id && m.available ? 'border-cyan-500/50 bg-cyan-500/5 ring-1 ring-cyan-500/20' : 'border-white/5 bg-[#0f0f13]'}
-                    ${m.available ? 'hover:border-white/20 cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <Icon size={20} className={selectedMode === m.id && m.available ? 'text-cyan-400' : 'text-gray-500'} />
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm ${m.available ? 'bg-green-500/15 text-green-400' : 'bg-white/5 text-gray-600'}`}>
-                      {m.available ? 'Verfügbar' : 'Coming soon'}
-                    </span>
+                <div key={m.id} className="p-5 rounded-sm border border-white/5 bg-[#0f0f13]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon size={16} className="text-cyan-400 shrink-0" />
+                    <span className="text-white font-bold text-sm whitespace-nowrap">{modeNameFor(m.id, lang)}</span>
                   </div>
-                  <div className="text-white font-bold text-sm mb-1">{m.name}</div>
-                  <div className="text-gray-500 text-xs leading-relaxed">{m.desc}</div>
-                </button>
+                  {!m.available && (
+                    <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-white/5 text-gray-600 mb-2">
+                      {t.comingSoon}
+                    </span>
+                  )}
+                  {desc && <div className="text-gray-500 text-xs leading-relaxed">{desc}</div>}
+                </div>
               );
             })}
           </div>
         </div>
 
-        <button onClick={handleCreate}
-          className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2">
-          <Sword size={16} />
-          Lobby erstellen
-        </button>
+        {/* Support-Kanäle */}
+        <div className="p-5 rounded-sm border border-white/5 bg-[#0f0f13]">
+          <h2 className="text-white font-bold text-sm mb-3">{t.support}</h2>
+          <div className="flex flex-wrap gap-3">
+            <a href="https://twitch.tv/vnmvalentin" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-4 py-2.5 rounded-sm bg-[#1a1a20] border border-white/10 hover:border-[#9146FF] hover:bg-[#9146FF]/10 transition-colors">
+              <img src="https://cdn.simpleicons.org/twitch/9146FF" alt="Twitch" className="w-5 h-5 shrink-0" />
+              <span className="text-white font-bold text-sm">twitch.tv/vnmvalentin</span>
+            </a>
+            <a href="https://discord.gg/ecRJSx2R6x" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-4 py-2.5 rounded-sm bg-[#1a1a20] border border-white/10 hover:border-[#5865F2] hover:bg-[#5865F2]/10 transition-colors">
+              <img src="https://cdn.simpleicons.org/discord/5865F2" alt="Discord" className="w-5 h-5 shrink-0" />
+              <span className="text-white font-bold text-sm">{t.joinDiscord}</span>
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -476,31 +852,66 @@ export default function ClashRoyalePage() {
   if (phase === 'lobby') {
     const realPlayers = (lobbyData?.players || []).filter(p => !p.isAdmin);
     const activePlayers = realPlayers.filter(p => !p.isSpectator);
-    const canStart = canControlLobby && activePlayers.length >= 2;
+    // Kartenpool = alle Karten abzüglich der global ausgeschlossenen
+    const poolSize = ALL_CARDS.length - excludedCards.length;
+    // Karussel: Kartenpool begrenzt die Tischanzahl — z.B. 122 Karten bei 16 pro Tisch → max. 7 Spieler
+    const currentCarouselCards = lobbyData?.carouselCardsPerTable || 8;
+    const currentCarouselReveal = lobbyData?.carouselRevealMode || 'dynamic';
+    const carouselMaxPlayers = Math.min(8, Math.floor(poolSize / currentCarouselCards));
+    const carouselTooMany = lobbyData?.mode === 'shadow-carousel' && activePlayers.length > carouselMaxPlayers;
+    // Mindestgröße des Pools je nach Modus (Karussel wird über carouselTooMany abgedeckt)
+    const effCardsPerRound = Math.max(activePlayers.length || 2, lobbyData?.cardsPerRound || activePlayers.length || 2);
+    const currentRushMarket = lobbyData?.rushMarketSize || 5;
+    const currentRushLifetime = lobbyData?.rushCardLifetime || 15;
+    const currentRushShowElixir = lobbyData?.rushShowElixir ?? true;
+    const requiredPool = lobbyData?.mode === 'snake'
+      ? (lobbyData?.gridSize || 11) * (lobbyData?.gridSize || 11)
+      : lobbyData?.mode === 'shadow-carousel'
+        ? activePlayers.length * currentCarouselCards
+        : lobbyData?.mode === 'elixir-rush'
+          ? activePlayers.length * 8 + currentRushMarket
+          : 8 * effCardsPerRound;
+    const poolTooSmall = lobbyData?.mode !== 'shadow-carousel' && poolSize < requiredPool;
+    const canStart = canControlLobby && activePlayers.length >= 2 && !carouselTooMany && !poolTooSmall;
     const currentTimer = lobbyData?.timerSeconds || 60;
+    const currentTokenShopTimer = lobbyData?.tokenShopTimerSeconds || 60;
     const currentStartElixir = lobbyData?.startElixir ?? 100;
     const currentShowElixir = lobbyData?.showElixir ?? false;
     const currentMotherWitch = lobbyData?.motherWitchEnabled ?? false;
     const currentGridSize = lobbyData?.gridSize || 11;
+    const currentModeInfo = MODES.find(m => m.id === lobbyData?.mode) || MODES[0];
+    const CurrentModeIcon = currentModeInfo.icon;
 
     return (
       <div className="h-full overflow-y-auto custom-scrollbar">
-        <SEO title="Lobby · Clash Royale" description="Warte auf Mitspieler" path="/clash-royale" />
+        <SEO title="Lobby · Clash Royale" description={t.lobbySeoDesc} path="/clash-royale" />
+
+        {/* Kartenpool-Modal — Karten global vom Draft ausschließen */}
+        {excludeOpen && (
+          <CardExclusionModal
+            excluded={excludedCards}
+            canEdit={canControlLobby}
+            onToggle={handleToggleExcludeCard}
+            onReset={() => handleSetExcludedCards([])}
+            onClose={() => setExcludeOpen(false)}
+            lang={lang}
+          />
+        )}
 
         {/* History Modal */}
         {historyOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setHistoryOpen(false)}>
             <div className="bg-[#16161a] border border-white/10 rounded-sm w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
-                <span className="text-white font-bold flex items-center gap-2"><Trophy size={15} className="text-amber-400" /> Spielverlauf dieser Sitzung</span>
+                <span className="text-white font-bold flex items-center gap-2"><Trophy size={15} className="text-amber-400" /> {t.historyTitle}</span>
                 <button onClick={() => setHistoryOpen(false)} className="text-gray-500 hover:text-white p-1">✕</button>
               </div>
               <div className="overflow-y-auto custom-scrollbar p-5 space-y-8">
                 {historyData.length === 0 ? (
-                  <p className="text-gray-500 text-sm text-center py-8">Noch kein abgeschlossenes Spiel in dieser Sitzung.</p>
+                  <p className="text-gray-500 text-sm text-center py-8">{t.historyEmpty}</p>
                 ) : historyData.map((game, gi) => (
                   <div key={gi}>
-                    <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-3">Spiel {game.gameNum} · {game.mode === 'auction' ? 'Elixir Auction' : game.mode === 'bingo' ? 'Bingo Royale' : 'Snake Royale'}</p>
+                    <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-3">{t.historyGame(game.gameNum)} · {modeNameFor(game.mode, lang)}</p>
                     <div className={`grid gap-4 ${game.players.filter(p=>!p.isSpectator).length <= 2 ? 'grid-cols-2' : game.players.filter(p=>!p.isSpectator).length <= 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
                       {game.players.filter(p => !p.isSpectator).map((p, pi) => (
                         <div key={pi} className="bg-[#0f0f13] border border-white/5 rounded-sm p-3 space-y-2">
@@ -515,7 +926,7 @@ export default function ClashRoyalePage() {
                               </div>
                             ))}
                           </div>
-                          <p className="text-gray-600 text-[9px]">{p.deck.length}/8 Karten</p>
+                          <p className="text-gray-600 text-[9px]">{p.deck.length}/8 {t.cardsUnit}</p>
                         </div>
                       ))}
                     </div>
@@ -531,15 +942,15 @@ export default function ClashRoyalePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">
-                {MODES.find(m => m.id === lobbyData?.mode)?.name || 'Lobby'}
+                {lobbyData?.mode ? modeNameFor(lobbyData.mode, lang) : 'Lobby'}
               </p>
-              <h1 className="text-2xl font-black text-white">Warte auf Spieler…</h1>
+              <h1 className="text-2xl font-black text-white">{t.waitingForPlayers}</h1>
             </div>
             <div className="flex items-center gap-2">
               {(lobbyData?.historyCount > 0) && (
-                <button onClick={handleOpenHistory} title="Spielverlauf"
+                <button onClick={handleOpenHistory} title={t.history}
                   className="p-2 border border-white/10 rounded-sm hover:border-amber-500/40 hover:text-amber-400 transition-colors text-gray-500 flex items-center gap-1.5 text-xs font-semibold px-3">
-                  <Trophy size={13} /> Verlauf
+                  <Trophy size={13} /> {t.history}
                 </button>
               )}
               <button onClick={handleLeave}
@@ -552,11 +963,11 @@ export default function ClashRoyalePage() {
           {/* Lobby code card */}
           <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 space-y-3">
             <div className="flex items-center gap-3">
-              <span className="text-gray-500 text-xs w-10 shrink-0">Code</span>
+              <span className="text-gray-500 text-xs w-10 shrink-0">{t.codeLabel}</span>
               <span className={`flex-1 text-3xl font-black text-white tracking-[0.25em] font-mono transition-all ${codeHidden ? 'blur-md select-none pointer-events-none' : 'select-all'}`}>
                 {lobbyData?.code || '------'}
               </span>
-              <button onClick={() => copyText(lobbyData?.code, 'code')} title="Kopieren"
+              <button onClick={() => copyText(lobbyData?.code, 'code')} title={t.copy}
                 className="p-2 border border-white/10 rounded-sm hover:border-white/30 transition-colors text-gray-500 hover:text-white shrink-0">
                 {copied === 'code' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
               </button>
@@ -567,11 +978,11 @@ export default function ClashRoyalePage() {
             </div>
             <div className="h-px bg-white/5" />
             <div className="flex items-center gap-3">
-              <span className="text-gray-500 text-xs w-10 shrink-0">Link</span>
+              <span className="text-gray-500 text-xs w-10 shrink-0">{t.linkLabel}</span>
               <div className={`flex-1 bg-[#1a1a20] border border-white/5 rounded-sm px-3 py-2 text-gray-500 text-xs font-mono truncate transition-all ${linkHidden ? 'blur-sm select-none pointer-events-none' : ''}`}>
                 {lobbyLink}
               </div>
-              <button onClick={() => copyText(lobbyLink, 'link')} title="Kopieren"
+              <button onClick={() => copyText(lobbyLink, 'link')} title={t.copy}
                 className="p-2 border border-white/10 rounded-sm hover:border-white/30 transition-colors text-gray-500 hover:text-white shrink-0">
                 {copied === 'link' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
               </button>
@@ -587,7 +998,7 @@ export default function ClashRoyalePage() {
             <div className="flex items-center justify-between mb-4">
               <span className="text-white font-semibold text-sm flex items-center gap-2">
                 <Users size={14} className="text-gray-500" />
-                {activePlayers.length} Spieler · {realPlayers.length - activePlayers.length} Zuschauer
+                {t.playersSpectators(activePlayers.length, realPlayers.length - activePlayers.length)}
               </span>
             </div>
             <div className="space-y-1.5">
@@ -595,24 +1006,24 @@ export default function ClashRoyalePage() {
                 <div key={p.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-sm ${p.isAdmin ? 'bg-cyan-500/5 border border-cyan-500/20' : p.isSpectator ? 'bg-[#1a1a20]/50' : 'bg-[#1a1a20]'}`}>
                   <PlayerAvatar avatarId={p.avatar} size={36} isAdmin={p.isAdmin} />
                   <span className={`font-semibold flex-1 truncate text-sm ${p.isAdmin ? 'text-cyan-300' : p.isSpectator ? 'text-gray-500' : 'text-white'}`}>{p.name}</span>
-                  {p.isAdmin && <span className="text-[9px] text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 rounded-sm shrink-0">Admin</span>}
-                  {!p.isAdmin && p.isSpectator && <span className="text-[9px] text-gray-600 border border-white/10 px-1.5 py-0.5 rounded-sm shrink-0">Zuschauer</span>}
+                  {p.isAdmin && <span className="text-[9px] text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 rounded-sm shrink-0">{t.admin}</span>}
+                  {!p.isAdmin && p.isSpectator && <span className="text-[9px] text-gray-600 border border-white/10 px-1.5 py-0.5 rounded-sm shrink-0">{t.spectator}</span>}
                   {p.id === lobbyData?.host && <Crown size={11} className="text-amber-400 shrink-0" />}
                   {p.id === mySocketId && !p.isAdmin && (
                     <button onClick={handleToggleSpectator}
                       className={`text-[9px] px-2 py-1 rounded-sm border transition-colors shrink-0 ${p.isSpectator ? 'border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10' : 'border-white/10 text-gray-500 hover:text-white hover:border-white/30'}`}>
-                      {p.isSpectator ? 'Mitspielen' : 'Zuschauen'}
+                      {p.isSpectator ? t.play : t.spectate}
                     </button>
                   )}
                   {canControlLobby && p.id !== mySocketId && !p.isAdmin && (
                     <>
                       <button onClick={() => handleSetPlayerSpectator(p.id, !p.isSpectator)}
-                        title={p.isSpectator ? 'Wieder aktivieren' : 'Als Zuschauer setzen'}
+                        title={p.isSpectator ? t.reactivateTitle : t.setSpectatorTitle}
                         className={`text-[9px] px-2 py-1 rounded-sm border transition-colors shrink-0 ${p.isSpectator ? 'border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10' : 'border-white/10 text-gray-500 hover:text-white hover:border-white/30'}`}>
-                        {p.isSpectator ? 'Reaktivieren' : 'Zuschauer'}
+                        {p.isSpectator ? t.reactivate : t.setSpectator}
                       </button>
                       {p.id !== lobbyData?.host && (
-                        <button onClick={() => handleTransferHost(p.id)} title="Host-Status übergeben"
+                        <button onClick={() => handleTransferHost(p.id)} title={t.transferHostTitle}
                           className="text-gray-700 hover:text-amber-400 transition-colors p-0.5 shrink-0">
                           <ArrowLeftRight size={12} />
                         </button>
@@ -620,7 +1031,7 @@ export default function ClashRoyalePage() {
                     </>
                   )}
                   {canControlLobby && p.id !== lobbyData?.host && !p.isAdmin && (
-                    <button onClick={() => handleKick(p.id)} title="Kicken"
+                    <button onClick={() => handleKick(p.id)} title={t.kickTitle}
                       className="text-gray-700 hover:text-red-400 transition-colors p-0.5 shrink-0">
                       <UserX size={12} />
                     </button>
@@ -635,14 +1046,79 @@ export default function ClashRoyalePage() {
             <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 space-y-5">
               {isClashAdmin && !effectiveIsHost && (
                 <p className="text-cyan-400 text-xs flex items-center gap-1.5">
-                  <Shield size={12} /> Admin-Zugriff — du steuerst diese Lobby, ohne Host zu sein.
+                  <Shield size={12} /> {t.adminAccessNote}
                 </p>
               )}
-              {/* Timer */}
+              {/* Spielmodus — kann bis zum Start jederzeit gewechselt werden */}
+              <div>
+                <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                  <Sword size={13} className="text-gray-500" />
+                  {t.gameMode}
+                </p>
+                <div className="relative">
+                  <button onClick={() => setModeMenuOpen(v => !v)}
+                    className={`w-full flex items-center gap-2.5 bg-[#1a1a20] border rounded-sm px-3.5 py-2.5 text-left transition-colors ${modeMenuOpen ? 'border-cyan-500/50' : 'border-white/10 hover:border-white/25'}`}>
+                    <CurrentModeIcon size={15} className="text-cyan-400 shrink-0" />
+                    <span className="text-white text-sm font-semibold flex-1">{modeNameFor(currentModeInfo.id, lang)}</span>
+                    <ChevronDown size={14} className={`text-gray-500 transition-transform ${modeMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {modeMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setModeMenuOpen(false)} />
+                      <div className="absolute z-20 mt-1 w-full bg-[#16161a] border border-white/10 rounded-sm shadow-2xl overflow-hidden">
+                        {MODES.filter(m => m.available).map(m => {
+                          const Icon = m.icon;
+                          const active = m.id === lobbyData?.mode;
+                          return (
+                            <button key={m.id} onClick={() => handleSetMode(m.id)}
+                              className={`w-full flex items-start gap-2.5 px-3.5 py-3 text-left transition-colors ${active ? 'bg-cyan-500/10' : 'hover:bg-white/5'}`}>
+                              <Icon size={15} className={`shrink-0 mt-0.5 ${active ? 'text-cyan-400' : 'text-gray-500'}`} />
+                              <span className="flex-1">
+                                <span className={`block text-sm font-semibold ${active ? 'text-cyan-300' : 'text-white'}`}>{modeNameFor(m.id, lang)}</span>
+                                <span className="block text-gray-500 text-xs leading-relaxed mt-0.5">{modeDescFor(m.id, lang)}</span>
+                              </span>
+                              {active && <Check size={14} className="text-cyan-400 shrink-0 mt-0.5" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <p className="text-gray-600 text-xs mt-2">{modeDescFor(currentModeInfo.id, lang)}</p>
+              </div>
+
+              {/* Kartenpool — gilt global für alle Spielmodi */}
+              <div>
+                <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                  <Ban size={13} className="text-gray-500" />
+                  {t.cardPool}
+                </p>
+                <button onClick={() => setExcludeOpen(true)}
+                  className="w-full flex items-center justify-between gap-2 bg-[#1a1a20] border border-white/10 hover:border-white/25 rounded-sm px-3.5 py-2.5 transition-colors text-left">
+                  <span className={`text-sm font-semibold ${excludedCards.length ? 'text-white' : 'text-gray-400'}`}>
+                    {excludedCards.length === 0
+                      ? t.allCardsInDraft(ALL_CARDS.length)
+                      : t.excludedInDraft(excludedCards.length, poolSize)}
+                  </span>
+                  <span className="text-cyan-400 text-xs font-semibold shrink-0">{t.edit}</span>
+                </button>
+                <p className="text-gray-600 text-xs mt-2">
+                  {t.cardPoolNote}
+                </p>
+                {poolTooSmall && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {t.poolTooSmall(modeNameFor(currentModeInfo.id, lang), requiredPool, poolSize)}
+                  </p>
+                )}
+              </div>
+
+              {/* Timer — Elixir Rush läuft in Echtzeit ohne Zug-Timer */}
+              {lobbyData?.mode !== 'elixir-rush' && (
               <div>
                 <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
                   <Clock size={13} className="text-gray-500" />
-                  {lobbyData?.mode === 'auction' ? 'Zeit pro Runde' : lobbyData?.mode === 'bingo' ? 'Zeit pro Pick' : 'Zeit pro Pick'}
+                  {lobbyData?.mode === 'auction' ? t.timePerRound : t.timePerPick}
                 </p>
                 <div className="flex gap-2 flex-wrap items-center">
                   {TIMER_OPTIONS.map(s => (
@@ -653,75 +1129,249 @@ export default function ClashRoyalePage() {
                   ))}
                   <div className="flex items-center gap-1">
                     <input type="number" min={5} max={300} placeholder="Custom"
-                      className="w-16 bg-[#1a1a20] border border-white/10 rounded-sm px-1 py-1.5 text-white text-sm text-center focus:border-cyan-500 outline-none tabular-nums placeholder-gray-600"
+                      className="w-20 bg-[#1a1a20] border border-white/10 rounded-sm px-1 py-1.5 text-white text-sm text-center focus:border-cyan-500 outline-none tabular-nums placeholder-gray-600"
                       onKeyDown={e => e.key === 'Enter' && e.target.value && handleSetTimer(Math.max(5, Math.min(300, Number(e.target.value))))}
                       onBlur={e => e.target.value && handleSetTimer(Math.max(5, Math.min(300, Number(e.target.value))))} />
                     <span className="text-gray-600 text-xs">s</span>
                   </div>
                 </div>
               </div>
+              )}
+
+              {lobbyData?.mode === 'elixir-rush' && (<>
+                {/* Marktplatz-Größe */}
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Zap size={13} className="text-fuchsia-400" />
+                    {t.marketplaceCards}
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[3, 4, 5, 6, 7, 8].map(n => (
+                      <button key={n} onClick={() => handleSetRushMarketSize(n)}
+                        className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${
+                          currentRushMarket === n ? 'bg-fuchsia-500 text-white border-fuchsia-500'
+                          : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-gray-600 text-xs mt-2">
+                    {t.marketplaceCardsNote}
+                  </p>
+                </div>
+
+                {/* Kartenzeit */}
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Clock size={13} className="text-fuchsia-400" />
+                    {t.marketplaceLifetime}
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[5, 8, 10, 15, 20, 30].map(s => (
+                      <button key={s} onClick={() => handleSetRushLifetime(s)}
+                        className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${
+                          currentRushLifetime === s ? 'bg-fuchsia-500 text-white border-fuchsia-500'
+                          : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                        {s}s
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-gray-600 text-xs mt-2">
+                    {t.marketplaceLifetimeNote}
+                  </p>
+                </div>
+
+                {/* Elixier anderer anzeigen */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white text-sm font-semibold">{t.showOthersElixir}</p>
+                    <p className="text-gray-600 text-xs mt-0.5">{t.showOthersElixirNoteRush}</p>
+                  </div>
+                  <button onClick={() => handleSetRushShowElixir(!currentRushShowElixir)}
+                    className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${currentRushShowElixir ? 'bg-fuchsia-500' : 'bg-[#2a2a32]'}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${currentRushShowElixir ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+              </>)}
+
+              {lobbyData?.mode === 'shadow-carousel' && (<>
+                {/* Karten pro Tisch */}
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Repeat size={13} className="text-violet-400" />
+                    {t.cardsPerTable}
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[8, 12, 16].map(n => {
+                      const maxP = Math.min(8, Math.floor(poolSize / n));
+                      const unplayable = maxP < 2;
+                      return (
+                        <button key={n} onClick={() => handleSetCarouselCards(n)} disabled={unplayable}
+                          title={unplayable ? t.cardsPerTableDisabledTitle(poolSize, n) : t.maxPlayersTitle(maxP)}
+                          className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${
+                            unplayable ? 'bg-[#1a1a20] text-gray-700 border-white/5 cursor-not-allowed'
+                            : currentCarouselCards === n ? 'bg-violet-500 text-white border-violet-500'
+                            : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-gray-600 text-xs mt-2">
+                    {currentCarouselCards === 8
+                      ? t.carouselAllUsed
+                      : t.carouselSomeUnused(currentCarouselCards - 8)}
+                    {' '}{t.carouselMaxPlayersNote(carouselMaxPlayers)}
+                  </p>
+                  {carouselTooMany && (
+                    <p className="text-red-400 text-xs mt-1">
+                      {t.carouselTooMany(activePlayers.length, poolSize, currentCarouselCards)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Aufdecksystem */}
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Eye size={13} className="text-violet-400" />
+                    {t.revealsPerRound}
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { id: 'dynamic', label: t.revealDynamic },
+                      { id: 'two', label: t.revealAlwaysTwo },
+                      { id: 'one', label: t.revealAlwaysOne },
+                    ].map(o => (
+                      <button key={o.id} onClick={() => handleSetCarouselReveal(o.id)}
+                        className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${currentCarouselReveal === o.id ? 'bg-violet-500 text-white border-violet-500' : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-gray-600 text-xs mt-2">
+                    {currentCarouselReveal === 'dynamic'
+                      ? t.revealDynamicNote
+                      : currentCarouselReveal === 'two'
+                        ? t.revealTwoNote
+                        : t.revealOneNote}
+                  </p>
+                </div>
+              </>)}
 
               {lobbyData?.mode === 'snake' && (
                 <div>
                   <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
                     <Worm size={13} className="text-cyan-400" />
-                    Rastergröße
+                    {t.gridSize}
                   </p>
                   <div className="flex gap-2 flex-wrap">
-                    {[7, 8, 9, 10, 11].map(s => (
-                      <button key={s} onClick={() => handleSetGridSize(s)}
-                        className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${currentGridSize === s ? 'bg-cyan-500 text-black border-cyan-500' : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
-                        {s}×{s}
-                        {s === 11 && <span className="text-[9px] ml-1 opacity-60">alle</span>}
-                      </button>
-                    ))}
+                    {[7, 8, 9, 10, 11].map(s => {
+                      const tooBig = s * s > poolSize;
+                      return (
+                        <button key={s} onClick={() => handleSetGridSize(s)} disabled={tooBig}
+                          title={tooBig ? t.gridSizeTooSmallTitle(s * s, poolSize) : undefined}
+                          className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${
+                            tooBig ? 'bg-[#1a1a20] text-gray-700 border-white/5 cursor-not-allowed'
+                            : currentGridSize === s ? 'bg-cyan-500 text-black border-cyan-500'
+                            : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                          {s}×{s}
+                        </button>
+                      );
+                    })}
                   </div>
                   <p className="text-gray-600 text-xs mt-2">
-                    {currentGridSize === 11 ? 'Alle 121 Karten · kein Zufall' : `${currentGridSize * currentGridSize} zufällige Karten aus dem Pool`}
+                    {currentGridSize === 11 ? t.gridAllCards : t.gridRandomCards(currentGridSize * currentGridSize)}
+                    {excludedCards.length > 0 && t.poolSuffix(poolSize)}
                   </p>
                 </div>
               )}
 
-              {lobbyData?.mode === 'bingo' && (
+              {lobbyData?.mode === 'bingo' && (<>
                 <div>
                   <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
                     <Hash size={13} className="text-amber-400" />
-                    Karten pro Runde (min. {activePlayers.length || 2})
+                    {t.cardsPerRound(activePlayers.length || 2)}
                   </p>
                   <div className="flex gap-2 flex-wrap">
-                    {[2,3,4,5,6,7,8,9,10].filter(n => n >= (activePlayers.length || 2)).map(n => (
-                      <button key={n} onClick={() => handleSetCardsPerRound(n)}
-                        className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${(lobbyData?.cardsPerRound || activePlayers.length || 2) === n ? 'bg-amber-400 text-black border-amber-400' : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
-                        {n}
+                    {[2,3,4,5,6,7,8,9,10].filter(n => n >= (activePlayers.length || 2)).map(n => {
+                      const tooBig = 8 * n > poolSize;
+                      return (
+                        <button key={n} onClick={() => handleSetCardsPerRound(n)} disabled={tooBig}
+                          title={tooBig ? t.cardsPerRoundTooBigTitle(n, poolSize) : undefined}
+                          className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${
+                            tooBig ? 'bg-[#1a1a20] text-gray-700 border-white/5 cursor-not-allowed'
+                            : (lobbyData?.cardsPerRound || activePlayers.length || 2) === n ? 'bg-amber-400 text-black border-amber-400'
+                            : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-gray-600 text-xs mt-2">
+                    {t.cardsPerRoundNoteBingo}
+                    {excludedCards.length > 0 && t.poolFor8Rounds(poolSize)}
+                  </p>
+                </div>
+
+                {/* Zeitlimit pro Token im Token-Shop */}
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Clock size={13} className="text-amber-400" />
+                    {t.timePerToken}
+                  </p>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {TIMER_OPTIONS.map(s => (
+                      <button key={s} onClick={() => handleSetTokenShopTimer(s)}
+                        className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${currentTokenShopTimer === s ? 'bg-amber-400 text-black border-amber-400' : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                        {s}s
                       </button>
                     ))}
+                    <div className="flex items-center gap-1">
+                      <input type="number" min={10} max={300} placeholder="Custom"
+                        className="w-20 bg-[#1a1a20] border border-white/10 rounded-sm px-1 py-1.5 text-white text-sm text-center focus:border-amber-400 outline-none tabular-nums placeholder-gray-600"
+                        onKeyDown={e => e.key === 'Enter' && e.target.value && handleSetTokenShopTimer(Math.max(10, Math.min(300, Number(e.target.value))))}
+                        onBlur={e => e.target.value && handleSetTokenShopTimer(Math.max(10, Math.min(300, Number(e.target.value))))} />
+                      <span className="text-gray-600 text-xs">s</span>
+                    </div>
                   </div>
-                  <p className="text-gray-600 text-xs mt-2">Karten die pro Runde zur Auswahl stehen (mindestens 1 pro Spieler)</p>
+                  <p className="text-gray-600 text-xs mt-2">
+                    {t.tokenTimeoutNote}
+                  </p>
                 </div>
-              )}
+              </>)}
 
               {lobbyData?.mode === 'auction' && (<>
                 {/* Karten pro Runde */}
                 <div>
                   <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
                     <Droplets size={13} className="text-purple-400" />
-                    Karten pro Runde (min. {activePlayers.length || 2})
+                    {t.cardsPerRound(activePlayers.length || 2)}
                   </p>
                   <div className="flex gap-2 flex-wrap">
-                    {[2,3,4,5,6,7,8].filter(n => n >= (activePlayers.length || 2)).map(n => (
-                      <button key={n} onClick={() => handleSetCardsPerRound(n)}
-                        className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${(lobbyData?.cardsPerRound || activePlayers.length || 2) === n ? 'bg-purple-500 text-white border-purple-500' : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
-                        {n}
-                      </button>
-                    ))}
+                    {[2,3,4,5,6,7,8].filter(n => n >= (activePlayers.length || 2)).map(n => {
+                      const tooBig = 8 * n > poolSize;
+                      return (
+                        <button key={n} onClick={() => handleSetCardsPerRound(n)} disabled={tooBig}
+                          title={tooBig ? t.cardsPerRoundTooBigTitle(n, poolSize) : undefined}
+                          className={`px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors border ${
+                            tooBig ? 'bg-[#1a1a20] text-gray-700 border-white/5 cursor-not-allowed'
+                            : (lobbyData?.cardsPerRound || activePlayers.length || 2) === n ? 'bg-purple-500 text-white border-purple-500'
+                            : 'bg-[#1a1a20] text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                          {n}
+                        </button>
+                      );
+                    })}
                   </div>
+                  {excludedCards.length > 0 && (
+                    <p className="text-gray-600 text-xs mt-2">{t.poolFor8RoundsStandalone(poolSize)}</p>
+                  )}
                 </div>
 
                 {/* Start-Elixir */}
                 <div>
                   <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
                     <Droplets size={13} className="text-cyan-400" />
-                    Start-Elixier
+                    {t.startingElixir}
                   </p>
                   <div className="flex gap-2 flex-wrap items-center">
                     {[50, 100, 150, 200].map(v => (
@@ -732,7 +1382,7 @@ export default function ClashRoyalePage() {
                     ))}
                     <div className="flex items-center gap-1">
                       <input type="number" min={10} max={500} placeholder="Custom"
-                        className="w-16 bg-[#1a1a20] border border-white/10 rounded-sm px-1 py-1.5 text-white text-sm text-center focus:border-cyan-500 outline-none tabular-nums placeholder-gray-600"
+                        className="w-20 bg-[#1a1a20] border border-white/10 rounded-sm px-1 py-1.5 text-white text-sm text-center focus:border-cyan-500 outline-none tabular-nums placeholder-gray-600"
                         onKeyDown={e => e.key === 'Enter' && e.target.value && handleSetStartElixir(Number(e.target.value))}
                         onBlur={e => e.target.value && handleSetStartElixir(Number(e.target.value))} />
                     </div>
@@ -742,8 +1392,8 @@ export default function ClashRoyalePage() {
                 {/* Elixier anderer anzeigen */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white text-sm font-semibold">Elixier anderer Spieler anzeigen</p>
-                    <p className="text-gray-600 text-xs mt-0.5">Alle sehen das Elixier aller Mitspieler in der Seitenleiste</p>
+                    <p className="text-white text-sm font-semibold">{t.showOthersElixir}</p>
+                    <p className="text-gray-600 text-xs mt-0.5">{t.showOthersElixirNoteAuction}</p>
                   </div>
                   <button onClick={() => handleSetShowElixir(!currentShowElixir)}
                     className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${currentShowElixir ? 'bg-cyan-500' : 'bg-[#2a2a32]'}`}>
@@ -754,8 +1404,8 @@ export default function ClashRoyalePage() {
                 {/* Mutterhexen Besuche */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white text-sm font-semibold">Mutterhexen Besuche</p>
-                    <p className="text-gray-600 text-xs mt-0.5">In Runde 2-7: 30% Chance, dass ein zufälliger Spieler von der Mutterhexe eine Fähigkeit angeboten bekommt</p>
+                    <p className="text-white text-sm font-semibold">{t.motherWitchVisits}</p>
+                    <p className="text-gray-600 text-xs mt-0.5">{t.motherWitchNote}</p>
                   </div>
                   <button onClick={() => handleSetMotherWitch(!currentMotherWitch)}
                     className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${currentMotherWitch ? 'bg-cyan-500' : 'bg-[#2a2a32]'}`}>
@@ -767,13 +1417,34 @@ export default function ClashRoyalePage() {
               <button onClick={handleStart} disabled={!canStart}
                 className="w-full bg-cyan-500 disabled:bg-white/5 disabled:text-gray-600 hover:bg-cyan-400 text-black font-black py-3 rounded-sm transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed">
                 <Play size={15} />
-                {canStart ? 'Spiel starten' : `Mind. 2 aktive Spieler benötigt`}
+                {canStart
+                  ? t.startGame
+                  : carouselTooMany
+                    ? t.startBlockedCarousel(carouselMaxPlayers, currentCarouselCards)
+                    : poolTooSmall
+                      ? t.startBlockedPool(poolSize, requiredPool)
+                      : t.startBlockedPlayers}
               </button>
             </div>
           )}
 
           {!canControlLobby && (
-            <p className="text-gray-600 text-sm text-center">Warte auf den Host…</p>
+            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 space-y-2">
+              <p className="text-gray-500 text-xs uppercase tracking-wider">{t.gameMode}</p>
+              <div className="flex items-center gap-2">
+                <CurrentModeIcon size={15} className="text-cyan-400 shrink-0" />
+                <span className="text-white font-bold text-sm">{modeNameFor(currentModeInfo.id, lang)}</span>
+              </div>
+              <p className="text-gray-600 text-xs leading-relaxed">{modeDescFor(currentModeInfo.id, lang)}</p>
+              {excludedCards.length > 0 && (
+                <button onClick={() => setExcludeOpen(true)}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white transition-colors">
+                  <Ban size={11} className="text-red-400 shrink-0" />
+                  {t.excludedCardsView(excludedCards.length)}
+                </button>
+              )}
+              <p className="text-gray-600 text-sm text-center pt-3">{t.waitingForHost}</p>
+            </div>
           )}
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
         </div>
@@ -782,18 +1453,25 @@ export default function ClashRoyalePage() {
   }
 
   // ── Game ──────────────────────────────────────────────────────────────────
+  const gameModeName = lobbyData?.mode === 'auction' ? 'Elixir Auction'
+    : lobbyData?.mode === 'bingo' ? 'Bingo Royale'
+    : lobbyData?.mode === 'shadow-carousel' ? 'Blindes Karussel'
+    : lobbyData?.mode === 'elixir-rush' ? 'Elixir Rush'
+    : 'Snake Royale';
   if (phase === 'game') return (
     <div className="h-full flex flex-col overflow-hidden">
-      <SEO title={lobbyData?.mode === 'auction' ? 'Elixir Auction' : lobbyData?.mode === 'bingo' ? 'Bingo Royale' : 'Snake Royale'} description="Wähle dein Deck!" path="/clash-royale" />
+      <SEO title={gameModeName} description="Wähle dein Deck!" path="/clash-royale" />
       <div className="shrink-0 h-11 bg-[#16161a] border-b border-white/5 flex items-center px-4 gap-3">
         {lobbyData?.mode === 'auction'
           ? <Droplets size={15} className="text-purple-400 shrink-0" />
           : lobbyData?.mode === 'bingo'
             ? <Hash size={15} className="text-amber-400 shrink-0" />
-            : <Worm size={15} className="text-cyan-400 shrink-0" />}
-        <span className="text-white font-bold text-sm">
-          {lobbyData?.mode === 'auction' ? 'Elixir Auction' : lobbyData?.mode === 'bingo' ? 'Bingo Royale' : 'Snake Royale'}
-        </span>
+            : lobbyData?.mode === 'shadow-carousel'
+              ? <Repeat size={15} className="text-violet-400 shrink-0" />
+              : lobbyData?.mode === 'elixir-rush'
+                ? <Zap size={15} className="text-fuchsia-400 shrink-0" />
+                : <Worm size={15} className="text-cyan-400 shrink-0" />}
+        <span className="text-white font-bold text-sm">{gameModeName}</span>
         <div className="flex-1" />
         {error && <span className="text-red-400 text-xs animate-pulse">{error}</span>}
         {isClashAdmin && (
@@ -824,7 +1502,11 @@ export default function ClashRoyalePage() {
       )}
       <div className="flex-1 overflow-hidden">
         {gameOver ? (
-          <GameOverScreen gameOver={gameOver} myId={myId || socketRef.current?.id} isHost={canControlLobby} onLeave={handleLeave} onRestart={handleRestart} />
+          <GameOverScreen gameOver={gameOver} myId={myId || socketRef.current?.id} isHost={canControlLobby}
+            isAdmin={isClashAdmin}
+            onSwapCard={(targetPlayerId, deckIndex, newCardId) =>
+              emit('clash:admin:swapCard', { code: lobbyData?.code, targetPlayerId, deckIndex, newCardId })}
+            onLeave={handleLeave} onRestart={handleRestart} />
         ) : lobbyData?.mode === 'auction' ? (
           <ElixirAuction
             auctionState={auctionState}
@@ -842,7 +1524,22 @@ export default function ClashRoyalePage() {
             myPlayerId={myId || socketRef.current?.id}
             onPick={handleBingoPick}
             onPowerup={handleBingoPowerup}
+            onTokenAction={handleBingoTokenAction}
             players={lobbyData?.players || []}
+          />
+        ) : lobbyData?.mode === 'shadow-carousel' ? (
+          <ShadowCarousel
+            carouselState={carouselState}
+            myPlayerId={myId || socketRef.current?.id}
+            onFlip={handleCarouselFlip}
+            onPick={handleCarouselPick}
+          />
+        ) : lobbyData?.mode === 'elixir-rush' ? (
+          <ElixirRush
+            rushState={rushState}
+            myPlayerId={myId || socketRef.current?.id}
+            onBuy={handleRushBuy}
+            denied={rushDenied}
           />
         ) : gameState ? (
           <SnakeRoyale
@@ -861,6 +1558,110 @@ export default function ClashRoyalePage() {
   );
 
   return null;
+}
+
+// ── Kartenpool-Modal: Karten global vom Draft ausschließen ──────────────────
+const RARITY_ORDER = ['Common', 'Rare', 'Epic', 'Legendary', 'Champion'];
+const RARITY_LABEL = { Common: 'Gewöhnlich', Rare: 'Selten', Epic: 'Episch', Legendary: 'Legendär', Champion: 'Champions' };
+
+const CARD_EXCLUSION_I18N = {
+  de: {
+    title: 'Karten ausschließen',
+    searchPlaceholder: 'Karte suchen…',
+    excludedInDraft: (excluded, inDraft) => `${excluded} ausgeschlossen · ${inDraft} im Draft`,
+    reset: 'Zurücksetzen',
+    editNote: 'Klicke auf eine Karte, um sie aus dem Draft zu entfernen — gilt für alle Spielmodi dieser Lobby.',
+    readOnlyNote: 'Nur der Host (oder Admin) kann den Kartenpool ändern.',
+    noneFound: 'Keine Karte gefunden.',
+  },
+  en: {
+    title: 'Exclude cards',
+    searchPlaceholder: 'Search cards…',
+    excludedInDraft: (excluded, inDraft) => `${excluded} excluded · ${inDraft} in the draft`,
+    reset: 'Reset',
+    editNote: 'Click a card to remove it from the draft — applies to every game mode in this lobby.',
+    readOnlyNote: 'Only the host (or an admin) can change the card pool.',
+    noneFound: 'No cards found.',
+  },
+};
+
+function CardExclusionModal({ excluded, canEdit, onToggle, onReset, onClose, lang = 'de' }) {
+  const [query, setQuery] = React.useState('');
+  const excludedSet = new Set(excluded);
+  const q = query.trim().toLowerCase();
+  const filtered = q ? ALL_CARDS.filter(c => c.name.toLowerCase().includes(q)) : ALL_CARDS;
+  const L = CARD_EXCLUSION_I18N[lang] || CARD_EXCLUSION_I18N.de;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-[#16161a] border border-white/10 rounded-sm w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
+          <span className="text-white font-bold flex items-center gap-2">
+            <Ban size={15} className="text-red-400" /> {L.title}
+          </span>
+          <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={14} /></button>
+        </div>
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 bg-[#1a1a20] border border-white/10 rounded-sm px-3 py-1.5 flex-1 min-w-[180px] focus-within:border-cyan-500 transition-colors">
+            <Search size={13} className="text-gray-600 shrink-0" />
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder={L.searchPlaceholder}
+              className="bg-transparent text-white text-sm placeholder-gray-600 outline-none w-full" />
+          </div>
+          <span className="text-gray-500 text-xs shrink-0">
+            {L.excludedInDraft(excluded.length, ALL_CARDS.length - excluded.length)}
+          </span>
+          {canEdit && excluded.length > 0 && (
+            <button onClick={onReset}
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-sm border border-white/10 text-gray-400 hover:text-white hover:border-white/30 transition-colors shrink-0">
+              {L.reset}
+            </button>
+          )}
+        </div>
+        <p className="px-5 pt-3 text-gray-600 text-xs shrink-0">
+          {canEdit ? L.editNote : L.readOnlyNote}
+        </p>
+        <div className="overflow-y-auto custom-scrollbar p-5 space-y-5">
+          {RARITY_ORDER.map(rarity => {
+            const cards = filtered.filter(c => c.rarity === rarity);
+            if (!cards.length) return null;
+            return (
+              // content-visibility: auto — der Browser überspringt Rendern/Painting von Abschnitten
+              // außerhalb des sichtbaren Bereichs, das macht das Scrollen über 122 Karten flüssig
+              <div key={rarity} style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 480px' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: RARITY_COLOR[rarity] }}>
+                  {lang === 'en' ? rarity : (RARITY_LABEL[rarity] || rarity)}
+                </p>
+                <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 gap-1.5">
+                  {cards.map(card => {
+                    const isExcluded = excludedSet.has(card.id);
+                    return (
+                      <button key={card.id} title={card.name}
+                        onClick={() => canEdit && onToggle(card.id)}
+                        disabled={!canEdit}
+                        className={`relative aspect-[5/6] rounded-sm overflow-hidden border ${
+                          isExcluded ? 'border-red-500/60 bg-red-500/5' : 'border-white/10 bg-[#1a1a20]'
+                        } ${canEdit ? 'hover:border-white/40' : 'cursor-default'}`}>
+                        <img src={`${CARD_CDN}${card.id}.png`} alt={card.name}
+                          loading="lazy" decoding="async" draggable={false}
+                          className={`w-full h-full object-cover ${isExcluded ? 'grayscale opacity-30' : ''}`}
+                          onError={e => { e.target.style.display = 'none'; }} />
+                        {isExcluded && (
+                          <span className="absolute inset-0 flex items-center justify-center">
+                            <Ban size={16} className="text-red-400" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {filtered.length === 0 && <p className="text-gray-500 text-sm text-center py-8">{L.noneFound}</p>}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Admin-Steuerung (während einer laufenden Runde) ─────────────────────────
@@ -899,17 +1700,121 @@ function AdminControlPanel({ players, hostId, onTransferHost, onSetSpectator, on
   );
 }
 
+// ── Admin: Deck-Karte im Endscreen austauschen ──────────────────────────────
+function AdminCardSwapModal({ player, deckIndex, onPick, onClose }) {
+  const [query, setQuery] = React.useState('');
+  const oldCard = player.deck[deckIndex];
+  const deckIds = new Set(player.deck.map(c => c.id));
+  const champCount = player.deck.filter((c, i) => c.isChampion && i !== deckIndex).length;
+  const q = query.trim().toLowerCase();
+  const filtered = q ? ALL_CARDS.filter(c => c.name.toLowerCase().includes(q)) : ALL_CARDS;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-[#16161a] border border-white/10 rounded-sm w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
+          <span className="text-white font-bold flex items-center gap-2">
+            <Shield size={15} className="text-cyan-400" /> Karte austauschen · {player.name}
+          </span>
+          <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={14} /></button>
+        </div>
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 shrink-0 flex-wrap">
+          {oldCard && (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-9 aspect-[5/6] rounded-sm overflow-hidden border border-white/10 bg-[#1a1a20]">
+                <img src={`${CARD_CDN}${oldCard.id}.png`} alt={oldCard.name}
+                  className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+              </div>
+              <span className="text-gray-500 text-xs">{oldCard.name} ersetzen durch…</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 bg-[#1a1a20] border border-white/10 rounded-sm px-3 py-1.5 flex-1 min-w-[180px] focus-within:border-cyan-500 transition-colors">
+            <Search size={13} className="text-gray-600 shrink-0" />
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Karte suchen…" autoFocus
+              className="bg-transparent text-white text-sm placeholder-gray-600 outline-none w-full" />
+          </div>
+        </div>
+        <div className="overflow-y-auto custom-scrollbar p-5 space-y-5">
+          {RARITY_ORDER.map(rarity => {
+            const cards = filtered.filter(c => c.rarity === rarity);
+            if (!cards.length) return null;
+            return (
+              <div key={rarity} style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 480px' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: RARITY_COLOR[rarity] }}>
+                  {RARITY_LABEL[rarity] || rarity}
+                </p>
+                <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 gap-1.5">
+                  {cards.map(card => {
+                    const inDeck = deckIds.has(card.id);
+                    const champBlocked = !inDeck && card.isChampion && champCount >= 2;
+                    const disabled = inDeck || champBlocked;
+                    return (
+                      <button key={card.id} disabled={disabled}
+                        title={inDeck ? `${card.name} — bereits im Deck` : champBlocked ? `${card.name} — Champion-Limit (max. 2)` : card.name}
+                        onClick={() => onPick(card.id)}
+                        className={`aspect-[5/6] rounded-sm overflow-hidden border bg-[#1a1a20] ${
+                          disabled ? 'border-white/5 cursor-not-allowed' : 'border-white/10 hover:border-cyan-400'}`}>
+                        <img src={`${CARD_CDN}${card.id}.png`} alt={card.name}
+                          loading="lazy" decoding="async" draggable={false}
+                          className={`w-full h-full object-cover ${disabled ? 'grayscale opacity-30' : ''}`}
+                          onError={e => { e.target.style.display = 'none'; }} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {filtered.length === 0 && <p className="text-gray-500 text-sm text-center py-8">Keine Karte gefunden.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Game Over ─────────────────────────────────────────────────────────────
 const SIZE_COLS = { s: 'grid-cols-4', m: 'grid-cols-3', l: 'grid-cols-2' };
 
-function GameOverScreen({ gameOver, myId, isHost, onLeave, onRestart }) {
+// Deck-Karte im Endscreen — für Admins klickbar, um sie auszutauschen
+function DeckCardTile({ card, canSwap, onSwap }) {
+  const img = (
+    <img src={`${CARD_CDN}${card.id}.png`} alt={card.name}
+      className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+  );
+  if (!canSwap) return (
+    <div title={card.name} className="aspect-square rounded-sm overflow-hidden">{img}</div>
+  );
+  return (
+    <button title={`${card.name} — austauschen`} onClick={onSwap}
+      className="relative aspect-square rounded-sm overflow-hidden border border-transparent hover:border-cyan-400 transition-colors group">
+      {img}
+      <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50">
+        <ArrowLeftRight size={14} className="text-cyan-300" />
+      </span>
+    </button>
+  );
+}
+
+function GameOverScreen({ gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, onRestart }) {
   const [size, setSize] = React.useState('m');
   const [layout, setLayout] = React.useState('grid'); // 'grid' | 'list'
+  const [swapTarget, setSwapTarget] = React.useState(null); // { player, deckIndex }
 
   const activePlayers = (gameOver.players || []).filter(p => !p.isSpectator);
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar p-6">
+      {swapTarget && (
+        <AdminCardSwapModal
+          player={swapTarget.player}
+          deckIndex={swapTarget.deckIndex}
+          onPick={(newCardId) => {
+            onSwapCard(swapTarget.player.id, swapTarget.deckIndex, newCardId);
+            setSwapTarget(null);
+          }}
+          onClose={() => setSwapTarget(null)}
+        />
+      )}
       <div className="max-w-6xl mx-auto space-y-5">
 
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -917,7 +1822,9 @@ function GameOverScreen({ gameOver, myId, isHost, onLeave, onRestart }) {
             <Trophy size={20} className="text-amber-400" />
             <div>
               <h2 className="text-lg font-black text-white">Drafting abgeschlossen</h2>
-              <p className="text-gray-500 text-xs">Alle Decks wurden zusammengestellt</p>
+              <p className="text-gray-500 text-xs">
+                {isAdmin ? 'Klicke eine Deck-Karte an, um sie als Admin auszutauschen' : 'Alle Decks wurden zusammengestellt'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -981,10 +1888,8 @@ function GameOverScreen({ gameOver, myId, isHost, onLeave, onRestart }) {
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
                   {p.deck.map((card, ci) => (
-                    <div key={ci} title={card.name} className="aspect-square rounded-sm overflow-hidden">
-                      <img src={`https://cdn.royaleapi.com/static/img/cards-150/${card.id}.png`} alt={card.name}
-                        className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
-                    </div>
+                    <DeckCardTile key={ci} card={card} canSwap={isAdmin}
+                      onSwap={() => setSwapTarget({ player: p, deckIndex: ci })} />
                   ))}
                 </div>
               </div>
@@ -1002,10 +1907,8 @@ function GameOverScreen({ gameOver, myId, isHost, onLeave, onRestart }) {
                 </div>
                 <div className="grid grid-cols-8 gap-1.5">
                   {p.deck.map((card, ci) => (
-                    <div key={ci} title={card.name} className="aspect-square rounded-sm overflow-hidden">
-                      <img src={`https://cdn.royaleapi.com/static/img/cards-150/${card.id}.png`} alt={card.name}
-                        className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
-                    </div>
+                    <DeckCardTile key={ci} card={card} canSwap={isAdmin}
+                      onSwap={() => setSwapTarget({ player: p, deckIndex: ci })} />
                   ))}
                 </div>
               </div>

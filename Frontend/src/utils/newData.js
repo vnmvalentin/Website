@@ -1,5 +1,131 @@
 export const NEWS_UPDATES = [
   {
+    date: "21.07.2026",
+    version: "v5.4: Win-Challenge Neuerungen, Clash Royale Streamer Setup & Teilübersetzung",
+    sections: [
+      {
+        title: "Win-Challenge — Neue Chat-Commands",
+        items: [
+          "!settimer 01:30:00 — Timer direkt auf eine Zeit setzen (HH:MM:SS oder MM:SS)",
+          "!pin [Name] / !unpin [Name] — Challenge anpinnen bzw. wieder lösen, mit unscharfer Namenssuche (auch bei Tippfehlern)",
+          "!+ [Name] / !- [Name] — Zähler hoch- bzw. runterzählen, ohne Zähler schließt bzw. öffnet es die Challenge",
+          "!hidetimer / !showtimer sowie !resettimer für den Timer direkt aus dem Chat",
+        ]
+      },
+      {
+        title: "Win-Challenge — Editor & Moderator-Ansicht",
+        items: [
+          "Moderator-Ansicht komplett überarbeitet: manuelle Zeiteingabe, +10m/-10m-Buttons, klarer Sichtbarkeits-Toggle für den Timer",
+          "Eingebaute Befehlsreferenz sowohl im Editor als auch in der Moderator-Ansicht — dort automatisch gefiltert nach den freigeschalteten Rechten",
+          "Bis zu 10 Twitch-Kanäle pro Overlay verwaltbar, statt nur einem einzelnen Kanal",
+          "Live-Vorschau im Editor skaliert jetzt korrekt mit der verfügbaren Breite",
+          "Speicherung robuster: gleichzeitige Änderungen von Mods überschreiben deine laufende Bearbeitung nicht mehr",
+        ]
+      },
+      {
+        title: "Clash Royale — Streamer Setup",
+        items: [
+          "Neues Setup-Panel für Streamer: Verbindung zu OBS direkt aus dem Browser per WebSocket",
+          "Automatisch Szene wechseln oder eine Quelle ein-/ausblenden, sobald ein Minigame startet oder ein Draft abgeschlossen ist",
+          "Globales Deck-Overlay als Browserquelle für OBS — zeigt nach jedem abgeschlossenen Draft automatisch die finalen Decks, egal in welcher Lobby",
+          "Findet beim Einrichten jetzt auch Quellen innerhalb von Ordnern/Gruppen in OBS korrekt",
+        ]
+      },
+      {
+        title: "Englisch-Übersetzung (Teil 1)",
+        items: [
+          "Clash Royale Minigames: Lobby (Warteraum, Modus- und Kartenpool-Einstellungen) sowie das Streamer Setup sind jetzt über den EN/DE-Button umschaltbar",
+          "Die eigentlichen Spielbildschirme der Modi folgen in einem späteren Update",
+        ]
+      },
+      {
+        title: "Discord-Bot",
+        items: [
+          "/aussehen, /iq, /pp und /ship haben kein Tageslimit mehr — beliebig oft neu würfeln statt nur einmal pro Tag",
+          "Twitch-Benachrichtigung: Rollen lassen sich jetzt per @-Autovervollständigung in die Nachricht einfügen, statt die Rollen-ID von Hand einzutippen",
+        ]
+      },
+    ]
+  },
+  {
+    date: "19.07.2026",
+    version: "v5.3: Bingo Royale Rework, Lobby-Fixes & Voice-Commands",
+    sections: [
+      {
+        title: "Clash Royale — Neuer Modus: Elixir Rush",
+        items: [
+          "Echtzeit-Draft: Dein Elixierbalken füllt sich automatisch wie in Clash Royale — schön pink und gut sichtbar",
+          "Auf dem Marktplatz erscheinen Karten mit ihren echten Elixierkosten — wer zuerst klickt (und genug Elixier hat), bekommt die Karte",
+          "Nicht gekaufte Karten laufen ab und werden ausgetauscht (mit Flip-Animation über die verdeckte Karte)",
+          "Klares Feedback beim Klicken: Du siehst sofort, ob DU die Karte bekommen hast oder jemand schneller war",
+          "Anti-AFK: Wer 10 Sekunden mit vollem Balken nichts kauft, bekommt automatisch eine zufällige Karte",
+          "Keine doppelten Karten — abgelaufene Karten können mit Abstand wieder auftauchen",
+          "Einstellbar: Anzahl der Marktplatz-Karten, wie lange Karten liegen bleiben und ob das Elixier der Mitspieler sichtbar ist",
+          "8 Käufe = fertiges Deck — das Spiel endet, wenn alle Decks voll sind",
+        ]
+      },
+      {
+        title: "Clash Royale — Bingo Royale",
+        items: [
+          "Bingo-Karte komplett überarbeitet: größere Felder und Schrift, Board hebt sich jetzt klar vom Hintergrund ab",
+          "Deutliche Warnung, wenn eine Karte auf kein freies Feld passt — Blockieren muss jetzt per Doppelklick bestätigt werden (kein versehentliches Blockieren mehr)",
+          "Neues Zug-Banner: Es ist jetzt groß sichtbar, wer gerade dran ist (mit Avatar), statt klein oben links",
+          "Token-Shop: Jeder Spieler bekommt 2 zufällige der 3 Power-Ups zugelost",
+          "Token-Shop: Einstellbares Zeitlimit pro Token — wer nicht rechtzeitig wählt, verliert den Token",
+          "Tokens zählen in der Seitenleiste live mit und ihr seht in Echtzeit, welches Power-Up ein anderer Spieler gerade auswählt — statt Wartebildschirm und nur der Auflösung",
+          "Spielerreihenfolge wird jetzt für jedes Rundenpaar neu zufällig gemischt — niemand ist mehr in jeder Runde Spieler 1",
+          "E-Giant zählt beim Bingo-Attribut Geschlecht jetzt als männlich",
+        ]
+      },
+      {
+        title: "Clash Royale — Blindes Karussel",
+        items: [
+          "Tische als abgehobene Panels mit eigener Kopfzeile neu gestaltet",
+          "Status-Banner zeigt klar, was gerade zu tun ist — und wer schon gewählt hat, ist die ganze Runde über sichtbar",
+          "Größere Schrift und Buttons für bessere Lesbarkeit",
+        ]
+      },
+      {
+        title: "Clash Royale — Lobby-System",
+        items: [
+          "Aktives Verlassen wirkt jetzt sofort — auch mitten im Spiel bleibt niemand mehr minutenlang in der Lobby hängen",
+          "Ein neuer Einladungslink ersetzt die gespeicherte Sitzung — kein ungewolltes Zurück-Joinen in die alte Lobby mehr",
+          "Doppelte Spieler unmöglich: Ein zweiter Tab mit gleichem Namen übernimmt die Sitzung, statt einen Duplikat-Spieler zu erzeugen",
+          "Abgelaufene Sitzungen werden still aufgeräumt — kein „Lobby nicht gefunden“ mehr beim Öffnen der Seite",
+          "F5 mitten im Spiel übernimmt jetzt auch Gebote, Bingo-Tokens und Karten-Zuordnungen korrekt",
+        ]
+      },
+      {
+        title: "Discord-Bot",
+        items: [
+          "Neue Voice-Commands: /voice_hide, /voice_unhide und /voice_transfer (Besitzer-Status übergeben)",
+          "Die angepinnte Commands-Nachricht zeigt jetzt unten den aktuellen Voice Channel Besitzer und aktualisiert sich bei jedem Besitzerwechsel",
+          "Rollen-Buttons: Auswahl zwischen Mehrfach-Auswahl und Single-Choice (nur 1 Rolle — alte Rolle wird beim Klick automatisch ausgetauscht) jetzt klar erklärt im Dashboard",
+        ]
+      },
+    ]
+  },
+  {
+    date: "14.07.2026",
+    version: "v5.2: Blindes Karussel & Discord Rollen-Tags",
+    sections: [
+      {
+        title: "Discord-Bot",
+        items: [
+          "Twitch-Benachrichtigung unterstützt jetzt auch das Taggen serverspezifischer Rollen",
+        ]
+      },
+      {
+        title: "Clash Royale",
+        items: [
+          "Neuer Spielmodus: Blindes Karussel",
+          "Neues Lobby-System für die Minigames — Modusauswahl jetzt direkt in den Lobby-Einstellungen statt neuer Lobbys pro Modus",
+          "Nuzlocke Seite auf eine eigene Seite gebracht mit Account Verknüpfung, integriertem Glücksrad und Leaderboard",
+        ]
+      },
+    ]
+  },
+  {
     date: "07.07.2026",
     version: "v5.1: Casino Daily Bonus, Clash Royale Menü & Aufräumarbeiten",
     sections: [

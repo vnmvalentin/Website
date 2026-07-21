@@ -13,6 +13,7 @@ try {
 }
 
 const createWinchallengeRouter = require("../routes/winchallengeRoutes");
+const { step } = require("./startupLog");
 
 let client = null;
 let refreshTimer = null;
@@ -169,14 +170,22 @@ function normalizeChannel(ch) {
     .replace(/^#/, "");
 }
 
+/** Alle aktivierten Kanäle eines Docs (Mehrkanal-Support, legacy: einzelnes channel-Feld) */
+function channelsOfDoc(doc) {
+  const cc = doc?.chatCommands;
+  if (!cc?.enabled) return [];
+  const list =
+    Array.isArray(cc.channels) && cc.channels.length
+      ? cc.channels
+      : [cc.channel];
+  return list.map(normalizeChannel).filter(Boolean);
+}
+
 function getChannelList() {
   const db = createWinchallengeRouter.loadDb();
   const set = new Set();
   for (const doc of Object.values(db || {})) {
-    const cc = doc?.chatCommands;
-    if (!cc?.enabled) continue;
-    const c = normalizeChannel(cc.channel);
-    if (c) set.add(c);
+    for (const c of channelsOfDoc(doc)) set.add(c);
   }
   return [...set];
 }
@@ -185,16 +194,15 @@ function findUserIdForChannel(channelName) {
   const name = normalizeChannel(channelName);
   const db = createWinchallengeRouter.loadDb();
   for (const [uid, doc] of Object.entries(db || {})) {
-    const cc = doc?.chatCommands;
-    if (!cc?.enabled) continue;
-    if (normalizeChannel(cc.channel) === name) return uid;
+    if (channelsOfDoc(doc).includes(name)) return uid;
   }
   return null;
 }
 
-function isAllowedSender(tags, doc) {
+function isAllowedSender(tags, doc, isOwner) {
   const req = doc?.chatCommands?.requireModOrBroadcaster !== false;
   if (!req) return true;
+  if (isOwner) return true;
   if (tags.mod === true || tags.mod === "1") return true;
   const userType = tags["user-type"] || tags.userType;
   if (userType === "mod" || userType === "global_mod") return true;
@@ -205,61 +213,231 @@ function isAllowedSender(tags, doc) {
   return false;
 }
 
-const CHAT_REPLIES = {
-  start: "Timer wurde gestartet.",
-  pause: "Timer wurde pausiert.",
-  reset: "Timer wurde zurückgesetzt.",
-  hide: "Timer ausgeblendet.",
-  show: "Timer eingeblendet.",
-};
+/** Für die unscharfe Suche: klein, ohne Leer-/Sonderzeichen ("Rocket League Wins" → "rocketleaguewins") */
+function normalizeForMatch(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, "");
+}
 
-async function applyChatLine(userId, msg) {
-  const m = msg.trim().toLowerCase();
+/**
+ * Unscharfe Challenge-Suche: exakter Treffer > Präfix > Teilstring.
+ * "!pin minecraft" findet "Minecraft Enderdragon besiegen",
+ * "!pin rocketleague" findet "Rocket League Wins".
+ */
+function findChallengeMatches(items, query) {
+  const q = normalizeForMatch(query);
+  if (!q) return [];
+  const scored = [];
+  for (const it of items || []) {
+    const n = normalizeForMatch(it && it.name);
+    if (!n) continue;
+    let score = 0;
+    if (n === q) score = 3;
+    else if (n.startsWith(q)) score = 2;
+    else if (n.includes(q)) score = 1;
+    if (score > 0) scored.push({ it, score });
+  }
+  if (!scored.length) return [];
+  const best = Math.max(...scored.map((s) => s.score));
+  return scored.filter((s) => s.score === best).map((s) => s.it);
+}
+
+/** "HH:MM:SS" oder "MM:SS" → Millisekunden (null bei ungültigem Format) */
+function parseClockToMs(str) {
+  const m = String(str || "")
+    .trim()
+    .match(/^(\d{1,3}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) return null;
+  const hasHours = m[3] != null;
+  const h = hasHours ? parseInt(m[1], 10) : 0;
+  const min = hasHours ? parseInt(m[2], 10) : parseInt(m[1], 10);
+  const s = hasHours ? parseInt(m[3], 10) : parseInt(m[2], 10);
+  if (hasHours && min > 59) return null;
+  if (s > 59) return null;
+  return (h * 3600 + min * 60 + s) * 1000;
+}
+
+function msToClock(ms) {
+  if (!ms || ms < 0) ms = 0;
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+/**
+ * !pin / !unpin / !+ / !- auf eine Challenge anwenden.
+ * @returns {{ itemId: string|null, patch: object|null, reply: string|null, changed: boolean }}
+ */
+function resolveChallengeCommand(items, kind, query) {
+  const matches = findChallengeMatches(items, query);
+  if (matches.length === 0) {
+    return {
+      itemId: null,
+      patch: null,
+      changed: false,
+      reply: `Keine Challenge gefunden für "${query}".`,
+    };
+  }
+  if (matches.length > 1) {
+    const names = matches.slice(0, 3).map((m) => m.name).join(", ");
+    return {
+      itemId: null,
+      patch: null,
+      changed: false,
+      reply: `Mehrere Treffer für "${query}": ${names} — bitte genauer angeben.`,
+    };
+  }
+  const it = matches[0];
+
+  if (kind === "pin") {
+    if (it.pinned)
+      return { itemId: null, patch: null, changed: false, reply: `"${it.name}" ist bereits angepinnt.` };
+    return { itemId: it.id, patch: { pinned: true }, changed: true, reply: `"${it.name}" angepinnt.` };
+  }
+  if (kind === "unpin") {
+    if (!it.pinned)
+      return { itemId: null, patch: null, changed: false, reply: `"${it.name}" ist nicht angepinnt.` };
+    return { itemId: it.id, patch: { pinned: false }, changed: true, reply: `"${it.name}" gelöst.` };
+  }
+  if (kind === "plus") {
+    if (it.useWins) {
+      const next = (it.progress || 0) + 1;
+      const doneNow = next >= (it.target || 0);
+      return {
+        itemId: it.id,
+        patch: { progress: next },
+        changed: true,
+        reply: `"${it.name}": ${next}/${it.target || 0}${doneNow ? " — abgeschlossen!" : ""}`,
+      };
+    }
+    if (it.done)
+      return { itemId: null, patch: null, changed: false, reply: `"${it.name}" ist bereits abgeschlossen.` };
+    return { itemId: it.id, patch: { done: true }, changed: true, reply: `"${it.name}" abgeschlossen!` };
+  }
+  if (kind === "minus") {
+    if (it.useWins) {
+      const next = Math.max(0, (it.progress || 0) - 1);
+      if (next === (it.progress || 0))
+        return { itemId: null, patch: null, changed: false, reply: `"${it.name}" steht bereits bei 0.` };
+      return {
+        itemId: it.id,
+        patch: { progress: next },
+        changed: true,
+        reply: `"${it.name}": ${next}/${it.target || 0}`,
+      };
+    }
+    if (!it.done)
+      return { itemId: null, patch: null, changed: false, reply: `"${it.name}" ist noch offen.` };
+    return { itemId: it.id, patch: { done: false }, changed: true, reply: `"${it.name}" wieder offen.` };
+  }
+  return { itemId: null, patch: null, changed: false, reply: null };
+}
+
+async function applyChatLine(userId, msg, { isOwner = false } = {}) {
+  const raw = String(msg || "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw.startsWith("!")) return { changed: false, reply: null };
+
   const db = createWinchallengeRouter.loadDb();
-  const raw = db[userId];
-  if (!raw) return { changed: false, reply: null };
-  let doc = createWinchallengeRouter.ensureDocShape(raw);
+  const stored = db[userId];
+  if (!stored) return { changed: false, reply: null };
+  let doc = createWinchallengeRouter.ensureDocShape(stored);
   const perms = doc.controlPermissions || {};
-  if (!perms.allowModsTimer) return { changed: false, reply: null };
+  const canTimer = isOwner || !!perms.allowModsTimer;
+  const canChallenges = isOwner || !!perms.allowModsChallenges;
 
-  let replyKey = null;
+  let reply = null;
+  let changed = false;
 
-  if (m === "!starttimer") {
+  // ---- Timer-Befehle ----
+  const setMatch = lower.match(/^!settimer\s+(\S+)$/);
+  if (lower === "!starttimer") {
+    if (!canTimer) return { changed: false, reply: null };
     if (!doc.timer.running) {
       doc.timer.running = true;
       doc.timer.startedAt = Date.now() - (doc.timer.elapsedMs || 0);
-      replyKey = "start";
+      changed = true;
+      reply = "Timer wurde gestartet.";
     }
-  } else if (m === "!stoptimer" || m === "!pausetimer") {
+  } else if (lower === "!stoptimer" || lower === "!pausetimer") {
+    if (!canTimer) return { changed: false, reply: null };
     if (doc.timer.running) {
       doc.timer.running = false;
       doc.timer.elapsedMs = Date.now() - (doc.timer.startedAt || Date.now());
-      replyKey = "pause";
+      changed = true;
+      reply = "Timer wurde pausiert.";
     }
-  } else if (m === "!resettimer") {
+  } else if (lower === "!resettimer") {
+    if (!canTimer) return { changed: false, reply: null };
     doc.timer.running = false;
     doc.timer.startedAt = 0;
     doc.timer.elapsedMs = 0;
-    replyKey = "reset";
-  } else if (m === "!hidetimer" || m === "!timerhide") {
+    changed = true;
+    reply = "Timer wurde zurückgesetzt.";
+  } else if (lower === "!hidetimer" || lower === "!timerhide") {
+    if (!canTimer) return { changed: false, reply: null };
     if (doc.timer.visible !== false) {
       doc.timer.visible = false;
-      replyKey = "hide";
+      changed = true;
+      reply = "Timer ausgeblendet.";
     }
-  } else if (m === "!showtimer" || m === "!timershow") {
+  } else if (lower === "!showtimer" || lower === "!timershow") {
+    if (!canTimer) return { changed: false, reply: null };
     if (doc.timer.visible !== true) {
       doc.timer.visible = true;
-      replyKey = "show";
+      changed = true;
+      reply = "Timer eingeblendet.";
+    }
+  } else if (setMatch) {
+    if (!canTimer) return { changed: false, reply: null };
+    const ms = parseClockToMs(setMatch[1]);
+    if (ms == null) {
+      reply = "Format: !settimer HH:MM:SS (oder MM:SS)";
+    } else {
+      doc.timer.elapsedMs = ms;
+      if (doc.timer.running) doc.timer.startedAt = Date.now() - ms;
+      changed = true;
+      reply = `Timer auf ${msToClock(ms)} gesetzt.`;
     }
   } else {
-    return { changed: false, reply: null };
+    // ---- Challenge-Befehle: !pin / !unpin / !+ / !- mit unscharfer Suche ----
+    let kind = null;
+    let query = "";
+    let m;
+    if ((m = raw.match(/^!pin\s+(.+)$/i))) {
+      kind = "pin";
+      query = m[1];
+    } else if ((m = raw.match(/^!unpin\s+(.+)$/i))) {
+      kind = "unpin";
+      query = m[1];
+    } else if ((m = raw.match(/^!\+\s*(.+)$/))) {
+      kind = "plus";
+      query = m[1];
+    } else if ((m = raw.match(/^!-\s*(.+)$/))) {
+      kind = "minus";
+      query = m[1];
+    }
+    if (!kind) return { changed: false, reply: null };
+    if (!canChallenges) return { changed: false, reply: null };
+
+    const result = resolveChallengeCommand(doc.items || [], kind, query.trim());
+    reply = result.reply;
+    changed = result.changed;
+    if (result.changed && result.itemId) {
+      doc.items = (doc.items || []).map((it) =>
+        it.id === result.itemId ? { ...it, ...result.patch } : it
+      );
+    }
   }
 
-  if (!replyKey) return { changed: false, reply: null };
+  if (!changed) return { changed: false, reply };
 
   doc.updatedAt = Date.now();
   await createWinchallengeRouter.setUserAndSaveDoc(userId, doc);
-  return { changed: true, reply: CHAT_REPLIES[replyKey] || null };
+  return { changed: true, reply };
 }
 
 async function onChatMessage(channel, tags, message, self) {
@@ -270,7 +448,15 @@ async function onChatMessage(channel, tags, message, self) {
   const db = createWinchallengeRouter.loadDb();
   const doc = db[uid];
   if (!doc?.chatCommands?.enabled) return;
-  if (!isAllowedSender(tags, doc)) return;
+
+  // Overlay-Besitzer darf immer (auch in fremden Kanälen der Gruppe, ohne Mod zu sein)
+  const ownerName = String(doc.hostName || "").trim().toLowerCase();
+  const sender = String(tags.username || tags["display-name"] || "")
+    .trim()
+    .toLowerCase();
+  const isOwner = !!ownerName && ownerName !== "unknown" && sender === ownerName;
+
+  if (!isAllowedSender(tags, doc, isOwner)) return;
   let shaped;
   try {
     shaped = createWinchallengeRouter.ensureDocShape({ ...doc, userId: uid });
@@ -279,14 +465,13 @@ async function onChatMessage(channel, tags, message, self) {
   }
   const replyInChat = shaped?.chatCommands?.replyInChat !== false;
   try {
-    const result = await applyChatLine(uid, message);
+    const result = await applyChatLine(uid, message, { isOwner });
     const reply = result && result.reply;
-    if (result && result.changed) {
-      if (replyInChat && reply) {
-        setImmediate(() => {
-          void sendTimerChatReply(channel, reply);
-        });
-      }
+    // Auch Fehlermeldungen ("Keine Challenge gefunden…") beantworten, nicht nur echte Änderungen
+    if (replyInChat && reply) {
+      setImmediate(() => {
+        void sendTimerChatReply(channel, reply);
+      });
     }
   } catch (e) {
     console.error("[winchallenge irc] command failed:", e.message);
@@ -344,16 +529,12 @@ function normalizeIrcPassword(raw) {
 
 async function initWinchallengeIrc() {
   if (!tmi) {
-    console.log("[winchallenge irc] tmi.js nicht installiert — Chat-Commands deaktiviert.");
-    return;
+    return { status: "warn", detail: "tmi.js nicht installiert" };
   }
   const user = String(process.env.TWITCH_IRC_USERNAME || "").trim().toLowerCase();
   const pass = normalizeIrcPassword(process.env.TWITCH_IRC_OAUTH);
   if (!user || !pass) {
-    console.log(
-      "[winchallenge irc] TWITCH_IRC_USERNAME / TWITCH_IRC_OAUTH fehlen — Chat-Commands nur in der UI konfigurierbar, IRC aus."
-    );
-    return;
+    return { status: "warn", detail: "kein Token konfiguriert" };
   }
 
   const channels = getChannelList().map((c) => "#" + c);
@@ -390,17 +571,20 @@ async function initWinchallengeIrc() {
       );
     }
   });
+  let hasConnectedOnce = false;
   client.on("connected", () => {
-    console.log("[winchallenge irc] verbunden als", user);
+    // Erster Connect wird vom Aufrufer (initWinchallengeIrc-Rückgabewert) gemeldet —
+    // hier nur nachfolgende automatische Reconnects loggen.
+    if (hasConnectedOnce) step("Winchallenge-IRC", true, `reconnected als ${user}`);
+    hasConnectedOnce = true;
   });
 
   try {
     await client.connect();
     await syncChannels();
   } catch (e) {
-    console.error("[winchallenge irc] connect failed:", e.message);
     client = null;
-    return;
+    return { status: false, detail: e.message };
   }
 
   refreshTimer = setInterval(() => {
@@ -408,6 +592,8 @@ async function initWinchallengeIrc() {
       console.warn("[winchallenge irc] sync:", e.message)
     );
   }, 30_000);
+
+  return { status: true, detail: `verbunden als ${user}` };
 }
 
 /** Nach Speichern der Win-Challenge-Chat-Einstellungen: Kanal-Joins aktualisieren */
@@ -418,4 +604,12 @@ function afterWinchallengeConfigSaved() {
   );
 }
 
-module.exports = { initWinchallengeIrc, stopIrc, afterWinchallengeConfigSaved };
+module.exports = {
+  initWinchallengeIrc,
+  stopIrc,
+  afterWinchallengeConfigSaved,
+  // pure Helfer (u. a. für Tests)
+  findChallengeMatches,
+  parseClockToMs,
+  resolveChallengeCommand,
+};

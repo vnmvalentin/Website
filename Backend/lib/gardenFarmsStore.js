@@ -2,6 +2,7 @@
 const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
+const { step } = require("./startupLog");
 
 const DATA_DIR = path.join(__dirname, "../data");
 const DB_PATH = path.join(DATA_DIR, "garden_farms.db");
@@ -69,7 +70,7 @@ function migrateFromLegacyJsonIfEmpty() {
     try {
         upsertMany(Object.entries(obj));
         fs.renameSync(JSON_LEGACY, JSON_LEGACY + ".migrated.bak");
-        console.log("[garden] Migrated garden_farms.json to SQLite — backup: garden_farms.json.migrated.bak");
+        step("Garden-JSON-Migration", true, "garden_farms.json → SQLite");
     } catch (e) {
         console.error("[garden] JSON→SQLite migration failed:", e.message);
     }
@@ -106,7 +107,7 @@ function initGardenFarmsStore() {
     migrateFromLegacyJsonIfEmpty();
     loadMapFromDb();
     registerActiveFarmStatesMap(farmStates);
-    runRollingBackup();
+    runRollingBackup({ silent: true });
     _inited = true;
     return Promise.resolve();
 }
@@ -165,9 +166,10 @@ function saveAllFarmsOnExit() {
 // ==========================================
 // 🔄 ROLLING BACKUP SYSTEM (Alle 6 Stunden)
 // ==========================================
-function runRollingBackup() {
+function runRollingBackup(opts = {}) {
+    const { silent = false } = opts;
     if (!fs.existsSync(DB_PATH)) {
-        console.log("[Backup] Übersprungen: Noch keine Hauptdatenbank vorhanden.");
+        if (!silent) console.log("[Backup] Übersprungen: Noch keine Hauptdatenbank vorhanden.");
         return;
     }
 
@@ -187,7 +189,7 @@ function runRollingBackup() {
     try {
         // better-sqlite3 (Standard Journal-Mode) hält DB_PATH stets aktuell — einfaches Kopieren reicht.
         fs.copyFileSync(DB_PATH, targetPath);
-        console.log(`[Backup] ✅ Success: Slot ${slotIndex} aktualisiert (${now.toLocaleTimeString()}) -> ${backupFileName}`);
+        if (!silent) console.log(`[Backup] ✅ Success: Slot ${slotIndex} aktualisiert (${now.toLocaleTimeString()}) -> ${backupFileName}`);
     } catch (err) {
         console.error(`[Backup] ❌ Fehler beim Erstellen von Slot ${slotIndex}:`, err);
     }

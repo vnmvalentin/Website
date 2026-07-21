@@ -81,7 +81,6 @@ const SEED_CATALOGUE = [
 const CATALOGUE_MAP = new Map(SEED_CATALOGUE.map(s => [s.id, s]));
 
 function runPlantMigration(farmStates) {
-    console.log("🌱 Starte DB-Pflanzen-Migration auf Magic Garden Economy...");
     let migratedUsers = 0;
     let migratedPlants = 0;
 
@@ -152,8 +151,7 @@ function runPlantMigration(farmStates) {
         }
     }
 
-    console.log(`✅ DB-Migration abgeschlossen! ${migratedPlants} Pflanzen bei ${migratedUsers} Spielern aktualisiert.`);
-    return migratedUsers > 0;
+    return { migratedPlants, migratedUsers };
 }
 
 module.exports = { runPlantMigration };

@@ -281,7 +281,7 @@ export default function AdminDashboard() {
                                   className="w-full bg-black/50 border border-white/10 rounded-sm p-3 text-white focus:border-red-500/50 outline-none appearance-none"
                               >
                                   <option value="warning">Warnung (Rot)</option>
-                                  <option value="info">Info (Blau)</option>
+                                  <option value="info">Info (Cyan)</option>
                               </select>
                           </div>
                       </div>
@@ -665,7 +665,7 @@ export default function AdminDashboard() {
 
       // CLASH ROYALE TAB
       if (activeTab === "clashroyale") {
-          const modeLabel = { snake: "Snake Royale", auction: "Elixir Auction", bingo: "Bingo Royale" };
+          const modeLabel = { snake: "Snake Royale", auction: "Elixir Auction", bingo: "Bingo Royale", "shadow-carousel": "Blindes Karussel" };
           const phaseLabel = { lobby: "Lobby", playing: "Läuft", finished: "Beendet" };
           const phaseColor = { lobby: "text-gray-400 border-white/10", playing: "text-green-400 border-green-500/30", finished: "text-amber-400 border-amber-500/30" };
           const filtered = search

@@ -25,8 +25,9 @@ import StreamCredits from "./pages/StreamCredits";
 import GameContainer from "./pages/GardenGame/GameContainer";
 import DiscordBotDashboard from "./pages/Discord/DiscordBotDashboard";
 import ClashRoyalePage from "./pages/ClashRoyale/ClashRoyalePage";
-import BannedCardsModeratorPage from "./pages/ClashRoyale/BannedCards/BannedCardsModeratorPage";
 import BannedCardsOverlayPage from "./pages/ClashRoyale/BannedCards/BannedCardsOverlayPage";
+import DeckOverlayPage from "./pages/ClashRoyale/streamer/DeckOverlayPage";
+import NuzlockePage from "./pages/ClashRoyale/Nuzlocke/NuzlockePage";
 
 export default function App() {
   return (
@@ -37,8 +38,8 @@ export default function App() {
         <Route path="/overlay/credits" element={<StreamCredits />} />
         
         <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
-        <Route path="/banned-cards/moderator/:modKey" element={<BannedCardsModeratorPage />} />
         <Route path="/banned-cards/overlay/:overlayKey" element={<BannedCardsOverlayPage />} />
+        <Route path="/clash-royale/overlay/decks/:overlayKey" element={<DeckOverlayPage />} />
 
         {/* Alle “normalen” Seiten unter Layout */}
         <Route path="/" element={<Layout />}>
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="updates" element={<Updates />} />
           <Route path="/discord-bot" element={<DiscordBotDashboard />} />
           <Route path="/clash-royale" element={<ClashRoyalePage />} />
+          <Route path="/nuzlocke" element={<NuzlockePage />} />
           
         </Route>
       </Routes>

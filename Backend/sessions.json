@@ -1,14 +1,4 @@
 {
-  "ACZhkwdgxZ5-WlquF5np1vJO": {
-    "twitchId": "160224748",
-    "twitchLogin": "vnmvalentin",
-    "expiresAt": 1784044042502,
-    "discord": {
-      "accessToken": "MTIxNDE4OTg1NzM4ODM2MzgzNg.VdTGnZ6r0aOHZSUPLEL9biLypRwKpL",
-      "refreshToken": "o03ygSTlWexc2LuBiLS61nrvBOQypS",
-      "userId": "363665434240876555"
-    }
-  },
   "nvOun4Jt00BvN0E4ZZH986jY": {
     "twitchId": "160224748",
     "twitchLogin": "vnmvalentin",
@@ -34,13 +24,28 @@
     "twitchLogin": "vnmvalentin",
     "expiresAt": 1785980150739
   },
-  "KPfwicb9X7XXoZCBhzSSqd-P": {
+  "73z7WUzhntdDMc5aqr_MwwhW": {
     "twitchId": "160224748",
     "twitchLogin": "vnmvalentin",
-    "expiresAt": 1786154619117,
+    "expiresAt": 1786613408939
+  },
+  "g33WQu7C_sZodbsomDEe7hXW": {
+    "twitchId": "160224748",
+    "twitchLogin": "vnmvalentin",
+    "expiresAt": 1786618811161
+  },
+  "zWnCf1cqbpAvqgUXRYHM3j7K": {
+    "twitchId": "160224748",
+    "twitchLogin": "vnmvalentin",
+    "expiresAt": 1786811336002
+  },
+  "n2kOQq6--bxfEwdQVrEP7XBq": {
+    "twitchId": "160224748",
+    "twitchLogin": "vnmvalentin",
+    "expiresAt": 1787023054016,
     "discord": {
-      "accessToken": "MTIxNDE4OTg1NzM4ODM2MzgzNg.WGMFSIOZcgQDKXioBuTyx7Rw2x14nm",
-      "refreshToken": "k8PNzCFGaagumimqJWxAv19SMpKvxG",
+      "accessToken": "MTIxNDE4OTg1NzM4ODM2MzgzNg.wsHBuQvIDmaji4v8zxHLqYxyNiW7v0",
+      "refreshToken": "6hU4XOTvDgPyrCWmVdKuRLK8do1Xjm",
       "userId": "363665434240876555"
     }
   }

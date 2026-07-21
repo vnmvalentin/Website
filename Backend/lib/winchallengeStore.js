@@ -2,6 +2,7 @@
 const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
+const { step } = require("./startupLog");
 
 const DATA_DIR = path.join(__dirname, "../data");
 const DB_PATH = path.join(DATA_DIR, "winchallenge.db");
@@ -58,9 +59,7 @@ function migrateFromJsonIfEmpty() {
     });
     run(Object.entries(obj));
     fs.renameSync(JSON_LEGACY, JSON_LEGACY + ".migrated.bak");
-    console.log(
-      "[winchallenge] Migrated winchallenge.json to SQLite — backup: winchallenge.json.migrated.bak"
-    );
+    step("Winchallenge-JSON-Migration", true, "winchallenge.json → SQLite");
   } catch (e) {
     console.error("[winchallenge] JSON→SQLite migration failed:", e.message);
   }

@@ -2,6 +2,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const { step } = require('../../lib/startupLog');
 
 const dataDir = path.join(__dirname, '../../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -158,6 +159,9 @@ try { db.exec("ALTER TABLE guild_settings ADD COLUMN leave_message TEXT DEFAULT 
 try { db.exec("ALTER TABLE guild_settings ADD COLUMN fun_channel TEXT DEFAULT ''"); } catch (e) {}
 try { db.exec("ALTER TABLE guild_settings ADD COLUMN disabled_commands TEXT DEFAULT '[]'"); } catch (e) {}
 try { db.exec("CREATE INDEX IF NOT EXISTS idx_voice_activity ON voice_activity(guild_id, date)"); } catch (e) {}
+try { db.exec("ALTER TABLE active_voice_channels ADD COLUMN pin_message_id TEXT DEFAULT ''"); } catch (e) {}
+
+step("Discord-DB", true);
 
 // ── GUILD SETTINGS ─────────────────────────────────────────────────────────────
 function getSettings(guildId) {
@@ -265,8 +269,8 @@ function getVoiceConfig(guildId) {
 function saveVoiceConfig(guildId, triggerChannelId) {
     db.prepare(`INSERT INTO voice_configs (guild_id, trigger_channel_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET trigger_channel_id=excluded.trigger_channel_id`).run(guildId, triggerChannelId || '');
 }
-function saveActiveVoiceChannel(voiceChannelId, textChannelId, ownerId, guildId) {
-    db.prepare(`INSERT OR REPLACE INTO active_voice_channels (voice_channel_id, text_channel_id, owner_id, guild_id) VALUES (?, ?, ?, ?)`).run(voiceChannelId, textChannelId, ownerId, guildId);
+function saveActiveVoiceChannel(voiceChannelId, textChannelId, ownerId, guildId, pinMessageId = '') {
+    db.prepare(`INSERT OR REPLACE INTO active_voice_channels (voice_channel_id, text_channel_id, owner_id, guild_id, pin_message_id) VALUES (?, ?, ?, ?, ?)`).run(voiceChannelId, textChannelId, ownerId, guildId, pinMessageId || '');
 }
 function getActiveVoiceChannel(voiceChannelId) { return db.prepare('SELECT * FROM active_voice_channels WHERE voice_channel_id=?').get(voiceChannelId); }
 function getActiveVoiceChannelByText(textChannelId) { return db.prepare('SELECT * FROM active_voice_channels WHERE text_channel_id=?').get(textChannelId); }
@@ -402,18 +406,19 @@ function getVoiceStats(guildId, days = 30) {
 const BACKUP_DIR = path.join(dataDir, 'backups');
 if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 let discordBackupSlot = 0;
-function runDiscordBackup() {
+function runDiscordBackup(opts = {}) {
+    const { silent = false } = opts;
     try {
         const slotIndex = discordBackupSlot % 3;
         discordBackupSlot++;
         fs.copyFileSync(path.join(dataDir, 'discord_data.db'), path.join(BACKUP_DIR, `discord_data_backup_slot_${slotIndex}.db`));
-        console.log(`[Discord-Backup] Slot ${slotIndex} -> discord_data_backup_slot_${slotIndex}.db`);
+        if (!silent) console.log(`[Discord-Backup] Slot ${slotIndex} -> discord_data_backup_slot_${slotIndex}.db`);
     } catch (e) {
         console.error('[Discord-Backup] Fehler:', e.message);
     }
 }
 setInterval(runDiscordBackup, 30 * 60 * 1000);
-runDiscordBackup();
+runDiscordBackup({ silent: true });
 
 module.exports = {
     getSettings, saveSettings,

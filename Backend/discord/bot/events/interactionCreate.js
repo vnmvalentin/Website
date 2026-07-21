@@ -13,7 +13,7 @@ const { handleVoiceCommand } = require('../commands/voice');
 const { handleTicketCreateButton, handleTicketModalSubmit, handleTicketClose } = require('../commands/tickets');
 
 const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'pp', 'aussehen', 'iq', 'ship', 'coinflip'];
-const VOICE_COMMANDS = ['voicelimit', 'voicelock', 'voice_rename'];
+const VOICE_COMMANDS = ['voicelimit', 'voicelock', 'voice_rename', 'voice_hide', 'voice_unhide', 'voice_transfer'];
 
 module.exports = {
     name: 'interactionCreate',

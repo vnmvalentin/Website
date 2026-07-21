@@ -193,7 +193,7 @@ export const CARD_ATTRS = {
   'goblin-giant':      ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'swarm', 'single', 'rarity_epic', 'gender_male',   'speed_medium', 'target_buildings', 'has_evo', 'target_ground_air'],
   'x-bow':             ['cost_high', 'type_building', 'range_ranged', 'rarity_epic', 'target_ground'],
   'pekka':             ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_epic', 'gender_female',   'speed_slow', 'has_evo', 'target_ground'],
-  'electro-giant':     ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_epic', 'gender_none',   'speed_slow', 'target_buildings', 'target_ground_air'],
+  'electro-giant':     ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_epic', 'gender_male',   'speed_slow', 'target_buildings', 'target_ground_air'],
   'golem':             ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'single', 'swarm', 'rarity_epic', 'gender_none',   'speed_slow', 'target_buildings', 'target_ground'],
 
   // ── Legendaries ───────────────────────────────────────────────────────────

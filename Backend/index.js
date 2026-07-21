@@ -28,11 +28,15 @@ const createGardenGameRouter = require("./routes/gardenGameRoutes");
 const discordClient = require("./discord/bot/index");
 const createDiscordRouter = require("./discord/api/index");
 const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./routes/clashRoyaleRoutes");
+const createCrStreamerRouter = require("./routes/crStreamerRoutes");
+const { initCrStreamerStore } = require("./lib/crStreamerStore");
 const createBannedCardsRouter = require("./routes/bannedCardsRoutes");
+const createNuzlockeRouter = require("./routes/nuzlockeRoutes");
 const { saveAllFarmsOnExit, initGardenFarmsStore, farmStates } = require("./lib/gardenFarmsStore");
 const { runPlantMigration } = require("./lib/gardenMigration");
 const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./lib/winchallengeStore");
 const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc } = require("./lib/winchallengeIrc");
+const { step } = require("./lib/startupLog");
 
 const app = express();
 
@@ -254,8 +258,11 @@ app.use("/api/feedback", createFeedbackRouter());
 const gardenRouter = createGardenGameRouter({ requireAuth, io });
 app.use("/api/garden", gardenRouter);
 app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, sessions, saveSessionsToFile }));
+// Streamer-Konfiguration VOR dem allgemeinen Clash-Router mounten (spezifischerer Pfad)
+app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
 app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
+app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));
 
 // =================== SOCKET.IO LOGIC ===================
 io.on("connection", (socket) => {
@@ -275,7 +282,7 @@ io.on("connection", (socket) => {
     gardenRouter.registerGardenSocketHandlers(socket);
     const clashSocketTwitchId = getTwitchIdFromSocket(socket);
     const isClashAdmin = !!clashSocketTwitchId && String(clashSocketTwitchId) === String(STREAMER_TWITCH_ID);
-    registerClashRoyaleSocket(socket, io, { isAdmin: isClashAdmin });
+    registerClashRoyaleSocket(socket, io, { isAdmin: isClashAdmin, twitchId: clashSocketTwitchId });
     // ───────────────────────────────────────────────────────────
  
     socket.on("disconnect", () => {
@@ -290,35 +297,50 @@ const PORT = process.env.PORT || 3001;
 (async () => {
   try {
     await initGardenFarmsStore();
-    runPlantMigration(farmStates);
+    const { migratedPlants, migratedUsers } = runPlantMigration(farmStates);
+    step("Garden-DB", true);
+    step(
+      "Pflanzenmigration",
+      true,
+      migratedUsers > 0 ? `${migratedPlants} Pflanzen / ${migratedUsers} Spieler` : "keine Änderungen"
+    );
   } catch (e) {
-    console.error("[garden] DB-Init (sql.js) fehlgeschlagen:", e);
+    step("Garden-DB", false, e.message);
     process.exit(1);
   }
   try {
     await initWinchallengeStore();
+    step("Winchallenge-DB", true);
   } catch (e) {
-    console.error("[winchallenge] DB-Init (sql.js) fehlgeschlagen:", e);
+    step("Winchallenge-DB", false, e.message);
     process.exit(1);
   }
   try {
-    await initWinchallengeIrc();
+    initCrStreamerStore();
+    step("CR-Streamer-DB", true);
   } catch (e) {
-    console.error("[winchallenge irc] Init:", e.message);
+    step("CR-Streamer-DB", false, e.message);
+    process.exit(1);
+  }
+  try {
+    const irc = await initWinchallengeIrc();
+    step("Winchallenge-IRC", irc.status, irc.detail);
+  } catch (e) {
+    step("Winchallenge-IRC", false, e.message);
   }
   server.once("error", (err) => {
     if (err && err.code === "EADDRINUSE") {
-      console.error(
-        `❌ Port ${PORT} ist bereits belegt (EADDRINUSE). Anderen node-Prozess beenden, oder in .env z.B. PORT=3001 setzen. Windows: netstat -ano | findstr :${PORT}`
+      step(
+        "Server",
+        false,
+        `Port ${PORT} bereits belegt (EADDRINUSE) — anderen Prozess beenden oder PORT in .env ändern`
       );
     } else {
-      console.error("❌ Server-Fehler:", err);
+      step("Server", false, err.message);
     }
     process.exit(1);
   });
-  server.listen(PORT, "0.0.0.0", () =>
-    console.log(`✅ Admin API & Socket.io laufen auf Port ${PORT} (IPv4)`)
-  );
+  server.listen(PORT, "0.0.0.0", () => step("Server", true, `Port ${PORT}`));
 })();
 
 function shutdownGardenFarms() {

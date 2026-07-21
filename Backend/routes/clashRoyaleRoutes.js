@@ -1,6 +1,9 @@
 const express = require('express');
+const crStreamerStore = require('../lib/crStreamerStore');
 
 const lobbies = new Map();
+
+const VALID_MODES = ['snake', 'auction', 'bingo', 'shadow-carousel', 'elixir-rush'];
 
 const PLAYER_COLORS = [
   '#ef4444', '#3b82f6', '#22c55e', '#f59e0b',
@@ -19,6 +22,73 @@ const GRID_SIZE  = 121;
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+// ── Streamer-Integration (OBS-Automatiken + globales Deck-Overlay) ──────────
+// Spieler, die beim Verbinden per Session-Cookie eingeloggt waren, tragen ihre
+// (serverseitig verifizierte) twitchId. Für jeden solchen Spieler mit
+// Streamer-Konfiguration feuern Lobby-Ereignisse Events an sein Deck-Overlay,
+// das als Browserquelle in OBS läuft und dort lokal Szenen/Quellen schaltet.
+
+function lobbyStreamerIds(lobby) {
+  const ids = new Set();
+  for (const p of lobby.players) {
+    if (p.twitchId && !p.left) ids.add(String(p.twitchId));
+  }
+  return [...ids];
+}
+
+function emitStreamerEvent(lobby, io, eventName) {
+  for (const tid of lobbyStreamerIds(lobby)) {
+    try {
+      const cfg = crStreamerStore.getConfig(tid);
+      if (!cfg?.overlayKey) continue;
+      io.to(`croverlay:${cfg.overlayKey}`).emit('cr:streamer:event', {
+        event: eventName,
+        lobbyCode: lobby.code,
+        mode: lobby.mode,
+      });
+    } catch (e) {
+      console.error('[cr streamer] event failed:', e.message);
+    }
+  }
+}
+
+function buildDeckFeedPayload(lobby) {
+  return {
+    at: Date.now(),
+    lobbyCode: lobby.code,
+    mode: lobby.mode,
+    players: lobby.players
+      .filter(p => !p.isAdmin && !p.left && !p.isSpectator && (p.deck || []).length > 0)
+      .map(p => ({
+        name: p.name,
+        color: p.color,
+        avatar: p.avatar || '',
+        deck: (p.deck || []).map(c => ({
+          id: c.id, name: c.name, rarity: c.rarity, isChampion: !!c.isChampion,
+        })),
+      })),
+  };
+}
+
+function updateDeckFeeds(lobby, io) {
+  const payload = buildDeckFeedPayload(lobby);
+  if (!payload.players.length) return;
+  for (const tid of lobbyStreamerIds(lobby)) {
+    try {
+      const cfg = crStreamerStore.setLastDecks(tid, payload);
+      if (!cfg?.overlayKey) continue; // kein Streamer-Setup für diesen Spieler
+      io.to(`croverlay:${cfg.overlayKey}`).emit('cr:deckoverlay:update', payload);
+    } catch (e) {
+      console.error('[cr streamer] deck feed failed:', e.message);
+    }
+  }
+}
+
+function notifyDraftComplete(lobby, io) {
+  emitStreamerEvent(lobby, io, 'draftEnd');
+  updateDeckFeeds(lobby, io);
 }
 
 // ── Card pool — keep 1:1 in sync with Frontend/src/pages/ClashRoyale/data/cards.js ──
@@ -152,6 +222,43 @@ const ALL_CARDS = [
   { id: 'boss-bandit',        name: 'Boss Bandit',       rarity: 'Champion',  isChampion: true },
 ];
 
+// ── Echte Elixierkosten (für Elixir Rush) ──────────────────────────────────
+const ELIXIR_COST = {
+  // Commons
+  'skeletons': 1, 'fire-spirit': 1, 'electro-spirit': 1, 'ice-spirit': 1,
+  'goblins': 2, 'spear-goblins': 2, 'bomber': 2, 'bats': 2, 'zap': 2, 'giant-snowball': 2, 'berserker': 2,
+  'knight': 3, 'archers': 3, 'minions': 3, 'goblin-gang': 3, 'arrows': 3, 'cannon': 3,
+  'skeleton-barrel': 3, 'firecracker': 3, 'royal-delivery': 3,
+  'skeleton-dragons': 4, 'mortar': 4, 'tesla': 4,
+  'barbarians': 5, 'minion-horde': 5, 'rascals': 5,
+  'royal-giant': 6, 'elite-barbarians': 6, 'royal-recruits': 7,
+  // Rares
+  'heal-spirit': 1, 'ice-golem': 2, 'suspicious-bush': 2,
+  'mega-minion': 3, 'dart-goblin': 3, 'earthquake': 3, 'elixir-golem': 3, 'tombstone': 3,
+  'musketeer': 4, 'mini-pekka': 4, 'goblin-hut': 4, 'goblin-cage': 4, 'fireball': 4, 'valkyrie': 4,
+  'battle-ram': 4, 'bomb-tower': 4, 'hog-rider': 4, 'flying-machine': 4, 'battle-healer': 4,
+  'zappies': 4, 'furnace': 4, 'goblin-demolisher': 4,
+  'giant': 5, 'wizard': 5, 'inferno-tower': 5, 'royal-hogs': 5,
+  'rocket': 6, 'barbarian-hut': 6, 'elixir-collector': 6, 'three-musketeers': 9,
+  // Epics
+  'mirror': 0, 'barbarian-barrel': 2, 'wall-breakers': 2, 'rage': 2, 'goblin-curse': 2,
+  'skeleton-army': 3, 'guards': 3, 'vines': 3, 'tornado': 3, 'goblin-barrel': 3, 'clone': 3, 'void': 3,
+  'baby-dragon': 4, 'dark-prince': 4, 'freeze': 4, 'rune-giant': 4, 'poison': 4, 'hunter': 4, 'goblin-drill': 4,
+  'witch': 5, 'balloon': 5, 'prince': 5, 'electro-dragon': 5, 'bowler': 5, 'executioner': 5, 'cannon-cart': 5,
+  'giant-skeleton': 6, 'lightning': 6, 'goblin-giant': 6, 'x-bow': 6,
+  'pekka': 7, 'electro-giant': 7, 'golem': 8,
+  // Legendaries
+  'the-log': 2, 'miner': 3, 'ice-wizard': 3, 'princess': 3, 'royal-ghost': 3, 'bandit': 3, 'fisherman': 3,
+  'inferno-dragon': 4, 'electro-wizard': 4, 'phoenix': 4, 'magic-archer': 4, 'lumberjack': 4,
+  'night-witch': 4, 'mother-witch': 4,
+  'ram-rider': 5, 'graveyard': 5, 'goblin-machine': 5, 'ronin': 5, 'spirit-empress': 5,
+  'sparky': 6, 'mega-knight': 7, 'lava-hound': 7,
+  // Champions
+  'little-prince': 3, 'skeleton-king': 4, 'golden-knight': 4, 'mighty-miner': 4,
+  'archer-queen': 5, 'monk': 5, 'goblinstein': 5, 'boss-bandit': 6,
+};
+const getElixirCost = (cardId) => ELIXIR_COST[cardId] ?? 3;
+
 // ── Bingo Attribute Data (keep in sync with Frontend/src/pages/ClashRoyale/data/bingoAttributes.js) ──
 const ALL_BINGO_ATTR_KEYS = [
   'cost_low','cost_mid','cost_high',
@@ -261,7 +368,7 @@ const BINGO_CARD_ATTRS = {
   'goblin-giant':      ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'swarm', 'single', 'rarity_epic', 'gender_male',   'speed_medium', 'target_buildings', 'has_evo', 'target_ground_air'],
   'x-bow':             ['cost_high', 'type_building', 'range_ranged', 'rarity_epic', 'target_ground'],
   'pekka':             ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_epic', 'gender_female',   'speed_slow', 'has_evo', 'target_ground'],
-  'electro-giant':     ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_epic', 'gender_none',   'speed_slow', 'target_buildings', 'target_ground_air'],
+  'electro-giant':     ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_epic', 'gender_male',   'speed_slow', 'target_buildings', 'target_ground_air'],
   'golem':             ['cost_high', 'type_troop',    'move_ground', 'range_melee',  'single', 'swarm', 'rarity_epic', 'gender_none',   'speed_slow', 'target_buildings', 'target_ground'],
 
   // ── Legendaries ───────────────────────────────────────────────────────────
@@ -345,15 +452,14 @@ function getNewlyCompletedLines(grid, cellIndex, completedBefore) {
   return newly;
 }
 
-// Snake draft order — see comments in BingoRoyale.jsx
+// Snake-Draft: pro Rundenpaar hin + zurück (fair), aber die Spielerreihenfolge wird
+// für jedes Paar neu zufällig gemischt — so ist niemand in jedem Paar "Spieler 1".
 function generateSnakeDraftOrder(playerIndices, numRounds) {
-  const N = playerIndices.length;
   const order = [];
+  let current = playerIndices;
   for (let r = 0; r < numRounds; r++) {
-    const pairIdx = Math.floor(r / 2);
-    const shift   = pairIdx % N;
-    const rotated = Array.from({ length: N }, (_, i) => playerIndices[(shift + i) % N]);
-    order.push(...(r % 2 === 0 ? rotated : [...rotated].reverse()));
+    if (r % 2 === 0) current = shuffle(playerIndices);
+    order.push(...(r % 2 === 0 ? current : [...current].reverse()));
   }
   return order;
 }
@@ -365,9 +471,15 @@ function buildBingoState(lobby) {
   const currentPlayerIdx = g.phase === 'draft' ? g.turnOrder[g.currentTurn] : null;
   const currentPlayer = currentPlayerIdx != null ? lobby.players[currentPlayerIdx] : null;
 
-  // Unpicked cards: cards not in any player's deck
+  // Unpicked cards: cards not in any player's deck (excluded cards never appear)
   const pickedIds = new Set(lobby.players.flatMap(p => (p.deck||[]).map(c => c.id)));
-  const unpickedCards = ALL_CARDS.filter(c => !pickedIds.has(c.id));
+  const unpickedCards = getCardPool(lobby).filter(c => !pickedIds.has(c.id));
+
+  // Verbleibende Tokens pro Spieler: während des Token-Shops aus der Queue abgeleitet,
+  // damit die Anzeige bei jedem Einsatz live mitzählt (Reveal-Token gilt bereits als verbraucht)
+  const queueFrom = (g.tokenShopIdx ?? 0) + (g.tokenShopSubPhase === 'revealing' ? 1 : 0);
+  const remainingQueue = (g.tokenShopQueue || []).slice(queueFrom);
+  const tokensLeftFor = (pid) => remainingQueue.filter(id => id === pid).length;
 
   return {
     type: 'bingo',
@@ -378,12 +490,13 @@ function buildBingoState(lobby) {
     pickedThisRound: g.pickedThisRound,
     currentPlayerId: currentPlayer?.id ?? null,
     timerRemaining: g.timerRemaining,
-    timerSeconds: lobby.timerSeconds,
+    timerSeconds: g.phase === 'tokenShop' ? (lobby.tokenShopTimerSeconds ?? lobby.timerSeconds) : lobby.timerSeconds,
     finished: g.finished,
     tokenShopCurrentPlayerId: g.tokenShopQueue?.[g.tokenShopIdx] ?? null,
     tokenShopQueue: g.tokenShopQueue || [],
     tokenShopIdx: g.tokenShopIdx ?? 0,
     tokenShopSubPhase: g.tokenShopSubPhase || 'picking',
+    tokenShopLiveAction: g.tokenShopLiveAction || null,
     lastPowerupResult: g.lastPowerupResult || null,
     unpickedCards: g.phase === 'tokenShop' ? unpickedCards : [],
     players: lobby.players.map(p => ({
@@ -391,6 +504,8 @@ function buildBingoState(lobby) {
       deck: p.deck || [],
       bingoGrid: p.bingoGrid || [],
       bingoTokens: p.bingoTokens || 0,
+      bingoTokensLeft: g.phase === 'tokenShop' ? tokensLeftFor(p.id) : (p.bingoTokens || 0),
+      tokenAbilities: p.tokenAbilities || [],
       completedLines: p.completedLines || [],
       isSpectator: p.isSpectator ?? false,
     })),
@@ -398,6 +513,8 @@ function buildBingoState(lobby) {
 }
 
 // ── Bingo Royale ────────────────────────────────────────────────────────────
+const BINGO_POWERUP_TYPES = ['swap', 'reroll', 'joker'];
+
 function startBingoRoyale(lobby, io) {
   const activePlayers = lobby.players.filter(p => !p.isSpectator);
   const N = activePlayers.length;
@@ -412,6 +529,7 @@ function startBingoRoyale(lobby, io) {
     p.bingoGrid = generateBingoCard();
     p.bingoTokens = 0;
     p.completedLines = [];
+    p.tokenAbilities = [];
     if (p.isSpectator) p.bingoGrid = [];
   });
 
@@ -420,7 +538,7 @@ function startBingoRoyale(lobby, io) {
 
   lobby.game = {
     type: 'bingo',
-    pool: shuffle(ALL_CARDS),
+    pool: shuffle(getCardPool(lobby)),
     poolIdx: 0,
     round: 0,
     maxRounds: 8,
@@ -436,6 +554,7 @@ function startBingoRoyale(lobby, io) {
     tokenShopQueue: [],
     tokenShopIdx: 0,
     tokenShopSubPhase: 'picking',
+    tokenShopLiveAction: null,
     lastPowerupResult: null,
   };
 
@@ -572,6 +691,36 @@ function endBingoDraft(lobby, io) {
   g.phase = 'tokenShop';
   g.tokenShopQueue = queue;
   g.tokenShopIdx   = 0;
+  g.tokenShopSubPhase = 'picking';
+  g.tokenShopLiveAction = null;
+  // Jeder Spieler bekommt 2 der 3 Power-Ups zufällig zugelost — nur die darf er einsetzen
+  activePlayers.forEach(p => { p.tokenAbilities = shuffle(BINGO_POWERUP_TYPES).slice(0, 2); });
+  startTokenShopTimer(lobby, io); // vor dem Broadcast, damit timerRemaining bereits frisch ist
+  io.to(lobby.code).emit('clash:bingo:state', buildBingoState(lobby));
+}
+
+// Token-Shop-Timer: Wer sein Power-Up nicht rechtzeitig einsetzt, verliert den Token
+function startTokenShopTimer(lobby, io) {
+  clearTurnTimer(lobby);
+  const g = lobby.game;
+  g.timerRemaining = lobby.tokenShopTimerSeconds ?? 60;
+  g.timerInterval = setInterval(() => {
+    g.timerRemaining--;
+    io.to(lobby.code).emit('clash:timerTick', { remaining: g.timerRemaining });
+    if (g.timerRemaining <= 0) {
+      clearTurnTimer(lobby);
+      skipTokenShopTurn(lobby, io);
+    }
+  }, 1000);
+}
+
+function skipTokenShopTurn(lobby, io) {
+  const g = lobby.game;
+  if (!g || g.type !== 'bingo' || g.phase !== 'tokenShop' || g.tokenShopSubPhase !== 'picking') return;
+  g.tokenShopIdx++;
+  g.tokenShopLiveAction = null;
+  if (g.tokenShopIdx >= g.tokenShopQueue.length) { endBingoGame(lobby, io); return; }
+  startTokenShopTimer(lobby, io);
   io.to(lobby.code).emit('clash:bingo:state', buildBingoState(lobby));
 }
 
@@ -597,6 +746,7 @@ function endBingoGame(lobby, io) {
       deck: p.deck || [], isSpectator: p.isSpectator ?? false,
     })),
   });
+  notifyDraftComplete(lobby, io);
 }
 
 function applyBingoPowerup(lobby, type, params, playerId, io) {
@@ -606,6 +756,10 @@ function applyBingoPowerup(lobby, type, params, playerId, io) {
 
   const player = lobby.players.find(p => p.id === playerId);
   if (!player) return false;
+
+  // Nur die dem Spieler zugelosten Power-Ups sind erlaubt
+  const allowedTypes = player.tokenAbilities?.length ? player.tokenAbilities : BINGO_POWERUP_TYPES;
+  if (!allowedTypes.includes(type)) return false;
 
   let result = { type, playerId, playerName: player.name, playerColor: player.color, playerAvatar: player.avatar || '' };
 
@@ -632,7 +786,9 @@ function applyBingoPowerup(lobby, type, params, playerId, io) {
     const oldCard = target.deck[theirDeckIdx];
     const pickedIds = new Set(lobby.players.flatMap(p => (p.deck||[]).map(c => c.id)));
     const champCount = target.deck.filter((c,i) => c.isChampion && i !== theirDeckIdx).length;
-    let pool = ALL_CARDS.filter(c => !pickedIds.has(c.id) && !(c.isChampion && champCount >= 2));
+    const cardPool = getCardPool(lobby);
+    let pool = cardPool.filter(c => !pickedIds.has(c.id) && !(c.isChampion && champCount >= 2));
+    if (!pool.length) pool = cardPool.filter(c => !(c.isChampion && champCount >= 2));
     if (!pool.length) pool = ALL_CARDS.filter(c => !(c.isChampion && champCount >= 2));
     const newCard = pool[Math.floor(Math.random() * pool.length)];
     target.deck[theirDeckIdx] = { ...newCard, protected: true };
@@ -642,7 +798,7 @@ function applyBingoPowerup(lobby, type, params, playerId, io) {
     const { myDeckIdx, newCardId } = params;
     if (!player.deck[myDeckIdx]) return false;
     if (player.deck[myDeckIdx]?.protected) return false;
-    const newCard = ALL_CARDS.find(c => c.id === newCardId);
+    const newCard = getCardPool(lobby).find(c => c.id === newCardId);
     if (!newCard) return false;
     const pickedIds = new Set(lobby.players.flatMap(p => (p.deck||[]).map(c => c.id)));
     if (pickedIds.has(newCardId)) return false;
@@ -656,7 +812,9 @@ function applyBingoPowerup(lobby, type, params, playerId, io) {
   }
 
   // Reveal phase: broadcast what happened, then advance after 5s
+  clearTurnTimer(lobby);
   g.tokenShopSubPhase = 'revealing';
+  g.tokenShopLiveAction = null;
   g.lastPowerupResult = result;
   io.to(lobby.code).emit('clash:bingo:state', buildBingoState(lobby));
 
@@ -668,6 +826,7 @@ function applyBingoPowerup(lobby, type, params, playerId, io) {
     if (g.tokenShopIdx >= g.tokenShopQueue.length) {
       endBingoGame(lobby, io);
     } else {
+      startTokenShopTimer(lobby, io);
       io.to(lobby.code).emit('clash:bingo:state', buildBingoState(lobby));
     }
   }, 5000);
@@ -676,6 +835,31 @@ function applyBingoPowerup(lobby, type, params, playerId, io) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+// Kartenpool der Lobby: alle Karten abzüglich der vom Host global ausgeschlossenen
+function getCardPool(lobby) {
+  if (!lobby.excludedCards?.length) return ALL_CARDS;
+  const excluded = new Set(lobby.excludedCards);
+  return ALL_CARDS.filter(c => !excluded.has(c.id));
+}
+
+// Mindestgröße des Kartenpools für den aktuellen Modus mit den aktuellen Einstellungen
+function requiredPoolSize(lobby) {
+  const activeCount = lobby.players.filter(p => !p.isSpectator).length;
+  if (lobby.mode === 'snake') {
+    const s = Math.max(7, Math.min(11, lobby.gridSize || 11));
+    return s * s;
+  }
+  if (lobby.mode === 'shadow-carousel') {
+    return activeCount * (lobby.carouselCardsPerTable || 8);
+  }
+  if (lobby.mode === 'elixir-rush') {
+    // Jeder braucht 8 Karten, plus der Markt muss immer befüllbar bleiben
+    return activeCount * 8 + (lobby.rushMarketSize || 5);
+  }
+  // auction & bingo: 8 Runden × Karten pro Runde (mind. 1 pro aktivem Spieler)
+  return 8 * Math.max(activeCount, lobby.cardsPerRound || activeCount);
+}
+
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -722,13 +906,21 @@ function sanitizeLobby(lobby) {
     mode: lobby.mode,
     host: lobby.host,
     timerSeconds: lobby.timerSeconds,
+    tokenShopTimerSeconds: lobby.tokenShopTimerSeconds ?? 60,
     cardsPerRound: lobby.cardsPerRound || 4,
     startElixir: lobby.startElixir ?? 100,
     showElixir: lobby.showElixir ?? false,
     motherWitchEnabled: lobby.motherWitchEnabled ?? false,
     gridSize: lobby.gridSize || 11,
+    carouselCardsPerTable: lobby.carouselCardsPerTable || 8,
+    carouselRevealMode: lobby.carouselRevealMode || 'dynamic',
+    rushMarketSize: lobby.rushMarketSize || 5,
+    rushCardLifetime: lobby.rushCardLifetime || 15,
+    rushShowElixir: lobby.rushShowElixir ?? true,
+    excludedCards: lobby.excludedCards || [],
     historyCount: lobby.history?.length || 0,
-    players: lobby.players.map(p => ({
+    // Aktiv gegangene Spieler tauchen in der Lobby-Liste nicht mehr auf
+    players: lobby.players.filter(p => !p.left).map(p => ({
       id: p.id, name: p.name, color: p.color, avatar: p.avatar || 'knight',
       deck: p.deck || [], elixir: p.elixir ?? (lobby.startElixir ?? 100),
       isSpectator: p.isSpectator ?? false, disconnected: p.disconnected ?? false,
@@ -743,7 +935,7 @@ function getActiveLobbiesForAdmin() {
   return [...lobbies.values()]
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .map(l => {
-      const realPlayers = l.players.filter(p => !p.isAdmin);
+      const realPlayers = l.players.filter(p => !p.isAdmin && !p.left);
       const hostPlayer = l.players.find(p => p.id === l.host);
       return {
         code: l.code,
@@ -810,6 +1002,7 @@ function endGame(lobby, io) {
   io.to(lobby.code).emit('clash:gameOver', {
     players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: p.deck || [], isSpectator: p.isSpectator ?? false })),
   });
+  notifyDraftComplete(lobby, io);
 }
 
 // wasSkip=true → player had no valid move and turn was skipped without picking
@@ -896,7 +1089,7 @@ function autoAdvanceTurn(lobby, io) {
 function startSnakeRoyale(lobby, io) {
   const size       = Math.max(7, Math.min(11, lobby.gridSize || 11));
   const totalCells = size * size;
-  const cards = shuffle(ALL_CARDS).slice(0, totalCells);
+  const cards = shuffle(getCardPool(lobby)).slice(0, totalCells);
   const grid  = cards.map(card => ({ card, pickedBy: null, pickOrder: null }));
 
   // Only active (non-spectator) players participate in turn order
@@ -1053,7 +1246,7 @@ function startElixirAuction(lobby, io) {
   lobby.players.forEach(p => { p.deck = []; p.elixir = p.isSpectator ? 0 : startElixir; });
   lobby.game = {
     type: 'auction',
-    pool: shuffle(ALL_CARDS),
+    pool: shuffle(getCardPool(lobby)),
     poolIdx: 0,
     round: 0,
     maxRounds: 8,
@@ -1087,12 +1280,15 @@ function nextAuctionRound(lobby, io) {
 }
 
 // Draw a random non-champion bonus card not in the current round's pool
-function drawBonusCard(g, alreadyGiven = []) {
+function drawBonusCard(lobby, alreadyGiven = []) {
+  const g = lobby.game;
+  const cardPool = getCardPool(lobby);
   const currentIds = new Set(g.currentCards.map(c => c.id));
   const givenIds   = new Set(alreadyGiven.map(c => c.id));
-  const pool = ALL_CARDS.filter(c => !c.isChampion && !currentIds.has(c.id) && !givenIds.has(c.id));
+  const pool = cardPool.filter(c => !c.isChampion && !currentIds.has(c.id) && !givenIds.has(c.id));
   if (pool.length === 0) {
-    const fallback = ALL_CARDS.filter(c => !c.isChampion && !currentIds.has(c.id));
+    let fallback = cardPool.filter(c => !c.isChampion && !currentIds.has(c.id));
+    if (!fallback.length) fallback = ALL_CARDS.filter(c => !c.isChampion && !currentIds.has(c.id));
     return fallback[Math.floor(Math.random() * Math.max(1, fallback.length))];
   }
   return pool[Math.floor(Math.random() * pool.length)];
@@ -1163,7 +1359,7 @@ function resolveAuction(lobby, io) {
     if (won) {
       if (cantTakeChamp && bidCard.isChampion) {
         // Safety-net: bid-check should prevent this, but guard anyway
-        got = drawBonusCard(g, bonusCardsGiven);
+        got = drawBonusCard(lobby, bonusCardsGiven);
         bonusCardsGiven.push(got);
         isBonus = true;
         winners[bid.cardIndex] = null;
@@ -1182,7 +1378,7 @@ function resolveAuction(lobby, io) {
       }
       // No suitable consolation found → bonus card
       if (!got) {
-        got = drawBonusCard(g, bonusCardsGiven);
+        got = drawBonusCard(lobby, bonusCardsGiven);
         bonusCardsGiven.push(got);
         isBonus = true;
       }
@@ -1225,6 +1421,525 @@ function endAuctionGame(lobby, io) {
   io.to(lobby.code).emit('clash:gameOver', {
     players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: p.deck || [], isSpectator: p.isSpectator ?? false })),
   });
+  notifyDraftComplete(lobby, io);
+}
+
+// ── Schatten Karussel ────────────────────────────────────────────────────────
+// N Spieler = N Tische mit je 8/12/16 verdeckten, global einzigartigen Karten. Alle Spieler
+// wählen gleichzeitig: pro Runde je nach Aufdecksystem 1-2 Karten am eigenen Tisch aufdecken
+// und dann eine beliebige Karte nehmen — auch verdeckt. Danach wandern die Tische reihum
+// weiter (Tisch 1 → Spieler 2, letzter Tisch → Spieler 1). Nach 8 Picks (volles Deck) ist
+// Schluss — bei mehr als 8 Karten pro Tisch bleiben die Reste ungenutzt liegen.
+const CAROUSEL_DECK_SIZE = 8;
+const CAROUSEL_TABLE_SIZES = [8, 12, 16];
+const CAROUSEL_REVEAL_MODES = ['dynamic', 'one', 'two'];
+const CAROUSEL_TRANSITION_MS = 4000;
+
+// Kartenpool begrenzt die Tischanzahl: z.B. 122 Karten bei 16 pro Tisch → max. 7 Spieler
+function carouselMaxPlayers(cardsPerTable, poolSize = ALL_CARDS.length) {
+  return Math.floor(poolSize / cardsPerTable);
+}
+
+function carouselFlipLimit(g) {
+  if (g.revealMode === 'one') return 1;
+  if (g.revealMode === 'two') return 2;
+  // dynamisch (Standard): Runden 1-4 → 2 Aufdeckungen, ab Runde 5 → nur noch 1
+  return g.round <= 4 ? 2 : 1;
+}
+
+// Runde 1: Sitz i → Tisch i. Jede weitere Runde wandert jeder Tisch einen Sitz weiter.
+function carouselTableForSeat(seatIdx, round, numTables) {
+  return ((seatIdx - (round - 1)) % numTables + numTables) % numTables;
+}
+
+function getCarouselTable(g, playerId) {
+  const seat = g.seats.indexOf(playerId);
+  if (seat === -1) return { seat: -1, tableIdx: -1, table: null };
+  const tableIdx = carouselTableForSeat(seat, g.round, g.tables.length);
+  return { seat, tableIdx, table: g.tables[tableIdx] };
+}
+
+// Ersatzkarte für Spieler am Champion-Limit: zufällige, noch nirgends vergebene Nicht-Champion-Karte
+function drawCarouselReplacement(lobby) {
+  const g = lobby.game;
+  const usedIds = new Set([
+    ...g.tables.flatMap(t => t.slots.map(s => s.card.id)),
+    ...lobby.players.flatMap(p => (p.deck || []).map(c => c.id)),
+    ...g.extraCardsGiven.map(c => c.id),
+  ]);
+  const cardPool = getCardPool(lobby);
+  let pool = cardPool.filter(c => !c.isChampion && !usedIds.has(c.id));
+  if (!pool.length) pool = cardPool.filter(c => !c.isChampion);
+  if (!pool.length) pool = ALL_CARDS.filter(c => !c.isChampion);
+  const card = pool[Math.floor(Math.random() * pool.length)];
+  g.extraCardsGiven.push(card);
+  return card;
+}
+
+function buildCarouselState(lobby, viewerId) {
+  const g = lobby.game;
+  const N = g.tables.length;
+  const myFlips = g.flipsThisRound[viewerId] || [];
+  const viewerSeat = g.seats.indexOf(viewerId);
+  const viewerTableIdx = viewerSeat >= 0 ? carouselTableForSeat(viewerSeat, g.round, N) : -1;
+
+  return {
+    type: 'shadow-carousel',
+    phase: g.phase,
+    round: g.round,
+    maxRounds: g.maxRounds,
+    cardsPerTable: g.cardsPerTable,
+    revealMode: g.revealMode,
+    flipLimit: carouselFlipLimit(g),
+    myTableIndex: viewerTableIdx,
+    myFlips,
+    myPick: g.picksThisRound[viewerId] || null,
+    hasPicked: Object.fromEntries(g.seats.map(id => [id, !!g.picksThisRound[id]])),
+    // Picks werden erst beim Rundenübergang für alle sichtbar
+    picksThisRound: (g.phase === 'transition' || g.phase === 'finished') ? g.picksThisRound : {},
+    tables: g.tables.map((table, ti) => ({
+      ownerId: g.seats[(ti + g.round - 1) % N] ?? null,
+      slots: table.slots.map((s, si) => ({
+        taken: s.taken,
+        takenBy: s.takenBy,
+        takenRound: s.takenRound,
+        // Kartenidentität nur für eigene, in dieser Runde aufgedeckte Karten
+        card: (ti === viewerTableIdx && myFlips.some(f => f.slotIdx === si)) ? s.card : null,
+      })),
+    })),
+    timerRemaining: g.timerRemaining,
+    timerSeconds: lobby.timerSeconds,
+    finished: g.finished,
+    players: lobby.players.map(p => ({
+      id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
+      deck: p.deck || [], isSpectator: p.isSpectator ?? false,
+    })),
+  };
+}
+
+// Jeder Spieler bekommt seine individuelle Sicht — eigene Aufdeckungen bleiben privat
+function broadcastCarouselState(lobby, io) {
+  lobby.players.forEach(p => {
+    io.to(p.id).emit('clash:carousel:state', buildCarouselState(lobby, p.id));
+  });
+}
+
+function startShadowCarousel(lobby, io) {
+  const activePlayers = lobby.players.filter(p => !p.isSpectator);
+  const cardsPerTable = CAROUSEL_TABLE_SIZES.includes(lobby.carouselCardsPerTable)
+    ? lobby.carouselCardsPerTable : 8;
+  const revealMode = CAROUSEL_REVEAL_MODES.includes(lobby.carouselRevealMode)
+    ? lobby.carouselRevealMode : 'dynamic';
+  const pool = shuffle(getCardPool(lobby));
+  const tables = activePlayers.map((_, t) => ({
+    slots: pool
+      .slice(t * cardsPerTable, (t + 1) * cardsPerTable)
+      .map(card => ({ card, taken: false, takenBy: null, takenRound: null })),
+  }));
+  lobby.players.forEach(p => { p.deck = []; });
+  lobby.game = {
+    type: 'shadow-carousel',
+    tables,
+    cardsPerTable,
+    revealMode,
+    seats: activePlayers.map(p => p.id),
+    round: 1,
+    maxRounds: CAROUSEL_DECK_SIZE,
+    phase: 'picking',
+    flipsThisRound: {},   // playerId → [{ slotIdx, card }]
+    picksThisRound: {},   // playerId → { tableIndex, slotIdx, card, wasChampionBlocked }
+    extraCardsGiven: [],
+    timerRemaining: lobby.timerSeconds,
+    timerInterval: null,
+    finished: false,
+  };
+  io.to(lobby.code).emit('clash:gameStart', { mode: 'shadow-carousel' });
+  broadcastCarouselState(lobby, io);
+  startCarouselTimer(lobby, io);
+}
+
+function startCarouselTimer(lobby, io) {
+  clearTurnTimer(lobby);
+  const g = lobby.game;
+  g.timerRemaining = lobby.timerSeconds;
+  g.timerInterval = setInterval(() => {
+    g.timerRemaining--;
+    io.to(lobby.code).emit('clash:timerTick', { remaining: g.timerRemaining });
+    if (g.timerRemaining <= 0) {
+      clearTurnTimer(lobby);
+      autoPickCarousel(lobby, io);
+    }
+  }, 1000);
+}
+
+// Kern-Pick ohne Broadcast/Abschlussprüfung — wird von Hand- und Auto-Picks genutzt
+function doCarouselPick(lobby, player, slotIdx) {
+  const g = lobby.game;
+  const { tableIdx, table } = getCarouselTable(g, player.id);
+  if (!table) return false;
+  const slot = table.slots[slotIdx];
+  if (!slot || slot.taken) return false;
+
+  const champCount = (player.deck || []).filter(c => c.isChampion).length;
+  const blocked = slot.card.isChampion && champCount >= 2;
+  const got = blocked ? drawCarouselReplacement(lobby) : slot.card;
+
+  slot.taken = true;
+  slot.takenBy = player.id;
+  slot.takenRound = g.round;
+  player.deck = [...(player.deck || []), got];
+  g.picksThisRound[player.id] = { tableIndex: tableIdx, slotIdx, card: got, wasChampionBlocked: blocked };
+  return true;
+}
+
+// Timer abgelaufen: alle fehlenden Picks zufällig (blind) ausführen
+function autoPickCarousel(lobby, io) {
+  const g = lobby.game;
+  if (!g || g.type !== 'shadow-carousel' || g.phase !== 'picking') return;
+  g.seats.forEach(id => {
+    if (g.picksThisRound[id]) return;
+    const player = lobby.players.find(p => p.id === id);
+    if (!player || player.isSpectator) return; // Geister-Sitze räumt die Abschlussprüfung ab
+    const { table } = getCarouselTable(g, id);
+    const avail = table ? table.slots.map((s, i) => ({ s, i })).filter(({ s }) => !s.taken) : [];
+    if (!avail.length) return;
+    doCarouselPick(lobby, player, avail[Math.floor(Math.random() * avail.length)].i);
+  });
+  broadcastCarouselState(lobby, io);
+  checkCarouselRoundComplete(lobby, io);
+}
+
+function checkCarouselRoundComplete(lobby, io) {
+  const g = lobby.game;
+  if (!g || g.type !== 'shadow-carousel' || g.phase !== 'picking') return;
+  const pending = g.seats.some(id => {
+    const p = lobby.players.find(pl => pl.id === id);
+    if (!p || p.isSpectator) return false; // verlassene/zuschauende Sitze blockieren die Runde nicht
+    return !g.picksThisRound[id];
+  });
+  if (pending) return;
+
+  // Tische von Geister-Sitzen trotzdem um eine Karte reduzieren, damit alle Tische synchron leer werden
+  g.seats.forEach((id, seat) => {
+    if (g.picksThisRound[id]) return;
+    const tableIdx = carouselTableForSeat(seat, g.round, g.tables.length);
+    const avail = g.tables[tableIdx].slots.map((s, i) => ({ s, i })).filter(({ s }) => !s.taken);
+    if (!avail.length) return;
+    const { s, i } = avail[Math.floor(Math.random() * avail.length)];
+    s.taken = true; s.takenBy = id; s.takenRound = g.round;
+    g.picksThisRound[id] = { tableIndex: tableIdx, slotIdx: i, card: null, ghost: true };
+  });
+
+  clearTurnTimer(lobby);
+  g.phase = 'transition';
+  broadcastCarouselState(lobby, io);
+  io.to(lobby.code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+
+  setTimeout(() => {
+    const l = lobbies.get(lobby.code);
+    if (!l?.game || l.game.type !== 'shadow-carousel' || l.game.finished || l.game.phase !== 'transition') return;
+    nextCarouselRound(l, io);
+  }, CAROUSEL_TRANSITION_MS);
+}
+
+function nextCarouselRound(lobby, io) {
+  const g = lobby.game;
+  if (g.round >= g.maxRounds) { endCarouselGame(lobby, io); return; }
+  g.round++;
+  g.flipsThisRound = {};
+  g.picksThisRound = {};
+  g.phase = 'picking';
+  broadcastCarouselState(lobby, io);
+  startCarouselTimer(lobby, io);
+}
+
+function endCarouselGame(lobby, io) {
+  clearTurnTimer(lobby);
+  const g = lobby.game;
+  g.phase = 'finished';
+  g.finished = true;
+  if (!lobby.history) lobby.history = [];
+  lobby.history.push({
+    gameNum: lobby.history.length + 1,
+    mode: 'shadow-carousel',
+    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: [...(p.deck || [])], isSpectator: p.isSpectator ?? false })),
+  });
+  broadcastCarouselState(lobby, io);
+  io.to(lobby.code).emit('clash:gameOver', {
+    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: p.deck || [], isSpectator: p.isSpectator ?? false })),
+  });
+  notifyDraftComplete(lobby, io);
+}
+
+// Reconnect vergibt eine neue socket.id — alle Karussel-Referenzen auf die alte ID umhängen
+function remapCarouselPlayerId(g, oldId, newId) {
+  const seat = g.seats.indexOf(oldId);
+  if (seat !== -1) g.seats[seat] = newId;
+  if (g.flipsThisRound[oldId]) { g.flipsThisRound[newId] = g.flipsThisRound[oldId]; delete g.flipsThisRound[oldId]; }
+  if (g.picksThisRound[oldId]) { g.picksThisRound[newId] = g.picksThisRound[oldId]; delete g.picksThisRound[oldId]; }
+  g.tables.forEach(t => t.slots.forEach(s => { if (s.takenBy === oldId) s.takenBy = newId; }));
+}
+
+// Reconnect/Session-Übernahme: alle Spielreferenzen des jeweiligen Modus auf die neue ID umhängen
+function remapGamePlayerId(game, oldId, newId) {
+  if (!game || oldId === newId) return;
+  if (game.type === 'shadow-carousel') { remapCarouselPlayerId(game, oldId, newId); return; }
+  if (game.type === 'auction') {
+    if (game.bids?.[oldId]) { game.bids[newId] = game.bids[oldId]; delete game.bids[oldId]; }
+    const mw = game.motherWitch;
+    if (mw?.pending?.targetPlayerId === oldId) mw.pending.targetPlayerId = newId;
+    if (mw?.activeEffect?.exemptPlayerId === oldId) mw.activeEffect.exemptPlayerId = newId;
+    return;
+  }
+  if (game.type === 'bingo') {
+    if (Array.isArray(game.tokenShopQueue)) game.tokenShopQueue = game.tokenShopQueue.map(id => (id === oldId ? newId : id));
+    Object.keys(game.pickedThisRound || {}).forEach(k => { if (game.pickedThisRound[k] === oldId) game.pickedThisRound[k] = newId; });
+    if (game.tokenShopLiveAction?.playerId === oldId) game.tokenShopLiveAction.playerId = newId;
+    if (game.lastPowerupResult?.playerId === oldId) game.lastPowerupResult.playerId = newId;
+    return;
+  }
+  if (game.type === 'elixir-rush') {
+    if (game.elixir?.[oldId]) { game.elixir[newId] = game.elixir[oldId]; delete game.elixir[oldId]; }
+    (game.market || []).forEach(s => { if (s?.lastChange?.buyerId === oldId) s.lastChange.buyerId = newId; });
+    return;
+  }
+  // Snake (kein type-Feld): Grid-Zuordnungen
+  if (Array.isArray(game.grid)) game.grid.forEach(c => { if (c.pickedBy === oldId) c.pickedBy = newId; });
+}
+
+// ── Elixir Rush ─────────────────────────────────────────────────────────────
+// Echtzeit-Modus: Jeder Spieler hat einen Elixierbalken, der sich automatisch füllt.
+// Auf dem Marktplatz erscheinen Karten mit ihren echten Elixierkosten — wer zuerst klickt
+// (und genug Elixier hat), bekommt die Karte. Nicht gekaufte Karten laufen ab und werden
+// ersetzt. 8 Käufe = fertiges Deck; das Spiel endet, wenn alle Decks voll sind.
+const RUSH_ELIXIR_MS     = 1750;   // 1 Elixier pro 1,75s
+const RUSH_START_ELIXIR  = 5;
+const RUSH_MAX_ELIXIR    = 10;
+const RUSH_AUTOBUY_MS    = 10000;  // voller Balken ohne Kauf → nach 10s zufällige Karte
+const RUSH_TICK_MS       = 250;
+const RUSH_DECK_SIZE     = 8;
+const RUSH_MARKET_SIZES  = [3, 4, 5, 6, 7, 8];
+const RUSH_LIFETIMES     = [5, 8, 10, 15, 20, 30]; // Sekunden pro Karte auf dem Markt
+
+function rushComputeElixir(g, playerId, now = Date.now()) {
+  const e = g.elixir[playerId];
+  if (!e) return 0;
+  return Math.min(RUSH_MAX_ELIXIR, e.value + (now - e.ts) / RUSH_ELIXIR_MS);
+}
+
+function rushSetElixir(g, playerId, value, now = Date.now()) {
+  const e = g.elixir[playerId];
+  if (!e) return;
+  e.value = Math.max(0, Math.min(RUSH_MAX_ELIXIR, value));
+  e.ts = now;
+}
+
+// Neue Marktkarte ziehen: nie eine Karte, die schon in einem Deck oder auf dem Markt liegt;
+// kürzlich abgelaufene Karten haben einen Cooldown, damit nicht immer dieselben erscheinen.
+function rushDrawCard(lobby) {
+  const g = lobby.game;
+  const now = Date.now();
+  const usedIds = new Set([
+    ...lobby.players.flatMap(p => (p.deck || []).map(c => c.id)),
+    ...g.market.filter(s => s?.card).map(s => s.card.id),
+  ]);
+  const pool = getCardPool(lobby).filter(c => !usedIds.has(c.id));
+  let fresh = pool.filter(c => (g.recentUntil[c.id] || 0) <= now);
+  if (!fresh.length) fresh = pool; // Notfall: Cooldown ignorieren statt leerer Slot
+  if (!fresh.length) return null;
+  const base = fresh[Math.floor(Math.random() * fresh.length)];
+  return { id: base.id, name: base.name, rarity: base.rarity, isChampion: base.isChampion, cost: getElixirCost(base.id) };
+}
+
+// Slot neu befüllen. lastChange beschreibt für die Clients, WIE der Wechsel passierte
+// (Kauf mit Käufer-Info vs. Ablauf) — daran hängen die Animationen im Frontend.
+function rushFillSlot(lobby, slotIdx, changeType, buyerInfo = null, prevCard = null) {
+  const g = lobby.game;
+  const now = Date.now();
+  const card = rushDrawCard(lobby);
+  const seq = (g.market[slotIdx]?.seq || 0) + 1;
+  g.market[slotIdx] = {
+    card, seq,
+    spawnedAt: now,
+    expiresAt: card ? now + g.cardLifetimeMs : 0,
+    lastChange: { type: changeType, at: now, prevCard, ...(buyerInfo || {}) },
+  };
+}
+
+function buildRushState(lobby) {
+  const g = lobby.game;
+  const now = Date.now();
+  return {
+    type: 'elixir-rush',
+    finished: g.finished,
+    marketSize: g.marketSize,
+    cardLifetimeMs: g.cardLifetimeMs,
+    showElixir: lobby.rushShowElixir ?? true,
+    regenMs: RUSH_ELIXIR_MS,
+    autoBuyMs: RUSH_AUTOBUY_MS,
+    maxElixir: RUSH_MAX_ELIXIR,
+    deckSize: RUSH_DECK_SIZE,
+    serverNow: now,
+    market: g.market,
+    players: lobby.players.map(p => ({
+      id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
+      deck: p.deck || [], isSpectator: p.isSpectator ?? false,
+      elixir: (p.isSpectator || !g.elixir[p.id]) ? 0 : rushComputeElixir(g, p.id, now),
+      fullDeadline: g.elixir[p.id]?.fullSince ? g.elixir[p.id].fullSince + RUSH_AUTOBUY_MS : null,
+    })),
+  };
+}
+
+// Leichter Sync (jede Sekunde): nur Elixierstände + Auto-Kauf-Deadlines
+function buildRushSync(lobby) {
+  const g = lobby.game;
+  const now = Date.now();
+  return {
+    serverNow: now,
+    players: lobby.players.filter(p => !p.isSpectator).map(p => ({
+      id: p.id,
+      elixir: g.elixir[p.id] ? rushComputeElixir(g, p.id, now) : 0,
+      fullDeadline: g.elixir[p.id]?.fullSince ? g.elixir[p.id].fullSince + RUSH_AUTOBUY_MS : null,
+    })),
+  };
+}
+
+function checkRushEnd(lobby, io) {
+  const g = lobby.game;
+  if (!g || g.type !== 'elixir-rush' || g.finished) return;
+  const active = lobby.players.filter(p => !p.isSpectator && !p.left);
+  if (!active.length) return;
+  if (!active.every(p => (p.deck || []).length >= RUSH_DECK_SIZE)) return;
+
+  clearTurnTimer(lobby);
+  g.finished = true;
+  if (!lobby.history) lobby.history = [];
+  lobby.history.push({
+    gameNum: lobby.history.length + 1,
+    mode: 'elixir-rush',
+    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: [...(p.deck || [])], isSpectator: p.isSpectator ?? false })),
+  });
+  io.to(lobby.code).emit('clash:rush:state', buildRushState(lobby));
+  io.to(lobby.code).emit('clash:gameOver', {
+    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: p.deck || [], isSpectator: p.isSpectator ?? false })),
+  });
+  notifyDraftComplete(lobby, io);
+}
+
+// Kauf ausführen (manuell oder Auto-Kauf). Gibt { ok } bzw. { ok: false, reason } zurück.
+function rushApplyBuy(lobby, player, slotIdx, io, isAuto = false) {
+  const g = lobby.game;
+  const now = Date.now();
+  const slot = g.market[slotIdx];
+  if (!slot?.card) return { ok: false, reason: 'late' };
+  const card = slot.card;
+  if ((player.deck || []).length >= RUSH_DECK_SIZE) return { ok: false, reason: 'deckfull' };
+  const champCount = (player.deck || []).filter(c => c.isChampion).length;
+  if (card.isChampion && champCount >= 2) return { ok: false, reason: 'champion' };
+  const elixir = rushComputeElixir(g, player.id, now);
+  if (elixir + 1e-9 < card.cost) return { ok: false, reason: 'elixir' };
+
+  rushSetElixir(g, player.id, elixir - card.cost, now);
+  if (g.elixir[player.id]) g.elixir[player.id].fullSince = null;
+  player.deck = [...(player.deck || []), { id: card.id, name: card.name, rarity: card.rarity, isChampion: card.isChampion }];
+
+  rushFillSlot(lobby, slotIdx, 'buy', {
+    buyerId: player.id, buyerName: player.name, buyerColor: player.color, isAuto,
+  }, card);
+
+  io.to(lobby.code).emit('clash:rush:state', buildRushState(lobby));
+  checkRushEnd(lobby, io);
+  return { ok: true };
+}
+
+// Anti-AFK: Wer 10s lang mit vollem Balken nichts kauft, bekommt eine zufällige Marktkarte
+function rushAutoBuy(lobby, player, io) {
+  const g = lobby.game;
+  const champCount = (player.deck || []).filter(c => c.isChampion).length;
+  const options = g.market
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => s?.card && !(s.card.isChampion && champCount >= 2));
+  if (!options.length) {
+    // Gerade nichts Kaufbares — Frist neu starten und später erneut versuchen
+    if (g.elixir[player.id]) g.elixir[player.id].fullSince = Date.now();
+    return;
+  }
+  const { i } = options[Math.floor(Math.random() * options.length)];
+  rushApplyBuy(lobby, player, i, io, true);
+}
+
+function startRushTick(lobby, io) {
+  clearTurnTimer(lobby);
+  const g = lobby.game;
+  let tickCount = 0;
+  g.timerInterval = setInterval(() => {
+    if (lobby.game !== g || g.finished) return;
+    const now = Date.now();
+    let marketChanged = false;
+
+    // Abgelaufene Karten austauschen; leere Slots nachfüllen sobald wieder Karten frei sind
+    g.market.forEach((slot, i) => {
+      if (!slot?.card) {
+        if (tickCount % 8 === 0) {
+          const refill = rushDrawCard(lobby);
+          if (refill) { rushFillSlot(lobby, i, 'swap', null, null); marketChanged = true; }
+        }
+        return;
+      }
+      if (now >= slot.expiresAt) {
+        g.recentUntil[slot.card.id] = now + g.repeatCooldownMs;
+        rushFillSlot(lobby, i, 'swap', null, slot.card);
+        marketChanged = true;
+      }
+    });
+
+    // Auto-Kauf-Überwachung bei vollem Elixierbalken
+    for (const p of lobby.players) {
+      const e = g.elixir[p.id];
+      if (!e) continue;
+      if (p.isSpectator || p.left || (p.deck || []).length >= RUSH_DECK_SIZE) { e.fullSince = null; continue; }
+      if (rushComputeElixir(g, p.id, now) >= RUSH_MAX_ELIXIR - 1e-9) {
+        if (!e.fullSince) e.fullSince = now;
+        else if (now - e.fullSince >= RUSH_AUTOBUY_MS) rushAutoBuy(lobby, p, io);
+      } else {
+        e.fullSince = null;
+      }
+    }
+
+    tickCount++;
+    if (marketChanged) {
+      io.to(lobby.code).emit('clash:rush:state', buildRushState(lobby));
+    } else if (tickCount % 4 === 0) {
+      io.to(lobby.code).emit('clash:rush:sync', buildRushSync(lobby));
+    }
+  }, RUSH_TICK_MS);
+}
+
+function startElixirRush(lobby, io) {
+  const marketSize = RUSH_MARKET_SIZES.includes(lobby.rushMarketSize) ? lobby.rushMarketSize : 5;
+  const lifeSec = RUSH_LIFETIMES.includes(lobby.rushCardLifetime) ? lobby.rushCardLifetime : 15;
+  const now = Date.now();
+  lobby.players.forEach(p => { p.deck = []; });
+  lobby.game = {
+    type: 'elixir-rush',
+    marketSize,
+    cardLifetimeMs: lifeSec * 1000,
+    // Abgelaufene Karten dürfen erst nach einem Abstand wieder erscheinen
+    repeatCooldownMs: Math.max(15000, lifeSec * 2000),
+    market: Array.from({ length: marketSize }, () => null),
+    recentUntil: {},
+    elixir: {},
+    finished: false,
+    timerInterval: null,
+  };
+  lobby.players.forEach(p => {
+    if (!p.isSpectator) lobby.game.elixir[p.id] = { value: RUSH_START_ELIXIR, ts: now, fullSince: null };
+  });
+  for (let i = 0; i < marketSize; i++) rushFillSlot(lobby, i, 'spawn', null, null);
+
+  io.to(lobby.code).emit('clash:gameStart', { mode: 'elixir-rush' });
+  io.to(lobby.code).emit('clash:rush:state', buildRushState(lobby));
+  startRushTick(lobby, io);
 }
 
 // ── HTTP ───────────────────────────────────────────────────────────────────
@@ -1250,7 +1965,7 @@ function createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID } = {}) {
 }
 
 // ── Socket ─────────────────────────────────────────────────────────────────
-function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
+function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = null } = {}) {
   // Host-Aktionen dürfen genauso vom (server-seitig verifizierten) Admin ausgeführt werden
   const canControl = (lobby) => lobby.host === socket.id || isAdmin;
 
@@ -1258,15 +1973,22 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
     if (!playerName?.trim()) return;
     const code = generateCode();
     const lobby = {
-      code, mode: mode || 'snake', host: socket.id,
+      code, mode: VALID_MODES.includes(mode) ? mode : 'snake', host: socket.id,
       timerSeconds: Math.max(15, Math.min(300, Number(timerSeconds) || 60)),
+      tokenShopTimerSeconds: 60,
       cardsPerRound: Math.max(2, Math.min(12, Number(cardsPerRound) || 4)),
       startElixir: 100,
       showElixir: false,
       motherWitchEnabled: false,
       gridSize: 11,
+      carouselCardsPerTable: 8,
+      carouselRevealMode: 'dynamic',
+      rushMarketSize: 5,
+      rushCardLifetime: 15,
+      rushShowElixir: true,
+      excludedCards: [],
       createdAt: Date.now(),
-      players: [{ id: socket.id, name: playerName.trim(), color: PLAYER_COLORS[0], avatar: avatar || 'knight', deck: [], elixir: 100, isSpectator: false }],
+      players: [{ id: socket.id, name: playerName.trim(), color: PLAYER_COLORS[0], avatar: avatar || 'knight', deck: [], elixir: 100, isSpectator: false, twitchId: twitchId || null }],
       started: false, game: null,
       history: [],
     };
@@ -1276,20 +1998,36 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
     io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
   });
 
-  socket.on('clash:joinLobby', ({ code, playerName, avatar = 'knight' }) => {
+  socket.on('clash:joinLobby', ({ code, playerName, avatar = 'knight', auto = false }) => {
     const uCode = (code || '').toUpperCase();
     const lobby = lobbies.get(uCode);
-    if (!lobby)               return socket.emit('clash:error', { message: 'Lobby nicht gefunden' });
+    // auto = stiller Auto-Rejoin aus localStorage: bei ungültiger Sitzung keinen Fehler zeigen,
+    // sondern dem Client nur signalisieren, dass er die gespeicherte Sitzung verwerfen soll
+    if (!lobby) {
+      if (auto) return socket.emit('clash:sessionExpired');
+      return socket.emit('clash:error', { message: 'Lobby nicht gefunden' });
+    }
     if (!playerName?.trim())  return socket.emit('clash:error', { message: 'Bitte Namen eingeben' });
+    const trimmedName = playerName.trim();
 
-    // Reconnect: player with same name disconnected during active game
+    // Reconnect/Übernahme: Spieler mit gleichem Namen während eines laufenden Spiels.
+    // Auch bei noch aktiver alter Verbindung (z.B. zweiter Tab) wird die Sitzung übernommen,
+    // statt einen Duplikat-Spieler zu erzeugen.
     if (lobby.started && lobby.game && !lobby.game.finished) {
-      const dc = lobby.players.find(p => p.disconnected && p.name === playerName.trim());
+      const dc = lobby.players.find(p => !p.left && !p.isAdmin && p.name === trimmedName);
       if (dc) {
+        const oldId = dc.id;
+        if (!dc.disconnected && oldId !== socket.id) {
+          io.to(oldId).emit('clash:sessionTakeover');
+          io.sockets.sockets.get(oldId)?.leave(uCode);
+        }
         dc.id = socket.id;
         dc.disconnected = false;
         dc.disconnectedAt = null;
+        dc.twitchId = twitchId || dc.twitchId || null;
         if (dc.wasHost) { lobby.host = socket.id; dc.wasHost = false; }
+        if (lobby.host === oldId) lobby.host = socket.id;
+        remapGamePlayerId(lobby.game, oldId, socket.id);
         socket.join(uCode);
         socket.emit('clash:lobbyJoined', { code: uCode, isHost: lobby.host === socket.id, reconnected: true });
         io.to(uCode).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
@@ -1300,30 +2038,53 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
         } else if (lobby.game.type === 'auction') {
           socket.emit('clash:gameReconnect', { mode: 'auction' });
           socket.emit('clash:auctionRound', buildAuctionState(lobby, false, socket.id));
+        } else if (lobby.game.type === 'shadow-carousel') {
+          socket.emit('clash:gameReconnect', { mode: 'shadow-carousel' });
+          socket.emit('clash:carousel:state', buildCarouselState(lobby, socket.id));
+        } else if (lobby.game.type === 'elixir-rush') {
+          socket.emit('clash:gameReconnect', { mode: 'elixir-rush' });
+          socket.emit('clash:rush:state', buildRushState(lobby));
         } else {
           socket.emit('clash:gameReconnect', { mode: 'snake' });
           socket.emit('clash:gameState', buildGameState(lobby));
         }
         return;
       }
+      if (auto) return socket.emit('clash:sessionExpired');
       return socket.emit('clash:error', { message: 'Spiel läuft bereits' });
     }
 
     // Reconnect: gleicher Name war gerade in der Gnadenfrist (kurzer Netzwerk-Hänger, Tab-Reload, ...)
-    const dcLobby = lobby.players.find(p => p.disconnected && p.name === playerName.trim());
+    const dcLobby = lobby.players.find(p => p.disconnected && !p.left && p.name === trimmedName);
+    // Übernahme: gleicher Name, alte Verbindung noch aktiv (z.B. anderer Tab)
+    const activeSame = !dcLobby
+      ? lobby.players.find(p => !p.disconnected && !p.isAdmin && p.name === trimmedName && p.id !== socket.id)
+      : null;
     if (dcLobby) {
       dcLobby.id = socket.id;
       dcLobby.disconnected = false;
       dcLobby.disconnectedAt = null;
+      dcLobby.twitchId = twitchId || dcLobby.twitchId || null;
       if (dcLobby.wasHost) { lobby.host = socket.id; dcLobby.wasHost = false; }
+    } else if (activeSame) {
+      io.to(activeSame.id).emit('clash:sessionTakeover');
+      io.sockets.sockets.get(activeSame.id)?.leave(uCode);
+      if (lobby.host === activeSame.id) lobby.host = socket.id;
+      activeSame.id = socket.id;
+      activeSame.disconnected = false;
+      activeSame.disconnectedAt = null;
+      activeSame.twitchId = twitchId || activeSame.twitchId || null;
     } else {
-      if (lobby.players.length >= 8) return socket.emit('clash:error', { message: 'Lobby voll (max. 8)' });
+      if (lobby.players.filter(p => !p.left).length >= 8) {
+        if (auto) return socket.emit('clash:sessionExpired');
+        return socket.emit('clash:error', { message: 'Lobby voll (max. 8)' });
+      }
       if (!lobby.players.find(p => p.id === socket.id)) {
         lobby.players.push({
-          id: socket.id, name: playerName.trim(),
+          id: socket.id, name: trimmedName,
           color: PLAYER_COLORS[lobby.players.length % PLAYER_COLORS.length],
           avatar: avatar || 'knight', deck: [], elixir: lobby.startElixir ?? 100,
-          isSpectator: false,
+          isSpectator: false, twitchId: twitchId || null,
         });
       }
     }
@@ -1333,6 +2094,8 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
     if (lobby.game) {
       if (lobby.game.type === 'bingo') socket.emit('clash:bingo:state', buildBingoState(lobby));
       else if (lobby.game.type === 'auction') socket.emit('clash:auctionRound', buildAuctionState(lobby, false, socket.id));
+      else if (lobby.game.type === 'shadow-carousel') socket.emit('clash:carousel:state', buildCarouselState(lobby, socket.id));
+      else if (lobby.game.type === 'elixir-rush') socket.emit('clash:rush:state', buildRushState(lobby));
       else socket.emit('clash:gameState', buildGameState(lobby));
     }
   });
@@ -1364,6 +2127,20 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
         resolveAuction(lobby, io);
       }
     }
+    // Analog im Karussel: wenn der neue Zuschauer der letzte fehlende Pick war → Runde abschließen
+    if (lobby.game?.type === 'shadow-carousel' && lobby.game.phase === 'picking') {
+      broadcastCarouselState(lobby, io);
+      checkCarouselRoundComplete(lobby, io);
+    }
+    // Elixir Rush: Reaktivierte Spieler brauchen einen Elixierbalken; wird jemand Zuschauer,
+    // könnte das Spiel dadurch beendet sein (alle übrigen Decks voll)
+    if (lobby.game?.type === 'elixir-rush' && !lobby.game.finished) {
+      if (!target.isSpectator && !lobby.game.elixir[target.id]) {
+        lobby.game.elixir[target.id] = { value: RUSH_START_ELIXIR, ts: Date.now(), fullSince: null };
+      }
+      io.to(code).emit('clash:rush:state', buildRushState(lobby));
+      checkRushEnd(lobby, io);
+    }
   });
 
   // Host (oder Admin) überträgt den Host-Status an einen anderen Spieler
@@ -1383,10 +2160,55 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
     io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
   });
 
+  // Host: Zeitlimit pro Token im Bingo-Token-Shop
+  socket.on('clash:setTokenShopTimer', ({ code, seconds }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    lobby.tokenShopTimerSeconds = Math.max(10, Math.min(300, Number(seconds) || 60));
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  // Host (oder Admin) wechselt den Spielmodus — nur in der Lobby-Phase, nie während einer laufenden Runde
+  socket.on('clash:setMode', ({ code, mode }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    if (!VALID_MODES.includes(mode)) return;
+    lobby.mode = mode;
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
   socket.on('clash:setCardsPerRound', ({ code, count }) => {
     const lobby = lobbies.get(code);
     if (!lobby || !canControl(lobby) || lobby.started) return;
-    lobby.cardsPerRound = Math.max(2, Math.min(12, Number(count) || 4));
+    const n = Math.max(2, Math.min(12, Number(count) || 4));
+    if (8 * n > getCardPool(lobby).length) return; // Pool reicht für 8 Runden × n Karten nicht
+    lobby.cardsPerRound = n;
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  // Host (oder Admin) schließt Karten global vom Draft aus — gilt für alle Spielmodi dieser Lobby
+  socket.on('clash:setExcludedCards', ({ code, cardIds }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    if (!Array.isArray(cardIds)) return;
+    const validIds = new Set(ALL_CARDS.map(c => c.id));
+    lobby.excludedCards = [...new Set(cardIds.filter(id => validIds.has(id)))];
+
+    // Einstellungen automatisch nach unten anpassen, wenn der geschrumpfte Pool sie nicht mehr zulässt
+    const poolSize = getCardPool(lobby).length;
+    if (lobby.gridSize * lobby.gridSize > poolSize) {
+      lobby.gridSize = Math.max(7, Math.min(11, Math.floor(Math.sqrt(poolSize))));
+    }
+    const maxPerRound = Math.floor(poolSize / 8); // Auction/Bingo: 8 Runden × Karten pro Runde
+    if (lobby.cardsPerRound > maxPerRound) {
+      lobby.cardsPerRound = Math.max(2, maxPerRound);
+    }
+    if (Math.floor(poolSize / lobby.carouselCardsPerTable) < 2) {
+      // Größte Tischgröße wählen, die noch mind. 2 Spieler erlaubt
+      const fitting = [...CAROUSEL_TABLE_SIZES].reverse().find(s => Math.floor(poolSize / s) >= 2);
+      lobby.carouselCardsPerTable = fitting || 8;
+    }
+
     io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
   });
 
@@ -1394,10 +2216,42 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
     const lobby = lobbies.get(code);
     if (!lobby || !canControl(lobby) || lobby.started) return;
     if (lobby.players.length < 2) return socket.emit('clash:error', { message: 'Mindestens 2 Spieler benötigt' });
+    const poolSize = getCardPool(lobby).length;
+    // Karussel: Kartenpool muss für alle Tische reichen (z.B. 16 Karten → max. 7 Spieler)
+    if (lobby.mode === 'shadow-carousel') {
+      const activeCount = lobby.players.filter(p => !p.isSpectator).length;
+      const perTable = lobby.carouselCardsPerTable || 8;
+      const maxP = carouselMaxPlayers(perTable, poolSize);
+      if (activeCount > maxP) {
+        return socket.emit('clash:error', {
+          message: `Bei ${perTable} Karten pro Tisch sind max. ${maxP} Spieler möglich (Kartenpool: ${poolSize})!`,
+        });
+      }
+    } else if (poolSize < requiredPoolSize(lobby)) {
+      return socket.emit('clash:error', {
+        message: `Kartenpool zu klein: ${requiredPoolSize(lobby)} Karten benötigt, nur ${poolSize} verfügbar. Schließe weniger Karten aus!`,
+      });
+    }
     lobby.started = true;
     if (lobby.mode === 'auction') startElixirAuction(lobby, io);
     else if (lobby.mode === 'bingo') startBingoRoyale(lobby, io);
+    else if (lobby.mode === 'shadow-carousel') startShadowCarousel(lobby, io);
+    else if (lobby.mode === 'elixir-rush') startElixirRush(lobby, io);
     else startSnakeRoyale(lobby, io);
+    // Streamer-Automatik: z. B. OBS auf die Minigame-Szene schalten
+    emitStreamerEvent(lobby, io, 'gameStart');
+  });
+
+  // Deck-Overlay (Browserquelle in OBS) meldet sich mit seinem Overlay-Key an
+  socket.on('cr:deckoverlay:join', ({ overlayKey }) => {
+    const cfg = crStreamerStore.findByOverlayKey(String(overlayKey || ''));
+    if (!cfg) return socket.emit('cr:deckoverlay:error', { message: 'Overlay nicht gefunden' });
+    socket.join(`croverlay:${cfg.overlayKey}`);
+    socket.emit('cr:deckoverlay:state', {
+      obs: cfg.obs,
+      actions: cfg.actions,
+      lastDecks: cfg.lastDecks,
+    });
   });
 
   socket.on('clash:auction:bid', ({ code, cardIndex, amount }) => {
@@ -1465,35 +2319,94 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
     if (lobby.game) {
       if (lobby.game.type === 'bingo') socket.emit('clash:bingo:state', buildBingoState(lobby));
       else if (lobby.game.type === 'auction') socket.emit('clash:auctionRound', buildAuctionState(lobby, false, socket.id));
+      else if (lobby.game.type === 'shadow-carousel') socket.emit('clash:carousel:state', buildCarouselState(lobby, socket.id));
+      else if (lobby.game.type === 'elixir-rush') socket.emit('clash:rush:state', buildRushState(lobby));
       else socket.emit('clash:gameState', buildGameState(lobby));
     }
   });
 
   // Explizites Verlassen (Leave-Button). Im Gegensatz zu einem Disconnect (Netzwerk-Hänger, Tab-Reload)
-  // soll das SOFORT wirken, ohne die Gnadenfrist abzuwarten.
-  socket.on('clash:leaveLobby', ({ code }) => {
+  // wirkt das SOFORT — auch während eines laufenden Spiels, ohne Reconnect-Fenster.
+  // Der Ack-Callback erlaubt dem Client, erst NACH der Verarbeitung die Verbindung zu trennen.
+  socket.on('clash:leaveLobby', ({ code }, ack) => {
+    const done = () => { if (typeof ack === 'function') ack(); };
     const lobby = lobbies.get(code);
-    if (!lobby) return;
-    // Während einer laufenden Runde übernimmt der normale disconnect-Handler (Auto-Advance, Reconnect-Fenster) —
-    // ein Sofort-Entfernen hier würde die turnOrder-Indizes durcheinanderbringen.
-    if (lobby.started && lobby.game && !lobby.game.finished) return;
-
+    if (!lobby) return done();
     const idx = lobby.players.findIndex(p => p.id === socket.id);
-    if (idx === -1) return;
+    if (idx === -1) return done();
     const leavingPlayer = lobby.players[idx];
     const wasHost = lobby.host === socket.id;
+    socket.leave(code);
 
+    // Laufende Runde: aus dem Array darf nicht gespleißt werden (turnOrder hält Indizes),
+    // aber der Spieler wird sofort als "gegangen" markiert: unsichtbar in der Lobby-Liste,
+    // Zuschauer fürs Spiel, kein Reconnect-Fenster. Endgültig entfernt beim Lobby-Neustart.
+    if (lobby.started && lobby.game && !lobby.game.finished) {
+      leavingPlayer.left = true;
+      leavingPlayer.disconnected = true;
+      leavingPlayer.disconnectedAt = Date.now();
+      leavingPlayer.isSpectator = true;
+
+      if (lobby.players.filter(p => !p.isAdmin && !p.left).length === 0) {
+        clearTurnTimer(lobby);
+        lobbies.delete(code);
+        return done();
+      }
+      if (wasHost && !leavingPlayer.isAdmin) {
+        const next = lobby.players.find(p => !p.left && !p.disconnected && !p.isAdmin);
+        if (next) lobby.host = next.id;
+      }
+      io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+
+      // Spiel-Logik nachziehen (wie bei Disconnect bzw. Zuschauer-Setzen)
+      const g = lobby.game;
+      if (g.type === 'bingo') {
+        if (g.phase === 'tokenShop') {
+          const wasCurrent = g.tokenShopQueue[g.tokenShopIdx] === socket.id && g.tokenShopSubPhase === 'picking';
+          // Künftige Tokens des Spielers verfallen
+          g.tokenShopQueue = g.tokenShopQueue.filter((id, i) => i <= g.tokenShopIdx || id !== socket.id);
+          if (wasCurrent) { clearTurnTimer(lobby); skipTokenShopTurn(lobby, io); }
+          else io.to(code).emit('clash:bingo:state', buildBingoState(lobby));
+        } else {
+          const curIdx = g.turnOrder?.[g.currentTurn];
+          if (lobby.players[curIdx]?.id === socket.id) autoAdvanceBingo(lobby, io);
+          else io.to(code).emit('clash:bingo:state', buildBingoState(lobby));
+        }
+      } else if (g.type === 'auction') {
+        if (g.phase === 'bidding') {
+          delete g.bids[socket.id]; // sein Gebot zählt nicht mehr
+          const activePlayers = lobby.players.filter(p => !p.isSpectator);
+          if (Object.keys(g.bids).length >= activePlayers.length) {
+            clearTurnTimer(lobby);
+            resolveAuction(lobby, io);
+          }
+        }
+      } else if (g.type === 'shadow-carousel') {
+        broadcastCarouselState(lobby, io);
+        checkCarouselRoundComplete(lobby, io);
+      } else if (g.type === 'elixir-rush') {
+        io.to(code).emit('clash:rush:state', buildRushState(lobby));
+        checkRushEnd(lobby, io);
+      } else {
+        const curIdx = g.turnOrder?.[g.currentTurn];
+        if (curIdx !== undefined && lobby.players[curIdx]?.id === socket.id) autoAdvanceTurn(lobby, io);
+      }
+      return done();
+    }
+
+    // Lobby-Phase oder Spielende: sofort komplett entfernen
     lobby.players.splice(idx, 1);
     if (lobby.players.filter(p => !p.isAdmin).length === 0) {
       clearTurnTimer(lobby);
       lobbies.delete(code);
-      return;
+      return done();
     }
     if (wasHost && !leavingPlayer.isAdmin) {
       const nextHost = lobby.players.find(p => !p.isAdmin);
       if (nextHost) lobby.host = nextHost.id;
     }
     io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+    done();
   });
 
   socket.on('clash:toggleSpectator', ({ code }) => {
@@ -1555,8 +2468,72 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
   socket.on('clash:setGridSize', ({ code, size }) => {
     const lobby = lobbies.get(code);
     if (!lobby || !canControl(lobby) || lobby.started) return;
-    lobby.gridSize = Math.max(7, Math.min(11, Number(size) || 11));
+    const s = Math.max(7, Math.min(11, Number(size) || 11));
+    if (s * s > getCardPool(lobby).length) return; // Pool reicht für dieses Raster nicht
+    lobby.gridSize = s;
     io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  socket.on('clash:setCarouselCards', ({ code, count }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    if (!CAROUSEL_TABLE_SIZES.includes(Number(count))) return;
+    if (Math.floor(getCardPool(lobby).length / Number(count)) < 2) return; // nicht mal 2 Tische möglich
+    lobby.carouselCardsPerTable = Number(count);
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  socket.on('clash:setCarouselReveal', ({ code, mode }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    if (!CAROUSEL_REVEAL_MODES.includes(mode)) return;
+    lobby.carouselRevealMode = mode;
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  // ── Elixir Rush events ─────────────────────────────────────────────────────
+  socket.on('clash:setRushMarketSize', ({ code, count }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    if (!RUSH_MARKET_SIZES.includes(Number(count))) return;
+    lobby.rushMarketSize = Number(count);
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  socket.on('clash:setRushLifetime', ({ code, seconds }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    if (!RUSH_LIFETIMES.includes(Number(seconds))) return;
+    lobby.rushCardLifetime = Number(seconds);
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  // Elixierbalken der Mitspieler ein-/ausblenden — wie bei der Auction auch mitten im Spiel umschaltbar
+  socket.on('clash:setRushShowElixir', ({ code, show }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby)) return;
+    lobby.rushShowElixir = !!show;
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+    if (lobby.game?.type === 'elixir-rush' && !lobby.game.finished) {
+      io.to(code).emit('clash:rush:state', buildRushState(lobby));
+    }
+  });
+
+  // Kauf-Klick: seq stellt sicher, dass genau DIE Karte gekauft wird, die der Spieler
+  // gesehen hat — wurde der Slot inzwischen ersetzt/weggekauft, kommt "zu spät"-Feedback
+  socket.on('clash:rush:buy', ({ code, slotIdx, seq }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby?.game || lobby.game.type !== 'elixir-rush' || lobby.game.finished) return;
+    const g = lobby.game;
+    const player = lobby.players.find(p => p.id === socket.id);
+    if (!player || player.isSpectator || player.left) return;
+    if (!Number.isInteger(slotIdx) || slotIdx < 0 || slotIdx >= g.market.length) return;
+    const slot = g.market[slotIdx];
+    if (!slot?.card || (typeof seq === 'number' && slot.seq !== seq)) {
+      return socket.emit('clash:rush:denied', { slotIdx, reason: 'late' });
+    }
+    const res = rushApplyBuy(lobby, player, slotIdx, io, false);
+    if (!res.ok) socket.emit('clash:rush:denied', { slotIdx, reason: res.reason });
   });
 
   socket.on('clash:requestHistory', ({ code }) => {
@@ -1574,7 +2551,9 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
     clearTurnTimer(lobby);
     lobby.started = false;
     lobby.game = null;
-    lobby.players.forEach(p => { p.deck = []; p.elixir = lobby.startElixir ?? 100; p.bingoGrid = []; p.bingoTokens = 0; p.completedLines = []; });
+    // Während des Spiels nur ausgeblendete (aktiv gegangene) Spieler jetzt endgültig entfernen
+    lobby.players = lobby.players.filter(p => !p.left);
+    lobby.players.forEach(p => { p.deck = []; p.elixir = lobby.startElixir ?? 100; p.bingoGrid = []; p.bingoTokens = 0; p.completedLines = []; p.tokenAbilities = []; });
     io.to(code).emit('clash:lobbyRestart', { cancelled: wasCancelled });
     io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
   });
@@ -1600,6 +2579,8 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
       socket.emit('clash:gameStart', { mode: lobby.mode });
       if (lobby.game.type === 'bingo') socket.emit('clash:bingo:state', buildBingoState(lobby));
       else if (lobby.game.type === 'auction') socket.emit('clash:auctionRound', buildAuctionState(lobby, true, socket.id));
+      else if (lobby.game.type === 'shadow-carousel') socket.emit('clash:carousel:state', buildCarouselState(lobby, socket.id));
+      else if (lobby.game.type === 'elixir-rush') socket.emit('clash:rush:state', buildRushState(lobby));
       else socket.emit('clash:gameState', buildGameState(lobby));
 
       if (lobby.game.finished) {
@@ -1611,6 +2592,43 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
         });
       }
     }
+  });
+
+  // Admin: tauscht im Endscreen eine Deck-Karte eines Spielers gegen eine beliebige andere
+  socket.on('clash:admin:swapCard', ({ code, targetPlayerId, deckIndex, newCardId }) => {
+    if (!isAdmin) return socket.emit('clash:error', { message: 'Keine Berechtigung' });
+    const lobby = lobbies.get(code);
+    if (!lobby?.game?.finished) return; // nur im Endscreen, nicht während einer laufenden Runde
+    const target = lobby.players.find(p => p.id === targetPlayerId && !p.isAdmin);
+    if (!target?.deck) return;
+    const idx = Number(deckIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= target.deck.length) return;
+    const newCard = ALL_CARDS.find(c => c.id === newCardId);
+    if (!newCard) return;
+    // Keine Duplikate im Deck
+    if (target.deck.some((c, i) => i !== idx && c.id === newCard.id)) {
+      return socket.emit('clash:error', { message: `${newCard.name} ist bereits im Deck von ${target.name}` });
+    }
+    // Champion-Limit (max. 2) gilt auch beim Admin-Tausch
+    const champCount = target.deck.filter((c, i) => c.isChampion && i !== idx).length;
+    if (newCard.isChampion && champCount >= 2) {
+      return socket.emit('clash:error', { message: 'Max. 2 Champions pro Deck!' });
+    }
+    target.deck[idx] = { ...newCard };
+    // Letzten History-Eintrag mitkorrigieren, damit der Verlauf das finale Deck zeigt
+    const hist = lobby.history?.[lobby.history.length - 1];
+    const histPlayer = hist?.players.find(p => p.id === targetPlayerId);
+    if (histPlayer?.deck?.[idx]) histPlayer.deck[idx] = { ...newCard };
+    // Endscreen bei allen aktualisieren
+    io.to(code).emit('clash:gameOver', {
+      players: lobby.players.filter(p => !p.isAdmin).map(p => ({
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
+        deck: p.deck || [], isSpectator: p.isSpectator ?? false,
+      })),
+    });
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+    // Korrigierte Decks auch ins globale Deck-Overlay übernehmen (ohne OBS-Event)
+    updateDeckFeeds(lobby, io);
   });
 
   // ── Bingo events ───────────────────────────────────────────────────────────
@@ -1655,10 +2673,62 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
     if (!ok) socket.emit('clash:error', { message: 'Ungültiges Power-Up' });
   });
 
+  // Live-Übertragung: der aktive Token-Spieler teilt jeden Auswahl-Schritt mit allen,
+  // damit die anderen statt eines Wartebildschirms live zusehen können
+  socket.on('clash:bingo:tokenAction', ({ code, step, ability, cardId }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby?.game || lobby.game.type !== 'bingo') return;
+    const g = lobby.game;
+    if (g.phase !== 'tokenShop' || g.tokenShopSubPhase !== 'picking') return;
+    if (g.tokenShopQueue[g.tokenShopIdx] !== socket.id) return;
+    g.tokenShopLiveAction = {
+      playerId: socket.id,
+      step:    typeof step === 'string' ? step.slice(0, 24) : null,
+      ability: BINGO_POWERUP_TYPES.includes(ability) ? ability : null,
+      cardId:  typeof cardId === 'string' ? cardId.slice(0, 40) : null,
+    };
+    io.to(code).emit('clash:bingo:state', buildBingoState(lobby));
+  });
+
   socket.on('clash:bingo:requestState', ({ code }) => {
     const lobby = lobbies.get(code);
     if (!lobby?.game || lobby.game.type !== 'bingo') return;
     socket.emit('clash:bingo:state', buildBingoState(lobby));
+  });
+
+  // ── Schatten-Karussel events ───────────────────────────────────────────────
+  socket.on('clash:carousel:flip', ({ code, slotIdx }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby?.game || lobby.game.type !== 'shadow-carousel' || lobby.game.phase !== 'picking') return;
+    const g = lobby.game;
+    const player = lobby.players.find(p => p.id === socket.id);
+    if (!player || player.isSpectator) return;
+    if (g.picksThisRound[socket.id]) return; // nach dem eigenen Pick kein Aufdecken mehr
+    const { table } = getCarouselTable(g, socket.id);
+    if (!table || typeof slotIdx !== 'number') return;
+    const slot = table.slots[slotIdx];
+    if (!slot || slot.taken) return;
+    const flips = g.flipsThisRound[socket.id] || (g.flipsThisRound[socket.id] = []);
+    if (flips.some(f => f.slotIdx === slotIdx)) return; // bereits aufgedeckt
+    if (flips.length >= carouselFlipLimit(g)) {
+      return socket.emit('clash:error', { message: 'Keine Aufdeckungen mehr übrig in dieser Runde!' });
+    }
+    flips.push({ slotIdx, card: slot.card });
+    // Nur der Aufdeckende selbst sieht die Karte
+    socket.emit('clash:carousel:state', buildCarouselState(lobby, socket.id));
+  });
+
+  socket.on('clash:carousel:pick', ({ code, slotIdx }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby?.game || lobby.game.type !== 'shadow-carousel' || lobby.game.phase !== 'picking') return;
+    const g = lobby.game;
+    const player = lobby.players.find(p => p.id === socket.id);
+    if (!player || player.isSpectator) return;
+    if (g.picksThisRound[socket.id]) return socket.emit('clash:error', { message: 'Du hast bereits gewählt!' });
+    if (typeof slotIdx !== 'number') return;
+    if (!doCarouselPick(lobby, player, slotIdx)) return;
+    broadcastCarouselState(lobby, io);
+    checkCarouselRoundComplete(lobby, io);
   });
 
   socket.on('disconnect', () => {
@@ -1666,6 +2736,10 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
       const idx = lobby.players.findIndex(p => p.id === socket.id);
       if (idx === -1) continue;
       const player = lobby.players[idx];
+
+      // Spieler hatte die Lobby bereits aktiv verlassen — nichts mehr zu tun
+      // (endgültiges Entfernen passiert beim Lobby-Neustart)
+      if (player.left) break;
 
       // Admin-Zuschauer: sofort entfernen, kein 5-Minuten-Reconnect-Slot nötig
       if (player.isAdmin) {
@@ -1710,8 +2784,16 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
         setTimeout(() => {
           const l = lobbies.get(code);
           if (!l) return;
-          const pi = l.players.findIndex(p => p.id === socket.id && p.disconnected);
+          const pi = l.players.findIndex(p => p.id === socket.id && p.disconnected && !p.left);
           if (pi === -1) return;
+          // Läuft das Spiel noch, nicht aus dem Array spleißen (turnOrder hält Indizes!) —
+          // nur ausblenden; endgültig entfernt wird beim Lobby-Neustart
+          if (l.started && l.game && !l.game.finished) {
+            l.players[pi].left = true;
+            l.players[pi].isSpectator = true;
+            io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(l));
+            return;
+          }
           l.players.splice(pi, 1);
           if (l.players.filter(p => !p.isAdmin).length === 0) { clearTurnTimer(l); lobbies.delete(code); }
           else io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(l));
@@ -1747,4 +2829,4 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false } = {}) {
   // (old duplicate restartLobby removed — now handled above with history preservation)
 }
 
-module.exports = { createClashRoyaleRouter, registerClashRoyaleSocket };
+module.exports = { createClashRoyaleRouter, registerClashRoyaleSocket, ALL_CARDS };

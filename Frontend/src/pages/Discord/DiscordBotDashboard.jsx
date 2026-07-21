@@ -327,6 +327,7 @@ export default function DiscordBotDashboard() {
                         <TwitchNotifTab
                             selectedServer={selectedServer}
                             channels={channels}
+                            serverRoles={serverRoles}
                         />
                     )}
                     {activeTab === 'imageonly' && (

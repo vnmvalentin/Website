@@ -1,6 +1,7 @@
 // discord/bot/twitchPoller.js
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 const { getAllEnabledTwitchNotifications, updateLastAnnouncedStreamId } = require('../database/db');
+const { step } = require('../../lib/startupLog');
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
@@ -114,11 +115,11 @@ async function poll(discordClient) {
 
 function startTwitchPoller(discordClient) {
     if (!CLIENT_ID || !CLIENT_SECRET) {
-        console.warn('[TwitchPoller] TWITCH_CLIENT_ID oder TWITCH_CLIENT_SECRET fehlt — Poller wird nicht gestartet.');
+        step("Twitch-Poller", "warn", "TWITCH_CLIENT_ID/SECRET fehlt");
         return;
     }
 
-    console.log(`[TwitchPoller] Gestartet (alle ${POLL_INTERVAL_MS / 1000}s).`);
+    step("Twitch-Poller", true, `alle ${POLL_INTERVAL_MS / 1000}s`);
     // Ersten Poll nach 10 Sekunden (Bot muss erst ready sein)
     setTimeout(() => {
         poll(discordClient);

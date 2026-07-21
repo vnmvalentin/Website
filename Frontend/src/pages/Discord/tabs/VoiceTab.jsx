@@ -4,6 +4,9 @@ const COMMANDS = [
     { cmd: '/voicelimit [zahl]', desc: 'Mitglieder-Limit setzen (0 = kein Limit)' },
     { cmd: '/voicelock', desc: 'Channel sperren/entsperren für neue Nutzer' },
     { cmd: '/voice_rename [name]', desc: 'Channel umbenennen' },
+    { cmd: '/voice_hide', desc: 'Channel für andere unsichtbar machen (aktuelle Mitglieder sehen ihn weiter)' },
+    { cmd: '/voice_unhide', desc: 'Channel wieder für alle sichtbar machen' },
+    { cmd: '/voice_transfer [user]', desc: 'Besitzer-Status übergeben (nur der Besitzer, Ziel muss im Voice sein)' },
 ];
 
 export default function VoiceTab({ selectedServer, voiceChannels }) {
@@ -72,9 +75,9 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 <ul className="text-gray-400 text-sm space-y-2">
                     <li>• Bot erstellt <span className="text-cyan-400 font-mono">🔊 Usernames Kanal</span> in der gleichen Kategorie</li>
                     <li>• Ein privater Text-Channel wird erstellt (nur für Mitglieder des VCs sichtbar)</li>
-                    <li>• Im Text-Channel werden die verfügbaren Commands angepinnt</li>
+                    <li>• Im Text-Channel werden die verfügbaren Commands angepinnt — inkl. aktuellem Channel-Besitzer</li>
                     <li>• Mitglieder werden beim Beitreten/Verlassen automatisch hinzugefügt/entfernt</li>
-                    <li>• Bei Besitzer-Verlassen wird Ownership auf ein anderes Mitglied übertragen</li>
+                    <li>• Bei Besitzer-Verlassen oder <span className="text-cyan-400 font-mono">/voice_transfer</span> wird Ownership übertragen und die angepinnte Nachricht aktualisiert</li>
                     <li>• Wenn alle den Channel verlassen, werden Voice- und Text-Channel automatisch gelöscht</li>
                 </ul>
             </div>

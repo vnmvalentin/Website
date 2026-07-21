@@ -6,27 +6,6 @@ function generateShipName(name1, name2) {
     return (half1 + half2).charAt(0).toUpperCase() + (half1 + half2).slice(1).toLowerCase();
 }
 
-function getTodayString() {
-    return new Date().toISOString().split('T')[0];
-}
-
-function getNextMidnightUnix() {
-    const next = new Date();
-    next.setUTCDate(next.getUTCDate() + 1);
-    next.setUTCHours(0, 0, 0, 0);
-    return Math.floor(next.getTime() / 1000);
-}
-
-function getShipPercent(id1, id2) {
-    const combined = [...[id1, id2].sort(), getTodayString()].join('');
-    let hash = 0;
-    for (let i = 0; i < combined.length; i++) {
-        hash = ((hash << 5) - hash) + combined.charCodeAt(i);
-        hash |= 0;
-    }
-    return Math.abs(hash) % 101;
-}
-
 function getShipEmoji(percent) {
     if (percent >= 90) return '💘';
     if (percent >= 70) return '❤️';
@@ -43,12 +22,11 @@ async function handleShip(interaction) {
         return interaction.reply({ content: '🚢 Man kann sich nicht mit sich selbst shippen!' });
     }
 
-    const percent = getShipPercent(user1.id, user2.id);
+    const percent = Math.floor(Math.random() * 101);
     const shipName = generateShipName(user1.displayName || user1.username, user2.displayName || user2.username);
     const emoji = getShipEmoji(percent);
     const bar = buildBar(percent);
 
-    const nextTs = getNextMidnightUnix();
     await interaction.reply({
         content: [
             `${emoji} **Ship-Ergebnis**`,
@@ -56,8 +34,6 @@ async function handleShip(interaction) {
             `👤 **${user1.displayName || user1.username}** + **${user2.displayName || user2.username}**`,
             ``,
             `${bar} **${percent}%**`,
-            ``,
-            `*(Neues Ergebnis: <t:${nextTs}:R>)*`,
         ].join('\n'),
     });
 }

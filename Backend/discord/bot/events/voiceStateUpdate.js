@@ -36,15 +36,34 @@ function initVoiceTracking(client) {
     }
 }
 
-const COMMANDS_EMBED = new EmbedBuilder()
-    .setColor(0x06b6d4)
-    .setTitle('🎛️ Voice Channel Commands')
-    .setDescription(
-        'Diese Commands funktionieren nur hier, solange du im Voice bist:\n\n' +
-        '`/voicelimit [zahl]` — Userlimit setzen (0 = unbegrenzt)\n' +
-        '`/voicelock` — Channel sperren / entsperren\n' +
-        '`/voice_rename [name]` — Channel umbenennen'
-    );
+function buildCommandsEmbed(ownerName) {
+    return new EmbedBuilder()
+        .setColor(0x06b6d4)
+        .setTitle('🎛️ Voice Channel Commands')
+        .setDescription(
+            'Diese Commands funktionieren nur hier, solange du im Voice bist:\n\n' +
+            '`/voicelimit [zahl]` — Userlimit setzen (0 = unbegrenzt)\n' +
+            '`/voicelock` — Channel sperren / entsperren\n' +
+            '`/voice_rename [name]` — Channel umbenennen\n' +
+            '`/voice_hide` — Channel für andere unsichtbar machen\n' +
+            '`/voice_unhide` — Channel wieder sichtbar machen\n' +
+            '`/voice_transfer [user]` — Besitzer-Status übergeben\n\n' +
+            `👑 **Voice Channel Besitzer:** ${ownerName || 'Unbekannt'}`
+        );
+}
+
+// Besitzer-Zeile in der angepinnten Commands-Nachricht aktualisieren (bei Transfer / Auto-Übergabe)
+async function updateVoicePinOwner(guild, vcRecord, newOwnerId) {
+    if (!vcRecord?.pin_message_id) return;
+    const textChannel = guild.channels.cache.get(vcRecord.text_channel_id);
+    if (!textChannel) return;
+    const msg = await textChannel.messages.fetch(vcRecord.pin_message_id).catch(() => null);
+    if (!msg) return;
+    const ownerName = guild.members.cache.get(newOwnerId)?.displayName
+        || (await guild.members.fetch(newOwnerId).catch(() => null))?.displayName
+        || 'Unbekannt';
+    await msg.edit({ embeds: [buildCommandsEmbed(ownerName)] }).catch(() => {});
+}
 
 async function createPrivateVC(guild, member, triggerChannel) {
     const categoryId = triggerChannel.parentId;
@@ -66,15 +85,17 @@ async function createPrivateVC(guild, member, triggerChannel) {
         ],
     });
 
-    // Commands-Übersicht anpinnen
+    // Commands-Übersicht (inkl. Besitzer-Zeile) anpinnen
+    let pinMessageId = '';
     try {
-        const pinMsg = await textChannel.send({ embeds: [COMMANDS_EMBED] });
+        const pinMsg = await textChannel.send({ embeds: [buildCommandsEmbed(member.displayName)] });
         await pinMsg.pin();
+        pinMessageId = pinMsg.id;
     } catch (e) {}
 
     await guild.members.cache.get(member.id)?.voice.setChannel(voiceChannel).catch(() => {});
 
-    saveActiveVoiceChannel(voiceChannel.id, textChannel.id, member.id, guild.id);
+    saveActiveVoiceChannel(voiceChannel.id, textChannel.id, member.id, guild.id, pinMessageId);
 }
 
 async function addMemberToText(guild, memberId, vcRecord) {
@@ -105,6 +126,7 @@ module.exports = {
     name: 'voiceStateUpdate',
     once: false,
     initVoiceTracking,
+    updateVoicePinOwner,
     async execute(oldState, newState) {
         const guild = newState.guild || oldState.guild;
         const member = newState.member || oldState.member;
@@ -141,6 +163,7 @@ module.exports = {
                         const nextOwner = voiceChannel.members.find(m => !m.user.bot && m.id !== member.id);
                         if (nextOwner) {
                             updateVoiceOwner(leftChannelId, nextOwner.id);
+                            await updateVoicePinOwner(guild, vcRecord, nextOwner.id);
                             const textChannel = guild.channels.cache.get(vcRecord.text_channel_id);
                             if (textChannel) {
                                 await textChannel.send(`👑 **${nextOwner.displayName}** ist jetzt der Channel-Besitzer.`).catch(() => {});

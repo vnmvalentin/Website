@@ -51,6 +51,7 @@ const navItems = [
     label: "Clash Royale",
     links: [
       { label: "Mini Games", to: "/clash-royale" },
+      { label: "Nuzlocke", to: "/nuzlocke" },
     ],
   },
   {
@@ -348,32 +349,38 @@ export default function Layout() {
   return (
     <div className="relative min-h-screen text-gray-200 font-sans selection:bg-cyan-500/30 selection:text-white bg-[#0f0f13]">
       {systemBroadcast && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-              <div className={`max-w-lg w-full p-8 rounded-md shadow-xl text-center border ${
-                  systemBroadcast.type === 'warning'
-                  ? 'bg-red-950/90 border-red-500 text-red-50'
-                  : 'bg-blue-950/90 border-blue-500 text-blue-50'
-              }`}>
-                  {systemBroadcast.type === 'warning' ? (
-                      <AlertTriangle className="w-12 h-12 mx-auto mb-6 text-red-500" />
-                  ) : (
-                      <Info className="w-12 h-12 mx-auto mb-6 text-blue-400" />
-                  )}
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="w-full max-w-md bg-[#121216] border border-white/10 rounded-sm shadow-2xl overflow-hidden">
+                  <div className={`h-[3px] w-full ${
+                      systemBroadcast.type === 'warning' ? 'bg-red-500' : 'bg-cyan-500'
+                  }`} />
+                  <div className="p-6">
+                      <div className="flex items-center gap-2 mb-4">
+                          {systemBroadcast.type === 'warning' ? (
+                              <AlertTriangle size={15} className="text-red-400 shrink-0" />
+                          ) : (
+                              <Info size={15} className="text-cyan-400 shrink-0" />
+                          )}
+                          <span className={`text-xs font-bold uppercase tracking-wider ${
+                              systemBroadcast.type === 'warning' ? 'text-red-400' : 'text-cyan-400'
+                          }`}>
+                              {systemBroadcast.type === 'warning' ? 'System-Warnung' : 'System-Hinweis'}
+                          </span>
+                      </div>
 
-                  <h2 className="text-3xl font-black uppercase tracking-widest mb-4">
-                      {systemBroadcast.type === 'warning' ? 'System Warnung' : 'System Info'}
-                  </h2>
+                      <p className="text-white/90 text-sm leading-relaxed mb-6">
+                          {systemBroadcast.message}
+                      </p>
 
-                  <p className="text-xl font-medium mb-10 leading-relaxed">
-                      {systemBroadcast.message}
-                  </p>
-
-                  <button
-                      onClick={() => setSystemBroadcast(null)}
-                      className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-10 rounded-sm transition-colors text-sm w-full sm:w-auto"
-                  >
-                      Verstanden
-                  </button>
+                      <div className="flex justify-end">
+                          <button
+                              onClick={() => setSystemBroadcast(null)}
+                              className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white font-bold py-2 px-5 rounded-sm transition-colors text-xs uppercase tracking-wider"
+                          >
+                              Verstanden
+                          </button>
+                      </div>
+                  </div>
               </div>
           </div>
       )}

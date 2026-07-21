@@ -1,6 +1,7 @@
 // WinChallengeOverlay.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { Pin, Check } from "lucide-react";
 
 function msToClock(ms) {
   if (!ms || ms < 0) ms = 0;
@@ -115,8 +116,10 @@ export default function WinChallengeOverlay() {
 
   const effectiveTitleColor = titleColor || textColor;
 
-  // Items sicher laden
-  const items = Array.isArray(doc?.items) ? doc.items : [];
+  // Items sicher laden — Zeilen ohne Namen (leere Editor-Zeilen) nicht anzeigen
+  const items = Array.isArray(doc?.items)
+    ? doc.items.filter((i) => String(i?.name || "").trim())
+    : [];
   const pinned = items.filter((i) => !!i.pinned);
   const others = items.filter((i) => !i.pinned);
 
@@ -579,7 +582,14 @@ function OverlayRow({ it, accent, itemFontSize, itemBg, opacity }) {
           fontSize: itemFontSize ? `${itemFontSize}px` : undefined,
         }}
       >
-        {it.pinned ? <span aria-label="pinned">📌</span> : null}
+        {it.pinned ? (
+          <Pin
+            aria-label="pinned"
+            size="1em"
+            strokeWidth={2.5}
+            style={{ color: accent || "#9146FF", flexShrink: 0 }}
+          />
+        ) : null}
         {it.name}
       </span>
 
@@ -608,13 +618,12 @@ function OverlayRow({ it, accent, itemFontSize, itemBg, opacity }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 10,
-            fontWeight: 700,
             color: done ? "#2ecc71" : "transparent",
             background: "rgba(0,0,0,.4)",
+            flexShrink: 0,
           }}
         >
-          ✓
+          <Check size={11} strokeWidth={4} />
         </span>
       )}
     </div>

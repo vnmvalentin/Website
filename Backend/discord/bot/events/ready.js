@@ -2,6 +2,7 @@
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { getAllActiveVoiceChannels, deleteActiveVoiceChannel } = require('../../database/db');
 const { initVoiceTracking } = require('./voiceStateUpdate');
+const { step } = require('../../../lib/startupLog');
 
 const commands = [
     new SlashCommandBuilder()
@@ -42,6 +43,16 @@ const commands = [
         .setName('voice_rename')
         .setDescription('Benennt deinen Voice Channel um (nur im Voice-Text-Kanal)')
         .addStringOption(opt => opt.setName('name').setDescription('Neuer Name').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('voice_hide')
+        .setDescription('Versteckt deinen Voice Channel vor anderen (nur im Voice-Text-Kanal)'),
+    new SlashCommandBuilder()
+        .setName('voice_unhide')
+        .setDescription('Macht deinen Voice Channel wieder sichtbar (nur im Voice-Text-Kanal)'),
+    new SlashCommandBuilder()
+        .setName('voice_transfer')
+        .setDescription('Übergibt den Besitzer-Status deines Voice Channels (nur im Voice-Text-Kanal)')
+        .addUserOption(opt => opt.setName('user').setDescription('Neuer Besitzer (muss im Voice sein)').setRequired(true)),
 ].map(cmd => cmd.toJSON());
 
 function getCommandsJSON() { return commands; }
@@ -51,7 +62,7 @@ module.exports = {
     once: true,
     getCommandsJSON,
     async execute(client) {
-        console.log(`🤖 Discord Bot eingeloggt als ${client.user.tag}`);
+        step("Discord Bot", true, client.user.tag);
 
         // Nutzer, die bereits im Voice sind, ab jetzt für Zeit-Statistiken tracken
         initVoiceTracking(client);
@@ -60,9 +71,9 @@ module.exports = {
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);
         try {
             await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-            console.log('✅ Slash Commands global registriert!');
+            step("Slash Commands", true, `${commands.length} registriert`);
         } catch (e) {
-            console.error('❌ Fehler beim Registrieren der Slash Commands:', e);
+            step("Slash Commands", false, e.message);
         }
 
         // Verwaiste Voice-Channels beim Neustart aufräumen

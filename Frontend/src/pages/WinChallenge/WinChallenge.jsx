@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useContext,
   useEffect,
   useMemo,
@@ -8,19 +8,20 @@
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { nanoid } from "nanoid";
 import SEO from "../../components/SEO";
-import { 
-  Trophy, 
-  Palette, 
-  Settings, 
-  Play, 
-  Pause, 
+import { CHAT_COMMAND_DOCS } from "./chatCommands";
+import {
+  Trophy,
+  Palette,
+  Settings,
+  Play,
+  Pause,
   Pin,
-  RotateCcw, 
-  Plus, 
-  Trash2, 
-  GripVertical, 
-  Check, 
-  Copy, 
+  RotateCcw,
+  Plus,
+  Trash2,
+  GripVertical,
+  Check,
+  Copy,
   Monitor,
   ShieldAlert,
   MessageSquare,
@@ -28,7 +29,9 @@ import {
   Eye,
   EyeOff,
   Layout,
-  Clock
+  Clock,
+  X,
+  Hash,
 } from "lucide-react";
 
 // --- HELPER FUNCTIONS ---
@@ -39,6 +42,21 @@ function msToClock(ms) {
   const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return `${hh}:${mm}:${ss}`;
+}
+
+/** "HH:MM:SS" oder "MM:SS" → Millisekunden (null bei ungültigem Format) */
+function parseClockInput(str) {
+  const m = String(str || "")
+    .trim()
+    .match(/^(\d{1,3}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) return null;
+  const hasHours = m[3] != null;
+  const h = hasHours ? parseInt(m[1], 10) : 0;
+  const min = hasHours ? parseInt(m[2], 10) : parseInt(m[1], 10);
+  const s = hasHours ? parseInt(m[3], 10) : parseInt(m[2], 10);
+  if (hasHours && min > 59) return null;
+  if (s > 59) return null;
+  return (h * 3600 + min * 60 + s) * 1000;
 }
 
 function hexToRgba(hex, alpha = 1) {
@@ -59,6 +77,14 @@ function hex3to6(hex) {
   return c.toLowerCase();
 }
 
+function normalizeChannelName(v) {
+  return String(v || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^#/, "")
+    .replace(/[^a-z0-9_]/g, "");
+}
+
 // --- DEFAULTS & NORMALIZERS ---
 const DEFAULT_STYLE = {
   boxBg: "#0B0F1A", textColor: "#ffffff", accent: "#9146FF", opacity: 0.6,
@@ -77,9 +103,29 @@ const DEFAULT_PERMISSIONS = { allowModsTimer: true, allowModsTitle: false, allow
 const DEFAULT_CHAT_COMMANDS = {
   enabled: false,
   channel: "",
+  channels: [],
   requireModOrBroadcaster: true,
   replyInChat: true,
 };
+const MAX_CHAT_CHANNELS = 10;
+
+const makeItem = () => ({
+  id: nanoid(8), name: "", useWins: false, target: 1, progress: 0, done: false, pinned: false,
+});
+
+function normalizeChatCommands(cc) {
+  const merged = { ...DEFAULT_CHAT_COMMANDS, ...(cc || {}) };
+  const set = new Set();
+  const push = (v) => {
+    const c = normalizeChannelName(v);
+    if (c) set.add(c);
+  };
+  if (Array.isArray(merged.channels)) merged.channels.forEach(push);
+  push(merged.channel);
+  merged.channels = [...set].slice(0, MAX_CHAT_CHANNELS);
+  merged.channel = merged.channels[0] || "";
+  return merged;
+}
 
 function normalizeAnimation(animation, pagerLike) {
   const hasAnim = animation && typeof animation === "object";
@@ -124,10 +170,11 @@ function ensureDocShape(input = {}) {
   const animation = normalizeAnimation(raw.animation, pagerRaw);
   return {
     title: "WinChallenge", items: [], updatedAt: Date.now(),
+    ...raw,
     overlayKey: raw.overlayKey, controlKey: raw.controlKey,
     controlPermissions: { ...DEFAULT_PERMISSIONS, ...(raw.controlPermissions || {}) },
-    chatCommands: { ...DEFAULT_CHAT_COMMANDS, ...(raw.chatCommands || {}) },
-    ...raw, timer, style, animation,
+    chatCommands: normalizeChatCommands(raw.chatCommands),
+    timer, style, animation,
   };
 }
 
@@ -137,10 +184,10 @@ const ColorPicker = ({ label, value, onChange }) => (
   <div className="flex flex-col gap-2">
     <span className="text-[10px] uppercase text-white/40 font-bold tracking-wider">{label}</span>
     <div className="flex items-center gap-3 bg-black/30 p-1.5 rounded-sm border border-white/5 hover:border-white/10 transition-colors">
-      <div className="relative w-8 h-8 rounded-lg overflow-hidden shadow-sm ring-1 ring-white/10 shrink-0">
-        <input 
-            type="color" 
-            value={value} 
+      <div className="relative w-8 h-8 rounded-sm overflow-hidden ring-1 ring-white/10 shrink-0">
+        <input
+            type="color"
+            value={value}
             onChange={(e) => onChange(e.target.value)}
             className="absolute -top-4 -left-4 w-16 h-16 cursor-pointer p-0 border-0"
         />
@@ -154,14 +201,14 @@ const RangeSlider = ({ label, value, min, max, step, onChange, unit = "" }) => (
     <div className="bg-black/20 p-3 rounded-sm border border-white/5">
         <div className="flex justify-between mb-2">
             <span className="text-xs text-white/60 font-medium">{label}</span>
-            <span className="text-xs text-white font-mono bg-white/10 px-1.5 py-0.5 rounded">{value}{unit}</span>
+            <span className="text-xs text-white font-mono bg-white/10 px-1.5 py-0.5 rounded-sm">{value}{unit}</span>
         </div>
         <input
             type="range"
             min={min} max={max} step={step}
             value={value}
             onChange={(e) => onChange(parseFloat(e.target.value))}
-            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-violet-500 hover:accent-violet-400 transition-colors"
+            className="w-full h-1.5 bg-white/10 rounded-sm appearance-none cursor-pointer accent-violet-500"
         />
     </div>
 );
@@ -174,19 +221,38 @@ export default function WinChallenge() {
   const [loading, setLoading] = useState(true);
   const dragIdRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  const saveSeqRef = useRef(0);
+  const pendingSaveRef = useRef(false);
 
   const [activeTab, setActiveTab] = useState("challenges");
   const [overlayCopied, setOverlayCopied] = useState(false);
   const [controlCopied, setControlCopied] = useState(false);
-  
+
   const [showOverlayUrl, setShowOverlayUrl] = useState(false);
   const [showControlUrl, setShowControlUrl] = useState(false);
-  
+
   const [localNow, setLocalNow] = useState(Date.now());
   const [previewLightMode, setPreviewLightMode] = useState(false);
 
+  const [newChannel, setNewChannel] = useState("");
+  const [manualTime, setManualTime] = useState("");
+  const [manualTimeError, setManualTimeError] = useState(false);
+
+  // Vorschau: Breite des Containers messen, damit das Overlay passend skaliert wird
+  const [previewEl, setPreviewEl] = useState(null);
+  const [previewW, setPreviewW] = useState(0);
+
   const overlayUrl = useMemo(() => doc?.overlayKey ? `${window.location.origin}/WinChallengeOverlay/${doc.overlayKey}` : "", [doc?.overlayKey]);
   const controlUrl = useMemo(() => doc?.controlKey ? `${window.location.origin}/WinChallengeControl/${doc.controlKey}` : "", [doc?.controlKey]);
+
+  useEffect(() => {
+    if (!previewEl || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setPreviewW(e.contentRect.width);
+    });
+    ro.observe(previewEl);
+    return () => ro.disconnect();
+  }, [previewEl]);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -194,12 +260,17 @@ export default function WinChallenge() {
       try {
         const res = await fetch(`/api/winchallenge/${user.id}`, { credentials: "include" });
         const data = await res.json();
-        setDoc(ensureDocShape(data));
+        const shaped = ensureDocShape(data);
+        // Leere Liste: direkt eine Editor-Zeile anzeigen (wird erst beim ersten Edit gespeichert)
+        if (!Array.isArray(shaped.items) || shaped.items.length === 0) {
+          shaped.items = [makeItem()];
+        }
+        setDoc(shaped);
       } catch (e) { console.error(e); } finally { setLoading(false); }
     })();
   }, [user]);
 
-  /** Sync Timer (u. a. nach Chat-Befehl / Control-Link) ohne Reload */
+  /** Sync externe Änderungen (Chat-Befehle, Control-Link) ohne Reload */
   useEffect(() => {
     if (!user?.id) return;
     const t = setInterval(async () => {
@@ -212,13 +283,24 @@ export default function WinChallenge() {
           const su = Number(data.updatedAt) || 0;
           const pu = Number(prev.updatedAt) || 0;
           if (su <= pu) return prev;
-          return ensureDocShape({
-            ...prev,
-            timer: { ...DEFAULT_TIMER, ...(data.timer || {}) },
-            updatedAt: su,
-            refreshNonce:
-              data.refreshNonce != null ? data.refreshNonce : prev.refreshNonce,
-          });
+          // Lokale Änderung noch nicht gespeichert → nur Timer übernehmen,
+          // sonst würden z. B. Slider-Werte zurückspringen
+          if (pendingSaveRef.current) {
+            return ensureDocShape({
+              ...prev,
+              timer: { ...DEFAULT_TIMER, ...(data.timer || {}) },
+              updatedAt: su,
+              refreshNonce:
+                data.refreshNonce != null ? data.refreshNonce : prev.refreshNonce,
+            });
+          }
+          // Kein lokaler Edit ausstehend → kompletten Server-Stand übernehmen
+          // (z. B. wenn Mods per !pin / Control-Link Challenges geändert haben)
+          const shaped = ensureDocShape(data);
+          if (!Array.isArray(shaped.items) || shaped.items.length === 0) {
+            shaped.items = [makeItem()];
+          }
+          return shaped;
         });
         setLocalNow(Date.now());
       } catch (e) {}
@@ -228,7 +310,7 @@ export default function WinChallenge() {
 
   useEffect(() => () => saveTimeoutRef.current && clearTimeout(saveTimeoutRef.current), []);
 
-  const saveToServer = async (payload) => {
+  const saveToServer = async (payload, seq) => {
     if (!user) return;
     try {
       const res = await fetch(`/api/winchallenge/${user.id}`, {
@@ -239,17 +321,42 @@ export default function WinChallenge() {
       });
       if (res.ok) {
         const j = await res.json();
-        setDoc(ensureDocShape(j));
+        // Keine neueren lokalen Änderungen mehr → Editor gilt wieder als "synchron"
+        if (seq != null && saveSeqRef.current === seq) {
+          pendingSaveRef.current = false;
+        }
+        setDoc((prev) => {
+          if (!prev) return ensureDocShape(j);
+          // Gab es inzwischen neuere lokale Änderungen (z. B. Slider wird noch gezogen),
+          // darf die Server-Antwort den lokalen Stand NICHT überschreiben — sonst springt der Regler zurück.
+          if (seq != null && saveSeqRef.current !== seq) {
+            return {
+              ...prev,
+              overlayKey: j.overlayKey ?? prev.overlayKey,
+              controlKey: j.controlKey ?? prev.controlKey,
+              updatedAt: j.updatedAt ?? prev.updatedAt,
+              refreshNonce: j.refreshNonce ?? prev.refreshNonce,
+            };
+          }
+          return ensureDocShape(j);
+        });
         setLocalNow(Date.now());
       }
     } catch (e) {}
   };
 
-  const save = (nextRaw) => {
+  const save = (nextRaw, opts = {}) => {
     const next = ensureDocShape(nextRaw);
     setDoc(next);
+    pendingSaveRef.current = true;
+    saveSeqRef.current += 1;
+    const seq = saveSeqRef.current;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => saveToServer(next), 300);
+    if (opts.flush) {
+      saveToServer(next, seq);
+      return;
+    }
+    saveTimeoutRef.current = setTimeout(() => saveToServer(next, seq), 350);
   };
 
   const doFullReset = async () => {
@@ -257,19 +364,27 @@ export default function WinChallenge() {
     try {
       const res = await fetch(`/api/winchallenge/${user.id}?reset=1`, { method: "PUT", credentials: "include" });
       const fresh = await res.json();
-      setDoc(ensureDocShape(fresh));
+      const shaped = ensureDocShape(fresh);
+      if (!Array.isArray(shaped.items) || shaped.items.length === 0) {
+        shaped.items = [makeItem()];
+      }
+      setDoc(shaped);
       setActiveTab("challenges");
     } catch (e) {}
   };
 
-  const regenerateOverlayKey = () => save({ ...doc, overlayKey: nanoid(12) });
-  const regenerateControlKey = () => save({ ...doc, controlKey: nanoid(12) });
+  const regenerateOverlayKey = () => save({ ...doc, overlayKey: nanoid(12) }, { flush: true });
+  const regenerateControlKey = () => save({ ...doc, controlKey: nanoid(12) }, { flush: true });
 
   // Logic Wrapper
   const updateItem = (id, patch) => save({ ...doc, items: (doc?.items || []).map((it) => (it.id === id ? { ...it, ...patch } : it)) });
-  const removeItem = (id) => save({ ...doc, items: (doc?.items || []).filter((i) => i.id !== id) });
-  const addItem = () => save({ ...doc, items: [...(doc?.items || []), { id: nanoid(8), name: "", useWins: false, target: 1, progress: 0, done: false, pinned: false }] });
-  
+  const removeItem = (id) => {
+    const rest = (doc?.items || []).filter((i) => i.id !== id);
+    // Nie ganz leer: es bleibt immer mindestens eine Editor-Zeile stehen
+    save({ ...doc, items: rest.length ? rest : [makeItem()] });
+  };
+  const addItem = () => save({ ...doc, items: [...(doc?.items || []), makeItem()] });
+
   // DnD
   const onDragStart = (id) => (e) => { dragIdRef.current = id; e.dataTransfer.effectAllowed = "move"; };
   const onDragOver = () => (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
@@ -287,10 +402,10 @@ export default function WinChallenge() {
     dragIdRef.current = null;
   };
 
-  // Timer
-  const startTimer = () => { const base = doc?.timer?.elapsedMs || 0; save({ ...doc, timer: { ...(doc?.timer || {}), running: true, startedAt: Date.now() - base, elapsedMs: base } }); };
-  const pauseTimer = () => { if (!doc?.timer?.running) return; const elapsed = Date.now() - (doc?.timer?.startedAt || 0); save({ ...doc, timer: { ...(doc?.timer || {}), running: false, startedAt: 0, elapsedMs: elapsed } }); };
-  const resetTimer = () => save({ ...doc, timer: { ...DEFAULT_TIMER, visible: doc?.timer?.visible ?? true } });
+  // Timer — Aktionen werden sofort gespeichert (flush), damit Overlay/Mods nicht hinterherhängen
+  const startTimer = () => { const base = doc?.timer?.elapsedMs || 0; save({ ...doc, timer: { ...(doc?.timer || {}), running: true, startedAt: Date.now() - base, elapsedMs: base } }, { flush: true }); };
+  const pauseTimer = () => { if (!doc?.timer?.running) return; const elapsed = Date.now() - (doc?.timer?.startedAt || 0); save({ ...doc, timer: { ...(doc?.timer || {}), running: false, startedAt: 0, elapsedMs: elapsed } }, { flush: true }); };
+  const resetTimer = () => save({ ...doc, timer: { ...DEFAULT_TIMER, visible: doc?.timer?.visible ?? true } }, { flush: true });
   const adjustTimer = (deltaMs) => {
     if (!doc?.timer) return;
     const t = doc.timer;
@@ -298,12 +413,27 @@ export default function WinChallenge() {
     let nextElapsed = Math.max(0, currentElapsed + deltaMs);
     const updatedTimer = { ...t, elapsedMs: nextElapsed };
     if (t.running) updatedTimer.startedAt = Date.now() - nextElapsed;
-    save({ ...doc, timer: updatedTimer });
+    save({ ...doc, timer: updatedTimer }, { flush: true });
+  };
+  const toggleTimerVisible = () => {
+    const visible = doc?.timer?.visible !== false;
+    save({ ...doc, timer: { ...(doc?.timer || {}), visible: !visible } }, { flush: true });
+  };
+  const applyManualTime = () => {
+    const ms = parseClockInput(manualTime);
+    if (ms == null) { setManualTimeError(true); return; }
+    setManualTimeError(false);
+    const t = doc?.timer || {};
+    const next = { ...t, elapsedMs: ms };
+    if (t.running) next.startedAt = Date.now() - ms;
+    save({ ...doc, timer: next }, { flush: true });
+    setManualTime("");
   };
 
   useEffect(() => { if (!doc?.timer?.running) return; const iv = setInterval(() => setLocalNow(Date.now()), 500); return () => clearInterval(iv); }, [doc?.timer?.running]);
   const running = !!doc?.timer?.running;
   const runningElapsed = running ? localNow - (doc?.timer?.startedAt || 0) : (doc?.timer?.elapsedMs || 0);
+  const timerVisible = doc?.timer?.visible !== false;
 
   const handleCopy = (text, which) => {
     if (!text) return; navigator.clipboard.writeText(text).catch(() => {});
@@ -311,20 +441,56 @@ export default function WinChallenge() {
     else if (which === "control") { setControlCopied(true); setTimeout(() => setControlCopied(false), 1200); }
   };
 
+  // Chat-Kanäle
+  const chatChannels = useMemo(() => {
+    const cc = doc?.chatCommands;
+    if (!cc) return [];
+    if (Array.isArray(cc.channels) && cc.channels.length) return cc.channels;
+    return cc.channel ? [cc.channel] : [];
+  }, [doc?.chatCommands]);
+
+  const commitChannels = (arr) => {
+    save({
+      ...doc,
+      chatCommands: {
+        ...DEFAULT_CHAT_COMMANDS,
+        ...doc.chatCommands,
+        channels: arr,
+        channel: arr[0] || "",
+      },
+    });
+  };
+
+  const addChannel = () => {
+    const c = normalizeChannelName(newChannel);
+    if (!c || chatChannels.includes(c) || chatChannels.length >= MAX_CHAT_CHANNELS) return;
+    commitChannels([...chatChannels, c]);
+    setNewChannel("");
+  };
+
+  const removeChannel = (c) => commitChannels(chatChannels.filter((x) => x !== c));
+
   const renderPreview = () => {
     if (!doc) return null;
     const { style } = doc;
     const boxAlpha = Math.min(1, Math.max(0, Number(style.opacity ?? 0.6)));
     const headerAlpha = Math.min(1, Math.max(0, Number(style.headerOpacity ?? boxAlpha)));
-    const showTimer = doc.timer?.visible !== false;
-    const items = (doc.items && doc.items.length > 0 ? doc.items : [{ id: "p1", name: "Beispiel Challenge", pinned: true }, { id: "p2", name: "Gewinne 3 Runden", useWins: true, target: 3, progress: 1 }]).slice(0, 6);
+    const showTimer = timerVisible;
+    const namedItems = (doc.items || []).filter((i) => (i.name || "").trim());
+    const items = (namedItems.length > 0 ? namedItems : [{ id: "p1", name: "Beispiel Challenge", pinned: true }, { id: "p2", name: "Gewinne 3 Runden", useWins: true, target: 3, progress: 1 }]).slice(0, 6);
+
+    // Passend skalieren: so bleibt auch eine Breiten-Änderung in der Vorschau sichtbar
+    const scaledW = (style.boxWidth || 520) * (style.scale || 1);
+    const avail = Math.max(0, previewW - 32);
+    const fit = avail > 0 ? Math.min(1, avail / scaledW) : 1;
+    const zoom = (style.scale || 1) * fit;
 
     return (
-      <div className={`flex-1 min-h-0 rounded-sm border border-white/5 flex justify-center items-center p-4 transition-colors overflow-hidden ${previewLightMode ? "bg-gray-200" : "bg-[#09090b]"}`}>
+      <div ref={setPreviewEl} className={`flex-1 min-h-0 rounded-sm border border-white/5 flex justify-center items-center p-4 transition-colors overflow-hidden ${previewLightMode ? "bg-gray-200" : "bg-[#09090b]"}`}>
         <div style={{
             fontFamily: "Inter, sans-serif", color: style.textColor, borderRadius: style.borderRadius,
-            background: "transparent", width: style.boxWidth, transform: `scale(${style.scale})`, transformOrigin: "center",
-            maxWidth: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)", position: "relative"
+            background: "transparent", width: style.boxWidth, zoom,
+            overflow: "hidden", boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)", position: "relative"
         }}>
             <div style={{ position: "absolute", inset: 0, background: style.boxBg, opacity: boxAlpha, zIndex: 0 }} />
             <div className="relative z-10">
@@ -336,24 +502,26 @@ export default function WinChallenge() {
                 </div>
                 <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                     {items.map((it) => (
-                        <div key={it.id} style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, overflow: "hidden" }}>
+                        <div key={it.id} style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: Math.min(10, style.borderRadius), overflow: "hidden" }}>
                             <div style={{ position: "absolute", inset: 0, background: style.itemBg || "#ffffff", opacity: style.itemBg ? boxAlpha : 0.04, zIndex: -1 }} />
                             <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, color: (it.done || (it.useWins && it.progress >= it.target)) ? "#2ecc71" : "inherit", fontSize: `${style.itemFontSize}px` }}>
-                                {it.pinned && <span>📌</span>} {it.name}
+                                {it.pinned && <Pin size="1em" strokeWidth={2.5} style={{ color: style.accent, flexShrink: 0 }} />} {it.name}
                             </span>
                             {it.useWins ? (
-                                <span style={{ padding: "2px 10px", borderRadius: 8, background: "rgba(255,255,255,.06)", border: `1px solid ${hexToRgba(style.accent || "#9146FF", 0.5)}`, fontSize: "0.85em" }}>
+                                <span style={{ padding: "2px 10px", borderRadius: 6, background: "rgba(255,255,255,.06)", border: `1px solid ${hexToRgba(style.accent || "#9146FF", 0.5)}`, fontSize: "0.85em" }}>
                                     {it.progress || 0} / {it.target || 0}
                                 </span>
                             ) : (
-                                <span style={{ width: 18, height: 18, borderRadius: 6, border: "2px solid rgba(255,255,255,.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: it.done ? "#2ecc71" : "transparent" }}>✓</span>
+                                <span style={{ width: 18, height: 18, borderRadius: 4, border: "2px solid rgba(255,255,255,.5)", display: "flex", alignItems: "center", justifyContent: "center", color: (it.done || (it.useWins && it.progress >= it.target)) ? "#2ecc71" : "transparent" }}>
+                                    <Check size={12} strokeWidth={4} />
+                                </span>
                             )}
                         </div>
                     ))}
                 </div>
                 {showTimer && (
-                    <div style={{ borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,0.2)", padding: "10px", display: "flex", justifyContent: "center", gap: 10, fontSize: 14, fontWeight: 700, fontFamily: "monospace" }}>
-                        <span style={{ fontSize: 10 }}>{doc.timer?.running ? "🟢" : "🔴"}</span>
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,0.2)", padding: "10px", display: "flex", justifyContent: "center", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 700, fontFamily: "monospace" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: running ? "#22c55e" : "#ef4444", display: "inline-block", flexShrink: 0 }} />
                         <span>{msToClock(runningElapsed)}</span>
                     </div>
                 )}
@@ -362,6 +530,14 @@ export default function WinChallenge() {
       </div>
     );
   };
+
+  const previewFitPercent = useMemo(() => {
+    if (!doc || !previewW) return null;
+    const scaledW = (doc.style?.boxWidth || 520) * (doc.style?.scale || 1);
+    const avail = Math.max(0, previewW - 32);
+    const fit = avail > 0 ? Math.min(1, avail / scaledW) : 1;
+    return Math.round(fit * 100);
+  }, [doc, previewW]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden text-white bg-[#18181b]">
@@ -423,21 +599,13 @@ export default function WinChallenge() {
                       {/* 1. CHALLENGES TAB */}
                       {activeTab === "challenges" && (
                           <div className="space-y-6">
-                              {(doc.items || []).length === 0 && (
-                                  <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-sm bg-white/5">
-                                      <Trophy size={40} className="mx-auto mb-4 text-white/20" />
-                                      <p className="text-white/40 mb-6">Deine Liste ist leer.</p>
-                                      <button onClick={addItem} className="text-violet-400 font-bold hover:text-violet-300">Erste Challenge anlegen</button>
-                                  </div>
-                              )}
-
                               <div className="space-y-3">
                                   {(doc.items || []).map((it) => {
                                       const done = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
                                       return (
                                           <div key={it.id} onDragOver={onDragOver(it.id)} onDrop={onDrop(it.id)}
                                                className={`group bg-black/20 hover:bg-black/30 rounded-sm p-4 border transition-colors ${done ? "border-green-500/30" : "border-white/5 hover:border-white/10"}`}>
-                                              
+
                                               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                                                   {/* Drag & Name */}
                                                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -459,11 +627,11 @@ export default function WinChallenge() {
 
                                                       {it.useWins ? (
                                                           <div className="flex items-center gap-3">
-                                                              <div className="flex items-center bg-black/40 rounded-lg border border-white/10 px-2 py-1">
+                                                              <div className="flex items-center bg-black/40 rounded-sm border border-white/10 px-2 py-1">
                                                                   <span className="text-[10px] uppercase text-white/30 font-bold mr-2">Ziel</span>
                                                                   <input type="number" min={1} className="w-8 bg-transparent text-right text-sm font-mono focus:outline-none text-white" value={it.target || 1} onChange={(e) => updateItem(it.id, { target: Math.max(1, parseInt(e.target.value || "1", 10)) })} />
                                                               </div>
-                                                              <div className="flex items-center bg-white/5 rounded-lg border border-white/5 overflow-hidden">
+                                                              <div className="flex items-center bg-white/5 rounded-sm border border-white/5 overflow-hidden">
                                                                   <button onClick={() => updateItem(it.id, { progress: Math.max(0, (it.progress || 0) - 1) })} className="px-3 py-1 hover:bg-white/10 text-white/50 hover:text-white transition-colors font-mono">−</button>
                                                                   <span className="w-8 text-center font-mono font-bold text-white text-sm">{it.progress || 0}</span>
                                                                   <button onClick={() => updateItem(it.id, { progress: (it.progress || 0) + 1 })} className="px-3 py-1 hover:bg-white/10 text-white/50 hover:text-white transition-colors font-mono">+</button>
@@ -471,14 +639,14 @@ export default function WinChallenge() {
                                                           </div>
                                                       ) : (
                                                           <button onClick={() => updateItem(it.id, { done: !it.done })} className={`flex items-center gap-2 px-3 py-1.5 rounded-sm border transition-colors text-xs font-bold ${it.done ? "bg-green-500/20 border-green-500/30 text-green-400" : "bg-white/5 border-white/5 text-white/40 hover:text-white"}`}>
-                                                              {it.done ? <Check size={14}/> : <div className="w-3.5 h-3.5 rounded-full border border-white/30" />}
+                                                              {it.done ? <Check size={14}/> : <div className="w-3.5 h-3.5 rounded-sm border border-white/30" />}
                                                               {it.done ? "Erledigt" : "Offen"}
                                                           </button>
                                                       )}
 
                                                       <div className="flex items-center gap-1 border-l border-white/10 pl-2 ml-2">
-                                                          <button onClick={() => updateItem(it.id, { pinned: !it.pinned })} className={`p-2 rounded-lg transition-colors ${it.pinned ? "text-violet-400 bg-violet-500/10" : "text-white/20 hover:text-white hover:bg-white/5"}`} title="Anpinnen"><Pin size={16}/></button>
-                                                          <button onClick={() => removeItem(it.id)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Löschen"><Trash2 size={16}/></button>
+                                                          <button onClick={() => updateItem(it.id, { pinned: !it.pinned })} className={`p-2 rounded-sm transition-colors ${it.pinned ? "text-violet-400 bg-violet-500/10" : "text-white/20 hover:text-white hover:bg-white/5"}`} title="Anpinnen"><Pin size={16}/></button>
+                                                          <button onClick={() => removeItem(it.id)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors" title="Löschen"><Trash2 size={16}/></button>
                                                       </div>
                                                   </div>
                                               </div>
@@ -496,7 +664,7 @@ export default function WinChallenge() {
                       {/* 2. CUSTOM TAB */}
                       {activeTab === "custom" && (
                           <div className="space-y-10">
-                              
+
                               {/* Header & Titel */}
                               <div>
                                   <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Layout size={20} className="text-violet-400"/> Header & Titel</h3>
@@ -510,7 +678,7 @@ export default function WinChallenge() {
                                           <span className="text-xs font-bold text-white/40 uppercase mb-2 block">Ausrichtung</span>
                                           <div className="flex bg-black/40 rounded-sm p-1 border border-white/5">
                                               {['left', 'center'].map(align => (
-                                                  <button key={align} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${doc.style?.titleAlign === align ? 'bg-violet-600 text-white shadow' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, style: normalizeStyle({ ...doc.style, titleAlign: align }) })}>{align}</button>
+                                                  <button key={align} className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors capitalize ${doc.style?.titleAlign === align ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, style: normalizeStyle({ ...doc.style, titleAlign: align }) })}>{align}</button>
                                               ))}
                                           </div>
                                       </div>
@@ -539,24 +707,21 @@ export default function WinChallenge() {
                                         <RangeSlider label="Skalierung" value={doc.style?.scale ?? 1} min={0.5} max={2} step={0.05} unit="x" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, scale: v }) })} />
                                         <RangeSlider label="Eckenradius" value={doc.style?.borderRadius ?? 12} min={0} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, borderRadius: v }) })} />
                                         <RangeSlider label="Challenge Größe" value={doc.style?.itemFontSize ?? 16} min={10} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemFontSize: v }) })} />
-                                        
+
                                         <RangeSlider label="Hintergrund Deckkraft" value={doc.style?.opacity ?? 0.6} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, opacity: v }) })} />
                                         <RangeSlider label="Header Deckkraft" value={doc.style?.headerOpacity ?? 0.9} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerOpacity: v }) })} />
                                     </div>
-                                      
+
                                       <div className="pt-6 border-t border-white/5">
                                           <label className="flex items-center gap-3 cursor-pointer select-none mb-4">
-                                              <div className={`w-10 h-6 rounded-full p-1 transition-colors ${doc.animation?.enabled ? "bg-green-500" : "bg-white/10"}`}>
-                                                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${doc.animation?.enabled ? "translate-x-4" : ""}`} />
-                                              </div>
+                                              <input type="checkbox" className="w-4 h-4 accent-violet-500" checked={!!doc.animation?.enabled} onChange={(e) => save({ ...doc, animation: { ...doc.animation, enabled: e.target.checked } })} />
                                               <span className="text-sm font-bold text-white">Animation aktivieren (Paging/Scrolling)</span>
-                                              <input type="checkbox" className="hidden" checked={!!doc.animation?.enabled} onChange={(e) => save({ ...doc, animation: { ...doc.animation, enabled: e.target.checked } })} />
                                           </label>
 
-                                          <div className={`transition-all duration-300 ${!doc.animation?.enabled ? "opacity-30 pointer-events-none grayscale" : ""}`}>
+                                          <div className={`transition-opacity duration-300 ${!doc.animation?.enabled ? "opacity-30 pointer-events-none" : ""}`}>
                                               <div className="flex bg-black/40 rounded-sm p-1 border border-white/5 mb-4 max-w-sm">
-                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${doc.animation?.mode !== 'scrolling' ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "paging" } })}>Seitenweise (Paging)</button>
-                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${doc.animation?.mode === 'scrolling' ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "scrolling" } })}>Laufschrift (Scroll)</button>
+                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors ${doc.animation?.mode !== 'scrolling' ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "paging" } })}>Seitenweise (Paging)</button>
+                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors ${doc.animation?.mode === 'scrolling' ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "scrolling" } })}>Laufschrift (Scroll)</button>
                                               </div>
                                               {doc.animation?.mode === "scrolling" ? (
                                                    <div className="grid grid-cols-2 gap-4">
@@ -579,13 +744,14 @@ export default function WinChallenge() {
                           </div>
                       )}
 
+                      {/* 3. CHAT TAB */}
                       {activeTab === "chat" && (
-                          <div className="space-y-6 max-w-2xl">
+                          <div className="space-y-6 max-w-3xl">
                               <div className="bg-black/20 p-5 rounded-sm border border-white/5">
                                   <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-2 flex items-center gap-2">
                                       <MessageSquare size={16} className="text-cyan-400" /> Twitch-Chat-Befehle
                                   </h4>
-                                  <label className="flex items-center gap-3 cursor-pointer mb-4">
+                                  <label className="flex items-center gap-3 cursor-pointer mb-5">
                                       <input
                                           type="checkbox"
                                           className="w-4 h-4 accent-violet-500"
@@ -603,26 +769,52 @@ export default function WinChallenge() {
                                       />
                                       <span className="text-sm font-medium text-white">Chat-Befehle für dieses Overlay aktivieren</span>
                                   </label>
-                                  <div className="space-y-2 mb-4">
-                                      <span className="text-[10px] uppercase text-white/40 font-bold tracking-wider">Twitch-Kanal (Kleinbuchstaben, ohne #)</span>
-                                      <input
-                                          type="text"
-                                          placeholder="deinkanalname"
-                                          value={doc.chatCommands?.channel || ""}
-                                          onChange={(e) =>
-                                              save({
-                                                  ...doc,
-                                                  chatCommands: {
-                                                      ...DEFAULT_CHAT_COMMANDS,
-                                                      ...doc.chatCommands,
-                                                      channel: e.target.value.trim().toLowerCase(),
-                                                  },
-                                              })
-                                          }
-                                          className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-sm text-white"
-                                      />
+
+                                  {/* Kanäle */}
+                                  <div className="space-y-2 mb-2">
+                                      <span className="text-[10px] uppercase text-white/40 font-bold tracking-wider">
+                                          Twitch-Kanäle ({chatChannels.length}/{MAX_CHAT_CHANNELS})
+                                      </span>
+                                      <p className="text-xs text-white/50">
+                                          Mehrere Kanäle möglich — z. B. wenn eine Gruppe gemeinsam ein Overlay nutzt. Mods und Streamer in jedem dieser Chats können dann dieselben Befehle verwenden.
+                                      </p>
+                                      <div className="space-y-2">
+                                          {chatChannels.map((c) => (
+                                              <div key={c} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-sm px-3 py-2">
+                                                  <Hash size={14} className="text-white/30 shrink-0" />
+                                                  <span className="flex-1 text-sm font-mono text-white/80">{c}</span>
+                                                  <button
+                                                      onClick={() => removeChannel(c)}
+                                                      className="p-1 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors"
+                                                      title="Kanal entfernen"
+                                                  >
+                                                      <X size={14} />
+                                                  </button>
+                                              </div>
+                                          ))}
+                                          {chatChannels.length < MAX_CHAT_CHANNELS && (
+                                              <div className="flex gap-2">
+                                                  <input
+                                                      type="text"
+                                                      placeholder="kanalname (Kleinbuchstaben, ohne #)"
+                                                      value={newChannel}
+                                                      onChange={(e) => setNewChannel(e.target.value)}
+                                                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addChannel(); } }}
+                                                      className="flex-1 bg-black/40 border border-white/10 rounded-sm px-4 py-2.5 text-sm text-white focus:border-violet-500 focus:outline-none transition-colors"
+                                                  />
+                                                  <button
+                                                      onClick={addChannel}
+                                                      disabled={!normalizeChannelName(newChannel)}
+                                                      className="px-4 bg-violet-600 hover:bg-violet-500 disabled:opacity-30 disabled:cursor-not-allowed rounded-sm text-white font-bold text-sm transition-colors flex items-center gap-2"
+                                                  >
+                                                      <Plus size={16} /> Hinzufügen
+                                                  </button>
+                                              </div>
+                                          )}
+                                      </div>
                                   </div>
-                                  <label className="flex items-center gap-3 cursor-pointer">
+
+                                  <label className="flex items-center gap-3 cursor-pointer pt-3 border-t border-white/5 mt-4">
                                       <input
                                           type="checkbox"
                                           className="w-4 h-4 accent-violet-500"
@@ -659,22 +851,32 @@ export default function WinChallenge() {
                                       <span className="text-sm text-white/80">Bestätigungen im Chat (z. B. „Timer wurde pausiert“)</span>
                                   </label>
                               </div>
-                              <div className="bg-violet-950/20 border border-violet-500/20 rounded-sm p-5 text-sm text-white/70">
-                                  <p className="font-bold text-violet-200 mb-2">Befehle</p>
-                                  <ul className="list-disc pl-5 space-y-1 font-mono text-xs text-white/60">
-                                      <li>!starttimer</li>
-                                      <li>!stoptimer / !pausetimer</li>
-                                      <li>!resettimer</li>
-                                      <li>!hidetimer / !showtimer</li>
-                                  </ul>
+
+                              {/* Befehls-Referenz */}
+                              <div className="bg-black/20 border border-white/5 rounded-sm p-5">
+                                  <p className="text-sm font-bold text-white uppercase tracking-wide mb-4">Befehle</p>
+                                  <div className="space-y-2">
+                                      {CHAT_COMMAND_DOCS.map((c) => (
+                                          <div key={c.cmd} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-1.5 border-b border-white/5 last:border-b-0">
+                                              <code className="text-xs font-mono text-violet-300 sm:w-56 shrink-0">{c.cmd}</code>
+                                              <span className="text-xs text-white/60">{c.desc}</span>
+                                          </div>
+                                      ))}
+                                  </div>
+                                  <p className="text-xs text-white/40 mt-4">
+                                      Die Namenssuche ist unscharf: „!pin minecraft“ findet „Minecraft Enderdragon besiegen“, „!+ rocketleague“ zählt bei „Rocket League Wins“ hoch.
+                                  </p>
+                                  <p className="text-xs text-white/40 mt-2">
+                                      Timer-Befehle erfordern die Mod-Berechtigung „Timer steuern“, Challenge-Befehle „Challenges bearbeiten“ (Tab „Einstellungen“). Du selbst kannst als Overlay-Besitzer immer alle Befehle nutzen.
+                                  </p>
                               </div>
                           </div>
                       )}
 
-                      {/* 3. SETTINGS TAB */}
+                      {/* 4. SETTINGS TAB */}
                       {activeTab === "settings" && (
                           <div className="space-y-6">
-                              
+
                               {/* 14-day inactivity notice */}
                               <div className="flex items-start gap-3 bg-amber-950/20 border border-amber-500/20 rounded-sm p-4">
                                   <Clock size={16} className="text-amber-400 shrink-0 mt-0.5" />
@@ -702,7 +904,7 @@ export default function WinChallenge() {
                               {/* Moderator Link */}
                               <div className="bg-black/20 p-5 rounded-sm border border-white/5">
                                   <h4 className="text-sm font-bold text-white uppercase tracking-wide mb-4 flex items-center gap-2"><ShieldAlert size={16}/> Moderator Link</h4>
-                                  <p className="text-xs text-white/50 mb-4">Teile diesen Link mit Mods, damit sie Timer und Ergebnisse steuern können.</p>
+                                  <p className="text-xs text-white/50 mb-4">Teile diesen Link mit Mods, damit sie Timer und Ergebnisse steuern können. In der Moderator-Ansicht sehen sie außerdem alle verfügbaren Chat-Befehle.</p>
                                   <div className="flex gap-2 mb-2">
                                       <input readOnly type={showControlUrl ? "text" : "password"} className="flex-1 bg-black/40 px-4 py-3 rounded-sm text-sm font-mono text-white/70 border border-white/5 outline-none" value={controlUrl} />
                                       <button onClick={() => setShowControlUrl(!showControlUrl)} className="px-4 bg-white/5 hover:bg-white/10 rounded-sm text-white/70 transition-colors">{showControlUrl ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
@@ -714,17 +916,17 @@ export default function WinChallenge() {
                                   <button onClick={regenerateControlKey} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 mt-2">
                                       <RefreshCw size={12}/> Link neu generieren (Reset)
                                   </button>
-                                  
+
                                   <div className="mt-6 pt-4 border-t border-white/5">
-                                      <h5 className="text-xs font-bold text-white/40 uppercase mb-3">Berechtigungen für Mods</h5>
+                                      <h5 className="text-xs font-bold text-white/40 uppercase mb-3">Berechtigungen für Mods (Control-Link & Chat-Befehle)</h5>
                                       <div className="space-y-2">
                                           {[
-                                              { key: 'allowModsTimer', label: 'Timer steuern (Start/Stop/Reset)' },
+                                              { key: 'allowModsTimer', label: 'Timer steuern (Start/Stop/Reset/Setzen)' },
                                               { key: 'allowModsTitle', label: 'Titel ändern' },
-                                              { key: 'allowModsChallenges', label: 'Challenges bearbeiten (Wins/Status)' }
+                                              { key: 'allowModsChallenges', label: 'Challenges bearbeiten (Wins/Status/Pin)' }
                                           ].map(perm => (
-                                              <label key={perm.key} className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white/5 transition-colors">
-                                                  <input type="checkbox" className="w-4 h-4 accent-violet-500 bg-transparent" checked={!!doc.controlPermissions?.[perm.key]} onChange={(e) => save({ ...doc, controlPermissions: { ...doc.controlPermissions, [perm.key]: e.target.checked } })} /> 
+                                              <label key={perm.key} className="flex items-center gap-3 cursor-pointer p-2 rounded-sm hover:bg-white/5 transition-colors">
+                                                  <input type="checkbox" className="w-4 h-4 accent-violet-500 bg-transparent" checked={!!doc.controlPermissions?.[perm.key]} onChange={(e) => save({ ...doc, controlPermissions: { ...doc.controlPermissions, [perm.key]: e.target.checked } })} />
                                                   <span className="text-sm text-white/80">{perm.label}</span>
                                               </label>
                                           ))}
@@ -750,12 +952,17 @@ export default function WinChallenge() {
               </div>
 
               {/* RIGHT: PREVIEW + TIMER — never scrolls, always fills viewport height */}
-              <div className="w-[420px] shrink-0 flex flex-col bg-[#121215] overflow-hidden">
+              <div className="w-[380px] lg:w-[460px] xl:w-[560px] shrink-0 flex flex-col bg-[#121215] overflow-hidden">
 
                   {/* PREVIEW — fills remaining space above timer */}
                   <div className="flex-1 p-5 border-b border-white/5 flex flex-col min-h-0 overflow-hidden">
                       <div className="flex items-center justify-between mb-3 px-1 shrink-0">
-                          <h3 className="text-white/40 text-xs uppercase tracking-wider font-bold">Live Vorschau</h3>
+                          <div className="flex items-center gap-2">
+                              <h3 className="text-white/40 text-xs uppercase tracking-wider font-bold">Live Vorschau</h3>
+                              <span className="text-[10px] text-white/30 font-mono">
+                                  {doc.style?.boxWidth ?? 520}px{previewFitPercent != null && previewFitPercent < 100 ? ` · ${previewFitPercent}%` : ""}
+                              </span>
+                          </div>
                           <button onClick={() => setPreviewLightMode(!previewLightMode)} className="text-[10px] px-2 py-1 rounded-sm bg-white/5 hover:bg-white/10 text-white/50 transition-colors border border-white/5">
                               {previewLightMode ? "BG: Hell" : "BG: Dunkel"}
                           </button>
@@ -765,19 +972,31 @@ export default function WinChallenge() {
 
                   {/* TIMER — always visible, never pushed off screen */}
                   <div className="p-5 shrink-0 bg-[#151518]">
-                      <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                              <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_currentColor] ${running ? "bg-green-500 text-green-500" : "bg-red-500 text-red-500"}`} />
-                              <span className="text-sm font-bold text-white uppercase tracking-wider">Timer Control</span>
+                              <div className={`w-2.5 h-2.5 rounded-full ${running ? "bg-green-500" : "bg-red-500"}`} />
+                              <span className="text-sm font-bold text-white uppercase tracking-wider">Timer</span>
                           </div>
-                          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-white/50 hover:text-white transition-colors">
-                              <input type="checkbox" className="accent-violet-500" checked={doc?.timer?.visible !== false} onChange={(e) => save({ ...doc, timer: { ...(doc?.timer || {}), visible: e.target.checked } })} />
-                              Sichtbar
-                          </label>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${running ? "text-green-400" : "text-white/30"}`}>
+                              {running ? "Läuft" : "Pausiert"}
+                          </span>
                       </div>
-                      
+
+                      {/* Sichtbarkeit — deutlich sichtbar statt versteckter Checkbox */}
+                      <button
+                          onClick={toggleTimerVisible}
+                          className={`w-full mb-4 py-2.5 rounded-sm text-xs font-bold transition-colors flex items-center justify-center gap-2 border ${
+                              timerVisible
+                                  ? "bg-white/5 hover:bg-white/10 text-white/70 border-white/10"
+                                  : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40"
+                          }`}
+                      >
+                          {timerVisible ? <Eye size={15}/> : <EyeOff size={15}/>}
+                          {timerVisible ? "Timer im Overlay sichtbar" : "Timer im Overlay ausgeblendet"}
+                      </button>
+
                       <div className="bg-black/40 rounded-sm p-4 text-center border border-white/5 mb-4">
-                          <span className="font-mono text-4xl font-black text-white tracking-widest tabular-nums drop-shadow-lg">{msToClock(runningElapsed)}</span>
+                          <span className="font-mono text-4xl font-black text-white tracking-widest tabular-nums">{msToClock(runningElapsed)}</span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -794,17 +1013,35 @@ export default function WinChallenge() {
                               <RotateCcw size={18} /> RESET
                           </button>
                       </div>
-                      
-                      <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5">
+
+                      <div className="grid grid-cols-6 gap-2 pt-4 border-t border-white/5">
                           <button onClick={() => adjustTimer(3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">+1h</button>
+                          <button onClick={() => adjustTimer(600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">+10m</button>
                           <button onClick={() => adjustTimer(60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">+1m</button>
                           <button onClick={() => adjustTimer(-60000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">-1m</button>
+                          <button onClick={() => adjustTimer(-600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">-10m</button>
                           <button onClick={() => adjustTimer(-3600000)} className="bg-white/5 hover:bg-white/10 text-white/70 py-2 rounded-sm text-[10px] font-mono font-bold">-1h</button>
                       </div>
+
+                      {/* Manuelle Zeit-Eingabe */}
+                      <div className="flex gap-2 mt-4">
+                          <input
+                              type="text"
+                              value={manualTime}
+                              onChange={(e) => { setManualTime(e.target.value); setManualTimeError(false); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyManualTime(); } }}
+                              placeholder="01:30:00"
+                              className={`flex-1 bg-black/40 border rounded-sm px-3 py-2 text-sm font-mono text-white text-center focus:outline-none transition-colors ${manualTimeError ? "border-red-500/60" : "border-white/10 focus:border-violet-500"}`}
+                          />
+                          <button onClick={applyManualTime} disabled={!manualTime.trim()} className="px-4 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed rounded-sm text-white/70 text-xs font-bold transition-colors border border-white/5">
+                              Zeit setzen
+                          </button>
+                      </div>
+                      {manualTimeError && <p className="text-[11px] text-red-400 mt-1.5">Format: HH:MM:SS oder MM:SS</p>}
                   </div>
 
               </div>
-              
+
             </div>
         </div>
       )}
