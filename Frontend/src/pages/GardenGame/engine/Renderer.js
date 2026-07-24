@@ -112,7 +112,6 @@ export default class Renderer {
             heldItem = null,
             weather = { type: "sun" },
             renderProfile = DEFAULT_RENDER_PROFILE,
-            remotePlayers = [],
             localPlayerName = "",
             playerAppearance = {},
             playerBadge = null,
@@ -142,12 +141,6 @@ export default class Renderer {
 
         this.drawTerritories(layout, player, petPlacements, decoPlacements, state.harvestFlashes || []);
         this.drawHubAreas(areas, state.readyEggsCount);
-        if (Array.isArray(remotePlayers) && remotePlayers.length > 0) {
-            for (const rp of remotePlayers) {
-                if (!rp || !Number.isFinite(rp.x) || !Number.isFinite(rp.y)) continue;
-                this.drawRemotePlayer(rp);
-            }
-        }
         this.drawPlayer(player, selectedTool, heldItem, localPlayerName, playerAppearance, playerBadge);
 
         ctx.restore();
@@ -348,7 +341,7 @@ export default class Renderer {
         });
     }
 
-    _drawHarvestFlashesForSlot(slot, drawY, dirtOffsetX, baseDirtHeight, harvestFlashes) {
+    _drawHarvestFlashesForSlot() {
         return;
     }
 
@@ -1202,53 +1195,6 @@ export default class Renderer {
         }
 
         ctx.restore();
-    }
-
-    drawRemotePlayer(rp) {
-        const { ctx, frame } = this;
-        const { x: px, y: py, name, tool, heldItem, appearance, facingRight, badge } = rp;
-        const rx = Math.round(px);
-        const ry = Math.round(py);
-        const isFacingRight = facingRight !== false;
-
-        // Schatten unter dem Spieler
-        ctx.fillStyle = "rgba(0,0,0,0.28)";
-        ctx.beginPath();
-        ctx.ellipse(rx, ry + 22, 18, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.save();
-        ctx.translate(rx, ry);
-        ctx.scale(isFacingRight ? 1 : -1, 1);
-
-        const skinUrl = appearance?.skin || "/garden-assets/wardrobe/farmer.png";
-        const skinBob = Math.sin(frame * 0.2) * 2;
-        this._drawImageOrEmojiContain(skinUrl, "", 0, -20 + skinBob, 56);
-
-        if (tool) {
-            const toolImg = TOOL_IMAGE_BY_KEY[tool];
-            const toolEmoji = TOOL_EMOJI_BY_KEY[tool];
-            this._drawImageOrEmojiContain(toolImg, toolEmoji, 22, -6, 32);
-            
-            if (tool === "pot" && heldItem) {
-                this._renderHeldPlantEffect(heldItem, 22, -24);
-            }
-        } else if (heldItem) {
-            const isHeldPlant = heldItem._type === "plant" || heldItem.stage;
-            if (isHeldPlant) {
-                this._renderHeldPlantEffect(heldItem, 22, -8);
-            } else {
-                const heldImage = heldItem.image || heldItem.seedImage || heldItem.seedShopImage || heldItem.harvestImage || null;
-                const heldEmoji = heldItem.emoji || ""; 
-                this._drawImageOrEmojiContain(heldImage, heldEmoji, 22, -6, 32);
-            }
-        }
-
-        ctx.restore();
-
-        // Nametag
-        const bob = Math.sin(frame * 0.06) * 0.5;
-        this._drawPlayerNametag(rx, ry - 38 + bob, name, "remote", badge || null);
     }
 
     _renderHeldPlantEffect(item, x, y) {

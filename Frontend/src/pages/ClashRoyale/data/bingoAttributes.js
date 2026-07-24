@@ -64,6 +64,43 @@ export const BINGO_ATTR_LABEL = {
   target_ground_air:'Target: Boden & Luft',
 };
 
+export const BINGO_ATTR_LABEL_EN = {
+  cost_low:         'Cost: 1-2',
+  cost_mid:         'Cost: 3-4',
+  cost_high:        'Cost: 5+',
+  type_troop:       'Troop',
+  type_spell:       'Spell',
+  type_building:    'Building',
+  move_air:         'Air unit',
+  move_ground:      'Ground troop',
+  range_melee:      'Melee',
+  range_ranged:     'Ranged',
+  target_buildings: 'Targets buildings only',
+  splash:           'Splash damage',
+  swarm:            'Swarm (2+ units)',
+  single:           'Single unit',
+  rarity_common:    'Common',
+  rarity_rare:      'Rare',
+  rarity_epic:      'Epic',
+  rarity_legendary: 'Legendary',
+  champion:         'Champion',
+  gender_male:      'Male',
+  gender_female:    'Female',
+  gender_none:      'No gender',
+  speed_slow:       'Speed: Slow',
+  speed_medium:     'Speed: Medium',
+  speed_fast:       'Speed: Fast',
+  speed_very_fast:  'Speed: Very Fast',
+  has_evo:          'Has Evo',
+  target_ground:    'Target: Ground only',
+  target_ground_air:'Target: Ground & Air',
+};
+
+export function bingoAttrLabel(attrKey, lang = 'de') {
+  const dict = lang === 'en' ? BINGO_ATTR_LABEL_EN : BINGO_ATTR_LABEL;
+  return dict[attrKey] || attrKey;
+}
+
 export const BINGO_ATTR_COLOR = {
   cost_low:         '#22c55e',
   cost_mid:         '#f59e0b',

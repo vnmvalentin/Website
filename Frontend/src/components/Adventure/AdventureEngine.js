@@ -87,7 +87,7 @@ export default class AdventureEngine {
       const set = (img, file) => { 
           imagesToLoad++;
           img.onload = checkLoad;
-          img.onerror = (e) => { 
+          img.onerror = () => {
               console.error("Fehler beim Laden von:", file); // Hilft beim Debuggen
               checkLoad(); 
           }; 
@@ -346,13 +346,13 @@ export default class AdventureEngine {
     }
 
     bindEvents() {
-        this.handleKeyDown = (e) => { 
-            if(this.state.keys.hasOwnProperty(e.key)) this.state.keys[e.key] = true; 
-            if(e.key === " ") this.state.keys[" "] = true; 
+        this.handleKeyDown = (e) => {
+            if(Object.prototype.hasOwnProperty.call(this.state.keys, e.key)) this.state.keys[e.key] = true;
+            if(e.key === " ") this.state.keys[" "] = true;
         };
-        this.handleKeyUp = (e) => { 
-            if(this.state.keys.hasOwnProperty(e.key)) this.state.keys[e.key] = false; 
-            if(e.key === " ") this.state.keys[" "] = false; 
+        this.handleKeyUp = (e) => {
+            if(Object.prototype.hasOwnProperty.call(this.state.keys, e.key)) this.state.keys[e.key] = false;
+            if(e.key === " ") this.state.keys[" "] = false;
         };
         this.handleMouseMove = (e) => { 
             const rect = this.canvas.getBoundingClientRect();
@@ -450,9 +450,9 @@ export default class AdventureEngine {
             return {
                 type: "electric_dragon",
                 name: "THUNDERWING",
-                sprite: this.sprites.boss2_idle, 
+                sprite: this.sprites.boss2_idle,
                 theme: 6, // Ein dunkleres Theme passt gut zu Blitzen // Oder etwas passendes
-                hpMulti: 3.5,
+                hpMulti: 2.6,
                 introStyle: "fly_in", // Neue Intro Art
                 color: "yellow"
             };
@@ -581,7 +581,9 @@ export default class AdventureEngine {
         } else {
             // NORMAL STAGE
             s.cutscene.active = false;
-            s.killsRequired = 12 + Math.floor(s.stage * 3);
+            // BALANCING: vorher 12 + stage*3 (Stage 30 = 102 Kills = ~5 min Grind pro Stage).
+            // Jetzt flacher mit Cap bei 55, damit späte Stages nicht zäh werden.
+            s.killsRequired = Math.min(55, 10 + Math.floor(s.stage * 2));
             this.worldWidth = 2000 + (Math.min(10, s.stage) * 100);
             this.worldHeight = 2000 + (Math.min(10, s.stage) * 100);
             
@@ -719,8 +721,10 @@ export default class AdventureEngine {
         const s = this.state;
         const config = this.getBossData(s.stage);
         
-        const hp = 1000 + (s.stage * 300); 
-        const dmg = 20 + s.stage * 2;
+        // BALANCING: sanftere Boss-Kurve. Der Drache (hpMulti) hat vorher mit 3.5x
+        // einen brutalen Sprung von Stage 10 auf 20 erzeugt.
+        const hp = 900 + (s.stage * 250);
+        const dmg = 16 + s.stage * 1.6;
         
         let startScaleY = 1;
         
@@ -790,9 +794,11 @@ export default class AdventureEngine {
         });
     }
 
+    // eslint-disable-next-line no-unused-vars -- isGuard reserviert für zukünftige Guard-Variante, Call-Sites übergeben Position bereits
     spawnSingleEnemy(isMinion = false, forceX = null, forceY = null, isGuard = false, forceAnim= null) {
         const s = this.state;
-        if (s.enemies.length >= 50) return;
+        // Cap an das Rage-Mode-Limit (80) angeglichen — vorher hat 50 das Limit ausgehebelt
+        if (s.enemies.length >= 80) return;
 
         const angle = Math.random() * Math.PI * 2;
         const dist = (Math.max(this.width, this.height) / 2) + 50; 
@@ -812,21 +818,22 @@ export default class AdventureEngine {
         }
 
         const difficultyTier = Math.floor((s.stage - 1) / 5);
-        
-        let hp = 20 + (s.stage * 4) + (difficultyTier * 40);
-        let dmg = 8 + (s.stage * 1.5) + (difficultyTier * 5);
-        let speed = 2.8 + (difficultyTier * 0.2); 
+
+        // BALANCING: flachere HP/DMG-Kurve — vorher explodierte der Schaden ab Stage ~20
+        // (Melee-Hit Stage 20: 53 -> jetzt 42), HP wächst weiter, aber ohne Tier-Sprünge von +40.
+        let hp = 18 + (s.stage * 3.5) + (difficultyTier * 30);
+        let dmg = 6 + (s.stage * 1.2) + (difficultyTier * 4);
+        let speed = 2.8 + (difficultyTier * 0.2);
         speed = Math.min(4, speed);
 
-        // ÄNDERUNG: RAGE MODE (Wenn Tür offen ist)
+        // RAGE MODE (Wenn Tür offen ist) — abgeschwächt: 2.0x HP hat den Rückweg zur Tür bestraft
         if (s.doorOpen && !s.isBossStage) {
-            speed *= 1.2;  // Viel schneller
-            hp *= 2.0;     // Viel tankier
-            dmg *= 1.5;
-            // Optional: Farbe ändern oder Effekt
+            speed *= 1.15;
+            hp *= 1.5;
+            dmg *= 1.3;
         }
 
-        let type = "basic", sprite = null, ai = "chase", size = 22, color = "red", projectileSprite = "proj_basic";
+        let type = "basic", ai = "chase", size = 22, projectileSprite = "proj_basic";
         const rand = Math.random();
         let canPoison = false; 
         let causesBurn = false;
@@ -850,75 +857,75 @@ export default class AdventureEngine {
             switch (s.currentTheme) {
                 case 1: // Desert
                     if (s.stage > 10 && rand < 0.1) {
-                        type = "healer"; animSet = "shaman"; ai = "healer"; color = "lime";
+                        type = "healer"; animSet = "shaman"; ai = "healer";
                         hp *= 0.8; // Weniger HP, da Support
                     }
                     else if (rand > 0.7) { 
-                        type = "shooter"; animSet = "scorpion"; ai = "range"; color = "purple"; projectileSprite = "proj_sand"; 
+                        type = "shooter"; animSet = "scorpion"; ai = "range"; projectileSprite = "proj_sand"; 
                         if (s.stage >= 10) canPoison = true; 
                     } 
                     else if (s.stage >= 5 && (rand >= 0.15 && rand < 0.3)) { 
-                        type = "tank"; animSet = "golem"; size = 50; ai = "chase"; color = "brown"; 
+                        type = "tank"; animSet = "golem"; size = 50; ai = "chase"; 
                         hp *= 1.8; speed *= 0.8; 
                     } 
-                    else { animSet = "mummy"; color = "yellow"; }
+                    else { animSet = "mummy"; }
                     break;
 
                 case 2: // Lava
                     if (s.stage > 10 && rand < 0.1) {
-                        type = "shooter"; animSet = "firespewer"; ai = "range"; color = "orange"; projectileSprite = "proj_fireball"; causesBurn = true;
+                        type = "shooter"; animSet = "firespewer"; ai = "range"; projectileSprite = "proj_fireball"; causesBurn = true;
                     }
                     else if (rand > 0.75) {
-                        type = "shooter"; animSet = "firewizard"; ai = "range"; color = "orange"; projectileSprite = "proj_fireball";
+                        type = "shooter"; animSet = "firewizard"; ai = "range"; projectileSprite = "proj_fireball";
                         dmg *= 1.2;
                     } else if (s.stage >= 5 && (rand >= 0.15 && rand < 0.3)) {
-                        type = "tank"; animSet = "minotaur"; size = 50; ai = "chase"; color = "#800";
+                        type = "tank"; animSet = "minotaur"; size = 50; ai = "chase";
                         hp *= 2.0; speed *= 0.85;
                     } else {
-                        animSet = "firespirit"; color = "red";
+                        animSet = "firespirit";
                         speed *= 1.1; 
                     }
                     break;
 
                 case 3: // Ice
                     if (s.stage > 10 && rand < 0.1) {
-                        type = "shooter"; animSet = "icespirit"; ai = "range"; color = "black"; projectileSprite = "proj_iceball"; causesFreeze = true;
+                        type = "shooter"; animSet = "icespirit"; ai = "range"; projectileSprite = "proj_iceball"; causesFreeze = true;
                     }
                     else if (rand > 0.7) {
-                        type = "shooter"; animSet = "penguin"; ai = "range"; color = "black"; projectileSprite = "proj_basic";
+                        type = "shooter"; animSet = "penguin"; ai = "range"; projectileSprite = "proj_basic";
                     } else if (s.stage >= 5 && (rand >= 0.15 && rand < 0.3)) {
-                        type = "tank"; animSet = "yeti"; size = 50; ai = "chase"; color = "white";
+                        type = "tank"; animSet = "yeti"; size = 50; ai = "chase";
                         hp *= 2.2; speed *= 0.75;
                     } else {
-                        animSet = "snowman"; color = "cyan";
+                        animSet = "snowman";
                     }
                     break;
 
                 case 4: // Cave
                     if (rand > 0.65) {
-                        type = "shooter"; animSet = "spider"; ai = "range"; color = "#220033"; projectileSprite = "proj_web";
+                        type = "shooter"; animSet = "spider"; ai = "range"; projectileSprite = "proj_web";
                         if (s.stage >= 6) causesWeb = true; 
                     } else if (s.stage >= 5 && rand < 0.1) {
-                        type = "tank"; animSet = "troll"; size = 50; ai = "chase"; color = "green";
+                        type = "tank"; animSet = "troll"; size = 50; ai = "chase";
                         hp *= 1.9; 
                     } else {
-                        animSet = "skeletonwarrior"; color = "gray";
+                        animSet = "skeletonwarrior";
                         hp *= 1.2; 
                     }
                     break;
 
                 default: // Dungeon (0)
                     if (s.stage >= 10 && rand < 0.1) {
-                        type = "summoner"; animSet = "nekromant"; color = "#4B0082"; size=30; hp *= 1.2; ai="summoner";
+                        type = "summoner"; animSet = "nekromant"; size=30; hp *= 1.2; ai="summoner";
                     }
                     else if (rand > 0.75) { 
-                        type = "shooter"; animSet = "skeleton"; ai = "range"; color = "green"; projectileSprite = "proj_arrow"; 
+                        type = "shooter"; animSet = "skeleton"; ai = "range"; projectileSprite = "proj_arrow"; 
                     } 
                     else if (s.stage >= 5 && (rand >= 0.15 && rand < 0.3)) { 
-                        type = "tank"; animSet = "orc"; size = 50; ai = "chase"; color = "darkgreen"; 
+                        type = "tank"; animSet = "orc"; size = 50; ai = "chase"; 
                         hp *= 1.8; speed *= 0.85;
                     } 
-                    else { animSet = "goblin"; color = "gray"; }
+                    else { animSet = "goblin"; }
                     break;
                 }
         }
@@ -929,25 +936,36 @@ export default class AdventureEngine {
             speed *= 1.5; // Sehr schnell -> Spieler muss Necro fokussen oder rennen
             hp *= 0.8;    // Aber nicht zu viel HP
         }
-        
+
+        // NEU: ELITE-GEGNER — ab Stage 12 spawnt selten eine goldene Elite-Version
+        // mit deutlich mehr HP/Schaden, die dafür 3x Gold fallen lässt.
+        let isElite = false;
+        if (!isMinion && !s.isBossStage && s.stage >= 12 && Math.random() < 0.07) {
+            isElite = true;
+            hp *= 2.5;
+            dmg *= 1.4;
+            size = Math.round(size * 1.25);
+            speed *= 1.05;
+        }
 
         // Wir übergeben 'animSet' statt 'sprite'
         s.enemies.push({
-            x, y, hp, maxHp: hp, speed, damage: dmg, size, 
-            type,   
-            ai,     
+            x, y, hp, maxHp: hp, speed, damage: dmg, size,
+            type,
+            ai,
             animSet: animSet, // WICHTIG: Das Set speichern
             sprite: null,     // Das wird gleich im Update Loop gefüllt
             projectileSprite,
             lastAttack: 0,
             lastHeal: 0,
-            facingLeft: false, 
-            summonTimer: 0, 
-            poison: canPoison, 
+            facingLeft: false,
+            summonTimer: 0,
+            poison: canPoison,
             causesBurn: causesBurn,
             causesFreeze: causesFreeze,
             causesWeb: causesWeb,
-            isMinion: isMinion
+            isMinion: isMinion,
+            isElite
         });
     }
 
@@ -993,28 +1011,46 @@ export default class AdventureEngine {
                 s.player.fastBootsTimer = 300; // 5 Sek
                 this.showFloatingText(s.player.x, s.player.y-40, "SPEED!", "cyan");
                 break;
-            case 'decoy':
+            case 'decoy': {
                 const decoyHp = 100 + (50 * this.baseStats.damage);
                 s.decoy = { x: s.player.x, y: s.player.y, hp: decoyHp, maxHp: decoyHp, size: 25 };
                 this.showFloatingText(s.player.x, s.player.y-40, "DECOY!", "cyan");
                 break;
-            case 'grenade':
+            }
+            case 'lightning': {
+                // Blitzschlag am Cursor: kurze Warnung, dann Flächenschaden auf Gegner
+                const lx = s.mouse.x + s.camera.x;
+                const ly = s.mouse.y + s.camera.y;
+                s.effects.push({
+                    type: "lightning_area",
+                    x: lx, y: ly,
+                    r: 110,
+                    timer: 30,
+                    stage: "warn",
+                    friendly: true,
+                    damage: 60 * this.baseStats.damage
+                });
+                this.showFloatingText(s.player.x, s.player.y - 40, "BLITZSCHLAG!", "cyan");
+                break;
+            }
+            case 'grenade': {
                 const worldMouseX = s.mouse.x + s.camera.x;
                 const worldMouseY = s.mouse.y + s.camera.y;
                 const angle = Math.atan2(worldMouseY - s.player.y, worldMouseX - s.player.x);
                 const dist = Math.hypot(worldMouseY - s.player.y, worldMouseX - s.player.x);
-                
+
                 s.bullets.push({
                     x: s.player.x, y: s.player.y,
                     startX: s.player.x, startY: s.player.y,
-                    targetDist: Math.min(dist, 350), 
+                    targetDist: Math.min(dist, 350),
                     distTraveled: 0,
                     vx: Math.cos(angle) * 12, vy: Math.sin(angle) * 12,
-                    damage: 60 * this.baseStats.damage, 
+                    damage: 60 * this.baseStats.damage,
                     size: 8, life: 100, type: 'grenade',
                     sprite: this.sprites.proj_grenade
                 });
                 break;
+            }
         }
 
         slot.cooldownTimer = slot.maxCooldown;
@@ -1088,7 +1124,7 @@ export default class AdventureEngine {
                
                // Wenn Zeit um ist -> Boss spawnen
                if (t > 120) { 
-                   const newBoss = this.spawnBoss(); 
+                   this.spawnBoss();
                    s.cutscene.phase = 2; 
                    s.cutscene.timer = 0; 
                }
@@ -1263,10 +1299,11 @@ export default class AdventureEngine {
       if (s.player.flashRedTimer > 0) s.player.flashRedTimer--;
       if (s.player.poisonedTimer > 0) {
           s.player.poisonedTimer--;
-          // Schaden alle 60 Frames (1 Sekunde)
+          // Schaden alle 60 Frames (1 Sekunde) — skaliert mit Stage, damit Gift spät nicht irrelevant wird
           if (s.player.poisonedTimer % 60 === 0) {
-              s.player.hp -= 2;
-              this.showFloatingText(s.player.x, s.player.y - 20, "2", "purple");
+              const poisonDmg = 2 + Math.floor(s.stage / 5);
+              s.player.hp -= poisonDmg;
+              this.showFloatingText(s.player.x, s.player.y - 20, `${poisonDmg}`, "purple");
               if (s.player.hp <= 0) this.triggerGameOver();
           }
       }
@@ -1275,8 +1312,9 @@ export default class AdventureEngine {
       if (s.player.burnTimer > 0) {
           s.player.burnTimer--;
           if (s.player.burnTimer % 30 === 0) { // Schnellerer Tick als Gift
-              s.player.hp -= 1;
-              this.showFloatingText(s.player.x, s.player.y - 20, "1", "orange");
+              const burnDmg = 1 + Math.floor(s.stage / 8);
+              s.player.hp -= burnDmg;
+              this.showFloatingText(s.player.x, s.player.y - 20, `${burnDmg}`, "orange");
               if (s.player.hp <= 0) this.triggerGameOver();
           }
       }
@@ -1420,7 +1458,7 @@ export default class AdventureEngine {
       }
       
       // Bullet Updates
-      s.bullets.forEach((b, bIdx) => {
+      s.bullets.forEach((b) => {
           if (b.type === 'grenade') {
               const speed = Math.hypot(b.vx, b.vy);
               b.x += b.vx; b.y += b.vy;
@@ -1439,7 +1477,8 @@ export default class AdventureEngine {
                   if (e.invincible) return;
                   
                   if(Math.hypot(b.x - e.x, b.y - e.y) < e.size + b.size) {
-                      const isCrit = Math.random() < ((this.baseStats.luck || 1) * 0.05);
+                      // Crit-Chance: 5% pro Glückspunkt, gedeckelt bei 50%
+                      const isCrit = Math.random() < Math.min(0.5, (this.baseStats.luck || 1) * 0.05);
                       let dmg = b.damage;
                       
                       if (isCrit) {
@@ -1549,9 +1588,9 @@ export default class AdventureEngine {
                     s.player.flashRedTimer = 10; 
                     e.lastAttack = now; 
                     if (e.poison) s.player.poisonedTimer = 300;
-                    if (e.causesBurn) s.player.burnTimer = 180; 
+                    if (e.causesBurn) s.player.burnTimer = 180;
                     if (e.causesFreeze) s.player.freezeTimer = 30;
-                    if (e.web) s.player.webbedTimer = 90; 
+                    if (e.causesWeb) s.player.webbedTimer = 90;
                     if(s.player.hp <= 0) this.triggerGameOver();
                   }
               }
@@ -2020,12 +2059,14 @@ export default class AdventureEngine {
               
               // Schießen
               // Wir prüfen: Ist Cooldown durch? UND ist Spieler in Reichweite (keepDist + Puffer)?
-              if (now - e.lastAttack > 2000 && distToTarget < keepDist + 300) { 
+              if (now - e.lastAttack > 2000 && distToTarget < keepDist + 300) {
                   s.enemyBullets.push({
                       x: e.x, y: e.y,
-                      vx: Math.cos(angle) * projectileSpeed, 
+                      vx: Math.cos(angle) * projectileSpeed,
                       vy: Math.sin(angle) * projectileSpeed,
-                      damage: Math.max(5, s.stage * 2), 
+                      // FIX: nutzt jetzt die Gegner-Stats (inkl. Shooter-/Elite-Multiplikatoren)
+                      // statt einer eigenen Formel, die alle Modifikatoren ignoriert hat
+                      damage: Math.max(5, Math.round(e.damage * 0.8)),
                       size: 6, 
                       life: projectileLife, // Hier nutzen wir die neue Lebensdauer
                       color: "red", 
@@ -2172,39 +2213,46 @@ export default class AdventureEngine {
           return true;
       });
 
-      s.effects.forEach((eff, i) => {
+      // FIX: filter statt splice-in-forEach — vorher wurden nach jedem Löschen
+      // Elemente übersprungen (Blitze/Beams blieben hängen oder verschwanden zu früh).
+      s.effects = s.effects.filter((eff) => {
           if (eff.type === "beam") {
               eff.life--;
-              if(eff.life <= 0) s.effects.splice(i, 1);
+              return eff.life > 0;
           }
           if (eff.type === "lightning_area") {
-            eff.timer--;
-            if (eff.timer <= 0 && eff.stage === "warn") {
-                eff.stage = "damage";
-                eff.timer = 10; 
+              eff.timer--;
+              if (eff.timer <= 0 && eff.stage === "warn") {
+                  eff.stage = "damage";
+                  eff.timer = 10;
 
-                if (Math.hypot(s.player.x - eff.x, s.player.y - eff.y) < eff.r) {
-                    if(!s.player.shieldActive) {
-                        s.player.hp -= 25;
-                        s.player.flashRedTimer = 10;
-                        s.player.stunTimer = 60; 
-                        
-                        // FIX: Game Over prüfen, damit man nicht ins Minus geht
-                        if (s.player.hp <= 0) this.triggerGameOver();
-                    }
-                }
-            }
-            if (eff.timer <= 0 && eff.stage === "damage") {
-                s.effects.splice(i, 1); // Löschen
-            }
-         } else {
-              // Bestehender Puddle/Grenade Effect Code
-              eff.r += 5;
-              eff.alpha -= 0.05;
-              if(eff.alpha <= 0) s.effects.splice(i, 1);
+                  if (eff.friendly) {
+                      // Spieler-Blitz (Powerup): trifft Gegner statt Spieler
+                      s.enemies.forEach(e => {
+                          if (e.invincible) return;
+                          if (Math.hypot(e.x - eff.x, e.y - eff.y) < eff.r + e.size) {
+                              e.hp -= eff.damage;
+                              this.showFloatingText(e.x, e.y - 20, Math.floor(eff.damage), "cyan");
+                              if (e.hp <= 0) this.handleEnemyDeath(e);
+                          }
+                      });
+                  }
+                  else if (Math.hypot(s.player.x - eff.x, s.player.y - eff.y) < eff.r) {
+                      if (!s.player.shieldActive) {
+                          s.player.hp -= 25;
+                          s.player.flashRedTimer = 10;
+                          s.player.stunTimer = 60;
+                          if (s.player.hp <= 0) this.triggerGameOver();
+                      }
+                  }
+              }
+              if (eff.timer <= 0 && eff.stage === "damage") return false;
+              return true;
           }
-
-
+          // Puddle/Grenade Explosionsringe
+          eff.r += 5;
+          eff.alpha -= 0.05;
+          return eff.alpha > 0;
       });
 
        s.drops = s.drops.filter(d => {
@@ -2275,9 +2323,13 @@ export default class AdventureEngine {
              }
         }
 
-        const baseGold = 10 + (s.stage * 5); 
-        const goldAmount = Math.floor((Math.random() * baseGold + 5) * this.baseStats.luck);
+        const baseGold = 10 + (s.stage * 5);
+        const luckBonus = 1 + ((this.baseStats.luck || 1) - 1) * 0.5; // Glück gibt +50% Gold pro Punkt statt x-fach
+        const goldAmount = Math.floor((Math.random() * baseGold + 5) * luckBonus * (e.isElite ? 3 : 1));
         s.drops.push({ x: e.x, y: e.y, type: "coin", val: goldAmount, size: 10 });
+        if (e.isElite) {
+            this.showFloatingText(e.x, e.y - 40, "ELITE BESIEGT!", "gold", 50);
+        }
     }
 
     handleNextStageTrigger() { this.state.inShop = true; this.onStageComplete(this.state.stage); }
@@ -2520,12 +2572,28 @@ export default class AdventureEngine {
             }
         }
           if (e.visible === false) return;
+
+          // Elite-Markierung: pulsierender Goldring unter dem Gegner
+          if (e.isElite) {
+              ctx.save();
+              const pulse = 0.75 + Math.sin(Date.now() / 200) * 0.25;
+              ctx.strokeStyle = `rgba(255, 200, 40, ${pulse})`;
+              ctx.lineWidth = 3;
+              ctx.beginPath();
+              ctx.ellipse(e.x, e.y + e.size * 0.8, e.size * 1.1, e.size * 0.45, 0, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.restore();
+          }
+
           this.drawCharacter(ctx, e.sprite, e.x, e.y, e.size*2, e.size*2, e.facingLeft, e.scaleY || 1);
-          
+
           // FIX: Mini-HP Leiste nur zeichnen, wenn es NICHT der Boss ist
           if (!e.isBoss) {
-              ctx.fillStyle = "red"; ctx.fillRect(e.x - 15, e.y - 30, 30, 3);
-              ctx.fillStyle = "lime"; ctx.fillRect(e.x - 15, e.y - 30, 30 * (Math.max(0,e.hp)/e.maxHp), 3);
+              const barW = e.isElite ? 40 : 30;
+              ctx.fillStyle = e.isElite ? "#7f1d1d" : "red";
+              ctx.fillRect(e.x - barW / 2, e.y - e.size - 8, barW, 3);
+              ctx.fillStyle = e.isElite ? "gold" : "lime";
+              ctx.fillRect(e.x - barW / 2, e.y - e.size - 8, barW * (Math.max(0, e.hp) / e.maxHp), 3);
           }
       });
 
@@ -2666,10 +2734,14 @@ export default class AdventureEngine {
         ctx.lineWidth = 5; 
         ctx.strokeRect(0, 0, this.worldWidth, this.worldHeight);
     }
-    /** Synchronisiert Engine-State in React (max. 1× pro sichtbaren Frame statt pro Physik-Step). */
+    /** Synchronisiert Engine-State in React — gedrosselt auf 10Hz.
+     *  Vorher lief das pro Monitor-Frame (bis 165Hz) und hat React permanent re-rendern lassen. */
     pushGameStateToUI() {
         if (!this.state.running) return;
         if (this.state.paused || this.state.gameOver || this.state.inShop) return;
+        const now = performance.now();
+        if (this._lastUiPush && now - this._lastUiPush < 100) return;
+        this._lastUiPush = now;
         const s = this.state;
         const boss = s.enemies.find((e) => e.isBoss);
         const bossData = boss

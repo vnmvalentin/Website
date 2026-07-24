@@ -3,7 +3,7 @@ const crStreamerStore = require('../lib/crStreamerStore');
 
 const lobbies = new Map();
 
-const VALID_MODES = ['snake', 'auction', 'bingo', 'shadow-carousel', 'elixir-rush'];
+const VALID_MODES = ['snake', 'auction', 'bingo', 'shadow-carousel', 'elixir-rush', 'card-evolution'];
 
 const PLAYER_COLORS = [
   '#ef4444', '#3b82f6', '#22c55e', '#f59e0b',
@@ -251,7 +251,7 @@ const ELIXIR_COST = {
   'the-log': 2, 'miner': 3, 'ice-wizard': 3, 'princess': 3, 'royal-ghost': 3, 'bandit': 3, 'fisherman': 3,
   'inferno-dragon': 4, 'electro-wizard': 4, 'phoenix': 4, 'magic-archer': 4, 'lumberjack': 4,
   'night-witch': 4, 'mother-witch': 4,
-  'ram-rider': 5, 'graveyard': 5, 'goblin-machine': 5, 'ronin': 5, 'spirit-empress': 5,
+  'ram-rider': 5, 'graveyard': 5, 'goblin-machine': 5, 'ronin': 5, 'spirit-empress': 6,
   'sparky': 6, 'mega-knight': 7, 'lava-hound': 7,
   // Champions
   'little-prince': 3, 'skeleton-king': 4, 'golden-knight': 4, 'mighty-miner': 4,
@@ -916,7 +916,11 @@ function sanitizeLobby(lobby) {
     carouselRevealMode: lobby.carouselRevealMode || 'dynamic',
     rushMarketSize: lobby.rushMarketSize || 5,
     rushCardLifetime: lobby.rushCardLifetime || 15,
-    rushShowElixir: lobby.rushShowElixir ?? true,
+    rushShowElixir: lobby.rushShowElixir ?? false,
+    rushShowTimer: lobby.rushShowTimer ?? true,
+    evolutionTimerSeconds: lobby.evolutionTimerSeconds || 0,
+    evolutionTokensStart: lobby.evolutionTokensStart || EVOLUTION_TOKENS_START,
+    evolutionSuperTokensStart: lobby.evolutionSuperTokensStart ?? EVOLUTION_SUPER_TOKENS_START,
     excludedCards: lobby.excludedCards || [],
     historyCount: lobby.history?.length || 0,
     // Aktiv gegangene Spieler tauchen in der Lobby-Liste nicht mehr auf
@@ -1476,7 +1480,16 @@ function drawCarouselReplacement(lobby) {
   return card;
 }
 
-function buildCarouselState(lobby, viewerId) {
+// Zuschauer sind keine Mitspieler — welcher Sitz sitzt diese Runde an Tisch `tableIdx`,
+// und was hat der (der einzige, der dort aufdecken darf) diese Runde aufgedeckt?
+function tableOccupantFlips(g, tableIdx) {
+  const N = g.tables.length;
+  const seatIdx = g.seats.findIndex((_, s) => carouselTableForSeat(s, g.round, N) === tableIdx);
+  if (seatIdx === -1) return [];
+  return g.flipsThisRound[g.seats[seatIdx]] || [];
+}
+
+function buildCarouselState(lobby, viewerId, { spectator = false } = {}) {
   const g = lobby.game;
   const N = g.tables.length;
   const myFlips = g.flipsThisRound[viewerId] || [];
@@ -1503,24 +1516,36 @@ function buildCarouselState(lobby, viewerId) {
         taken: s.taken,
         takenBy: s.takenBy,
         takenRound: s.takenRound,
-        // Kartenidentität nur für eigene, in dieser Runde aufgedeckte Karten
-        card: (ti === viewerTableIdx && myFlips.some(f => f.slotIdx === si)) ? s.card : null,
+        // Kartenidentität für eigene, in dieser Runde aufgedeckte Karten — Zuschauer sehen
+        // zusätzlich jede Aufdeckung an jedem Tisch live (keine Mitspieler, keine Geheimhaltung nötig)
+        card: ((ti === viewerTableIdx && myFlips.some(f => f.slotIdx === si))
+            || (spectator && tableOccupantFlips(g, ti).some(f => f.slotIdx === si)))
+          ? s.card : null,
       })),
     })),
     timerRemaining: g.timerRemaining,
     timerSeconds: lobby.timerSeconds,
     finished: g.finished,
-    players: lobby.players.map(p => ({
-      id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
-      deck: p.deck || [], isSpectator: p.isSpectator ?? false,
-    })),
+    // Frisch in dieser Runde gepickte Karte erst beim Rundenübergang in fremden Decks zeigen
+    // (sonst reicht Warten + Sidebar-Beobachtung, um den Pick der Gegner vorab zu sehen)
+    players: lobby.players.map(p => {
+      const deck = p.deck || [];
+      const pickedThisRound = g.picksThisRound[p.id];
+      const hideLatestPick = g.phase === 'picking' && p.id !== viewerId && pickedThisRound && !pickedThisRound.ghost;
+      return {
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
+        deck: hideLatestPick ? deck.slice(0, -1) : deck,
+        isSpectator: p.isSpectator ?? false,
+      };
+    }),
   };
 }
 
-// Jeder Spieler bekommt seine individuelle Sicht — eigene Aufdeckungen bleiben privat
+// Jeder Spieler bekommt seine individuelle Sicht — eigene Aufdeckungen bleiben privat.
+// Zuschauer bekommen stattdessen die Live-Reveal-Sicht (siehe tableOccupantFlips).
 function broadcastCarouselState(lobby, io) {
   lobby.players.forEach(p => {
-    io.to(p.id).emit('clash:carousel:state', buildCarouselState(lobby, p.id));
+    io.to(p.id).emit('clash:carousel:state', buildCarouselState(lobby, p.id, { spectator: !!p.isSpectator }));
   });
 }
 
@@ -1703,20 +1728,23 @@ function remapGamePlayerId(game, oldId, newId) {
     (game.market || []).forEach(s => { if (s?.lastChange?.buyerId === oldId) s.lastChange.buyerId = newId; });
     return;
   }
+  if (game.type === 'card-evolution') {
+    if (game.players?.[oldId]) { game.players[newId] = game.players[oldId]; delete game.players[oldId]; }
+    if (game.pending?.[oldId]) { game.pending[newId] = game.pending[oldId]; delete game.pending[oldId]; }
+    return;
+  }
   // Snake (kein type-Feld): Grid-Zuordnungen
   if (Array.isArray(game.grid)) game.grid.forEach(c => { if (c.pickedBy === oldId) c.pickedBy = newId; });
 }
 
 // ── Elixir Rush ─────────────────────────────────────────────────────────────
-// Echtzeit-Modus: Jeder Spieler hat einen Elixierbalken, der sich automatisch füllt.
-// Auf dem Marktplatz erscheinen Karten mit ihren echten Elixierkosten — wer zuerst klickt
-// (und genug Elixier hat), bekommt die Karte. Nicht gekaufte Karten laufen ab und werden
-// ersetzt. 8 Käufe = fertiges Deck; das Spiel endet, wenn alle Decks voll sind.
 const RUSH_ELIXIR_MS     = 1750;   // 1 Elixier pro 1,75s
-const RUSH_START_ELIXIR  = 5;
+const RUSH_START_ELIXIR  = 2;
 const RUSH_MAX_ELIXIR    = 10;
-const RUSH_AUTOBUY_MS    = 10000;  // voller Balken ohne Kauf → nach 10s zufällige Karte
+const RUSH_AUTOBUY_MS    = 3000;  // voller Balken ohne Kauf → nach 10s zufällige Karte
 const RUSH_TICK_MS       = 250;
+
+const RUSH_COUNTDOWN_MS  = 5000;
 const RUSH_DECK_SIZE     = 8;
 const RUSH_MARKET_SIZES  = [3, 4, 5, 6, 7, 8];
 const RUSH_LIFETIMES     = [5, 8, 10, 15, 20, 30]; // Sekunden pro Karte auf dem Markt
@@ -1774,7 +1802,9 @@ function buildRushState(lobby) {
     finished: g.finished,
     marketSize: g.marketSize,
     cardLifetimeMs: g.cardLifetimeMs,
-    showElixir: lobby.rushShowElixir ?? true,
+    showElixir: lobby.rushShowElixir ?? false,
+    showTimer: lobby.rushShowTimer ?? true,
+    countdownUntil: g.countdownUntil || null,
     regenMs: RUSH_ELIXIR_MS,
     autoBuyMs: RUSH_AUTOBUY_MS,
     maxElixir: RUSH_MAX_ELIXIR,
@@ -1830,6 +1860,7 @@ function checkRushEnd(lobby, io) {
 function rushApplyBuy(lobby, player, slotIdx, io, isAuto = false) {
   const g = lobby.game;
   const now = Date.now();
+  if (g.countdownUntil && now < g.countdownUntil) return { ok: false, reason: 'countdown' };
   const slot = g.market[slotIdx];
   if (!slot?.card) return { ok: false, reason: 'late' };
   const card = slot.card;
@@ -1875,6 +1906,7 @@ function startRushTick(lobby, io) {
   g.timerInterval = setInterval(() => {
     if (lobby.game !== g || g.finished) return;
     const now = Date.now();
+    if (g.countdownUntil && now < g.countdownUntil) return; // noch im Start-Countdown — Marktplatz pausiert
     let marketChanged = false;
 
     // Abgelaufene Karten austauschen; leere Slots nachfüllen sobald wieder Karten frei sind
@@ -1919,6 +1951,7 @@ function startElixirRush(lobby, io) {
   const marketSize = RUSH_MARKET_SIZES.includes(lobby.rushMarketSize) ? lobby.rushMarketSize : 5;
   const lifeSec = RUSH_LIFETIMES.includes(lobby.rushCardLifetime) ? lobby.rushCardLifetime : 15;
   const now = Date.now();
+  const countdownUntil = now + RUSH_COUNTDOWN_MS;
   lobby.players.forEach(p => { p.deck = []; });
   lobby.game = {
     type: 'elixir-rush',
@@ -1931,15 +1964,293 @@ function startElixirRush(lobby, io) {
     elixir: {},
     finished: false,
     timerInterval: null,
+    countdownUntil,
   };
   lobby.players.forEach(p => {
     if (!p.isSpectator) lobby.game.elixir[p.id] = { value: RUSH_START_ELIXIR, ts: now, fullSince: null };
   });
   for (let i = 0; i < marketSize; i++) rushFillSlot(lobby, i, 'spawn', null, null);
+  // Karten sollen erst ablaufen NACHDEM der Countdown vorbei ist, sonst wechseln sie schon,
+  // bevor überhaupt jemand kaufen durfte
+  lobby.game.market.forEach(slot => { if (slot) slot.expiresAt = countdownUntil + lobby.game.cardLifetimeMs; });
 
   io.to(lobby.code).emit('clash:gameStart', { mode: 'elixir-rush' });
   io.to(lobby.code).emit('clash:rush:state', buildRushState(lobby));
   startRushTick(lobby, io);
+}
+
+// ── Karten-Evolution ─────────────────────────────────────────────────────────
+// Jeder Spieler startet mit 8 Wildcard-Platzhaltern (3 Common/3 Rare/2 Epic) und wertet sie
+// mit zwei Token-Arten auf oder ab: normale Tokens liefern eine zufällige Karte der Zielstufe,
+// Super-Tokens lassen zwischen 2 gezogenen Kandidaten wählen. Alle echten Karten kommen aus
+// einem geteilten Pool pro Lobby — eine Karte kann nie bei zwei Spielern gleichzeitig liegen;
+// wird eine Karte erneut auf-/abgewertet, wandert die alte zurück in den Pool.
+const EVOLUTION_START_COUNTS = { Common: 3, Rare: 3, Epic: 2 };
+const EVOLUTION_TOKENS_START = 15;
+const EVOLUTION_SUPER_TOKENS_START = 3;
+// Bleiben bei Spielende ungenutzte Wildcards übrig, bekommen Spieler diese Zeit, den
+// Auflösungs-Flip noch zu sehen, bevor der Endscreen (GameOverScreen) sie überdeckt.
+const EVOLUTION_REVEAL_DELAY_MS = 2400;
+const RARITY_CHAIN = ['Common', 'Rare', 'Epic', 'Legendary', 'Champion'];
+const CHAMPION_MAX_PER_PLAYER = 2;
+
+function evolutionSlotRarity(slot) {
+  return slot.card ? slot.card.rarity : slot.rarity;
+}
+
+// Zielstufe einer Auf-/Abwertung. Beide Enden der Kette rerollen statt zu blockieren:
+// Downgrade von Common → anderes Common; Upgrade von Champion → anderer Champion.
+function evolutionTargetRarity(rarity, direction) {
+  const idx = RARITY_CHAIN.indexOf(rarity);
+  if (idx === -1) return null;
+  if (direction === 'up') return idx >= RARITY_CHAIN.length - 1 ? RARITY_CHAIN[idx] : RARITY_CHAIN[idx + 1];
+  return idx === 0 ? RARITY_CHAIN[0] : RARITY_CHAIN[idx - 1];
+}
+
+// Nur der Weg ZU einem Champion (Aufwertung von Legendary, oder Reroll eines bereits
+// vorhandenen Champions) kostet 2 Tokens. Champion → Legendary (Abwertung) kostet wieder
+// nur 1, wie jede andere Abwertung auch.
+function evolutionActionCost(rarity, targetRarity) {
+  return targetRarity === 'Champion' ? 2 : 1;
+}
+
+function evolutionChampionCount(playerState) {
+  return playerState.slots.filter(s => s.card?.isChampion).length;
+}
+
+// Nebenläufigkeits-Hinweis: Ziehen aus dem Pool ist bewusst nirgends async — weder hier
+// noch in evolutionApplyNormal/Super/resolvePending liegt ein `await` zwischen dem Lesen
+// und dem Mutieren von g.pool. Node verarbeitet Socket-Events strikt sequenziell (ein
+// Event läuft immer vollständig durch, bevor das nächste startet); zwei Spieler, die in
+// derselben Millisekunde auf "Aufwerten" klicken, werden also nie wirklich gleichzeitig
+// verarbeitet, sondern garantiert nacheinander. Dadurch kann dieselbe Karte nie doppelt
+// gezogen werden — SOLANGE hier kein `await` eingebaut wird, das diese Kette unterbricht.
+//
+// Zieht `count` zufällige, verschiedene Karten der gewünschten Rarity aus dem Pool und
+// entfernt sie daraus (Reservierung) — gibt null zurück, wenn nicht genug vorhanden sind.
+function drawFromPool(g, rarity, count) {
+  const matches = g.pool.filter(c => c.rarity === rarity);
+  if (matches.length < count) return null;
+  const chosen = shuffle(matches).slice(0, count);
+  const chosenIds = new Set(chosen.map(c => c.id));
+  g.pool = g.pool.filter(c => !chosenIds.has(c.id));
+  return chosen;
+}
+
+function returnToPool(g, card) {
+  if (card) g.pool.push(card);
+}
+
+function syncEvolutionDeck(lobby, playerId) {
+  const ps = lobby.game.players[playerId];
+  const player = lobby.players.find(p => p.id === playerId);
+  if (ps && player) player.deck = ps.slots.filter(s => s.card).map(s => s.card);
+}
+
+// Spielende: Wildcards, die nie angefasst wurden, verwandeln sich in eine zufällige echte
+// Karte ihrer Rarity (noch aus dem Pool) — niemand soll mit einem ungenutzten Platzhalter
+// dastehen. Ist der Pool für eine Rarity leer, bleibt die Wildcard ausnahmsweise bestehen.
+// Gibt zurück, ob mindestens eine Wildcard aufgelöst wurde — steuert, ob checkEvolutionEnd
+// mit dem Abschluss kurz wartet, damit der Auflösungs-Flip überhaupt sichtbar wird.
+function resolveRemainingWildcards(lobby) {
+  const g = lobby.game;
+  let anyResolved = false;
+  lobby.players.filter(p => !p.isSpectator).forEach(p => {
+    const ps = g.players[p.id];
+    if (!ps) return;
+    ps.slots.forEach(slot => {
+      if (slot.card) return;
+      const drawn = drawFromPool(g, slot.rarity, 1);
+      if (drawn) { slot.card = drawn[0]; anyResolved = true; }
+    });
+    syncEvolutionDeck(lobby, p.id);
+  });
+  return anyResolved;
+}
+
+function buildEvolutionState(lobby) {
+  const g = lobby.game;
+  const poolCounts = {};
+  RARITY_CHAIN.forEach(r => { poolCounts[r] = 0; });
+  g.pool.forEach(c => { poolCounts[c.rarity] = (poolCounts[c.rarity] || 0) + 1; });
+
+  return {
+    type: 'card-evolution',
+    finished: g.finished,
+    poolCounts,
+    timerRemaining: g.timerRemaining ?? null,
+    timerSeconds: lobby.evolutionTimerSeconds || 0,
+    players: lobby.players.filter(p => !p.isSpectator).map(p => {
+      const ps = g.players[p.id];
+      return {
+        id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
+        slots: ps ? ps.slots : [],
+        tokens: ps ? ps.tokens : 0,
+        superTokens: ps ? ps.superTokens : 0,
+        pending: g.pending[p.id] || null,
+      };
+    }),
+  };
+}
+
+function broadcastEvolutionState(lobby, io) {
+  io.to(lobby.code).emit('clash:evo:state', buildEvolutionState(lobby));
+}
+
+function startCardEvolution(lobby, io) {
+  const activePlayers = lobby.players.filter(p => !p.isSpectator);
+  const tokensStart = lobby.evolutionTokensStart || EVOLUTION_TOKENS_START;
+  const superTokensStart = lobby.evolutionSuperTokensStart ?? EVOLUTION_SUPER_TOKENS_START;
+  const players = {};
+  activePlayers.forEach(p => {
+    const slots = [];
+    Object.entries(EVOLUTION_START_COUNTS).forEach(([rarity, count]) => {
+      for (let i = 0; i < count; i++) slots.push({ rarity, card: null });
+    });
+    players[p.id] = { slots, tokens: tokensStart, superTokens: superTokensStart };
+  });
+  lobby.players.forEach(p => { p.deck = []; });
+  lobby.game = {
+    type: 'card-evolution',
+    players,
+    pool: shuffle(getCardPool(lobby)),
+    pending: {},
+    finished: false,
+    timerRemaining: null,
+    timerInterval: null,
+  };
+  io.to(lobby.code).emit('clash:gameStart', { mode: 'card-evolution' });
+  broadcastEvolutionState(lobby, io);
+  startEvolutionTimer(lobby, io);
+}
+
+// Gesamt-Timer fürs Picken (0/undefined = unbegrenzt, kein Countdown). Nutzt denselben
+// lobby.game.timerInterval-Slot wie die anderen Modi, daher funktioniert clearTurnTimer(lobby)
+// unverändert auch hier.
+function startEvolutionTimer(lobby, io) {
+  clearTurnTimer(lobby);
+  const g = lobby.game;
+  const seconds = lobby.evolutionTimerSeconds || 0;
+  if (!seconds) { g.timerRemaining = null; return; }
+  g.timerRemaining = seconds;
+  g.timerInterval = setInterval(() => {
+    g.timerRemaining--;
+    io.to(lobby.code).emit('clash:timerTick', { remaining: g.timerRemaining });
+    if (g.timerRemaining <= 0) {
+      clearTurnTimer(lobby);
+      checkEvolutionEnd(lobby, io, { force: true });
+    }
+  }, 1000);
+}
+
+function evolutionApplyNormal(lobby, socket, playerId, slotIdx, direction) {
+  const g = lobby.game;
+  const ps = g.players[playerId];
+  const slot = ps.slots[slotIdx];
+  const rarity = evolutionSlotRarity(slot);
+  const targetRarity = evolutionTargetRarity(rarity, direction);
+  if (!targetRarity) { socket.emit('clash:error', { message: 'Diese Karte kann nicht weiter aufgewertet werden.' }); return false; }
+  const cost = evolutionActionCost(rarity, targetRarity);
+  if (ps.tokens < cost) { socket.emit('clash:error', { message: 'Nicht genug Evolution-Tokens.' }); return false; }
+  // Limit gilt nur beim Erwerb eines NEUEN Champions — ein bereits vorhandener Champion darf
+  // sich jederzeit in einen anderen umrollen, ohne dass das die Gesamtzahl erhöht.
+  const becomesNewChampion = targetRarity === 'Champion' && rarity !== 'Champion';
+  if (becomesNewChampion && evolutionChampionCount(ps) >= CHAMPION_MAX_PER_PLAYER) {
+    socket.emit('clash:error', { message: 'Champion-Limit erreicht (max. 2).' });
+    return false;
+  }
+  const drawn = drawFromPool(g, targetRarity, 1);
+  if (!drawn) { socket.emit('clash:error', { message: `Keine ${targetRarity}-Karten mehr im Pool.` }); return false; }
+  ps.tokens -= cost;
+  returnToPool(g, slot.card);
+  slot.card = drawn[0];
+  slot.rarity = targetRarity;
+  return true;
+}
+
+function evolutionApplySuper(lobby, socket, playerId, slotIdx, direction) {
+  const g = lobby.game;
+  const ps = g.players[playerId];
+  const slot = ps.slots[slotIdx];
+  const rarity = evolutionSlotRarity(slot);
+  const targetRarity = evolutionTargetRarity(rarity, direction);
+  if (!targetRarity) { socket.emit('clash:error', { message: 'Diese Karte kann nicht weiter aufgewertet werden.' }); return false; }
+  const cost = evolutionActionCost(rarity, targetRarity);
+  if (ps.superTokens < cost) { socket.emit('clash:error', { message: 'Nicht genug Super-Tokens.' }); return false; }
+  const becomesNewChampion = targetRarity === 'Champion' && rarity !== 'Champion';
+  if (becomesNewChampion && evolutionChampionCount(ps) >= CHAMPION_MAX_PER_PLAYER) {
+    socket.emit('clash:error', { message: 'Champion-Limit erreicht (max. 2).' });
+    return false;
+  }
+  const drawn = drawFromPool(g, targetRarity, 2);
+  if (!drawn) { socket.emit('clash:error', { message: `Nicht genug ${targetRarity}-Karten im Pool (2 nötig).` }); return false; }
+  ps.superTokens -= cost;
+  // Beide Kandidaten sind ab jetzt aus dem Pool entfernt/blockiert, bis der Spieler wählt
+  g.pending[playerId] = { slotIdx, direction, targetRarity, candidates: drawn };
+  return true;
+}
+
+function evolutionResolvePending(lobby, playerId, chosenIndex) {
+  const g = lobby.game;
+  const pending = g.pending[playerId];
+  if (!pending || (chosenIndex !== 0 && chosenIndex !== 1)) return false;
+  const ps = g.players[playerId];
+  const slot = ps.slots[pending.slotIdx];
+  const chosen = pending.candidates[chosenIndex];
+  const other = pending.candidates[1 - chosenIndex];
+  returnToPool(g, other);
+  returnToPool(g, slot.card);
+  slot.card = chosen;
+  slot.rarity = pending.targetRarity;
+  delete g.pending[playerId];
+  return true;
+}
+
+function checkEvolutionEnd(lobby, io, { force = false } = {}) {
+  const g = lobby.game;
+  if (!g || g.type !== 'card-evolution' || g.finished) return;
+  if (!force) {
+    // Getrennte Spieler blockieren das Spielende nicht auf unbestimmte Zeit (analog zu den
+    // anderen Modi, die getrennte Spieler von ihren Fertig-Checks ausnehmen)
+    const activePlayers = lobby.players.filter(p => !p.isSpectator && !p.disconnected);
+    const done = activePlayers.length > 0 && activePlayers.every(p => {
+      const ps = g.players[p.id];
+      return ps && ps.tokens === 0 && ps.superTokens === 0 && !g.pending[p.id];
+    });
+    if (!done) return;
+  }
+  clearTurnTimer(lobby);
+  // Erzwungenes Ende (Timer abgelaufen): offene Super-Token-Wahlen zufällig auflösen —
+  // sonst blieben deren 2 reservierte Kandidaten für immer aus dem Pool verschwunden.
+  const hadPendingChoices = Object.keys(g.pending).length > 0;
+  Object.keys(g.pending).forEach(pid => {
+    evolutionResolvePending(lobby, pid, Math.random() < 0.5 ? 0 : 1);
+  });
+  const anyWildcardsResolved = resolveRemainingWildcards(lobby) || hadPendingChoices;
+  g.finished = true;
+  // Zustand mit den aufgelösten Karten sofort zeigen (Flip-Animation im Frontend), den
+  // eigentlichen Spielende-Wechsel zum GameOverScreen aber erst kurz danach auslösen —
+  // sonst wäre die Auflösung nie sichtbar, weil beide Events sonst im selben Tick ankämen.
+  broadcastEvolutionState(lobby, io);
+  const finalize = () => {
+    if (!lobby.history) lobby.history = [];
+    const historyPlayers = lobby.players.map(p => ({
+      id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
+      deck: p.deck || [], isSpectator: p.isSpectator ?? false,
+    }));
+    lobby.history.push({ gameNum: lobby.history.length + 1, mode: 'card-evolution', players: historyPlayers });
+    io.to(lobby.code).emit('clash:gameOver', { players: historyPlayers });
+    notifyDraftComplete(lobby, io);
+  };
+  if (anyWildcardsResolved) {
+    setTimeout(() => {
+      const l = lobbies.get(lobby.code);
+      if (!l || l.game !== g) return; // Lobby zwischenzeitlich neugestartet/Modus gewechselt
+      finalize();
+    }, EVOLUTION_REVEAL_DELAY_MS);
+  } else {
+    finalize();
+  }
 }
 
 // ── HTTP ───────────────────────────────────────────────────────────────────
@@ -1965,7 +2276,7 @@ function createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID } = {}) {
 }
 
 // ── Socket ─────────────────────────────────────────────────────────────────
-function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = null } = {}) {
+function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = null, twitchLogin = null } = {}) {
   // Host-Aktionen dürfen genauso vom (server-seitig verifizierten) Admin ausgeführt werden
   const canControl = (lobby) => lobby.host === socket.id || isAdmin;
 
@@ -1985,7 +2296,11 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       carouselRevealMode: 'dynamic',
       rushMarketSize: 5,
       rushCardLifetime: 15,
-      rushShowElixir: true,
+      rushShowElixir: false,
+      rushShowTimer: true,
+      evolutionTimerSeconds: 0,
+      evolutionTokensStart: EVOLUTION_TOKENS_START,
+      evolutionSuperTokensStart: EVOLUTION_SUPER_TOKENS_START,
       excludedCards: [],
       createdAt: Date.now(),
       players: [{ id: socket.id, name: playerName.trim(), color: PLAYER_COLORS[0], avatar: avatar || 'knight', deck: [], elixir: 100, isSpectator: false, twitchId: twitchId || null }],
@@ -2227,6 +2542,10 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
           message: `Bei ${perTable} Karten pro Tisch sind max. ${maxP} Spieler möglich (Kartenpool: ${poolSize})!`,
         });
       }
+    } else if (lobby.mode === 'card-evolution') {
+      // Kein Mindestpool nötig — der Start besteht nur aus Wildcards, echte Karten kommen
+      // erst on-demand durch Tokens; ein knapper Pool wird während des Spiels durch
+      // ausgegraute Aktionen abgefangen (kein Crash/Absturz möglich).
     } else if (poolSize < requiredPoolSize(lobby)) {
       return socket.emit('clash:error', {
         message: `Kartenpool zu klein: ${requiredPoolSize(lobby)} Karten benötigt, nur ${poolSize} verfügbar. Schließe weniger Karten aus!`,
@@ -2237,6 +2556,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     else if (lobby.mode === 'bingo') startBingoRoyale(lobby, io);
     else if (lobby.mode === 'shadow-carousel') startShadowCarousel(lobby, io);
     else if (lobby.mode === 'elixir-rush') startElixirRush(lobby, io);
+    else if (lobby.mode === 'card-evolution') startCardEvolution(lobby, io);
     else startSnakeRoyale(lobby, io);
     // Streamer-Automatik: z. B. OBS auf die Minigame-Szene schalten
     emitStreamerEvent(lobby, io, 'gameStart');
@@ -2491,6 +2811,31 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
   });
 
+  // ── Karten-Evolution: Host-Einstellungen ────────────────────────────────────
+  // Gesamt-Timer fürs Picken statt Pro-Zug-Timer (0 = unbegrenzt, kein Countdown)
+  socket.on('clash:setEvolutionTimer', ({ code, seconds }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    const s = Number(seconds) || 0;
+    if (![0, 60, 90].includes(s)) return;
+    lobby.evolutionTimerSeconds = s;
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  socket.on('clash:setEvolutionTokens', ({ code, count }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    lobby.evolutionTokensStart = Math.max(1, Math.min(99, Number(count) || EVOLUTION_TOKENS_START));
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
+  socket.on('clash:setEvolutionSuperTokens', ({ code, count }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    lobby.evolutionSuperTokensStart = Math.max(0, Math.min(20, Number(count) ?? EVOLUTION_SUPER_TOKENS_START));
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+  });
+
   // ── Elixir Rush events ─────────────────────────────────────────────────────
   socket.on('clash:setRushMarketSize', ({ code, count }) => {
     const lobby = lobbies.get(code);
@@ -2513,6 +2858,17 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     const lobby = lobbies.get(code);
     if (!lobby || !canControl(lobby)) return;
     lobby.rushShowElixir = !!show;
+    io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+    if (lobby.game?.type === 'elixir-rush' && !lobby.game.finished) {
+      io.to(code).emit('clash:rush:state', buildRushState(lobby));
+    }
+  });
+
+  // Restzeit-Timer auf den Marktplatz-Karten ein-/ausblenden — auch mitten im Spiel umschaltbar
+  socket.on('clash:setRushShowTimer', ({ code, show }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby)) return;
+    lobby.rushShowTimer = !!show;
     io.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
     if (lobby.game?.type === 'elixir-rush' && !lobby.game.finished) {
       io.to(code).emit('clash:rush:state', buildRushState(lobby));
@@ -2567,7 +2923,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
 
     if (!lobby.players.find(p => p.id === socket.id)) {
       lobby.players.push({
-        id: socket.id, name: 'Admin', color: '#ffffff', avatar: 'admin',
+        id: socket.id, name: twitchLogin || 'Admin', color: '#ffffff', avatar: 'admin',
         deck: [], elixir: 0, isSpectator: true, isAdmin: true,
       });
     }
@@ -2714,8 +3070,10 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       return socket.emit('clash:error', { message: 'Keine Aufdeckungen mehr übrig in dieser Runde!' });
     }
     flips.push({ slotIdx, card: slot.card });
-    // Nur der Aufdeckende selbst sieht die Karte
-    socket.emit('clash:carousel:state', buildCarouselState(lobby, socket.id));
+    // Andere Mitspieler sehen die Aufdeckung nicht (Privatsphäre), Zuschauer aber schon —
+    // ein voller Broadcast ist nötig, damit Zuschauer sie sofort live sehen (nicht erst
+    // beim nächsten Pick/Rundenwechsel)
+    broadcastCarouselState(lobby, io);
   });
 
   socket.on('clash:carousel:pick', ({ code, slotIdx }) => {
@@ -2729,6 +3087,38 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     if (!doCarouselPick(lobby, player, slotIdx)) return;
     broadcastCarouselState(lobby, io);
     checkCarouselRoundComplete(lobby, io);
+  });
+
+  socket.on('clash:evo:action', ({ code, slotIdx, tokenType, direction }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby?.game || lobby.game.type !== 'card-evolution' || lobby.game.finished) return;
+    const player = lobby.players.find(p => p.id === socket.id);
+    if (!player || player.isSpectator) return;
+    const g = lobby.game;
+    const ps = g.players[socket.id];
+    if (!ps || typeof slotIdx !== 'number' || !ps.slots[slotIdx]) return;
+    if (direction !== 'up' && direction !== 'down') return;
+    if (g.pending[socket.id]) return socket.emit('clash:error', { message: 'Du hast bereits eine offene Wahl.' });
+
+    const ok = tokenType === 'super'
+      ? evolutionApplySuper(lobby, socket, socket.id, slotIdx, direction)
+      : evolutionApplyNormal(lobby, socket, socket.id, slotIdx, direction);
+    if (!ok) return;
+
+    syncEvolutionDeck(lobby, socket.id);
+    broadcastEvolutionState(lobby, io);
+    checkEvolutionEnd(lobby, io);
+  });
+
+  socket.on('clash:evo:resolvePending', ({ code, chosenIndex }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby?.game || lobby.game.type !== 'card-evolution' || lobby.game.finished) return;
+    const player = lobby.players.find(p => p.id === socket.id);
+    if (!player || player.isSpectator) return;
+    if (!evolutionResolvePending(lobby, socket.id, chosenIndex)) return;
+    syncEvolutionDeck(lobby, socket.id);
+    broadcastEvolutionState(lobby, io);
+    checkEvolutionEnd(lobby, io);
   });
 
   socket.on('disconnect', () => {

@@ -1,11 +1,19 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
-import { Plus, Trash2, Calendar, Clock, BarChart2, X, Check, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Calendar, Clock, BarChart2, X, Image as ImageIcon, RefreshCw, ArrowRight, Vote } from "lucide-react";
 import SEO from "../../components/SEO";
 import { socket } from "../../utils/socket";
 
 const STREAMER_ID = "160224748";
+
+function TwitchGlyph({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+    </svg>
+  );
+}
 
 // --- HELPER COMPONENTS ---
 
@@ -15,31 +23,31 @@ function PollCard({ poll, onClick, isAdmin, onDelete }) {
   return (
     <div
       onClick={onClick}
-      className="group relative flex items-center gap-4 bg-[#18181b] hover:bg-[#202023] border border-white/10 rounded-sm p-3 transition-colors cursor-pointer hover:border-white/20"
+      className="group panel flex items-center gap-4 p-3 transition-colors hover:bg-white/[0.06] hover:border-violet-400/30 cursor-pointer"
     >
       {/* Thumbnail */}
-      <div className="relative w-24 h-24 shrink-0 rounded-sm overflow-hidden bg-black/40 border border-white/5">
+      <div className="relative w-20 h-20 md:w-24 md:h-24 shrink-0 rounded-xl overflow-hidden bg-black/40 border border-white/10">
         {poll.background ? (
           <img src={poll.background} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-white/10 group-hover:text-white/20 transition-colors">
-            <BarChart2 size={32} />
+          <div className="w-full h-full flex items-center justify-center text-violet-300/40 group-hover:text-violet-300/70 transition-colors">
+            <BarChart2 size={28} />
           </div>
         )}
-        {isExpired && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-xs font-bold uppercase tracking-wider text-white/70">Beendet</div>}
+        {isExpired && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-white/70">Beendet</div>}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0 py-1">
-        <h3 className="text-lg font-bold text-white group-hover:text-white/90 truncate pr-4">{poll.title}</h3>
+        <h3 className="font-semibold text-white group-hover:text-white truncate pr-4">{poll.title}</h3>
 
-        <div className="flex items-center gap-4 mt-2 text-xs text-white/50">
+        <div className="flex items-center gap-4 mt-2 text-xs text-white/40">
            <div className="flex items-center gap-1.5">
-              <Calendar size={14} />
+              <Calendar size={13} />
               <span>{new Date(poll.endDate).toLocaleDateString("de-DE")}</span>
            </div>
            <div className="flex items-center gap-1.5">
-              <Clock size={14} />
+              <Clock size={13} />
               <span>{new Date(poll.endDate).toLocaleTimeString("de-DE", {hour: '2-digit', minute:'2-digit'})}</span>
            </div>
         </div>
@@ -49,23 +57,19 @@ function PollCard({ poll, onClick, isAdmin, onDelete }) {
       {isAdmin && (
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(poll.id); }}
-          className="p-2 mr-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors"
+          className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
           title="Löschen"
         >
-          <Trash2 size={18} />
+          <Trash2 size={17} />
         </button>
       )}
 
-      {/* Chevron Icon for Hint */}
-      <div className="mr-2 text-white/10 group-hover:text-white/30 transition-colors">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-      </div>
+      <ArrowRight size={17} className="text-white/15 group-hover:text-violet-300 group-hover:translate-x-1 transition-all shrink-0" />
     </div>
   );
 }
 
 function CreatePollModal({ onClose, onSave }) {
-  const [step, setStep] = useState(1);
   const [data, setData] = useState({
     title: "",
     background: "",
@@ -120,12 +124,12 @@ function CreatePollModal({ onClose, onSave }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-2xl bg-[#18181b] border border-white/10 rounded-md shadow-xl flex flex-col max-h-[85vh]">
+      <div className="relative w-full max-w-2xl panel-strong shadow-2xl shadow-black/60 flex flex-col max-h-[85vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h2 className="text-xl font-bold">Neue Abstimmung</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-sm text-white/50 hover:text-white transition-colors"><X size={20} /></button>
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <h2 className="font-display text-xl font-bold text-white">Neue Abstimmung</h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"><X size={20} /></button>
         </div>
 
         {/* Content */}
@@ -134,9 +138,9 @@ function CreatePollModal({ onClose, onSave }) {
             {/* Metadata Section */}
             <div className="space-y-4 mb-8">
                 <div>
-                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Titel</label>
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Titel</label>
                     <input
-                        className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors placeholder:text-white/20"
                         placeholder="Worum geht es?"
                         value={data.title}
                         onChange={e => setData({...data, title: e.target.value})}
@@ -146,19 +150,19 @@ function CreatePollModal({ onClose, onSave }) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Enddatum</label>
+                        <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Enddatum</label>
                         <input
                             type="datetime-local"
-                            className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-white/30 outline-none transition-colors text-sm"
+                            className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors text-sm"
                             value={data.endDate}
                             onChange={e => setData({...data, endDate: e.target.value})}
                         />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Bild URL (Optional)</label>
+                        <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Bild URL (Optional)</label>
                         <div className="relative">
                             <input
-                                className="w-full bg-black/40 border border-white/10 rounded-sm pl-10 pr-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20 text-sm"
+                                className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-3 text-white focus:border-violet-500 outline-none transition-colors placeholder:text-white/20 text-sm"
                                 placeholder="https://..."
                                 value={data.background}
                                 onChange={e => setData({...data, background: e.target.value})}
@@ -172,32 +176,32 @@ function CreatePollModal({ onClose, onSave }) {
             {/* Questions Section */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                     <label className="text-xs font-bold text-white/50 uppercase tracking-wider block">Fragen ({data.questions.length})</label>
-                     <button onClick={addQuestion} className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-sm transition-colors flex items-center gap-1.5">
+                     <label className="text-xs font-bold text-white/40 uppercase tracking-wider block">Fragen ({data.questions.length})</label>
+                     <button onClick={addQuestion} className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-white/70 hover:text-white">
                         <Plus size={14} /> Frage hinzufügen
                      </button>
                 </div>
 
                 {data.questions.length === 0 && (
-                    <div className="text-center py-8 border border-dashed border-white/10 rounded-sm bg-white/5 text-white/30 text-sm">
+                    <div className="text-center py-8 border border-dashed border-white/10 rounded-lg bg-white/[0.02] text-white/30 text-sm">
                         Noch keine Fragen hinzugefügt.
                     </div>
                 )}
 
                 {data.questions.map((q, i) => (
-                    <div key={q.id} className="bg-white/5 border border-white/5 rounded-sm p-4">
+                    <div key={q.id} className="bg-black/20 border border-white/10 rounded-lg p-4">
                         <div className="flex gap-3 mb-3">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-sm bg-white/10 text-xs font-bold text-white/50 mt-1.5">{i+1}</span>
+                            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-violet-500/10 border border-violet-400/20 text-xs font-bold text-violet-300 mt-1.5 shrink-0">{i+1}</span>
                             <div className="flex-1 space-y-3">
                                 <div className="flex gap-2">
                                     <input
-                                        className="flex-1 bg-black/20 border border-white/10 rounded-sm px-3 py-2 text-sm focus:border-white/30 outline-none"
+                                        className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-violet-500 outline-none transition-colors"
                                         placeholder="Deine Frage..."
                                         value={q.question}
                                         onChange={e => updateQuestion(i, 'question', e.target.value)}
                                     />
                                     <select
-                                        className="bg-black/20 border border-white/10 rounded-sm px-3 py-2 text-sm focus:border-white/30 outline-none"
+                                        className="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-violet-500 outline-none transition-colors"
                                         value={q.type}
                                         onChange={e => updateQuestion(i, 'type', e.target.value)}
                                     >
@@ -205,26 +209,26 @@ function CreatePollModal({ onClose, onSave }) {
                                         <option value="multiple">Multiple Choice</option>
                                         <option value="text">Freitext</option>
                                     </select>
-                                    <button onClick={() => removeQuestion(i)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors">
+                                    <button onClick={() => removeQuestion(i)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0">
                                         <Trash2 size={16} />
                                     </button>
                                 </div>
 
                                 {q.type !== 'text' && (
-                                    <div className="pl-1 space-y-2 border-l-2 border-white/5 ml-1">
+                                    <div className="pl-1 space-y-2 border-l-2 border-white/10 ml-1">
                                         {q.options.map((opt, oi) => (
                                             <div key={oi} className="flex items-center gap-2 pl-3">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                                                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/50 shrink-0" />
                                                 <input
-                                                    className="flex-1 bg-transparent border-b border-white/10 px-2 py-1 text-sm focus:border-white/30 outline-none placeholder:text-white/10"
+                                                    className="flex-1 bg-transparent border-b border-white/10 px-2 py-1 text-sm focus:border-violet-500 outline-none placeholder:text-white/15 transition-colors"
                                                     placeholder={`Option ${oi+1}`}
                                                     value={opt}
                                                     onChange={e => updateOption(i, oi, e.target.value)}
                                                 />
-                                                <button onClick={() => removeOption(i, oi)} className="text-white/10 hover:text-red-400 transition-colors"><X size={14} /></button>
+                                                <button onClick={() => removeOption(i, oi)} className="text-white/15 hover:text-red-400 transition-colors shrink-0"><X size={14} /></button>
                                             </div>
                                         ))}
-                                        <button onClick={() => addOption(i)} className="text-xs text-blue-400 hover:text-blue-300 ml-3 pt-1 flex items-center gap-1">
+                                        <button onClick={() => addOption(i)} className="text-xs text-violet-300 hover:text-violet-200 ml-3 pt-1 flex items-center gap-1">
                                             <Plus size={12} /> Option
                                         </button>
                                     </div>
@@ -238,9 +242,9 @@ function CreatePollModal({ onClose, onSave }) {
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-white/5 flex justify-end gap-3 bg-[#121212]">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
-            <button onClick={handleSave} className="px-6 py-2.5 rounded-sm font-bold bg-white text-black hover:bg-gray-200 transition-colors">Speichern</button>
+        <div className="p-5 border-t border-white/10 flex justify-end gap-3">
+            <button onClick={onClose} className="px-5 py-2.5 rounded-lg font-medium text-white/50 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
+            <button onClick={handleSave} className="px-6 py-2.5 rounded-lg font-bold bg-violet-600 hover:bg-violet-500 text-white transition-colors">Speichern</button>
         </div>
       </div>
     </div>
@@ -298,7 +302,7 @@ export default function AbstimmungPage() {
 
       if (!res.ok) throw new Error("Failed to create");
       setShowModal(false);
-    } catch (err) {
+    } catch {
       alert("Fehler beim Erstellen.");
     }
   };
@@ -307,7 +311,7 @@ export default function AbstimmungPage() {
     if (!window.confirm("Wirklich löschen?")) return;
     try {
       await fetch(`/api/polls/${id}`, { method: "DELETE", credentials: "include" });
-    } catch (e) {
+    } catch {
       alert("Fehler beim Löschen.");
     }
   };
@@ -326,22 +330,26 @@ export default function AbstimmungPage() {
   const displayPolls = activeTab === "active" ? activePolls : expiredPolls;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 min-h-[80vh]">
+    <div className="page-fade max-w-4xl mx-auto px-2 md:px-4 py-8 md:py-12 min-h-[80vh]">
       <SEO title = "Abstimmungen"/>
-      {/* Header Area */}
-      <div className="flex flex-col items-center mb-10">
-        <h1 className="text-3xl font-bold tracking-tight mb-6">ABSTIMMUNGEN</h1>
+
+      {/* Header */}
+      <div className="flex flex-col items-center text-center gap-4 mb-10">
+        <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
+          <Vote size={26} />
+        </span>
+        <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight">Abstimmungen</h1>
 
         {/* Underline Tabs */}
-        <div className="flex border-b border-white/10">
+        <div className="flex border-b border-white/10 mt-2">
           <button
-            className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "active" ? "border-cyan-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}
+            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "active" ? "border-violet-400 text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
             onClick={() => setActiveTab("active")}
           >
             Laufend ({activePolls.length})
           </button>
           <button
-            className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "expired" ? "border-cyan-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}
+            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "expired" ? "border-violet-400 text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
             onClick={() => setActiveTab("expired")}
           >
             Vergangen ({expiredPolls.length})
@@ -350,9 +358,9 @@ export default function AbstimmungPage() {
       </div>
 
       {/* List Area */}
-      <div className="space-y-3 mt-6">
+      <div className="space-y-3">
           {displayPolls.length === 0 ? (
-              <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-sm bg-white/5">
+              <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
                  {activeTab === "active" ? "Keine aktiven Abstimmungen." : "Keine vergangenen Abstimmungen."}
               </div>
           ) : (
@@ -373,14 +381,14 @@ export default function AbstimmungPage() {
           <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-40">
               <button
                 onClick={refreshPolls}
-                className="w-9 h-9 rounded-sm bg-[#18181b] border border-white/10 text-white/50 hover:text-white flex items-center justify-center transition-colors"
+                className="w-10 h-10 rounded-xl panel-strong text-white/50 hover:text-white flex items-center justify-center transition-colors"
                 title="Reload"
               >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                  <RefreshCw size={17} />
               </button>
               <button
                 onClick={() => setShowModal(true)}
-                className="w-9 h-9 rounded-sm bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors"
+                className="w-10 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center transition-colors shadow-lg shadow-violet-950/40"
                 title="Neue Abstimmung"
               >
                   <Plus size={20} />
@@ -389,8 +397,8 @@ export default function AbstimmungPage() {
       ) : (
          !user && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-                <button onClick={login} className="px-4 py-2 bg-white/10 rounded-sm border border-white/10 text-xs font-semibold hover:bg-white/20 transition-colors">
-                    Admin Login
+                <button onClick={() => login(false)} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors shadow-lg shadow-black/40">
+                    <TwitchGlyph className="w-3.5 h-3.5" /> Admin Login
                 </button>
             </div>
          )

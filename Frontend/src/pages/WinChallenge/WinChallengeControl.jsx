@@ -87,7 +87,7 @@ export default function WinChallengeControl() {
 
   if (!doc) {
     return (
-      <div className="min-h-screen bg-[#18181b] text-white flex items-center justify-center">
+      <div className="min-h-full text-white flex items-center justify-center">
         <div className="text-white/40 animate-pulse">Lade Moderator-Ansicht…</div>
       </div>
     );
@@ -240,7 +240,7 @@ export default function WinChallengeControl() {
   /* ───────────── Render ───────────── */
 
   return (
-    <div className="min-h-screen bg-[#18181b] text-white flex justify-center p-4 md:p-8">
+    <div className="min-h-full text-white flex justify-center p-4 md:p-8">
       <SEO title="Control" />
       <div className="w-full max-w-2xl space-y-4">
         {/* Header */}

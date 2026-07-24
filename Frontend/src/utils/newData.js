@@ -1,5 +1,120 @@
 export const NEWS_UPDATES = [
   {
+    date: "24.07.2026",
+    version: "v6.1: Connect 4, Clash-Royale-Übersetzung komplett & Discord-Rechtliches",
+    sections: [
+      {
+        title: "Neu: Connect 4",
+        items: [
+          "Neues Minispiel: Vier Gewinnt gegen einen Freund — Lobby-Link teilen und direkt loslegen, kein Account nötig",
+          "Zuschauer können einer laufenden Partie beitreten und live mitschauen",
+          "Kurze Gnadenfrist bei Verbindungsabbruch (2 Minuten) — die Partie ist nicht sofort verloren",
+        ]
+      },
+      {
+        title: "Clash Royale — Englisch-Übersetzung abgeschlossen",
+        items: [
+          "Alle Spielmodi (Snake Royale, Elixir Auction, Bingo Royale, Blindes Karussel, Elixir Rush) sind jetzt komplett über den EN/DE-Button umschaltbar — vorher galt das nur für Lobby und Streamer Setup",
+        ]
+      },
+      {
+        title: "Clash Royale — Zuschauer-Verbesserungen",
+        items: [
+          "Bingo Royale: Zuschauer können jetzt zwischen den Spielern wechseln und deren Bingo-Board live mitverfolgen, statt nur die Mini-Decks in der Seitenleiste zu sehen",
+          "Blindes Karussel: aufgedeckte Karten sind für Zuschauer jetzt sofort sichtbar, statt erst nach dem Rundenwechsel",
+        ]
+      },
+      {
+        title: "Clash Royale — Neu: „Benutzt von“-Anzeige",
+        items: [
+          "Zeigt auf der Clash-Royale-Seite Streamer, die die Minigames in ihren Streams nutzen, inklusive Live-Status direkt von Twitch",
+        ]
+      },
+      {
+        title: "Clash Royale — Neuer Modus in Vorbereitung",
+        items: [
+          "Karten-Evolution befindet sich aktuell in internen Tests: Start mit Wildcards, die per Evolutions-Tokens aus einem gemeinsamen Kartenpool auf- oder abgewertet werden — folgt nach Abschluss der Tests",
+        ]
+      },
+      {
+        title: "Discord-Bot",
+        items: [
+          "Neuer Command: /größe — verrät eine zufällige Körpergröße",
+          "Nutzungsbedingungen und Datenschutzerklärung für den Bot jetzt als eigene Seiten abrufbar",
+        ]
+      },
+    ]
+  },
+  {
+    date: "21.07.2026",
+    version: "v6.0: Komplettes Redesign, PvPvE Arena & Profil-Seite",
+    sections: [
+      {
+        title: "Neues Design",
+        items: [
+          "Die komplette Seite hat ein neues, einheitliches Design bekommen: animierter Aurora-Hintergrund statt einfarbiger Fläche, neue Schriftarten (Space Grotesk & Inter)",
+          "Navigation komplett neu strukturiert: statt einer langen Liste gibt es jetzt 5 Kategorien (Fun, Community, Clash Royale, Streamer-Tools, Contact) mit eigener Übersichtsseite pro Kategorie",
+          "Alle Menüs, Buttons und Karten wurden auf den neuen, ruhigeren Stil umgestellt — weniger Neon, klarere Hierarchie",
+        ]
+      },
+      {
+        title: "Neu: Profil-Seite",
+        items: [
+          "Zentrale Profil-Seite statt verstreuter Einstellungen: eigenes Twitch-Profilbild, verbundene Accounts auf einen Blick",
+          "Discord-Account jetzt direkt im Profil verknüpfbar/trennbar (inkl. Anzeige von Discord-Name & Avatar)",
+          "Promo-Codes werden jetzt im Profil eingelöst, Account-Wechsel und Logout ebenfalls von dort aus",
+        ]
+      },
+      {
+        title: "adVentures",
+        items: [
+          "Neuer Modus: PvPvE Arena (Beta) — Multiplayer-Karte, auf der alle gemeinsam Monster für Level farmen und sich gegenseitig angreifen können. Eigene Rangliste, Killfeed und Live-Ranking",
+          "Elite-Gegner ab Stage 12: seltene, deutlich stärkere Monster mit goldenem Ring, die dafür dreifaches Gold droppen",
+          "2 neue Meilensteine nach jedem Boss: Schnellfeuer (+30% Feuerrate) und Fortuna (+1 Glück)",
+          "Neues Powerup: Blitzschlag — Flächenschaden am Cursor mit kurzer Warnung",
+          "Balancing überarbeitet: flachere Schwierigkeitskurve bei Gegner-HP/Schaden, faireres Rage-Mode (offene Tür), Gift/Brand skalieren jetzt mit der Stage, Glück gibt planbar +50% Gold statt Multiplikator",
+          "Bugfixes: Spinnennetz-Effekt im Nahkampf funktionierte nicht, Schutzschild-Cooldown war fälschlich nur 6 statt 45 Sekunden, Shop-Preise resetteten sich nach einem Reload auf den Basispreis",
+          "Händler, Meilenstein-Auswahl, Spielstand- und Game-Over-Bildschirm im neuen Design",
+          "Performance: UI-Aktualisierung im Kampf von bis zu 165x/Sekunde auf 10x/Sekunde gedrosselt (spürbar flüssiger auf schwächeren Geräten)",
+        ]
+      },
+      {
+        title: "Virtual Farm",
+        items: [
+          "Mehrere Pflanzen, bei denen die Wartezeit nie ins Gold-Verhältnis passte, wurden neu bepreist (u.a. Spinat, Kohl, Blaubeere, Zucchini, Dattel, Kokosnuss)",
+          "Eier-Shop: seltene Eier (Rare/Epic/Legendary) tauchen jetzt deutlich häufiger im Rotations-Shop auf",
+          "Brutzeit im Inkubator richtet sich jetzt nach der Seltenheit des Eis (2 Min bis 2 Std, vorher pauschal 5 Min für alle)",
+          "Wetter-Effekte auf Pflanzen (Nass/Gefroren/Aufgeladen/Mondlicht) geben jetzt einen echten Verkaufsbonus statt nur Optik",
+        ]
+      },
+      {
+        title: "Clash Royale — Neu: Win Tracker Overlay",
+        items: [
+          "Neue Seite unter Clash Royale: eigenes OBS-Overlay mit Liga-Emblem, globaler Platzierung, Trophäen bzw. Season-Medaillen (Path of Legend) — umschaltbar zwischen beiden",
+          "Mehrere Accounts verknüpfbar wie beim Nuzlocke — der aktive Account speist automatisch das Overlay",
+          "Tagesstatistik seit 00:00 Uhr: Profit, Win/Loss-Zahlen und Win-Rate in Prozent, jeweils einzeln ein-/ausblendbar",
+          "Letzte 5 Spiele als farbige Verlaufsanzeige (grün/rot) mit gewonnenen bzw. verlorenen Medaillen pro Match, neuestes zuerst — ebenfalls ausblendbar",
+          "Hintergrundfarbe und Transparenz der Overlay-Karte frei einstellbar",
+          "Läuft direkt über die offizielle Clash-Royale-API",
+        ]
+      },
+      {
+        title: "Entfernt",
+        items: [
+          "Casino komplett entfernt",
+          "Awards-2026-Seiten (Einreichung & Admin) entfernt",
+        ]
+      },
+      {
+        title: "Sicherheit & Performance",
+        items: [
+          "Sicherheitslücke bei der Discord-Verknüpfung geschlossen (Open-Redirect über den Rücksprung-Parameter)",
+          "Mehr Seiten werden jetzt vorgerendert (die neuen Kategorie-Seiten) für schnellere erste Ladezeit",
+        ]
+      },
+    ]
+  },
+  {
     date: "21.07.2026",
     version: "v5.4: Win-Challenge Neuerungen, Clash Royale Streamer Setup & Teilübersetzung",
     sections: [

@@ -303,7 +303,7 @@ export default function WinChallenge() {
           return shaped;
         });
         setLocalNow(Date.now());
-      } catch (e) {}
+      } catch { /* ignore */ }
     }, 2000);
     return () => clearInterval(t);
   }, [user?.id]);
@@ -342,7 +342,7 @@ export default function WinChallenge() {
         });
         setLocalNow(Date.now());
       }
-    } catch (e) {}
+    } catch { /* ignore */ }
   };
 
   const save = (nextRaw, opts = {}) => {
@@ -370,7 +370,7 @@ export default function WinChallenge() {
       }
       setDoc(shaped);
       setActiveTab("challenges");
-    } catch (e) {}
+    } catch { /* ignore */ }
   };
 
   const regenerateOverlayKey = () => save({ ...doc, overlayKey: nanoid(12) }, { flush: true });
@@ -540,7 +540,7 @@ export default function WinChallenge() {
   }, [doc, previewW]);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden text-white bg-[#18181b]">
+    <div className="h-full flex flex-col overflow-hidden text-white p-3 md:p-5 xl:p-6 gap-3 md:gap-5">
       <SEO
         title="Win Challenge Overlay"
         description="Win Challenge Overlay für OBS. Hohe Customization für Streamer."
@@ -556,24 +556,24 @@ export default function WinChallenge() {
       ) : loading || !doc ? (
         <div className="h-full flex items-center justify-center text-white/30 animate-pulse">Lade Konfiguration...</div>
       ) : (
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0 gap-3 md:gap-5">
 
             {/* HEADER — never scrolls */}
-            <div className="px-6 py-4 border-b border-white/5 bg-[#121215] flex items-center gap-4 shrink-0">
+            <div className="panel px-6 py-4 flex items-center gap-4 shrink-0">
                <Trophy size={20} className="text-yellow-500 shrink-0" />
                <div>
-                   <h1 className="text-lg font-black tracking-tight text-white leading-none">WinChallenge</h1>
+                   <h1 className="font-display text-lg font-bold tracking-tight text-white leading-none">WinChallenge</h1>
                    <p className="text-[11px] text-white/40 mt-0.5">OBS Overlay Editor</p>
                </div>
             </div>
 
             {/* BODY — flex-row, fills remaining height */}
-            <div className="flex-1 flex overflow-hidden min-h-0">
+            <div className="flex-1 flex overflow-hidden min-h-0 gap-3 md:gap-5">
 
               {/* LEFT: EDITOR — only this scrolls */}
-              <div className="flex-1 flex flex-col border-r border-white/5 min-w-0 overflow-hidden">
+              <div className="panel flex-1 flex flex-col min-w-0 overflow-hidden">
                   {/* TABS */}
-                  <div className="flex border-b border-white/5 bg-[#141417] overflow-x-auto shrink-0">
+                  <div className="flex border-b border-white/10 bg-black/25 overflow-x-auto shrink-0">
                       {[
                           { id: "challenges", label: "Challenges", icon: Trophy },
                           { id: "custom", label: "Design", icon: Palette },
@@ -952,10 +952,10 @@ export default function WinChallenge() {
               </div>
 
               {/* RIGHT: PREVIEW + TIMER — never scrolls, always fills viewport height */}
-              <div className="w-[380px] lg:w-[460px] xl:w-[560px] shrink-0 flex flex-col bg-[#121215] overflow-hidden">
+              <div className="hidden md:flex w-[380px] lg:w-[460px] xl:w-[560px] 2xl:w-[640px] shrink-0 flex-col overflow-hidden gap-3 md:gap-5">
 
                   {/* PREVIEW — fills remaining space above timer */}
-                  <div className="flex-1 p-5 border-b border-white/5 flex flex-col min-h-0 overflow-hidden">
+                  <div className="panel flex-1 p-5 flex flex-col min-h-0 overflow-hidden">
                       <div className="flex items-center justify-between mb-3 px-1 shrink-0">
                           <div className="flex items-center gap-2">
                               <h3 className="text-white/40 text-xs uppercase tracking-wider font-bold">Live Vorschau</h3>
@@ -971,7 +971,7 @@ export default function WinChallenge() {
                   </div>
 
                   {/* TIMER — always visible, never pushed off screen */}
-                  <div className="p-5 shrink-0 bg-[#151518]">
+                  <div className="panel p-5 shrink-0">
                       <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
                               <div className={`w-2.5 h-2.5 rounded-full ${running ? "bg-green-500" : "bg-red-500"}`} />

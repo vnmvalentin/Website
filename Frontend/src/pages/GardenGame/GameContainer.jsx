@@ -2,13 +2,20 @@
 // Smooth WASD movement, diagonal support, plant system, shop UI, lobby awareness
 
 import React, { memo, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { io } from "socket.io-client";
-import { socketServerUrl } from "../../utils/socket";
+import { Sprout, Trophy, Star, FlaskConical, Play } from "lucide-react";
 import Renderer from './engine/Renderer';
 import InputHandler from './engine/InputHandler';
 import { generatePlotSlots, TILE_SIZE, MAP_CONFIG, getHoveredCell, getHoveredRock } from './engine/MapConfig';
 import { generateShopRotation, harvestPlant, createPlantInstance, isPlantReady, getTimeToNextHarvest, getReadyFruitCount, getPlantVisuals, ensurePerennialFruitingState } from './engine/PlantSystem';
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
+
+function TwitchGlyph({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+    </svg>
+  );
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PLAYER_SPEED = 14; // fast, responsive movement
@@ -507,7 +514,6 @@ export default function GameContainer() {
     const [isMarketOpen, setMarketOpen] = useState(false);
     const [notification, setNotification] = useState(null);
     const [hoverInfo, setHoverInfo] = useState(null); // { x, y, key }
-    const [remoteHoverInfo, setRemoteHoverInfo] = useState(null); // { x, y, key, slotOwner, slotIndex }
     const [itemHoverTooltip, setItemHoverTooltip] = useState(null); // { item, x, y }
     const [toolInventory, setToolInventory] = useState(DEFAULT_TOOL_INVENTORY);
     const [eggInventory, setEggInventory] = useState([]);
@@ -533,24 +539,11 @@ export default function GameContainer() {
     const appearanceRef = useRef(playerAppearance);
     const [isWardrobeOpen, setWardrobeOpen] = useState(false);
     const [isChangelogOpen, setChangelogOpen] = useState(false);
-    const [isPlayerListOpen, setPlayerListOpen] = useState(false);
     const [mailbox, setMailbox] = useState([]);
-    const [isMailboxOpen, setMailboxOpen] = useState(false);
-    const [mailboxTargetId, setMailboxTargetId] = useState(null); // userId of the mailbox owner
-    const [giftMessage, setGiftMessage] = useState("");
-    const [giftGold, setGiftGold] = useState(0);
-    const [giftItems, setGiftItems] = useState([]); // { type: 'seed'|'pet'|'deco', item: any }
 
     const [showLobbyScreen, setShowLobbyScreen] = useState(true);
-    const [lobbyMode, setLobbyMode] = useState("single");
-    const [roomCode, setRoomCode] = useState("");
-    const [publicLobbies, setPublicLobbies] = useState([]);
-    const [hostPrivateLobby, setHostPrivateLobby] = useState(false);
-    const [hostMaxPlayers, setHostMaxPlayers] = useState(8);
-    const [currentLobbyId, setCurrentLobbyId] = useState(null);
-    const [lobbyHostId, setLobbyHostId] = useState(null);
-    const [mySlotIndex, setMySlotIndex] = useState(0);
-    const [isMultiplayer, setIsMultiplayer] = useState(false);
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [mySlotIndex] = useState(0);
     const [authUser, setAuthUser] = useState(null);
     const [isSettingsOpen, setSettingsOpen] = useState(false);
     const [worldBootState, setWorldBootState] = useState({ active: false, label: "", progress: 0 });
@@ -558,7 +551,6 @@ export default function GameContainer() {
     const [isSubscriber, setIsSubscriber] = useState(false);
     const [isBeta, setIsBeta] = useState(false);
     const [tutorialCompleted, setTutorialCompleted] = useState(false);
-    const [tutorialStep, setTutorialStep] = useState(0); // 0: buy seed, 1: plant, 2: harvest, 3: sell
     const [effectVolume, setEffectVolume] = useState(() => {
         const saved = localStorage.getItem("garden_farms_effect_volume");
         if (saved !== null) return parseFloat(saved);
@@ -569,10 +561,7 @@ export default function GameContainer() {
         const saved = localStorage.getItem("garden_farms_music_volume");
         return saved !== null ? parseFloat(saved) : 0.1;
     });
-    const [remotePlayersList, setRemotePlayersList] = useState([]);
-    const socketRef = useRef(null);
     const mySlotRef = useRef(0);
-    const lastMoveEmitRef = useRef(0);
     const plotExpansionsRef = useRef(0);
     const plotUnlockedCellsRef = useRef([]);
     const sellAllRef = useRef(() => {});
@@ -592,7 +581,6 @@ export default function GameContainer() {
     const renderProfileRef = useRef(DEFAULT_RENDER_PROFILE);
     const weatherStateRef = useRef(weatherState);
     const toolInventoryRef = useRef(toolInventory);
-    const lastMpShopPollRef = useRef(0);
     const seedNextRotationAtRef = useRef(0);
     const toolNextRotationAtRef = useRef(0);
     const eggNextRotationAtRef = useRef(0);
@@ -602,7 +590,6 @@ export default function GameContainer() {
     const savedShopStockRef = useRef(null); // { stock: {}, version: number } | null
     const savedToolShopStockRef = useRef(null);
     const savedEggShopStockRef = useRef(null);
-    const plantingCellsRef = useRef(new Set());
     const effectVolumeRef = useRef(effectVolume);
     useEffect(() => {
         effectVolumeRef.current = effectVolume;
@@ -633,8 +620,6 @@ export default function GameContainer() {
     const worldBootKindRef = useRef(null); // "single" | "multi" | null — source of truth for boot type
     const worldBootStatusRef = useRef({ preloadDone: false, dataDone: false, minDoneAt: 0 });
     const worldBootFinishTimerRef = useRef(null);
-    const remotePlayersRef = useRef({});
-    const remotePlayerTargetsRef = useRef({}); // Zielpunkte für 20-Hz-Interpolation
     const playerBadgeRef = useRef(null);
     const localPlayerNameRef = useRef("Spieler");
     const readyEggsCount = incubator.slots.filter(s => s && Date.now() >= s.hatchAt).length;
@@ -989,9 +974,6 @@ export default function GameContainer() {
             setActiveShop("egg");
         } else if (target.type === "deco") {
             setActiveShop("deco");
-        } else if (target.type === "mailbox") {
-            setMailboxTargetId(target.targetId);
-            setMailboxOpen(true);
         } else if (target.type === "petMarket") {
             sellPetRef.current();
         } else if (target.type === "incubator") {
@@ -1049,15 +1031,6 @@ export default function GameContainer() {
         if (!res.ok) throw new Error(data.error || "API Fehler");
         return data;
     }, []);
-
-    const loadPublicLobbies = useCallback(async () => {
-        try {
-            const data = await apiCall("/lobbies");
-            setPublicLobbies(data.lobbies || []);
-        } catch {
-            setPublicLobbies([]);
-        }
-    }, [apiCall]);
 
     useEffect(() => {
         if (showLobbyScreen) return;
@@ -1216,15 +1189,15 @@ export default function GameContainer() {
                 }
             }
             setIsInitialLoadDone(true);
-            if (!isMultiplayer) markWorldBootDataReady("single");
+            markWorldBootDataReady("single");
         };
         loadFarm();
-    }, [showLobbyScreen, apiCall, isMultiplayer, markWorldBootDataReady, normalizePlotPlantsMap, notify]);
+    }, [showLobbyScreen, apiCall, markWorldBootDataReady, normalizePlotPlantsMap, notify]);
 
     useEffect(() => {
         const savedApp = localStorage.getItem("garden_appearance");
         if (savedApp) {
-            try { setPlayerAppearance(JSON.parse(savedApp)); } catch {}
+            try { setPlayerAppearance(JSON.parse(savedApp)); } catch { /* ignore */ }
         }
     }, []);
 
@@ -1241,7 +1214,7 @@ export default function GameContainer() {
     useEffect(() => {
         if (showLobbyScreen) return;
         if (!isInitialLoadDone) return;
-        // Multiplayer: Server führt. Singleplayer: Server-Persist via API (5s debounce, Twitch-Session nötig).
+        // Server-Persist via API (5s debounce, Twitch-Session nötig).
         const payload = {
             gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems,
             eggInventory, petInventory, petPlacements, decoInventory, decoPlacements,
@@ -1255,7 +1228,6 @@ export default function GameContainer() {
             appearance: playerAppearance,
             tutorialCompleted,
         };
-        if (isMultiplayer) return;
         const timer = setTimeout(() => {
             apiCall("/farm-state", {
                 method: "PUT",
@@ -1263,7 +1235,7 @@ export default function GameContainer() {
             }).catch(() => {});
         }, 5000);
         return () => clearTimeout(timer);
-    }, [showLobbyScreen, isInitialLoadDone, isMultiplayer, gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, personalShopStock, shopRotation?.generatedAt,playerAppearance, tutorialCompleted, apiCall]);
+    }, [showLobbyScreen, isInitialLoadDone, gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, personalShopStock, shopRotation?.generatedAt,playerAppearance, tutorialCompleted, apiCall]);
 
     useEffect(() => {
         if (!isIncubatorOpen) return;
@@ -1290,27 +1262,6 @@ export default function GameContainer() {
     useEffect(() => {
         selectedToolRef.current = selectedTool;
     }, [selectedTool]);
-
-    useEffect(() => {
-        // Nur senden, wenn wir im Multiplayer sind und der Socket existiert
-        if (!isMultiplayer || !currentLobbyId || !socketRef.current) return;
-
-        // Herausfinden, welches Item wir gerade wirklich in der Hand halten
-        let activeHeldItem = null;
-        if (!selectedTool) {
-            if (selectedSeed) activeHeldItem = selectedSeed;
-            else if (selectedCarryItem) activeHeldItem = selectedCarryItem;
-        }
-
-        // An den Server senden
-        socketRef.current.emit("player_state_change", {
-            tool: selectedTool,
-            heldItem: activeHeldItem,
-            appearance: playerAppearance,
-            badge: playerBadgeRef.current,
-        });
-
-    }, [isMultiplayer, currentLobbyId, selectedTool, selectedSeed, selectedCarryItem, playerAppearance]);
 
     useEffect(() => {
         movingPlantSourceRef.current = movingPlantSource;
@@ -1423,10 +1374,9 @@ export default function GameContainer() {
         }
     }, [eggShopRotation?.generatedAt]);
 
-    // ── Shop rotation (global backend source for all modes) ──────────────────────
+    // ── Shop rotation (global backend source) ──────────────────────
     useEffect(() => {
         if (showLobbyScreen) return;
-        if (isMultiplayer) return; // multiplayer gets primary updates via socket events
 
         let rotationTimer = null;
         const fetchGlobalShop = async () => {
@@ -1506,7 +1456,7 @@ export default function GameContainer() {
         };
         fetchGlobalShop();
         return () => clearTimeout(rotationTimer);
-    }, [isMultiplayer, showLobbyScreen, apiCall, initPersonalStock, announceRotation, setShopRotationIfChanged]);
+    }, [showLobbyScreen, apiCall, initPersonalStock, announceRotation, setShopRotationIfChanged]);
 
     useEffect(() => {
         if (showLobbyScreen) return;
@@ -1516,12 +1466,10 @@ export default function GameContainer() {
                 if (!data?.shopRotation) return;
                 setShopRotationIfChanged(data.shopRotation);
                 const now = Date.now();
-                if (!isMultiplayer) {
-                    const seedGen = data.shopRotation?.generatedAt;
-                    if (Number(seedGen) !== personalShopSeededForGenAtRef.current) {
-                        initPersonalStock(data.shopRotation);
-                        personalShopSeededForGenAtRef.current = Number(seedGen);
-                    }
+                const seedGen = data.shopRotation?.generatedAt;
+                if (Number(seedGen) !== personalShopSeededForGenAtRef.current) {
+                    initPersonalStock(data.shopRotation);
+                    personalShopSeededForGenAtRef.current = Number(seedGen);
                 }
                 seedNextRotationAtRef.current = Number(data.nextRotation || data.shopRotation?.nextRotation || 0);
                 if (data.toolShopRotation) {
@@ -1537,7 +1485,7 @@ export default function GameContainer() {
                 setEggShopCountdown(Math.max(0, eggNextRotationAtRef.current - now));
             })
             .catch(() => {});
-    }, [showLobbyScreen, isMultiplayer, shopRotation, apiCall, initPersonalStock, setShopRotationIfChanged]);
+    }, [showLobbyScreen, shopRotation, apiCall, initPersonalStock, setShopRotationIfChanged]);
 
     useEffect(() => {
         if (showLobbyScreen) return;
@@ -1614,53 +1562,9 @@ export default function GameContainer() {
             });
         }, 60 * 1000);
         return () => clearInterval(interval);
-    }, [showLobbyScreen, weatherState]);
-
-    // Multiplayer fallback: poll all shops while one countdown is near/at 0.
-    useEffect(() => {
-        if (showLobbyScreen || !isMultiplayer) return undefined;
-        const tick = () => {
-            if (Math.min(shopCountdown, toolShopCountdown, eggShopCountdown) > 3000) return;
-            const now = Date.now();
-            if (now - lastMpShopPollRef.current < 3500) return;
-            lastMpShopPollRef.current = now;
-            apiCall("/global-shop")
-                .then((data) => {
-                    if (!data?.shopRotation) return;
-                    const seedKey = String(data.shopRotation.generatedAt || "");
-                    if (seedKey && seedRotationKeyRef.current && seedRotationKeyRef.current !== seedKey) {
-                        announceRotation("🌱 Samen-Shop hat rotiert!");
-                    }
-                    if (seedKey) seedRotationKeyRef.current = seedKey;
-                    setShopRotationIfChanged(data.shopRotation);
-                    // Persönlichen Samen-Vorrat hält der Server; hier nur Katalog/Countdown aktualisieren
-                    seedNextRotationAtRef.current = Number(data.nextRotation || data.shopRotation?.nextRotation || 0);
-
-                    if (data.toolShopRotation) {
-                        const toolKey = String(data.toolShopRotation.generatedAt || "");
-                        if (toolKey && toolRotationKeyRef.current && toolRotationKeyRef.current !== toolKey) {
-                            announceRotation("🛠️ Tool-Shop neu aufgefüllt!");
-                        }
-                        if (toolKey) toolRotationKeyRef.current = toolKey;
-                        setToolShopRotation(data.toolShopRotation);
-                        toolNextRotationAtRef.current = Number(data.nextToolRotation || data.toolShopRotation.nextRotation || 0);
-                    }
-                    if (data.eggShopRotation) {
-                        const eggKey = String(data.eggShopRotation.generatedAt || "");
-                        if (eggKey && eggRotationKeyRef.current && eggRotationKeyRef.current !== eggKey) {
-                            announceRotation("🥚 Eier-Shop hat rotiert!");
-                        }
-                        if (eggKey) eggRotationKeyRef.current = eggKey;
-                        setEggShopRotation(data.eggShopRotation);
-                        eggNextRotationAtRef.current = Number(data.nextEggRotation || data.eggShopRotation.nextRotation || 0);
-                    }
-                })
-                .catch(() => {});
-        };
-        tick();
-        const interval = setInterval(tick, 1200);
-        return () => clearInterval(interval);
-    }, [showLobbyScreen, isMultiplayer, shopCountdown, toolShopCountdown, eggShopCountdown, apiCall, announceRotation, setShopRotationIfChanged]);
+        // Nur der Wetter-TYP ist relevant — mit dem vollen Objekt wurde das Intervall
+        // während der Intensitäts-Rampe alle 120ms neu aufgesetzt.
+    }, [showLobbyScreen, weatherState?.type]);
 
     // Universal countdown from absolute next-rotation timestamps
     useEffect(() => {
@@ -1809,10 +1713,6 @@ export default function GameContainer() {
             }
             player.x = nextX;
             player.y = nextY;
-            if (isMultiplayer && currentLobbyId && socketRef.current && now - lastMoveEmitRef.current > 50) {
-                socketRef.current.emit("player_move", { x: player.x, y: player.y, facingRight: player.facingRight });
-                lastMoveEmitRef.current = now;
-            }
 
             // ── INTERACTION PROXIMITY + E/SPACE ─────────────────────────────
             let nearest = null;
@@ -1822,43 +1722,11 @@ export default function GameContainer() {
                     nearest = { ...area, dist };
                 }
             }
-            
-            // Check Mailboxes
-            for (const slot of l.slots) {
-                if (!slot.ownerId) continue;
-                const centerX = slot.x + (MAP_CONFIG.territoryWidth / 2);
-                const centerY = slot.isTopRow ? slot.anchorY - 52 : slot.anchorY + 8;
-                
-                // Calculate actual mailbox dimensions based on aspect ratio
-                const mbImg = renderer._getImage("/garden-assets/world/mailbox.png");
-                const mbWidth = 40;
-                let mbHeight = 48; // default
-                if (mbImg) {
-                    const imgRatio = mbImg.width / mbImg.height;
-                    mbHeight = mbWidth / imgRatio;
-                }
-                
-                const mbX = centerX + 90 + 20; // w/2 + 20
-                const mbY = centerY + 36 / 2 - mbHeight + 10;
-                
-                const dist = Math.hypot(player.x - (mbX + mbWidth/2), player.y - (mbY + mbHeight/2));
-                
-                slot.showMailboxPrompt = dist < INTERACT_DIST;
-                
-                if (dist < INTERACT_DIST && (!nearest || dist < nearest.dist)) {
-                    nearest = { type: "mailbox", targetId: slot.ownerId, label: "Briefkasten", dist };
-                }
-            }
-            
+
             const nearestType = nearest?.type || null;
             setCurrentInteractable(prev => (prev?.type === nearestType && prev?.targetId === nearest?.targetId ? prev : nearest));
             if (nearest && (input.wasJustPressed("e") || input.wasJustPressed(" "))) {
-                if (nearest.type === "mailbox") {
-                    setMailboxTargetId(nearest.targetId);
-                    setMailboxOpen(true);
-                } else {
-                    activateInteractable(nearest);
-                }
+                activateInteractable(nearest);
             }
 
             const ownSlot = l.slots[mySlotRef.current] || l.slots[0];
@@ -1907,21 +1775,6 @@ export default function GameContainer() {
                 }
             }
 
-            // Remote-Spieler: Interpolation zu Batch-Zielen (Server 20 Hz)
-            if (isMultiplayer) {
-                const rmap = remotePlayersRef.current;
-                const tmap = remotePlayerTargetsRef.current;
-                const lerpAm = 0.28;
-                for (const pid of Object.keys(rmap)) {
-                    const pl = rmap[pid];
-                    const tgt = tmap[pid];
-                    if (!pl || !tgt) continue;
-                    pl.x = pl.x + (tgt.x - pl.x) * lerpAm;
-                    pl.y = pl.y + (tgt.y - pl.y) * lerpAm;
-                    if (tgt.facingRight !== undefined) pl.facingRight = tgt.facingRight; // 🌟 NEU
-                }
-            }
-
             // ── RENDER ───────────────────────────────────────────────────────
             // Inject live plant data into slots
             const myPlotSlotIndex = mySlotRef.current;
@@ -1962,7 +1815,6 @@ export default function GameContainer() {
                 petPlacements: engine.petPlacements,
                 decoPlacements: engine.decoPlacements,
                 harvestFlashes: harvestFlashesRef.current,
-                remotePlayers: Object.values(remotePlayersRef.current),
                 localPlayerName: localPlayerNameRef.current,
                 playerAppearance: appearanceRef.current,
                 playerBadge: playerBadgeRef.current,
@@ -1981,7 +1833,7 @@ export default function GameContainer() {
                 }
             } catch { /* */ }
         };
-    }, [showLobbyScreen, isMultiplayer, currentLobbyId, activateInteractable]);
+    }, [showLobbyScreen, activateInteractable]);
 
     // Sync plotPlants into engine ref (avoids stale closure in game loop)
     useEffect(() => {
@@ -2037,88 +1889,19 @@ export default function GameContainer() {
         };
     }, [gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, personalShopStock, shopRotation?.generatedAt, toolShopStock, toolShopRotation?.generatedAt, eggShopStock, eggShopRotation?.generatedAt, playerAppearance, tutorialCompleted]);
 
-    const buildMpUpdateFarmBody = () => {
-        const s = farmStateRef.current;
-        return {
-            gold: s.gold,
-            harvestedItems: s.harvestedItems ?? [],
-            eggInventory: s.eggInventory ?? [],
-            petInventory: s.petInventory ?? [],
-            petPlacements: s.petPlacements ?? [],
-            decoInventory: s.decoInventory ?? [],
-            decoPlacements: s.decoPlacements ?? [],
-            incubator: s.incubator,
-            toolInventory: s.toolInventory,
-            inventoryMaxSlots: s.inventoryMaxSlots,
-            plotExpansions: s.plotExpansions,
-            plotUnlockedCells: s.plotUnlockedCells ?? [],
-            appearance: s.appearance,
-            tutorialCompleted: s.tutorialCompleted,
-        };
-    };
-
-    const postMpUpdateFarm = useCallback(() => {
-        if (!isMultiplayer || !currentLobbyId || showLobbyScreen) return;
-        apiCall(`/lobby/${currentLobbyId}/update-farm`, {
-            method: "POST",
-            body: JSON.stringify(buildMpUpdateFarmBody()),
-        }).catch(() => {});
-    }, [isMultiplayer, currentLobbyId, showLobbyScreen, apiCall]);
-
-    const postMpUpdateFarmRef = useRef(postMpUpdateFarm);
-    postMpUpdateFarmRef.current = postMpUpdateFarm;
-
-    const mpFarmDebounceTimerRef = useRef(null);
-    const schedulePostMpUpdateFarm = useCallback(() => {
-        if (mpFarmDebounceTimerRef.current) clearTimeout(mpFarmDebounceTimerRef.current);
-        mpFarmDebounceTimerRef.current = setTimeout(() => {
-            mpFarmDebounceTimerRef.current = null;
-            postMpUpdateFarmRef.current();
-        }, 280);
-    }, []);
-
-    useEffect(() => () => {
-        if (mpFarmDebounceTimerRef.current) clearTimeout(mpFarmDebounceTimerRef.current);
-    }, []);
-
-    useEffect(() => {
-        if (!isMultiplayer || !currentLobbyId || showLobbyScreen) return;
-        const id = setInterval(() => postMpUpdateFarmRef.current(), 10000);
-        return () => clearInterval(id);
-    }, [isMultiplayer, currentLobbyId, showLobbyScreen]);
-
     const debouncedSave = useCallback(() => {
-        if (isMultiplayer) return;
         clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => {
             flushFarmStateToServerRef.current?.();
         }, 500);
-    }, [isMultiplayer]);
+    }, []);
 
     useEffect(() => () => clearTimeout(saveTimeoutRef.current), []);
 
     // ── Buy seed from shop ────────────────────────────────────────────────────
     const handleBuySeed = useCallback(async (seed) => {
         if (gold < seed.shopPrice) return;
-        if (!isMultiplayer && (personalShopStock[seed.seedId] ?? 0) <= 0) return; // singleplayer guard
-        if (isMultiplayer && currentLobbyId) {
-            try {
-                const data = await apiCall(`/lobby/${currentLobbyId}/buy-seed`, {
-                    method: "POST",
-                    body: JSON.stringify({ seedId: seed.seedId }),
-                });
-                setGold(data.newGold ?? gold);
-                setInventory(data.inventory || []);
-                if (data.personalStock !== undefined) {
-                    setPersonalShopStock(prev => ({ ...prev, [seed.seedId]: data.personalStock }));
-                }
-                schedulePostMpUpdateFarm();
-            } catch (e) {
-                notify(e.message || "Kauf fehlgeschlagen", "error");
-            }
-            return;
-        }
-        // Singleplayer: check capacity before buying
+        if ((personalShopStock[seed.seedId] ?? 0) <= 0) return;
         const { inventory: inv0, harvestedItems: hi0, inventoryMaxSlots: maxSlots } = farmStateRef.current;
         if ((inv0?.length || 0) + (hi0?.length || 0) >= (maxSlots || 50)) {
             notify("🎒 Rucksack voll! Kaufe ein Upgrade im Tool-Shop.", "error");
@@ -2130,7 +1913,7 @@ export default function GameContainer() {
         setInventory(inv => [...inv, boughtSeed]);
         setSelectedSeed(prev => prev || boughtSeed);
         debouncedSave();
-    }, [gold, personalShopStock, notify, isMultiplayer, currentLobbyId, apiCall, schedulePostMpUpdateFarm, debouncedSave]);
+    }, [gold, personalShopStock, notify, debouncedSave]);
 
     // ── Plant seed in cell ────────────────────────────────────────────────────
     const handleCellClick = useCallback(async (cellX, cellY) => {
@@ -2138,32 +1921,6 @@ export default function GameContainer() {
         if (!seedToPlant) return;
         const key = `${cellX}_${cellY}`;
         if (plotPlants[key]) { notify("Diese Zelle ist bereits belegt!", "error"); return; }
-        if (plantingCellsRef.current.has(key)) return;
-        if (isMultiplayer && currentLobbyId) {
-            plantingCellsRef.current.add(key);
-            try {
-                const localPlant = createPlantInstance(seedToPlant, cellX, cellY);
-                const data = await apiCall(`/lobby/${currentLobbyId}/plant`, {
-                    method: "POST",
-                    body: JSON.stringify({ cellX, cellY, seedInstanceId: seedToPlant.instanceId, plantData: localPlant }),
-                });
-                // Use server-returned plant (has server-anchored timestamps) – don't wait for socket
-                const serverPlant = data.plant || localPlant;
-                setPlotPlants(prev => ({ ...prev, [key]: serverPlant }));
-                playSound("plant", 0.5);
-                setInventory(inv => {
-                    const next = inv.filter(s => s.instanceId !== seedToPlant.instanceId);
-                    setSelectedSeed(next.find(s => s.seedId === seedToPlant.seedId) || next[0] || null);
-                    return next;
-                });
-                schedulePostMpUpdateFarm();
-            } catch (e) {
-                notify(e.message || "Pflanzen fehlgeschlagen", "error");
-            } finally {
-                plantingCellsRef.current.delete(key);
-            }
-            return;
-        }
 
         const plant = createPlantInstance(seedToPlant, cellX, cellY);
         setPlotPlants(prev => ({ ...prev, [key]: plant }));
@@ -2175,32 +1932,11 @@ export default function GameContainer() {
             return nextInv;
         });
         debouncedSave();
-    }, [selectedSeed, inventory, plotPlants, notify, isMultiplayer, currentLobbyId, apiCall, schedulePostMpUpdateFarm, debouncedSave]);
+    }, [selectedSeed, inventory, plotPlants, notify, debouncedSave]);
 
     // ── Harvest plant ─────────────────────────────────────────────────────────
     const handleHarvest = useCallback(async (key, plant) => {
         if (!isPlantReady(plant)) return;
-        if (isMultiplayer && currentLobbyId) {
-            const [cellX, cellY] = key.split("_").map(Number);
-            try {
-                const result = await apiCall(`/lobby/${currentLobbyId}/harvest`, {
-                    method: "POST",
-                    body: JSON.stringify({ cellX, cellY }),
-                });
-                // Kein lokales setHarvestedItems/setPlotPlants: Socket (player_delta) ist die Quelle der Wahrheit
-                playSound("harvest", 0.5);
-                if (result?.harvestedItem?.specialData?.name) {
-                    const expiresAt = Date.now() + 1500;
-                    harvestFlashesRef.current = [
-                        ...harvestFlashesRef.current.filter(f => f.expiresAt > Date.now()),
-                        { cellX, cellY, specialName: result.harvestedItem.specialData.name, expiresAt },
-                    ];
-                }
-            } catch (e) {
-                notify(e.message || "Ernten fehlgeschlagen", "error");
-            }
-            return;
-        }
         const { inventory: inv0, harvestedItems: hi0, inventoryMaxSlots: maxSlots } = farmStateRef.current;
         if ((inv0?.length || 0) + (hi0?.length || 0) >= (maxSlots || 50)) {
             notify("🎒 Rucksack voll! Verkaufe erst Ernte oder kaufe ein Upgrade.", "error");
@@ -2217,6 +1953,9 @@ export default function GameContainer() {
                 { cellX, cellY, specialName: harvestResult.specialData.name, expiresAt },
             ];
         }
+        // NEU: Wetter-Statuseffekte geben jetzt echten Verkaufsbonus (vorher rein kosmetisch)
+        const WEATHER_SELL_BOOST = { wet: 1.25, frozen: 1.5, charged: 2, moonlit: 3 };
+        const weatherBoost = WEATHER_SELL_BOOST[plant.statusEffect] || 1;
         const harvestedItem = {
             id: `${plant.instanceId}_${Date.now()}`,
             seedId: plant.seedId,
@@ -2229,7 +1968,7 @@ export default function GameContainer() {
             size: harvestResult.size || plant.size || 1,
             specialData: harvestResult.specialData,
             statusEffect: plant.statusEffect || null,
-            sellValue: harvestResult.gold,
+            sellValue: Math.floor(harvestResult.gold * weatherBoost),
             harvestedAt: Date.now(),
         };
         setHarvestedItems(prev => [harvestedItem, ...prev]);
@@ -2246,7 +1985,7 @@ export default function GameContainer() {
             }));
         }
         debouncedSave();
-    }, [notify, isMultiplayer, currentLobbyId, apiCall, debouncedSave]);
+    }, [notify, debouncedSave]);
 
     const handleBuyTool = useCallback(async (tool) => {
         const toolInv = normalizeToolInventory(toolInventory);
@@ -2260,22 +1999,6 @@ export default function GameContainer() {
         if (gold < effectivePrice) return;
         if ((tool.type === "single" || tool.id === "pickaxe") && (toolShopStock[tool.id] ?? 0) <= 0) return;
         if (tool.id === "shovel" && toolInventory.hasShovel) return;
-        if (isMultiplayer && currentLobbyId) {
-            try {
-                const data = await apiCall(`/lobby/${currentLobbyId}/buy-tool`, {
-                    method: "POST",
-                    body: JSON.stringify({ toolId: tool.id }),
-                });
-                setGold(data.newGold ?? gold);
-                if (data.toolInventory) setToolInventory(normalizeToolInventory(data.toolInventory));
-                if (typeof data.inventoryMaxSlots === "number") setInventoryMaxSlots(Math.max(50, data.inventoryMaxSlots));
-                if (data.personalToolStock) setToolShopStock(data.personalToolStock);
-                schedulePostMpUpdateFarm();
-            } catch (e) {
-                notify(e.message || "Tool-Kauf fehlgeschlagen", "error");
-            }
-            return;
-        }
         setGold(g => g - effectivePrice);
         if (tool.type === "single" || tool.id === "pickaxe") {
             setToolShopStock(prev => ({ ...prev, [tool.id]: Math.max(0, (prev[tool.id] ?? 0) - 1) }));
@@ -2299,7 +2022,7 @@ export default function GameContainer() {
             return next;
         });
         debouncedSave();
-    }, [gold, notify, toolInventory, toolShopStock, isMultiplayer, currentLobbyId, apiCall, schedulePostMpUpdateFarm, debouncedSave]);
+    }, [gold, toolInventory, toolShopStock, debouncedSave]);
 
     const handleMineRock = useCallback(async (rockCell) => {
         if (!rockCell || !Number.isInteger(rockCell.cellX) || !Number.isInteger(rockCell.cellY)) return;
@@ -2312,26 +2035,6 @@ export default function GameContainer() {
             notify("Dieses Feld ist bereits freigelegt.", "error");
             return;
         }
-        if (isMultiplayer && currentLobbyId) {
-            try {
-                const data = await apiCall(`/lobby/${currentLobbyId}/mine-rock`, {
-                    method: "POST",
-                    body: JSON.stringify({ cellX: rockCell.cellX, cellY: rockCell.cellY }),
-                });
-                if (typeof data.plotExpansions === "number") {
-                    setPlotExpansions(Math.max(0, Math.min(MAX_PLOT_EXPANSIONS, data.plotExpansions)));
-                }
-                if (Array.isArray(data.plotUnlockedCells)) {
-                    setPlotUnlockedCells(normalizePlotUnlockedCells(data.plotUnlockedCells));
-                }
-                if (data.toolInventory) setToolInventory(normalizeToolInventory(data.toolInventory));
-                notify("Steinschicht entfernt! Neue Acker-Reihen freigeschaltet.");
-                schedulePostMpUpdateFarm();
-            } catch (e) {
-                notify(e.message || "Steinabbau fehlgeschlagen", "error");
-            }
-            return;
-        }
         setToolInventory(prev => ({ ...normalizeToolInventory(prev), pickaxeUses: Math.max(0, (prev.pickaxeUses || 0) - 1) }));
         setPlotUnlockedCells(prev => {
             const next = normalizePlotUnlockedCells([...prev, key]);
@@ -2340,7 +2043,7 @@ export default function GameContainer() {
         });
         notify(`Steinschicht entfernt! Neue Acker-Reihen freigeschaltet. ⛏️ (${Math.max(0, (toolInventory.pickaxeUses || 0) - 1)} Uses übrig)`);
         debouncedSave();
-    }, [isMultiplayer, currentLobbyId, notify, plotUnlockedCells, toolInventory.pickaxeUses, apiCall, schedulePostMpUpdateFarm, debouncedSave]);
+    }, [notify, plotUnlockedCells, toolInventory.pickaxeUses, debouncedSave]);
 
     const handleWaterPlant = useCallback(async (cellX, cellY) => {
         const key = `${cellX}_${cellY}`;
@@ -2352,23 +2055,6 @@ export default function GameContainer() {
         }
         if ((toolInventory.wateringCans || 0) <= 0) {
             notify("Keine Gießkanne mehr verfügbar.", "error");
-            return;
-        }
-        if (isMultiplayer && currentLobbyId) {
-            try {
-                const data = await apiCall(`/lobby/${currentLobbyId}/water-plant`, {
-                    method: "POST",
-                    body: JSON.stringify({ cellX, cellY }),
-                });
-                if (data.updatedPlant) {
-                    setPlotPlants(prev => ({ ...prev, [key]: data.updatedPlant }));
-                }
-                if (data.toolInventory) setToolInventory(normalizeToolInventory(data.toolInventory));
-                notify("Pflanze gewässert: -5 Minuten Wachstum.");
-                schedulePostMpUpdateFarm();
-            } catch (e) {
-                notify(e.message || "Wässern fehlgeschlagen", "error");
-            }
             return;
         }
         setToolInventory(prev => ({ ...normalizeToolInventory(prev), wateringCans: Math.max(0, (prev.wateringCans || 0) - 1) }));
@@ -2390,7 +2076,8 @@ export default function GameContainer() {
             return next;
         });
         notify("Pflanze gewässert: -5 Minuten Wachstum.");
-    }, [plotPlants, toolInventory.wateringCans, notify, isMultiplayer, currentLobbyId, apiCall, schedulePostMpUpdateFarm]);
+        debouncedSave();
+    }, [plotPlants, toolInventory.wateringCans, notify, debouncedSave]);
 
     const handleMovePlantWithPot = useCallback(async (targetX, targetY) => {
         if ((toolInventory.plantPots || 0) <= 0) {
@@ -2413,30 +2100,6 @@ export default function GameContainer() {
             notify("Zielfeld ist bereits belegt.", "error");
             return;
         }
-        const [fromX, fromY] = movingPlantSource.split("_").map(Number);
-        if (isMultiplayer && currentLobbyId) {
-            try {
-                const data = await apiCall(`/lobby/${currentLobbyId}/move-plant`, {
-                    method: "POST",
-                    body: JSON.stringify({ fromX, fromY, toX: targetX, toY: targetY }),
-                });
-                if (data.movedPlant) {
-                    setPlotPlants(prev => {
-                        const next = { ...prev };
-                        delete next[data.fromKey || movingPlantSource];
-                        next[data.toKey || targetKey] = data.movedPlant;
-                        return next;
-                    });
-                }
-                if (data.toolInventory) setToolInventory(normalizeToolInventory(data.toolInventory));
-                setMovingPlantSource(null);
-                notify("Pflanze erfolgreich umgesetzt.");
-                schedulePostMpUpdateFarm();
-            } catch (e) {
-                notify(e.message || "Pflanze bewegen fehlgeschlagen", "error");
-            }
-            return;
-        }
         setPlotPlants(prev => {
             const src = prev[movingPlantSource];
             if (!src) return prev;
@@ -2448,31 +2111,16 @@ export default function GameContainer() {
         setToolInventory(prev => ({ ...normalizeToolInventory(prev), plantPots: Math.max(0, (prev.plantPots || 0) - 1) }));
         setMovingPlantSource(null);
         notify("Pflanze erfolgreich umgesetzt.");
-    }, [toolInventory.plantPots, movingPlantSource, plotPlants, notify, isMultiplayer, currentLobbyId, apiCall, schedulePostMpUpdateFarm]);
+    }, [toolInventory.plantPots, movingPlantSource, plotPlants, notify]);
 
     const handleBuyEgg = useCallback(async (egg) => {
         if (gold < egg.price) return;
         if ((eggShopStock[egg.id] ?? 0) <= 0) return;
-        if (isMultiplayer && currentLobbyId) {
-            try {
-                const data = await apiCall(`/lobby/${currentLobbyId}/buy-egg`, {
-                    method: "POST",
-                    body: JSON.stringify({ eggId: egg.id }),
-                });
-                setGold(data.newGold ?? gold);
-                if (Array.isArray(data.eggInventory)) setEggInventory(data.eggInventory);
-                if (data.personalEggStock) setEggShopStock(data.personalEggStock);
-                schedulePostMpUpdateFarm();
-            } catch (e) {
-                notify(e.message || "Ei-Kauf fehlgeschlagen", "error");
-            }
-            return;
-        }
         setGold(g => g - egg.price);
         setEggInventory(prev => [...prev, { ...egg, instanceId: Math.random().toString(36).slice(2) }]);
         setEggShopStock(prev => ({ ...prev, [egg.id]: Math.max(0, (prev[egg.id] ?? 0) - 1) }));
         debouncedSave();
-    }, [gold, notify, eggShopStock, isMultiplayer, currentLobbyId, apiCall, schedulePostMpUpdateFarm, debouncedSave]);
+    }, [gold, eggShopStock, debouncedSave]);
 
     const handleBuyDeco = useCallback((deco) => {
         if (!deco) return;
@@ -2492,9 +2140,8 @@ export default function GameContainer() {
         setSelectedTool(null);
         setSelectedCarryItem(null);
         setSelectedPetToPlace(null);
-        if (isMultiplayer) schedulePostMpUpdateFarm();
         debouncedSave();
-    }, [gold, notify, selectedDecoToPlace, isMultiplayer, schedulePostMpUpdateFarm, debouncedSave]);
+    }, [gold, notify, selectedDecoToPlace, debouncedSave]);
 
     const unlockIncubatorSlot = useCallback(() => {
         const nextSlot = incubator.unlockedSlots; // 0-indexed: current = unlockedSlots-1, next = unlockedSlots
@@ -2504,9 +2151,8 @@ export default function GameContainer() {
         setGold(g => g - cost);
         setIncubator(prev => ({ ...prev, unlockedSlots: prev.unlockedSlots + 1 }));
         notify(`Inkubator-Slot ${nextSlot + 1} freigeschaltet!`);
-        if (isMultiplayer) schedulePostMpUpdateFarm();
         debouncedSave();
-    }, [incubator.unlockedSlots, gold, notify, isMultiplayer, schedulePostMpUpdateFarm, debouncedSave]);
+    }, [incubator.unlockedSlots, gold, notify, debouncedSave]);
 
     const placeEggInIncubator = useCallback((slotIndex, eggInstanceId) => {
         if (!eggInventory.length || slotIndex >= incubator.unlockedSlots) return;
@@ -2514,20 +2160,28 @@ export default function GameContainer() {
         const chosen = eggInventory.find(e => e.instanceId === eggInstanceId) || eggInventory[0];
         if (!chosen) return;
         const hatchResult = rollHatchResult(chosen);
+        // Balancing: Brutzeit skaliert mit Rarity (vorher pauschal 5min für alles)
+        const hatchTimeByRarity = {
+            COMMON: 2 * 60 * 1000,
+            UNCOMMON: 5 * 60 * 1000,
+            RARE: 15 * 60 * 1000,
+            EPIC: 45 * 60 * 1000,
+            LEGENDARY: 2 * 60 * 60 * 1000,
+        };
+        const hatchMs = hatchTimeByRarity[chosen.rarity] || 5 * 60 * 1000;
         setEggInventory(prev => prev.filter(e => e.instanceId !== chosen.instanceId));
         setIncubator(prev => {
             const slots = [...prev.slots];
             slots[slotIndex] = {
                 egg: chosen,
                 startedAt: Date.now(),
-                hatchAt: Date.now() + 5 * 60 * 1000,
+                hatchAt: Date.now() + hatchMs,
                 hatchResult,
             };
             return { ...prev, slots };
         });
         setIncubatorTargetSlot(null);
-        if (isMultiplayer) schedulePostMpUpdateFarm();
-    }, [eggInventory, incubator, isMultiplayer, schedulePostMpUpdateFarm]);
+    }, [eggInventory, incubator]);
 
     const collectHatchedEgg = useCallback((slotIndex) => {
         const slot = incubator.slots[slotIndex];
@@ -2554,8 +2208,7 @@ export default function GameContainer() {
         setPetInventory(current => [...current, hatchedPet]);
 
         debouncedSave();
-        if (isMultiplayer) schedulePostMpUpdateFarm();
-    }, [incubator, isMultiplayer, schedulePostMpUpdateFarm, debouncedSave]);
+    }, [incubator, debouncedSave]);
 
     // Planting click handler on canvas
     useEffect(() => {
@@ -2663,7 +2316,6 @@ export default function GameContainer() {
                     return next;
                 });
                 notify(`${selectedDecoToPlace.emoji || "🪴"} ${selectedDecoToPlace.name} platziert.`);
-                if (isMultiplayer) schedulePostMpUpdateFarm();
                 return;
             }
             if (selectedPetToPlace) {
@@ -2704,7 +2356,6 @@ export default function GameContainer() {
                 ]));
                 setSelectedPetToPlace(null);
                 notify(`${selectedPetToPlace.emoji || "🐾"} ${selectedPetToPlace.name} platziert.`);
-                if (isMultiplayer) schedulePostMpUpdateFarm();
                 return;
             }
             if (!selectedTool || selectedTool === "shovel") {
@@ -2724,7 +2375,6 @@ export default function GameContainer() {
                         _type: "pet",
                     }]);
                     notify(`${pet.emoji || "🐾"} aufgehoben.`);
-                    if (isMultiplayer) schedulePostMpUpdateFarm();
                     return;
                 }
 
@@ -2745,7 +2395,6 @@ export default function GameContainer() {
                         _type: "deco",
                     }]);
                     notify(`${deco.emoji || "🪴"} aufgehoben.`);
-                    if (isMultiplayer) schedulePostMpUpdateFarm();
                     return;
                 }
             }
@@ -2812,7 +2461,6 @@ export default function GameContainer() {
             const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
             const hovered = getHoveredCell(mySlot, worldX, worldY);
             if (hovered) {
-                setRemoteHoverInfo(null);
                 const key = `${hovered.cellX}_${hovered.cellY}`;
                 const plant = plotPlants[key];
                 if (plant) {
@@ -2823,22 +2471,6 @@ export default function GameContainer() {
                 return;
             }
             setHoverInfo(null);
-
-            // Check remote slots for hover.
-            for (let si = 0; si < layout.current.slots.length; si++) {
-                if (si === mySlotRef.current) continue;
-                const rSlot = layout.current.slots[si];
-                if (!rSlot?.plants) continue;
-                const rHovered = getHoveredCell(rSlot, worldX, worldY);
-                if (!rHovered) continue;
-                const rKey = `${rHovered.cellX}_${rHovered.cellY}`;
-                const rPlant = rSlot.plants[rKey];
-                if (rPlant) {
-                    setRemoteHoverInfo({ x: clientXLocal, y: clientYLocal, key: rKey, slotOwner: rSlot.owner || "?", slotIndex: si, plant: rPlant });
-                    return;
-                }
-            }
-            setRemoteHoverInfo(null);
         };
 
         const onCanvasMouseDown = (e) => {
@@ -2858,30 +2490,12 @@ export default function GameContainer() {
                     setShovelHoldState({ active: true, progress });
                 }, 33);
                 shovelHoldTimerRef.current = setTimeout(async () => {
-                    if (isMultiplayer && currentLobbyId) {
-                        try {
-                            await apiCall(`/lobby/${currentLobbyId}/remove-plant`, {
-                                method: "POST",
-                                body: JSON.stringify({ cellX: hovered.cellX, cellY: hovered.cellY }),
-                            });
-                            setPlotPlants(prev => {
-                                const next = { ...prev };
-                                delete next[key];
-                                return next;
-                            });
-                            notify("Pflanze entfernt.");
-                            schedulePostMpUpdateFarm();
-                        } catch (err) {
-                            notify(err.message || "Entfernen fehlgeschlagen", "error");
-                        }
-                    } else {
-                        setPlotPlants(prev => {
-                            const next = { ...prev };
-                            delete next[key];
-                            return next;
-                        });
-                        notify("Pflanze entfernt.");
-                    }
+                    setPlotPlants(prev => {
+                        const next = { ...prev };
+                        delete next[key];
+                        return next;
+                    });
+                    notify("Pflanze entfernt.");
                     if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
                     setShovelHoldState({ active: false, progress: 0 });
                 }, 900);
@@ -2924,486 +2538,12 @@ export default function GameContainer() {
             canvas.removeEventListener("mouseup", stopShovelHold);
             stopShovelHold();
         };
-    }, [showLobbyScreen, handleCellClick, handleHarvest, handleMineRock, handleMovePlantWithPot, handleWaterPlant, notify, plotPlants, selectedTool, selectedPetToPlace, selectedDecoToPlace, decoPlacements, isMultiplayer, currentLobbyId, apiCall, schedulePostMpUpdateFarm]);
+    }, [showLobbyScreen, handleCellClick, handleHarvest, handleMineRock, handleMovePlantWithPot, handleWaterPlant, notify, plotPlants, selectedTool, selectedPetToPlace, selectedDecoToPlace, decoPlacements]);
 
     useEffect(() => {
         mySlotRef.current = mySlotIndex;
     }, [mySlotIndex]);
 
-    useEffect(() => {
-        if (!showLobbyScreen || lobbyMode !== "multi") return;
-        loadPublicLobbies();
-    }, [showLobbyScreen, lobbyMode, loadPublicLobbies]);
-
-    useEffect(() => {
-        if (!isMultiplayer || !currentLobbyId || showLobbyScreen) return;
-
-        let socket = null;
-        let cancelled = false;
-        const lobbyId = currentLobbyId;
-
-        (async () => {
-            let userId;
-            let userName;
-            try {
-                const me = await apiCall("/whoami");
-                if (cancelled) return;
-                userId = String(me.userId);
-                userName = (me.login && String(me.login)) || "Gast";
-            } catch (e) {
-                if (!cancelled) {
-                    notify(e?.message || "Garden: Sitzung unbekannt (bitte Seite neu laden).", "error");
-                    worldBootKindRef.current = null;
-                    setWorldBootState({ active: false, label: "", progress: 0 });
-                }
-                return;
-            }
-            if (cancelled) return;
-
-            socket = io(socketServerUrl ?? window.location.origin, {
-                path: "/socket.io",
-                withCredentials: true,
-                reconnection: true,
-                reconnectionDelay: 1000,
-                reconnectionDelayMax: 16000,
-                reconnectionAttempts: Infinity,
-            });
-            socketRef.current = socket;
-            if (cancelled) {
-                try { socket.disconnect(); } catch { /* */ }
-                return;
-            }
-
-            const rejoinLobby = () => {
-                if (cancelled) return;
-                socket.emit("join_garden_lobby", { lobbyId, userId, userName });
-            };
-
-            socket.on("connect", rejoinLobby);
-            socket.on("connect_error", (err) => {
-                if (import.meta.env?.DEV) console.warn("[garden] socket connect_error (retry)", err?.message || err);
-            });
-
-            socket.on("host_changed", ({ hostId }) => {
-                setLobbyHostId(hostId);
-                notify("Der Host hat die Lobby verlassen. Ein neuer Host wurde gewählt!", "info");
-            });
-
-            socket.on("lobby_joined", ({ lobby, mySlotIndex: slot, myPlayer, personalShopStock: pss, personalToolStock: pts, personalEggStock: pes }) => {
-            if (lobby?.hostId) setLobbyHostId(lobby.hostId);
-            if (lobby?.maxPlayers) {
-                layout.current = generatePlotSlots(lobby.maxPlayers);
-                updateAreaPositions(layout.current);
-            }
-            const s = slot ?? 0;
-            setMySlotIndex(s);
-            mySlotRef.current = s;
-            setGold(myPlayer?.gold ?? 500);
-            setInventory(myPlayer?.inventory || []);
-            if (Array.isArray(myPlayer?.harvestedItems)) setHarvestedItems(myPlayer.harvestedItems);
-            if (Array.isArray(myPlayer?.eggInventory)) setEggInventory(myPlayer.eggInventory);
-            if (Array.isArray(myPlayer?.petInventory)) setPetInventory(myPlayer.petInventory);
-            if (Array.isArray(myPlayer?.petPlacements)) setPetPlacements(myPlayer.petPlacements);
-            if (Array.isArray(myPlayer?.decoInventory)) setDecoInventory(myPlayer.decoInventory);
-            if (Array.isArray(myPlayer?.decoPlacements)) setDecoPlacements(myPlayer.decoPlacements);
-            if (myPlayer?.toolInventory) setToolInventory(normalizeToolInventory(myPlayer.toolInventory));
-            if (typeof myPlayer?.inventoryMaxSlots === "number") setInventoryMaxSlots(Math.max(50, myPlayer.inventoryMaxSlots));
-            if (myPlayer?.incubator) setIncubator(myPlayer.incubator);
-            if (myPlayer?.appearance) setPlayerAppearance(myPlayer.appearance);
-            if (typeof myPlayer?.tutorialCompleted === "boolean") setTutorialCompleted(myPlayer.tutorialCompleted);
-            if (Array.isArray(myPlayer?.mailbox)) setMailbox(myPlayer.mailbox);
-            setShopRotationIfChanged(lobby?.shopRotation || null);
-            if (lobby?.shopRotation?.generatedAt) seedRotationKeyRef.current = String(lobby.shopRotation.generatedAt);
-            const seedNext = lobby?.shopNextRotation || lobby?.shopRotation?.nextRotation;
-            if (seedNext) {
-                seedNextRotationAtRef.current = Number(seedNext);
-                setShopCountdown(Math.max(0, seedNext - Date.now()));
-            }
-            if (lobby?.toolShopRotation) setToolShopRotation(lobby.toolShopRotation);
-            if (lobby?.toolShopRotation?.generatedAt) toolRotationKeyRef.current = String(lobby.toolShopRotation.generatedAt);
-            const toolNext = lobby?.toolShopNextRotation || lobby?.toolShopRotation?.nextRotation;
-            if (toolNext) {
-                toolNextRotationAtRef.current = Number(toolNext);
-                setToolShopCountdown(Math.max(0, toolNext - Date.now()));
-            }
-            if (lobby?.eggShopRotation) setEggShopRotation(lobby.eggShopRotation);
-            if (lobby?.eggShopRotation?.generatedAt) eggRotationKeyRef.current = String(lobby.eggShopRotation.generatedAt);
-            const eggNext = lobby?.eggShopNextRotation || lobby?.eggShopRotation?.nextRotation;
-            if (eggNext) {
-                eggNextRotationAtRef.current = Number(eggNext);
-                setEggShopCountdown(Math.max(0, eggNext - Date.now()));
-            }
-            if (pss && typeof pss === "object" && Object.keys(pss).length > 0) setPersonalShopStock(pss);
-            else if (lobby?.shopRotation) initPersonalStock(lobby.shopRotation);
-            if (pts && typeof pts === "object" && Object.keys(pts).length > 0) setToolShopStock(pts);
-            else if (lobby?.toolShopRotation?.items) {
-                const stock = {};
-                for (const item of lobby.toolShopRotation.items) {
-                    if (item.type === "single" || item.id === "pickaxe") stock[item.id] = item.stock || 0;
-                }
-                setToolShopStock(stock);
-            }
-            if (pes && typeof pes === "object" && Object.keys(pes).length > 0) setEggShopStock(pes);
-            else if (lobby?.eggShopRotation?.items) {
-                const stock = {};
-                for (const item of lobby.eggShopRotation.items) {
-                    stock[item.id] = item.stock || 0;
-                }
-                setEggShopStock(stock);
-            }
-            const ownPlot = lobby?.plots?.[s];
-            if (lobby?.plots) {
-                lobby.plots.forEach((p, idx) => {
-                    if (layout.current.slots[idx]) {
-                        layout.current.slots[idx].owner = p.ownerName || null;
-                        layout.current.slots[idx].ownerId = p.ownerId || null;
-                        layout.current.slots[idx].plants = normalizePlotPlantsMap(p.plants || {});
-                        layout.current.slots[idx].unlockedCells = normalizePlotUnlockedCells(p.unlockedCells || []);
-                        layout.current.slots[idx].currentExpansions = Math.min(MAX_PLOT_EXPANSIONS, Math.ceil(layout.current.slots[idx].unlockedCells.length / BASE_DIRT_COLS));
-                    }
-                });
-            }
-            setPlotPlants(normalizePlotPlantsMap(ownPlot?.plants || {}));
-            const unlocked = resolvePlotUnlockedCells(
-                { plotUnlockedCells: ownPlot?.unlockedCells, plotExpansions: ownPlot?.expansions },
-                (typeof ownPlot?.isTopRow === "boolean" ? ownPlot.isTopRow : s < 4)
-            );
-            setPlotUnlockedCells(unlocked);
-            setPlotExpansions(Math.min(MAX_PLOT_EXPANSIONS, Math.ceil(unlocked.length / BASE_DIRT_COLS)));
-
-            const others = {};
-            for (const [pid, pl] of Object.entries(lobby?.players || {})) {
-                if (pid === userId) continue;
-                if (!pl) continue;
-                others[pid] = {
-                    userId: pid,
-                    name: pl.name || "Spieler",
-                    x: Number(pl.x) || 0,
-                    y: Number(pl.y) || 0,
-                    // 🌟 NEU: Aussehen und Items der anderen mitladen!
-                    appearance: pl.appearance,
-                    tool: pl.tool,
-                    heldItem: pl.heldItem
-                };
-            }
-            remotePlayersRef.current = others;
-            setRemotePlayersList(Object.values(others));
-            const tgt = {};
-            for (const [pid, o] of Object.entries(others)) {
-                tgt[pid] = { x: o.x, y: o.y };
-            }
-            remotePlayerTargetsRef.current = tgt;
-
-            markWorldBootDataReady("multi");
-        });
-
-        socket.on("player_joined", ({ player: joined, plots }) => {
-            if (plots) {
-                plots.forEach((p, idx) => {
-                    if (layout.current.slots[idx]) {
-                        layout.current.slots[idx].owner = p.ownerName || null;
-                        layout.current.slots[idx].ownerId = p.ownerId || null;
-                        layout.current.slots[idx].plants = normalizePlotPlantsMap(p.plants || {});
-                        layout.current.slots[idx].unlockedCells = normalizePlotUnlockedCells(p.unlockedCells || []);
-                        layout.current.slots[idx].currentExpansions = Math.min(MAX_PLOT_EXPANSIONS, Math.ceil(layout.current.slots[idx].unlockedCells.length / BASE_DIRT_COLS));
-                    }
-                });
-            }
-            if (!joined || String(joined.id) === userId) return;
-            const pid = String(joined.id);
-            const jx = Number(joined.x) || 0;
-            const jy = Number(joined.y) || 0;
-            remotePlayersRef.current = {
-                ...remotePlayersRef.current,
-                [pid]: {
-                    userId: pid,
-                    name: joined.name || "Spieler",
-                    x: jx,
-                    y: jy,
-                    // 🌟 NEU: Aussehen und Items vom neuen Spieler laden!
-                    appearance: joined.appearance,
-                    tool: joined.tool,
-                    heldItem: joined.heldItem,
-                    badge: joined.badge || null,
-                },
-            };
-            remotePlayerTargetsRef.current[pid] = { x: jx, y: jy };
-            setRemotePlayersList(Object.values(remotePlayersRef.current));
-        });
-
-        socket.on("player_moved", ({ userId: uid, x, y }) => {
-            if (!uid || String(uid) === userId) return;
-            const pid = String(uid);
-            const prev = remotePlayersRef.current[pid] || { userId: pid, name: "Spieler", x: 0, y: 0 };
-            const nx = Number(x) || prev.x;
-            const ny = Number(y) || prev.y;
-            remotePlayersRef.current = {
-                ...remotePlayersRef.current,
-                [pid]: { ...prev, x: nx, y: ny },
-            };
-            remotePlayerTargetsRef.current[pid] = { x: nx, y: ny };
-        });
-
-        socket.on("players_batch_moved", (batch) => {
-            if (!Array.isArray(batch)) return;
-            
-            for (const u of batch) {
-                const uid = u?.userId != null ? String(u.userId) : "";
-                
-                // Uns selbst ignorieren wir (die Eigendynamik berechnen wir lokal flüssiger)
-                if (!uid || uid === userId) continue;
-                
-                const tx = Number(u.x);
-                const ty = Number(u.y);
-                if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue;
-                
-                const isFacingRight = u.facingRight !== undefined ? u.facingRight : true;
-                
-                // Falls der Spieler (aus welchem Grund auch immer) noch nicht im Speicher ist
-                if (!remotePlayersRef.current[uid]) {
-                    remotePlayersRef.current[uid] = { 
-                        userId: uid, 
-                        name: "Spieler", 
-                        x: tx, 
-                        y: ty, 
-                        facingRight: isFacingRight 
-                    };
-                }
-
-                // 1. Ziel-Koordinaten für die flüssige Interpolation setzen
-                remotePlayerTargetsRef.current[uid] = { x: tx, y: ty };
-                
-                // 2. 🌟 WICHTIG FÜR DIE OPTIK: Animations-Trigger und Blickrichtung direkt setzen!
-                remotePlayersRef.current[uid].facingRight = isFacingRight;
-                remotePlayersRef.current[uid].isMoving = true;
-            }
-        });
-
-        socket.on("player_left", ({ userId: uid, plots, kicked }) => {
-            // 1. 🌟 NEU: Bin ICH die Person, die die Lobby verlassen hat / gekickt wurde?
-            if (String(uid) === userId) {
-                notify(kicked ? "Du wurdest vom Host gekickt." : "Deine Verbindung zur Lobby wurde getrennt.", "error");
-                setShowLobbyScreen(true);
-                setCurrentLobbyId(null);
-                setIsMultiplayer(false);
-                socket.disconnect();
-                return; // GANZ WICHTIG: Hier abbrechen, restlicher Code betrifft nur andere Spieler
-            }
-
-            // 2. BEWÄHRT: Plots aktualisieren (Grundstücke vom gegangenen Spieler leeren)
-            if (plots) {
-                plots.forEach((p, idx) => {
-                    if (layout.current.slots[idx]) {
-                        layout.current.slots[idx].owner = p.ownerName || null;
-                        layout.current.slots[idx].ownerId = p.ownerId || null;
-                        layout.current.slots[idx].plants = normalizePlotPlantsMap(p.plants || {});
-                        layout.current.slots[idx].unlockedCells = normalizePlotUnlockedCells(p.unlockedCells || []);
-                        layout.current.slots[idx].currentExpansions = Math.min(MAX_PLOT_EXPANSIONS, Math.ceil(layout.current.slots[idx].unlockedCells.length / BASE_DIRT_COLS));
-                    }
-                });
-            }
-
-            // 3. BEWÄHRT: Avatar des gegangenen Spielers aus der Welt löschen
-            if (!uid) return;
-            const pid = String(uid);
-            
-            const next = { ...remotePlayersRef.current };
-            delete next[pid];
-            remotePlayersRef.current = next;
-            setRemotePlayersList(Object.values(next));
-            
-            
-            const nt = { ...remotePlayerTargetsRef.current };
-            delete nt[pid];
-            remotePlayerTargetsRef.current = nt;
-        });
-
-        socket.on("player_state_updated", ({ userId: uid, tool, heldItem, appearance, badge }) => {
-            if (!uid || String(uid) === userId) return;
-            const pid = String(uid);
-            if (remotePlayersRef.current[pid]) {
-                remotePlayersRef.current[pid] = {
-                    ...remotePlayersRef.current[pid],
-                    tool,
-                    heldItem,
-                    appearance,
-                    badge: badge || null,
-                };
-            }
-        });
-
-        // Delta plot update: { slotIndex, key, plant } — plant is null when removed
-        socket.on("plot_updated", ({ slotIndex, key, plant }) => {
-            if (layout.current.slots[slotIndex]) {
-                if (plant === null) delete layout.current.slots[slotIndex].plants[key];
-                else layout.current.slots[slotIndex].plants[key] = hydratePlantVisuals(plant) || plant;
-            }
-            if (slotIndex !== mySlotRef.current) return;
-            markWorldBootDataReady("multi");
-            if (key !== undefined) {
-                // Single-cell delta
-                setPlotPlants(prev => {
-                    const next = { ...prev };
-                    if (plant === null) delete next[key];
-                    else next[key] = hydratePlantVisuals(plant) || plant;
-                    return next;
-                });
-            }
-        });
-
-        socket.on("plot_expanded", ({ slotIndex, expansions, unlockedCells }) => {
-            if (layout.current.slots[slotIndex]) {
-                if (Array.isArray(unlockedCells)) layout.current.slots[slotIndex].unlockedCells = normalizePlotUnlockedCells(unlockedCells);
-                if (typeof expansions === "number") layout.current.slots[slotIndex].currentExpansions = Math.max(0, Math.min(MAX_PLOT_EXPANSIONS, expansions));
-            }
-            if (slotIndex !== mySlotRef.current) return;
-            if (Array.isArray(unlockedCells)) {
-                const nextUnlocked = normalizePlotUnlockedCells(unlockedCells);
-                setPlotUnlockedCells(nextUnlocked);
-                setPlotExpansions(Math.min(MAX_PLOT_EXPANSIONS, Math.ceil(nextUnlocked.length / BASE_DIRT_COLS)));
-                return;
-            }
-            if (typeof expansions === "number") {
-                setPlotExpansions(Math.max(0, Math.min(MAX_PLOT_EXPANSIONS, expansions)));
-            }
-        });
-
-        // Delta player update: { userId, gold?, harvestedItems?, ... }
-        socket.on("player_delta", ({ userId: uid, gold: g, inventory: inv, harvestedItems: hi, eggInventory: ei, petInventory: pi, petPlacements: pp, decoInventory: di, decoPlacements: dp, toolInventory: ti, inventoryMaxSlots: ims, mailbox: mb }) => {
-            if (uid !== userId) return;
-            markWorldBootDataReady("multi");
-            if (g !== undefined) setGold(g);
-            if (Array.isArray(inv)) setInventory(inv);
-            if (Array.isArray(hi)) setHarvestedItems(hi);
-            if (Array.isArray(ei)) setEggInventory(ei);
-            if (Array.isArray(pi)) setPetInventory(pi);
-            if (Array.isArray(pp)) setPetPlacements(pp);
-            if (Array.isArray(di)) setDecoInventory(di);
-            if (Array.isArray(dp)) setDecoPlacements(dp);
-            if (ti && typeof ti === "object") setToolInventory(normalizeToolInventory(ti));
-            if (typeof ims === "number") setInventoryMaxSlots(Math.max(50, ims));
-            if (Array.isArray(mb)) setMailbox(mb);
-        });
-
-        socket.on("shop_rotated", ({ shopRotation: sr, nextRotation, personalShopStock: pss, forUserId }) => {
-            markWorldBootDataReady("multi");
-            setShopRotationIfChanged(sr || null);
-            const seedNext = nextRotation || sr?.nextRotation;
-            if (seedNext) {
-                seedNextRotationAtRef.current = Number(seedNext);
-                setShopCountdown(Math.max(0, seedNext - Date.now()));
-            }
-            if (forUserId === userId && pss) setPersonalShopStock(pss);
-            else if (!forUserId && sr) initPersonalStock(sr);
-            // Update ref BEFORE announcing so the MP poll won't trigger a second announcement
-            const seedKey = String(sr?.generatedAt || "");
-            const isNewSeed = seedKey && seedRotationKeyRef.current !== seedKey;
-            if (seedKey) seedRotationKeyRef.current = seedKey;
-            if (isNewSeed) announceRotation("🌱 Samen-Shop hat rotiert!");
-        });
-        socket.on("shop_updated", ({ shopRotation: sr, nextRotation }) => {
-            markWorldBootDataReady("multi");
-            setShopRotationIfChanged(sr || null);
-            const seedNext = nextRotation || sr?.nextRotation;
-            if (seedNext) {
-                seedNextRotationAtRef.current = Number(seedNext);
-                setShopCountdown(Math.max(0, seedNext - Date.now()));
-            }
-            if (sr) initPersonalStock(sr);
-            const seedKey = String(sr?.generatedAt || "");
-            if (seedKey) seedRotationKeyRef.current = seedKey;
-        });
-        socket.on("tool_shop_rotated", ({ toolShopRotation: tr, nextRotation, personalToolStock: pts, forUserId }) => {
-            markWorldBootDataReady("multi");
-            setToolShopRotation(tr || null);
-            const toolNext = nextRotation || tr?.nextRotation;
-            if (toolNext) {
-                toolNextRotationAtRef.current = Number(toolNext);
-                setToolShopCountdown(Math.max(0, toolNext - Date.now()));
-            }
-            if (forUserId === userId && pts) setToolShopStock(pts);
-            const toolKey = String(tr?.generatedAt || "");
-            const isNewTool = toolKey && toolRotationKeyRef.current !== toolKey;
-            if (toolKey) toolRotationKeyRef.current = toolKey;
-            if (isNewTool) announceRotation("🛠️ Tool-Shop neu aufgefüllt!");
-        });
-        socket.on("egg_shop_rotated", ({ eggShopRotation: er, nextRotation, personalEggStock: pes, forUserId }) => {
-            markWorldBootDataReady("multi");
-            setEggShopRotation(er || null);
-            const eggNext = nextRotation || er?.nextRotation;
-            if (eggNext) {
-                eggNextRotationAtRef.current = Number(eggNext);
-                setEggShopCountdown(Math.max(0, eggNext - Date.now()));
-            }
-            if (forUserId === userId && pes) setEggShopStock(pes);
-            const eggKey = String(er?.generatedAt || "");
-            const isNewEgg = eggKey && eggRotationKeyRef.current !== eggKey;
-            if (eggKey) eggRotationKeyRef.current = eggKey;
-            if (isNewEgg) announceRotation("🥚 Eier-Shop hat rotiert!");
-        });
-
-        socket.on("garden_error", ({ message }) => {
-            notify(message || "Server-Fehler", "error");
-            
-            // Deine bestehende Logik für den Boot-State
-            worldBootTokenRef.current += 1;
-            worldBootKindRef.current = null;
-            setWorldBootState((prev) => (prev.active ? { active: false, label: "", progress: 0 } : prev));
-
-            // FIX: Wenn man gekickt wurde ODER die Lobby nicht mehr existiert, 
-            // muss man zurück ins Menü, um 404-Fehler zu vermeiden.
-            const isFatal = message && (
-                message.includes("gekickt") || 
-                message.includes("nicht gefunden") || 
-                message.includes("voll")
-            );
-
-            if (isFatal) {
-                setShowLobbyScreen(true);
-                setCurrentLobbyId(null);
-                setIsMultiplayer(false);
-                socket.disconnect();
-            }
-        });
-
-        socket.on("disconnect", (reason) => {
-            console.warn("Socket Disconnect:", reason);
-            
-            // Wir werfen dich NUR aus dem Menü, wenn du absichtlich gehst ("client disconnect")
-            // oder wenn der Server dich aktiv rauswirft ("server disconnect").
-            if (reason === "io server disconnect" || reason === "io client disconnect") {
-                setIsMultiplayer(false);
-                setCurrentLobbyId(null);
-                setShowLobbyScreen(true);
-            } else {
-                // Bei "ping timeout" oder Tab-Standby: Nur warnen, nicht kicken! Socket.io repariert das gleich selbst.
-                notify("Verbindung instabil... (Tab im Standby?)", "warning");
-            }
-        });
-        })();
-
-        return () => {
-            cancelled = true;
-            remotePlayersRef.current = {};
-            remotePlayerTargetsRef.current = {};
-            if (socket) {
-                try {
-                    socket.emit("leave_garden_lobby");
-                } catch { /* */ }
-                try {
-                    const blob = new Blob(
-                        [JSON.stringify({ state: farmStateRef.current })],
-                        { type: "application/json" }
-                    );
-                    navigator.sendBeacon("/api/garden/farm-state-beacon", blob);
-                } catch { /* ignore */ }
-                try {
-                    socket.disconnect();
-                } catch { /* */ }
-            }
-            socketRef.current = null;
-        };
-    }, [isMultiplayer, currentLobbyId, showLobbyScreen, apiCall, notify, announceRotation, initPersonalStock, setShopRotationIfChanged, markWorldBootDataReady, hydratePlantVisuals, normalizePlotPlantsMap]);
 
     useEffect(() => {
         if (!showLobbyScreen) return;
@@ -3474,23 +2614,13 @@ export default function GameContainer() {
                 });
 
                 if (earnedGold > 0 || foundSeeds.length > 0) {
-                    if (isMultiplayer && currentLobbyId) {
-                        try {
-                            await apiCall(`/lobby/${currentLobbyId}/pet-earn`, {
-                                method: "POST",
-                                body: JSON.stringify({ gold: earnedGold, seeds: foundSeeds }),
-                            });
-                        } catch { /* Gold ist nicht-kritisch, silent fail */ }
-                    } else {
-                        if (earnedGold > 0) setGold(g => g + earnedGold);
-                        if (foundSeeds.length > 0) {
-                            setInventory(inv => {
-                                const next = [...inv];
-                                foundSeeds.forEach(s => next.push({ ...s, instanceId: Math.random().toString(36).slice(2) }));
-                                return next;
-                            });
-                        }
-                        schedulePostMpUpdateFarm();
+                    if (earnedGold > 0) setGold(g => g + earnedGold);
+                    if (foundSeeds.length > 0) {
+                        setInventory(inv => {
+                            const next = [...inv];
+                            foundSeeds.forEach(s => next.push({ ...s, instanceId: Math.random().toString(36).slice(2) }));
+                            return next;
+                        });
                     }
                     notify(msgs.join(" | "), "info");
                 }
@@ -3500,16 +2630,16 @@ export default function GameContainer() {
 
         timerId = setTimeout(tick, getIntervalMs());
         return () => clearTimeout(timerId);
-    }, [showLobbyScreen, shopRotation, isMultiplayer, currentLobbyId, apiCall, schedulePostMpUpdateFarm, notify])
+    }, [showLobbyScreen, shopRotation, notify])
 
     useEffect(() => {
         localPlayerNameRef.current = authUser?.twitchLogin || authUser?.login || "Spieler";
     }, [authUser]);
 
     useEffect(() => {
-        if (isMultiplayer || !layout.current?.slots?.[0]) return;
+        if (!layout.current?.slots?.[0]) return;
         layout.current.slots[0].owner = authUser?.twitchLogin || authUser?.login || "Spieler";
-    }, [authUser, isMultiplayer]);
+    }, [authUser]);
 
     // Check subscriber / beta-tester status after auth
     useEffect(() => {
@@ -3524,8 +2654,6 @@ export default function GameContainer() {
             })
             .catch(() => {});
     }, [authUser, apiCall]);
-
-    const playerBadge = isSubscriber ? "subscriber" : isBeta ? "beta" : null;
 
     // ── Shop countdown display ─────────────────────────────────────────────────
     const shopMins = Math.floor(shopCountdown / 60000);
@@ -3620,21 +2748,12 @@ export default function GameContainer() {
     const handleSellAllHarvested = useCallback(async () => {
         if (harvestedItems.length === 0) return;
         playSound("cash", 0.6);
-        if (isMultiplayer && currentLobbyId) {
-            try {
-                const data = await apiCall(`/lobby/${currentLobbyId}/sell-all`, { method: "POST", body: JSON.stringify({}) });
-                notify(`Alles verkauft: +${(data.goldEarned || 0).toLocaleString('de-DE')} 🪙`);
-            } catch (e) {
-                notify(e.message || "Verkauf fehlgeschlagen", "error");
-            }
-            return;
-        }
         const subBonus = isSubscriber ? 1.5 : 1.0;
         const total = Math.floor(harvestedItems.reduce((sum, item) => sum + item.sellValue, 0) * subBonus);
         setHarvestedItems([]);
         setGold(g => g + total);
         notify(`Alles verkauft: +${total.toLocaleString('de-DE')} 🪙${isSubscriber ? " ⭐ +50% Sub" : ""}`);
-    }, [harvestedItems, isMultiplayer, currentLobbyId, apiCall, notify, playSound, isSubscriber]);
+    }, [harvestedItems, notify, playSound, isSubscriber]);
 
     useEffect(() => {
         sellAllRef.current = handleSellAllHarvested;
@@ -3695,10 +2814,15 @@ export default function GameContainer() {
         }
     }, [notify]);
 
+    useEffect(() => {
+        if (!showLobbyScreen) return;
+        apiCall("/leaderboard")
+            .then((data) => setLeaderboard(Array.isArray(data) ? data : []))
+            .catch(() => setLeaderboard([]));
+    }, [showLobbyScreen, apiCall]);
+
     const startSingleplayer = async () => {
         if (!(await ensureTwitchSessionForGarden())) return;
-        setIsMultiplayer(false);
-        setCurrentLobbyId(null);
         startWorldBoot("single");
         // startWorldBoot regenerates layout.current — set owner on the freshly created slot
         if (layout.current?.slots?.[0]) {
@@ -3707,180 +2831,91 @@ export default function GameContainer() {
         setShowLobbyScreen(false);
     };
 
-    const createMultiplayerLobby = async () => {
-        if (!(await ensureTwitchSessionForGarden())) return;
-        try {
-            const data = await apiCall("/create-lobby", {
-                method: "POST",
-                body: JSON.stringify({
-                    isPrivate: hostPrivateLobby,
-                    maxPlayers: Number(hostMaxPlayers || 8),
-                }),
-            });
-            setCurrentLobbyId(data.lobbyId);
-            setIsMultiplayer(true);
-            startWorldBoot("multi", Number(hostMaxPlayers || 8));
-            setShowLobbyScreen(false);
-        } catch (e) {
-            notify(e.message || "Lobby konnte nicht erstellt werden.", "error");
-        }
-    };
-
-    const joinMultiplayerLobby = async (lobbyId) => {
-        if (!lobbyId) return;
-        
-        // FIX: UUIDs müssen für das Backend zwingend kleingeschrieben sein!
-        const cleanLobbyId = lobbyId.trim().toLowerCase();
-        
-        if (!(await ensureTwitchSessionForGarden())) return;
-        try {
-            const data = await apiCall(`/lobby/${cleanLobbyId}`);
-            setCurrentLobbyId(cleanLobbyId);
-            setIsMultiplayer(true);
-            startWorldBoot("multi", data.maxPlayers || 8);
-            setShowLobbyScreen(false);
-        } catch (e) {
-            notify(e.message || "Lobby nicht gefunden.", "error");
-        }
-    };
-
     if (showLobbyScreen) {
         return (
-            <div className="w-full flex-1 min-h-0 h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-emerald-950 text-white flex items-center justify-center p-6 relative overflow-hidden" style={{ fontFamily: "'Courier New', monospace" }}>
-                {/* 5. ANPASSUNG: Deko Kreise im Hintergrund */}
-                <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-emerald-600/10 rounded-full blur-[100px]" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px]" />
-                
-                <div className="w-full max-w-4xl bg-slate-950/60 border border-emerald-500/20 rounded-[2rem] p-8 md:p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] backdrop-blur-md relative z-10">
-                    <div className="text-center mb-10">
-                        <h1 className="text-4xl md:text-5xl font-black tracking-widest mb-3 bg-gradient-to-br from-emerald-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-sm">Virtual Farm</h1>
-                        <p className="text-slate-400 text-sm tracking-wide">Wähle deinen Modus und tauche ein in deinen Garten.</p>
+            <div className="page-fade w-full flex-1 min-h-0 h-full relative overflow-y-auto custom-scrollbar flex items-center justify-center p-6 md:p-10">
+                <div className="w-full max-w-2xl flex flex-col items-center gap-7 py-6">
+
+                    <div className="flex items-center gap-3">
+                        <span className="flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                            <Sprout size={24} />
+                        </span>
+                        <h1 className="font-display text-4xl md:text-6xl font-bold text-white tracking-tight">Virtual Farm</h1>
                     </div>
 
-                    <div className="mb-8 rounded-2xl border border-white/5 bg-white/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="panel-strong w-full p-6">
+                        <h3 className="flex items-center justify-center gap-2 font-display text-xs font-bold uppercase tracking-[0.25em] text-white/50 mb-5">
+                            <Trophy size={15} className="text-amber-400" /> Bestenliste
+                        </h3>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            {leaderboard.length === 0 && (
+                                <span className="col-span-2 sm:col-span-5 text-center py-4 text-sm text-white/30 italic">Noch keine Farmer...</span>
+                            )}
+
+                            {leaderboard.slice(0, 5).map((e, i) => {
+                                let rankColor = "text-white/40";
+                                let boxClass = "bg-white/[0.02] border-white/10";
+
+                                if (i === 0) { rankColor = "text-amber-400"; boxClass = "bg-amber-500/5 border-amber-400/30"; }
+                                else if (i === 1) { rankColor = "text-slate-300"; boxClass = "bg-white/5 border-white/20"; }
+                                else if (i === 2) { rankColor = "text-orange-400"; boxClass = "bg-orange-500/5 border-orange-400/25"; }
+
+                                return (
+                                    <div key={i} className={`flex flex-col items-center justify-center p-3 rounded-xl border ${boxClass}`}>
+                                        <div className={`text-xs font-bold mb-1 ${rankColor}`}>#{i + 1}</div>
+                                        <div className="font-semibold text-white text-sm truncate max-w-full px-1" title={e.name}>{e.name}</div>
+                                        <div className="text-[11px] text-white/35 font-mono mt-1">{e.gold.toLocaleString('de-DE')} 🪙</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="panel w-full p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="text-center sm:text-left">
-                            <div className="text-slate-400 uppercase tracking-widest text-[10px] font-bold mb-1">Twitch Konto</div>
+                            <div className="text-white/40 uppercase tracking-widest text-[10px] font-bold mb-1">Twitch Konto</div>
                             {authUser?.twitchLogin || authUser?.login ? (
-                                <div className="text-emerald-400 font-bold text-lg flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"/> {(authUser?.twitchLogin || authUser?.login)}</div>
+                                <div className="text-white font-semibold text-base flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400" /> {(authUser?.twitchLogin || authUser?.login)}</div>
                             ) : (
-                                <div className="text-amber-400 font-bold text-sm">Nicht angemeldet — Garten erfordert Twitch-Login</div>
+                                <div className="text-amber-300 font-semibold text-sm">Nicht angemeldet — Garten erfordert Twitch-Login</div>
                             )}
                         </div>
                         {!authUser && (
-                            <button onClick={() => twitchLogin?.()} className="px-6 py-3 rounded-xl bg-[#9146FF] hover:bg-[#7d36ff] text-white text-sm font-black shadow-[0_0_15px_rgba(145,70,255,0.4)] transition-all hover:scale-105 w-full sm:w-auto">
-                                Login mit Twitch
+                            <button onClick={() => twitchLogin?.()} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors shadow-lg shadow-black/40 w-full sm:w-auto justify-center">
+                                <TwitchGlyph className="w-3.5 h-3.5" /> Login mit Twitch
                             </button>
                         )}
                     </div>
 
                     {authUser && (isSubscriber || isBeta) && (
-                        <div className="mb-6 flex flex-wrap gap-2 justify-center">
+                        <div className="flex flex-wrap gap-2 justify-center -mt-2">
                             {isSubscriber && (
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-900/30 border border-amber-500/40 text-amber-300 text-sm font-bold">
-                                    ⭐ Subscriber — +50% Verkaufsbonus aktiv
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-400/30 text-amber-300 text-xs font-semibold">
+                                    <Star size={13} /> Subscriber — +50% Verkaufsbonus
                                 </div>
                             )}
                             {isBeta && (
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-900/30 border border-blue-500/40 text-blue-300 text-sm font-bold">
-                                    🔬 Beta-Tester
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-semibold">
+                                    <FlaskConical size={13} /> Beta-Tester
                                 </div>
                             )}
                         </div>
                     )}
-                    {authUser && !isSubscriber && !isBeta && (
-                        <div className="mb-6 text-center text-xs text-slate-600">
-                            Kein aktives Badge — Abonniere den Kanal für ⭐ Sub-Bonus
-                        </div>
-                    )}
 
-                    <div className="flex gap-3 mb-8 p-1.5 bg-slate-900/80 rounded-2xl border border-slate-800 w-fit mx-auto">
-                        <button onClick={() => setLobbyMode("single")} className={`px-8 py-3 rounded-xl font-bold transition-all ${lobbyMode === "single" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white hover:bg-slate-800"}`}>Singleplayer</button>
-                        <button onClick={() => setLobbyMode("multi")} className={`px-8 py-3 rounded-xl font-bold transition-all ${lobbyMode === "multi" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white hover:bg-slate-800"}`}>Multiplayer</button>
-                    </div>
-
-                    {lobbyMode === "single" && (
-                        <div className="text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <button
-                                type="button"
-                                onClick={startSingleplayer}
-                                disabled={!authUser}
-                                className="px-10 py-5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 font-black text-xl shadow-[0_0_30px_rgba(5,150,105,0.3)] transition-all hover:scale-105 w-full md:w-auto disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                            >
-                                🌱 Welt betreten
-                            </button>
-                        </div>
-                    )}
-
-                    {lobbyMode === "multi" && (
-                        <div className="grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* Host Section */}
-                            <div className="p-6 rounded-2xl bg-slate-900/80 border border-indigo-500/30 flex flex-col">
-                                <div className="text-lg font-black text-indigo-300 mb-4 flex items-center gap-2"><span>👑</span> Eigene Lobby hosten</div>
-                                <div className="flex items-center gap-4 mb-6">
-                                    <label className="text-sm text-slate-300 flex items-center gap-2 cursor-pointer">
-                                        <input type="checkbox" checked={hostPrivateLobby} onChange={(e) => setHostPrivateLobby(e.target.checked)} className="w-5 h-5 rounded border-slate-600 text-indigo-500 focus:ring-indigo-500 bg-slate-800" />
-                                        Privat
-                                    </label>
-                                    <label className="text-sm text-slate-300 flex items-center gap-2">
-                                        Spieler:
-                                        <input type="number" min={2} max={8} value={hostMaxPlayers} onChange={(e) => setHostMaxPlayers(e.target.value)} className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-center focus:border-indigo-500 outline-none transition-colors" />
-                                    </label>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={createMultiplayerLobby}
-                                    disabled={!authUser}
-                                    className="mt-auto w-full px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-base font-black shadow-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    Lobby erstellen
-                                </button>
-                            </div>
-
-                            {/* Join Section */}
-                            <div className="flex flex-col gap-6">
-                                <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-700">
-                                    <div className="text-sm font-bold text-slate-400 mb-3">Mit Code beitreten</div>
-                                    <div className="flex gap-2">
-                                        <input value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="ABC-123..." className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-lg tracking-widest text-center focus:border-blue-500 outline-none transition-colors" />
-                                        <button type="button" onClick={() => joinMultiplayerLobby(roomCode)} disabled={!roomCode.trim() || !authUser} className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 font-black transition-colors">Join</button>
-                                    </div>
-                                </div>
-                                
-                                <div className="flex-1 flex flex-col">
-                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-2">Öffentliche Räume</div>
-                                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {publicLobbies.length === 0 && <div className="text-center py-4 text-sm text-slate-600 italic">Aktuell keine öffentlichen Lobbys.</div>}
-                                        {publicLobbies.map((lobby) => (
-                                            <div key={lobby.id} className="p-4 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between group transition-colors">
-                                                <div>
-                                                    <div className="font-bold text-emerald-100">{lobby.hostName || lobby.host}</div>
-                                                    <div className="text-xs text-slate-500 font-mono mt-0.5">{lobby.playerCount || lobby.players}/{lobby.maxPlayers} Spieler</div>
-                                                </div>
-                                                <button type="button" onClick={() => joinMultiplayerLobby(lobby.id)} disabled={!authUser} className="px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-600/50 group-hover:bg-emerald-600 group-hover:text-white text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">Beitreten</button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    <button
+                        type="button"
+                        onClick={startSingleplayer}
+                        disabled={!authUser}
+                        className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-5 rounded-2xl text-lg md:text-xl transition-colors flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <Play size={20} fill="currentColor" />
+                        Welt betreten
+                    </button>
                 </div>
             </div>
         );
     }
-
-    // /api/auth/me liefert twitchId (nicht userId/id) — mit Server-IDs vergleichen
-    const myAccountId = String(authUser?.twitchId ?? authUser?.userId ?? authUser?.id ?? "");
-    const isOwnMailbox =
-        mailboxTargetId != null && myAccountId !== "" && String(mailboxTargetId) === myAccountId;
-
-    const toggleGiftItem = (type, item) => {
-        setGiftItems(prev => {
-            const exists = prev.find(i => (i.item.instanceId || i.item.id) === (item.instanceId || item.id));
-            if (exists) return prev.filter(i => (i.item.instanceId || i.item.id) !== (item.instanceId || item.id));
-            return [...prev, { type, item }];
-        });
-    };
 
     return (
         <div className="relative w-full h-full min-h-0 flex-1 bg-slate-950 overflow-hidden" style={{ fontFamily: "'Courier New', monospace" }}>
@@ -3927,10 +2962,7 @@ export default function GameContainer() {
                     </div>
                     <button 
                         className="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-xs transition-colors"
-                        onClick={() => {
-                            setTutorialCompleted(true);
-                            schedulePostMpUpdateFarm();
-                        }}
+                        onClick={() => setTutorialCompleted(true)}
                     >
                         Tutorial beenden
                     </button>
@@ -3958,24 +2990,7 @@ export default function GameContainer() {
                 </div>
             )}
 
-            {/* ── Oben Mitte: Lobby-Code ─────────────────────────────────── */}
-            {isMultiplayer && currentLobbyId && (
-                <button
-                    type="button"
-                    className="absolute top-5 left-1/2 z-40 flex h-11 max-w-[min(92vw,22rem)] min-h-[44px] -translate-x-1/2 items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-900/95 px-4 font-mono text-xs font-bold text-slate-100 shadow-lg backdrop-blur-sm transition-colors hover:bg-slate-800 sm:text-sm"
-                    onClick={() => {
-                        navigator.clipboard.writeText(currentLobbyId).catch(() => {});
-                        notify("Lobby-Code kopiert!", "info");
-                    }}
-                    title="Lobby-Code kopieren"
-                >
-                    <span className="shrink-0 text-base">🔑</span>
-                    <span className="truncate">{currentLobbyId.slice(0, 8).toUpperCase()}</span>
-                    <span className="shrink-0 text-slate-400">✂️</span>
-                </button>
-            )}
-
-            {/* ── Links oben: Einstellungen, Spieler, Changelog ──────────── */}
+            {/* ── Links oben: Einstellungen, Changelog ──────────── */}
             <div className="absolute top-5 left-5 z-50 flex items-center gap-2">
                 <button
                     onClick={(e) => {
@@ -3986,17 +3001,6 @@ export default function GameContainer() {
                 >
                     <span className="text-xl">⚙️</span>
                 </button>
-                {isMultiplayer && currentLobbyId && (
-                    <button
-                        type="button"
-                        onClick={() => setPlayerListOpen(true)}
-                        title="Spielerliste"
-                        className="flex h-11 min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-indigo-600/50 bg-slate-900/90 px-3 text-sm font-bold text-indigo-300 shadow-lg backdrop-blur-sm transition-colors hover:bg-slate-800 hover:text-white sm:min-w-[7.5rem]"
-                    >
-                        <span className="text-base">👥</span>
-                        <span className="hidden sm:inline">Spieler</span>
-                    </button>
-                )}
                 <button
                     type="button"
                     onClick={() => setChangelogOpen(true)}
@@ -4083,13 +3087,9 @@ export default function GameContainer() {
 
                     <button
                         onClick={async () => {
-                            if (!isMultiplayer) {
-                                await flushFarmStateToServer();
-                            }
+                            await flushFarmStateToServer();
                             setSettingsOpen(false);
                             setShowLobbyScreen(true);
-                            setIsMultiplayer(false);
-                            setCurrentLobbyId(null);
                         }}
                         className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-sm text-slate-200 mt-1 border-t border-slate-700"
                     >
@@ -4147,7 +3147,6 @@ export default function GameContainer() {
                                                 setPetPlacements(prev => prev.filter(p2 => p2.id !== pet.id));
                                                 setPetInventory(prev => [...prev, { ...pet, _type: "pet" }]);
                                                 notify(`${pet.emoji || "🐾"} eingepackt.`);
-                                                if (isMultiplayer) schedulePostMpUpdateFarm();
                                             }}
                                             className="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded shadow-sm font-bold transition-all active:scale-95"
                                         >
@@ -4226,23 +3225,6 @@ export default function GameContainer() {
                         <div className="text-cyan-300 text-[11px] mt-1 font-bold">
                             Größe: {getReadyFruitSizes(plotPlants[hoverInfo.key]).join(", ")}
                         </div>
-                    )}
-                </div>
-            )}
-            {remoteHoverInfo?.plant && (
-                <div
-                    className="absolute z-50 pointer-events-none bg-slate-900/95 border border-blue-700/70 rounded-lg px-3 py-2 text-xs text-slate-200 shadow-xl"
-                    style={{ left: remoteHoverInfo.x + 14, top: remoteHoverInfo.y + 14 }}
-                >
-                    <div className="text-blue-300 text-[10px] font-bold mb-0.5">🏠 {remoteHoverInfo.slotOwner}</div>
-                    <div className="font-bold text-white">{remoteHoverInfo.plant.name}</div>
-                    <div className={`text-[10px] font-bold ${(RARITY_COLORS[remoteHoverInfo.plant.rarity] || RARITY_COLORS.COMMON).text}`}>{remoteHoverInfo.plant.rarity}</div>
-                    {getReadyFruitCount(remoteHoverInfo.plant) > 0
-                        ? <div className="text-green-400 font-bold text-[11px]">{getReadyFruitCount(remoteHoverInfo.plant)} {getReadyFruitCount(remoteHoverInfo.plant) === 1 ? "Frucht bereit" : "Früchte bereit"} 🌟</div>
-                        : <div className="text-slate-300 text-[11px]">Nächste in: {formatDuration(getTimeToNextHarvest(remoteHoverInfo.plant))}</div>
-                    }
-                    {Number.isFinite(remoteHoverInfo.plant.size) && (
-                        <div className="text-cyan-300 text-[11px] mt-0.5">Größe: {remoteHoverInfo.plant.size}</div>
                     )}
                 </div>
             )}
@@ -4712,7 +3694,6 @@ export default function GameContainer() {
                     ...decoInventory.map(d => ({ ...d, _type: "deco" })),
                     ...toolItems,
                 ];
-                const usedSlots = allItems.length;
                 // Slot cap applies only to seeds + harvested plants (the expandable main inventory)
                 const slottedItems = inventory.length + harvestedItems.length;
                 const backpackFilters = ["all", "seed", "plant", "egg", "pet", "deco", "tool"];
@@ -4902,7 +3883,6 @@ export default function GameContainer() {
                             {Array(5).fill(null).map((_, idx) => {
                                 const unlocked = idx < incubator.unlockedSlots;
                                 const slot = incubator.slots[idx];
-                                const leftMs = slot ? Math.max(0, slot.hatchAt - tickNow) : 0;
                                 const unlockCost = INCUBATOR_UNLOCK_COSTS[idx - 1];
                                 return (
                                     <div key={idx}
@@ -5048,17 +4028,11 @@ export default function GameContainer() {
                                     <button
                                         key={skin.id}
                                         onClick={() => {
-                                            const newApp = { skin: skin.skin };
-                                            setPlayerAppearance(newApp);
-                                            if (isMultiplayer && socketRef.current) {
-                                                socketRef.current.emit("player_state_change", {
-                                                    tool: selectedTool, heldItem: heldItemRef.current, appearance: newApp
-                                                });
-                                            }
+                                            setPlayerAppearance({ skin: skin.skin });
                                         }}
                                         className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${isActive ? "border-fuchsia-500 bg-fuchsia-500/20 text-fuchsia-200 shadow-[0_0_15px_rgba(217,70,239,0.3)]" : "border-slate-700 bg-slate-800/80 text-slate-400 hover:bg-slate-700"}`}
                                     >
-                                        <div className="text-2xl">👤</div>
+                                        <ItemIcon item={{ image: skin.skin, emoji: "👤" }} className="w-12 h-12" emojiClassName="text-2xl" />
                                         <span className="text-[10px] font-bold text-center leading-tight">{skin.name}</span>
                                         {isActive && <div className="w-1.5 h-1.5 rounded-full bg-fuchsia-400" />}
                                     </button>
@@ -5076,199 +4050,6 @@ export default function GameContainer() {
                     </div>
                 </div>
             )}
-
-            {/* Mailbox Modal */}
-            {isMailboxOpen && (
-                <div className="absolute inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50">
-                    <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl w-[400px] max-h-[80vh] flex flex-col shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-black text-white flex items-center gap-2">
-                                📬 {isOwnMailbox ? "Dein Briefkasten" : "Geschenk senden"}
-                            </h2>
-                            <button onClick={() => { setMailboxOpen(false); setGiftMessage(""); setGiftGold(0); setGiftItems([]); }} className="text-slate-400 hover:text-white">✕</button>
-                        </div>
-                        
-                        {isOwnMailbox ? (
-                            <div className="overflow-y-auto pr-2 space-y-3 custom-scrollbar flex-1">
-                                {mailbox.length === 0 ? (
-                                    <div className="text-center text-slate-500 py-8">Dein Briefkasten ist leer.</div>
-                                ) : (
-                                    mailbox.map(gift => (
-                                        <div key={gift.id} className="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div className="text-sm font-bold text-emerald-400">Von: {gift.senderName}</div>
-                                                <div className="text-xs text-slate-500">{new Date(gift.timestamp).toLocaleDateString()}</div>
-                                            </div>
-                                            {gift.message && <div className="text-slate-300 text-sm mb-3 italic">"{gift.message}"</div>}
-                                            {gift.goldAmount > 0 && (
-                                                <div className="text-yellow-400 font-bold text-sm flex items-center gap-1 mb-3">
-                                                    🪙 {gift.goldAmount} Gold
-                                                </div>
-                                            )}
-                                            {gift.item && (
-                                                <div className="flex items-center gap-2 mb-3 bg-slate-900/50 p-2 rounded-lg border border-slate-700">
-                                                    <img src={gift.item.image} alt={gift.item.name} className="w-8 h-8 object-contain" />
-                                                    <div className="text-sm font-bold text-slate-200">{gift.item.name}</div>
-                                                </div>
-                                            )}
-                                            {Array.isArray(gift.items) && gift.items.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 mb-3 bg-slate-900/50 p-2 rounded-lg border border-slate-700">
-                                                    {gift.items.map((item, idx) => (
-                                                        <div key={idx} className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-md border border-slate-600">
-                                                            <img src={item.image} alt={item.name} className="w-6 h-6 object-contain" />
-                                                            <div className="text-xs font-bold text-slate-200">{item.name}</div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            <button 
-                                                onClick={async () => {
-                                                    try {
-                                                        const res = await apiCall(`/lobby/${currentLobbyId}/collect-gift`, {
-                                                            method: "POST",
-                                                            body: JSON.stringify({ giftId: gift.id })
-                                                        });
-                                                        setGold(res.newGold);
-                                                        setMailbox(res.mailbox);
-                                                        if (res.inventory) setInventory(res.inventory);
-                                                        if (res.petInventory) setPetInventory(res.petInventory);
-                                                        if (res.decoInventory) setDecoInventory(res.decoInventory);
-                                                        if (res.harvestedItems) setHarvestedItems(res.harvestedItems);
-                                                        notify("Geschenk abgeholt!", "success");
-                                                    } catch(e) {
-                                                        notify(e.message || "Fehler beim Abholen", "error");
-                                                    }
-                                                }}
-                                                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs transition-colors"
-                                            >
-                                                Einsammeln
-                                            </button>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-4">
-                                <div>
-                                    <label className="text-xs text-slate-400 block mb-2 font-bold uppercase tracking-wider">Nachricht (optional)</label>
-                                    <textarea 
-                                        value={giftMessage}
-                                        onChange={e => setGiftMessage(e.target.value)}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 resize-none h-24"
-                                        placeholder="Schreibe eine nette Nachricht..."
-                                        maxLength={100}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-slate-400 block mb-2 font-bold uppercase tracking-wider">Gold spenden</label>
-                                    <div className="flex items-center gap-3">
-                                        <input 
-                                            type="number" 
-                                            min="0" 
-                                            max={gold}
-                                            value={giftGold}
-                                            onChange={e => setGiftGold(Math.max(0, Math.min(gold, parseInt(e.target.value) || 0)))}
-                                            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-yellow-500"
-                                        />
-                                        <span className="text-xl">🪙</span>
-                                    </div>
-                                    <div className="text-xs text-slate-500 mt-1 text-right">Dein Gold: {gold}</div>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-slate-400 block mb-2 font-bold uppercase tracking-wider">Item schenken (optional)</label>
-                                    <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2">
-                                        <button 
-                                            onClick={() => setGiftItems([])}
-                                            className={`flex-shrink-0 w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all ${giftItems.length === 0 ? "border-emerald-500 bg-emerald-500/20" : "border-slate-700 bg-slate-800 hover:bg-slate-700"}`}
-                                        >
-                                            <span className="text-slate-400">✕</span>
-                                        </button>
-                                        {/* Samen */}
-                                        {inventory.map(item => (
-                                            <button 
-                                                key={item.instanceId}
-                                                onClick={() => toggleGiftItem('seed', item)}
-                                                className={`flex-shrink-0 w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all relative ${giftItems.some(gi => gi.item.instanceId === item.instanceId) ? "border-emerald-500 bg-emerald-500/20" : "border-slate-700 bg-slate-800 hover:bg-slate-700"}`}
-                                                title={item.name}
-                                            >
-                                                <img src={item.image} alt={item.name} className="w-8 h-8 object-contain" />
-                                            </button>
-                                        ))}
-                                        {/* Pflanzen (Geerntet) */}
-                                        {harvestedItems.map(plant => (
-                                            <button 
-                                                key={plant.id} 
-                                                onClick={() => toggleGiftItem('plant', plant)}
-                                                className={`flex-shrink-0 w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all relative ${giftItems.some(gi => gi.item.id === plant.id) ? "border-emerald-500 bg-emerald-500/20" : "border-slate-700 bg-slate-800 hover:bg-slate-700"}`}
-                                                title={plant.name}
-                                            >
-                                                <img src={plant.image} alt={plant.name} className="w-8 h-8 object-contain" />
-                                            </button>
-                                        ))}
-                                        {/* Tiere */}
-                                        {petInventory.map(pet => (
-                                            <button 
-                                                key={pet.instanceId || pet.id}
-                                                onClick={() => toggleGiftItem('pet', pet)}
-                                                className={`flex-shrink-0 w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all relative ${giftItems.some(gi => (gi.item.instanceId || gi.item.id) === (pet.instanceId || pet.id)) ? "border-emerald-500 bg-emerald-500/20" : "border-slate-700 bg-slate-800 hover:bg-slate-700"}`}
-                                                title={pet.name}
-                                            >
-                                                <img src={pet.image} alt={pet.name} className="w-8 h-8 object-contain" />
-                                            </button>
-                                        ))}
-                                        {/* Deko */}
-                                        {decoInventory.map(deco => (
-                                            <button 
-                                                key={deco.instanceId || deco.id}
-                                                onClick={() => toggleGiftItem('deco', deco)}
-                                                className={`flex-shrink-0 w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all relative ${giftItems.some(gi => (gi.item.instanceId || gi.item.id) === (deco.instanceId || deco.id)) ? "border-emerald-500 bg-emerald-500/20" : "border-slate-700 bg-slate-800 hover:bg-slate-700"}`}
-                                                title={deco.name}
-                                            >
-                                                <img src={deco.image} alt={deco.name} className="w-8 h-8 object-contain" />
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={async () => {
-                                        if (giftGold === 0 && !giftMessage.trim() && giftItems.length === 0) {
-                                            notify("Bitte füge Gold, Items oder eine Nachricht hinzu.", "error");
-                                            return;
-                                        }
-                                        try {
-                                            const res = await apiCall(`/lobby/${currentLobbyId}/send-gift`, {
-                                                method: "POST",
-                                                body: JSON.stringify({ 
-                                                    targetUserId: mailboxTargetId, 
-                                                    message: giftMessage.trim(), 
-                                                    goldAmount: giftGold,
-                                                    giftItems 
-                                                })
-                                            });
-                                            setGold(res.newGold);
-                                            if (res.inventory) setInventory(res.inventory);
-                                            if (res.petInventory) setPetInventory(res.petInventory);
-                                            if (res.decoInventory) setDecoInventory(res.decoInventory);
-                                            if (res.harvestedItems) setHarvestedItems(res.harvestedItems);
-                                            notify("Geschenk erfolgreich gesendet!", "success");
-                                            setMailboxOpen(false);
-                                            setGiftMessage("");
-                                            setGiftGold(0);
-                                            setGiftItems([]);
-                                        } catch(e) {
-                                            notify(e.message || "Fehler beim Senden", "error");
-                                        }
-                                    }}
-                                    className="w-full py-3 mt-2 font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-transform active:scale-95 shadow-lg"
-                                >
-                                    Geschenk absenden
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
             {/* Changelog Modal */}
             {isChangelogOpen && (
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -5433,82 +4214,6 @@ export default function GameContainer() {
                 </div>
             )}
 
-            {/* Player List Modal */}
-            {isPlayerListOpen && isMultiplayer && (
-                <div className="absolute inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50">
-                    <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl w-[400px] max-h-[80vh] flex flex-col shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-black text-white">👥 Spieler in der Lobby</h2>
-                            <button onClick={() => setPlayerListOpen(false)} className="text-slate-400 hover:text-white">✕</button>
-                        </div>
-                        <div className="overflow-y-auto pr-2 space-y-2 custom-scrollbar flex-1">
-                            {/* Mich selbst anzeigen */}
-                            <div className="flex items-center justify-between bg-slate-800/80 p-3 rounded-xl border border-emerald-500/30">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
-                                        {(authUser?.twitchLogin || authUser?.login || "Du").charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <div className="flex flex-wrap items-center gap-1.5 text-emerald-300 font-bold text-sm">
-                                            {myAccountId && String(lobbyHostId) === myAccountId && (
-                                                <span className="text-amber-400" title="Lobby-Host">👑</span>
-                                            )}
-                                            <span>{(authUser?.twitchLogin || authUser?.login || "Du")} (Du)</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Andere Spieler anzeigen */}
-                            {remotePlayersList.map(p => (
-                                <div key={p.userId} className="flex items-center justify-between bg-slate-800/50 p-3 rounded-xl border border-slate-700">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold">
-                                            {(p.name || "S").charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <div className="flex flex-wrap items-center gap-1.5 text-slate-200 font-bold text-sm">
-                                                {String(lobbyHostId) === String(p.userId) && (
-                                                    <span className="text-amber-400" title="Lobby-Host">👑</span>
-                                                )}
-                                                <span>{p.name}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {myAccountId && String(lobbyHostId) === myAccountId && String(lobbyHostId) !== String(p.userId) && (
-                                        <button 
-                                            onClick={async () => {
-                                                if (window.confirm(`Möchtest du ${p.name} wirklich kicken?`)) {
-                                                    try {
-                                                        await apiCall(`/lobby/${currentLobbyId}/kick`, {
-                                                            method: "POST",
-                                                            body: JSON.stringify({ targetUserId: p.userId })
-                                                        });
-                                                        notify(`${p.name} wurde gekickt.`, "success");
-                                                    } catch (e) {
-                                                        notify(e.message || "Fehler beim Kicken.", "error");
-                                                    }
-                                                }
-                                            }}
-                                            className="px-3 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-xs font-bold rounded border border-red-600/50 transition-colors"
-                                        >
-                                            Kick
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                            {remotePlayersList.length === 0 && (
-                                <div className="text-center text-slate-500 text-sm py-4">
-                                    Keine anderen Spieler in der Lobby.
-                                </div>
-                            )}
-                        </div>
-                        <button onClick={() => setPlayerListOpen(false)} className="w-full py-3 mt-4 font-black bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-transform active:scale-95 shadow-lg">
-                            Schließen
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

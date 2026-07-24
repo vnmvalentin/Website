@@ -193,7 +193,7 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
           gameStart: actionToForm(data.actions?.gameStart),
           draftEnd: actionToForm(data.actions?.draftEnd),
         });
-      } catch (e) {
+      } catch {
         setLoadError(s.loadError);
       } finally {
         setLoading(false);
@@ -219,7 +219,6 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
       setObsStatus("connected");
       loadScenesFromClient(sharedObsClient).catch(() => {});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const saveConfig = async () => {
@@ -243,7 +242,7 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       }
-    } catch (e) { /* */ } finally {
+    } catch { /* ignore */ } finally {
       setSaving(false);
     }
   };
@@ -306,7 +305,7 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
         credentials: "include",
       });
       if (res.ok) setCfg(await res.json());
-    } catch (e) { /* */ }
+    } catch { /* ignore */ }
   };
 
   const overlayUrl = cfg?.overlayKey

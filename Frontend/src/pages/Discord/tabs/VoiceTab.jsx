@@ -45,24 +45,24 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
         <div className="space-y-8 max-w-2xl">
             <div>
                 <h2 className="text-2xl text-white font-bold mb-1">Custom Voice Channels</h2>
-                <p className="text-gray-400 text-sm">Jeder der den Trigger-Channel betritt bekommt automatisch einen eigenen Voice-Channel.</p>
+                <p className="text-white/50 text-sm">Jeder der den Trigger-Channel betritt bekommt automatisch einen eigenen Voice-Channel.</p>
             </div>
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-6 space-y-4">
+            <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-4">
                 <h3 className="text-white font-semibold flex items-center gap-2">🔊 Trigger Channel</h3>
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Voice Channel auswählen</label>
                     <select
                         value={triggerChannelId}
                         onChange={e => setTriggerChannelId(e.target.value)}
-                        className="w-full bg-[#1a1a20] border border-white/10 rounded-sm p-3 text-white focus:border-cyan-500 outline-none appearance-none"
+                        className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none"
                     >
                         <option value="">-- Deaktiviert --</option>
                         {voiceChannels.map(c => (
                             <option key={c.id} value={c.id}>🔊 {c.name}</option>
                         ))}
                     </select>
-                    <p className="text-gray-500 text-xs mt-2">
+                    <p className="text-white/40 text-xs mt-2">
                         {triggerChannelId
                             ? `Wenn jemand "🔊 ${triggerName}" beitritt, wird automatisch ein eigener Channel erstellt.`
                             : 'Custom Voice Channels sind deaktiviert.'}
@@ -70,25 +70,25 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 </div>
             </div>
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 space-y-3">
+            <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-3">
                 <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
-                <ul className="text-gray-400 text-sm space-y-2">
-                    <li>• Bot erstellt <span className="text-cyan-400 font-mono">🔊 Usernames Kanal</span> in der gleichen Kategorie</li>
+                <ul className="text-white/50 text-sm space-y-2">
+                    <li>• Bot erstellt <span className="text-violet-400 font-mono">🔊 Usernames Kanal</span> in der gleichen Kategorie</li>
                     <li>• Ein privater Text-Channel wird erstellt (nur für Mitglieder des VCs sichtbar)</li>
                     <li>• Im Text-Channel werden die verfügbaren Commands angepinnt — inkl. aktuellem Channel-Besitzer</li>
                     <li>• Mitglieder werden beim Beitreten/Verlassen automatisch hinzugefügt/entfernt</li>
-                    <li>• Bei Besitzer-Verlassen oder <span className="text-cyan-400 font-mono">/voice_transfer</span> wird Ownership übertragen und die angepinnte Nachricht aktualisiert</li>
+                    <li>• Bei Besitzer-Verlassen oder <span className="text-violet-400 font-mono">/voice_transfer</span> wird Ownership übertragen und die angepinnte Nachricht aktualisiert</li>
                     <li>• Wenn alle den Channel verlassen, werden Voice- und Text-Channel automatisch gelöscht</li>
                 </ul>
             </div>
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 space-y-3">
+            <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-3">
                 <h3 className="text-white font-semibold text-sm">🎮 Commands (nur im dedizierten Text-Channel)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {COMMANDS.map(item => (
-                        <div key={item.cmd} className="bg-[#1a1a20] rounded-sm p-3">
-                            <div className="text-cyan-400 font-mono text-xs mb-1">{item.cmd}</div>
-                            <div className="text-gray-400 text-xs">{item.desc}</div>
+                        <div key={item.cmd} className="bg-black/30 rounded-lg p-3">
+                            <div className="text-violet-400 font-mono text-xs mb-1">{item.cmd}</div>
+                            <div className="text-white/50 text-xs">{item.desc}</div>
                         </div>
                     ))}
                 </div>
@@ -98,7 +98,7 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="bg-cyan-500 text-black font-bold py-3 px-8 rounded-sm hover:bg-cyan-400 disabled:opacity-50 transition-colors"
+                    className="bg-violet-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors"
                 >
                     {isSaving ? 'Speichere...' : 'Speichern'}
                 </button>

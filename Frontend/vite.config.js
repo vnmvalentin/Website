@@ -9,10 +9,23 @@ export default defineConfig({
   base: "/",
   build: {
     // Das Limit erhöhen, damit die Warnung verschwindet (kosmetisch)
-    chunkSizeWarningLimit: 2000, 
+    chunkSizeWarningLimit: 2000,
     // WICHTIG: rollupOptions komplett entfernen oder leer lassen!
     rollupOptions: {
       // Keine manualChunks mehr!
+      output: {
+        // Bilder aus src/assets/avatars/ (z.B. Clash Royale Profilbilder) landen in einem
+        // eigenen Unterordner statt flach zwischen den JS/CSS-Chunks in assets/ zu liegen.
+        // Einfach neue Bilder in den Ordner legen — sie werden automatisch mit-gehasht.
+        assetFileNames: (assetInfo) => {
+          const sourceNames = assetInfo.originalFileNames
+            || (assetInfo.originalFileName ? [assetInfo.originalFileName] : [])
+            || [];
+          const isAvatar = sourceNames.some((n) => n.includes('/assets/avatars/'));
+          if (isAvatar) return 'assets/avatars/[name]-[hash][extname]';
+          return 'assets/[name]-[hash][extname]';
+        },
+      },
     },
     // Hilft oft bei Problemen mit älteren Libraries wie Quill
     commonjsOptions: {
@@ -47,7 +60,7 @@ export default defineConfig({
     port: 5173, 
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3001', 
+        target: 'http://127.0.0.1:3001',
         changeOrigin: true,
         secure: false,
       },

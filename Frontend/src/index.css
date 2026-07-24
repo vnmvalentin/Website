@@ -1,5 +1,181 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ===================================================================
+   GLOBAL BACKGROUND (Aurora — blau/lila, leicht belebt)
+   =================================================================== */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  background: #07070f;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-bg__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(110px);
+  will-change: transform;
+}
+
+.app-bg__orb--1 {
+  width: 55vw;
+  height: 55vw;
+  min-width: 480px;
+  min-height: 480px;
+  top: -18%;
+  left: -12%;
+  background: radial-gradient(circle at 40% 40%, rgba(79, 70, 229, 0.55), transparent 65%);
+  animation: orbDrift1 46s ease-in-out infinite alternate;
+}
+
+.app-bg__orb--2 {
+  width: 48vw;
+  height: 48vw;
+  min-width: 420px;
+  min-height: 420px;
+  bottom: -22%;
+  right: -10%;
+  background: radial-gradient(circle at 60% 60%, rgba(124, 58, 237, 0.5), transparent 65%);
+  animation: orbDrift2 58s ease-in-out infinite alternate;
+}
+
+.app-bg__orb--3 {
+  width: 36vw;
+  height: 36vw;
+  min-width: 340px;
+  min-height: 340px;
+  top: 30%;
+  left: 42%;
+  background: radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.38), transparent 65%);
+  animation: orbDrift3 70s ease-in-out infinite alternate;
+}
+
+.app-bg__orb--4 {
+  width: 26vw;
+  height: 26vw;
+  min-width: 260px;
+  min-height: 260px;
+  top: 8%;
+  right: 12%;
+  background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.3), transparent 65%);
+  animation: orbDrift2 38s ease-in-out infinite alternate-reverse;
+}
+
+/* Vignette + feines Sterne-Rauschen, damit die Fläche nicht leer wirkt */
+.app-bg__vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, transparent 55%, rgba(4, 4, 10, 0.55) 100%),
+    radial-gradient(ellipse at 50% 100%, transparent 60%, rgba(4, 4, 10, 0.5) 100%);
+}
+
+.app-bg__stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 28%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 34% 62%, rgba(255, 255, 255, 0.22), transparent),
+    radial-gradient(1.5px 1.5px at 56% 18%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 71% 74%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 88% 41%, rgba(255, 255, 255, 0.28), transparent),
+    radial-gradient(1.5px 1.5px at 22% 85%, rgba(255, 255, 255, 0.18), transparent),
+    radial-gradient(1px 1px at 44% 44%, rgba(255, 255, 255, 0.15), transparent),
+    radial-gradient(1px 1px at 92% 88%, rgba(255, 255, 255, 0.2), transparent);
+  opacity: 0.5;
+}
+
+@keyframes orbDrift1 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(8vw, 6vh, 0) scale(1.08); }
+  100% { transform: translate3d(2vw, 12vh, 0) scale(0.96); }
+}
+
+@keyframes orbDrift2 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-7vw, -8vh, 0) scale(1.1); }
+  100% { transform: translate3d(-2vw, -14vh, 0) scale(0.94); }
+}
+
+@keyframes orbDrift3 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-10vw, 8vh, 0) scale(1.12); }
+  100% { transform: translate3d(6vw, -6vh, 0) scale(0.92); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-bg__orb { animation: none; }
+}
+
+/* ===================================================================
+   PANELS / OBERFLÄCHEN
+   =================================================================== */
+.panel {
+  background: rgba(14, 14, 26, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+
+.panel-strong {
+  background: rgba(13, 13, 24, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Seiteninhalt sanft einblenden */
+@keyframes pageFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-fade { animation: pageFade 0.35s ease both; }
+
+/* Header-Dropdown */
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.dropdown-in { animation: dropdownIn 0.16s ease both; }
+
+/* ===================================================================
+   SCROLLBARS (wird seitenweit als .custom-scrollbar benutzt)
+   =================================================================== */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+/* ===================================================================
+   BESTEHENDE ANIMATIONEN (Garden, Credits, Overlays …)
+   =================================================================== */
+
 /* WAVE ANIMATIONS */
 @keyframes waveMove {
   0% { transform: translateX(0); }
@@ -41,21 +217,21 @@
     animation: fadeInOut 5s ease-in-out infinite;
 }
 
-/* NEU: Hypetrain Rainbow */
+/* Hypetrain Rainbow */
 @keyframes rainbow-pulse {
         0% { filter: hue-rotate(0deg) saturate(1.5); }
         50% { filter: hue-rotate(180deg) saturate(3); }
         100% { filter: hue-rotate(360deg) saturate(1.5); }
     }
-    
-    /* NEU: Hypetrain Wobble für Fische */
+
+    /* Hypetrain Wobble für Fische */
 @keyframes fish-party {
     0%, 100% { transform: rotate(0deg); }
     25% { transform: rotate(-35deg); }
     75% { transform: rotate(35deg); }
 }
 
-    /* NEU: Raid Swarm Animation */
+    /* Raid Swarm Animation */
 @keyframes swarm-pass {
         0% { left: -20%; opacity: 0; }
         10% { opacity: 0.6; }
@@ -78,5 +254,5 @@
     100% { top: 0; transform: translateY(-100%); }
 }
 .animate-scroll-credits {
-    animation: scroll-credits 100s linear forwards; 
+    animation: scroll-credits 100s linear forwards;
 }

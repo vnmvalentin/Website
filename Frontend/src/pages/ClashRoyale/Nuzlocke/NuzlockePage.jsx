@@ -15,7 +15,7 @@ const fmt = (n) => (n || 0).toLocaleString('de-DE');
 // ── Kleine Bausteine ─────────────────────────────────────────────────────────
 function CardThumb({ id, name, rarity, className = '' }) {
   return (
-    <div className={`relative overflow-hidden rounded-sm ${className}`}
+    <div className={`relative overflow-hidden rounded-lg ${className}`}
       style={{ background: (RARITY_COLOR[rarity] || '#555') + '18' }}>
       <img src={cardImageUrl(id)} alt={name} title={name}
         className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
@@ -28,7 +28,7 @@ function TabButton({ active, onClick, icon, label }) {
   return (
     <button onClick={onClick}
       className={`flex items-center justify-center gap-2 py-3 px-5 text-sm font-bold transition-colors border-b-2 ${
-        active ? 'border-cyan-500 text-white bg-white/[0.03]' : 'border-transparent text-gray-500 hover:text-gray-300'
+        active ? 'border-violet-400 text-white bg-white/[0.03]' : 'border-transparent text-gray-500 hover:text-gray-300'
       }`}>
       <Icon size={14} />
       {label}
@@ -56,7 +56,7 @@ function AddAccountModal({ onClose, onAdded }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-[#16161a] border border-white/10 rounded-sm w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="panel-strong w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-white font-bold">Account hinzufügen</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={16} /></button>
@@ -65,7 +65,7 @@ function AddAccountModal({ onClose, onAdded }) {
           Trage dein Spieler-Kürzel ein. Du findest es in Clash Royale in deinem Profil unter deinem Namen.
         </p>
         <div className="flex items-center gap-0 mb-3">
-          <span className="bg-[#1a1a20] border border-r-0 border-white/10 rounded-l-sm px-3 py-2.5 text-gray-500 font-mono text-sm">#</span>
+          <span className="bg-[#1a1a20] border border-r-0 border-white/10 rounded-l-lg px-3 py-2.5 text-gray-500 font-mono text-sm">#</span>
           <input
             value={tag}
             onChange={e => setTag(e.target.value.toUpperCase().replace(/^#/, ''))}
@@ -73,12 +73,12 @@ function AddAccountModal({ onClose, onAdded }) {
             placeholder="2PP0V9YLL"
             maxLength={12}
             autoFocus
-            className="flex-1 bg-[#1a1a20] border border-white/10 rounded-r-sm px-3 py-2.5 text-white placeholder-gray-600 focus:border-cyan-500 outline-none text-sm font-mono tracking-widest uppercase"
+            className="flex-1 bg-[#1a1a20] border border-white/10 rounded-r-lg px-3 py-2.5 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-sm font-mono tracking-widest uppercase"
           />
         </div>
         {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
         <button onClick={submit} disabled={busy || !tag.trim()}
-          className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-white/5 disabled:text-gray-600 text-black font-black py-3 rounded-sm transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed">
+          className="w-full bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white font-black py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed">
           <Plus size={15} />
           {busy ? 'Verknüpfe…' : 'Account verknüpfen'}
         </button>
@@ -99,7 +99,7 @@ function AccountsOverview({ accounts, onOpen, onActivate, onDelete, onAdd, globa
         
         <div className="flex items-center gap-4 flex-wrap">
           {/* Globaler Versuchszähler */}
-          <div className="flex items-center gap-2 bg-[#0f0f13] border border-white/10 rounded-sm px-3 py-1.5">
+          <div className="flex items-center gap-2 bg-[#0f0f13] border border-white/10 rounded-lg px-3 py-1.5">
             <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Versuche (Global)</span>
             <button onClick={(e) => { e.stopPropagation(); onAdjustAttempts(-1); }} disabled={globalAttempts <= 0}
               className="text-gray-500 hover:text-white disabled:text-gray-800 transition-colors p-0.5">
@@ -113,7 +113,7 @@ function AccountsOverview({ accounts, onOpen, onActivate, onDelete, onAdd, globa
           </div>
 
           <button onClick={onAdd}
-            className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-4 py-2 rounded-sm text-sm transition-colors shrink-0">
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors shrink-0">
             <Plus size={14} />
             Account hinzufügen
           </button>
@@ -121,13 +121,13 @@ function AccountsOverview({ accounts, onOpen, onActivate, onDelete, onAdd, globa
       </div>
 
       {accounts.length === 0 ? (
-        <div className="border border-dashed border-white/10 rounded-sm p-10 text-center">
+        <div className="border border-dashed border-white/10 rounded-lg p-10 text-center">
           <p className="text-white font-bold mb-1">Noch kein Account verknüpft</p>
           <p className="text-gray-500 text-sm mb-5 max-w-md mx-auto">
             Verknüpfe deinen Clash-Royale-Account über dein Spieler-Kürzel, um dein Deck zu bauen, das Glücksrad zu drehen und im Leaderboard aufzutauchen.
           </p>
           <button onClick={onAdd}
-            className="inline-flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-5 py-2.5 rounded-sm text-sm transition-colors">
+            className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-colors">
             <Plus size={14} />
             Account hinzufügen
           </button>
@@ -136,8 +136,8 @@ function AccountsOverview({ accounts, onOpen, onActivate, onDelete, onAdd, globa
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {accounts.map(acc => (
             <div key={acc.accountId}
-              className={`bg-[#0f0f13] border rounded-sm p-5 cursor-pointer transition-colors group relative overflow-hidden ${
-                acc.isActive ? 'border-cyan-500/40' : 'border-white/5 hover:border-white/20'
+              className={`bg-[#0f0f13] border rounded-lg p-5 cursor-pointer transition-colors group relative overflow-hidden ${
+                acc.isActive ? 'border-violet-400/40' : 'border-white/5 hover:border-white/20'
               }`}
               onClick={() => onOpen(acc)}>
               
@@ -150,19 +150,19 @@ function AccountsOverview({ accounts, onOpen, onActivate, onDelete, onAdd, globa
                 {/* Badges und Buttons koexistieren jetzt */}
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
                   {acc.isActive ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 rounded-sm">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300 border border-violet-400/40 bg-violet-600/10 px-2 py-0.5 rounded-lg">
                       Aktiv
                     </span>
                   ) : (
                     <button onClick={e => { e.stopPropagation(); onActivate(acc); }}
-                      className="text-[10px] font-bold uppercase tracking-wider text-gray-400 border border-white/10 px-2 py-0.5 rounded-sm hover:text-cyan-400 hover:border-cyan-500/40 transition-colors">
+                      className="text-[10px] font-bold uppercase tracking-wider text-gray-400 border border-white/10 px-2 py-0.5 rounded-lg hover:text-violet-300 hover:border-violet-400/40 transition-colors">
                       Aktivieren
                     </button>
                   )}
                   
                   {acc.isFinished ? (
                     <button onClick={e => { e.stopPropagation(); onFinish(acc); }} title="Markierung aufheben"
-                      className="text-[10px] font-bold uppercase tracking-wider text-red-400 border border-red-500/40 bg-red-500/10 px-2 py-0.5 rounded-sm hover:bg-red-500/20 transition-colors">
+                      className="text-[10px] font-bold uppercase tracking-wider text-red-400 border border-red-500/40 bg-red-500/10 px-2 py-0.5 rounded-lg hover:bg-red-500/20 transition-colors">
                       Run beendet
                     </button>
                   ) : (
@@ -220,7 +220,7 @@ function DeckBuilder({ deck, bannedIds, onAdd, onRemove, disabled }) {
   };
 
   return (
-    <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5">
+    <div className="panel p-5">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-white font-bold text-sm">Dein Deck</h3>
         <span className="text-gray-600 text-xs">{deck.length}/{DECK_SIZE} Karten</span>
@@ -236,10 +236,10 @@ function DeckBuilder({ deck, bannedIds, onAdd, onRemove, disabled }) {
           onKeyDown={e => e.key === 'Enter' && results[0] && add(results[0].id)}
           placeholder={deckFull ? 'Deck ist voll' : 'Karte suchen und hinzufügen…'}
           disabled={deckFull || disabled}
-          className="w-full bg-[#1a1a20] border border-white/10 rounded-sm pl-8 pr-3 py-2.5 text-white text-sm placeholder-gray-600 focus:border-cyan-500 outline-none disabled:opacity-50"
+          className="w-full bg-[#1a1a20] border border-white/10 rounded-lg pl-8 pr-3 py-2.5 text-white text-sm placeholder-gray-600 focus:border-violet-400 outline-none disabled:opacity-50"
         />
         {search.trim() && !deckFull && (
-          <div className="absolute z-20 top-full mt-1 w-full bg-[#16161a] border border-white/10 rounded-sm shadow-2xl max-h-64 overflow-y-auto custom-scrollbar">
+          <div className="absolute z-20 top-full mt-1 w-full panel-strong shadow-2xl max-h-64 overflow-y-auto custom-scrollbar">
             {results.length === 0 ? (
               <p className="text-gray-600 text-xs p-3">Keine passende Karte gefunden</p>
             ) : results.map(c => (
@@ -265,7 +265,7 @@ function DeckBuilder({ deck, bannedIds, onAdd, onRemove, disabled }) {
           const card = cardId ? ALL_CARDS.find(c => c.id === cardId) : null;
           if (!card) return (
             <button key={i} onClick={() => inputRef.current?.focus()} disabled={disabled}
-              className="aspect-[5/6] rounded-sm border border-dashed border-white/10 bg-white/[0.02] flex items-center justify-center text-gray-700 hover:border-white/25 hover:text-gray-500 transition-colors">
+              className="aspect-[5/6] rounded-lg border border-dashed border-white/10 bg-white/[0.02] flex items-center justify-center text-gray-700 hover:border-white/25 hover:text-gray-500 transition-colors">
               <Plus size={16} />
             </button>
           );
@@ -273,11 +273,11 @@ function DeckBuilder({ deck, bannedIds, onAdd, onRemove, disabled }) {
             <div key={i} className="relative group aspect-[5/6]">
               <CardThumb id={card.id} name={card.name} rarity={card.rarity} className="w-full h-full border"
               />
-              <div className="absolute inset-0 rounded-sm border pointer-events-none"
+              <div className="absolute inset-0 rounded-lg border pointer-events-none"
                 style={{ borderColor: (RARITY_COLOR[card.rarity] || '#888') + '55' }} />
               {!disabled && (
                 <button onClick={() => onRemove(card.id)} title="Aus dem Deck entfernen"
-                  className="absolute top-1 right-1 bg-black/70 border border-white/20 rounded-sm p-1 text-gray-300 hover:text-red-400 hover:border-red-500/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                  className="absolute top-1 right-1 bg-black/70 border border-white/20 rounded-lg p-1 text-gray-300 hover:text-red-400 hover:border-red-500/50 opacity-0 group-hover:opacity-100 transition-opacity">
                   <X size={11} />
                 </button>
               )}
@@ -439,12 +439,12 @@ function AccountDetail({ account, onBack, onAccountsChanged, setAccounts }) {
         <div className="flex-1" />
 
         {isActive ? (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1.5 rounded-sm">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300 border border-violet-400/40 bg-violet-600/10 px-2.5 py-1.5 rounded-lg">
             Aktiv im Overlay
           </span>
         ) : (
           <button onClick={handleActivate}
-            className="text-xs font-bold text-gray-400 border border-white/10 px-3 py-1.5 rounded-sm hover:text-cyan-400 hover:border-cyan-500/40 transition-colors">
+            className="text-xs font-bold text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg hover:text-violet-300 hover:border-violet-400/40 transition-colors">
             Für Overlay aktivieren
           </button>
         )}
@@ -462,7 +462,7 @@ function AccountDetail({ account, onBack, onAccountsChanged, setAccounts }) {
           disabled={spinning}
         />
 
-        <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 flex flex-col items-center">
+        <div className="panel p-5 flex flex-col items-center">
           <div className="w-full flex items-baseline justify-between mb-2">
             <h3 className="text-white font-bold text-sm">Glücksrad</h3>
             <span className="text-gray-600 text-xs">Landet der Zeiger auf einer Karte, wird sie gebannt</span>
@@ -471,13 +471,13 @@ function AccountDetail({ account, onBack, onAccountsChanged, setAccounts }) {
           <CardWheel key={account.accountId} cards={deckCards} rotation={rotation} size={330} />
 
           <button onClick={handleSpin} disabled={spinning || deck.length === 0}
-            className="mt-4 w-full max-w-[330px] bg-red-500 hover:bg-red-400 disabled:bg-white/5 disabled:text-gray-600 text-white font-black py-3 rounded-sm transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed">
+            className="mt-4 w-full max-w-[330px] bg-red-500 hover:bg-red-400 disabled:bg-white/5 disabled:text-gray-600 text-white font-black py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed">
             <Dices size={16} />
             {spinning ? 'Das Rad dreht sich…' : 'Drehen & Bannen'}
           </button>
 
           {spinResult && !spinning && (
-            <div className="mt-4 w-full max-w-[330px] flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-sm p-3">
+            <div className="mt-4 w-full max-w-[330px] flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
               <div className="w-11 h-13 shrink-0" style={{ width: 44, height: 52 }}>
                 <CardThumb id={spinResult.id} name={spinResult.name} rarity={spinResult.rarity} className="w-full h-full" />
               </div>
@@ -494,7 +494,7 @@ function AccountDetail({ account, onBack, onAccountsChanged, setAccounts }) {
       </div>
 
       {/* Gebannte Karten */}
-      <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5">
+      <div className="panel p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h3 className="text-white font-bold text-sm flex items-center gap-2">
             <Ban size={13} className="text-red-400" />
@@ -510,7 +510,7 @@ function AccountDetail({ account, onBack, onAccountsChanged, setAccounts }) {
                   value={manualSearch}
                   onChange={e => setManualSearch(e.target.value)}
                   placeholder="Karte suchen…"
-                  className="bg-[#1a1a20] border border-white/10 rounded-sm px-2.5 py-1 text-white text-xs placeholder-gray-600 focus:border-cyan-500 outline-none w-44"
+                  className="bg-[#1a1a20] border border-white/10 rounded-lg px-2.5 py-1 text-white text-xs placeholder-gray-600 focus:border-violet-400 outline-none w-44"
                   autoFocus
                 />
                 <button 
@@ -520,7 +520,7 @@ function AccountDetail({ account, onBack, onAccountsChanged, setAccounts }) {
                   <X size={14} />
                 </button>
                 {manualSearch.trim() && (
-                  <div className="absolute z-30 top-full right-0 mt-1 w-52 bg-[#16161a] border border-white/10 rounded-sm shadow-2xl max-h-48 overflow-y-auto custom-scrollbar">
+                  <div className="absolute z-30 top-full right-0 mt-1 w-52 panel-strong shadow-2xl max-h-48 overflow-y-auto custom-scrollbar">
                     {manualResults.length === 0 ? (
                       <p className="text-gray-600 text-[11px] p-2">Keine Karte gefunden</p>
                     ) : manualResults.map(c => (
@@ -537,7 +537,7 @@ function AccountDetail({ account, onBack, onAccountsChanged, setAccounts }) {
               </div>
             ) : (
               <button onClick={() => setShowManualBan(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 border border-white/10 px-3 py-1.5 rounded-sm hover:text-cyan-400 hover:border-cyan-500/40 transition-colors">
+                className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 border border-white/10 px-3 py-1.5 rounded-lg hover:text-violet-300 hover:border-violet-400/40 transition-colors">
                 <Plus size={12} />
                 Karte manuell bannen
               </button>
@@ -551,9 +551,9 @@ function AccountDetail({ account, onBack, onAccountsChanged, setAccounts }) {
             {banned.map(b => (
               <div key={b.entryId} className="relative group aspect-[5/6]">
                 <CardThumb id={b.id} name={b.name} rarity={b.rarity} className="w-full h-full opacity-80" />
-                <div className="absolute inset-0 rounded-sm border border-red-500/30 pointer-events-none" />
+                <div className="absolute inset-0 rounded-lg border border-red-500/30 pointer-events-none" />
                 <button onClick={() => handleUnban(b.entryId)} title="Bann aufheben"
-                  className="absolute top-1 right-1 bg-black/70 border border-white/20 rounded-sm p-1 text-gray-300 hover:text-white hover:border-white/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                  className="absolute top-1 right-1 bg-black/70 border border-white/20 rounded-lg p-1 text-gray-300 hover:text-white hover:border-white/50 opacity-0 group-hover:opacity-100 transition-opacity">
                   <X size={11} />
                 </button>
               </div>
@@ -576,7 +576,7 @@ function LeaderboardTab() {
 
   if (!rows) return <p className="text-gray-500 text-sm py-8 text-center">Lade Leaderboard…</p>;
   if (rows.length === 0) return (
-    <div className="border border-dashed border-white/10 rounded-sm p-10 text-center">
+    <div className="border border-dashed border-white/10 rounded-lg p-10 text-center">
       <p className="text-gray-500 text-sm">Noch keine Accounts verknüpft — sei der Erste!</p>
     </div>
   );
@@ -584,7 +584,7 @@ function LeaderboardTab() {
   const rankColor = (i) => i === 0 ? 'text-amber-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-400' : 'text-gray-600';
 
   return (
-    <div className="bg-[#0f0f13] border border-white/5 rounded-sm overflow-hidden">
+    <div className="panel overflow-hidden">
       <div className="grid grid-cols-[3rem_1fr_auto] gap-3 px-4 py-2.5 border-b border-white/5 text-[10px] font-bold uppercase tracking-wider text-gray-600">
         <span>#</span>
         <span>Spieler</span>
@@ -600,12 +600,12 @@ function LeaderboardTab() {
               <span className="text-gray-700 text-[10px] font-mono shrink-0">#{row.playerTag}</span>
               
               {row.isFinished && (
-                <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 rounded-sm shrink-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 rounded-lg shrink-0">
                   Beendet
                 </span>
               )}
               {row.isActive && (
-                <span className="text-[9px] font-bold uppercase tracking-wider text-cyan-400 border border-cyan-500/40 bg-cyan-500/10 px-1.5 py-0.5 rounded-sm shrink-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-violet-300 border border-violet-400/40 bg-violet-600/10 px-1.5 py-0.5 rounded-lg shrink-0">
                   Aktiv
                 </span>
               )}
@@ -680,33 +680,33 @@ function SettingsTab({ apiConfigured }) {
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-5 space-y-3">
+      <div className="panel p-5 space-y-3">
         <h3 className="text-white font-bold text-sm">OBS-Overlay</h3>
         <p className="text-gray-500 text-xs leading-relaxed">
           Binde diesen Link als Browser-Quelle in OBS ein. Das Overlay zeigt automatisch die gebannten
-          Karten und den Versuchszähler deines <span className="text-cyan-400">aktiven</span> Accounts.
+          Karten und den Versuchszähler deines <span className="text-violet-300">aktiven</span> Accounts.
         </p>
         <div className="flex items-center gap-2">
-          <div className={`flex-1 bg-[#1a1a20] border border-white/5 rounded-sm px-3 py-2.5 text-gray-400 text-xs font-mono truncate transition-all ${hidden ? 'blur-sm select-none pointer-events-none' : ''}`}>
+          <div className={`flex-1 bg-[#1a1a20] border border-white/5 rounded-lg px-3 py-2.5 text-gray-400 text-xs font-mono truncate transition-all ${hidden ? 'blur-sm select-none pointer-events-none' : ''}`}>
             {link || 'Lade…'}
           </div>
           <button onClick={copy} title="Kopieren" disabled={!link}
-            className="p-2.5 border border-white/10 rounded-sm hover:border-white/30 transition-colors text-gray-500 hover:text-white shrink-0">
+            className="p-2.5 border border-white/10 rounded-lg hover:border-white/30 transition-colors text-gray-500 hover:text-white shrink-0">
             {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
           </button>
           <button onClick={() => setHidden(v => !v)} title={hidden ? 'Anzeigen' : 'Verbergen'}
-            className="p-2.5 border border-white/10 rounded-sm hover:border-white/30 transition-colors text-gray-500 hover:text-white shrink-0">
+            className="p-2.5 border border-white/10 rounded-lg hover:border-white/30 transition-colors text-gray-500 hover:text-white shrink-0">
             {hidden ? <Eye size={14} /> : <EyeOff size={14} />}
           </button>
         </div>
         <button onClick={regenerate} disabled={!overlayKey}
-          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 border border-white/10 px-3 py-1.5 rounded-sm hover:text-red-400 hover:border-red-500/40 transition-colors">
+          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 border border-white/10 px-3 py-1.5 rounded-lg hover:text-red-400 hover:border-red-500/40 transition-colors">
           <RefreshCw size={12} />
           Link neu generieren
         </button>
       </div>
 
-      <div className={`border rounded-sm p-5 ${apiConfigured ? 'bg-green-500/5 border-green-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+      <div className={`border rounded-lg p-5 ${apiConfigured ? 'bg-green-500/5 border-green-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
         <h3 className={`font-bold text-sm mb-1 ${apiConfigured ? 'text-green-400' : 'text-amber-400'}`}>
           {apiConfigured ? 'Clash Royale API verbunden' : 'Clash Royale API nicht konfiguriert'}
         </h3>
@@ -723,7 +723,7 @@ function SettingsTab({ apiConfigured }) {
 // ── Regeln ───────────────────────────────────────────────────────────────────
 function RulesTab() {
   return (
-    <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-6 max-w-3xl">
+    <div className="panel p-6 max-w-3xl">
       <h2 className="text-white font-bold text-lg mb-4">Nuzlocke Regeln</h2>
       <ol className="list-decimal list-inside space-y-4 text-gray-300 text-sm leading-relaxed">
         <li>
@@ -804,29 +804,29 @@ export default function NuzlockePage() {
     setGlobalAttempts(next);
     try {
       await api.adjustAttempts(delta);
-    } catch (e) {
+    } catch {
       // Fehlerbehandlung – Sync korrigiert es beim nächsten Laden
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="page-fade max-w-6xl mx-auto">
       <SEO title="Clash Royale Nuzlocke" description="Baue dein Deck, dreh das Glücksrad und banne Karten — Nuzlocke-Challenge für Clash Royale." path="/nuzlocke" />
 
       {/* Kopfbereich */}
       <div className="mb-6">
-        <h1 className="text-3xl font-black text-white tracking-tight">Nuzlocke</h1>
+        <h1 className="font-display text-3xl font-bold text-white tracking-tight">Nuzlocke</h1>
         <p className="text-gray-500 text-sm mt-1">
           Verliere ein Match, dreh das Glücksrad — die getroffene Karte ist für den Rest des Runs gebannt.
         </p>
       </div>
 
       {!user ? (
-        <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-10 text-center max-w-md mx-auto mt-12">
+        <div className="panel p-10 text-center max-w-md mx-auto mt-12">
           <p className="text-white font-bold mb-1">Login erforderlich</p>
           <p className="text-gray-500 text-sm mb-5">Melde dich mit Twitch an, um deine Accounts und Bans zu verwalten.</p>
           <button onClick={() => login(false)}
-            className="inline-flex items-center gap-2 bg-purple-500 hover:bg-purple-400 text-white font-bold px-5 py-2.5 rounded-sm text-sm transition-colors">
+            className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-colors">
             <Twitch size={15} />
             Mit Twitch einloggen
           </button>

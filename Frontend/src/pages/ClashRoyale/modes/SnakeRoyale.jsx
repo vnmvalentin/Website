@@ -17,6 +17,29 @@ function AvatarCircle({ id, color, size = 28 }) {
 
 const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
 
+const SNAKE_I18N = {
+  de: {
+    you: 'Du',
+    gameOver: 'Spiel beendet',
+    newSnake: 'Neue Schlange — freie Auswahl!',
+    noMoveTimer: 'Kein Zug möglich – Timer läuft ab…',
+    yourTurn: 'Dein Zug',
+    turnOfPrefix: 'Zug von',
+    round: (n) => `Runde ${n}/8`,
+    championLimitSuffix: ' (Champion-Limit)',
+  },
+  en: {
+    you: 'You',
+    gameOver: 'Game over',
+    newSnake: 'New snake — pick anywhere!',
+    noMoveTimer: 'No move possible – timer running out…',
+    yourTurn: 'Your turn',
+    turnOfPrefix: 'Turn:',
+    round: (n) => `Round ${n}/8`,
+    championLimitSuffix: ' (champion limit)',
+  },
+};
+
 function getAdjacentIndices(idx, cols, totalCells) {
   const col = idx % cols;
   const adj = [];
@@ -50,10 +73,11 @@ function CardImg({ id, name, rarity }) {
   );
 }
 
-export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard }) {
+export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard, lang = 'de' }) {
+  const t = SNAKE_I18N[lang] || SNAKE_I18N.de;
   const {
     grid, gridCols = 11, currentTurn, turnOrder,
-    lastPickedCellIndex, timerRemaining, timerSeconds, finished, totalTurns, isSnakeReset,
+    lastPickedCellIndex, timerRemaining, timerSeconds, finished, isSnakeReset,
   } = gameState;
 
   const totalCells = grid.length;
@@ -104,7 +128,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
                 <AvatarCircle id={player.avatar} color={player.color} size={28} />
                 <span className="text-white text-xs font-semibold truncate flex-1">{player.name}</span>
                 {player.id === myPlayerId && (
-                  <span className="text-[10px] text-cyan-500 shrink-0">Du</span>
+                  <span className="text-[10px] text-cyan-500 shrink-0">{t.you}</span>
                 )}
               </div>
               <div className="grid grid-cols-4 gap-1">
@@ -137,7 +161,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
               <div key={player.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-3 py-2 flex items-center gap-2 opacity-50">
                 <AvatarCircle id={player.avatar} color={player.color} size={22} />
                 <span className="text-gray-400 text-xs truncate flex-1">{player.name}</span>
-                {player.id === myPlayerId && <span className="text-[9px] text-cyan-600 shrink-0">Du</span>}
+                {player.id === myPlayerId && <span className="text-[9px] text-cyan-600 shrink-0">{t.you}</span>}
                 <span className="text-[9px] text-gray-600 shrink-0">👁</span>
               </div>
             ))}
@@ -152,16 +176,16 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
         <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
           <div className="flex-1 min-w-0 text-sm">
             {finished ? (
-              <span className="text-green-400 font-bold">Spiel beendet</span>
+              <span className="text-green-400 font-bold">{t.gameOver}</span>
             ) : isSnakeReset ? (
-              <span className="text-amber-400 font-bold">Neue Schlange — freie Auswahl!</span>
+              <span className="text-amber-400 font-bold">{t.newSnake}</span>
             ) : isMyTurn && validSet.size === 0 ? (
-              <span className="text-orange-400 font-semibold">Kein Zug möglich – Timer läuft ab…</span>
+              <span className="text-orange-400 font-semibold">{t.noMoveTimer}</span>
             ) : isMyTurn ? (
-              <span className="text-cyan-400 font-black">Dein Zug</span>
+              <span className="text-cyan-400 font-black">{t.yourTurn}</span>
             ) : (
               <span className="text-gray-400">
-                Zug von{' '}
+                {t.turnOfPrefix}{' '}
                 <span className="font-semibold" style={{ color: currentPlayer?.color }}>
                   {currentPlayer?.name || '…'}
                 </span>
@@ -169,7 +193,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
             )}
           </div>
 
-          <span className="text-gray-600 text-xs shrink-0">Runde {round}/8</span>
+          <span className="text-gray-600 text-xs shrink-0">{t.round(round)}</span>
 
           {!finished && (
             <div className={`flex items-center gap-1.5 border rounded-sm px-2.5 py-1 shrink-0 ${
@@ -214,7 +238,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
                 <div
                   key={idx}
                   onClick={() => isValid && !finished && isMyTurn && onPickCard(idx)}
-                  title={`${cell.card.name}${isBlocked ? ' (Champion-Limit)' : ''}`}
+                  title={`${cell.card.name}${isBlocked ? t.championLimitSuffix : ''}`}
                   className={`
                     relative aspect-square rounded-[2px] border overflow-hidden transition-transform duration-100
                     ${isValid && isMyTurn && !finished ? 'cursor-pointer hover:scale-110 z-10' : 'cursor-default'}

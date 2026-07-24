@@ -1,17 +1,50 @@
-﻿import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
-import { Radio, Gamepad2, Eye } from "lucide-react";
-import { io } from "socket.io-client"; // <--- IMPORT
+import {
+  Radio, Gamepad2, Eye, LayoutDashboard, Swords, Coins, Sprout, Ticket,
+  Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
+  Plus, Infinity as InfinityIcon,
+} from "lucide-react";
+import { io } from "socket.io-client";
 import SEO from "../components/SEO";
 
 // DEINE ID
-const STREAMER_ID = "160224748"; 
+const STREAMER_ID = "160224748";
 
-const SECTIONS = ["overview", "adventures", "casino", "garden", "codes", "winchallenge", "bingo", "clashroyale", "broadcast"];
+const SECTIONS = [
+  { id: "overview", label: "Übersicht", icon: LayoutDashboard },
+  { id: "adventures", label: "adVentures", icon: Swords },
+  { id: "casino", label: "Credits", icon: Coins },
+  { id: "garden", label: "Virtual Farm", icon: Sprout },
+  { id: "codes", label: "Promo-Codes", icon: Ticket },
+  { id: "winchallenge", label: "Win-Challenges", icon: Trophy },
+  { id: "bingo", label: "Bingo", icon: Grid3x3 },
+  { id: "clashroyale", label: "Clash Royale", icon: Crown },
+  { id: "broadcast", label: "Broadcast", icon: Radio },
+];
+
+// Sucht über alle gängigen Namens-/ID-Felder — vorher konnte man bei
+// WinChallenge/Bingo nur über die rohe Twitch-ID suchen, weil deren
+// Einträge "hostName"/"host.twitchLogin" statt "name"/"twitchLogin" nutzen.
+function searchTextFor(id, val) {
+  const parts = [
+    id,
+    val?.name,
+    val?.twitchLogin,
+    val?.twitchId,
+    val?.userId,
+    val?.hostName,
+    val?.host?.name,
+    val?.host?.twitchLogin,
+    val?.host?.twitchId,
+    val?.theme?.name,
+  ];
+  return parts.filter(Boolean).join(" ").toLowerCase();
+}
 
 export default function AdminDashboard() {
-  const { user, isLoading } = useContext(TwitchAuthContext);
+  const { user } = useContext(TwitchAuthContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("overview");
@@ -23,7 +56,7 @@ export default function AdminDashboard() {
   const [bcDuration, setBcDuration] = useState(15); // in Minuten
   const [bcType, setBcType] = useState("warning");
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  
+
   // Ref für Socket, damit wir nicht bei jedem Render neu verbinden
   const socketRef = useRef(null);
 
@@ -31,7 +64,6 @@ export default function AdminDashboard() {
       if (!bcMessage.trim()) return;
       setIsBroadcasting(true);
       try {
-          // Erwartet, dass dein Backend diesen Call annimmt, speichert und via Socket "system_broadcast" an alle emittet
           const res = await fetch("/api/admin/broadcast", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -55,8 +87,8 @@ export default function AdminDashboard() {
   };
 
   // --- NEUE STATES FÜR CODES ---
-  const [newCode, setNewCode] = useState({ 
-      code: "", type: "credits", value: 0, maxUses: 10, expiresAt: "" 
+  const [newCode, setNewCode] = useState({
+      code: "", type: "credits", value: 0, maxUses: 10, expiresAt: ""
   });
   const [isUnlimited, setIsUnlimited] = useState(false);
   const [gardenUsers, setGardenUsers] = useState([]);
@@ -66,18 +98,13 @@ export default function AdminDashboard() {
 
   // --- SICHERHEITS-CHECK ---
   useEffect(() => {
-    if (isLoading) return;
     if (!user || String(user.id) !== STREAMER_ID) {
-        navigate("/"); 
+        navigate("/");
     }
-  }, [user, isLoading, navigate]);
+  }, [user, navigate]);
 
   // Daten laden Funktion
   const fetchData = async (type) => {
-      // Kleiner Schutz: Nicht laden, wenn gerade schon geladen wird, außer es ist ein Refetch im Hintergrund
-      // Aber für Admin Dashboard ist es okay, kurz zu flackern oder setFetchLoading wegzulassen für Silent Updates.
-      // Wir lassen setFetchLoading hier für initiale Loads, aber könnten es optimieren.
-      
       try {
           let url = `/api/admin/data/${type}`;
           if (type === "codes") url = "/api/promo/list";
@@ -119,10 +146,9 @@ export default function AdminDashboard() {
       }
   }, [activeTab]);
 
-  // --- SOCKET IO INTEGRATION (NEU) ---
+  // --- SOCKET IO INTEGRATION ---
   useEffect(() => {
-      // Verbindung aufbauen
-      socketRef.current = io("https://vnmvalentin.de", { // Oder deine URL dynamisch
+      socketRef.current = io("https://vnmvalentin.de", {
           path: "/socket.io",
           withCredentials: true
       });
@@ -130,17 +156,13 @@ export default function AdminDashboard() {
       const socket = socketRef.current;
 
       socket.on("connect", () => {
-          // Wir treten dem Streamer-Raum bei, damit wir Events bekommen
           socket.emit("join_room", `streamer:${STREAMER_ID}`);
           console.log("Admin Socket connected");
       });
 
-      // HIER KOMMT DAS UPDATE VOM SERVER
       socket.on("admin_data_changed", (updatedTypes) => {
-          // updatedTypes ist z.B. ["codes", "stats"]
           console.log("Update received:", updatedTypes);
 
-          // Mapping von Tab-Namen zu API-Typen
            const keyMap = {
               "overview": "stats",
               "adventures": "adventure",
@@ -152,7 +174,6 @@ export default function AdminDashboard() {
 
           const currentApiType = keyMap[activeTab];
 
-          // Wenn der aktuelle Tab von den Änderungen betroffen ist -> Silent Reload
           if (updatedTypes.includes(currentApiType)) {
               fetchData(currentApiType);
           }
@@ -161,13 +182,9 @@ export default function AdminDashboard() {
       return () => {
           socket.disconnect();
       };
-  }, [activeTab]); // Dependency auf activeTab, damit der Listener den aktuellen Tab kennt (oder via Ref lösen)
+  }, [activeTab]);
 
-
-  // --- ACTIONS (Angepasst: Kein manuelles fetchData mehr nötig, da Socket triggert!) ---
-  // Aber: FetchData kann zur Sicherheit drin bleiben, falls Socket mal hängt.
-  // Ich lasse fetchData drin für sofortiges Feedback, Socket fängt dann Cross-Device Updates.
-
+  // --- ACTIONS ---
   const createCode = async () => {
       const payload = {
           ...newCode,
@@ -177,17 +194,14 @@ export default function AdminDashboard() {
           method: "POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify(payload)
       });
-      // Reset Form
       setNewCode({ code: "", type: "credits", value: 0, maxUses: 10, expiresAt: "" });
       setIsUnlimited(false);
-      // fetchData("codes"); // <-- Nicht mehr zwingend nötig, da Server Event sendet, aber schadet nicht für Latenz.
-      fetchData("codes"); 
+      fetchData("codes");
   };
 
   const deleteCode = async (code) => {
       if(!window.confirm("Code löschen?")) return;
       await fetch(`/api/promo/${code}`, { method: "DELETE" });
-      // fetchData wird durch Socket getriggert
       fetchData("codes");
   };
 
@@ -196,18 +210,16 @@ export default function AdminDashboard() {
           method: "POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ targetId: id, changes })
       });
-      // fetchData wird durch Socket getriggert
   };
-  
+
   const deleteItem = async (type, id) => {
       if(!window.confirm("Wirklich löschen?")) return;
-      
+
       let url = `/api/admin/${type}/${id}`;
       if (type === "winchallenge") url = `/api/winchallenge/${id}`;
 
       await fetch(url, { method: "DELETE" });
-      
-      // Kleiner Timeout nicht mehr nötig, Server sendet wenn fertig
+
       setTimeout(() => {
           if(activeTab === "winchallenge") fetchData("winchallenge");
           if(activeTab === "bingo") fetchData("bingo");
@@ -216,80 +228,76 @@ export default function AdminDashboard() {
 
   // --- RENDER HELPERS ---
 
-  if (isLoading || !user || String(user.id) !== STREAMER_ID) {
-      return <div className="min-h-screen flex items-center justify-center text-gray-500">Checking permissions...</div>;
+  if (!user || String(user.id) !== STREAMER_ID) {
+      return <div className="min-h-screen flex items-center justify-center text-white/40">Checking permissions...</div>;
   }
 
+  const activeSection = SECTIONS.find(s => s.id === activeTab) || SECTIONS[0];
+
   const renderContent = () => {
-      if (fetchLoading) return <div className="p-8 text-center animate-pulse text-purple-400 font-bold">Lade Daten aus der Datenbank...</div>;
-      
-      // FIX: Wenn Data null ist, aber wir im Overview sind, versuche neu zu laden oder zeige Fehler
+      if (fetchLoading) return <div className="p-8 text-center animate-pulse text-violet-300 font-semibold">Lade Daten aus der Datenbank...</div>;
+
       if (!data && activeTab === "overview") return <div className="p-8 text-center text-red-400">Keine Statistik-Daten empfangen. (Backend prüfen)</div>;
-      
-      // FIX: Der Broadcast-Tab braucht kein "data", also überspringen wir diesen Check für ihn!
-      if (!data && activeTab !== "broadcast") return <div className="p-8 text-center text-gray-500">Wähle einen Bereich</div>;
+
+      if (!data && activeTab !== "broadcast") return <div className="p-8 text-center text-white/40">Wähle einen Bereich</div>;
 
       // FILTER
       let entries = data ? Object.entries(data) : [];
       if (search && data) {
           const s = search.toLowerCase();
-          entries = entries.filter(([id, val]) => 
-              id.toLowerCase().includes(s) || 
-              (val.name && val.name.toLowerCase().includes(s)) ||
-              (val.twitchLogin && val.twitchLogin.toLowerCase().includes(s))
-          );
+          entries = entries.filter(([id, val]) => searchTextFor(id, val).includes(s));
       }
 
-      // --- BROADCAST TAB (muss GANZ OBEN stehen oder ein eigenes "if" mit "return" haben) ---
+      // --- BROADCAST TAB ---
       if (activeTab === "broadcast") {
           return (
-              <div className="bg-[#18181b] border border-red-500/30 p-6 rounded-md">
-                  <h2 className="text-2xl font-black text-red-400 flex items-center gap-3 mb-6">
-                      <Radio size={28} /> System Broadcast
+              <div className="panel p-6 border-red-500/20">
+                  <h2 className="font-display text-xl font-bold text-red-400 flex items-center gap-3 mb-2">
+                      <Radio size={22} /> System Broadcast
                   </h2>
-                  <p className="text-white/50 mb-6">
+                  <p className="text-white/50 mb-6 text-sm leading-relaxed">
                       Sende eine Nachricht an alle gerade aktiven User. Die Nachricht wird als Pop-Up angezeigt und bleibt für die eingestellte Dauer auch bei Seiten-Reloads aktiv.
                   </p>
-    
+
                   <div className="space-y-4 max-w-2xl">
                       <div>
-                          <label className="block text-sm font-bold text-white/70 mb-2">Nachricht</label>
+                          <label className="block text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Nachricht</label>
                           <textarea
                               value={bcMessage}
                               onChange={(e) => setBcMessage(e.target.value)}
                               placeholder="z.B. Website wird in 5 Minuten für ein Update kurz neugestartet!"
-                              className="w-full bg-black/50 border border-white/10 rounded-sm p-4 text-white placeholder:text-white/30 focus:border-red-500/50 outline-none resize-none h-24"
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-4 text-white placeholder:text-white/25 focus:border-red-500/50 outline-none resize-none h-24 transition-colors"
                           />
                       </div>
-    
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                              <label className="block text-sm font-bold text-white/70 mb-2">Dauer (in Minuten)</label>
+                              <label className="block text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Dauer (in Minuten)</label>
                               <input
                                   type="number"
                                   value={bcDuration}
                                   onChange={(e) => setBcDuration(Number(e.target.value))}
                                   min="1"
-                                  className="w-full bg-black/50 border border-white/10 rounded-sm p-3 text-white focus:border-red-500/50 outline-none"
+                                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:border-red-500/50 outline-none transition-colors"
                               />
                           </div>
                           <div>
-                              <label className="block text-sm font-bold text-white/70 mb-2">Art des Hinweises</label>
+                              <label className="block text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Art des Hinweises</label>
                               <select
                                   value={bcType}
                                   onChange={(e) => setBcType(e.target.value)}
-                                  className="w-full bg-black/50 border border-white/10 rounded-sm p-3 text-white focus:border-red-500/50 outline-none appearance-none"
+                                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:border-red-500/50 outline-none appearance-none transition-colors"
                               >
                                   <option value="warning">Warnung (Rot)</option>
-                                  <option value="info">Info (Cyan)</option>
+                                  <option value="info">Info (Violett)</option>
                               </select>
                           </div>
                       </div>
-    
+
                       <button
                           onClick={handleSendBroadcast}
                           disabled={isBroadcasting || !bcMessage.trim()}
-                          className="mt-4 w-full bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:text-white/30 text-white font-black py-4 rounded-sm transition-colors flex items-center justify-center gap-2"
+                          className="mt-4 w-full bg-red-600 hover:bg-red-500 disabled:bg-white/5 disabled:text-white/30 text-white font-bold py-3.5 rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                           {isBroadcasting ? "Sendet..." : "Broadcast jetzt auslösen"}
                       </button>
@@ -302,51 +310,32 @@ export default function AdminDashboard() {
       if (activeTab === "overview") {
           if (!data) return null;
 
+          const statCards = [
+              { label: "Total Credits", value: data.totalCredits?.toLocaleString(), accent: "text-amber-400", border: "border-amber-500/20" },
+              { label: "Casino User", value: data.totalUsers, accent: "text-blue-400", border: "border-blue-500/20" },
+              { label: "adVentures Spieler", value: data.advPlayers, accent: "text-emerald-400", border: "border-emerald-500/20" },
+          ];
+          const miniCards = [
+              { label: "Aktive Bingos", value: data.activeBingoSessions },
+              { label: "Win-Challenges", value: data.activeChallenges },
+              { label: "Aktive Promo-Codes", value: data.activeCodes },
+          ];
+
           return (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* CREDITS CARD */}
-                  <div className="bg-[#18181b] p-6 rounded-md border border-yellow-500/20">
-                      <div className="text-yellow-500 text-sm font-bold uppercase tracking-wider mb-2">Total Credits</div>
-                      <div className="text-4xl font-black text-white flex items-center gap-2">
-                          {data.totalCredits?.toLocaleString()} 
-                          <span className="text-2xl">🪙</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {statCards.map(c => (
+                      <div key={c.label} className={`panel p-6 ${c.border}`}>
+                          <div className={`${c.accent} text-xs font-bold uppercase tracking-wider mb-2`}>{c.label}</div>
+                          <div className="text-4xl font-bold text-white">{c.value}</div>
                       </div>
-                      <div className="text-xs text-gray-400 mt-2">Im Umlauf bei allen Usern</div>
-                  </div>
+                  ))}
 
-                  {/* USER CARD */}
-                  <div className="bg-[#18181b] p-6 rounded-md border border-blue-500/20">
-                      <div className="text-blue-500 text-sm font-bold uppercase tracking-wider mb-2">Casino User</div>
-                      <div className="text-4xl font-black text-white">
-                          {data.totalUsers}
+                  {miniCards.map(c => (
+                      <div key={c.label} className="panel p-6">
+                          <div className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">{c.label}</div>
+                          <div className="text-3xl font-bold text-white">{c.value}</div>
                       </div>
-                      <div className="text-xs text-gray-400 mt-2">Registrierte Datenbank-Einträge</div>
-                  </div>
-
-                  {/* ADVENTURE CARD */}
-                  <div className="bg-[#18181b] p-6 rounded-md border border-green-500/20">
-                      <div className="text-green-500 text-sm font-bold uppercase tracking-wider mb-2">Adventure Spieler</div>
-                      <div className="text-4xl font-black text-white">
-                          {data.advPlayers}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-2">Haben das RPG gestartet</div>
-                  </div>
-
-                  {/* ACTIVE ITEMS */}
-                  <div className="bg-gray-800 p-6 rounded-md border border-white/5">
-                      <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Aktive Bingos</div>
-                      <div className="text-3xl font-bold text-white">{data.activeBingoSessions}</div>
-                  </div>
-
-                  <div className="bg-gray-800 p-6 rounded-md border border-white/5">
-                      <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Win-Challenges</div>
-                      <div className="text-3xl font-bold text-white">{data.activeChallenges}</div>
-                  </div>
-
-                  <div className="bg-gray-800 p-6 rounded-md border border-white/5">
-                      <div className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Aktive Promo-Codes</div>
-                      <div className="text-3xl font-bold text-white">{data.activeCodes}</div>
-                  </div>
+                  ))}
               </div>
           );
       }
@@ -356,94 +345,106 @@ export default function AdminDashboard() {
           return (
               <div className="space-y-6">
                   {/* ERSTELLEN FORMULAR */}
-                  <div className="bg-gray-800 p-4 rounded-xl border border-white/10 flex flex-wrap gap-4 items-end">
+                  <div className="panel p-5 flex flex-wrap gap-4 items-end">
                       <div>
-                          <label className="text-xs text-gray-400 block mb-1">Code (leer = auto)</label>
-                          <input className="block bg-black/50 p-2 rounded border border-white/10 w-32" value={newCode.code} onChange={e=>setNewCode({...newCode, code: e.target.value})} placeholder="AUTO" />
+                          <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Code (leer = auto)</label>
+                          <input className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 w-32 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.code} onChange={e=>setNewCode({...newCode, code: e.target.value})} placeholder="AUTO" />
                       </div>
                       <div>
-                          <label className="text-xs text-gray-400 block mb-1">Typ</label>
-                          <select className="block bg-black/50 p-2 rounded border border-white/10" value={newCode.type} onChange={e=>setNewCode({...newCode, type: e.target.value})}>
+                          <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Typ</label>
+                          <select className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.type} onChange={e=>setNewCode({...newCode, type: e.target.value})}>
                               <option value="credits">Credits</option>
                               <option value="skin">Skin</option>
                           </select>
                       </div>
                       <div>
-                          <label className="text-xs text-gray-400 block mb-1">Wert/SkinID</label>
-                          <input className="block bg-black/50 p-2 rounded border border-white/10 w-24" value={newCode.value} onChange={e=>setNewCode({...newCode, value: e.target.value})} />
+                          <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Wert/SkinID</label>
+                          <input className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 w-24 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.value} onChange={e=>setNewCode({...newCode, value: e.target.value})} />
                       </div>
-                      
+
                       {/* ANZAHL & UNBEGRENZT */}
                       <div className="flex items-center gap-2">
                           {!isUnlimited ? (
                               <div>
-                                  <label className="text-xs text-gray-400 block mb-1">Anzahl</label>
-                                  <input type="number" className="block bg-black/50 p-2 rounded border border-white/10 w-20" value={newCode.maxUses} onChange={e=>setNewCode({...newCode, maxUses: e.target.value})} />
+                                  <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Anzahl</label>
+                                  <input type="number" className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 w-20 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.maxUses} onChange={e=>setNewCode({...newCode, maxUses: e.target.value})} />
                               </div>
                           ) : (
-                             <div className="h-[58px] flex items-end pb-3 px-2">
-                                 <span className="text-2xl font-bold text-green-400">∞</span>
+                             <div className="h-[42px] flex items-center px-2 text-violet-300">
+                                 <InfinityIcon size={22} />
                              </div>
                           )}
-                          <div className="h-[58px] flex items-end pb-3">
-                              <label className="flex items-center gap-1 cursor-pointer select-none">
-                                  <input type="checkbox" checked={isUnlimited} onChange={e => setIsUnlimited(e.target.checked)} className="accent-purple-500" />
-                                  <span className="text-xs text-gray-400">Unbegrenzt</span>
-                              </label>
-                          </div>
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none h-[42px]">
+                              <input type="checkbox" checked={isUnlimited} onChange={e => setIsUnlimited(e.target.checked)} className="accent-violet-500 w-4 h-4" />
+                              <span className="text-xs text-white/50">Unbegrenzt</span>
+                          </label>
                       </div>
 
                       {/* DATUM */}
                       <div>
-                          <label className="text-xs text-gray-400 block mb-1">Ablauf (Optional)</label>
-                          <input 
-                              type="datetime-local" 
-                              className="block bg-black/50 p-2 rounded border border-white/10 text-xs" 
-                              value={newCode.expiresAt} 
-                              onChange={e=>setNewCode({...newCode, expiresAt: e.target.value})} 
+                          <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Ablauf (Optional)</label>
+                          <input
+                              type="datetime-local"
+                              className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-violet-500 outline-none transition-colors"
+                              value={newCode.expiresAt}
+                              onChange={e=>setNewCode({...newCode, expiresAt: e.target.value})}
                           />
                       </div>
 
-                      <button onClick={createCode} className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded font-bold h-[38px] mb-[1px]">Erstellen</button>
+                      <button onClick={createCode} className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors">
+                          <Plus size={15} /> Erstellen
+                      </button>
                   </div>
-                  
+
+                  {/* SUCHE (Codes hat eigene Filterung, da Codes selbst der Key sind) */}
+                  <div className="relative max-w-sm">
+                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+                      <input
+                          type="text"
+                          placeholder="Code suchen..."
+                          value={search}
+                          onChange={e => setSearch(e.target.value)}
+                          className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:border-violet-500 outline-none transition-colors"
+                      />
+                  </div>
+
                   {/* LISTE */}
                   <div className="grid gap-2">
                       {entries.map(([code, info]) => {
                           const isExpired = info.expiresAt && Date.now() > info.expiresAt;
                           const isInfinity = info.maxUses === -1;
                           const usedCount = info.usedBy?.length || 0;
-                          
+
                           return (
-                              <div key={code} className={`p-3 rounded flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border border-white/5 ${isExpired ? 'bg-red-900/10 opacity-60' : 'bg-white/5'}`}>
-                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                              <div key={code} className={`panel p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ${isExpired ? 'opacity-50' : ''}`}>
+                                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                                       <div className="min-w-[100px]">
-                                          <span className="font-mono text-yellow-400 font-bold text-lg">{code}</span>
-                                          {isExpired && <span className="ml-2 text-red-500 text-xs font-bold">ABGELAUFEN</span>}
+                                          <span className="font-mono text-amber-400 font-bold text-lg">{code}</span>
+                                          {isExpired && <span className="ml-2 text-red-400 text-[10px] font-bold uppercase">Abgelaufen</span>}
                                       </div>
 
-                                      <div className="text-sm text-gray-300">
-                                          <span className="uppercase text-xs text-gray-500 block">Reward</span>
-                                          {info.type === "credits" ? `💰 ${info.value}` : `🎨 ${info.value}`}
+                                      <div className="text-sm text-white/70">
+                                          <span className="uppercase text-[10px] text-white/30 font-bold block">Reward</span>
+                                          {info.type === "credits" ? `${info.value} Credits` : `Skin: ${info.value}`}
                                       </div>
 
-                                      <div className="text-sm text-gray-300">
-                                          <span className="uppercase text-xs text-gray-500 block">Genutzt</span>
-                                          <span className={usedCount >= info.maxUses && !isInfinity ? "text-red-400" : "text-green-400"}>
+                                      <div className="text-sm text-white/70">
+                                          <span className="uppercase text-[10px] text-white/30 font-bold block">Genutzt</span>
+                                          <span className={usedCount >= info.maxUses && !isInfinity ? "text-red-400" : "text-emerald-400"}>
                                               {usedCount} / {isInfinity ? "∞" : info.maxUses}
                                           </span>
                                       </div>
 
-                                      <div className="text-sm text-gray-300">
-                                          <span className="uppercase text-xs text-gray-500 block">Läuft ab</span>
+                                      <div className="text-sm text-white/70">
+                                          <span className="uppercase text-[10px] text-white/30 font-bold block">Läuft ab</span>
                                           {info.expiresAt ? new Date(info.expiresAt).toLocaleString() : "Nie"}
                                       </div>
                                   </div>
-                                  <button onClick={() => deleteCode(code)} className="text-red-500 hover:text-red-400 bg-black/30 hover:bg-black/50 p-2 rounded self-start sm:self-auto">🗑️</button>
+                                  <button onClick={() => deleteCode(code)} className="p-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors self-start sm:self-auto shrink-0"><Trash2 size={16} /></button>
                               </div>
                           );
                       })}
-                      {entries.length === 0 && <p className="text-center text-gray-500 italic py-8">Keine Codes vorhanden.</p>}
+                      {entries.length === 0 && <p className="text-center text-white/30 italic py-8">Keine Codes vorhanden.</p>}
                   </div>
               </div>
           );
@@ -452,76 +453,79 @@ export default function AdminDashboard() {
       // 2. ADVENTURES & CASINO
       if (activeTab === "adventures" || activeTab === "casino") {
           return (
-              <div className="overflow-x-auto">
+              <div className="panel overflow-hidden">
+                <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                      <thead className="bg-white/10 text-xs uppercase">
+                      <thead className="bg-black/25 text-[10px] uppercase tracking-wider text-white/40">
                           <tr>
-                              <th className="p-3">User</th>
-                              <th className="p-3">Credits (Casino)</th>
+                              <th className="p-3 font-bold">User</th>
+                              <th className="p-3 font-bold">Credits</th>
                               {activeTab === "adventures" && (
                                   <>
-                                      <th className="p-3">Highscore</th>
-                                      <th className="p-3">Skins</th>
-                                      <th className="p-3">Slots</th>
+                                      <th className="p-3 font-bold">Highscore</th>
+                                      <th className="p-3 font-bold">Skins</th>
+                                      <th className="p-3 font-bold">Slots</th>
                                   </>
                               )}
-                              <th className="p-3">Actions</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                          {entries.map(([id, user]) => (
-                              <tr key={id} className="hover:bg-white/5">
-                                  <td className="p-3 font-mono text-xs text-gray-400">
-                                      <div className="text-white font-bold text-sm">{user.name || user.twitchLogin || "Unknown"}</div>
+                          {entries.map(([id, u]) => (
+                              <tr key={id} className="hover:bg-white/[0.03] transition-colors">
+                                  <td className="p-3 font-mono text-xs text-white/40">
+                                      <div className="text-white font-semibold text-sm font-sans">{u.name || u.twitchLogin || "Unknown"}</div>
                                       {id}
                                   </td>
                                   <td className="p-3">
-                                      <input 
-                                          type="number" 
-                                          defaultValue={user.credits}
+                                      <input
+                                          type="number"
+                                          defaultValue={u.credits}
                                           onBlur={(e) => updateUser(id, { credits: e.target.value })}
-                                          className="w-24 bg-black/30 border border-white/10 rounded px-2 py-1"
+                                          className="w-24 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
                                       />
                                   </td>
                                   {activeTab === "adventures" && (
                                       <>
                                           <td className="p-3">
-                                              <input 
-                                                  type="number" 
-                                                  defaultValue={user.highScore}
+                                              <input
+                                                  type="number"
+                                                  defaultValue={u.highScore}
                                                   onBlur={(e) => updateUser(id, { highScore: e.target.value })}
-                                                  className="w-20 bg-black/30 border border-white/10 rounded px-2 py-1"
+                                                  className="w-20 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
                                               />
                                           </td>
-                                          <td className="p-3 max-w-xs truncate text-xs text-gray-400">
-                                              {user.skins?.join(", ")}
-                                              <button 
+                                          <td className="p-3 max-w-xs truncate text-xs text-white/40">
+                                              {u.skins?.join(", ")}
+                                              <button
                                                   onClick={() => {
-                                                      const newSkins = prompt("Skins (kommagetrennt):", user.skins?.join(","));
+                                                      const newSkins = prompt("Skins (kommagetrennt):", u.skins?.join(","));
                                                       if(newSkins !== null) updateUser(id, { skins: newSkins.split(",").map(s=>s.trim()) });
                                                   }}
-                                                  className="ml-2 text-blue-400"
-                                              >✎</button>
+                                                  className="ml-2 text-violet-300 hover:text-violet-200 inline-flex align-middle"
+                                              ><Pencil size={12} /></button>
                                           </td>
                                           <td className="p-3">
-                                              <input 
-                                                  type="number" 
-                                                  defaultValue={user.unlockedSlots}
+                                              <input
+                                                  type="number"
+                                                  defaultValue={u.unlockedSlots}
                                                   onBlur={(e) => updateUser(id, { unlockedSlots: e.target.value })}
-                                                  className="w-12 bg-black/30 border border-white/10 rounded px-2 py-1"
+                                                  className="w-14 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
                                               />
                                           </td>
                                       </>
                                   )}
-                                  <td className="p-3"></td>
                               </tr>
                           ))}
+                          {entries.length === 0 && (
+                              <tr><td colSpan={5} className="p-8 text-center text-white/30 italic">Keine Einträge gefunden.</td></tr>
+                          )}
                       </tbody>
                   </table>
+                </div>
               </div>
           );
       }
-      
+
       // 3. WINCHALLENGE & BINGO
       if (activeTab === "winchallenge" || activeTab === "bingo") {
           return (
@@ -533,41 +537,41 @@ export default function AdminDashboard() {
                        else displayName = item.userId || item.host?.twitchId || id;
 
                        return (
-                           <div key={id} className="bg-gray-800 p-4 rounded-xl border border-white/10 relative group">
-                               <h3 className="font-bold text-lg mb-1 text-white">
+                           <div key={id} className="panel p-4">
+                               <h3 className="font-bold text-white mb-1.5">
                                    {item.title || item.theme?.name || "Unbenannt"}
                                </h3>
-                               
-                               <div className="text-xs text-gray-400 mb-3 flex items-center gap-2">
-                                   <span className="uppercase font-bold text-gray-600">Host:</span>
-                                   <a 
+
+                               <div className="text-xs text-white/40 mb-3 flex items-center gap-2">
+                                   <span className="uppercase font-bold text-white/25">Host:</span>
+                                   <a
                                        href={`https://twitch.tv/${displayName}`}
                                        target="_blank"
                                        rel="noopener noreferrer"
-                                       className="text-purple-400 font-bold bg-purple-900/20 px-2 py-0.5 rounded hover:bg-purple-600 hover:text-white transition-colors cursor-pointer flex items-center gap-1"
+                                       className="text-violet-300 font-semibold bg-violet-500/10 border border-violet-400/20 px-2 py-0.5 rounded-md hover:bg-violet-500 hover:text-white hover:border-violet-500 transition-colors flex items-center gap-1"
                                        title={`Gehe zu twitch.tv/${displayName}`}
                                    >
                                        {displayName}
-                                       <span className="text-[10px] opacity-50">↗</span>
+                                       <ExternalLink size={10} className="opacity-60" />
                                    </a>
                                </div>
 
-                               <pre className="text-[10px] bg-black/50 p-2 rounded overflow-hidden text-gray-500 mb-4 font-mono select-all">
+                               <pre className="text-[10px] bg-black/30 border border-white/5 p-2 rounded-lg overflow-hidden text-white/30 mb-4 font-mono select-all">
                                    ID: {id}
                                </pre>
-                               
-                               <button 
+
+                               <button
                                   onClick={() => deleteItem(activeTab, id)}
-                                  className="w-full bg-red-900/20 hover:bg-red-900/80 text-red-400 hover:text-white border border-red-900/50 py-2 rounded text-sm transition-all"
+                                  className="w-full bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5"
                                >
-                                   Löschen
+                                   <Trash2 size={14} /> Löschen
                                </button>
                            </div>
                        );
                    })}
-                   
+
                    {entries.length === 0 && (
-                       <div className="col-span-full text-center text-gray-500 italic py-10">
+                       <div className="col-span-full text-center text-white/30 italic py-10">
                            Keine Einträge gefunden.
                        </div>
                    )}
@@ -578,10 +582,7 @@ export default function AdminDashboard() {
       // GARDEN TAB
       if (activeTab === "garden") {
           const filtered = search
-              ? gardenUsers.filter(u =>
-                  u.userId.toLowerCase().includes(search.toLowerCase()) ||
-                  (u.twitchLogin && u.twitchLogin.toLowerCase().includes(search.toLowerCase()))
-                )
+              ? gardenUsers.filter(u => searchTextFor(u.userId, u).includes(search.toLowerCase()))
               : gardenUsers;
           const saveGold = async (uid, gold) => {
               await fetch(`/api/admin/garden/user/${uid}`, {
@@ -595,69 +596,73 @@ export default function AdminDashboard() {
           };
           return (
               <div>
-                  <div className="flex gap-4 mb-4 flex-wrap">
-                      <div className="bg-black/30 px-4 py-2 rounded-sm border border-white/10 flex items-center gap-2">
-                          <span className="text-gray-400 text-xs uppercase font-bold">Spieler</span>
-                          <span className="text-xl font-bold text-white">{gardenUsers.length}</span>
+                  <div className="flex gap-3 mb-5 flex-wrap items-center">
+                      <div className="panel px-4 py-2.5 flex items-center gap-2">
+                          <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Spieler</span>
+                          <span className="text-lg font-bold text-white">{gardenUsers.length}</span>
                       </div>
-                      <div className="bg-black/30 px-4 py-2 rounded-sm border border-white/10 flex items-center gap-2">
-                          <span className="text-gray-400 text-xs uppercase font-bold">Gold gesamt</span>
-                          <span className="text-xl font-bold text-yellow-400">{gardenUsers.reduce((s, u) => s + u.gold, 0).toLocaleString("de-DE")}</span>
+                      <div className="panel px-4 py-2.5 flex items-center gap-2">
+                          <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Gold gesamt</span>
+                          <span className="text-lg font-bold text-amber-400">{gardenUsers.reduce((s, u) => s + u.gold, 0).toLocaleString("de-DE")}</span>
                       </div>
-                      <button onClick={() => fetchData("garden")} className="ml-auto px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-xl text-sm font-bold">🔄 Aktualisieren</button>
+                      <button onClick={() => fetchData("garden")} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-semibold transition-colors">
+                          <RefreshCw size={14} /> Aktualisieren
+                      </button>
                   </div>
-                  <div className="overflow-x-auto rounded-xl border border-white/10">
+                  <div className="panel overflow-hidden">
+                    <div className="overflow-x-auto">
                       <table className="w-full text-sm text-left">
-                          <thead className="bg-white/10 text-xs uppercase">
+                          <thead className="bg-black/25 text-[10px] uppercase tracking-wider text-white/40">
                               <tr>
-                                  <th className="p-3">Spieler</th>
-                                  <th className="p-3">Gold 🪙</th>
-                                  <th className="p-3">Samen</th>
-                                  <th className="p-3">Ernte</th>
-                                  <th className="p-3">Tiere</th>
-                                  <th className="p-3">Pflanzen</th>
-                                  <th className="p-3">Erw.</th>
-                                  <th className="p-3">Zuletzt aktiv</th>
+                                  <th className="p-3 font-bold">Spieler</th>
+                                  <th className="p-3 font-bold">Gold</th>
+                                  <th className="p-3 font-bold">Samen</th>
+                                  <th className="p-3 font-bold">Ernte</th>
+                                  <th className="p-3 font-bold">Tiere</th>
+                                  <th className="p-3 font-bold">Pflanzen</th>
+                                  <th className="p-3 font-bold">Erw.</th>
+                                  <th className="p-3 font-bold">Zuletzt aktiv</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5">
                               {filtered.map(u => (
-                                  <tr key={u.userId} className="hover:bg-white/5">
+                                  <tr key={u.userId} className="hover:bg-white/[0.03] transition-colors">
                                       <td className="p-3">
                                           {u.twitchLogin && (
-                                              <div className="text-white font-bold text-sm">{u.twitchLogin}</div>
+                                              <div className="text-white font-semibold text-sm">{u.twitchLogin}</div>
                                           )}
-                                          <div className="font-mono text-xs text-gray-400">{u.userId}</div>
+                                          <div className="font-mono text-xs text-white/30">{u.userId}</div>
                                       </td>
                                       <td className="p-3">
                                           {gardenEditId === u.userId ? (
-                                              <div className="flex gap-2 items-center">
+                                              <div className="flex gap-1.5 items-center">
                                                   <input autoFocus type="number" value={gardenEditGold} onChange={e => setGardenEditGold(e.target.value)} placeholder="Wert"
-                                                      className="w-24 bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-xs" />
-                                                  <button onClick={() => saveGold(u.userId, gardenEditGold)} className="text-green-400 font-bold bg-green-900/30 hover:bg-green-800/50 px-2 py-1 rounded text-xs transition-colors">SET</button>
-                                                  <button onClick={() => saveGold(u.userId, Number(u.gold) + Number(gardenEditGold))} className="text-blue-400 font-bold bg-blue-900/30 hover:bg-blue-800/50 px-2 py-1 rounded text-xs transition-colors">ADD</button>
-                                                  <button onClick={() => setGardenEditId(null)} className="text-gray-400 bg-gray-800 hover:text-white px-2 py-1 rounded text-xs transition-colors">X</button>
+                                                      className="w-24 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:border-violet-500 outline-none transition-colors" />
+                                                  <button onClick={() => saveGold(u.userId, gardenEditGold)} className="text-emerald-300 font-bold bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-1 rounded-md text-xs transition-colors">SET</button>
+                                                  <button onClick={() => saveGold(u.userId, Number(u.gold) + Number(gardenEditGold))} className="text-blue-300 font-bold bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded-md text-xs transition-colors">ADD</button>
+                                                  <button onClick={() => setGardenEditId(null)} className="text-white/40 bg-white/5 hover:text-white hover:bg-white/10 px-2 py-1 rounded-md text-xs transition-colors">X</button>
                                               </div>
                                           ) : (
                                               <div className="flex items-center gap-3">
-                                                  <span className="text-yellow-400 font-bold text-sm">{u.gold.toLocaleString("de-DE")}</span>
-                                                  <button onClick={() => { setGardenEditId(u.userId); setGardenEditGold(""); }} className="text-[10px] text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded transition-colors uppercase font-bold tracking-wider">
-                                                      Edit
+                                                  <span className="text-amber-400 font-bold text-sm">{u.gold.toLocaleString("de-DE")}</span>
+                                                  <button onClick={() => { setGardenEditId(u.userId); setGardenEditGold(""); }} className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-md transition-colors uppercase font-bold tracking-wider">
+                                                      <Pencil size={10} /> Edit
                                                   </button>
                                               </div>
                                           )}
                                       </td>
-                                      <td className="p-3 text-gray-400">{u.inventoryCount}</td>
-                                      <td className="p-3 text-gray-400">{u.harvestedCount}</td>
-                                      <td className="p-3 text-gray-400">{u.petCount}</td>
-                                      <td className="p-3 text-gray-400">{u.plantCount}</td>
-                                      <td className="p-3 text-gray-400">{u.expansions}</td>
-                                      <td className="p-3 text-gray-400 text-xs">{u.updatedAt ? new Date(u.updatedAt).toLocaleString("de-DE") : "—"}</td>
+                                      <td className="p-3 text-white/50">{u.inventoryCount}</td>
+                                      <td className="p-3 text-white/50">{u.harvestedCount}</td>
+                                      <td className="p-3 text-white/50">{u.petCount}</td>
+                                      <td className="p-3 text-white/50">{u.plantCount}</td>
+                                      <td className="p-3 text-white/50">{u.expansions}</td>
+                                      <td className="p-3 text-white/40 text-xs">{u.updatedAt ? new Date(u.updatedAt).toLocaleString("de-DE") : "—"}</td>
                                   </tr>
                               ))}
-                              {filtered.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-gray-500 italic">Keine Spieler gefunden.</td></tr>}
+                              {filtered.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-white/30 italic">Keine Spieler gefunden.</td></tr>}
                           </tbody>
                       </table>
+                    </div>
                   </div>
               </div>
           );
@@ -665,46 +670,48 @@ export default function AdminDashboard() {
 
       // CLASH ROYALE TAB
       if (activeTab === "clashroyale") {
-          const modeLabel = { snake: "Snake Royale", auction: "Elixir Auction", bingo: "Bingo Royale", "shadow-carousel": "Blindes Karussel" };
+          const modeLabel = { snake: "Snake Royale", auction: "Elixir Auction", bingo: "Bingo Royale", "shadow-carousel": "Blindes Karussel", "elixir-rush": "Elixir Rush" };
           const phaseLabel = { lobby: "Lobby", playing: "Läuft", finished: "Beendet" };
-          const phaseColor = { lobby: "text-gray-400 border-white/10", playing: "text-green-400 border-green-500/30", finished: "text-amber-400 border-amber-500/30" };
+          const phaseColor = { lobby: "text-white/40 border-white/10", playing: "text-emerald-400 border-emerald-500/30", finished: "text-amber-400 border-amber-500/30" };
           const filtered = search
-              ? clashLobbies.filter(l => l.code.toLowerCase().includes(search.toLowerCase()) || l.hostName.toLowerCase().includes(search.toLowerCase()))
+              ? clashLobbies.filter(l => searchTextFor(l.code, { hostName: l.hostName }).includes(search.toLowerCase()))
               : clashLobbies;
           return (
               <div>
-                  <div className="flex gap-4 mb-4 flex-wrap items-center">
-                      <div className="bg-black/30 px-4 py-2 rounded-sm border border-white/10 flex items-center gap-2">
-                          <span className="text-gray-400 text-xs uppercase font-bold">Aktive Lobbys</span>
-                          <span className="text-xl font-bold text-white">{clashLobbies.length}</span>
+                  <div className="flex gap-3 mb-5 flex-wrap items-center">
+                      <div className="panel px-4 py-2.5 flex items-center gap-2">
+                          <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Aktive Lobbys</span>
+                          <span className="text-lg font-bold text-white">{clashLobbies.length}</span>
                       </div>
-                      <button onClick={() => fetchData("clashroyale")} className="ml-auto px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-xl text-sm font-bold">🔄 Aktualisieren</button>
+                      <button onClick={() => fetchData("clashroyale")} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-semibold transition-colors">
+                          <RefreshCw size={14} /> Aktualisieren
+                      </button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {filtered.map(l => (
-                          <div key={l.code} className="bg-gray-800 p-4 rounded-xl border border-white/10">
+                          <div key={l.code} className="panel p-4">
                               <div className="flex items-center justify-between mb-2">
-                                  <span className="font-mono text-lg font-bold text-cyan-400">{l.code}</span>
-                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm border ${phaseColor[l.phase] || "text-gray-400 border-white/10"}`}>
+                                  <span className="font-mono text-lg font-bold text-violet-300">{l.code}</span>
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${phaseColor[l.phase] || "text-white/40 border-white/10"}`}>
                                       {phaseLabel[l.phase] || l.phase}
                                   </span>
                               </div>
                               <div className="text-white font-semibold text-sm mb-1 flex items-center gap-1.5">
-                                  <Gamepad2 size={13} className="text-purple-400" /> {modeLabel[l.mode] || l.mode}
+                                  <Gamepad2 size={13} className="text-violet-300" /> {modeLabel[l.mode] || l.mode}
                               </div>
-                              <div className="text-xs text-gray-400 mb-3">
-                                  Host: <span className="text-gray-300 font-semibold">{l.hostName}</span> · {l.playerCount} Spieler
+                              <div className="text-xs text-white/40 mb-3">
+                                  Host: <span className="text-white/70 font-semibold">{l.hostName}</span> · {l.playerCount} Spieler
                               </div>
                               <button
                                   onClick={() => navigate(`/clash-royale?adminCode=${l.code}`)}
-                                  className="w-full bg-cyan-900/20 hover:bg-cyan-600 text-cyan-400 hover:text-white border border-cyan-900/50 py-2 rounded text-sm font-bold transition-all flex items-center justify-center gap-2"
+                                  className="w-full bg-violet-500/10 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
                               >
                                   <Eye size={14} /> Ansehen
                               </button>
                           </div>
                       ))}
                       {filtered.length === 0 && (
-                          <div className="col-span-full text-center text-gray-500 italic py-10">
+                          <div className="col-span-full text-center text-white/30 italic py-10">
                               Keine aktiven Lobbys.
                           </div>
                       )}
@@ -717,42 +724,60 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="page-fade max-w-7xl mx-auto px-2 md:px-4 py-6 md:py-8">
         <SEO title = "Admin"/>
-      <h1 className="text-3xl font-black italic mb-8">ADMIN DASHBOARD</h1>
-      
-      {/* TABS */}
-      <div className="flex flex-wrap gap-2 mb-8 border-b border-white/10 pb-4">
-          {SECTIONS.map(tab => (
-              <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-sm text-sm font-bold uppercase tracking-wider transition-colors ${
-                      activeTab === tab ? "bg-purple-600 text-white" : "bg-white/5 hover:bg-white/10 text-gray-400"
-                  }`}
-              >
-                  {tab}
-              </button>
-          ))}
-      </div>
 
-      {/* SEARCH */}
-      {activeTab !== "codes" && (
-          <div className="mb-6">
-              <input 
-                  type="text" 
-                  placeholder="Suche nach User, ID..." 
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full md:w-96 bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-purple-500 outline-none"
-              />
+        <div className="mb-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-red-400/80 mb-2">Admin</p>
+          <h1 className="font-display text-3xl font-bold text-white tracking-tight">Dashboard</h1>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6 items-start">
+
+          {/* SIDEBAR NAV */}
+          <nav className="panel p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible lg:sticky lg:top-6">
+              {SECTIONS.map(sec => {
+                  const Icon = sec.icon;
+                  const active = activeTab === sec.id;
+                  return (
+                      <button
+                          key={sec.id}
+                          onClick={() => { setActiveTab(sec.id); setSearch(""); }}
+                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap shrink-0 lg:shrink lg:w-full text-left ${
+                              active ? "bg-violet-600 text-white" : "text-white/50 hover:bg-white/5 hover:text-white"
+                          }`}
+                      >
+                          <Icon size={16} className="shrink-0" />
+                          {sec.label}
+                      </button>
+                  );
+              })}
+          </nav>
+
+          {/* CONTENT */}
+          <div className="min-w-0 space-y-6">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <h2 className="font-display text-lg font-bold text-white flex items-center gap-2">
+                      <activeSection.icon size={18} className="text-violet-300" /> {activeSection.label}
+                  </h2>
+
+                  {!["codes", "broadcast"].includes(activeTab) && (
+                      <div className="relative w-full sm:w-72">
+                          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+                          <input
+                              type="text"
+                              placeholder="Suche nach Name, Login, ID..."
+                              value={search}
+                              onChange={e => setSearch(e.target.value)}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:border-violet-500 outline-none transition-colors"
+                          />
+                      </div>
+                  )}
+              </div>
+
+              {renderContent()}
           </div>
-      )}
-
-      {/* CONTENT */}
-      <div className="bg-gray-900/50 border border-white/10 rounded-md p-6 min-h-[500px]">
-          {renderContent()}
-      </div>
+        </div>
     </div>
   );
 }

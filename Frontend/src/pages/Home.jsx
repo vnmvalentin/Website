@@ -1,6 +1,9 @@
-import { useMemo, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom"; // NEU: useSearchParams
+import { useMemo, useEffect, useState, useContext } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import SEO from "../components/SEO";
+import { NAV_CATEGORIES } from "../config/navigation";
+import { Share2, MonitorSmartphone, ArrowRight, X } from "lucide-react";
+import { TwitchAuthContext } from "../components/TwitchAuthContext";
 
 // --- DATEN ---
 
@@ -90,20 +93,19 @@ function InfoModal({ title, onClose, children }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
       {/* Content Card */}
-      <div className="relative w-full max-w-2xl bg-[#121212] border border-white/10 rounded-md shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
-        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
-          <h2 className="text-lg font-bold tracking-wide uppercase text-white/90">{title}</h2>
+      <div className="relative w-full max-w-2xl panel-strong shadow-2xl shadow-black/60 overflow-hidden flex flex-col max-h-[80vh]">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <h2 className="font-display text-lg font-bold text-white">{title}</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-sm hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+            className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
           >
-            {/* Simple X Icon fallback */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 13 13"/></svg>
+            <X size={18} />
           </button>
         </div>
         <div className="p-0 overflow-hidden flex-1 relative">
@@ -122,11 +124,9 @@ function SocialContent() {
           <SmartLink
             key={item.label}
             href={item.href}
-            className={`group relative overflow-hidden rounded-sm bg-white/5 border border-white/5 px-4 py-4 transition-colors ${item.color}`}
+            className={`group relative overflow-hidden rounded-lg bg-white/5 border border-white/10 px-4 py-4 transition-colors ${item.color}`}
           >
             <div className="relative z-10 flex items-center justify-between">
-
-              {/* NEU: Container für Icon und Text */}
               <div className="flex items-center gap-3">
                   {item.icon && (
                       <img
@@ -137,8 +137,6 @@ function SocialContent() {
                   )}
                   <span className="text-sm font-medium">{item.label}</span>
               </div>
-
-              {/* Pfeil bleibt rechts */}
               <span className="text-xs opacity-50 group-hover:opacity-100 transition-opacity">↗</span>
             </div>
           </SmartLink>
@@ -161,12 +159,12 @@ function HardwareContent() {
 
   return (
     <div className="flex flex-col h-full max-h-[60vh]">
-      <div className="p-4 border-b border-white/5 bg-black/20">
+      <div className="p-4 border-b border-white/10">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Hardware suchen..."
-          className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-2 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors"
         />
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -174,12 +172,12 @@ function HardwareContent() {
           <SmartLink
             key={idx}
             href={item.href}
-            className="flex items-center justify-between group px-3 py-3 hover:bg-white/5 transition-colors border border-transparent hover:border-white/5"
+            className="flex items-center justify-between group px-3 py-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/10"
           >
             <span className="text-sm text-white/80 group-hover:text-white truncate pr-4">
               {item.label}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-white/20 group-hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+            <span className="text-[10px] uppercase tracking-wider text-white/20 group-hover:text-violet-300 opacity-0 group-hover:opacity-100 transition-all shrink-0">
               Check
             </span>
           </SmartLink>
@@ -194,8 +192,8 @@ function HardwareContent() {
 
 function TwitchTV() {
   return (
-    <div className="w-full border border-white/10 bg-black overflow-hidden rounded-sm shadow-lg">
-      <div className="relative w-full aspect-video">
+    <div className="w-full panel overflow-hidden shadow-2xl shadow-black/40">
+      <div className="relative w-full aspect-video bg-black">
         <iframe
           src="https://player.twitch.tv/?channel=vnmvalentin&parent=vnmvalentin.de&parent=vnmvalentin.com&parent=localhost"
           width="100%"
@@ -206,11 +204,11 @@ function TwitchTV() {
           className="w-full h-full"
         />
       </div>
-      <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/5 bg-[#141414]">
-        <span className="text-xs font-mono text-white/30 tracking-widest uppercase">vnmvalentin</span>
+      <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/10">
+        <span className="text-xs font-mono text-white/30 tracking-widest uppercase">twitch.tv/vnmvalentin</span>
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
-          <span className="text-[10px] font-mono text-white/20 uppercase tracking-wider">Live</span>
+          <span className="text-[10px] font-mono text-white/25 uppercase tracking-wider">Live</span>
         </div>
       </div>
     </div>
@@ -218,11 +216,10 @@ function TwitchTV() {
 }
 
 export default function Home() {
-  // NEU: URL Params statt useState
+  const { user } = useContext(TwitchAuthContext);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeModal = searchParams.get("view"); // 'social', 'setup', oder null
 
-  // Funktionen zum Öffnen und Schließen, die URL Parameter manipulieren
   const openModal = (viewName) => {
     setSearchParams(prev => {
         const newParams = new URLSearchParams(prev);
@@ -240,39 +237,87 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-full w-full pb-20 pt-8 px-4 md:px-8">
+    <div className="page-fade min-h-full w-full pb-20 pt-6 md:pt-10 px-2 md:px-4">
       <SEO
         title="Home"
         description="Die offizielle Website von vnmvalentin. Streaming, Tools und Community."
         path="/"
       />
-      <div className="max-w-7xl mx-auto flex flex-col items-center gap-10">
+      <div className="max-w-7xl mx-auto flex flex-col gap-12 md:gap-16">
 
-        <section className="w-full">
-           <TwitchTV />
-        </section>
+        {/* Stream + Seiten-Intro */}
+        <section className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(300px,380px)] gap-8 items-center">
+          <div className="w-full max-w-4xl mx-auto lg:mx-0">
+            <TwitchTV />
+          </div>
 
-        <section className="flex flex-wrap justify-center gap-6 w-full">
-            <button
+          <div className="flex flex-col gap-5">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">Willkommen</p>
+              <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">
+                {user?.displayName || user?.login || "Auf der Website!"}
+              </h1>
+              <p className="text-white/50 text-sm md:text-base mt-3 leading-relaxed">
+                Streams, Community-Aktionen und kostenlose Tools für Streamer — alles an einem Ort.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
                 onClick={() => openModal('social')}
-                className="group relative px-8 py-4 w-full sm:w-auto sm:min-w-[320px] bg-[#18181b] border border-white/10 rounded-sm overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-colors"
-            >
-                <span className="relative font-bold text-base tracking-wide text-white/80 group-hover:text-white uppercase">
-                    Social Media
+                className="group panel flex items-center gap-4 p-4 text-left transition-colors hover:bg-white/[0.06] hover:border-violet-400/30"
+              >
+                <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                  <Share2 size={18} />
                 </span>
-            </button>
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-white">Social Media</span>
+                  <span className="block text-xs text-white/40 mt-0.5">Alle Kanäle auf einen Blick</span>
+                </span>
+                <ArrowRight size={16} className="text-white/20 group-hover:text-violet-300 group-hover:translate-x-1 transition-all shrink-0" />
+              </button>
 
-            <button
+              <button
                 onClick={() => openModal('setup')}
-                className="group relative px-8 py-4 w-full sm:w-auto sm:min-w-[320px] bg-[#18181b] border border-white/10 rounded-sm overflow-hidden hover:border-white/20 hover:bg-[#202023] transition-colors"
-            >
-                <span className="relative font-bold text-base tracking-wide text-white/80 group-hover:text-white uppercase">
-                    Mein Setup
+                className="group panel flex items-center gap-4 p-4 text-left transition-colors hover:bg-white/[0.06] hover:border-violet-400/30"
+              >
+                <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                  <MonitorSmartphone size={18} />
                 </span>
-            </button>
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-white">Mein Setup</span>
+                  <span className="block text-xs text-white/40 mt-0.5">Hardware & Streaming-Equipment</span>
+                </span>
+                <ArrowRight size={16} className="text-white/20 group-hover:text-violet-300 group-hover:translate-x-1 transition-all shrink-0" />
+              </button>
+            </div>
+          </div>
         </section>
 
-        {/* Modals prüfen jetzt auf den URL Parameter 'view' */}
+        {/* Entdecken: die Hauptbereiche der Seite */}
+        <section>
+          <h2 className="font-display text-xl md:text-2xl font-bold text-white tracking-tight mb-6">Entdecken</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {NAV_CATEGORIES.map((cat) => {
+              const Icon = cat.icon;
+              return (
+                <Link
+                  key={cat.key}
+                  to={cat.to}
+                  className="group panel p-5 transition-colors hover:bg-white/[0.06] hover:border-violet-400/30"
+                >
+                  <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 mb-4 group-hover:bg-violet-500/20 transition-colors">
+                    <Icon size={18} />
+                  </span>
+                  <span className="block font-display text-base font-bold text-white mb-1">{cat.label}</span>
+                  <span className="block text-xs text-white/40 leading-relaxed">{cat.tagline}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Modals prüfen auf den URL Parameter 'view' */}
         {activeModal === 'social' && (
             <InfoModal title="Social Media" onClose={closeModal}>
                 <SocialContent />

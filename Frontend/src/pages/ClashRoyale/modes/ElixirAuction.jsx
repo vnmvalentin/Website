@@ -41,21 +41,85 @@ function CardImg({ id, name, rarity, contain = false, isPig = false }) {
 // Während der Bid-Runde selbst bekommt nur der Spieler, der die Fähigkeit angenommen hat, den Badge
 // zu sehen — sonst wäre der Überraschungseffekt für die betroffenen Gegner hin (die merken den Effekt
 // ja trotzdem: Schweine, vertauschte Karten, ...). Nach dem Bieten (Reveal-Phase) wird aufgedeckt.
-const MOTHER_WITCH_BADGE = {
-  mine: {
-    pigs: 'Mutterhexe: Gegner bieten blind (Schweine)',
-    swap: 'Mutterhexe: Gegner sehen falsche Karten',
-    halved: 'Mutterhexe: Gebote der Gegner zählen nur halb',
+const MOTHER_WITCH_BADGE_I18N = {
+  de: {
+    mine: {
+      pigs: 'Mutterhexe: Gegner bieten blind (Schweine)',
+      swap: 'Mutterhexe: Gegner sehen falsche Karten',
+      halved: 'Mutterhexe: Gebote der Gegner zählen nur halb',
+    },
+  },
+  en: {
+    mine: {
+      pigs: 'Mother Witch: opponents bid blind (pigs)',
+      swap: 'Mother Witch: opponents see the wrong cards',
+      halved: "Mother Witch: opponents' bids only count half",
+    },
   },
 };
 
-const MOTHER_WITCH_REVEAL_TEXT = {
-  pigs: 'Mutterhexe war im Spiel: Du hast blind geboten',
-  swap: 'Mutterhexe war im Spiel: Deine Karten waren vertauscht',
-  halved: 'Mutterhexe war im Spiel: Dein Gebot zählte nur halb',
+const MOTHER_WITCH_REVEAL_TEXT_I18N = {
+  de: {
+    pigs: 'Mutterhexe war im Spiel: Du hast blind geboten',
+    swap: 'Mutterhexe war im Spiel: Deine Karten waren vertauscht',
+    halved: 'Mutterhexe war im Spiel: Dein Gebot zählte nur halb',
+  },
+  en: {
+    pigs: 'The Mother Witch was in play: you bid blind',
+    swap: 'The Mother Witch was in play: your cards were swapped',
+    halved: 'The Mother Witch was in play: your bid only counted half',
+  },
 };
 
-export default function ElixirAuction({ auctionState, revealState, myPlayerId, myBid, onBid, showElixirProp, motherWitchVisit, onMotherWitchRespond }) {
+const AUCTION_I18N = {
+  de: {
+    loading: 'Lade Auktion…',
+    you: 'Du',
+    round: (round, maxRounds) => `Runde ${round}/${maxRounds}`,
+    nextRoundIn: (s) => `Nächste Runde in ${s}s`,
+    allBid: 'Alle haben geboten!',
+    waitingForMore: (n) => `Warte auf ${n} weitere…`,
+    bidStatus: (bid, total) => `${bid}/${total} geboten`,
+    motherWitchRevealing: 'Mutterhexe deckt auf…',
+    notAwarded: 'Nicht vergeben',
+    maxTwoChamps: 'Max 2 Champs',
+    bidSet: (amount) => `${amount} gesetzt`,
+    cannotBid: 'Nicht bietbar',
+    bidBtn: (amount) => `Bieten · ${amount}`,
+    bonusCardsHeading: 'Bonus Karten — außerhalb des Pools',
+    randomNoChampion: 'Random · kein Champion möglich',
+    spectatorNoBidding: '👁 Zuschauer — kein Bieten möglich',
+    bidOnCard: (name, amount) => `Geboten auf ${name} · ${amount} Elixier`,
+    elixir: 'Elixier',
+    setAmountHint: 'Betrag setzen — dann auf eine Karte klicken',
+    availableElixir: 'verfügbares Elixier',
+  },
+  en: {
+    loading: 'Loading auction…',
+    you: 'You',
+    round: (round, maxRounds) => `Round ${round}/${maxRounds}`,
+    nextRoundIn: (s) => `Next round in ${s}s`,
+    allBid: 'Everyone has bid!',
+    waitingForMore: (n) => `Waiting for ${n} more…`,
+    bidStatus: (bid, total) => `${bid}/${total} bid`,
+    motherWitchRevealing: 'The Mother Witch reveals…',
+    notAwarded: 'Not awarded',
+    maxTwoChamps: 'Max 2 champs',
+    bidSet: (amount) => `${amount} set`,
+    cannotBid: 'Cannot bid',
+    bidBtn: (amount) => `Bid · ${amount}`,
+    bonusCardsHeading: 'Bonus cards — outside the pool',
+    randomNoChampion: 'Random · no champion possible',
+    spectatorNoBidding: '👁 Spectator — bidding not possible',
+    bidOnCard: (name, amount) => `Bid on ${name} · ${amount} elixir`,
+    elixir: 'Elixir',
+    setAmountHint: 'Set an amount — then click a card',
+    availableElixir: 'available elixir',
+  },
+};
+
+export default function ElixirAuction({ auctionState, revealState, myPlayerId, myBid, onBid, showElixirProp, motherWitchVisit, onMotherWitchRespond, lang = 'de' }) {
+  const t = AUCTION_I18N[lang] || AUCTION_I18N.de;
   const state = revealState || auctionState;
 
   // All hooks at the top — no early returns before hooks
@@ -90,24 +154,26 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
 
   if (!state) return (
     <div className="h-full flex items-center justify-center">
-      <p className="text-gray-500 text-sm">Lade Auktion…</p>
+      <p className="text-gray-500 text-sm">{t.loading}</p>
     </div>
   );
 
-  const { round, maxRounds, phase, currentCards = [], pendingBidCount = 0,
+  const { round, maxRounds, currentCards = [], pendingBidCount = 0,
     activePlayerCount, timerRemaining, timerSeconds, players = [],
     showElixir, motherWitchMine,
-    bids, winners, cardBids, playerResults } = state;
+    winners, cardBids, playerResults } = state;
   const showOthersElixir = showElixirProp ?? showElixir ?? false;
   // Während des Bietens: Badge nur für den Auslöser — betroffene Gegner sehen den Effekt selbst
   // (Schweine, vertauschte Karten, halbiertes Gebot), aber keinen Hinweis, dass es die Mutterhexe war.
   // Nach dem Bieten (Reveal-Phase) wird es für alle aufgedeckt.
+  const mwBadge = MOTHER_WITCH_BADGE_I18N[lang] || MOTHER_WITCH_BADGE_I18N.de;
+  const mwRevealText = MOTHER_WITCH_REVEAL_TEXT_I18N[lang] || MOTHER_WITCH_REVEAL_TEXT_I18N.de;
   const mwBadgeText = !isReveal && motherWitchMine
-    ? MOTHER_WITCH_BADGE.mine[motherWitchMine]
+    ? mwBadge.mine[motherWitchMine]
     : isReveal && mwReveal
       ? (mwReveal.exemptPlayerId === myPlayerId
-        ? MOTHER_WITCH_BADGE.mine[mwReveal.ability]
-        : MOTHER_WITCH_REVEAL_TEXT[mwReveal.ability])
+        ? mwBadge.mine[mwReveal.ability]
+        : mwRevealText[mwReveal.ability])
       : null;
 
   const me = players.find(p => p.id === myPlayerId);
@@ -127,7 +193,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
 
   return (
     <div className="h-full flex overflow-hidden select-none">
-      <MotherWitchVisit visit={motherWitchVisit} onRespond={onMotherWitchRespond} />
+      <MotherWitchVisit visit={motherWitchVisit} onRespond={onMotherWitchRespond} lang={lang} />
 
       {/* ── Left sidebar ────────────────────────────────────────────────── */}
       <div className="w-48 shrink-0 bg-[#16161a] border-r border-white/5 overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
@@ -138,7 +204,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
             <div className="flex items-center gap-2 min-w-0">
               <AvatarCircle id={p.avatar} color={p.color} size={24} />
               <span className="text-white text-xs font-semibold truncate flex-1">{p.name}</span>
-              {p.id === myPlayerId && <span className="text-[9px] text-cyan-400 shrink-0">Du</span>}
+              {p.id === myPlayerId && <span className="text-[9px] text-cyan-400 shrink-0">{t.you}</span>}
             </div>
             {(p.id === myPlayerId || showOthersElixir) && (
               <div className="flex items-center gap-1.5">
@@ -172,7 +238,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
               <div key={p.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-2.5 py-2 flex items-center gap-2 opacity-50">
                 <AvatarCircle id={p.avatar} color={p.color} size={20} />
                 <span className="text-gray-400 text-[11px] truncate flex-1">{p.name}</span>
-                {p.id === myPlayerId && <span className="text-[9px] text-cyan-600 shrink-0">Du</span>}
+                {p.id === myPlayerId && <span className="text-[9px] text-cyan-600 shrink-0">{t.you}</span>}
                 <span className="text-[9px] text-gray-600 shrink-0">👁</span>
               </div>
             ))}
@@ -185,7 +251,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
 
         {/* Top bar */}
         <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
-          <span className="text-white font-bold text-sm">Runde {round}/{maxRounds}</span>
+          <span className="text-white font-bold text-sm">{t.round(round, maxRounds)}</span>
           {mwBadgeText && (
             <div className="flex items-center gap-1.5 border border-purple-500/30 bg-purple-500/5 rounded-sm px-2.5 py-1">
               <Sparkles size={11} className="text-purple-300 shrink-0" />
@@ -195,14 +261,14 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
           <div className="flex-1" />
           {isReveal ? (
             <span className="text-amber-400 text-sm font-semibold">
-              Nächste Runde in {revealCountdown}s
+              {t.nextRoundIn(revealCountdown)}
             </span>
           ) : allBid ? (
-            <span className="text-green-400 text-sm font-semibold">Alle haben geboten!</span>
+            <span className="text-green-400 text-sm font-semibold">{t.allBid}</span>
           ) : myBid ? (
-            <span className="text-cyan-400 text-sm">Warte auf {effectiveActiveCount - pendingBidCount} weitere…</span>
+            <span className="text-cyan-400 text-sm">{t.waitingForMore(effectiveActiveCount - pendingBidCount)}</span>
           ) : (
-            <span className="text-gray-400 text-sm">{pendingBidCount}/{effectiveActiveCount} geboten</span>
+            <span className="text-gray-400 text-sm">{t.bidStatus(pendingBidCount, effectiveActiveCount)}</span>
           )}
           {!isReveal && (
             <div className={`flex items-center gap-1.5 border rounded-sm px-2.5 py-1 ${timerUrgent ? 'border-red-500/40 bg-red-500/5' : 'border-white/10'}`}>
@@ -255,7 +321,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
                     {/* Winner / Consolation banner mit Avatar */}
                     {showFake ? (
                       <div className="px-3 py-2 text-purple-300 text-xs font-semibold flex items-center gap-1.5">
-                        <Sparkles size={11} /> Mutterhexe deckt auf…
+                        <Sparkles size={11} /> {t.motherWitchRevealing}
                       </div>
                     ) : winnerPlayer ? (
                       <div className="flex items-center gap-2 px-3 py-2"
@@ -271,7 +337,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
                         <span className="font-bold text-sm truncate text-amber-300">{consolationPlayer.name}</span>
                       </div>
                     ) : (
-                      <div className="px-3 py-2 text-gray-600 text-xs">Nicht vergeben</div>
+                      <div className="px-3 py-2 text-gray-600 text-xs">{t.notAwarded}</div>
                     )}
 
                     {/* Card image + name */}
@@ -286,7 +352,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
                     {/* Bid list */}
                     {!showFake && bidsOnCard.length > 0 && (
                       <div className="border-t border-white/5 divide-y divide-white/[0.04]">
-                        {bidsOnCard.map((bid, bi) => {
+                        {bidsOnCard.map((bid) => {
                           const bp = players.find(p => p.id === bid.playerId);
                           const isWin = bid.playerId === winner;
                           return (
@@ -327,7 +393,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
                     )}
                     {champLocked && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <span className="text-red-400 text-[10px] font-bold text-center px-1 leading-tight">Max 2 Champs</span>
+                        <span className="text-red-400 text-[10px] font-bold text-center px-1 leading-tight">{t.maxTwoChamps}</span>
                       </div>
                     )}
                   </div>
@@ -339,15 +405,15 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
                   {alreadyBid ? (
                     isMyBidCard ? (
                       <div className="text-cyan-400 text-[10px] font-semibold flex items-center justify-center gap-1 pb-1">
-                        <CheckCircle size={9} /> {myBid.amount} gesetzt
+                        <CheckCircle size={9} /> {t.bidSet(myBid.amount)}
                       </div>
                     ) : null
                   ) : champLocked ? (
-                    <div className="text-red-400/60 text-[9px] text-center pb-1">Nicht bietbar</div>
+                    <div className="text-red-400/60 text-[9px] text-center pb-1">{t.cannotBid}</div>
                   ) : (
                     <button onClick={() => handleBid(idx)}
                       className="w-full bg-purple-500/15 hover:bg-purple-500/40 border border-purple-500/30 text-purple-300 font-bold py-1.5 rounded-[2px] text-xs transition-colors">
-                      Bieten · {bidAmount} <Droplets size={9} className="inline-block" />
+                      {t.bidBtn(bidAmount)} <Droplets size={9} className="inline-block" />
                     </button>
                   )}
                 </div>
@@ -360,7 +426,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
             <div className="mt-10">
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="h-px flex-1 bg-amber-500/20 max-w-32" />
-                <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">Bonus Karten — außerhalb des Pools</span>
+                <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">{t.bonusCardsHeading}</span>
                 <div className="h-px flex-1 bg-amber-500/20 max-w-32" />
               </div>
               <div className="flex flex-wrap gap-6 justify-center">
@@ -379,7 +445,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
                       </div>
                       <div className="px-2.5 py-2 border-t border-white/5">
                         <p className="text-white text-xs font-bold truncate">{r.got.name}</p>
-                        <p className="text-amber-500 text-[9px] mt-0.5">Random · kein Champion möglich</p>
+                        <p className="text-amber-500 text-[9px] mt-0.5">{t.randomNoChampion}</p>
                       </div>
                     </div>
                   );
@@ -392,7 +458,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
         {/* ── Bottom bar ─────────────────────────────────────────────── */}
         {!isReveal && amSpectator && (
           <div className="shrink-0 bg-[#16161a] border-t border-white/5 px-5 py-3 flex items-center justify-center">
-            <span className="text-gray-600 text-sm">👁 Zuschauer — kein Bieten möglich</span>
+            <span className="text-gray-600 text-sm">{t.spectatorNoBidding}</span>
           </div>
         )}
         {!isReveal && !amSpectator && (
@@ -402,19 +468,19 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-cyan-400 text-sm font-semibold">
                   <CheckCircle size={14} />
-                  Geboten auf {currentCards[myBid.cardIndex]?.name || '?'} · {myBid.amount} Elixier
+                  {t.bidOnCard(currentCards[myBid.cardIndex]?.name || '?', myBid.amount)}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Droplets size={14} className="text-purple-400" />
                   <span className="text-white font-bold text-base tabular-nums">{myElixir}</span>
-                  <span className="text-gray-500 text-xs">Elixier</span>
+                  <span className="text-gray-500 text-xs">{t.elixir}</span>
                 </div>
               </div>
             ) : (
               /* Bid controls */
               <div className="space-y-2">
                 {/* Hint */}
-                <p className="text-gray-600 text-xs text-center">Betrag setzen — dann auf eine Karte klicken</p>
+                <p className="text-gray-600 text-xs text-center">{t.setAmountHint}</p>
 
                 {/* Big centered amount */}
                 <div className="text-center">
@@ -441,7 +507,7 @@ export default function ElixirAuction({ auctionState, revealState, myPlayerId, m
                   <div className="flex items-center justify-center gap-2">
                     <Droplets size={18} className="text-purple-400" />
                     <span className="text-white font-black text-2xl tabular-nums">{myElixir}</span>
-                    <span className="text-gray-500 text-sm">verfügbares Elixier</span>
+                    <span className="text-gray-500 text-sm">{t.availableElixir}</span>
                     <div className="w-24 h-2 bg-white/5 rounded-full overflow-hidden ml-2">
                       <div className="h-full bg-purple-500 rounded-full transition-all duration-300"
                         style={{ width: `${myElixir}%` }} />

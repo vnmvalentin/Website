@@ -1,5 +1,5 @@
 import React from 'react';
-import { Grid3x3, Sparkles, Ruler, Heart, Coins, Eye, Brain } from 'lucide-react';
+import { Grid3x3, Sparkles, Ruler, Heart, Coins, Eye, Brain, PersonStanding } from 'lucide-react';
 
 const COMMANDS = [
     {
@@ -33,6 +33,12 @@ const COMMANDS = [
         details: ['0–180 zufällig pro Tag', 'Gleicher Wert bei Wiederholung', 'Zeigt Nutzernamen in der Antwort'],
     },
     {
+        icon: <PersonStanding size={28} />, name: 'größe', displayName: '/größe', tag: 'Spaß',
+        desc: 'Misst die Größe eines Nutzers in cm.',
+        usage: '/größe  |  !größe',
+        details: ['0–200 cm zufällig', 'Jedes Mal neu gewürfelt'],
+    },
+    {
         icon: <Heart size={28} />, name: 'ship', displayName: '/ship', tag: 'Spaß',
         desc: 'Berechnet den Liebeswert zwischen zwei Nutzern.',
         usage: '/ship @user1 @user2  |  !ship @user1 @user2',
@@ -50,7 +56,7 @@ function Toggle({ enabled, onToggle }) {
     return (
         <button
             onClick={onToggle}
-            className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${enabled ? 'bg-cyan-500' : 'bg-[#2a2a32]'}`}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${enabled ? 'bg-violet-500' : 'bg-[#2a2a32]'}`}
         >
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
         </button>
@@ -70,19 +76,19 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
         <div className="space-y-8">
             <div>
                 <h2 className="text-2xl text-white font-bold mb-1">Fun Commands</h2>
-                <p className="text-gray-400 text-sm">Slash Commands und Prefix-Commands für alle Mitglieder. Optional auf einen Kanal beschränken.</p>
+                <p className="text-white/50 text-sm">Slash Commands und Prefix-Commands für alle Mitglieder. Optional auf einen Kanal beschränken.</p>
             </div>
 
-            <div className="bg-[#0f0f13] border border-white/5 rounded-sm p-6 space-y-4 max-w-lg">
+            <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-4 max-w-lg">
                 <h3 className="text-white font-semibold flex items-center gap-2">⚙️ Kanal-Einschränkung</h3>
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Fun Commands Kanal</label>
                     <select value={funChannel} onChange={e => setFunChannel(e.target.value)}
-                        className="w-full bg-[#1a1a20] border border-white/10 rounded-sm p-3 text-white focus:border-cyan-500 outline-none appearance-none">
+                        className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                         <option value="">-- Überall erlaubt --</option>
                         {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                     </select>
-                    <p className="text-gray-500 text-xs mt-2">
+                    <p className="text-white/40 text-xs mt-2">
                         {funChannel
                             ? `Commands außerhalb von #${channels.find(c => c.id === funChannel)?.name || '?'} geben eine Fehlermeldung.`
                             : 'Commands funktionieren in jedem Kanal.'}
@@ -90,7 +96,7 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                 </div>
                 <div className="pt-2 flex items-center gap-4">
                     <button onClick={handleSaveSettings} disabled={isSaving}
-                        className="bg-cyan-500 text-black font-bold py-2.5 px-6 rounded-sm hover:bg-cyan-400 disabled:opacity-50 transition-colors">
+                        className="bg-violet-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
                         {isSaving ? 'Speichere...' : 'Speichern'}
                     </button>
                     {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
@@ -103,20 +109,20 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                     {COMMANDS.map(cmd => {
                         const enabled = isEnabled(cmd.name);
                         return (
-                            <div key={cmd.name} className={`bg-[#0f0f13] border rounded-sm p-5 flex flex-col gap-3 transition-colors ${
-                                enabled ? 'border-white/5 hover:border-cyan-500/20' : 'border-white/5 opacity-60'
+                            <div key={cmd.name} className={`bg-black/20 border rounded-lg p-5 flex flex-col gap-3 transition-colors ${
+                                enabled ? 'border-white/5 hover:border-violet-500/20' : 'border-white/5 opacity-60'
                             }`}>
                                 <div className="flex items-center gap-3">
-                                    <span className="text-gray-300 shrink-0">{cmd.icon}</span>
+                                    <span className="text-white/60 shrink-0">{cmd.icon}</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-white font-bold font-mono text-sm">{cmd.displayName}</div>
-                                        <div className="text-gray-500 text-xs">{cmd.tag}</div>
+                                        <div className="text-white/40 text-xs">{cmd.tag}</div>
                                     </div>
                                     <Toggle enabled={enabled} onToggle={() => toggleCommand(cmd.name)} />
                                 </div>
-                                <p className="text-gray-400 text-sm flex-1">{cmd.desc}</p>
-                                <div className="bg-[#1a1a20] rounded-sm p-3 font-mono text-xs text-cyan-400 leading-relaxed">{cmd.usage}</div>
-                                <ul className="text-gray-500 text-xs space-y-1">
+                                <p className="text-white/50 text-sm flex-1">{cmd.desc}</p>
+                                <div className="bg-black/30 rounded-lg p-3 font-mono text-xs text-violet-400 leading-relaxed">{cmd.usage}</div>
+                                <ul className="text-white/40 text-xs space-y-1">
                                     {cmd.details.map((d, i) => <li key={i}>• {d}</li>)}
                                 </ul>
                                 {!enabled && (
@@ -128,7 +134,7 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                 </div>
                 <div className="mt-4 flex items-center gap-4">
                     <button onClick={handleSaveSettings} disabled={isSaving}
-                        className="bg-cyan-500 text-black font-bold py-2.5 px-6 rounded-sm hover:bg-cyan-400 disabled:opacity-50 transition-colors">
+                        className="bg-violet-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
                         {isSaving ? 'Speichere...' : 'Änderungen speichern'}
                     </button>
                     {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}

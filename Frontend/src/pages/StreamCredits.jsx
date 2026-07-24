@@ -27,7 +27,7 @@ export default function StreamCredits() {
                             setActiveClipIndex(0);
                         }
                     }
-                } catch (err) {}
+                } catch { /* ignore */ }
             };
             ws.current.onclose = () => setTimeout(connect, 3000);
         };

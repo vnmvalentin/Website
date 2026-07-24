@@ -28,10 +28,14 @@ const createGardenGameRouter = require("./routes/gardenGameRoutes");
 const discordClient = require("./discord/bot/index");
 const createDiscordRouter = require("./discord/api/index");
 const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./routes/clashRoyaleRoutes");
+const { registerArenaSocket, createArenaRouter } = require("./routes/adventureArenaRoutes");
+const { registerConnect4Socket } = require("./routes/connect4Routes");
 const createCrStreamerRouter = require("./routes/crStreamerRoutes");
 const { initCrStreamerStore } = require("./lib/crStreamerStore");
 const createBannedCardsRouter = require("./routes/bannedCardsRoutes");
 const createNuzlockeRouter = require("./routes/nuzlockeRoutes");
+const createCrWinTrackerRouter = require("./routes/crWinTrackerRoutes");
+const { createUsedByRouter } = require("./routes/usedByRoutes");
 const { saveAllFarmsOnExit, initGardenFarmsStore, farmStates } = require("./lib/gardenFarmsStore");
 const { runPlantMigration } = require("./lib/gardenMigration");
 const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./lib/winchallengeStore");
@@ -136,6 +140,16 @@ function getTwitchIdFromSocket(socket) {
   const session = sessions[sessionId];
   if (!session || session.expiresAt < Date.now()) return null;
   return session.twitchId;
+}
+
+// Wie getTwitchIdFromSocket, liefert aber die volle Session (inkl. Login-Name) — für die Arena
+function getSessionFromSocket(socket) {
+  const cookies = parseCookieHeader(socket.handshake.headers.cookie);
+  const sessionId = cookies.session;
+  if (!sessionId) return null;
+  const session = sessions[sessionId];
+  if (!session || session.expiresAt < Date.now()) return null;
+  return { twitchId: session.twitchId, twitchLogin: session.twitchLogin };
 }
 
 function requireAuth(req, res, next) {
@@ -253,16 +267,18 @@ app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }))
 app.use("/api/casino", createCasinoRouter({ requireAuth, io }));
 app.use("/api/", createCasinoRouter.createLegacyCardsAdminRouter());
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
+app.use("/api/adventure", createArenaRouter());
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
-const gardenRouter = createGardenGameRouter({ requireAuth, io });
-app.use("/api/garden", gardenRouter);
+app.use("/api/garden", createGardenGameRouter({ requireAuth }));
 app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, sessions, saveSessionsToFile }));
 // Streamer-Konfiguration VOR dem allgemeinen Clash-Router mounten (spezifischerer Pfad)
 app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
 app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));
+app.use("/api/cr-wintracker", createCrWinTrackerRouter({ requireAuth }));
+app.use("/api/used-by", createUsedByRouter());
 
 // =================== SOCKET.IO LOGIC ===================
 io.on("connection", (socket) => {
@@ -278,17 +294,16 @@ io.on("connection", (socket) => {
         }
     });
  
-    // ── NEU: Garden-Handler einbinden ──────────────────────────
-    gardenRouter.registerGardenSocketHandlers(socket);
     const clashSocketTwitchId = getTwitchIdFromSocket(socket);
     const isClashAdmin = !!clashSocketTwitchId && String(clashSocketTwitchId) === String(STREAMER_TWITCH_ID);
-    registerClashRoyaleSocket(socket, io, { isAdmin: isClashAdmin, twitchId: clashSocketTwitchId });
-    // ───────────────────────────────────────────────────────────
- 
-    socket.on("disconnect", () => {
-        // Garden-Cleanup (falls Spieler in einer Garden-Lobby war)
-        if (socket._gardenDisconnect) socket._gardenDisconnect();
-    });
+    const clashSocketTwitchLogin = getSessionFromSocket(socket)?.twitchLogin || null;
+    registerClashRoyaleSocket(socket, io, { isAdmin: isClashAdmin, twitchId: clashSocketTwitchId, twitchLogin: clashSocketTwitchLogin });
+
+    // adVentures PvPvE Arena
+    registerArenaSocket(socket, io, getSessionFromSocket);
+
+    // Connect4 (Vier Gewinnt) — Link-basierte 1v1-Räume
+    registerConnect4Socket(socket, io);
 });
 
 // =================== START SERVER ===================

@@ -2,7 +2,6 @@ import React, { useContext, useEffect, useState } from "react";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import {
   Gift,
-  Calendar,
   Users,
   Plus,
   Trash2,
@@ -10,13 +9,20 @@ import {
   Check,
   X,
   Clock,
-  AlertCircle
 } from "lucide-react";
 import { socket } from "../utils/socket";
+import SEO from "../components/SEO";
 
 const STREAMER_ID = "160224748"; // deine Twitch-ID
 const STREAMER_LOGIN = "vnmvalentin";
-import SEO from "../components/SEO";
+
+function TwitchGlyph({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+    </svg>
+  );
+}
 
 const REQUIREMENT_TEMPLATES = [
   {
@@ -58,7 +64,7 @@ async function isFollowingChannel({ userId, broadcasterId, accessToken, clientId
     if (!res.ok) return false;
     const data = await res.json();
     return Array.isArray(data.data) && data.data.length > 0;
-  } catch (err) {
+  } catch {
     return false;
   }
 }
@@ -83,17 +89,17 @@ function CreateGiveawayModal({ onClose, onSave }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-lg bg-[#18181b] border border-white/10 rounded-md shadow-xl flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h2 className="text-xl font-bold flex items-center gap-2"><Gift className="text-violet-400" /> Neues Giveaway</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-sm text-white/50 hover:text-white transition-colors"><X size={20} /></button>
+      <div className="relative w-full max-w-lg panel-strong shadow-2xl shadow-black/60 flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <h2 className="font-display text-xl font-bold text-white flex items-center gap-2"><Gift className="text-violet-300" size={20} /> Neues Giveaway</h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"><X size={20} /></button>
         </div>
 
         <div className="p-6 space-y-4">
             <div>
-                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Titel</label>
+                <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Titel</label>
                 <input
-                    className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors placeholder:text-white/20"
                     placeholder="Was wird verlost?"
                     value={form.title}
                     onChange={e => setForm({...form, title: e.target.value})}
@@ -102,9 +108,9 @@ function CreateGiveawayModal({ onClose, onSave }) {
             </div>
 
             <div>
-                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Gewinn (Optional)</label>
+                <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Gewinn (Optional)</label>
                 <input
-                    className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-white/30 outline-none transition-colors placeholder:text-white/20"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors placeholder:text-white/20"
                     placeholder="z.B. 10€ Steam Karte"
                     value={form.prize}
                     onChange={e => setForm({...form, prize: e.target.value})}
@@ -113,19 +119,19 @@ function CreateGiveawayModal({ onClose, onSave }) {
 
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Anzahl Gewinner</label>
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Anzahl Gewinner</label>
                     <input
                         type="number" min="1"
-                        className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-white/30 outline-none transition-colors"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors"
                         value={form.quantity}
                         onChange={e => setForm({...form, quantity: e.target.value})}
                     />
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1.5 block">Enddatum</label>
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Enddatum</label>
                     <input
                         type="datetime-local"
-                        className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-white/30 outline-none transition-colors text-sm"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors text-sm"
                         value={form.endDate}
                         onChange={e => setForm({...form, endDate: e.target.value})}
                     />
@@ -133,7 +139,7 @@ function CreateGiveawayModal({ onClose, onSave }) {
             </div>
 
             <div className="pt-2">
-                <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/5 rounded-sm cursor-pointer hover:bg-white/10 transition-colors">
+                <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
                     <input
                         type="checkbox"
                         className="w-5 h-5 rounded border-white/20 bg-black/50 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
@@ -148,9 +154,9 @@ function CreateGiveawayModal({ onClose, onSave }) {
             </div>
         </div>
 
-        <div className="p-5 border-t border-white/5 flex justify-end gap-3 bg-[#121212]">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
-            <button onClick={handleSave} className="px-6 py-2.5 rounded-sm font-bold bg-white text-black hover:bg-gray-200 transition-colors">Erstellen</button>
+        <div className="p-5 border-t border-white/10 flex justify-end gap-3">
+            <button onClick={onClose} className="px-5 py-2.5 rounded-lg font-medium text-white/50 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
+            <button onClick={handleSave} className="px-6 py-2.5 rounded-lg font-bold bg-violet-600 hover:bg-violet-500 text-white transition-colors">Erstellen</button>
         </div>
       </div>
     </div>
@@ -165,14 +171,13 @@ function ActiveGiveawayCard({ giveaway, user, onJoin, isAdmin, onDelete, require
     // Prüfen ob Requirements erfüllt sind
     const reqs = giveaway.requirements || [];
     const met = reqs.every(r => requirementsCheck(r));
-    const canJoin = user ? met : true; // wenn nicht eingeloggt, Button ist "Login" (klickbar)
 
     return (
-        <div className="group relative bg-[#18181b] hover:bg-[#202023] border border-white/10 rounded-sm p-5 transition-colors hover:border-white/20 flex flex-col md:flex-row gap-5">
+        <div className="group panel p-5 transition-colors hover:bg-white/[0.05] flex flex-col md:flex-row gap-5">
 
             {/* Icon Box */}
-            <div className="hidden md:flex shrink-0 w-16 h-16 rounded-sm bg-violet-500/10 border border-white/5 items-center justify-center">
-                <Gift className="text-violet-300" size={32} />
+            <div className="hidden md:flex shrink-0 w-16 h-16 rounded-xl bg-violet-500/10 border border-violet-400/20 items-center justify-center">
+                <Gift className="text-violet-300" size={30} />
             </div>
 
             {/* Content */}
@@ -180,10 +185,10 @@ function ActiveGiveawayCard({ giveaway, user, onJoin, isAdmin, onDelete, require
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                             <h3 className="text-xl font-bold text-white leading-tight">{giveaway.title}</h3>
+                             <h3 className="text-lg font-bold text-white leading-tight">{giveaway.title}</h3>
                              {isAdmin && (
-                                <button onClick={() => onDelete(giveaway.id)} className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors" title="Löschen">
-                                    <Trash2 size={16} />
+                                <button onClick={() => onDelete(giveaway.id)} className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Löschen">
+                                    <Trash2 size={15} />
                                 </button>
                              )}
                         </div>
@@ -197,18 +202,18 @@ function ActiveGiveawayCard({ giveaway, user, onJoin, isAdmin, onDelete, require
                 </div>
 
                 {/* Metadata Row */}
-                <div className="flex flex-wrap items-center gap-4 text-xs text-white/50 mt-2">
-                    <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-sm">
-                        <Users size={14} />
+                <div className="flex flex-wrap items-center gap-3 text-xs text-white/50 mt-2">
+                    <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg">
+                        <Users size={13} />
                         <span>{count} Teilnehmer</span>
                     </div>
-                    <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-sm">
-                        <Clock size={14} />
+                    <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg">
+                        <Clock size={13} />
                         <span>Endet: {formatDate(giveaway.endDate)}</span>
                     </div>
                     {giveaway.quantity > 1 && (
-                        <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-sm">
-                            <Gift size={14} />
+                        <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg">
+                            <Gift size={13} />
                             <span>{giveaway.quantity} Gewinner</span>
                         </div>
                     )}
@@ -220,7 +225,7 @@ function ActiveGiveawayCard({ giveaway, user, onJoin, isAdmin, onDelete, require
                         {reqs.map((r, i) => {
                              const ok = requirementsCheck(r);
                              return (
-                                 <div key={i} className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border flex items-center gap-1 ${ok ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
+                                 <div key={i} className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border flex items-center gap-1 ${ok ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
                                      {ok ? <Check size={10} /> : <X size={10} />}
                                      {r.label || r.type}
                                  </div>
@@ -231,19 +236,19 @@ function ActiveGiveawayCard({ giveaway, user, onJoin, isAdmin, onDelete, require
             </div>
 
             {/* Action Button */}
-            <div className="flex flex-col justify-center items-stretch md:w-40 shrink-0">
+            <div className="flex flex-col justify-center items-stretch md:w-44 shrink-0">
                 <button
                     onClick={() => onJoin(giveaway)}
                     disabled={user && !met}
                     className={`
-                        w-full py-3 px-4 rounded-sm font-bold text-sm transition-colors flex items-center justify-center gap-2
-                        ${!user ? "bg-white text-black hover:bg-gray-200" :
-                          joined ? "bg-red-500/10 border border-red-500/50 text-red-400 hover:bg-red-500/20" :
+                        w-full py-3 px-4 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2
+                        ${!user ? "bg-[#9146FF] hover:bg-[#7c3aed] text-white" :
+                          joined ? "bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20" :
                           met ? "bg-violet-600 hover:bg-violet-500 text-white" :
                           "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"}
                     `}
                 >
-                    {!user ? "Login" : joined ? "Verlassen" : "Teilnehmen"}
+                    {!user ? <><TwitchGlyph className="w-4 h-4" /> Login</> : joined ? "Verlassen" : "Teilnehmen"}
                 </button>
                 {user && !met && (
                     <div className="text-[10px] text-red-400 text-center mt-2">
@@ -261,10 +266,10 @@ function ExpiredGiveawayCard({ giveaway, isAdmin, onDelete }) {
     const winnerNames = winners.map(id => participants[id]?.displayName || "Unbekannt");
 
     return (
-        <div className="relative bg-[#18181b]/60 border border-white/5 rounded-sm p-5 flex flex-col gap-4 opacity-80 hover:opacity-100 transition-opacity">
+        <div className="panel p-5 flex flex-col gap-4 opacity-80 hover:opacity-100 transition-opacity">
             <div className="flex justify-between items-start">
                 <div>
-                     <h3 className="text-lg font-bold text-white/80">{giveaway.title}</h3>
+                     <h3 className="text-base font-bold text-white/80">{giveaway.title}</h3>
                      <div className="text-xs text-white/40 mt-1 flex items-center gap-2">
                         <span>Beendet am {formatDate(giveaway.endDate)}</span>
                         <span>•</span>
@@ -272,21 +277,21 @@ function ExpiredGiveawayCard({ giveaway, isAdmin, onDelete }) {
                      </div>
                 </div>
                 {isAdmin && (
-                    <button onClick={() => onDelete(giveaway.id)} className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors">
-                        <Trash2 size={16} />
+                    <button onClick={() => onDelete(giveaway.id)} className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                        <Trash2 size={15} />
                     </button>
                 )}
             </div>
 
             {/* Winners Section */}
-            <div className="bg-black/30 rounded-sm p-3 border border-white/5">
+            <div className="bg-black/20 rounded-lg p-3 border border-white/10">
                 <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
                     <Trophy size={12} /> Gewinner
                 </div>
                 {winnerNames.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                         {winnerNames.map((name, i) => (
-                            <div key={i} className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded text-amber-200 text-sm font-medium">
+                            <div key={i} className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-md text-amber-200 text-sm font-medium">
                                 {name}
                             </div>
                         ))}
@@ -399,7 +404,7 @@ export default function GiveawaysPage() {
         });
         if (!res.ok) throw new Error("Fehler");
         setShowModal(false);
-      } catch (e) {
+      } catch {
           alert("Fehler beim Erstellen.");
       }
   };
@@ -441,7 +446,7 @@ export default function GiveawaysPage() {
               body
           });
           if(!res.ok) throw new Error("Fehler");
-      } catch (e) {
+      } catch {
           alert("Aktion fehlgeschlagen.");
       }
   };
@@ -453,23 +458,26 @@ export default function GiveawaysPage() {
   const expiredSorted = [...data.expired].sort((a,b) => new Date(b.endDate) - new Date(a.endDate));
 
   return (
-    <div className="max-w-4xl mx-auto p-6 min-h-[80vh]">
+    <div className="page-fade max-w-4xl mx-auto px-2 md:px-4 py-8 md:py-12 min-h-[80vh]">
         <SEO title = "Giveaways"/>
 
         {/* Header */}
-        <div className="flex flex-col items-center mb-10">
-            <h1 className="text-3xl font-bold tracking-tight mb-6">GIVEAWAYS</h1>
+        <div className="flex flex-col items-center text-center gap-4 mb-10">
+            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
+              <Gift size={26} />
+            </span>
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight">Giveaways</h1>
 
             {/* Underline Tabs */}
-            <div className="flex border-b border-white/10">
+            <div className="flex border-b border-white/10 mt-2">
             <button
-                className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "active" ? "border-cyan-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}
+                className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "active" ? "border-violet-400 text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
                 onClick={() => setActiveTab("active")}
             >
                 Laufend ({activeSorted.length})
             </button>
             <button
-                className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "expired" ? "border-cyan-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}
+                className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "expired" ? "border-violet-400 text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
                 onClick={() => setActiveTab("expired")}
             >
                 Vergangen ({expiredSorted.length})
@@ -478,10 +486,10 @@ export default function GiveawaysPage() {
         </div>
 
         {/* Content List */}
-        <div className="space-y-4 mt-6">
+        <div className="space-y-4">
             {activeTab === "active" ? (
                 activeSorted.length === 0 ? (
-                    <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-sm bg-white/5">
+                    <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
                         Aktuell keine aktiven Giveaways.
                     </div>
                 ) : (
@@ -499,7 +507,7 @@ export default function GiveawaysPage() {
                 )
             ) : (
                 expiredSorted.length === 0 ? (
-                    <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-sm bg-white/5">
+                    <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
                         Keine vergangenen Giveaways.
                     </div>
                 ) : (
@@ -520,7 +528,7 @@ export default function GiveawaysPage() {
             <div className="fixed bottom-8 right-8 z-40">
                 <button
                     onClick={() => setShowModal(true)}
-                    className="w-9 h-9 rounded-sm bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors"
+                    className="w-10 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center transition-colors shadow-lg shadow-violet-950/40"
                     title="Neues Giveaway"
                 >
                     <Plus size={20} />

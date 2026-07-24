@@ -20,11 +20,74 @@ const RUSH_STYLE = `
 .rush-shake    { animation: rushShake .4s ease both; }
 `;
 
-const DENIED_TEXT = {
-  late:     'Zu spät!',
-  elixir:   'Zu wenig Elixier!',
-  champion: 'Champion-Limit!',
-  deckfull: 'Deck voll!',
+const DENIED_TEXT_I18N = {
+  de: {
+    late:      'Zu spät!',
+    elixir:    'Zu wenig Elixier!',
+    champion:  'Champion-Limit!',
+    deckfull:  'Deck voll!',
+    countdown: 'Noch nicht — warte auf den Start!',
+  },
+  en: {
+    late:      'Too late!',
+    elixir:    'Not enough elixir!',
+    champion:  'Champion limit!',
+    deckfull:  'Deck full!',
+    countdown: 'Not yet — wait for the start!',
+  },
+};
+
+const RUSH_I18N = {
+  de: {
+    you: 'Du',
+    loading: 'Lade Elixir Rush…',
+    notPossible: 'Nicht möglich',
+    done: 'Fertig',
+    empty: 'Leer',
+    costElixir: (name, cost) => `${name} — ${cost} Elixier`,
+    yourCard: 'Deine Karte!',
+    autoBuy: 'Auto-Kauf',
+    championLimit: 'Champion-Limit',
+    decksDone: (done, total) => `${done}/${total} Decks fertig`,
+    cardsOf: (count, deckSize) => `${count}/${deckSize} Karten`,
+    allDecksFull: 'Alle Decks sind voll — Draft abgeschlossen!',
+    startingSoon: (s) => `Gleich geht's los — in ${s}s kann jeder gleichzeitig kaufen.`,
+    spectatorLive: 'Zuschauer — du siehst den Marktplatz live.',
+    yourDeckFull: 'Dein Deck ist voll! Warte, bis die anderen fertig sind…',
+    grabCards: 'Schnapp dir Karten mit deinem Elixier — wer zuerst klickt, bekommt sie!',
+    marketplace: 'Marktplatz',
+    cardsSwapEvery: (s) => `Karten wechseln alle ${s}s`,
+    getReady: 'Alle bereit machen…',
+    marketOpensForAll: 'Der Marktplatz öffnet für alle gleichzeitig',
+    fullElixirAutoBuy: (s) => `Volles Elixier! In ${s}s bekommst du automatisch eine zufällige Karte.`,
+    spectatorNoElixir: 'Als Zuschauer hast du kein Elixier.',
+    deckCompleteNoElixir: 'Deck komplett — dein Elixier wird nicht mehr gebraucht.',
+  },
+  en: {
+    you: 'You',
+    loading: 'Loading Elixir Rush…',
+    notPossible: 'Not possible',
+    done: 'Done',
+    empty: 'Empty',
+    costElixir: (name, cost) => `${name} — ${cost} elixir`,
+    yourCard: 'Your card!',
+    autoBuy: 'Auto-buy',
+    championLimit: 'Champion limit',
+    decksDone: (done, total) => `${done}/${total} decks done`,
+    cardsOf: (count, deckSize) => `${count}/${deckSize} cards`,
+    allDecksFull: 'All decks are full — draft complete!',
+    startingSoon: (s) => `Starting soon — everyone can buy at the same time in ${s}s.`,
+    spectatorLive: 'Spectator — you see the marketplace live.',
+    yourDeckFull: 'Your deck is full! Wait for the others to finish…',
+    grabCards: 'Grab cards with your elixir — first click gets it!',
+    marketplace: 'Marketplace',
+    cardsSwapEvery: (s) => `Cards swap every ${s}s`,
+    getReady: 'Everyone get ready…',
+    marketOpensForAll: 'The marketplace opens for everyone at the same time',
+    fullElixirAutoBuy: (s) => `Elixir full! In ${s}s you'll automatically get a random card.`,
+    spectatorNoElixir: 'As a spectator you have no elixir.',
+    deckCompleteNoElixir: "Deck complete — you don't need elixir anymore.",
+  },
 };
 
 function useNow(intervalMs = 100) {
@@ -104,7 +167,7 @@ function ElixirBar({ value, max = 10, big = false }) {
 }
 
 // ── Sidebar: Spieler mit Elixier + Deck-Fortschritt ────────────────────────
-function RushSidebar({ state, myPlayerId, elixirOf }) {
+function RushSidebar({ state, myPlayerId, elixirOf, t }) {
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const spectators    = state.players.filter(p => p.isSpectator);
   return (
@@ -121,10 +184,10 @@ function RushSidebar({ state, myPlayerId, elixirOf }) {
             <div className="flex items-center gap-2 mb-2 min-w-0">
               <AvatarCircle id={p.avatar} color={p.color} size={30} />
               <span className="text-white text-sm font-semibold truncate flex-1">{p.name}</span>
-              {isMe && <span className="text-[10px] text-fuchsia-400 font-bold shrink-0">Du</span>}
+              {isMe && <span className="text-[10px] text-fuchsia-400 font-bold shrink-0">{t.you}</span>}
               {done && (
                 <span className="flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/25 px-1.5 py-0.5 rounded-sm shrink-0">
-                  <Check size={10} /> Fertig
+                  <Check size={10} /> {t.done}
                 </span>
               )}
             </div>
@@ -156,7 +219,7 @@ function RushSidebar({ state, myPlayerId, elixirOf }) {
             <div key={p.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-3 py-2 flex items-center gap-2 opacity-50">
               <AvatarCircle id={p.avatar} color={p.color} size={22} />
               <span className="text-gray-400 text-xs truncate flex-1">{p.name}</span>
-              {p.id === myPlayerId && <span className="text-[9px] text-fuchsia-500 shrink-0">Du</span>}
+              {p.id === myPlayerId && <span className="text-[9px] text-fuchsia-500 shrink-0">{t.you}</span>}
             </div>
           ))}
         </>
@@ -166,7 +229,7 @@ function RushSidebar({ state, myPlayerId, elixirOf }) {
 }
 
 // ── Ein Marktplatz-Slot mit Kauf-/Wechsel-Animationen ──────────────────────
-function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, denied, onBuy, cardLifetimeMs, clientOffset, now }) {
+function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, denied, onBuy, cardLifetimeMs, clientOffset, now, showTimer, t, lang = 'de' }) {
   const [phase, setPhase] = useState('idle'); // idle | bought | out | unknown | unknownOut | in
   const prevSeqRef = useRef(null);
   const timersRef = useRef([]);
@@ -216,7 +279,7 @@ function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, den
     <div className={`w-28 select-none ${isDenied ? 'rush-shake' : ''}`}>
       <div
         onClick={() => clickable && onBuy(slot.seq)}
-        title={card ? `${card.name} — ${card.cost} Elixier` : 'Leer'}
+        title={card ? t.costElixir(card.name, card.cost) : t.empty}
         className={`relative rounded-md border-2 overflow-hidden aspect-square transition-colors ${
           clickable ? 'cursor-pointer border-white/25 hover:border-fuchsia-400' :
           card && showNewCard ? 'border-white/10' : 'border-white/10'
@@ -233,9 +296,9 @@ function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, den
                 ? <Check size={26} className="text-white" strokeWidth={3} />
                 : <Zap size={22} className="text-white" />}
               <span className="text-white font-black text-[11px] text-center leading-tight truncate w-full">
-                {lc.buyerId === myPlayerId ? 'Deine Karte!' : lc.buyerName || '?'}
+                {lc.buyerId === myPlayerId ? t.yourCard : lc.buyerName || '?'}
               </span>
-              {lc.isAuto && <span className="text-white/80 text-[9px] font-bold uppercase">Auto-Kauf</span>}
+              {lc.isAuto && <span className="text-white/80 text-[9px] font-bold uppercase">{t.autoBuy}</span>}
             </div>
           </>
         ) : phase === 'out' ? (
@@ -252,7 +315,7 @@ function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, den
             {!affordable && canInteract && <div className="absolute inset-0 bg-black/55 pointer-events-none" />}
             {champBlocked && canInteract && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none">
-                <span className="text-amber-400 text-[10px] font-bold text-center px-1">Champion-Limit</span>
+                <span className="text-amber-400 text-[10px] font-bold text-center px-1">{t.championLimit}</span>
               </div>
             )}
           </div>
@@ -276,19 +339,21 @@ function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, den
         {isDenied && (
           <div className="absolute inset-0 flex items-center justify-center bg-red-500/40 pointer-events-none z-20">
             <span className="text-white font-black text-[11px] text-center px-1 leading-tight">
-              {DENIED_TEXT[denied.reason] || 'Nicht möglich'}
+              {(DENIED_TEXT_I18N[lang] || DENIED_TEXT_I18N.de)[denied.reason] || t.notPossible}
             </span>
           </div>
         )}
       </div>
 
-      {/* Restzeit-Balken */}
-      <div className="mt-1.5 h-1 rounded-sm overflow-hidden bg-white/5">
-        {card && showNewCard && (
-          <div className={`h-full ${lifeUrgent ? 'bg-red-500' : 'bg-fuchsia-500/70'}`}
-            style={{ width: `${lifePct}%`, transition: 'width .25s linear' }} />
-        )}
-      </div>
+      {/* Restzeit-Balken — per Host-Einstellung ein-/ausblendbar */}
+      {showTimer && (
+        <div className="mt-1.5 h-1 rounded-sm overflow-hidden bg-white/5">
+          {card && showNewCard && (
+            <div className={`h-full ${lifeUrgent ? 'bg-red-500' : 'bg-fuchsia-500/70'}`}
+              style={{ width: `${lifePct}%`, transition: 'width .25s linear' }} />
+          )}
+        </div>
+      )}
       <p className="text-[11px] text-gray-400 text-center mt-1 truncate">
         {card && showNewCard ? card.name : ' '}
       </p>
@@ -297,13 +362,14 @@ function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, den
 }
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────
-export default function ElixirRush({ rushState, myPlayerId, onBuy, denied }) {
+export default function ElixirRush({ rushState, myPlayerId, onBuy, denied, lang = 'de' }) {
+  const t = RUSH_I18N[lang] || RUSH_I18N.de;
   const now = useNow(100);
   const state = rushState;
 
   if (!state) return (
     <div className="h-full flex items-center justify-center">
-      <p className="text-gray-500 text-sm">Lade Elixir Rush…</p>
+      <p className="text-gray-500 text-sm">{t.loading}</p>
     </div>
   );
 
@@ -318,7 +384,14 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied }) {
   const myDeckCount  = me?.deck?.length || 0;
   const myDeckFull   = myDeckCount >= state.deckSize;
   const myChampCount = (me?.deck || []).filter(c => c.isChampion).length;
-  const canInteract  = !amSpectator && !myDeckFull && !state.finished;
+
+  // Start-Countdown: verhindert, dass der Host (der sofort startet) einen Klick-Vorsprung
+  // vor allen anderen hat, die erst auf das Netzwerk-Event warten müssen
+  const countdownUntilClient = state.countdownUntil ? state.countdownUntil + clientOffset : null;
+  const inCountdown = !!(countdownUntilClient && countdownUntilClient > now);
+  const countdownRemaining = inCountdown ? Math.max(1, Math.ceil((countdownUntilClient - now) / 1000)) : 0;
+
+  const canInteract  = !amSpectator && !myDeckFull && !state.finished && !inCountdown;
 
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const doneCount     = activePlayers.filter(p => (p.deck || []).length >= state.deckSize).length;
@@ -331,18 +404,18 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied }) {
   return (
     <div className="h-full flex overflow-hidden select-none">
       <style>{RUSH_STYLE}</style>
-      <RushSidebar state={state} myPlayerId={myPlayerId} elixirOf={elixirOf} />
+      <RushSidebar state={state} myPlayerId={myPlayerId} elixirOf={elixirOf} t={t} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top bar */}
         <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
           <span className="text-white font-bold text-sm shrink-0">Elixir Rush</span>
-          <span className="text-gray-500 text-xs shrink-0">{doneCount}/{activePlayers.length} Decks fertig</span>
+          <span className="text-gray-500 text-xs shrink-0">{t.decksDone(doneCount, activePlayers.length)}</span>
           <div className="flex-1" />
           {!amSpectator && (
             <span className={`text-sm font-bold tabular-nums shrink-0 ${myDeckFull ? 'text-green-400' : 'text-fuchsia-300'}`}>
-              {myDeckCount}/{state.deckSize} Karten
+              {t.cardsOf(myDeckCount, state.deckSize)}
             </span>
           )}
         </div>
@@ -351,32 +424,39 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied }) {
         {state.finished ? (
           <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
             <Check size={16} className="text-green-400 shrink-0" />
-            <p className="text-green-300 font-bold text-sm">Alle Decks sind voll — Draft abgeschlossen!</p>
+            <p className="text-green-300 font-bold text-sm">{t.allDecksFull}</p>
+          </div>
+        ) : inCountdown ? (
+          <div className="shrink-0 px-4 py-2.5 bg-fuchsia-500/10 border-b border-fuchsia-500/30 flex items-center gap-3">
+            <Hourglass size={14} className="text-fuchsia-300 shrink-0" />
+            <p className="text-fuchsia-200 font-bold text-sm">
+              {t.startingSoon(countdownRemaining)}
+            </p>
           </div>
         ) : amSpectator ? (
           <div className="shrink-0 px-4 py-2.5 bg-[#101016] border-b border-white/5 flex items-center gap-3">
-            <p className="text-gray-400 font-semibold text-sm">Zuschauer — du siehst den Marktplatz live.</p>
+            <p className="text-gray-400 font-semibold text-sm">{t.spectatorLive}</p>
           </div>
         ) : myDeckFull ? (
           <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
             <Check size={16} className="text-green-400 shrink-0" />
-            <p className="text-green-300 font-bold text-sm">Dein Deck ist voll! Warte, bis die anderen fertig sind…</p>
+            <p className="text-green-300 font-bold text-sm">{t.yourDeckFull}</p>
           </div>
         ) : (
           <div className="shrink-0 px-4 py-2.5 bg-fuchsia-500/10 border-b border-fuchsia-500/30 flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-fuchsia-400 animate-pulse shrink-0" />
             <p className="text-fuchsia-200 font-bold text-sm">
-              Schnapp dir Karten mit deinem Elixier — wer zuerst klickt, bekommt sie!
+              {t.grabCards}
             </p>
           </div>
         )}
 
         {/* Marktplatz */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 flex items-center justify-center">
-          <div className="w-full max-w-3xl rounded-md border border-fuchsia-500/30 bg-[#190f22] shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden">
+          <div className="w-full max-w-3xl rounded-md border border-fuchsia-500/30 bg-[#190f22] shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden relative">
             <div className="flex items-center justify-between px-5 py-3 bg-fuchsia-500/10 border-b border-fuchsia-500/20">
-              <span className="text-fuchsia-300 text-xs font-bold uppercase tracking-widest">Marktplatz</span>
-              <span className="text-gray-500 text-[11px]">Karten wechseln alle {Math.round(state.cardLifetimeMs / 1000)}s</span>
+              <span className="text-fuchsia-300 text-xs font-bold uppercase tracking-widest">{t.marketplace}</span>
+              <span className="text-gray-500 text-[11px]">{t.cardsSwapEvery(Math.round(state.cardLifetimeMs / 1000))}</span>
             </div>
             <div className="p-6 bg-[#120a1a]">
               <div className="flex flex-wrap justify-center gap-6">
@@ -392,10 +472,25 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied }) {
                     cardLifetimeMs={state.cardLifetimeMs}
                     clientOffset={clientOffset}
                     now={now}
+                    showTimer={state.showTimer !== false}
+                    t={t}
+                    lang={lang}
                   />
                 ))}
               </div>
             </div>
+
+            {/* Countdown-Fenster deckt exakt den Marktplatz ab (komplett blickdicht,
+                damit man die Karten nicht schon durchscheinen sieht) */}
+            {inCountdown && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#120a1a]">
+                <div className="text-center">
+                  <p className="text-fuchsia-300 text-sm font-bold uppercase tracking-widest mb-3">{t.getReady}</p>
+                  <p className="text-white font-black text-7xl tabular-nums leading-none">{countdownRemaining}</p>
+                  <p className="text-gray-400 text-xs mt-3">{t.marketOpensForAll}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -405,7 +500,7 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied }) {
             <div className="flex items-center gap-2.5 bg-amber-400/10 border border-amber-400/30 rounded-md px-4 py-2">
               <Hourglass size={14} className="text-amber-400 shrink-0" />
               <p className="text-amber-300 text-xs font-bold">
-                Volles Elixier! In {autoBuyIn}s bekommst du automatisch eine zufällige Karte.
+                {t.fullElixirAutoBuy(autoBuyIn)}
               </p>
             </div>
           )}
@@ -413,7 +508,7 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied }) {
             <ElixirBar value={myElixir} max={state.maxElixir} big />
           ) : (
             <p className="text-gray-600 text-xs text-center">
-              {amSpectator ? 'Als Zuschauer hast du kein Elixier.' : 'Deck komplett — dein Elixier wird nicht mehr gebraucht.'}
+              {amSpectator ? t.spectatorNoElixir : t.deckCompleteNoElixir}
             </p>
           )}
         </div>

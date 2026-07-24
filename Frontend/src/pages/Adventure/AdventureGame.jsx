@@ -1,12 +1,22 @@
 // src/pages/Adventures/AdventureGame.jsx
 import React, { useEffect, useRef, useState, useContext } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
-import GameEngine from "../../components/Adventure/AdventureEngine"; 
+import GameEngine from "../../components/Adventure/AdventureEngine";
+import ArenaMode from "./ArenaMode";
 import CoinIcon from "../../components/CoinIcon";
 import SEO from "../../components/SEO";
+import { Swords, Play, Trophy, Palette, Zap, BookOpen, MessageSquare, ScrollText, X, Send, CheckCircle2, Sword, Shield, Magnet, Heart, Gauge, Clover, Layers, Droplets, ChevronsRight, Skull, Save, Coins, Store, Flag, Globe } from "lucide-react";
+
+function TwitchGlyph({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+    </svg>
+  );
+}
 
 export default function AdventureGame() {
-  const { user } = useContext(TwitchAuthContext);
+  const { user, login } = useContext(TwitchAuthContext);
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
   const containerRef = useRef(null);
@@ -40,6 +50,9 @@ export default function AdventureGame() {
   });
   
   const [boughtCounts, setBoughtCounts] = useState({ damage: 0, maxHp: 0, speed: 0, magnet: 0, fireRate:0, luck:0 });
+  // Ref, damit autoSave (aus Engine-Callbacks aufgerufen) nie veraltete Counts speichert
+  const boughtCountsRef = useRef(boughtCounts);
+  useEffect(() => { boughtCountsRef.current = boughtCounts; }, [boughtCounts]);
   const [menuView, setMenuView] = useState('MAIN');
   const [userData, setUserData] = useState(null); 
   const [activeRunData, setActiveRunData] = useState(null); 
@@ -72,7 +85,8 @@ export default function AdventureGame() {
         decoy: { name: "Köder", price: 2000, desc: "Lenkt Gegner ab", cooldown: 45000, icon: "assets/adventure/powerups/decoy.png" },
         grenade: { name: "Granate", price: 3000, desc: "Explosiver Flächenschaden", cooldown: 35000, icon: "assets/adventure/projectiles/grenade.png" },
         fastshot: { name: "Hyperfeuer", price: 4000, desc: "Doppelte Feuerrate (5s)", cooldown: 25000, icon: "assets/adventure/powerups/rapidfire.png" },
-        fastboots: { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 25000, icon: "assets/adventure/powerups/fastboots.png" }
+        fastboots: { name: "Speedboots", price: 3500, desc: "Doppelter Speed (5s)", cooldown: 25000, icon: "assets/adventure/powerups/fastboots.png" },
+        lightning: { name: "Blitzschlag", price: 5000, desc: "Blitz-Flächenschaden am Cursor", cooldown: 30000, icon: "assets/adventure/boss2/lightning.png" }
       },
       hasActiveRun: false
   };
@@ -123,7 +137,7 @@ export default function AdventureGame() {
             setCasinoCredits(d3.credits || 0);
         } else { setUserData(mockUserData); }
         loadLeaderboard();
-      } catch(e) { setUserData(mockUserData); }
+      } catch { setUserData(mockUserData); }
   };
 
   useEffect(() => { refreshData(); }, [user]);
@@ -133,7 +147,7 @@ export default function AdventureGame() {
           const r = await fetch("/api/adventure/leaderboard"); 
           const data = await r.json();
           setLeaderboard(Array.isArray(data) ? data : []); 
-      } catch(e){ setLeaderboard([]); } 
+      } catch { setLeaderboard([]); } 
   };
 
   const handleStartRequest = () => { if(activeRunData) { setMenuView('LOAD_SAVE'); } else { startNewGame(); } };
@@ -154,6 +168,9 @@ export default function AdventureGame() {
   const autoSave = async (saveCurrent = true) => {
         if(!engineRef.current) return;
         const stateToSave = engineRef.current.exportState(saveCurrent);
+        // FIX (Exploit): Shop-Kaufzähler mitspeichern — vorher starteten die
+        // Upgrade-Preise nach jedem Reload wieder beim Basispreis.
+        stateToSave.boughtCounts = boughtCountsRef.current;
         try {
             await fetch("/api/adventure/save-run", {
                 method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
@@ -217,6 +234,11 @@ export default function AdventureGame() {
     setMenuView(startView);
     setEndScreenData(null);
     setIsPaused(startPaused);
+
+    // Gespeicherte Shop-Kaufzähler wiederherstellen (Preis-Exploit-Fix)
+    if (initialState?.boughtCounts) {
+        setBoughtCounts({ damage: 0, maxHp: 0, speed: 0, magnet: 0, fireRate: 0, luck: 0, ...initialState.boughtCounts });
+    }
     
     const baseStats = initialState ? initialState.baseStats : { 
         damage: 1, speed: 1, maxHp: 100, multishot: 0, lifesteal: 0, magnet: 0, piercing: 0, luck: 1
@@ -345,7 +367,7 @@ export default function AdventureGame() {
       } catch(e) {
           console.error("Game Over Error:", e);
           // --- FIX: Auch bei Fehler versuchen zu löschen ---
-          try { await fetch("/api/adventure/clear-run", { method: "POST", credentials: "include" }); } catch(err) {}
+          try { await fetch("/api/adventure/clear-run", { method: "POST", credentials: "include" }); } catch { /* ignore */ }
 
           setEndScreenData({ earnedCredits: earnedCredits, kills: finalState.kills, stage: finalState.stage });
       }
@@ -358,7 +380,7 @@ export default function AdventureGame() {
             const d = await res.json();
             if(d.success) refreshData();
             else alert(d.error);
-        } catch(e) {}
+        } catch { /* ignore */ }
     };
 
   const handleNextStep = async () => {
@@ -423,6 +445,8 @@ export default function AdventureGame() {
       if(type === 'multishot') upgrade.multishot = 1;
       if(type === 'lifesteal') upgrade.lifesteal = 0.05;
       if(type === 'piercing') upgrade.piercing = 1;
+      if(type === 'rapidfire') upgrade.fireRate = 0.3;
+      if(type === 'fortune') upgrade.luck = 1;
       engine.applyUpgrades(upgrade);
       setMenuView('INGAME_SHOP');
   };
@@ -486,7 +510,7 @@ export default function AdventureGame() {
           });
           const data = await res.json();
           if(data.success) { refreshData(); } else { alert(data.error || "Fehler"); }
-      } catch(e) {}
+      } catch { /* ignore */ }
   };
 
   const equipSkin = async (skinId) => {
@@ -495,7 +519,7 @@ export default function AdventureGame() {
               method: "POST", headers: {"Content-Type":"application/json"}, credentials: "include", body: JSON.stringify({ skinId })
           });
           if(res.ok) refreshData();
-      } catch(e) {}
+      } catch { /* ignore */ }
   };
 
   const buyPowerup = async (powerupId) => {
@@ -505,7 +529,7 @@ export default function AdventureGame() {
           });
           const data = await res.json();
           if(data.success) { refreshData(); } else { alert(data.error || "Fehler"); }
-      } catch(e) {}
+      } catch { /* ignore */ }
   };
 
   const equipPowerup = async (slotIndex, powerupId) => {
@@ -514,15 +538,38 @@ export default function AdventureGame() {
               method: "POST", headers: {"Content-Type":"application/json"}, credentials: "include", body: JSON.stringify({ slotIndex, powerupId })
           });
           if(res.ok) refreshData();
-      } catch(e) {}
+      } catch { /* ignore */ }
   };
 
   useEffect(() => { return () => { if(engineRef.current) engineRef.current.stop(); }; }, []);
-  if (!user) return <div className="text-white p-10 text-center">Bitte einloggen.</div>;
+
+  if (!user) return (
+    <div className="page-fade h-full w-full flex items-center justify-center p-6">
+      <div className="panel p-10 max-w-md w-full flex flex-col items-center gap-5 text-center">
+        <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
+          <Swords size={26} />
+        </span>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-white mb-2">adVentures</h1>
+          <p className="text-sm text-white/50">Melde dich mit Twitch an, um zu spielen.</p>
+        </div>
+        <button
+          onClick={() => login(false)}
+          className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+        >
+          <TwitchGlyph className="w-4 h-4" /> Mit Twitch anmelden
+        </button>
+      </div>
+    </div>
+  );
+
+  // Vor dem eigentlichen Spielstart brauchen wir keinen schwarzen Hintergrund —
+  // der lädt erst, sobald die Engine wirklich startet (Ladescreen übernimmt das).
+  const isPreGame = menuView === 'MAIN';
 
   return (
     <div className="h-full w-full min-h-0 flex flex-col flex-1 -mx-0">
-    <div ref={containerRef} className="relative w-full flex-1 min-h-[400px] h-full max-h-full bg-black overflow-hidden md:rounded-xl shadow-2xl border border-white/10 select-none">
+    <div ref={containerRef} className={`relative w-full flex-1 min-h-[400px] h-full max-h-full overflow-hidden md:rounded-xl shadow-2xl border border-white/10 select-none transition-colors ${isPreGame ? 'bg-transparent' : 'bg-black'}`}>
         <SEO title = "Adventure"/>
         {/* NEU: LADESCREEN OVERLAY */}
         {isLoading && menuView !== 'MAIN' && (
@@ -540,15 +587,13 @@ export default function AdventureGame() {
                 
                 {/* TOP HEADER */}
                 <div className="relative w-full">
-                    {/* MENU BUTTON - Jetzt mit z-50 und pointer-events-auto */}
                     <div className="absolute top-0 right-0 pointer-events-auto z-50">
-                        <button 
-                            onClick={togglePause} 
-                            className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-lg border border-gray-500 shadow-xl transition-transform active:scale-95 flex items-center justify-center group"
+                        <button
+                            onClick={togglePause}
+                            className="bg-black/50 backdrop-blur-sm hover:bg-white/10 text-white p-2.5 rounded-xl border border-white/10 shadow-xl transition-colors flex items-center justify-center group"
                             title="Pause / Menü"
                         >
-                            {/* Pause Icon SVG */}
-                            <svg className="w-8 h-8 text-white drop-shadow-md group-hover:text-yellow-400 transition-colors" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-7 h-7 text-white/80 group-hover:text-violet-300 transition-colors" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
                             </svg>
                         </button>
@@ -557,36 +602,33 @@ export default function AdventureGame() {
                     {/* BOSS HEALTHBAR */}
                     {gameState.boss && (
                         <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[40%] max-w-[600px] flex flex-col items-center z-30">
-                            <div className="text-red-500 font-black text-xl tracking-[0.2em] mb-1 drop-shadow-md">{gameState.boss.name}</div>
-                            <div className="w-full h-6 bg-black/80 border-2 border-red-900 rounded-full overflow-hidden relative shadow-[0_0_15px_rgba(255,0,0,0.5)]">
-                                <div className="absolute inset-0 bg-red-900/20"></div>
-                                <div className="h-full bg-gradient-to-r from-red-600 via-red-500 to-orange-500 transition-all duration-200" 
+                            <div className="text-red-400 font-display font-bold text-xl tracking-[0.2em] mb-1.5 drop-shadow-md">{gameState.boss.name}</div>
+                            <div className="w-full h-6 bg-black/60 border border-red-400/30 rounded-full overflow-hidden relative">
+                                <div className="h-full bg-red-500 transition-all duration-200"
                                     style={{ width: `${Math.max(0, (gameState.boss.hp / gameState.boss.maxHp) * 100)}%` }}></div>
                             </div>
-                            <div className="text-xs font-bold text-red-200 mt-1">{Math.floor(gameState.boss.hp)} / {Math.floor(gameState.boss.maxHp)}</div>
+                            <div className="text-xs font-semibold text-red-200 mt-1">{Math.floor(gameState.boss.hp)} / {Math.floor(gameState.boss.maxHp)}</div>
                         </div>
                     )}
                 </div>
 
                 {/* MIDDLE UI */}
                 <div className="flex justify-between items-start w-full absolute top-6 left-0 px-6 pointer-events-none">
-                    <div className="flex flex-col gap-2 pointer-events-auto">
-                        <div className="relative w-64 h-6 bg-gray-900 border border-gray-600 rounded skew-x-[-10deg] overflow-hidden shadow-lg">
-                            <div className="absolute inset-0 bg-red-900/30"></div>
-                            <div className="h-full bg-gradient-to-r from-red-700 to-red-500 transition-all duration-300" style={{ width: `${(Math.max(0,gameState.hp)/gameState.maxHp)*100}%`}} />
-                            <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white/90 skew-x-[10deg]">
+                    <div className="flex flex-col gap-2.5 pointer-events-auto">
+                        <div className="relative w-64 h-7 bg-black/50 border border-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-red-500 transition-all duration-300" style={{ width: `${(Math.max(0,gameState.hp)/gameState.maxHp)*100}%`}} />
+                            <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white/90">
                                 {Math.floor(gameState.hp)} / {gameState.maxHp} HP
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 text-yellow-400 font-bold text-xl drop-shadow-md">
+                        <div className="flex items-center gap-2 text-amber-300 font-bold text-xl">
                             <span>{gameState.gold} 🪙</span>
                         </div>
                     </div>
-                    {/* RECHTE SEITE (Stage & Kills) - FIX: mt-14 schiebt es unter den Pause-Button */}
-                    <div className="mt-14 text-right bg-black/40 p-2 rounded backdrop-blur-sm border border-white/10 pointer-events-auto">
-                        <div className="text-2xl text-white font-black italic tracking-wider">STAGE {gameState.stage}</div>
-                        <div className="text-gray-400 text-sm font-bold">
-                            KILLS: {gameState.stageKills} / {gameState.killsRequired > 999 ? 'BOSS' : gameState.killsRequired}
+                    <div className="mt-14 text-right bg-black/40 backdrop-blur-sm border border-white/10 rounded-2xl px-4 py-2.5 pointer-events-auto">
+                        <div className="font-display text-2xl text-white font-bold tracking-wide">Stage {gameState.stage}</div>
+                        <div className="text-white/40 text-sm font-semibold">
+                            Kills: {gameState.stageKills} / {gameState.killsRequired > 999 ? 'BOSS' : gameState.killsRequired}
                         </div>
                     </div>
                 </div>
@@ -599,25 +641,25 @@ export default function AdventureGame() {
                          const cdPercent = slot && isOnCd ? (slot.cooldownTimer / slot.maxCooldown) * 100 : 0;
                          const cdSeconds = slot && isOnCd ? Math.ceil(slot.cooldownTimer / 1000) : 0;
                          return (
-                            <div key={i} className="w-14 h-14 bg-gray-900/80 border-2 border-gray-600 rounded-lg flex items-center justify-center relative shadow-xl transform transition-transform hover:scale-105">
-                                <span className="absolute -top-3 -left-2 text-xs font-bold text-gray-900 bg-gray-400 px-1.5 rounded-sm border border-white/20">{i+1}</span>
+                            <div key={i} className="w-16 h-16 bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl flex items-center justify-center relative">
+                                <span className="absolute -top-2.5 -left-2 text-[10px] font-bold text-black bg-white/70 w-4 h-4 rounded-full flex items-center justify-center">{i+1}</span>
                                 {def ? (
                                     def.icon.includes('.') ? (
-                                        <img src={def.icon} alt={def.name} className="w-10 h-10 object-contain drop-shadow-lg" />
+                                        <img src={def.icon} alt={def.name} className="w-11 h-11 object-contain" />
                                     ) : (
-                                        <span className="text-3xl filter drop-shadow-lg">{def.icon}</span>
+                                        <span className="text-3xl">{def.icon}</span>
                                     )
                                 ) : (
-                                    <span className="text-gray-700 text-xs">LEER</span>
+                                    <span className="text-white/20 text-[10px]">Leer</span>
                                 )}
                                 {isOnCd && (
                                     <>
-                                        <div 
-                                            className="absolute bottom-0 left-0 w-full bg-black/70 z-20 transition-all duration-100 ease-linear"
-                                            style={{ height: `${cdPercent}%` }} 
+                                        <div
+                                            className="absolute bottom-0 left-0 w-full bg-black/70 z-20 transition-all duration-100 ease-linear rounded-b-2xl"
+                                            style={{ height: `${cdPercent}%` }}
                                         />
                                         <div className="absolute inset-0 z-30 flex items-center justify-center">
-                                            <span className="text-white font-black text-lg drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
+                                            <span className="text-white font-bold text-lg drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
                                                 {cdSeconds}
                                             </span>
                                         </div>
@@ -642,99 +684,118 @@ export default function AdventureGame() {
         )}
 
         {/* CANVAS: Block für sauberes Rendering */}
-        <canvas 
-            ref={canvasRef} 
-            width={dimensions.width} 
-            height={dimensions.height} 
-            className="block bg-[#111] touch-none w-full h-full"
+        <canvas
+            ref={canvasRef}
+            width={dimensions.width}
+            height={dimensions.height}
+            className={`block touch-none w-full h-full ${isPreGame ? 'bg-transparent' : 'bg-[#111]'}`}
         />
         {/* NEU: PAUSE MENÜ OVERLAY */}
         {isPaused && menuView === 'GAME' && (
-            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-200">
-                <div className="bg-gray-900 border border-white/10 p-8 rounded-2xl shadow-2xl flex flex-col gap-4 w-64">
-                    <h2 className="text-2xl font-bold text-center text-white mb-2">PAUSE</h2>
-                    <button 
-                        onClick={togglePause} 
-                        className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-colors"
+            <div className="page-fade absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center">
+                <div className="panel-strong p-8 flex flex-col gap-3 w-80">
+                    <h2 className="font-display text-2xl font-bold text-center text-white mb-3">Pause</h2>
+                    <button
+                        onClick={togglePause}
+                        className="bg-violet-600 hover:bg-violet-500 text-white font-bold py-3.5 rounded-2xl transition-colors"
                     >
-                        WEITERSPIELEN
+                        Weiterspielen
                     </button>
-                    <button 
-                        onClick={saveAndQuit} 
-                        className="bg-red-900/50 hover:bg-red-800 text-red-200 font-bold py-3 rounded-xl border border-red-900 transition-colors"
+                    <button
+                        onClick={saveAndQuit}
+                        className="panel py-3.5 text-red-300 hover:text-red-200 hover:border-red-400/30 font-semibold transition-colors"
                     >
-                        SPEICHERN & MENÜ
+                        Speichern & Menü
                     </button>
                 </div>
             </div>
         )}
 
+        {/* PVPVE ARENA */}
+        {menuView === 'ARENA' && (
+            <ArenaMode
+                skinFile={userData?.skinDefs?.[userData?.activeSkin]?.file || "skins/player.png"}
+                onExit={() => setMenuView('MAIN')}
+            />
+        )}
+
         {/* HAUPTMENÜ */}
         {menuView === 'MAIN' && (
-            <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm p-8 overflow-y-auto custom-scrollbar">
-                
-                {/* 1. TITEL - FIX: p-4 hinzugefügt, damit das 'S' rechts nicht gecuttet wird */}
-                <h1 className="text-6xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-red-600 mb-6 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] filter text-center tracking-tighter p-4">
-                    ADVENTURES
-                </h1>
-                
-                {/* 2. LEADERBOARD PREVIEW */}
-                <div className="w-full max-w-4xl bg-gray-900/80 border border-gray-600 p-6 rounded-2xl mb-8 relative shadow-2xl group hover:border-yellow-600 transition-colors">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50"></div>
-                    
-                    <h3 className="text-yellow-500 font-bold mb-4 text-center text-2xl tracking-[0.3em] uppercase border-b border-gray-700 pb-2 flex items-center justify-center gap-4">
-                        <span>🏆</span> HALL OF FAME <span>🏆</span>
-                    </h3>
-                    
-                    {/* Top 5 Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        {leaderboard.length === 0 && <span className="text-gray-500 col-span-5 text-center py-4 italic">Noch keine Legenden...</span>}
-                        
-                        {leaderboard.slice(0, 5).map((e, i) => {
-                            let rankColor = "text-gray-400";
-                            let rankIcon = `#${i+1}`;
-                            let bgClass = "bg-gray-800/50 border-gray-700";
-                            
-                            if (i === 0) { rankColor = "text-yellow-400"; rankIcon = "👑"; bgClass = "bg-yellow-900/20 border-yellow-600/50"; }
-                            else if (i === 1) { rankColor = "text-gray-300"; rankIcon = "🥈"; bgClass = "bg-gray-700/50 border-gray-500/50"; }
-                            else if (i === 2) { rankColor = "text-orange-400"; rankIcon = "🥉"; bgClass = "bg-orange-900/20 border-orange-600/50"; }
+            <div className="page-fade absolute inset-0 flex flex-col items-center justify-center z-20 p-6 md:p-10 overflow-y-auto custom-scrollbar">
+                <div className="w-full max-w-3xl flex flex-col items-center gap-7 py-6">
 
-                            return (
-                                <div key={i} className={`flex flex-col items-center justify-center p-3 rounded-lg border ${bgClass} transition-transform hover:scale-105`}>
-                                    <div className={`text-2xl mb-1 ${rankColor}`}>{rankIcon}</div>
-                                    <div className="font-bold text-white truncate max-w-full px-2" title={e.name}>{e.name}</div>
-                                    <div className="text-xs text-gray-400 font-mono mt-1">STAGE <span className="text-white text-sm font-bold">{e.score}</span></div>
-                                </div>
-                            )
-                        })}
+                    {/* 1. TITEL */}
+                    <div className="flex items-center gap-3">
+                        <span className="flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                            <Swords size={24} />
+                        </span>
+                        <h1 className="font-display text-4xl md:text-6xl font-bold text-white tracking-tight">adVentures</h1>
                     </div>
 
-                    {/* NEU: Button zum Ausklappen (nur wenn mehr als 5 Einträge) */}
-                    {leaderboard.length > 5 && (
-                        <button 
-                            onClick={() => setShowLeaderboardModal(true)}
-                            className="mt-6 w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white font-bold text-sm border border-gray-600 transition-colors uppercase tracking-wider flex items-center justify-center gap-2"
+                    {/* 2. LEADERBOARD PREVIEW */}
+                    <div className="panel-strong w-full p-6">
+                        <h3 className="flex items-center justify-center gap-2 font-display text-xs font-bold uppercase tracking-[0.25em] text-white/50 mb-5">
+                            <Trophy size={15} className="text-amber-400" /> Hall of Fame
+                        </h3>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            {leaderboard.length === 0 && (
+                                <span className="col-span-2 sm:col-span-5 text-center py-4 text-sm text-white/30 italic">Noch keine Legenden...</span>
+                            )}
+
+                            {leaderboard.slice(0, 5).map((e, i) => {
+                                let rankColor = "text-white/40";
+                                let boxClass = "bg-white/[0.02] border-white/10";
+
+                                if (i === 0) { rankColor = "text-amber-400"; boxClass = "bg-amber-500/5 border-amber-400/30"; }
+                                else if (i === 1) { rankColor = "text-slate-300"; boxClass = "bg-white/5 border-white/20"; }
+                                else if (i === 2) { rankColor = "text-orange-400"; boxClass = "bg-orange-500/5 border-orange-400/25"; }
+
+                                return (
+                                    <div key={i} className={`flex flex-col items-center justify-center p-3 rounded-xl border ${boxClass} transition-transform hover:scale-105`}>
+                                        <div className={`text-xs font-bold mb-1 ${rankColor}`}>#{i + 1}</div>
+                                        <div className="font-semibold text-white text-sm truncate max-w-full px-1" title={e.name}>{e.name}</div>
+                                        <div className="text-[11px] text-white/35 font-mono mt-1">Stage <span className="text-white/70 font-bold">{e.score}</span></div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+
+                        {leaderboard.length > 5 && (
+                            <button
+                                onClick={() => setShowLeaderboardModal(true)}
+                                className="mt-5 w-full py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                            >
+                                <ScrollText size={13} /> Alle anzeigen ({leaderboard.length})
+                            </button>
+                        )}
+                    </div>
+
+                    {/* 3. BUTTONS */}
+                    <div className="w-full flex flex-col gap-3">
+                        <button
+                            onClick={handleStartRequest}
+                            className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-5 rounded-2xl text-lg md:text-xl transition-colors flex items-center justify-center gap-3"
                         >
-                            <span>📜</span> Alle anzeigen ({leaderboard.length})
+                            <Play size={20} fill="currentColor" />
+                            {activeRunData ? "Spiel fortsetzen" : "Neues Abenteuer starten"}
                         </button>
-                    )}
-                </div>
 
-                {/* 3. BUTTONS */}
-                <div className="w-full max-w-4xl flex flex-col gap-4">
-                    <button 
-                        onClick={handleStartRequest} 
-                        className="w-full bg-gradient-to-r from-red-800 to-red-600 hover:from-red-700 hover:to-red-500 text-white font-black py-6 rounded-xl text-3xl shadow-[0_0_20px_rgba(220,38,38,0.4)] border border-red-500 transition-all transform hover:scale-[1.01] uppercase tracking-widest relative overflow-hidden"
-                    >
-                        <span className="relative z-10">{activeRunData ? "SPIEL FORTSETZEN" : "NEUES ABENTEUER STARTEN"}</span>
-                        <div className="absolute top-0 left-0 w-full h-full bg-white/5 opacity-0 hover:opacity-100 transition-opacity"></div>
-                    </button>
+                        <button
+                            onClick={() => setMenuView('ARENA')}
+                            className="w-full panel hover:border-violet-400/40 hover:bg-white/[0.05] text-white font-bold py-4 rounded-2xl text-base md:text-lg transition-colors flex items-center justify-center gap-3"
+                        >
+                            <Globe size={19} className="text-violet-300" />
+                            PvPvE Arena
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 bg-amber-500/10 border border-amber-400/20 px-2 py-0.5 rounded-md">Beta</span>
+                        </button>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <MenuButton icon="🎨" label="SKINS" onClick={() => setMenuView('SKIN_SHOP')} />
-                        <MenuButton icon="💣" label="POWERUPS" onClick={() => setMenuView('LOADOUT_SHOP')} />
-                        <MenuButton icon="📖" label="HANDBUCH" onClick={() => setShowHelp(true)} />
-                        <MenuButton icon="📝" label="FEEDBACK" onClick={() => setShowFeedback(true)} />
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <MenuButton icon={Palette} label="Skins" onClick={() => setMenuView('SKIN_SHOP')} />
+                            <MenuButton icon={Zap} label="Powerups" onClick={() => setMenuView('LOADOUT_SHOP')} />
+                            <MenuButton icon={BookOpen} label="Handbuch" onClick={() => setShowHelp(true)} />
+                            <MenuButton icon={MessageSquare} label="Feedback" onClick={() => setShowFeedback(true)} />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -742,73 +803,70 @@ export default function AdventureGame() {
         
         {/* SHOP MENUS (gekürzt dargestellt, nutzen aber absolute inset-0) */}
         {menuView === 'SKIN_SHOP' && userData && (
-             <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-30 animate-in fade-in p-4">
-                <div className="bg-gray-900 border border-gray-700 p-8 rounded-2xl w-full max-w-4xl h-full md:h-[600px] flex flex-col">
-                    <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
-                        <h2 className="text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">SKIN SHOP</h2>
-                        <div className="flex items-center gap-2">
-                            <span className="text-gray-400 text-sm hidden md:inline">Guthaben:</span>
-                            <span className="bg-purple-900/50 px-4 py-1 rounded-full border border-purple-500 text-purple-300 font-bold text-lg md:text-xl">{casinoCredits} <CoinIcon className="w-6 h-6 text-yellow-500 drop-shadow-md" /></span>
+             <div className="page-fade absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-30 p-4 md:p-8">
+                <div className="panel-strong w-full max-w-6xl h-full md:h-[85vh] flex flex-col p-6 md:p-8">
+                    <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                        <h2 className="font-display text-2xl md:text-4xl font-bold text-white">Skins</h2>
+                        <div className="flex items-center gap-2 panel px-4 py-2">
+                            <span className="text-white/40 text-sm hidden md:inline">Guthaben</span>
+                            <span className="text-violet-300 font-bold text-lg md:text-xl flex items-center gap-1.5">{casinoCredits} <CoinIcon className="w-5 h-5 text-yellow-500" /></span>
                         </div>
                     </div>
-                    {/* ... Restlicher Skin Shop Code identisch, nur Responsive Grid angepasst ... */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 overflow-y-auto p-2 flex-1 custom-scrollbar content-start">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-5 overflow-y-auto p-1 flex-1 custom-scrollbar content-start">
                         {Object.entries(userData.skinDefs).map(([id, skin]) => {
                             const owned = userData.skins.includes(id); const active = userData.activeSkin === id;
                             return (
-                                <div key={id} className={`relative group p-4 rounded-xl border-2 flex flex-col items-center transition-all duration-300 ${active ? 'border-green-500 bg-green-900/20 shadow-[0_0_15px_rgba(0,255,0,0.3)]' : owned ? 'border-gray-600 bg-gray-800 hover:border-gray-400' : 'border-purple-900/30 bg-gray-900/50 hover:border-purple-500 hover:bg-gray-800'}`}>
-                                    <div className="w-16 h-16 md:w-24 md:h-24 mb-4 relative flex items-center justify-center">
-                                         <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${active ? 'bg-green-500' : 'bg-purple-600'}`}></div>
-                                         <img 
-                                            src={`/assets/adventure/${skin.file.replace('.png', '3.png')}`} 
-                                            alt={skin.name} 
-                                            className="w-full h-full object-contain relative z-10 drop-shadow-lg transition-transform group-hover:scale-110" 
-                                            onError={(e) => {e.target.style.display='none';}} 
+                                <div key={id} className={`panel relative flex flex-col items-center p-5 transition-colors ${active ? 'border-emerald-400/40 bg-emerald-500/5' : 'hover:border-violet-400/30'}`}>
+                                    <div className="w-20 h-20 md:w-28 md:h-28 mb-4 flex items-center justify-center">
+                                         <img
+                                            src={`/assets/adventure/${skin.file.replace('.png', '3.png')}`}
+                                            alt={skin.name}
+                                            className="w-full h-full object-contain"
+                                            onError={(e) => {e.target.style.display='none';}}
                                         />
                                     </div>
-                                    <h3 className="font-bold text-white text-sm md:text-lg mb-1">{skin.name}</h3>
-                                    <div className="mt-auto w-full pt-2">
-                                        {active ? (<div className="text-center text-green-400 text-xs font-bold py-2 border border-green-500/30 rounded bg-green-900/20 tracking-wider">AKTIV</div>) : owned ? (<button onClick={() => equipSkin(id)} className="w-full bg-gray-700 hover:bg-white hover:text-black text-gray-200 text-xs py-2 rounded font-bold border border-gray-500 transition-colors uppercase tracking-wider">WÄHLEN</button>) : (<button onClick={() => buySkin(id)} disabled={casinoCredits < skin.price} className={`w-full text-xs py-2 rounded font-bold border transition-all ${casinoCredits >= skin.price ? 'bg-purple-600 hover:bg-purple-500 border-purple-500 text-white shadow-lg shadow-purple-900/50' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}>KAUFEN <span className="block text-sm">{skin.price} <CoinIcon className="w-4 h-4 text-yellow-500 drop-shadow-md" /></span></button>)}
+                                    <h3 className="font-semibold text-white text-sm md:text-base mb-1 text-center">{skin.name}</h3>
+                                    <div className="mt-auto w-full pt-3">
+                                        {active ? (<div className="text-center text-emerald-400 text-xs font-bold py-2 rounded-lg bg-emerald-500/10 border border-emerald-400/20 tracking-wider">AKTIV</div>) : owned ? (<button onClick={() => equipSkin(id)} className="w-full bg-white/10 hover:bg-white/20 text-white text-xs py-2.5 rounded-lg font-semibold transition-colors uppercase tracking-wider">Wählen</button>) : (<button onClick={() => buySkin(id)} disabled={casinoCredits < skin.price} className={`w-full text-xs py-2.5 rounded-lg font-semibold transition-colors ${casinoCredits >= skin.price ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-white/5 text-white/30 cursor-not-allowed'}`}>Kaufen <span className="inline-flex items-center gap-1 ml-1">{skin.price} <CoinIcon className="w-3.5 h-3.5 text-yellow-500" /></span></button>)}
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-                    <button onClick={() => setMenuView('MAIN')} className="mt-6 self-center px-10 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-full font-bold border border-gray-600 hover:border-white transition-all">ZURÜCK</button>
+                    <button onClick={() => setMenuView('MAIN')} className="mt-6 self-center px-10 py-3 panel text-white/70 hover:text-white font-semibold transition-colors">Zurück</button>
                 </div>
              </div>
         )}
         
         {menuView === 'LOADOUT_SHOP' && userData && (
-            <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-30 animate-in fade-in p-4">
-                <div className="bg-gray-900 border border-gray-700 p-6 rounded-2xl w-full max-w-4xl h-full md:h-[550px] flex flex-col md:flex-row gap-6">
-                    {/* ... Loadout Shop Code (angepasst für flex-row auf desktop) ... */}
-                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar border-b md:border-b-0 md:border-r border-gray-700">
-                         <div className="sticky top-0 bg-gray-900 pb-4 border-b border-gray-800 mb-4 z-10 flex justify-between items-center">
-                            <h2 className="text-xl md:text-2xl font-bold text-white">SHOP</h2>
-                            <span className="text-sm font-bold text-purple-400 border border-purple-900 bg-purple-900/20 px-3 py-1 rounded-full">{casinoCredits} Credits</span>
+            <div className="page-fade absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-30 p-4 md:p-8">
+                <div className="panel-strong w-full max-w-6xl h-full md:h-[85vh] flex flex-col md:flex-row gap-6 p-6 md:p-8">
+                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                         <div className="sticky top-0 pb-4 border-b border-white/10 mb-4 z-10 flex justify-between items-center bg-inherit">
+                            <h2 className="font-display text-xl md:text-2xl font-bold text-white">Powerups</h2>
+                            <span className="text-sm font-bold text-violet-300 panel px-3 py-1.5">{casinoCredits} Credits</span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {Object.entries(userData.powerupDefs).map(([id, def]) => {
                                 const owned = userData.powerups.includes(id);
                                 return (
-                                    <div key={id} className={`p-3 rounded border flex flex-col gap-1 transition-all ${owned ? 'bg-gray-800/50 border-gray-700 opacity-60' : 'bg-gray-800 border-gray-600'}`}>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 flex items-center justify-center text-2xl">
+                                    <div key={id} className={`panel p-4 flex flex-col gap-1.5 ${owned ? 'opacity-50' : ''}`}>
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-9 h-9 flex items-center justify-center text-2xl shrink-0">
                                                 {def.icon.includes('.') ? <img src={def.icon} className="max-w-full max-h-full"/> : def.icon}
                                             </div>
-                                            <div className="font-bold text-white text-sm">{def.name}</div>
+                                            <div className="font-semibold text-white text-sm">{def.name}</div>
                                         </div>
-                                        <div className="text-[10px] text-gray-400 leading-tight h-8">{def.desc}</div>
+                                        <div className="text-xs text-white/40 leading-relaxed h-9">{def.desc}</div>
                                         {!owned ? (
-                                            <button onClick={() => buyPowerup(id)} disabled={casinoCredits < def.price} 
-                                                className={`mt-auto w-full py-1.5 text-xs font-bold rounded flex justify-between px-2 ${casinoCredits >= def.price ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}>
-                                                <span>KAUFEN</span>
+                                            <button onClick={() => buyPowerup(id)} disabled={casinoCredits < def.price}
+                                                className={`mt-auto w-full py-2 text-xs font-semibold rounded-lg flex justify-between px-3 transition-colors ${casinoCredits >= def.price ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-white/5 text-white/30 cursor-not-allowed'}`}>
+                                                <span>Kaufen</span>
                                                 <span>{def.price}</span>
                                             </button>
                                         ) : (
-                                            <div className="mt-auto w-full text-green-500 text-xs font-bold text-center border border-green-900 bg-green-900/20 py-1 rounded">
-                                                ✓ IM BESITZ
+                                            <div className="mt-auto w-full text-emerald-400 text-xs font-semibold text-center bg-emerald-500/10 border border-emerald-400/20 py-2 rounded-lg">
+                                                Im Besitz
                                             </div>
                                         )}
                                     </div>
@@ -816,57 +874,56 @@ export default function AdventureGame() {
                             })}
                         </div>
                     </div>
-                    <div className="w-full md:w-72 flex flex-col">
-                        <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">LOADOUT</h3>
+                    <div className="w-full md:w-80 flex flex-col">
+                        <h3 className="font-display text-xl font-bold text-white mb-4 border-b border-white/10 pb-3">Loadout</h3>
                         <div className="flex flex-col gap-3 mb-6">
                             {[0, 1, 2, 3].map((_, i) => {
-                                const maxSlots = userData.unlockedSlots || 1; 
+                                const maxSlots = userData.unlockedSlots || 1;
                                 const isLocked = i >= maxSlots;
                                 const itemId = userData.loadout[i];
                                 const item = itemId ? userData.powerupDefs[itemId] : null;
                                 const unlockPrice = 5000 * Math.pow(2, i - 1);
                                 return (
-                                    <div key={i} className={`p-3 rounded border flex items-center justify-between min-h-[50px] md:min-h-[60px] relative group ${isLocked ? 'bg-black/80 border-gray-800' : 'bg-black/40 border-gray-600'}`}>
-                                        <div className="absolute -left-2 top-1/2 -translate-y-1/2 text-gray-600 font-black text-xs -rotate-90">SLOT {i+1}</div>
+                                    <div key={i} className="panel p-3 flex items-center justify-between min-h-[56px] md:min-h-[64px] gap-2">
+                                        <span className="text-white/30 font-bold text-[10px] shrink-0 uppercase tracking-widest">#{i+1}</span>
                                         {isLocked ? (
                                             <div className="flex-1 flex justify-center">
-                                                <button onClick={() => buySlot(i)} className="text-xs text-yellow-500 font-bold border border-yellow-600 px-2 py-1 rounded hover:bg-yellow-900/50">🔒 KAUFEN ({unlockPrice})</button>
+                                                <button onClick={() => buySlot(i)} className="text-xs text-amber-300 font-semibold bg-amber-500/10 border border-amber-400/20 px-3 py-1.5 rounded-lg hover:bg-amber-500/20 transition-colors">Kaufen ({unlockPrice})</button>
                                             </div>
                                         ) : (
                                             <>
-                                                <div className="flex items-center gap-3 pl-4">
+                                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                                     {item ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <div className="w-7 h-7 md:w-9 md:h-9 flex items-center justify-center shrink-0">
                                                                 {item.icon && item.icon.includes('.') ? <img src={item.icon} alt={item.name} className="max-w-full max-h-full object-contain" /> : <span className="text-xl">{item.icon}</span>}
                                                             </div>
-                                                            <div className="text-sm text-white font-bold">{item.name}</div>
+                                                            <div className="text-sm text-white font-semibold truncate">{item.name}</div>
                                                         </div>
-                                                    ) : <span className="text-gray-600 text-sm italic">Leer</span>}
+                                                    ) : <span className="text-white/30 text-sm italic">Leer</span>}
                                                 </div>
-                                                {item && <button onClick={() => equipPowerup(i, null)} className="text-red-500 hover:text-red-400 px-2 py-1 font-bold">✕</button>}
+                                                {item && <button onClick={() => equipPowerup(i, null)} className="text-white/30 hover:text-red-400 px-2 py-1 font-bold transition-colors shrink-0">✕</button>}
                                             </>
                                         )}
                                     </div>
                                 )
                             })}
                         </div>
-                        {/* Inventar Anzeige */}
-                         <div className="bg-gray-800 p-3 rounded border border-gray-700 min-h-[80px] flex flex-wrap gap-2 content-start flex-1 overflow-y-auto">
-                             {userData.powerups.length === 0 && <span className="text-gray-600 text-xs italic w-full text-center mt-2">Leer</span>}
+                        <div className="panel p-3 min-h-[90px] flex flex-wrap gap-2 content-start flex-1 overflow-y-auto">
+                             {userData.powerups.length === 0 && <span className="text-white/30 text-xs italic w-full text-center mt-2">Leer</span>}
                              {userData.powerups.map(pid => {
                                 const def = userData.powerupDefs[pid];
                                 return (
                                     <button key={pid} onClick={() => {
                                         const freeSlot = userData.loadout.indexOf(null);
                                         equipPowerup(freeSlot === -1 ? 0 : freeSlot, pid);
-                                    }} className="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded flex items-center justify-center text-xl border border-gray-600 hover:border-white transition-colors">
+                                    }} className="w-11 h-11 bg-white/5 hover:bg-white/10 rounded-lg flex items-center justify-center text-xl transition-colors">
                                         {def?.icon && def.icon.includes('.') ? <img src={def.icon} alt={def.name} className="w-8 h-8 object-contain" /> : <span>{def?.icon}</span>}
                                     </button>
                                 )
                             })}
                          </div>
-                        <button onClick={() => setMenuView('MAIN')} className="mt-4 w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded font-bold border border-gray-500">ZURÜCK</button>
+                        <button onClick={() => setMenuView('MAIN')} className="mt-4 w-full py-3 panel text-white/70 hover:text-white font-semibold transition-colors">Zurück</button>
                     </div>
                 </div>
             </div>
@@ -874,130 +931,174 @@ export default function AdventureGame() {
 
         {/* STAGE COMPLETE */}
         {menuView === 'STAGE_COMPLETE' && (
-             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-30 animate-in zoom-in duration-200">
-                <h2 className="text-4xl md:text-6xl font-black text-white mb-2 tracking-tighter text-center">STAGE COMPLETE</h2>
-                <div className="w-32 h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent mb-8"></div>
-                <div className="flex gap-6">
-                    <button onClick={saveAndQuit} className="px-8 py-4 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold border border-gray-600">Menü</button>
-                    <button onClick={handleNextStep} className="px-10 py-4 rounded bg-green-700 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-900/50 border border-green-500 transform hover:scale-105 transition-all text-xl">
-                        {(gameState.stage > 0 && gameState.stage % 5 === 0) ? "SHOP >>" : "WEITER >>"}
-                    </button>
+             <div className="page-fade absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-30 p-6">
+                <div className="panel-strong p-8 md:p-10 w-full max-w-md flex flex-col items-center gap-6">
+                    <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-400/20 text-emerald-300">
+                        <Flag size={26} />
+                    </span>
+                    <div className="text-center">
+                        <h2 className="font-display text-3xl md:text-4xl font-bold text-white">Stage {gameState.stage} geschafft</h2>
+                        <p className="text-sm text-white/40 mt-2">{gameState.kills} Kills insgesamt · {gameState.gold} Gold dabei</p>
+                    </div>
+                    <div className="w-full flex flex-col gap-3">
+                        <button onClick={handleNextStep} className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-4 rounded-2xl text-lg transition-colors flex items-center justify-center gap-2.5">
+                            {(gameState.stage > 0 && gameState.stage % 5 === 0) ? <><Store size={19} /> Zum Händler</> : <><Play size={18} fill="currentColor" /> Weiter</>}
+                        </button>
+                        <button onClick={saveAndQuit} className="panel w-full py-3 text-white/60 hover:text-white font-semibold transition-colors flex items-center justify-center gap-2">
+                            <Save size={15} /> Speichern &amp; Menü
+                        </button>
+                    </div>
                 </div>
             </div>
         )}
 
-        {/* MILESTONE & SHOP MENUS (Layouts beibehalten) */}
+        {/* MILESTONE SELECT */}
         {menuView === 'MILESTONE_SELECT' && (
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-40">
-                <h2 className="text-3xl md:text-5xl font-bold text-purple-400 mb-8 text-center">MEILENSTEIN ERREICHT!</h2>
-                <div className="flex flex-col md:flex-row gap-6">
-                    <MilestoneCard title="Multishot" icon="🏹" desc="+1 Projektil pro Schuss" onClick={() => selectMilestone('multishot')} />
-                    <MilestoneCard title="Vampirismus" icon="🩸" desc="+5% Heilung bei Kill" onClick={() => selectMilestone('lifesteal')} />
-                    <MilestoneCard title="Piercing" icon="⚡" desc="Projektile durchschlagen +1 Gegner" onClick={() => selectMilestone('piercing')} />
+            <div className="page-fade absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center z-40 p-6 overflow-y-auto custom-scrollbar">
+                <div className="text-center mb-8">
+                    <h2 className="font-display text-3xl md:text-4xl font-bold text-white">Meilenstein erreicht</h2>
+                    <p className="text-sm text-white/40 mt-2">Wähle ein dauerhaftes Upgrade für diesen Run.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full max-w-5xl">
+                    <MilestoneCard title="Multishot" icon={Layers} desc="+1 Projektil pro Schuss" onClick={() => selectMilestone('multishot')} />
+                    <MilestoneCard title="Vampirismus" icon={Droplets} desc="+5% Heilung bei jedem Kill" onClick={() => selectMilestone('lifesteal')} />
+                    <MilestoneCard title="Piercing" icon={ChevronsRight} desc="Projektile durchschlagen +1 Gegner" onClick={() => selectMilestone('piercing')} />
+                    <MilestoneCard title="Schnellfeuer" icon={Gauge} desc="+30% Feuerrate dauerhaft" onClick={() => selectMilestone('rapidfire')} />
+                    <MilestoneCard title="Fortuna" icon={Clover} desc="+1 Glück: mehr Crits und mehr Gold" onClick={() => selectMilestone('fortune')} />
                 </div>
             </div>
         )}
 
         {/* WISSENSBUCH MODAL */}
         {showHelp && (
-            <div className="absolute inset-0 z-[60] bg-black/90 flex items-center justify-center p-4">
-                <div className="bg-gray-900 border border-gray-600 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl relative">
-                    <button onClick={() => setShowHelp(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">✕</button>
-                    <h2 className="text-3xl font-bold text-yellow-400 mb-6 border-b border-gray-700 pb-2">📖 Abenteurer Handbuch</h2>
-                    
-                    <div className="space-y-4 text-gray-300">
-                        <p>1. Bewege dich mit WASD.<br></br> 2. Schieße mit Leertaste/ linke Maustaste.<br></br> 3. Benutze PowerUps mit 1-4.<br></br> 4. Töte eine bestimmte Anzahl an Gegnern pro Stage und entkomme durch die Tür.<br></br>
-                         5. Alle 5 Stages kommt ein Shop. Alle 10 Stages kommt ein Boss Level.<br></br>
-                         6. Nach dem Boss Level kannst du ein Meilenstein/ besonderes PowerUp auswählen.<br></br> 7. Manche Gegner haben später besondere Effekte (Gift, Brand, Erfrieren, Schock etc.).<br></br>8. Pro Level gibt es 2 Kisten mit extra Gold.<br></br>
-                         9. Nach dem Öffnen der Tür, werden Gegner schneller, tankier und brutaler... gehe so schnell es geht zum Ausgang.<br></br>10. Du kriegst Coins für das Casino und Packs nach deinem Run, je höher du kommst desto mehr Credits.
-                        </p>
+            <div className="page-fade absolute inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8">
+                <div className="panel-strong max-w-3xl w-full max-h-[85vh] overflow-y-auto custom-scrollbar p-6 md:p-10 relative">
+                    <button onClick={() => setShowHelp(false)} className="absolute top-5 right-5 p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
+                    <div className="flex items-center gap-3 mb-8">
+                        <span className="flex items-center justify-center w-11 h-11 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                            <BookOpen size={20} />
+                        </span>
+                        <h2 className="font-display text-2xl md:text-3xl font-bold text-white">Abenteurer Handbuch</h2>
                     </div>
-                    
-                    <button onClick={() => setShowHelp(false)} className="mt-8 w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 rounded">Verstanden!</button>
+
+                    <ol className="space-y-3 text-white/60 text-sm md:text-base leading-relaxed list-none">
+                        {[
+                            'Bewege dich mit WASD.',
+                            'Schieße mit Leertaste / linker Maustaste.',
+                            'Benutze PowerUps mit 1-4.',
+                            'Töte eine bestimmte Anzahl an Gegnern pro Stage und entkomme durch die Tür.',
+                            'Alle 5 Stages kommt ein Shop. Alle 10 Stages kommt ein Boss-Level.',
+                            'Nach dem Boss-Level kannst du einen Meilenstein / ein besonderes PowerUp auswählen.',
+                            'Manche Gegner haben später besondere Effekte (Gift, Brand, Erfrieren, Schock etc.).',
+                            'Pro Level gibt es 2 Kisten mit extra Gold.',
+                            'Nach dem Öffnen der Tür werden Gegner schneller, tankier und brutaler — gehe so schnell es geht zum Ausgang.',
+                            'Je höher du kommst desto mehr Credits.',
+                        ].map((line, i) => (
+                            <li key={i} className="flex gap-3">
+                                <span className="text-violet-400 font-display font-bold shrink-0">{i + 1}</span>
+                                <span>{line}</span>
+                            </li>
+                        ))}
+                    </ol>
+
+                    <button onClick={() => setShowHelp(false)} className="mt-8 w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3.5 rounded-2xl transition-colors">Verstanden!</button>
                 </div>
             </div>
         )}
 
-        {/* LEADERBOARD MODAL - NEU */}
+        {/* LEADERBOARD MODAL */}
         {showLeaderboardModal && (
-            <div className="absolute inset-0 z-[70] bg-black/95 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-sm">
-                <div className="bg-gray-900 border border-gray-600 rounded-xl max-w-2xl w-full h-[80%] flex flex-col shadow-2xl relative">
-                    <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 rounded-t-xl">
-                        <h2 className="text-2xl font-bold text-yellow-500 flex items-center gap-2">🏆 Hall of Fame</h2>
-                        <button onClick={() => setShowLeaderboardModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-700 hover:bg-gray-600 text-white transition">✕</button>
+            <div className="page-fade absolute inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 md:p-8">
+                <div className="panel-strong max-w-2xl w-full max-h-[85vh] flex flex-col p-6 md:p-8 relative">
+                    <button onClick={() => setShowLeaderboardModal(false)} className="absolute top-5 right-5 p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
+                    <div className="flex items-center gap-3 mb-6 border-b border-white/10 pb-4">
+                        <span className="flex items-center justify-center w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-400/20 text-amber-300 shrink-0">
+                            <Trophy size={20} />
+                        </span>
+                        <h2 className="font-display text-2xl md:text-3xl font-bold text-white">Hall of Fame</h2>
                     </div>
-                    
-                    <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2">
+
+                    <div className="overflow-y-auto custom-scrollbar flex-1 space-y-2 pr-1">
                         {leaderboard.map((e, i) => {
-                             let rankStyle = "bg-gray-800 border-gray-700 text-gray-300";
-                             let icon = `#${i+1}`;
-                             
-                             if(i===0) { rankStyle = "bg-yellow-900/30 border-yellow-500 text-yellow-200"; icon="🥇"; }
-                             else if(i===1) { rankStyle = "bg-slate-700/50 border-slate-400 text-slate-200"; icon="🥈"; }
-                             else if(i===2) { rankStyle = "bg-orange-900/30 border-orange-500 text-orange-200"; icon="🥉"; }
+                             let rankStyle = "bg-white/[0.02] border-white/10";
+                             let rankColor = "text-white/40";
+                             if (i === 0) { rankStyle = "bg-amber-500/5 border-amber-400/30"; rankColor = "text-amber-400"; }
+                             else if (i === 1) { rankStyle = "bg-white/5 border-white/20"; rankColor = "text-slate-300"; }
+                             else if (i === 2) { rankStyle = "bg-orange-500/5 border-orange-400/25"; rankColor = "text-orange-400"; }
 
                              return (
-                                <div key={i} className={`flex justify-between items-center p-3 rounded-lg border ${rankStyle}`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-8 text-center text-lg font-bold">{icon}</div>
-                                        <div className="font-bold text-lg">{e.name}</div>
+                                <div key={i} className={`flex justify-between items-center p-3.5 rounded-xl border ${rankStyle}`}>
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className={`w-9 text-center text-sm font-display font-bold shrink-0 ${rankColor}`}>#{i + 1}</div>
+                                        <div className="font-semibold text-white truncate">{e.name}</div>
                                     </div>
-                                    <div className="font-mono font-bold bg-black/30 px-3 py-1 rounded text-yellow-500">
+                                    <div className="font-mono text-sm font-bold text-white/70 bg-white/[0.04] border border-white/10 px-3 py-1 rounded-lg shrink-0">
                                         Stage {e.score}
                                     </div>
                                 </div>
                              )
                         })}
                     </div>
-                    
-                    <div className="p-4 border-t border-gray-700 bg-gray-800/30 rounded-b-xl text-center">
-                        <button onClick={() => setShowLeaderboardModal(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-2 rounded font-bold transition">Schließen</button>
-                    </div>
+
+                    <button onClick={() => setShowLeaderboardModal(false)} className="mt-6 w-full py-3 panel text-white/70 hover:text-white font-semibold transition-colors">Schließen</button>
                 </div>
             </div>
         )}
 
         {/* Feedback Modal - NEU */}
         {showFeedback && (
-            <div className="absolute inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-                <div className="bg-gray-900 border border-gray-600 rounded-xl max-w-2xl w-full p-6 shadow-2xl relative flex flex-col gap-4">
-                    <button onClick={() => setShowFeedback(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">✕</button>
-                    
-                    <h2 className="text-3xl font-bold text-yellow-400 border-b border-gray-700 pb-2">📝 Feedback & Bugs</h2>
-                    
+            <div className="page-fade absolute inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8">
+                <div className="panel-strong max-w-2xl w-full p-6 md:p-10 relative flex flex-col gap-5">
+                    <button onClick={() => setShowFeedback(false)} className="absolute top-5 right-5 p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                        <span className="flex items-center justify-center w-11 h-11 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                            <MessageSquare size={20} />
+                        </span>
+                        <h2 className="font-display text-2xl md:text-3xl font-bold text-white">Feedback & Bugs</h2>
+                    </div>
+
                     {feedbackStatus === "success" ? (
-                        <div className="flex flex-col items-center justify-center py-10 animate-in zoom-in">
-                            <div className="text-6xl mb-4">✅</div>
-                            <h3 className="text-2xl font-bold text-white mb-2">Danke für dein Feedback!</h3>
-                            <p className="text-gray-400">Deine Nachricht wurde an den Discord Server gesendet.</p>
-                            <button onClick={() => { setShowFeedback(false); setFeedbackStatus("idle"); setFeedbackText(""); }} className="mt-6 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded">Schließen</button>
+                        <div className="flex flex-col items-center justify-center py-10">
+                            <span className="flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-400/20 text-emerald-400 mb-4">
+                                <CheckCircle2 size={30} />
+                            </span>
+                            <h3 className="text-xl font-bold text-white mb-2">Danke für dein Feedback!</h3>
+                            <p className="text-white/40 text-sm">Deine Nachricht wurde an den Discord Server gesendet.</p>
+                            <button onClick={() => { setShowFeedback(false); setFeedbackStatus("idle"); setFeedbackText(""); }} className="mt-6 panel px-6 py-2.5 text-white/70 hover:text-white font-semibold transition-colors">Schließen</button>
                         </div>
                     ) : (
                         <>
-                            <div className="space-y-2 text-gray-300">
-                                <p className="text-sm text-gray-400">Beschreibe ausführlich was dein Anliegen ist. Bugs, Wünsche oder Balance-Vorschläge sind willkommen!</p>
-                                <p className="text-xs text-gray-500 italic">Dein Twitch-Name ({user?.login}) wird automatisch mitgesendet.</p>
+                            <div className="space-y-1.5">
+                                <p className="text-sm text-white/50">Beschreibe ausführlich was dein Anliegen ist. Bugs, Wünsche oder Balance-Vorschläge sind willkommen!</p>
+                                <p className="text-xs text-white/30 italic">Dein Twitch-Name ({user?.login}) wird automatisch mitgesendet.</p>
                             </div>
 
-                            <textarea 
-                                className="w-full h-40 bg-black/50 border border-gray-700 rounded p-3 text-white focus:border-yellow-500 focus:outline-none resize-none placeholder-gray-600"
+                            <textarea
+                                className="w-full h-40 bg-black/30 border border-white/10 rounded-xl p-3.5 text-white focus:border-violet-400/50 focus:outline-none resize-none placeholder-white/25 transition-colors"
                                 placeholder="Schreibe hier dein Feedback..."
                                 value={feedbackText}
                                 onChange={(e) => setFeedbackText(e.target.value)}
                                 disabled={feedbackStatus === "sending"}
                             />
-                            
-                            {feedbackStatus === "error" && <p className="text-red-500 text-sm font-bold">Fehler beim Senden. Bitte versuche es später erneut.</p>}
 
-                            <div className="flex gap-4 mt-2">
-                                <button 
-                                    onClick={() => setShowFeedback(false)} 
-                                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded border border-gray-600 transition-colors"
+                            {feedbackStatus === "error" && <p className="text-red-400 text-sm font-semibold">Fehler beim Senden. Bitte versuche es später erneut.</p>}
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowFeedback(false)}
+                                    className="flex-1 panel py-3 text-white/70 hover:text-white font-semibold transition-colors"
                                     disabled={feedbackStatus === "sending"}
                                 >
                                     Abbrechen
                                 </button>
-                                <button 
+                                <button
                                     onClick={async () => {
                                         if (feedbackText.trim().length < 10) return;
                                         setFeedbackStatus("sending");
@@ -1013,23 +1114,23 @@ export default function AdventureGame() {
                                             } else {
                                                 setFeedbackStatus("error");
                                             }
-                                        } catch (e) {
+                                        } catch {
                                             setFeedbackStatus("error");
                                         }
-                                    }} 
+                                    }}
                                     disabled={feedbackText.trim().length < 10 || feedbackStatus === "sending"}
-                                    className={`flex-1 font-bold py-3 rounded border transition-colors flex items-center justify-center gap-2
-                                        ${feedbackText.trim().length < 10 
-                                            ? 'bg-gray-800 text-gray-500 border-gray-800 cursor-not-allowed' 
-                                            : 'bg-blue-700 hover:bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/50'
+                                    className={`flex-1 font-bold py-3 rounded-2xl transition-colors flex items-center justify-center gap-2
+                                        ${feedbackText.trim().length < 10
+                                            ? 'bg-white/5 text-white/30 cursor-not-allowed'
+                                            : 'bg-violet-600 hover:bg-violet-500 text-white'
                                         }`}
                                 >
                                     {feedbackStatus === "sending" ? (
                                         <>
-                                            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                                            <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full"></span>
                                             Sende...
                                         </>
-                                    ) : "Absenden 🚀"}
+                                    ) : <><Send size={16} /> Absenden</>}
                                 </button>
                             </div>
                         </>
@@ -1039,68 +1140,107 @@ export default function AdventureGame() {
         )}
 
         {menuView === 'INGAME_SHOP' && (
-            <div className="absolute inset-0 bg-[#0a0a0a]/95 backdrop-blur-xl flex flex-col items-center justify-center z-30 p-4">
-                <div className="flex justify-between w-full max-w-4xl items-end mb-6 border-b border-white/10 pb-4">
-                    <h2 className="text-3xl md:text-5xl font-black text-yellow-500">HÄNDLER</h2>
-                    <div className="text-2xl md:text-3xl text-yellow-400 font-mono font-bold">{gameState.gold} 🪙</div>
+            <div className="page-fade absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center z-30 p-4 md:p-8">
+                <div className="panel-strong w-full max-w-4xl flex flex-col p-6 md:p-8 max-h-full">
+                    <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                        <div className="flex items-center gap-3">
+                            <span className="flex items-center justify-center w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-400/20 text-amber-300 shrink-0">
+                                <Store size={20} />
+                            </span>
+                            <h2 className="font-display text-2xl md:text-3xl font-bold text-white">Händler</h2>
+                        </div>
+                        <div className="panel px-4 py-2 flex items-center gap-2 text-amber-300 font-bold text-lg md:text-xl">
+                            <Coins size={18} /> {gameState.gold}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 overflow-y-auto custom-scrollbar p-1">
+                        <ShopItem title="Waffe schärfen" desc="+0.5 Schaden" icon={Sword} currentVal={gameState.stats.damage}
+                            onClick={() => buyIngameUpgrade('damage', 200)} gold={gameState.gold}
+                            scaling={true} selected={selectedShopItem === 'damage'} actualCost={getPrice('damage', 200)} />
+                        <ShopItem title="Rüstung" desc="+20 Max HP" icon={Shield} currentVal={gameState.stats.maxHp}
+                            onClick={() => buyIngameUpgrade('maxHp', 150)} gold={gameState.gold}
+                            scaling={true} selected={selectedShopItem === 'maxHp'} actualCost={getPrice('maxHp', 150)} />
+                        <ShopItem title="Münzmagnet" desc="+Reichweite" icon={Magnet} currentVal={Math.floor(gameState.stats.magnet)}
+                            onClick={() => buyIngameUpgrade('magnet', 400)} gold={gameState.gold}
+                            scaling={true} selected={selectedShopItem === 'magnet'} actualCost={getPrice('magnet', 400)} />
+                        <ShopItem title="Heiltrank" desc="HP voll heilen" icon={Heart} currentVal={`${Math.floor(gameState.hp)}/${gameState.maxHp}`}
+                            onClick={() => buyIngameUpgrade('heal', 100)} gold={gameState.gold}
+                            scaling={false} selected={selectedShopItem === 'heal'} actualCost={100} />
+                        <ShopItem title="Schnellfeuer" desc="+20% Feuerrate" icon={Gauge} currentVal={`${(gameState.stats.fireRate || 1).toFixed(1)}x`}
+                            onClick={() => buyIngameUpgrade('fireRate', 350)} gold={gameState.gold}
+                            scaling={true} selected={selectedShopItem === 'fireRate'} actualCost={getPrice('fireRate', 350)} />
+                        <ShopItem title="Glücksbringer" desc="+Crit-Chance & Gold" icon={Clover} currentVal={gameState.stats.luck || 1}
+                            onClick={() => buyIngameUpgrade('luck', 400)} gold={gameState.gold}
+                            scaling={true} selected={selectedShopItem === 'luck'} actualCost={getPrice('luck', 400)} />
+                    </div>
+                    <button onClick={continueFromShop} className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-4 rounded-2xl text-lg transition-colors flex items-center justify-center gap-2.5">
+                        <Play size={18} fill="currentColor" /> Weiter kämpfen
+                    </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 w-full max-w-4xl overflow-y-auto max-h-[60vh] p-4 custom-scrollbar">
-                    <ShopItem title="Waffe schärfen" desc="+0.5 Schaden" baseCost={200} icon="⚔️" currentVal={gameState.stats.damage}
-                        onClick={() => buyIngameUpgrade('damage', 200)} gold={gameState.gold} 
-                        scaling={true} selected={selectedShopItem === 'damage'} actualCost={getPrice('damage', 200)} />
-                    <ShopItem title="Rüstung" desc="+20 Max HP" baseCost={150} icon="🛡️" currentVal={gameState.stats.maxHp}
-                        onClick={() => buyIngameUpgrade('maxHp', 150)} gold={gameState.gold} 
-                        scaling={true} selected={selectedShopItem === 'maxHp'} actualCost={getPrice('maxHp', 150)} />
-                    <ShopItem title="Münzmagnet" desc="+Reichweite" baseCost={400} icon="🧲" currentVal={Math.floor(gameState.stats.magnet)}
-                        onClick={() => buyIngameUpgrade('magnet', 400)} gold={gameState.gold} 
-                        scaling={true} selected={selectedShopItem === 'magnet'} actualCost={getPrice('magnet', 400)} />
-                    <ShopItem title="Heiltrank" desc="HP voll heilen" baseCost={100} icon="💖" currentVal={`${Math.floor(gameState.hp)}/${gameState.maxHp}`}
-                        onClick={() => buyIngameUpgrade('heal', 100)} gold={gameState.gold} 
-                        scaling={false} selected={selectedShopItem === 'heal'} actualCost={100} />
-                    <ShopItem title="Schnellfeuer" desc="+20% Feuerrate" baseCost={350} icon="🔫" currentVal={`${(gameState.stats.fireRate || 1).toFixed(1)}x`}
-                        onClick={() => buyIngameUpgrade('fireRate', 350)} gold={gameState.gold} 
-                        scaling={true} selected={selectedShopItem === 'fireRate'} actualCost={getPrice('fireRate', 350)} />
-                    <ShopItem title="Glücksbringer" desc="+Crit Chance" baseCost={400} icon="🍀" currentVal={gameState.stats.luck || 1}
-                        onClick={() => buyIngameUpgrade('luck', 400)} gold={gameState.gold} 
-                        scaling={true} selected={selectedShopItem === 'luck'} actualCost={getPrice('luck', 400)} />
-                </div>
-                <button onClick={continueFromShop} className="bg-green-700 hover:bg-green-600 text-white font-bold py-4 px-16 rounded text-xl md:text-2xl border border-green-500">WEITER KÄMPFEN</button>
             </div>
         )}
 
-        {/* LOAD SAVE & GAMEOVER - Identisch, nur absolute inset */}
+        {/* LOAD SAVE */}
         {menuView === 'LOAD_SAVE' && activeRunData && (
-            <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center z-30 animate-in fade-in">
-                <h2 className="text-3xl font-bold text-white mb-6">Spielstand gefunden</h2>
-                <div className="bg-gray-800 border border-gray-600 p-6 rounded-xl mb-8 text-center min-w-[300px]">
-                    <div className="text-4xl font-bold text-yellow-400 mb-2">STAGE {activeRunData.stage}</div>
-                    <div className="grid grid-cols-2 gap-4 text-sm mt-4">
-                        <div className="bg-gray-900 p-2 rounded text-red-400">❤️ {Math.floor(activeRunData.hp)} HP</div>
-                        <div className="bg-gray-900 p-2 rounded text-yellow-500">🪙 {activeRunData.gold} Gold</div>
+            <div className="page-fade absolute inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-30 p-6">
+                <div className="panel-strong p-8 w-full max-w-md flex flex-col items-center gap-6">
+                    <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
+                        <Save size={24} />
+                    </span>
+                    <div className="text-center">
+                        <h2 className="font-display text-2xl font-bold text-white mb-1">Spielstand gefunden</h2>
+                        <p className="text-sm text-white/40">Dein Run wartet auf dich.</p>
                     </div>
-                </div>
-                <div className="flex gap-4">
-                    <button onClick={startNewGame} className="px-6 py-3 rounded-xl bg-gray-800 hover:bg-red-900/50 text-gray-400 hover:text-red-400 font-bold border border-gray-600 hover:border-red-500 transition-all">Löschen & Neustart</button>
-                    <button onClick={resumeGame} className="px-8 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold shadow-lg shadow-green-900/50 transform hover:scale-105 transition-all">WEITERMACHEN</button>
+                    <div className="w-full panel p-5 text-center">
+                        <div className="font-display text-3xl font-bold text-amber-300 mb-3">Stage {activeRunData.stage}</div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="bg-white/[0.03] border border-white/10 rounded-xl py-2.5 flex items-center justify-center gap-2 text-red-300 font-semibold">
+                                <Heart size={14} /> {Math.floor(activeRunData.hp)} HP
+                            </div>
+                            <div className="bg-white/[0.03] border border-white/10 rounded-xl py-2.5 flex items-center justify-center gap-2 text-amber-300 font-semibold">
+                                <Coins size={14} /> {activeRunData.gold}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="w-full flex flex-col gap-3">
+                        <button onClick={resumeGame} className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-4 rounded-2xl text-lg transition-colors flex items-center justify-center gap-2.5">
+                            <Play size={18} fill="currentColor" /> Weitermachen
+                        </button>
+                        <button onClick={startNewGame} className="panel w-full py-3 text-red-300/80 hover:text-red-300 hover:border-red-400/30 font-semibold transition-colors">
+                            Löschen &amp; neu starten
+                        </button>
+                    </div>
                 </div>
             </div>
         )}
-        {/* GAMEOVER SCREEN ANPASSUNG */}
+        {/* GAMEOVER SCREEN */}
         {menuView === 'GAMEOVER' && (
-             <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-20">
-                <div className="text-center">
-                    <h2 className="text-6xl text-red-600 font-black mb-4">GESTORBEN</h2>
+             <div className="page-fade absolute inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-20 p-6">
+                <div className="panel-strong p-8 md:p-10 w-full max-w-md flex flex-col items-center gap-6">
+                    <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-red-500/10 border border-red-400/20 text-red-400">
+                        <Skull size={26} />
+                    </span>
+                    <h2 className="font-display text-3xl md:text-4xl font-bold text-white">Gestorben</h2>
                     {endScreenData && (
-                        <>
-                            <div className="text-2xl text-white mb-2">Stage {endScreenData.stage} erreicht</div>
-                            <div className="text-xl text-gray-400 mb-6">{endScreenData.kills} Kills</div>
-                            {/* NEU: Credits Anzeige */}
-                            <div className="text-4xl text-yellow-400 font-bold mb-8 border-t border-b border-gray-800 py-4">
-                                + {endScreenData.earnedCredits} <CoinIcon size="w-9 h-9" />
+                        <div className="w-full flex flex-col gap-3">
+                            <div className="grid grid-cols-2 gap-3 text-center">
+                                <div className="panel py-3">
+                                    <div className="text-[10px] uppercase tracking-widest text-white/35 font-bold mb-1">Stage</div>
+                                    <div className="font-display text-2xl font-bold text-white">{endScreenData.stage}</div>
+                                </div>
+                                <div className="panel py-3">
+                                    <div className="text-[10px] uppercase tracking-widest text-white/35 font-bold mb-1">Kills</div>
+                                    <div className="font-display text-2xl font-bold text-white">{endScreenData.kills}</div>
+                                </div>
                             </div>
-                        </>
+                            <div className="panel py-4 flex items-center justify-center gap-2 text-amber-300 font-bold text-2xl">
+                                +{endScreenData.earnedCredits} <CoinIcon className="w-6 h-6 text-yellow-500" />
+                            </div>
+                        </div>
                     )}
-                    <button onClick={() => setMenuView('MAIN')} className="bg-gray-800 text-white px-8 py-3 rounded hover:bg-gray-700">Menü</button>
+                    <button onClick={() => setMenuView('MAIN')} className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3.5 rounded-2xl transition-colors">
+                        Zurück zum Menü
+                    </button>
                 </div>
              </div>
         )}
@@ -1109,46 +1249,58 @@ export default function AdventureGame() {
   );
 }
 
-// ShopItem und MilestoneCard bleiben unverändert
-function ShopItem({ title, desc, baseCost, actualCost, icon, onClick, gold, currentVal, scaling, selected }) {
+function ShopItem({ title, desc, actualCost, icon, onClick, gold, currentVal, scaling, selected }) {
     const canAfford = gold >= actualCost;
+    const Icon = icon;
     return (
-        <button onClick={onClick} disabled={!canAfford && !selected} 
-            className={`flex items-center gap-4 p-5 rounded-lg border-2 transition-all text-left group relative overflow-hidden ${selected ? 'bg-yellow-900/40 border-yellow-400 scale-[1.02]' : canAfford ? 'bg-gray-800/80 border-gray-700 hover:border-gray-500 hover:bg-gray-800' : 'bg-gray-900 border-gray-800 opacity-60 cursor-not-allowed'}`}>
-            <div className="text-4xl group-hover:scale-110 transition-transform z-10">{icon}</div>
-            <div className="flex-1 z-10">
-                <div className="font-bold text-xl text-gray-200">{title}</div>
-                <div className="text-sm text-gray-400">{desc}</div>
-                <div className="text-xs text-blue-400 font-mono mt-1">Aktuell: {currentVal}</div>
+        <button onClick={onClick} disabled={!canAfford && !selected}
+            className={`panel flex items-center gap-4 p-4 md:p-5 transition-colors text-left relative overflow-hidden ${selected ? 'border-amber-400/50 bg-amber-500/5' : canAfford ? 'hover:border-violet-400/30 hover:bg-white/[0.05]' : 'opacity-50 cursor-not-allowed'}`}>
+            <span className="flex items-center justify-center w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                <Icon size={20} />
+            </span>
+            <div className="flex-1 min-w-0">
+                <div className="font-semibold text-white">{title}</div>
+                <div className="text-xs text-white/40">{desc}</div>
+                <div className="text-[11px] text-sky-300/80 font-mono mt-1">Aktuell: {currentVal}</div>
             </div>
-            <div className="flex flex-col items-end z-10">
-                <div className={`font-mono font-bold text-xl ${canAfford ? 'text-yellow-400' : 'text-red-500'}`}>{actualCost} 💰</div>
-                {scaling && <div className="text-[10px] text-gray-500 uppercase tracking-wider">Steigender Preis</div>}
+            <div className="flex flex-col items-end shrink-0">
+                <div className={`font-mono font-bold text-lg flex items-center gap-1.5 ${canAfford ? 'text-amber-300' : 'text-red-400'}`}>
+                    {actualCost} <Coins size={14} />
+                </div>
+                {scaling && <div className="text-[9px] text-white/30 uppercase tracking-wider mt-0.5">Steigender Preis</div>}
             </div>
-            {selected && <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 backdrop-blur-[1px]"><span className="text-yellow-400 font-bold uppercase tracking-widest text-sm border border-yellow-400 px-3 py-1 rounded bg-black/50">Klicken zum Kaufen</span></div>}
+            {selected && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 backdrop-blur-[1px]">
+                    <span className="text-amber-300 font-bold uppercase tracking-widest text-xs border border-amber-400/50 px-3 py-1.5 rounded-lg bg-black/50">Klicken zum Kaufen</span>
+                </div>
+            )}
         </button>
     );
 }
 
 function MilestoneCard({ title, icon, desc, onClick }) {
+    const Icon = icon;
     return (
-        <button onClick={onClick} className="w-64 h-80 bg-gradient-to-b from-gray-800 to-gray-900 border-2 border-purple-500/50 hover:border-purple-400 rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:scale-105 transition-all shadow-lg hover:shadow-purple-900/50 group">
-            <div className="text-6xl group-hover:scale-110 transition-transform">{icon}</div>
-            <h3 className="text-2xl font-bold text-white">{title}</h3>
-            <p className="text-center text-gray-400">{desc}</p>
-            <div className="mt-auto px-6 py-2 bg-purple-700 text-white font-bold rounded hover:bg-purple-600 transition-colors">WÄHLEN</div>
+        <button onClick={onClick} className="panel group flex flex-col items-center gap-4 p-6 min-h-[220px] transition-colors hover:border-violet-400/40 hover:bg-white/[0.05] text-center">
+            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 group-hover:text-violet-200 transition-colors">
+                <Icon size={26} />
+            </span>
+            <h3 className="font-display text-lg font-bold text-white">{title}</h3>
+            <p className="text-xs text-white/45 leading-relaxed">{desc}</p>
+            <div className="mt-auto w-full py-2.5 bg-violet-600 group-hover:bg-violet-500 text-white text-sm font-bold rounded-xl transition-colors">Wählen</div>
         </button>
     )
 }
 
 function MenuButton({ icon, label, onClick }) {
+    const Icon = icon;
     return (
-        <button 
-            onClick={onClick} 
-            className="group flex items-center justify-center gap-3 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white font-bold py-4 rounded-xl border border-gray-600 hover:border-gray-400 transition-all"
+        <button
+            onClick={onClick}
+            className="group panel flex items-center justify-center gap-2.5 py-4 text-white/70 hover:text-white transition-colors hover:bg-white/[0.06] hover:border-violet-400/30"
         >
-            <span className="text-2xl group-hover:scale-110 transition-transform">{icon}</span>
-            <span className="tracking-wider">{label}</span>
+            <Icon size={17} className="text-white/40 group-hover:text-violet-300 transition-colors" />
+            <span className="text-sm font-semibold tracking-wide">{label}</span>
         </button>
     );
 }
