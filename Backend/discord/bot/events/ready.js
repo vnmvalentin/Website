@@ -26,6 +26,9 @@ const commands = [
         .setName('größe')
         .setDescription('Misst deine Größe in cm.'),
     new SlashCommandBuilder()
+        .setName('gewicht')
+        .setDescription('Misst dein Gewicht in kg.'),
+    new SlashCommandBuilder()
         .setName('ship')
         .setDescription('Berechnet den Liebeswert zwischen zwei Nutzern.')
         .addUserOption(opt => opt.setName('user1').setDescription('Erster Nutzer').setRequired(true))

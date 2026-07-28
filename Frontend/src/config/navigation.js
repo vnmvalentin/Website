@@ -17,11 +17,11 @@ import {
   Music,
   Bot,
   Mail,
-  Instagram,
   MessageSquare,
   MessagesSquare,
   Disc,
 } from "lucide-react";
+import { InstagramGlyph } from "../components/BrandGlyphs";
 
 export const NAV_CATEGORIES = [
   {
@@ -81,6 +81,13 @@ export const NAV_CATEGORIES = [
     icon: Crown,
     tagline: "Challenges & Formate",
     description: "Alle Clash-Royale-Formate vom Stream an einem Ort.",
+    // seoTitle/seoDescription/keywords gehen nur in die Meta-Tags (siehe CategoryPage) —
+    // sichtbar bleibt die kurze description oben.
+    seoTitle: "Clash Royale Minigames, Nuzlocke & Overlays",
+    seoDescription:
+      "Alle Clash-Royale-Formate an einem Ort: Multiplayer-Minigames für 2–8 Spieler im Browser, die Nuzlocke-Challenge und ein kostenloses Win-Tracker-Overlay für OBS mit Liga, Medaillen und Tagesstatistik.",
+    keywords:
+      "Clash Royale Minigames, Clash Royale Nuzlocke, Clash Royale Overlay, Clash Royale Draft, Clash Royale Browserspiel, Clash Royale Stream",
     links: [
       {
         label: "Mini Games",
@@ -153,7 +160,7 @@ export const NAV_CATEGORIES = [
       {
         label: "Instagram",
         href: "https://instagram.com/vnmvalentin",
-        icon: Instagram,
+        icon: InstagramGlyph,
         description: "Bilder & Stories abseits des Streams.",
       },
       {

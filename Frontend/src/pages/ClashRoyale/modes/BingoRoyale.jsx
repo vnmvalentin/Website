@@ -915,36 +915,12 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
         {/* Eigene Bingo-Karte */}
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-6 flex flex-col">
           {!amSpectator && me?.bingoGrid?.length > 0 ? (
-            <div className="max-w-2xl w-full mx-auto flex-1 min-h-0 flex flex-col gap-3">
-
-              {/* Deutliche Warnung, wenn die Karte ein Feld blockieren würde */}
-              {selectedCard && isMyTurn && placement.freePlace && (
-                <div className="shrink-0 flex items-start gap-3 bg-red-500/10 border border-red-500/40 rounded-md px-4 py-3">
-                  <Ban size={18} className="text-red-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-red-300 text-sm font-bold">{t.blockWarningTitle(selectedCard.name)}</p>
-                    <p className="text-red-200/80 text-xs mt-1 leading-relaxed">
-                      {pendingBlockCell != null
-                        ? <>{t.blockFieldPrefix(me.bingoGrid[pendingBlockCell] ? bingoAttrLabel(me.bingoGrid[pendingBlockCell].attrKey, lang) : '?')}{' '}
-                            <span className="font-bold text-red-300">{t.blockConfirmHint}</span> {t.blockConfirmSuffix}</>
-                        : t.blockGenericBody}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {selectedCard && isMyTurn && !placement.freePlace && (
-                <div className="shrink-0 flex items-center gap-2.5 bg-cyan-500/10 border border-cyan-500/30 rounded-md px-4 py-2.5">
-                  <Check size={15} className="text-cyan-400 shrink-0" />
-                  <p className="text-cyan-300 text-xs font-semibold">
-                    {t.matchesHint(selectedCard.name)}
-                  </p>
-                </div>
-              )}
+            <div className="max-w-5xl w-full mx-auto flex-1 min-h-0 flex gap-4">
 
               {/* Abgehobenes Board-Panel — nimmt den restlichen Platz ein, das Board selbst
                   skaliert per aspect-square/h-full mit, damit auf niedrigeren Auflösungen
                   (z.B. 1920×1080) kein Scrollen nötig ist, aber die Felder so groß wie möglich bleiben */}
-              <div className="flex-1 min-h-0 rounded-md border border-amber-400/25 bg-[#111018] shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden flex flex-col">
+              <div className="flex-1 min-w-0 min-h-0 rounded-md border border-amber-400/25 bg-[#111018] shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden flex flex-col">
                 <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-amber-400/10 border-b border-amber-400/20">
                   <p className="text-amber-300 text-xs font-bold uppercase tracking-widest">{t.yourBingoCard}</p>
                   <div className="flex items-center gap-2">
@@ -970,6 +946,38 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
                     lang={lang}
                   />
                 </div>
+              </div>
+
+              {/* Hinweisspalte neben dem Feld. Die Breite ist IMMER reserviert, auch wenn
+                  gerade kein Hinweis ansteht — sonst würde das Bingofeld bei jedem
+                  Ein- und Ausblenden seine Größe ändern. */}
+              <div className="w-60 shrink-0 flex flex-col justify-center gap-3">
+                {/* Deutliche Warnung, wenn die Karte ein Feld blockieren würde */}
+                {selectedCard && isMyTurn && placement.freePlace && (
+                  <div className="flex flex-col gap-2 bg-red-500/10 border border-red-500/40 rounded-md px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Ban size={16} className="text-red-400 shrink-0" />
+                      <p className="text-red-300 text-sm font-bold leading-snug">{t.blockWarningTitle(selectedCard.name)}</p>
+                    </div>
+                    <p className="text-red-200/80 text-xs leading-relaxed">
+                      {pendingBlockCell != null
+                        ? <>{t.blockFieldPrefix(me.bingoGrid[pendingBlockCell] ? bingoAttrLabel(me.bingoGrid[pendingBlockCell].attrKey, lang) : '?')}{' '}
+                            <span className="font-bold text-red-300">{t.blockConfirmHint}</span> {t.blockConfirmSuffix}</>
+                        : t.blockGenericBody}
+                    </p>
+                  </div>
+                )}
+                {selectedCard && isMyTurn && !placement.freePlace && (
+                  <div className="flex flex-col gap-2 bg-cyan-500/10 border border-cyan-500/30 rounded-md px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Check size={15} className="text-cyan-400 shrink-0" />
+                      <p className="text-cyan-300 text-xs font-bold uppercase tracking-wider">{t.yourTurn}</p>
+                    </div>
+                    <p className="text-cyan-300/90 text-xs leading-relaxed">
+                      {t.matchesHint(selectedCard.name)}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ) : amSpectator ? (

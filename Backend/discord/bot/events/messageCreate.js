@@ -12,6 +12,7 @@ const { handleCoinflip } = require('../commands/coinflip');
 const { handleAussehen } = require('../commands/aussehen');
 const { handleIQ } = require('../commands/iq');
 const { handleGroesse } = require('../commands/groesse');
+const { handleGewicht } = require('../commands/gewicht');
 
 // Cache für Sync-Webhook-IDs (verhindert Relay-Loops)
 const syncWebhookIds = new Set();
@@ -192,7 +193,7 @@ module.exports = {
             }
         }
 
-        const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'miesmuschel', 'pp', 'ship', 'coinflip', 'aussehen', 'iq', 'größe'];
+        const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'miesmuschel', 'pp', 'ship', 'coinflip', 'aussehen', 'iq', 'größe', 'gewicht'];
         if (!FUN_COMMANDS.includes(cmdName)) return;
 
         // Fun-Channel-Check
@@ -219,6 +220,7 @@ module.exports = {
         if (canonicalName === 'aussehen') return handleAussehen(interaction);
         if (canonicalName === 'iq') return handleIQ(interaction);
         if (canonicalName === 'größe') return handleGroesse(interaction);
+        if (canonicalName === 'gewicht') return handleGewicht(interaction);
         if (canonicalName === 'ship') {
             const mentions = message.mentions.users;
             if (mentions.size < 2) {

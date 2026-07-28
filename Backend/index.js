@@ -35,6 +35,8 @@ const { initCrStreamerStore } = require("./lib/crStreamerStore");
 const createBannedCardsRouter = require("./routes/bannedCardsRoutes");
 const createNuzlockeRouter = require("./routes/nuzlockeRoutes");
 const createCrWinTrackerRouter = require("./routes/crWinTrackerRoutes");
+const createCrPresetRouter = require("./routes/crPresetRoutes");
+const { startModeScanner } = require("./clashRoyale/core/officialModeScanner");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
 const { saveAllFarmsOnExit, initGardenFarmsStore, farmStates } = require("./lib/gardenFarmsStore");
 const { runPlantMigration } = require("./lib/gardenMigration");
@@ -274,6 +276,7 @@ app.use("/api/garden", createGardenGameRouter({ requireAuth }));
 app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, sessions, saveSessionsToFile }));
 // Streamer-Konfiguration VOR dem allgemeinen Clash-Router mounten (spezifischerer Pfad)
 app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
+app.use("/api/clash/presets", createCrPresetRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));
@@ -342,6 +345,14 @@ const PORT = process.env.PORT || 3001;
     step("Winchallenge-IRC", irc.status, irc.detail);
   } catch (e) {
     step("Winchallenge-IRC", false, e.message);
+  }
+  // Erkennt im Hintergrund die Kartenpools offizieller Clash-Royale-Spezialmodi
+  // (nur mit CLASH_ROYALE_API_TOKEN, erster Lauf ~1 Minute nach dem Start)
+  try {
+    const started = startModeScanner();
+    step("CR-Modus-Scanner", started ? true : "warn", started ? "alle 6 h" : "kein CLASH_ROYALE_API_TOKEN");
+  } catch (e) {
+    step("CR-Modus-Scanner", false, e.message);
   }
   server.once("error", (err) => {
     if (err && err.code === "EADDRINUSE") {

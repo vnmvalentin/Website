@@ -1,5 +1,5 @@
 import React from 'react';
-import { Grid3x3, Sparkles, Ruler, Heart, Coins, Eye, Brain, PersonStanding } from 'lucide-react';
+import { Grid3x3, Sparkles, Ruler, Heart, Coins, Eye, Brain, PersonStanding, Scale } from 'lucide-react';
 
 const COMMANDS = [
     {
@@ -37,6 +37,12 @@ const COMMANDS = [
         desc: 'Misst die Größe eines Nutzers in cm.',
         usage: '/größe  |  !größe',
         details: ['0–200 cm zufällig', 'Jedes Mal neu gewürfelt'],
+    },
+    {
+        icon: <Scale size={28} />, name: 'gewicht', displayName: '/gewicht', tag: 'Spaß',
+        desc: 'Misst das Gewicht eines Nutzers in kg.',
+        usage: '/gewicht  |  !gewicht',
+        details: ['0–200 kg zufällig', 'Jedes Mal neu gewürfelt'],
     },
     {
         icon: <Heart size={28} />, name: 'ship', displayName: '/ship', tag: 'Spaß',

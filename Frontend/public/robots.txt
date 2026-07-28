@@ -1,0 +1,25 @@
+# https://vnmvalentin.de — Crawler-Regeln
+# Overlays (OBS-Browserquellen), Steuer- und Admin-Seiten haben in der Suche nichts zu suchen:
+# sie brauchen einen geheimen Key, sind pro Nutzer verschieden und liefern ohne den Key nur eine
+# leere Seite. Alles andere darf indexiert werden.
+
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /auth/
+Disallow: /overlay/
+Disallow: /WinChallengeOverlay/
+Disallow: /WinChallengeControl/
+Disallow: /bingo/overlay/
+Disallow: /Bingo/join/
+Disallow: /banned-cards/overlay/
+Disallow: /clash-royale/overlay/
+Disallow: /clash-royale/win-tracker/overlay/
+Disallow: /profile
+
+# Lobby-Einladungslinks sind Einmal-URLs — der Inhalt ist identisch mit /clash-royale
+Disallow: /clash-royale?code=
+Disallow: /clash-royale?adminCode=
+
+Sitemap: https://vnmvalentin.de/sitemap.xml

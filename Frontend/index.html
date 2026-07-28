@@ -3,7 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
+
+    <!-- Fallback-Metadaten: gelten, solange React die seitenspezifischen Tags aus
+         src/components/SEO.jsx noch nicht gesetzt hat (Crawler ohne JS, Social-Bots,
+         Ladezeit). Das Attribut markiert sie als Platzhalter: prerender.js entfernt jeden
+         so markierten Tag, sobald React einen echten Wert dafür geliefert hat. Ohne die
+         Markierung gewinnt der Platzhalter-Titel, weil React 19 seinen Titel VOR dem
+         bestehenden in den Kopfbereich hängt. -->
+    <title data-default>vnmvalentin — Clash Royale Minigames, Overlays & Stream-Tools</title>
+    <meta data-default name="description" content="Clash Royale Multiplayer-Minigames im Browser, OBS-Overlays, Win Tracker und Stream-Tools von vnmvalentin — kostenlos, ohne Installation, direkt in der Lobby spielbar." />
+    <meta name="theme-color" content="#0a0a0d" />
+    <meta name="author" content="vnmvalentin" />
+    <meta data-default property="og:site_name" content="vnmvalentin" />
+    <meta data-default property="og:locale" content="de_DE" />
+
     <link rel="icon" type="image/x-icon" href="/favicons/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicons/favicon-16x16.png">

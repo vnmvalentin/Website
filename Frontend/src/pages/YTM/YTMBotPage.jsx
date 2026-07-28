@@ -1,6 +1,6 @@
 ﻿import React from "react";
 import { Link } from "react-router-dom";
-import { Github, Music, MessageSquare, Monitor, Sparkles, Download, Tv2, SkipForward, Laptop2 } from "lucide-react";
+import { Music, MessageSquare, Monitor, Sparkles, Download, Tv2, SkipForward, Laptop2 } from "lucide-react";
 import SEO from "../../components/SEO";
 
 

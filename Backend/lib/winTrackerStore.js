@@ -30,6 +30,9 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_wt_accounts_user ON cr_wintracker_accoun
 
 // Migration für bereits bestehende Installationen (Spalte kam nach dem ersten Release dazu).
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN season_medals INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+// Getrackter Wert pro Account ('medals' | 'trophies'). Leer = erbt die globale Voreinstellung
+// aus cr_wintracker_settings.track_mode (so verhalten sich Accounts von vor dieser Spalte weiter wie bisher).
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN track_mode TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 
 // Gesammelter Verlauf einzelner Spiele — wird bei jedem Sync um neue Battlelog-Einträge
 // ergänzt (INSERT OR IGNORE via UNIQUE(account_id, battle_time)). Die offizielle API liefert

@@ -28,6 +28,9 @@ export const activateAccount = (accountId) =>
 export const refreshAccount = (accountId) =>
   apiFetch(`/api/cr-wintracker/accounts/${accountId}/refresh`, { method: "POST" });
 
+export const setAccountTrackMode = (accountId, trackMode) =>
+  apiFetch(`/api/cr-wintracker/accounts/${accountId}/track-mode`, { method: "PUT", body: JSON.stringify({ trackMode }) });
+
 export const saveSettings = (settings) =>
   apiFetch("/api/cr-wintracker/settings", { method: "PUT", body: JSON.stringify(settings) });
 

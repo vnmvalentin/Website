@@ -108,8 +108,9 @@ const getAccountById = db.prepare("SELECT * FROM cr_wintracker_accounts WHERE ac
 const getAccountByTag = db.prepare("SELECT * FROM cr_wintracker_accounts WHERE user_id = ? AND player_tag = ?");
 const getActiveAccountByUser = db.prepare("SELECT * FROM cr_wintracker_accounts WHERE user_id = ? AND is_active = 1");
 const insertAccount = db.prepare(`INSERT INTO cr_wintracker_accounts
-  (account_id, user_id, twitch_login, player_tag, player_name, trophies, best_trophies, season_medals, league_number, pol_rank, is_active, last_fetched, created_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  (account_id, user_id, twitch_login, player_tag, player_name, trophies, best_trophies, season_medals, league_number, pol_rank, is_active, last_fetched, created_at, track_mode)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+const updateAccountTrackMode = db.prepare("UPDATE cr_wintracker_accounts SET track_mode = ? WHERE account_id = ?");
 const deleteAccountStmt = db.prepare("DELETE FROM cr_wintracker_accounts WHERE account_id = ?");
 const deleteBattlesForAccount = db.prepare("DELETE FROM cr_wintracker_battles WHERE account_id = ?");
 const updatePlayerData = db.prepare(`UPDATE cr_wintracker_accounts
@@ -162,8 +163,15 @@ function getOrCreateSettings(userId) {
   return row;
 }
 
+// ── Getrackter Wert ───────────────────────────────────────────────────────────
+const normalizeTrackMode = (raw) => (raw === "trophies" ? "trophies" : "medals");
+// Jeder Account entscheidet selbst, ob Medaillen oder Trophäen getrackt werden. Ein leeres
+// track_mode (Accounts von vor dieser Spalte) erbt die globale Voreinstellung.
+const resolveTrackMode = (accountRow, settingsRow) =>
+  accountRow?.track_mode ? normalizeTrackMode(accountRow.track_mode) : normalizeTrackMode(settingsRow?.track_mode);
+
 // ── Serialisierung ────────────────────────────────────────────────────────────
-function accountSummary(row) {
+function accountSummary(row, settingsRow) {
   return {
     accountId: row.account_id,
     playerTag: row.player_tag,
@@ -175,6 +183,7 @@ function accountSummary(row) {
     polRank: row.pol_rank,
     isActive: !!row.is_active,
     lastFetched: row.last_fetched,
+    trackMode: resolveTrackMode(row, settingsRow),
   };
 }
 
@@ -219,7 +228,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     const userId = String(req.twitchId);
     const settings = getOrCreateSettings(userId);
     res.json({
-      accounts: getAccountsByUser.all(userId).map(accountSummary),
+      accounts: getAccountsByUser.all(userId).map(row => accountSummary(row, settings)),
       apiConfigured: !!CR_API_TOKEN,
       overlayKey: settings.overlay_key,
       settings: {
@@ -281,7 +290,9 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
 
     const isFirst = getAccountsByUser.all(userId).length === 0;
     const accountId = nanoid(12);
-    insertAccount.run(accountId, userId, String(req.twitchLogin || ""), tag, playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, isFirst ? 1 : 0, lastFetched, Date.now());
+    // Neue Accounts starten mit der globalen Voreinstellung, lassen sich danach einzeln umstellen
+    const settings = getOrCreateSettings(userId);
+    insertAccount.run(accountId, userId, String(req.twitchLogin || ""), tag, playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, isFirst ? 1 : 0, lastFetched, Date.now(), normalizeTrackMode(settings.track_mode));
 
     const row = getAccountById.get(accountId);
     if (CR_API_TOKEN) {
@@ -290,7 +301,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
         if (battles.length) insertBattles(accountId, battles);
       } catch { /* Erst-Sync der Matches ist best-effort */ }
     }
-    res.json({ ok: true, account: accountSummary(row) });
+    res.json({ ok: true, account: accountSummary(row, settings) });
   });
 
   router.delete("/accounts/:accountId", requireAuth, (req, res) => {
@@ -319,10 +330,20 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     if (!CR_API_TOKEN) return res.status(400).json({ error: "Royale API ist nicht konfiguriert" });
     try {
       await syncAccount(row);
-      res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id)) });
+      res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id), getOrCreateSettings(row.user_id)) });
     } catch (e) {
       res.status(502).json({ error: "Royale API nicht erreichbar" });
     }
+  });
+
+  // Getrackter Wert dieses einen Accounts (Medaillen oder Trophäen) — das Overlay zeigt
+  // immer den Wert des aktiven Accounts, jeder Account darf einen anderen tracken.
+  router.put("/accounts/:accountId/track-mode", requireAuth, (req, res) => {
+    const row = ownAccount(req, res);
+    if (!row) return;
+    const mode = normalizeTrackMode(req.body?.trackMode);
+    updateAccountTrackMode.run(mode, row.account_id);
+    res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id), getOrCreateSettings(row.user_id)) });
   });
 
   // ========== Overlay (kein Login — read-only für OBS) ==========
@@ -365,7 +386,8 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
         showWinLossNumbers: !!settings.show_win_loss_numbers,
         showWinLossPercent: !!settings.show_win_loss_percent,
         showLast5: !!settings.show_last5,
-        trackMode: settings.track_mode === "trophies" ? "trophies" : "medals",
+        // Pro Account gewählt — nicht global: das Overlay folgt dem aktiven Account
+        trackMode: resolveTrackMode(active, settings),
         bgColor: settings.bg_color || "#0c0c12",
         bgOpacity: typeof settings.bg_opacity === "number" ? settings.bg_opacity : 88,
       },

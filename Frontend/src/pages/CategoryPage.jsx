@@ -59,9 +59,36 @@ export default function CategoryPage({ categoryKey }) {
   return (
     <div className="page-fade w-full max-w-7xl mx-auto px-2 md:px-4 py-8 md:py-14">
       <SEO
-        title={category.label}
-        description={category.description}
+        title={category.seoTitle || category.label}
+        description={category.seoDescription || category.description}
+        keywords={category.keywords}
         path={category.to}
+        jsonLd={[
+          // Breadcrumb: zeigt in den Suchergebnissen "vnmvalentin › Kategorie" statt der nackten URL
+          {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Startseite', item: 'https://vnmvalentin.de' },
+              { '@type': 'ListItem', position: 2, name: category.label, item: `https://vnmvalentin.de${category.to}` },
+            ],
+          },
+          // Die Unterseiten der Kategorie maschinenlesbar — hilft Google beim Auffinden
+          {
+            '@context': 'https://schema.org',
+            '@type': 'ItemList',
+            name: category.label,
+            itemListElement: category.links
+              .filter((l) => l.to)
+              .map((l, i) => ({
+                '@type': 'ListItem',
+                position: i + 1,
+                name: l.label,
+                description: l.description,
+                url: `https://vnmvalentin.de${l.to}`,
+              })),
+          },
+        ]}
       />
 
       {/* Hero */}

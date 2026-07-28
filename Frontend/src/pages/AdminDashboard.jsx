@@ -4,10 +4,11 @@ import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import {
   Radio, Gamepad2, Eye, LayoutDashboard, Swords, Coins, Sprout, Ticket,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Plus, Infinity as InfinityIcon,
+  Plus, Infinity as InfinityIcon, Layers,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../components/SEO";
+import CardPresetAdminPanel from "./ClashRoyale/admin/CardPresetAdminPanel";
 
 // DEINE ID
 const STREAMER_ID = "160224748";
@@ -95,6 +96,7 @@ export default function AdminDashboard() {
   const [gardenEditId, setGardenEditId] = useState(null);
   const [gardenEditGold, setGardenEditGold] = useState("");
   const [clashLobbies, setClashLobbies] = useState([]);
+  const [clashSubTab, setClashSubTab] = useState("lobbies"); // 'lobbies' | 'presets'
 
   // --- SICHERHEITS-CHECK ---
   useEffect(() => {
@@ -670,7 +672,11 @@ export default function AdminDashboard() {
 
       // CLASH ROYALE TAB
       if (activeTab === "clashroyale") {
-          const modeLabel = { snake: "Snake Royale", auction: "Elixir Auction", bingo: "Bingo Royale", "shadow-carousel": "Blindes Karussel", "elixir-rush": "Elixir Rush" };
+          const modeLabel = {
+              snake: "Snake Royale", auction: "Elixir Auction", bingo: "Bingo Royale",
+              "shadow-carousel": "Blindes Karussel", "elixir-rush": "Elixir Rush",
+              "card-evolution": "Karten-Evolution", "angel-royale": "Angel Royale", "dark-maze": "Dunkles Labyrinth",
+          };
           const phaseLabel = { lobby: "Lobby", playing: "Läuft", finished: "Beendet" };
           const phaseColor = { lobby: "text-white/40 border-white/10", playing: "text-emerald-400 border-emerald-500/30", finished: "text-amber-400 border-amber-500/30" };
           const filtered = search
@@ -678,6 +684,28 @@ export default function AdminDashboard() {
               : clashLobbies;
           return (
               <div>
+                  {/* Aktive Lobbys oder die Karten-Presets verwalten */}
+                  <div className="flex border-b border-white/5 mb-5">
+                      {[
+                          { id: "lobbies", label: "Aktive Lobbys", icon: Gamepad2 },
+                          { id: "presets", label: "Karten-Presets", icon: Layers },
+                      ].map(sub => {
+                          const SubIcon = sub.icon;
+                          const active = clashSubTab === sub.id;
+                          return (
+                              <button key={sub.id} onClick={() => setClashSubTab(sub.id)}
+                                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-colors border-b-2 ${
+                                      active ? "border-violet-400 text-white bg-white/[0.03]" : "border-transparent text-white/40 hover:text-white/70"
+                                  }`}>
+                                  <SubIcon size={14} />
+                                  {sub.label}
+                              </button>
+                          );
+                      })}
+                  </div>
+
+                  {clashSubTab === "presets" ? <CardPresetAdminPanel search={search} /> : (
+                  <div>
                   <div className="flex gap-3 mb-5 flex-wrap items-center">
                       <div className="panel px-4 py-2.5 flex items-center gap-2">
                           <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Aktive Lobbys</span>
@@ -716,6 +744,8 @@ export default function AdminDashboard() {
                           </div>
                       )}
                   </div>
+                  </div>
+                  )}
               </div>
           );
       }

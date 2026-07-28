@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ArrowUp, ArrowDown, Check, Crown, Clock } from 'lucide-react';
+import { Sparkles, ArrowUp, ArrowDown, Check, Crown, Clock, Lock, Shuffle } from 'lucide-react';
 import { RARITY_COLOR, RARITY_BORDER } from '../data/cards';
 import { WILDCARD_IMG, TOKEN_IMG } from '../data/wildcardTokenAssets';
 
@@ -7,6 +7,8 @@ const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,J
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
 const RARITY_ORDER = ['Common', 'Rare', 'Epic', 'Legendary', 'Champion'];
+const LOCK_COST = 3;
+const SABOTAGE_COST = 3;
 
 const EVO_I18N = {
   de: {
@@ -15,15 +17,19 @@ const EVO_I18N = {
     you: 'Du',
     upgrade: 'Aufwerten',
     downgrade: 'Abwerten',
-    withNormal: 'Normaler Token',
-    withSuper: 'Super-Token',
     maxRarity: 'Maximale Stufe erreicht',
     championLimit: 'Champion-Limit (2)',
     poolEmpty: 'Pool leer',
     notEnoughTokens: 'Nicht genug Tokens',
     chooseOne: 'Wähle eine der beiden Karten',
-    deciding: (name) => `${name} entscheidet…`,
     wildcardOf: (r) => `${r}-Wildcard`,
+    lockCard: 'Karte locken',
+    locked: 'Gelockt',
+    notEnoughTokensLock: 'Nicht genug Tokens zum Locken',
+    sabotageHint: 'Klicke auf eine ungelockte Karte eines Gegners, um sie für 3 Tokens neu zu würfeln.',
+    phaseRound1: 'Runde 1 · Karten wählen',
+    phaseSabotage: 'Runde 2 · Sabotage',
+    phaseRound3: 'Runde 3 · Karten wählen',
   },
   en: {
     loading: 'Loading Card Evolution…',
@@ -31,15 +37,19 @@ const EVO_I18N = {
     you: 'You',
     upgrade: 'Upgrade',
     downgrade: 'Downgrade',
-    withNormal: 'Normal token',
-    withSuper: 'Super token',
     maxRarity: 'Max rarity reached',
     championLimit: 'Champion limit (2)',
     poolEmpty: 'Pool empty',
     notEnoughTokens: 'Not enough tokens',
     chooseOne: 'Choose one of the two cards',
-    deciding: (name) => `${name} is deciding…`,
     wildcardOf: (r) => `${r} wildcard`,
+    lockCard: 'Lock card',
+    locked: 'Locked',
+    notEnoughTokensLock: 'Not enough tokens to lock',
+    sabotageHint: "Click an opponent's unlocked card to reroll it for 3 tokens.",
+    phaseRound1: 'Round 1 · Pick cards',
+    phaseSabotage: 'Round 2 · Sabotage',
+    phaseRound3: 'Round 3 · Pick cards',
   },
 };
 
@@ -60,10 +70,10 @@ function nextRarity(rarity, direction) {
   if (direction === 'up') return idx >= RARITY_ORDER.length - 1 ? RARITY_ORDER[idx] : RARITY_ORDER[idx + 1];
   return idx === 0 ? RARITY_ORDER[0] : RARITY_ORDER[idx - 1];
 }
-// Nur der Weg ZU einem Champion kostet 2 — Abwertung Champion → Legendary kostet wie jede
-// andere Abwertung nur 1.
-function actionCost(rarity, target) {
-  return target === 'Champion' ? 2 : 1;
+// Progressive Kosten pro Slot: jeder Klick auf DIESE Karte (up oder down) erhöht slot.pickCount —
+// der nächste Klick auf denselben Slot kostet 1 Token mehr. Muss mit dem Backend übereinstimmen.
+function actionCost(slot) {
+  return (slot.pickCount || 0) + 1;
 }
 
 function AvatarCircle({ id, color, size = 28 }) {
@@ -106,30 +116,10 @@ function TokenBadge({ type, count }) {
   );
 }
 
-// ── Live-Hinweis für alle: wer entscheidet gerade zwischen 2 Kandidaten? ────
-function PendingBanner({ players, myPlayerId, t }) {
-  const entries = players.filter(p => p.pending && p.id !== myPlayerId);
-  if (!entries.length) return null;
-  return (
-    <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-2.5 flex flex-wrap gap-4 justify-center">
-      {entries.map(p => (
-        <div key={p.id} className="flex items-center gap-2">
-          <span className="text-amber-300 text-xs font-semibold">{t.deciding(p.name)}</span>
-          <div className="flex gap-1">
-            {p.pending.candidates.map((c, i) => (
-              <div key={i} className="w-8 h-8 rounded-sm overflow-hidden border border-amber-400/30 evo-pop">
-                <CardImg id={c.id} name={c.name} rarity={c.rarity} />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Zuschauer-Sicht: alle Boards untereinander, volle Reihen, read-only ────────────────
-function SpectatorPlayerRow({ player, flashing, t }) {
+// ── Volle Spieler-Reihe: alle 8 Karten nebeneinander, groß. Dient sowohl der reinen
+// Zuschauer-Sicht (read-only) als auch — interaktiv geschaltet — der Sabotage-Phase, in der
+// ein anderer Spieler auf ungelockte gegnerische Karten klicken kann, um sie zu rerollen.
+function SpectatorPlayerRow({ player, flashing, t, interactive = false, canAct = false, onSlotClick }) {
   const champCount = player.slots.filter(s => s.card?.isChampion).length;
   return (
     <div className="rounded-md border border-white/10 bg-[#0f0f13] overflow-hidden">
@@ -138,7 +128,6 @@ function SpectatorPlayerRow({ player, flashing, t }) {
         <span className="text-white font-bold text-sm truncate">{player.name}</span>
         <div className="flex items-center gap-2 ml-auto shrink-0">
           <TokenBadge type="normal" count={player.tokens} />
-          <TokenBadge type="super" count={player.superTokens} />
           <span className="flex items-center gap-1 text-gray-500 text-[11px]">
             <Crown size={11} className={champCount > 0 ? 'text-cyan-400' : 'text-gray-700'} /> {champCount}/2
           </span>
@@ -148,13 +137,26 @@ function SpectatorPlayerRow({ player, flashing, t }) {
         {player.slots.map((slot, si) => {
           const isPendingSlot = player.pending?.slotIdx === si;
           const isFlashing = flashing?.has(si);
+          const showCostHint = interactive && !slot.locked;
+          const clickable = showCostHint && canAct;
           return (
-            <div key={si} title={slot.card ? slot.card.name : t.wildcardOf(slot.rarity)}
-              className={`relative w-16 h-16 rounded-sm overflow-hidden border-2 ${RARITY_BORDER[slot.rarity] || 'border-white/10'} ${isPendingSlot ? 'evo-pending' : ''}`}>
+            <div key={si} onClick={() => clickable && onSlotClick(si)}
+              title={slot.card ? slot.card.name : t.wildcardOf(slot.rarity)}
+              className={`relative w-16 h-16 rounded-sm overflow-hidden border-2 ${RARITY_BORDER[slot.rarity] || 'border-white/10'} ${isPendingSlot ? 'evo-pending' : ''} ${clickable ? 'cursor-pointer hover:border-red-400/70' : ''}`}>
               <div className={`w-full h-full ${isFlashing ? 'evo-pop' : ''}`}><SlotArt slot={slot} /></div>
               {slot.card?.isChampion && (
                 <span className="absolute top-0.5 right-0.5 bg-black/60 rounded-[2px] p-0.5">
                   <Crown size={9} className="text-cyan-400" />
+                </span>
+              )}
+              {slot.locked && (
+                <span className="absolute bottom-0.5 left-0.5 bg-amber-500/90 text-black rounded-[2px] p-0.5">
+                  <Lock size={9} />
+                </span>
+              )}
+              {showCostHint && (
+                <span className={`absolute bottom-0.5 right-0.5 flex items-center gap-0.5 text-[9px] font-bold px-1 rounded-[2px] ${canAct ? 'bg-black/70 text-red-300' : 'bg-black/40 text-gray-600'}`}>
+                  <Shuffle size={8} /> {SABOTAGE_COST}
                 </span>
               )}
             </div>
@@ -184,7 +186,6 @@ function EvoSidebar({ players, myPlayerId, flashSlots, t }) {
             </div>
             <div className="flex items-center gap-1.5 mb-2">
               <TokenBadge type="normal" count={p.tokens} />
-              <TokenBadge type="super" count={p.superTokens} />
             </div>
             <div className="grid grid-cols-4 gap-1">
               {p.slots.map((slot, si) => {
@@ -193,6 +194,11 @@ function EvoSidebar({ players, myPlayerId, flashSlots, t }) {
                   <div key={si} title={slot.card ? slot.card.name : t.wildcardOf(slot.rarity)}
                     className={`relative aspect-square rounded-sm overflow-hidden border ${RARITY_BORDER[slot.rarity] || 'border-white/10'}`}>
                     <div className={`w-full h-full ${isFlashing ? 'evo-pop' : ''}`}><SlotArt slot={slot} /></div>
+                    {slot.locked && (
+                      <span className="absolute bottom-0 right-0 bg-amber-500/90 text-black rounded-tl-[2px] p-[1px]">
+                        <Lock size={7} />
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -208,66 +214,67 @@ function EvoSidebar({ players, myPlayerId, flashSlots, t }) {
   );
 }
 
-function TokenChoiceButton({ type, count, active, title, onClick }) {
-  const img = TOKEN_IMG[type];
-  return (
-    <button onClick={onClick} title={title}
-      className={`flex items-center gap-3 px-8 py-4 rounded-sm border text-base font-bold transition-colors ${
-        active ? 'border-cyan-400/60 bg-cyan-500/10 text-white' : 'border-white/10 bg-white/[0.02] text-gray-400 hover:border-white/25'
-      }`}>
-      {img && <img src={img} alt="" className="w-7 h-7" />}
-      <span className="tabular-nums">{count}</span>
-    </button>
-  );
-}
-
 // ── Eine eigene Karte: Pfeil hoch = Aufwerten, Pfeil runter = Abwerten, jeweils mit
-// Tokenkosten-Zahl. Die Kartenrarity bestimmt Ziel/Kosten; welcher Token-Typ verwendet
-// wird, kommt von außen (gemeinsame Auswahl für alle 8 Karten, siehe MyBoardStage).
-function CardStageUnit({ me, slot, slotIdx, tokenChoice, poolCounts, champCount, locked, onAction, isFlashing, t }) {
+// Tokenkosten-Zahl (progressiv, steigt mit jedem Klick auf DIESE Karte) — zieht dabei immer 2
+// Kandidatenkarten, zwischen denen gewählt wird. Ein Klick auf die Karte selbst locked sie fix
+// für 3 Tokens — danach dauerhaft eingefroren, auch für einen selbst.
+function CardStageUnit({ me, slot, slotIdx, poolCounts, champCount, disabled, allowLock, onAction, onLock, isFlashing, t }) {
   function evalDir(direction) {
     const target = nextRarity(slot.rarity, direction);
-    const cost = target ? actionCost(slot.rarity, target) : 0;
+    const cost = target ? actionCost(slot) : 0;
     // Limit gilt nur beim Erwerb eines NEUEN Champions — ein bereits vorhandener Champion
     // darf sich jederzeit in einen anderen umrollen, ohne die Gesamtzahl zu erhöhen.
     const becomesNewChampion = target === 'Champion' && slot.rarity !== 'Champion';
     let reason = null;
     if (!target) reason = t.maxRarity;
     else if (becomesNewChampion && champCount >= 2) reason = t.championLimit;
-    else if ((poolCounts[target] || 0) < (tokenChoice === 'super' ? 2 : 1)) reason = t.poolEmpty;
-    else if ((tokenChoice === 'super' ? me.superTokens : me.tokens) < cost) reason = t.notEnoughTokens;
+    else if ((poolCounts[target] || 0) < 2) reason = t.poolEmpty;
+    else if (me.tokens < cost) reason = t.notEnoughTokens;
     return { target, cost, reason };
   }
-  const up = evalDir('up');
-  const down = evalDir('down');
+  const isLocked = !!slot.locked;
+  const up = isLocked ? {} : evalDir('up');
+  const down = isLocked ? {} : evalDir('down');
+  const canLock = !isLocked && !disabled && allowLock && me.tokens >= LOCK_COST;
 
   return (
     <div className="flex flex-col items-center gap-1.5 w-28">
-      <button disabled={locked || !!up.reason} onClick={() => onAction(slotIdx, 'up')}
-        title={up.reason || `${t.upgrade} — ${up.cost}`}
+      <button disabled={disabled || isLocked || !!up.reason} onClick={() => onAction(slotIdx, 'up')}
+        title={isLocked ? t.locked : (up.reason || `${t.upgrade} — ${up.cost}`)}
         className={`flex items-center justify-center gap-1 w-full py-1.5 rounded-sm border transition-colors ${
-          locked || up.reason ? 'border-white/5 text-gray-700 cursor-not-allowed' : 'border-green-500/30 text-green-400 hover:border-green-400/60 hover:bg-green-500/5 cursor-pointer'
+          disabled || isLocked || up.reason ? 'border-white/5 text-gray-700 cursor-not-allowed' : 'border-green-500/30 text-green-400 hover:border-green-400/60 hover:bg-green-500/5 cursor-pointer'
         }`}>
         <ArrowUp size={16} />
         <span className="text-[10px] font-bold">{up.cost || '—'}</span>
       </button>
 
-      <div className={`relative w-28 h-28 rounded-md overflow-hidden border-[3px] ${RARITY_BORDER[slot.rarity] || 'border-white/10'}`}>
+      <button type="button" disabled={!canLock} onClick={() => canLock && onLock(slotIdx)}
+        title={isLocked ? t.locked : !allowLock ? undefined : (canLock ? `${t.lockCard} — ${LOCK_COST}` : t.notEnoughTokensLock)}
+        className={`relative w-28 h-28 rounded-md overflow-hidden border-[3px] ${isLocked ? 'border-amber-400/70' : RARITY_BORDER[slot.rarity] || 'border-white/10'} ${canLock ? 'cursor-pointer' : 'cursor-default'}`}>
         <div className={`w-full h-full ${isFlashing ? 'evo-pop' : ''}`}><SlotArt slot={slot} /></div>
         {slot.card?.isChampion && (
           <span className="absolute top-1 right-1 bg-black/60 rounded-[3px] p-0.5">
             <Crown size={12} className="text-cyan-400" />
           </span>
         )}
-      </div>
+        {isLocked ? (
+          <span className="absolute bottom-1 left-1 flex items-center gap-1 bg-amber-500/90 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-sm evo-pop">
+            <Lock size={10} />
+          </span>
+        ) : allowLock ? (
+          <span className={`absolute bottom-1 left-1 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-sm border ${canLock ? 'bg-black/70 border-amber-400/40 text-amber-300' : 'bg-black/40 border-white/10 text-gray-600'}`}>
+            <Lock size={10} /> {LOCK_COST}
+          </span>
+        ) : null}
+      </button>
       <p className="text-white text-[11px] font-semibold text-center truncate w-full">
         {slot.card ? slot.card.name : t.wildcardOf(slot.rarity)}
       </p>
 
-      <button disabled={locked || !!down.reason} onClick={() => onAction(slotIdx, 'down')}
-        title={down.reason || `${t.downgrade} — ${down.cost}`}
+      <button disabled={disabled || isLocked || !!down.reason} onClick={() => onAction(slotIdx, 'down')}
+        title={isLocked ? t.locked : (down.reason || `${t.downgrade} — ${down.cost}`)}
         className={`flex items-center justify-center gap-1 w-full py-1.5 rounded-sm border transition-colors ${
-          locked || down.reason ? 'border-white/5 text-gray-700 cursor-not-allowed' : 'border-red-500/30 text-red-400 hover:border-red-400/60 hover:bg-red-500/5 cursor-pointer'
+          disabled || isLocked || down.reason ? 'border-white/5 text-gray-700 cursor-not-allowed' : 'border-red-500/30 text-red-400 hover:border-red-400/60 hover:bg-red-500/5 cursor-pointer'
         }`}>
         <ArrowDown size={16} />
         <span className="text-[10px] font-bold">{down.cost || '—'}</span>
@@ -277,23 +284,39 @@ function CardStageUnit({ me, slot, slotIdx, tokenChoice, poolCounts, champCount,
 }
 
 // ── Eigenes Board: alle 8 eigenen Karten nebeneinander, groß, je mit eigenen Pfeilen.
-// Darunter die Token-Auswahl — legt fest, welcher Token-Typ die nächste Aktion bezahlt.
-function MyBoardStage({ me, tokenChoice, onTokenChoice, poolCounts, onAction, finished, flashing, t }) {
+function MyBoardStage({ me, poolCounts, allowLock, onAction, onLock, finished, flashing, t }) {
   const champCount = me.slots.filter(s => s.card?.isChampion).length;
-  const locked = !!me.pending || finished;
+  const disabled = !!me.pending || finished;
 
   return (
     <div className="h-full flex flex-col items-center justify-center gap-8 py-6 overflow-y-auto custom-scrollbar">
       <div className="flex flex-wrap items-start justify-center gap-3 w-full max-w-[1200px] px-4">
         {me.slots.map((slot, si) => (
-          <CardStageUnit key={si} me={me} slot={slot} slotIdx={si} tokenChoice={tokenChoice}
-            poolCounts={poolCounts} champCount={champCount} locked={locked}
-            onAction={onAction} isFlashing={flashing?.has(si)} t={t} />
+          <CardStageUnit key={si} me={me} slot={slot} slotIdx={si}
+            poolCounts={poolCounts} champCount={champCount} disabled={disabled} allowLock={allowLock}
+            onAction={onAction} onLock={onLock} isFlashing={flashing?.has(si)} t={t} />
         ))}
       </div>
-      <div className="flex items-center gap-4">
-        <TokenChoiceButton type="normal" count={me.tokens} active={tokenChoice === 'normal'} title={t.withNormal} onClick={() => onTokenChoice('normal')} />
-        <TokenChoiceButton type="super" count={me.superTokens} active={tokenChoice === 'super'} title={t.withSuper} onClick={() => onTokenChoice('super')} />
+      <TokenBadge type="normal" count={me.tokens} />
+    </div>
+  );
+}
+
+// ── Sabotage-Phase (Runde 2): Übersicht aller GEGNERISCHEN Decks. Ungelockte Karten sind
+// klickbar und werden für 3 Tokens neu gewürfelt — die neue Karte kann jede beliebige Rarity
+// annehmen, nicht nur die bisherige.
+function SabotageStage({ players, myTokens, onSabotage, flashSlots, t }) {
+  return (
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+      <div className="max-w-3xl mx-auto mb-4 flex items-center justify-center gap-3">
+        <TokenBadge type="normal" count={myTokens} />
+        <p className="text-white/50 text-xs">{t.sabotageHint}</p>
+      </div>
+      <div className="space-y-3 max-w-3xl mx-auto">
+        {players.map(p => (
+          <SpectatorPlayerRow key={p.id} player={p} flashing={flashSlots[p.id]} t={t}
+            interactive canAct={myTokens >= SABOTAGE_COST} onSlotClick={(slotIdx) => onSabotage(p.id, slotIdx)} />
+        ))}
       </div>
     </div>
   );
@@ -318,9 +341,10 @@ function PendingChoiceModal({ pending, onChoose, t }) {
   );
 }
 
-export default function CardEvolution({ evoState, myPlayerId, onAction, onResolvePending, lang = 'de' }) {
+const PHASE_LABEL_KEY = { round1: 'phaseRound1', sabotage: 'phaseSabotage', round3: 'phaseRound3' };
+
+export default function CardEvolution({ evoState, myPlayerId, onAction, onResolvePending, onLock, onSabotage, lang = 'de' }) {
   const t = EVO_I18N[lang] || EVO_I18N.de;
-  const [tokenChoice, setTokenChoice] = useState('normal');
 
   // Welche Slots haben sich seit dem letzten State-Update verändert? Löst pro Spieler einen
   // kurzen Pop aus — greift sowohl bei eigenen Auf-/Abwertungen als auch bei der
@@ -362,6 +386,8 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
 
   const me = evoState.players.find(p => p.id === myPlayerId) || null;
   const amSpectator = !me;
+  const isSabotagePhase = evoState.phase === 'sabotage';
+  const phaseLabel = t[PHASE_LABEL_KEY[evoState.phase]] || '';
 
   return (
     <div className="h-full flex flex-col overflow-hidden select-none">
@@ -374,8 +400,13 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
         </div>
       )}
 
-      {/* Pool-Übersicht — wie viele Karten je Rarity noch verfügbar sind */}
+      {/* Runde/Phase + Pool-Übersicht — wie viele Karten je Rarity noch verfügbar sind */}
       <div className="shrink-0 border-b border-white/5 bg-[#0a0a0d] px-4 py-3 flex items-center gap-2.5 flex-wrap justify-center relative">
+        {phaseLabel && !evoState.finished && (
+          <span className="sm:absolute sm:left-4 text-[11px] font-bold uppercase tracking-wide text-cyan-300">
+            {phaseLabel}
+          </span>
+        )}
         <Sparkles size={14} className="text-cyan-400 shrink-0" />
         {RARITY_ORDER.map(r => (
           <span key={r} className="text-[11px] font-semibold px-2 py-1 rounded-sm border"
@@ -393,8 +424,6 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
         )}
       </div>
 
-      <PendingBanner players={evoState.players} myPlayerId={myPlayerId} t={t} />
-
       {amSpectator ? (
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
           <div className="space-y-3 max-w-3xl mx-auto">
@@ -403,13 +432,18 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
             ))}
           </div>
         </div>
+      ) : isSabotagePhase ? (
+        <SabotageStage players={evoState.players.filter(p => p.id !== myPlayerId)} myTokens={me.tokens}
+          onSabotage={(targetPlayerId, slotIdx) => !evoState.finished && onSabotage(targetPlayerId, slotIdx)}
+          flashSlots={flashSlots} t={t} />
       ) : (
         <div className="flex-1 flex overflow-hidden">
           <EvoSidebar players={evoState.players} myPlayerId={myPlayerId} flashSlots={flashSlots} t={t} />
           <div className="flex-1 overflow-hidden">
-            <MyBoardStage me={me} tokenChoice={tokenChoice} onTokenChoice={setTokenChoice}
-              poolCounts={evoState.poolCounts || {}}
-              onAction={(slotIdx, direction) => !me.pending && !evoState.finished && onAction(slotIdx, tokenChoice, direction)}
+            <MyBoardStage me={me}
+              poolCounts={evoState.poolCounts || {}} allowLock={evoState.phase === 'round1'}
+              onAction={(slotIdx, direction) => !me.pending && !evoState.finished && onAction(slotIdx, direction)}
+              onLock={(slotIdx) => !me.pending && !evoState.finished && onLock(slotIdx)}
               finished={evoState.finished} flashing={flashSlots[me.id]} t={t} />
           </div>
         </div>

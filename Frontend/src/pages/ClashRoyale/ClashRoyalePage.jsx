@@ -5,7 +5,11 @@ import {
   Link2, UserX, Eye, EyeOff, Trophy, Worm, Droplets, Zap,
   LayoutGrid, Rows, Hash, Shield, ArrowLeftRight, XCircle, X,
   ChevronDown, Repeat, AlertTriangle, Ban, Search, Monitor, Sparkles,
+  QrCode, ExternalLink, FishingRod, Flashlight, HelpCircle, MessageCircle,
 } from 'lucide-react';
+import QRCode from 'qrcode';
+import archerQueenImg from '../../assets/clashRoyale/goldenknight.png';
+import { buildDeckLink } from './data/cardDeckIds';
 import StreamerConfigPanel from './streamer/StreamerConfigPanel';
 import SEO from '../../components/SEO';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
@@ -16,6 +20,8 @@ import BingoRoyale from './modes/BingoRoyale';
 import ShadowCarousel from './modes/ShadowCarousel';
 import ElixirRush from './modes/ElixirRush';
 import CardEvolution from './modes/CardEvolution';
+import AngelRoyale from './modes/AngelRoyale';
+import DarkMaze from './modes/DarkMaze';
 const STREAMER_ID = '160224748';
 
 const MODES = [
@@ -58,18 +64,47 @@ const MODES = [
     id: 'card-evolution',
     name: 'Karten-Evolution',
     icon: Sparkles,
-    desc: 'Starte mit 8 Wildcards und werte sie mit Evolutions-Tokens auf oder ab. Karten kommen aus einem geteilten Pool — jede Karte gehört immer nur einem Spieler gleichzeitig.',
-    // Bewusst noch gesperrt (available: false) — Modus ist fertig implementiert, wird aber
-    // erst nach weiteren Tests für alle freigegeben. Zeigt automatisch den "Bald verfügbar"-
-    // Badge im Home-Menü und ist im Lobby-Modus-Umschalter nicht auswählbar.
-    // Bewusst noch gesperrt (available: false) — Modus ist fertig implementiert, wird aber
-    // erst nach weiteren Tests für alle freigegeben. Zeigt automatisch den "Bald verfügbar"-
-    // Badge im Home-Menü und ist im Lobby-Modus-Umschalter nicht auswählbar.
-    available: false,
+    desc: '3 Runden: Karten mit progressiven Tokenkosten aufwerten und locken, dann Gegner sabotieren, dann weiter aufwerten. Karten kommen aus einem geteilten Pool — jede Karte gehört immer nur einem Spieler gleichzeitig.',
+    available: true,
+  },
+  {
+    id: 'angel-royale',
+    name: 'Angel Royale',
+    icon: FishingRod,
+    desc: 'Karten treiben in zufälligen Bahnen über den Fluss — manche schnell, manche in Wellenlinien, manche tauchen kurz ab und sind dann nicht fangbar. Klicke sie an, um sie zu angeln. Nach jedem Fang braucht deine Angel einen Moment.',
+    available: true,
+  },
+  {
+    id: 'dark-maze',
+    name: 'Dunkles Labyrinth',
+    icon: Flashlight,
+    desc: 'Ein bei jedem Start neu generiertes Labyrinth in völliger Dunkelheit — du siehst nur deinen eigenen Lichtkegel. Sammle Draft-Kisten (1 aus 2) und lose Bodenkarten, in der Mitte wartet ein Joker. Läuft die Zeit ab, werden leere Deck-Plätze zufällig aufgefüllt.',
+    available: true,
   },
 ];
 
 const TIMER_OPTIONS = [15, 30, 45, 60, 90, 120];
+
+// Einstellungs-Presets: die konkreten Werte kommen vom Server (lobbyData.modePresets),
+// hier stehen nur Beschriftung, Beschreibung und Symbol. So gibt es keine zweite Stelle,
+// an der Zahlen gepflegt werden müssten.
+const PRESET_META = {
+  suggested: {
+    icon: Check,
+    de: { label: 'Vorgeschlagen', desc: 'Ausbalancierte Werte, passend zur aktuellen Spielerzahl — guter Startpunkt für die erste Runde.' },
+    en: { label: 'Suggested', desc: 'Balanced values, scaled to the current player count — a good starting point for a first round.' },
+  },
+  fast: {
+    icon: Zap,
+    de: { label: 'Blitz', desc: 'Kurze Timer und schnellere Abläufe — für eine Runde zwischendurch.' },
+    en: { label: 'Blitz', desc: 'Short timers and a faster pace — for a quick round.' },
+  },
+  chaos: {
+    icon: AlertTriangle,
+    de: { label: 'Chaos', desc: 'Bewusst überdreht: maximaler Druck, mehr Karten, alles gleichzeitig.' },
+    en: { label: 'Chaos', desc: 'Deliberately over the top: maximum pressure, more cards, everything at once.' },
+  },
+};
 
 // Hub-/Landingpage UND Lobby sind zweisprachig — die eigentlichen Spielmodi-Bildschirme
 // (Snake Royale, Elixir Auction, Bingo Royale, Blindes Karussel, Elixir Rush selbst)
@@ -81,13 +116,75 @@ const MODE_DESC_EN = {
   bingo: 'Fill your bingo card with Clash Royale cards. Bingos grant power-ups to improve your own deck or sabotage opponents.',
   'shadow-carousel': 'Each player has a table full of face-down cards. Reveal cards each round and take one — even blindly. Tables then rotate carousel-style.',
   'elixir-rush': 'Your elixir refills automatically — the marketplace shows cards at their real elixir cost. First click gets the card. 8 buys = finished deck!',
-  'card-evolution': 'Start with 8 wildcards and upgrade or downgrade them with evolution tokens. Cards come from a shared pool — every card belongs to only one player at a time.',
+  'card-evolution': '3 rounds: upgrade and lock cards at progressive token costs, then sabotage opponents, then keep upgrading. Cards come from a shared pool — every card belongs to only one player at a time.',
+  'angel-royale': 'Cards drift across the river on random paths — some fast, some in sine waves, some briefly submerge and can\'t be caught. Click them to reel them in. After every catch your rod needs a moment.',
+  'dark-maze': 'A maze regenerated on every start, in complete darkness — you only see your own cone of light. Collect draft chests (1 of 2) and loose floor cards; a joker waits in the center. When time runs out, empty deck slots are filled randomly.',
 };
 // Modus-Namen sind größtenteils bereits englische Markennamen — nur "Blindes Karussel"/"Karten-Evolution" brauchen eine Übersetzung.
 const MODE_NAME_EN = {
   'shadow-carousel': 'Shadow Carousel',
   'card-evolution': 'Card Evolution',
+  'angel-royale': 'Fishing Royale',
+  'dark-maze': 'Dark Maze',
 };
+// ── Strukturierte Daten (schema.org) für die Hubseite ───────────────────────
+// Die Minigames sind eine Single-Page-App: ohne diese Angaben sieht Google außer der
+// Überschrift kaum Text. WebApplication beschreibt das Angebot, ItemList macht die acht
+// Modi maschinenlesbar, FAQPage kann als Rich Result in den Suchergebnissen erscheinen
+// (die Fragen stehen deshalb auch sichtbar auf der Seite) und BreadcrumbList liefert den
+// Pfad "Startseite › Clash Royale › Minigames" unter dem Suchtreffer.
+const SITE_URL = 'https://vnmvalentin.de';
+function buildClashJsonLd(t, lang) {
+  const pageUrl = lang === 'en' ? `${SITE_URL}/clash-royale?lang=en` : `${SITE_URL}/clash-royale`;
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      name: lang === 'en' ? 'Clash Royale Minigames' : 'Clash Royale Minigames',
+      url: pageUrl,
+      description: t.seoDesc,
+      applicationCategory: 'GameApplication',
+      applicationSubCategory: lang === 'en' ? 'Multiplayer draft minigames' : 'Multiplayer-Draft-Minigames',
+      operatingSystem: 'Web browser',
+      browserRequirements: lang === 'en' ? 'Requires JavaScript and a modern browser' : 'Benötigt JavaScript und einen aktuellen Browser',
+      inLanguage: lang === 'en' ? 'en' : 'de',
+      isAccessibleForFree: true,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+      author: { '@type': 'Person', name: 'vnmvalentin', url: SITE_URL },
+      featureList: MODES.filter(m => m.available).map(m => modeNameFor(m.id, lang)),
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: lang === 'en' ? 'Clash Royale minigame modes' : 'Clash Royale Spielmodi',
+      itemListElement: MODES.filter(m => m.available).map((m, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: modeNameFor(m.id, lang),
+        description: modeDescFor(m.id, lang),
+      })),
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: (t.faqItems || []).map(item => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: lang === 'en' ? 'Home' : 'Startseite', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: 'Clash Royale', item: `${SITE_URL}/clash` },
+        { '@type': 'ListItem', position: 3, name: 'Minigames', item: pageUrl },
+      ],
+    },
+  ];
+}
+
 const modeNameFor = (id, lang) => {
   const m = MODES.find(mm => mm.id === id) || MODES[0];
   return lang === 'en' ? (MODE_NAME_EN[m.id] || m.name) : m.name;
@@ -112,12 +209,50 @@ const PAGE_I18N = {
     joinBtn: 'Beitreten',
     errNameRequired: 'Bitte Namen eingeben',
     errCodeRequired: 'Bitte Lobby-Code eingeben',
-    modesHeading: 'Verfügbare Spielmodi (Beschreibungen)',
-    viewModes: 'Modi anschauen',
     comingSoon: 'Bald verfügbar',
     support: 'Support & Feedback:',
     joinDiscord: 'Discord beitreten',
     usedBy: 'Benutzt von',
+    // Zusammengefasster Infobereich unter der Lobby-Karte
+    tabModes: 'Spielmodi',
+    tabModesCount: (n) => `${n} Modi`,
+    tabFaq: 'Häufige Fragen',
+    tabSupport: 'Support',
+    playNowHint: 'Für 2–8 Spieler · kein Download, keine Anmeldung',
+    supportIntro: 'Fragen, Ideen oder ein Bug gefunden? Schreib mir — am schnellsten geht es über Discord.',
+
+    // SEO / crawlbarer Inhalt der Hubseite
+    seoTitle: 'Clash Royale Minigames — Draft-Modi kostenlos im Browser spielen',
+    seoDesc: 'Acht Clash-Royale-Minigames für 2–8 Spieler: Snake Royale, Elixir Auction, Bingo Royale, Blindes Karussell, Elixir Rush, Karten-Evolution, Angel Royale und Dunkles Labyrinth. Lobby erstellen, Code teilen, sofort im Browser draften — kostenlos und ohne Installation.',
+    seoKeywords: 'Clash Royale Minigames, Clash Royale Draft, Snake Royale, Elixir Auction, Bingo Royale, Clash Royale Deck Generator, Clash Royale Browserspiel, Clash Royale Stream Minigames, Clash Royale Custom Modus',
+    introText: 'Erstelle eine Lobby, teile den Code mit 2–8 Freunden und draftet gemeinsam Decks in acht verschiedenen Minigames. Alles läuft in Echtzeit im Browser — ohne Download, ohne Anmeldung. Am Ende bekommt jedes Deck einen Link, mit dem du es direkt in Clash Royale öffnest.',
+    faqHeading: 'Häufige Fragen',
+    faqItems: [
+      {
+        q: 'Was sind die Clash Royale Minigames?',
+        a: 'Acht Draft-Spielmodi für 2 bis 8 Spieler, in denen ihr euch abwechselnd oder gleichzeitig ein 8-Karten-Deck aus dem Clash-Royale-Kartenpool zusammenstellt — jeder Modus mit eigenen Regeln, von einem Snake-Raster über eine Elixier-Auktion bis zu einem dunklen Labyrinth.',
+      },
+      {
+        q: 'Brauche ich einen Account oder eine Installation?',
+        a: 'Nein. Die Minigames laufen komplett im Browser. Du gibst nur einen Namen ein, erstellst eine Lobby und teilst den 6-stelligen Code oder den Einladungslink. Ein Twitch-Login brauchst du nur für Zusatzfunktionen wie das Win-Tracker-Overlay.',
+      },
+      {
+        q: 'Wie viele Spieler können mitspielen?',
+        a: 'Zwei bis acht aktive Spieler pro Lobby, zusätzlich beliebig viele Zuschauer. Bei manchen Modi begrenzt der Kartenpool die Spielerzahl — die Lobby zeigt dir das Maximum direkt an.',
+      },
+      {
+        q: 'Kann ich das gedraftete Deck in Clash Royale nutzen?',
+        a: 'Ja. Nach jedem Spiel gibt es zu jedem Deck einen Kopieren-Link und einen QR-Code. Damit öffnest du das komplette Deck mit einem Klick direkt in der Clash-Royale-App.',
+      },
+      {
+        q: 'Kann ich Karten vom Draft ausschließen?',
+        a: 'Ja. Der Host legt einen Kartenpool fest und kann einzelne Karten sperren oder ein fertiges Preset laden — zum Beispiel den Kartenpool eines offiziellen Clash-Royale-Spezialmodus. Die Auswahl gilt für alle Spielmodi der Lobby.',
+      },
+      {
+        q: 'Eignen sich die Minigames für Streams?',
+        a: 'Ja, sie sind genau dafür gebaut: Zuschauer können mitspielen oder zuschauen, es gibt OBS-Overlays für die gedrafteten Decks, gesperrte Karten und einen Win Tracker mit Liga, Medaillen und Tagesstatistik.',
+      },
+    ],
 
     // Lobby
     lobbySeoDesc: 'Warte auf Mitspieler',
@@ -143,6 +278,9 @@ const PAGE_I18N = {
     kickTitle: 'Kicken',
     adminAccessNote: 'Admin-Zugriff — du steuerst diese Lobby, ohne Host zu sein.',
     gameMode: 'Spielmodus',
+    presets: 'Voreinstellungen',
+    presetsNote: 'Setzt alle Regler dieses Modus auf einen fertigen Satz Werte. Danach kannst du einzelne Werte weiter anpassen.',
+    presetCustom: 'Eigene Werte',
     cardPool: 'Kartenpool',
     allCardsInDraft: (n) => `Alle ${n} Karten im Draft`,
     excludedInDraft: (excluded, pool) => `${excluded} ausgeschlossen · ${pool} Karten im Draft`,
@@ -189,13 +327,18 @@ const PAGE_I18N = {
     startingElixir: 'Start-Elixier',
     motherWitchVisits: 'Mutterhexen Besuche',
     motherWitchNote: 'In Runde 2-7: 30% Chance, dass ein zufälliger Spieler von der Mutterhexe eine Fähigkeit angeboten bekommt',
-    evolutionTimer: 'Gesamt-Timer fürs Picken',
-    evolutionTimerNote: 'Nach Ablauf werden übrig gebliebene Wildcards automatisch aufgelöst und das Spiel endet.',
-    unlimited: 'Unbegrenzt',
-    evolutionTokens: 'Evolutions-Tokens (normal)',
-    evolutionTokensNote: 'Wie viele normale Tokens jeder Spieler zu Beginn erhält.',
-    evolutionSuperTokens: 'Super-Evolutions-Tokens',
-    evolutionSuperTokensNote: 'Wie viele Super-Tokens jeder Spieler zu Beginn erhält.',
+    evolutionPickTimer: 'Pick-Runden Zeit (Runde 1 & 3)',
+    evolutionPickTimerNote: 'Zeit für die Karten-Auswahl in Runde 1 und 3. Danach wird automatisch zur nächsten Runde gewechselt.',
+    evolutionSabotageTimer: 'Sabotage-Runden Zeit (Runde 2)',
+    evolutionSabotageTimerNote: 'Zeit, um Karten anderer Spieler zu sabotieren, bevor es zurück zur Auswahl geht.',
+    evolutionTokens: 'Evolutions-Tokens',
+    evolutionTokensNote: 'Wie viele Tokens jeder Spieler zu Beginn erhält.',
+    fishSpawnRate: 'Karten pro Sekunde',
+    fishSpawnRateNote: 'So viele Karten spawnen durchschnittlich pro Sekunde im Fluss.',
+    fishCooldown: 'Angel-Cooldown nach Fang',
+    fishCooldownNote: 'Nach einem erfolgreichen Fang kann so lange nicht erneut geangelt werden.',
+    mazeTime: 'Zeitlimit im Labyrinth',
+    mazeTimeNote: 'Läuft die Zeit ab, werden leere Deck-Plätze automatisch mit zufälligen Karten aufgefüllt.',
     startGame: 'Spiel starten',
     startBlockedCarousel: (max, cards) => `Max. ${max} Spieler bei ${cards} Karten pro Tisch`,
     startBlockedPool: (have, need) => `Kartenpool zu klein (${have}/${need} Karten)`,
@@ -223,10 +366,20 @@ const PAGE_I18N = {
     layoutGrid: 'Nebeneinander',
     layoutList: 'Untereinander',
     playAgain: 'Erneut spielen',
-    backToLobby: 'Zur Übersicht',
-    endAnyway: 'Trotzdem beenden',
+    // Hieß mal "Zur Übersicht" — das wurde als "zurück in die Lobby" gelesen und ständig
+    // aus Versehen gedrückt, obwohl es die Lobby verlässt. Jetzt eindeutig plus Rückfrage.
+    leaveLobbyBtn: 'Lobby verlassen',
+    leaveLobbyConfirm: 'Lobby wirklich verlassen? Du landest wieder auf der Startseite und brauchst den Lobby-Code, um erneut beizutreten. Für eine weitere Runde nutze „Erneut spielen“.',
+    leaveLobbyConfirmGuest: 'Lobby wirklich verlassen? Du landest wieder auf der Startseite und brauchst den Lobby-Code, um erneut beizutreten.',
     youLabel: 'Du',
     swapCardHint: (name) => `${name} — austauschen`,
+    deckQrBtn: 'QR-Code',
+    deckQrTitle: (name) => `Deck von ${name}`,
+    deckQrHint: 'Mit dem Handy scannen, um das Deck direkt in Clash Royale zu öffnen.',
+    deckQrCopy: 'Link kopieren',
+    deckQrCopied: 'Kopiert!',
+    deckQrOpenApp: 'In Clash Royale öffnen',
+    deckQrUnavailable: (names) => `Noch kein Deck-Link möglich — Kartendaten fehlen für: ${names}`,
   },
   en: {
     // Hub
@@ -242,12 +395,50 @@ const PAGE_I18N = {
     joinBtn: 'Join',
     errNameRequired: 'Please enter a name',
     errCodeRequired: 'Please enter a lobby code',
-    modesHeading: 'Available game modes (descriptions)',
-    viewModes: 'View modes',
     comingSoon: 'Coming soon',
     support: 'Support & Feedback:',
     joinDiscord: 'Join Discord',
     usedBy: 'Used by',
+    // Combined info section below the lobby card
+    tabModes: 'Game modes',
+    tabModesCount: (n) => `${n} modes`,
+    tabFaq: 'FAQ',
+    tabSupport: 'Support',
+    playNowHint: 'For 2–8 players · no download, no sign-up',
+    supportIntro: 'Questions, ideas or found a bug? Get in touch — Discord is the fastest way.',
+
+    // SEO / crawlable content of the hub page
+    seoTitle: 'Clash Royale Minigames — play draft modes free in your browser',
+    seoDesc: 'Eight Clash Royale minigames for 2–8 players: Snake Royale, Elixir Auction, Bingo Royale, Shadow Carousel, Elixir Rush, Card Evolution, Fishing Royale and Dark Maze. Create a lobby, share the code, start drafting in your browser — free, no install.',
+    seoKeywords: 'Clash Royale minigames, Clash Royale draft, Snake Royale, Elixir Auction, Bingo Royale, Clash Royale deck generator, Clash Royale browser game, Clash Royale stream minigames, Clash Royale custom mode',
+    introText: 'Create a lobby, share the code with 2–8 friends and draft decks together across eight different minigames. Everything runs in real time in your browser — no download, no sign-up. At the end every deck gets a link that opens it straight in Clash Royale.',
+    faqHeading: 'Frequently asked questions',
+    faqItems: [
+      {
+        q: 'What are the Clash Royale minigames?',
+        a: 'Eight draft game modes for 2 to 8 players in which you build an 8-card deck from the Clash Royale card pool, taking turns or all at once — each mode with its own rules, from a snake grid to an elixir auction to a dark maze.',
+      },
+      {
+        q: 'Do I need an account or an installation?',
+        a: 'No. The minigames run entirely in the browser. You just enter a name, create a lobby and share the 6-character code or the invite link. A Twitch login is only needed for extras such as the win tracker overlay.',
+      },
+      {
+        q: 'How many players can join?',
+        a: 'Two to eight active players per lobby, plus any number of spectators. In some modes the card pool limits the player count — the lobby always shows you the current maximum.',
+      },
+      {
+        q: 'Can I use the drafted deck in Clash Royale?',
+        a: 'Yes. After every game each deck comes with a copy link and a QR code that opens the full deck in the Clash Royale app with one tap.',
+      },
+      {
+        q: 'Can I exclude cards from the draft?',
+        a: 'Yes. The host defines the card pool and can ban individual cards or load a ready-made preset — for example the card pool of an official Clash Royale special mode. The selection applies to every game mode in the lobby.',
+      },
+      {
+        q: 'Are the minigames suitable for streaming?',
+        a: 'Yes, that is exactly what they were built for: viewers can play or spectate, and there are OBS overlays for drafted decks, banned cards and a win tracker with league, medals and daily stats.',
+      },
+    ],
 
     // Lobby
     lobbySeoDesc: 'Waiting for players',
@@ -273,6 +464,9 @@ const PAGE_I18N = {
     kickTitle: 'Kick',
     adminAccessNote: 'Admin access — you control this lobby without being the host.',
     gameMode: 'Game mode',
+    presets: 'Presets',
+    presetsNote: 'Sets every slider of this mode to a ready-made set of values. You can still fine-tune individual values afterwards.',
+    presetCustom: 'Custom values',
     cardPool: 'Card pool',
     allCardsInDraft: (n) => `All ${n} cards in the draft`,
     excludedInDraft: (excluded, pool) => `${excluded} excluded · ${pool} cards in the draft`,
@@ -319,13 +513,18 @@ const PAGE_I18N = {
     startingElixir: 'Starting elixir',
     motherWitchVisits: 'Mother Witch visits',
     motherWitchNote: 'In rounds 2–7: 30% chance a random player gets offered an ability by the Mother Witch',
-    evolutionTimer: 'Overall pick timer',
-    evolutionTimerNote: 'When it runs out, leftover wildcards resolve automatically and the game ends.',
-    unlimited: 'Unlimited',
-    evolutionTokens: 'Evolution tokens (normal)',
-    evolutionTokensNote: 'How many normal tokens each player starts with.',
-    evolutionSuperTokens: 'Super evolution tokens',
-    evolutionSuperTokensNote: 'How many super tokens each player starts with.',
+    evolutionPickTimer: 'Pick round time (round 1 & 3)',
+    evolutionPickTimerNote: 'Time to pick cards in round 1 and 3. Automatically advances to the next round afterwards.',
+    evolutionSabotageTimer: 'Sabotage round time (round 2)',
+    evolutionSabotageTimerNote: "Time to sabotage other players' cards before it's back to picking.",
+    evolutionTokens: 'Evolution tokens',
+    evolutionTokensNote: 'How many tokens each player starts with.',
+    fishSpawnRate: 'Cards per second',
+    fishSpawnRateNote: 'On average this many cards spawn in the river per second.',
+    fishCooldown: 'Rod cooldown after a catch',
+    fishCooldownNote: 'After a successful catch you can\'t fish again for this long.',
+    mazeTime: 'Maze time limit',
+    mazeTimeNote: 'When time runs out, empty deck slots are filled with random cards automatically.',
     startGame: 'Start game',
     startBlockedCarousel: (max, cards) => `Max. ${max} players at ${cards} cards per table`,
     startBlockedPool: (have, need) => `Card pool too small (${have}/${need} cards)`,
@@ -353,10 +552,18 @@ const PAGE_I18N = {
     layoutGrid: 'Side by side',
     layoutList: 'Stacked',
     playAgain: 'Play again',
-    backToLobby: 'Back to overview',
-    endAnyway: 'Leave anyway',
+    leaveLobbyBtn: 'Leave lobby',
+    leaveLobbyConfirm: 'Really leave the lobby? You will end up back on the start page and need the lobby code to rejoin. Use “Play again” for another round.',
+    leaveLobbyConfirmGuest: 'Really leave the lobby? You will end up back on the start page and need the lobby code to rejoin.',
     youLabel: 'You',
     swapCardHint: (name) => `${name} — swap`,
+    deckQrBtn: 'QR code',
+    deckQrTitle: (name) => `${name}'s deck`,
+    deckQrHint: 'Scan with your phone to open this deck directly in Clash Royale.',
+    deckQrCopy: 'Copy link',
+    deckQrCopied: 'Copied!',
+    deckQrOpenApp: 'Open in Clash Royale',
+    deckQrUnavailable: (names) => `No deck link yet — missing card data for: ${names}`,
   },
 };
 
@@ -401,6 +608,89 @@ function PlayerAvatar({ avatarId, size = 28, className = '', isAdmin = false }) 
   );
 }
 
+
+// Flaggen als Inline-SVG statt Emoji: Windows besitzt keine Glyphen für Flaggen-Emojis
+// (🇩🇪 würde dort nur als Buchstabenkasten "DE" erscheinen).
+function FlagDE({ size = 18 }) {
+  return (
+    <svg viewBox="0 0 60 30" width={size} height={size * 0.6} className="rounded-[2px] shrink-0" aria-hidden="true">
+      <rect width="60" height="10" fill="#000000" />
+      <rect y="10" width="60" height="10" fill="#DD0000" />
+      <rect y="20" width="60" height="10" fill="#FFCE00" />
+    </svg>
+  );
+}
+
+function FlagGB({ size = 18 }) {
+  return (
+    <svg viewBox="0 0 60 30" width={size} height={size * 0.6} className="rounded-[2px] shrink-0" aria-hidden="true">
+      <rect width="60" height="30" fill="#012169" />
+      <path d="M0,0 L60,30 M60,0 L0,30" stroke="#FFFFFF" strokeWidth="6" />
+      <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" strokeWidth="3" />
+      <path d="M30,0 V30 M0,15 H60" stroke="#FFFFFF" strokeWidth="10" />
+      <path d="M30,0 V30 M0,15 H60" stroke="#C8102E" strokeWidth="6" />
+    </svg>
+  );
+}
+
+const LANGUAGES = [
+  { id: 'de', label: 'Deutsch', Flag: FlagDE },
+  { id: 'en', label: 'English', Flag: FlagGB },
+];
+
+// Sprachauswahl als Flaggen-Dropdown — deutlich schneller zu finden als ein DE/EN-Kürzel
+function LanguageSelect({ lang, onChange, className = '' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const current = LANGUAGES.find(l => l.id === lang) || LANGUAGES[0];
+  const CurrentFlag = current.Flag;
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={lang === 'de' ? 'Sprache wählen' : 'Choose language'}
+        title={lang === 'de' ? 'Sprache wählen' : 'Choose language'}
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white transition-colors">
+        <CurrentFlag />
+        <ChevronDown size={12} className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div role="listbox" className="absolute right-0 top-full mt-1.5 z-50 min-w-[9.5rem] panel-strong overflow-hidden py-1">
+          {LANGUAGES.map(l => {
+            const Flag = l.Flag;
+            const active = l.id === lang;
+            return (
+              <button key={l.id} role="option" aria-selected={active}
+                onClick={() => { onChange(l.id); setOpen(false); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                  active ? 'bg-white/[0.06] text-white font-semibold' : 'text-white/60 hover:bg-white/[0.04] hover:text-white'}`}>
+                <Flag />
+                <span className="flex-1 text-left">{l.label}</span>
+                {active && <Check size={13} className="text-violet-400 shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const USED_BY_FALLBACK = [
   { name: 'BigSpin', login: 'bigspincr', avatar: null, live: false },
@@ -454,8 +744,17 @@ function UsedByPanel({ t }) {
               <span className="text-sm font-semibold text-white/80 hover:text-white transition-colors truncate flex-1">
                 {s.name}
               </span>
-              <span className={`w-2 h-2 rounded-full shrink-0 ${s.live ? 'bg-red-500' : 'bg-white/15'}`}
-                title={s.live ? 'Live' : 'Offline'} />
+              {s.live ? (
+                <span className="flex items-center gap-1.5 shrink-0" title="Live">
+                  <span className="text-[9px] font-bold text-red-500 tracking-wider">LIVE</span>
+                  <span className="relative w-2 h-2">
+                    <span className="absolute inset-0 rounded-full bg-red-500 animate-ping" />
+                    <span className="absolute inset-0 rounded-full bg-red-500" />
+                  </span>
+                </span>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-white/15 shrink-0" title="Offline" />
+              )}
             </a>
           </li>
         ))}
@@ -471,7 +770,7 @@ export default function ClashRoyalePage() {
   const avatarRef      = useRef('');
   const [phase, setPhase] = useState('hub');
   const [hubTab, setHubTab] = useState('create'); // 'create' | 'join'
-  const [modesOpen, setModesOpen] = useState(false); // Hub: "Modi anschauen"-Ausklapper, standardmäßig eingeklappt
+  const [infoTab, setInfoTab] = useState('modes'); // Hub-Infobereich: 'modes' | 'faq' | 'support'
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [playerName, setPlayerName] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -492,8 +791,8 @@ export default function ClashRoyalePage() {
   // Ref für Socket-Handler (registriert einmalig beim Mount) — vermeidet stale closure bei Sprachwechsel
   const langRef = useRef(lang);
   useEffect(() => { langRef.current = lang; }, [lang]);
-  const toggleLang = () => {
-    const next = lang === 'de' ? 'en' : 'de';
+  const changeLang = (next) => {
+    if (next !== 'de' && next !== 'en') return;
     setLang(next);
     try {
       const url = new URL(window.location.href);
@@ -535,6 +834,11 @@ export default function ClashRoyalePage() {
   const [rushDenied, setRushDenied] = useState(null);
   // Karten-Evolution-specific
   const [evoState, setEvoState] = useState(null);
+  // Angel-Royale-specific
+  const [fishState, setFishState] = useState(null);
+  const [fishDenied, setFishDenied] = useState(null);
+  // Dunkles-Labyrinth-specific
+  const [mazeState, setMazeState] = useState(null);
 
   // Keep refs in sync for use inside socket handlers (avoid stale closure)
   useEffect(() => { playerNameRef.current = playerName; }, [playerName]);
@@ -605,7 +909,7 @@ export default function ClashRoyalePage() {
       setPhase('game'); setGameOver(null);
     });
     socket.on('clash:lobbyUpdate', setLobbyData);
-    socket.on('clash:gameStart', () => { setPhase('game'); setGameOver(null); setAuctionState(null); setAuctionReveal(null); setMyBid(null); setBingoState(null); setCarouselState(null); setRushState(null); setRushDenied(null); setMotherWitchVisit(null); setEvoState(null); });
+    socket.on('clash:gameStart', () => { setPhase('game'); setGameOver(null); setAuctionState(null); setAuctionReveal(null); setMyBid(null); setBingoState(null); setCarouselState(null); setRushState(null); setRushDenied(null); setMotherWitchVisit(null); setEvoState(null); setFishState(null); setFishDenied(null); setMazeState(null); });
     socket.on('clash:gameState', setGameState);
     socket.on('clash:timerTick', ({ remaining }) => {
       setGameState(prev => prev ? { ...prev, timerRemaining: remaining } : prev);
@@ -638,6 +942,12 @@ export default function ClashRoyalePage() {
       };
     }));
     socket.on('clash:rush:denied', (d) => setRushDenied({ ...d, ts: Date.now() }));
+    // Angel Royale: voller State bei jedem Spawn/Fang/Despawn — Bewegung rechnen die Clients selbst
+    socket.on('clash:fish:state', (data) => setFishState({ ...data, clientReceivedAt: Date.now() }));
+    socket.on('clash:fish:denied', (d) => setFishDenied({ ...d, ts: Date.now() }));
+    // Dunkles Labyrinth: voller State bei Item-/Draft-Ereignissen, leichter Positions-Sync alle 100ms
+    socket.on('clash:maze:state', (data) => setMazeState({ ...data, clientReceivedAt: Date.now() }));
+    socket.on('clash:maze:pos', ({ positions }) => setMazeState(prev => prev ? { ...prev, positions } : prev));
     socket.on('clash:historyData', setHistoryData);
     socket.on('clash:motherWitch:visit', (data) => setMotherWitchVisit(data));
     socket.on('clash:motherWitch:expire', () => setMotherWitchVisit(null));
@@ -656,6 +966,7 @@ export default function ClashRoyalePage() {
       setGameOver(null); setGameState(null);
       setAuctionState(null); setAuctionReveal(null); setMyBid(null);
       setBingoState(null); setCarouselState(null); setRushState(null); setRushDenied(null); setMotherWitchVisit(null);
+      setFishState(null); setFishDenied(null); setMazeState(null);
       setCodeHidden(true); setLinkHidden(true);
       if (cancelled) {
         setError(langRef.current === 'en' ? 'The game was cancelled by the host/admin.' : 'Das Spiel wurde vom Host/Admin abgebrochen.');
@@ -677,6 +988,7 @@ export default function ClashRoyalePage() {
       setPhase('hub'); setLobbyData(null); setGameState(null); setGameOver(null);
       setAuctionState(null); setAuctionReveal(null); setMyBid(null);
       setBingoState(null); setCarouselState(null); setMotherWitchVisit(null);
+      setFishState(null); setFishDenied(null); setMazeState(null);
       setError(langRef.current === 'en' ? 'Your session was taken over in another tab/window.' : 'Deine Sitzung wurde in einem anderen Tab/Fenster übernommen.');
       setTimeout(() => setError(''), 5000);
     });
@@ -747,6 +1059,7 @@ export default function ClashRoyalePage() {
       socketRef.current?.connect();
       setPhase('hub'); setLobbyData(null); setGameState(null); setGameOver(null); setIsHost(false);
       setAuctionState(null); setAuctionReveal(null); setMyBid(null); setBingoState(null); setCarouselState(null); setRushState(null); setRushDenied(null); setMotherWitchVisit(null);
+      setFishState(null); setFishDenied(null); setMazeState(null);
       setCodeHidden(true); setLinkHidden(true);
     };
     if (lobbyData?.code && socketRef.current?.connected) {
@@ -786,15 +1099,34 @@ export default function ClashRoyalePage() {
     emit('clash:carousel:pick', { code: lobbyData?.code, slotIdx }), [emit, lobbyData?.code]);
   const handleSetCarouselCards = (count) => emit('clash:setCarouselCards', { code: lobbyData?.code, count });
   const handleSetCarouselReveal = (mode) => emit('clash:setCarouselReveal', { code: lobbyData?.code, mode });
-  const handleEvoAction = useCallback((slotIdx, tokenType, direction) =>
-    emit('clash:evo:action', { code: lobbyData?.code, slotIdx, tokenType, direction }), [emit, lobbyData?.code]);
+  const handleEvoAction = useCallback((slotIdx, direction) =>
+    emit('clash:evo:action', { code: lobbyData?.code, slotIdx, direction }), [emit, lobbyData?.code]);
   const handleEvoResolvePending = useCallback((chosenIndex) =>
     emit('clash:evo:resolvePending', { code: lobbyData?.code, chosenIndex }), [emit, lobbyData?.code]);
-  const handleSetEvolutionTimer = (seconds) => emit('clash:setEvolutionTimer', { code: lobbyData?.code, seconds });
+  const handleEvoLock = useCallback((slotIdx) =>
+    emit('clash:evo:lock', { code: lobbyData?.code, slotIdx }), [emit, lobbyData?.code]);
+  const handleEvoSabotage = useCallback((targetPlayerId, slotIdx) =>
+    emit('clash:evo:sabotage', { code: lobbyData?.code, targetPlayerId, slotIdx }), [emit, lobbyData?.code]);
+  const handleSetEvolutionPickSeconds = (seconds) => emit('clash:setEvolutionPickSeconds', { code: lobbyData?.code, seconds });
+  const handleSetEvolutionSabotageSeconds = (seconds) => emit('clash:setEvolutionSabotageSeconds', { code: lobbyData?.code, seconds });
   const handleSetEvolutionTokens = (count) => emit('clash:setEvolutionTokens', { code: lobbyData?.code, count });
-  const handleSetEvolutionSuperTokens = (count) => emit('clash:setEvolutionSuperTokens', { code: lobbyData?.code, count });
   const handleRushBuy = useCallback((slotIdx, seq) =>
     emit('clash:rush:buy', { code: lobbyData?.code, slotIdx, seq }), [emit, lobbyData?.code]);
+  const handleFishCatch = useCallback((fishId) =>
+    emit('clash:fish:catch', { code: lobbyData?.code, fishId }), [emit, lobbyData?.code]);
+  const handleSetFishSpawnRate = (rate) => emit('clash:setFishSpawnRate', { code: lobbyData?.code, rate });
+  const handleSetFishCooldown = (seconds) => emit('clash:setFishCooldown', { code: lobbyData?.code, seconds });
+  const handleMazeMove = useCallback((dir) =>
+    emit('clash:maze:move', { code: lobbyData?.code, dir }), [emit, lobbyData?.code]);
+  const handleMazePickup = useCallback(() =>
+    emit('clash:maze:pickup', { code: lobbyData?.code }), [emit, lobbyData?.code]);
+  const handleMazeDraftPick = useCallback((choice) =>
+    emit('clash:maze:draftPick', { code: lobbyData?.code, choice }), [emit, lobbyData?.code]);
+  const handleMazeJokerPick = useCallback((cardId) =>
+    emit('clash:maze:jokerPick', { code: lobbyData?.code, cardId }), [emit, lobbyData?.code]);
+  const handleMazeCloseDraft = useCallback(() =>
+    emit('clash:maze:closeDraft', { code: lobbyData?.code }), [emit, lobbyData?.code]);
+  const handleSetMazeTime = (seconds) => emit('clash:setMazeTime', { code: lobbyData?.code, seconds });
   const handleSetRushMarketSize = (count) => emit('clash:setRushMarketSize', { code: lobbyData?.code, count });
   const handleSetRushLifetime = (seconds) => emit('clash:setRushLifetime', { code: lobbyData?.code, seconds });
   const handleSetRushShowElixir = (show) => emit('clash:setRushShowElixir', { code: lobbyData?.code, show });
@@ -825,6 +1157,14 @@ export default function ClashRoyalePage() {
     setModeMenuOpen(false);
     if (mode !== lobbyData?.mode) emit('clash:setMode', { code: lobbyData?.code, mode });
   };
+  // Fertige Einstellungs-Sätze des aktuellen Modus (Werte liefert der Server)
+  const modePresets = lobbyData?.modePresets || [];
+  const handleApplyPreset = (presetId) => emit('clash:applyModePreset', { code: lobbyData?.code, presetId });
+  // Welches Preset entspricht dem aktuellen Zustand? Verglichen wird gegen die Werte, die
+  // der Server für diese Lobby berechnet hat (cardsPerRound hängt z.B. an der Spielerzahl).
+  const activePresetId = modePresets.find(p =>
+    Object.entries(p.values).every(([key, value]) => lobbyData?.[key] === value)
+  )?.id || null;
   const handleOpenHistory = () => {
     emit('clash:requestHistory', { code: lobbyData?.code });
     setHistoryOpen(true);
@@ -843,9 +1183,18 @@ export default function ClashRoyalePage() {
   if (phase === 'hub') return (
     <div className="page-fade h-full overflow-y-auto custom-scrollbar">
       <SEO
-        title="Clash Royale Minigames"
-        description={lang === 'en' ? 'Multiplayer minigames in Clash Royale style.' : 'Multiplayer Minigames im Clash Royale Stil.'}
-        path="/clash-royale" />
+        title={t.seoTitle}
+        description={t.seoDesc}
+        keywords={t.seoKeywords}
+        path="/clash-royale"
+        search={lang === 'en' ? '?lang=en' : ''}
+        lang={lang}
+        alternates={[
+          { hrefLang: 'de', search: '' },
+          { hrefLang: 'en', search: '?lang=en' },
+          { hrefLang: 'x-default', search: '' },
+        ]}
+        jsonLd={buildClashJsonLd(t, lang)} />
 
       <div className="w-full px-2 md:px-4 xl:px-8 py-4 md:py-8">
         <div className="max-w-[105rem] mx-auto xl:grid xl:grid-cols-[18rem_1fr_18rem] xl:gap-x-10">
@@ -853,20 +1202,18 @@ export default function ClashRoyalePage() {
         {/* Hero — bleibt in der mittleren Spalte, exakt so breit wie der Content darunter */}
         <div className="flex flex-col items-center text-center gap-4 mb-10 xl:col-start-2 xl:row-start-1">
           <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
-              <Crown size={26} />
+            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 overflow-hidden shrink-0">
+              <img src={archerQueenImg} alt="" className="w-full h-full object-cover object-top" />
             </span>
-            <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight">Clash Royale</h1>
+            <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight">Clash Royale Draft Minigames</h1>
           </div>
           <p className="text-white/50 text-sm md:text-base">{t.subtitle}</p>
+          {/* Einleitung: erklärt Besuchern in zwei Sätzen, was die Seite ist — und ist
+              gleichzeitig der einzige Fließtext, den Suchmaschinen oben auf der Seite finden */}
+          <p className="text-white/40 text-sm leading-relaxed max-w-2xl">{t.introText}</p>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleLang}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white text-xs font-bold transition-colors"
-              title={lang === 'de' ? 'Switch to English' : 'Auf Deutsch wechseln'}>
-              {lang === 'de' ? 'EN' : 'DE'}
-            </button>
+            <LanguageSelect lang={lang} onChange={changeLang} />
             <button
               onClick={() => setStreamerCfgOpen(true)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white text-xs font-bold transition-colors"
@@ -891,9 +1238,11 @@ export default function ClashRoyalePage() {
 
         <div className="flex flex-col gap-6 xl:col-start-2 xl:row-start-2">
 
-          {/* Lobby erstellen / beitreten — volle Breite */}
-          <div className="panel-strong overflow-hidden h-fit">
-            <div className="grid grid-cols-2 border-b border-white/10">
+          {/* Lobby erstellen / beitreten — die eigentliche Aktion der Seite und deshalb der
+              einzige hervorgehobene Block (Violett-Ring + Schatten). Alles darunter sind nur
+              Informationen und liegt zusammengefasst in EINEM ruhigen Panel. */}
+          <div className="panel-strong overflow-hidden h-fit ring-1 ring-violet-500/25 shadow-xl shadow-black/40">
+            <div className="grid grid-cols-2 border-b border-white/10 bg-violet-500/[0.06]">
               <button onClick={() => setHubTab('create')}
                 className={`flex items-center justify-center gap-2 py-3.5 text-sm font-bold transition-colors border-b-2 ${
                   hubTab === 'create' ? 'border-violet-400 text-white bg-white/[0.04]' : 'border-transparent text-white/40 hover:text-white/70'
@@ -971,33 +1320,56 @@ export default function ClashRoyalePage() {
                   {t.joinBtn}
                 </button>
               )}
+              <p className="text-white/30 text-xs text-center">{t.playNowHint}</p>
 
               {error && <p className="text-red-400 text-sm">{error}</p>}
             </div>
           </div>
 
-          {/* Modi anschauen — ausklappbar, standardmäßig eingeklappt */}
+          {/* Infobereich — Spielmodi, FAQ und Support lagen vorher als drei einzelne Panels
+              untereinander und ließen die Seite überladen wirken. Jetzt EIN ruhiges Panel mit
+              Reitern.
+              WICHTIG: Alle drei Inhalte bleiben immer im DOM und werden nur per CSS
+              ausgeblendet. Als bedingtes {tab === … && …} wären Modusbeschreibungen und FAQ
+              für Suchmaschinen unsichtbar — genau das ist der Seiteninhalt, auf den die
+              strukturierten Daten aus buildClashJsonLd() verweisen. */}
           <div className="panel-strong overflow-hidden">
-            <button onClick={() => setModesOpen(v => !v)}
-              className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-white/[0.03] transition-colors">
-              <span className="flex items-center gap-2.5 text-sm font-bold text-white">
-                <LayoutGrid size={15} className="text-violet-300" />
-                {t.viewModes}
-              </span>
-              <ChevronDown size={16} className={`text-white/40 transition-transform ${modesOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {modesOpen && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5 pt-0">
+            <div className="flex border-b border-white/10 overflow-x-auto">
+              {[
+                { id: 'modes', label: t.tabModes, icon: LayoutGrid, badge: t.tabModesCount(MODES.filter(m => m.available).length) },
+                { id: 'faq', label: t.tabFaq, icon: HelpCircle },
+                { id: 'support', label: t.tabSupport, icon: MessageCircle },
+              ].map(item => {
+                const TabIcon = item.icon;
+                const active = infoTab === item.id;
+                return (
+                  <button key={item.id} onClick={() => setInfoTab(item.id)} aria-selected={active}
+                    className={`flex items-center gap-2 px-4 sm:px-5 py-3.5 text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${
+                      active ? 'border-violet-400 text-white bg-white/[0.03]' : 'border-transparent text-white/40 hover:text-white/70'
+                    }`}>
+                    <TabIcon size={14} />
+                    {item.label}
+                    {item.badge && (
+                      <span className="text-[10px] font-semibold text-white/30 tabular-nums">{item.badge}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Spielmodi */}
+            <div className={infoTab === 'modes' ? 'block' : 'hidden'}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-5">
                 {MODES.map(m => {
                   const Icon = m.icon;
                   const desc = modeDescFor(m.id, lang);
                   return (
-                    <div key={m.id} className="panel p-5">
-                      <div className="flex items-center gap-3 mb-2.5">
-                        <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
-                          <Icon size={16} />
+                    <div key={m.id} className="rounded-lg bg-black/25 border border-white/5 p-4">
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                          <Icon size={15} />
                         </span>
-                        <span className="text-white font-semibold text-sm">{modeNameFor(m.id, lang)}</span>
+                        <h3 className="text-white font-semibold text-sm leading-tight">{modeNameFor(m.id, lang)}</h3>
                       </div>
                       {!m.available && (
                         <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-white/5 text-white/35 mb-2">
@@ -1009,23 +1381,39 @@ export default function ClashRoyalePage() {
                   );
                 })}
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Support-Kanäle — ganz unten */}
-          <div className="panel p-5">
-            <h2 className="text-white font-semibold text-sm mb-3">{t.support}</h2>
-            <div className="flex flex-wrap gap-3">
-              <a href="https://twitch.tv/vnmvalentin" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-black/25 border border-white/10 hover:border-[#9146FF]/50 hover:bg-[#9146FF]/10 transition-colors">
-                <img src="https://cdn.simpleicons.org/twitch/9146FF" alt="Twitch" className="w-5 h-5 shrink-0" />
-                <span className="text-white font-semibold text-sm">twitch.tv/vnmvalentin</span>
-              </a>
-              <a href="https://discord.gg/ecRJSx2R6x" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-black/25 border border-white/10 hover:border-[#5865F2]/50 hover:bg-[#5865F2]/10 transition-colors">
-                <img src="https://cdn.simpleicons.org/discord/5865F2" alt="Discord" className="w-5 h-5 shrink-0" />
-                <span className="text-white font-semibold text-sm">{t.joinDiscord}</span>
-              </a>
+            {/* Häufige Fragen — sichtbarer Inhalt zu den FAQPage-Daten aus buildClashJsonLd().
+                Google verlangt für das FAQ-Rich-Result, dass Frage und Antwort auch auf der
+                Seite selbst stehen. */}
+            <div className={infoTab === 'faq' ? 'block' : 'hidden'}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 p-5">
+                {(t.faqItems || []).map((item, i) => (
+                  <div key={i}>
+                    <h3 className="text-white/90 font-semibold text-sm mb-1.5">{item.q}</h3>
+                    <p className="text-white/40 text-xs leading-relaxed">{item.a}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Support */}
+            <div className={infoTab === 'support' ? 'block' : 'hidden'}>
+              <div className="p-5 space-y-3">
+                <p className="text-white/40 text-xs leading-relaxed max-w-xl">{t.supportIntro}</p>
+                <div className="flex flex-wrap gap-3">
+                  <a href="https://discord.gg/ecRJSx2R6x" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-black/25 border border-white/10 hover:border-[#5865F2]/50 hover:bg-[#5865F2]/10 transition-colors">
+                    <img src="https://cdn.simpleicons.org/discord/5865F2" alt="Discord" className="w-5 h-5 shrink-0" />
+                    <span className="text-white font-semibold text-sm">{t.joinDiscord}</span>
+                  </a>
+                  <a href="https://twitch.tv/vnmvalentin" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-black/25 border border-white/10 hover:border-[#9146FF]/50 hover:bg-[#9146FF]/10 transition-colors">
+                    <img src="https://cdn.simpleicons.org/twitch/9146FF" alt="Twitch" className="w-5 h-5 shrink-0" />
+                    <span className="text-white font-semibold text-sm">twitch.tv/vnmvalentin</span>
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1059,9 +1447,13 @@ export default function ClashRoyalePage() {
         ? activePlayers.length * currentCarouselCards
         : lobbyData?.mode === 'elixir-rush'
           ? activePlayers.length * 8 + currentRushMarket
-          : lobbyData?.mode === 'card-evolution'
-            ? 0 // Start ist reine Wildcards — kein Mindestpool nötig, echte Karten kommen erst on-demand
-            : 8 * effCardsPerRound;
+          : lobbyData?.mode === 'angel-royale'
+            ? activePlayers.length * 8 + 6
+            : lobbyData?.mode === 'dark-maze'
+              ? activePlayers.length * 8 + 2
+              : lobbyData?.mode === 'card-evolution'
+                ? 0 // Start ist reine Wildcards — kein Mindestpool nötig, echte Karten kommen erst on-demand
+                : 8 * effCardsPerRound;
     const poolTooSmall = lobbyData?.mode !== 'shadow-carousel' && lobbyData?.mode !== 'card-evolution' && poolSize < requiredPool;
     const canStart = canControlLobby && activePlayers.length >= 2 && !carouselTooMany && !poolTooSmall;
     const currentTimer = lobbyData?.timerSeconds || 60;
@@ -1070,15 +1462,20 @@ export default function ClashRoyalePage() {
     const currentShowElixir = lobbyData?.showElixir ?? false;
     const currentMotherWitch = lobbyData?.motherWitchEnabled ?? false;
     const currentGridSize = lobbyData?.gridSize || 11;
-    const currentEvolutionTimer = lobbyData?.evolutionTimerSeconds || 0;
-    const currentEvolutionTokens = lobbyData?.evolutionTokensStart || 15;
-    const currentEvolutionSuperTokens = lobbyData?.evolutionSuperTokensStart ?? 3;
+    const currentEvolutionPickSeconds = lobbyData?.evolutionPickSeconds || 30;
+    const currentEvolutionSabotageSeconds = lobbyData?.evolutionSabotageSeconds || 20;
+    const currentEvolutionTokens = lobbyData?.evolutionTokensStart || 30;
+    const currentFishSpawnRate = lobbyData?.fishSpawnRate ?? 1;
+    const currentFishCooldown = lobbyData?.fishCatchCooldown ?? 3;
+    const currentMazeTime = lobbyData?.mazeTimeSeconds || 120;
     const currentModeInfo = MODES.find(m => m.id === lobbyData?.mode) || MODES[0];
     const CurrentModeIcon = currentModeInfo.icon;
 
     return (
       <div className="h-full overflow-y-auto custom-scrollbar">
-        <SEO title="Lobby · Clash Royale" description={t.lobbySeoDesc} path="/clash-royale" />
+        {/* Lobby-/Spielansicht liegt auf derselben URL wie der Hub, hat aber keinen
+            eigenständigen Inhalt für die Suche — noindex, damit Google die Hubseite indexiert */}
+        <SEO title="Lobby · Clash Royale" description={t.lobbySeoDesc} path="/clash-royale" lang={lang} noindex />
 
         {/* Kartenpool-Modal — Karten global vom Draft ausschließen */}
         {excludeOpen && (
@@ -1087,6 +1484,7 @@ export default function ClashRoyalePage() {
             canEdit={canControlLobby}
             onToggle={handleToggleExcludeCard}
             onReset={() => handleSetExcludedCards([])}
+            onSetExcluded={handleSetExcludedCards}
             onClose={() => setExcludeOpen(false)}
             lang={lang}
           />
@@ -1141,12 +1539,7 @@ export default function ClashRoyalePage() {
               <h1 className="font-display text-2xl font-bold text-white">{t.waitingForPlayers}</h1>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={toggleLang}
-                className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white text-xs font-bold transition-colors"
-                title={lang === 'de' ? 'Switch to English' : 'Auf Deutsch wechseln'}>
-                {lang === 'de' ? 'EN' : 'DE'}
-              </button>
+              <LanguageSelect lang={lang} onChange={changeLang} />
               {(lobbyData?.historyCount > 0) && (
                 <button onClick={handleOpenHistory} title={t.history}
                   className="p-2 border border-white/10 rounded-lg hover:border-amber-500/40 hover:text-amber-400 transition-colors text-white/40 flex items-center gap-1.5 text-xs font-semibold px-3">
@@ -1311,6 +1704,43 @@ export default function ClashRoyalePage() {
                 <p className="text-white/30 text-xs mt-2">{modeDescFor(currentModeInfo.id, lang)}</p>
               </div>
 
+              {/* Voreinstellungen — ein Klick setzt alle Regler dieses Modus */}
+              {modePresets.length > 0 && (
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Sparkles size={13} className="text-white/40" />
+                    {t.presets}
+                  </p>
+                  {/* flex statt fester Spaltenzahl: Modi mit nur einer Einstellung bringen
+                      auch nur ein Preset mit (siehe Backend/clashRoyale/core/modePresets.js) */}
+                  <div className="flex gap-2">
+                    {modePresets.map(p => {
+                      const meta = PRESET_META[p.id];
+                      if (!meta) return null;
+                      const PresetIcon = meta.icon;
+                      const active = activePresetId === p.id;
+                      const copy = meta[lang] || meta.de;
+                      return (
+                        <button key={p.id} onClick={() => handleApplyPreset(p.id)} title={copy.desc}
+                          className={`flex-1 flex flex-col items-center gap-1.5 px-2 py-2.5 rounded-lg border text-xs font-semibold transition-colors ${
+                            active
+                              ? 'bg-violet-500 text-white border-violet-500'
+                              : 'bg-black/30 text-white/50 border-white/5 hover:border-white/20 hover:text-white'
+                          }`}>
+                          <PresetIcon size={14} className={active ? 'text-white' : 'text-white/40'} />
+                          {copy.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-white/30 text-xs mt-2">
+                    {activePresetId
+                      ? (PRESET_META[activePresetId][lang] || PRESET_META[activePresetId].de).desc
+                      : `${t.presetCustom} — ${t.presetsNote}`}
+                  </p>
+                </div>
+              )}
+
               {/* Kartenpool — gilt global für alle Spielmodi */}
               <div>
                 <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
@@ -1336,8 +1766,9 @@ export default function ClashRoyalePage() {
                 )}
               </div>
 
-              {/* Timer — Elixir Rush läuft in Echtzeit, Karten-Evolution hat einen Gesamt- statt Zug-Timer */}
-              {lobbyData?.mode !== 'elixir-rush' && lobbyData?.mode !== 'card-evolution' && (
+              {/* Timer — Elixir Rush/Angel Royale laufen in Echtzeit, Karten-Evolution und das
+                  Labyrinth haben eigene Gesamt-Timer statt eines Zug-Timers */}
+              {!['elixir-rush', 'card-evolution', 'angel-royale', 'dark-maze'].includes(lobbyData?.mode) && (
               <div>
                 <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
                   <Clock size={13} className="text-white/40" />
@@ -1429,24 +1860,125 @@ export default function ClashRoyalePage() {
                 </div>
               </>)}
 
-              {lobbyData?.mode === 'card-evolution' && (<>
-                {/* Gesamt-Timer fürs Picken (statt Pro-Zug-Timer) */}
+              {lobbyData?.mode === 'angel-royale' && (<>
+                {/* Spawn-Rate (cardsPerSecond) */}
                 <div>
                   <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
-                    <Clock size={13} className="text-cyan-400" />
-                    {t.evolutionTimer}
+                    <FishingRod size={13} className="text-sky-400" />
+                    {t.fishSpawnRate}
                   </p>
                   <div className="flex gap-2 flex-wrap">
-                    {[60, 90, 0].map(s => (
-                      <button key={s} onClick={() => handleSetEvolutionTimer(s)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border ${
-                          currentEvolutionTimer === s ? 'bg-cyan-500 text-white border-cyan-500'
+                    {[0.5, 0.75, 1, 1.5, 2].map(r => (
+                      <button key={r} onClick={() => handleSetFishSpawnRate(r)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border tabular-nums ${
+                          currentFishSpawnRate === r ? 'bg-sky-500 text-white border-sky-500'
                           : 'bg-black/30 text-white/50 border-white/5 hover:border-white/20 hover:text-white'}`}>
-                        {s === 0 ? t.unlimited : `${s}s`}
+                        {r}
                       </button>
                     ))}
                   </div>
-                  <p className="text-white/30 text-xs mt-2">{t.evolutionTimerNote}</p>
+                  <p className="text-white/30 text-xs mt-2">{t.fishSpawnRateNote}</p>
+                </div>
+
+                {/* Angel-Cooldown (catchCooldown) */}
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Clock size={13} className="text-sky-400" />
+                    {t.fishCooldown}
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[0, 1, 2, 3, 5].map(s => (
+                      <button key={s} onClick={() => handleSetFishCooldown(s)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border ${
+                          currentFishCooldown === s ? 'bg-sky-500 text-white border-sky-500'
+                          : 'bg-black/30 text-white/50 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                        {s}s
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-white/30 text-xs mt-2">{t.fishCooldownNote}</p>
+                </div>
+              </>)}
+
+              {lobbyData?.mode === 'dark-maze' && (
+                /* Zeitlimit (timeLimitInSeconds) */
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Clock size={13} className="text-violet-400" />
+                    {t.mazeTime}
+                  </p>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {[60, 90, 120, 180, 240].map(s => (
+                      <button key={s} onClick={() => handleSetMazeTime(s)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border ${
+                          currentMazeTime === s ? 'bg-violet-500 text-white border-violet-500'
+                          : 'bg-black/30 text-white/50 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                        {s}s
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1">
+                      <input type="number" min={30} max={600} placeholder="Custom"
+                        className="w-20 bg-black/30 border border-white/10 rounded-lg px-1 py-1.5 text-white text-sm text-center focus:border-violet-500 outline-none tabular-nums placeholder-gray-600"
+                        onKeyDown={e => e.key === 'Enter' && e.target.value && handleSetMazeTime(Math.max(30, Math.min(600, Number(e.target.value))))}
+                        onBlur={e => e.target.value && handleSetMazeTime(Math.max(30, Math.min(600, Number(e.target.value))))} />
+                      <span className="text-white/30 text-xs">s</span>
+                    </div>
+                  </div>
+                  <p className="text-white/30 text-xs mt-2">{t.mazeTimeNote}</p>
+                </div>
+              )}
+
+              {lobbyData?.mode === 'card-evolution' && (<>
+                {/* Pick-Runden Zeit (Runde 1 & 3) */}
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Clock size={13} className="text-cyan-400" />
+                    {t.evolutionPickTimer}
+                  </p>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {[30, 40].map(s => (
+                      <button key={s} onClick={() => handleSetEvolutionPickSeconds(s)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border ${
+                          currentEvolutionPickSeconds === s ? 'bg-cyan-500 text-white border-cyan-500'
+                          : 'bg-black/30 text-white/50 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                        {s}s
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1">
+                      <input type="number" min={5} max={120} placeholder="Custom"
+                        className="w-20 bg-black/30 border border-white/10 rounded-lg px-1 py-1.5 text-white text-sm text-center focus:border-cyan-500 outline-none tabular-nums placeholder-gray-600"
+                        onKeyDown={e => e.key === 'Enter' && e.target.value && handleSetEvolutionPickSeconds(Math.max(5, Math.min(120, Number(e.target.value))))}
+                        onBlur={e => e.target.value && handleSetEvolutionPickSeconds(Math.max(5, Math.min(120, Number(e.target.value))))} />
+                      <span className="text-white/30 text-xs">s</span>
+                    </div>
+                  </div>
+                  <p className="text-white/30 text-xs mt-2">{t.evolutionPickTimerNote}</p>
+                </div>
+
+                {/* Sabotage-Runden Zeit (Runde 2) */}
+                <div>
+                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Clock size={13} className="text-amber-400" />
+                    {t.evolutionSabotageTimer}
+                  </p>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {[20, 30].map(s => (
+                      <button key={s} onClick={() => handleSetEvolutionSabotageSeconds(s)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border ${
+                          currentEvolutionSabotageSeconds === s ? 'bg-amber-500 text-white border-amber-500'
+                          : 'bg-black/30 text-white/50 border-white/5 hover:border-white/20 hover:text-white'}`}>
+                        {s}s
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1">
+                      <input type="number" min={5} max={60} placeholder="Custom"
+                        className="w-20 bg-black/30 border border-white/10 rounded-lg px-1 py-1.5 text-white text-sm text-center focus:border-amber-500 outline-none tabular-nums placeholder-gray-600"
+                        onKeyDown={e => e.key === 'Enter' && e.target.value && handleSetEvolutionSabotageSeconds(Math.max(5, Math.min(60, Number(e.target.value))))}
+                        onBlur={e => e.target.value && handleSetEvolutionSabotageSeconds(Math.max(5, Math.min(60, Number(e.target.value))))} />
+                      <span className="text-white/30 text-xs">s</span>
+                    </div>
+                  </div>
+                  <p className="text-white/30 text-xs mt-2">{t.evolutionSabotageTimerNote}</p>
                 </div>
 
                 {/* Start-Tokens */}
@@ -1462,20 +1994,6 @@ export default function ClashRoyalePage() {
                       onBlur={e => e.target.value && handleSetEvolutionTokens(Math.max(1, Math.min(99, Number(e.target.value))))} />
                   </div>
                   <p className="text-white/30 text-xs mt-2">{t.evolutionTokensNote}</p>
-                </div>
-
-                <div>
-                  <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
-                    <Sparkles size={13} className="text-amber-400" />
-                    {t.evolutionSuperTokens}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <input type="number" min={0} max={20} defaultValue={currentEvolutionSuperTokens} key={`super-${currentEvolutionSuperTokens}`}
-                      className="w-20 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white text-sm text-center focus:border-cyan-500 outline-none tabular-nums"
-                      onKeyDown={e => e.key === 'Enter' && e.target.value && handleSetEvolutionSuperTokens(Math.max(0, Math.min(20, Number(e.target.value))))}
-                      onBlur={e => e.target.value && handleSetEvolutionSuperTokens(Math.max(0, Math.min(20, Number(e.target.value))))} />
-                  </div>
-                  <p className="text-white/30 text-xs mt-2">{t.evolutionSuperTokensNote}</p>
                 </div>
               </>)}
 
@@ -1745,7 +2263,7 @@ export default function ClashRoyalePage() {
   const gameModeName = modeNameFor(lobbyData?.mode || 'snake', lang);
   if (phase === 'game') return (
     <div className="h-full flex flex-col overflow-hidden bg-[#0a0a0d]">
-      <SEO title={gameModeName} description={t.gameSeoDesc} path="/clash-royale" />
+      <SEO title={gameModeName} description={t.gameSeoDesc} path="/clash-royale" lang={lang} noindex />
       <div className="shrink-0 h-12 bg-black/25 border-b border-white/10 flex items-center px-4 gap-3">
         {lobbyData?.mode === 'auction'
           ? <Droplets size={15} className="text-purple-400 shrink-0" />
@@ -1757,16 +2275,15 @@ export default function ClashRoyalePage() {
                 ? <Zap size={15} className="text-fuchsia-400 shrink-0" />
                 : lobbyData?.mode === 'card-evolution'
                   ? <Sparkles size={15} className="text-cyan-400 shrink-0" />
-                  : <Worm size={15} className="text-violet-400 shrink-0" />}
+                  : lobbyData?.mode === 'angel-royale'
+                    ? <FishingRod size={15} className="text-sky-400 shrink-0" />
+                    : lobbyData?.mode === 'dark-maze'
+                      ? <Flashlight size={15} className="text-violet-400 shrink-0" />
+                      : <Worm size={15} className="text-violet-400 shrink-0" />}
         <span className="text-white font-semibold text-sm">{gameModeName}</span>
         <div className="flex-1" />
         {error && <span className="text-red-400 text-xs animate-pulse">{error}</span>}
-        <button
-          onClick={toggleLang}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white text-xs font-bold transition-colors"
-          title={lang === 'de' ? 'Switch to English' : 'Auf Deutsch wechseln'}>
-          {lang === 'de' ? 'EN' : 'DE'}
-        </button>
+        <LanguageSelect lang={lang} onChange={changeLang} />
         {isClashAdmin && (
           <button onClick={() => setShowAdminPanel(v => !v)} title={t.adminControlTitle}
             className={`p-1.5 rounded-lg border transition-colors ${showAdminPanel ? 'bg-violet-500/20 border-violet-500/40 text-violet-300' : 'border-white/10 text-white/40 hover:text-violet-300 hover:border-violet-500/30'}`}>
@@ -1845,6 +2362,27 @@ export default function ClashRoyalePage() {
             myPlayerId={myId || socketRef.current?.id}
             onAction={handleEvoAction}
             onResolvePending={handleEvoResolvePending}
+            onLock={handleEvoLock}
+            onSabotage={handleEvoSabotage}
+            lang={lang}
+          />
+        ) : lobbyData?.mode === 'angel-royale' ? (
+          <AngelRoyale
+            fishState={fishState}
+            myPlayerId={myId || socketRef.current?.id}
+            onCatch={handleFishCatch}
+            denied={fishDenied}
+            lang={lang}
+          />
+        ) : lobbyData?.mode === 'dark-maze' ? (
+          <DarkMaze
+            mazeState={mazeState}
+            myPlayerId={myId || socketRef.current?.id}
+            onMove={handleMazeMove}
+            onPickup={handleMazePickup}
+            onDraftPick={handleMazeDraftPick}
+            onJokerPick={handleMazeJokerPick}
+            onCloseDraft={handleMazeCloseDraft}
             lang={lang}
           />
         ) : gameState ? (
@@ -1873,31 +2411,161 @@ const RARITY_LABEL = { Common: 'Gewöhnlich', Rare: 'Selten', Epic: 'Episch', Le
 
 const CARD_EXCLUSION_I18N = {
   de: {
-    title: 'Karten ausschließen',
+    title: 'Kartenpool',
+    tabCards: 'Karten',
+    tabPresets: 'Presets',
     searchPlaceholder: 'Karte suchen…',
     excludedInDraft: (excluded, inDraft) => `${excluded} ausgeschlossen · ${inDraft} im Draft`,
     reset: 'Zurücksetzen',
     editNote: 'Klicke auf eine Karte, um sie aus dem Draft zu entfernen — gilt für alle Spielmodi dieser Lobby.',
     readOnlyNote: 'Nur der Host (oder Admin) kann den Kartenpool ändern.',
     noneFound: 'Keine Karte gefunden.',
+    presetsIntro: 'Ein Preset setzt den Kartenpool auf eine feste Kartenauswahl — alle übrigen Karten werden ausgeschlossen.',
+    presetsEmpty: 'Noch keine Presets vorhanden.',
+    presetsLoading: 'Lade Presets…',
+    presetsError: 'Presets konnten nicht geladen werden.',
+    presetApply: 'Laden',
+    presetActive: 'Aktiv',
+    presetAllCards: 'Alle Karten',
+    presetAllCardsDesc: 'Kein Ausschluss — der komplette Kartensatz ist im Draft.',
+    presetCardCount: (n) => `${n} Karten`,
+    presetAuto: 'Automatisch erkannt',
+    presetAutoNote: () => 'Aus echten Spielen dieses offiziellen Modus erkannt — enthält die Karten der letzten 14 Tage und zieht nach, wenn Supercell den Pool ändert.',
+    presetMissing: (n) => `${n} Karten des Presets kennt diese Seite nicht und werden übersprungen.`,
   },
   en: {
-    title: 'Exclude cards',
+    title: 'Card pool',
+    tabCards: 'Cards',
+    tabPresets: 'Presets',
     searchPlaceholder: 'Search cards…',
     excludedInDraft: (excluded, inDraft) => `${excluded} excluded · ${inDraft} in the draft`,
     reset: 'Reset',
     editNote: 'Click a card to remove it from the draft — applies to every game mode in this lobby.',
     readOnlyNote: 'Only the host (or an admin) can change the card pool.',
     noneFound: 'No cards found.',
+    presetsIntro: 'A preset sets the card pool to a fixed selection — every other card is excluded.',
+    presetsEmpty: 'No presets available yet.',
+    presetsLoading: 'Loading presets…',
+    presetsError: 'Presets could not be loaded.',
+    presetApply: 'Load',
+    presetActive: 'Active',
+    presetAllCards: 'All cards',
+    presetAllCardsDesc: 'No exclusions — the complete card set is in the draft.',
+    presetCardCount: (n) => `${n} cards`,
+    presetAuto: 'Auto-detected',
+    presetAutoNote: () => 'Detected from real games of this official mode — contains the cards seen in the last 14 days and follows along when Supercell changes the pool.',
+    presetMissing: (n) => `${n} cards of this preset are unknown to this site and get skipped.`,
   },
 };
 
-function CardExclusionModal({ excluded, canEdit, onToggle, onReset, onClose, lang = 'de' }) {
+// Presets-Tab: fertige Kartenpools laden. Quelle 'auto' = aus echten Battlelogs erkannter
+// Kartenpool eines offiziellen Clash-Royale-Spezialmodus, 'admin' = selbst angelegt.
+function PresetsTab({ excluded, canEdit, onApplyPreset, L }) {
+  const [state, setState] = React.useState({ status: 'loading', presets: [] });
+
+  React.useEffect(() => {
+    let alive = true;
+    fetch('/api/clash/presets')
+      .then(r => r.json())
+      .then(d => { if (alive) setState({ status: 'ready', presets: d.presets || [] }); })
+      .catch(() => { if (alive) setState({ status: 'error', presets: [] }); });
+    return () => { alive = false; };
+  }, []);
+
+  const validIds = React.useMemo(() => new Set(ALL_CARDS.map(c => c.id)), []);
+  const excludedSet = new Set(excluded);
+  // Der aktuelle Pool = alle Karten minus die ausgeschlossenen
+  const poolIds = ALL_CARDS.filter(c => !excludedSet.has(c.id)).map(c => c.id);
+  const isActive = (cardIds) => {
+    const known = cardIds.filter(id => validIds.has(id));
+    return known.length === poolIds.length && known.every(id => !excludedSet.has(id));
+  };
+
+  if (state.status === 'loading') return <p className="text-white/40 text-sm text-center py-10">{L.presetsLoading}</p>;
+  if (state.status === 'error') return <p className="text-red-400 text-sm text-center py-10">{L.presetsError}</p>;
+
+  const entries = [
+    { presetId: '__all__', name: L.presetAllCards, description: L.presetAllCardsDesc, cardIds: ALL_CARDS.map(c => c.id), source: 'builtin' },
+    ...state.presets,
+  ];
+
+  return (
+    <div className="space-y-3">
+      <p className="text-white/30 text-xs">{L.presetsIntro}</p>
+      {state.presets.length === 0 && (
+        <p className="text-white/30 text-xs italic">{L.presetsEmpty}</p>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {entries.map(preset => {
+          const known = preset.cardIds.filter(id => validIds.has(id));
+          const missing = preset.cardIds.length - known.length;
+          const active = isActive(preset.cardIds);
+          return (
+            <div key={preset.presetId}
+              className={`panel p-4 flex flex-col gap-2.5 ${active ? 'border-violet-500/40' : ''}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-white font-semibold text-sm truncate">{preset.name}</p>
+                  <p className="text-white/40 text-xs mt-0.5">{L.presetCardCount(known.length)}</p>
+                </div>
+                {preset.source === 'auto' && (
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-cyan-300 border border-cyan-400/30 bg-cyan-500/10 px-1.5 py-0.5 rounded-md shrink-0">
+                    {L.presetAuto}
+                  </span>
+                )}
+              </div>
+
+              {preset.description && (
+                <p className="text-white/40 text-xs leading-relaxed">{preset.description}</p>
+              )}
+              {preset.source === 'auto' && (
+                <p className="text-white/25 text-[11px] leading-relaxed">{L.presetAutoNote()}</p>
+              )}
+              {missing > 0 && <p className="text-amber-400/70 text-[11px]">{L.presetMissing(missing)}</p>}
+
+              {/* Kartenvorschau — die ersten Karten des Pools */}
+              <div className="flex flex-wrap gap-1">
+                {known.slice(0, 14).map(id => (
+                  <img key={id} src={`${CARD_CDN}${id}.png`} alt="" loading="lazy" decoding="async"
+                    className="w-6 h-7 object-cover rounded-[3px] border border-white/10"
+                    onError={e => { e.target.style.display = 'none'; }} />
+                ))}
+                {known.length > 14 && (
+                  <span className="text-white/30 text-[10px] self-center ml-1">+{known.length - 14}</span>
+                )}
+              </div>
+
+              {active ? (
+                <span className="flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-lg border border-violet-500/40 bg-violet-500/10 text-violet-300">
+                  <Check size={13} /> {L.presetActive}
+                </span>
+              ) : (
+                <button onClick={() => onApplyPreset(known)} disabled={!canEdit || known.length === 0}
+                  className="text-xs font-bold py-2 rounded-lg border border-white/10 text-white/60 hover:text-white hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  {L.presetApply}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CardExclusionModal({ excluded, canEdit, onToggle, onReset, onSetExcluded, onClose, lang = 'de' }) {
   const [query, setQuery] = React.useState('');
+  const [tab, setTab] = React.useState('cards'); // 'cards' | 'presets'
   const excludedSet = new Set(excluded);
   const q = query.trim().toLowerCase();
   const filtered = q ? ALL_CARDS.filter(c => c.name.toLowerCase().includes(q)) : ALL_CARDS;
   const L = CARD_EXCLUSION_I18N[lang] || CARD_EXCLUSION_I18N.de;
+
+  // Preset laden = alles außer den Preset-Karten ausschließen
+  const applyPreset = (cardIds) => {
+    const keep = new Set(cardIds);
+    onSetExcluded(ALL_CARDS.filter(c => !keep.has(c.id)).map(c => c.id));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
@@ -1908,6 +2576,31 @@ function CardExclusionModal({ excluded, canEdit, onToggle, onReset, onClose, lan
           </span>
           <button onClick={onClose} className="text-white/40 hover:text-white p-1"><X size={14} /></button>
         </div>
+
+        {/* Karten einzeln sperren oder ein fertiges Preset laden */}
+        <div className="flex border-b border-white/5 shrink-0">
+          {[
+            { id: 'cards', label: L.tabCards, icon: LayoutGrid },
+            { id: 'presets', label: L.tabPresets, icon: Sparkles },
+          ].map(item => {
+            const TabIcon = item.icon;
+            return (
+              <button key={item.id} onClick={() => setTab(item.id)}
+                className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-colors border-b-2 ${
+                  tab === item.id ? 'border-violet-400 text-white bg-white/[0.03]' : 'border-transparent text-white/40 hover:text-white/70'
+                }`}>
+                <TabIcon size={13} />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === 'presets' ? (
+          <div className="overflow-y-auto custom-scrollbar p-5">
+            <PresetsTab excluded={excluded} canEdit={canEdit} onApplyPreset={applyPreset} L={L} />
+          </div>
+        ) : (<>
         <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 shrink-0 flex-wrap">
           <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 flex-1 min-w-[180px] focus-within:border-violet-500 transition-colors">
             <Search size={13} className="text-white/30 shrink-0" />
@@ -1966,6 +2659,7 @@ function CardExclusionModal({ excluded, canEdit, onToggle, onReset, onClose, lan
           })}
           {filtered.length === 0 && <p className="text-white/40 text-sm text-center py-8">{L.noneFound}</p>}
         </div>
+        </>)}
       </div>
     </div>
   );
@@ -2082,6 +2776,81 @@ function AdminCardSwapModal({ player, deckIndex, onPick, onClose, lang = 'de', t
 // ── Game Over ─────────────────────────────────────────────────────────────
 const SIZE_COLS = { s: 'grid-cols-4', m: 'grid-cols-3', l: 'grid-cols-2' };
 
+// Kleiner Button neben dem Spielernamen — öffnet den QR-Code-Dialog für dessen Deck. Bleibt
+// deaktiviert, wenn buildDeckLink() für mindestens eine Karte im Deck keine Supercell-ID kennt
+// (z.B. sehr neue Karten) — dann gibt es lieber gar keinen Link statt einen falschen.
+function DeckQrButton({ player, t, onOpen }) {
+  const deckLink = buildDeckLink(player.deck);
+  return (
+    <button onClick={() => deckLink.ok && onOpen(player, deckLink)} disabled={!deckLink.ok}
+      title={deckLink.ok ? t.deckQrBtn : t.deckQrUnavailable(deckLink.missing.join(', '))}
+      className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
+        deckLink.ok ? 'border-white/10 text-white/40 hover:text-violet-300 hover:border-violet-400/40' : 'border-white/5 text-white/15 cursor-not-allowed'
+      }`}>
+      <QrCode size={13} />
+    </button>
+  );
+}
+
+// ── Deck-QR-Code-Dialog: Scannen leitet direkt in die Clash-Royale-App zum Deck-Import weiter ──
+function DeckQrModal({ player, deckLink, onClose, t }) {
+  const [qrDataUrl, setQrDataUrl] = React.useState('');
+  const [copied, setCopied] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!deckLink.ok) return;
+    let cancelled = false;
+    QRCode.toDataURL(deckLink.url, { width: 240, margin: 1 })
+      .then(url => { if (!cancelled) setQrDataUrl(url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [deckLink.ok, deckLink.url]);
+
+  const copyLink = () => {
+    if (!deckLink.ok) return;
+    navigator.clipboard.writeText(deckLink.url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="panel-strong w-full max-w-sm shadow-2xl shadow-black/60" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+          <span className="text-white font-bold flex items-center gap-2">
+            <QrCode size={15} className="text-violet-400" /> {t.deckQrTitle(player.name)}
+          </span>
+          <button onClick={onClose} className="text-white/40 hover:text-white p-1"><X size={14} /></button>
+        </div>
+        <div className="p-5 flex flex-col items-center gap-4">
+          {deckLink.ok ? (
+            <>
+              <p className="text-white/40 text-xs text-center">{t.deckQrHint}</p>
+              <div className="bg-white rounded-lg p-3 w-[240px] h-[240px] flex items-center justify-center shrink-0">
+                {qrDataUrl ? <img src={qrDataUrl} alt="QR" className="w-full h-full" /> : <span className="text-black/30 text-xs">…</span>}
+              </div>
+              <div className="flex items-center gap-2 w-full">
+                <button onClick={copyLink}
+                  className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-white/10 text-white/70 hover:text-white hover:border-white/30 transition-colors">
+                  {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                  {copied ? t.deckQrCopied : t.deckQrCopy}
+                </button>
+                <a href={deckLink.url} target="_blank" rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors">
+                  <ExternalLink size={14} /> {t.deckQrOpenApp}
+                </a>
+              </div>
+            </>
+          ) : (
+            <p className="text-amber-300 text-sm text-center py-6">{t.deckQrUnavailable(deckLink.missing.join(', '))}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Deck-Karte im Endscreen — für Admins klickbar, um sie auszutauschen
 function DeckCardTile({ card, canSwap, onSwap, t }) {
   const img = (
@@ -2106,8 +2875,16 @@ function GameOverScreen({ gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, 
   const [size, setSize] = React.useState('m');
   const [layout, setLayout] = React.useState('grid'); // 'grid' | 'list'
   const [swapTarget, setSwapTarget] = React.useState(null); // { player, deckIndex }
+  const [qrTarget, setQrTarget] = React.useState(null); // { player, deckLink }
 
   const activePlayers = (gameOver.players || []).filter(p => !p.isSpectator);
+
+  // Verlassen ist nicht rückholbar (zurück auf die Startseite, Wiedereintritt nur mit Code) —
+  // deshalb einmal nachfragen. Der Hinweis auf "Erneut spielen" steht nur beim Host, weil nur
+  // er eine neue Runde starten kann.
+  const confirmLeave = () => {
+    if (window.confirm(isHost ? t.leaveLobbyConfirm : t.leaveLobbyConfirmGuest)) onLeave();
+  };
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar p-6">
@@ -2123,6 +2900,9 @@ function GameOverScreen({ gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, 
           lang={lang}
           t={t}
         />
+      )}
+      {qrTarget && (
+        <DeckQrModal player={qrTarget.player} deckLink={qrTarget.deckLink} onClose={() => setQrTarget(null)} t={t} />
       )}
       <div className="max-w-6xl mx-auto space-y-5">
 
@@ -2164,21 +2944,26 @@ function GameOverScreen({ gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, 
             <div className="flex items-center gap-2">
               {isHost ? (
                 <>
+                  {/* "Erneut spielen" ist die Hauptaktion — es führt zurück in die Lobby.
+                      Das Verlassen daneben ist bewusst zurückhaltend gestaltet und fragt nach. */}
                   <button onClick={onRestart}
-                    className="bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold px-5 py-2 rounded-lg transition-colors text-sm">
+                    className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2 rounded-lg transition-colors text-sm flex items-center gap-2">
+                    <Repeat size={14} />
                     {t.playAgain}
                   </button>
-                  <button onClick={onLeave}
-                    className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2 rounded-lg transition-colors text-sm">
-                    {t.backToLobby}
+                  <button onClick={confirmLeave}
+                    className="bg-transparent border border-white/10 text-white/50 hover:text-red-300 hover:border-red-500/40 hover:bg-red-500/10 font-bold px-5 py-2 rounded-lg transition-colors text-sm flex items-center gap-2">
+                    <LogOut size={14} />
+                    {t.leaveLobbyBtn}
                   </button>
                 </>
               ) : (
                 <div className="flex items-center gap-3">
                   <span className="text-white/40 text-sm">{t.waitingForHost}</span>
-                  <button onClick={onLeave}
-                    className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white font-bold px-5 py-2 rounded-lg transition-colors text-sm">
-                    {t.endAnyway}
+                  <button onClick={confirmLeave}
+                    className="bg-transparent border border-white/10 text-white/50 hover:text-red-300 hover:border-red-500/40 hover:bg-red-500/10 font-bold px-5 py-2 rounded-lg transition-colors text-sm flex items-center gap-2">
+                    <LogOut size={14} />
+                    {t.leaveLobbyBtn}
                   </button>
                 </div>
               )}
@@ -2193,6 +2978,7 @@ function GameOverScreen({ gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, 
                 <div className="flex items-center gap-2.5">
                   <PlayerAvatar avatarId={p.avatar} size={36} />
                   <span className="text-white font-bold text-sm truncate flex-1">{p.name}</span>
+                  <DeckQrButton player={p} t={t} onOpen={(player, deckLink) => setQrTarget({ player, deckLink })} />
                   {p.id === myId && <span className="text-[10px] text-violet-400 font-semibold shrink-0">{t.youLabel}</span>}
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -2211,6 +2997,7 @@ function GameOverScreen({ gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, 
                 <div className="flex items-center gap-2.5 mb-3">
                   <PlayerAvatar avatarId={p.avatar} size={32} />
                   <span className="text-white font-bold text-sm truncate flex-1">{p.name}</span>
+                  <DeckQrButton player={p} t={t} onOpen={(player, deckLink) => setQrTarget({ player, deckLink })} />
                   {p.id === myId && <span className="text-[10px] text-violet-400 font-semibold shrink-0">{t.youLabel}</span>}
                   <span className="text-white/30 text-xs shrink-0">{p.deck.length}/8</span>
                 </div>

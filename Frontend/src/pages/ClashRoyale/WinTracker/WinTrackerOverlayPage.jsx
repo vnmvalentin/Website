@@ -33,7 +33,9 @@ export default function WinTrackerOverlayPage() {
     return () => { alive = false; clearInterval(t); };
   }, [overlayKey]);
 
-  if (!data || !data.hasAccount) return null;
+  // OBS-Browserquelle — gehört nicht in die Google-Suche (zusätzlich per robots.txt gesperrt)
+  const noIndex = <meta name="robots" content="noindex, nofollow" />;
+  if (!data || !data.hasAccount) return noIndex;
 
   const { playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, daily, last5, settings } = data;
   const badgeUrl = leagueIconUrl(leagueNumber);
@@ -49,6 +51,7 @@ export default function WinTrackerOverlayPage() {
 
   return (
     <div style={styles.page}>
+      {noIndex}
       <div style={cardStyle}>
         {/* Kopf: Liga-Symbol + Name/Platzierung + großer Trophäen-/Medaillenwert */}
         <div style={styles.headerRow}>

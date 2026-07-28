@@ -1,19 +1,158 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<!--
+  URLs bewusst OHNE abschließenden Slash — identisch zum <link rel="canonical"> aus
+  Frontend/src/components/SEO.jsx. Weichen Sitemap und Canonical voneinander ab, meldet die
+  Google Search Console die Seiten als "Alternative Seite mit richtigem kanonischem Tag"
+  und indexiert sie nicht. Overlay-/Admin-/Login-URLs stehen absichtlich nicht hier drin
+  (siehe robots.txt).
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
   <url>
     <loc>https://vnmvalentin.de</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+
+  <!-- ── Clash Royale ─────────────────────────────────────────────────────── -->
   <url>
-    <loc>https://vnmvalentin.de/WinChallenge-Overlay</loc>
+    <loc>https://vnmvalentin.de/clash-royale</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://vnmvalentin.de/clash-royale"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://vnmvalentin.de/clash-royale?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://vnmvalentin.de/clash-royale"/>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/clash-royale?lang=en</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://vnmvalentin.de/clash-royale"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://vnmvalentin.de/clash-royale?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://vnmvalentin.de/clash-royale"/>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/clash</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://vnmvalentin.de/Bingo</loc>
+    <loc>https://vnmvalentin.de/clash-royale/win-tracker</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://vnmvalentin.de/nuzlocke</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Kategorien ───────────────────────────────────────────────────────── -->
+  <url>
+    <loc>https://vnmvalentin.de/fun</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/community</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/tools</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/contact</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- ── Tools & Spiele ───────────────────────────────────────────────────── -->
+  <url>
     <loc>https://vnmvalentin.de/tutorial/ytm-bot</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/Bingo</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/WinChallenge-Overlay</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/connect4</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/adventures</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/garden</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/Giveaways</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/Abstimmungen</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/updates</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- ── Discord Bot ──────────────────────────────────────────────────────── -->
+  <url>
+    <loc>https://vnmvalentin.de/discord-bot</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/discord-bot/privacy</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/discord-bot/terms</loc>
+    <lastmod>2026-07-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

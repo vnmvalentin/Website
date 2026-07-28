@@ -116,7 +116,7 @@ export default function DiscordBotPrivacyPage() {
             <List items={[
               '„Taverne" (serverübergreifender Chat): Schreibst du in einem dafür konfigurierten Kanal, werden dein Nachrichtentext, angehängte Dateien, dein Anzeigename und Avatar live per Webhook an alle anderen verknüpften Server weitergeleitet.',
               'Image-Only-Kanäle: Nachrichten werden auf Bildanhänge geprüft; Nachrichten ohne Bild werden automatisch gelöscht.',
-              'Spaß-Befehle (z. B. /pp, /iq, /größe, /aussehen, /ship, /coinflip, /connect3, /magische_miesmuschel): Nutzer-ID/Name der aufrufenden bzw. erwähnten Person wird nur zur Erzeugung der Antwort gelesen, nicht gespeichert.',
+              'Spaß-Befehle (z. B. /pp, /iq, /größe, /gewicht, /aussehen, /ship, /coinflip, /connect3, /magische_miesmuschel): Nutzer-ID/Name der aufrufenden bzw. erwähnten Person wird nur zur Erzeugung der Antwort gelesen, nicht gespeichert.',
               'Nachrichten-Statistiken: Es werden ausschließlich aggregierte Nachrichtenzähler pro Kanal und Tag gespeichert — ohne Inhalte und ohne Zuordnung zu einzelnen Nutzer:innen.',
             ]} />
 

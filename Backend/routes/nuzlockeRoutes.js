@@ -2,7 +2,9 @@
 const express = require("express");
 const { nanoid } = require("nanoid");
 const db = require("../lib/bannedCardsStore");
-const { ALL_CARDS } = require("./clashRoyaleRoutes");
+// Direkt aus dem Datenmodul statt über clashRoyaleRoutes — hier wird nur der Kartenpool
+// gebraucht, nicht die komplette Minigame-Engine.
+const { ALL_CARDS } = require("../clashRoyale/core/cards");
 
 const CARD_BY_ID = new Map(ALL_CARDS.map(c => [c.id, c]));
 const DECK_SIZE = 8;

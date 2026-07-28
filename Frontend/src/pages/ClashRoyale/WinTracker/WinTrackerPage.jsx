@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useState, useCallback } from 'react';
 import {
-  Trophy, Plus, X, RefreshCw, Trash2, Copy, Check, Eye, EyeOff, Twitch, TrendingUp,
+  Trophy, Plus, X, RefreshCw, Trash2, Copy, Check, Eye, EyeOff, TrendingUp,
 } from 'lucide-react';
+import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import SEO from '../../../components/SEO';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
 import { leagueIconUrl, leagueName } from '../data/leagueIcons';
@@ -90,13 +91,13 @@ function LeagueBadge({ leagueNumber, polRank, size = 40 }) {
 }
 
 // ── Accounts-Übersicht ───────────────────────────────────────────────────────
-function AccountsTab({ accounts, trackMode, onActivate, onDelete, onAdd, onRefresh, refreshingId }) {
+function AccountsTab({ accounts, onActivate, onDelete, onAdd, onRefresh, onTrackModeChange, refreshingId }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-white font-bold">Deine Accounts</h2>
-          <p className="text-gray-500 text-xs mt-0.5">Der aktive Account speist dein Win-Tracker-Overlay.</p>
+          <p className="text-gray-500 text-xs mt-0.5">Der aktive Account speist dein Win-Tracker-Overlay — jeder Account trackt seinen eigenen Wert.</p>
         </div>
         <button onClick={onAdd}
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors shrink-0">
@@ -147,7 +148,7 @@ function AccountsTab({ accounts, trackMode, onActivate, onDelete, onAdd, onRefre
 
               <div className="flex items-center gap-1.5 mb-3">
                 <Trophy size={14} className="text-amber-400" />
-                {trackMode === 'trophies' ? (
+                {acc.trackMode === 'trophies' ? (
                   <>
                     <span className="font-black text-lg tabular-nums text-white">{fmt(acc.trophies)}</span>
                     <span className="text-gray-600 text-xs">Trophäen · Beste {fmt(acc.bestTrophies)}</span>
@@ -158,6 +159,24 @@ function AccountsTab({ accounts, trackMode, onActivate, onDelete, onAdd, onRefre
                     <span className="text-gray-600 text-xs">Medaillen (Season)</span>
                   </>
                 )}
+              </div>
+
+              {/* Getrackter Wert — pro Account, nicht global */}
+              <div className="mb-3">
+                <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5">Getrackter Wert</p>
+                <div className="flex gap-1.5">
+                  {[{ key: 'medals', label: 'Medaillen' }, { key: 'trophies', label: 'Trophäen' }].map(opt => (
+                    <button key={opt.key} onClick={() => onTrackModeChange(acc, opt.key)}
+                      title={opt.key === 'medals' ? 'Punktestand der laufenden Ranked-Season' : 'Lifetime-Trophäen aus dem Profil'}
+                      className={`flex-1 text-xs font-bold py-1.5 rounded-lg border transition-colors ${
+                        acc.trackMode === opt.key
+                          ? 'bg-violet-600 border-violet-500 text-white'
+                          : 'border-white/10 text-gray-500 hover:border-white/25 hover:text-gray-300'
+                      }`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex items-center gap-3 text-xs text-gray-500 border-t border-white/5 pt-3">
@@ -272,10 +291,12 @@ function SettingsTab({ overlayKey, settings, onSettingsChange, apiConfigured }) 
       </div>
 
       <div className="panel p-5 space-y-3">
-        <h3 className="text-white font-bold text-sm">Getrackter Wert</h3>
+        <h3 className="text-white font-bold text-sm">Getrackter Wert — Voreinstellung</h3>
         <p className="text-gray-500 text-xs leading-relaxed">
           <span className="text-violet-300">Medaillen</span> ist dein Punktestand der laufenden Ranked-Season (Path of Legend) —
           startet jede Season bei 0. <span className="text-violet-300">Trophäen</span> ist dein Lifetime-Stand aus dem Profil.
+          Diese Auswahl gilt für <span className="text-white">neu verknüpfte</span> Accounts — bestehende Accounts stellst du
+          einzeln im Tab <span className="text-white">Accounts</span> um.
         </p>
         <TrackModeSwitch value={settings.trackMode} onChange={toggle('trackMode')} />
       </div>
@@ -374,6 +395,19 @@ export default function WinTrackerPage() {
     } catch (e) { flashError(e.message); }
   };
 
+  const handleTrackModeChange = async (acc, trackMode) => {
+    if (acc.trackMode === trackMode) return;
+    // Optimistisch umschalten, damit der angezeigte Wert sofort mitwechselt
+    setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, trackMode } : a));
+    try {
+      const res = await api.setAccountTrackMode(acc.accountId, trackMode);
+      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? res.account : a));
+    } catch (e) {
+      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, trackMode: acc.trackMode } : a));
+      flashError(e.message);
+    }
+  };
+
   const handleRefresh = async (acc) => {
     setRefreshingId(acc.accountId);
     try {
@@ -385,7 +419,34 @@ export default function WinTrackerPage() {
 
   return (
     <div className="page-fade max-w-6xl mx-auto">
-      <SEO title="Win Tracker Overlay" description="OBS-Overlay für Clash Royale: Liga, Trophäen, Tagesstatistik und die letzten Matches." path="/clash-royale/win-tracker" />
+      <SEO
+        title="Clash Royale Win Tracker Overlay für OBS"
+        description="Kostenloses OBS-Overlay für Clash Royale: zeigt Liga, Medaillen oder Trophäen, Tagesgewinn seit 00:00 Uhr, Win-Rate und die letzten 5 Spiele — live aus der offiziellen Clash-Royale-API, pro Account einstellbar."
+        keywords="Clash Royale Overlay, Clash Royale OBS Overlay, Clash Royale Win Tracker, Trophäen Tracker, Medaillen Tracker, Path of Legend Overlay, Clash Royale Streaming Tool"
+        path="/clash-royale/win-tracker"
+        jsonLd={[
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebApplication',
+            name: 'Clash Royale Win Tracker Overlay',
+            url: 'https://vnmvalentin.de/clash-royale/win-tracker',
+            description: 'OBS-Overlay für Clash Royale mit Liga, Medaillen/Trophäen, Tagesstatistik und den letzten Matches.',
+            applicationCategory: 'UtilitiesApplication',
+            operatingSystem: 'Web browser',
+            isAccessibleForFree: true,
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+            author: { '@type': 'Person', name: 'vnmvalentin', url: 'https://vnmvalentin.de' },
+          },
+          {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Startseite', item: 'https://vnmvalentin.de' },
+              { '@type': 'ListItem', position: 2, name: 'Clash Royale', item: 'https://vnmvalentin.de/clash' },
+              { '@type': 'ListItem', position: 3, name: 'Win Tracker Overlay', item: 'https://vnmvalentin.de/clash-royale/win-tracker' },
+            ],
+          },
+        ]} />
 
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold text-white tracking-tight">Win Tracker Overlay</h1>
@@ -400,7 +461,7 @@ export default function WinTrackerPage() {
           <p className="text-gray-500 text-sm mb-5">Melde dich mit Twitch an, um deine Accounts und das Overlay zu verwalten.</p>
           <button onClick={() => login(false)}
             className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-colors">
-            <Twitch size={15} />
+            <TwitchGlyph size={15} />
             Mit Twitch einloggen
           </button>
         </div>
@@ -431,11 +492,11 @@ export default function WinTrackerPage() {
             ) : (
               <AccountsTab
                 accounts={accounts}
-                trackMode={settings.trackMode}
                 onActivate={handleActivate}
                 onDelete={handleDelete}
                 onAdd={() => setAddOpen(true)}
                 onRefresh={handleRefresh}
+                onTrackModeChange={handleTrackModeChange}
                 refreshingId={refreshingId}
               />
             )

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useContext, useMemo, useRef, useCallback } from 'react';
 import {
   Trophy, Plus, X, Search, RefreshCw, Trash2, Copy, Check, Eye, EyeOff,
-  Settings, Users, Minus, ChevronLeft, Dices, Ban, Twitch, ChevronDown, Book
+  Settings, Users, Minus, ChevronLeft, Dices, Ban, ChevronDown, Book
 } from 'lucide-react';
+import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import SEO from '../../../components/SEO';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
 import { ALL_CARDS, RARITY_COLOR, cardImageUrl } from '../data/cards';
@@ -612,7 +613,7 @@ function LeaderboardTab() {
 
               {row.twitchLogin && (
                 <span className="flex items-center gap-1 text-[11px] text-purple-400 shrink-0">
-                  <Twitch size={11} />
+                  <TwitchGlyph size={11} />
                   {row.twitchLogin}
                 </span>
               )}
@@ -811,7 +812,34 @@ export default function NuzlockePage() {
 
   return (
     <div className="page-fade max-w-6xl mx-auto">
-      <SEO title="Clash Royale Nuzlocke" description="Baue dein Deck, dreh das Glücksrad und banne Karten — Nuzlocke-Challenge für Clash Royale." path="/nuzlocke" />
+      <SEO
+        title="Clash Royale Nuzlocke Challenge — Tracker & Bann-Glücksrad"
+        description="Die Nuzlocke-Challenge für Clash Royale: Verliere ein Match, dreh das Glücksrad — die getroffene Karte ist für den Rest des Runs gebannt. Mit Deck-Verwaltung, Bann-Verlauf und OBS-Overlay für gebannte Karten."
+        keywords="Clash Royale Nuzlocke, Nuzlocke Challenge, Clash Royale Challenge, gebannte Karten Overlay, Clash Royale Glücksrad, Clash Royale Run"
+        path="/nuzlocke"
+        jsonLd={[
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebApplication',
+            name: 'Clash Royale Nuzlocke',
+            url: 'https://vnmvalentin.de/nuzlocke',
+            description: 'Nuzlocke-Challenge-Tracker für Clash Royale mit Bann-Glücksrad, Deck-Verwaltung und OBS-Overlay.',
+            applicationCategory: 'GameApplication',
+            operatingSystem: 'Web browser',
+            isAccessibleForFree: true,
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+            author: { '@type': 'Person', name: 'vnmvalentin', url: 'https://vnmvalentin.de' },
+          },
+          {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Startseite', item: 'https://vnmvalentin.de' },
+              { '@type': 'ListItem', position: 2, name: 'Clash Royale', item: 'https://vnmvalentin.de/clash' },
+              { '@type': 'ListItem', position: 3, name: 'Nuzlocke', item: 'https://vnmvalentin.de/nuzlocke' },
+            ],
+          },
+        ]} />
 
       {/* Kopfbereich */}
       <div className="mb-6">
@@ -827,7 +855,7 @@ export default function NuzlockePage() {
           <p className="text-gray-500 text-sm mb-5">Melde dich mit Twitch an, um deine Accounts und Bans zu verwalten.</p>
           <button onClick={() => login(false)}
             className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-colors">
-            <Twitch size={15} />
+            <TwitchGlyph size={15} />
             Mit Twitch einloggen
           </button>
         </div>

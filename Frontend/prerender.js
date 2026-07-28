@@ -16,7 +16,13 @@ const routesToPrerender = [
   '/community',
   '/clash',
   '/tools',
-  '/contact'
+  '/contact',
+  // Clash Royale: die Minigame-Hubseite ist die wichtigste Unterseite überhaupt und war
+  // bisher nur client-gerendert — ohne Prerender sieht ein Crawler nur ein leeres <div id="root">.
+  '/clash-royale',
+  '/clash-royale/win-tracker',
+  '/nuzlocke',
+  '/discord-bot',
 ];
 
 (async () => {
@@ -36,8 +42,14 @@ const routesToPrerender = [
     const page = await browser.newPage();
     
     try {
-      // 1. Seite laden
-      await page.goto(`${url}${route.substring(1)}`, { waitUntil: 'networkidle0' });
+      // 1. Seite laden. /clash-royale hält eine offene Socket.io-Verbindung — dort wird
+      // 'networkidle0' nie erreicht, deshalb nach einem Timeout einfach weiterlaufen.
+      await page.goto(`${url}${route.substring(1)}`, { waitUntil: 'networkidle0', timeout: 15000 })
+        .catch(async () => {
+          console.log(`⚠️ networkidle0 Timeout für ${route} — nutze domcontentloaded`);
+          await page.goto(`${url}${route.substring(1)}`, { waitUntil: 'domcontentloaded' });
+          await new Promise(r => setTimeout(r, 2500)); // React Zeit geben, die Metadaten zu setzen
+        });
       
       // 2. Warten bis React 19 Metadaten gesetzt hat
       // Wir prüfen, ob ein Titel vorhanden ist, der NICHT der Default "Home" ist (außer auf Home)
@@ -50,12 +62,24 @@ const routesToPrerender = [
 
       // 3. CLEANUP-SCRIPT (Aggressive Version)
       await page.evaluate((currentRoute) => {
+        // Fallback-Tags aus index.html (data-default) wegräumen, sobald React einen echten
+        // Wert dafür geliefert hat. Wichtig für den Titel: React 19 hängt seinen <title>
+        // VOR den bestehenden, "den letzten behalten" würde also den Fallback wählen.
+        const dropDefaults = (selector) => {
+            const all = Array.from(document.querySelectorAll(selector));
+            const real = all.filter(el => !el.hasAttribute('data-default'));
+            if (real.length > 0) all.forEach(el => { if (el.hasAttribute('data-default')) el.remove(); });
+            else real.forEach(el => el.removeAttribute('data-default'));
+            // Übrig gebliebene data-default-Tags sind der einzige Wert — Markierung entfernen
+            document.querySelectorAll(`${selector}[data-default]`).forEach(el => el.removeAttribute('data-default'));
+        };
+
         // A. TITEL BEREINIGEN
-        const titles = Array.from(document.querySelectorAll('title'));
-        
+        dropDefaults('title');
+
         // SPEZIAL-CHECK: Wenn wir NICHT auf der Startseite sind...
         if (currentRoute !== '/' && currentRoute !== '') {
-            titles.forEach(t => {
+            Array.from(document.querySelectorAll('title')).forEach(t => {
                 // ...lösche den Home-Titel gnadenlos, egal wo er steht
                 if (t.innerText.includes("Home - vnmvalentin")) {
                     t.remove();
@@ -75,13 +99,16 @@ const routesToPrerender = [
         // B. META TAGS BEREINIGEN (Description, OG & Twitter)
         // Wir suchen nach ALLEN möglichen Duplikaten
         const metaTypes = [
-            'name="description"', 
+            'name="description"',
             'name="keywords"',
-            'property="og:title"', 
-            'property="og:description"', 
+            'name="robots"',
+            'property="og:title"',
+            'property="og:description"',
             'property="og:url"',
             'property="og:image"',
             'property="og:type"',
+            'property="og:site_name"',
+            'property="og:locale"',
             'name="twitter:card"',
             'name="twitter:title"',
             'name="twitter:description"',
@@ -89,6 +116,7 @@ const routesToPrerender = [
         ];
         
         metaTypes.forEach(selector => {
+            dropDefaults(`meta[${selector}]`);
             const tags = Array.from(document.querySelectorAll(`meta[${selector}]`));
             if (tags.length > 1) {
                 // Wir behalten nur den LETZTEN Tag (das ist der von React/Unterseite)

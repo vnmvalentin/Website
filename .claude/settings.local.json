@@ -70,7 +70,8 @@
       "Bash(node _shot_temp.cjs \"http://localhost:5174/banned-cards/overlay/LBXetgElDUcLULkK\" \"C:\\\\Users\\\\valen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-valen-VisualStudio-WebsiteProjekt\\\\8b26dc0d-a629-434d-9456-0ab3adf0c0bd\\\\scratchpad\\\\overlay_small1.png\" \"C:\\\\Users\\\\valen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-valen-VisualStudio-WebsiteProjekt\\\\8b26dc0d-a629-434d-9456-0ab3adf0c0bd\\\\scratchpad\\\\overlay_small2.png\")",
       "Bash(node _shot_temp.cjs \"http://localhost:5174/banned-cards/overlay/LBXetgElDUcLULkK\" \"C:\\\\Users\\\\valen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-valen-VisualStudio-WebsiteProjekt\\\\8b26dc0d-a629-434d-9456-0ab3adf0c0bd\\\\scratchpad\\\\overlay_tiny1.png\" \"C:\\\\Users\\\\valen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-valen-VisualStudio-WebsiteProjekt\\\\8b26dc0d-a629-434d-9456-0ab3adf0c0bd\\\\scratchpad\\\\overlay_tiny2.png\")",
       "PowerShell(Get-NetTCPConnection -LocalPort 3001,5174 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"stopped\")",
-      "PowerShell(Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 400; \"done\")"
+      "PowerShell(Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 400; \"done\")",
+      "Bash(npx eslint *)"
     ]
   }
 }
