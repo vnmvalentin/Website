@@ -6,6 +6,7 @@
 
 const registry = require('./registry');
 const { presetsForLobby } = require('./modePresets');
+const { trackingScoreFor } = require('./crTracking');
 
 const lobbies = new Map();
 
@@ -67,6 +68,16 @@ function sanitizeLobby(lobby) {
     // Preset-Wert am Kartenpool gescheitert ist und deshalb nicht exakt übernommen wurde.
     activePresetId: lobby.activePresetId ?? null,
     excludedCards: lobby.excludedCards || [],
+    // Gesperrte Lobby: keine NEUEN Spieler mehr. Bewusst auch für Gäste sichtbar —
+    // wer den Code hat und nicht reinkommt, soll den Grund sehen statt eine
+    // kommentarlose Fehlermeldung.
+    locked: !!lobby.locked,
+    // Damit die Lobby "3/8 Spieler" anzeigen kann, ohne die Zahl im Client zu doppeln
+    maxPlayers: MAX_PLAYERS_PER_LOBBY,
+    // Tracking über die offizielle API (siehe crTracking.js). Die internen Zeitstempel
+    // (cursors) bleiben bewusst hier — der Client braucht nur an/aus und die Stände.
+    trackingEnabled: !!lobby.tracking?.enabled,
+    trackingStartedAt: lobby.tracking?.startedAt ?? null,
     historyCount: lobby.history?.length || 0,
     // Aktiv gegangene Spieler tauchen in der Lobby-Liste nicht mehr auf
     players: lobby.players.filter(p => !p.left).map(p => ({
@@ -74,6 +85,11 @@ function sanitizeLobby(lobby) {
       deck: p.deck || [], elixir: p.elixir ?? (lobby.startElixir ?? 100),
       isSpectator: p.isSpectator ?? false, disconnected: p.disconnected ?? false,
       isAdmin: p.isAdmin ?? false,
+      // Verknüpfter Clash-Royale-Account. Der Tag ist öffentlich (er steht im Spielprofil
+      // und wird zum Zuschauen weitergegeben), enthält also nichts Schützenswertes.
+      crTag: p.crTag || null,
+      crName: p.crName || null,
+      crScore: trackingScoreFor(lobby, p.id),
     })),
     started: lobby.started,
   };

@@ -10,6 +10,7 @@ const { lobbies, shuffle } = require('../core/lobbies');
 const { clearTurnTimer } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
+const { emitClashError } = require('../core/errors');
 
 const EVOLUTION_START_COUNTS = { Common: 3, Rare: 3, Epic: 2 };
 const EVOLUTION_TOKENS_START = 30;
@@ -188,21 +189,21 @@ function evolutionApplyAction(lobby, socket, playerId, slotIdx, direction) {
   const g = lobby.game;
   const ps = g.players[playerId];
   const slot = ps.slots[slotIdx];
-  if (slot.locked) { socket.emit('clash:error', { message: 'Diese Karte ist gelockt.' }); return false; }
+  if (slot.locked) { emitClashError(socket, 'cardLocked'); return false; }
   const rarity = evolutionSlotRarity(slot);
   const targetRarity = evolutionTargetRarity(rarity, direction);
-  if (!targetRarity) { socket.emit('clash:error', { message: 'Diese Karte kann nicht weiter aufgewertet werden.' }); return false; }
+  if (!targetRarity) { emitClashError(socket, 'cannotUpgrade'); return false; }
   const cost = evolutionActionCost(slot);
-  if (ps.tokens < cost) { socket.emit('clash:error', { message: 'Nicht genug Evolution-Tokens.' }); return false; }
+  if (ps.tokens < cost) { emitClashError(socket, 'notEnoughTokens'); return false; }
   // Limit gilt nur beim Erwerb eines NEUEN Champions — ein bereits vorhandener Champion darf
   // sich jederzeit in einen anderen umrollen, ohne dass das die Gesamtzahl erhöht.
   const becomesNewChampion = targetRarity === 'Champion' && rarity !== 'Champion';
   if (becomesNewChampion && evolutionChampionCount(ps) >= CHAMPION_MAX_PER_PLAYER) {
-    socket.emit('clash:error', { message: 'Champion-Limit erreicht (max. 2).' });
+    emitClashError(socket, 'championLimitEvolution');
     return false;
   }
   const drawn = drawFromPool(g, targetRarity, 2);
-  if (!drawn) { socket.emit('clash:error', { message: `Nicht genug ${targetRarity}-Karten im Pool (2 nötig).` }); return false; }
+  if (!drawn) { emitClashError(socket, 'notEnoughOfRarity', { rarity: targetRarity }); return false; }
   ps.tokens -= cost;
   // Der Preis ist mit dem Auslösen bereits bezahlt — der Zähler steigt jetzt, nicht erst bei
   // der Auflösung der Wahl (sonst könnte man während einer offenen Wahl "billiger" nachlegen).
@@ -235,7 +236,7 @@ function evolutionLockSlot(lobby, socket, playerId, slotIdx) {
   const ps = g.players[playerId];
   const slot = ps.slots[slotIdx];
   if (slot.locked) return false;
-  if (ps.tokens < EVOLUTION_LOCK_COST) { socket.emit('clash:error', { message: 'Nicht genug Tokens zum Locken.' }); return false; }
+  if (ps.tokens < EVOLUTION_LOCK_COST) { emitClashError(socket, 'notEnoughTokensLock'); return false; }
   ps.tokens -= EVOLUTION_LOCK_COST;
   slot.locked = true;
   return true;
@@ -254,18 +255,18 @@ function evolutionSabotage(lobby, socket, saboteurId, targetPlayerId, slotIdx) {
   const saboteur = g.players[saboteurId];
   const target = g.players[targetPlayerId];
   const slot = target?.slots[slotIdx];
-  if (!saboteur || !slot || slot.locked) { socket.emit('clash:error', { message: 'Diese Karte ist gelockt.' }); return false; }
-  if (saboteur.tokens < EVOLUTION_SABOTAGE_COST) { socket.emit('clash:error', { message: 'Nicht genug Tokens zum Sabotieren.' }); return false; }
+  if (!saboteur || !slot || slot.locked) { emitClashError(socket, 'cardLocked'); return false; }
+  if (saboteur.tokens < EVOLUTION_SABOTAGE_COST) { emitClashError(socket, 'notEnoughTokensSabotage'); return false; }
   const wasChampion = evolutionSlotRarity(slot) === 'Champion';
   const champCount = evolutionChampionCount(target);
   const eligibleRarities = RARITY_CHAIN.filter(r => {
     if (r === 'Champion' && !wasChampion && champCount >= CHAMPION_MAX_PER_PLAYER) return false;
     return g.pool.some(c => c.rarity === r);
   });
-  if (!eligibleRarities.length) { socket.emit('clash:error', { message: 'Keine Karten mehr im Pool.' }); return false; }
+  if (!eligibleRarities.length) { emitClashError(socket, 'poolEmpty'); return false; }
   const newRarity = eligibleRarities[Math.floor(Math.random() * eligibleRarities.length)];
   const drawn = drawFromPool(g, newRarity, 1);
-  if (!drawn) { socket.emit('clash:error', { message: `Keine ${newRarity}-Karten mehr im Pool.` }); return false; }
+  if (!drawn) { emitClashError(socket, 'noneOfRarityLeft', { rarity: newRarity }); return false; }
   saboteur.tokens -= EVOLUTION_SABOTAGE_COST;
   returnToPool(g, slot.card);
   slot.card = drawn[0];
@@ -375,7 +376,7 @@ registerMode({
       const ps = g.players[socket.id];
       if (!ps || typeof slotIdx !== 'number' || !ps.slots[slotIdx]) return;
       if (direction !== 'up' && direction !== 'down') return;
-      if (g.pending[socket.id]) return socket.emit('clash:error', { message: 'Du hast bereits eine offene Wahl.' });
+      if (g.pending[socket.id]) return emitClashError(socket, 'alreadyPending');
 
       if (!evolutionApplyAction(lobby, socket, socket.id, slotIdx, direction)) return;
 
@@ -406,7 +407,7 @@ registerMode({
       if (!player || player.isSpectator) return;
       const ps = g.players[socket.id];
       if (!ps || typeof slotIdx !== 'number' || !ps.slots[slotIdx]) return;
-      if (g.pending[socket.id]) return socket.emit('clash:error', { message: 'Du hast bereits eine offene Wahl.' });
+      if (g.pending[socket.id]) return emitClashError(socket, 'alreadyPending');
       if (!evolutionLockSlot(lobby, socket, socket.id, slotIdx)) return;
       broadcastEvolutionState(lobby, io);
     },

@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Crown, Check, Flashlight, Search, Clock, Gift, Sparkles, X } from 'lucide-react';
-import { RARITY_COLOR, RARITY_BORDER, ALL_CARDS } from '../data/cards';
+import {
+  Crown, Check, Flashlight, Search, Clock, Gift, Sparkles, X, Eye,
+  Users, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Hand,
+} from 'lucide-react';
+import { RARITY_COLOR, ALL_CARDS } from '../data/cards';
 import ghostImgSrc from '../../../assets/clashRoyale/Royale_Ghost.png';
 import chestImgSrc from '../../../assets/clashRoyale/draft-chest.png';
 import jokerImgSrc from '../../../assets/clashRoyale/UnknownCard.png';
+import { CARD_CROP } from './cardCrop';
+import { ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';
+
+/** Akzentfarbe des Modus. */
+const ACCENT = '#a78bfa';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
@@ -15,6 +23,18 @@ const CARD_BY_ID = Object.fromEntries(ALL_CARDS.map(c => [c.id, c]));
 // und ist bewusst fest: dadurch sieht jeder Spieler gleich viel vom Labyrinth,
 // unabhängig von Monitor und Fenstergröße.
 const VISIBLE_TILES = 10.5;
+
+// Touch-Gerät? Dann kommen Steuerkreuz und Aufheben-Taste über das Labyrinth und die
+// Spielerliste wandert in eine Schublade. Einmal beim Laden ermittelt — der Zeigertyp
+// wechselt während einer Runde nicht.
+const IS_COARSE_POINTER = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(pointer: coarse)').matches
+  : false;
+
+const MOVE_DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+// Ein bestätigter Zug ist nach spätestens dieser Zeit durch — was dann noch offen ist,
+// ist unterwegs verloren gegangen und darf die Vorhersage nicht weiter verschieben.
+const MOVE_ACK_TIMEOUT_MS = 2000;
 
 const MAZE_I18N = {
   de: {
@@ -28,6 +48,9 @@ const MAZE_I18N = {
     spectatorLive: 'Zuschauer — du siehst das ganze Labyrinth ohne Dunkelheit.',
     yourDeckFull: 'Dein Deck ist voll! Warte auf die anderen oder auf den Timer…',
     moveHint: 'WASD / Pfeiltasten: bewegen · Leertaste: aufheben & Kisten öffnen',
+    moveHintTouch: 'Steuerkreuz: bewegen · Hand-Taste: aufheben & Kisten öffnen',
+    players: 'Spieler',
+    pickupBtn: 'Aufheben',
     getReady: 'Bereit machen…',
     mazeOpens: 'Das Labyrinth öffnet für alle gleichzeitig',
     pickupHint: 'Leertaste: Karte aufheben',
@@ -54,6 +77,9 @@ const MAZE_I18N = {
     spectatorLive: 'Spectator — you see the whole maze without darkness.',
     yourDeckFull: 'Your deck is full! Wait for the others or the timer…',
     moveHint: 'WASD / arrow keys: move · Space: pick up & open chests',
+    moveHintTouch: 'D-pad: move · Hand button: pick up & open chests',
+    players: 'Players',
+    pickupBtn: 'Pick up',
     getReady: 'Get ready…',
     mazeOpens: 'The maze opens for everyone at the same time',
     pickupHint: 'Space: pick up card',
@@ -100,78 +126,69 @@ function AvatarCircle({ id, color, size = 28 }) {
   return (
     <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
-      {url && <img src={url} alt="" className="w-full h-full object-cover" />}
+      {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
   );
 }
 
-function CardImg({ id, name, rarity }) {
+function CardImg({ id, name }) {
   return (
-    <div className="relative w-full h-full" style={{ background: (RARITY_COLOR[rarity] || '#555') + '18' }}>
+    // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
+    // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
+    <div className="relative w-full h-full">
       <img src={`${CARD_CDN}${id}.png`} alt={name} className="w-full h-full object-cover" draggable={false}
-        onError={e => { e.target.style.display = 'none'; }} />
+        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
   );
 }
 
 // ── Sidebar: Spieler mit Deck-Fortschritt ──────────────────────────────────
-function MazeSidebar({ state, myPlayerId, t }) {
+// React.memo: Die Sidebar hängt nur am Server-State, nicht an der Uhr der
+// Hauptkomponente — bei acht Spielern spart das je acht Kartenbilder pro Takt.
+const MazeSidebar = React.memo(function MazeSidebar({ state, myPlayerId, t }) {
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const spectators = state.players.filter(p => p.isSpectator);
   return (
-    <div className="w-60 shrink-0 bg-[#16161a] border-r border-white/5 overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
+    <div className="w-60 shrink-0 bg-[#16161a] border-r border-white/[0.06] overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
       {activePlayers.map(p => {
         const isMe = p.id === myPlayerId;
         const done = (p.deck || []).length >= state.deckSize;
         const champCount = (p.deck || []).filter(c => c.isChampion).length;
         return (
-          <div key={p.id}
-            className={`rounded-sm border p-3 transition-colors ${isMe ? 'border-violet-500/40 bg-violet-500/5' : 'border-white/5 bg-[#0f0f13]'}`}>
-            <div className="flex items-center gap-2 mb-2 min-w-0">
-              <AvatarCircle id={p.avatar} color={p.color} size={30} />
-              <span className="text-white text-sm font-semibold truncate flex-1">{p.name}</span>
-              {isMe && <span className="text-[10px] text-violet-400 font-bold shrink-0">{t.you}</span>}
-              {done && (
-                <span className="flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/25 px-1.5 py-0.5 rounded-sm shrink-0">
-                  <Check size={10} /> {t.done}
-                </span>
-              )}
+          <PlayerPanel key={p.id} isMe={isMe}
+            header={
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AvatarCircle id={p.avatar} color={p.color} size={28} />
+                <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
+                {done
+                  ? <Check size={13} className="text-green-400 shrink-0" title={t.done} />
+                  : <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/{state.deckSize}</span>}
+              </div>
+            }>
+            <DeckGrid deck={p.deck || []} size={state.deckSize}
+              renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
+            <div className="flex items-center gap-1.5">
+              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
-            <div className="grid grid-cols-4 gap-1">
-              {Array.from({ length: state.deckSize }, (_, ci) => {
-                const card = p.deck?.[ci];
-                return (
-                  <div key={ci} title={card?.name}
-                    className={`aspect-square rounded-sm overflow-hidden border ${
-                      card ? (RARITY_BORDER[card.rarity] || 'border-white/10') : 'border-white/5 bg-white/[0.02]'}`}>
-                    {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1 mt-2">
-              <Crown size={11} className={champCount > 0 ? 'text-cyan-400' : 'text-gray-700'} />
-              <span className="text-[10px] text-gray-500">{champCount}/2 Champions</span>
-              <span className="text-[10px] text-gray-600 ml-auto">{p.deck?.length || 0}/{state.deckSize}</span>
-            </div>
-          </div>
+          </PlayerPanel>
         );
       })}
       {spectators.length > 0 && (
         <>
-          <div className="h-px bg-white/5 mt-1" />
+          <div className="h-px bg-white/[0.06]" />
           {spectators.map(p => (
-            <div key={p.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-3 py-2 flex items-center gap-2 opacity-50">
-              <AvatarCircle id={p.avatar} color={p.color} size={22} />
-              <span className="text-gray-400 text-xs truncate flex-1">{p.name}</span>
-              {p.id === myPlayerId && <span className="text-[9px] text-violet-500 shrink-0">{t.you}</span>}
+            <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
+              <AvatarCircle id={p.avatar} color={p.color} size={20} />
+              <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
+              <Eye size={11} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
       )}
     </div>
   );
-}
+});
 
 // Deterministische Boden-Schattierung, damit die Kacheln nicht steril wirken
 function tileShade(x, y) {
@@ -187,6 +204,8 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
   const stateRef = useRef(state);
   const renderPosRef = useRef({});      // weich interpolierte Render-Positionen aller Spieler
   const predRef = useRef(null);         // lokale Vorhersage der eigenen Position
+  const pendingRef = useRef([]);        // gesendete, vom Server noch nicht quittierte Schritte
+  const seqRef = useRef(0);             // fortlaufende Nummer je gesendetem Schritt
   const keysRef = useRef([]);           // gehaltene Richtungen, letzte zuerst relevant
   const lastStepRef = useRef(0);
   const lastFrameRef = useRef(0);
@@ -196,17 +215,46 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
   propsRef.current = { myPlayerId, amSpectator, onMove, onPickup, frozen };
 
   // Öffnet ein Popup, dürfen gehaltene Tasten nicht "nachlaufen", sobald es schließt
-  useEffect(() => { if (frozen) keysRef.current = []; }, [frozen]);
+  useEffect(() => { if (frozen) { keysRef.current = []; pendingRef.current = []; } }, [frozen]);
 
-  // Eigene Vorhersage initialisieren/korrigieren, sobald der Server eine Position liefert
+  // Eigene Vorhersage gegen den Server abgleichen. Der Server quittiert mit positions[me].seq
+  // JEDEN empfangenen Zug — auch abgelehnte. Alles bis dahin ist damit erledigt; die eigene
+  // Position ist deshalb exakt "Serverposition + die danach gesendeten Schritte". Eine
+  // Toleranzschwelle braucht es dafür nicht mehr: früher galt jede Abweichung unter zwei
+  // Kacheln als Latenz und wurde geschluckt, bis sie größer wurde — dann sprang die Figur
+  // sichtbar mehrere Kacheln zurück. Jetzt wird ein verworfener Schritt sofort und einzeln
+  // korrigiert, und die Interpolation im Renderer gleitet die Kachel weich zurück.
   useEffect(() => {
     const sp = state?.positions?.[myPlayerId];
-    if (!sp) { predRef.current = null; return; }
-    const pred = predRef.current;
-    if (!pred || Math.abs(pred.x - sp.x) + Math.abs(pred.y - sp.y) > 1.5 || frozen) {
+    if (!sp) { predRef.current = null; pendingRef.current = []; return; }
+    if (frozen) {
+      pendingRef.current = [];
       predRef.current = { x: sp.x, y: sp.y, dir: sp.dir || 1 };
+      return;
     }
-  }, [state?.positions, myPlayerId, frozen]);
+    if (sp.seq === undefined) {
+      // Server ohne Zug-Quittung (z.B. eine ältere Instanz während eines Deploys):
+      // wie früher nur bei grober Abweichung nachziehen, statt blind neu zu rechnen.
+      pendingRef.current = [];
+      const prev = predRef.current;
+      if (!prev || Math.abs(prev.x - sp.x) + Math.abs(prev.y - sp.y) > 1.5) {
+        predRef.current = { x: sp.x, y: sp.y, dir: sp.dir || 1 };
+      }
+      return;
+    }
+    const ack = sp.seq || 0;
+    const cutoff = performance.now() - MOVE_ACK_TIMEOUT_MS;
+    pendingRef.current = pendingRef.current.filter(m => m.seq > ack && m.at > cutoff);
+    let x = sp.x, y = sp.y, dir = sp.dir || 1;
+    for (const m of pendingRef.current) {
+      const D = MOVE_DIRS[m.dir];
+      const nx = x + D[0], ny = y + D[1];
+      if (nx < 0 || ny < 0 || nx >= state.W || ny >= state.H || state.walls[ny][nx] === '1') continue;
+      x = nx; y = ny;
+      if (D[0] !== 0) dir = D[0];
+    }
+    predRef.current = { x, y, dir };
+  }, [state?.positions, state?.walls, state?.W, state?.H, myPlayerId, frozen]);
 
   // Tastatur: Bewegen + Aufheben (Leertaste). preventDefault, damit die Seite nicht scrollt.
   useEffect(() => {
@@ -291,13 +339,15 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
       if (!spec && !isFrozen && !inCountdown && !s.finished && pred && keysRef.current.length &&
           nowPerf - lastStepRef.current >= s.stepMs) {
         const dir = keysRef.current[keysRef.current.length - 1];
-        const D = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
+        const D = MOVE_DIRS[dir];
         const nx = pred.x + D[0], ny = pred.y + D[1];
         if (nx >= 0 && ny >= 0 && nx < s.W && ny < s.H && s.walls[ny][nx] !== '1') {
           pred.x = nx; pred.y = ny;
           if (D[0] !== 0) pred.dir = D[0];
           lastStepRef.current = nowPerf;
-          move(dir);
+          const seq = ++seqRef.current;
+          pendingRef.current.push({ seq, dir, at: nowPerf });
+          move(dir, seq);
         } else {
           lastStepRef.current = nowPerf - s.stepMs * 0.5; // an der Wand: schneller neu probieren
         }
@@ -505,9 +555,69 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
     if (!propsRef.current.amSpectator && !propsRef.current.frozen) propsRef.current.onPickup();
   }, []);
 
+  // Steuerkreuz: schreibt in dieselbe Liste gehaltener Richtungen wie die Tastatur,
+  // die Schleife oben muss davon nichts wissen. setPointerCapture sorgt dafür, dass
+  // ein Finger, der von der Taste rutscht, die Richtung trotzdem wieder freigibt.
+  const holdDir = useCallback((dir, down) => (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (down) {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      if (!keysRef.current.includes(dir)) keysRef.current.push(dir);
+    } else {
+      keysRef.current = keysRef.current.filter(d => d !== dir);
+    }
+  }, []);
+
+  const padBtn = (dir, label, icon) => (
+    <button
+      key={dir}
+      type="button"
+      aria-label={label}
+      onPointerDown={holdDir(dir, true)}
+      onPointerUp={holdDir(dir, false)}
+      onPointerCancel={holdDir(dir, false)}
+      onContextMenu={(e) => e.preventDefault()}
+      className="w-14 h-14 flex items-center justify-center rounded-lg bg-white/[0.09] border border-white/15 text-white/85 active:bg-violet-600 active:border-violet-400 backdrop-blur-md"
+      style={{ touchAction: 'none' }}
+    >
+      {icon}
+    </button>
+  );
+
   return (
-    <div ref={containerRef} className="absolute inset-0">
+    <div ref={containerRef} className="absolute inset-0" style={IS_COARSE_POINTER ? { touchAction: 'none' } : undefined}>
       <canvas ref={canvasRef} onMouseDown={handleClick} />
+
+      {IS_COARSE_POINTER && !amSpectator && (
+        <>
+          <div className="absolute bottom-4 left-3 grid grid-cols-3 gap-1.5 select-none">
+            <span />
+            {padBtn('up', 'Nach oben', <ChevronUp size={24} />)}
+            <span />
+            {padBtn('left', 'Nach links', <ChevronLeft size={24} />)}
+            <span />
+            {padBtn('right', 'Nach rechts', <ChevronRight size={24} />)}
+            <span />
+            {padBtn('down', 'Nach unten', <ChevronDown size={24} />)}
+            <span />
+          </div>
+          <button
+            type="button"
+            aria-label="Aufheben"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!propsRef.current.amSpectator && !propsRef.current.frozen) propsRef.current.onPickup();
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+            className="absolute bottom-9 right-4 w-20 h-20 rounded-full bg-violet-600/85 border border-violet-300/40 text-white flex items-center justify-center active:bg-violet-500 backdrop-blur-md"
+            style={{ touchAction: 'none' }}
+          >
+            <Hand size={30} />
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -631,6 +741,9 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
   const t = MAZE_I18N[lang] || MAZE_I18N.de;
   const now = useNow(200);
   const state = mazeState;
+  // Auf schmalen Bildschirmen ist die Spielerliste eine Schublade — sonst bliebe vom
+  // Labyrinth kaum etwas übrig
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Für die Joker-Auswahl: freie Karten = Pool minus Decks, Bodenkarten und offene Draft-Optionen
   const availableJokerIds = useMemo(() => {
@@ -682,45 +795,58 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
   );
 
   return (
-    <div className="h-full flex overflow-hidden select-none">
-      <MazeSidebar state={state} myPlayerId={myPlayerId} t={t} />
+    <div className="h-full flex overflow-hidden select-none relative">
+      {/* Ab md fest neben dem Labyrinth, darunter als Schublade darüber */}
+      <div className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex absolute md:relative inset-y-0 left-0 z-40 md:z-auto shadow-2xl shadow-black/70 md:shadow-none`}>
+        <MazeSidebar state={state} myPlayerId={myPlayerId} t={t} />
+      </div>
+      {sidebarOpen && (
+        <div className="absolute inset-0 z-30 bg-black/60 md:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
-        {/* Top bar */}
-        <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
-          <Flashlight size={15} className="text-violet-400 shrink-0" />
-          <span className="text-white font-bold text-sm shrink-0">{lang === 'en' ? 'Dark Maze' : 'Dunkles Labyrinth'}</span>
-          <span className="text-gray-500 text-xs shrink-0">{t.decksDone(doneCount, activePlayers.length)}</span>
-          <div className="flex-1" />
-          {!amSpectator && (
-            <span className={`text-sm font-bold tabular-nums shrink-0 ${myDeckFull ? 'text-green-400' : 'text-violet-300'}`}>
-              {t.cardsOf(myDeck.length, state.deckSize)}
+        {/* Kopfzeile: der eigene Deckfortschritt ist das Ziel des Modus.
+            Der Knopf für die Spielerleiste bleibt auf dem Handy davor stehen. */}
+        <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-4 flex items-baseline gap-3 sm:gap-4 flex-wrap">
+          <button type="button" onClick={() => setSidebarOpen(o => !o)}
+            aria-label={t.players}
+            className="md:hidden shrink-0 flex items-center gap-1.5 text-white/60 hover:text-white px-2 py-1 -ml-1 rounded-lg hover:bg-white/5 transition-colors self-center">
+            <Users size={15} />
+            <span className="text-xs font-semibold tabular-nums">{doneCount}/{activePlayers.length}</span>
+          </button>
+
+          <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none">
+            {lang === 'en' ? 'Cards' : 'Karten'} {amSpectator ? '–' : myDeck.length}
+            {!amSpectator && <span className="text-white/20 font-normal"> / {state.deckSize}</span>}
+          </h2>
+
+          {state.finished ? (
+            <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
+              <Check size={14} /> {remainingMs <= 0 ? t.timeUp : t.allDecksFull}
+            </span>
+          ) : amSpectator ? (
+            <span className="flex items-center gap-1.5 text-white/35 text-sm">
+              <Eye size={13} /> {t.spectatorLive}
+            </span>
+          ) : myDeckFull ? (
+            <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
+              <Check size={14} /> {t.yourDeckFull}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-violet-300 text-sm font-semibold">
+              <Flashlight size={14} /> {IS_COARSE_POINTER ? t.moveHintTouch : t.moveHint}
             </span>
           )}
-        </div>
 
-        {/* Status-Banner */}
-        {state.finished ? (
-          <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
-            <Check size={16} className="text-green-400 shrink-0" />
-            <p className="text-green-300 font-bold text-sm">{remainingMs <= 0 ? t.timeUp : t.allDecksFull}</p>
-          </div>
-        ) : amSpectator ? (
-          <div className="shrink-0 px-4 py-2.5 bg-[#101016] border-b border-white/5 flex items-center gap-3">
-            <p className="text-gray-400 font-semibold text-sm">{t.spectatorLive}</p>
-          </div>
-        ) : myDeckFull ? (
-          <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
-            <Check size={16} className="text-green-400 shrink-0" />
-            <p className="text-green-300 font-bold text-sm">{t.yourDeckFull}</p>
-          </div>
-        ) : (
-          <div className="shrink-0 px-4 py-2.5 bg-violet-500/10 border-b border-violet-500/30 flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse shrink-0" />
-            <p className="text-violet-200 font-bold text-sm">{t.moveHint}</p>
-          </div>
-        )}
+          <div className="flex-1" />
+          <span className="text-white/35 text-sm hidden sm:block">
+            {t.decksDone(doneCount, activePlayers.length)}
+          </span>
+        </div>
+        <ProgressHairline
+          pct={amSpectator ? 0 : (myDeck.length / state.deckSize) * 100}
+          accent={ACCENT} />
 
         {/* Labyrinth */}
         <div className="flex-1 relative overflow-hidden bg-[#0a0a0d]">
@@ -744,17 +870,20 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
 
           {/* Hinweis, wenn man auf einem Item steht — Kiste, Joker und Karte brauchen alle die Leertaste */}
           {itemHint && !frozen && !inCountdown && !state.finished && !myDeckFull && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.08] border border-white/15 backdrop-blur-md pointer-events-none">
+            <div className={`absolute left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.08] border border-white/15 backdrop-blur-md pointer-events-none ${IS_COARSE_POINTER ? 'bottom-44' : 'bottom-16'}`}>
               {itemHint.icon}
               <span className="text-white text-xs font-bold">{itemHint.text}</span>
               {itemHint.note && <span className="text-white/50 text-xs">· {itemHint.note}</span>}
             </div>
           )}
 
-          {/* Mein Fortschritt (Glas-Chip) */}
+          {/* Mein Fortschritt (Glas-Chip). Auf Touch-Geräten sitzt unten links das
+              Steuerkreuz — dort wandert der Chip nach oben. */}
           {!amSpectator && (
-            <div className="absolute bottom-3 left-3 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 backdrop-blur-md">
-              <div className="flex gap-1">
+            <div className={`absolute left-3 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 backdrop-blur-md ${IS_COARSE_POINTER ? 'top-3' : 'bottom-3'}`}>
+              {/* Die Punktreihe braucht Platz — neben dem Timer-Chip in der Mitte ist der
+                  auf schmalen Bildschirmen nicht da, dort bleibt nur die Zahl */}
+              <div className="hidden sm:flex gap-1">
                 {Array.from({ length: state.deckSize }, (_, i) => (
                   <span key={i} className={`w-2 h-2 rounded-full ${i < myDeck.length ? 'bg-violet-400' : 'bg-white/15'}`} />
                 ))}

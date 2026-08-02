@@ -4,6 +4,11 @@
  * - Antworten sichtbar im Chat: Helix "Send Chat Message" (user:write:chat + TWITCH_IRC_HELIX_CLIENT_ID
  *   derselben App wie der Bot-Token) — getrennt von TWITCH_CLIENT_ID (Website-Login). IRC allein oft ohne Webchat-Zeile.
  * .env: TWITCH_IRC_USERNAME, TWITCH_IRC_OAUTH=oauth:..., optional TWITCH_IRC_HELIX_CLIENT_ID
+ *
+ * Zweiter Nutzer derselben Verbindung: das Overlay-Modul "Clip des Raiders".
+ * Raids kommen als USERNOTICE in den Ziel-Kanal, also sieht sie jeder Mitlesende
+ * — dafür lohnt keine zweite Twitch-Anbindung. Die Kanalliste ist deshalb die
+ * Vereinigung aus Win-Challenge-Chatbefehlen und aktivem Raid-Modul.
  */
 let tmi = null;
 try {
@@ -13,6 +18,7 @@ try {
 }
 
 const createWinchallengeRouter = require("../routes/winchallengeRoutes");
+const streamToolRaids = require("./streamToolRaids");
 const { step } = require("./startupLog");
 
 let client = null;
@@ -186,6 +192,13 @@ function getChannelList() {
   const set = new Set();
   for (const doc of Object.values(db || {})) {
     for (const c of channelsOfDoc(doc)) set.add(c);
+  }
+  // Kanäle mit aktivem Raid-Clip-Modul: dort wird nur zugehört, Chatbefehle
+  // bleiben davon unberührt (onChatMessage steigt ohne Win-Challenge aus).
+  try {
+    for (const c of streamToolRaids.getRaidChannels()) set.add(normalizeChannel(c));
+  } catch (e) {
+    console.warn("[stream-tool] Raid-Kanäle nicht lesbar:", e.message);
   }
   return [...set];
 }
@@ -546,6 +559,18 @@ async function initWinchallengeIrc() {
   });
 
   client.on("message", onChatMessage);
+  client.on("raided", (ircChannel, raiderName, viewers, tags) => {
+    streamToolRaids
+      .onRaid(ircChannel, raiderName, viewers, tags || {})
+      .then((ev) => {
+        if (!ev) return;
+        console.log(
+          `[stream-tool] Raid in ${normalizeChannel(ircChannel)} von ${ev.raider.name} (${ev.raider.viewers}) — ` +
+            (ev.clip ? `Clip "${ev.clip.title}"` : `kein Clip (${ev.error || "unbekannt"})`)
+        );
+      })
+      .catch((e) => console.warn("[stream-tool] Raid-Verarbeitung:", e.message));
+  });
   client.on("notice", (ircChannel, messageId, message) => {
     const m = String(message || "");
     const mid = String(messageId || "");
@@ -604,10 +629,26 @@ function afterWinchallengeConfigSaved() {
   );
 }
 
+/** Ob der Bot lauschen kann und in welchen Kanälen — fürs Stream-Tool-Dashboard. */
+function getIrcStatus() {
+  const configured =
+    !!tmi &&
+    !!String(process.env.TWITCH_IRC_USERNAME || "").trim() &&
+    !!String(process.env.TWITCH_IRC_OAUTH || "").trim();
+  const joined =
+    client && typeof client.getChannels === "function"
+      ? client.getChannels().map(normalizeChannel)
+      : [];
+  return { configured, connected: !!client, joined };
+}
+
 module.exports = {
   initWinchallengeIrc,
   stopIrc,
   afterWinchallengeConfigSaved,
+  // Kanalliste neu abgleichen (auch aus anderen Modulen, z.B. Raid-Clips)
+  refreshChannels: afterWinchallengeConfigSaved,
+  getIrcStatus,
   // pure Helfer (u. a. für Tests)
   findChallengeMatches,
   parseClockToMs,

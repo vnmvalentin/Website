@@ -7,6 +7,12 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores(['dist']),
   {
+    // Build-Skripte laufen in Node, nicht im Browser. Ohne diesen Block meldet
+    // no-undef jedes `process` als Fehler, obwohl es dort völlig korrekt ist.
+    files: ['vite.config.js', 'prerender.js', 'eslint.config.js'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
@@ -23,7 +29,15 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Großgeschriebenes = Komponente oder Konstante. Ohne eslint-plugin-react zählt
+      // `<Icon />` nicht als Verwendung, deshalb würde jede Komponente, die eine andere
+      // Komponente als Prop bekommt und nur im JSX rendert, fälschlich als ungenutzt
+      // gemeldet. argsIgnorePattern zieht dieselbe Ausnahme auf Funktionsparameter nach —
+      // varsIgnorePattern greift dort nicht.
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        argsIgnorePattern: '^[A-Z_]',
+      }],
     },
   },
 ])

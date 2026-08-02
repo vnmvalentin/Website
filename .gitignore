@@ -23,3 +23,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Stream-Tool: enthält den Twitch-Token des Streamers (verschlüsselt) und den Schlüssel.
+# Bewusst NICHT im Repo — die übrigen Backend/data/*.db sind zwar getrackt, hier wären
+# es aber Zugangsdaten.
+Backend/data/stream_tool.db
+Backend/data/stream_tool.db-shm
+Backend/data/stream_tool.db-wal
+Backend/data/stream_tool.key

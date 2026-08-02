@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { RARITY_COLOR, cardImageUrl } from "../data/cards";
+import { useStableState } from "../../../utils/useStableState";
 import { getOverlayBannedCards } from "./bannedCardsApi";
 
 const CARDS_PER_PAGE = 8; // 4 Spalten x 2 Zeilen
@@ -11,7 +12,8 @@ const DOTS_ROW_HEIGHT = 50; // px, reservierter Platz unter den Karten für die 
 
 export default function BannedCardsOverlayPage() {
   const { overlayKey } = useParams();
-  const [cards, setCards] = useState([]);
+  // Läuft in OBS dauerhaft: nur neu rendern, wenn sich wirklich etwas geändert hat
+  const [cards, setCards] = useStableState([]);
   const [attempts, setAttempts] = useState(0);
   const [page, setPage] = useState(0);
   const [cellSize, setCellSize] = useState(40);
@@ -32,7 +34,7 @@ export default function BannedCardsOverlayPage() {
     tick();
     const t = setInterval(tick, 5000);
     return () => { alive = false; clearInterval(t); };
-  }, [overlayKey]);
+  }, [overlayKey, setCards]);
 
   const totalPages = Math.max(1, Math.ceil(cards.length / CARDS_PER_PAGE));
 

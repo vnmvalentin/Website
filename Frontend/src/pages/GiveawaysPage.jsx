@@ -10,7 +10,7 @@ import {
   X,
   Clock,
 } from "lucide-react";
-import { socket } from "../utils/socket";
+import { socket, useFeedRoom } from "../utils/socket";
 import SEO from "../components/SEO";
 
 const STREAMER_ID = "160224748"; // deine Twitch-ID
@@ -307,6 +307,8 @@ function ExpiredGiveawayCard({ giveaway, isAdmin, onDelete }) {
 // --- MAIN PAGE ---
 
 export default function GiveawaysPage() {
+  // Vollpayload nur für diese Seite (siehe Backend/lib/liveBadges.js)
+  useFeedRoom("giveaways");
   const { user, clientId, accessToken, login } = useContext(TwitchAuthContext);
 
   const [data, setData] = useState({ active: [], expired: [] });

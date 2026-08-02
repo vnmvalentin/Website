@@ -10,9 +10,17 @@ const { lobbies, shuffle } = require('../core/lobbies');
 const { clearTurnTimer } = require('../core/timers');
 const { notifyDraftComplete, updateDeckFeeds } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
+const { emitClashError } = require('../core/errors');
 const MAZE_DECK_SIZE         = 8;
 const MAZE_COUNTDOWN_MS      = 3000;
 const MAZE_STEP_MS           = 130;   // Mindestabstand zwischen zwei Schritten (Server-Limit)
+// Schritt-Guthaben statt hartem Mindestabstand: Der Client läuft mit exakt MAZE_STEP_MS,
+// über das Netz kommen die Schritte aber gebündelt an (TCP-Stau, WLAN-Aussetzer). Ein
+// starres Fenster hätte die nachgereichten Schritte verworfen — der Spieler wäre auf
+// seinem Bildschirm schon weiter gewesen und danach sichtbar zurückgerissen worden.
+// Mit einem Guthaben von ein paar Schritten werden solche Bündel angenommen; das
+// Dauertempo bleibt trotzdem auf einen Schritt pro MAZE_STEP_MS begrenzt.
+const MAZE_STEP_BURST        = 4;
 const MAZE_POS_BROADCAST_MS  = 100;
 const MAZE_LIGHT_RADIUS      = 3.4;   // Sichtweite in Kacheln (Anzeige-Info fürs Frontend)
 const MAZE_BRAID_CHANCE      = 0.12;  // Anteil geöffneter Zusatzwände → Schleifen statt perfektem Labyrinth
@@ -122,6 +130,27 @@ function mazeSpreadPositions(walls, W, H, candidates, count, seeds) {
   return chosen;
 }
 
+// Frische Spielerposition. seq = zuletzt verarbeitete Zug-Nummer des Clients; der Client
+// hängt daran seine eigene Vorhersage auf (siehe Kommentar in DarkMaze.jsx).
+function mazePosition(x, y, dir) {
+  return { x, y, dir, stepTokens: MAZE_STEP_BURST, refilledAt: 0, seq: 0 };
+}
+
+// Guthaben auffüllen und einen Schritt abbuchen; false = zu schnell.
+function mazeSpendStep(pos, now) {
+  const since = pos.refilledAt ? now - pos.refilledAt : 0;
+  pos.stepTokens = Math.min(MAZE_STEP_BURST, (pos.stepTokens ?? MAZE_STEP_BURST) + since / MAZE_STEP_MS);
+  pos.refilledAt = now;
+  if (pos.stepTokens < 1) return false;
+  pos.stepTokens -= 1;
+  return true;
+}
+
+// Positionen für den Client — ohne die serverinternen Guthaben-Felder
+function mazePublicPositions(g) {
+  return Object.fromEntries(Object.entries(g.positions).map(([id, p]) => [id, { x: p.x, y: p.y, dir: p.dir, seq: p.seq || 0 }]));
+}
+
 function mazeUsedCardIds(lobby) {
   const g = lobby.game;
   const used = new Set(lobby.players.flatMap(p => (p.deck || []).map(c => c.id)));
@@ -159,7 +188,7 @@ function buildMazeState(lobby) {
     items: g.items,
     drafts: g.drafts,
     poolIds: getCardPool(lobby).map(c => c.id), // für die Joker-Auswahl im Client
-    positions: Object.fromEntries(Object.entries(g.positions).map(([id, p]) => [id, { x: p.x, y: p.y, dir: p.dir }])),
+    positions: mazePublicPositions(g),
     players: lobby.players.map(p => ({
       id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
       deck: p.deck || [], isSpectator: p.isSpectator ?? false,
@@ -220,10 +249,7 @@ function startMazeTick(lobby, io) {
     const now = Date.now();
     if (g.posDirty) {
       g.posDirty = false;
-      io.to(lobby.code).emit('clash:maze:pos', {
-        serverNow: now,
-        positions: Object.fromEntries(Object.entries(g.positions).map(([id, p]) => [id, { x: p.x, y: p.y, dir: p.dir }])),
-      });
+      io.to(lobby.code).emit('clash:maze:pos', { serverNow: now, positions: mazePublicPositions(g) });
     }
     if (now >= g.endsAt) finishMaze(lobby, io);
   }, MAZE_POS_BROADCAST_MS);
@@ -247,7 +273,7 @@ function startDarkMaze(lobby, io) {
   const positions = {};
   active.forEach((p, i) => {
     const s = spawns[i % spawns.length];
-    positions[p.id] = { x: s.x, y: s.y, dir: s.x > W / 2 ? -1 : 1, lastStepAt: 0 };
+    positions[p.id] = mazePosition(s.x, s.y, s.x > W / 2 ? -1 : 1);
   });
 
   lobby.game = {
@@ -341,7 +367,13 @@ registerMode({
   start: (lobby, io) => startDarkMaze(lobby, io),
   buildState: (lobby) => ({ event: 'clash:maze:state', payload: buildMazeState(lobby) }),
   remapPlayerId: (game, oldId, newId) => {
-    if (game.positions?.[oldId]) { game.positions[newId] = game.positions[oldId]; delete game.positions[oldId]; }
+    if (game.positions?.[oldId]) {
+      game.positions[newId] = game.positions[oldId];
+      delete game.positions[oldId];
+      // Nach einem Reconnect zählt der Client seine Züge wieder bei 1 — die alte
+      // Quittungsnummer würde jeden neuen Zug als "längst erledigt" abstempeln.
+      game.positions[newId].seq = 0;
+    }
     if (game.drafts?.[oldId]) { game.drafts[newId] = game.drafts[oldId]; delete game.drafts[oldId]; }
   },
   onPlayerLeft: (lobby, io, playerId) => {
@@ -362,7 +394,7 @@ registerMode({
     } else if (!g.positions[player.id]) {
       const spawns = mazeSpawnPoints(g.W, g.H);
       const s = spawns[lobby.players.filter(p => !p.isSpectator && !p.left).length % spawns.length];
-      g.positions[player.id] = { x: s.x, y: s.y, dir: 1, lastStepAt: 0 };
+      g.positions[player.id] = mazePosition(s.x, s.y, 1);
     }
     g.posDirty = true;
     io.to(lobby.code).emit('clash:maze:state', buildMazeState(lobby));
@@ -370,7 +402,7 @@ registerMode({
   },
 
   socketHandlers: {
-    'clash:maze:move': ({ socket, io }, { code, dir }) => {
+    'clash:maze:move': ({ socket, io }, { code, dir, seq }) => {
       const lobby = lobbies.get(code);
       if (!lobby?.game || lobby.game.type !== 'dark-maze' || lobby.game.finished) return;
       const g = lobby.game;
@@ -378,17 +410,23 @@ registerMode({
       if (!player || player.isSpectator) return;
       const pos = g.positions[player.id];
       if (!pos) return;
-      if (g.drafts[player.id]) return; // offenes Kisten-/Joker-Popup friert den Spieler ein
+      // Jeder Zug wird quittiert — auch ein abgelehnter. Der Client verwirft daraufhin
+      // genau die Schritte, die der Server nicht übernommen hat, statt bis zur nächsten
+      // Abweichung weiterzulaufen und dann mehrere Kacheln weit zurückzuspringen.
+      const ack = () => {
+        if (typeof seq === 'number' && seq > (pos.seq || 0)) { pos.seq = seq; g.posDirty = true; }
+      };
+      if (g.drafts[player.id]) return ack(); // offenes Kisten-/Joker-Popup friert den Spieler ein
       const now = Date.now();
-      if (g.countdownUntil && now < g.countdownUntil) return;
-      if (now - pos.lastStepAt < MAZE_STEP_MS - 20) return; // kleine Toleranz für Netz-Jitter
+      if (g.countdownUntil && now < g.countdownUntil) return ack();
       const D = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
-      if (!D) return;
+      if (!D) return ack();
       const nx = pos.x + D[0], ny = pos.y + D[1];
-      if (nx < 0 || ny < 0 || nx >= g.W || ny >= g.H || g.walls[ny][nx] === 1) return;
+      if (nx < 0 || ny < 0 || nx >= g.W || ny >= g.H || g.walls[ny][nx] === 1) return ack();
+      if (!mazeSpendStep(pos, now)) return ack();
       pos.x = nx; pos.y = ny;
       if (D[0] !== 0) pos.dir = D[0];
-      pos.lastStepAt = now;
+      ack();
       g.posDirty = true;
       // Kein Item löst beim Betreten aus — das erledigt 'clash:maze:pickup'
     },
@@ -409,7 +447,7 @@ registerMode({
       const item = g.items.find(it => it.x === pos.x && it.y === pos.y);
       if (!item) return;
       if ((player.deck || []).length >= MAZE_DECK_SIZE)
-        return socket.emit('clash:error', { message: 'Dein Deck ist bereits voll!' });
+        return emitClashError(socket, 'deckFull');
       const champCount = (player.deck || []).filter(c => c.isChampion).length;
 
       if (item.kind === 'chest') {
@@ -417,7 +455,7 @@ registerMode({
         // Kann der Spieler keine der Optionen nehmen (Champion-Limit), bleibt die Kiste zu.
         const pickable = (item.options || []).filter(c => !(c.isChampion && champCount >= 2));
         if (!pickable.length)
-          return socket.emit('clash:error', { message: 'Max. 2 Champions pro Deck!' });
+          return emitClashError(socket, 'championLimit');
         g.items = g.items.filter(it2 => it2.id !== item.id);
         g.drafts[player.id] = { kind: 'chest', options: item.options, openedAt: now };
         return io.to(code).emit('clash:maze:state', buildMazeState(lobby));
@@ -430,7 +468,7 @@ registerMode({
       }
 
       if (item.card.isChampion && champCount >= 2)
-        return socket.emit('clash:error', { message: 'Max. 2 Champions pro Deck!' });
+        return emitClashError(socket, 'championLimit');
       g.items = g.items.filter(it2 => it2.id !== item.id);
       player.deck = [...(player.deck || []), item.card];
       updateDeckFeeds(lobby, io);
@@ -449,7 +487,7 @@ registerMode({
       if (!card) return;
       const champCount = (player.deck || []).filter(c => c.isChampion).length;
       if (card.isChampion && champCount >= 2)
-        return socket.emit('clash:error', { message: 'Max. 2 Champions pro Deck!' });
+        return emitClashError(socket, 'championLimit');
       delete g.drafts[socket.id];
       if ((player.deck || []).length < MAZE_DECK_SIZE) {
         player.deck = [...(player.deck || []), card];
@@ -479,10 +517,10 @@ registerMode({
       const card = getCardPool(lobby).find(c => c.id === cardId);
       if (!card) return;
       if (mazeUsedCardIds(lobby).has(card.id))
-        return socket.emit('clash:error', { message: 'Diese Karte ist bereits vergeben!' });
+        return emitClashError(socket, 'cardTaken');
       const champCount = (player.deck || []).filter(c => c.isChampion).length;
       if (card.isChampion && champCount >= 2)
-        return socket.emit('clash:error', { message: 'Max. 2 Champions pro Deck!' });
+        return emitClashError(socket, 'championLimit');
       delete g.drafts[socket.id];
       if ((player.deck || []).length < MAZE_DECK_SIZE) {
         player.deck = [...(player.deck || []), { id: card.id, name: card.name, rarity: card.rarity, isChampion: card.isChampion }];

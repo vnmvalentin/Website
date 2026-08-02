@@ -152,15 +152,28 @@ export default function TwitchAuthProvider({ children }) {
     return () => window.removeEventListener("focus", check);
   }, []);
 
-  const login = (force = false) => {
+  // Scopes, die jeder Login anfragt — bewusst minimal.
+  const BASE_SCOPES = ["user:read:email", "user:read:follows"];
+
+  /**
+   * @param {boolean}  force        force_verify — erzwingt die Twitch-Bestätigungsseite
+   * @param {string[]} extraScopes  Zusatzrechte, die nur einzelne Seiten brauchen
+   *                                (z.B. channel:manage:polls für das Stream-Tool).
+   *                                Bewusst nicht global: sonst müsste jeder normale
+   *                                Besucher beim Login zustimmen, dass wir seine
+   *                                Abstimmungen verwalten dürfen.
+   */
+  const login = (force = false, extraScopes = []) => {
     if (!clientId) return;
     sessionStorage.setItem(RETURN_KEY, window.location.pathname + window.location.search);
+
+    const scopes = [...new Set([...BASE_SCOPES, ...(Array.isArray(extraScopes) ? extraScopes : [])])];
 
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "token",
-      scope: "user:read:email user:read:follows",
+      scope: scopes.join(" "),
     });
     if (force) params.append("force_verify", "true");
 

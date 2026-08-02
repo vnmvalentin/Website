@@ -146,13 +146,12 @@ export const RARITY_COLOR = {
   Champion:  '#06b6d4',
 };
 
-export const RARITY_BORDER = {
-  Common:    'border-gray-500/50',
-  Rare:      'border-orange-500/50',
-  Epic:      'border-purple-500/50',
-  Legendary: 'border-amber-500/50',
-  Champion:  'border-cyan-500/50',
-};
+// RARITY_BORDER wurde entfernt: Kartenkacheln werden bewusst rahmenlos dargestellt,
+// damit nur das Artwork wirkt (siehe ui/CardTile.jsx). Auswahl und Zustände markiert
+// jetzt ein innerer Ring, der das Bild nicht staucht. Die Seltenheit bleibt über
+// RARITY_COLOR als Hintergrundton und in den Überschriften der Kartenraster sichtbar.
+// Das Deck-Overlay für OBS (streamer/DeckOverlayPage.jsx) führt weiterhin eine eigene,
+// lokale Tabelle — dort ist der farbige Rahmen als Lesehilfe im Stream gewollt.
 
 export function cardImageUrl(id) {
   return `https://cdn.royaleapi.com/static/img/cards-150/${id}.png`;

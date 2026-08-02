@@ -1,6 +1,11 @@
 import React, { useMemo } from 'react';
-import { Clock, Crown } from 'lucide-react';
-import { RARITY_COLOR, RARITY_BORDER } from '../data/cards';
+import { Crown, Eye } from 'lucide-react';
+import ModeShell from './ModeShell';
+import { CARD_CROP } from './cardCrop';
+import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
+
+/** Akzentfarbe des Modus — Kopfzeile, Fortschritt, gültige Felder. */
+const ACCENT = '#22d3ee';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
@@ -10,7 +15,7 @@ function AvatarCircle({ id, color, size = 28 }) {
   return (
     <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
-      {url && <img src={url} alt="" className="w-full h-full object-cover object-center" />}
+      {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover object-center" />}
     </div>
   );
 }
@@ -50,14 +55,16 @@ function getAdjacentIndices(idx, cols, totalCells) {
   return adj;
 }
 
-function CardImg({ id, name, rarity }) {
-  const color = RARITY_COLOR[rarity] || '#555';
+// Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand schimmerte er
+// durch und legte einen farbigen Schleier über jede Karte.
+function CardImg({ id, name }) {
   return (
-    <div className="relative w-full h-full" style={{ background: color + '18' }}>
+    <div className="relative w-full h-full">
       <img
         src={`${CARD_CDN}${id}.png`}
         alt={name}
         className="w-full h-full object-cover"
+        style={CARD_CROP}
         onError={e => {
           e.target.style.display = 'none';
           const fb = e.target.parentElement?.querySelector('.fb');
@@ -81,6 +88,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
   } = gameState;
 
   const totalCells = grid.length;
+  const gridRows   = Math.ceil(totalCells / gridCols);
   const currentPlayerIdx = turnOrder?.[currentTurn];
   const currentPlayer    = players[currentPlayerIdx];
   const isMyTurn         = currentPlayer?.id === myPlayerId;
@@ -109,122 +117,124 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
   const activePlayerCount = players.filter(p => !p.isSpectator).length;
   const round       = Math.min(Math.floor(currentTurn / Math.max(activePlayerCount, 1)) + 1, 8);
 
-  return (
-    <div className="h-full flex overflow-hidden select-none">
-
-      {/* ── Deck sidebar ──────────────────────────────────────────────────── */}
-      <div className="w-56 shrink-0 bg-[#16161a] border-r border-white/5 overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
-        {/* Aktive Spieler mit Deck */}
-        {players.map((player, idx) => {
+  // Die Seitenleiste steht am Desktop links, auf dem Handy in einem Blatt (ModeShell).
+  const sidebar = (
+    <>
+      {/* Aktive Spieler mit Deck */}
+      {players.map((player, idx) => {
           if (player.isSpectator) return null;
           const isCurrent  = turnOrder?.[currentTurn] === idx;
           const champCount = (player.deck || []).filter(c => c.isChampion).length;
           return (
-            <div key={player.id}
-              className={`rounded-sm border p-3 transition-colors ${
-                isCurrent ? 'border-cyan-500/40 bg-cyan-500/5' : 'border-white/5 bg-[#0f0f13]'
-              }`}>
-              <div className="flex items-center gap-2 mb-2.5 min-w-0">
-                <AvatarCircle id={player.avatar} color={player.color} size={28} />
-                <span className="text-white text-xs font-semibold truncate flex-1">{player.name}</span>
-                {player.id === myPlayerId && (
-                  <span className="text-[10px] text-cyan-500 shrink-0">{t.you}</span>
-                )}
+            <PlayerPanel key={player.id} isMe={player.id === myPlayerId}
+              className={isCurrent ? 'ring-1 ring-inset ring-cyan-400/40' : ''}
+              header={
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AvatarCircle id={player.avatar} color={player.color} size={28} />
+                  <span className="text-white text-[13px] font-semibold truncate flex-1">{player.name}</span>
+                  <span className="text-white/25 text-[11px] tabular-nums shrink-0">{player.deck?.length || 0}/8</span>
+                </div>
+              }>
+              <DeckGrid deck={player.deck || []}
+                renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
+              <div className="flex items-center gap-1.5">
+                <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+                <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
               </div>
-              <div className="grid grid-cols-4 gap-1">
-                {Array.from({ length: 8 }, (_, ci) => {
-                  const card = player.deck?.[ci];
-                  return (
-                    <div key={ci}
-                      className={`aspect-square rounded-sm overflow-hidden border ${
-                        card ? RARITY_BORDER[card.rarity] || 'border-white/10' : 'border-white/5 bg-white/[0.02]'
-                      }`}>
-                      {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex items-center gap-1 mt-2">
-                <Crown size={10} className={champCount > 0 ? 'text-cyan-400' : 'text-gray-700'} />
-                <span className="text-[10px] text-gray-500">{champCount}/2 Champions</span>
-                <span className="text-[10px] text-gray-600 ml-auto">{player.deck?.length || 0}/8</span>
-              </div>
-            </div>
+            </PlayerPanel>
           );
         })}
 
         {/* Zuschauer — kompakt, ganz unten */}
         {players.some(p => p.isSpectator) && (
           <>
-            <div className="h-px bg-white/5 mt-1" />
+            <div className="h-px bg-white/[0.06]" />
             {players.filter(p => p.isSpectator).map(player => (
-              <div key={player.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-3 py-2 flex items-center gap-2 opacity-50">
-                <AvatarCircle id={player.avatar} color={player.color} size={22} />
-                <span className="text-gray-400 text-xs truncate flex-1">{player.name}</span>
-                {player.id === myPlayerId && <span className="text-[9px] text-cyan-600 shrink-0">{t.you}</span>}
-                <span className="text-[9px] text-gray-600 shrink-0">👁</span>
+              <div key={player.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
+                <AvatarCircle id={player.avatar} color={player.color} size={20} />
+                <span className="text-white/60 text-[11px] truncate flex-1">{player.name}</span>
+                <Eye size={11} className="text-white/40 shrink-0" />
               </div>
             ))}
           </>
         )}
-      </div>
+    </>
+  );
 
-      {/* ── Main area ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+  const activePlayers = players.filter(p => !p.isSpectator);
 
-        {/* Turn bar */}
-        <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
-          <div className="flex-1 min-w-0 text-sm">
-            {finished ? (
-              <span className="text-green-400 font-bold">{t.gameOver}</span>
+  return (
+    <ModeShell
+      sidebar={sidebar}
+      playerCount={activePlayers.length}
+      width="lg:w-56"
+      lang={lang}
+      strip={
+        // Kurzfassung im Handy-Streifen: wer ist dran, wie voll ist sein Deck
+        <span className="text-white/40 text-[11px] truncate">
+          {currentPlayer ? `${currentPlayer.name} · ${currentPlayer.deck?.length || 0}/8` : ''}
+        </span>
+      }>
+
+      <GameSurface>
+        {/* Kopfzeile: große Rundenzahl als Anker, Spielstatus leise daneben */}
+        <GameHeader
+          label={lang === 'en' ? 'Round' : 'Runde'}
+          value={round}
+          total={8}
+          badge={
+            finished ? (
+              <span className="text-green-400 text-sm font-semibold">{t.gameOver}</span>
             ) : isSnakeReset ? (
-              <span className="text-amber-400 font-bold">{t.newSnake}</span>
+              <span className="text-amber-300 text-sm font-semibold">{t.newSnake}</span>
             ) : isMyTurn && validSet.size === 0 ? (
-              <span className="text-orange-400 font-semibold">{t.noMoveTimer}</span>
+              <span className="text-orange-300 text-sm font-semibold">{t.noMoveTimer}</span>
             ) : isMyTurn ? (
-              <span className="text-cyan-400 font-black">{t.yourTurn}</span>
+              <span className="text-cyan-300 text-sm font-bold">{t.yourTurn}</span>
             ) : (
-              <span className="text-gray-400">
+              <span className="text-white/35 text-sm">
                 {t.turnOfPrefix}{' '}
                 <span className="font-semibold" style={{ color: currentPlayer?.color }}>
                   {currentPlayer?.name || '…'}
                 </span>
               </span>
-            )}
-          </div>
+            )
+          }
+          timerRemaining={finished ? undefined : timerRemaining}
+          timerUrgent={timerUrgent}
+        />
+        {!finished && <ProgressHairline pct={timerPct} accent={ACCENT} urgent={timerUrgent} />}
 
-          <span className="text-gray-600 text-xs shrink-0">{t.round(round)}</span>
+        {/* Raster */}
+        {/* container-type: size macht die Größe dieses Kastens für die cqw/cqh-Rechnung
+            des Rasters messbar — siehe direkt darunter. */}
+        <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center p-3 sm:p-6"
+          style={{ containerType: 'size' }}>
+          {/* Größe aus dem VERFÜGBAREN Platz, nicht aus dem Viewport: Hier stand einmal
+              calc(100vw - 15rem - 3rem) — die 15rem waren die Breite der Seitenleiste,
+              fest einkodiert. Seit die Leiste auf dem Handy verschwindet, stimmte die
+              Rechnung dort nicht mehr und ließ vom Raster nur noch ~100px übrig.
 
-          {!finished && (
-            <div className={`flex items-center gap-1.5 border rounded-sm px-2.5 py-1 shrink-0 ${
-              timerUrgent ? 'border-red-500/40 bg-red-500/5' : 'border-white/10'
-            }`}>
-              <Clock size={11} className={timerUrgent ? 'text-red-400' : 'text-gray-500'} />
-              <span className={`font-mono font-bold text-sm tabular-nums ${timerUrgent ? 'text-red-400' : 'text-white'}`}>
-                {timerRemaining}s
-              </span>
-            </div>
-          )}
-        </div>
+              Danach stand hier `w-full` + `aspect-ratio` + `max-height: 100%`. Das sieht
+              richtig aus, ist es aber nicht: max-height kappt nur die HÖHE, die Breite
+              bleibt stehen. Auf 1600×900 war das Raster dadurch 860 breit und 662 hoch,
+              während die Kacheln (aspect-square) stur 82px behielten — sie liefen unten
+              aus dem gestauchten Kasten heraus. Auf 1440p fiel das nicht auf, weil dort
+              die Breite die knappere Grenze ist.
 
-        {/* Timer bar */}
-        {!finished && (
-          <div className="shrink-0 h-px bg-white/5">
-            <div
-              className={`h-full transition-all duration-1000 ${timerUrgent ? 'bg-red-500' : 'bg-cyan-500'}`}
-              style={{ width: `${timerPct}%` }}
-            />
-          </div>
-        )}
-
-        {/* Grid */}
-        <div className="flex-1 overflow-hidden flex items-center justify-center p-4">
+              min(100%, 100cqh × Seitenverhältnis) nimmt stattdessen die tatsächlich
+              knappere der beiden Grenzen: 100% ist die Breite des Elternteils, 100cqh
+              seine Höhe. Das Raster bleibt damit auf JEDER Auflösung formtreu und wird
+              einfach kleiner, statt sich zu verziehen. */}
           <div
-            className="grid gap-1"
+            className="grid gap-0.5 sm:gap-1"
             style={{
               gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-              width: `min(${gridCols * 62}px, calc(100vw - 15rem - 3rem))`,
-              aspectRatio: `${gridCols} / ${Math.ceil(totalCells / gridCols)}`,
+              aspectRatio: `${gridCols} / ${gridRows}`,
+              // 86px statt 62px pro Feld: Auf einem 1440p-Schirm blieb das Raster
+              // sonst in der Mitte stehen und ließ links und rechts große Leerflächen.
+              width: `min(100%, ${gridCols * 86}px, ${(gridCols / gridRows).toFixed(4)} * 100cqh)`,
+              maxWidth: '100%',
             }}
           >
             {grid.map((cell, idx) => {
@@ -240,52 +250,56 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
                   onClick={() => isValid && !finished && isMyTurn && onPickCard(idx)}
                   title={`${cell.card.name}${isBlocked ? t.championLimitSuffix : ''}`}
                   className={`
-                    relative aspect-square rounded-[2px] border overflow-hidden transition-transform duration-100
-                    ${isValid && isMyTurn && !finished ? 'cursor-pointer hover:scale-110 z-10' : 'cursor-default'}
-                    ${isPicked ? 'opacity-65' : ''}
+                    group relative aspect-square rounded-md overflow-hidden
+                    ${isValid && isMyTurn && !finished ? 'cursor-pointer' : 'cursor-default'}
+                    ${isPicked ? 'opacity-70' : ''}
                     ${!isPicked && !isValid && !isBlocked ? 'opacity-25' : ''}
                     ${isBlocked ? 'opacity-15 grayscale' : ''}
                   `}
+                  // Auswahl als INNERER Ring statt Rahmen: Ein Rahmen verschiebt die
+                  // Kachel um einen Pixel, wodurch das ganze Raster beim Überfahren
+                  // zuckte. Der Ring liegt im Bild und bewegt nichts.
                   style={{
-                    borderColor: isPicked
-                      ? (picker?.color || '#444') + 'aa'
-                      : isValid
-                        ? '#06b6d466'
-                        : '#ffffff0f',
-                    boxShadow: isLast ? `0 0 0 2px ${picker?.color || '#fff'}` : isValid ? '0 0 6px #06b6d422' : 'none',
+                    boxShadow: isLast
+                      ? `inset 0 0 0 2px ${picker?.color || '#fff'}`
+                      : isPicked
+                        ? `inset 0 0 0 2px ${(picker?.color || '#444')}cc`
+                        : isValid
+                          ? `inset 0 0 0 1px ${ACCENT}66`
+                          : 'none',
                   }}
                 >
-                  <CardImg id={cell.card.id} name={cell.card.name} rarity={cell.card.rarity} />
+                  <CardImg id={cell.card.id} name={cell.card.name} />
 
-                  {/* Picked: color tint */}
+                  {/* Genommen: in der Farbe des Spielers eingefärbt */}
                   {isPicked && picker && (
                     <div className="absolute inset-0 pointer-events-none"
                       style={{ backgroundColor: picker.color + '40' }} />
                   )}
 
-                  {/* Valid: ring */}
+                  {/* Gültig: beim Überfahren deutlicher, ohne Größenwechsel */}
                   {isValid && isMyTurn && !finished && (
-                    <div className="absolute inset-0 ring-1 ring-inset ring-cyan-400/50 pointer-events-none" />
+                    <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ boxShadow: `inset 0 0 0 2px ${ACCENT}` }} />
                   )}
 
-                  {/* Champion crown */}
+                  {/* Champion-Krone */}
                   {cell.card.isChampion && !isPicked && (
-                    <div className="absolute top-0 right-0 p-[2px] bg-black/50 pointer-events-none">
-                      <Crown size={7} className="text-cyan-400" />
+                    <div className="absolute top-0.5 right-0.5 bg-black/55 rounded p-0.5 pointer-events-none">
+                      <Crown size={9} className="text-amber-300" />
                     </div>
                   )}
 
-                  {/* Last-pick dot */}
+                  {/* Zuletzt genommen */}
                   {isLast && (
-                    <div className="absolute bottom-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-white pointer-events-none" />
+                    <div className="absolute bottom-1 left-1 w-1.5 h-1.5 rounded-full bg-white pointer-events-none" />
                   )}
                 </div>
               );
             })}
           </div>
         </div>
-
-      </div>
-    </div>
+      </GameSurface>
+    </ModeShell>
   );
 }

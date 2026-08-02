@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Crown, Eye, Check, Hourglass, RefreshCw } from 'lucide-react';
-import { RARITY_COLOR, RARITY_BORDER } from '../data/cards';
+import { Crown, Eye, Check, Hourglass, RefreshCw } from 'lucide-react';
 import unknownCardImg from '../../../assets/clashRoyale/UnknownCard.png';
+import ModeShell from './ModeShell';
+import { CARD_CROP } from './cardCrop';
+import { GameHeader, ProgressHairline, GameSurface, GameFooter, PlayerPanel, DeckGrid } from './GameChrome';
+
+/** Akzentfarbe des Modus. */
+const ACCENT = '#22d3ee';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
@@ -33,6 +38,8 @@ const CAROUSEL_I18N = {
     revealsRemainingTitle: 'Verbleibende Aufdeckungen in dieser Runde',
     tablesMovingOn: 'Die Tische wandern weiter…',
     clickCardHint: (n) => `Karte auf dem Tisch anklicken — du kannst noch ${n} Karte${n === 1 ? '' : 'n'} aufdecken. Genommen werden darf jede Karte, auch verdeckt.`,
+    mustRevealHint: (n) => `Erst aufdecken: noch ${n} Karte${n === 1 ? '' : 'n'}, dann darfst du nehmen.`,
+    mustRevealShort: (n) => `Noch ${n}× aufdecken`,
     unknownIdentity: 'Identität unbekannt — Risiko-Pick',
     championLimitReached: 'Champion-Limit erreicht — du erhältst stattdessen eine zufällige Ersatzkarte.',
     reveal: 'Aufdecken',
@@ -67,6 +74,8 @@ const CAROUSEL_I18N = {
     revealsRemainingTitle: 'Remaining reveals this round',
     tablesMovingOn: 'The tables are rotating…',
     clickCardHint: (n) => `Click a card on the table — you can still reveal ${n} more card${n === 1 ? '' : 's'}. Any card may be taken, even face-down.`,
+    mustRevealHint: (n) => `Reveal first: ${n} more card${n === 1 ? '' : 's'}, then you may take one.`,
+    mustRevealShort: (n) => `Reveal ${n} more`,
     unknownIdentity: 'Unknown identity — risky pick',
     championLimitReached: "Champion limit reached — you'll get a random replacement card instead.",
     reveal: 'Reveal',
@@ -93,74 +102,65 @@ function AvatarCircle({ id, color, size = 28 }) {
   return (
     <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
-      {url && <img src={url} alt="" className="w-full h-full object-cover" />}
+      {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
   );
 }
 
-function CardImg({ id, name, rarity }) {
+function CardImg({ id, name }) {
   return (
-    <div className="relative w-full h-full" style={{ background: (RARITY_COLOR[rarity] || '#555') + '18' }}>
+    // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
+    // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
+    <div className="relative w-full h-full">
       <img src={`${CARD_CDN}${id}.png`} alt={name} className="w-full h-full object-cover"
-        onError={e => { e.target.style.display = 'none'; }} />
+        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
   );
 }
 
 // ── Sidebar: Decks aller Spieler, live aktualisiert (wie bei den anderen Modi) ──
-function CarouselSidebar({ state, myPlayerId, t }) {
+function CarouselSidebar({ state, myPlayerId }) {
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const spectators    = state.players.filter(p => p.isSpectator);
 
   return (
-    <div className="w-60 shrink-0 bg-[#16161a] border-r border-white/5 overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
+    // Rahmen (Hintergrund, Rand, Scrollen) macht ModeShell — hier nur der Inhalt.
+    <>
       {activePlayers.map(p => {
         const isMe       = p.id === myPlayerId;
         const champCount = (p.deck || []).filter(c => c.isChampion).length;
         return (
-          <div key={p.id}
-            className={`rounded-sm border p-3 transition-colors ${isMe ? 'border-cyan-500/40 bg-cyan-500/5' : 'border-white/5 bg-[#0f0f13]'}`}>
-            <div className="flex items-center gap-2 mb-2.5 min-w-0">
-              <AvatarCircle id={p.avatar} color={p.color} size={30} />
-              <span className="text-white text-sm font-semibold truncate flex-1">{p.name}</span>
-              {isMe && <span className="text-[10px] text-cyan-500 font-bold shrink-0">{t.you}</span>}
+          <PlayerPanel key={p.id} isMe={isMe}
+            header={
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AvatarCircle id={p.avatar} color={p.color} size={28} />
+                <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
+                <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/8</span>
+              </div>
+            }>
+            <DeckGrid deck={p.deck || []}
+              renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
+            <div className="flex items-center gap-1.5">
+              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
-            <div className="grid grid-cols-4 gap-1">
-              {Array.from({ length: 8 }, (_, ci) => {
-                const card = p.deck?.[ci];
-                return (
-                  <div key={ci}
-                    title={card?.name}
-                    className={`aspect-square rounded-sm overflow-hidden border ${
-                      card ? (RARITY_BORDER[card.rarity] || 'border-white/10') : 'border-white/5 bg-white/[0.02]'
-                    }`}>
-                    {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1 mt-2">
-              <Crown size={11} className={champCount > 0 ? 'text-cyan-400' : 'text-gray-700'} />
-              <span className="text-[10px] text-gray-500">{champCount}/2 Champions</span>
-              <span className="text-[10px] text-gray-600 ml-auto">{p.deck?.length || 0}/8</span>
-            </div>
-          </div>
+          </PlayerPanel>
         );
       })}
 
       {spectators.length > 0 && (
         <>
-          <div className="h-px bg-white/5 mt-1" />
+          <div className="h-px bg-white/[0.06]" />
           {spectators.map(p => (
-            <div key={p.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-3 py-2 flex items-center gap-2 opacity-50">
-              <AvatarCircle id={p.avatar} color={p.color} size={22} />
-              <span className="text-gray-400 text-xs truncate flex-1">{p.name}</span>
-              {p.id === myPlayerId && <span className="text-[9px] text-cyan-600 shrink-0">{t.you}</span>}
+            <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
+              <AvatarCircle id={p.avatar} color={p.color} size={20} />
+              <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
+              <Eye size={11} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -168,49 +168,40 @@ function CarouselSidebar({ state, myPlayerId, t }) {
 function CarouselStatusBanner({ state, amSpectator, iPicked, waitingFor, selectedCard, selectedSlot, t }) {
   const { phase, finished } = state;
 
-  if (finished) return (
-    <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
-      <Check size={16} className="text-green-400 shrink-0" />
-      <p className="text-green-300 font-bold text-sm">{t.draftDone}</p>
-    </div>
+  // Flächig statt umrandet — der Hinweis soll führen, nicht als Kasten auffallen.
+  const wrap = (children) => (
+    <div className="shrink-0 px-4 sm:px-10 py-2.5 flex items-center gap-3 bg-white/[0.02]">{children}</div>
   );
 
-  if (phase === 'transition') return (
-    <div className="shrink-0 px-4 py-2.5 bg-amber-400/10 border-b border-amber-400/25 flex items-center gap-3">
-      <RefreshCw size={15} className="text-amber-400 shrink-0 animate-spin" style={{ animationDuration: '3s' }} />
-      <p className="text-amber-300 font-bold text-sm">{t.roundOver}</p>
-    </div>
-  );
+  if (finished) return wrap(<>
+    <Check size={15} className="text-green-400 shrink-0" />
+    <p className="text-green-300 font-semibold text-sm">{t.draftDone}</p>
+  </>);
 
-  if (amSpectator) return (
-    <div className="shrink-0 px-4 py-2.5 bg-[#101016] border-b border-white/5 flex items-center gap-3">
-      <Eye size={15} className="text-gray-500 shrink-0" />
-      <p className="text-gray-400 font-semibold text-sm">{t.spectatorOverview}</p>
-    </div>
-  );
+  if (phase === 'transition') return wrap(<>
+    <RefreshCw size={14} className="text-amber-300 shrink-0 animate-spin" style={{ animationDuration: '3s' }} />
+    <p className="text-amber-200 font-semibold text-sm">{t.roundOver}</p>
+  </>);
 
-  if (iPicked) return (
-    <div className="shrink-0 px-4 py-2.5 bg-[#101016] border-b border-white/5 flex items-center gap-3">
-      <Hourglass size={15} className="text-gray-500 shrink-0" />
-      <p className="text-gray-400 font-semibold text-sm">
-        {t.choiceSaved(waitingFor.length)}
-      </p>
-    </div>
-  );
+  if (amSpectator) return wrap(<>
+    <Eye size={14} className="text-white/30 shrink-0" />
+    <p className="text-white/40 text-sm">{t.spectatorOverview}</p>
+  </>);
 
-  return (
-    <div className="shrink-0 px-4 py-2.5 bg-cyan-500/10 border-b border-cyan-500/30 flex items-center gap-3">
-      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-      <div className="min-w-0">
-        <p className="text-cyan-300 font-black text-sm uppercase tracking-wide">{t.yourTurn}</p>
-        <p className="text-gray-300 text-xs mt-0.5 truncate">
-          {selectedSlot != null
-            ? (selectedCard ? t.hintSelectedFlipped(selectedCard.name) : t.hintSelectedFaceDown)
-            : t.hintNoSelection}
-        </p>
-      </div>
-    </div>
-  );
+  if (iPicked) return wrap(<>
+    <Hourglass size={14} className="text-white/30 shrink-0" />
+    <p className="text-white/40 text-sm">{t.choiceSaved(waitingFor.length)}</p>
+  </>);
+
+  return wrap(<>
+    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
+    <p className="text-cyan-300 text-sm font-semibold shrink-0">{t.yourTurn}</p>
+    <p className="text-white/40 text-sm truncate">
+      {selectedSlot != null
+        ? (selectedCard ? t.hintSelectedFlipped(selectedCard.name) : t.hintSelectedFaceDown)
+        : t.hintNoSelection}
+    </p>
+  </>);
 }
 
 // ── Pick-Status aller Spieler — während der ganzen Runde sichtbar ──────────
@@ -220,8 +211,8 @@ function SeatStatusChips({ seatPlayers, hasPicked }) {
     <div className="flex flex-wrap items-center gap-2">
       {seatPlayers.map(p => (
         <span key={p.id}
-          className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-sm border ${
-            hasPicked[p.id] ? 'border-green-500/30 bg-green-500/5 text-green-400' : 'border-white/10 text-gray-500'
+          className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg ${
+            hasPicked[p.id] ? 'bg-green-500/10 text-green-400' : 'bg-white/[0.04] text-white/35'
           }`}>
           {hasPicked[p.id] ? <Check size={11} /> : <Hourglass size={11} />}
           {p.name}
@@ -236,36 +227,41 @@ function TableSlot({ slot, flippedCard, isSelected, clickable, onClick, takerCol
   if (slot.taken) {
     return (
       <div title={takerName ? t.takenBy(takerName, slot.takenRound) : t.cardTaken}
-        className="aspect-square rounded-sm border border-dashed border-white/10 bg-white/[0.02] flex items-center justify-center">
+        className="aspect-square rounded-xl bg-white/[0.03] flex items-center justify-center">
         <span className="w-2 h-2 rounded-full" style={{ background: (takerColor || '#3a3a42') + 'cc' }} />
       </div>
     );
   }
   return (
+    // Auswahl und Überfahren als INNERER Ring: Ein Rahmen verschiebt die Kachel und
+    // lässt den ganzen Tisch beim Zeigen zucken.
     <button onClick={onClick} disabled={!clickable}
       title={flippedCard ? flippedCard.name : t.faceDownCard}
-      className={`relative aspect-square rounded-sm overflow-hidden border-2 transition-colors ${
-        isSelected
-          ? 'border-cyan-400 ring-1 ring-cyan-400'
-          : clickable
-            ? 'border-white/15 hover:border-cyan-400/60 cursor-pointer'
-            : 'border-white/10 cursor-default'
+      className={`group relative aspect-square rounded-xl overflow-hidden shadow-[0_8px_22px_rgba(0,0,0,0.45)] ${
+        clickable ? 'cursor-pointer' : 'cursor-default'
       }`}>
       {flippedCard ? (
         <>
-          <CardImg id={flippedCard.id} name={flippedCard.name} rarity={flippedCard.rarity} />
+          <CardImg id={flippedCard.id} name={flippedCard.name} />
           {flippedCard.isChampion && (
-            <span className="absolute top-0.5 right-0.5 bg-black/60 rounded-[2px] p-0.5">
-              <Crown size={10} className="text-cyan-400" />
+            <span className="absolute top-1.5 right-1.5 bg-black/55 backdrop-blur-sm rounded-md p-1">
+              <Crown size={11} className="text-amber-300" />
             </span>
           )}
-          <span className="absolute bottom-0 left-0 right-0 px-1 pb-0.5 pt-2 text-[10px] font-bold text-center truncate pointer-events-none"
-            style={{ background: 'linear-gradient(transparent,#000d)', color: RARITY_COLOR[flippedCard.rarity] || '#ccc' }}>
+          <span className="absolute bottom-0 left-0 right-0 px-1.5 pb-1 pt-4 text-[11px] font-semibold text-center truncate pointer-events-none text-white"
+            style={{ background: 'linear-gradient(transparent,#000e)' }}>
             {flippedCard.name}
           </span>
         </>
       ) : (
         <img src={unknownCardImg} alt={t.faceDownCard} className="w-full h-full object-cover" />
+      )}
+
+      {(isSelected || clickable) && (
+        <span className={`absolute inset-0 rounded-xl pointer-events-none transition-opacity ${
+          isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+          style={{ boxShadow: `inset 0 0 0 2px ${ACCENT}` }} />
       )}
     </button>
   );
@@ -276,26 +272,29 @@ function CarouselTable({ table, tableNumber, flipMap, selectedSlot, canAct, onSl
   const remaining = table.slots.filter(s => !s.taken).length;
   const taker = (id) => players.find(p => p.id === id);
   // 8 Karten → eine Reihe, 12 → 2×6, 16 → 2×8
+  // 8 Karten → 4×2 / auf breiten Schirmen eine Reihe; 12 → 6er-Reihen; 16 → 8er-Reihen.
   const lgCols = table.slots.length === 12 ? 'lg:grid-cols-6' : 'lg:grid-cols-8';
   return (
-    <div className="rounded-md border border-violet-500/30 bg-[#131020] shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 bg-violet-500/10 border-b border-violet-500/20">
-        <span className="text-white font-black text-base">{t.table(tableNumber)}</span>
-        <span className="text-violet-300 text-xs font-semibold">{t.cardsRemaining(remaining, table.slots.length)}</span>
+    // Kein Kasten mehr um den Tisch: Die Karten sind der Tisch. Der frühere Rahmen samt
+    // Innenabstand nahm auf dem Handy fast 60px Breite weg — genau dort, wo sie fehlt.
+    <div className="space-y-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-white/50 text-xs font-semibold uppercase tracking-wider">
+          {t.table(tableNumber)}
+        </span>
+        <span className="text-white/30 text-xs">{t.cardsRemaining(remaining, table.slots.length)}</span>
       </div>
-      <div className="p-5 bg-[#0e0c18]">
-        <div className={`grid grid-cols-4 ${lgCols} gap-3`}>
-          {table.slots.map((slot, si) => (
-            <TableSlot key={si} slot={slot}
-              flippedCard={flipMap[si] || null}
-              isSelected={selectedSlot === si}
-              clickable={canAct && !slot.taken}
-              onClick={() => onSlotClick(si)}
-              takerColor={taker(slot.takenBy)?.color}
-              takerName={taker(slot.takenBy)?.name}
-              t={t} />
-          ))}
-        </div>
+      <div className={`grid grid-cols-4 ${lgCols} gap-2.5 sm:gap-4`}>
+        {table.slots.map((slot, si) => (
+          <TableSlot key={si} slot={slot}
+            flippedCard={flipMap[si] || null}
+            isSelected={selectedSlot === si}
+            clickable={canAct && !slot.taken}
+            onClick={() => onSlotClick(si)}
+            takerColor={taker(slot.takenBy)?.color}
+            takerName={taker(slot.takenBy)?.name}
+            t={t} />
+        ))}
       </div>
     </div>
   );
@@ -309,26 +308,26 @@ function SpectatorTables({ tables, players, t }) {
         const owner = players.find(p => p.id === table.ownerId);
         const remaining = table.slots.filter(s => !s.taken).length;
         return (
-          <div key={ti} className="rounded-md border border-violet-500/25 bg-[#131020] shadow-[0_10px_28px_rgba(0,0,0,0.45)] overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-violet-500/10 border-b border-violet-500/15 min-w-0">
-              <span className="text-white text-sm font-bold shrink-0">{t.tableN(ti + 1)}</span>
+          <div key={ti} className="rounded-2xl bg-white/[0.02] p-4 space-y-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-white/50 text-xs font-semibold uppercase tracking-wider shrink-0">
+                {t.tableN(ti + 1)}
+              </span>
               {owner && (
-                <span className="flex items-center gap-1.5 text-[11px] text-gray-400 min-w-0">
+                <span className="flex items-center gap-1.5 text-[11px] text-white/40 min-w-0">
                   <AvatarCircle id={owner.avatar} color={owner.color} size={18} />
                   <span className="truncate">{t.ownedBy(owner.name)}</span>
                 </span>
               )}
-              <span className="ml-auto text-[11px] text-violet-300 shrink-0">{t.cardsLeft(remaining)}</span>
+              <span className="ml-auto text-[11px] text-white/30 shrink-0">{t.cardsLeft(remaining)}</span>
             </div>
-            <div className="p-4 bg-[#0e0c18]">
-              <div className="grid grid-cols-4 gap-1.5">
-                {table.slots.map((slot, si) => (
-                  <TableSlot key={si} slot={slot} flippedCard={slot.card} clickable={false}
-                    takerColor={players.find(p => p.id === slot.takenBy)?.color}
-                    takerName={players.find(p => p.id === slot.takenBy)?.name}
-                    t={t} />
-                ))}
-              </div>
+            <div className="grid grid-cols-4 gap-2">
+              {table.slots.map((slot, si) => (
+                <TableSlot key={si} slot={slot} flippedCard={slot.card} clickable={false}
+                  takerColor={players.find(p => p.id === slot.takenBy)?.color}
+                  takerName={players.find(p => p.id === slot.takenBy)?.name}
+                  t={t} />
+              ))}
             </div>
           </div>
         );
@@ -342,23 +341,24 @@ function PicksReveal({ picks, players, t }) {
   const entries = Object.entries(picks || {}).filter(([, p]) => !p.ghost && p.card);
   if (!entries.length) return null;
   return (
-    <div className="rounded-md border border-white/10 bg-[#0f0f13] shadow-[0_10px_28px_rgba(0,0,0,0.45)] p-4">
-      <p className="text-gray-500 text-[11px] uppercase tracking-wider mb-3 text-center">{t.picksThisRound}</p>
-      <div className="flex flex-wrap justify-center gap-4">
+    <div className="rounded-2xl bg-white/[0.02] p-5">
+      <p className="text-white/35 text-[11px] uppercase tracking-wider mb-4 text-center">{t.picksThisRound}</p>
+      <div className="flex flex-wrap justify-center gap-5">
         {entries.map(([pid, pick]) => {
           const pl = players.find(p => p.id === pid);
           return (
-            <div key={pid} className="flex flex-col items-center gap-1.5 w-24">
-              <div className="w-16 h-16 rounded-sm overflow-hidden border-2" style={{ borderColor: (pl?.color || '#888') + '88' }}>
-                <CardImg id={pick.card.id} name={pick.card.name} rarity={pick.card.rarity} />
+            <div key={pid} className="flex flex-col items-center gap-2 w-28">
+              <div className="w-24 h-24 rounded-xl overflow-hidden shadow-[0_8px_22px_rgba(0,0,0,0.45)]"
+                style={{ boxShadow: `inset 0 0 0 2px ${(pl?.color || '#888')}aa, 0 8px 22px rgba(0,0,0,0.45)` }}>
+                <CardImg id={pick.card.id} name={pick.card.name} />
               </div>
-              <div className="flex items-center gap-1 max-w-full">
+              <div className="flex items-center gap-1.5 max-w-full">
                 <AvatarCircle id={pl?.avatar} color={pl?.color} size={16} />
-                <span className="text-[10px] text-gray-400 truncate">{pl?.name || '?'}</span>
+                <span className="text-[11px] text-white/50 truncate">{pl?.name || '?'}</span>
               </div>
-              <span className="text-[11px] text-white font-semibold text-center leading-tight truncate w-full">{pick.card.name}</span>
+              <span className="text-[12px] text-white font-semibold text-center leading-tight truncate w-full">{pick.card.name}</span>
               {pick.wasChampionBlocked && (
-                <span className="text-[9px] text-amber-400 text-center leading-tight">{t.championLimitReplacement}</span>
+                <span className="text-[10px] text-amber-300 text-center leading-tight">{t.championLimitReplacement}</span>
               )}
             </div>
           );
@@ -384,7 +384,10 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
   );
 
   const { phase, round, maxRounds, flipLimit, myFlips = [], myPick, hasPicked = {},
-    picksThisRound, tables = [], myTableIndex, timerRemaining, timerSeconds, finished } = state;
+    picksThisRound, tables = [], myTableIndex, timerRemaining, timerSeconds, finished,
+    // Pflicht-Aufdeckungen: erst schauen, dann nehmen. Der Server rechnet das aus und
+    // weist einen zu frühen Pick ab — hier wird es nur sichtbar gemacht.
+    canPick = true, requiredFlips = 0 } = state;
 
   const me          = state.players.find(p => p.id === myPlayerId);
   const amSpectator = !me || (me.isSpectator ?? false) || myTableIndex < 0;
@@ -412,54 +415,55 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
     onFlip(selectedSlot);
   };
   const handleTake = () => {
-    if (selectedSlot == null) return;
+    if (selectedSlot == null || !canPick) return;
     onPick(selectedSlot);
     setSelectedSlot(null);
   };
+  // Wie viele Aufdeckungen fehlen noch, bis genommen werden darf
+  const flipsStillRequired = Math.max(0, requiredFlips - myFlips.length);
 
   return (
-    <div className="h-full flex overflow-hidden select-none">
+    <ModeShell
+      sidebar={<CarouselSidebar state={state} myPlayerId={myPlayerId} />}
+      playerCount={state.players.filter(p => !p.isSpectator).length}
+      lang={lang}
+      strip={<span className="text-white/40 text-[11px] truncate">{t.round(round, maxRounds)}</span>}>
       <style>{CAROUSEL_STYLE}</style>
-      <CarouselSidebar state={state} myPlayerId={myPlayerId} t={t} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <GameSurface>
 
-        {/* Top bar: Runde, Tisch, Aufdeckungen, Timer */}
-        <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
-          <span className="text-white font-bold text-sm shrink-0">{t.round(round, maxRounds)}</span>
-          {!amSpectator && myTable && (
-            <span className="text-violet-300 text-xs font-semibold shrink-0">{t.tableN(myTableIndex + 1)}</span>
+        {/* Kopfzeile: Runde als Anker, Tisch und Aufdeckungen leise daneben */}
+        <GameHeader
+          label={lang === 'en' ? 'Round' : 'Runde'}
+          value={round}
+          total={maxRounds}
+          badge={!amSpectator && myTable && (
+            <span className="text-white/40 text-sm">{t.tableN(myTableIndex + 1)}</span>
           )}
-          <div className="flex-1" />
-          {canAct && (
-            <div className="flex items-center gap-1.5 border border-white/10 rounded-sm px-2.5 py-1 shrink-0"
-              title={t.revealsRemainingTitle}>
-              <Eye size={12} className={flipsLeft > 0 ? 'text-cyan-400' : 'text-gray-600'} />
-              <span className="text-sm font-semibold text-gray-300 tabular-nums">{flipsLeft}/{flipLimit}</span>
-            </div>
+          right={canAct && (
+            <span className="flex items-center gap-1.5 shrink-0" title={t.revealsRemainingTitle}>
+              <Eye size={13} className={flipsLeft > 0 ? 'text-cyan-400' : 'text-white/20'} />
+              <span className="text-sm font-semibold text-white/60 tabular-nums">{flipsLeft}/{flipLimit}</span>
+            </span>
           )}
-          {!finished && phase === 'picking' && (
-            <div className={`flex items-center gap-1.5 border rounded-sm px-2.5 py-1 shrink-0 ${timerUrgent ? 'border-red-500/40 bg-red-500/5' : 'border-white/10'}`}>
-              <Clock size={12} className={timerUrgent ? 'text-red-400' : 'text-gray-500'} />
-              <span className={`font-mono font-bold text-sm tabular-nums ${timerUrgent ? 'text-red-400' : 'text-white'}`}>{timerRemaining}s</span>
-            </div>
-          )}
-        </div>
-
-        {/* Timer bar */}
+          timerRemaining={!finished && phase === 'picking' ? timerRemaining : undefined}
+          timerUrgent={timerUrgent}
+        />
         {!finished && phase === 'picking' && (
-          <div className="shrink-0 h-1 bg-white/5">
-            <div className={`h-full transition-all duration-1000 ${timerUrgent ? 'bg-red-500' : 'bg-cyan-400'}`}
-              style={{ width: `${timerPct}%` }} />
-          </div>
+          <ProgressHairline pct={timerPct} accent={ACCENT} urgent={timerUrgent} />
         )}
 
         {/* Status: was ist gerade zu tun? */}
         <CarouselStatusBanner state={state} amSpectator={amSpectator} iPicked={iPicked}
           waitingFor={waitingFor} selectedCard={selectedCard} selectedSlot={selectedSlot} t={t} />
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
-          <div className="max-w-3xl mx-auto space-y-4">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-10 py-6 sm:py-8">
+          {/* Breiter als vorher (max-w-3xl): Bei 16 Karten pro Tisch waren die Kacheln
+              auf einem 1440p-Schirm nur noch briefmarkengroß.
+              min-h-full + justify-center hält den Tisch senkrecht in der Mitte, solange er
+              hineinpasst — sonst klebte er bei einem 8er-Tisch oben und ließ darunter den
+              halben Bildschirm leer. */}
+          <div className="max-w-5xl mx-auto space-y-6 min-h-full flex flex-col justify-center">
 
             {phase === 'transition' && (
               <>
@@ -497,76 +501,89 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
               <SeatStatusChips seatPlayers={seatPlayers} hasPicked={hasPicked} />
             )}
 
-            {/* Aktionsleiste: Aufdecken / Nehmen */}
-            {canAct && (
-              <div className="rounded-md border border-white/10 bg-[#0f0f13] shadow-[0_10px_28px_rgba(0,0,0,0.45)] p-4">
-                {selectedSlot == null ? (
-                  <p className="text-gray-400 text-sm text-center">
-                    {t.clickCardHint(flipsLeft)}
-                  </p>
-                ) : (
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="w-16 h-16 rounded-sm overflow-hidden border border-white/15 shrink-0">
-                      {selectedCard
-                        ? <CardImg id={selectedCard.id} name={selectedCard.name} rarity={selectedCard.rarity} />
-                        : <img src={unknownCardImg} alt={t.faceDownCard} className="w-full h-full object-cover" />}
-                    </div>
-                    <div className="flex-1 min-w-[140px]">
-                      <p className="text-white text-base font-bold">{selectedCard ? selectedCard.name : t.faceDownCard}</p>
-                      <p className="text-gray-500 text-xs">
-                        {selectedCard ? selectedCard.rarity : t.unknownIdentity}
-                      </p>
-                      {selectedCard?.isChampion && champCount >= 2 && (
-                        <p className="text-amber-400 text-xs mt-1">
-                          {t.championLimitReached}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {!selectedIsFlipped && (
-                        <button onClick={handleFlip} disabled={flipsLeft <= 0}
-                          className={`flex items-center gap-1.5 px-4 py-2.5 rounded-sm border text-sm font-bold transition-colors ${
-                            flipsLeft > 0
-                              ? 'border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10'
-                              : 'border-white/10 text-gray-600 cursor-not-allowed'
-                          }`}>
-                          <Eye size={14} /> {t.reveal}
-                        </button>
-                      )}
-                      <button onClick={handleTake}
-                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-sm bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-bold transition-colors">
-                        <Check size={14} /> {selectedCard ? t.takeCard : t.takeFaceDown}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Nach dem eigenen Pick: eigene Wahl */}
-            {!amSpectator && iPicked && phase === 'picking' && (
-              <div className="rounded-md border border-white/10 bg-[#0f0f13] shadow-[0_10px_28px_rgba(0,0,0,0.45)] p-4">
-                <div className="flex items-center gap-3">
-                  {myPick?.card && (
-                    <div className="w-14 h-14 rounded-sm overflow-hidden border border-white/15 shrink-0">
-                      <CardImg id={myPick.card.id} name={myPick.card.name} rarity={myPick.card.rarity} />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-white text-sm font-semibold truncate">
-                      {myPick?.card ? <>{t.yourChoicePrefix} <span className="text-cyan-400">{myPick.card.name}</span></> : t.choiceSavedPlain}
-                    </p>
-                    {myPick?.wasChampionBlocked && (
-                      <p className="text-amber-400 text-xs mt-0.5">{t.championLimitGotReplacement}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
           </div>
         </div>
-      </div>
-    </div>
+
+        {/* Aktionsleiste unten festgesetzt: Vorher stand sie unter dem Tisch im
+            scrollenden Bereich — bei 16 Karten musste man auf dem Handy erst scrollen,
+            um überhaupt „Aufdecken" zu finden, während der Timer lief. */}
+        {canAct && (
+          <GameFooter>
+            <div className="max-w-4xl mx-auto">
+              {selectedSlot == null ? (
+                <p className="text-white/40 text-sm text-center">
+                  {canPick ? t.clickCardHint(flipsLeft) : t.mustRevealHint(flipsStillRequired)}
+                </p>
+              ) : (
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 shadow-[0_8px_22px_rgba(0,0,0,0.45)]">
+                    {selectedCard
+                      ? <CardImg id={selectedCard.id} name={selectedCard.name} />
+                      : <img src={unknownCardImg} alt={t.faceDownCard} className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="flex-1 min-w-[140px]">
+                    <p className="text-white text-base font-semibold">{selectedCard ? selectedCard.name : t.faceDownCard}</p>
+                    <p className="text-white/35 text-xs">
+                      {selectedCard ? selectedCard.rarity : t.unknownIdentity}
+                    </p>
+                    {selectedCard?.isChampion && champCount >= 2 && (
+                      <p className="text-amber-300 text-xs mt-1">{t.championLimitReached}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!selectedIsFlipped && (
+                      <button onClick={handleFlip} disabled={flipsLeft <= 0}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                          flipsLeft > 0
+                            ? 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300'
+                            : 'bg-white/[0.04] text-white/25 cursor-not-allowed'
+                        }`}>
+                        <Eye size={14} /> {t.reveal}
+                      </button>
+                    )}
+                    {/* Nehmen bleibt gesperrt, bis die Pflicht-Aufdeckungen genutzt sind */}
+                    <button onClick={handleTake} disabled={!canPick}
+                      title={canPick ? undefined : t.mustRevealHint(flipsStillRequired)}
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                        canPick
+                          ? 'bg-cyan-500 hover:bg-cyan-400 text-black'
+                          : 'bg-white/[0.04] text-white/25 cursor-not-allowed'
+                      }`}>
+                      <Check size={14} />
+                      {canPick
+                        ? (selectedCard ? t.takeCard : t.takeFaceDown)
+                        : t.mustRevealShort(flipsStillRequired)}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </GameFooter>
+        )}
+
+        {/* Nach dem eigenen Pick: die eigene Wahl bleibt sichtbar */}
+        {!amSpectator && iPicked && phase === 'picking' && (
+          <GameFooter>
+            <div className="max-w-4xl mx-auto flex items-center gap-3">
+              {myPick?.card && (
+                <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 shadow-[0_8px_22px_rgba(0,0,0,0.45)]">
+                  <CardImg id={myPick.card.id} name={myPick.card.name} />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-white text-sm font-semibold truncate">
+                  {myPick?.card
+                    ? <>{t.yourChoicePrefix} <span className="text-cyan-300">{myPick.card.name}</span></>
+                    : t.choiceSavedPlain}
+                </p>
+                {myPick?.wasChampionBlocked && (
+                  <p className="text-amber-300 text-xs mt-0.5">{t.championLimitGotReplacement}</p>
+                )}
+              </div>
+            </div>
+          </GameFooter>
+        )}
+      </GameSurface>
+    </ModeShell>
   );
 }

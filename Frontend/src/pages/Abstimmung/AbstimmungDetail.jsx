@@ -3,9 +3,11 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import PollRenderer from "../../components/PollRenderer";
 import { ArrowLeft, Calendar, Clock, AlertCircle } from "lucide-react";
 import SEO from "../../components/SEO";
-import { socket } from "../../utils/socket";
+import { socket, useFeedRoom } from "../../utils/socket";
 
 export default function AbstimmungDetail() {
+  // Vollpayload nur für diese Seite (siehe Backend/lib/liveBadges.js)
+  useFeedRoom("polls");
   const { id } = useParams();
   const navigate = useNavigate();
   const [poll, setPoll] = useState(null);

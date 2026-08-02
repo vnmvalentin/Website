@@ -1,5 +1,129 @@
 export const NEWS_UPDATES = [
   {
+    date: "03.08.2026",
+    version: "v6.3: Blobby Volley & Clash Royale von Grund auf überarbeitet",
+    sections: [
+      {
+        title: "Neu: Blobby Volley",
+        items: [
+          "Neues Minispiel: Volleyball am Strand gegen Freunde — Lobby-Link teilen und loslegen, kein Account nötig. Wahlweise 1 gegen 1 oder 2 gegen 2 auf einem breiteren Feld",
+          "Die Physik ist aus dem Original Blobby Volley 2 übernommen — gleiche Konstanten, gleiche Reihenfolge der Rechenschritte. Der Sprung hat einen festen Impuls, gedrückt halten springt höher, und der Ball prallt immer mit derselben Geschwindigkeit von der Blob-Mitte weg. Wie schnell du dich bewegst, ändert am Abpraller nichts: gesteuert wird über die Stelle, an der du den Ball triffst",
+          "Vier Regeln zum Einstellen: Feldgröße (1v1/2v2), Pfeiler offen oder Hälften getrennt, Berührungen frei oder klassisch auf 3 begrenzt, Powerups an oder aus",
+          "Bei offenem Pfeiler darfst du hochspringen, rüberklettern und den Gegner anrempeln — auf dem Kopf des anderen kann man tatsächlich stehen bleiben",
+          "Fünf Powerups schweben über dem Pfeiler und werden mit dem Ball oder direkt mit dem Blob eingesammelt: Schneller, Größer, Gegner klein, Pfeiler hoch, Pfeiler tief. Jedes wirkt 10 Sekunden für das ganze Team",
+          "Gespielt wird auf 15 Punkte mit 2 Punkten Vorsprung, danach Revanche per Knopfdruck",
+          "Zuschauer können jederzeit beitreten; bei Verbindungsabbruch bleibt der Platz 2 Minuten reserviert und das Spiel pausiert so lange",
+          "Jeder sieht sich selbst auf der linken Seite — wer für die rechte Seite spielt, bekommt das Feld gespiegelt, damit die Tasten für alle gleich liegen",
+          "Am Handy erscheinen drei Tasten unter dem Feld",
+          "Damit sich nichts zäh anfühlt, rechnet der Server mit 75 Hz und der Browser zeigt drei Dinge unterschiedlich: Dein eigener Blob läuft lokal mit und reagiert ohne Wartezeit auf die Tastatur, der Ball wird um die gemessene Leitungszeit vorausgerechnet, und die Gegner werden zwischen zwei bekannten Ständen abgespielt statt geraten — Vorausrechnen hieße dort raten, wann jemand loslässt, und jede Fehlannahme müsste sichtbar zurückgenommen werden",
+        ]
+      },
+      {
+        title: "Clash Royale — Startseite mit echten Anleitungen",
+        items: [
+          "Jeder Modus hat jetzt eine Bildkachel statt fünf Zeilen Fließtext. Ein Klick öffnet eine vollständige Anleitung: Ziel, Ablauf einer Runde, Tipps, die man sonst erst nach ein paar Partien merkt, und was der Host einstellen kann",
+          "Vorher sah man acht Modi und konnte über keinen davon mehr erfahren, ohne ihn zu starten",
+          "Die Startseite ist zu zwei zusammenhängenden Flächen zusammengefasst worden statt einem Haufen loser Fenster: Lobby erstellen/beitreten über die volle Breite, darunter die acht Modi, darunter alles Erklärende",
+          "Die häufigen Fragen stehen jetzt in einem Akkordeon, „Benutzt von“ in einer eigenen Spalte",
+          "Für Google liegen strukturierte Daten auf der Seite (Modus-Liste, FAQ, Pfad-Anzeige unter dem Suchtreffer) — die Texte sind dabei nur sichtbar gekürzt, nicht entfernt",
+        ]
+      },
+      {
+        title: "Clash Royale — auf dem Handy endlich spielbar",
+        items: [
+          "Auf einem 390px-Handy nahm die feste Mitspieler-Leiste bisher die Hälfte bis zwei Drittel des Bildschirms weg: bei Snake Royale blieben 166px fürs Spielfeld, bei Bingo, Karussell und Karten-Evolution nur 150px. Darin war das eigentliche Spiel nicht mehr bedienbar",
+          "Jetzt bekommt das Spielfeld auf schmalen Bildschirmen die volle Breite. Die Mitspieler stehen in einem schmalen Streifen darüber und ausführlich in einem Blatt, das von unten hereinfährt. Auf großen Bildschirmen bleibt alles wie gehabt",
+          "Alle Modi teilen sich jetzt dieselbe Kopfzeile, Seitenleiste und Fußleiste. Vorher hatte das jeder Modus einzeln gebaut — mal mit diesem Rahmen, mal mit jener Rundung — und dadurch wirkten sie zusammengewürfelt, obwohl sie zum selben Spiel gehören",
+        ]
+      },
+      {
+        title: "Clash Royale — Lobby & Host-Einstellungen",
+        items: [
+          "Die Host-Einstellungen sind aus der Lobby in ein eigenes Fenster gezogen. Vorher füllte die Einstellungsspalte zwei Bildschirme und schob die Spielerliste auf dem Handy nach ganz unten",
+          "Der Start-Knopf ist immer erreichbar, egal wie weit man in den Einstellungen gescrollt hat",
+          "Neu: Lobby sperren — es kommt niemand Neues mehr rein. Wer schon drin war und nur einen Netzwerk-Hänger oder einen Tab-Reload hatte, kommt weiterhin zurück. Die Sperre bleibt auch über eine laufende Runde hinweg gesetzt",
+          "Die Lobby zeigt „3/8 Spieler“ und bei gesperrter Lobby auch Gästen den Grund, statt einer kommentarlosen Fehlermeldung",
+          "Das zuletzt beendete Spiel steht jetzt direkt in der Lobby, alles Weitere hinter „Alle ansehen“",
+        ]
+      },
+      {
+        title: "Clash Royale — Neu: Live-Tracking über die offizielle API",
+        items: [
+          "Spieler können ihren Clash-Royale-Account mit ihrem Lobby-Platz verknüpfen; Host und Admin dürfen das zusätzlich für alle anderen tun — praktisch, wenn im Stream reihum durchgegeben wird",
+          "Der Tag wird vor dem Speichern gegen die offizielle API geprüft. Ein Tippfehler fällt damit sofort auf und nicht erst als Spieler, der beim Tracking dauerhaft 0–0 stehen bleibt",
+          "Ist das Tracking an, zählt der Server ab diesem Moment für jeden verknüpften Spieler Siege und Niederlagen mit. Der Stand steht neben dem Namen in der Lobby und am Ende auf einem eigenen Leaderboard — das während des Endscreens weiterläuft, wer noch eine Partie beendet, rutscht dort hoch",
+          "Am Spielende gibt es das fertige Deck als QR-Code, als Kopierlink und zum Direktöffnen in Clash Royale",
+          "Admins können im Endscreen einzelne Deck-Karten nachträglich tauschen",
+        ]
+      },
+      {
+        title: "Clash Royale — Regeln & Balance",
+        items: [
+          "Angel Royale: Der Fluss ist jetzt deutlich voller — 2 statt 1 Karte pro Sekunde als Standard, einstellbar bis 3. Vorher wartete man die halbe Zeit auf überhaupt eine Auswahl, und die Frage war „nehme ich das Einzige“ statt „welche nehme ich“",
+          "Angel Royale — neu: Angel-Zwang. Wer sein Zeitfenster (Standard 5 Sekunden, abschaltbar) verstreichen lässt, bekommt eine zufällige treibende Karte zugelost. Ohne das konnte man in Ruhe warten, bis genau die passende Karte vorbeikam, und sich so ein besseres Deck bauen als jemand, der zügig entscheidet. Die Frist läuft erst ab dem Moment, in dem die Angel wieder bereit ist",
+          "Angel Royale — neu: Flitzer. Etwa jede fünfte Karte schießt in kurzen Schüben quer durch den Fluss. Fangbar bleibt sie dabei — genau das ist der Reiz. Flitzer tauchen nie ab, beides zusammen wäre kaum zu treffen",
+          "Elixir Rush: Karten liegen jetzt 8 statt 15 Sekunden auf dem Markt, neu wählbar sind auch 4 und 6. 15 Sekunden waren zu gemütlich — der Markt stand länger still, als man zum Entscheiden braucht, und „Rush“ hieß vor allem Warten",
+          "Blindes Karussell: Du musst deine Aufdeckungen verbrauchen, bevor du eine Karte nehmen darfst. Vorher durfte man sofort blind zugreifen — das war nie die bessere Wahl, ließ die Runde aber in einer Sekunde vorbei sein und nahm dem Modus seinen Kern. Das Risiko bleibt: genommen werden darf danach jede Karte, auch eine verdeckte",
+          "Elixier-Auktion: In der letzten Runde wird automatisch das gesamte Restguthaben geboten. Elixier zu sparen bringt dort nichts mehr, wer weniger bietet verschenkt nur die Karte — jetzt entscheidet die Runde sauber danach, wer noch was übrig hat",
+          "Elixier-Auktion: Die Elixierbalken richten sich nach dem Startguthaben der Runde. Bei 100 Start-Elixier war der Balken vorher nur halb voll, obwohl man noch alles hatte",
+          "Dunkles Labyrinth: Das Laufen ruckelt nicht mehr zurück. Schritte kommen über das Netz gebündelt an (WLAN-Aussetzer, TCP-Stau); das alte starre Zeitfenster hat sie verworfen, und man wurde sichtbar zurückgerissen. Jetzt gibt es ein kleines Schritt-Guthaben, und der Server quittiert jeden Zug einzeln — auch einen abgelehnten",
+        ]
+      },
+      {
+        title: "Unter der Haube",
+        items: [
+          "Fehlermeldungen der Spielmodi sind jetzt zweisprachig. Vorher schickte der Server fertige deutsche Sätze — englische Spieler bekamen mitten in einer englischen Oberfläche „Max. 2 Champions pro Deck!“ zu sehen",
+          "Die Hauptdatei der Clash-Royale-Seite hatte 3.094 Zeilen und enthielt Startseite, Lobby, Spielphase, Endscreen, fünf Dialoge, die komplette Netzwerkschicht und das Wörterbuch. Sie ist in einzelne Bereiche aufgeteilt und orchestriert jetzt nur noch",
+          "Die vierzehn Host-Regler wurden aus rund 620 Zeilen mit vierzehn Kopien derselben Struktur auf eine gemeinsame Beschreibung umgestellt — vorher hatten sich Abstände und Farben zwischen ihnen auseinandergelebt",
+          "Zugriffe auf die Clash-Royale-API laufen über einen gemeinsamen Client. Transport, Tag-Prüfung und Battlelog-Umformung standen vorher dreimal getrennt im Code (Win Tracker, Nuzlocke, Modus-Scanner)",
+        ]
+      },
+    ]
+  },
+  {
+    date: "29.07.2026",
+    version: "v6.2: Twitch-Overlay-Tools, drei neue Clash-Royale-Modi & spürbar schnellere Seite",
+    sections: [
+      {
+        title: "Neu: Twitch-Overlay-Tools",
+        items: [
+          "Neue Seite unter Streamer-Tools: Abstimmungen, Vorhersagen sowie Follower- und Abo-Ziele als OBS-Overlay — eine einzige Browserquelle für alle Module",
+          "Abstimmungen und Vorhersagen startest du wie gewohnt direkt in Twitch. Das Overlay liest nur mit und zeigt sie animiert im Stream — angefragt werden ausschließlich Leserechte, niemand muss erlauben, seine Abstimmungen zu verwalten",
+          "Vorhersagen mit zwei Optionen erscheinen als Versus-Balken, bei dem beide Seiten gegeneinander drücken; ab drei Optionen als Anteilsleiste mit beschrifteter Rangliste",
+          "Follower- und Abo-Ziele spiegeln wahlweise das Ziel aus deinem Twitch-Creator-Dashboard — dort eingestellt erscheint es weiterhin unter dem Stream und im Chat, das Overlay zeigt dieselben Zahlen nur schöner und zieht bei Zielwert-Änderungen automatisch mit",
+          "Alternativ rechnet das Overlay ein eigenes Ziel: mit Startwert und automatischer Erhöhung nach jedem Erreichen",
+          "Widgets per Drag & Drop auf einer 1920×1080-Leinwand platzieren; Position, Größe, Deckkraft, Farben, Timer und Einblend-Animation lassen sich je Modul einstellen",
+          "Welche Module im Stream auftauchen, entscheiden Häkchen im Dashboard — der OBS-Link bleibt dabei immer derselbe",
+          "Die Standardfarben sind auf Farbfehlsichtigkeit geprüft, damit die Balken auch für rot-grün-schwache Zuschauer unterscheidbar bleiben",
+        ]
+      },
+      {
+        title: "Clash Royale — drei neue Modi",
+        items: [
+          "Karten-Evolution ist aus den internen Tests raus: 3 Runden, in denen Karten mit steigenden Tokenkosten auf- oder abgewertet und gelockt werden, dazwischen eine Sabotage-Phase. Alle Karten kommen aus einem geteilten Pool — dieselbe Karte kann nie bei zwei Spielern gleichzeitig liegen",
+          "Angel Royale: Karten treiben in zufälligen Bahnen über den Fluss — manche schnell, manche in Wellenlinien, manche tauchen kurz ab und sind dann nicht fangbar. Anklicken zum Angeln, nach jedem Fang braucht die Angel einen Moment. Wer zu lange gar nicht angelt, bekommt eine zufällige Karte zugelost",
+          "Dunkles Labyrinth: ein bei jedem Start neu generiertes Labyrinth in völliger Dunkelheit — du siehst nur deinen eigenen Lichtkegel, Zuschauer sehen alles. Sammle Draft-Kisten (1 aus 2) und lose Bodenkarten, in der Mitte wartet genau ein Joker. Läuft die Zeit ab, werden leere Deck-Plätze zufällig aufgefüllt",
+        ]
+      },
+      {
+        title: "Die Seite läuft deutlich flüssiger",
+        items: [
+          "Der Aurora-Hintergrund war die Hauptursache für das leichte Dauerstocken: vier riesige, permanent weichgezeichnete Flächen mussten Bild für Bild neu berechnet werden. Die Unschärfe kommt jetzt aus dem Farbverlauf selbst — optisch unverändert, aber ohne die Rechenlast",
+          "Startseite lädt nur noch halb so viel JavaScript (1.374 kB → 661 kB, komprimiert 374 kB → 189 kB): die schweren Bereiche wie Garden-Game, adVentures, Clash Royale und das Discord-Dashboard werden erst geladen, wenn man sie wirklich aufruft",
+          "Die Spieler-Avatare in den Clash-Royale-Lobbys von 2,41 MB auf 0,17 MB geschrumpft — sie wurden in voller Auflösung geladen und dann auf 48 Pixel angezeigt",
+          "11 ungenutzte Pakete aus dem Frontend entfernt",
+          "Nebenbei: Abstimmungs- und Giveaway-Updates gehen nur noch an die, die die jeweilige Seite offen haben. Vorher bekam jede offene Verbindung bei jeder einzelnen Stimme die komplette Liste geschickt — auch OBS-Overlays und Clash-Royale-Spieler",
+        ]
+      },
+      {
+        title: "Discord-Bot",
+        items: [
+          "Neuer Command: /gewicht — misst dein Gewicht in kg",
+        ]
+      },
+    ]
+  },
+  {
     date: "24.07.2026",
     version: "v6.1: Connect 4, Clash-Royale-Übersetzung komplett & Discord-Rechtliches",
     sections: [

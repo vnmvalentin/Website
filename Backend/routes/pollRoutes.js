@@ -25,8 +25,19 @@ function savePolls(data) {
     }
 }
 
+const liveBadges = require("../lib/liveBadges");
+
 module.exports = function createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }) {
     const router = express.Router();
+
+    // Vollpayload nur an die, die die Abstimmungsseite offen haben — plus der
+    // schlanke Nav-Punkt an alle anderen. Früher ging die komplette polls.json
+    // an JEDE verbundene Socket, auch an OBS-Overlays und CR-Spieler.
+    function emitPolls(polls) {
+        if (!io) return;
+        io.to(liveBadges.ROOM_POLLS).emit("polls_update", polls);
+        liveBadges.broadcast(io);
+    }
 
     // 1. GET / -> Alle Abstimmungen abrufen (Für die Übersicht)
     router.get("/", (req, res) => {
@@ -66,7 +77,7 @@ module.exports = function createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io
         savePolls(polls);
 
         // Allen verbundenen Clients Bescheid geben
-        if (io) io.emit("polls_update", polls);
+        emitPolls(polls);
         
         res.status(201).json(newPoll);
     });
@@ -81,7 +92,7 @@ module.exports = function createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io
         polls = polls.filter(p => String(p.id) !== String(req.params.id));
         savePolls(polls);
 
-        if (io) io.emit("polls_update", polls);
+        emitPolls(polls);
         
         res.json({ success: true });
     });
@@ -128,7 +139,7 @@ module.exports = function createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io
         savePolls(polls);
 
         // Allen anderen Clients mitteilen, dass sich die Balken verschoben haben
-        if (io) io.emit("polls_update", polls);
+        emitPolls(polls);
         
         // Frontend erwartet das aktualisierte Poll-Objekt zurück
         res.json(poll); 

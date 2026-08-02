@@ -1,11 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Clock, Crown, Zap, Shuffle, Gift, Search, X, Check, ArrowRight, Ban, Eye } from 'lucide-react';
-import { RARITY_COLOR, RARITY_BORDER } from '../data/cards';
+import { RARITY_COLOR } from '../data/cards';
 import { BINGO_ATTR_COLOR, getCardAttrs, bingoAttrLabel } from '../data/bingoAttributes';
+import ModeShell from './ModeShell';
+import { CARD_CROP } from './cardCrop';
+import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
+
+/** Akzentfarbe des Modus — Bingo ist golden. */
+const ACCENT = '#fbbf24';
 
 const BINGO_I18N = {
   de: {
@@ -192,17 +198,19 @@ function AvatarCircle({ id, color, size = 28 }) {
   return (
     <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
-      {url && <img src={url} alt="" className="w-full h-full object-cover" />}
+      {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
   );
 }
 
-function CardImg({ id, name, rarity, contain = false }) {
+function CardImg({ id, name, contain = false }) {
   return (
-    <div className="relative w-full h-full" style={{ background: (RARITY_COLOR[rarity] || '#555') + '18' }}>
+    // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
+    // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
+    <div className="relative w-full h-full">
       <img src={`${CARD_CDN}${id}.png`} alt={name}
         className={`w-full h-full ${contain ? 'object-contain' : 'object-cover'}`}
-        onError={e => { e.target.style.display = 'none'; }} />
+        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
   );
 }
@@ -224,7 +232,8 @@ function BingoSidebar({ state, myPlayerId, t, amSpectator = false, watchPlayerId
   const inTokenShop   = state.phase === 'tokenShop';
 
   return (
-    <div className="w-60 shrink-0 bg-[#16161a] border-r border-white/5 overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
+    // Rahmen (Hintergrund, Rand, Scrollen) macht ModeShell — hier nur der Inhalt.
+    <>
       {activePlayers.map(p => {
         const isMe       = p.id === myPlayerId;
         const isActing   = inTokenShop && state.tokenShopCurrentPlayerId === p.id;
@@ -232,66 +241,52 @@ function BingoSidebar({ state, myPlayerId, t, amSpectator = false, watchPlayerId
         const champCount = (p.deck || []).filter(c => c.isChampion).length;
         const tokens     = p.bingoTokensLeft ?? p.bingoTokens ?? 0;
         return (
-          <div key={p.id}
-            onClick={amSpectator ? () => onWatchSelect?.(p.id) : undefined}
-            className={`rounded-sm border p-3 transition-colors ${amSpectator ? 'cursor-pointer hover:border-cyan-400/40' : ''} ${
-              isActing ? 'border-amber-400/50 bg-amber-400/5'
-              : isWatched ? 'border-cyan-500/50 bg-cyan-500/5'
-              : isMe ? 'border-cyan-500/40 bg-cyan-500/5'
-              : 'border-white/5 bg-[#0f0f13]'}`}>
-            <div className="flex items-center gap-2 mb-2.5 min-w-0">
-              <AvatarCircle id={p.avatar} color={p.color} size={30} />
-              <span className="text-white text-sm font-semibold truncate flex-1">{p.name}</span>
-              {isMe && <span className="text-[10px] text-cyan-500 font-bold shrink-0">{t.you}</span>}
-              {isWatched && <Eye size={13} className="text-cyan-400 shrink-0" />}
-            </div>
+          <PlayerPanel key={p.id} isMe={isMe || isWatched}
+            className={`${amSpectator ? 'cursor-pointer' : ''} ${
+              isActing ? 'ring-1 ring-inset ring-amber-400/50' : ''
+            }`}
+            header={
+              <div onClick={amSpectator ? () => onWatchSelect?.(p.id) : undefined}
+                className="flex items-center gap-2.5 min-w-0">
+                <AvatarCircle id={p.avatar} color={p.color} size={28} />
+                <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
+                {isWatched && <Eye size={12} className="text-cyan-400 shrink-0" />}
+                <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/8</span>
+              </div>
+            }>
             {/* Tokens — im Token-Shop live mitzählend, sonst nur wenn vorhanden */}
             {(tokens > 0 || inTokenShop) && (
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm border ${
-                  tokens > 0 ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : 'text-gray-600 bg-white/[0.02] border-white/5'}`}>
+              <div className="flex items-center gap-2">
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg ${
+                  tokens > 0 ? 'text-amber-300 bg-amber-400/12' : 'text-white/25 bg-white/[0.04]'}`}>
                   {t.tokensCount(tokens)}
                 </span>
-                {isActing && <span className="text-[10px] text-amber-300 font-semibold animate-pulse">{t.actingNow}</span>}
+                {isActing && <span className="text-[11px] text-amber-300 font-semibold">{t.actingNow}</span>}
               </div>
             )}
-            {/* Deck 2×4 */}
-            <div className="grid grid-cols-4 gap-1">
-              {Array.from({ length: 8 }, (_, ci) => {
-                const card = p.deck?.[ci];
-                return (
-                  <div key={ci}
-                    title={card?.name}
-                    className={`aspect-square rounded-sm overflow-hidden border ${
-                      card ? (RARITY_BORDER[card.rarity] || 'border-white/10') : 'border-white/5 bg-white/[0.02]'
-                    }`}>
-                    {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
-                  </div>
-                );
-              })}
+            <DeckGrid deck={p.deck || []}
+              renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
+            <div className="flex items-center gap-1.5">
+              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
-            <div className="flex items-center gap-1 mt-2">
-              <Crown size={11} className={champCount > 0 ? 'text-cyan-400' : 'text-gray-700'} />
-              <span className="text-[10px] text-gray-500">{champCount}/2 Champions</span>
-              <span className="text-[10px] text-gray-600 ml-auto">{p.deck?.length || 0}/8</span>
-            </div>
-          </div>
+          </PlayerPanel>
         );
       })}
 
       {spectators.length > 0 && (
         <>
-          <div className="h-px bg-white/5 mt-1" />
+          <div className="h-px bg-white/[0.06]" />
           {spectators.map(p => (
-            <div key={p.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-3 py-2 flex items-center gap-2 opacity-50">
-              <AvatarCircle id={p.avatar} color={p.color} size={22} />
-              <span className="text-gray-400 text-xs truncate flex-1">{p.name}</span>
-              {p.id === myPlayerId && <span className="text-[9px] text-cyan-600 shrink-0">{t.you}</span>}
+            <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
+              <AvatarCircle id={p.avatar} color={p.color} size={20} />
+              <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
+              <Eye size={11} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -300,38 +295,33 @@ function TurnBanner({ state, myPlayerId, selectedCard, freePlace, amSpectator, t
   const currentPlayer = state.players.find(p => p.id === state.currentPlayerId);
   const isMyTurn = state.currentPlayerId === myPlayerId && !amSpectator;
 
-  if (state.finished) return (
-    <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
-      <Check size={16} className="text-green-400 shrink-0" />
-      <p className="text-green-300 font-bold text-sm">{t.draftDone}</p>
-    </div>
+  // Flächig statt umrandet — der Hinweis führt, ohne als Kasten aufzufallen.
+  const wrap = (children) => (
+    <div className="shrink-0 px-4 sm:px-10 py-2.5 bg-white/[0.02] flex items-center gap-3">{children}</div>
   );
 
-  if (isMyTurn) return (
-    <div className="shrink-0 px-4 py-2.5 bg-cyan-500/10 border-b border-cyan-500/30 flex items-center gap-3">
-      <AvatarCircle id={currentPlayer?.avatar} color={currentPlayer?.color} size={36} />
-      <div className="min-w-0">
-        <p className="text-cyan-300 font-black text-sm uppercase tracking-wide">{t.yourTurn}</p>
-        <p className="text-gray-300 text-xs mt-0.5 truncate">
-          {!selectedCard ? t.turnHintChoose
-            : freePlace ? t.turnHintFreePlace(selectedCard.name)
-            : t.turnHintMatching(selectedCard.name)}
-        </p>
-      </div>
-    </div>
-  );
+  if (state.finished) return wrap(<>
+    <Check size={15} className="text-green-400 shrink-0" />
+    <p className="text-green-300 font-semibold text-sm">{t.draftDone}</p>
+  </>);
 
-  return (
-    <div className="shrink-0 px-4 py-2.5 bg-[#101016] border-b border-white/5 flex items-center gap-3">
-      <AvatarCircle id={currentPlayer?.avatar} color={currentPlayer?.color} size={36} />
-      <div className="min-w-0">
-        <p className="font-bold text-sm truncate" style={{ color: currentPlayer?.color || '#9ca3af' }}>
-          {t.turnOf(currentPlayer?.name || '…')}
-        </p>
-        <p className="text-gray-500 text-xs mt-0.5">{amSpectator ? t.spectatorWatching : t.waitYourTurn}</p>
-      </div>
-    </div>
-  );
+  if (isMyTurn) return wrap(<>
+    <AvatarCircle id={currentPlayer?.avatar} color={currentPlayer?.color} size={32} />
+    <p className="text-cyan-300 text-sm font-semibold shrink-0">{t.yourTurn}</p>
+    <p className="text-white/40 text-sm truncate">
+      {!selectedCard ? t.turnHintChoose
+        : freePlace ? t.turnHintFreePlace(selectedCard.name)
+        : t.turnHintMatching(selectedCard.name)}
+    </p>
+  </>);
+
+  return wrap(<>
+    <AvatarCircle id={currentPlayer?.avatar} color={currentPlayer?.color} size={32} />
+    <p className="text-sm font-semibold truncate shrink-0" style={{ color: currentPlayer?.color || '#9ca3af' }}>
+      {t.turnOf(currentPlayer?.name || '…')}
+    </p>
+    <p className="text-white/35 text-sm truncate">{amSpectator ? t.spectatorWatching : t.waitYourTurn}</p>
+  </>);
 }
 
 // ── Die eigene Bingo-Karte — als abgehobenes Panel mit großen Feldern ──────
@@ -340,8 +330,19 @@ function MyBingoCard({ grid, completedLines = [], validCells, matchingCells, fre
   if (!grid?.length) return null;
 
   return (
-    <div className="h-full w-auto max-w-full aspect-square mx-auto">
-    <div className="grid gap-2.5 h-full" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(4, 1fr)' }}>
+    // Ein Quadrat, das in BEIDE Richtungen passt — die eigentlich knifflige Stelle.
+    //
+    // `width:100%` + `aspect-ratio` + `max-height` funktioniert NICHT: max-height kappt
+    // zwar die Höhe, lässt die Breite aber stehen. Das Feld wurde dadurch breiter als
+    // hoch, die Zellen (aspect-ratio:1) sprengten es und auf 1920×1080 lief die untere
+    // Reihe aus dem Bild. `h-full`/`w-auto` wiederum ließ es auf dem Handy zu einem
+    // Streifen zusammenfallen, weil dort die Höhe die knappe Größe ist.
+    //
+    // `min(100%, 100cqh)` löst beides: 100cqh ist die Höhe des Elternteils (deshalb
+    // steht dort container-type: size), 100% seine Breite — es gewinnt die knappere
+    // von beiden, und aspect-ratio macht daraus ein Quadrat.
+    <div className="mx-auto" style={{ width: 'min(100%, 100cqh)', maxWidth: '100%', aspectRatio: '1 / 1' }}>
+    <div className="grid gap-1.5 sm:gap-2.5 h-full" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(4, 1fr)' }}>
       {grid.map((cell, ci) => {
         const isFilled    = cell.card !== null;
         const isBingo     = completedCells.has(ci);
@@ -823,9 +824,12 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
   // Token shop phase
   if (phase === 'tokenShop') {
     return (
-      <div className="h-full flex overflow-hidden relative">
-        <BingoSidebar state={state} myPlayerId={myPlayerId} t={t} />
-        <div className="flex-1 overflow-hidden relative">
+      <ModeShell
+        sidebar={<BingoSidebar state={state} myPlayerId={myPlayerId} t={t} />}
+        playerCount={state.players.filter(p => !p.isSpectator).length}
+        lang={lang}
+        strip={<span className="text-white/40 text-[11px] truncate">{t.tokenShopTitle}</span>}>
+        <div className="flex-1 overflow-hidden relative min-h-0">
           {state.tokenShopCurrentPlayerId === myPlayerId
             ? <TokenShop state={state} myPlayerId={myPlayerId} onPowerup={onPowerup} onTokenAction={onTokenAction} t={t} lang={lang} />
             : <TokenShopLive state={state} t={t} lang={lang} />}
@@ -833,7 +837,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
             <PowerupReveal result={lastPowerupResult} players={state.players} t={t} lang={lang} />
           )}
         </div>
-      </div>
+      </ModeShell>
     );
   }
 
@@ -842,35 +846,35 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
   const watchedPlayer = amSpectator ? state.players.find(p => p.id === watchPlayerId) : null;
 
   return (
-    <div className="h-full flex overflow-hidden select-none">
-      <BingoSidebar state={state} myPlayerId={myPlayerId} t={t}
-        amSpectator={amSpectator} watchPlayerId={watchPlayerId} onWatchSelect={setWatchPlayerId} />
+    <ModeShell
+      sidebar={
+        <BingoSidebar state={state} myPlayerId={myPlayerId} t={t}
+          amSpectator={amSpectator} watchPlayerId={watchPlayerId} onWatchSelect={setWatchPlayerId} />
+      }
+      playerCount={state.players.filter(p => !p.isSpectator).length}
+      lang={lang}
+      strip={<span className="text-white/40 text-[11px] truncate">{t.roundOf(round, maxRounds)}</span>}>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <GameSurface>
 
-        {/* Top bar: Runde + Timer */}
-        <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
-          <span className="text-white font-bold text-sm">{t.roundOf(round, maxRounds)}</span>
-          <div className="flex-1" />
-          {!finished && <TimerChip remaining={timerRemaining} />}
-        </div>
-
-        {/* Timer bar */}
-        {!finished && (
-          <div className="shrink-0 h-1 bg-white/5">
-            <div className={`h-full transition-all duration-1000 ${timerUrgent ? 'bg-red-500' : 'bg-amber-400'}`}
-              style={{ width: `${timerPct}%` }} />
-          </div>
-        )}
+        {/* Kopfzeile: große Rundenzahl als Anker */}
+        <GameHeader
+          label={lang === 'en' ? 'Round' : 'Runde'}
+          value={round}
+          total={maxRounds}
+          timerRemaining={finished ? undefined : timerRemaining}
+          timerUrgent={timerUrgent}
+        />
+        {!finished && <ProgressHairline pct={timerPct} accent={ACCENT} urgent={timerUrgent} />}
 
         {/* Wer ist dran? */}
         <TurnBanner state={state} myPlayerId={myPlayerId}
           selectedCard={selectedCard} freePlace={placement.freePlace} amSpectator={amSpectator} t={t} />
 
         {/* Verfügbare Karten der Runde */}
-        <div className="shrink-0 border-b border-white/5 bg-[#0a0a0d] px-4 py-4">
-          <p className="text-gray-500 text-[11px] uppercase tracking-wider mb-3 text-center">{t.availableCardsRound(round)}</p>
-          <div className="flex gap-4 flex-wrap justify-center">
+        <div className="shrink-0 px-4 sm:px-10 py-4">
+          <p className="text-white/30 text-[11px] uppercase tracking-wider mb-3 text-center">{t.availableCardsRound(round)}</p>
+          <div className="flex gap-4 sm:gap-5 flex-wrap justify-center">
             {currentCards.map((card, idx) => {
               const isPicked     = pickedThisRound[idx] != null;
               const pickedPlayer = isPicked ? state.players.find(p => p.id === pickedThisRound[idx]) : null;
@@ -880,30 +884,36 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
               const isClickable  = isMyTurn && !amSpectator && !isPicked && !champLocked;
 
               return (
-                <div key={idx}>
+                <div key={idx} className="group">
+                  {/* Deutlich größer als die früheren 96px und mit innerem Ring statt
+                      Rahmen — so verspringt die Reihe beim Überfahren nicht. */}
                   <div onClick={() => isClickable && handleCardClick(idx)}
                     title={card.name + (champLocked ? t.championLimitSuffix : '')}
-                    className={`relative rounded-sm overflow-hidden border-2 transition-colors duration-100 ${
+                    className={`relative rounded-2xl overflow-hidden shadow-[0_10px_28px_rgba(0,0,0,0.45)] w-24 h-24 sm:w-32 sm:h-32 ${
                       isPicked ? 'opacity-40 cursor-default' :
                       champLocked ? 'opacity-25 cursor-not-allowed' :
-                      isSelected ? 'ring-2 ring-cyan-400 cursor-pointer' :
-                      isClickable ? 'cursor-pointer hover:border-cyan-400/60' : 'cursor-default'
-                    }`}
-                    style={{
-                      width: 96, height: 96,
-                      borderColor: isPicked ? (pickedPlayer?.color || '#444') + '88' : isSelected ? '#06b6d4' : '#ffffff18',
-                    }}>
-                    <CardImg id={card.id} name={card.name} rarity={card.rarity} />
+                      isClickable ? 'cursor-pointer' : 'cursor-default'
+                    }`}>
+                    <CardImg id={card.id} name={card.name} />
                     {card.isChampion && !isPicked && (
-                      <div className="absolute top-0.5 right-0.5 bg-black/60 rounded-[2px] p-0.5">
-                        <Crown size={10} className="text-cyan-400" />
+                      <div className="absolute top-1.5 right-1.5 bg-black/55 backdrop-blur-sm rounded-md p-1">
+                        <Crown size={11} className="text-amber-300" />
                       </div>
                     )}
                     {isPicked && pickedPlayer && (
                       <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: pickedPlayer.color + '55' }} />
                     )}
+                    {(isSelected || isClickable || isPicked) && (
+                      <span className={`absolute inset-0 rounded-2xl pointer-events-none transition-opacity ${
+                        isSelected || isPicked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                        style={{
+                          boxShadow: `inset 0 0 0 2px ${
+                            isPicked ? (pickedPlayer?.color || '#444') + 'cc' : ACCENT}`,
+                        }} />
+                    )}
                   </div>
-                  <p className="text-[11px] text-gray-400 text-center mt-1.5 truncate max-w-[96px]">
+                  <p className="text-[12px] text-white/60 text-center mt-2 truncate max-w-[8rem]">
                     {isPicked ? <span style={{ color: (pickedPlayer?.color || '#888') + 'cc' }}>{pickedPlayer?.name}</span> : card.name}
                   </p>
                 </div>
@@ -915,24 +925,42 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
         {/* Eigene Bingo-Karte */}
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 sm:p-6 flex flex-col">
           {!amSpectator && me?.bingoGrid?.length > 0 ? (
-            <div className="max-w-5xl w-full mx-auto flex-1 min-h-0 flex gap-4">
+            // Ab lg dreispaltig: links eine LEERE Spalte, in der Mitte das Bingofeld,
+            // rechts die Hinweise. Ohne die leere Spalte säßen Feld und Hinweise
+            // gemeinsam mittig — das Feld selbst stünde dadurch nach links versetzt.
+            // Unter lg stapelt alles: nebeneinander blieben vom Feld auf einem
+            // 390px-Handy nur gut 100px übrig.
+            // lg:grid-rows-1 ist nicht kosmetisch: Ohne definierte Zeilenhöhe richtet sich
+            // die Rasterzeile nach ihrem Inhalt, das maxHeight:100% des Bingofelds hat
+            // dann keinen Bezugswert und das Feld wird so hoch wie es breit ist — auf
+            // 1920×1080 lief es dadurch unten aus dem Bild.
+            <div className="w-full mx-auto flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[15rem_minmax(0,1fr)_15rem] lg:grid-rows-1 gap-3 lg:gap-4">
 
-              {/* Abgehobenes Board-Panel — nimmt den restlichen Platz ein, das Board selbst
-                  skaliert per aspect-square/h-full mit, damit auf niedrigeren Auflösungen
-                  (z.B. 1920×1080) kein Scrollen nötig ist, aber die Felder so groß wie möglich bleiben */}
-              <div className="flex-1 min-w-0 min-h-0 rounded-md border border-amber-400/25 bg-[#111018] shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden flex flex-col">
-                <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-amber-400/10 border-b border-amber-400/20">
-                  <p className="text-amber-300 text-xs font-bold uppercase tracking-widest">{t.yourBingoCard}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-gray-500 font-semibold">{t.rowsOf10((me.completedLines || []).length)}</span>
+              {/* Gegengewicht zur Hinweisspalte — hält das Feld in der Bildschirmmitte */}
+              <div className="hidden lg:block" aria-hidden="true" />
+
+              {/* Abgehobenes Board-Panel — das Board selbst skaliert per aspect-square mit,
+                  damit auf niedrigeren Auflösungen (z.B. 1920×1080) kein Scrollen nötig ist,
+                  die Felder aber so groß wie möglich bleiben */}
+              {/* overflow-hidden MUSS bleiben: Ohne es hat der Kasten keine feste Höhe
+                  mehr, das maxHeight:100% des Bingofelds greift ins Leere und die
+                  unteren Reihen laufen aus dem Bild. */}
+              <div className="min-w-0 min-h-0 h-full flex-1 lg:flex-none overflow-hidden flex flex-col gap-3">
+                <div className="shrink-0 flex items-center justify-between gap-3">
+                  <p className="text-white/40 text-xs font-semibold uppercase tracking-wider">{t.yourBingoCard}</p>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[11px] text-white/30">{t.rowsOf10((me.completedLines || []).length)}</span>
                     {myTokens > 0 && (
-                      <span className="text-amber-400 text-xs font-bold bg-amber-400/10 border border-amber-400/25 px-2 py-0.5 rounded-sm">
+                      <span className="text-amber-300 text-xs font-semibold bg-amber-400/12 px-2 py-0.5 rounded-lg">
                         {t.tokensCount(myTokens)}
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="flex-1 min-h-0 p-3 sm:p-4 bg-[#0c0b12] flex items-center justify-center">
+                {/* container-type: size macht die eigene Größe für 100cqh im Bingofeld
+                    messbar — siehe Erklärung in MyBingoCard. */}
+                <div className="flex-1 min-h-0 flex items-center justify-center"
+                  style={{ containerType: 'size' }}>
                   <MyBingoCard
                     grid={me.bingoGrid}
                     completedLines={me.completedLines || []}
@@ -951,10 +979,10 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
               {/* Hinweisspalte neben dem Feld. Die Breite ist IMMER reserviert, auch wenn
                   gerade kein Hinweis ansteht — sonst würde das Bingofeld bei jedem
                   Ein- und Ausblenden seine Größe ändern. */}
-              <div className="w-60 shrink-0 flex flex-col justify-center gap-3">
+              <div className="w-full min-w-0 flex flex-col justify-center gap-3">
                 {/* Deutliche Warnung, wenn die Karte ein Feld blockieren würde */}
                 {selectedCard && isMyTurn && placement.freePlace && (
-                  <div className="flex flex-col gap-2 bg-red-500/10 border border-red-500/40 rounded-md px-4 py-3">
+                  <div className="flex flex-col gap-2 bg-red-500/10 rounded-xl px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Ban size={16} className="text-red-400 shrink-0" />
                       <p className="text-red-300 text-sm font-bold leading-snug">{t.blockWarningTitle(selectedCard.name)}</p>
@@ -968,7 +996,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
                   </div>
                 )}
                 {selectedCard && isMyTurn && !placement.freePlace && (
-                  <div className="flex flex-col gap-2 bg-cyan-500/10 border border-cyan-500/30 rounded-md px-4 py-3">
+                  <div className="flex flex-col gap-2 bg-cyan-500/10 rounded-xl px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Check size={15} className="text-cyan-400 shrink-0" />
                       <p className="text-cyan-300 text-xs font-bold uppercase tracking-wider">{t.yourTurn}</p>
@@ -982,16 +1010,19 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
             </div>
           ) : amSpectator ? (
             watchedPlayer?.bingoGrid?.length > 0 ? (
-              <div className="max-w-2xl w-full mx-auto flex-1 min-h-0 flex flex-col gap-3">
-                <div className="flex-1 min-h-0 rounded-md border border-cyan-500/25 bg-[#111018] shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden flex flex-col">
-                  <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-cyan-500/10 border-b border-cyan-500/20">
+              <div className="max-w-3xl w-full mx-auto flex-1 min-h-0 flex flex-col gap-3">
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-3">
+                  <div className="shrink-0 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <Eye size={13} className="text-cyan-400 shrink-0" />
-                      <p className="text-cyan-300 text-xs font-bold uppercase tracking-widest truncate">{t.watchingBoardOf(watchedPlayer.name)}</p>
+                      <p className="text-white/40 text-xs font-semibold uppercase tracking-wider truncate">{t.watchingBoardOf(watchedPlayer.name)}</p>
                     </div>
-                    <span className="text-[11px] text-gray-500 font-semibold shrink-0">{t.rowsOf10((watchedPlayer.completedLines || []).length)}</span>
+                    <span className="text-[11px] text-white/30 shrink-0">{t.rowsOf10((watchedPlayer.completedLines || []).length)}</span>
                   </div>
-                  <div className="flex-1 min-h-0 p-3 sm:p-4 bg-[#0c0b12] flex items-center justify-center">
+                  {/* container-type: size macht die eigene Größe für 100cqh im Bingofeld
+                    messbar — siehe Erklärung in MyBingoCard. */}
+                <div className="flex-1 min-h-0 flex items-center justify-center"
+                  style={{ containerType: 'size' }}>
                     <MyBingoCard
                       grid={watchedPlayer.bingoGrid}
                       completedLines={watchedPlayer.completedLines || []}
@@ -1009,13 +1040,13 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
               </div>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-600 text-sm">{t.pickPlayerToWatch}</p>
+                <p className="text-white/30 text-sm">{t.pickPlayerToWatch}</p>
               </div>
             )
           ) : null}
         </div>
 
-      </div>
-    </div>
+      </GameSurface>
+    </ModeShell>
   );
 }

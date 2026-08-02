@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Crown, Check, FishingRod, Hourglass } from 'lucide-react';
-import { RARITY_COLOR, RARITY_BORDER } from '../data/cards';
+import { Crown, Check, FishingRod, Hourglass, Eye } from 'lucide-react';
+import { RARITY_COLOR } from '../data/cards';
+import ModeShell from './ModeShell';
+import { CARD_CROP } from './cardCrop';
+import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
+
+/** Akzentfarbe des Modus. */
+const ACCENT = '#38bdf8';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
@@ -46,6 +52,8 @@ const ANGEL_I18N = {
     reelingIn: (s) => `Angel wird eingeholt… ${s}s`,
     caughtBy: (name) => `${name} hat geangelt!`,
     yourCatch: 'Gefangen!',
+    autoIn: (s) => `Zwangs-Angel in ${s}s`,
+    autoCaught: (name) => `Zu langsam — ${name} wurde für dich geangelt!`,
     denied: {
       cooldown: 'Deine Angel ist noch nicht bereit!',
       diving: 'Abgetaucht — nicht fangbar!',
@@ -72,6 +80,8 @@ const ANGEL_I18N = {
     reelingIn: (s) => `Reeling in… ${s}s`,
     caughtBy: (name) => `${name} caught it!`,
     yourCatch: 'Caught!',
+    autoIn: (s) => `Auto-catch in ${s}s`,
+    autoCaught: (name) => `Too slow — ${name} was caught for you!`,
     denied: {
       cooldown: 'Your rod isn\'t ready yet!',
       diving: 'Submerged — can\'t be caught!',
@@ -83,6 +93,18 @@ const ANGEL_I18N = {
   },
 };
 
+/**
+ * Laufende Uhr für alles Zeitabhängige in der Oberfläche.
+ *
+ * ACHTUNG: Diese Uhr darf nicht bedarfsgesteuert angehalten werden. `now` treibt
+ * hier nicht nur zwei kurze Einblendungen, sondern auch den Start-Countdown, den
+ * Angel-Cooldown und den Zwangs-Angel-Timer — und über `inCountdown`/`isCooling`
+ * hängt `canInteract` daran. Steht die Uhr, bleibt der Countdown bei 3 stehen und
+ * das Anklicken der Karten ist dauerhaft gesperrt.
+ *
+ * Der Fluss selbst läuft über eine eigene requestAnimationFrame-Schleife im
+ * Canvas und ist von dieser Uhr unabhängig.
+ */
 function useNow(intervalMs = 100) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -108,84 +130,93 @@ function AvatarCircle({ id, color, size = 28 }) {
   return (
     <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
-      {url && <img src={url} alt="" className="w-full h-full object-cover" />}
+      {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
   );
 }
 
-function CardImg({ id, name, rarity }) {
+function CardImg({ id, name }) {
   return (
-    <div className="relative w-full h-full" style={{ background: (RARITY_COLOR[rarity] || '#555') + '18' }}>
+    // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
+    // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
+    <div className="relative w-full h-full">
       <img src={`${CARD_CDN}${id}.png`} alt={name} className="w-full h-full object-cover" draggable={false}
-        onError={e => { e.target.style.display = 'none'; }} />
+        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
   );
 }
 
 // ── Sidebar: Spieler mit Deck-Fortschritt ──────────────────────────────────
-function AngelSidebar({ state, myPlayerId, t }) {
+// React.memo, weil die Sidebar nur vom Server-State abhängt: Sie muss nicht neu
+// gerendert werden, wenn die Hauptkomponente aus anderen Gründen durchläuft —
+// bei acht Spielern hängen daran 64 Kartenbilder.
+const AngelSidebar = React.memo(function AngelSidebar({ state, myPlayerId, t }) {
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const spectators = state.players.filter(p => p.isSpectator);
   return (
-    <div className="w-60 shrink-0 bg-[#16161a] border-r border-white/5 overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
+    // Rahmen (Hintergrund, Rand, Scrollen) macht ModeShell — hier nur der Inhalt.
+    <>
       {activePlayers.map(p => {
         const isMe = p.id === myPlayerId;
         const done = (p.deck || []).length >= state.deckSize;
         const champCount = (p.deck || []).filter(c => c.isChampion).length;
         return (
-          <div key={p.id}
-            className={`rounded-sm border p-3 transition-colors ${isMe ? 'border-sky-500/40 bg-sky-500/5' : 'border-white/5 bg-[#0f0f13]'}`}>
-            <div className="flex items-center gap-2 mb-2 min-w-0">
-              <AvatarCircle id={p.avatar} color={p.color} size={30} />
-              <span className="text-white text-sm font-semibold truncate flex-1">{p.name}</span>
-              {isMe && <span className="text-[10px] text-sky-400 font-bold shrink-0">{t.you}</span>}
-              {done && (
-                <span className="flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/25 px-1.5 py-0.5 rounded-sm shrink-0">
-                  <Check size={10} /> {t.done}
-                </span>
-              )}
+          <PlayerPanel key={p.id} isMe={isMe}
+            header={
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AvatarCircle id={p.avatar} color={p.color} size={28} />
+                <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
+                {done
+                  ? <Check size={13} className="text-green-400 shrink-0" title={t.done} />
+                  : <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/{state.deckSize}</span>}
+              </div>
+            }>
+            <DeckGrid deck={p.deck || []} size={state.deckSize}
+              renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
+            <div className="flex items-center gap-1.5">
+              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
-            <div className="grid grid-cols-4 gap-1">
-              {Array.from({ length: state.deckSize }, (_, ci) => {
-                const card = p.deck?.[ci];
-                return (
-                  <div key={ci} title={card?.name}
-                    className={`aspect-square rounded-sm overflow-hidden border ${
-                      card ? (RARITY_BORDER[card.rarity] || 'border-white/10') : 'border-white/5 bg-white/[0.02]'}`}>
-                    {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1 mt-2">
-              <Crown size={11} className={champCount > 0 ? 'text-cyan-400' : 'text-gray-700'} />
-              <span className="text-[10px] text-gray-500">{champCount}/2 Champions</span>
-              <span className="text-[10px] text-gray-600 ml-auto">{p.deck?.length || 0}/{state.deckSize}</span>
-            </div>
-          </div>
+          </PlayerPanel>
         );
       })}
       {spectators.length > 0 && (
         <>
-          <div className="h-px bg-white/5 mt-1" />
+          <div className="h-px bg-white/[0.06]" />
           {spectators.map(p => (
-            <div key={p.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-3 py-2 flex items-center gap-2 opacity-50">
-              <AvatarCircle id={p.avatar} color={p.color} size={22} />
-              <span className="text-gray-400 text-xs truncate flex-1">{p.name}</span>
-              {p.id === myPlayerId && <span className="text-[9px] text-sky-500 shrink-0">{t.you}</span>}
+            <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
+              <AvatarCircle id={p.avatar} color={p.color} size={20} />
+              <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
+              <Eye size={11} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
       )}
-    </div>
+    </>
   );
+});
+
+// Fortschritt 0..1 entlang der Bahn. Ohne Sprint-Fenster ist das schlicht age/travelMs.
+// Mit Sprints wird jedes Fenster mit sprintMult-facher Geschwindigkeit durchflogen; die
+// Grundgeschwindigkeit sinkt entsprechend, sodass die Karte trotzdem exakt nach travelMs
+// am anderen Ufer ankommt. Damit bleibt die Lebenszeit-Prüfung des Servers gültig.
+function fishProgress(f, age) {
+  const mult = f.sprintMult || 1;
+  if (mult === 1 || !f.sprints?.length) return age / f.travelMs;
+  let sprintTotal = 0, sprinted = 0;
+  for (const s of f.sprints) {
+    const len = s.end - s.start;
+    sprintTotal += len;
+    sprinted += Math.max(0, Math.min(len, age - s.start));
+  }
+  return (age + (mult - 1) * sprinted) / (f.travelMs + (mult - 1) * sprintTotal);
 }
 
 // Position einer Karte im Fluss — deterministisch aus den Spawn-Parametern des Servers.
 // serverTime läuft in Server-Uhrzeit; W/H sind CSS-Pixel der Zeichenfläche.
 function fishPos(f, serverTime, W, H, padBottom) {
   const age = serverTime - f.spawnedAt;
-  const progress = age / f.travelMs;
+  const progress = fishProgress(f, age);
   const xNorm = f.dir === 1 ? progress : 1 - progress;
   const x = xNorm * (W + 2 * FISH_W) - FISH_W;
   const padTop = 14;
@@ -212,6 +243,21 @@ function isHardDiving(f, age) {
   return f.dives.some(d => age >= d.start && age <= d.end);
 }
 
+// Sprint-Intensität 0..1 (mit 140ms Ein-/Ausblendung, damit Schlieren nicht hart aufpoppen).
+// Nur für die Optik — die Bewegung selbst schaltet in fishProgress() hart um.
+function sprintFactor(f, age) {
+  if (!f.sprints?.length) return 0;
+  const FADE = 140;
+  let factor = 0;
+  for (const s of f.sprints) {
+    if (age < s.start - FADE || age > s.end + FADE) continue;
+    if (age < s.start) factor = Math.max(factor, 1 - (s.start - age) / FADE);
+    else if (age > s.end) factor = Math.max(factor, 1 - (age - s.end) / FADE);
+    else factor = 1;
+  }
+  return factor;
+}
+
 function roundRectPath(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -223,7 +269,7 @@ function roundRectPath(ctx, x, y, w, h, r) {
 }
 
 // ── Der Fluss (Canvas) ──────────────────────────────────────────────────────
-function RiverCanvas({ state, myPlayerId, canInteract, onCatch, deniedRef }) {
+function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const stateRef = useRef(state);
@@ -373,6 +419,7 @@ function RiverCanvas({ state, myPlayerId, canInteract, onCatch, deniedRef }) {
         }
 
         const dv = diveFactor(f, age);
+        const sf = sprintFactor(f, age);
         const hardDive = isHardDiving(f, age);
         const isHover = !hardDive && mx >= x && mx <= x + FISH_W && my >= y && my <= y + FISH_H;
         if (isHover) hovered = f;
@@ -380,6 +427,31 @@ function RiverCanvas({ state, myPlayerId, canInteract, onCatch, deniedRef }) {
 
         ctx.save();
         ctx.globalAlpha = 1 - dv * 0.68;
+
+        // Flitzer: Nachzieh-Bilder und Tempo-Schlieren hinter der Karte, damit der Sprint
+        // trotz des hohen Tempos ablesbar bleibt und man sie überhaupt anvisieren kann.
+        if (sf > 0) {
+          for (let gi = 3; gi >= 1; gi--) {
+            const gp = fishPos(f, serverTime - gi * 55, W, H, padBottom);
+            ctx.globalAlpha = sf * (0.26 - gi * 0.06);
+            ctx.fillStyle = '#7dd3fc';
+            roundRectPath(ctx, gp.x, gp.y, FISH_W, FISH_H, 7);
+            ctx.fill();
+          }
+          ctx.globalAlpha = sf * 0.5;
+          ctx.strokeStyle = 'rgba(190, 235, 255, 0.9)';
+          ctx.lineWidth = 1.5;
+          for (let l = 0; l < 5; l++) {
+            const ly = yDraw + 8 + (l * (FISH_H - 16)) / 4;
+            const len = 26 + ((l * 37) % 30);
+            const sx = f.dir === 1 ? x - 5 : x + FISH_W + 5;
+            ctx.beginPath();
+            ctx.moveTo(sx, ly);
+            ctx.lineTo(sx - f.dir * len, ly);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1 - dv * 0.68;
+        }
 
         // Hover-Glow (nur wenn fangbar)
         if (isHover && canInteractRef.current) {
@@ -410,6 +482,18 @@ function RiverCanvas({ state, myPlayerId, canInteract, onCatch, deniedRef }) {
         ctx.lineWidth = isHover && canInteractRef.current ? 2.5 : 1.5;
         roundRectPath(ctx, x, yDraw, FISH_W, FISH_H, 7);
         ctx.stroke();
+
+        // Während des Sprints leuchtet der Rahmen kalt auf — das unterscheidet den
+        // Flitzer auf den ersten Blick von einer normal treibenden Karte.
+        if (sf > 0) {
+          ctx.save();
+          ctx.globalAlpha = sf * 0.9;
+          ctx.strokeStyle = '#bae6fd';
+          ctx.lineWidth = 2;
+          roundRectPath(ctx, x, yDraw, FISH_W, FISH_H, 7);
+          ctx.stroke();
+          ctx.restore();
+        }
 
         // Champion-Krone
         if (f.card.isChampion) {
@@ -444,9 +528,9 @@ function RiverCanvas({ state, myPlayerId, canInteract, onCatch, deniedRef }) {
           ctx.globalAlpha = 1 - dv * 0.68;
         }
 
-        // Kartenname unter der Karte (nur oberflächennah lesbar)
+        // Kartenname unter der Karte (nur oberflächennah lesbar, im Sprint verwischt er)
         if (dv < 0.4) {
-          ctx.globalAlpha = (1 - dv) * 0.85;
+          ctx.globalAlpha = (1 - dv) * 0.85 * (1 - sf * 0.75);
           ctx.font = '600 10px system-ui, sans-serif';
           ctx.textAlign = 'center';
           ctx.fillStyle = 'rgba(255,255,255,0.75)';
@@ -510,12 +594,13 @@ function RiverCanvas({ state, myPlayerId, canInteract, onCatch, deniedRef }) {
 }
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────
-export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, lang = 'de' }) {
+export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, autoCatch, lang = 'de' }) {
   const t = ANGEL_I18N[lang] || ANGEL_I18N.de;
-  const now = useNow(100);
   const state = fishState;
   const deniedRef = useRef(null);
   useEffect(() => { deniedRef.current = denied; }, [denied]);
+
+  const now = useNow(100);
 
   if (!state) return (
     <div className="h-full flex items-center justify-center">
@@ -541,57 +626,64 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, la
 
   const canInteract = !amSpectator && !myDeckFull && !state.finished && !inCountdown && !isCooling;
 
+  // Angel-Zwang (fishIdleSeconds): läuft, sobald die Angel wieder bereit ist — bei Ablauf
+  // angelt der Server eine zufällige Karte für einen. Die Frist steht in Server-Uhrzeit.
+  const idleMs = state.idleMs || 0;
+  const idleUntilClient = me?.idleUntil ? me.idleUntil + clientOffset : 0;
+  const idleRemainingMs = Math.max(0, idleUntilClient - now);
+  const idleActive = idleMs > 0 && !amSpectator && !myDeckFull && !state.finished && !inCountdown && !isCooling;
+  const idleUrgent = idleActive && idleRemainingMs <= 2000;
+  const idlePct = idleMs > 0 ? Math.min(100, (idleRemainingMs / idleMs) * 100) : 0;
+  const showRodStatus = (state.catchCooldownMs > 0 || idleMs > 0) && !myDeckFull && !state.finished;
+
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const doneCount = activePlayers.filter(p => (p.deck || []).length >= state.deckSize).length;
 
   const showDeniedToast = denied && (now - denied.ts) < 1600;
+  const showAutoToast = autoCatch && (now - autoCatch.ts) < 2400;
 
   return (
-    <div className="h-full flex overflow-hidden select-none">
-      <AngelSidebar state={state} myPlayerId={myPlayerId} t={t} />
+    <ModeShell
+      sidebar={<AngelSidebar state={state} myPlayerId={myPlayerId} t={t} />}
+      playerCount={state.players.filter(p => !p.isSpectator).length}
+      lang={lang}>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <GameSurface>
 
-        {/* Top bar */}
-        <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
-          <FishingRod size={15} className="text-sky-400 shrink-0" />
-          <span className="text-white font-bold text-sm shrink-0">Angel Royale</span>
-          <span className="text-gray-500 text-xs shrink-0">{t.decksDone(doneCount, activePlayers.length)}</span>
-          <div className="flex-1" />
-          {!amSpectator && (
-            <span className={`text-sm font-bold tabular-nums shrink-0 ${myDeckFull ? 'text-green-400' : 'text-sky-300'}`}>
-              {t.cardsOf(myDeck.length, state.deckSize)}
-            </span>
-          )}
-        </div>
-
-        {/* Status-Banner */}
-        {state.finished ? (
-          <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
-            <Check size={16} className="text-green-400 shrink-0" />
-            <p className="text-green-300 font-bold text-sm">{t.allDecksFull}</p>
-          </div>
-        ) : amSpectator ? (
-          <div className="shrink-0 px-4 py-2.5 bg-[#101016] border-b border-white/5 flex items-center gap-3">
-            <p className="text-gray-400 font-semibold text-sm">{t.spectatorLive}</p>
-          </div>
-        ) : myDeckFull ? (
-          <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
-            <Check size={16} className="text-green-400 shrink-0" />
-            <p className="text-green-300 font-bold text-sm">{t.yourDeckFull}</p>
-          </div>
-        ) : (
-          <div className="shrink-0 px-4 py-2.5 bg-sky-500/10 border-b border-sky-500/30 flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0" />
-            <p className="text-sky-200 font-bold text-sm">{t.catchHint}</p>
-          </div>
-        )}
+        {/* Kopfzeile: der eigene Deckfortschritt ist das Ziel des Modus */}
+        <GameHeader
+          label={lang === 'en' ? 'Cards' : 'Karten'}
+          value={amSpectator ? '–' : myDeck.length}
+          total={amSpectator ? undefined : state.deckSize}
+          badge={
+            state.finished ? (
+              <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
+                <Check size={14} /> {t.allDecksFull}
+              </span>
+            ) : amSpectator ? (
+              <span className="flex items-center gap-1.5 text-white/35 text-sm">
+                <Eye size={13} /> {t.spectatorLive}
+              </span>
+            ) : myDeckFull ? (
+              <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
+                <Check size={14} /> {t.yourDeckFull}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-sky-300 text-sm font-semibold">
+                <FishingRod size={14} /> {t.catchHint}
+              </span>
+            )
+          }
+          meta={t.decksDone(doneCount, activePlayers.length)}
+        />
+        <ProgressHairline
+          pct={amSpectator ? 0 : (myDeck.length / state.deckSize) * 100}
+          accent={ACCENT} />
 
         {/* Fluss */}
         <div className="flex-1 relative overflow-hidden">
           <RiverCanvas
             state={state}
-            myPlayerId={myPlayerId}
             canInteract={canInteract}
             onCatch={onCatch}
             deniedRef={deniedRef}
@@ -604,19 +696,32 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, la
             </div>
           )}
 
+          {/* Zwangs-Angel-Toast: der Server hat die Karte für einen gezogen */}
+          {showAutoToast && !showDeniedToast && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-amber-500/15 border border-amber-500/40 backdrop-blur-md pointer-events-none">
+              <p className="text-amber-200 text-xs font-bold">{t.autoCaught(autoCatch.card?.name || '')}</p>
+            </div>
+          )}
+
           {/* Deck-Leiste (Glas) — füllt sich mit den 8 gefangenen Karten */}
           {!amSpectator && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,40rem)]">
-              <div className={`rounded-xl border backdrop-blur-md px-4 py-3 transition-colors ${
-                isCooling ? 'bg-red-950/30 border-red-500/30' : 'bg-white/[0.06] border-white/10'}`}>
+            // Breiter als vorher (40rem): Auf großen Schirmen waren die acht Kacheln
+            // in der Leiste kleiner als die Karten, die im Fluss vorbeischwimmen.
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,52rem)]">
+              <div className={`rounded-2xl backdrop-blur-md px-4 py-3 transition-colors ${
+                isCooling ? 'bg-red-950/40'
+                : idleUrgent ? 'bg-amber-950/40'
+                : 'bg-black/40'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">{t.yourDeck}</span>
-                  {state.catchCooldownMs > 0 && !myDeckFull && !state.finished && (
+                  {showRodStatus && (
                     <span className={`flex items-center gap-1.5 text-[11px] font-bold tabular-nums ${
-                      isCooling ? 'text-red-300' : 'text-sky-300'}`}>
+                      isCooling ? 'text-red-300' : idleUrgent ? 'text-amber-300' : idleActive ? 'text-amber-200/70' : 'text-sky-300'}`}>
                       {isCooling
                         ? <><Hourglass size={11} className="shrink-0" /> {t.reelingIn((coolingMs / 1000).toFixed(1))}</>
-                        : <><FishingRod size={11} className="shrink-0" /> {t.rodReady}</>}
+                        : idleActive
+                          ? <><Hourglass size={11} className="shrink-0" /> {t.autoIn((idleRemainingMs / 1000).toFixed(1))}</>
+                          : <><FishingRod size={11} className="shrink-0" /> {t.rodReady}</>}
                     </span>
                   )}
                 </div>
@@ -625,18 +730,20 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, la
                     const card = myDeck[i];
                     return (
                       <div key={i} title={card?.name}
-                        className={`aspect-[5/6] rounded-md overflow-hidden border ${
-                          card ? (RARITY_BORDER[card.rarity] || 'border-white/10') : 'border-white/10 bg-black/25'}`}>
+                        className={`aspect-[5/6] rounded-md overflow-hidden ${card ? '' : 'bg-black/25'}`}>
                         {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
                       </div>
                     );
                   })}
                 </div>
-                {/* Cooldown-Ladebalken (catchCooldown) */}
-                {state.catchCooldownMs > 0 && (
+                {/* Ladebalken: erst der Angel-Cooldown, danach die Frist bis zur Zwangs-Angel */}
+                {(state.catchCooldownMs > 0 || idleMs > 0) && (
                   <div className="mt-2 h-1 rounded-sm overflow-hidden bg-white/5">
-                    <div className={isCooling ? 'h-full bg-red-500/80' : 'h-full bg-sky-500/60'}
-                      style={{ width: `${isCooling ? coolPct : 100}%`, transition: 'width .1s linear' }} />
+                    <div className={isCooling ? 'h-full bg-red-500/80'
+                      : idleUrgent ? 'h-full bg-amber-400/90'
+                      : idleActive ? 'h-full bg-amber-500/50'
+                      : 'h-full bg-sky-500/60'}
+                      style={{ width: `${isCooling ? coolPct : idleActive ? idlePct : 100}%`, transition: 'width .1s linear' }} />
                   </div>
                 )}
               </div>
@@ -655,7 +762,7 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, la
           )}
         </div>
 
-      </div>
-    </div>
+      </GameSurface>
+    </ModeShell>
   );
 }

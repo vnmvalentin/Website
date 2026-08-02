@@ -9,46 +9,30 @@ const { ALL_CARDS } = require("../clashRoyale/core/cards");
 const CARD_BY_ID = new Map(ALL_CARDS.map(c => [c.id, c]));
 const DECK_SIZE = 8;
 
-const CR_API_TOKEN = process.env.CLASH_ROYALE_API_TOKEN || "";
-const CR_API_BASE = process.env.CLASH_ROYALE_API_BASE || "https://api.clashroyale.com/v1";
-const REFRESH_STALE_MS = 6 * 60 * 60 * 1000; 
+// Transport und Tag-Prüfung kommen aus dem geteilten Client (lib/crApi.js); die
+// Umformung darunter ist Nuzlocke-eigen und bleibt deshalb hier.
+const { isConfigured, normalizeTag, crApiGet } = require("../lib/crApi");
 
-const TAG_CHARS = /^[0289PYLQGRJCUV]{3,12}$/;
+const REFRESH_STALE_MS = 6 * 60 * 60 * 1000;
 
-function normalizeTag(raw) {
-  const tag = String(raw || "").trim().toUpperCase().replace(/^#/, "").replace(/O/g, "0");
-  return TAG_CHARS.test(tag) ? tag : null;
-}
+// Rückwärtskompatibel: der bisherige Code prüfte an mehreren Stellen auf CR_API_TOKEN
+const CR_API_TOKEN = isConfigured() ? "configured" : "";
 
 async function fetchPlayer(tag) {
-  if (!CR_API_TOKEN) return null;
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), 8000);
-  try {
-    const res = await fetch(`${CR_API_BASE}/players/%23${tag}`, {
-      headers: { Authorization: `Bearer ${CR_API_TOKEN}` },
-      signal: ctrl.signal,
-    });
-    if (res.status === 404) return { notFound: true };
-    if (!res.ok) throw new Error(`Royale API HTTP ${res.status}`);
-    const data = await res.json();
+  const data = await crApiGet(`/players/%23${tag}`);
+  if (!data || data.notFound) return data;
 
-    let currentDeck = [];
-    if (data.currentDeck) {
-      currentDeck = data.currentDeck.map(apiCard => {
-        const match = ALL_CARDS.find(c => c.name === apiCard.name);
-        return match ? match.id : null;
-      }).filter(Boolean);
-    }
+  // Das aktuelle Deck kommt als Kartennamen — auf unsere IDs abbilden, unbekannte
+  // (brandneue) Karten fallen dabei raus.
+  const currentDeck = (data.currentDeck || [])
+    .map(apiCard => ALL_CARDS.find(c => c.name === apiCard.name)?.id || null)
+    .filter(Boolean);
 
-    return { 
-      name: data.name || "", 
-      bestTrophies: data.bestTrophies || data.trophies || 0,
-      currentDeck 
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return {
+    name: data.name || "",
+    bestTrophies: data.bestTrophies || data.trophies || 0,
+    currentDeck,
+  };
 }
 
 // ── Prepared Statements ───────────────────────────────────────────────────────

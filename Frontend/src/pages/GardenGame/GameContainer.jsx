@@ -1647,6 +1647,19 @@ export default function GameContainer() {
         let animFrame;
         let lastFrameTs = performance.now();
         const frameDuration = 1000 / TARGET_FPS;
+
+        // Wiederverwendete Hüllen für den Render-Aufruf. Sie werden pro Frame nur neu
+        // BEFÜLLT, nie neu erzeugt — vorher entstanden hier bei 60 FPS vier frische
+        // Objekte pro Frame (Pflanzen-Klon, Slot, Layout, Payload), was den Garbage
+        // Collector regelmäßig zu Sammelläufen zwang: genau die Mikro-Ruckler.
+        // Unbedenklich, weil der Renderer nichts davon über den Frame hinaus festhält
+        // (sein Slot-Cache vergleicht über einen wertbasierten cacheKey, nicht über
+        // Objektidentität) und `layout.current` dabei unangetastet bleibt.
+        const drawState = {};
+        const layoutBuf = {};
+        const slotsBuf = [];
+        const mySlotBuf = {};
+
         const gameLoop = () => {
             const l = layout.current;
             const now = performance.now();
@@ -1778,22 +1791,37 @@ export default function GameContainer() {
             // ── RENDER ───────────────────────────────────────────────────────
             // Inject live plant data into slots
             const myPlotSlotIndex = mySlotRef.current;
-            const slots = l.slots.map((slot, i) => {
-                if (i === myPlotSlotIndex) {
-                    const visiblePlants = { ...engine.plotPlants };
-                    // 1. ANPASSUNG: Pflanze während dem Umtopfen vom Feld ausblenden
-                    if (movingPlantSourceRef.current && selectedToolRef.current === "pot") {
-                        delete visiblePlants[movingPlantSourceRef.current];
-                    }
-                    return {
-                        ...slot,
-                        plants: visiblePlants,
-                        currentExpansions: plotExpansionsRef.current,
-                        unlockedCells: plotUnlockedCellsRef.current,
-                    };
+
+            // 1. ANPASSUNG: Pflanze während dem Umtopfen vom Feld ausblenden.
+            // Der Klon ist NUR dafür nötig — und nur, solange wirklich umgetopft wird.
+            // Im Normalfall (kein Umtopfen) reicht die Referenz auf engine.plotPlants,
+            // und es fällt keine einzige Kopie an.
+            const hiddenPlantKey = selectedToolRef.current === "pot" ? movingPlantSourceRef.current : null;
+            let visiblePlants = engine.plotPlants;
+            if (hiddenPlantKey && visiblePlants && hiddenPlantKey in visiblePlants) {
+                visiblePlants = { ...engine.plotPlants };
+                delete visiblePlants[hiddenPlantKey];
+            }
+
+            // Fremde Slots gehen unverändert per Referenz durch, nur der eigene bekommt
+            // die Live-Daten übergestülpt — in eine wiederverwendete Hülle statt in ein
+            // neues Objekt. `l.slots` selbst wird dabei nicht verändert.
+            slotsBuf.length = l.slots.length;
+            for (let i = 0; i < l.slots.length; i++) {
+                const slot = l.slots[i];
+                if (i !== myPlotSlotIndex) {
+                    slotsBuf[i] = slot;
+                    continue;
                 }
-                return slot;
-            });
+                Object.assign(mySlotBuf, slot);
+                mySlotBuf.plants = visiblePlants;
+                mySlotBuf.currentExpansions = plotExpansionsRef.current;
+                mySlotBuf.unlockedCells = plotUnlockedCellsRef.current;
+                slotsBuf[i] = mySlotBuf;
+            }
+
+            Object.assign(layoutBuf, l);
+            layoutBuf.slots = slotsBuf;
 
             // 1. & 2. ANPASSUNG: Welches Item wird gerade in der Hand gehalten?
             let activeHeldItem = heldItemRef.current;
@@ -1803,22 +1831,23 @@ export default function GameContainer() {
                 if (p) activeHeldItem = p;
             }
 
-            renderer.draw({
-                areas: engine.areas,
-                readyEggsCount: readyEggsCount,
-                layout: { ...l, slots },
-                zoom: 1,
-                selectedTool: selectedToolRef.current,
-                heldItem: activeHeldItem, // Hier übergeben wir das frisch berechnete Item
-                weather: weatherStateRef.current,
-                renderProfile: renderProfileRef.current,
-                petPlacements: engine.petPlacements,
-                decoPlacements: engine.decoPlacements,
-                harvestFlashes: harvestFlashesRef.current,
-                localPlayerName: localPlayerNameRef.current,
-                playerAppearance: appearanceRef.current,
-                playerBadge: playerBadgeRef.current,
-            }, player);
+            // Felder überschreiben statt ein neues Payload-Objekt zu bauen.
+            drawState.areas = engine.areas;
+            drawState.readyEggsCount = readyEggsCount;
+            drawState.layout = layoutBuf;
+            drawState.zoom = 1;
+            drawState.selectedTool = selectedToolRef.current;
+            drawState.heldItem = activeHeldItem; // Hier übergeben wir das frisch berechnete Item
+            drawState.weather = weatherStateRef.current;
+            drawState.renderProfile = renderProfileRef.current;
+            drawState.petPlacements = engine.petPlacements;
+            drawState.decoPlacements = engine.decoPlacements;
+            drawState.harvestFlashes = harvestFlashesRef.current;
+            drawState.localPlayerName = localPlayerNameRef.current;
+            drawState.playerAppearance = appearanceRef.current;
+            drawState.playerBadge = playerBadgeRef.current;
+
+            renderer.draw(drawState, player);
 
             animFrame = requestAnimationFrame(gameLoop);
         };

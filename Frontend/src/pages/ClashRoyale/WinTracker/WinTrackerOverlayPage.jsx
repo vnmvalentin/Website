@@ -1,9 +1,10 @@
 // WinTrackerOverlayPage.jsx — Kompaktes OBS-Overlay: Liga/Trophäen des aktiven
 // Accounts, Tagesstatistik seit 00:00 Uhr und die letzten 5 Spiele.
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Trophy, TrendingUp, TrendingDown } from "lucide-react";
 import { leagueIconUrl, leagueName } from "../data/leagueIcons";
+import { useStableState } from "../../../utils/useStableState";
 import { getOverlayData } from "./winTrackerApi";
 
 const POLL_MS = 15000;
@@ -19,7 +20,8 @@ function hexToRgba(hex, opacityPct) {
 
 export default function WinTrackerOverlayPage() {
   const { overlayKey } = useParams();
-  const [data, setData] = useState(null);
+  // Läuft in OBS dauerhaft: nur neu rendern, wenn sich wirklich etwas geändert hat
+  const [data, setData] = useStableState(null);
 
   useEffect(() => {
     let alive = true;
@@ -31,7 +33,7 @@ export default function WinTrackerOverlayPage() {
     tick();
     const t = setInterval(tick, POLL_MS);
     return () => { alive = false; clearInterval(t); };
-  }, [overlayKey]);
+  }, [overlayKey, setData]);
 
   // OBS-Browserquelle — gehört nicht in die Google-Suche (zusätzlich per robots.txt gesperrt)
   const noIndex = <meta name="robots" content="noindex, nofollow" />;

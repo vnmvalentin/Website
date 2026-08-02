@@ -28,7 +28,9 @@ const STREAMER_I18N = {
     loadingConfig: 'Lade Konfiguration…',
     loadError: 'Konfiguration konnte nicht geladen werden.',
     step1Title: 'Browserquelle einfügen',
-    step1Body: 'Ohne diese Quelle in OBS funktioniert nichts weiter unten — sie ist gleichzeitig das Deck-Overlay und die einzige Brücke zum WebSocket-Server. Nach jedem abgeschlossenen Draft — egal in welcher Lobby du mitspielst — zeigt sie automatisch die finalen Decks, und sie führt die Szenen-/Quellen-Automatiken aus Schritt 3 aus (auch wenn sie selbst ausgeblendet ist).',
+    step1Body: 'Diese Quelle ist Voraussetzung für alles Weitere.',
+    step1Why: 'Sie ist gleichzeitig das Deck-Overlay und die Brücke zu OBS: Nach jedem abgeschlossenen Draft zeigt sie automatisch die finalen Decks — egal in welcher Lobby du mitspielst — und führt die Automatiken aus Schritt 3 aus, auch wenn sie selbst ausgeblendet ist.',
+    whyLabel: 'Wozu ist das gut?',
     step1HowToPre: 'In OBS: „+“ unter Quellen →',
     step1HowToBrowser: 'Browser',
     step1HowToPost: '→ neue Quelle anlegen → diesen Link einfügen:',
@@ -39,7 +41,8 @@ const STREAMER_I18N = {
     regenerateLink: 'Link neu generieren (alter Link wird ungültig)',
     regenerateConfirm: 'Overlay-Link neu generieren? Der alte Link (auch in OBS) wird ungültig.',
     step2Title: 'Mit OBS verbinden',
-    step2Body: 'In OBS unter „Werkzeuge → WebSocket-Servereinstellungen“ den Server aktivieren und das Passwort hier eintragen. Die Verbindung läuft direkt von diesem Browser bzw. der Overlay-Quelle zu OBS auf demselben PC. Sobald die Verbindung klappt, wird das Passwort automatisch gespeichert.',
+    step2Body: 'In OBS: Werkzeuge → WebSocket-Servereinstellungen → aktivieren, Passwort hier eintragen.',
+    step2Why: 'Die Verbindung läuft direkt von diesem Browser bzw. der Overlay-Quelle zu OBS auf demselben PC — nichts davon geht über unseren Server. Sobald die Verbindung steht, wird das Passwort automatisch gespeichert.',
     host: 'Host',
     port: 'Port',
     password: 'Passwort',
@@ -71,7 +74,9 @@ const STREAMER_I18N = {
     loadingConfig: 'Loading configuration…',
     loadError: 'Configuration could not be loaded.',
     step1Title: 'Add browser source',
-    step1Body: "Nothing below works without this source in OBS — it's both the deck overlay and the only bridge to the WebSocket server. After every completed draft — in any lobby you play in — it automatically shows the final decks, and it runs the scene/source automations from step 3 (even while hidden itself).",
+    step1Body: 'This source is required for everything below.',
+    step1Why: "It's both the deck overlay and the bridge to OBS: after every completed draft it automatically shows the final decks — in any lobby you play in — and it runs the automations from step 3, even while hidden itself.",
+    whyLabel: 'What is this for?',
     step1HowToPre: 'In OBS: "+" under Sources →',
     step1HowToBrowser: 'Browser',
     step1HowToPost: '→ create new source → paste this link:',
@@ -82,7 +87,8 @@ const STREAMER_I18N = {
     regenerateLink: 'Regenerate link (old link becomes invalid)',
     regenerateConfirm: 'Regenerate the overlay link? The old link (including in OBS) will become invalid.',
     step2Title: 'Connect to OBS',
-    step2Body: 'In OBS, under "Tools → WebSocket Server Settings", enable the server and enter the password here. The connection runs directly from this browser (or the overlay source) to OBS on the same PC. As soon as the connection works, the password is saved automatically.',
+    step2Body: 'In OBS: Tools → WebSocket Server Settings → enable it, then enter the password here.',
+    step2Why: 'The connection runs directly from this browser (or the overlay source) to OBS on the same PC — none of it goes through our server. Once connected, the password is saved automatically.',
     host: 'Host',
     port: 'Port',
     password: 'Password',
@@ -143,6 +149,22 @@ function formToAction(f) {
         ? { sceneName: f.srcScene, sourceName: f.srcSource, action: f.srcAction }
         : null,
   };
+}
+
+/**
+ * Aufklappbare Hintergrund-Erklärung. Die Schritte selbst bleiben so kurz, dass
+ * man sie überfliegen kann — das "warum" steht darunter, wenn man es braucht.
+ */
+function Why({ label, children }) {
+  return (
+    <details className="mb-4 group">
+      <summary className="text-[11px] text-gray-500 hover:text-cyan-400 cursor-pointer select-none list-none flex items-center gap-1 transition-colors">
+        <span className="inline-block transition-transform group-open:rotate-90">›</span>
+        {label}
+      </summary>
+      <p className="text-xs text-gray-500 leading-relaxed mt-2 pl-3 border-l border-white/10">{children}</p>
+    </details>
+  );
 }
 
 export default function StreamerConfigPanel({ onClose, lang = "de" }) {
@@ -396,9 +418,10 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
                   <span className="w-5 h-5 rounded-full bg-cyan-500 text-black text-[11px] font-black flex items-center justify-center shrink-0">1</span>
                   <Monitor size={15} className="text-cyan-400" /> {s.step1Title}
                 </h3>
-                <p className="text-xs text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 mb-2">
                   {s.step1Body}
                 </p>
+                <Why label={s.whyLabel}>{s.step1Why}</Why>
                 <p className="text-xs text-gray-400 mb-2">
                   {s.step1HowToPre} <strong className="text-white">{s.step1HowToBrowser}</strong> {s.step1HowToPost}
                 </p>
@@ -429,9 +452,10 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
                   <span className="w-5 h-5 rounded-full bg-cyan-500 text-black text-[11px] font-black flex items-center justify-center shrink-0">2</span>
                   <Plug size={15} className="text-cyan-400" /> {s.step2Title}
                 </h3>
-                <p className="text-xs text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 mb-2">
                   {s.step2Body}
                 </p>
+                <Why label={s.whyLabel}>{s.step2Why}</Why>
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px_1fr] gap-3 mb-3">
                   <div>
                     <label className={labelCls}>{s.host}</label>

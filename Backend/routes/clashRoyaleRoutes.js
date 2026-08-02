@@ -16,6 +16,9 @@ const {
 } = require('../clashRoyale/core/modePresets');
 const { emitStreamerEvent, updateDeckFeeds } = require('../clashRoyale/core/streamerFeed');
 const { clearTurnTimer } = require('../clashRoyale/core/timers');
+const { emitClashError } = require('../clashRoyale/core/errors');
+const { isConfigured: crApiConfigured, normalizeTag, fetchPlayerSummary } = require('../lib/crApi');
+const { initCrTracking, startTracking, stopTracking, onPlayerLinked } = require('../clashRoyale/core/crTracking');
 const registry = require('../clashRoyale/core/registry');
 // Ausgelagerte Modi melden sich beim Laden selbst an der Registry an
 require('../clashRoyale/modes');
@@ -61,6 +64,15 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     io.to(lobby.code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
   };
 
+  // Die Tracking-Schleife braucht io, das es erst hier gibt. initCrTracking() ist
+  // idempotent (prüft auf einen laufenden Timer) und tut ohne API-Token gar nichts —
+  // der Aufruf bei jeder Socket-Registrierung startet sie also genau einmal, ohne dass
+  // index.js dafür angefasst werden muss.
+  initCrTracking({
+    lobbies,
+    broadcastLobby: (lobby) => io.to(lobby.code).emit('clash:lobbyUpdate', sanitizeLobby(lobby)),
+  });
+
   // ── Host-Einstellungen der Modi ──────────────────────────────────────────
   // Früher 17 fast identische Handler. Jetzt meldet jeder Modus seine Einstellungen
   // samt Event, Payload-Feld und Prüfung an der Registry an; das Gerüst hier ist für
@@ -97,6 +109,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       // Standardwerte aller Modi (tokenShopTimerSeconds, gridSize, rush*, fish*, maze* …)
       ...registry.defaultSettings(),
       excludedCards: [],
+      locked: false,
       createdAt: Date.now(),
       players: [{ id: socket.id, name: playerName.trim(), color: PLAYER_COLORS[0], avatar: avatar || 'knight', deck: [], elixir: 100, isSpectator: false, twitchId: twitchId || null }],
       started: false, game: null,
@@ -119,9 +132,9 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     // sondern dem Client nur signalisieren, dass er die gespeicherte Sitzung verwerfen soll
     if (!lobby) {
       if (auto) return socket.emit('clash:sessionExpired');
-      return socket.emit('clash:error', { message: 'Lobby nicht gefunden' });
+      return emitClashError(socket, 'lobbyNotFound');
     }
-    if (!playerName?.trim())  return socket.emit('clash:error', { message: 'Bitte Namen eingeben' });
+    if (!playerName?.trim())  return emitClashError(socket, 'nameRequired');
     const trimmedName = playerName.trim();
 
     // Reconnect/Übernahme: Spieler mit gleichem Namen während eines laufenden Spiels.
@@ -151,7 +164,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
         return;
       }
       if (auto) return socket.emit('clash:sessionExpired');
-      return socket.emit('clash:error', { message: 'Spiel läuft bereits' });
+      return emitClashError(socket, 'gameInProgress');
     }
 
     // Reconnect: gleicher Name war gerade in der Gnadenfrist (kurzer Netzwerk-Hänger, Tab-Reload, ...)
@@ -175,9 +188,17 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       activeSame.disconnectedAt = null;
       activeSame.twitchId = twitchId || activeSame.twitchId || null;
     } else {
+      // Ab hier ist es ein NEUER Spieler — alle Reconnect- und Übernahmefälle sind oben
+      // schon behandelt. Genau deshalb steht die Sperre hier und nicht weiter oben: eine
+      // gesperrte Lobby soll niemanden aussperren, der bereits drin war und nur einen
+      // Netzwerk-Hänger oder einen Tab-Reload hatte.
+      if (lobby.locked) {
+        if (auto) return socket.emit('clash:sessionExpired');
+        return emitClashError(socket, 'lobbyLocked');
+      }
       if (lobby.players.filter(p => !p.left).length >= MAX_PLAYERS_PER_LOBBY) {
         if (auto) return socket.emit('clash:sessionExpired');
-        return socket.emit('clash:error', { message: 'Lobby voll (max. 8)' });
+        return emitClashError(socket, 'lobbyFull', { max: MAX_PLAYERS_PER_LOBBY });
       }
       if (!lobby.players.find(p => p.id === socket.id)) {
         lobby.players.push({
@@ -216,6 +237,84 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     // Der Modus zieht nach: eine Bietrunde kann jetzt vollständig sein, ein reaktivierter
     // Spieler braucht Elixier bzw. eine Position im Labyrinth.
     if (lobby.game) registry.modeForGame(lobby.game)?.onSpectatorChanged?.(lobby, io, target);
+  });
+
+  // Host (oder Admin) sperrt die Lobby: es kommt niemand Neues mehr rein.
+  // Bewusst auch während einer laufenden Runde erlaubt — dann bleibt die Sperre für die
+  // nächste Runde gesetzt, statt beim Rücksprung in die Lobby stillschweigend aufzugehen.
+  socket.on('clash:setLobbyLocked', ({ code, locked }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby)) return;
+    lobby.locked = !!locked;
+    broadcastLobby(lobby);
+  });
+
+  // ── Clash-Royale-Account verknüpfen ──────────────────────────────────────
+  // Jeder darf seinen eigenen Account verknüpfen; Host und Admin dürfen es zusätzlich
+  // für alle anderen tun (praktisch, wenn im Stream reihum durchgegeben wird).
+  // Der Tag wird vor dem Speichern gegen die API geprüft — ein Tippfehler soll nicht
+  // erst beim Tracking als "keine Daten" auffallen. Das Ergebnis geht per Ack zurück,
+  // damit der Dialog im Client eine konkrete Rückmeldung zeigen kann.
+  socket.on('clash:linkCrAccount', async ({ code, targetPlayerId, tag }, ack) => {
+    const done = (res) => { if (typeof ack === 'function') ack(res); };
+    const lobby = lobbies.get(code);
+    if (!lobby) return done({ ok: false, key: 'lobbyNotFound' });
+
+    const targetId = targetPlayerId || socket.id;
+    if (targetId !== socket.id && !canControl(lobby)) return done({ ok: false, key: 'noPermission' });
+    const target = lobby.players.find(p => p.id === targetId && !p.isAdmin);
+    if (!target) return done({ ok: false, key: 'lobbyNotFound' });
+
+    if (!crApiConfigured()) return done({ ok: false, key: 'apiNotConfigured' });
+    const clean = normalizeTag(tag);
+    if (!clean) return done({ ok: false, key: 'invalidTag' });
+
+    let profile;
+    try {
+      profile = await fetchPlayerSummary(clean);
+    } catch {
+      return done({ ok: false, key: 'tagLookupFailed' });
+    }
+    if (!profile || profile.notFound) return done({ ok: false, key: 'tagNotFound' });
+
+    target.crTag = clean;
+    target.crName = profile.name;
+    // Läuft das Tracking schon, bekommt der Spieler sofort einen eigenen Startpunkt
+    await onPlayerLinked(lobby, target);
+    broadcastLobby(lobby);
+    done({ ok: true, tag: clean, name: profile.name });
+  });
+
+  socket.on('clash:unlinkCrAccount', ({ code, targetPlayerId }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby) return;
+    const targetId = targetPlayerId || socket.id;
+    if (targetId !== socket.id && !canControl(lobby)) return;
+    const target = lobby.players.find(p => p.id === targetId && !p.isAdmin);
+    if (!target) return;
+    target.crTag = null;
+    target.crName = null;
+    if (lobby.tracking?.scores) delete lobby.tracking.scores[target.id];
+    broadcastLobby(lobby);
+  });
+
+  // Tracking an/aus. Beim Einschalten merkt sich der Server den aktuellen Stand jedes
+  // verknüpften Tags, damit nur ab jetzt gespielte Partien zählen (siehe crTracking.js).
+  socket.on('clash:setTracking', async ({ code, enabled }, ack) => {
+    const done = (res) => { if (typeof ack === 'function') ack(res); };
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby)) return done({ ok: false, key: 'noPermission' });
+    if (!enabled) {
+      stopTracking(lobby);
+      broadcastLobby(lobby);
+      return done({ ok: true });
+    }
+    if (!crApiConfigured()) return done({ ok: false, key: 'apiNotConfigured' });
+    const linked = lobby.players.filter(p => !p.isAdmin && !p.left && p.crTag);
+    if (linked.length === 0) return done({ ok: false, key: 'noLinkedAccounts' });
+    await startTracking(lobby);
+    broadcastLobby(lobby);
+    done({ ok: true });
   });
 
   // Host (oder Admin) überträgt den Host-Status an einen anderen Spieler
@@ -297,20 +396,19 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
   socket.on('clash:startGame', ({ code }) => {
     const lobby = lobbies.get(code);
     if (!lobby || !canControl(lobby) || lobby.started) return;
-    if (lobby.players.length < 2) return socket.emit('clash:error', { message: 'Mindestens 2 Spieler benötigt' });
+    if (lobby.players.length < 2) return emitClashError(socket, 'needTwoPlayers');
     const mode = registry.modeForLobby(lobby);
-    if (!mode) return socket.emit('clash:error', { message: 'Unbekannter Spielmodus' });
+    if (!mode) return emitClashError(socket, 'unknownMode');
     const poolSize = getCardPool(lobby).length;
 
-    // Modusspezifische Startbedingung (z.B. Karussel: Pool muss für alle Tische reichen)
+    // Modusspezifische Startbedingung (z.B. Karussel: Pool muss für alle Tische reichen).
+    // canStart() liefert { key, params } — der Client übersetzt anhand des Schlüssels.
     const blocked = mode.canStart?.(lobby, poolSize);
-    if (blocked) return socket.emit('clash:error', { message: blocked });
+    if (blocked) return emitClashError(socket, blocked.key, blocked.params);
 
     const needed = requiredPoolSize(lobby);
     if (poolSize < needed) {
-      return socket.emit('clash:error', {
-        message: `Kartenpool zu klein: ${needed} Karten benötigt, nur ${poolSize} verfügbar. Schließe weniger Karten aus!`,
-      });
+      return emitClashError(socket, 'poolTooSmall', { needed, available: poolSize });
     }
     lobby.started = true;
     mode.start(lobby, io);
@@ -445,10 +543,10 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
 
   // Admin klinkt sich als sichtbarer, nicht mitspielender Zuschauer in eine beliebige Lobby ein
   socket.on('clash:adminJoinLobby', ({ code }) => {
-    if (!isAdmin) return socket.emit('clash:error', { message: 'Keine Berechtigung' });
+    if (!isAdmin) return emitClashError(socket, 'noPermission');
     const uCode = (code || '').toUpperCase();
     const lobby = lobbies.get(uCode);
-    if (!lobby) return socket.emit('clash:error', { message: 'Lobby nicht gefunden' });
+    if (!lobby) return emitClashError(socket, 'lobbyNotFound');
 
     if (!lobby.players.find(p => p.id === socket.id)) {
       lobby.players.push({
@@ -478,7 +576,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
 
   // Admin: tauscht im Endscreen eine Deck-Karte eines Spielers gegen eine beliebige andere
   socket.on('clash:admin:swapCard', ({ code, targetPlayerId, deckIndex, newCardId }) => {
-    if (!isAdmin) return socket.emit('clash:error', { message: 'Keine Berechtigung' });
+    if (!isAdmin) return emitClashError(socket, 'noPermission');
     const lobby = lobbies.get(code);
     if (!lobby?.game?.finished) return; // nur im Endscreen, nicht während einer laufenden Runde
     const target = lobby.players.find(p => p.id === targetPlayerId && !p.isAdmin);
@@ -489,12 +587,12 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     if (!newCard) return;
     // Keine Duplikate im Deck
     if (target.deck.some((c, i) => i !== idx && c.id === newCard.id)) {
-      return socket.emit('clash:error', { message: `${newCard.name} ist bereits im Deck von ${target.name}` });
+      return emitClashError(socket, 'cardAlreadyInDeck', { card: newCard.name, player: target.name });
     }
     // Champion-Limit (max. 2) gilt auch beim Admin-Tausch
     const champCount = target.deck.filter((c, i) => c.isChampion && i !== idx).length;
     if (newCard.isChampion && champCount >= 2) {
-      return socket.emit('clash:error', { message: 'Max. 2 Champions pro Deck!' });
+      return emitClashError(socket, 'championLimit');
     }
     target.deck[idx] = { ...newCard };
     // Letzten History-Eintrag mitkorrigieren, damit der Verlauf das finale Deck zeigt

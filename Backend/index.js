@@ -30,12 +30,15 @@ const createDiscordRouter = require("./discord/api/index");
 const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./routes/clashRoyaleRoutes");
 const { registerArenaSocket, createArenaRouter } = require("./routes/adventureArenaRoutes");
 const { registerConnect4Socket } = require("./routes/connect4Routes");
+const { registerBlobbySocket } = require("./routes/blobbyRoutes");
 const createCrStreamerRouter = require("./routes/crStreamerRoutes");
 const { initCrStreamerStore } = require("./lib/crStreamerStore");
 const createBannedCardsRouter = require("./routes/bannedCardsRoutes");
 const createNuzlockeRouter = require("./routes/nuzlockeRoutes");
 const createCrWinTrackerRouter = require("./routes/crWinTrackerRoutes");
 const createCrPresetRouter = require("./routes/crPresetRoutes");
+const createStreamToolRouter = require("./routes/streamToolRoutes");
+const { registerLiveBadgesSocket } = require("./lib/liveBadges");
 const { startModeScanner } = require("./clashRoyale/core/officialModeScanner");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
 const { saveAllFarmsOnExit, initGardenFarmsStore, farmStates } = require("./lib/gardenFarmsStore");
@@ -281,6 +284,7 @@ app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID 
 app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));
 app.use("/api/cr-wintracker", createCrWinTrackerRouter({ requireAuth }));
+app.use("/api/stream-tool", createStreamToolRouter({ requireAuth }));
 app.use("/api/used-by", createUsedByRouter());
 
 // =================== SOCKET.IO LOGIC ===================
@@ -307,6 +311,13 @@ io.on("connection", (socket) => {
 
     // Connect4 (Vier Gewinnt) — Link-basierte 1v1-Räume
     registerConnect4Socket(socket, io);
+
+    // Blobby Volley — Link-basierte 1v1-Räume mit Echtzeitphysik
+    registerBlobbySocket(socket, io);
+
+    // Abstimmungen/Giveaways: Vollpayload nur für die jeweilige Seite, sonst
+    // nur der schlanke Nav-Punkt (siehe lib/liveBadges.js)
+    registerLiveBadgesSocket(socket);
 });
 
 // =================== START SERVER ===================

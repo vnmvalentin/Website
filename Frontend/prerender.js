@@ -23,10 +23,14 @@ const routesToPrerender = [
   '/clash-royale/win-tracker',
   '/nuzlocke',
   '/discord-bot',
+  // Twitch-Overlay-Tools: hinter dem Login liegt nur die Konfiguration — der Text
+  // oberhalb beschreibt das Tool und soll auffindbar sein.
+  '/twitch-tools',
 ];
 
 (async () => {
   console.log('🚀 Starte optimiertes Prerendering...');
+  const failedRoutes = [];
 
   const server = await preview({
     preview: { port: 8080, open: false },
@@ -51,11 +55,22 @@ const routesToPrerender = [
           await new Promise(r => setTimeout(r, 2500)); // React Zeit geben, die Metadaten zu setzen
         });
       
+      // 1b. Auf nachgeladene Routen warten (React.lazy in App.jsx).
+      // Solange der Chunk unterwegs ist, rendert React den Suspense-Fallback. Würden wir
+      // jetzt schon abgreifen, stünde im ausgelieferten HTML nur "Lädt…" — für Crawler
+      // wäre die Seite damit leer. Der Marker kommt aus PageFallback in App.jsx.
+      await page.waitForFunction(
+        () => !document.querySelector('[data-page-fallback]'),
+        { timeout: 20000 }
+      ).catch(() => {
+        console.error(`❌ ${route}: Suspense-Fallback wurde nicht aufgelöst (Chunk nicht geladen?)`);
+      });
+
       // 2. Warten bis React 19 Metadaten gesetzt hat
       // Wir prüfen, ob ein Titel vorhanden ist, der NICHT der Default "Home" ist (außer auf Home)
       if (route !== '/') {
-        await page.waitForFunction(() => 
-          document.title !== "Home - vnmvalentin" && document.title.length > 0, 
+        await page.waitForFunction(() =>
+          document.title !== "Home - vnmvalentin" && document.title.length > 0,
           { timeout: 5000 }
         ).catch(() => console.log(`⚠️ Timeout beim Titel-Check für ${route}, fahre fort...`));
       }
@@ -143,7 +158,27 @@ const routesToPrerender = [
 
       const html = await page.content();
 
-      const htmlPath = route === '/' 
+      // Harte Bremse: Lieber der Build scheitert, als dass eine leere oder halbfertige
+      // Seite online geht. Das würde erst im Ranking auffallen, nicht im Test.
+      // Zwei getrennte Fehlerbilder:
+      //   a) Chunk noch unterwegs  → der Suspense-Fallback steht im HTML
+      //   b) Chunk-Download kaputt → LazyRouteBoundary zeigt die Fehlermeldung
+      //   c) irgendetwas anderes   → #root bleibt praktisch leer
+      const rootLength = await page.evaluate(
+        () => document.getElementById('root')?.innerHTML.length ?? 0
+      );
+      const problem =
+        html.includes('data-page-fallback') ? 'enthält nur den Ladeplatzhalter'
+        : html.includes('data-page-error') ? 'zeigt die Ladefehler-Meldung'
+        : rootLength < 500 ? `hat ein praktisch leeres #root (${rootLength} Zeichen)`
+        : null;
+      if (problem) {
+        failedRoutes.push(route);
+        console.error(`❌ ${route}: ${problem} — wird NICHT geschrieben.`);
+        continue;
+      }
+
+      const htmlPath = route === '/'
         ? 'index.html' 
         : `${route.substring(1)}/index.html`;
       
@@ -166,6 +201,12 @@ const routesToPrerender = [
 
   await browser.close();
   server.httpServer.close();
+
+  if (failedRoutes.length) {
+    console.error(`\n💥 Prerendering fehlgeschlagen für: ${failedRoutes.join(', ')}`);
+    process.exit(1);
+  }
+
   console.log('🎉 Prerendering erfolgreich abgeschlossen!');
   process.exit(0);
 })();

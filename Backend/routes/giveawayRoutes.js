@@ -2,6 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const { nanoid } = require("nanoid");
+const liveBadges = require("../lib/liveBadges");
 
 /* ================= FETCH ================= */
 
@@ -64,15 +65,19 @@ function normalizeGiveaway(raw = {}) {
   };
 }
 
+// Vollpayload nur an die, die die Giveaway-Seite offen haben — alle anderen
+// bekommen über liveBadges nur zwei Booleans für den Punkt in der Navigation.
+// Früher ging die komplette Teilnehmerliste an JEDE verbundene Socket.
 const broadcastGiveaways = (io) => {
     if (!io) return;
     const list = loadGiveaways().map(normalizeGiveaway); // Deine normalize Funktion nutzen!
     const now = Date.now();
     // Wir senden das gleiche Format wie beim GET Endpoint
-    io.emit("giveaways_update", {
+    io.to(liveBadges.ROOM_GIVEAWAYS).emit("giveaways_update", {
         active: list.filter((g) => g.endDate > now),
         expired: list.filter((g) => g.endDate <= now),
     });
+    liveBadges.broadcast(io);
 };
 
 /* ================= GIVEAWAY FINALIZE ================= */

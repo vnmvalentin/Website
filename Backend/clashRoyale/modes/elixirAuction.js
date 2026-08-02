@@ -8,6 +8,7 @@ const { lobbies, shuffle, sanitizeLobby } = require('../core/lobbies');
 const { clearTurnTimer, startTurnTimer } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
+const { emitClashError } = require('../core/errors');
 
 // Mutterhexen-Besuche: 20% Chance pro Runde (2-7), trifft einen zufälligen Spieler
 const MOTHER_WITCH_ROUND_MIN = 2;
@@ -50,6 +51,13 @@ function buildDerangement(n) {
   return arr;
 }
 
+// Ist die gerade laufende Runde die letzte? Das Spiel endet entweder nach maxRounds oder
+// sobald der Kartenpool für eine weitere volle Runde nicht mehr reicht — nextAuctionRound()
+// prüft genau diese beiden Bedingungen, hier mit bereits vorgerücktem poolIdx.
+function isFinalAuctionRound(g) {
+  return g.round >= g.maxRounds || g.poolIdx + g.cardsPerRound > g.pool.length;
+}
+
 function buildAuctionState(lobby, bidsVisible = false, viewerId = null) {
   const g = lobby.game;
   const activePlayers = lobby.players.filter(p => !p.isSpectator);
@@ -86,6 +94,15 @@ function buildAuctionState(lobby, bidsVisible = false, viewerId = null) {
     timerRemaining: g.timerRemaining,
     timerSeconds: lobby.timerSeconds,
     showElixir: lobby.showElixir ?? false,
+    // Startguthaben dieser Runde. Der Client braucht es als Bezugsgröße für die
+    // Elixierbalken: Ohne diesen Wert müsste er gegen eine fest angenommene Obergrenze
+    // rechnen — bei 100 Start-Elixier wäre der Balken dann nur halb voll, obwohl der
+    // Spieler noch alles hat.
+    startElixir: lobby.startElixir ?? 100,
+    // In der letzten Runde ist übriges Elixier wertlos — der Server setzt jedes Gebot
+    // automatisch auf das gesamte Restguthaben (siehe clash:auction:bid). Der Client
+    // blendet den Regler dann aus und schreibt es hin.
+    finalRound: isFinalAuctionRound(g),
     finished: g.finished,
     motherWitchMine,
     players: lobby.players.map(p => ({
@@ -384,7 +401,14 @@ registerMode({
       if (!lobby?.game || lobby.game.type !== 'auction' || lobby.game.phase !== 'bidding') return;
       const player = lobby.players.find(p => p.id === socket.id);
       if (!player || player.isSpectator || lobby.game.bids[socket.id]) return; // already bid or spectator
-      const safeAmount = Math.max(0, Math.min(player.elixir ?? 100, Number(amount) || 0));
+      // Letzte Runde: Elixier zu sparen bringt nichts mehr, wer weniger bietet verschenkt
+      // die Karte. Statt alle zum Regler-Vollziehen zu zwingen, gilt hier automatisch das
+      // gesamte Restguthaben — die Runde entscheidet damit rein danach, wer noch was übrig
+      // hat. Serverseitig erzwungen, damit ein manipulierter Client nicht doch niedriger bietet.
+      const myElixir = player.elixir ?? 100;
+      const safeAmount = isFinalAuctionRound(lobby.game)
+        ? myElixir
+        : Math.max(0, Math.min(myElixir, Number(amount) || 0));
       const safeIdx = Number(cardIndex);
       if (safeIdx < -1 || safeIdx >= lobby.game.currentCards.length) return;
 
@@ -393,7 +417,7 @@ registerMode({
         const biddingCard  = lobby.game.currentCards[safeIdx];
         const champCount   = (player.deck || []).filter(c => c.isChampion).length;
         if (biddingCard?.isChampion && champCount >= 2) {
-          return socket.emit('clash:error', { message: 'Du hast bereits 2 Champions — kein weiterer möglich!' });
+          return emitClashError(socket, 'championLimitBid');
         }
       }
 

@@ -64,7 +64,10 @@ const carouselSize = (lobby, activeCount, wanted) => {
   return [wanted, 12, 8].find(size => Math.floor(pool / size) >= needed) ?? 8;
 };
 
-const FISH_SPAWN_RATES = [0.5, 0.75, 1, 1.5, 2];
+// Kopien der Whitelists aus den Modus-Dateien — atLeast() darf nur Werte vorschlagen,
+// die sanitize() dort auch annimmt. Bei Änderungen in angelRoyale.js / elixirRush.js
+// müssen diese Listen mitwandern.
+const FISH_SPAWN_RATES = [1, 1.5, 2, 2.5, 3];
 const RUSH_MARKET_SIZES = [3, 4, 5, 6, 7, 8];
 
 // Jeder Modus MUSS dieses Preset haben — es ist der Startzustand jeder Lobby.
@@ -135,11 +138,11 @@ const MODE_PRESETS = {
     {
       id: 'suggested',
       values: (lobby, n) => ({
-        rushMarketSize: atLeast(RUSH_MARKET_SIZES, 5), rushCardLifetime: 15,
+        rushMarketSize: atLeast(RUSH_MARKET_SIZES, 5), rushCardLifetime: 8,
         rushShowElixir: false, rushShowTimer: true,
       }),
     },
-    { id: 'chaos', values: { rushMarketSize: 8, rushCardLifetime: 5, rushShowElixir: true, rushShowTimer: false } },
+    { id: 'chaos', values: { rushMarketSize: 8, rushCardLifetime: 4, rushShowElixir: true, rushShowTimer: false } },
   ],
   // Sabotage-Runde: mehr Spieler = mehr mögliche Ziele = mehr Zeit nötig.
   'card-evolution': [
@@ -155,11 +158,12 @@ const MODE_PRESETS = {
     {
       id: 'suggested',
       values: (lobby, n) => ({
-        fishSpawnRate: atLeast(FISH_SPAWN_RATES, n <= 3 ? 1 : n <= 5 ? 1.5 : 2),
-        fishCatchCooldown: 3,
+        fishSpawnRate: atLeast(FISH_SPAWN_RATES, n <= 3 ? 2 : n <= 5 ? 2.5 : 3),
+        fishCatchCooldown: 2,
+        fishIdleSeconds: 5,
       }),
     },
-    { id: 'chaos', values: { fishSpawnRate: 2, fishCatchCooldown: 0 } },
+    { id: 'chaos', values: { fishSpawnRate: 3, fishCatchCooldown: 0, fishIdleSeconds: 3 } },
   ],
   // Nur eine Einstellung (Zeitlimit) → nur "Vorgeschlagen". Mehr Spieler streiten sich um
   // dieselben Kisten, deshalb etwas mehr Zeit.

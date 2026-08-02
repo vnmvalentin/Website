@@ -8,6 +8,7 @@ const { lobbies, shuffle, sanitizeLobby } = require('../core/lobbies');
 const { clearTurnTimer, startTurnTimer } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
+const { emitClashError } = require('../core/errors');
 
 function getAdjacentIndices(idx, cols, totalCells) {
   const col = idx % cols;
@@ -239,13 +240,13 @@ registerMode({
       if (game.lastPickedCellIndex !== null) {
         const adj = getAdjacentIndices(game.lastPickedCellIndex, game.gridCols, game.grid.length);
         if (!adj.includes(cellIndex))
-          return socket.emit('clash:error', { message: 'Karte nicht benachbart' });
+          return emitClashError(socket, 'cardNotAdjacent');
       }
 
       // Champion-limit check
       const champCount = (currentPlayer.deck || []).filter(c => c.isChampion).length;
       if (game.grid[cellIndex].card.isChampion && champCount >= 2)
-        return socket.emit('clash:error', { message: 'Max. 2 Champions pro Deck!' });
+        return emitClashError(socket, 'championLimit');
 
       applyPick(lobby, cellIndex, currentPlayer, io);
     },

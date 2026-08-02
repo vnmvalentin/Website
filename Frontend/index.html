@@ -27,10 +27,37 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 
-    </head>
+    <!-- OBS-Overlays bekommen vom Server dieselbe index.html wie jede andere nicht
+         vorgerenderte Adresse — und in der steckt die fertig gerenderte Startseite
+         (prerender.js schreibt "/" genau hierhin). Ohne diesen Riegel blitzt beim
+         Szenenwechsel in OBS kurz die komplette Startseite auf, bis React die
+         Overlay-Route gerendert hat. Zwei Stufen: hier verstecken, unten wegräumen. -->
+    <style>html.is-overlay-boot #root { visibility: hidden; }</style>
+    <script>
+      (function () {
+        // Trifft /overlay/credits, /bingo/overlay/…, /twitch-tools/overlay/…,
+        // /WinChallengeOverlay/… — aber NICHT die normale Seite /WinChallenge-Overlay.
+        if (/(^\/winchallengeoverlay\/)|(\/overlay\/)/i.test(location.pathname)) {
+          document.documentElement.classList.add('is-overlay-boot');
+        }
+      })();
+    </script>
+  </head>
   <body>
     <div id="root"></div>
-    
+    <script>
+      // Läuft direkt hinter #root und noch vor dem App-Bündel (type=module wird
+      // erst nach dem Parsen ausgeführt): wirft die vorgerenderte Startseite raus,
+      // bevor sie überhaupt zu sehen ist.
+      (function () {
+        var el = document.documentElement;
+        if (!el.classList.contains('is-overlay-boot')) return;
+        var root = document.getElementById('root');
+        if (root) root.replaceChildren();
+        el.classList.remove('is-overlay-boot');
+      })();
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

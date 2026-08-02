@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { Plus, Trash2, Calendar, Clock, BarChart2, X, Image as ImageIcon, RefreshCw, ArrowRight, Vote } from "lucide-react";
 import SEO from "../../components/SEO";
-import { socket } from "../../utils/socket";
+import { socket, useFeedRoom } from "../../utils/socket";
 
 const STREAMER_ID = "160224748";
 
@@ -252,6 +252,8 @@ function CreatePollModal({ onClose, onSave }) {
 }
 
 export default function AbstimmungPage() {
+  // Vollpayload nur für diese Seite (siehe Backend/lib/liveBadges.js)
+  useFeedRoom("polls");
   const { user, login } = useContext(TwitchAuthContext);
   const navigate = useNavigate();
 

@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Wrench,
   Trophy,
+  BarChart3,
   Grid3x3,
   Music,
   Bot,
@@ -20,6 +21,7 @@ import {
   MessageSquare,
   MessagesSquare,
   Disc,
+  Volleyball,
 } from "lucide-react";
 import { InstagramGlyph } from "../components/BrandGlyphs";
 
@@ -49,6 +51,12 @@ export const NAV_CATEGORIES = [
         to: "/connect4",
         icon: Disc,
         description: "Vier Gewinnt gegen einen Freund — Link teilen und direkt loslegen.",
+      },
+      {
+        label: "Blobby Volley",
+        to: "/blobby",
+        icon: Volleyball,
+        description: "Strandvolleyball im Browser — 1v1 oder 2v2, mit Powerups. Link teilen und spielen.",
       },
     ],
   },
@@ -122,6 +130,12 @@ export const NAV_CATEGORIES = [
         to: "/WinChallenge-Overlay",
         icon: Trophy,
         description: "Individuelles OBS-Overlay mit Timer, Zählern und Chat-Befehlen.",
+      },
+      {
+        label: "Abstimmungen & Vorhersagen",
+        to: "/twitch-tools",
+        icon: BarChart3,
+        description: "Twitch-Umfragen und Vorhersagen visualisieren — mit animiertem OBS-Overlay.",
       },
       {
         label: "Bingo-Card Generator",

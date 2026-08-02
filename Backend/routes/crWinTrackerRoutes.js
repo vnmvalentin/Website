@@ -4,25 +4,18 @@ const express = require("express");
 const { nanoid } = require("nanoid");
 const db = require("../lib/winTrackerStore");
 
-const CR_API_TOKEN = process.env.CLASH_ROYALE_API_TOKEN || "";
-const CR_API_BASE = process.env.CLASH_ROYALE_API_BASE || "https://api.clashroyale.com/v1";
+// Transport, Tag-Prüfung und die Battlelog-Umformung liegen im geteilten Client
+// (lib/crApi.js) — sie waren vorher hier, in nuzlockeRoutes.js und im Modus-Scanner
+// jeweils separat ausgeschrieben.
+const {
+  isConfigured, normalizeTag, fetchBattlelog, fetchPlayerSummary,
+} = require("../lib/crApi");
+
 const MIN_SYNC_INTERVAL_MS = 30 * 1000;
 const OVERLAY_TIMEZONE = "Europe/Berlin";
 
-const TAG_CHARS = /^[0289PYLQGRJCUV]{3,12}$/;
-
-function normalizeTag(raw) {
-  const tag = String(raw || "").trim().toUpperCase().replace(/^#/, "").replace(/O/g, "0");
-  return TAG_CHARS.test(tag) ? tag : null;
-}
-
-// "20260721T101530.000Z" (kompaktes API-Format) -> Unix-Millisekunden
-function parseBattleTimeMs(bt) {
-  const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})\.(\d{3})Z$/.exec(String(bt || ""));
-  if (!m) return Date.now();
-  const [, y, mo, d, h, mi, s, ms] = m;
-  return Date.UTC(+y, +mo - 1, +d, +h, +mi, +s, +ms);
-}
+// Rückwärtskompatibel: der bisherige Code prüft an mehreren Stellen auf CR_API_TOKEN
+const CR_API_TOKEN = isConfigured() ? "configured" : "";
 
 // Start des aktuellen Tages (00:00 Ortszeit) als Unix-Millisekunden, ohne externe Zeitzonen-Library:
 // Wall-Clock-Werte der Zielzeitzone werden als UTC interpretiert, um den aktuellen Offset zur echten
@@ -41,66 +34,9 @@ function startOfTodayMs(tz = OVERLAY_TIMEZONE, atMs = Date.now()) {
   return localMidnightAsUTC - offsetMs;
 }
 
-function resultOf(team, opponent) {
-  const tc = team?.trophyChange;
-  if (typeof tc === "number" && tc !== 0) return tc > 0 ? "win" : "loss";
-  const cf = team?.crowns ?? 0, ca = opponent?.crowns ?? 0;
-  if (cf > ca) return "win";
-  if (cf < ca) return "loss";
-  return "draw";
-}
-
-async function fetchJson(url) {
-  if (!CR_API_TOKEN) return null;
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), 8000);
-  try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${CR_API_TOKEN}` },
-      signal: ctrl.signal,
-    });
-    if (res.status === 404) return { notFound: true };
-    if (!res.ok) throw new Error(`Royale API HTTP ${res.status}`);
-    return await res.json();
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function fetchPlayer(tag) {
-  const data = await fetchJson(`${CR_API_BASE}/players/%23${tag}`);
-  if (!data || data.notFound) return data;
-  const pol = data.currentPathOfLegendSeasonResult || null;
-  return {
-    name: data.name || "",
-    trophies: data.trophies || 0,
-    bestTrophies: data.bestTrophies || data.trophies || 0,
-    // "Medaillen": Punktestand der laufenden Ranked-Season (Path of Legend) — im Gegensatz zu den
-    // Lifetime-"Trophäen" oben startet dieser Wert jede Season wieder bei 0.
-    seasonMedals: pol?.trophies || 0,
-    leagueNumber: pol?.leagueNumber || 0,
-    polRank: typeof pol?.rank === "number" ? pol.rank : null,
-  };
-}
-
-async function fetchBattlelog(tag) {
-  const data = await fetchJson(`${CR_API_BASE}/players/%23${tag}/battlelog`);
-  if (!Array.isArray(data)) return [];
-  return data.map((b) => {
-    const team = b.team?.[0] || {};
-    const opponent = b.opponent?.[0] || {};
-    return {
-      battleTime: b.battleTime,
-      battleTimeMs: parseBattleTimeMs(b.battleTime),
-      result: resultOf(team, opponent),
-      trophyChange: typeof team.trophyChange === "number" ? team.trophyChange : 0,
-      crownsFor: team.crowns ?? 0,
-      crownsAgainst: opponent.crowns ?? 0,
-      opponentName: opponent.name || "",
-      gameMode: b.gameMode?.name || "",
-    };
-  });
-}
+// fetchPlayer hieß hier schon immer so; fetchPlayerSummary im geteilten Client liefert
+// exakt dieselbe Form (Name, Trophäen, Medaillen, Liga, Rang).
+const fetchPlayer = fetchPlayerSummary;
 
 // ── Prepared Statements ───────────────────────────────────────────────────────
 const getAccountsByUser = db.prepare("SELECT * FROM cr_wintracker_accounts WHERE user_id = ? ORDER BY created_at ASC");

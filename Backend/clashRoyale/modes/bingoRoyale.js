@@ -9,6 +9,7 @@ const { lobbies, shuffle } = require('../core/lobbies');
 const { clearTurnTimer } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
+const { emitClashError } = require('../core/errors');
 
 // Bingo lines: [cellIndices] for a 4x4 grid
 const BINGO_LINES = [
@@ -470,14 +471,14 @@ registerMode({
       const curPlayer = lobby.players[curIdx];
       if (curPlayer?.id !== socket.id) return;
       if (typeof cardIndex !== 'number' || cardIndex < 0 || cardIndex >= g.currentCards.length) return;
-      if (g.pickedThisRound[cardIndex]) return socket.emit('clash:error', { message: 'Karte bereits gewählt' });
+      if (g.pickedThisRound[cardIndex]) return emitClashError(socket, 'cardAlreadyPicked');
       if (typeof bingoCell !== 'number' || bingoCell < 0 || bingoCell >= 16) return;
-      if (curPlayer.bingoGrid[bingoCell]?.card !== null) return socket.emit('clash:error', { message: 'Feld bereits belegt' });
+      if (curPlayer.bingoGrid[bingoCell]?.card !== null) return emitClashError(socket, 'cellOccupied');
 
       // Champion limit
       const card = g.currentCards[cardIndex];
       const champCount = (curPlayer.deck || []).filter(c => c.isChampion).length;
-      if (card.isChampion && champCount >= 2) return socket.emit('clash:error', { message: 'Max. 2 Champions pro Deck!' });
+      if (card.isChampion && champCount >= 2) return emitClashError(socket, 'championLimit');
 
       // Attribute check: if card matches ANY bingo cell attr, player must place it on a matching cell
       const cardAttrs = getBingoCardAttrs(card.id);
@@ -490,7 +491,7 @@ registerMode({
       // If there is a matching empty cell and the chosen cell does NOT match → reject
       const anyMatchingEmpty = curPlayer.bingoGrid.some(cell => cell.card === null && cardAttrs.includes(cell.attrKey));
       if (anyMatchingEmpty && !chosenCellMatches) {
-        return socket.emit('clash:error', { message: 'Die Karte passt auf ein freies Attribut-Feld — dort muss sie platziert werden!' });
+        return emitClashError(socket, 'attributeCellRequired');
       }
 
       applyBingoPick(lobby, cardIndex, bingoCell, curPlayer, io, false);
@@ -500,7 +501,7 @@ registerMode({
       const lobby = lobbies.get(code);
       if (!lobby?.game || lobby.game.type !== 'bingo') return;
       const ok = applyBingoPowerup(lobby, type, params, socket.id, io);
-      if (!ok) socket.emit('clash:error', { message: 'Ungültiges Power-Up' });
+      if (!ok) emitClashError(socket, 'invalidPowerup');
     },
 
     // Live-Übertragung: der aktive Token-Spieler teilt jeden Auswahl-Schritt mit allen,

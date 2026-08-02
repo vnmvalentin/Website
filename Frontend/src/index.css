@@ -5,6 +5,16 @@
   --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Tailwind v4 setzt Buttons bewusst auf `cursor: default` (in v3 war das noch der
+   Browser-Standard `pointer`). Ergebnis: Schaltflächen fühlen sich beim Überfahren
+   tot an, weil der Mauszeiger sich nicht ändert. Hier global zurückgeholt —
+   deaktivierte Buttons bleiben ausgenommen, damit sie weiterhin als nicht
+   anklickbar erkennbar sind. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
 /* ===================================================================
    GLOBAL BACKGROUND (Aurora — blau/lila, leicht belebt)
    =================================================================== */
@@ -17,11 +27,21 @@
   pointer-events: none;
 }
 
+/* Kein `filter: blur()` mehr: ein Blur zwingt den Compositor, für das Element eine
+   eigene Render-Surface anzulegen und sie neu zu rastern, sobald sich die Rasterskala
+   ändert — und genau das tat das frühere scale() in den Keyframes, Frame für Frame,
+   auf jeder Seite. Der weiche Rand kommt jetzt aus dem Verlauf selbst (mehrere Stopps),
+   das kostet in der Kompositionsphase nichts. translateZ(0) hebt das Orb auf eine
+   eigene Ebene, die nur noch verschoben wird.
+
+   Auch kein border-radius mehr: Die runde Form kommt aus dem Verlauf (`closest-side`
+   endet mit Deckkraft 0 exakt an der Boxkante). Ein border-radius würde das Quadrat
+   hart beschneiden, und weil der Verlauf dort noch Farbe hätte, sähe man den Schnitt —
+   früher hat der Blur ihn nur verdeckt. */
 .app-bg__orb {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(110px);
   will-change: transform;
+  transform: translateZ(0);
 }
 
 .app-bg__orb--1 {
@@ -31,7 +51,13 @@
   min-height: 480px;
   top: -18%;
   left: -12%;
-  background: radial-gradient(circle at 40% 40%, rgba(79, 70, 229, 0.55), transparent 65%);
+  background: radial-gradient(circle closest-side at 50% 50%,
+    rgba(79, 70, 229, 0.34) 0%,
+    rgba(79, 70, 229, 0.279) 20%,
+    rgba(79, 70, 229, 0.17) 40%,
+    rgba(79, 70, 229, 0.082) 60%,
+    rgba(79, 70, 229, 0.027) 80%,
+    rgba(79, 70, 229, 0) 100%);
   animation: orbDrift1 46s ease-in-out infinite alternate;
 }
 
@@ -42,7 +68,13 @@
   min-height: 420px;
   bottom: -22%;
   right: -10%;
-  background: radial-gradient(circle at 60% 60%, rgba(124, 58, 237, 0.5), transparent 65%);
+  background: radial-gradient(circle closest-side at 50% 50%,
+    rgba(124, 58, 237, 0.264) 0%,
+    rgba(124, 58, 237, 0.216) 20%,
+    rgba(124, 58, 237, 0.132) 40%,
+    rgba(124, 58, 237, 0.063) 60%,
+    rgba(124, 58, 237, 0.021) 80%,
+    rgba(124, 58, 237, 0) 100%);
   animation: orbDrift2 58s ease-in-out infinite alternate;
 }
 
@@ -53,7 +85,13 @@
   min-height: 340px;
   top: 30%;
   left: 42%;
-  background: radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.38), transparent 65%);
+  background: radial-gradient(circle closest-side at 50% 50%,
+    rgba(37, 99, 235, 0.204) 0%,
+    rgba(37, 99, 235, 0.167) 20%,
+    rgba(37, 99, 235, 0.102) 40%,
+    rgba(37, 99, 235, 0.049) 60%,
+    rgba(37, 99, 235, 0.016) 80%,
+    rgba(37, 99, 235, 0) 100%);
   animation: orbDrift3 70s ease-in-out infinite alternate;
 }
 
@@ -64,7 +102,13 @@
   min-height: 260px;
   top: 8%;
   right: 12%;
-  background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.3), transparent 65%);
+  background: radial-gradient(circle closest-side at 50% 50%,
+    rgba(168, 85, 247, 0.162) 0%,
+    rgba(168, 85, 247, 0.133) 20%,
+    rgba(168, 85, 247, 0.081) 40%,
+    rgba(168, 85, 247, 0.039) 60%,
+    rgba(168, 85, 247, 0.013) 80%,
+    rgba(168, 85, 247, 0) 100%);
   animation: orbDrift2 38s ease-in-out infinite alternate-reverse;
 }
 
@@ -92,22 +136,25 @@
   opacity: 0.5;
 }
 
+/* Bewusst nur Translation, kein scale(): eine reine Verschiebung kann der Compositor
+   ohne Neu-Rasterung erledigen. Sobald scale() dazukommt, ändert sich die Rasterskala
+   der Ebene und alles darin muss pro Frame neu gezeichnet werden. */
 @keyframes orbDrift1 {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(8vw, 6vh, 0) scale(1.08); }
-  100% { transform: translate3d(2vw, 12vh, 0) scale(0.96); }
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(8vw, 6vh, 0); }
+  100% { transform: translate3d(2vw, 12vh, 0); }
 }
 
 @keyframes orbDrift2 {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-7vw, -8vh, 0) scale(1.1); }
-  100% { transform: translate3d(-2vw, -14vh, 0) scale(0.94); }
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-7vw, -8vh, 0); }
+  100% { transform: translate3d(-2vw, -14vh, 0); }
 }
 
 @keyframes orbDrift3 {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-10vw, 8vh, 0) scale(1.12); }
-  100% { transform: translate3d(6vw, -6vh, 0) scale(0.92); }
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-10vw, 8vh, 0); }
+  100% { transform: translate3d(6vw, -6vh, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -144,6 +191,163 @@
   to { opacity: 1; transform: translateY(0); }
 }
 .dropdown-in { animation: dropdownIn 0.16s ease both; }
+
+/* ===================================================================
+   CLASH ROYALE — DESIGN-TOKENS & PRIMITIVE
+   -------------------------------------------------------------------
+   Der CR-Bereich bleibt bewusst im Look der übrigen Seite: dieselben
+   Panels, dasselbe Violett, keine Verläufe/Glows. Das "Clash Royale"
+   kommt aus dem INHALT — Kartenartwork, Seltenheitsfarben, Liga-Embleme —
+   plus einem Gold-Akzent, der Host- und Sieg-Elemente markiert.
+   =================================================================== */
+:root {
+  --cr-gold: #f0b429;          /* Host, Krone, Sieg */
+  --cr-gold-dim: rgba(240, 180, 41, 0.14);
+  --cr-elixir: #d946ef;        /* Elixier-Kosten & -Balken */
+  --cr-accent: #8b5cf6;        /* Violett der Seite — Standard-Akzent */
+  --cr-surface: rgba(0, 0, 0, 0.3);
+  --cr-line: rgba(255, 255, 255, 0.08);
+}
+
+/* Kartenkachel: bewusst RAHMENLOS, damit nur das Artwork wirkt. Fehlt ein
+   Bild (CDN-Ausfall, sehr neue Karte), bleibt die dunkle Fläche als Platzhalter
+   stehen statt eines Lochs im Raster. */
+.cr-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 0;
+}
+.cr-card > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Auswahl/Fokus markieren wir mit einem INNEREN Ring statt eines Rahmens —
+   ein border würde das Artwork um 1px stauchen und das Raster verspringen lassen. */
+.cr-card--selectable:hover::after,
+.cr-card--active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--cr-accent);
+  pointer-events: none;
+}
+.cr-card--disabled > img { filter: grayscale(1); opacity: 0.3; }
+
+/* ── Slider ────────────────────────────────────────────────────────────
+   Nativer <input type="range">: Touch-, Tastatur- und Screenreader-Bedienung
+   kommen vom Browser. Sichtbare Spur 6px, Trefferfläche aber 40px hoch —
+   auf dem Handy sonst kaum zu greifen. */
+.cr-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 40px;
+  background: transparent;
+  cursor: pointer;
+}
+.cr-slider:disabled { cursor: not-allowed; opacity: 0.4; }
+
+/* Der gefüllte Teil links vom Thumb kommt aus einem Verlauf, dessen Stopp die
+   Komponente als --cr-slider-fill (0–100%) setzt. Zwei Elemente (Spur + Füllung)
+   wären bei einem nativen Range nicht möglich. */
+.cr-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background:
+    linear-gradient(to right,
+      var(--cr-slider-accent, var(--cr-accent)) 0 var(--cr-slider-fill, 0%),
+      rgba(255, 255, 255, 0.1) var(--cr-slider-fill, 0%) 100%);
+}
+.cr-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.cr-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--cr-slider-accent, var(--cr-accent));
+}
+
+.cr-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+  /* Thumb mittig zur 6px-Spur: (18 - 6) / 2 = 6px nach oben */
+  margin-top: -6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.15s ease;
+}
+.cr-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+/* Fokus über Tastatur sichtbar machen, ohne den Ring bei Mausklick zu zeigen */
+.cr-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.35);
+}
+.cr-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.35);
+}
+.cr-slider:focus { outline: none; }
+
+/* Eigenes Aufklapp-Symbol im FAQ-Akkordeon: `list-none` entfernt den Standard-Marker
+   in Chrome und Firefox, Safari braucht zusätzlich diese Pseudo-Regel. */
+summary::-webkit-details-marker { display: none; }
+
+/* ── Drawer (Host-Panel) ───────────────────────────────────────────────
+   Auf dem Desktop von rechts, auf dem Handy von unten — dort ist ein Blatt
+   vom unteren Rand mit dem Daumen erreichbar, eine rechte Spalte nicht. */
+@keyframes crDrawerInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes crDrawerInBottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes crFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.cr-drawer-backdrop { animation: crFadeIn 0.18s ease both; }
+.cr-drawer-panel { animation: crDrawerInBottom 0.24s ease both; }
+@media (min-width: 640px) {
+  .cr-drawer-panel { animation-name: crDrawerInRight; }
+}
+
+/* Zentrierte Dialoge (ui/Modal.jsx). Auf dem Handy sitzen sie am unteren Rand und
+   fahren wie ein Blatt hoch, ab sm blenden sie mittig ein — dieselbe Bewegung wie
+   beim Offcanvas, nur zur Bildmitte statt zum Rand. */
+@keyframes crModalIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cr-modal-backdrop { animation: crFadeIn 0.18s ease both; }
+.cr-modal-panel { animation: crDrawerInBottom 0.24s ease both; }
+@media (min-width: 640px) {
+  .cr-modal-panel { animation: crModalIn 0.18s ease both; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-drawer-backdrop,
+  .cr-drawer-panel,
+  .cr-modal-backdrop,
+  .cr-modal-panel { animation: none; }
+}
 
 /* ===================================================================
    SCROLLBARS (wird seitenweit als .custom-scrollbar benutzt)

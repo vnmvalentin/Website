@@ -3,7 +3,7 @@
 // ArenaEngine und legt das HUD (HP, Level/XP, Rangliste, Killfeed) darüber.
 
 import React, { useEffect, useRef, useState } from "react";
-import { socket } from "../../utils/socket";
+import { socket, ensureSocketConnected } from "../../utils/socket";
 import ArenaEngine from "../../components/Adventure/ArenaEngine";
 import { Trophy, LogOut, Skull, Swords } from "lucide-react";
 
@@ -41,6 +41,7 @@ export default function ArenaMode({ skinFile, onExit }) {
             setFeed((prev) => [...prev.slice(-3), { ...msg, id }]);
             setTimeout(() => setFeed((prev) => prev.filter((f) => f.id !== id)), 5000);
         };
+        ensureSocketConnected();
         socket.on("arena:error", onError);
         socket.on("arena:event", onEvent);
 

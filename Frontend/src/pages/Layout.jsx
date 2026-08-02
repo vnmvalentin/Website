@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useContext, useRef, useCallback } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
-import { socket } from "../utils/socket";
+import { socket, ensureSocketConnected } from "../utils/socket";
 import AppBackground from "../components/AppBackground";
 import { NAV_CATEGORIES } from "../config/navigation";
 import {
@@ -102,47 +102,27 @@ export default function Layout() {
       }
   }, []);
 
+  // Die Punkte in der Navigation ("da wartet noch was auf dich").
+  //
+  // Der Server rechnet das jetzt selbst aus und schickt uns zwei Booleans statt
+  // der kompletten Abstimmungs- und Giveaway-Listen. Vorher landete bei JEDER
+  // Stimme die volle Liste inklusive aller Teilnehmer bei jeder verbundenen
+  // Socket — auch bei OBS-Overlays und Clash-Royale-Spielern.
   useEffect(() => {
-    const fetchInitial = async () => {
-        try {
-            const [resG, resP] = await Promise.all([fetch("/api/giveaways"), fetch("/api/polls")]);
-            if (resG.ok && resP.ok) {
-                const gData = await resG.json();
-                const pData = await resP.json();
-                checkGiveaways(gData);
-                checkPolls(pData);
-            }
-        } catch(e) { console.error("Initial check failed", e); }
-    };
-    fetchInitial();
-
-    const checkGiveaways = (data) => {
-        const activeList = data?.active || [];
-        const needsAction = activeList.some(g => {
-             if (!user) return true;
-             const participants = g.participants || {};
-             return !participants[user.id];
-        });
-        setHasActionableGiveaway(needsAction);
+    ensureSocketConnected();
+    const subscribe = () => socket.emit("badges:subscribe", { userId: user?.id || null });
+    const onBadges = ({ polls, giveaways }) => {
+        setHasActionableAbstimmung(!!polls);
+        setHasActionableGiveaway(!!giveaways);
     };
 
-    const checkPolls = (data) => {
-        const polls = Array.isArray(data) ? data : data?.polls || [];
-        const activePolls = polls.filter(p => new Date(p.endDate).getTime() > Date.now());
-        const needsAction = activePolls.some(p => {
-             if (!user) return true;
-             const votes = p.votes || {};
-             return !votes[user.id];
-        });
-        setHasActionableAbstimmung(needsAction);
-    };
-
-    socket.on("giveaways_update", checkGiveaways);
-    socket.on("polls_update", checkPolls);
+    socket.on("badges:update", onBadges);
+    socket.on("connect", subscribe);   // nach einem Reconnect neu anmelden
+    subscribe();
 
     return () => {
-        socket.off("giveaways_update", checkGiveaways);
-        socket.off("polls_update", checkPolls);
+        socket.off("badges:update", onBadges);
+        socket.off("connect", subscribe);
     };
   }, [user]);
 

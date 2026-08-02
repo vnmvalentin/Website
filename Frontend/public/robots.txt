@@ -16,6 +16,7 @@ Disallow: /Bingo/join/
 Disallow: /banned-cards/overlay/
 Disallow: /clash-royale/overlay/
 Disallow: /clash-royale/win-tracker/overlay/
+Disallow: /twitch-tools/overlay/
 Disallow: /profile
 
 # Lobby-Einladungslinks sind Einmal-URLs — der Inhalt ist identisch mit /clash-royale

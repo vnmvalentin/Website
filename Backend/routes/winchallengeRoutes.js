@@ -71,6 +71,18 @@ function needsMigration(doc) {
 // Setter, damit Indizes konsistent bleiben (Keys können sich bei ensureDocShape ändern)
 function setUserDoc(userId, nextDoc) {
   ensureLoaded();
+
+  // updatedAt hier zentral hochzählen — NICHT in den einzelnen Routen.
+  //
+  // Das OBS-Overlay pollt sekündlich und übernimmt neue Daten nur, wenn sich
+  // updatedAt geändert hat (sonst würde es rund um die Uhr neu rendern). Setzt
+  // auch nur ein Schreibpfad den Zeitstempel nicht, bleibt das Overlay auf dem
+  // alten Stand stehen und aktualisiert sich erst beim manuellen Neuladen —
+  // genau das war der Fall: Die Aktions-Route setzte updatedAt, die Haupt-
+  // Speicherroute der Steuerseite aber nicht. An dieser Stelle kann es kein
+  // Aufrufer mehr vergessen.
+  nextDoc.updatedAt = Date.now();
+
   const prev = dbCache[userId];
 
   if (prev?.overlayKey && overlayIndex.get(prev.overlayKey) === userId) {
@@ -386,8 +398,15 @@ function createWinchallengeRouter({ requireAuth } = {}) {
 
   // ========== WinChallenge: Overlay & Control Routen ==========
 
+  // Overlay und Control-Seite fragen im Sekundentakt nach dem aktuellen Stand.
+  // Kein Zwischenspeicher an irgendeiner Stelle des Weges (Browserquelle in OBS,
+  // vorgelagerter Proxy): eine gecachte Antwort sähe im Stream exakt so aus, als
+  // würde das Overlay nicht aktualisieren.
+  const noStore = (res) => res.set("Cache-Control", "no-store, must-revalidate");
+
   router.get("/overlay/:overlayKey", (req, res) => {
     const { overlayKey } = req.params;
+    noStore(res);
     const db = loadDb();
 
     let userId = overlayIndex.get(overlayKey);
@@ -411,6 +430,7 @@ function createWinchallengeRouter({ requireAuth } = {}) {
 
   router.get("/control/:controlKey", (req, res) => {
     const { controlKey } = req.params;
+    noStore(res);
     const db = loadDb();
 
     let userId = controlIndex.get(controlKey);

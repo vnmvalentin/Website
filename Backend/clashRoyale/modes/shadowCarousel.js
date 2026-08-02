@@ -9,6 +9,7 @@ const { lobbies, shuffle, sanitizeLobby } = require('../core/lobbies');
 const { clearTurnTimer } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
+const { emitClashError } = require('../core/errors');
 
 const CAROUSEL_DECK_SIZE = 8;
 const CAROUSEL_TABLE_SIZES = [8, 12, 16];
@@ -25,6 +26,20 @@ function carouselFlipLimit(g) {
   if (g.revealMode === 'two') return 2;
   // dynamisch (Standard): Runden 1-4 → 2 Aufdeckungen, ab Runde 5 → nur noch 1
   return g.round <= 4 ? 2 : 1;
+}
+
+// Wie viele Aufdeckungen muss ein Spieler verbraucht haben, bevor er nehmen darf?
+//
+// Vorher durfte man sofort blind zugreifen und seine Aufdeckungen liegen lassen. Das war
+// nie die bessere Wahl, aber es ließ die Runde in einer Sekunde vorbei sein und nahm dem
+// Modus seinen Kern — erst schauen, dann entscheiden. Jetzt sind die Aufdeckungen Pflicht;
+// das Risiko bleibt trotzdem, denn genommen werden darf danach jede Karte, auch verdeckte.
+//
+// Am Rundenende können weniger freie Plätze übrig sein als Aufdeckungen zustehen — dann
+// zählt nur, was überhaupt möglich ist, sonst wäre der Tisch blockiert.
+function carouselRequiredFlips(g, table) {
+  const free = table ? table.slots.filter(s => !s.taken).length : 0;
+  return Math.min(carouselFlipLimit(g), free);
 }
 
 // Runde 1: Sitz i → Tisch i. Jede weitere Runde wandert jeder Tisch einen Sitz weiter.
@@ -80,6 +95,10 @@ function buildCarouselState(lobby, viewerId, { spectator = false } = {}) {
     cardsPerTable: g.cardsPerTable,
     revealMode: g.revealMode,
     flipLimit: carouselFlipLimit(g),
+    // Pflicht-Aufdeckungen des Betrachters und ob er damit schon nehmen darf — der Client
+    // soll die Regel anzeigen, aber nicht selbst nachrechnen müssen.
+    requiredFlips: carouselRequiredFlips(g, viewerTableIdx >= 0 ? g.tables[viewerTableIdx] : null),
+    canPick: myFlips.length >= carouselRequiredFlips(g, viewerTableIdx >= 0 ? g.tables[viewerTableIdx] : null),
     myTableIndex: viewerTableIdx,
     myFlips,
     myPick: g.picksThisRound[viewerId] || null,
@@ -304,13 +323,15 @@ registerMode({
     },
   },
   requiredPool: (lobby, active) => active * (lobby.carouselCardsPerTable || 8),
-  // Der Pool begrenzt zusätzlich die Tischanzahl (z.B. 16 Karten/Tisch → max. 7 Spieler)
+  // Der Pool begrenzt zusätzlich die Tischanzahl (z.B. 16 Karten/Tisch → max. 7 Spieler).
+  // Rückgabe ist ein Fehlerschlüssel mit Platzhaltern (siehe core/errors.js), kein fertiger
+  // Satz — der Client ist zweisprachig und übersetzt selbst.
   canStart: (lobby, poolSize) => {
     const activeCount = lobby.players.filter(p => !p.isSpectator).length;
     const perTable = lobby.carouselCardsPerTable || 8;
     const maxP = carouselMaxPlayers(perTable, poolSize);
     return activeCount > maxP
-      ? `Bei ${perTable} Karten pro Tisch sind max. ${maxP} Spieler möglich (Kartenpool: ${poolSize})!`
+      ? { key: 'carouselTooManyPlayers', params: { perTable, maxPlayers: maxP, poolSize } }
       : null;
   },
   start: (lobby, io) => startShadowCarousel(lobby, io),
@@ -342,7 +363,7 @@ registerMode({
       const flips = g.flipsThisRound[socket.id] || (g.flipsThisRound[socket.id] = []);
       if (flips.some(f => f.slotIdx === slotIdx)) return; // bereits aufgedeckt
       if (flips.length >= carouselFlipLimit(g)) {
-        return socket.emit('clash:error', { message: 'Keine Aufdeckungen mehr übrig in dieser Runde!' });
+        return emitClashError(socket, 'noRevealsLeft');
       }
       flips.push({ slotIdx, card: slot.card });
       // Andere Mitspieler sehen die Aufdeckung nicht (Privatsphäre), Zuschauer aber schon —
@@ -357,8 +378,13 @@ registerMode({
       const g = lobby.game;
       const player = lobby.players.find(p => p.id === socket.id);
       if (!player || player.isSpectator) return;
-      if (g.picksThisRound[socket.id]) return socket.emit('clash:error', { message: 'Du hast bereits gewählt!' });
+      if (g.picksThisRound[socket.id]) return emitClashError(socket, 'alreadyPicked');
       if (typeof slotIdx !== 'number') return;
+      // Erst aufdecken, dann nehmen — siehe carouselRequiredFlips()
+      const { table: myTable } = getCarouselTable(g, socket.id);
+      const needed = carouselRequiredFlips(g, myTable);
+      const done = (g.flipsThisRound[socket.id] || []).length;
+      if (done < needed) return emitClashError(socket, 'revealBeforePick', { needed, done });
       if (!doCarouselPick(lobby, player, slotIdx)) return;
       broadcastCarouselState(lobby, io);
       checkCarouselRoundComplete(lobby, io);

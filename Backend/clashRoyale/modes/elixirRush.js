@@ -17,7 +17,12 @@ const RUSH_TICK_MS       = 250;
 const RUSH_COUNTDOWN_MS  = 5000;
 const RUSH_DECK_SIZE     = 8;
 const RUSH_MARKET_SIZES  = [3, 4, 5, 6, 7, 8];
-const RUSH_LIFETIMES     = [5, 8, 10, 15, 20, 30]; // Sekunden pro Karte auf dem Markt
+const RUSH_LIFETIMES     = [4, 6, 8, 10, 15, 20, 30]; // Sekunden pro Karte auf dem Markt
+// 15 Sekunden waren zu gemütlich: Der Markt stand länger still, als man zum Entscheiden
+// braucht, und „Rush" hieß vor allem Warten. Bei 8 Sekunden dreht sich das Angebot
+// spürbar, ohne dass man die Karten nicht mehr lesen kann.
+const RUSH_LIFETIME_DEFAULT = 8;
+const RUSH_MARKET_SIZE_DEFAULT = 5;
 
 function rushComputeElixir(g, playerId, now = Date.now()) {
   const e = g.elixir[playerId];
@@ -218,8 +223,8 @@ function startRushTick(lobby, io) {
 }
 
 function startElixirRush(lobby, io) {
-  const marketSize = RUSH_MARKET_SIZES.includes(lobby.rushMarketSize) ? lobby.rushMarketSize : 5;
-  const lifeSec = RUSH_LIFETIMES.includes(lobby.rushCardLifetime) ? lobby.rushCardLifetime : 15;
+  const marketSize = RUSH_MARKET_SIZES.includes(lobby.rushMarketSize) ? lobby.rushMarketSize : RUSH_MARKET_SIZE_DEFAULT;
+  const lifeSec = RUSH_LIFETIMES.includes(lobby.rushCardLifetime) ? lobby.rushCardLifetime : RUSH_LIFETIME_DEFAULT;
   const now = Date.now();
   const countdownUntil = now + RUSH_COUNTDOWN_MS;
   lobby.players.forEach(p => { p.deck = []; });
@@ -254,13 +259,13 @@ registerMode({
   gameType: 'elixir-rush',
   settings: {
     rushMarketSize: {
-      default: 5,
+      default: RUSH_MARKET_SIZE_DEFAULT,
       event: 'clash:setRushMarketSize',
       payloadKey: 'count',
       sanitize: (v) => (RUSH_MARKET_SIZES.includes(Number(v)) ? Number(v) : undefined),
     },
     rushCardLifetime: {
-      default: 15,
+      default: RUSH_LIFETIME_DEFAULT,
       event: 'clash:setRushLifetime',
       payloadKey: 'seconds',
       sanitize: (v) => (RUSH_LIFETIMES.includes(Number(v)) ? Number(v) : undefined),

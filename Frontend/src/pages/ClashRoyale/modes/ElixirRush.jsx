@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Crown, Check, Zap, Hourglass } from 'lucide-react';
-import { RARITY_COLOR, RARITY_BORDER } from '../data/cards';
+import { Crown, Check, Zap, Hourglass, Eye } from 'lucide-react';
 import unknownCardImg from '../../../assets/clashRoyale/UnknownCard.png';
+import ModeShell from './ModeShell';
+import { CARD_CROP } from './cardCrop';
+import { GameHeader, ProgressHairline, GameSurface, GameFooter, PlayerPanel, DeckGrid } from './GameChrome';
+import { ElixirDrop } from '../ui/CrIcons';
+
+/** Akzentfarbe des Modus. */
+const ACCENT = '#e879f9';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
@@ -104,16 +110,18 @@ function AvatarCircle({ id, color, size = 28 }) {
   return (
     <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
-      {url && <img src={url} alt="" className="w-full h-full object-cover" />}
+      {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
   );
 }
 
-function CardImg({ id, name, rarity }) {
+function CardImg({ id, name }) {
   return (
-    <div className="relative w-full h-full" style={{ background: (RARITY_COLOR[rarity] || '#555') + '18' }}>
+    // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
+    // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
+    <div className="relative w-full h-full">
       <img src={`${CARD_CDN}${id}.png`} alt={name} className="w-full h-full object-cover" draggable={false}
-        onError={e => { e.target.style.display = 'none'; }} />
+        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
   );
 }
@@ -138,7 +146,8 @@ function ElixirBar({ value, max = 10, big = false }) {
   if (!big) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="text-fuchsia-300 font-black text-xs tabular-nums w-5 text-right">{whole}</span>
+        <ElixirDrop size={11} className="shrink-0" />
+        <span className="text-fuchsia-300 font-bold text-xs tabular-nums w-5 text-right">{whole}</span>
         <div className="flex-1 relative h-2 rounded-sm overflow-hidden bg-[#17101f] border border-fuchsia-500/20">
           <div className="absolute inset-y-0 left-0"
             style={{ width: `${pct}%`, background: 'linear-gradient(180deg,#f9a8d4,#c026d3)' }} />
@@ -171,7 +180,8 @@ function RushSidebar({ state, myPlayerId, elixirOf, t }) {
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const spectators    = state.players.filter(p => p.isSpectator);
   return (
-    <div className="w-60 shrink-0 bg-[#16161a] border-r border-white/5 overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
+    // Rahmen (Hintergrund, Rand, Scrollen) macht ModeShell — hier nur der Inhalt.
+    <>
       {activePlayers.map(p => {
         const isMe = p.id === myPlayerId;
         const done = (p.deck || []).length >= state.deckSize;
@@ -179,52 +189,39 @@ function RushSidebar({ state, myPlayerId, elixirOf, t }) {
         // Host-Einstellung: Elixier der Mitspieler verstecken — der eigene Balken bleibt sichtbar
         const showBar = !done && (isMe || state.showElixir !== false);
         return (
-          <div key={p.id}
-            className={`rounded-sm border p-3 transition-colors ${isMe ? 'border-fuchsia-500/40 bg-fuchsia-500/5' : 'border-white/5 bg-[#0f0f13]'}`}>
-            <div className="flex items-center gap-2 mb-2 min-w-0">
-              <AvatarCircle id={p.avatar} color={p.color} size={30} />
-              <span className="text-white text-sm font-semibold truncate flex-1">{p.name}</span>
-              {isMe && <span className="text-[10px] text-fuchsia-400 font-bold shrink-0">{t.you}</span>}
-              {done && (
-                <span className="flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/25 px-1.5 py-0.5 rounded-sm shrink-0">
-                  <Check size={10} /> {t.done}
-                </span>
-              )}
+          <PlayerPanel key={p.id} isMe={isMe}
+            header={
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AvatarCircle id={p.avatar} color={p.color} size={28} />
+                <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
+                {done
+                  ? <Check size={13} className="text-green-400 shrink-0" title={t.done} />
+                  : <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/{state.deckSize}</span>}
+              </div>
+            }>
+            {showBar && <ElixirBar value={elixirOf(p)} max={state.maxElixir} />}
+            <DeckGrid deck={p.deck || []} size={state.deckSize}
+              renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
+            <div className="flex items-center gap-1.5">
+              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
-            {showBar && <div className="mb-2"><ElixirBar value={elixirOf(p)} max={state.maxElixir} /></div>}
-            <div className="grid grid-cols-4 gap-1">
-              {Array.from({ length: state.deckSize }, (_, ci) => {
-                const card = p.deck?.[ci];
-                return (
-                  <div key={ci} title={card?.name}
-                    className={`aspect-square rounded-sm overflow-hidden border ${
-                      card ? (RARITY_BORDER[card.rarity] || 'border-white/10') : 'border-white/5 bg-white/[0.02]'}`}>
-                    {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1 mt-2">
-              <Crown size={11} className={champCount > 0 ? 'text-cyan-400' : 'text-gray-700'} />
-              <span className="text-[10px] text-gray-500">{champCount}/2 Champions</span>
-              <span className="text-[10px] text-gray-600 ml-auto">{p.deck?.length || 0}/{state.deckSize}</span>
-            </div>
-          </div>
+          </PlayerPanel>
         );
       })}
       {spectators.length > 0 && (
         <>
-          <div className="h-px bg-white/5 mt-1" />
+          <div className="h-px bg-white/[0.06]" />
           {spectators.map(p => (
-            <div key={p.id} className="rounded-sm border border-white/5 bg-[#0f0f13]/60 px-3 py-2 flex items-center gap-2 opacity-50">
-              <AvatarCircle id={p.avatar} color={p.color} size={22} />
-              <span className="text-gray-400 text-xs truncate flex-1">{p.name}</span>
-              {p.id === myPlayerId && <span className="text-[9px] text-fuchsia-500 shrink-0">{t.you}</span>}
+            <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
+              <AvatarCircle id={p.avatar} color={p.color} size={20} />
+              <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
+              <Eye size={11} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -276,15 +273,29 @@ function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, den
   const lifeUrgent = lifePct < 25;
 
   return (
-    <div className={`w-28 select-none ${isDenied ? 'rush-shake' : ''}`}>
+    // Am Desktop deutlich größer als die früheren 112px: Der Marktplatz ist das Spielfeld
+    // dieses Modus, und bei einem Modus, der auf Reaktionszeit läuft, entscheidet die
+    // Trefferfläche.
+    //
+    // Auf dem Handy bewusst KLEINER (96px): Bei 128px passen auf 390px Breite nur zwei
+    // Karten nebeneinander, fünf Marktplätze brauchen dann drei Reihen — und die letzte
+    // stand unter dem sichtbaren Bereich. In einem Spiel, in dem der Erste gewinnt, ist
+    // eine Karte, die man erst herunterscrollen muss, wertlos. Bei 96px passen drei in
+    // eine Reihe und der ganze Markt bleibt ohne Scrollen sichtbar.
+    <div className={`group w-24 sm:w-40 select-none ${isDenied ? 'rush-shake' : ''}`}>
       <div
         onClick={() => clickable && onBuy(slot.seq)}
         title={card ? t.costElixir(card.name, card.cost) : t.empty}
-        className={`relative rounded-md border-2 overflow-hidden aspect-square transition-colors ${
-          clickable ? 'cursor-pointer border-white/25 hover:border-fuchsia-400' :
-          card && showNewCard ? 'border-white/10' : 'border-white/10'
+        className={`relative rounded-2xl overflow-hidden aspect-square shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
+          clickable ? 'cursor-pointer group-hover:shadow-[0_16px_44px_rgba(0,0,0,0.65)] transition-shadow' : ''
         }`}
         style={{ perspective: '400px', background: '#0c0812' }}>
+
+        {/* Auswahl als innerer Ring — ein Rahmen würde die Kachel verschieben */}
+        {clickable && (
+          <span className="absolute inset-0 z-10 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ boxShadow: `inset 0 0 0 2px ${ACCENT}` }} />
+        )}
 
         {/* Phasen-Inhalt */}
         {phase === 'bought' ? (
@@ -330,8 +341,8 @@ function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, den
 
         {/* Champion-Krone */}
         {card && showNewCard && card.isChampion && (
-          <div className="absolute top-0.5 right-0.5 bg-black/60 rounded-[2px] p-0.5 z-10">
-            <Crown size={10} className="text-cyan-400" />
+          <div className="absolute top-2 right-2 bg-black/55 backdrop-blur-sm rounded-lg p-1.5 z-10">
+            <Crown size={12} className="text-amber-300" />
           </div>
         )}
 
@@ -347,14 +358,18 @@ function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCount, den
 
       {/* Restzeit-Balken — per Host-Einstellung ein-/ausblendbar */}
       {showTimer && (
-        <div className="mt-1.5 h-1 rounded-sm overflow-hidden bg-white/5">
+        <div className="mt-2 h-1 rounded-full overflow-hidden bg-white/[0.07]">
           {card && showNewCard && (
-            <div className={`h-full ${lifeUrgent ? 'bg-red-500' : 'bg-fuchsia-500/70'}`}
-              style={{ width: `${lifePct}%`, transition: 'width .25s linear' }} />
+            <div className="h-full rounded-full"
+              style={{
+                width: `${lifePct}%`,
+                backgroundColor: lifeUrgent ? '#f87171' : ACCENT,
+                transition: 'width .25s linear',
+              }} />
           )}
         </div>
       )}
-      <p className="text-[11px] text-gray-400 text-center mt-1 truncate">
+      <p className="text-[13px] text-white font-semibold text-center mt-2 truncate">
         {card && showNewCard ? card.name : ' '}
       </p>
     </div>
@@ -402,64 +417,56 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied, lang 
     ? Math.ceil((fullDeadlineClient - now) / 1000) : null;
 
   return (
-    <div className="h-full flex overflow-hidden select-none">
+    <ModeShell
+      sidebar={<RushSidebar state={state} myPlayerId={myPlayerId} elixirOf={elixirOf} t={t} />}
+      playerCount={state.players.filter(p => !p.isSpectator).length}
+      lang={lang}>
       <style>{RUSH_STYLE}</style>
-      <RushSidebar state={state} myPlayerId={myPlayerId} elixirOf={elixirOf} t={t} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <GameSurface>
 
-        {/* Top bar */}
-        <div className="shrink-0 bg-[#0f0f13] border-b border-white/5 px-4 py-2 flex items-center gap-4">
-          <span className="text-white font-bold text-sm shrink-0">Elixir Rush</span>
-          <span className="text-gray-500 text-xs shrink-0">{t.decksDone(doneCount, activePlayers.length)}</span>
-          <div className="flex-1" />
-          {!amSpectator && (
-            <span className={`text-sm font-bold tabular-nums shrink-0 ${myDeckFull ? 'text-green-400' : 'text-fuchsia-300'}`}>
-              {t.cardsOf(myDeckCount, state.deckSize)}
+        {/* Kopfzeile: eigener Deckfortschritt als große Zahl — das ist das Ziel des Modus */}
+        <GameHeader
+          label={lang === 'en' ? 'Cards' : 'Karten'}
+          value={amSpectator ? '–' : myDeckCount}
+          total={amSpectator ? undefined : state.deckSize}
+          badge={
+            state.finished ? (
+              <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
+                <Check size={14} /> {t.allDecksFull}
+              </span>
+            ) : inCountdown ? (
+              <span className="flex items-center gap-1.5 text-fuchsia-300 text-sm font-semibold">
+                <Hourglass size={13} /> {t.startingSoon(countdownRemaining)}
+              </span>
+            ) : amSpectator ? (
+              <span className="flex items-center gap-1.5 text-white/35 text-sm">
+                <Eye size={13} /> {t.spectatorLive}
+              </span>
+            ) : myDeckFull ? (
+              <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
+                <Check size={14} /> {t.yourDeckFull}
+              </span>
+            ) : (
+              <span className="text-fuchsia-300 text-sm font-semibold">{t.grabCards}</span>
+            )
+          }
+          meta={t.decksDone(doneCount, activePlayers.length)}
+          right={
+            <span className="text-white/25 text-xs">
+              {t.cardsSwapEvery(Math.round(state.cardLifetimeMs / 1000))}
             </span>
-          )}
-        </div>
+          }
+        />
+        <ProgressHairline
+          pct={amSpectator ? 0 : (myDeckCount / state.deckSize) * 100}
+          accent={ACCENT} />
 
-        {/* Status-Banner */}
-        {state.finished ? (
-          <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
-            <Check size={16} className="text-green-400 shrink-0" />
-            <p className="text-green-300 font-bold text-sm">{t.allDecksFull}</p>
-          </div>
-        ) : inCountdown ? (
-          <div className="shrink-0 px-4 py-2.5 bg-fuchsia-500/10 border-b border-fuchsia-500/30 flex items-center gap-3">
-            <Hourglass size={14} className="text-fuchsia-300 shrink-0" />
-            <p className="text-fuchsia-200 font-bold text-sm">
-              {t.startingSoon(countdownRemaining)}
-            </p>
-          </div>
-        ) : amSpectator ? (
-          <div className="shrink-0 px-4 py-2.5 bg-[#101016] border-b border-white/5 flex items-center gap-3">
-            <p className="text-gray-400 font-semibold text-sm">{t.spectatorLive}</p>
-          </div>
-        ) : myDeckFull ? (
-          <div className="shrink-0 px-4 py-2.5 bg-green-500/10 border-b border-green-500/20 flex items-center gap-3">
-            <Check size={16} className="text-green-400 shrink-0" />
-            <p className="text-green-300 font-bold text-sm">{t.yourDeckFull}</p>
-          </div>
-        ) : (
-          <div className="shrink-0 px-4 py-2.5 bg-fuchsia-500/10 border-b border-fuchsia-500/30 flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full bg-fuchsia-400 animate-pulse shrink-0" />
-            <p className="text-fuchsia-200 font-bold text-sm">
-              {t.grabCards}
-            </p>
-          </div>
-        )}
-
-        {/* Marktplatz */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 flex items-center justify-center">
-          <div className="w-full max-w-3xl rounded-md border border-fuchsia-500/30 bg-[#190f22] shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden relative">
-            <div className="flex items-center justify-between px-5 py-3 bg-fuchsia-500/10 border-b border-fuchsia-500/20">
-              <span className="text-fuchsia-300 text-xs font-bold uppercase tracking-widest">{t.marketplace}</span>
-              <span className="text-gray-500 text-[11px]">{t.cardsSwapEvery(Math.round(state.cardLifetimeMs / 1000))}</span>
-            </div>
-            <div className="p-6 bg-[#120a1a]">
-              <div className="flex flex-wrap justify-center gap-6">
+        {/* Marktplatz — flächig statt in einem eigenen Kasten. Die Karten SIND der
+            Marktplatz, ein Rahmen drumherum macht sie nur kleiner. */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-10 py-6 sm:py-8 flex items-center justify-center">
+          <div className="w-full max-w-5xl relative">
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-7">
                 {state.market.map((slot, i) => (
                   <MarketSlot key={i}
                     slot={slot}
@@ -477,17 +484,16 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied, lang 
                     lang={lang}
                   />
                 ))}
-              </div>
             </div>
 
             {/* Countdown-Fenster deckt exakt den Marktplatz ab (komplett blickdicht,
                 damit man die Karten nicht schon durchscheinen sieht) */}
             {inCountdown && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#120a1a]">
+              <div className="absolute -inset-4 z-20 flex items-center justify-center bg-[#0b0b12]">
                 <div className="text-center">
-                  <p className="text-fuchsia-300 text-sm font-bold uppercase tracking-widest mb-3">{t.getReady}</p>
-                  <p className="text-white font-black text-7xl tabular-nums leading-none">{countdownRemaining}</p>
-                  <p className="text-gray-400 text-xs mt-3">{t.marketOpensForAll}</p>
+                  <p className="text-fuchsia-300 text-sm font-semibold uppercase tracking-widest mb-3">{t.getReady}</p>
+                  <p className="text-white font-display font-bold text-7xl tabular-nums leading-none">{countdownRemaining}</p>
+                  <p className="text-white/35 text-xs mt-3">{t.marketOpensForAll}</p>
                 </div>
               </div>
             )}
@@ -495,25 +501,27 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied, lang 
         </div>
 
         {/* Auto-Kauf-Warnung + eigener Elixierbalken */}
-        <div className="shrink-0 border-t border-white/5 bg-[#0f0f13] px-4 sm:px-6 py-4 space-y-3">
+        <GameFooter className="space-y-3">
           {autoBuyIn != null && autoBuyIn <= state.autoBuyMs / 1000 && (
-            <div className="flex items-center gap-2.5 bg-amber-400/10 border border-amber-400/30 rounded-md px-4 py-2">
-              <Hourglass size={14} className="text-amber-400 shrink-0" />
-              <p className="text-amber-300 text-xs font-bold">
+            <div className="flex items-center gap-2.5 bg-amber-400/[0.08] rounded-lg px-4 py-2 max-w-4xl mx-auto">
+              <Hourglass size={14} className="text-amber-300 shrink-0" />
+              <p className="text-amber-200 text-xs font-semibold">
                 {t.fullElixirAutoBuy(autoBuyIn)}
               </p>
             </div>
           )}
-          {!amSpectator && !myDeckFull ? (
-            <ElixirBar value={myElixir} max={state.maxElixir} big />
-          ) : (
-            <p className="text-gray-600 text-xs text-center">
-              {amSpectator ? t.spectatorNoElixir : t.deckCompleteNoElixir}
-            </p>
-          )}
-        </div>
+          <div className="max-w-4xl mx-auto">
+            {!amSpectator && !myDeckFull ? (
+              <ElixirBar value={myElixir} max={state.maxElixir} big />
+            ) : (
+              <p className="text-white/30 text-xs text-center">
+                {amSpectator ? t.spectatorNoElixir : t.deckCompleteNoElixir}
+              </p>
+            )}
+          </div>
+        </GameFooter>
 
-      </div>
-    </div>
+      </GameSurface>
+    </ModeShell>
   );
 }
