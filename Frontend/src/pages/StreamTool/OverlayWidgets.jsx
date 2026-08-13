@@ -86,7 +86,10 @@ function useTweenArray(targets, ms = 650) {
 export function WidgetFrame({ id, module, visible, editable, selected, onPointerDown, children }) {
   return (
     <div
-      className={`stw-widget${editable ? ' is-editable' : ''}${selected ? ' is-selected' : ''}`}
+      // is-invisible nimmt dem Rahmen die Mausereignisse: ein ausgeblendetes
+      // Modul liegt sonst unsichtbar über einem sichtbaren und fängt dessen
+      // Ziehen ab (der Raid-Clip ist groß genug, um alles darunter zu decken).
+      className={`stw-widget${editable ? ' is-editable' : ''}${selected ? ' is-selected' : ''}${visible ? '' : ' is-invisible'}`}
       data-anim={module.anim}
       data-widget={id}
       style={{ transform: `translate(${Math.round(module.x)}px, ${Math.round(module.y)}px)` }}
@@ -122,7 +125,12 @@ function CardHead({ kicker, accent, chip, showTimer, remaining, urgent }) {
 }
 
 /* ── Abstimmung ─────────────────────────────────────────────────────────── */
+/** Karten-Klassen inkl. der Zustände, die alle Karten teilen. */
+const cardClass = (module, head) =>
+  `stw-card${module.glass ? '' : ' is-flat'}${head ? '' : ' is-nohead'}`;
+
 export function PollWidget({ data, module, width = 640 }) {
+  const head = module.showHead !== false;
   const running = data.status === 'ACTIVE';
   const votes = data.choices.map((c) => c.votes || 0);
   const tweened = useTweenArray([...votes, data.totalVotes || 0]);
@@ -134,19 +142,21 @@ export function PollWidget({ data, module, width = 640 }) {
   const urgent = running && remaining <= 10;
 
   return (
-    <div className={`stw-card${module.glass ? '' : ' is-flat'}`} style={cardStyle(module, width)}>
+    <div className={cardClass(module, head)} style={cardStyle(module, width)}>
       <div className="stw-progress">
         <i style={{ transform: `scaleX(${running ? frac : 0})`, background: urgent ? '#e66767' : module.accent }} />
       </div>
 
-      <CardHead
-        kicker="Abstimmung"
-        accent={module.accent}
-        chip={running ? { cls: 'live', label: 'Läuft' } : { cls: 'done', label: 'Beendet' }}
-        showTimer={module.timer}
-        remaining={running ? remaining : 0}
-        urgent={urgent}
-      />
+      {head && (
+        <CardHead
+          kicker="Abstimmung"
+          accent={module.accent}
+          chip={running ? { cls: 'live', label: 'Läuft' } : { cls: 'done', label: 'Beendet' }}
+          showTimer={module.timer}
+          remaining={running ? remaining : 0}
+          urgent={urgent}
+        />
+      )}
 
       <h3 className="stw-title">{data.title || 'Abstimmung'}</h3>
 
@@ -186,32 +196,187 @@ export function PollWidget({ data, module, width = 640 }) {
 }
 
 /* ── Ziele (Follower / Abos) ────────────────────────────────────────────── */
+
+/** Unter dieser Höhe passt keine Schrift in den Balken. */
+export const BAR_TEXT_MIN_H = 30;
+
+/**
+ * Fortschrittsbalken, in dem auf Wunsch Text steht.
+ *
+ * Der Text wird zweimal gerendert: einmal hell für die leere Spur und einmal
+ * dunkel, per clip-path auf die Füllung beschnitten. Das ist der einzige Weg,
+ * der bei JEDER vom Streamer gewählten Balkenfarbe lesbar bleibt — heller Text
+ * mit Schatten säuft auf gelben oder hellgrünen Balken ab. Beide Ebenen haben
+ * dieselbe Box, deshalb sitzt die dunkle Kopie pixelgenau auf der hellen.
+ */
+function GoalBar({ percent, color, height, left, right }) {
+  const pct = clamp(percent, 0, 100);
+  const inner = (
+    <>
+      <span className="stw-bar-l">{left}</span>
+      <span className="stw-bar-r">{right}</span>
+    </>
+  );
+
+  return (
+    <div className="stw-track stw-goal-track" style={{ height }}>
+      <div
+        className="stw-fill"
+        style={{ width: `${pct.toFixed(1)}%`, background: `linear-gradient(180deg, ${shade(color, 0.18)}, ${color})` }}
+      />
+      {(left || right) && (
+        <>
+          <div className="stw-bar-text" style={{ fontSize: Math.round(height * 0.42) }}>{inner}</div>
+          <div
+            className="stw-bar-text is-on-fill"
+            style={{ fontSize: Math.round(height * 0.42), clipPath: `inset(0 ${(100 - pct).toFixed(1)}% 0 0)` }}
+          >
+            {inner}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function GoalWidget({ data, module, width = 460 }) {
   const [current, percent] = useTweenArray([data.reached, data.percent]);
+  // 'full' = Zahl über dem Balken, 'inline' = Zahlen im Balken,
+  // 'bar' = nur der Balken, Beschriftung und Zahlen darin
+  const variant = module.goalLayout || 'full';
+  const showPct = module.showPercent !== false;
+  const height = variant === 'full'
+    ? (module.barHeight ?? 14)
+    : Math.max(BAR_TEXT_MIN_H, module.barHeight ?? 14);
+
+  const counts = `${fmt(current)} / ${fmt(data.target)}`;
+  const pctText = `${Math.round(percent)} %`;
 
   return (
     <div className={`stw-card${module.glass ? '' : ' is-flat'}`} style={cardStyle(module, width)}>
-      <div className="stw-goal">
-        <div className="stw-goal-top">
-          <span className="stw-kicker" style={{ color: module.accent }}>{data.label}</span>
-          {data.done && <span className="stw-chip done">Erreicht</span>}
-          <span className="stw-goal-pct">{Math.round(percent)}%</span>
-        </div>
-        {data.note && <div className="stw-goal-note">{data.note}</div>}
+      <div className={`stw-goal is-${variant}`}>
+        {variant !== 'bar' && (
+          <div className="stw-goal-top">
+            <span className="stw-kicker" style={{ color: module.accent }}>{data.label}</span>
+            {data.done && <span className="stw-chip done">Erreicht</span>}
+            {showPct && variant === 'full' && <span className="stw-goal-pct">{pctText}</span>}
+          </div>
+        )}
 
-        <div className="stw-goal-count">
-          <b>{fmt(current)}</b>
-          <span>/ {fmt(data.target)}</span>
-        </div>
+        {variant === 'full' && (
+          <>
+            {data.note && <div className="stw-goal-note">{data.note}</div>}
+            <div className="stw-goal-count">
+              <b>{fmt(current)}</b>
+              <span>/ {fmt(data.target)}</span>
+            </div>
+          </>
+        )}
 
-        <div className="stw-track stw-goal-track">
-          <div
-            className="stw-fill"
-            style={{
-              width: `${percent.toFixed(1)}%`,
-              background: `linear-gradient(180deg, ${shade(data.color, 0.18)}, ${data.color})`,
-            }}
-          />
+        <GoalBar
+          percent={percent}
+          color={data.color}
+          height={height}
+          left={variant === 'bar' ? data.label : (variant === 'inline' ? counts : '')}
+          right={variant === 'bar' ? counts : (variant === 'inline' && showPct ? pctText : '')}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ── Stream-Statistik ───────────────────────────────────────────────────── */
+
+/** Sekunden -> "1:23:45" bzw. "23:45" unter einer Stunde. */
+function uptimeText(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  const h = Math.floor(s / 3600);
+  return h > 0 ? `${h}:${mm}:${ss}` : `${Math.floor(s / 60)}:${ss}`;
+}
+
+/**
+ * Laufzeit der Sendung. Eigene Uhr statt der des Overlays: die tickt nur,
+ * solange eine Abstimmung läuft — und für eine Sekundenanzeige das ganze
+ * Overlay dauerhaft neu zu rendern, wäre in OBS unnötige Dauerlast.
+ */
+function useUptime(startedAt, active) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!active || !startedAt) return undefined;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [active, startedAt]);
+  return startedAt ? (now - startedAt) / 1000 : 0;
+}
+
+/**
+ * Platzbedarf einer Kennzahl nebeneinander. Die Laufzeit ist mit "1:23:45" nun
+ * einmal breiter als eine Zahl — ohne diesen Aufschlag stünden die Spalten
+ * schief, sobald sie mit dabei ist.
+ */
+const STAT_CELL_W = { uptime: 152, bits: 132 };
+
+/** Breite der Karte, je nach Anordnung. */
+function statsWidth(items, layout, centered) {
+  if (layout === 'list') return 400;
+  if (layout === 'column') return 300;
+  const cells = items.map((i) => STAT_CELL_W[i.key] || 112);
+  // Mittig heißt: alle Kästchen gleich breit. Also muss das breiteste die
+  // Breite für alle vorgeben, sonst würde die Laufzeit in ihrem Kästchen ecken.
+  const total = centered ? Math.max(...cells) * cells.length : cells.reduce((s, w) => s + w, 0);
+  return 56 + 26 * (items.length - 1) + total;
+}
+
+export function StatsWidget({ data, module, width }) {
+  const layout = module.layout === 'column' || module.layout === 'list' ? module.layout : 'row';
+  // Die Liste ist von Haus aus zweispaltig (links Wort, rechts Zahl) — mittig
+  // gibt es dort nichts auszurichten, auch nicht in der Kopfzeile.
+  const centered = module.align !== 'left' && layout !== 'list';
+  // In der Listenform steht die Beschriftung immer links neben der Zahl —
+  // dafür muss sie auch im DOM vorn stehen.
+  const capFirst = layout === 'list' || module.capPos !== 'bottom';
+
+  const hasUptime = data.items.some((i) => i.key === 'uptime');
+  const uptime = useUptime(data.startedAt, hasUptime);
+  // Zahlen laufen weich hoch — bis auf die Laufzeit, die tickt ohnehin selbst
+  const tweened = useTweenArray(data.items.map((i) => (typeof i.value === 'number' ? i.value : 0)));
+
+  const value = (item, i) => {
+    if (item.key === 'uptime') return uptimeText(uptime);
+    if (item.value === null || item.value === undefined) return '–';
+    return fmt(tweened[i]);
+  };
+
+  const cls = ['stw-stats', `is-${layout}`, centered ? 'is-center' : ''].filter(Boolean).join(' ');
+  const head = module.showHead !== false && (!!data.label || module.liveDot !== false);
+
+  return (
+    <div className={cardClass(module, head)}
+      style={cardStyle(module, width || statsWidth(data.items, layout, centered))}>
+      <div className={cls}>
+        {head && (
+          <div className="stw-stats-head">
+            {data.label && <span className="stw-kicker" style={{ color: module.accent }}>{data.label}</span>}
+            {module.liveDot !== false && (
+              <span className={`stw-chip ${data.live ? 'live' : ''}`}>{data.live ? 'Live' : 'Offline'}</span>
+            )}
+          </div>
+        )}
+
+        <div className="stw-stats-grid">
+          {data.items.map((item, i) => {
+            const cap = <span className="stw-stat-cap">{item.label}</span>;
+            const val = <span className="stw-stat-val" style={{ color: data.color }}>{value(item, i)}</span>;
+            return (
+              <div key={item.key} className="stw-stat">
+                {capFirst ? cap : val}
+                {capFirst ? val : cap}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -320,6 +485,11 @@ export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
     });
   };
 
+  // Ohne Clip gibt es nichts zu zeigen — dafür ist das Modul da. toRaidView
+  // sortiert solche Raids schon aus; hier bleibt es als Riegel stehen, damit
+  // nie eine leere Karte im Bild landet.
+  if (!clip) return null;
+
   // Bewusst immer flach: die Glas-Unschärfe würde den automatischen Start
   // verhindern (siehe oben). Sichtbar wäre sie ohnehin nur an den schmalen
   // Streifen über und unter dem Clip.
@@ -359,9 +529,9 @@ export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
           />
         ) : (
           <div className="stw-raid-still">
-            {clip?.thumbnail
+            {clip.thumbnail
               ? <img src={clip.thumbnail} alt="" />
-              : <span className="stw-raid-empty">{data.error === 'no_clips' ? 'Keine Clips vorhanden' : 'Clip'}</span>}
+              : <span className="stw-raid-empty">Clip</span>}
           </div>
         )}
       </div>
@@ -471,6 +641,7 @@ function ShareBody({ outcomes, points, users, winnerId }) {
 }
 
 export function PredictionWidget({ data, module, width = 740 }) {
+  const head = module.showHead !== false;
   const open = data.status === 'ACTIVE';
   const outcomes = data.outcomes;
   const tweened = useTweenArray([...outcomes.map((o) => o.points), ...outcomes.map((o) => o.users)]);
@@ -485,19 +656,21 @@ export function PredictionWidget({ data, module, width = 740 }) {
   const isVersus = outcomes.length <= VERSUS_MAX_OUTCOMES;
 
   return (
-    <div className={`stw-card${module.glass ? '' : ' is-flat'}`} style={cardStyle(module, width)}>
+    <div className={cardClass(module, head)} style={cardStyle(module, width)}>
       <div className="stw-progress">
         <i style={{ transform: `scaleX(${open ? frac : 0})`, background: urgent ? '#e66767' : module.accent }} />
       </div>
 
-      <CardHead
-        kicker="Vorhersage"
-        accent={module.accent}
-        chip={statusChip(data.status)}
-        showTimer={module.timer && open}
-        remaining={remaining}
-        urgent={urgent}
-      />
+      {head && (
+        <CardHead
+          kicker="Vorhersage"
+          accent={module.accent}
+          chip={statusChip(data.status)}
+          showTimer={module.timer && open}
+          remaining={remaining}
+          urgent={urgent}
+        />
+      )}
 
       <h3 className="stw-title">{data.title || 'Vorhersage'}</h3>
 

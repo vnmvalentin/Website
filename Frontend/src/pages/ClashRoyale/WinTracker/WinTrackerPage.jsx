@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState, useCallback } from 'react';
 import {
-  Trophy, Plus, X, RefreshCw, Trash2, Copy, Check, Eye, EyeOff, TrendingUp,
+  Trophy, Plus, X, RefreshCw, Trash2, Copy, Check, Eye, EyeOff, TrendingUp, ChevronsUp, Minus,
 } from 'lucide-react';
 import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import SEO from '../../../components/SEO';
@@ -90,14 +90,56 @@ function LeagueBadge({ leagueNumber, polRank, size = 40 }) {
   );
 }
 
+// ── Stufenleiste (Ligen 1-6) ─────────────────────────────────────────────────
+function StepBar({ step, maxSteps }) {
+  return (
+    <div className="flex gap-[3px]">
+      {Array.from({ length: maxSteps }, (_, i) => (
+        <span key={i} className={`flex-1 h-1.5 rounded-sm ${i < step ? 'bg-amber-400' : 'bg-white/10'}`} />
+      ))}
+    </div>
+  );
+}
+
+// Aktuelle Stufe: die API liefert sie nicht mit, deshalb zählt der Tracker sie aus den
+// Ranked-Matches — der Startwert muss einmal von Hand stimmen.
+function LadderValue({ ladder, onStepChange }) {
+  return (
+    <>
+      <div className="flex items-center gap-1.5">
+        <ChevronsUp size={14} className="text-amber-400" />
+        <span className="font-black text-lg tabular-nums text-white">{ladder.step}</span>
+        <span className="text-gray-500 font-bold text-sm tabular-nums -ml-1">/{ladder.maxSteps}</span>
+        <span className="text-gray-600 text-xs">Stufen</span>
+        <span className="ml-auto flex items-center gap-1">
+          <button onClick={() => onStepChange(ladder.step - 1)} disabled={ladder.step <= 1} title="Stufe korrigieren"
+            className="w-6 h-6 flex items-center justify-center rounded-lg border border-white/10 text-gray-500 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:hover:text-gray-500 disabled:hover:border-white/10 transition-colors">
+            <Minus size={12} />
+          </button>
+          <button onClick={() => onStepChange(ladder.step + 1)} disabled={ladder.step >= ladder.maxSteps} title="Stufe korrigieren"
+            className="w-6 h-6 flex items-center justify-center rounded-lg border border-white/10 text-gray-500 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:hover:text-gray-500 disabled:hover:border-white/10 transition-colors">
+            <Plus size={12} />
+          </button>
+        </span>
+      </div>
+      <div className="mt-2">
+        <StepBar step={ladder.step} maxSteps={ladder.maxSteps} />
+      </div>
+    </>
+  );
+}
+
 // ── Accounts-Übersicht ───────────────────────────────────────────────────────
-function AccountsTab({ accounts, onActivate, onDelete, onAdd, onRefresh, onTrackModeChange, refreshingId }) {
+function AccountsTab({ accounts, onActivate, onDelete, onAdd, onRefresh, onTrackModeChange, onLadderStepChange, refreshingId }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-white font-bold">Deine Accounts</h2>
-          <p className="text-gray-500 text-xs mt-0.5">Der aktive Account speist dein Win-Tracker-Overlay — jeder Account trackt seinen eigenen Wert.</p>
+          <p className="text-gray-500 text-xs mt-0.5">
+            Der aktive Account speist dein Win-Tracker-Overlay — jeder Account trackt seinen eigenen Wert.
+            In Liga 1–6 zählt der Tracker Stufen statt Medaillen; stell die Stufe einmal auf deinen echten Stand.
+          </p>
         </div>
         <button onClick={onAdd}
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors shrink-0">
@@ -146,18 +188,24 @@ function AccountsTab({ accounts, onActivate, onDelete, onAdd, onRefresh, onTrack
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5 mb-3">
-                <Trophy size={14} className="text-amber-400" />
-                {acc.trackMode === 'trophies' ? (
-                  <>
-                    <span className="font-black text-lg tabular-nums text-white">{fmt(acc.trophies)}</span>
-                    <span className="text-gray-600 text-xs">Trophäen · Beste {fmt(acc.bestTrophies)}</span>
-                  </>
+              <div className="mb-3">
+                {acc.trackMode === 'medals' && acc.ladder ? (
+                  <LadderValue ladder={acc.ladder} onStepChange={(step) => onLadderStepChange(acc, step)} />
                 ) : (
-                  <>
-                    <span className="font-black text-lg tabular-nums text-white">{fmt(acc.seasonMedals)}</span>
-                    <span className="text-gray-600 text-xs">Medaillen (Season)</span>
-                  </>
+                  <div className="flex items-center gap-1.5">
+                    <Trophy size={14} className="text-amber-400" />
+                    {acc.trackMode === 'trophies' ? (
+                      <>
+                        <span className="font-black text-lg tabular-nums text-white">{fmt(acc.trophies)}</span>
+                        <span className="text-gray-600 text-xs">Trophäen · Beste {fmt(acc.bestTrophies)}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-black text-lg tabular-nums text-white">{fmt(acc.seasonMedals)}</span>
+                        <span className="text-gray-600 text-xs">Medaillen (Season)</span>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -165,9 +213,13 @@ function AccountsTab({ accounts, onActivate, onDelete, onAdd, onRefresh, onTrack
               <div className="mb-3">
                 <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5">Getrackter Wert</p>
                 <div className="flex gap-1.5">
-                  {[{ key: 'medals', label: 'Medaillen' }, { key: 'trophies', label: 'Trophäen' }].map(opt => (
+                  {[{ key: 'medals', label: acc.ladder ? 'Stufen' : 'Medaillen' }, { key: 'trophies', label: 'Trophäen' }].map(opt => (
                     <button key={opt.key} onClick={() => onTrackModeChange(acc, opt.key)}
-                      title={opt.key === 'medals' ? 'Punktestand der laufenden Ranked-Season' : 'Lifetime-Trophäen aus dem Profil'}
+                      title={opt.key !== 'medals'
+                        ? 'Lifetime-Trophäen aus dem Profil'
+                        : acc.ladder
+                          ? 'Stufen dieser Liga — ab Ultimate Champion wieder Medaillen'
+                          : 'Punktestand der laufenden Ranked-Season'}
                       className={`flex-1 text-xs font-bold py-1.5 rounded-lg border transition-colors ${
                         acc.trackMode === opt.key
                           ? 'bg-violet-600 border-violet-500 text-white'
@@ -219,7 +271,7 @@ function ToggleRow({ label, description, checked, onChange }) {
 // ── Trophäen/Medaillen-Umschalter (Segmented Control statt iOS-Switch) ───────
 function TrackModeSwitch({ value, onChange }) {
   const options = [
-    { key: 'medals', label: 'Medaillen (Ranked)' },
+    { key: 'medals', label: 'Stufen / Medaillen (Ranked)' },
     { key: 'trophies', label: 'Trophäen (Lifetime)' },
   ];
   return (
@@ -293,8 +345,10 @@ function SettingsTab({ overlayKey, settings, onSettingsChange, apiConfigured }) 
       <div className="panel p-5 space-y-3">
         <h3 className="text-white font-bold text-sm">Getrackter Wert — Voreinstellung</h3>
         <p className="text-gray-500 text-xs leading-relaxed">
-          <span className="text-violet-300">Medaillen</span> ist dein Punktestand der laufenden Ranked-Season (Path of Legend) —
-          startet jede Season bei 0. <span className="text-violet-300">Trophäen</span> ist dein Lifetime-Stand aus dem Profil.
+          <span className="text-violet-300">Ranked</span> folgt dem Spiel: In <span className="text-white">Liga 1–6</span> zählt das
+          Overlay die Stufen bis Ultimate Champion (Sieg +1, Niederlage −1, auf Stufe 1 geht es nicht weiter runter),
+          ab <span className="text-white">Ultimate Champion</span> wieder die Medaillen der laufenden Season.
+          <span className="text-violet-300"> Trophäen</span> ist dein Lifetime-Stand aus dem Profil.
           Diese Auswahl gilt für <span className="text-white">neu verknüpfte</span> Accounts — bestehende Accounts stellst du
           einzeln im Tab <span className="text-white">Accounts</span> um.
         </p>
@@ -303,14 +357,16 @@ function SettingsTab({ overlayKey, settings, onSettingsChange, apiConfigured }) 
 
       <div className="panel p-5 space-y-3">
         <h3 className="text-white font-bold text-sm">Angezeigte Statistiken</h3>
-        <ToggleRow label="Daily Profit" description="Saldo seit 00:00 Uhr (+/-), in Trophäen oder Medaillen je nach getracktem Wert."
+        <ToggleRow label="Daily Profit" description="Saldo seit 00:00 Uhr (+/-) — in Trophäen, Medaillen oder Stufen, je nach getracktem Wert."
           checked={settings.showDailyProfit} onChange={toggle('showDailyProfit')} />
         <ToggleRow label="Win/Loss (Zahlen)" description="Siege und Niederlagen seit 00:00 Uhr, z.B. 14S – 6N."
           checked={settings.showWinLossNumbers} onChange={toggle('showWinLossNumbers')} />
         <ToggleRow label="Win-Rate (%)" description="Siegquote seit 00:00 Uhr in Prozent."
           checked={settings.showWinLossPercent} onChange={toggle('showWinLossPercent')} />
-        <ToggleRow label="Letzte 5 Spiele" description="Verlauf der letzten Matches mit Medaillen-Änderung, neuestes zuerst."
+        <ToggleRow label="Letzte 5 Spiele" description="Verlauf der letzten Matches, neuestes zuerst."
           checked={settings.showLast5} onChange={toggle('showLast5')} />
+        <ToggleRow label="Letzte 5 als Win/Lose" description="Zeigt den Ausgang statt der Zahl (+30/-28). In Liga 1–6 immer an, dort gibt es keine Medaillen-Änderung."
+          checked={settings.last5AsResult} onChange={toggle('last5AsResult')} />
       </div>
 
       <div className="panel p-5 space-y-3">
@@ -357,7 +413,7 @@ export default function WinTrackerPage() {
   const [overlayKey, setOverlayKey] = useState(null);
   const [settings, setSettings] = useState({
     showDailyProfit: true, showWinLossNumbers: true, showWinLossPercent: true, showLast5: true,
-    trackMode: 'medals', bgColor: '#0c0c12', bgOpacity: 88,
+    trackMode: 'medals', bgColor: '#0c0c12', bgOpacity: 88, last5AsResult: true,
   });
   const [apiConfigured, setApiConfigured] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -404,6 +460,21 @@ export default function WinTrackerPage() {
       setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? res.account : a));
     } catch (e) {
       setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, trackMode: acc.trackMode } : a));
+      flashError(e.message);
+    }
+  };
+
+  const handleLadderStepChange = async (acc, step) => {
+    const max = acc.ladder?.maxSteps || 0;
+    const next = Math.max(1, Math.min(max, step));
+    if (!max || next === acc.ladder.step) return;
+    // Optimistisch: der Klick soll sich sofort in der Leiste zeigen
+    setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, ladder: { ...a.ladder, step: next } } : a));
+    try {
+      const res = await api.setAccountLadderStep(acc.accountId, next);
+      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? res.account : a));
+    } catch (e) {
+      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, ladder: acc.ladder } : a));
       flashError(e.message);
     }
   };
@@ -497,6 +568,7 @@ export default function WinTrackerPage() {
                 onAdd={() => setAddOpen(true)}
                 onRefresh={handleRefresh}
                 onTrackModeChange={handleTrackModeChange}
+                onLadderStepChange={handleLadderStepChange}
                 refreshingId={refreshingId}
               />
             )

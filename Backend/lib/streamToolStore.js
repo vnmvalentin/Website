@@ -37,6 +37,11 @@ try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN scopes TEXT NOT NULL 
 // der Raid darf davon nicht mitgerissen werden.
 try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN raid_event TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 
+// Laufende Sendung und die Chat-Ereignisse dazu (Modul "Stream-Statistik").
+// Ebenfalls eigene Spalte: der Chat-Bot schreibt hier im Sekundentakt hinein,
+// während der Twitch-Abgleich den cache überschreibt.
+try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN stats TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+
 // ── Token-Verschlüsselung ────────────────────────────────────────────────────
 // Schlüssel kommt aus STREAM_TOOL_SECRET. Fehlt die Variable, wird einmalig ein
 // Schlüssel neben der DB erzeugt (Datei ist ebenfalls gitignored) — so funktioniert

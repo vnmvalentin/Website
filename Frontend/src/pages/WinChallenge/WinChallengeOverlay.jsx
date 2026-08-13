@@ -100,7 +100,10 @@ export default function WinChallengeOverlay() {
     accent = "#9146FF",
     opacity = 0.6,
     headerOpacity,
-    borderRadius = 12,
+    itemOpacity,
+    counterOpacity,
+    timerOpacity,
+    borderRadius = 0,
     scale = 1,
     boxWidth = 520,
     titleAlign = "left",
@@ -110,9 +113,18 @@ export default function WinChallengeOverlay() {
     itemBg,
   } = doc?.style || {}; // Fallback auf leeres Objekt
 
-  // Opacity
+  // Deckkraft je Fläche. boxAlpha deckt nur den Bereich um die Zeilen herum ab;
+  // Zeilen, Zähler und Timer haben eigene Werte. Fehlen sie (Bestandsdaten),
+  // gilt für die Zeilen weiterhin die Box-Deckkraft — dadurch ändert sich für
+  // vorhandene Overlays nichts.
   const boxAlpha = clamp01(opacity, 0.6);
   const headerAlpha = clamp01(headerOpacity ?? opacity, boxAlpha);
+  const itemAlpha = clamp01(itemOpacity ?? opacity, boxAlpha);
+  const counterAlpha = clamp01(counterOpacity ?? 0.06, 0.06);
+  const timerAlpha = clamp01(timerOpacity ?? 0.15, 0.15);
+  // Innenradien folgen dem Box-Radius, damit bei 0px wirklich alles kantig ist
+  const rowRadius = Math.min(10, Math.max(0, Number(borderRadius) || 0));
+  const badgeRadius = Math.min(8, Math.max(0, Number(borderRadius) || 0));
 
   const effectiveTitleColor = titleColor || textColor;
 
@@ -337,17 +349,10 @@ export default function WinChallengeOverlay() {
           overflow: "hidden",
         }}
       >
-        {/* Main Background */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: boxBg,
-            opacity: boxAlpha,
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
+        {/* Bewusst KEINE Hintergrundebene über die ganze Box: die lag sonst
+            unter Header und Timer und war durch deren eigene Deckkraft nicht
+            wegzubekommen — ein Timer auf 0 % blieb sichtbar, weil boxBg
+            durchschien. Jeder Abschnitt füllt jetzt nur seine eigene Fläche. */}
 
         {/* Header Wrapper */}
         <div
@@ -413,6 +418,18 @@ export default function WinChallengeOverlay() {
             gap: 8,
           }}
         >
+          {/* „Hintergrund"-Deckkraft wirkt genau hier: die Fläche um die
+              Zeilen herum. Header und Timer regeln ihre eigene. */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: boxBg,
+              opacity: boxAlpha,
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          />
           {pinned.map((it) => (
             <OverlayRow
               key={it.id}
@@ -420,7 +437,10 @@ export default function WinChallengeOverlay() {
               accent={accent}
               itemFontSize={itemFontSize}
               itemBg={itemBg}
-              opacity={opacity}
+              itemAlpha={itemAlpha}
+              counterAlpha={counterAlpha}
+              rowRadius={rowRadius}
+              badgeRadius={badgeRadius}
             />
           ))}
           {scrollingEnabled ? (
@@ -449,7 +469,10 @@ export default function WinChallengeOverlay() {
                       accent={accent}
                       itemFontSize={itemFontSize}
                       itemBg={itemBg}
-                      opacity={opacity}
+                      itemAlpha={itemAlpha}
+              counterAlpha={counterAlpha}
+              rowRadius={rowRadius}
+              badgeRadius={badgeRadius}
                     />
                   </div>
                 ))}
@@ -464,7 +487,10 @@ export default function WinChallengeOverlay() {
                   accent={accent}
                   itemFontSize={itemFontSize}
                   itemBg={itemBg}
-                  opacity={opacity}
+                  itemAlpha={itemAlpha}
+              counterAlpha={counterAlpha}
+              rowRadius={rowRadius}
+              badgeRadius={badgeRadius}
                 />
               ))}
               {Array.from({ length: placeholders }).map((_, i) => (
@@ -479,7 +505,6 @@ export default function WinChallengeOverlay() {
               position: "relative",
               zIndex: 1,
               borderTop: "1px solid rgba(255,255,255,.08)",
-              background: "rgba(0,0,0,0.15)",
               padding: "6px 12px",
               display: "flex",
               justifyContent: "center",
@@ -490,9 +515,23 @@ export default function WinChallengeOverlay() {
               fontSize: itemFontSize ? `${itemFontSize}px` : 16,
             }}
           >
+            {/* Eigene Füllung, damit die Timer-Deckkraft die Uhrzeit nicht
+                mitfärbt. Gefüllt wird mit der Box-Farbe: dadurch sieht die
+                Leiste bei gleicher Deckkraft aus wie zuvor, lässt sich aber
+                bis auf 0 herunterziehen. */}
+            <span
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: boxBg,
+                opacity: timerAlpha,
+                pointerEvents: "none",
+              }}
+            />
             <span
               ref={timerDotRef}
               style={{
+                position: "relative",
                 display: "inline-block",
                 width: "0.7em",
                 height: "0.7em",
@@ -502,7 +541,7 @@ export default function WinChallengeOverlay() {
                 flexShrink: 0,
               }}
             />
-            <span ref={timerDisplayRef}>
+            <span ref={timerDisplayRef} style={{ position: "relative" }}>
               {msToClock(doc.timer?.running
                 ? Date.now() - (doc.timer?.startedAt || 0)
                 : (doc.timer?.elapsedMs || 0))}
@@ -523,10 +562,22 @@ export default function WinChallengeOverlay() {
               padding: "6px 0 10px",
             }}
           >
+            {/* Gehört zur Fläche um die Zeilen, also dieselbe Deckkraft */}
+            <span
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: boxBg,
+                opacity: boxAlpha,
+                pointerEvents: "none",
+                zIndex: 0,
+              }}
+            />
             {Array.from({ length: pageCount }).map((_, i) => (
               <span
                 key={i}
                 style={{
+                  position: "relative",
                   width: 8,
                   height: 8,
                   borderRadius: 999,
@@ -542,9 +593,9 @@ export default function WinChallengeOverlay() {
   );
 }
 
-function OverlayRow({ it, accent, itemFontSize, itemBg, opacity }) {
+function OverlayRow({ it, accent, itemFontSize, itemBg, itemAlpha, counterAlpha, rowRadius = 10, badgeRadius = 8 }) {
   const done = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
-  const rowAlpha = clamp01(opacity, 0.6);
+  const rowAlpha = clamp01(itemAlpha, 0.6);
   const rowBgColor = itemBg || "#ffffff";
   const rowBgOpacity = itemBg ? rowAlpha : 0.04;
 
@@ -555,8 +606,9 @@ function OverlayRow({ it, accent, itemFontSize, itemBg, opacity }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        gap: 10,
         padding: "8px 10px",
-        borderRadius: 10,
+        borderRadius: rowRadius,
         overflow: "hidden",
       }}
     >
@@ -580,6 +632,12 @@ function OverlayRow({ it, accent, itemFontSize, itemBg, opacity }) {
           gap: 6,
           color: done ? "#2ecc71" : "inherit",
           fontSize: itemFontSize ? `${itemFontSize}px` : undefined,
+          // Der Name ist das einzige Element, das schrumpfen darf. minWidth: 0
+          // hebt die Flex-Mindestbreite auf, sonst drückt ein langer Name die
+          // Zähler-Anzeige zusammen, statt selbst umzubrechen.
+          flex: "1 1 auto",
+          minWidth: 0,
+          overflowWrap: "anywhere",
         }}
       >
         {it.pinned ? (
@@ -599,33 +657,52 @@ function OverlayRow({ it, accent, itemFontSize, itemBg, opacity }) {
             position: "relative",
             zIndex: 1,
             padding: "2px 10px",
-            borderRadius: 8,
-            background: "rgba(255,255,255,.06)",
+            borderRadius: badgeRadius,
             border: `1px solid ${hexToRgba(accent || "#9146FF", 0.5)}`,
-          }}
-        >
-          {it.progress || 0} / {it.target || 0}
-        </span>
-      ) : (
-        <span
-          style={{
-            position: "relative",
-            zIndex: 1,
-            width: 16,
-            height: 16,
-            borderRadius: 4,
-            border: "2px solid rgba(255,255,255,.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: done ? "#2ecc71" : "transparent",
-            background: "rgba(0,0,0,.4)",
+            whiteSpace: "nowrap",
+            fontVariantNumeric: "tabular-nums",
+            overflow: "hidden",
+            // Nie schrumpfen und nie umbrechen: dadurch bricht der Name früher
+            // um und die Zähler-Anzeige bleibt einzeilig und mittig.
             flexShrink: 0,
+            alignSelf: "center",
           }}
         >
-          <Check size={11} strokeWidth={4} />
+          {/* Eigene Füllung, damit die Zähler-Deckkraft die Zahlen nicht
+              mitfärbt. Gefüllt wird mit der Zeilenfarbe, nicht mit Weiß:
+              sonst wird der Text bei hoher Deckkraft unlesbar. */}
+          <span
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: itemBg || "#ffffff",
+              opacity: clamp01(counterAlpha, 0.06),
+              pointerEvents: "none",
+            }}
+          />
+          <span style={{ position: "relative" }}>
+            {it.progress || 0} / {it.target || 0}
+          </span>
         </span>
-      )}
+      ) : null}
+
+      {/* Ein einziger Haken für beide Arten von Challenges — mit und ohne
+          Zähler sehen erledigte Einträge dadurch gleich aus. Der Platz wird
+          immer reserviert (unsichtbar, wenn offen), damit die Zeile beim
+          Abhaken nicht springt und nicht neu umbricht. */}
+      <Check
+        size="1em"
+        strokeWidth={3.5}
+        aria-label={done ? "erledigt" : undefined}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          color: "#2ecc71",
+          flexShrink: 0,
+          alignSelf: "center",
+          visibility: done ? "visible" : "hidden",
+        }}
+      />
     </div>
   );
 }

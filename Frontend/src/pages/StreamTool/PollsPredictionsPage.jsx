@@ -11,18 +11,24 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from 'rea
 import {
   Copy, Check, Eye, EyeOff, RefreshCw, BarChart3, Scale, Crosshair, Grid3x3,
   LogOut, TriangleAlert, Info, Users, Star, ArrowRight, Clapperboard, Play, Square,
+  Activity, RotateCcw,
 } from 'lucide-react';
 import { TwitchGlyph } from '../../components/BrandGlyphs';
 import SEO from '../../components/SEO';
+import StreamToolSeoContent from './seoContent';
+import { ST_TITLE, ST_DESCRIPTION, ST_KEYWORDS } from './seoData';
+import { buildStreamToolJsonLd } from './jsonLd';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 import * as api from './streamToolApi';
 import { STREAM_TOOL_SCOPES } from './streamToolApi';
 import {
-  defaultConfig, mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, useDemoSim,
-  useLinger, paintDemo, MODULE_DEFAULTS, TWITCH_GOAL_TYPES, TWITCH_GOAL_FAMILY, resolveTwitchGoal,
+  defaultConfig, mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
+  useDemoSim, useLinger, paintDemo, MODULE_DEFAULTS, TWITCH_GOAL_TYPES, TWITCH_GOAL_FAMILY,
+  resolveTwitchGoal, STAT_METRICS,
 } from './streamToolConfig';
 import {
-  PollWidget, PredictionWidget, GoalWidget, RaidClipWidget, WidgetFrame, STAGE_W, STAGE_H,
+  PollWidget, PredictionWidget, GoalWidget, RaidClipWidget, StatsWidget, WidgetFrame,
+  STAGE_W, STAGE_H, BAR_TEXT_MIN_H,
 } from './OverlayWidgets';
 
 const LIVE_POLL_MS = 2500;
@@ -36,7 +42,7 @@ const SAVE_DEBOUNCE_MS = 700;
  * sichtbaren Bereichs — man musste blind scrollen. Jetzt bekommt die Bühne einen
  * Anteil der Bildhöhe, der Rest gehört den Einstellungen (mit eigenem Bildlauf).
  */
-const STAGE_HEIGHT_SHARE = 0.55;
+const STAGE_HEIGHT_SHARE = 0.48;
 /** So viel von den Einstellungen bleibt immer sichtbar. */
 const SETTINGS_MIN_H = 190;
 /** Kleiner soll die Bühne nicht werden, auch nicht auf flachen Fenstern. */
@@ -62,34 +68,43 @@ const MODULES = [
     kind: 'feed',
     label: 'Vorhersage',
     icon: Scale,
-    hint: 'Zeigt die laufende Kanalpunkte-Vorhersage — bei mehr als zwei Optionen als Anteilsleiste mit Liste.',
+    hint: 'Zeigt die laufende Kanalpunkte-Vorhersage — ab drei Optionen als Anteilsleiste mit Liste.',
     maxColors: 10,
-    colorHint: 'Farben der Optionen. Die Voreinstellung ist auf Farbfehlsichtigkeit geprüft.',
+    colorHint: 'Farben der Optionen, auf Farbfehlsichtigkeit geprüft.',
   },
   {
     id: 'followerGoal',
     kind: 'goal',
     label: 'Follower-Ziel',
     icon: Users,
-    hint: 'Fortschrittsbalken zu deinem Follower-Ziel. Die Zahl kommt alle 30 Sekunden frisch von Twitch.',
+    hint: 'Fortschrittsbalken zu deinem Follower-Ziel.',
     maxColors: 1,
-    colorHint: 'Farbe des Fortschrittsbalkens.',
+    colorHint: 'Farbe des Balkens.',
   },
   {
     id: 'subGoal',
     kind: 'goal',
     label: 'Abo-Ziel',
     icon: Star,
-    hint: 'Fortschrittsbalken zu deinem Abo-Ziel. Nur für Affiliates und Partner — Twitch gibt Abo-Zahlen sonst nicht heraus.',
+    hint: 'Fortschrittsbalken zu deinem Abo-Ziel. Abo-Zahlen gibt Twitch nur für Affiliates und Partner heraus.',
     maxColors: 1,
-    colorHint: 'Farbe des Fortschrittsbalkens.',
+    colorHint: 'Farbe des Balkens.',
+  },
+  {
+    id: 'streamStats',
+    kind: 'stats',
+    label: 'Stream-Statistik',
+    icon: Activity,
+    hint: 'Was seit dem Sendungsbeginn zusammengekommen ist: Follows, Abos und Bits. Beginnt mit jeder Sendung von vorn.',
+    maxColors: 1,
+    colorHint: 'Farbe der Zahlen.',
   },
   {
     id: 'raidClip',
     kind: 'raid',
     label: 'Clip des Raiders',
     icon: Clapperboard,
-    hint: 'Raidet dich jemand, spielt das Overlay automatisch einen Clip aus dessen Kanal ab — ohne dass du etwas anklicken musst.',
+    hint: 'Raidet dich jemand, spielt das Overlay automatisch einen Clip aus dessen Kanal ab.',
     maxColors: 1,
     colorHint: 'Farbe der Raid-Überschrift.',
   },
@@ -97,6 +112,35 @@ const MODULES = [
 
 const GOAL_TYPE_LABEL = (id, value) =>
   TWITCH_GOAL_TYPES[id]?.find((t) => t.value === value)?.label || value;
+
+/* ── kleine Bausteine ─────────────────────────────────────────────────────── */
+
+const Label = ({ children, htmlFor }) => (
+  <label htmlFor={htmlFor} className="block text-[11px] font-bold uppercase tracking-wider text-gray-500">
+    {children}
+  </label>
+);
+
+/** Erklärung unter einem Feld. Bewusst knapp — die Seite soll nicht zutexten. */
+const Note = ({ children }) => (
+  <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">{children}</p>
+);
+
+const Field = (props) => (
+  <input
+    {...props}
+    className={`w-full bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-sm transition-colors ${props.className || ''}`}
+  />
+);
+
+const Select = ({ children, ...props }) => (
+  <select
+    {...props}
+    className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white outline-none text-sm focus:border-violet-400"
+  >
+    {children}
+  </select>
+);
 
 /** Auswahl-Zeile aus gleich breiten Knöpfen — für kurze, feste Optionslisten. */
 function Choice({ value, options, onChange, cols = 2 }) {
@@ -116,21 +160,6 @@ function Choice({ value, options, onChange, cols = 2 }) {
   );
 }
 
-/* ── kleine Bausteine ─────────────────────────────────────────────────────── */
-
-const Label = ({ children, htmlFor }) => (
-  <label htmlFor={htmlFor} className="block text-[11px] font-bold uppercase tracking-wider text-gray-500">
-    {children}
-  </label>
-);
-
-const Field = (props) => (
-  <input
-    {...props}
-    className={`w-full bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-sm transition-colors ${props.className || ''}`}
-  />
-);
-
 function ToggleRow({ label, description, checked, onChange }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer py-1">
@@ -143,6 +172,17 @@ function ToggleRow({ label, description, checked, onChange }) {
         <span className="block text-[13px] font-semibold text-white">{label}</span>
         {description && <span className="block text-[11px] text-gray-500 leading-snug">{description}</span>}
       </span>
+    </label>
+  );
+}
+
+/** Kompakte Variante für Listen, in denen mehrere Haken nebeneinander stehen. */
+function CheckItem({ label, checked, onChange }) {
+  return (
+    <label className="flex items-center gap-2.5 cursor-pointer py-[3px] text-[12.5px] font-semibold text-gray-300 hover:text-white transition-colors">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
+        className="w-3.5 h-3.5 accent-violet-500 shrink-0" />
+      {label}
     </label>
   );
 }
@@ -160,57 +200,100 @@ function Slider({ label, value, min, max, step, unit, onChange }) {
   );
 }
 
+/** Hinweiskasten. 'ok' meldet einen erledigten Zustand, sonst Handlungsbedarf. */
+function Callout({ tone = 'warn', children }) {
+  const ok = tone === 'ok';
+  return (
+    <div className={`flex items-start gap-2 rounded-lg px-3 py-2.5 max-w-3xl border ${
+      ok ? 'bg-green-500/10 border-green-500/25' : 'bg-amber-500/10 border-amber-500/30'
+    }`}>
+      <Info size={13} className={`shrink-0 mt-0.5 ${ok ? 'text-green-400' : 'text-amber-400'}`} />
+      <p className={`text-[11.5px] leading-relaxed ${ok ? 'text-green-200' : 'text-amber-200'}`}>{children}</p>
+    </div>
+  );
+}
+
+/** Kleiner Knopf für Nebenhandlungen (Aktualisieren, Probelauf, Zurücksetzen). */
+function MiniButton({ icon: Icon, children, spin, ...props }) {
+  return (
+    <button {...props}
+      className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-gray-300 hover:text-white disabled:text-gray-600 disabled:hover:border-white/10 transition-colors">
+      <Icon size={13} className={spin ? 'animate-spin' : ''} />
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Ein Abschnitt der Einstellungen. Die Aufteilung ist überall dieselbe: erst
+ * was das Modul zeigt, dann wie es aussieht — sonst sucht man dieselbe Sache
+ * bei jedem Modul woanders.
+ */
+const SECTION_COLS = { 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-2 xl:grid-cols-3', 4: 'sm:grid-cols-2 xl:grid-cols-4' };
+
+function Section({ title, cols = 4, children }) {
+  return (
+    <section className="border-t border-white/5 pt-4">
+      <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-3">{title}</h3>
+      <div className={`grid gap-x-5 gap-y-4 ${SECTION_COLS[cols]}`}>{children}</div>
+    </section>
+  );
+}
+
+/**
+ * Ohne den Chat-Bot im Kanal kommen weder Raids noch Cheers an — das gehört bei
+ * beiden Modulen an die erste Stelle, sonst sucht man den Fehler bei sich.
+ */
+function ChatWatchNote({ watch, enabled, what }) {
+  if (!watch) return null;
+  // Der eingeschaltete Zustand kommt zuerst: der Bot kann längst im Kanal
+  // sitzen, weil ein ANDERES Modul ihn braucht — ausgewertet wird trotzdem
+  // nichts, solange dieses hier aus ist.
+  if (!enabled) {
+    return <Callout>Schalte das Modul oben ein — danach wertet der Chat-Bot {what} in deinem Kanal aus.</Callout>;
+  }
+  if (watch.watching) return <Callout tone="ok">{what} in {watch.channel} werden erkannt.</Callout>;
+  return (
+    <Callout>
+      {!watch.botConfigured
+        ? 'Auf diesem Server ist kein Chat-Bot hinterlegt. Ohne ihn lässt sich das nicht mitlesen.'
+        : 'Der Chat-Bot betritt deinen Kanal gerade — das dauert bis zu einer halben Minute.'}
+    </Callout>
+  );
+}
+
 /* ── Clip des Raiders: eigene Einstellungen ───────────────────────────────── */
 
 function RaidSettings({ meta, module, set, tools }) {
   const [login, setLogin] = useState('');
 
   return (
-    <div className="space-y-4 pb-4 border-b border-white/5">
-      {/* Ohne Chat-Bot im Kanal kommt kein Raid an — das gehört an die erste Stelle */}
-      {tools?.watch && (
-        <div className={`flex items-start gap-2 rounded-lg px-3 py-2.5 max-w-3xl border ${
-          tools.watch.watching
-            ? 'bg-green-500/10 border-green-500/25'
-            : 'bg-amber-500/10 border-amber-500/30'
-        }`}>
-          <Info size={13} className={`shrink-0 mt-0.5 ${tools.watch.watching ? 'text-green-400' : 'text-amber-400'}`} />
-          <p className={`text-[11.5px] leading-relaxed ${tools.watch.watching ? 'text-green-200' : 'text-amber-200'}`}>
-            {tools.watch.watching
-              ? `Raids in ${tools.watch.channel} werden erkannt.`
-              : !module.enabled
-                ? 'Schalte das Modul oben ein — danach hört der Chat-Bot in deinem Kanal auf Raids.'
-                : !tools.watch.botConfigured
-                  ? 'Auf diesem Server ist kein Chat-Bot hinterlegt. Ohne ihn lassen sich Raids nicht erkennen.'
-                  : 'Der Chat-Bot betritt deinen Kanal gerade — das dauert bis zu einer halben Minute.'}
-          </p>
-        </div>
-      )}
+    <>
+      <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="Raids" />
 
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-x-5 gap-y-4">
+      <Section title="Clip" cols={4}>
         <div>
-          <Label>Clip-Auswahl</Label>
+          <Label>Auswahl</Label>
           <Choice
             value={module.pick}
             options={[['top', 'Beliebteste'], ['random', 'Bunt gemischt']]}
             onChange={(v) => set({ pick: v })}
           />
-          <p className="text-[11px] text-gray-500 leading-relaxed mt-2">
+          <Note>
             {module.pick === 'top'
-              ? 'Zufällig aus den fünf meistgesehenen Clips — so kommt nicht jedes Mal derselbe.'
+              ? 'Zufällig aus den fünf meistgesehenen Clips.'
               : 'Zufällig aus bis zu 50 Clips des Kanals.'}
-          </p>
+          </Note>
 
           <div className="mt-4">
             <Label htmlFor={`${meta.id}-period`}>Zeitraum</Label>
-            <select id={`${meta.id}-period`} value={String(module.period)}
-              onChange={(e) => set({ period: Number(e.target.value) })}
-              className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white outline-none text-sm focus:border-violet-400">
+            <Select id={`${meta.id}-period`} value={String(module.period)}
+              onChange={(e) => set({ period: Number(e.target.value) })}>
               <option value="7">Letzte 7 Tage</option>
               <option value="30">Letzte 30 Tage</option>
               <option value="365">Letztes Jahr</option>
               <option value="0">Alle Clips</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -219,12 +302,21 @@ function RaidSettings({ meta, module, set, tools }) {
             onChange={(v) => set({ delaySeconds: v })} />
           <Slider label="Spieldauer" value={module.maxSeconds} min={5} max={60} step={5} unit=" s"
             onChange={(v) => set({ maxSeconds: v })} />
-          <p className="text-[11px] text-gray-500 leading-relaxed">
-            Der Vorlauf lässt deinen Raid-Alert ausreden, bevor der Clip anfängt — sonst laufen zwei Tonspuren gleichzeitig. Längere Clips werden nach der Spieldauer abgeschnitten.
-          </p>
+          <Note>Der Vorlauf lässt deinen Raid-Alert ausreden. Längere Clips werden abgeschnitten.</Note>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor={`${meta.id}-minv`}>Ab wie vielen Zuschauern</Label>
+            <Field id={`${meta.id}-minv`} type="number" min={0} className="mt-1.5" value={module.minViewers}
+              onChange={(e) => set({ minViewers: Math.max(0, Number(e.target.value) || 0) })} />
+            <Note>0 spielt bei jedem Raid.</Note>
+          </div>
+          <ToggleRow label="Raider einblenden" checked={module.showRaider !== false}
+            onChange={(v) => set({ showRaider: v })} />
           <ToggleRow
             label="Ton abspielen"
-            description="Gilt nur in OBS: im Browser lässt sich Ton nicht von allein starten, dort läuft der Clip stumm."
+            description="Nur in OBS — im Browser läuft der Clip stumm."
             checked={module.sound !== false}
             onChange={(v) => set({ sound: v })}
           />
@@ -235,180 +327,334 @@ function RaidSettings({ meta, module, set, tools }) {
         </div>
 
         <div>
-          <Label htmlFor={`${meta.id}-minv`}>Ab wie vielen Zuschauern</Label>
-          <Field id={`${meta.id}-minv`} type="number" min={0} className="mt-1.5" value={module.minViewers}
-            onChange={(e) => set({ minViewers: Math.max(0, Number(e.target.value) || 0) })} />
-          <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
-            Kleine Raids überspringen: 0 spielt bei jedem Raid, 5 erst ab fünf mitgebrachten Zuschauern.
-          </p>
-          <div className="mt-3">
-            <ToggleRow
-              label="Raider einblenden"
-              description="Zeigt Name und Zuschauerzahl über dem Clip."
-              checked={module.showRaider !== false}
-              onChange={(v) => set({ showRaider: v })}
-            />
-          </div>
-        </div>
-
-        <div>
           <Label htmlFor={`${meta.id}-test`}>Probelauf</Label>
           <Field id={`${meta.id}-test`} className="mt-1.5" maxLength={30} value={login} placeholder="twitch-kanal"
             onChange={(e) => setLogin(e.target.value)} />
           <div className="flex items-center gap-2 mt-2">
-            <button onClick={() => tools?.onTest(login)} disabled={tools?.busy || !login.trim()}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-gray-300 hover:text-white disabled:text-gray-600 disabled:hover:border-white/10 transition-colors">
-              <Play size={13} />
+            <MiniButton icon={Play} onClick={() => tools?.onTest(login)} disabled={tools?.busy || !login.trim()}>
               {tools?.busy ? 'Startet…' : 'Im Overlay abspielen'}
-            </button>
+            </MiniButton>
             <button onClick={() => tools?.onStop()} title="Laufenden Clip beenden"
               className="p-2 rounded-lg border border-white/10 text-gray-500 hover:text-white hover:border-white/25 transition-colors">
               <Square size={13} />
             </button>
           </div>
-          <p className="text-[11px] text-gray-500 leading-relaxed mt-2">
-            Spielt einen Clip dieses Kanals in deiner OBS-Quelle ab — genau wie bei einem echten Raid, samt Vorlauf. Oben in der Vorschau läuft er stumm mit, damit du Position und Zeitpunkt siehst.
-          </p>
+          <Note>Spielt einen Clip dieses Kanals in deiner OBS-Quelle ab, samt Vorlauf. In der Vorschau läuft er stumm mit.</Note>
           {tools?.note && <p className="text-[11px] font-semibold text-green-400 mt-1.5">{tools.note}</p>}
         </div>
+      </Section>
+    </>
+  );
+}
+
+/* ── Stream-Statistik: eigene Einstellungen ───────────────────────────────── */
+
+/** "vor 2 Std." für die Zeile, die den erkannten Sendungsbeginn bestätigt. */
+function sinceText(ms) {
+  const min = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (min < 60) return `seit ${min} min`;
+  return `seit ${Math.floor(min / 60)} Std. ${String(min % 60).padStart(2, '0')} min`;
+}
+
+function StatsSettings({ meta, module, set, tools }) {
+  const show = module.show || {};
+  const live = tools?.stats;
+
+  return (
+    <>
+      <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="Cheers und Abos" />
+
+      <Section title="Inhalt" cols={4}>
+        <div>
+          <Label htmlFor={`${meta.id}-label`}>Überschrift</Label>
+          <Field id={`${meta.id}-label`} className="mt-1.5" maxLength={26} value={module.label}
+            placeholder="Dieser Stream" onChange={(e) => set({ label: e.target.value })} />
+          {module.showHead === false && <Note>Wird nicht gezeigt, solange die Kopfzeile aus ist.</Note>}
+        </div>
+
+        <div>
+          <Label>Kennzahlen</Label>
+          <div className="mt-1.5">
+            {STAT_METRICS.map((mtr) => (
+              <CheckItem key={mtr.key} label={mtr.label} checked={!!show[mtr.key]}
+                onChange={(v) => set({ show: { ...show, [mtr.key]: v } })} />
+            ))}
+          </div>
+          <Note>Alles zählt ab dem Beginn der laufenden Sendung.</Note>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Label>Als Abo zählen</Label>
+            <div className="mt-1.5">
+              <CheckItem label="Verlängerungen" checked={module.countResubs !== false}
+                onChange={(v) => set({ countResubs: v })} />
+              <CheckItem label="Geschenkte Abos" checked={module.countGifts !== false}
+                onChange={(v) => set({ countGifts: v })} />
+            </div>
+            <Note>Neuabos zählen immer mit.</Note>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <ToggleRow label="Kopfzeile anzeigen" description="Überschrift und Live-Schild über den Zahlen."
+            checked={module.showHead !== false} onChange={(v) => set({ showHead: v })} />
+          {module.showHead !== false && (
+            <ToggleRow label="Live-Kennzeichen" description="Kleines Schild, solange Twitch dich als live führt."
+              checked={module.liveDot !== false} onChange={(v) => set({ liveDot: v })} />
+          )}
+          <ToggleRow label="Offline ausblenden" description="Sonst bleiben die Zahlen der letzten Sendung stehen."
+            checked={!!module.hideOffline} onChange={(v) => set({ hideOffline: v })} />
+
+          <div>
+            <MiniButton icon={RotateCcw} onClick={tools?.onReset} disabled={tools?.busy || !live} spin={tools?.busy}>
+              Zähler zurücksetzen
+            </MiniButton>
+            <Note>
+              {live
+                ? `Sendung erkannt, ${sinceText(live.startedAt)}${live.live ? '' : ' (beendet)'}.`
+                : 'Sobald du live gehst, erkennt das Overlay die Sendung von selbst.'}
+            </Note>
+            {tools?.note && <p className="text-[11px] font-semibold text-green-400 mt-1.5">{tools.note}</p>}
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Anordnung" cols={3}>
+        <div>
+          <Label>Aufbau</Label>
+          <Choice
+            value={module.layout}
+            cols={3}
+            options={[['row', 'Nebeneinander'], ['column', 'Untereinander'], ['list', 'Liste']]}
+            onChange={(v) => set({ layout: v })}
+          />
+          <Note>
+            {module.layout === 'list'
+              ? 'Schmale Liste: Beschriftung links, Zahl rechts.'
+              : 'Jede Kennzahl als eigener Block mit Beschriftung und Zahl.'}
+          </Note>
+        </div>
+
+        <div>
+          <Label>Beschriftung</Label>
+          <Choice
+            value={module.capPos === 'bottom' ? 'bottom' : 'top'}
+            options={[['top', 'Über der Zahl'], ['bottom', 'Unter der Zahl']]}
+            onChange={(v) => set({ capPos: v })}
+          />
+          {module.layout === 'list' && <Note>In der Liste steht sie immer links.</Note>}
+        </div>
+
+        <div>
+          <Label>Ausrichtung</Label>
+          <Choice
+            value={module.align === 'left' ? 'left' : 'center'}
+            options={[['center', 'Mittig'], ['left', 'Linksbündig']]}
+            onChange={(v) => set({ align: v })}
+          />
+          <Note>
+            {module.layout === 'list'
+              ? 'Die Liste richtet sich immer selbst aus.'
+              : module.align === 'left'
+                ? 'Kästchen so breit wie ihr Inhalt.'
+                : 'Gleich breite Kästchen, Wort und Zahl sitzen genau übereinander.'}
+          </Note>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ── Ziele: eigene Einstellungen ──────────────────────────────────────────── */
+
+/** Vorschautexte der drei Ziel-Formen — sagen mehr als eine Beschreibung. */
+const GOAL_LAYOUT_NOTE = {
+  full: 'Beschriftung, große Zahl und Balken darunter — drei Zeilen.',
+  inline: 'Beschriftung oben, Zahlen im Balken — eine Zeile weniger.',
+  bar: 'Nur der Balken, Beschriftung und Zahlen stehen darin — am kompaktesten.',
+};
+
+function GoalSettings({ meta, module, set, tools }) {
+  const variant = module.goalLayout || 'full';
+  const compact = variant !== 'full';
+
+  return (
+    <>
+    <Section title="Ziel" cols={3}>
+      <div>
+        <Label>Zielwert kommt von</Label>
+        <Choice
+          value={module.source}
+          options={[['twitch', 'Twitch-Ziel'], ['manual', 'Eigenes Ziel']]}
+          onChange={(v) => set({ source: v })}
+        />
+        <Note>
+          {module.source === 'twitch'
+            ? 'Zielwert, Beschreibung und Fortschritt kommen aus deinem Creator-Dashboard — inklusive automatischer Erhöhung.'
+            : 'Zielwert und Fortschritt rechnet das Overlay selbst. Praktisch ohne gesetztes Twitch-Ziel.'}
+        </Note>
       </div>
-    </div>
+
+      {module.source === 'twitch' && TWITCH_GOAL_TYPES[meta.id]?.length > 1 && (
+        <div>
+          <Label htmlFor={`${meta.id}-ttype`}>Welches Twitch-Ziel</Label>
+          <Select id={`${meta.id}-ttype`} value={module.twitchType}
+            onChange={(e) => set({ twitchType: e.target.value })}>
+            {TWITCH_GOAL_TYPES[meta.id].map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </Select>
+          <Note>
+            {module.twitchType === 'auto'
+              ? 'Nimmt das Ziel, das in deinem Creator-Dashboard wirklich aktiv ist.'
+              : 'Fest gewählt — läuft dort ein Ziel anderen Typs, bleibt das Modul leer.'}
+          </Note>
+        </div>
+      )}
+
+      {tools && (
+        <div>
+          <Label>Stand von Twitch</Label>
+          <div className="mt-1.5 flex items-center gap-2">
+            <MiniButton icon={RefreshCw} onClick={tools.onRefresh} disabled={tools.busy || !tools.connected}
+              spin={tools.busy}>
+              {tools.busy ? 'Lade…' : 'Jetzt aktualisieren'}
+            </MiniButton>
+            {tools.note && <span className="text-[11px] font-semibold text-green-400">{tools.note}</span>}
+          </div>
+          <Note>
+            Kommt sonst alle 30 Sekunden von selbst.
+            {tools.detected?.length > 0 && (
+              <> Twitch meldet gerade:{' '}
+                <span className="text-gray-300 font-semibold">
+                  {tools.detected.map((t) => GOAL_TYPE_LABEL(meta.id, t)).join(', ')}
+                </span>
+              </>
+            )}
+          </Note>
+        </div>
+      )}
+
+      <div>
+        <Label htmlFor={`${meta.id}-label`}>Beschriftung</Label>
+        <Field id={`${meta.id}-label`} className="mt-1.5" maxLength={30} value={module.label}
+          onChange={(e) => set({ label: e.target.value })} placeholder="Follower-Ziel" />
+        {module.source === 'twitch' && <Note>Leer lassen übernimmt die Beschreibung aus dem Creator-Dashboard.</Note>}
+      </div>
+
+      {module.source === 'manual' && (
+        <>
+          <div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor={`${meta.id}-target`}>Ziel</Label>
+                <Field id={`${meta.id}-target`} type="number" min={1} className="mt-1.5" value={module.target}
+                  onChange={(e) => set({ target: Math.max(1, Number(e.target.value) || 1) })} />
+              </div>
+              <div>
+                <Label htmlFor={`${meta.id}-start`}>Startwert</Label>
+                <Field id={`${meta.id}-start`} type="number" min={0} className="mt-1.5" value={module.startAt}
+                  onChange={(e) => set({ startAt: Math.max(0, Number(e.target.value) || 0) })} />
+              </div>
+            </div>
+            <Note>Startwert 0 zählt ab null. Trage deinen Stand ein, wenn das Ziel erst ab jetzt gelten soll.</Note>
+          </div>
+          <div>
+            <Label htmlFor={`${meta.id}-inc`}>Automatisch erhöhen um</Label>
+            <Field id={`${meta.id}-inc`} type="number" min={0} className="mt-1.5" value={module.autoIncrease}
+              onChange={(e) => set({ autoIncrease: Math.max(0, Number(e.target.value) || 0) })} />
+            <Note>0 = aus. Sonst steigt der Zielwert nach jedem Erreichen weiter.</Note>
+            {meta.id === 'subGoal' && (
+              <div className="mt-3">
+                <ToggleRow
+                  label="Abo-Punkte statt Abos"
+                  description="Twitch zählt Tier 2 doppelt und Tier 3 sechsfach."
+                  checked={!!module.usePoints}
+                  onChange={(v) => set({ usePoints: v })}
+                />
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </Section>
+
+    <Section title="Balken" cols={3}>
+      <div>
+        <Label>Form</Label>
+        <Choice
+          value={variant}
+          cols={3}
+          options={[['full', 'Ausführlich'], ['inline', 'Kompakt'], ['bar', 'Nur Balken']]}
+          onChange={(v) => set({ goalLayout: v })}
+        />
+        <Note>{GOAL_LAYOUT_NOTE[variant]}</Note>
+      </div>
+
+      <div>
+        <Slider label="Höhe" value={module.barHeight ?? 14} min={8} max={56} step={2} unit=" px"
+          onChange={(v) => set({ barHeight: v })} />
+        {compact && (module.barHeight ?? 14) < BAR_TEXT_MIN_H && (
+          <Note>Für Text im Balken gelten mindestens {BAR_TEXT_MIN_H} px — darunter wird die Höhe angehoben.</Note>
+        )}
+      </div>
+
+      <ToggleRow label="Prozent anzeigen" description="Sonst stehen dort nur der Stand und der Zielwert."
+        checked={module.showPercent !== false} onChange={(v) => set({ showPercent: v })} />
+    </Section>
+    </>
+  );
+}
+
+/* ── Abstimmung & Vorhersage: die beiden eigenen Schalter ─────────────────── */
+
+function FeedSettings({ meta, module, set }) {
+  const head = module.showHead !== false;
+  return (
+    <Section title="Anzeige" cols={2}>
+      <div className="space-y-1">
+        <ToggleRow
+          label="Kopfzeile anzeigen"
+          description={`Zeile über der Frage: „${meta.label}“, Status und Timer.`}
+          checked={head}
+          onChange={(v) => set({ showHead: v })}
+        />
+        {/* Der Timer sitzt in der Kopfzeile — ohne sie gibt es nichts zu schalten */}
+        {head && (
+          <ToggleRow label="Timer anzeigen" description="Restzeit rechts in der Kopfzeile."
+            checked={module.timer} onChange={(v) => set({ timer: v })} />
+        )}
+      </div>
+      {meta.id === 'prediction' && (
+        <ToggleRow
+          label="Bei Sperrung ausblenden"
+          description="Verschwindet, sobald die Einsätze zu sind — und kommt zum Ergebnis zurück."
+          checked={!!module.hideWhileLocked}
+          onChange={(v) => set({ hideWhileLocked: v })}
+        />
+      )}
+    </Section>
   );
 }
 
 /* ── Einstellungen eines Moduls ───────────────────────────────────────────── */
 
-function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools }) {
+function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools, statsTools }) {
   const set = (patch) => onChange(patch);
 
   return (
     <div className="p-4 space-y-4">
       <p className="text-[11.5px] text-gray-500 leading-relaxed max-w-3xl">{meta.hint}</p>
+      {warning && <Callout>{warning}</Callout>}
 
-      {warning && (
-        <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 max-w-3xl">
-          <Info size={13} className="text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-amber-200 text-[11.5px] leading-relaxed">{warning}</p>
-        </div>
-      )}
-
+      {meta.kind === 'feed' && <FeedSettings meta={meta} module={module} set={set} />}
+      {meta.kind === 'goal' && <GoalSettings meta={meta} module={module} set={set} tools={goalTools} />}
+      {meta.kind === 'stats' && <StatsSettings meta={meta} module={module} set={set} tools={statsTools} />}
       {meta.kind === 'raid' && <RaidSettings meta={meta} module={module} set={set} tools={raidTools} />}
 
-      {/* Zielquelle bekommt eine eigene Zeile — der Erklärtext braucht Breite */}
-      {meta.kind === 'goal' && (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-4 pb-4 border-b border-white/5">
-          {/* Quelle: Twitch-Ziel spiegeln oder eigenes rechnen */}
-          <div>
-            <Label>Zielwert kommt von</Label>
-            <Choice
-              value={module.source}
-              options={[['twitch', 'Twitch-Ziel'], ['manual', 'Eigenes Ziel']]}
-              onChange={(v) => set({ source: v })}
-            />
-            <p className="text-[11px] text-gray-500 leading-relaxed mt-2">
-              {module.source === 'twitch'
-                ? 'Das Ziel stellst du im Twitch-Creator-Dashboard ein. Es erscheint dort auch unter dem Stream und im Chat — dieses Overlay zeigt genau dieselben Zahlen, nur schöner. Erhöht Twitch den Zielwert nach dem Erreichen, macht das Overlay das mit.'
-                : 'Zielwert und Fortschritt rechnet das Overlay selbst. Praktisch, wenn du kein Twitch-Ziel gesetzt hast oder ab einem Startwert zählen willst.'}
-            </p>
-          </div>
-
-          {module.source === 'twitch' && TWITCH_GOAL_TYPES[meta.id]?.length > 1 && (
-            <div>
-              <Label htmlFor={`${meta.id}-ttype`}>Welches Twitch-Ziel</Label>
-              <select id={`${meta.id}-ttype`} value={module.twitchType}
-                onChange={(e) => set({ twitchType: e.target.value })}
-                className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white outline-none text-sm focus:border-violet-400">
-                {TWITCH_GOAL_TYPES[meta.id].map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-              <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
-                {module.twitchType === 'auto'
-                  ? 'Nimmt das Ziel, das in deinem Creator-Dashboard wirklich aktiv ist — egal ob du dort nach Abo-Punkten oder nach Anzahl zählst.'
-                  : 'Fest gewählt: Läuft im Creator-Dashboard ein Ziel anderen Typs, bleibt das Modul leer. „Automatisch“ nimmt einfach das aktive.'}
-              </p>
-            </div>
-          )}
-
-          {goalTools && (
-            <div>
-              <Label>Stand von Twitch</Label>
-              <div className="mt-1.5 flex items-center gap-2">
-                <button onClick={goalTools.onRefresh} disabled={goalTools.busy || !goalTools.connected}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-gray-300 hover:text-white disabled:text-gray-600 disabled:hover:border-white/10 transition-colors">
-                  <RefreshCw size={13} className={goalTools.busy ? 'animate-spin' : ''} />
-                  {goalTools.busy ? 'Lade…' : 'Jetzt aktualisieren'}
-                </button>
-                {goalTools.note && <span className="text-[11px] font-semibold text-green-400">{goalTools.note}</span>}
-              </div>
-              <p className="text-[11px] text-gray-500 leading-relaxed mt-2">
-                Zahlen und Ziele kommen sonst alle 30 Sekunden frisch. Änderst du hier etwas, wird ohnehin sofort neu geladen — der Knopf ist für Ziele, die du gerade erst im Creator-Dashboard angelegt hast.
-              </p>
-              {goalTools.detected?.length > 0 && (
-                <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
-                  Twitch meldet gerade: <span className="text-gray-300 font-semibold">
-                    {goalTools.detected.map((t) => GOAL_TYPE_LABEL(meta.id, t)).join(', ')}
-                  </span>
-                </p>
-              )}
-            </div>
-          )}
-
-          <div>
-            <Label htmlFor={`${meta.id}-label`}>Beschriftung</Label>
-            <Field id={`${meta.id}-label`} className="mt-1.5" maxLength={30} value={module.label}
-              onChange={(e) => set({ label: e.target.value })} placeholder="Follower-Ziel" />
-            {module.source === 'twitch' && (
-              <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
-                Leer lassen, um die Beschreibung aus dem Creator-Dashboard zu übernehmen.
-              </p>
-            )}
-          </div>
-
-          {module.source === 'manual' && (
-            <>
-              <div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor={`${meta.id}-target`}>Ziel</Label>
-                    <Field id={`${meta.id}-target`} type="number" min={1} className="mt-1.5" value={module.target}
-                      onChange={(e) => set({ target: Math.max(1, Number(e.target.value) || 1) })} />
-                  </div>
-                  <div>
-                    <Label htmlFor={`${meta.id}-start`}>Startwert</Label>
-                    <Field id={`${meta.id}-start`} type="number" min={0} className="mt-1.5" value={module.startAt}
-                      onChange={(e) => set({ startAt: Math.max(0, Number(e.target.value) || 0) })} />
-                  </div>
-                </div>
-                <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
-                  Startwert 0 zählt ab null. Trage deinen aktuellen Stand ein, wenn das Ziel erst ab jetzt gelten soll.
-                </p>
-              </div>
-              <div>
-                <Label htmlFor={`${meta.id}-inc`}>Automatisch erhöhen um</Label>
-                <Field id={`${meta.id}-inc`} type="number" min={0} className="mt-1.5" value={module.autoIncrease}
-                  onChange={(e) => set({ autoIncrease: Math.max(0, Number(e.target.value) || 0) })} />
-                <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
-                  0 = aus. Sonst steigt der Zielwert nach jedem Erreichen um diesen Betrag weiter.
-                </p>
-                {meta.id === 'subGoal' && (
-                  <div className="mt-3">
-                    <ToggleRow
-                      label="Abo-Punkte statt Abos"
-                      description="Twitch zählt Tier 2 doppelt und Tier 3 sechsfach."
-                      checked={!!module.usePoints}
-                      onChange={(v) => set({ usePoints: v })}
-                    />
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Aussehen und Platzierung: auf breiten Schirmen nebeneinander */}
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-x-5 gap-y-4">
+      {/* Aussehen und Platzierung — bei jedem Modul dieselben vier Spalten */}
+      <Section title="Aussehen" cols={4}>
         <div>
           <Label>Position</Label>
           <div className="grid grid-cols-2 gap-2 mt-1.5">
@@ -417,7 +663,7 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools 
             <Field aria-label="Position Y" type="number" value={Math.round(module.y)}
               onChange={(e) => set({ y: Number(e.target.value) || 0 })} />
           </div>
-          <p className="text-[11px] text-gray-500 mt-1.5">X und Y in Bildpunkten</p>
+          <Note>X und Y in Bildpunkten</Note>
         </div>
 
         <div className="space-y-4">
@@ -439,13 +685,12 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools 
 
           <div className="mt-4">
             <Label htmlFor={`${meta.id}-anim`}>Einblenden</Label>
-            <select id={`${meta.id}-anim`} value={module.anim} onChange={(e) => set({ anim: e.target.value })}
-              className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white outline-none text-sm focus:border-violet-400">
+            <Select id={`${meta.id}-anim`} value={module.anim} onChange={(e) => set({ anim: e.target.value })}>
               <option value="up">Slide hoch</option>
               <option value="fade">Fade</option>
               <option value="left">Slide von links</option>
               <option value="right">Slide von rechts</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -464,29 +709,18 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools 
                 className="w-8 h-8 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
             ))}
           </div>
-          <p className="text-[11px] text-gray-500 leading-relaxed mt-2">{meta.colorHint}</p>
+          <Note>{meta.colorHint}</Note>
 
-          <div className="mt-4 space-y-1">
-            {meta.kind === 'feed' && (
-              <ToggleRow label="Timer anzeigen" checked={module.timer} onChange={(v) => set({ timer: v })} />
-            )}
-            {/* Beim Raid-Clip nicht anbieten: die Unschärfe hinter der Karte
-                hindert Twitch daran, den Clip von allein zu starten. */}
-            {meta.id !== 'raidClip' && (
+          {/* Beim Raid-Clip nicht anbieten: die Unschärfe hinter der Karte
+              hindert Twitch daran, den Clip von allein zu starten. */}
+          {meta.id !== 'raidClip' && (
+            <div className="mt-4">
               <ToggleRow label="Glassmorphism" description="Weiche Unschärfe hinter der Karte."
                 checked={module.glass} onChange={(v) => set({ glass: v })} />
-            )}
-            {meta.id === 'prediction' && (
-              <ToggleRow
-                label="Bei Sperrung ausblenden"
-                description="Blendet das Overlay aus, sobald die Einsätze geschlossen sind, und wieder ein, sobald der Gewinner feststeht."
-                checked={!!module.hideWhileLocked}
-                onChange={(v) => set({ hideWhileLocked: v })}
-              />
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      </div>
+      </Section>
     </div>
   );
 }
@@ -514,8 +748,7 @@ function ConnectCard({ connected, twitchLogin, onConnect, onDisconnect, busy }) 
       <div>
         <p className="text-[13px] font-bold text-white">Twitch verbinden</p>
         <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-          Einmal verbinden, damit das Overlay deine laufenden Abstimmungen und Vorhersagen mitlesen kann.
-          Es werden nur Leserechte angefragt.
+          Einmal verbinden, damit die Overlays deinen Kanal mitlesen können. Es werden nur Leserechte angefragt.
         </p>
       </div>
       <button onClick={onConnect} disabled={busy}
@@ -547,7 +780,7 @@ function ObsLinkCard({ overlayKey, onRegenerate }) {
       <div>
         <p className="text-[13px] font-bold text-white">OBS-Browserquelle</p>
         <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-          Breite 1920, Höhe 1080. Der Link enthält keine Zugangsdaten — trotzdem nicht im Stream zeigen.
+          Eine Quelle für alle Module, Breite 1920 und Höhe 1080. Nicht im Stream zeigen.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -564,7 +797,6 @@ function ObsLinkCard({ overlayKey, onRegenerate }) {
         </button>
       </div>
       <p className="text-[11px] text-gray-500 leading-relaxed">
-        Eine Quelle für alles — welche Module erscheinen, entscheiden die Häkchen oben.
         Zum Ausrichten <span className="text-violet-300 font-mono">?demo=1</span> anhängen.
       </p>
       <button onClick={onRegenerate} disabled={!overlayKey}
@@ -585,14 +817,16 @@ export default function PollsPredictionsPage() {
   const [overlayKey, setOverlayKey] = useState(null);
   const [connected, setConnected] = useState(false);
   const [twitchLogin, setTwitchLogin] = useState('');
-  const [live, setLive] = useState({ poll: null, prediction: null, goals: null, raid: null, notice: null });
+  const [live, setLive] = useState({ poll: null, prediction: null, goals: null, raid: null, stats: null, notice: null });
   const [missingGoalScopes, setMissingGoalScopes] = useState([]);
   const [hasTwitchGoalScope, setHasTwitchGoalScope] = useState(true);
-  const [raidWatch, setRaidWatch] = useState(null);
+  const [chatWatch, setChatWatch] = useState(null);
   const [goalBusy, setGoalBusy] = useState(false);
   const [goalNote, setGoalNote] = useState('');
   const [raidBusy, setRaidBusy] = useState(false);
   const [raidNote, setRaidNote] = useState('');
+  const [statsBusy, setStatsBusy] = useState(false);
+  const [statsNote, setStatsNote] = useState('');
   const [selected, setSelected] = useState('poll'); // hervorgehoben auf der Leinwand
   const [demoOn, setDemoOn] = useState(true);
   const [demoOutcomes, setDemoOutcomes] = useState(2);
@@ -620,7 +854,7 @@ export default function PollsPredictionsPage() {
         setTwitchLogin(d.twitchLogin || '');
         setMissingGoalScopes(d.missingGoalScopes || []);
         setHasTwitchGoalScope(d.hasTwitchGoalScope !== false);
-        setRaidWatch(d.raidWatch || null);
+        setChatWatch(d.chatWatch || null);
         if (d.config) setConfig(mergeConfig(d.config));
         clockOffset.current = d.serverNow - Date.now();
         setLoaded(true);
@@ -640,7 +874,7 @@ export default function PollsPredictionsPage() {
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         api.saveConfig(next)
-          .then((r) => { if (r?.raidWatch) setRaidWatch(r.raidWatch); })
+          .then((r) => { if (r?.chatWatch) setChatWatch(r.chatWatch); })
           .catch(() => {});
       }, SAVE_DEBOUNCE_MS);
       return next;
@@ -656,8 +890,8 @@ export default function PollsPredictionsPage() {
         .then((d) => {
           if (!alive) return;
           clockOffset.current = d.serverNow - Date.now();
-          setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, notice: d.notice });
-          if (d.raidWatch) setRaidWatch(d.raidWatch);
+          setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, notice: d.notice });
+          if (d.chatWatch) setChatWatch(d.chatWatch);
           if (!d.connected) setConnected(false);
         })
         .catch(() => {});
@@ -702,7 +936,7 @@ export default function PollsPredictionsPage() {
         const wait = Number(d.event.delaySeconds) || 0;
         setRaidNote(wait > 0 ? `Startet in ${wait} s: „${d.event.clip.title}“` : `Läuft: „${d.event.clip.title}“`);
       } else {
-        setRaidNote('Raid ausgelöst');
+        setRaidNote('Raid ausgelöst — ohne Clip bleibt das Overlay aus.');
       }
       setTimeout(() => setRaidNote(''), 10000);
     } catch (e) {
@@ -718,6 +952,22 @@ export default function PollsPredictionsPage() {
       setLive((prev) => ({ ...prev, raid: null }));
       setRaidNote('');
     } catch (e) { flash(e.message); }
+  }, []);
+
+  /* ── Statistik-Zähler zurücksetzen ──────────────────────────────────────── */
+  const resetStats = useCallback(async () => {
+    setStatsBusy(true);
+    setStatsNote('');
+    try {
+      const d = await api.resetStats();
+      setLive((prev) => ({ ...prev, stats: d.stats }));
+      setStatsNote('Zurückgesetzt');
+      setTimeout(() => setStatsNote(''), 2500);
+    } catch (e) {
+      flash(e.message);
+    } finally {
+      setStatsBusy(false);
+    }
   }, []);
 
   // Eigener Takt für die Countdowns zwischen den Abrufen
@@ -775,7 +1025,7 @@ export default function PollsPredictionsPage() {
     try {
       await api.disconnectTwitch();
       setConnected(false);
-      setLive({ poll: null, prediction: null, goals: null, raid: null, notice: null });
+      setLive({ poll: null, prediction: null, goals: null, raid: null, stats: null, notice: null });
       autoTried.current = '';
     } catch (e) { flash(e.message); }
   };
@@ -893,12 +1143,15 @@ export default function PollsPredictionsPage() {
   const subView = toGoalView('subGoal', goals, m.subGoal);
   // Im Dashboard wird nur die Karte gezeigt, nie abgespielt: der Clip gehört in
   // die OBS-Quelle, nicht mit voller Lautstärke in den Browser des Streamers.
-  // enabled bleibt hier außen vor, damit sich die Karte auch im ausgeschalteten
-  // Zustand ausrichten lässt — sichtbar macht sie erst WidgetFrame. Der Vorlauf
-  // gilt fürs Overlay, nicht für die Vorschau: sonst verschwände die Karte beim
-  // Ausrichten für ein paar Sekunden.
+  // enabled bleibt beim Bauen der Ansicht außen vor, damit die Karte sofort da
+  // ist, wenn das Modul eingeschaltet wird; ob sie zu sehen (und greifbar) ist,
+  // entscheidet WidgetFrame. Der Vorlauf gilt fürs Overlay, nicht für die
+  // Vorschau: sonst verschwände die Karte beim Ausrichten für ein paar Sekunden.
   const raidPreview = live.raid ? { ...live.raid, startsAt: 0 } : (demoOn ? sim.raid : null);
   const raidView = toRaidView(raidPreview, { ...m.raidClip, enabled: true }, now);
+  // hideOffline bleibt beim Ausrichten außen vor, sonst verschwände die Karte
+  // genau dann, wenn man sie im Editor braucht.
+  const statsView = toStatsView(live.stats || (demoOn ? sim.stats : null), { ...m.streamStats, hideOffline: false });
 
   const pollHeld = useLinger(pollView);
   const predHeld = useLinger(predView);
@@ -909,6 +1162,7 @@ export default function PollsPredictionsPage() {
     prediction: predHeld && <PredictionWidget data={predHeld} module={m.prediction} />,
     followerGoal: followerView && <GoalWidget data={followerView} module={m.followerGoal} />,
     subGoal: subView && <GoalWidget data={subView} module={m.subGoal} />,
+    streamStats: statsView && <StatsWidget data={statsView} module={m.streamStats} />,
     raidClip: raidView && <RaidClipWidget data={raidView} module={m.raidClip} preview />,
   };
   const hasData = {
@@ -916,6 +1170,7 @@ export default function PollsPredictionsPage() {
     prediction: !!predView,
     followerGoal: !!followerView,
     subGoal: !!subView,
+    streamStats: !!statsView,
     raidClip: !!raidView,
   };
 
@@ -932,12 +1187,11 @@ export default function PollsPredictionsPage() {
     const mod = config.modules[id];
     if (!mod) return null;
 
-    if (id === 'raidClip') {
-      if (!mod.enabled || !raidWatch) return null;
-      if (!raidWatch.botConfigured) {
-        return 'Auf diesem Server ist kein Chat-Bot hinterlegt — ohne ihn lassen sich Raids nicht erkennen.';
-      }
-      return null;
+    if (id === 'raidClip' || id === 'streamStats') {
+      if (!mod.enabled || !chatWatch || chatWatch.botConfigured) return null;
+      return id === 'raidClip'
+        ? 'Auf diesem Server ist kein Chat-Bot hinterlegt — ohne ihn lassen sich Raids nicht erkennen.'
+        : 'Auf diesem Server ist kein Chat-Bot hinterlegt — Abos und Bits lassen sich ohne ihn nicht zählen.';
     }
 
     if (id !== 'subGoal' && id !== 'followerGoal') return null;
@@ -984,31 +1238,38 @@ export default function PollsPredictionsPage() {
 
   const seo = (
     <SEO
-      title="Twitch Overlay Tools — Abstimmungen, Ziele & Raid-Clips für OBS"
-      description="Kostenlose OBS-Overlays für Twitch: laufende Umfragen, Kanalpunkte-Vorhersagen, Follower- und Abo-Ziele live einblenden — und beim Raid automatisch einen Clip des Raiders abspielen. Position, Farben und Deckkraft frei einstellbar."
-      keywords="Twitch Umfrage Overlay, Twitch Poll OBS, Twitch Vorhersage Overlay, Twitch Prediction Overlay, Twitch Raid Clip Overlay, Follower Ziel Overlay, Stream Overlay Tools"
+      title={ST_TITLE}
+      description={ST_DESCRIPTION}
+      keywords={ST_KEYWORDS}
       path="/twitch-tools"
     />
   );
 
-  /* ── Login-Schranke ─────────────────────────────────────────────────────── */
+  /* ── Login-Schranke ─────────────────────────────────────────────────────────
+     Zugleich die Fassung, die Suchmaschinen sehen — der Crawler ist nie angemeldet.
+     Deshalb steht hier, was die Overlays können, und nur hier hängen die strukturierten
+     Daten zu Fragen und Einrichtung: FAQPage und HowTo dürfen nur ausgezeichnet werden,
+     wenn derselbe Text sichtbar auf der Seite steht. */
   if (!user) {
     return (
       <div className="page-fade max-w-6xl mx-auto">
-        {seo}
-        <header className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-black text-white">Twitch-Overlay-Tools</h1>
-          <p className="text-gray-500 text-sm mt-1">Abstimmungen und Vorhersagen live im Stream einblenden.</p>
-        </header>
-        <div className="panel p-10 text-center max-w-md mx-auto mt-12">
-          <p className="text-white font-bold mb-1">Login erforderlich</p>
-          <p className="text-gray-500 text-sm mb-5">Melde dich mit Twitch an, um deine Overlays einzurichten.</p>
-          <button onClick={() => login(false, STREAM_TOOL_SCOPES)}
-            className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-colors">
-            <TwitchGlyph size={15} />
-            Mit Twitch einloggen
-          </button>
-        </div>
+        <SEO
+          title={ST_TITLE}
+          description={ST_DESCRIPTION}
+          keywords={ST_KEYWORDS}
+          path="/twitch-tools"
+          jsonLd={buildStreamToolJsonLd()}
+        />
+        <StreamToolSeoContent>
+          <div className="flex flex-col items-center gap-2">
+            <button onClick={() => login(false, STREAM_TOOL_SCOPES)}
+              className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white font-bold px-6 py-3 rounded-lg text-sm transition-colors">
+              <TwitchGlyph size={15} />
+              Mit Twitch anmelden und Overlay einrichten
+            </button>
+            <p className="text-white/30 text-xs">Kostenlos · nur Twitch-Login nötig</p>
+          </div>
+        </StreamToolSeoContent>
       </div>
     );
   }
@@ -1025,7 +1286,7 @@ export default function PollsPredictionsPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-white">Twitch-Overlay-Tools</h1>
           <p className="text-gray-500 text-sm mt-1">
-            Abstimmungen und Vorhersagen startest du wie gewohnt in Twitch — hier legst du fest, wie sie im Stream aussehen.
+            Modul links wählen, Aussehen hier festlegen. Abstimmungen und Vorhersagen startest du wie gewohnt in Twitch.
           </p>
         </div>
         <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${connected ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-gray-500'}`}>
@@ -1211,7 +1472,8 @@ export default function PollsPredictionsPage() {
           </div>
 
           <p ref={hintRef} className="text-[11px] text-gray-500 leading-relaxed shrink-0">
-            Widgets mit der Maus verschieben. Das Karomuster zeigt, was im Stream transparent bleibt.
+            Widgets mit der Maus verschieben — ausgeblendete lassen sich nicht greifen.
+            Das Karomuster zeigt, was im Stream transparent bleibt.
             {connected
               ? ' Läuft gerade etwas in deinem Kanal, ersetzt es automatisch die Demo-Daten.'
               : ' Verbinde deinen Kanal, damit hier deine echten Abstimmungen erscheinen.'}
@@ -1260,7 +1522,14 @@ export default function PollsPredictionsPage() {
                   onStop: stopRaid,
                   busy: raidBusy,
                   note: raidNote,
-                  watch: raidWatch,
+                  watch: chatWatch,
+                } : null}
+                statsTools={activeMeta.kind === 'stats' ? {
+                  onReset: resetStats,
+                  busy: statsBusy,
+                  note: statsNote,
+                  watch: chatWatch,
+                  stats: live.stats,
                 } : null}
               />
             </div>

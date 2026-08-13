@@ -75,10 +75,10 @@ const last5Stmt = db.prepare("SELECT * FROM cr_wintracker_battles WHERE account_
 const getSettingsByUser = db.prepare("SELECT * FROM cr_wintracker_settings WHERE user_id = ?");
 const getSettingsByOverlayKey = db.prepare("SELECT * FROM cr_wintracker_settings WHERE overlay_key = ?");
 const insertSettings = db.prepare(`INSERT INTO cr_wintracker_settings
-  (user_id, overlay_key, show_daily_profit, show_win_loss_numbers, show_win_loss_percent, show_last5, track_mode, bg_color, bg_opacity, updated_at)
-  VALUES (?, ?, 1, 1, 1, 1, 'medals', '#0c0c12', 88, ?)`);
+  (user_id, overlay_key, show_daily_profit, show_win_loss_numbers, show_win_loss_percent, show_last5, track_mode, bg_color, bg_opacity, last5_as_result, updated_at)
+  VALUES (?, ?, 1, 1, 1, 1, 'medals', '#0c0c12', 88, 1, ?)`);
 const updateSettingsStmt = db.prepare(`UPDATE cr_wintracker_settings
-  SET show_daily_profit = ?, show_win_loss_numbers = ?, show_win_loss_percent = ?, show_last5 = ?, track_mode = ?, bg_color = ?, bg_opacity = ?, updated_at = ? WHERE user_id = ?`);
+  SET show_daily_profit = ?, show_win_loss_numbers = ?, show_win_loss_percent = ?, show_last5 = ?, track_mode = ?, bg_color = ?, bg_opacity = ?, last5_as_result = ?, updated_at = ? WHERE user_id = ?`);
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 function normalizeBgColor(raw) {
@@ -97,6 +97,51 @@ function getOrCreateSettings(userId) {
     row = getSettingsByUser.get(userId);
   }
   return row;
+}
+
+// ── Ranked-Leiter (Ligen 1-6) ─────────────────────────────────────────────────
+// Unterhalb von Ultimate Champion gibt es keine Medaillen, sondern Stufen: Sieg +1,
+// Niederlage -1 — auf Stufe 1 einer Liga kann man aber nicht weiter fallen. Die API
+// liefert die Stufe nicht mit (currentPathOfLegendSeasonResult.trophies bleibt dort 0),
+// deshalb zählen wir sie selbst aus dem gesammelten Battlelog: ab einem Ankerpunkt
+// (ladder_step in ladder_league seit ladder_anchor_ms) werden alle Ranked-Matches
+// der Reihe nach durchgespielt. Der Anker wird neu gesetzt, wenn der Nutzer die Stufe
+// korrigiert oder die Liga wechselt (Auf-/Abstieg, Season-Reset).
+const LADDER_STEPS = { 1: 11, 2: 11, 3: 11, 4: 10, 5: 10, 6: 10 };
+const ladderStepCount = (leagueNumber) => LADDER_STEPS[Number(leagueNumber)] || 0;
+
+const ladderBattlesStmt = db.prepare(`SELECT result, battle_time_ms FROM cr_wintracker_battles
+  WHERE account_id = ? AND battle_time_ms > ? AND game_mode LIKE 'Ranked%' ORDER BY battle_time_ms ASC`);
+const newestBattleMsStmt = db.prepare("SELECT COALESCE(MAX(battle_time_ms), 0) AS ms FROM cr_wintracker_battles WHERE account_id = ?");
+const setLadderAnchorStmt = db.prepare("UPDATE cr_wintracker_accounts SET ladder_step = ?, ladder_league = ?, ladder_anchor_ms = ? WHERE account_id = ?");
+
+// Anker auf das neueste bekannte Match legen: alles was danach gespielt wird, zählt weiter.
+function reanchorLadder(accountId, step, leagueNumber) {
+  const newest = newestBattleMsStmt.get(accountId)?.ms || 0;
+  setLadderAnchorStmt.run(step, Number(leagueNumber) || 0, newest || Date.now(), accountId);
+}
+
+/**
+ * Aktuelle Stufe des Accounts, aus dem Battlelog nachgezählt.
+ * @returns `{ league, step, maxSteps, todayDelta }` oder null außerhalb der Ligen 1-6
+ */
+function computeLadder(row, dayStartMs = startOfTodayMs()) {
+  const maxSteps = ladderStepCount(row.league_number);
+  if (!maxSteps) return null;
+  // Anker aus einer anderen Liga ist wertlos (Account von vor diesem Feature, oder Liga-
+  // wechsel vor dem nächsten Sync): dann Stufe 1 zeigen, ohne alte Matches nachzuspielen.
+  if (Number(row.ladder_league) !== Number(row.league_number)) {
+    return { league: Number(row.league_number), step: 1, maxSteps, todayDelta: 0 };
+  }
+  let step = Math.max(1, Math.min(maxSteps, row.ladder_step || 1));
+  let stepAtDayStart = step;
+  let sawToday = false;
+  for (const b of ladderBattlesStmt.all(row.account_id, row.ladder_anchor_ms || 0)) {
+    if (!sawToday && b.battle_time_ms >= dayStartMs) { stepAtDayStart = step; sawToday = true; }
+    if (b.result === "win") step = Math.min(maxSteps, step + 1);
+    else if (b.result === "loss") step = Math.max(1, step - 1);
+  }
+  return { league: Number(row.league_number), step, maxSteps, todayDelta: step - stepAtDayStart };
 }
 
 // ── Getrackter Wert ───────────────────────────────────────────────────────────
@@ -120,6 +165,8 @@ function accountSummary(row, settingsRow) {
     isActive: !!row.is_active,
     lastFetched: row.last_fetched,
     trackMode: resolveTrackMode(row, settingsRow),
+    // In den Ligen 1-6 gibt es Stufen statt Medaillen — null ab Ultimate Champion
+    ladder: computeLadder(row),
   };
 }
 
@@ -137,14 +184,20 @@ function battleRowToPublic(row) {
 
 async function syncAccount(row) {
   const [player, battles] = await Promise.all([fetchPlayer(row.player_tag), fetchBattlelog(row.player_tag)]);
+  // Erst die Matches wegschreiben: der Anker unten soll das Aufstiegsspiel schon kennen.
+  if (battles.length) insertBattles(row.account_id, battles);
   if (player && !player.notFound) {
     updatePlayerData.run(player.name || row.player_name, player.trophies, player.bestTrophies, player.seasonMedals, player.leagueNumber, player.polRank, Date.now(), row.account_id);
+    // Liga gewechselt (Aufstieg, Season-Reset): in der neuen Liga geht es auf Stufe 1 los,
+    // gezählt wird ab dem neuesten bekannten Match.
+    if (Number(player.leagueNumber) !== Number(row.ladder_league)) {
+      reanchorLadder(row.account_id, 1, player.leagueNumber);
+    }
   } else {
     // Spieler-Request fehlgeschlagen/nicht gefunden: last_fetched trotzdem setzen, damit wir nicht
     // bei jedem Overlay-Poll erneut gegen die API laufen (Rate-Limit-Schutz).
     db.prepare("UPDATE cr_wintracker_accounts SET last_fetched = ? WHERE account_id = ?").run(Date.now(), row.account_id);
   }
-  if (battles.length) insertBattles(row.account_id, battles);
 }
 
 module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
@@ -175,6 +228,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
         trackMode: settings.track_mode === "trophies" ? "trophies" : "medals",
         bgColor: settings.bg_color || "#0c0c12",
         bgOpacity: typeof settings.bg_opacity === "number" ? settings.bg_opacity : 88,
+        last5AsResult: settings.last5_as_result === null || settings.last5_as_result === undefined ? true : !!settings.last5_as_result,
       },
     });
   });
@@ -191,6 +245,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       s.trackMode === "trophies" ? "trophies" : "medals",
       normalizeBgColor(s.bgColor),
       normalizeBgOpacity(s.bgOpacity),
+      s.last5AsResult ? 1 : 0,
       Date.now(),
       userId
     );
@@ -230,14 +285,16 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     const settings = getOrCreateSettings(userId);
     insertAccount.run(accountId, userId, String(req.twitchLogin || ""), tag, playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, isFirst ? 1 : 0, lastFetched, Date.now(), normalizeTrackMode(settings.track_mode));
 
-    const row = getAccountById.get(accountId);
     if (CR_API_TOKEN) {
       try {
         const battles = await fetchBattlelog(tag);
         if (battles.length) insertBattles(accountId, battles);
       } catch { /* Erst-Sync der Matches ist best-effort */ }
     }
-    res.json({ ok: true, account: accountSummary(row, settings) });
+    // Stufen-Anker auf das neueste Match legen: die bereits gespielten Matches gehören zu
+    // einer Stufe, die wir nicht kennen — der Nutzer korrigiert sie einmalig auf der Seite.
+    reanchorLadder(accountId, 1, leagueNumber);
+    res.json({ ok: true, account: accountSummary(getAccountById.get(accountId), settings) });
   });
 
   router.delete("/accounts/:accountId", requireAuth, (req, res) => {
@@ -282,6 +339,19 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id), getOrCreateSettings(row.user_id)) });
   });
 
+  // Aktuelle Stufe der Ranked-Leiter korrigieren. Die API liefert sie nicht mit, deshalb
+  // setzt der Nutzer sie einmalig — danach zählt jedes Ranked-Match automatisch weiter.
+  router.put("/accounts/:accountId/ladder-step", requireAuth, (req, res) => {
+    const row = ownAccount(req, res);
+    if (!row) return;
+    const maxSteps = ladderStepCount(row.league_number);
+    if (!maxSteps) return res.status(400).json({ error: "Dieser Account ist in keiner Liga mit Stufen (nur Liga 1-6)" });
+    const raw = Number(req.body?.step);
+    if (!Number.isFinite(raw)) return res.status(400).json({ error: "Ungültige Stufe" });
+    reanchorLadder(row.account_id, Math.max(1, Math.min(maxSteps, Math.round(raw))), row.league_number);
+    res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id), getOrCreateSettings(row.user_id)) });
+  });
+
   // ========== Overlay (kein Login — read-only für OBS) ==========
   // Synct bei Bedarf (throttled) den aktiven Account und liefert Liga/Trophäen,
   // Tagesstatistik seit 00:00 Uhr sowie die letzten 5 Spiele.
@@ -310,6 +380,8 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       seasonMedals: active.season_medals,
       leagueNumber: active.league_number,
       polRank: active.pol_rank,
+      // Ligen 1-6: Stufen statt Medaillen (null ab Ultimate Champion)
+      ladder: computeLadder(active, dayStart),
       daily: {
         profit: daily.profit || 0,
         wins,
@@ -326,6 +398,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
         trackMode: resolveTrackMode(active, settings),
         bgColor: settings.bg_color || "#0c0c12",
         bgOpacity: typeof settings.bg_opacity === "number" ? settings.bg_opacity : 88,
+        last5AsResult: settings.last5_as_result === null || settings.last5_as_result === undefined ? true : !!settings.last5_as_result,
       },
     });
   });

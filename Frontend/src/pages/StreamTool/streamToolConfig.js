@@ -50,12 +50,27 @@ const BASE_MODULE = {
   glass: true,
 };
 
+/**
+ * Wie viel Platz ein Ziel einnimmt. Beide Ziel-Module teilen sich das:
+ * 'full'   — Beschriftung, große Zahl und Balken (drei Zeilen)
+ * 'inline' — Beschriftung oben, Zahlen im Balken (zwei Zeilen)
+ * 'bar'    — nur der Balken, Beschriftung und Zahlen darin (eine Zeile)
+ */
+const GOAL_LOOK = {
+  goalLayout: 'full',
+  barHeight: 14,
+  showPercent: true,
+};
+
 export const MODULE_DEFAULTS = {
-  poll: { ...BASE_MODULE, x: 90, y: 620, colors: [...POLL_COLORS] },
+  // showHead: Kopfzeile der Karte (Art des Moduls, Status, Timer). Wer das
+  // Overlay klein halten will, schaltet die ganze Zeile ab.
+  poll: { ...BASE_MODULE, x: 90, y: 620, showHead: true, colors: [...POLL_COLORS] },
   prediction: {
     ...BASE_MODULE,
     x: 1090,
     y: 620,
+    showHead: true,
     colors: [...PREDICTION_COLORS],
     // Zwischen Sperrung und Auflösung passiert nichts mehr — auf Wunsch
     // verschwindet das Overlay so lange, statt eingefroren stehen zu bleiben.
@@ -69,6 +84,7 @@ export const MODULE_DEFAULTS = {
     timer: false,
     colors: [CATEGORICAL[0]],
     label: 'Follower-Ziel',
+    ...GOAL_LOOK,
     // 'twitch' = das im Creator-Dashboard gesetzte Ziel spiegeln,
     // 'manual' = eigener Zielwert (funktioniert auch ohne Twitch-Ziel)
     source: 'twitch',
@@ -87,6 +103,7 @@ export const MODULE_DEFAULTS = {
     timer: false,
     colors: [CATEGORICAL[4]],
     label: 'Abo-Ziel',
+    ...GOAL_LOOK,
     source: 'twitch',
     // 'auto' nimmt das Abo-Ziel, das im Creator-Dashboard wirklich aktiv ist.
     // Vorher stand hier fest "subscription" (Abo-PUNKTE) — wer stattdessen ein
@@ -98,6 +115,34 @@ export const MODULE_DEFAULTS = {
     autoIncrease: 0,
     // Twitch zählt Tier 2 doppelt und Tier 3 sechsfach — das sind die "Punkte"
     usePoints: false,
+  },
+  streamStats: {
+    ...BASE_MODULE,
+    enabled: false,
+    x: 90,
+    y: 900,
+    timer: false,
+    colors: [CATEGORICAL[2]],
+    label: 'Dieser Stream',
+    // 'row' = nebeneinander, 'column' = untereinander als Blöcke,
+    // 'list' = untereinander mit Beschriftung links und Zahl rechts
+    layout: 'row',
+    // Beschriftung über ('top') oder unter ('bottom') der Zahl
+    capPos: 'top',
+    // 'center' stellt jede Kennzahl in ein gleich breites, unsichtbares
+    // Kästchen — nur so stehen Wort und Zahl wirklich übereinander.
+    align: 'center',
+    // Welche Kennzahlen die Karte zeigt — Reihenfolge ist fest
+    show: { follows: true, subs: true, bits: true, viewers: false, peak: false, uptime: false },
+    // Was als Abo zählt. Neuabos zählen immer.
+    countResubs: true,
+    countGifts: true,
+    // Zwischen zwei Sendungen die letzten Zahlen stehen lassen oder ausblenden
+    hideOffline: false,
+    // Kopfzeile aus Überschrift und Live-Schild
+    showHead: true,
+    // Kleines Schild, solange Twitch den Kanal als live führt
+    liveDot: true,
   },
   raidClip: {
     ...BASE_MODULE,
@@ -186,11 +231,17 @@ export function mergeConfig(saved) {
   for (const id of MODULE_IDS) {
     const def = base.modules[id];
     const got = saved.modules?.[id];
-    modules[id] = {
+    const merged = {
       ...def,
       ...(got && typeof got === 'object' ? got : {}),
       colors: Array.isArray(got?.colors) && got.colors.length ? got.colors : def.colors,
     };
+    // Verschachtelte Schalter einzeln zusammenführen, sonst würde eine
+    // gespeicherte Auswahl später hinzugekommene Kennzahlen verschlucken.
+    if (def.show) {
+      merged.show = { ...def.show, ...(got?.show && typeof got.show === 'object' ? got.show : {}) };
+    }
+    modules[id] = merged;
   }
 
   // Einmalige Umstellung: Der alte Standard des Abo-Ziels war fest "Abo-Punkte".
@@ -302,6 +353,65 @@ export function toGoalView(id, goals, module) {
 }
 
 /**
+ * Kennzahlen der Stream-Statistik in fester Reihenfolge. Der Schlüssel steht so
+ * auch in module.show — eine neue Kennzahl braucht hier eine Zeile und einen
+ * Eintrag im Standard.
+ */
+export const STAT_METRICS = [
+  { key: 'follows', label: 'Follows' },
+  { key: 'subs', label: 'Abos' },
+  { key: 'bits', label: 'Bits' },
+  { key: 'viewers', label: 'Zuschauer' },
+  { key: 'peak', label: 'Höchststand' },
+  { key: 'uptime', label: 'Laufzeit' },
+];
+
+/** Abos je nach Einstellung zusammenzählen. Neuabos zählen immer mit. */
+function countSubs(subs, module) {
+  if (!subs) return 0;
+  return (
+    (Number(subs.new) || 0) +
+    (module.countResubs === false ? 0 : Number(subs.resub) || 0) +
+    (module.countGifts === false ? 0 : Number(subs.gift) || 0)
+  );
+}
+
+/**
+ * Stream-Statistik. Die Zahlen kommen fertig gezählt vom Backend; hier wird nur
+ * ausgewählt, was die Karte zeigt.
+ * @returns Widget-Daten oder null, wenn (noch) keine Sendung erkannt wurde
+ */
+export function toStatsView(stats, module) {
+  if (!stats) return null;
+  if (module.hideOffline && !stats.live) return null;
+
+  const show = module.show || {};
+  const values = {
+    follows: stats.follows,
+    subs: countSubs(stats.subs, module),
+    bits: Number(stats.bits) || 0,
+    viewers: Number(stats.viewers) || 0,
+    peak: Number(stats.peakViewers) || 0,
+    uptime: null, // zählt im Widget selbst weiter, siehe startedAt
+  };
+
+  const items = STAT_METRICS
+    .filter((mtr) => show[mtr.key])
+    .map((mtr) => ({ key: mtr.key, label: mtr.label, value: values[mtr.key] }));
+  if (!items.length) return null;
+
+  return {
+    label: module.label || '',
+    live: !!stats.live,
+    // Nur für die Laufzeit: die Karte rechnet selbst weiter, damit das Overlay
+    // dafür keine durchlaufende Uhr braucht.
+    startedAt: Number(stats.startedAt) || 0,
+    items,
+    color: module.colors[0],
+  };
+}
+
+/**
  * Raid-Clip. Das Backend legt beim Raid ein Ereignis mit fertigem Clip ab und
  * setzt gleich mit, wie lange es zu sehen sein soll — hier wird nur noch
  * entschieden, ob es noch läuft.
@@ -309,15 +419,18 @@ export function toGoalView(id, goals, module) {
  */
 export function toRaidView(raid, module, now) {
   if (!raid || !module?.enabled) return null;
+  // Das Modul zeigt ausschließlich den Clip: hat der Kanal keinen (oder war
+  // Twitch nicht erreichbar), bleibt das Overlay ganz leer — auch die
+  // Begrüßung entfällt, sonst stünde eine Karte ohne Inhalt im Bild.
+  if (!raid.clip) return null;
   // Vorlauf: das Overlay bleibt leer, bis der Raid-Alert durch ist
   if (raid.startsAt && now < raid.startsAt) return null;
   if (raid.endsAt && now > raid.endsAt) return null;
   return {
     id: raid.id,
     raider: raid.raider || { name: '', viewers: 0 },
-    clip: raid.clip || null,
+    clip: raid.clip,
     playSeconds: Math.max(1, Number(raid.playSeconds) || 0),
-    error: raid.error || null,
     demo: !!raid.demo,
     color: module.colors[0],
   };
@@ -374,6 +487,9 @@ const DEMO_RAID = {
 function freshSim(outcomeCount) {
   return {
     votes: DEMO_POLL.choices.map(() => 30 + Math.floor(Math.random() * 140)),
+    // Feste Beispiel-Sendung: der Beginn darf nicht mitwandern, sonst springt
+    // die Laufzeit in der Vorschau bei jedem Takt.
+    streamStart: Date.now() - (2 * 3600 + 743) * 1000,
     pollStart: Date.now(),
     pollDone: 0,
     points: Array.from({ length: outcomeCount }, () => 1800 + Math.floor(Math.random() * 3200)),
@@ -432,7 +548,7 @@ export function useDemoSim(enabled, outcomeCount = 2) {
     return () => clearInterval(id);
   }, [enabled, outcomeCount]);
 
-  if (!enabled) return { poll: null, prediction: null, goals: null, raid: null };
+  if (!enabled) return { poll: null, prediction: null, goals: null, raid: null, stats: null };
 
   const s = sim.current;
   const now = Date.now();
@@ -475,6 +591,16 @@ export function useDemoSim(enabled, outcomeCount = 2) {
         subscription_count: { id: 'demo-sc', type: 'subscription_count', description: 'Abos', current: 63 + Math.floor(creep / 4), target: 100 },
       },
       at: now,
+    },
+    stats: {
+      live: true,
+      startedAt: s.streamStart,
+      endedAt: 0,
+      viewers: 137 + (creep % 11),
+      peakViewers: 214,
+      follows: 18 + creep,
+      subs: { new: 4, resub: 3, gift: 5 },
+      bits: 4250 + creep * 25,
     },
     raid: DEMO_RAID,
   };

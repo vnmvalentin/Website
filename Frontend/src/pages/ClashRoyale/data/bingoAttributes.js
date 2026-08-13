@@ -210,7 +210,7 @@ export const CARD_ATTRS = {
   'tornado':           ['cost_mid',  'type_spell',    'splash', 'rarity_epic', 'target_ground_air'],
   'goblin-barrel':     ['cost_mid',  'type_spell',    'rarity_epic', 'swarm', 'has_evo', 'target_ground'],
   'clone':             ['cost_mid',  'type_spell',    'rarity_epic', 'target_ground_air'],
-  'void':              ['cost_mid',  'type_spell',    'rarity_epic', 'target_ground_air'],
+  'void':              ['cost_high',  'type_spell',    'rarity_epic', 'target_ground_air'],
   'baby-dragon':       ['cost_mid',  'type_troop',    'move_air',    'range_ranged', 'single', 'rarity_epic', 'gender_none',   'speed_fast', 'splash', 'has_evo', 'target_ground_air'],
   'dark-prince':       ['cost_mid',  'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_epic', 'gender_male',   'speed_medium', 'splash', 'target_ground'],
   'freeze':            ['cost_mid',  'type_spell',    'splash', 'rarity_epic', 'target_ground_air'],

@@ -54,7 +54,7 @@ export default function BlobbySettings({ value, onChange, disabled = false }) {
         <Choice active={s.maxTouches === 3} disabled={disabled} onClick={() => set({ maxTouches: 3 })}>Max. 3</Choice>
       </Row>
 
-      <Row label="Powerups" hint="Schweben über dem Pfeiler — mit Ball oder Blob einsammeln">
+      <Row label="Powerups" hint="Über dem Pfeiler anspringen, per Leertaste selbst einsetzen">
         <Choice active={!s.powerups} disabled={disabled} onClick={() => set({ powerups: false })}>Aus</Choice>
         <Choice active={s.powerups} disabled={disabled} onClick={() => set({ powerups: true })}>An</Choice>
       </Row>

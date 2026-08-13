@@ -1,7 +1,7 @@
 // Generische Kategorie-Übersicht: zeigt alle Unterpunkte einer
 // Navigations-Kategorie als große anklickbare Kacheln.
 import { Link, useOutletContext } from "react-router-dom";
-import { ArrowRight, ExternalLink } from "lucide-react";
+import { ArrowRight, ExternalLink, Lock } from "lucide-react";
 import { getCategory } from "../config/navigation";
 import SEO from "../components/SEO";
 
@@ -11,22 +11,51 @@ function CategoryCard({ link, openFeedback }) {
   const inner = (
     <>
       <div className="flex items-center justify-between mb-5">
-        <span className="flex items-center justify-center w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-400/20 text-violet-300 group-hover:bg-violet-500/20 group-hover:text-violet-200 transition-colors">
+        <span
+          className={`flex items-center justify-center w-12 h-12 rounded-xl border transition-colors ${
+            link.locked
+              ? "bg-white/[0.03] border-white/10 text-white/30"
+              : "bg-violet-500/10 border-violet-400/20 text-violet-300 group-hover:bg-violet-500/20 group-hover:text-violet-200"
+          }`}
+        >
           {Icon && <Icon size={22} />}
         </span>
-        {link.href ? (
+        {link.locked ? (
+          <Lock size={16} className="text-white/25" />
+        ) : link.href ? (
           <ExternalLink size={16} className="text-white/20 group-hover:text-white/60 transition-colors" />
         ) : (
           <ArrowRight size={18} className="text-white/20 group-hover:text-violet-300 group-hover:translate-x-1 transition-all" />
         )}
       </div>
-      <h3 className="font-display text-lg font-bold text-white mb-1.5">{link.label}</h3>
-      <p className="text-sm text-white/45 leading-relaxed">{link.description}</p>
+      <h3 className={`font-display text-lg font-bold mb-1.5 ${link.locked ? "text-white/45" : "text-white"}`}>
+        {link.label}
+      </h3>
+      <p className={`text-sm leading-relaxed ${link.locked ? "text-white/25" : "text-white/45"}`}>{link.description}</p>
+      {link.locked && link.lockedNote && (
+        <p className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2 text-xs font-semibold text-white/40">
+          <Lock size={12} className="shrink-0" />
+          {link.lockedNote}
+        </p>
+      )}
     </>
   );
 
   const classes =
     "group panel p-6 text-left transition-colors hover:bg-white/[0.06] hover:border-violet-400/30 block w-full";
+
+  // Gesperrt: Kachel bleibt stehen, ist aber tot. Die Route selbst bleibt erreichbar.
+  if (link.locked) {
+    return (
+      <div
+        aria-disabled="true"
+        title={link.lockedNote || "Vorübergehend gesperrt"}
+        className="panel p-6 text-left block w-full cursor-not-allowed"
+      >
+        {inner}
+      </div>
+    );
+  }
 
   if (link.href) {
     return (
@@ -79,7 +108,9 @@ export default function CategoryPage({ categoryKey }) {
             '@type': 'ItemList',
             name: category.label,
             itemListElement: category.links
-              .filter((l) => l.to)
+              // Gesperrte Unterpunkte tauchen hier nicht auf — die Kachel zeigt sie als
+              // nicht nutzbar, dann sollen sie auch nicht als Angebot ausgezeichnet werden.
+              .filter((l) => l.to && !l.locked)
               .map((l, i) => ({
                 '@type': 'ListItem',
                 position: i + 1,

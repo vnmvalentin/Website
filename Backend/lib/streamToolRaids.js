@@ -17,8 +17,9 @@ const MODULE_ID = "raidClip";
 
 /** Wie lange die Karte nach dem Clip noch stehen bleibt (Ausblenden + Puffer). */
 const OUTRO_MS = 1500;
-/** Ohne Clip (Kanal hat keine) bleibt nur die Raid-Begrüßung stehen. */
-const BANNER_ONLY_MS = 8000;
+/* Ohne Clip zeigt das Overlay nichts an — das Modul ist nur für den Clip da.
+   Das Ereignis wird trotzdem abgelegt: für die Meldung beim Probelauf und für
+   die Dopplungssperre unten. */
 /** Obergrenze, falls jemand die Konfiguration von Hand aufbläst. */
 const MAX_CLIP_SECONDS = 120;
 const MAX_DELAY_SECONDS = 60;
@@ -251,7 +252,7 @@ async function triggerRaid(row, { raiderId, raiderLogin, raiderName, viewers, te
     id: nanoid(10),
     at: now,
     startsAt,
-    endsAt: startsAt + (clip ? playSeconds * 1000 + OUTRO_MS : BANNER_ONLY_MS),
+    endsAt: startsAt + (clip ? playSeconds * 1000 + OUTRO_MS : 0),
     playSeconds,
     delaySeconds: Math.round(delayMs(mod) / 1000),
     test: !!test,

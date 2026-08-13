@@ -2,7 +2,7 @@
 // Accounts, Tagesstatistik seit 00:00 Uhr und die letzten 5 Spiele.
 import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Trophy, TrendingUp, TrendingDown } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, ChevronsUp } from "lucide-react";
 import { leagueIconUrl, leagueName } from "../data/leagueIcons";
 import { useStableState } from "../../../utils/useStableState";
 import { getOverlayData } from "./winTrackerApi";
@@ -39,11 +39,16 @@ export default function WinTrackerOverlayPage() {
   const noIndex = <meta name="robots" content="noindex, nofollow" />;
   if (!data || !data.hasAccount) return noIndex;
 
-  const { playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, daily, last5, settings } = data;
+  const { playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, ladder, daily, last5, settings } = data;
   const badgeUrl = leagueIconUrl(leagueNumber);
   const isTrophyMode = settings.trackMode === "trophies";
+  // Ligen 1-6 kennen keine Medaillen: dort zählt der Tracker die Stufen bis Ultimate Champion.
+  // Ab UC (Liga 7) liefert das Backend kein ladder-Objekt mehr und es geht zurück auf Medaillen.
+  const isLadderMode = !isTrophyMode && !!ladder;
   const mainValue = isTrophyMode ? trophies : seasonMedals;
-  const profitPositive = (daily?.profit || 0) >= 0;
+  const dailyValue = isLadderMode ? (ladder.todayDelta || 0) : (daily?.profit || 0);
+  const profitPositive = dailyValue >= 0;
+  const showResultText = isLadderMode || settings.last5AsResult !== false;
   const showDaily = settings.showDailyProfit || settings.showWinLossNumbers || settings.showWinLossPercent;
   const showLast5 = settings.showLast5;
   const opacityFrac = Math.max(0, Math.min(100, settings.bgOpacity ?? 88)) / 100;
@@ -70,16 +75,34 @@ export default function WinTrackerOverlayPage() {
             <div style={styles.nameRow}>
               <span style={styles.name}>{playerName}</span>
             </div>
-            <div style={styles.trophyRow}>
-              <Trophy size={18} color="#fbbf24" />
-              <span style={styles.trophyValue}>{fmt(mainValue)}</span>
-              {polRank ? <span style={styles.rankInline}>#{fmt(polRank)}</span> : null}
-            </div>
+            {isLadderMode ? (
+              <div style={styles.trophyRow}>
+                <ChevronsUp size={18} color="#fbbf24" />
+                <span style={styles.trophyValue}>{ladder.step}</span>
+                <span style={styles.stepMax}>/{ladder.maxSteps}</span>
+                <span style={styles.leagueLabel}>Stufe · {leagueName(leagueNumber)}</span>
+              </div>
+            ) : (
+              <div style={styles.trophyRow}>
+                <Trophy size={18} color="#fbbf24" />
+                <span style={styles.trophyValue}>{fmt(mainValue)}</span>
+                {polRank ? <span style={styles.rankInline}>#{fmt(polRank)}</span> : null}
+              </div>
+            )}
             {isTrophyMode && (
               <div style={styles.bestRow}>Beste: {fmt(bestTrophies)}</div>
             )}
           </div>
         </div>
+
+        {/* Stufenleiste: gefüllt bis zur aktuellen Stufe, der Rest bis Ultimate Champion */}
+        {isLadderMode && (
+          <div style={styles.pipRow}>
+            {Array.from({ length: ladder.maxSteps }, (_, i) => (
+              <div key={i} style={i < ladder.step ? styles.pipFilled : styles.pipEmpty} />
+            ))}
+          </div>
+        )}
 
         {showDaily && (
           <>
@@ -90,7 +113,8 @@ export default function WinTrackerOverlayPage() {
                 {settings.showDailyProfit && (
                   <span style={{ ...styles.profitValue, color: profitPositive ? "#4ade80" : "#f87171" }}>
                     {profitPositive ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
-                    {profitPositive ? "+" : ""}{fmt(daily.profit)}
+                    {profitPositive ? "+" : ""}{fmt(dailyValue)}
+                    {isLadderMode && <span style={styles.profitUnit}>{Math.abs(dailyValue) === 1 ? "Stufe" : "Stufen"}</span>}
                   </span>
                 )}
               </div>
@@ -118,7 +142,9 @@ export default function WinTrackerOverlayPage() {
               <div style={styles.last5Row}>
                 {last5.map((b, i) => (
                   <div key={i} style={styles.matchPill(b.result)}>
-                    {b.trophyChange > 0 ? "+" : ""}{b.trophyChange}
+                    {showResultText
+                      ? (RESULT_LABEL[b.result] || RESULT_LABEL.draw)
+                      : `${b.trophyChange > 0 ? "+" : ""}${b.trophyChange}`}
                   </div>
                 ))}
               </div>
@@ -129,6 +155,8 @@ export default function WinTrackerOverlayPage() {
     </div>
   );
 }
+
+const RESULT_LABEL = { win: "Win", loss: "Lose", draw: "Draw" };
 
 const RESULT_COLOR = {
   win: { bg: "rgba(34,197,94,0.16)", border: "rgba(34,197,94,0.55)", text: "#4ade80" },
@@ -177,6 +205,11 @@ const styles = {
     fontVariantNumeric: "tabular-nums",
   },
   leagueLabel: { fontSize: 12, color: "rgba(255,255,255,0.5)", marginLeft: 2 },
+  stepMax: { fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.45)", marginLeft: -5, fontVariantNumeric: "tabular-nums" },
+  pipRow: { display: "flex", gap: 3, marginTop: 12 },
+  pipFilled: { flex: 1, height: 6, borderRadius: 2, background: "#fbbf24" },
+  pipEmpty: { flex: 1, height: 6, borderRadius: 2, background: "rgba(255,255,255,0.12)" },
+  profitUnit: { fontSize: 12, fontWeight: 700, opacity: 0.75, marginLeft: 1 },
   bestRow: { fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 },
   divider: { height: 1, margin: "12px 0" },
   dailyRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" },

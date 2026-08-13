@@ -94,8 +94,13 @@ export const PAGE_I18N = {
     },
 
     // ── SEO / crawlbarer Inhalt der Hubseite ──────────────────────────────────
-    seoTitle: 'Clash Royale Minigames — Draft-Modi kostenlos im Browser spielen',
-    seoDesc: 'Acht Clash-Royale-Minigames für 2–8 Spieler: Snake Royale, Elixir Auction, Bingo Royale, Blindes Karussell, Elixir Rush, Karten-Evolution, Angel Royale und Dunkles Labyrinth. Lobby erstellen, Code teilen, sofort im Browser draften — kostenlos und ohne Installation.',
+    // Titel bewusst kurz: SEO.jsx hängt " - vnmvalentin" (14 Zeichen) an, und Google
+    // zeigt in den Ergebnissen nur rund 60 Zeichen. Der vorherige Titel kam mit Zusatz
+    // auf 77 und wurde mitten im Wort abgeschnitten.
+    seoTitle: 'Clash Royale Minigames kostenlos im Browser',
+    // Rund 155 Zeichen — länger schneidet Google in den Ergebnissen ab. Die vollen
+    // Modusnamen stehen ohnehin sichtbar auf der Seite und in der ItemList.
+    seoDesc: 'Acht Clash-Royale-Minigames für 2–8 Spieler im Browser: Snake Royale, Elixir Auction, Bingo Royale und mehr. Lobby erstellen, Code teilen, sofort draften.',
     seoKeywords: 'Clash Royale Minigames, Clash Royale Draft, Snake Royale, Elixir Auction, Bingo Royale, Clash Royale Deck Generator, Clash Royale Browserspiel, Clash Royale Stream Minigames, Clash Royale Custom Modus',
     introText: 'Dieses Material ist nicht offiziell und nicht von Supercell bewilligt.',
     disclaimerMore: 'Weitere Informationen findest du in Supercells Richtlinien für Fan-Content:',
@@ -381,8 +386,10 @@ export const PAGE_I18N = {
     },
 
     // ── SEO / crawlable content of the hub page ──────────────────────────────
-    seoTitle: 'Clash Royale Minigames — play draft modes free in your browser',
-    seoDesc: 'Eight Clash Royale minigames for 2–8 players: Snake Royale, Elixir Auction, Bingo Royale, Shadow Carousel, Elixir Rush, Card Evolution, Fishing Royale and Dark Maze. Create a lobby, share the code, start drafting in your browser — free, no install.',
+    // Kurz halten — siehe Anmerkung bei der deutschen Fassung.
+    seoTitle: 'Clash Royale Minigames — free in your browser',
+    // Kurz halten — siehe Anmerkung bei der deutschen Fassung.
+    seoDesc: 'Eight Clash Royale minigames for 2–8 players in your browser: Snake Royale, Elixir Auction, Bingo Royale and more. Create a lobby, share the code, draft.',
     seoKeywords: 'Clash Royale minigames, Clash Royale draft, Snake Royale, Elixir Auction, Bingo Royale, Clash Royale deck generator, Clash Royale browser game, Clash Royale stream minigames, Clash Royale custom mode',
     introText: 'This material is unofficial and is not endorsed by Supercell.',
     disclaimerMore: 'For more information, see Supercell\u2019s Fan Content Policy:',

@@ -73,6 +73,9 @@
 /* Editor-Zustände — im OBS-Overlay nie aktiv */
 .stw-widget.is-editable { cursor: grab; }
 .stw-widget.is-editable:active { cursor: grabbing; }
+/* Ausgeblendet: nicht greifbar, damit es nicht das Modul darunter blockiert.
+   Der Auswahlrahmen bleibt sichtbar — man sieht also weiterhin, wo es liegt. */
+.stw-widget.is-invisible { pointer-events: none; }
 .stw-widget.is-editable::after {
   content: "";
   position: absolute;
@@ -166,6 +169,9 @@
   font-weight: 700;
   letter-spacing: -0.02em;
 }
+/* Ohne Kopfzeile ist die Überschrift das erste Element und braucht den
+   Abstand, den sonst die Kopfzeile mitbringt. */
+.stw-card.is-nohead .stw-title { margin-top: 26px; }
 .stw-foot {
   display: flex;
   align-items: center;
@@ -255,7 +261,101 @@
 }
 .stw-goal-count b { font-size: 38px; font-weight: 800; line-height: 1; }
 .stw-goal-count span { font-size: 19px; font-weight: 600; color: rgba(255, 255, 255, 0.45); }
-.stw-goal-track { height: 12px; }
+/* Höhe kommt als Inline-Style aus den Einstellungen */
+.stw-goal-track { position: relative; }
+
+/* Kompakte Formen: eine Zeile weniger, dafür ein Balken, in dem der Text steht */
+.stw-goal.is-inline { padding: 18px 24px 20px; }
+.stw-goal.is-inline .stw-goal-top { margin-bottom: 12px; }
+.stw-goal.is-bar { padding: 14px 16px; }
+
+/* Zwei Ebenen desselben Textes: hell auf der leeren Spur, dunkel auf der
+   Füllung (per clip-path beschnitten). So bleibt er bei jeder Balkenfarbe
+   lesbar — siehe GoalBar in OverlayWidgets.jsx. */
+.stw-bar-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #fff;
+  transition: clip-path 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.stw-bar-text.is-on-fill { color: #101014; }
+.stw-bar-l { overflow: hidden; text-overflow: ellipsis; }
+.stw-bar-r { margin-left: auto; }
+
+/* ── Stream-Statistik ─────────────────────────────────────────────────────── */
+.stw-stats { padding: 22px 28px; }
+.stw-stats-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.stw-stats-head .stw-chip { margin-left: auto; }
+/* Mittige Karte: auch die Kopfzeile rückt zusammen in die Mitte */
+.stw-stats.is-center .stw-stats-head { justify-content: center; }
+.stw-stats.is-center .stw-stats-head .stw-chip { margin-left: 0; }
+
+.stw-stats-grid { display: flex; gap: 26px; }
+/* Grundbreite aus dem Inhalt, Rest gleichmäßig verteilt: sonst quetscht eine
+   lange Laufzeit die Nachbarspalte, sobald die Zahlen größer werden. */
+.stw-stat {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+/* Jede Kennzahl in einem gleich breiten, unsichtbaren Kästchen — nur so stehen
+   Wort und Zahl wirklich übereinander, statt je nach Ziffernbreite zu wandern. */
+.stw-stats.is-center .stw-stat {
+  flex: 1 1 0;
+  align-items: center;
+  text-align: center;
+}
+.stw-stat-val {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stw-stat-cap {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Untereinander: jede Kennzahl als eigener Block */
+.stw-stats.is-column .stw-stats-grid { flex-direction: column; gap: 16px; }
+.stw-stats.is-column .stw-stat { flex: 0 0 auto; }
+.stw-stats.is-column .stw-stat-val { font-size: 34px; }
+
+/* Liste: Beschriftung links, Zahl rechts — die schmalste Form */
+.stw-stats.is-list .stw-stats-grid { flex-direction: column; gap: 13px; }
+.stw-stats.is-list .stw-stat {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  text-align: left;
+}
+.stw-stats.is-list .stw-stat-val { font-size: 29px; }
 
 /* ── Clip des Raiders ─────────────────────────────────────────────────────── */
 .stw-raid-head {
@@ -309,6 +409,7 @@
   justify-content: center;
   background: #0b0b0f;
 }
+/* Nur der kurze Moment vor dem Start, wenn kein Vorschaubild da ist */
 .stw-raid-empty {
   font-size: 15px;
   font-weight: 700;

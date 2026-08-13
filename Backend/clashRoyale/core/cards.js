@@ -152,7 +152,7 @@ const ELIXIR_COST = {
   'rocket': 6, 'barbarian-hut': 6, 'elixir-collector': 6, 'three-musketeers': 9,
   // Epics
   'mirror': 0, 'barbarian-barrel': 2, 'wall-breakers': 2, 'rage': 2, 'goblin-curse': 2,
-  'skeleton-army': 3, 'guards': 3, 'vines': 3, 'tornado': 3, 'goblin-barrel': 3, 'clone': 3, 'void': 3,
+  'skeleton-army': 3, 'guards': 3, 'vines': 3, 'tornado': 3, 'goblin-barrel': 3, 'clone': 3, 'void': 5,
   'baby-dragon': 4, 'dark-prince': 4, 'freeze': 4, 'rune-giant': 4, 'poison': 4, 'hunter': 4, 'goblin-drill': 4,
   'witch': 5, 'balloon': 5, 'prince': 5, 'electro-dragon': 5, 'bowler': 5, 'executioner': 5, 'cannon-cart': 5,
   'giant-skeleton': 6, 'lightning': 6, 'goblin-giant': 6, 'x-bow': 6,

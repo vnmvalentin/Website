@@ -1,5 +1,79 @@
 export const NEWS_UPDATES = [
   {
+    date: "06.08.2026",
+    version: "v6.4: Win-Challenge überarbeitet, Stream-Statistik & Raid-Clips",
+    sections: [
+      {
+        title: "Win-Challenge — Overlay-Darstellung",
+        items: [
+          "Lange Challenge-Namen haben die Zähler-Anzeige zusammengedrückt, bis „42 / 100“ auf zwei Zeilen umbrach. Jetzt bricht der Name früher um, der Zähler bleibt einzeilig und mittig",
+          "Erledigte Challenges bekommen einen grünen Haken hinter dem Eintrag. Der Platz dafür ist immer reserviert, damit die Zeile beim Abhaken nicht springt",
+          "Der Haken sieht überall gleich aus. Challenges ohne Zähler hatten vorher ein umrandetes Kästchen, Challenges mit Zähler einen freistehenden Haken — dasselbe Ergebnis in zwei Darstellungen",
+          "Eckenradius steht bei neuen Overlays jetzt auf 0. Innenliegende Ecken folgen dem Wert mit: vorher blieben Zeilen und Zähler rund, auch wenn die Box eckig war",
+        ]
+      },
+      {
+        title: "Win-Challenge — Deckkraft je Fläche",
+        items: [
+          "Hintergrund, Header, Challenge-Zeilen, Zähler und Timer-Leiste haben jetzt jeweils einen eigenen Regler. „Hintergrund“ betrifft nur noch die Fläche um die Zeilen herum",
+          "Vorher lag eine einzige Ebene über die ganze Box — auch unter Header und Timer. Deren Deckkraft ließ sich dadurch nie ganz herunterziehen: Timer auf 0 % blieb sichtbar, weil der Hintergrund durchschien. Jetzt füllt jeder Abschnitt nur seine eigene Fläche und jeder Regler erreicht 0",
+          "An bestehenden Overlays ändert sich nichts: fehlende Werte übernehmen die bisherige Hintergrund-Deckkraft des jeweiligen Overlays",
+        ]
+      },
+      {
+        title: "Win-Challenge — Editor",
+        items: [
+          "Die Design-Seite empfing einen mit zehn Reglern und sechs Farbfeldern gleichzeitig. Jetzt stehen dort sechs fertige Vorlagen zum Anklicken (Twitch, Mitternacht, Hell, Neon, Wald, Sand) und darunter zugeklappte Abschnitte, die im geschlossenen Zustand ihren aktuellen Wert anzeigen",
+          "Farben sind auf Hintergrund, Text und Akzent reduziert; Header-, Zeilen- und Titelfarbe liegen hinter einem Aufklapper",
+          "Challenges umsortieren zeigt jetzt, was passiert: eine Einfügemarke ober- oder unterhalb der Zielzeile, die gezogene Zeile wird abgedunkelt. Die Einfügeposition richtet sich danach, in welcher Hälfte du loslässt — vorher landete der Eintrag immer an der Position des Ziels",
+          "Zusätzlich Pfeiltasten je Zeile, falls Ziehen unpraktisch ist",
+          "Das Dashboard wurde auf 1366×768, 1920×1080 und 2560×1440 nachgemessen — kein seitliches Scrollen, nichts unterhalb des Bildrands",
+        ]
+      },
+      {
+        title: "Win-Challenge — Chat-Bot",
+        items: [
+          "Der Bot hat jede Chatnachricht durch die volle Verarbeitung geschickt, bevor er prüfte, ob es überhaupt ein Befehl ist. Diese Prüfung steht jetzt an erster Stelle — normale Chatnachrichten kosten dadurch rund 650-mal weniger Rechenzeit. Gespeichert wurde dabei nie etwas, weder vorher noch jetzt",
+          "In Chats von Overlays, die seit 14 Tagen kein Lebenszeichen hatten, liest der Bot nicht mehr mit",
+          "Antworten laufen jetzt über eine Warteschlange mit Twitch-konformem Tempo. Vorher ging bei mehreren Befehlen kurz hintereinander alles gleichzeitig raus und lief ins Limit — die Antworten kamen dann gar nicht an",
+          "Ist derselbe Kanal in mehreren Overlays eingetragen, wird das jetzt gemeldet. Befehle wirkten dort still nur auf das erste",
+        ]
+      },
+      {
+        title: "Twitch-Overlay-Tools — Neu: Stream-Statistik",
+        items: [
+          "Neues Modul „Dieser Stream“: Follows, Abos, Bits, Zuschauer, Höchststand und Laufzeit seit Sendungsbeginn — jede Zahl einzeln ein- und ausblendbar",
+          "Follows werden als Abstand zum Stand bei Sendungsbeginn berechnet. Abos und Bits kommen dagegen als Ereignis aus dem Chat, weil eine ausgelaufene Mitgliedschaft die Gesamtzahl nach unten zieht — ein neues Abo in dieser Sendung ist trotzdem eins",
+          "Die Zähler lassen sich jederzeit von Hand zurücksetzen, und das Widget kann sich außerhalb der Sendung selbst ausblenden",
+          "Anordnung wahlweise als Zeile oder Raster",
+        ]
+      },
+      {
+        title: "Twitch-Overlay-Tools — Neu: Clip des Raiders",
+        items: [
+          "Raidet dich jemand, spielt das Overlay automatisch einen Clip aus dessen Kanal ab",
+          "Einstellbarer Vorlauf, damit dein eigener Raid-Alert vorher ausreden kann; zu lange Clips werden gekürzt",
+          "Mindestzahl an Zuschauern einstellbar, damit nicht jeder kleine Raid einen Clip auslöst",
+          "Raids, Cheers und Abos sieht nur der Chat-Bot — steht er nicht im Kanal, weist das Dashboard bei beiden Modulen darauf hin, statt sie stillschweigend leer zu lassen",
+        ]
+      },
+      {
+        title: "Twitch-Overlay-Tools — Ziele",
+        items: [
+          "Follower- und Abo-Ziele gibt es jetzt in drei Formen: ausführlich mit großer Zahl, kompakt oder nur als Balken",
+          "Beim Abo-Ziel ist jetzt wählbar, ob Abo-Punkte oder die reine Anzahl gezählt werden — und ob nur die in dieser Sendung dazugekommenen",
+        ]
+      },
+      {
+        title: "Blobby Volley vorübergehend geschlossen",
+        items: [
+          "Blobby Volley wird überarbeitet und ist bis auf Weiteres im Menü gesperrt. Das Spiel bleibt über den direkten Link erreichbar, taucht in der Navigation aber nur noch als Schloss auf",
+          "Steuerung dabei geändert: Springen liegt jetzt auf W bzw. Pfeil hoch, die Leertaste setzt das gesammelte Powerup ein",
+        ]
+      },
+    ]
+  },
+  {
     date: "03.08.2026",
     version: "v6.3: Blobby Volley & Clash Royale von Grund auf überarbeitet",
     sections: [

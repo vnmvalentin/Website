@@ -1,5 +1,18 @@
 // engine/InputHandler.js
 // Smooth movement with diagonal support and input buffering
+
+/**
+ * Tippt der Spieler gerade in ein Eingabefeld?
+ * Ohne diese Pruefung laeuft die Figur beim Schreiben einer Nachricht los —
+ * jedes "w" im Text war zugleich ein Schritt nach oben.
+ */
+function schreibtGerade(e) {
+    const el = e.target;
+    if (!el || el === window || el === document) return false;
+    const tag = (el.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable === true;
+}
+
 export default class InputHandler {
     constructor() {
         this.keys = new Set();
@@ -8,12 +21,19 @@ export default class InputHandler {
         this._pendingRemove = new Set();
 
         this._onKeyDown = (e) => {
+            if (schreibtGerade(e)) return;
             if (!this.keys.has(e.key.toLowerCase())) {
                 this._pendingAdd.add(e.key.toLowerCase());
             }
         };
         this._onKeyUp = (e) => {
+            // Losgelassen wird IMMER verarbeitet: sonst bleibt eine Taste haengen,
+            // die vor dem Klick ins Feld gedrueckt wurde, und die Figur laeuft ewig.
             this._pendingRemove.add(e.key.toLowerCase());
+        };
+        // Fokus in ein Eingabefeld: alles loslassen, was noch gedrueckt ist.
+        this._onFocusIn = (e) => {
+            if (schreibtGerade(e)) this._onBlur();
         };
         this._onBlur = () => {
             this._pendingAdd.clear();
@@ -24,6 +44,7 @@ export default class InputHandler {
         window.addEventListener("keydown", this._onKeyDown);
         window.addEventListener("keyup", this._onKeyUp);
         window.addEventListener("blur", this._onBlur);
+        window.addEventListener("focusin", this._onFocusIn);
     }
 
     destroy() {
@@ -31,9 +52,11 @@ export default class InputHandler {
             window.removeEventListener("keydown", this._onKeyDown);
             window.removeEventListener("keyup", this._onKeyUp);
             window.removeEventListener("blur", this._onBlur);
+            window.removeEventListener("focusin", this._onFocusIn);
             this._onKeyDown = null;
             this._onKeyUp = null;
             this._onBlur = null;
+            this._onFocusIn = null;
         }
         this.keys.clear();
         this.justPressed.clear();

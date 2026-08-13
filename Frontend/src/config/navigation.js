@@ -53,6 +53,10 @@ export const NAV_CATEGORIES = [
         description: "Vier Gewinnt gegen einen Freund — Link teilen und direkt loslegen.",
       },
       {
+        // Die Sperre ist gefallen: Grund war nicht der Spielcode, sondern der alte Host, der
+        // die VM bis 245 ms einfror. Auf der neuen Maschine misst loopProbe.js 1,2 ms typisch
+        // und null Blockaden > 40 ms. `locked`/`lockedNote` bleiben in Layout/CategoryPage
+        // unterstützt, falls wieder einmal ein Punkt still gelegt werden muss.
         label: "Blobby Volley",
         to: "/blobby",
         icon: Volleyball,
@@ -132,10 +136,10 @@ export const NAV_CATEGORIES = [
         description: "Individuelles OBS-Overlay mit Timer, Zählern und Chat-Befehlen.",
       },
       {
-        label: "Abstimmungen & Vorhersagen",
+        label: "Twitch-Overlay-Tools",
         to: "/twitch-tools",
         icon: BarChart3,
-        description: "Twitch-Umfragen und Vorhersagen visualisieren — mit animiertem OBS-Overlay.",
+        description: "Umfragen, Vorhersagen, Ziele und Stream-Statistik als OBS-Overlay.",
       },
       {
         label: "Bingo-Card Generator",

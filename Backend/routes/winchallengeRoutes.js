@@ -3,6 +3,8 @@ const { nanoid } = require("nanoid");
 const {
   loadAllDocsObject,
   persistAllDocsObject,
+  saveDoc,
+  deleteDoc,
 } = require("../lib/winchallengeStore");
 
 // ===== DB (RAM-Cache + Speichern in SQLite via winchallengeStore) =====
@@ -83,6 +85,14 @@ function setUserDoc(userId, nextDoc) {
   // Aufrufer mehr vergessen.
   nextDoc.updatedAt = Date.now();
 
+  // Ein Schreibvorgang ist Aktivität — egal ob er von der Einstellungsseite,
+  // der Control-Seite oder einem Chat-Kommando kommt. Ohne das hier zählte
+  // ausschließlich "OBS-Browserquelle war offen" als Lebenszeichen, und wer
+  // seine Challenge baute, ohne OBS zu starten, fiel in den Inaktivitäts-
+  // Cleanup. Gleichzeitig fällt eine bereits vorgemerkte Löschung weg.
+  nextDoc.lastActiveAt = nextDoc.updatedAt;
+  nextDoc.pendingDeleteAt = 0;
+
   const prev = dbCache[userId];
 
   if (prev?.overlayKey && overlayIndex.get(prev.overlayKey) === userId) {
@@ -135,7 +145,7 @@ const DEFAULT_STYLE = {
   textColor: "#ffffff",
   accent: "#9146FF",
   opacity: 0.6,
-  borderRadius: 12,
+  borderRadius: 0,
   scale: 1,
   boxWidth: 520,
   titleAlign: "left",
@@ -145,6 +155,15 @@ const DEFAULT_STYLE = {
   itemFontSize: 16,
   itemBg: "#151b2c",
   headerOpacity: 0.6,
+  // Eigene Deckkraft je Fläche. opacity deckt nur noch den Bereich um die
+  // Zeilen herum ab; Zeilen, Zähler und Timer werden getrennt geregelt.
+  // Die Vorgaben entsprechen genau dem bisherigen Aussehen.
+  //
+  // itemOpacity und timerOpacity stehen bewusst NICHT hier: ihr Rückfallwert
+  // ist die jeweilige Box-Deckkraft des Dokuments, nicht eine feste Zahl. Ein
+  // Wert an dieser Stelle würde beim Zusammenführen gewinnen und Bestandsdaten
+  // überschreiben.
+  counterOpacity: 0.06,
 };
 
 const DEFAULT_TIMER = {
@@ -203,14 +222,20 @@ function normalizeChatCommands(cc) {
 function normalizeStyle(style) {
   const s = { ...DEFAULT_STYLE, ...style };
 
-  const baseOpacity = Math.min(1, Math.max(0, Number(s.opacity ?? 0.6)));
-  s.opacity = baseOpacity;
-  s.headerOpacity = Math.min(
-    1,
-    Math.max(0, Number(s.headerOpacity ?? baseOpacity))
-  );
+  const clampAlpha = (v, fallback) =>
+    Math.min(1, Math.max(0, Number(v ?? fallback)));
 
-  s.borderRadius = Math.max(0, parseInt(s.borderRadius ?? 12, 10));
+  const baseOpacity = clampAlpha(s.opacity, 0.6);
+  s.opacity = baseOpacity;
+  s.headerOpacity = clampAlpha(s.headerOpacity, baseOpacity);
+  // Bestandsdaten kennen itemOpacity nicht — dort galt die Box-Deckkraft auch
+  // für die Zeilen. Geprüft wird der Rohwert, nicht der mit DEFAULT_STYLE
+  // zusammengeführte, sonst ginge der dokumenteigene Rückfallwert verloren.
+  s.itemOpacity = clampAlpha(style?.itemOpacity, baseOpacity);
+  s.timerOpacity = clampAlpha(style?.timerOpacity, baseOpacity);
+  s.counterOpacity = clampAlpha(s.counterOpacity, 0.06);
+
+  s.borderRadius = Math.max(0, parseInt(s.borderRadius ?? 0, 10));
   s.scale = Number(s.scale ?? 1);
   // Muss zum Frontend-Slider passen (max 1000), sonst springt der Regler zurück
   s.boxWidth = Math.min(1600, Math.max(280, parseInt(s.boxWidth ?? 520, 10)));
@@ -284,6 +309,20 @@ function pagerFromAnimation(animation, pagerRaw) {
  */
 function ensureDocShape(input = {}) {
   const doc = { ...input };
+  const updatedAtRaw =
+    Number.isFinite(Number(doc.updatedAt)) && Number(doc.updatedAt) > 0
+      ? Number(doc.updatedAt)
+      : Date.now();
+
+  // lastActiveAt löst das alte lastOverlayAccessAt ab: Letzteres wurde nur vom
+  // Overlay-Abruf gesetzt, ersteres von jeder Form von Aktivität. Altbestände
+  // erben den höheren der beiden bekannten Werte, damit die Umstellung keinem
+  // Datensatz Lebenszeit wegnimmt.
+  const lastActiveAt = Math.max(
+    Number(doc.lastActiveAt) || 0,
+    Number(doc.lastOverlayAccessAt) || 0,
+    updatedAtRaw
+  );
 
   if (!doc.overlayKey) doc.overlayKey = nanoid(12);
   if (!doc.controlKey) doc.controlKey = nanoid(12);
@@ -317,60 +356,178 @@ function ensureDocShape(input = {}) {
       Number.isFinite(Number(doc.refreshNonce)) && Number(doc.refreshNonce) > 0
         ? Number(doc.refreshNonce)
         : 1,
-    updatedAt:
-      Number.isFinite(Number(doc.updatedAt)) && Number(doc.updatedAt) > 0
-        ? Number(doc.updatedAt)
-        : Date.now(),
-    // Für den 14-Tage-Inaktivitäts-Cleanup — darf beim Neuformen nicht verloren gehen
+    updatedAt: updatedAtRaw,
+    // Für den Inaktivitäts-Cleanup — dürfen beim Neuformen nicht verloren gehen
+    lastActiveAt,
     lastOverlayAccessAt: Number(doc.lastOverlayAccessAt) || 0,
+    pendingDeleteAt: Number(doc.pendingDeleteAt) || 0,
   };
 }
 
-// ===== 14-Tage-Inaktivitäts-Cleanup =====
-// Das Overlay-GET (OBS pollt sekündlich) stempelt lastOverlayAccessAt — persistiert
-// aber höchstens einmal pro Stunde, um SQLite nicht mit jedem Poll zu beschreiben.
+// ===== Inaktivitäts-Cleanup =====
+//
+// Als Aktivität zählt jeder Abruf (Overlay in OBS, Control-Seite, eigene
+// Einstellungsseite) und jeder Schreibvorgang (siehe setUserDoc). Abrufe
+// stempeln höchstens einmal pro Stunde, damit der sekündliche OBS-Poll nicht
+// dauernd SQLite beschreibt.
 const ACCESS_TOUCH_INTERVAL_MS = 60 * 60 * 1000; // 1h
-const INACTIVITY_LIMIT_MS = 14 * 24 * 60 * 60 * 1000; // 14 Tage
+const INACTIVITY_LIMIT_MS = 14 * 24 * 60 * 60 * 1000; // 14 Tage bis zur Vormerkung
+const DELETE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // + 7 Tage bis zur Löschung
 const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // alle 6h prüfen
 
-function touchOverlayAccess(userId) {
+// Schutzschalter gegen Massenlöschung: Mehr als das darf ein einzelner Lauf
+// nicht anfassen. Genau dieser Fall ist eingetreten — eine einzige Ausführung
+// hat über 150 Overlays auf einmal entfernt, weil alle denselben Stempel
+// hatten. Reißt ein Lauf die Grenze, passiert nichts und es gibt eine laute
+// Logzeile: dann stimmt etwas mit den Zeitstempeln nicht, nicht mit den Nutzern.
+const CLEANUP_MAX_BATCH = 20;
+const CLEANUP_MAX_SHARE = 0.25;
+
+/**
+ * Effektiver Aktivitätszeitpunkt eines Dokuments.
+ *
+ * Bewusst das Maximum aus allen bekannten Signalen: lastOverlayAccessAt ist der
+ * Altbestand, lastActiveAt der neue Sammelstempel, updatedAt belegt eine echte
+ * Bearbeitung. Fehlt ein Signal, darf das die anderen nicht überstimmen.
+ */
+function lastActivityOf(doc) {
+  if (!doc || typeof doc !== "object") return 0;
+  return Math.max(
+    Number(doc.lastActiveAt) || 0,
+    Number(doc.lastOverlayAccessAt) || 0,
+    Number(doc.updatedAt) || 0
+  );
+}
+
+/**
+ * Aktivität eines Nutzers vermerken (gedrosselt, Einzelzeilen-Schreibzugriff).
+ * @param {string} userId
+ */
+function touchActivity(userId) {
   const db = loadDb();
   const doc = db[userId];
   if (!doc) return;
-  const last = Number(doc.lastOverlayAccessAt) || 0;
   const now = Date.now();
-  if (now - last < ACCESS_TOUCH_INTERVAL_MS) return;
-  doc.lastOverlayAccessAt = now;
-  saveDb(db);
+  if (now - (Number(doc.lastActiveAt) || 0) < ACCESS_TOUCH_INTERVAL_MS) return;
+
+  doc.lastActiveAt = now;
+  doc.lastOverlayAccessAt = now; // Altfeld mitführen, falls noch etwas darauf schaut
+  if (doc.pendingDeleteAt) {
+    console.log(
+      `[winchallenge] Löschvormerkung für ${userId} (${doc.hostName || "?"}) aufgehoben — wieder aktiv.`
+    );
+    doc.pendingDeleteAt = 0;
+  }
+
+  // Einzelne Zeile schreiben statt der ganzen Tabelle (siehe saveDoc).
+  try {
+    saveDoc(userId, doc);
+  } catch (e) {
+    console.error("[winchallenge] touchActivity save failed:", e.message);
+  }
 }
 
 function runInactivityCleanup() {
   const db = loadDb();
   const now = Date.now();
-  let touched = 0;
-  let removed = 0;
+  const total = Object.keys(db).length;
+  const pending = [];
+  const doomed = [];
+
   for (const [uid, doc] of Object.entries(db)) {
     if (!doc || typeof doc !== "object") continue;
-    const last = Number(doc.lastOverlayAccessAt) || 0;
-    if (!last) {
-      // Bestandsdaten ohne Zeitstempel: Gnadenfrist ab jetzt — nichts wird
-      // direkt nach einem Deploy gelöscht, die 14 Tage starten neu.
-      doc.lastOverlayAccessAt = now;
-      touched++;
+
+    const due = Number(doc.pendingDeleteAt) || 0;
+    if (due) {
+      if (now >= due) doomed.push([uid, doc]);
       continue;
     }
-    if (now - last > INACTIVITY_LIMIT_MS) {
-      delete db[uid];
-      removed++;
+
+    const last = lastActivityOf(doc);
+    // Kein einziger verwertbarer Zeitstempel: Stempel setzen, sonst nichts.
+    if (!last) {
+      doc.lastActiveAt = now;
+      doc.lastOverlayAccessAt = now;
+      try {
+        saveDoc(uid, doc);
+      } catch (e) {
+        console.error("[winchallenge] cleanup seed failed:", e.message);
+      }
+      continue;
+    }
+
+    if (now - last > INACTIVITY_LIMIT_MS) pending.push([uid, doc]);
+  }
+
+  // Phase 1: vormerken statt löschen. Die eigentliche Löschung passiert
+  // frühestens DELETE_GRACE_MS später — bis dahin reicht ein einziger Abruf
+  // oder eine Änderung, um sie wieder aufzuheben.
+  for (const [uid, doc] of pending) {
+    doc.pendingDeleteAt = now + DELETE_GRACE_MS;
+    try {
+      saveDoc(uid, doc);
+    } catch (e) {
+      console.error("[winchallenge] cleanup mark failed:", e.message);
     }
   }
-  if (removed > 0) rebuildIndexes();
-  if (touched > 0 || removed > 0) {
-    saveDb(db);
+  if (pending.length > 0) {
+    const graceDays = Math.round(DELETE_GRACE_MS / 86400000);
     console.log(
-      `[winchallenge] Inaktivitäts-Cleanup: ${removed} Overlay(s) entfernt, ${touched} Zeitstempel initialisiert.`
+      `[winchallenge] Inaktivitäts-Cleanup: ${pending.length} Overlay(s) zur Löschung in ${graceDays} Tagen vorgemerkt: ` +
+        pending
+          .map(([uid, d]) => `${uid} (${d.hostName || "?"}, ${d.items?.length || 0} Items)`)
+          .join(", ")
     );
   }
+
+  if (doomed.length === 0) return;
+
+  // Phase 2: löschen — aber nie mehr als der Schutzschalter erlaubt.
+  const cap = Math.max(CLEANUP_MAX_BATCH, Math.floor(total * CLEANUP_MAX_SHARE));
+  if (doomed.length > cap) {
+    console.error(
+      `[winchallenge] Inaktivitäts-Cleanup ABGEBROCHEN: ${doomed.length} von ${total} Overlay(s) wären auf einmal gelöscht worden (Grenze ${cap}). ` +
+        `Es wurde nichts entfernt — bitte die Zeitstempel prüfen.`
+    );
+    return;
+  }
+
+  for (const [uid, doc] of doomed) {
+    delete db[uid];
+    try {
+      deleteDoc(uid);
+    } catch (e) {
+      console.error("[winchallenge] cleanup delete failed:", e.message);
+    }
+    console.log(
+      `[winchallenge] Overlay entfernt: ${uid} (${doc.hostName || "?"}, ${doc.items?.length || 0} Items, ` +
+        `zuletzt aktiv ${new Date(lastActivityOf(doc)).toISOString()})`
+    );
+  }
+  rebuildIndexes();
+  console.log(`[winchallenge] Inaktivitäts-Cleanup: ${doomed.length} Overlay(s) endgültig entfernt.`);
+}
+
+/**
+ * Auswertung der Aktivitäts-Zeitstempel (für das Admin-Panel).
+ * @returns {{total: number, entries: Array<object>}}
+ */
+function getInactivityReport() {
+  const db = loadDb();
+  const now = Date.now();
+  const entries = Object.entries(db).map(([uid, doc]) => {
+    const last = lastActivityOf(doc);
+    return {
+      userId: uid,
+      hostName: doc?.hostName || "Unknown",
+      items: Array.isArray(doc?.items) ? doc.items.length : 0,
+      lastActiveAt: last,
+      inactiveDays: last ? Math.floor((now - last) / 86400000) : null,
+      pendingDeleteAt: Number(doc?.pendingDeleteAt) || 0,
+    };
+  });
+  entries.sort((a, b) => (a.lastActiveAt || 0) - (b.lastActiveAt || 0));
+  return { total: entries.length, entries };
 }
 
 let cleanupTimerStarted = false;
@@ -423,7 +580,7 @@ function createWinchallengeRouter({ requireAuth } = {}) {
       return res.status(404).json({ error: "Overlay nicht gefunden" });
     }
 
-    touchOverlayAccess(userId);
+    touchActivity(userId);
     const doc = ensureDocShape(db[userId]);
     res.json(doc);
   });
@@ -447,6 +604,7 @@ function createWinchallengeRouter({ requireAuth } = {}) {
       return res.status(404).json({ error: "Control-Link nicht gefunden" });
     }
 
+    touchActivity(userId);
     const doc = ensureDocShape(db[userId]);
     res.json(doc);
   });
@@ -634,13 +792,16 @@ function createWinchallengeRouter({ requireAuth } = {}) {
     const db = loadDb();
     
     if (db[targetId]) {
+      const hostName = db[targetId].hostName || "?";
       delete db[targetId]; // Löscht aus dem RAM
       // Bereinigt die Indizes
       if (dbCache) delete dbCache[targetId];
-      rebuildIndexes(); 
-      
-      await saveDb(db); // Speichert RAM auf Platte
-      console.log(`User ${targetId} gelöscht und gespeichert.`);
+      rebuildIndexes();
+
+      deleteDoc(targetId); // Gezielt diese eine Zeile aus SQLite
+      console.log(
+        `[winchallenge] Overlay manuell gelöscht: ${targetId} (${hostName}) durch ${requesterId}.`
+      );
       return res.json({ ok: true });
     }
 
@@ -690,6 +851,7 @@ function createWinchallengeRouter({ requireAuth } = {}) {
         return res.json(freshDoc);
       }
 
+      touchActivity(twitchId);
       res.json(ensureDocShape(db[twitchId]));
     })
   );
@@ -786,7 +948,8 @@ async function removeWinchallengeUser(twitchId) {
   if (!db[twitchId]) return false;
   delete db[twitchId];
   rebuildIndexes();
-  await saveDb(db);
+  // Gezielt eine Zeile löschen statt die ganze Tabelle neu zu schreiben.
+  deleteDoc(twitchId);
   return true;
 }
 
@@ -807,5 +970,7 @@ createWinchallengeRouter.saveDb = saveDb;
 createWinchallengeRouter.removeWinchallengeUser = removeWinchallengeUser;
 createWinchallengeRouter.setUserAndSaveDoc = setUserAndSaveDoc;
 createWinchallengeRouter.ensureDocShape = ensureDocShape;
+createWinchallengeRouter.getInactivityReport = getInactivityReport;
+createWinchallengeRouter.touchActivity = touchActivity;
 
 module.exports = createWinchallengeRouter;

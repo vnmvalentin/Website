@@ -19,7 +19,7 @@
   <!-- ── Clash Royale ─────────────────────────────────────────────────────── -->
   <url>
     <loc>https://vnmvalentin.de/clash-royale</loc>
-    <lastmod>2026-07-28</lastmod>
+    <lastmod>2026-08-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="de" href="https://vnmvalentin.de/clash-royale"/>
@@ -28,7 +28,7 @@
   </url>
   <url>
     <loc>https://vnmvalentin.de/clash-royale?lang=en</loc>
-    <lastmod>2026-07-28</lastmod>
+    <lastmod>2026-08-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="de" href="https://vnmvalentin.de/clash-royale"/>
@@ -49,9 +49,9 @@
   </url>
   <url>
     <loc>https://vnmvalentin.de/twitch-tools</loc>
-    <lastmod>2026-07-29</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://vnmvalentin.de/nuzlocke</loc>
@@ -101,9 +101,9 @@
   </url>
   <url>
     <loc>https://vnmvalentin.de/WinChallenge-Overlay</loc>
-    <lastmod>2026-07-28</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <lastmod>2026-08-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://vnmvalentin.de/connect4</loc>

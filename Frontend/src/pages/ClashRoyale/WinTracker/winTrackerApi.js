@@ -31,6 +31,9 @@ export const refreshAccount = (accountId) =>
 export const setAccountTrackMode = (accountId, trackMode) =>
   apiFetch(`/api/cr-wintracker/accounts/${accountId}/track-mode`, { method: "PUT", body: JSON.stringify({ trackMode }) });
 
+export const setAccountLadderStep = (accountId, step) =>
+  apiFetch(`/api/cr-wintracker/accounts/${accountId}/ladder-step`, { method: "PUT", body: JSON.stringify({ step }) });
+
 export const saveSettings = (settings) =>
   apiFetch("/api/cr-wintracker/settings", { method: "PUT", body: JSON.stringify(settings) });
 

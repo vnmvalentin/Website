@@ -9,10 +9,11 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useStableState } from '../../utils/useStableState';
 import { getOverlayData } from './streamToolApi';
 import {
-  mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, useDemoSim, useLinger, paintDemo,
+  mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
+  useDemoSim, useLinger, paintDemo,
 } from './streamToolConfig';
 import {
-  PollWidget, PredictionWidget, GoalWidget, RaidClipWidget, WidgetFrame, STAGE_W, STAGE_H,
+  PollWidget, PredictionWidget, GoalWidget, RaidClipWidget, StatsWidget, WidgetFrame, STAGE_W, STAGE_H,
 } from './OverlayWidgets';
 
 const POLL_MS = 2000;
@@ -91,6 +92,7 @@ export default function PollsPredictionsOverlay() {
   const followerView = toGoalView('followerGoal', goals, m.followerGoal);
   const subView = toGoalView('subGoal', goals, m.subGoal);
   const raidView = toRaidView(demo ? sim.raid : payload?.raid, m.raidClip, now);
+  const statsView = toStatsView(demo ? sim.stats : payload?.stats, m.streamStats);
 
   // Nachlaufende Kopien, damit das Ausblenden sichtbar wird
   const pollHeld = useLinger(pollView);
@@ -120,6 +122,10 @@ export default function PollsPredictionsOverlay() {
 
         <WidgetFrame id="subGoal" module={m.subGoal} visible={!!subView && m.subGoal.enabled}>
           {subView && <GoalWidget data={subView} module={m.subGoal} />}
+        </WidgetFrame>
+
+        <WidgetFrame id="streamStats" module={m.streamStats} visible={!!statsView && m.streamStats.enabled}>
+          {statsView && <StatsWidget data={statsView} module={m.streamStats} />}
         </WidgetFrame>
 
         <WidgetFrame id="raidClip" module={m.raidClip} visible={!!raidView && m.raidClip.enabled}>

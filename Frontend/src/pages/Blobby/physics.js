@@ -1,17 +1,17 @@
 // Spiegel der Server-Physik aus Backend/routes/blobbyRoutes.js.
 //
-// Der Server bleibt die einzige Wahrheit — diese Kopie dient nur der Vorhersage im Client:
-// Der eigene Blob soll ohne Wartezeit auf die Tastatur reagieren, und Ball wie Gegner werden
-// um die gemessene Netzlaufzeit vorausgerechnet, damit alles zusammen den Stand von JETZT
-// zeigt statt den von vor 50 ms. Jeder Schnappschuss zieht die Vorhersage wieder gerade.
+// Der Server bleibt die einzige Wahrheit. Gespiegelt wird nur noch, was der Client für den
+// EIGENEN Blob braucht: Der soll ohne Wartezeit auf die Tastatur reagieren, also läuft er
+// lokal mit und wird von jedem Schnappschuss wieder geradegezogen.
 //
-// Die Ball-Blob-Kollision wird hier bewusst MITgerechnet: ohne sie fliegt der Ball lokal
-// erst durch den Blob hindurch und springt zwei Frames später zurück — genau das fühlt
-// sich wie eine falsche Hitbox an. Gezählt wird die Berührung trotzdem nur serverseitig.
+// Was hier NICHT mehr steht, ist die Ball-Blob-Kollision — der Ball ist ein entferntes
+// Objekt und wird zusammen mit den Gegnern aus den Schnappschüssen abgelesen (siehe unten
+// und den Kopf von BlobbyRoom.jsx). `stepBallFree` bleibt trotzdem: damit füllt der Client
+// eine Paketlücke ballistisch auf, statt den Ball in der Luft anzuhalten.
 //
 // Maßstab und Tempofaktor der Blobs (Powerups) kommen fertig aus dem Schnappschuss, die
 // Wirkdauer muss der Client also nicht nachrechnen.
-// Wer hier etwas ändert, muss es im Backend mitändern.
+// Wer an den hier gespiegelten Werten etwas ändert, muss es im Backend mitändern.
 
 export const WORLD_H = 600;
 export const GROUND_Y = 500;
@@ -33,12 +33,19 @@ const NET_DAMPING = 0.85;
 export const POWERUP_TYPES = ["speed", "grow", "shrink", "netHigh", "netLow"];
 export const POWERUP_RADIUS = 21;
 
+// Aufschlagball: Höhe und Versatz Richtung Netz. Genau über dem Kopf fliegt er beim
+// Sprung nur senkrecht hoch. Siehe Backend, dort stehen die Messungen.
+export const SERVE_BALL_HEIGHT = 220;
+export const SERVE_BALL_OFFSET = 25;
+
 export const BLOBBY_SPEED = 4.5;
 const BLOBBY_JUMP_ACCELERATION = 15.1;
 const BLOBBY_JUMP_BUFFER = 0.44;
 const GRAVITATION = 0.88;
 const BALL_GRAVITATION = 0.287;
-const BALL_COLLISION_VELOCITY = 13.125;
+// BALL_COLLISION_VELOCITY steht bewusst NICHT mehr hier: Der Abpraller wird nur noch im
+// Server gerechnet, und dort geht seit BLOB_MOMENTUM_TRANSFER auch die Anfahrgeschwindigkeit
+// des Blobs ein. Eine Kopie hier wäre eine stille Falschaussage.
 
 export const TICK_HZ = 75;
 export const TICK_MS = 1000 / TICK_HZ;
@@ -190,104 +197,16 @@ export function stepBallFree(ball, width, netX, netTop) {
   ballWorldCollision(ball, width, netX, netTop);
 }
 
-// ── Der Blob als EIN Körper ─────────────────────────────────────────────────
-// Kollidiert wird gegen die konvexe Hülle der beiden Kugeln (abgerundeter Kegel), nicht
-// gegen jede einzeln: An den Schnittpunkten der Kreise hätte die Vereinigung eine
-// einspringende Kante, und eine Auflösung gegen den Kopf setzt den Ball dort zwangsläufig
-// in die untere Kugel — er rutscht sichtbar durch. Konvex kann das nicht passieren.
-// Der gezeichnete Blob nutzt exakt dieselbe Form (siehe render.js).
-export function blobShape(b, scale) {
-  return {
-    ax: b.x, ay: b.y - BLOBBY_UPPER_SPHERE * scale, ar: BLOBBY_UPPER_RADIUS * scale,
-    bx: b.x, by: b.y + BLOBBY_LOWER_SPHERE * scale, br: BLOBBY_LOWER_RADIUS * scale,
-  };
-}
-
-// Vorzeichenbehafteter Abstand zur um `pad` aufgeblasenen Hülle plus Außennormale.
-export function blobDistance(px, py, s, pad) {
-  const R1 = s.ar + pad;
-  const R2 = s.br + pad;
-  let ux = s.bx - s.ax;
-  let uy = s.by - s.ay;
-  const L = Math.hypot(ux, uy) || 1e-6;
-  ux /= L; uy /= L;
-  const sinA = (R2 - R1) / L;
-  const cosA = Math.sqrt(Math.max(0, 1 - sinA * sinA));
-
-  const rx = px - s.ax;
-  const ry = py - s.ay;
-  const along = rx * ux + ry * uy;
-  const side = rx * -uy + ry * ux;
-  const reach = Math.abs(side) * sinA + along * cosA;
-
-  if (reach <= 0) {
-    const d = Math.hypot(rx, ry) || 1e-6;
-    return { d: d - R1, nx: rx / d, ny: ry / d };
-  }
-  if (reach >= L * cosA) {
-    const qx = px - s.bx, qy = py - s.by;
-    const d = Math.hypot(qx, qy) || 1e-6;
-    return { d: d - R2, nx: qx / d, ny: qy / d };
-  }
-  const sg = side < 0 ? -1 : 1;
-  const ex = -uy * sg, ey = ux * sg;
-  return {
-    d: Math.abs(side) * cosA - along * sinA - R1,
-    nx: ex * cosA - ux * sinA,
-    ny: ey * cosA - uy * sinA,
-  };
-}
-
-// Erste Berührung der Ballstrecke mit der Hülle (Kegelverfolgung, siehe Backend).
-export function sweepBlob(px, py, vx, vy, s, pad) {
-  let probe = blobDistance(px, py, s, pad);
-  if (probe.d <= 0) return { t: 0, d: probe.d, nx: probe.nx, ny: probe.ny };
-  const len = Math.hypot(vx, vy);
-  if (len < 1e-9) return null;
-  let t = 0;
-  for (let i = 0; i < 32; i++) {
-    t += probe.d / len;
-    if (t > 1) return null;
-    probe = blobDistance(px + vx * t, py + vy * t, s, pad);
-    if (probe.d <= 0.02) return { t, d: probe.d, nx: probe.nx, ny: probe.ny };
-  }
-  return null;
-}
-
-// Gibt zurück, ob der Ball in diesem Frame am Blob angelegen hat. `touching` ist der
-// Zustand aus dem letzten Frame und wird zurückgegeben, damit der Aufrufer ihn merkt.
-// `prev` ist der Startpunkt der Flugstrecke und wird bei einem Treffer auf den
-// Abprallpunkt gesetzt — der nächste Blob prüft dann gegen die neue Strecke.
-export function ballBlobCollision(ball, prev, b, scale, touching) {
-  const shape = blobShape(b, scale);
-  const hit = sweepBlob(prev.x, prev.y, ball.x - prev.x, ball.y - prev.y, shape, BALL_RADIUS);
-  const here = blobDistance(ball.x, ball.y, shape, BALL_RADIUS);
-  const blocked = touching && here.d <= 0.01;
-
-  if (hit && !blocked) {
-    const cx = prev.x + (ball.x - prev.x) * hit.t - hit.d * hit.nx;
-    const cy = prev.y + (ball.y - prev.y) * hit.t - hit.d * hit.ny;
-    ball.x = cx;
-    ball.y = cy;
-    prev.x = cx;
-    prev.y = cy;
-    ball.vx = hit.nx * BALL_COLLISION_VELOCITY;
-    ball.vy = hit.ny * BALL_COLLISION_VELOCITY;
-    ball.x += ball.vx;
-    ball.y += ball.vy;
-    return false;   // liegt nach dem Stoß weit draußen — Sperre sofort wieder frei
-  }
-
-  if (here.d < 0) {
-    ball.x -= here.d * here.nx;
-    ball.y -= here.d * here.ny;
-    return true;
-  }
-  return here.d <= 0.01;
-}
-
-export const inputFromMask = (m) => ({
-  left: !!(m & 1),
-  right: !!(m & 2),
-  jump: !!(m & 4),
-});
+// Ball-gegen-Blob wird im Client NICHT mehr gerechnet.
+//
+// Bis zur Netzcode-Umstellung lag hier eine Kopie der Server-Kollision (blobShape,
+// blobDistance, sweepBlob, ballBlobCollision), damit der eigene Abpraller sofort sichtbar
+// war. Der Ball ist inzwischen ein rein entferntes Objekt: er wird zusammen mit den
+// Gegnern aus den Schnappschüssen an einer gemeinsamen Uhr abgelesen (BlobbyRoom.jsx).
+//
+// Die Kopie wurde entfernt statt liegengelassen, weil sie inzwischen FALSCH wäre — der
+// Server rechnet die Anfahrgeschwindigkeit des Blobs mit in den Abpraller (siehe
+// BLOB_MOMENTUM_TRANSFER in blobbyRoutes.js), diese Fassung tat das nicht. Eine stille
+// Abweichung an genau der Stelle, an der beide Seiten übereinstimmen müssten, ist
+// gefährlicher als gar kein Code. Wer die Vorhersage je wiederbeleben will, holt sich die
+// aktuelle Fassung aus dem Backend.

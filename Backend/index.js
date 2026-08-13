@@ -30,7 +30,9 @@ const createDiscordRouter = require("./discord/api/index");
 const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./routes/clashRoyaleRoutes");
 const { registerArenaSocket, createArenaRouter } = require("./routes/adventureArenaRoutes");
 const { registerConnect4Socket } = require("./routes/connect4Routes");
-const { registerBlobbySocket } = require("./routes/blobbyRoutes");
+// Blobby Volley läuft NICHT hier, sondern als eigener Prozess: blobbyServer.js. Seine
+// 75-Hz-Physik verträgt den Event-Loop dieses Prozesses nicht, in dem Discord-Bot,
+// Twitch-IRC und synchrone SQLite-Schreibvorgänge stecken. Begründung dort im Kopf.
 const createCrStreamerRouter = require("./routes/crStreamerRoutes");
 const { initCrStreamerStore } = require("./lib/crStreamerStore");
 const createBannedCardsRouter = require("./routes/bannedCardsRoutes");
@@ -41,8 +43,12 @@ const createStreamToolRouter = require("./routes/streamToolRoutes");
 const { registerLiveBadgesSocket } = require("./lib/liveBadges");
 const { startModeScanner } = require("./clashRoyale/core/officialModeScanner");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
-const { saveAllFarmsOnExit, initGardenFarmsStore, farmStates } = require("./lib/gardenFarmsStore");
-const { runPlantMigration } = require("./lib/gardenMigration");
+const {
+    saveAllFarmsOnExit, initGardenFarmsStore, farmStates,
+    scheduleFarmsSave: scheduleFarmsSaveFuerMigration,
+} = require("./garden/store/farms");
+const { registerGardenSocket } = require("./garden/world/lobby");
+const { runGardenMigrations } = require("./garden/migrations");
 const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./lib/winchallengeStore");
 const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc } = require("./lib/winchallengeIrc");
 const { step } = require("./lib/startupLog");
@@ -309,11 +315,11 @@ io.on("connection", (socket) => {
     // adVentures PvPvE Arena
     registerArenaSocket(socket, io, getSessionFromSocket);
 
+    // Virtual Farm: dauerhafte 8-Plot-Welt (Slots, Anwesenheit, Positionen)
+    registerGardenSocket(socket, io, getSessionFromSocket, farmStates);
+
     // Connect4 (Vier Gewinnt) — Link-basierte 1v1-Räume
     registerConnect4Socket(socket, io);
-
-    // Blobby Volley — Link-basierte 1v1-Räume mit Echtzeitphysik
-    registerBlobbySocket(socket, io);
 
     // Abstimmungen/Giveaways: Vollpayload nur für die jeweilige Seite, sonst
     // nur der schlanke Nav-Punkt (siehe lib/liveBadges.js)
@@ -326,13 +332,13 @@ const PORT = process.env.PORT || 3001;
 (async () => {
   try {
     await initGardenFarmsStore();
-    const { migratedPlants, migratedUsers } = runPlantMigration(farmStates);
     step("Garden-DB", true);
-    step(
-      "Pflanzenmigration",
-      true,
-      migratedUsers > 0 ? `${migratedPlants} Pflanzen / ${migratedUsers} Spieler` : "keine Änderungen"
-    );
+    // Alle Umstellungen alter Spielstände in einem Durchgang. Reihenfolge und
+    // Protokollzeilen stehen in garden/migrations/index.js — jede läuft genau
+    // einmal je Spielstand (eigene Marke im Stand).
+    for (const zeile of runGardenMigrations(farmStates, { scheduleFarmsSave: scheduleFarmsSaveFuerMigration })) {
+      step(zeile.name, true, zeile.text);
+    }
   } catch (e) {
     step("Garden-DB", false, e.message);
     process.exit(1);

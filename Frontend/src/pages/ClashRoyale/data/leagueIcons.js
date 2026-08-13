@@ -13,3 +13,10 @@ export function leagueIconUrl(leagueNumber) {
 export function leagueName(leagueNumber) {
   return leagueNumber === ULTIMATE_CHAMPION_LEAGUE ? "Ultimate Champion" : leagueNumber >= 1 ? `Liga ${leagueNumber}` : "Trophäenstraße";
 }
+
+// Unterhalb von Ultimate Champion zählt die Ranked-Leiter keine Medaillen, sondern Stufen:
+// Liga 1-3 haben 11, Liga 4-6 haben 10. Erst in Liga 7 (UC) gibt es wieder Medaillen.
+const LEAGUE_STEPS = { 1: 11, 2: 11, 3: 11, 4: 10, 5: 10, 6: 10 };
+
+/** Anzahl der Stufen dieser Liga, 0 ab Ultimate Champion und außerhalb von Ranked. */
+export const leagueStepCount = (leagueNumber) => LEAGUE_STEPS[Number(leagueNumber)] || 0;

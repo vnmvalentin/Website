@@ -84,10 +84,61 @@ function loadAllDocsObject() {
 }
 
 /**
+ * Ein einzelnes Dokument schreiben.
+ *
+ * persistAllDocsObject() räumt die ganze Tabelle ab und schreibt sie neu — für
+ * das stündliche Aktivitäts-Update eines einzelnen Overlays ist das absurd
+ * teuer (bei 150 Einträgen 150 Vollschreibungen pro Stunde). Für Schreibpfade,
+ * die genau einen Nutzer betreffen, gibt es deshalb diesen Weg.
+ * @param {string} userId
+ * @param {object} doc
+ */
+function saveDoc(userId, doc) {
+  if (!_db || !doc || typeof doc !== "object") return;
+  _db.prepare(
+    "INSERT OR REPLACE INTO winchallenge_users (user_id, data, overlay_key, control_key) VALUES (?, ?, ?, ?)"
+  ).run(
+    String(userId),
+    JSON.stringify(doc),
+    String(doc.overlayKey || ""),
+    String(doc.controlKey || "")
+  );
+}
+
+/**
+ * Ein einzelnes Dokument löschen.
+ * @param {string} userId
+ * @returns {boolean} true, wenn eine Zeile entfernt wurde
+ */
+function deleteDoc(userId) {
+  if (!_db) return false;
+  const info = _db
+    .prepare("DELETE FROM winchallenge_users WHERE user_id = ?")
+    .run(String(userId));
+  return info.changes > 0;
+}
+
+/**
  * Vollständiges Objekt in die DB schreiben (entspricht früherem writeDbAtomic).
  */
 function persistAllDocsObject(obj) {
   if (!_db) return;
+
+  // Schutzschalter: Diese Funktion leert die Tabelle, bevor sie neu schreibt.
+  // Käme hier je ein leeres Objekt an (nicht geladener Cache, Fehler im
+  // Aufrufer), wäre der komplette Bestand weg. Ein leerer Schreibvorgang auf
+  // eine gefüllte Tabelle ist nie beabsichtigt.
+  const entries = Object.entries(obj || {});
+  if (entries.length === 0) {
+    const have = rowCount();
+    if (have > 0) {
+      console.error(
+        `[winchallenge] Schreibvorgang mit leerem Objekt abgelehnt — ${have} Zeile(n) bleiben erhalten.`
+      );
+      return;
+    }
+  }
+
   const insert = _db.prepare(
     "INSERT OR REPLACE INTO winchallenge_users (user_id, data, overlay_key, control_key) VALUES (?, ?, ?, ?)"
   );
@@ -98,7 +149,7 @@ function persistAllDocsObject(obj) {
       insert.run(userId, JSON.stringify(doc), String(doc.overlayKey || ""), String(doc.controlKey || ""));
     }
   });
-  run(Object.entries(obj || {}));
+  run(entries);
 }
 
 function initWinchallengeStore() {
@@ -149,6 +200,8 @@ module.exports = {
   initWinchallengeStore,
   loadAllDocsObject,
   persistAllDocsObject,
+  saveDoc,
+  deleteDoc,
   getDb,
   getDbPath: () => DB_PATH,
   saveAllOnExit,

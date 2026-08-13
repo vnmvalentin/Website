@@ -34,6 +34,14 @@ try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN season_medals INTEG
 // aus cr_wintracker_settings.track_mode (so verhalten sich Accounts von vor dieser Spalte weiter wie bisher).
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN track_mode TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 
+// Ankerpunkt der Ranked-Leiter (Ligen 1-6): unterhalb von Ultimate Champion gibt es keine
+// Medaillen, sondern Stufen. Die API liefert die aktuelle Stufe nicht mit, deshalb zählen wir
+// sie selbst aus dem Battlelog — ab ladder_anchor_ms, beginnend bei ladder_step in ladder_league.
+// Der Anker wird neu gesetzt, wenn der Nutzer die Stufe korrigiert oder die Liga wechselt.
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN ladder_step INTEGER NOT NULL DEFAULT 1"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN ladder_league INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN ladder_anchor_ms INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+
 // Gesammelter Verlauf einzelner Spiele — wird bei jedem Sync um neue Battlelog-Einträge
 // ergänzt (INSERT OR IGNORE via UNIQUE(account_id, battle_time)). Die offizielle API liefert
 // nur die letzten ~25 Spiele, deshalb müssen wir selbst mitschreiben, um Tagesstatistiken über
@@ -63,11 +71,15 @@ db.exec(`CREATE TABLE IF NOT EXISTS cr_wintracker_settings (
     track_mode TEXT NOT NULL DEFAULT 'medals',
     bg_color TEXT NOT NULL DEFAULT '#0c0c12',
     bg_opacity INTEGER NOT NULL DEFAULT 88,
+    last5_as_result INTEGER NOT NULL DEFAULT 1,
     updated_at INTEGER NOT NULL DEFAULT 0
 )`);
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN track_mode TEXT NOT NULL DEFAULT 'medals'"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN show_last5 INTEGER NOT NULL DEFAULT 1"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN bg_color TEXT NOT NULL DEFAULT '#0c0c12'"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN bg_opacity INTEGER NOT NULL DEFAULT 88"); } catch { /* Spalte existiert bereits */ }
+// Letzte 5 Spiele als "Win"/"Lose" statt als Medaillen-Änderung — in den Stufen-Ligen ist die
+// Änderung immer 0, dort erzwingt das Overlay die Text-Variante ohnehin.
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN last5_as_result INTEGER NOT NULL DEFAULT 1"); } catch { /* Spalte existiert bereits */ }
 
 module.exports = db;

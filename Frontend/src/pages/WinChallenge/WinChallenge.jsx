@@ -9,6 +9,9 @@ import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { nanoid } from "nanoid";
 import SEO from "../../components/SEO";
 import { CHAT_COMMAND_DOCS } from "./chatCommands";
+import WinChallengeSeoContent from "./seoContent";
+import { WC_TITLE, WC_DESCRIPTION, WC_KEYWORDS } from "./seoData";
+import { buildWinChallengeJsonLd } from "./jsonLd";
 import {
   Trophy,
   Palette,
@@ -32,6 +35,8 @@ import {
   Clock,
   X,
   Hash,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 // --- HELPER FUNCTIONS ---
@@ -88,9 +93,14 @@ function normalizeChannelName(v) {
 // --- DEFAULTS & NORMALIZERS ---
 const DEFAULT_STYLE = {
   boxBg: "#0B0F1A", textColor: "#ffffff", accent: "#9146FF", opacity: 0.6,
-  borderRadius: 12, scale: 1.0, boxWidth: 280, titleAlign: "left",
+  borderRadius: 0, scale: 1.0, boxWidth: 280, titleAlign: "left",
   titleColor: "#ffffff", headerBg: "#0B0F1A", headerOpacity: 0.9,
   titleFontSize: 18, itemFontSize: 16, itemBg: "#151b2c",
+  // Eigene Deckkraft je Fläche — opacity deckt nur den Bereich um die Zeilen ab.
+  // itemOpacity und timerOpacity fehlen hier absichtlich: ihr Rückfallwert ist
+  // die Box-Deckkraft des Dokuments, ein fester Wert würde Bestandsdaten
+  // überschreiben.
+  counterOpacity: 0.06,
 };
 const DEFAULT_TIMER = { running: false, startedAt: 0, elapsedMs: 0, visible: true };
 const DEFAULT_PAGER = { enabled: false, pageSize: 5, intervalSec: 20 };
@@ -150,9 +160,16 @@ function normalizeStyle(style) {
   const s = { ...DEFAULT_STYLE, ...(style || {}) };
   s.boxBg = hex3to6(s.boxBg); s.textColor = hex3to6(s.textColor); s.accent = hex3to6(s.accent);
   s.headerBg = hex3to6(s.headerBg); s.titleColor = hex3to6(s.titleColor); s.itemBg = hex3to6(s.itemBg);
-  s.opacity = Math.min(1, Math.max(0, Number(s.opacity ?? 0.6)));
-  s.headerOpacity = Math.min(1, Math.max(0, Number(s.headerOpacity ?? s.opacity)));
-  s.borderRadius = Math.max(0, parseInt(s.borderRadius ?? 12, 10));
+  const clampAlpha = (v, fallback) => Math.min(1, Math.max(0, Number(v ?? fallback)));
+  s.opacity = clampAlpha(s.opacity, 0.6);
+  s.headerOpacity = clampAlpha(s.headerOpacity, s.opacity);
+  // Bestandsdaten kennen itemOpacity nicht — dort galt die Box-Deckkraft auch
+  // für die Zeilen. Geprüft wird der Rohwert, nicht der mit DEFAULT_STYLE
+  // zusammengeführte, sonst ginge der dokumenteigene Rückfallwert verloren.
+  s.itemOpacity = clampAlpha(style?.itemOpacity, s.opacity);
+  s.timerOpacity = clampAlpha(style?.timerOpacity, s.opacity);
+  s.counterOpacity = clampAlpha(s.counterOpacity, 0.06);
+  s.borderRadius = Math.max(0, parseInt(s.borderRadius ?? 0, 10));
   s.scale = Number(s.scale ?? 1);
   s.boxWidth = Math.min(1600, Math.max(280, parseInt(s.boxWidth ?? 520, 10)));
   s.titleFontSize = Math.max(10, Math.min(48, parseInt(s.titleFontSize ?? 20, 10)));
@@ -197,6 +214,63 @@ const ColorPicker = ({ label, value, onChange }) => (
   </div>
 );
 
+/**
+ * Fertige Farbkombinationen. Der Design-Tab überfordert vor allem deshalb, weil
+ * man sechs Farben einzeln treffen muss, bevor irgendetwas gut aussieht — mit
+ * einem Klick ist man dagegen sofort an einem brauchbaren Ausgangspunkt.
+ */
+const STYLE_PRESETS = [
+  {
+    id: "twitch",
+    label: "Twitch",
+    style: { boxBg: "#0B0F1A", headerBg: "#18122B", itemBg: "#1B1730", textColor: "#ffffff", titleColor: "#ffffff", accent: "#9146FF" },
+  },
+  {
+    id: "mitternacht",
+    label: "Mitternacht",
+    style: { boxBg: "#05070D", headerBg: "#0B1220", itemBg: "#111827", textColor: "#E5E7EB", titleColor: "#ffffff", accent: "#38BDF8" },
+  },
+  {
+    id: "hell",
+    label: "Hell",
+    style: { boxBg: "#F8FAFC", headerBg: "#E2E8F0", itemBg: "#FFFFFF", textColor: "#0F172A", titleColor: "#0F172A", accent: "#7C3AED" },
+  },
+  {
+    id: "neon",
+    label: "Neon",
+    style: { boxBg: "#0A0A0F", headerBg: "#12021F", itemBg: "#1A0B2E", textColor: "#F0ABFC", titleColor: "#22D3EE", accent: "#22D3EE" },
+  },
+  {
+    id: "wald",
+    label: "Wald",
+    style: { boxBg: "#0A1410", headerBg: "#0F2018", itemBg: "#132C20", textColor: "#D1FAE5", titleColor: "#ffffff", accent: "#34D399" },
+  },
+  {
+    id: "sand",
+    label: "Sand",
+    style: { boxBg: "#1C1917", headerBg: "#292524", itemBg: "#332E2A", textColor: "#FAFAF9", titleColor: "#FCD34D", accent: "#F59E0B" },
+  },
+];
+
+/** Aufklappbarer Abschnitt — hält den Design-Tab kurz, statt alles gleichzeitig zu zeigen. */
+const Section = ({ id, title, icon: Icon, iconClass, summary, open, onToggle, children }) => (
+  <div className="rounded-sm border border-white/5 bg-black/20 overflow-hidden">
+    <button
+      onClick={() => onToggle(open ? null : id)}
+      aria-expanded={open}
+      className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-white/5 transition-colors"
+    >
+      <Icon size={18} className={iconClass} />
+      <span className="font-bold text-white text-sm flex-1">{title}</span>
+      {!open && summary ? (
+        <span className="text-[11px] text-white/35 font-mono hidden sm:block truncate max-w-[45%]">{summary}</span>
+      ) : null}
+      <ChevronDown size={18} className={`text-white/30 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+    </button>
+    {open && <div className="px-5 pb-5 pt-1 border-t border-white/5">{children}</div>}
+  </div>
+);
+
 const RangeSlider = ({ label, value, min, max, step, onChange, unit = "" }) => (
     <div className="bg-black/20 p-3 rounded-sm border border-white/5">
         <div className="flex justify-between mb-2">
@@ -225,6 +299,11 @@ export default function WinChallenge() {
   const pendingSaveRef = useRef(false);
 
   const [activeTab, setActiveTab] = useState("challenges");
+  const [draggingId, setDraggingId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null); // { id, before }
+  // Design-Tab: Feineinstellungen sind eingeklappt, bis sie gebraucht werden
+  const [openSection, setOpenSection] = useState("presets");
+  const [showAdvancedColors, setShowAdvancedColors] = useState(false);
   const [overlayCopied, setOverlayCopied] = useState(false);
   const [controlCopied, setControlCopied] = useState(false);
 
@@ -385,21 +464,62 @@ export default function WinChallenge() {
   };
   const addItem = () => save({ ...doc, items: [...(doc?.items || []), makeItem()] });
 
-  // DnD
-  const onDragStart = (id) => (e) => { dragIdRef.current = id; e.dataTransfer.effectAllowed = "move"; };
-  const onDragOver = () => (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  // DnD — draggingId/dropTarget steuern nur die Optik, verschoben wird in onDrop.
+  const onDragStart = (id) => (e) => {
+    dragIdRef.current = id;
+    setDraggingId(id);
+    e.dataTransfer.effectAllowed = "move";
+    // Firefox startet ohne gesetzte Daten gar keinen Drag
+    try { e.dataTransfer.setData("text/plain", id); } catch { /* egal */ }
+  };
+
+  const onDragOver = (id) => (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (!dragIdRef.current || dragIdRef.current === id) return;
+    // Obere oder untere Hälfte der Zeile entscheidet, wo die Linie erscheint
+    const rect = e.currentTarget.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    setDropTarget((prev) =>
+      prev && prev.id === id && prev.before === before ? prev : { id, before }
+    );
+  };
+
+  const endDrag = () => {
+    dragIdRef.current = null;
+    setDraggingId(null);
+    setDropTarget(null);
+  };
+
   const onDrop = (id) => (e) => {
     e.preventDefault();
     const from = dragIdRef.current;
-    const to = id;
-    if (!from || !to || from === to) return;
+    const before = dropTarget?.id === id ? dropTarget.before : false;
+    if (!from || !id || from === id) { endDrag(); return; }
+
     const list = [...(doc?.items || [])];
     const fromIdx = list.findIndex((x) => x.id === from);
-    const toIdx = list.findIndex((x) => x.id === to);
+    const toIdx = list.findIndex((x) => x.id === id);
+    if (fromIdx < 0 || toIdx < 0) { endDrag(); return; }
+
     const [moved] = list.splice(fromIdx, 1);
-    list.splice(toIdx, 0, moved);
+    // Nach dem Herausnehmen verschiebt sich alles hinter fromIdx um eins nach vorn
+    let insertAt = list.findIndex((x) => x.id === id);
+    if (insertAt < 0) insertAt = list.length;
+    list.splice(before ? insertAt : insertAt + 1, 0, moved);
+
     save({ ...doc, items: list });
-    dragIdRef.current = null;
+    endDrag();
+  };
+
+  /** Reihenfolge per Tastatur ändern — Drag&Drop ist nicht für jeden bedienbar. */
+  const moveItem = (id, delta) => {
+    const list = [...(doc?.items || [])];
+    const idx = list.findIndex((x) => x.id === id);
+    const next = idx + delta;
+    if (idx < 0 || next < 0 || next >= list.length) return;
+    [list[idx], list[next]] = [list[next], list[idx]];
+    save({ ...doc, items: list });
   };
 
   // Timer — Aktionen werden sofort gespeichert (flush), damit Overlay/Mods nicht hinterherhängen
@@ -473,8 +593,14 @@ export default function WinChallenge() {
   const renderPreview = () => {
     if (!doc) return null;
     const { style } = doc;
-    const boxAlpha = Math.min(1, Math.max(0, Number(style.opacity ?? 0.6)));
-    const headerAlpha = Math.min(1, Math.max(0, Number(style.headerOpacity ?? boxAlpha)));
+    const clampA = (v, f) => Math.min(1, Math.max(0, Number(v ?? f)));
+    const boxAlpha = clampA(style.opacity, 0.6);
+    const headerAlpha = clampA(style.headerOpacity, boxAlpha);
+    const itemAlpha = clampA(style.itemOpacity, boxAlpha);
+    const counterAlpha = clampA(style.counterOpacity, 0.06);
+    const timerAlpha = clampA(style.timerOpacity, 0.15);
+    const rowRadius = Math.min(10, Math.max(0, Number(style.borderRadius) || 0));
+    const badgeRadius = Math.min(8, Math.max(0, Number(style.borderRadius) || 0));
     const showTimer = timerVisible;
     const namedItems = (doc.items || []).filter((i) => (i.name || "").trim());
     const items = (namedItems.length > 0 ? namedItems : [{ id: "p1", name: "Beispiel Challenge", pinned: true }, { id: "p2", name: "Gewinne 3 Runden", useWins: true, target: 3, progress: 1 }]).slice(0, 6);
@@ -492,7 +618,8 @@ export default function WinChallenge() {
             background: "transparent", width: style.boxWidth, zoom,
             overflow: "hidden", boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)", position: "relative"
         }}>
-            <div style={{ position: "absolute", inset: 0, background: style.boxBg, opacity: boxAlpha, zIndex: 0 }} />
+            {/* Keine Ebene über die ganze Box — sonst läge sie unter Header und
+                Timer und deren eigene Deckkraft käme nie bei 0 an. */}
             <div className="relative z-10">
                 <div style={{ borderBottom: "1px solid rgba(255,255,255,.08)", position: "relative" }}>
                     <div style={{ position: "absolute", inset: 0, background: style.headerBg || style.boxBg, opacity: headerAlpha, zIndex: -1 }} />
@@ -500,29 +627,34 @@ export default function WinChallenge() {
                         {doc.title || "WinChallenge"}
                     </div>
                 </div>
-                <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                    {items.map((it) => (
-                        <div key={it.id} style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: Math.min(10, style.borderRadius), overflow: "hidden" }}>
-                            <div style={{ position: "absolute", inset: 0, background: style.itemBg || "#ffffff", opacity: style.itemBg ? boxAlpha : 0.04, zIndex: -1 }} />
-                            <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, color: (it.done || (it.useWins && it.progress >= it.target)) ? "#2ecc71" : "inherit", fontSize: `${style.itemFontSize}px` }}>
+                <div style={{ position: "relative", padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                    {/* „Hintergrund"-Deckkraft wirkt genau hier: um die Zeilen herum */}
+                    <div style={{ position: "absolute", inset: 0, background: style.boxBg, opacity: boxAlpha, zIndex: -1 }} />
+                    {items.map((it) => {
+                      const itemDone = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
+                      return (
+                        <div key={it.id} style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderRadius: rowRadius, overflow: "hidden" }}>
+                            <div style={{ position: "absolute", inset: 0, background: style.itemBg || "#ffffff", opacity: style.itemBg ? itemAlpha : 0.04, zIndex: -1 }} />
+                            <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, color: itemDone ? "#2ecc71" : "inherit", fontSize: `${style.itemFontSize}px`, flex: "1 1 auto", minWidth: 0, overflowWrap: "anywhere" }}>
                                 {it.pinned && <Pin size="1em" strokeWidth={2.5} style={{ color: style.accent, flexShrink: 0 }} />} {it.name}
                             </span>
                             {it.useWins ? (
-                                <span style={{ padding: "2px 10px", borderRadius: 6, background: "rgba(255,255,255,.06)", border: `1px solid ${hexToRgba(style.accent || "#9146FF", 0.5)}`, fontSize: "0.85em" }}>
-                                    {it.progress || 0} / {it.target || 0}
+                                <span style={{ position: "relative", padding: "2px 10px", borderRadius: badgeRadius, border: `1px solid ${hexToRgba(style.accent || "#9146FF", 0.5)}`, fontSize: "0.85em", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", overflow: "hidden", flexShrink: 0, alignSelf: "center" }}>
+                                    <span style={{ position: "absolute", inset: 0, background: style.itemBg || "#ffffff", opacity: counterAlpha }} />
+                                    <span style={{ position: "relative" }}>{it.progress || 0} / {it.target || 0}</span>
                                 </span>
-                            ) : (
-                                <span style={{ width: 18, height: 18, borderRadius: 4, border: "2px solid rgba(255,255,255,.5)", display: "flex", alignItems: "center", justifyContent: "center", color: (it.done || (it.useWins && it.progress >= it.target)) ? "#2ecc71" : "transparent" }}>
-                                    <Check size={12} strokeWidth={4} />
-                                </span>
-                            )}
+                            ) : null}
+                            {/* Ein einziger Haken für beide Arten von Challenges */}
+                            <Check size="1em" strokeWidth={3.5} style={{ color: "#2ecc71", flexShrink: 0, alignSelf: "center", visibility: itemDone ? "visible" : "hidden" }} />
                         </div>
-                    ))}
+                      );
+                    })}
                 </div>
                 {showTimer && (
-                    <div style={{ borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,0.2)", padding: "10px", display: "flex", justifyContent: "center", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 700, fontFamily: "monospace" }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: running ? "#22c55e" : "#ef4444", display: "inline-block", flexShrink: 0 }} />
-                        <span>{msToClock(runningElapsed)}</span>
+                    <div style={{ position: "relative", borderTop: "1px solid rgba(255,255,255,.08)", padding: "10px", display: "flex", justifyContent: "center", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 700, fontFamily: "monospace" }}>
+                        <span style={{ position: "absolute", inset: 0, background: style.boxBg, opacity: timerAlpha }} />
+                        <span style={{ position: "relative", width: 8, height: 8, borderRadius: "50%", background: running ? "#22c55e" : "#ef4444", display: "inline-block", flexShrink: 0 }} />
+                        <span style={{ position: "relative" }}>{msToClock(runningElapsed)}</span>
                     </div>
                 )}
             </div>
@@ -530,6 +662,22 @@ export default function WinChallenge() {
       </div>
     );
   };
+
+  /** Welche Vorlage entspricht den aktuellen Farben? (null = eigene Mischung) */
+  const activePresetId = useMemo(() => {
+    if (!doc?.style) return null;
+    const match = STYLE_PRESETS.find((p) =>
+      Object.entries(p.style).every(
+        ([k, v]) => hex3to6(doc.style[k])?.toLowerCase() === v.toLowerCase()
+      )
+    );
+    return match?.id || null;
+  }, [doc?.style]);
+
+  const activePresetLabel = useMemo(
+    () => STYLE_PRESETS.find((p) => p.id === activePresetId)?.label || "Eigene Farben",
+    [activePresetId]
+  );
 
   const previewFitPercent = useMemo(() => {
     if (!doc || !previewW) return null;
@@ -539,21 +687,42 @@ export default function WinChallenge() {
     return Math.round(fit * 100);
   }, [doc, previewW]);
 
+  // Ohne Login gibt es nichts zu bearbeiten — dann zeigt die Seite, was das Overlay
+  // überhaupt kann. Das ist zugleich die einzige Fassung, die Suchmaschinen je zu
+  // sehen bekommen (der Crawler ist nie angemeldet), deshalb hängen die
+  // strukturierten Daten zu Fragen und Einrichtung genau hier dran: FAQPage und HowTo
+  // dürfen nur ausgezeichnet werden, wenn derselbe Text sichtbar auf der Seite steht.
+  if (!user) {
+    return (
+      <div className="page-fade h-full overflow-y-auto custom-scrollbar text-white p-3 md:p-5 xl:p-6">
+        <SEO
+          title={WC_TITLE}
+          description={WC_DESCRIPTION}
+          path="/WinChallenge-Overlay"
+          keywords={WC_KEYWORDS}
+          jsonLd={buildWinChallengeJsonLd()} />
+
+        <WinChallengeSeoContent>
+          <div className="flex flex-col items-center gap-2">
+            <button onClick={login} className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-8 py-4 rounded-sm transition-colors">
+              Mit Twitch anmelden und Challenge erstellen
+            </button>
+            <p className="text-white/30 text-xs">Kostenlos · nur Twitch-Login nötig</p>
+          </div>
+        </WinChallengeSeoContent>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden text-white p-3 md:p-5 xl:p-6 gap-3 md:gap-5">
       <SEO
-        title="Win Challenge Overlay"
-        description="Win Challenge Overlay für OBS. Hohe Customization für Streamer."
+        title={WC_TITLE}
+        description={WC_DESCRIPTION}
         path="/WinChallenge-Overlay"
-        keywords="Win Challenge Overlay, Win Challenge, OBS Overlay, Twitch, WinChallenge, Overlay" />
+        keywords={WC_KEYWORDS} />
 
-      {!user ? (
-        <div className="h-full flex items-center justify-center">
-            <button onClick={login} className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-8 py-4 rounded-sm transition-colors">
-                Mit Twitch anmelden um Challenges zu erstellen
-            </button>
-        </div>
-      ) : loading || !doc ? (
+      {loading || !doc ? (
         <div className="h-full flex items-center justify-center text-white/30 animate-pulse">Lade Konfiguration...</div>
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden min-h-0 gap-3 md:gap-5">
@@ -599,22 +768,56 @@ export default function WinChallenge() {
                       {/* 1. CHALLENGES TAB */}
                       {activeTab === "challenges" && (
                           <div className="space-y-6">
-                              <div className="space-y-3">
-                                  {(doc.items || []).map((it) => {
+                              <div className="space-y-3" onDragEnd={endDrag} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropTarget(null); }}>
+                                  {(doc.items || []).map((it, idx) => {
                                       const done = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
+                                      const isDragging = draggingId === it.id;
+                                      const dropBefore = dropTarget?.id === it.id && dropTarget.before;
+                                      const dropAfter = dropTarget?.id === it.id && !dropTarget.before;
                                       return (
-                                          <div key={it.id} onDragOver={onDragOver(it.id)} onDrop={onDrop(it.id)}
-                                               className={`group bg-black/20 hover:bg-black/30 rounded-sm p-4 border transition-colors ${done ? "border-green-500/30" : "border-white/5 hover:border-white/10"}`}>
+                                          <div key={it.id} onDragOver={onDragOver(it.id)} onDrop={onDrop(it.id)} className="relative">
+                                              {/* Einfügemarke: zeigt vor dem Loslassen, wo die Challenge landet */}
+                                              <div className={`absolute -top-1.5 left-0 right-0 h-0.5 rounded-sm transition-opacity ${dropBefore ? "bg-violet-500 opacity-100" : "opacity-0"}`} />
+                                              <div className={`absolute -bottom-1.5 left-0 right-0 h-0.5 rounded-sm transition-opacity ${dropAfter ? "bg-violet-500 opacity-100" : "opacity-0"}`} />
+
+                                              <div className={`group rounded-sm p-4 border transition-all ${
+                                                  isDragging
+                                                      ? "opacity-40 border-violet-500/50 bg-violet-500/5"
+                                                      : done
+                                                          ? "bg-black/20 hover:bg-black/30 border-green-500/30"
+                                                          : "bg-black/20 hover:bg-black/30 border-white/5 hover:border-white/10"
+                                              }`}>
 
                                               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                                                   {/* Drag & Name */}
                                                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                      <div draggable onDragStart={onDragStart(it.id)} className="cursor-grab text-white/20 hover:text-white/50 p-1"><GripVertical size={18}/></div>
+                                                      <div
+                                                          draggable
+                                                          onDragStart={onDragStart(it.id)}
+                                                          onDragEnd={endDrag}
+                                                          title="Ziehen zum Sortieren"
+                                                          className={`shrink-0 p-1 rounded-sm transition-colors ${isDragging ? "cursor-grabbing text-violet-400 bg-violet-500/10" : "cursor-grab text-white/20 hover:text-white/60 hover:bg-white/5"}`}
+                                                      >
+                                                          <GripVertical size={18}/>
+                                                      </div>
+                                                      {/* Tastatur-Alternative zum Ziehen */}
+                                                      <div className="flex flex-col shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                                          <button onClick={() => moveItem(it.id, -1)} disabled={idx === 0} title="Nach oben" className="text-white/25 hover:text-white disabled:opacity-20 disabled:hover:text-white/25 leading-none p-0.5"><ChevronUp size={13}/></button>
+                                                          <button onClick={() => moveItem(it.id, 1)} disabled={idx === (doc.items || []).length - 1} title="Nach unten" className="text-white/25 hover:text-white disabled:opacity-20 disabled:hover:text-white/25 leading-none p-0.5"><ChevronDown size={13}/></button>
+                                                      </div>
                                                       <input
-                                                          className="flex-1 bg-transparent text-lg font-bold placeholder-white/20 focus:outline-none text-white truncate"
+                                                          className="flex-1 min-w-0 bg-transparent text-lg font-bold placeholder-white/20 focus:outline-none text-white truncate"
                                                           placeholder="Challenge Name..."
                                                           value={it.name}
                                                           onChange={(e) => updateItem(it.id, { name: e.target.value })}
+                                                      />
+                                                      {/* Haken hinter der Challenge. Der Platz ist immer reserviert,
+                                                          damit die Zeile beim Abhaken nicht springt. */}
+                                                      <Check
+                                                          size={18}
+                                                          strokeWidth={3}
+                                                          className={`shrink-0 text-green-400 transition-opacity ${done ? "opacity-100" : "opacity-0"}`}
+                                                          aria-label={done ? "erledigt" : undefined}
                                                       />
                                                   </div>
 
@@ -650,6 +853,7 @@ export default function WinChallenge() {
                                                       </div>
                                                   </div>
                                               </div>
+                                              </div>
                                           </div>
                                       );
                                   })}
@@ -663,12 +867,45 @@ export default function WinChallenge() {
 
                       {/* 2. CUSTOM TAB */}
                       {activeTab === "custom" && (
-                          <div className="space-y-10">
+                          <div className="space-y-3 max-w-4xl">
 
-                              {/* Header & Titel */}
-                              <div>
-                                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Layout size={20} className="text-violet-400"/> Header & Titel</h3>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-sm bg-black/20 border border-white/5">
+                              {/* Vorlagen — der Einstieg ohne eine einzige Zahl */}
+                              <Section
+                                  id="presets" title="Vorlage wählen" icon={Palette} iconClass="text-pink-400"
+                                  summary={activePresetLabel}
+                                  open={openSection === "presets"} onToggle={setOpenSection}
+                              >
+                                  <p className="text-xs text-white/40 mb-4">
+                                      Setzt alle Farben auf einmal. Danach kannst du unter „Farben" einzeln nachjustieren.
+                                  </p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                      {STYLE_PRESETS.map((p) => {
+                                          const active = activePresetId === p.id;
+                                          return (
+                                              <button
+                                                  key={p.id}
+                                                  onClick={() => save({ ...doc, style: normalizeStyle({ ...doc.style, ...p.style }) })}
+                                                  className={`rounded-sm border p-3 text-left transition-colors ${active ? "border-violet-500 bg-violet-500/10" : "border-white/10 bg-black/20 hover:border-white/25"}`}
+                                              >
+                                                  <div className="flex items-center gap-1.5 mb-2">
+                                                      {["boxBg", "headerBg", "itemBg", "accent", "textColor"].map((k) => (
+                                                          <span key={k} className="w-5 h-5 rounded-sm border border-white/10" style={{ background: p.style[k] }} />
+                                                      ))}
+                                                  </div>
+                                                  <span className={`text-xs font-bold ${active ? "text-white" : "text-white/60"}`}>{p.label}</span>
+                                              </button>
+                                          );
+                                      })}
+                                  </div>
+                              </Section>
+
+                              {/* Titel */}
+                              <Section
+                                  id="title" title="Titel" icon={Layout} iconClass="text-violet-400"
+                                  summary={`${doc.title || "WinChallenge"} · ${doc.style?.titleFontSize ?? 20}px`}
+                                  open={openSection === "title"} onToggle={setOpenSection}
+                              >
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                                       <div className="col-span-full">
                                           <label className="block text-xs font-bold text-white/40 uppercase mb-2">Titel Text</label>
                                           <input className="w-full bg-black/40 border border-white/10 rounded-sm px-4 py-3 text-white focus:border-violet-500 focus:outline-none transition-colors" value={doc.title || ""} onChange={(e) => save({ ...doc, title: e.target.value })} placeholder="WinChallenge" />
@@ -677,70 +914,116 @@ export default function WinChallenge() {
                                       <div>
                                           <span className="text-xs font-bold text-white/40 uppercase mb-2 block">Ausrichtung</span>
                                           <div className="flex bg-black/40 rounded-sm p-1 border border-white/5">
-                                              {['left', 'center'].map(align => (
-                                                  <button key={align} className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors capitalize ${doc.style?.titleAlign === align ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, style: normalizeStyle({ ...doc.style, titleAlign: align }) })}>{align}</button>
+                                              {[{ v: 'left', l: 'Links' }, { v: 'center', l: 'Mittig' }].map(({ v, l }) => (
+                                                  <button key={v} className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors ${doc.style?.titleAlign === v ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, style: normalizeStyle({ ...doc.style, titleAlign: v }) })}>{l}</button>
                                               ))}
                                           </div>
                                       </div>
                                   </div>
-                              </div>
+                              </Section>
 
                               {/* Farben */}
-                              <div>
-                                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Palette size={20} className="text-pink-400"/> Farben</h3>
-                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-sm bg-black/20 border border-white/5">
-                                      <ColorPicker label="Box BG" value={hex3to6(doc.style?.boxBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxBg: v }) })} />
-                                      <ColorPicker label="Header BG" value={hex3to6(doc.style?.headerBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerBg: v }) })} />
-                                      <ColorPicker label="Item BG" value={hex3to6(doc.style?.itemBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemBg: v }) })} />
-                                      <ColorPicker label="Text" value={hex3to6(doc.style?.textColor)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, textColor: v }) })} />
-                                      <ColorPicker label="Titel" value={hex3to6(doc.style?.titleColor)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, titleColor: v }) })} />
-                                      <ColorPicker label="Akzent" value={hex3to6(doc.style?.accent)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, accent: v }) })} />
+                              <Section
+                                  id="colors" title="Farben" icon={Palette} iconClass="text-pink-400"
+                                  summary={`${hex3to6(doc.style?.boxBg)} · Akzent ${hex3to6(doc.style?.accent)}`}
+                                  open={openSection === "colors"} onToggle={setOpenSection}
+                              >
+                                  <div className="pt-4 space-y-4">
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                          <ColorPicker label="Hintergrund" value={hex3to6(doc.style?.boxBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxBg: v }) })} />
+                                          <ColorPicker label="Text" value={hex3to6(doc.style?.textColor)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, textColor: v }) })} />
+                                          <ColorPicker label="Akzent" value={hex3to6(doc.style?.accent)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, accent: v }) })} />
+                                      </div>
+
+                                      <button
+                                          onClick={() => setShowAdvancedColors(!showAdvancedColors)}
+                                          className="text-xs font-bold text-white/40 hover:text-white transition-colors flex items-center gap-1.5"
+                                      >
+                                          <ChevronDown size={14} className={`transition-transform ${showAdvancedColors ? "rotate-180" : ""}`} />
+                                          {showAdvancedColors ? "Weniger" : "Header, Zeilen & Titelfarbe"}
+                                      </button>
+
+                                      {showAdvancedColors && (
+                                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-1">
+                                              <ColorPicker label="Header" value={hex3to6(doc.style?.headerBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerBg: v }) })} />
+                                              <ColorPicker label="Zeilen" value={hex3to6(doc.style?.itemBg)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemBg: v }) })} />
+                                              <ColorPicker label="Titel" value={hex3to6(doc.style?.titleColor)} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, titleColor: v }) })} />
+                                          </div>
+                                      )}
                                   </div>
-                              </div>
+                              </Section>
 
-                              {/* Layout & Animation */}
-                              <div>
-                                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Settings size={20} className="text-blue-400"/> Layout & Animation</h3>
-                                  <div className="p-5 rounded-sm bg-black/20 border border-white/5 space-y-6">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                        <RangeSlider label="Breite" value={doc.style?.boxWidth ?? 520} min={280} max={1000} step={10} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxWidth: v }) })} />
-                                        <RangeSlider label="Skalierung" value={doc.style?.scale ?? 1} min={0.5} max={2} step={0.05} unit="x" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, scale: v }) })} />
-                                        <RangeSlider label="Eckenradius" value={doc.style?.borderRadius ?? 12} min={0} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, borderRadius: v }) })} />
-                                        <RangeSlider label="Challenge Größe" value={doc.style?.itemFontSize ?? 16} min={10} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemFontSize: v }) })} />
+                              {/* Größe & Form */}
+                              <Section
+                                  id="layout" title="Größe & Form" icon={Settings} iconClass="text-blue-400"
+                                  summary={`${doc.style?.boxWidth ?? 520}px · ${doc.style?.scale ?? 1}x`}
+                                  open={openSection === "layout"} onToggle={setOpenSection}
+                              >
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 pt-4">
+                                      <RangeSlider label="Breite" value={doc.style?.boxWidth ?? 520} min={280} max={1000} step={10} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, boxWidth: v }) })} />
+                                      <RangeSlider label="Skalierung" value={doc.style?.scale ?? 1} min={0.5} max={2} step={0.05} unit="x" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, scale: v }) })} />
+                                      <RangeSlider label="Challenge Größe" value={doc.style?.itemFontSize ?? 16} min={10} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemFontSize: v }) })} />
+                                      <RangeSlider label="Eckenradius" value={doc.style?.borderRadius ?? 0} min={0} max={32} step={1} unit="px" onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, borderRadius: v }) })} />
+                                  </div>
+                              </Section>
 
-                                        <RangeSlider label="Hintergrund Deckkraft" value={doc.style?.opacity ?? 0.6} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, opacity: v }) })} />
-                                        <RangeSlider label="Header Deckkraft" value={doc.style?.headerOpacity ?? 0.9} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerOpacity: v }) })} />
-                                    </div>
+                              {/* Deckkraft — jede Fläche einzeln */}
+                              <Section
+                                  id="opacity" title="Deckkraft" icon={Eye} iconClass="text-cyan-400"
+                                  summary={`Box ${doc.style?.opacity ?? 0.6} · Zeilen ${doc.style?.itemOpacity ?? doc.style?.opacity ?? 0.6}`}
+                                  open={openSection === "opacity"} onToggle={setOpenSection}
+                              >
+                                  <p className="text-xs text-white/40 mb-4 pt-4">
+                                      Jede Fläche einzeln. 0 = komplett durchsichtig, 1 = deckend.
+                                  </p>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                                      <RangeSlider label="Hintergrund (um die Zeilen)" value={doc.style?.opacity ?? 0.6} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, opacity: v }) })} />
+                                      <RangeSlider label="Header" value={doc.style?.headerOpacity ?? 0.9} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, headerOpacity: v }) })} />
+                                      <RangeSlider label="Challenge-Zeilen" value={doc.style?.itemOpacity ?? doc.style?.opacity ?? 0.6} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, itemOpacity: v }) })} />
+                                      <RangeSlider label="Zähler" value={doc.style?.counterOpacity ?? 0.06} min={0} max={1} step={0.01} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, counterOpacity: v }) })} />
+                                      <RangeSlider label="Timer-Leiste" value={doc.style?.timerOpacity ?? doc.style?.opacity ?? 0.6} min={0} max={1} step={0.05} onChange={(v) => save({ ...doc, style: normalizeStyle({ ...doc.style, timerOpacity: v }) })} />
+                                  </div>
+                              </Section>
 
-                                      <div className="pt-6 border-t border-white/5">
-                                          <label className="flex items-center gap-3 cursor-pointer select-none mb-4">
-                                              <input type="checkbox" className="w-4 h-4 accent-violet-500" checked={!!doc.animation?.enabled} onChange={(e) => save({ ...doc, animation: { ...doc.animation, enabled: e.target.checked } })} />
-                                              <span className="text-sm font-bold text-white">Animation aktivieren (Paging/Scrolling)</span>
-                                          </label>
+                              {/* Animation */}
+                              <Section
+                                  id="animation" title="Animation" icon={RefreshCw} iconClass="text-amber-400"
+                                  summary={doc.animation?.enabled ? (doc.animation?.mode === "scrolling" ? "Laufschrift" : "Seitenweise") : "Aus"}
+                                  open={openSection === "animation"} onToggle={setOpenSection}
+                              >
+                                  <div className="pt-4">
+                                      <p className="text-xs text-white/40 mb-4">
+                                          Nur nötig, wenn mehr Challenges vorhanden sind, als gleichzeitig ins Overlay passen.
+                                      </p>
+                                      <label className="flex items-center gap-3 cursor-pointer select-none mb-4">
+                                          <input type="checkbox" className="w-4 h-4 accent-violet-500" checked={!!doc.animation?.enabled} onChange={(e) => save({ ...doc, animation: { ...doc.animation, enabled: e.target.checked } })} />
+                                          <span className="text-sm font-bold text-white">Challenges automatisch durchwechseln</span>
+                                      </label>
 
-                                          <div className={`transition-opacity duration-300 ${!doc.animation?.enabled ? "opacity-30 pointer-events-none" : ""}`}>
+                                      {doc.animation?.enabled && (
+                                          <>
                                               <div className="flex bg-black/40 rounded-sm p-1 border border-white/5 mb-4 max-w-sm">
-                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors ${doc.animation?.mode !== 'scrolling' ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "paging" } })}>Seitenweise (Paging)</button>
-                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors ${doc.animation?.mode === 'scrolling' ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "scrolling" } })}>Laufschrift (Scroll)</button>
+                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors ${doc.animation?.mode !== 'scrolling' ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "paging" } })}>Seitenweise</button>
+                                                  <button className={`flex-1 py-1.5 text-xs font-bold rounded-sm transition-colors ${doc.animation?.mode === 'scrolling' ? 'bg-violet-600 text-white' : 'text-white/40 hover:text-white'}`} onClick={() => save({ ...doc, animation: { ...doc.animation, mode: "scrolling" } })}>Laufschrift</button>
                                               </div>
                                               {doc.animation?.mode === "scrolling" ? (
-                                                   <div className="grid grid-cols-2 gap-4">
-                                                      <RangeSlider label="Speed" value={doc.animation?.scrolling?.speedPxPerSec ?? 30} min={5} max={200} step={5} unit="px/s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, speedPxPerSec: v } } })} />
+                                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                      <RangeSlider label="Geschwindigkeit" value={doc.animation?.scrolling?.speedPxPerSec ?? 30} min={5} max={200} step={5} unit="px/s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, speedPxPerSec: v } } })} />
                                                       <RangeSlider label="Sichtbare Zeilen" value={doc.animation?.scrolling?.visibleRows ?? 2} min={1} max={10} step={1} onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, visibleRows: v } } })} />
-                                                      <div className="col-span-2">
+                                                      <div className="sm:col-span-2">
                                                           <RangeSlider label="Pause (Oben/Unten)" value={doc.animation?.scrolling?.pauseSec ?? 2} min={0} max={10} step={0.5} unit="s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, scrolling: { ...doc.animation?.scrolling, pauseSec: v } } })} />
                                                       </div>
                                                    </div>
                                               ) : (
-                                                  <div className="grid grid-cols-2 gap-4">
-                                                      <RangeSlider label="Items pro Seite" value={doc.animation?.paging?.pageSize ?? 5} min={1} max={10} step={1} onChange={(v) => save({ ...doc, animation: { ...doc.animation, paging: { ...doc.animation?.paging, pageSize: v } } })} />
+                                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                      <RangeSlider label="Challenges pro Seite" value={doc.animation?.paging?.pageSize ?? 5} min={1} max={10} step={1} onChange={(v) => save({ ...doc, animation: { ...doc.animation, paging: { ...doc.animation?.paging, pageSize: v } } })} />
                                                       <RangeSlider label="Wechsel-Intervall" value={doc.animation?.paging?.intervalSec ?? 20} min={2} max={60} step={1} unit="s" onChange={(v) => save({ ...doc, animation: { ...doc.animation, paging: { ...doc.animation?.paging, intervalSec: v } } })} />
                                                   </div>
                                               )}
-                                          </div>
-                                      </div>
+                                          </>
+                                      )}
                                   </div>
-                              </div>
+                              </Section>
                           </div>
                       )}
 

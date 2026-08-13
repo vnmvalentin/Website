@@ -29,7 +29,7 @@ import UsedByPanel from './UsedByPanel';
 import ModeCard from './ModeCard';
 import ModeTutorialModal from './ModeTutorialModal';
 import { TUTORIAL_I18N } from './modeTutorials';
-import FaqAccordion from './FaqAccordion';
+import FaqAccordion from '../../../components/FaqAccordion';
 import { MODES, modeNameFor, modeDescFor } from '../modesConfig';
 import { buildClashJsonLd } from '../jsonLd';
 import archerQueenImg from '../../../assets/clashRoyale/goldenknight.png';

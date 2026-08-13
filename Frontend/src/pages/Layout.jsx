@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Newspaper,
   UserRound,
+  Lock,
 } from "lucide-react";
 
 const STREAMER_ID = "160224748";
@@ -140,29 +141,46 @@ export default function Layout() {
 
   // Ein Eintrag im Dropdown / Mobile-Menü (interner Link, externer Link oder Aktion)
   const renderNavLink = (link, { onNavigate } = {}) => {
-    const Icon = link.icon;
+    const Icon = link.locked ? Lock : link.icon;
     const baseClasses =
       "flex items-start gap-3 w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5 group";
 
     const inner = (
       <>
         {Icon && (
-          <span className="mt-0.5 text-white/35 group-hover:text-violet-300 transition-colors shrink-0">
+          <span className={`mt-0.5 shrink-0 transition-colors ${link.locked ? "text-white/25" : "text-white/35 group-hover:text-violet-300"}`}>
             <Icon size={17} />
           </span>
         )}
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2 text-sm font-semibold text-white/85 group-hover:text-white">
+          <span className={`flex items-center gap-2 text-sm font-semibold ${link.locked ? "text-white/40" : "text-white/85 group-hover:text-white"}`}>
             {link.label}
             {linkHasDot(link.label) && <span className="h-1.5 w-1.5 rounded-full bg-pink-400 shrink-0" />}
             {link.href && <ExternalLink size={11} className="text-white/25 shrink-0" />}
           </span>
-          {link.description && (
-            <span className="block text-xs text-white/40 leading-snug mt-0.5">{link.description}</span>
+          {(link.locked ? link.lockedNote || link.description : link.description) && (
+            <span className={`block text-xs leading-snug mt-0.5 ${link.locked ? "text-white/25" : "text-white/40"}`}>
+              {link.locked ? link.lockedNote || link.description : link.description}
+            </span>
           )}
         </span>
       </>
     );
+
+    // Gesperrt: bleibt sichtbar, ist aber nicht mehr anklickbar. Die Route existiert weiter,
+    // wer den Link kennt, kommt also nach wie vor über die URL rein.
+    if (link.locked) {
+      return (
+        <div
+          key={link.label}
+          aria-disabled="true"
+          title={link.lockedNote || "Vorübergehend gesperrt"}
+          className="flex items-start gap-3 w-full rounded-lg px-3 py-2.5 text-left cursor-not-allowed"
+        >
+          {inner}
+        </div>
+      );
+    }
 
     if (link.href) {
       return (

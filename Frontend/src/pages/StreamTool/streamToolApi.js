@@ -41,6 +41,9 @@ export const testRaid = (login) =>
 /** Laufenden Raid-Clip sofort beenden. */
 export const stopRaid = () => apiFetch("/api/stream-tool/raid", { method: "DELETE" });
 
+/** Zähler der Stream-Statistik auf null — die Sendung läuft weiter. */
+export const resetStats = () => apiFetch("/api/stream-tool/stats/reset", { method: "POST" });
+
 export const getOverlayData = (overlayKey) => apiFetch(`/api/stream-tool/overlay/${overlayKey}`);
 
 /**

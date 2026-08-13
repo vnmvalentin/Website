@@ -75,6 +75,15 @@ export default defineConfig({
         secure: false,
         ws: true,
       },
+      // Blobby Volley hat einen EIGENEN Node-Prozess (Backend/blobbyServer.js, Port 3002),
+      // damit seine 75-Hz-Physik nicht im Event-Loop von Discord-Bot, Twitch-IRC und den
+      // synchronen SQLite-Stores hängt. In Produktion macht nginx dasselbe (Backend/deploy/).
+      '/blobby-socket': {
+        target: 'http://127.0.0.1:3002',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
     }
   }
 });

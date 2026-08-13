@@ -2,7 +2,11 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const createWinchallengeRouter = require("./winchallengeRoutes");
-const { farmStates, setFarmState, scheduleFarmsSave } = require("../lib/gardenFarmsStore");
+const createGardenRouter = require("./gardenGameRoutes");
+const { farmStates, setFarmState, scheduleFarmsSave } = require("../garden/store/farms");
+const { getFollowerCounts } = require("../lib/twitchFollowers");
+const { wendeAn, baueKatalog } = require("../garden/admin");
+const { notifyAdminUpdate, notifyPlotChanged, istOnline } = require("../garden/world/lobby");
 
 const ROOT_DIR = process.cwd();
 
@@ -121,6 +125,28 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
     notifyUpdate(updates);
   });
   
+  // Aktivitäts-Auswertung: wer ist wie lange inaktiv, wer ist zur Löschung vorgemerkt
+  router.get("/winchallenge/activity", (req, res) => {
+    res.json(createWinchallengeRouter.getInactivityReport());
+  });
+
+  // Follower-Zahlen aller Win-Challenge-Streamer. Bewusst eine eigene Route und
+  // nicht Teil von /data/winchallenge: die Liste soll sofort stehen, die Zahlen
+  // kommen von Twitch und dürfen nachladen. ?fresh=1 umgeht den Zwischenspeicher.
+  router.get("/winchallenge/followers", async (req, res) => {
+    const db = createWinchallengeRouter.loadDb();
+    const ids = Object.entries(db).map(([id, doc]) => String(doc?.userId || id));
+    try {
+      const followers = await getFollowerCounts(ids, {
+        maxAgeMs: req.query.fresh === "1" ? 0 : undefined,
+      });
+      res.json({ followers, at: Date.now() });
+    } catch (e) {
+      console.error("[admin] Follower-Abruf fehlgeschlagen:", e.message);
+      res.status(502).json({ error: "Twitch nicht erreichbar" });
+    }
+  });
+
   // DELETE ROUTEN
   router.delete("/winchallenge/:targetId", async (req, res) => {
       const ok = await createWinchallengeRouter.removeWinchallengeUser(
@@ -178,17 +204,26 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
         plantCount: Object.keys(state.plotPlants || {}).length,
         expansions: state.plotExpansions || 0,
         updatedAt: state.updatedAt || 0,
+        // Bei Online-Spielern wirkt ein Eingriff erst nach dem Nachladen, das die
+        // Patch-Route anstösst — die Anzeige macht das im Menü sichtbar.
+        online: istOnline(userId),
       });
     }
     rows.sort((a, b) => b.gold - a.gold);
     res.json({ users: rows });
   });
 
+  // GET /api/admin/garden/catalogue  — Auswahllisten für das Admin-Menü
+  router.get("/garden/catalogue", (req, res) => {
+    res.json(baueKatalog(createGardenRouter.katalog));
+  });
+
   // GET /api/admin/garden/user/:userId  — full state for one player
   router.get("/garden/user/:userId", (req, res) => {
-    const state = farmStates.get(String(req.params.userId));
+    const uid = String(req.params.userId);
+    const state = farmStates.get(uid);
     if (!state) return res.status(404).json({ error: "Nicht gefunden" });
-    res.json({ userId: req.params.userId, state });
+    res.json({ userId: uid, state, online: istOnline(uid) });
   });
 
   // PUT /api/admin/garden/user/:userId  — patch specific fields (gold, etc.)
@@ -200,9 +235,49 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
     const updated = { ...existing };
     if (typeof gold === "number" && gold >= 0) updated.gold = Math.floor(gold);
     updated.updatedAt = Date.now();
+    updated.stateVersion = (Number(updated.stateVersion) || 0) + 1;
+    updated.serverAenderungAb = updated.stateVersion;
     setFarmState(farmStates, uid, updated);
     scheduleFarmsSave(farmStates);
+    // Auch der schmale Gold-Weg (Tabellenzeile im Dashboard) muss den Browser des
+    // Spielers erreichen, sonst steht dort weiter der alte Betrag.
+    notifyAdminUpdate(uid, `Gold: ${updated.gold.toLocaleString("de-DE")}`);
     res.json({ success: true, gold: updated.gold });
+  });
+
+  /**
+   * POST /api/admin/garden/user/:userId/patch
+   * Eine Aktion des Admin-Menüs: Gold, Stücke geben/entfernen, Listen leeren,
+   * Werkzeug und Zähler setzen. Was erlaubt ist, steht in garden/admin.js —
+   * gebaut werden die Stücke dort, damit der Browser keine Werte diktieren kann.
+   */
+  router.post("/garden/user/:userId/patch", (req, res) => {
+    const uid = String(req.params.userId);
+    const existing = farmStates.get(uid);
+    if (!existing) return res.status(404).json({ error: "Nicht gefunden" });
+
+    // Auf einer Kopie arbeiten: schlägt eine Aktion mittendrin fehl (z. B. beim
+    // dritten von fünf Stücken), bleibt der gespeicherte Stand unberührt.
+    const entwurf = { ...existing };
+    const ergebnis = wendeAn(entwurf, req.body || {}, createGardenRouter.katalog);
+    if (!ergebnis.ok) {
+      return res.status(ergebnis.status || 400).json({ error: ergebnis.error });
+    }
+
+    entwurf.updatedAt = Date.now();
+    // Weiterzählen macht jeden PUT ungültig, der beim Spieler schon unterwegs war —
+    // sonst überschriebe genau der den Eingriff (siehe erhoeheVersion in
+    // gardenGameRoutes.js). Sein Browser lädt daraufhin ohnehin nach.
+    entwurf.stateVersion = (Number(entwurf.stateVersion) || 0) + 1;
+    entwurf.serverAenderungAb = entwurf.stateVersion;
+    setFarmState(farmStates, uid, entwurf);
+    scheduleFarmsSave(farmStates);
+    const erreicht = notifyAdminUpdate(uid, ergebnis.info);
+    // Mitspieler in derselben Welt sehen Deko und Vitrine des Grundstücks — die
+    // Momentaufnahme muss also auch ohne Zutun des Besitzers neu raus.
+    notifyPlotChanged(uid);
+    console.log(`[Garden-Admin] ${uid}: ${ergebnis.info}`);
+    res.json({ success: true, info: ergebnis.info, state: entwurf, online: erreicht });
   });
 
   return router;

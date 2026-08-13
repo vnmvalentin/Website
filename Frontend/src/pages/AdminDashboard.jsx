@@ -4,11 +4,12 @@ import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import {
   Radio, Gamepad2, Eye, LayoutDashboard, Swords, Coins, Sprout, Ticket,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Plus, Infinity as InfinityIcon, Layers,
+  Plus, Infinity as InfinityIcon, Layers, Users, SlidersHorizontal,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../components/SEO";
 import CardPresetAdminPanel from "./ClashRoyale/admin/CardPresetAdminPanel";
+import GardenAdminPanel from "../components/GardenAdminPanel";
 
 // DEINE ID
 const STREAMER_ID = "160224748";
@@ -95,8 +96,14 @@ export default function AdminDashboard() {
   const [gardenUsers, setGardenUsers] = useState([]);
   const [gardenEditId, setGardenEditId] = useState(null);
   const [gardenEditGold, setGardenEditGold] = useState("");
+  // Wessen Farm gerade im ausführlichen Admin-Menü offen ist ({ userId, name }).
+  const [gardenDetail, setGardenDetail] = useState(null);
   const [clashLobbies, setClashLobbies] = useState([]);
   const [clashSubTab, setClashSubTab] = useState("lobbies"); // 'lobbies' | 'presets'
+  // Follower-Zahlen der Win-Challenge-Streamer: twitchId → Anzahl (null = unbekannt).
+  // Kommen von Twitch und laden deshalb getrennt von der Liste nach.
+  const [wcFollowers, setWcFollowers] = useState({});
+  const [wcFollowersLoading, setWcFollowersLoading] = useState(false);
 
   // --- SICHERHEITS-CHECK ---
   useEffect(() => {
@@ -128,6 +135,21 @@ export default function AdminDashboard() {
           setData(json);
       } catch(e) { console.error(e); }
   };
+
+  // Follower nachladen. fresh=1 umgeht den 15-Minuten-Zwischenspeicher im Backend.
+  const fetchWcFollowers = async (fresh = false) => {
+      setWcFollowersLoading(true);
+      try {
+          const r = await fetch(`/api/admin/winchallenge/followers${fresh ? "?fresh=1" : ""}`, { credentials: "include" });
+          const j = await r.json();
+          setWcFollowers(j.followers || {});
+      } catch(e) { console.error(e); }
+      setWcFollowersLoading(false);
+  };
+
+  useEffect(() => {
+      if (activeTab === "winchallenge") fetchWcFollowers();
+  }, [activeTab]);
 
   // Initial Fetch bei Tab-Wechsel
   useEffect(() => {
@@ -530,13 +552,52 @@ export default function AdminDashboard() {
 
       // 3. WINCHALLENGE & BINGO
       if (activeTab === "winchallenge" || activeTab === "bingo") {
+          const isWc = activeTab === "winchallenge";
+          // Unbekannte Zahlen (Twitch-Fehler, gelöschter Kanal) landen hinten,
+          // statt sich als "0 Follower" zwischen die echten Nullen zu mischen.
+          const followersOf = ([id, item]) => {
+              const n = wcFollowers[String(item?.userId || id)];
+              return typeof n === "number" ? n : -1;
+          };
+          const list = isWc
+              ? [...entries].sort((a, b) => followersOf(b) - followersOf(a))
+              : entries;
+          const knownFollowers = isWc
+              ? list.map(followersOf).filter(n => n >= 0)
+              : [];
+
           return (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                   {entries.map(([id, item]) => {
+              <div>
+                  {isWc && (
+                      <div className="flex gap-3 mb-5 flex-wrap items-center">
+                          <div className="panel px-4 py-2.5 flex items-center gap-2">
+                              <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Overlays</span>
+                              <span className="text-lg font-bold text-white">{list.length}</span>
+                          </div>
+                          <div className="panel px-4 py-2.5 flex items-center gap-2">
+                              <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Follower gesamt</span>
+                              <span className="text-lg font-bold text-violet-300">
+                                  {knownFollowers.reduce((s, n) => s + n, 0).toLocaleString("de-DE")}
+                              </span>
+                          </div>
+                          <button
+                              onClick={() => fetchWcFollowers(true)}
+                              disabled={wcFollowersLoading}
+                              className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-white/30 text-white rounded-lg text-sm font-semibold transition-colors"
+                          >
+                              <RefreshCw size={14} /> {wcFollowersLoading ? "Lädt Follower..." : "Follower aktualisieren"}
+                          </button>
+                      </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                   {list.map(([id, item]) => {
                        let displayName = "Unknown";
                        if (item.hostName) displayName = item.hostName;
                        else if (item.host?.twitchLogin) displayName = item.host.twitchLogin;
                        else displayName = item.userId || item.host?.twitchId || id;
+
+                       const followers = wcFollowers[String(item?.userId || id)];
 
                        return (
                            <div key={id} className="panel p-4">
@@ -544,7 +605,7 @@ export default function AdminDashboard() {
                                    {item.title || item.theme?.name || "Unbenannt"}
                                </h3>
 
-                               <div className="text-xs text-white/40 mb-3 flex items-center gap-2">
+                               <div className="text-xs text-white/40 mb-3 flex items-center gap-2 flex-wrap">
                                    <span className="uppercase font-bold text-white/25">Host:</span>
                                    <a
                                        href={`https://twitch.tv/${displayName}`}
@@ -556,6 +617,17 @@ export default function AdminDashboard() {
                                        {displayName}
                                        <ExternalLink size={10} className="opacity-60" />
                                    </a>
+                                   {isWc && (
+                                       <span
+                                           className="flex items-center gap-1 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-white/70 font-semibold"
+                                           title="Follower auf Twitch"
+                                       >
+                                           <Users size={10} className="opacity-60" />
+                                           {typeof followers === "number"
+                                               ? followers.toLocaleString("de-DE")
+                                               : (wcFollowersLoading ? "..." : "—")}
+                                       </span>
+                                   )}
                                </div>
 
                                <pre className="text-[10px] bg-black/30 border border-white/5 p-2 rounded-lg overflow-hidden text-white/30 mb-4 font-mono select-all">
@@ -572,11 +644,12 @@ export default function AdminDashboard() {
                        );
                    })}
 
-                   {entries.length === 0 && (
+                   {list.length === 0 && (
                        <div className="col-span-full text-center text-white/30 italic py-10">
                            Keine Einträge gefunden.
                        </div>
                    )}
+                  </div>
               </div>
           );
       }
@@ -624,16 +697,24 @@ export default function AdminDashboard() {
                                   <th className="p-3 font-bold">Pflanzen</th>
                                   <th className="p-3 font-bold">Erw.</th>
                                   <th className="p-3 font-bold">Zuletzt aktiv</th>
+                                  <th className="p-3 font-bold text-right">Menü</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5">
                               {filtered.map(u => (
                                   <tr key={u.userId} className="hover:bg-white/[0.03] transition-colors">
                                       <td className="p-3">
-                                          {u.twitchLogin && (
-                                              <div className="text-white font-semibold text-sm">{u.twitchLogin}</div>
-                                          )}
-                                          <div className="font-mono text-xs text-white/30">{u.userId}</div>
+                                          <div className="flex items-center gap-2">
+                                              {u.online && (
+                                                  <span title="Gerade im Spiel" className="w-1.5 h-1.5 rounded-sm bg-emerald-400 shrink-0" />
+                                              )}
+                                              <div className="min-w-0">
+                                                  {u.twitchLogin && (
+                                                      <div className="text-white font-semibold text-sm">{u.twitchLogin}</div>
+                                                  )}
+                                                  <div className="font-mono text-xs text-white/30">{u.userId}</div>
+                                              </div>
+                                          </div>
                                       </td>
                                       <td className="p-3">
                                           {gardenEditId === u.userId ? (
@@ -659,13 +740,36 @@ export default function AdminDashboard() {
                                       <td className="p-3 text-white/50">{u.plantCount}</td>
                                       <td className="p-3 text-white/50">{u.expansions}</td>
                                       <td className="p-3 text-white/40 text-xs">{u.updatedAt ? new Date(u.updatedAt).toLocaleString("de-DE") : "—"}</td>
+                                      <td className="p-3 text-right">
+                                          <button
+                                              onClick={() => setGardenDetail({ userId: u.userId, name: u.twitchLogin })}
+                                              className="inline-flex items-center gap-1.5 text-[10px] text-white/60 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-md transition-colors uppercase font-bold tracking-wider"
+                                          >
+                                              <SlidersHorizontal size={10} /> Bearbeiten
+                                          </button>
+                                      </td>
                                   </tr>
                               ))}
-                              {filtered.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-white/30 italic">Keine Spieler gefunden.</td></tr>}
+                              {filtered.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-white/30 italic">Keine Spieler gefunden.</td></tr>}
                           </tbody>
                       </table>
                     </div>
                   </div>
+
+                  {/* Ausführliches Menü für eine Farm — Gold, Rucksack, Ernte, Tiere, Deko, Werte */}
+                  {gardenDetail && (
+                      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+                           onClick={() => setGardenDetail(null)}>
+                          <div className="w-full max-w-5xl max-h-[88vh] flex flex-col bg-slate-900 border border-slate-700 rounded-md p-4"
+                               onClick={(e) => e.stopPropagation()}>
+                              <GardenAdminPanel
+                                  userId={gardenDetail.userId}
+                                  anzeigeName={gardenDetail.name}
+                                  onClose={() => { setGardenDetail(null); fetchData("garden"); }}
+                              />
+                          </div>
+                      </div>
+                  )}
               </div>
           );
       }

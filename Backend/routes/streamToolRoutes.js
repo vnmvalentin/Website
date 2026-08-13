@@ -15,6 +15,7 @@ const { nanoid } = require("nanoid");
 const { db, encryptToken, decryptToken } = require("../lib/streamToolStore");
 const { helix, validateToken } = require("../lib/twitchHelix");
 const raids = require("../lib/streamToolRaids");
+const stats = require("../lib/streamToolStats");
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
 const MIN_SYNC_INTERVAL_MS = 2000;
@@ -160,6 +161,22 @@ async function fetchGoals(row, token, previous) {
   };
 }
 
+/**
+ * Die laufende Sendung. Liefert Beginn und Zuschauerzahl für die
+ * Stream-Statistik und sagt zugleich, ob überhaupt gesendet wird.
+ * @returns {Promise<object|null>} null, wenn der Kanal offline ist
+ */
+async function fetchStream(row, token) {
+  const data = await helix(`streams?user_id=${row.user_id}&first=1`, token);
+  const s = (data.data || [])[0];
+  if (!s || s.type !== "live") return null;
+  return {
+    id: String(s.id),
+    startedAt: Date.parse(s.started_at) || Date.now(),
+    viewers: Number(s.viewer_count) || 0,
+  };
+}
+
 /** Twitch liefert höchstens ein aktives Ziel je Typ — nach Typ ablegen. */
 function shapeCreatorGoals(list) {
   const out = {};
@@ -184,13 +201,20 @@ async function syncFromTwitch(row, { force = false, forceGoals = false } = {}) {
   const previous = readCache(row);
   const goalsStale =
     forceGoals || !previous.goals || Date.now() - (previous.goals.at || 0) > GOALS_SYNC_INTERVAL_MS;
+  // Der Sendungsstand hängt am selben Takt: er ändert sich in Minuten, nicht in
+  // Sekunden, und ohne das Statistik-Modul wird er gar nicht erst geholt.
+  const wantStream = goalsStale && !!stats.statsModuleOf(row);
 
   try {
-    const [polls, preds, goals] = await Promise.all([
+    const [polls, preds, goals, stream] = await Promise.all([
       helix(`polls?broadcaster_id=${row.user_id}&first=1`, token),
       helix(`predictions?broadcaster_id=${row.user_id}&first=1`, token),
       goalsStale ? fetchGoals(row, token, previous.goals) : Promise.resolve(previous.goals),
+      // Ein Fehlschlag hier darf den Rest nicht mitreißen: undefined heißt
+      // "nichts Neues", die zuletzt erkannte Sendung bleibt dann stehen.
+      wantStream ? fetchStream(row, token).catch(() => undefined) : Promise.resolve(undefined),
     ]);
+    if (stream !== undefined) stats.updateSession(row, stream, goals?.followers ?? null);
     const cache = {
       poll: shapePoll(polls.data && polls.data[0]),
       prediction: shapePrediction(preds.data && preds.data[0]),
@@ -261,10 +285,14 @@ function invalidateGoals(row) {
   updateCache.run(JSON.stringify(cache), 0, row.user_id);
 }
 
-const raidEnabled = (config) => !!config?.modules?.[raids.MODULE_ID]?.enabled;
+/** Module, die den Chat-Bot brauchen: Raid-Clips (Raids) und Statistik (Cheers, Abos). */
+const CHAT_MODULE_IDS = [raids.MODULE_ID, stats.MODULE_ID];
 
-/** Der Chat-Bot muss den Kanal betreten/verlassen, wenn das Raid-Modul umgeschaltet wird. */
-function refreshRaidChannels() {
+const chatSignature = (config) =>
+  CHAT_MODULE_IDS.map((id) => (config?.modules?.[id]?.enabled ? "1" : "0")).join("");
+
+/** Der Chat-Bot muss den Kanal betreten/verlassen, wenn eines dieser Module umschaltet. */
+function refreshChatChannels() {
   try {
     require("../lib/winchallengeIrc").refreshChannels();
   } catch {
@@ -280,12 +308,15 @@ function ircStatus() {
   }
 }
 
-/** Ob Raids in diesem Kanal gerade wirklich ankommen würden. */
-function raidWatchStatus(row) {
+/** Ob der Bot in diesem Kanal mitliest — Voraussetzung für Raids, Cheers und Abos. */
+function chatWatchStatus(row) {
   const irc = ircStatus();
   const login = String(row.twitch_login || "").toLowerCase();
+  const config = parseConfig(row.config);
   return {
-    enabled: raidEnabled(parseConfig(row.config)),
+    // Je Modul, damit das Dashboard beim richtigen einen Hinweis zeigen kann
+    raidEnabled: !!config?.modules?.[raids.MODULE_ID]?.enabled,
+    statsEnabled: !!config?.modules?.[stats.MODULE_ID]?.enabled,
     botConfigured: !!irc.configured,
     botConnected: !!irc.connected,
     watching: !!login && irc.joined.includes(login),
@@ -311,9 +342,10 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       missingGoalScopes: GOAL_SCOPES.filter((s) => !granted.includes(s)),
       // Getrennt, weil nur der Modus "Twitch-Ziel" dieses Recht braucht
       hasTwitchGoalScope: granted.includes(TWITCH_GOAL_SCOPE),
-      // Raids erkennt der Chat-Bot. Ohne ihn bleibt das Clip-Modul stumm —
-      // das Dashboard soll das sagen können, statt es stillschweigend zu schlucken.
-      raidWatch: raidWatchStatus(row),
+      // Raids, Cheers und Abos sieht nur der Chat-Bot. Ohne ihn bleiben die
+      // beiden Module stumm — das Dashboard soll das sagen können, statt es
+      // stillschweigend zu schlucken.
+      chatWatch: chatWatchStatus(row),
       serverNow: Date.now(),
     });
   });
@@ -330,10 +362,13 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     updateConfig.run(raw, Date.now(), userId);
 
     const row = getByUser.get(userId);
-    if (goalSignature(before) !== goalSignature(config)) invalidateGoals(row);
-    if (raidEnabled(before) !== raidEnabled(config)) refreshRaidChannels();
+    const chatChanged = chatSignature(before) !== chatSignature(config);
+    // Beim Einschalten der Statistik gilt dasselbe wie bei den Zielen: der
+    // Sendungsstand soll sofort kommen und nicht erst in einer halben Minute.
+    if (chatChanged || goalSignature(before) !== goalSignature(config)) invalidateGoals(row);
+    if (chatChanged) refreshChatChannels();
 
-    res.json({ ok: true, raidWatch: raidWatchStatus(row) });
+    res.json({ ok: true, chatWatch: chatWatchStatus(row) });
   });
 
   router.post("/overlay/regenerate", requireAuth, (req, res) => {
@@ -380,6 +415,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     updateToken.run("", "", 0, Date.now(), String(req.twitchId));
     updateCache.run("", 0, String(req.twitchId));
     clearRaidEvent.run(String(req.twitchId));
+    stats.clearStats(String(req.twitchId));
     res.json({ ok: true });
   });
 
@@ -387,7 +423,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   router.get("/live", requireAuth, async (req, res) => {
     const row = getOrCreate(String(req.twitchId));
     if (!decryptToken(row.token_enc)) {
-      return res.json({ connected: false, poll: null, prediction: null, goals: null, raid: null, raidWatch: raidWatchStatus(row), notice: null, serverNow: Date.now() });
+      return res.json({ connected: false, poll: null, prediction: null, goals: null, raid: null, stats: null, chatWatch: chatWatchStatus(row), notice: null, serverNow: Date.now() });
     }
     const data = await syncFromTwitch(row);
     const fresh = getByUser.get(String(req.twitchId));
@@ -397,12 +433,20 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       prediction: data.prediction || null,
       goals: data.goals || null,
       raid: raids.activeRaidEvent(fresh),
+      stats: stats.statsModuleOf(fresh) ? stats.currentStats(fresh.user_id) : null,
       // Mitgeschickt, weil der Chat-Bot einen Kanal erst nach ein paar Sekunden
       // betritt — so wird die Anzeige im Dashboard von selbst grün.
-      raidWatch: raidWatchStatus(fresh),
+      chatWatch: chatWatchStatus(fresh),
       notice: data.notice || null,
       serverNow: Date.now(),
     });
+  });
+
+  /** Zähler der Stream-Statistik auf null, ohne die Sendung zu beenden. */
+  router.post("/stats/reset", requireAuth, (req, res) => {
+    const row = getOrCreate(String(req.twitchId));
+    const ok = stats.resetStats(row.user_id);
+    res.json({ ok, stats: stats.currentStats(row.user_id) });
   });
 
   /**
@@ -444,8 +488,16 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       no_settings: "Keine Einstellungen gefunden.",
     };
     if (result.error) return res.status(400).json({ error: MESSAGES[result.error] || "Probelauf fehlgeschlagen." });
-    if (result.event.error === "no_clips") {
-      return res.json({ event: result.event, warning: "Dieser Kanal hat im gewählten Zeitraum keine Clips — das Overlay zeigt nur die Raid-Begrüßung." });
+
+    // Ohne Clip zeigt das Overlay nichts an — das gehört ins Dashboard gesagt,
+    // sonst sucht man den Fehler in OBS.
+    const WARNINGS = {
+      no_clips: "Dieser Kanal hat im gewählten Zeitraum keine Clips — das Overlay bleibt aus.",
+      auth: "Twitch hat die Anmeldung abgelehnt — bitte neu verbinden. Das Overlay bleibt aus.",
+      error: "Twitch hat die Clips nicht herausgegeben — das Overlay bleibt aus.",
+    };
+    if (result.event.error) {
+      return res.json({ event: result.event, warning: WARNINGS[result.event.error] || "Kein Clip gefunden — das Overlay bleibt aus." });
     }
     res.json({ event: result.event });
   });
@@ -474,6 +526,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       goals: data.goals || null,
       // Nur solange der Clip läuft — danach fällt das Feld von selbst wieder weg
       raid: raids.activeRaidEvent(row),
+      stats: stats.statsModuleOf(row) ? stats.currentStats(row.user_id) : null,
       serverNow: Date.now(),
     });
   });

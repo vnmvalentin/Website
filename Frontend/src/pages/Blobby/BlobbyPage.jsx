@@ -8,6 +8,7 @@ import { Volleyball, ArrowRight, Users, Loader2 } from "lucide-react";
 import SEO from "../../components/SEO";
 import BlobbySettings from "./BlobbySettings";
 import { DEFAULT_SETTINGS } from "./settings";
+import { BLOBBY_SOCKET_OPTS } from "./net";
 
 export default function BlobbyPage() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export default function BlobbyPage() {
 
   const ensureSocket = useCallback(() => {
     if (socketRef.current) return socketRef.current;
-    const socket = io("/", { path: "/socket.io", transports: ["websocket", "polling"] });
+    const socket = io("/", { ...BLOBBY_SOCKET_OPTS });
     socketRef.current = socket;
     return socket;
   }, []);
@@ -177,8 +178,9 @@ export default function BlobbyPage() {
           <h2 className="text-sm font-bold text-white mb-3">Steuerung</h2>
           <ul className="space-y-2 text-sm text-white/55">
             <li><span className="text-white/85 font-semibold">A / D</span> oder <span className="text-white/85 font-semibold">← / →</span> — laufen</li>
-            <li><span className="text-white/85 font-semibold">W</span>, <span className="text-white/85 font-semibold">↑</span> oder <span className="text-white/85 font-semibold">Leertaste</span> — springen (gedrückt halten springt höher)</li>
-            <li>Am Handy: die drei Tasten unter dem Spielfeld</li>
+            <li><span className="text-white/85 font-semibold">W</span> oder <span className="text-white/85 font-semibold">↑</span> — springen (gedrückt halten springt höher)</li>
+            <li><span className="text-white/85 font-semibold">Leertaste</span> — gesammeltes Powerup einsetzen</li>
+            <li>Am Handy: die Tasten unter dem Spielfeld</li>
           </ul>
         </div>
         <div className="panel p-5">

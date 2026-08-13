@@ -1,45 +1,130 @@
 // BlobbyRoom.jsx — Spielraum: Beitritts-Flow über den Link-Code (wie Connect4), danach das
 // eigentliche Spielfeld auf einem Canvas.
 //
-// Netzcode: Der Server rechnet mit 75 Hz und schickt jeden zweiten Frame einen Schnappschuss.
-// Die drei beweglichen Dinge werden bewusst unterschiedlich behandelt:
+// Netzcode: EINE Simulation, EINE Uhr. Der Server rechnet mit 75 Hz, der Client rechnet
+// gar nichts — er liest Ball, Gegner UND den eigenen Blob aus demselben Schnappschuss-
+// Puffer an derselben Abspieluhr ab und zeichnet sie.
 //
-//   · Eigener Blob — lokal mitsimuliert, reagiert also ohne Wartezeit auf die Tastatur.
-//     Der Server quittiert jede Eingabe mit laufender Nummer und Alter; damit vergleicht
-//     der Client den Serverstand mit genau dem eigenen Frame, den dieser abbildet, und
-//     korrigiert nur echte Abweichungen statt den Laufzeitversatz.
-//   · Ball — Flugbahn ist bekannt, wird also um die gemessene halbe Laufzeit vorausgerechnet.
-//   · Gegner — NICHT vorausgerechnet, sondern zwischen zwei gepufferten Schnappschüssen
-//     interpoliert und dafür knapp einen Paketabstand verzögert gezeigt. Vorausrechnen
-//     hieße raten, wann der andere loslässt, und jede Fehlannahme müsste sichtbar
-//     zurückgenommen werden.
+// Warum keine Vorhersage mehr (Messung vom 09.08.2026):
+// Vorher lief der eigene Blob lokal mit und wurde von jedem Schnappschuss geradegezogen.
+// Das kostete drei Fehlerklassen, die sich gegenseitig gefüttert haben:
+//
+//   · Der Abgleich schob den Blob (`b.y += dy`) und verschob danach die ganze eigene
+//     Historie um denselben Betrag. Damit war derselbe Fehler beim nächsten Schnappschuss
+//     wieder plausibel, die Korrektur wirkte erneut in dieselbe Richtung — der Blob stieg.
+//     Gemessen mit einem Bot, der von unten gegen den Ball springt: 327-479 px über dem
+//     Sand bei einer physikalischen Sprungdecke von 259 px, dazu 18-33 sichtbare
+//     Korrekturen pro Sekunde. Der Server blieb im selben Szenario bei 251 px.
+//   · Die Rempler-Auflösung gegen den Gegner rechnete gegen dessen INTERPOLIERTE, also
+//     45 ms alte Position und hob den eigenen Blob an Stellen an, an denen sich beim
+//     Server nie etwas berührt hat.
+//   · Der eigene Blob stand auf "jetzt", der Ball 45 ms in der Vergangenheit. Beim Sprung
+//     (14,2 px/Frame) sind das ~65 px Versatz bei 89 px Blobhöhe — der Ball wurde sichtbar
+//     im eigenen Körper gezeichnet.
+//
+// Alle drei verschwinden nicht durch Nachbessern, sondern nur dadurch, dass es nur noch
+// eine Wahrheit gibt. Der Preis ist Eingabeverzögerung: halbe Laufzeit bis zum Server plus
+// Puffertiefe. Für ein Browser-Volleyball ist das der bessere Tausch — ein Blob, der 30 ms
+// später losläuft, stört niemanden; ein Blob, der aus dem Bild fliegt, macht das Spiel
+// kaputt.
+//
+// Fehlt ein Paket, füllt der Ball die Lücke ballistisch auf DERSELBEN Uhr auf (nach oben
+// begrenzt), statt in der Luft stehen zu bleiben; Blobs bleiben beim letzten bekannten
+// Stand stehen, statt ins Blaue zu laufen.
+//
+// Positioniert wird ausschließlich über die Server-Frame-Nummer aus dem Schnappschuss.
+// Die Ankunftszeit taugt dafür nicht: Unter Last kamen gemessen zwei Schnappschüsse
+// 0,3 ms auseinander an, die 2-3 Server-Frames auseinanderlagen — an der Ankunft
+// abgelesen raste die Interpolation dann in einem Frame durch beide Stände.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import {
   Volleyball, Copy, Check, LogOut, RotateCcw, Loader2, Users, Settings2, ArrowLeftRight,
-  ChevronLeft, ChevronRight, ChevronUp,
+  ChevronLeft, ChevronRight, ChevronUp, Zap,
 } from "lucide-react";
 import SEO from "../../components/SEO";
 import BlobbySettings from "./BlobbySettings";
 import { DEFAULT_SETTINGS, normalizeSettings, POWERUP_LABELS, settingsSummary } from "./settings";
+import { BLOBBY_SOCKET_OPTS } from "./net";
 import { SLOT_COLOR, TEAM_COLOR, POWERUP_COLOR, drawScene } from "./render";
 import {
-  WORLD_H, FIELD_W, NET_BASE_TOP, BALL_RADIUS, BLOBBY_SPEED, TICK_HZ, TICK_MS,
-  teamOf, groundPlaneFor, slotStartX,
-  stepBlob, clampToField, clampToHalf, blobNetCollision, blobBlobCollision,
-  integrateBall, ballWorldCollision, ballBlobCollision, stepBallFree,
+  WORLD_H, FIELD_W, NET_BASE_TOP, BALL_RADIUS, TICK_HZ, TICK_MS,
+  SERVE_BALL_HEIGHT, SERVE_BALL_OFFSET, teamOf, groundPlaneFor, slotStartX,
+  stepBallFree,
 } from "./physics";
 import { POWERUP_TYPES } from "./physics";
 
-const HISTORY = 192;                                       // ~2,5 s eigene Vergangenheit
-const NO_INPUT = { left: false, right: false, jump: false };
+// So weit darf der Ball eine Paketlücke höchstens ballistisch überbrücken. Danach bleibt
+// er stehen: eine längere Rechnung ohne neue Wahrheit wird zur Fantasieflugbahn, die
+// beim nächsten Schnappschuss sichtbar zurückgenommen werden müsste.
+const BALL_FILL_MAX_MS = 120;
+
+// Untergrenze der Puffertiefe. Seit der Client nichts mehr vorhersagt, ist dieser Wert
+// unmittelbar spürbare Eingabeverzögerung — jede Millisekunde zählt. Unter einen halben
+// Paketabstand darf er trotzdem nie, sonst ist der Puffer per Definition leer.
+const DELAY_FLOOR = 16;
+
+// ── Ablesen aus dem Schnappschuss-Puffer ────────────────────────────────────
+// Die beiden Stände um `t` herum suchen. Liegt `t` hinter dem letzten bekannten Stand
+// (Paket fehlt), kommt dieser unverändert zurück — geraten wird nichts.
+// `dry` heißt: Der Zeitpunkt liegt HINTER dem letzten bekannten Stand — das Paket, das
+// jetzt an der Reihe wäre, ist noch nicht da. Genau das ist das Signal, dass der Puffer zu
+// flach ist; der Aufrufer führt ihn daraufhin nach.
+function sampleAt(buf, t) {
+  if (!buf || !buf.length) return null;
+  if (t <= buf[0].st) return { a: buf[0], b: buf[0], u: 0, dry: false };
+  for (let i = 1; i < buf.length; i++) {
+    if (buf[i].st >= t) {
+      const a = buf[i - 1], b = buf[i];
+      const span = b.st - a.st || 1;
+      return { a, b, u: Math.max(0, Math.min(1, (t - a.st) / span)), dry: false };
+    }
+  }
+  const last = buf[buf.length - 1];
+  return { a: last, b: last, u: 0, dry: true };
+}
+
+function sampleBlob(target, buf, t) {
+  const s = sampleAt(buf, t);
+  if (!s) return false;
+  target.x = s.a.x + (s.b.x - s.a.x) * s.u;
+  target.y = s.a.y + (s.b.y - s.a.y) * s.u;
+  // Zustandswerte werden nicht gemischt — sie sind Schalter, keine Strecken
+  const src = s.u > 0.5 ? s.b : s.a;
+  target.vy = src.vy;
+  target.scale = src.scale;
+  target.speed = src.speed;
+  target.grounded = src.grounded;
+  return s.dry;
+}
+
+function sampleBall(ball, buf, t, rally, width, netX, netTop) {
+  const s = sampleAt(buf, t);
+  if (!s) return false;
+  if (s.a !== s.b) {
+    ball.x = s.a.x + (s.b.x - s.a.x) * s.u;
+    ball.y = s.a.y + (s.b.y - s.a.y) * s.u;
+    ball.vx = s.a.vx + (s.b.vx - s.a.vx) * s.u;
+    ball.vy = s.a.vy + (s.b.vy - s.a.vy) * s.u;
+    return false;
+  }
+  ball.x = s.a.x; ball.y = s.a.y; ball.vx = s.a.vx; ball.vy = s.a.vy;
+  if (!rally) return s.dry;               // im Aufschlag hängt der Ball, da wird nichts gefüllt
+  const ahead = Math.min(BALL_FILL_MAX_MS, t - s.a.st);
+  const steps = Math.round(ahead / TICK_MS);
+  for (let i = 0; i < steps; i++) stepBallFree(ball, width, netX, netTop);
+  return s.dry;
+}
 
 // Touch-Gerät? Dann kommen die drei Steuertasten unter das Feld und der Hinweistext
 // erklärt sie statt der Tastatur.
 const IS_COARSE_POINTER = typeof window !== "undefined" && typeof window.matchMedia === "function"
   ? window.matchMedia("(pointer: coarse)").matches
   : false;
+
+// Detailwerte zur Verbindung einblenden: /blobby/CODE?net=1
+const NET_DEBUG = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("net");
 
 function freshWorld(mode) {
   const width = FIELD_W[mode] || FIELD_W["1v1"];
@@ -58,9 +143,7 @@ function freshWorld(mode) {
     phase: "serve",
     frame: 0,
     blobs,
-    ball: { x: slotStartX(1, mode), y: 269 + BALL_RADIUS, vx: 0, vy: 0 },
-    ballPrev: { x: slotStartX(1, mode), y: 269 + BALL_RADIUS },
-    touching: { 1: false, 2: false, 3: false, 4: false },
+    ball: { x: slotStartX(1, mode) + SERVE_BALL_OFFSET, y: SERVE_BALL_HEIGHT, vx: 0, vy: 0 },
     powerup: null,
     rot: 0,
     bob: 0,
@@ -75,43 +158,141 @@ function freshWorld(mode) {
 function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, onHud }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
-  const worldRef = useRef(freshWorld(settings.mode));
+  // Lazy: `useRef(f())` wertet sein Argument bei JEDEM Render neu aus und wirft das
+  // Ergebnis weg — bei der Historie unten wären das 192 Objekte pro Render.
+  const worldRef = useRef(null);
+  if (!worldRef.current) worldRef.current = freshWorld(settings.mode);
   const inputRef = useRef({ left: false, right: false, jump: false });
   const sentMaskRef = useRef(0);
-  // Gegner werden aus gepufferten Schnappschüssen interpoliert statt vorausgerechnet
+  // Alles Entfernte kommt aus diesen Puffern — Zeitstempel ist die Server-Frame-Nummer
   const remoteBufRef = useRef({});
-  const gapRef = useRef(30);          // gemittelter Abstand zwischen zwei Schnappschüssen
+  const ballBufRef = useRef([]);
+  // Abspieluhr in Server-Millisekunden. Sie läuft mit der echten Zeit mit und wird sanft
+  // an den Schnappschuss-Strom angeglichen; ihr fester Abstand zum neuesten Stand ist die
+  // EINZIGE Stelle, an der Verzögerung entsteht — und sie gilt für Ball wie Gegner.
+  const clockRef = useRef({ t: 0, live: false });
+  const latestStRef = useRef(0);
+  // Gemittelter ANKUNFTSabstand. Er bemisst nur, wie tief der Puffer sein muss (das ist
+  // eine Netzeigenschaft); abgelesen wird ausschließlich über die Server-Zeit.
+  const gapRef = useRef(30);
+  // Schwankung des Ankunftsabstands. Sie allein bemisst die Puffertiefe.
+  const jitterRef = useRef(4);
   const lastSnapAtRef = useRef(0);
-  const hitGuardRef = useRef(0);      // Frames, in denen der Serverball noch veraltet ist
-  const lagMsRef = useRef(50);
   const liveRef = useRef(false);
+  const rafCountRef = useRef(0);   // nur für die ?net=1-Diagnose
   const namesRef = useRef({});
   const slotsRef = useRef(slots);
-  const crossNetRef = useRef(settings.crossNet);
-  // Eigene Vergangenheit: pro simuliertem Frame ein Eintrag. Damit lässt sich der
-  // Serverstand mit genau dem eigenen Frame vergleichen, den er abbildet.
-  const tickRef = useRef(0);
-  const histRef = useRef(Array.from({ length: HISTORY }, () => ({ x: 0, y: 0, vy: 0, grounded: true })));
+  // Laufende Nummer der Eingabe. Der Server schickt sie im Schnappschuss zurück; gebraucht
+  // wird sie dort nur noch, um überholte Pakete zu verwerfen — der Client gleicht nichts
+  // mehr damit ab.
   const seqRef = useRef(0);
-  const seqLogRef = useRef([{ seq: 0, tick: 0 }]);
-  const driftRef = useRef(0);
   const [touchUi, setTouchUi] = useState({ left: false, right: false, jump: false });
+  // Eingesammeltes, noch nicht gezündetes Powerup des eigenen Platzes. Als Ref für den
+  // Tastaturfilter (der soll nicht bei jeder Änderung neu gebunden werden) und als State
+  // für die Handy-Taste.
+  const heldRef = useRef(null);
+  const [heldType, setHeldType] = useState(null);
+
+  // Verbindungsmesswerte. rtt/jit gehen an den Server (damit beide Seiten die Qualität des
+  // anderen sehen), der Rest bleibt lokal für die Detailanzeige (?net=1).
+  //
+  // Korrekturzähler gibt es nicht mehr: Es wird nichts mehr vorhergesagt, also kann auch
+  // nichts mehr korrigiert werden. Der aussagekräftige Wert ist jetzt `dry` — wie oft der
+  // Puffer leer lief — und die Bildrate der eigenen Renderschleife.
+  const netRef = useRef({
+    rtt: 0, jit: 0, snaps: 0, srvFrames: 0, srvSelf: 0, srvBlock: 0, dry: 0, dryTick: 0,
+  });
+  const [net, setNet] = useState(null);
+
+  // Einmal pro Sekunde die Zähler einsammeln und weiterreichen. Bewusst nicht öfter: Die
+  // Anzeige soll ablesbar sein und darf die Renderschleife nicht mit React-Rendern stören.
+  useEffect(() => {
+    let lastAt = performance.now();
+    let lastRaf = rafCountRef.current;
+    const id = setInterval(() => {
+      const n = netRef.current;
+      const nowAt = performance.now();
+      const secs = Math.max(0.2, (nowAt - lastAt) / 1000);
+      lastAt = nowAt;
+      // Bildrate der eigenen Renderschleife. Sie gehört hierher, weil eine gedrosselte
+      // Seite (Hintergrund-Tab, verdecktes Fenster, überlasteter Rechner) genauso aussieht
+      // wie ein Netzproblem: Gemessen mit stehender Schleife waren es 0 Bilder/s, und alles
+      // ruckelte, obwohl die Verbindung tadellos war.
+      const fps = Math.round((rafCountRef.current - lastRaf) / secs);
+      lastRaf = rafCountRef.current;
+
+      const snap = {
+        rtt: Math.round(n.rtt), jit: Math.round(n.jit), fps,
+        snaps: n.snaps, srv: Math.round(n.srvFrames / secs),
+        srvSelf: n.srvSelf, srvBlock: n.srvBlock, dry: n.dry,
+        delay: Math.round(delayRef.current),
+      };
+      n.snaps = 0; n.srvFrames = 0; n.dry = 0;
+      setNet(snap);
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const firePowerup = useCallback(() => {
+    if (!mySlot || !heldRef.current) return;   // spart das Ereignis bei leerem Slot
+    socket?.emit("bv:power");
+  }, [socket, mySlot]);
+
+  // Wie weit in der Vergangenheit die Welt gezeigt wird — ADAPTIV.
+  //
+  // Puffer braucht man gegen SCHWANKUNG, nicht gegen Paketabstand. Ein fester Wert war
+  // vorher der Denkfehler: Auf localhost sah alles perfekt aus, über echtes Internet lief
+  // der Puffer dauernd leer und die Blobs sprangen.
+  //
+  // Jetzt entscheidet die Wirklichkeit: Läuft die Interpolation ins Leere, wird sofort
+  // tiefer gepuffert. Lief eine Sekunde alles glatt, sinkt die Verzögerung wieder ein
+  // Stück — sonst bliebe sie nach einem einzelnen Aussetzer für immer hoch.
+  //
+  // Seit die Vorhersage weg ist, ist dieser Wert direkt die Eingabeverzögerung: Er liegt
+  // zwischen Tastendruck und sichtbarer Bewegung, zusammen mit der halben Laufzeit. Der
+  // Boden ist deshalb so tief wie vertretbar — knapp mehr als ein Paketabstand
+  // (SNAPSHOT_EVERY=2, also 26,7 ms). Tiefer geht nur mit häufigeren Schnappschüssen.
+  const delayRef = useRef(70);
+  const lastTuneRef = useRef(0);
+  const remoteDelay = useCallback(() => delayRef.current, []);
+
+  // Messzugang für automatisierte Tests — nur mit ?net=1, sonst existiert er gar nicht.
+  // Ohne diesen Zugang bleibt "es bugged" eine Beschreibung statt einer Zahl.
+  useEffect(() => {
+    if (!NET_DEBUG || typeof window === "undefined") return undefined;
+    window.__blobby = () => {
+      const w = worldRef.current;
+      const me = mySlot && w ? w.blobs[mySlot] : null;
+      return {
+        slot: mySlot,
+        phase: w?.phase,
+        frame: w?.frame,
+        // Bilder der Renderschleife: Eine gedrosselte Seite (Hintergrund-Tab, verdecktes
+        // Fenster, überlasteter Rechner) sieht sonst aus wie ein Netzproblem.
+        raf: rafCountRef.current,
+        live: liveRef.current,
+        me: me && { x: me.x, y: me.y, vy: me.vy, grounded: !!me.grounded, scale: me.scale },
+        plane: me ? groundPlaneFor(me.scale) : null,
+        ball: w && { x: w.ball.x, y: w.ball.y },
+        delay: delayRef.current,
+        net: { ...netRef.current },
+      };
+    };
+    return () => { delete window.__blobby; };
+  }, [mySlot]);
 
   liveRef.current = status === "playing";
   slotsRef.current = slots;
-  crossNetRef.current = settings.crossNet;
   namesRef.current = Object.fromEntries(slots.map((s) => [s, players?.[s]?.name || ""]));
 
   // Nur Änderungen gehen raus — gehaltene Tasten kosten kein Netz. Die laufende Nummer
-  // kommt im Schnappschuss zurück und verankert dort die Vorhersage.
+  // dient dem Server nur dazu, überholte Pakete zu verwerfen.
   const pushInput = useCallback(() => {
     const i = inputRef.current;
     const mask = (i.left ? 1 : 0) | (i.right ? 2 : 0) | (i.jump ? 4 : 0);
     if (mask === sentMaskRef.current) return;
     sentMaskRef.current = mask;
     seqRef.current += 1;
-    seqLogRef.current.push({ seq: seqRef.current, tick: tickRef.current });
-    if (seqLogRef.current.length > 64) seqLogRef.current.shift();
     socket?.emit("bv:input", { left: i.left, right: i.right, jump: i.jump, seq: seqRef.current });
   }, [socket]);
 
@@ -125,25 +306,37 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
     setTouchUi((prev) => (prev[field] === down ? prev : { ...prev, [field]: down }));
   }, [mySlot, pushInput, mirror]);
 
-  // ── Tastatur: WASD und Pfeiltasten, Sprung zusätzlich auf der Leertaste ──
+  // ── Tastatur: WASD und Pfeiltasten zum Laufen/Springen, Leertaste zündet das Powerup ──
+  // Die Leertaste war früher eine zweite Sprungtaste. Seit Powerups in einem Slot landen
+  // und selbst gezündet werden, braucht es dafür eine eigene Taste — gesprungen wird also
+  // nur noch mit W bzw. Pfeil-hoch.
   useEffect(() => {
     if (!mySlot) return undefined;
+    const isSpace = (key) => key === " " || key === "spacebar";
     const fieldFor = (key) => {
       if (key === "a" || key === "arrowleft") return "left";
       if (key === "d" || key === "arrowright") return "right";
-      if (key === "w" || key === "arrowup" || key === " " || key === "spacebar") return "jump";
+      if (key === "w" || key === "arrowup") return "jump";
       return null;
     };
     const isTyping = (el) => !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
     const onKeyDown = (e) => {
       if (isTyping(e.target) || e.repeat) return;
-      const field = fieldFor(e.key.toLowerCase());
+      const key = e.key.toLowerCase();
+      if (isSpace(key)) {
+        e.preventDefault();          // sonst scrollt die Seite
+        firePowerup();
+        return;
+      }
+      const field = fieldFor(key);
       if (!field) return;
       e.preventDefault();
       setKey(field, true);
     };
     const onKeyUp = (e) => {
-      const field = fieldFor(e.key.toLowerCase());
+      const key = e.key.toLowerCase();
+      if (isSpace(key)) { e.preventDefault(); return; }
+      const field = fieldFor(key);
       if (!field) return;
       e.preventDefault();
       setKey(field, false);
@@ -163,22 +356,33 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
       window.removeEventListener("blur", release);
       release();
     };
-  }, [mySlot, setKey, pushInput]);
+  }, [mySlot, setKey, pushInput, firePowerup]);
 
-  // ── Laufzeitmessung für die Vorausberechnung ────────────────────────────
+  // ── Verbindungsmessung ──────────────────────────────────────────────────
+  // Die Simulation braucht die Laufzeit nicht mehr (gepuffert wird gegen Jitter, siehe
+  // remoteDelay). Gemessen wird trotzdem: zum Anzeigen für beide Spieler — und weil man
+  // ohne Zahlen nicht beurteilen kann, ob ein Ruckler am Netz oder am Code liegt.
+  //
+  // `jit` ist die mittlere Abweichung der Einzelmessungen vom Mittelwert. Sie sagt mehr
+  // über die Spielbarkeit aus als der Ping selbst: konstante 120 ms lassen sich glatt
+  // wegpuffern, zwischen 30 und 130 ms schwankende nicht.
   useEffect(() => {
     if (!socket) return undefined;
+    let sent = 0;
     const ping = () => {
-      const sentAt = performance.now();
-      socket.emit("bv:ping", { c: sentAt }, (res) => {
+      const t0 = performance.now();
+      socket.emit("bv:ping", { c: t0 }, (res) => {
         if (!res?.c) return;
         const rtt = performance.now() - res.c;
-        // gleitender Mittelwert: ein einzelner Ausreißer soll die Vorhersage nicht ruckeln lassen
-        lagMsRef.current = lagMsRef.current * 0.7 + Math.min(300, rtt / 2) * 0.3;
+        const n = netRef.current;
+        n.rtt = n.rtt ? n.rtt * 0.8 + rtt * 0.2 : rtt;
+        n.jit = n.jit ? n.jit * 0.8 + Math.abs(rtt - n.rtt) * 0.2 : 0;
+        // Nicht bei jeder Messung melden — der Server broadcastet daraufhin die Lobby
+        if (++sent % 3 === 0) socket.emit("bv:rtt", { rtt: n.rtt, jit: n.jit });
       });
     };
     ping();
-    const id = setInterval(ping, 2000);
+    const id = setInterval(ping, 1500);
     return () => clearInterval(id);
   }, [socket]);
 
@@ -188,11 +392,10 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
     const onTick = (s) => {
       const w = worldRef.current;
       const active = slotsRef.current;
+      const st = s.f * TICK_MS;      // Server-Zeit dieses Schnappschusses
       w.netTop = s.nt;
       w.powerup = s.pu ? { x: s.pu[0], y: s.pu[1], t: s.pu[2] } : null;
 
-      // Serverstand um die Netzlaufzeit vorrechnen, damit "jetzt" auch wirklich jetzt ist
-      const lagFrames = Math.max(0, Math.min(20, Math.round(lagMsRef.current / TICK_MS) + 1));
       const raw = {};
       for (const slot of active) {
         const p = s.pl?.[slot];
@@ -200,147 +403,88 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
         raw[slot] = {
           x: p[0], y: p[1], vy: p[2], scale: p[3], speed: p[4], grounded: !!p[5],
           seq: p[6] || 0, age: p[7] || 0,
+          held: p.length > 8 && p[8] >= 0 ? POWERUP_TYPES[p[8]] : null,
         };
       }
-
-      // Nur der Ball wird vorausgerechnet — bei ihm ist die Flugbahn bekannt.
-      const ballTgt = { x: s.b[0], y: s.b[1], vx: s.b[2], vy: s.b[3] };
       const known = Object.keys(raw).map(Number);
-      for (let i = 0; i < lagFrames; i++) {
-        // Blob-Kollision bleibt außen vor: der Serverball hat den Abpraller schon drin,
-        // ein zweiter würde ihn doppelt wegschießen.
-        if (s.ph === "rally") stepBallFree(ballTgt, w.width, w.netX, w.netTop);
+
+      const held = mySlot ? raw[mySlot]?.held ?? null : null;
+      if (heldRef.current !== held) {
+        heldRef.current = held;
+        setHeldType(held);
       }
 
       // Aufschlag/Punkt setzen die Welt zurück — dann nicht blenden, sondern übernehmen
+      const prevFrame = w.frame;
       const hardReset = w.phase !== s.ph || s.f < w.frame || s.f - w.frame > 60;
       w.phase = s.ph;
       w.frame = s.f;
+      latestStRef.current = st;
 
-      // ── Gegner: Zwischenspeicher füllen, nicht vorausrechnen ────────────────
-      // Wann der andere loslässt, kann niemand wissen. Wer es trotzdem vorausrechnet,
-      // muss die geratenen Frames zurücknehmen, sobald der Schnappschuss die Wahrheit
-      // bringt — das ist das kurze Zurückziehen nach jeder Bewegung. Stattdessen werden
-      // die Schnappschüsse gepuffert und der Gegner um eine knappe Paketdauer verzögert
-      // ZWISCHEN zwei bekannten Ständen gezeigt. Nichts wird geraten, also nichts
-      // zurückgenommen.
+      // Ankunftsabstand mitteln — nur zur Bemessung der Puffertiefe
       const nowMs = performance.now();
-      if (lastSnapAtRef.current) {
-        const gap = nowMs - lastSnapAtRef.current;
-        if (gap > 0 && gap < 400) gapRef.current = gapRef.current * 0.85 + gap * 0.15;
+      const gapMs = lastSnapAtRef.current ? nowMs - lastSnapAtRef.current : 0;
+      if (gapMs > 0 && gapMs < 400) {
+        gapRef.current = gapRef.current * 0.85 + gapMs * 0.15;
+        // Schwankung der ANKUNFT, nicht der Round-Trip-Zeit. Nur sie entscheidet, wie tief
+        // gepuffert werden muss: Ein hoher, aber gleichmäßiger Ping braucht keinen tiefen
+        // Puffer, ein niedriger mit Ausreißern schon. Der Puffer wurde vorher aus der Zahl
+        // leergelaufener Bilder abgeleitet — die hängt aber an der Bildrate des Monitors,
+        // nicht am Netz, und war damit auf einem 165-Hz-Schirm fast dreimal so empfindlich
+        // wie auf 60 Hz.
+        jitterRef.current = jitterRef.current * 0.9 + Math.abs(gapMs - gapRef.current) * 0.1;
       }
       lastSnapAtRef.current = nowMs;
+      netRef.current.snaps += 1;
+      // Frame-Fortschritt gegen echte Zeit: daraus ergibt sich die Server-Rate. Auch bei
+      // einem hardReset mitzählen — der Frame-Zähler läuft über Aufschlag und Punktpause
+      // hinweg weiter, das Auslassen hätte die Rate künstlich kleingerechnet.
+      const dFrames = s.f - prevFrame;
+      if (dFrames > 0 && dFrames < 200) netRef.current.srvFrames += dFrames;
+      // Selbstauskunft des Servers: was er selbst gerechnet hat und wie lange sein
+      // Event-Loop am Stück blockiert war. Weicht das von meiner eigenen Zählung ab,
+      // liegt der Verlust am Netz; stimmt es überein, liegt er im Server.
+      if (typeof s.sh === "number") netRef.current.srvSelf = s.sh;
+      if (typeof s.sb === "number") netRef.current.srvBlock = s.sb;
+
+      if (hardReset || !clockRef.current.live) {
+        clockRef.current.t = st - remoteDelay();
+        clockRef.current.live = true;
+      }
+
+      // ── Puffer füllen: Ball und ALLE Blobs gleichbehandelt ──────────────────
+      // Zeitstempel ist die SERVER-Zeit, nicht der Moment der Ankunft. Unter Last kamen
+      // gemessen zwei Schnappschüsse 0,3 ms auseinander an, die 2-3 Server-Frames
+      // auseinanderlagen — an der Ankunft abgelesen raste die Interpolation dann in einem
+      // Frame durch beide Stände und der Gegner teleportierte.
+      const ballBuf = ballBufRef.current;
+      if (hardReset) ballBuf.length = 0;
+      ballBuf.push({ st, x: s.b[0], y: s.b[1], vx: s.b[2], vy: s.b[3] });
+      if (ballBuf.length > 32) ballBuf.shift();
+
+      // Auch der EIGENE Platz landet im Puffer — er ist jetzt genauso ein entferntes
+      // Objekt wie jeder andere Blob. Genau das ist der Kern der Umstellung: eine Uhr für
+      // alles, was auf dem Feld steht, und damit keine zwei Zeitebenen mehr, zwischen denen
+      // etwas klemmen könnte.
       for (const slot of known) {
-        if (slot === mySlot) continue;
         const buf = (remoteBufRef.current[slot] ||= []);
         if (hardReset) buf.length = 0;   // Teleport nicht als Bewegung ausrollen
-        buf.push({ t: nowMs, ...raw[slot] });
-        if (buf.length > 24) buf.shift();
+        buf.push({ st, ...raw[slot] });
+        if (buf.length > 32) buf.shift();
       }
 
-      for (const slot of known) {
-        if (slot === mySlot) continue;
-        const b = w.blobs[slot];
-        if (hardReset) {
-          const r0 = raw[slot];
-          b.x = r0.x; b.y = r0.y; b.vy = r0.vy;
-          b.scale = r0.scale; b.speed = r0.speed; b.grounded = r0.grounded;
-        }
-      }
+      // Der eigene Blob wird NICHT mehr gesondert behandelt. Früher stand hier der Abgleich
+      // von Vorhersage und Serverstand — Anker über seq/age, Suche nach dem passenden
+      // eigenen Frame, Drift-Nachführung, Ortskorrektur, Übernahme von grounded/vy. Das ist
+      // ersatzlos weg (Begründung im Kopf der Datei): Es hat nicht nur nichts gebracht,
+      // sondern den Blob aktiv nach oben getrieben, weil die Korrektur die eigene Historie
+      // mitverschob und sich damit selbst bestätigte.
 
-      if (mySlot && raw[mySlot]) {
-        const b = w.blobs[mySlot];
-        b.scale = raw[mySlot].scale;
-        b.speed = raw[mySlot].speed;
-        const slot = mySlot;
-
-        // Eigener Blob: verglichen wird nicht mit "dem Serverstand von jetzt" — den gibt
-        // es nicht, der Server hinkt immer eine Laufzeit hinterher. Verglichen wird mit
-        // dem EIGENEN Frame, den dieser Serverstand abbildet: Der Server meldet, welche
-        // Eingabe er rechnet (seq) und seit wie vielen Frames (age). Die Stelle in der
-        // eigenen Vergangenheit ist damit eindeutig, und was dort abweicht, ist ein echter
-        // Vorhersagefehler.
-        //
-        // Vorher wurde der Versatz geschätzt und großzügig toleriert. Das ließ die
-        // Vorhersage bis zu 36 px abdriften — genug, dass Client und Server verschiedene
-        // Pfeiler-Kollisionen rechneten und der Blob zwischen "oben drauf" und "daneben"
-        // hin und her sprang.
-        const r = raw[slot];
-        const anchor = seqLogRef.current.find((e) => e.seq === r.seq);
-        let ref = null;
-        let refShift = 0;
-        if (anchor && !hardReset) {
-          // Runden ist Pflicht: driftRef wird langsam nachgeführt und ist fraktional,
-          // ein gebrochener Index greift in der Historie ins Leere.
-          const base = Math.min(tickRef.current, Math.round(anchor.tick + r.age + driftRef.current));
-          // Von der Mitte nach außen suchen und einen Nachbarn nur bei ECHTER Verbesserung
-          // nehmen. Sonst wäre die Suche im Countdown blind: dort stehen alle Blobs still,
-          // alle Kandidaten sind gleich gut, und ein „irgendeiner gewinnt" ließe die
-          // Nachführung unten bei jedem Schnappschuss weiterwandern — nach dem Anpfiff
-          // verglich sie dann mit einem Frame von vor einer halben Sekunde und zerrte den
-          // Blob aktiv von seiner richtigen Stelle weg.
-          for (const d of [0, -1, 1, -2, 2, -3, 3]) {
-            const tk = base + d;
-            if (tk < 0 || tk > tickRef.current || tickRef.current - tk >= HISTORY) continue;
-            const h = histRef.current[tk % HISTORY];
-            const err = Math.abs(r.x - h.x) + Math.abs(r.y - h.y);
-            if (!ref || err < ref.err - 0.05) { ref = { err, h }; refShift = d; }
-          }
-        }
-
-        if (!ref || Math.abs(r.x - ref.h.x) > 120 || Math.abs(r.y - ref.h.y) > 120) {
-          // Kein Anker oder grob auseinander (Aufschlag, Paketverlust, frisch verbunden)
-          b.x = r.x; b.y = r.y; b.vy = r.vy; b.grounded = r.grounded;
-          for (const h of histRef.current) { h.x = b.x; h.y = b.y; h.vy = b.vy; h.grounded = b.grounded; }
-          driftRef.current = 0;
-        } else {
-          // Die beiden Takte laufen leicht auseinander; die gefundene Verschiebung langsam
-          // nachführen, statt sie jedes Mal neu suchen zu müssen.
-          driftRef.current = Math.max(-40, Math.min(40, driftRef.current + refShift * 0.25));
-
-          const ex = r.x - ref.h.x;
-          const ey = r.y - ref.h.y;
-          // Ein Frame Taktversatz ist normal und kein Fehler — nur der Überschuss zählt.
-          const slackX = BLOBBY_SPEED * b.speed * 1.5;
-          const slackY = Math.max(3, Math.abs(ref.h.vy) * 1.5);
-          const dx = Math.abs(ex) > slackX ? (ex - Math.sign(ex) * slackX) * 0.6 : 0;
-          const dy = Math.abs(ey) > slackY ? (ey - Math.sign(ey) * slackY) * 0.6 : 0;
-          if (dx || dy) {
-            b.x += dx;
-            b.y += dy;
-            // Die Vergangenheit mitziehen, sonst meldet der nächste Schnappschuss denselben
-            // Fehler noch einmal und die Korrektur schaukelt sich auf.
-            for (const h of histRef.current) { h.x += dx; h.y += dy; }
-          }
-          // Bei einer deutlichen Höhenkorrektur gilt auch der Bewegungszustand des Servers —
-          // sonst fällt der Blob lokal weiter, obwohl er dort längst auf dem Pfeiler steht.
-          if (Math.abs(ey) > 20) { b.vy = r.vy; b.grounded = r.grounded; }
-        }
-      }
-
-      // Ball: Geschwindigkeit vom Server übernehmen, Position weich nachziehen.
-      //
-      // Mit einer Ausnahme: Habe ich gerade selbst getroffen, ist der Schnappschuss noch
-      // von VOR dem Abpraller — er trägt die alte Flugrichtung. Würde man sie übernehmen,
-      // knickt der Ball bei jedem eigenen Schlag kurz zurück und springt dann wieder
-      // vorwärts. Genau das fühlt sich beim Ballkontakt hakelig an. Also warten, bis der
-      // Server denselben Abpraller meldet — erkennbar daran, dass seine Richtung wieder
-      // zur eigenen passt.
-      const ball = w.ball;
-      const stale = hitGuardRef.current > 0
-        && !hardReset
-        && ball.vx * ballTgt.vx + ball.vy * ballTgt.vy <= 0;
-      if (!stale) {
-        hitGuardRef.current = 0;
-        ball.vx = ballTgt.vx;
-        ball.vy = ballTgt.vy;
-        if (hardReset || Math.hypot(ballTgt.x - ball.x, ballTgt.y - ball.y) > 130) {
-          ball.x = ballTgt.x; ball.y = ballTgt.y;
-        } else {
-          ball.x += (ballTgt.x - ball.x) * 0.4;
-          ball.y += (ballTgt.y - ball.y) * 0.4;
-        }
-      }
+      // Der Ball braucht hier nichts mehr: Er liegt im Puffer und wird in der
+      // Renderschleife an derselben Uhr abgelesen wie die Gegner. Die frühere
+      // Sonderbehandlung (Geschwindigkeit übernehmen, Position nachziehen, nach einem
+      // eigenen Treffer den Serverball per Skalarprodukt als "veraltet" verwerfen) ist
+      // damit entfallen — sie war nur nötig, weil der Ball auf einer eigenen Uhr lief.
 
       onHud({
         phase: s.ph,
@@ -348,6 +492,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
         reason: s.pr,
         touches: s.tc,
         lastHit: s.lh,
+        held,
         effects: (s.ef || []).map(([t, team, left]) => ({
           type: POWERUP_TYPES[t],
           team,
@@ -357,7 +502,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
     };
     socket.on("bv:tick", onTick);
     return () => socket.off("bv:tick", onTick);
-  }, [socket, mySlot, onHud]);
+  }, [socket, mySlot, onHud, remoteDelay]);
 
   // ── Renderschleife ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -368,7 +513,6 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
     const worldW = worldRef.current.width;
     let raf = 0;
     let last = performance.now();
-    let acc = 0;
     let dpr = 1;
 
     const resize = () => {
@@ -386,109 +530,85 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
 
     const frame = (now) => {
       raf = requestAnimationFrame(frame);
+      rafCountRef.current += 1;
       const w = worldRef.current;
       const active = slotsRef.current;
-      const crossNet = crossNetRef.current;
 
       let dt = now - last;
       last = now;
       if (dt > 250) dt = 250;    // Tab war im Hintergrund — nicht aufholen
-      acc += dt;
       w.bob += dt * 0.004;
 
-      // Fester 75-Hz-Takt wie auf dem Server, damit die Vorhersage nicht auseinanderläuft
-      // ── Gegner: zwischen den beiden umliegenden Schnappschüssen ablesen ──────
-      // Gezeigt wird bewusst ein Stück Vergangenheit — knapp mehr als ein Paketabstand,
-      // damit immer zwei bekannte Stände umliegen. Reißt der Strom ab, bleibt der Gegner
-      // beim letzten bekannten Stand stehen, statt ins Blaue weiterzulaufen.
-      const showAt = now - Math.max(28, Math.min(150, gapRef.current * 1.7));
+      // ── Abspieluhr fortschreiben ────────────────────────────────────────────
+      // Sie läuft mit der echten Zeit und wird sanft an den Schnappschuss-Strom
+      // herangezogen. Sanft, weil ein hartes Setzen bei jedem Paket genau das Ruckeln
+      // erzeugen würde, das die Pufferung verhindern soll.
+      const clock = clockRef.current;
+      if (clock.live) {
+        clock.t += dt;
+        const target = latestStRef.current - remoteDelay();
+        const err = target - clock.t;
+        if (Math.abs(err) > 250) clock.t = target;   // Pause, Reconnect, Tab war weg
+        else clock.t += err * 0.05;
+      }
+
+      // ── Alles an DIESER einen Uhr ablesen: Ball und ALLE Blobs ───────────────
+      // Sie stammen damit garantiert aus demselben Augenblick. Kein Objekt auf dem Feld
+      // hat mehr eine eigene Zeit — das war die Quelle sowohl des Balls im eigenen Körper
+      // als auch des davonfliegenden Blobs.
+      const rally = w.phase === "rally";
+      let dry = false;
       for (const slot of active) {
-        if (slot === mySlot) continue;
-        const buf = remoteBufRef.current[slot];
-        if (!buf || !buf.length) continue;
-        const b = w.blobs[slot];
-        let older = null, newer = null;
-        for (let i = 0; i < buf.length; i++) {
-          if (buf[i].t >= showAt) { newer = buf[i]; older = i > 0 ? buf[i - 1] : buf[i]; break; }
-        }
-        const src = newer || buf[buf.length - 1];
-        if (newer && older !== newer) {
-          const span = newer.t - older.t || 1;
-          const u = Math.max(0, Math.min(1, (showAt - older.t) / span));
-          b.x = older.x + (newer.x - older.x) * u;
-          b.y = older.y + (newer.y - older.y) * u;
-        } else {
-          b.x = src.x;
-          b.y = src.y;
-        }
-        b.vy = src.vy;
-        b.scale = src.scale;
-        b.speed = src.speed;
-        b.grounded = src.grounded;
+        if (sampleBlob(w.blobs[slot], remoteBufRef.current[slot], clock.t)) dry = true;
+      }
+      if (clock.live) {
+        const beforeVx = w.ball.vx;
+        if (sampleBall(w.ball, ballBufRef.current, clock.t, rally, w.width, w.netX, w.netTop)) dry = true;
+        if (rally) w.rot += ((beforeVx + w.ball.vx) / 2) * 0.006 * (dt / TICK_MS);
       }
 
-      let steps = 0;
-      while (acc >= TICK_MS && steps < 12) {
-        acc -= TICK_MS;
-        steps += 1;
-        if (!liveRef.current) continue;
-        // Im Countdown zählt keine Taste — genau wie auf dem Server
-        const listening = w.phase === "rally";
-        // Nur der eigene Blob wird simuliert; die Gegner stehen schon an ihrer
-        // interpolierten Stelle und dürfen von der Simulation nicht verschoben werden.
-        if (mySlot && w.blobs[mySlot]) {
-          const b = w.blobs[mySlot];
-          stepBlob(b, listening ? inputRef.current : NO_INPUT, b.scale, b.speed);
-          clampToField(b, b.scale, w.width);
-          if (crossNet) blobNetCollision(b, b.scale, w.netX, w.netTop);
-          else clampToHalf(b, mySlot, b.scale, w.netX);
+      // Puffertiefe: direkt aus dem gemessenen Jitter, nicht mehr aus einer Sperrklinke.
+      //
+      // Vorher wurde bei mehr als zwei leergelaufenen BILDERN pro Sekunde um 20 ms erhöht
+      // und nur bei einer völlig sauberen Sekunde um 5 ms gesenkt. Zwei Fehler darin:
+      // Erstens hing die Empfindlichkeit an der Bildrate des Monitors statt am Netz.
+      // Zweitens war es eine Sperrklinke — mit echtem Jitter gibt es kaum eine perfekt
+      // saubere Sekunde, also stieg der Puffer und kam nie zurück. Gemessen bei 70 ms
+      // Ping mit ±8 ms Jitter: Der Puffer pendelte zwischen 32 und 52 ms, und die
+      // Eingabeverzögerung lag im Median bei 126 ms.
+      //
+      // Jetzt: Ziel ist ein Paketabstand (damit überhaupt etwas zum Interpolieren da ist)
+      // plus dreifacher Ankunftsjitter. Das ist symmetrisch — wird die Leitung ruhiger,
+      // sinkt der Puffer von selbst wieder. `dry` bleibt als Notnagel für den schnellen
+      // Anstieg, wenn die Schätzung danebenlag.
+      if (clock.live) {
+        if (dry) netRef.current.dry += 1;
+        if (now - lastTuneRef.current > 250) {
+          lastTuneRef.current = now;
+          // Ein Paketabstand als Sockel (darunter ist per Definition nichts da) plus die
+          // doppelte Schwankung. Zwei Sigma decken die üblichen Ausreißer ab; drei waren in
+          // der Messung reine Verzögerung ohne Gewinn an Ruhe.
+          const target = Math.max(
+            DELAY_FLOOR,
+            Math.min(200, gapRef.current + jitterRef.current * 2),
+          );
+          // Nach oben zügig (ein zu flacher Puffer ruckelt sofort), nach unten gemächlich
+          // (sonst pumpt die Verzögerung bei jeder ruhigen Viertelsekunde).
+          const k = target > delayRef.current ? 0.5 : 0.08;
+          delayRef.current += (target - delayRef.current) * k;
+          // Notnagel: Lief der Puffer seit der letzten Prüfung überhaupt leer, einmalig
+          // aufschlagen. Bewusst hier und nicht pro Bild — sonst hinge die Stärke des
+          // Aufschlags wieder an der Bildrate des Monitors statt am Netz.
+          if (netRef.current.dryTick) delayRef.current = Math.min(200, delayRef.current + 6);
+          netRef.current.dryTick = 0;
         }
-        // Rempler nur einseitig auflösen: Der Gegner steht dort, wo der Server ihn zeigt,
-        // und darf hier nicht verschoben werden — sonst zuckt er bei jeder Berührung.
-        if (mySlot && w.blobs[mySlot]) {
-          const me = w.blobs[mySlot];
-          for (const slot of active) {
-            if (slot === mySlot) continue;
-            const other = w.blobs[slot];
-            const keep = { x: other.x, y: other.y, vy: other.vy, grounded: other.grounded };
-            blobBlobCollision(me, me.scale, other, other.scale);
-            other.x = keep.x; other.y = keep.y; other.vy = keep.vy; other.grounded = keep.grounded;
-          }
-        }
-
-        // Eigenen Stand dieses Frames merken — er ist die Vergleichsstelle für den
-        // Schnappschuss, der ihn ein paar Frames später bestätigt oder korrigiert.
-        tickRef.current += 1;
-        if (mySlot && w.blobs[mySlot]) {
-          const me = w.blobs[mySlot];
-          const h = histRef.current[tickRef.current % HISTORY];
-          h.x = me.x; h.y = me.y; h.vy = me.vy; h.grounded = me.grounded;
-        }
-        if (w.phase === "rally") {
-          // Gleiche Reihenfolge wie im Server: fliegen, Blob, dann Welt. Der eigene
-          // Abpraller wird lokal mitgerechnet, sonst steckt der Ball für zwei Frames
-          // sichtbar im Blob.
-          //
-          // Nur der EIGENE: Der Gegner wird verzögert gezeigt, ein Abpraller an ihm käme
-          // hier also zu spät — der Server hätte ihn längst gemeldet, und man sähe den
-          // Ball zweimal abprallen.
-          w.ballPrev.x = w.ball.x;
-          w.ballPrev.y = w.ball.y;
-          integrateBall(w.ball);
-          if (mySlot && w.blobs[mySlot]) {
-            const b = w.blobs[mySlot];
-            const beforeX = w.ball.vx, beforeY = w.ball.vy;
-            w.touching[mySlot] = ballBlobCollision(w.ball, w.ballPrev, b, b.scale, w.touching[mySlot]);
-            if (w.ball.vx !== beforeX || w.ball.vy !== beforeY) {
-              // Bis der Server denselben Treffer bestätigt, seinen älteren Ball ignorieren
-              hitGuardRef.current = Math.min(30, Math.ceil((lagMsRef.current * 2 + 50) / TICK_MS));
-            }
-          }
-          ballWorldCollision(w.ball, w.width, w.netX, w.netTop);
-          w.rot += w.ball.vx * 0.006;
-        }
-        if (hitGuardRef.current > 0) hitGuardRef.current -= 1;
+        if (dry) netRef.current.dryTick = 1;
       }
+
+      // Hier stand die lokale Simulation des eigenen Blobs (stepBlob, Feld- und
+      // Pfeilerkollision, Historie, Akkumulator mit `stepMs`). Alles entfallen: Der eigene
+      // Blob kommt jetzt aus derselben Schleife oben. Die Tastatur schickt nur noch
+      // `bv:input` an den Server und wartet auf den nächsten Schnappschuss.
 
       const scale = canvas.width / worldW;
       if (mirror) ctx.setTransform(-scale, 0, 0, scale, canvas.width, 0);
@@ -497,7 +617,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
     };
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); };
-  }, [mySlot, mirror]);
+  }, [mySlot, mirror, remoteDelay]);
 
   const padButton = (field, label, icon) => (
     <button
@@ -520,20 +640,89 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
   );
 
   return (
-    <div ref={wrapRef} className="w-full">
+    <div ref={wrapRef} className="w-full relative">
       <canvas
         ref={canvasRef}
         className="block w-full rounded-xl border border-white/10 bg-[#0e2b46]"
         style={{ touchAction: "none" }}
       />
+      {/* Detailwerte für die Fehlersuche, per ?net=1 in der Adresszeile.
+          „leer" ist der wichtigste Wert: so oft pro Sekunde war der nächste Schnappschuss
+          noch nicht da, als er gebraucht wurde. Alles über 0 heißt, der Puffer ist zu flach
+          für diese Verbindung — er zieht dann selbst nach (siehe „Puffer"). */}
+      {NET_DEBUG && net && (
+        <div className="absolute top-2 right-2 px-2 py-1.5 rounded bg-black/75 border border-white/15 font-mono text-[10px] leading-relaxed text-white/70 pointer-events-none">
+          <div>ping {net.rtt} ms · jitter {net.jit} ms</div>
+          <div>puffer {net.delay} ms · pakete {net.snaps}/s</div>
+          <div className={net.srv < 70 ? "text-amber-300" : ""}>
+            server {net.srv} frames/s
+          </div>
+          <div className={net.srvSelf < 70 || net.srvBlock > 60 ? "text-amber-300" : ""}>
+            laut server {net.srvSelf}/s · blockade {net.srvBlock} ms
+          </div>
+          <div className={net.dry > 0 ? "text-amber-300" : ""}>leer {net.dry}/s</div>
+          {/* Der eigene Takt gehörte von Anfang an hierher: Steht die Renderschleife still —
+              Hintergrund-Tab, verdecktes Fenster, überlasteter Rechner —, dann rechnet der
+              Client gar nichts mehr vorher und wird nur noch von den Schnappschüssen
+              gezogen. Das sieht genau aus wie ein Netzproblem, ist aber keins, und ohne
+              diese Zeile war es von außen nicht zu unterscheiden. Gemessen mit stehender
+              Schleife: 0 Bilder/s, eigener Takt 0/s, sichtbare Korrekturen 16/s. */}
+          <div className={net.fps < 30 ? "text-amber-300" : ""}>bilder {net.fps}/s</div>
+        </div>
+      )}
       {IS_COARSE_POINTER && mySlot && (
         <div className="flex gap-2 mt-3">
           {padButton("left", "Nach links", <ChevronLeft size={26} />)}
           {padButton("jump", "Springen", <ChevronUp size={26} />)}
           {padButton("right", "Nach rechts", <ChevronRight size={26} />)}
+          {/* Erscheint nur mit gefülltem Slot — eine dauerhaft tote Taste würde die drei
+              Steuertasten unnötig schmal machen. */}
+          {heldType && (
+            <button
+              type="button"
+              aria-label={`Powerup einsetzen: ${POWERUP_LABELS[heldType]}`}
+              onPointerDown={(e) => { e.preventDefault(); firePowerup(); }}
+              onContextMenu={(e) => e.preventDefault()}
+              className="flex-1 flex items-center justify-center h-16 rounded-lg border transition-colors select-none"
+              style={{
+                touchAction: "none",
+                borderColor: POWERUP_COLOR[heldType],
+                background: `${POWERUP_COLOR[heldType]}26`,
+                color: POWERUP_COLOR[heldType],
+              }}
+            >
+              <Zap size={24} />
+            </button>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+// Verbindungsqualität eines Spielers. Bewertet wird NICHT der Ping allein, sondern vor
+// allem der Jitter: konstante 150 ms lassen sich glatt wegpuffern, zwischen 30 und 130 ms
+// schwankende nicht — und genau das erzeugt das Ruckeln, das man als "Lag" wahrnimmt.
+function connectionQuality(rtt, jit) {
+  if (rtt == null) return null;
+  if (rtt > 220 || jit > 45) return { label: "schlecht", color: "#ef4444" };
+  if (rtt > 110 || jit > 20) return { label: "mittel", color: "#f59e0b" };
+  return { label: "gut", color: "#22c55e" };
+}
+
+function ConnectionBadge({ player }) {
+  const q = connectionQuality(player?.rtt, player?.jit);
+  if (!player?.connected || !q) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] tabular-nums shrink-0"
+      style={{ color: q.color }}
+      title={`Ping ${player.rtt} ms, Schwankung ±${player.jit} ms — ${q.label}`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: q.color }} />
+      {player.rtt}
+      <span className="opacity-60">±{player.jit}</span>
+    </span>
   );
 }
 
@@ -551,9 +740,12 @@ function TeamSide({ team, slots, players, mySlot }) {
               style={{ background: SLOT_COLOR[slot].hex }}
             />
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white truncate leading-tight">
-                {player ? player.name : "Wartet…"}
-                {mySlot === slot && <span className="text-white/40 font-normal"> (Du)</span>}
+              <div className={`flex items-center gap-1.5 min-w-0 ${right ? "flex-row-reverse" : ""}`}>
+                <span className="text-sm font-semibold text-white truncate leading-tight">
+                  {player ? player.name : "Wartet…"}
+                  {mySlot === slot && <span className="text-white/40 font-normal"> (Du)</span>}
+                </span>
+                <ConnectionBadge player={player} />
               </div>
               {(!player || !player.connected) && (
                 <div className="text-[11px] text-white/40 truncate leading-tight">
@@ -595,14 +787,15 @@ export default function BlobbyRoom() {
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [hud, setHud] = useState({ phase: "serve", phaseFrames: 0, reason: "", touches: 0, lastHit: 0, effects: [] });
+  const [hud, setHud] = useState({ phase: "serve", phaseFrames: 0, reason: "", touches: 0, lastHit: 0, held: null, effects: [] });
 
-  // Der Tick feuert ~37×/s — nur echte Änderungen dürfen ein Rendern auslösen
+  // Der Tick feuert jetzt bis zu 75×/s — nur echte Änderungen dürfen ein Rendern auslösen
   const handleHud = useCallback((next) => {
     const key = (h) => h.effects.map((e) => `${e.type}${e.team}${e.secs}`).join("|");
     setHud((prev) =>
       prev.phase === next.phase && prev.touches === next.touches &&
       prev.lastHit === next.lastHit && prev.reason === next.reason &&
+      prev.held === next.held &&
       key(prev) === key(next) &&
       Math.abs(prev.phaseFrames - next.phaseFrames) < 8
         ? prev
@@ -633,8 +826,7 @@ export default function BlobbyRoom() {
 
   useEffect(() => {
     const s = io("/", {
-      path: "/socket.io",
-      transports: ["websocket", "polling"],
+      ...BLOBBY_SOCKET_OPTS,
       reconnection: true,
       reconnectionDelay: 1000,
     });
@@ -941,6 +1133,36 @@ export default function BlobbyRoom() {
           </div>
         )}
 
+        {/* Powerup-Slot unten links. Eingesammelt wird automatisch, gezündet per
+            Leertaste — die Anzeige ist deshalb auch die einzige Stelle, an der die
+            Taste erklärt wird. Der leere Slot bleibt sichtbar, sonst wüsste niemand,
+            dass es ihn gibt, bis zufällig das erste Powerup eingesammelt wird. */}
+        {settings.powerups && status === "playing" && mySlot && (
+          <div className="absolute bottom-3 left-3 pointer-events-none">
+            {hud.held ? (
+              <div
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded border backdrop-blur-sm"
+                style={{
+                  borderColor: `${POWERUP_COLOR[hud.held]}66`,
+                  background: "rgba(8, 16, 28, 0.72)",
+                }}
+              >
+                <span className="w-2 h-2 rounded-sm" style={{ background: POWERUP_COLOR[hud.held] }} />
+                <span className="text-[11px] font-semibold" style={{ color: POWERUP_COLOR[hud.held] }}>
+                  {POWERUP_LABELS[hud.held]}
+                </span>
+                <span className="text-[10px] text-white/45 border-l border-white/15 pl-2">
+                  {IS_COARSE_POINTER ? "Taste rechts" : "Leertaste"}
+                </span>
+              </div>
+            ) : (
+              <div className="px-2.5 py-1.5 rounded border border-dashed border-white/15 bg-black/35">
+                <span className="text-[11px] text-white/30">Powerup-Slot leer</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {status !== "finished" && missing > 0 && (
           <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/65 px-4">
             <div className="text-center max-w-md w-full">
@@ -1050,7 +1272,10 @@ export default function BlobbyRoom() {
         <p className="text-center text-xs text-white/35 mt-3">
           {IS_COARSE_POINTER
             ? "Tasten unter dem Feld: laufen und springen (halten = höher)"
-            : "A / D oder ← / → laufen · W, ↑ oder Leertaste springen (halten = höher)"}
+            : "A / D oder ← / → laufen · W oder ↑ springen (halten = höher)"}
+          {settings.powerups && (IS_COARSE_POINTER
+            ? " · Powerup mit der rechten Taste einsetzen"
+            : " · Leertaste setzt das gesammelte Powerup ein")}
           {settings.crossNet && " · auf den Pfeiler springen und rüberklettern ist erlaubt"}
           {settings.maxTouches > 0 && ` · max. ${settings.maxTouches} Berührungen pro Seite`}
         </p>

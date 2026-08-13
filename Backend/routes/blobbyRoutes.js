@@ -4,11 +4,14 @@
 // 75 Hz und wird als Schnappschuss verteilt.
 //
 // Die Konstanten und die Reihenfolge der Rechenschritte sind aus Blobby Volley 2
-// übernommen (GameConstants.h / PhysicWorld::step) — deshalb fühlt sich das Spiel genau
-// wie das Original an: fester Sprungimpuls mit "Halten = höher", und ein Ballabpraller
-// mit FESTER Geschwindigkeit in Richtung Blob-Mittelpunkt → Blob-Mitte weg. Die
-// Blobgeschwindigkeit geht bewusst NICHT in den Abpraller ein; gesteuert wird über die
-// Stelle, an der man den Ball trifft.
+// übernommen (GameConstants.h / PhysicWorld::step) — deshalb fühlt sich das Spiel wie das
+// Original an: fester Sprungimpuls mit "Halten = höher", und ein Ballabpraller in Richtung
+// Blob-Mitte → weg. Die Richtung steuert man über die Stelle, an der man den Ball trifft.
+//
+// EINE bewusste Abweichung: Im Original ist die Abprallgeschwindigkeit immer gleich. Hier
+// kommt die eigene Anfahrgeschwindigkeit anteilig dazu (BLOB_MOMENTUM_TRANSFER), damit ein
+// Sprungschlag schärfer ist als ein Ball, den man nur auf sich fallen lässt. Wer passiv
+// stehen bleibt, bekommt weiterhin exakt den Originalwert.
 //
 // Erweiterungen gegenüber dem Original (alle über die Raumeinstellungen steuerbar):
 //   · 2v2 auf breiterem Feld
@@ -31,7 +34,12 @@ const BLOBBY_LOWER_RADIUS = 33;
 
 // ── Ball ────────────────────────────────────────────────────────────────────
 const BALL_RADIUS = 31.5;
-const STANDARD_BALL_HEIGHT = 269 + BALL_RADIUS;
+// Aufschlaghöhe (Ballmittelpunkt), höher als im Original. Der Ball fällt dadurch 560 statt
+// 453 ms, bevor er den Sand erreicht — genug Zeit, den Sprung in Ruhe zu setzen.
+// Gemessen über 156 Kombinationen aus Druckzeitpunkt und Haltedauer geht der Aufschlag von
+// hier in ALLEN Varianten über das Netz, und zwar auf einem breiten Plateau (Höhe 180-240
+// mal Versatz 10-40 durchgehend). Der Wert liegt also nicht auf einer Messerschneide.
+const STANDARD_BALL_HEIGHT = 220;
 
 // ── Pfeiler / Netz ──────────────────────────────────────────────────────────
 // Etwas breiter als im Original (dort 7): erst dadurch ist die Kante ein Absatz, auf
@@ -46,13 +54,42 @@ const BLOBBY_JUMP_ACCELERATION = 15.1;
 const BLOBBY_JUMP_BUFFER = 0.44;   // solange Sprung gehalten wird und es aufwärts geht
 const GRAVITATION = 0.88;
 const BALL_GRAVITATION = 0.287;
-const BALL_COLLISION_VELOCITY = 13.125;
+// ── Wie schnell der Ball vom Blob wegfliegt ─────────────────────────────────
+// Die RICHTUNG ist wie im Original die Hüllennormale (Blob-Mitte → weg); gezielt wird über
+// die Trefferstelle. Nur das TEMPO ist hier anders gelöst als im Original, wo es fest war:
+//
+//   Tempo = BALL_HIT_BASE
+//         + BLOB_MOMENTUM_TRANSFER * (wie schnell der Blob in den Ball fährt)
+//         + BALL_INCOMING_TRANSFER * (wie schnell der Ball ankommt)
+//
+// Die drei Werte sind bewusst so gewählt:
+//   · Wer nur dasteht und den Ball auf sich fallen lässt, bekommt kaum Tempo — der Ball
+//     plumpst hoch und muss gespielt werden, statt von allein zurückzufliegen.
+//   · Wer dem Ball entgegenspringt, bekommt den mit Abstand größten Anteil. Der Sprung ist
+//     damit der eigentliche Schlag.
+//   · Das Tempo des ankommenden Balls zählt nur SCHWACH mit. Physikalisch käme es voll dazu,
+//     aber dann wäre ein hoch fallender Ball von allein ein Schmetterball, ohne dass jemand
+//     etwas dafür getan hätte — und ein Teil davon geht ohnehin ins Umkehren der Flugrichtung.
+const BALL_HIT_BASE = 5;
+const BLOB_MOMENTUM_TRANSFER = 0.9;
+const BALL_INCOMING_TRANSFER = 0.25;
+const BALL_MIN_HIT_VELOCITY = 4;    // sonst bleibt der Ball im Blob liegen
+const BALL_MAX_HIT_VELOCITY = 23;
 
 // ── Powerups ────────────────────────────────────────────────────────────────
 // Reihenfolge ist Protokoll: im Schnappschuss geht nur der Index raus.
 const POWERUP_TYPES = ["speed", "grow", "shrink", "netHigh", "netLow"];
-const POWERUP_RADIUS = 21;
-const POWERUP_ABOVE_NET = 124;     // Schwebehöhe über der Pfeilerkante
+const POWERUP_RADIUS = 21;         // gezeichnete Größe
+// Fangradius, absichtlich größer als die gezeichnete Kugel. Das Powerup schwebt über dem
+// Pfeiler, und genau dort kann man nicht stehen — der Blob kommt seitlich nie näher als
+// 14 px heran. Mit dem Sichtradius traf man es nur, wenn man auf ±7 px genau am Pfeiler
+// klebte; gemessen gelang „danebenstellen und hochspringen" in 2 von 5 Startpositionen.
+const POWERUP_GRAB_RADIUS = 38;
+// Feste Schwebehöhe statt eines Abstands zur Pfeilerkante. Zwei Gründe: Mit angehobener
+// Kante (netHigh) landete das Powerup bei y=92 und war dort für niemanden mehr erreichbar —
+// früher fing es der Ball ab, und der sammelt nicht mehr ein. Außerdem sprang es mitten im
+// Schweben um 68 px, sobald jemand die Kante verstellte.
+const POWERUP_Y = 175;
 const POWERUP_SPEED_FACTOR = 1.65;
 const POWERUP_GROW_SCALE = 1.4;
 const POWERUP_SHRINK_SCALE = 0.65;
@@ -61,7 +98,20 @@ const POWERUP_NET_SHIFT = 68;      // um so viel wandert die Kante hoch bzw. run
 // ── Regeln & Takt ───────────────────────────────────────────────────────────
 const TICK_HZ = 75;                // Originaltakt von Blobby Volley
 const TICK_MS = 1000 / TICK_HZ;
-const SNAPSHOT_EVERY = 2;          // jeder 2. Frame geht raus → ~37,5 Hz
+// Jeder Frame geht raus (75 Hz).
+//
+// Hier stand lange 2, mit der Begründung, der Client-Puffer richte sich nach dem Jitter und
+// nicht nach dem Paketabstand. Das war nachweislich falsch: Der Puffer läuft leer, sobald
+// der ABSTAND zweier Ankünfte ihn übersteigt — er muss also den größten Paketabstand
+// abdecken, nicht nur dessen Schwankung. Bei 37,5 Hz sind das 26,7 ms Grundabstand (lokal
+// auf Windows sogar 31 ms wegen der Timerauflösung), und damit war unter 45-58 ms Puffer
+// nichts zu holen. Seit die Vorhersage weg ist, ist dieser Puffer direkt Eingabe-
+// verzögerung: gemessen 126-145 ms bei 70 ms Ping.
+//
+// Der alte Einwand gegen 75 Hz war TCP-Head-of-Line-Blocking. Der wurde auf dem alten Host
+// erhoben, der die VM bis 245 ms einfror — unter diesen Bedingungen sah jede Messung
+// schlecht aus. Ein Schnappschuss ist rund 200 Byte, 75/s sind also ~15 KB/s je Spieler.
+const SNAPSHOT_EVERY = 1;
 const SCORE_TO_WIN = 15;
 const WIN_BY = 2;
 const SERVE_FRAMES = Math.round(1.2 * TICK_HZ);   // Ball hängt vor dem Aufschlag
@@ -114,6 +164,25 @@ function slotStartX(slot, settings) {
   const frac = settings.mode === "2v2" ? (slot <= 2 ? 0.36 : 0.8) : 0.5;
   const dist = netX * frac;
   return teamOf(slot) === 1 ? netX - dist : netX + dist;
+}
+
+// Der Aufschlagball hängt nicht genau über dem Blob, sondern ein Stück Richtung Netz.
+// Genau über dem Kopf zeigt die Abprallnormale senkrecht nach oben — der Ball fliegt dann
+// nur hoch und fällt zurück. Mit diesem Versatz trifft ihn ein simpler Sprung seitlich am
+// Kopf und schickt ihn direkt auf die andere Seite.
+// Gemessen als "geht über das Netz, nur W gedrückt": 25 px schaffen das in allen 156
+// geprüften Timing-Varianten.
+//
+// Achtung beim Nachmessen: Ob der Aufschlag ein DIREKTER PUNKT wird, ist ein völlig anderes
+// (und viel unruhigeres) Maß — der Ball prallt bei starken Aufschlägen von der Rückwand
+// zurück, und wo er dann landet, hängt chaotisch am Anstoßwinkel. Danach zu optimieren
+// führt zu Zufallszahlen. Ein Aufschlag muss übers Netz; ob der Gegner ihn annimmt, ist
+// nicht seine Sache.
+const SERVE_BALL_OFFSET = 25;
+
+function serveBallX(serveTeam, settings) {
+  const from = slotStartX(serveTeam === 1 ? 1 : 2, settings);
+  return from + (serveTeam === 1 ? SERVE_BALL_OFFSET : -SERVE_BALL_OFFSET);
 }
 
 // ── Effekte & abgeleitete Werte ─────────────────────────────────────────────
@@ -181,6 +250,7 @@ function newWorld(settings, serveTeam = 1) {
     blobs: {},
     inputs: {},
     touching: {},            // Ball lag im letzten Frame an diesem Blob an
+    lastTouchFrame: {},      // Frame der letzten gezählten Berührung je Platz
     touches: 0,              // Berührungen des Teams, das zuletzt drangewesen ist
     lastHit: 0,              // Platz der letzten Berührung
     lastTeam: 0,
@@ -189,6 +259,7 @@ function newWorld(settings, serveTeam = 1) {
     pointReason: "",         // ground | touches
     effects: [],
     powerup: null,           // { t, x, y, life }
+    held: {},                // Platz -> eingesammelter, noch nicht gezündeter Typ
     nextPowerupIn: POWERUP_SPAWN_FRAMES,
   };
   for (const slot of [1, 2, 3, 4]) {
@@ -196,7 +267,7 @@ function newWorld(settings, serveTeam = 1) {
     w.inputs[slot] = blankInput(0);
     w.touching[slot] = false;
   }
-  w.ball.x = slotStartX(serveTeam === 1 ? 1 : 2, settings);
+  w.ball.x = serveBallX(serveTeam, settings);
   return w;
 }
 
@@ -205,7 +276,7 @@ function resetForServe(w, settings, serveTeam) {
   w.phase = "serve";
   w.phaseFrames = SERVE_FRAMES;
   w.serveTeam = serveTeam;
-  w.ball = { x: slotStartX(serveTeam === 1 ? 1 : 2, settings), y: STANDARD_BALL_HEIGHT, vx: 0, vy: 0 };
+  w.ball = { x: serveBallX(serveTeam, settings), y: STANDARD_BALL_HEIGHT, vx: 0, vy: 0 };
   for (const slot of [1, 2, 3, 4]) {
     const scale = blobScale(w, slot);
     w.blobs[slot] = { x: slotStartX(slot, settings), y: groundPlaneFor(scale), vy: 0, grounded: true, jumpWasDown: false };
@@ -214,6 +285,7 @@ function resetForServe(w, settings, serveTeam) {
   w.touches = 0;
   w.lastHit = 0;
   w.lastTeam = 0;
+  w.lastTouchFrame = {};
 }
 
 function hasWon(w, team) {
@@ -241,6 +313,7 @@ function stepBlob(b, inp, scale, speedFactor) {
   if (mayJump) b.vy = -BLOBBY_JUMP_ACCELERATION;
   if (inp.jump && b.vy < 0) b.vy -= BLOBBY_JUMP_BUFFER;
   const vx = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * BLOBBY_SPEED * speedFactor;
+  b.vx = vx;              // gemerkt für den Ballabpraller (siehe ballBlobCollision)
   b.vy += GRAVITATION;
   b.x += vx;
   b.y += b.vy;
@@ -317,12 +390,26 @@ function blobBlobCollision(a, sa, b, sb) {
   }
 }
 
+// Ein Ball, der zwischen Blob und Seitenwand oder Pfeiler klemmt, prallt mehrmals kurz
+// hintereinander am selben Blob ab. Geometrisch sind das echte, getrennte Berührungen —
+// gespielt hat der Spieler aber nur EINMAL. Innerhalb dieses Fensters zählt derselbe Blob
+// deshalb nur eine Berührung. Der Abpraller selbst bleibt unangetastet: der Ball steckt
+// nie im Blob fest, er wird nur nicht doppelt aufs Konto geschrieben.
+// Ohne das beendete in der Messung jeder neunte Laufschlag in Wandnähe die Rally sofort.
+const TOUCH_RECOUNT_FRAMES = 10;   // ~133 ms
+
 // Zählt eine Berührung und beendet den Ballwechsel beim Überschreiten des Limits
 function registerTouch(game, slot) {
   const w = game.world;
   const team = teamOf(slot);
-  if (w.lastTeam !== team) { w.lastTeam = team; w.touches = 0; }
+  const last = w.lastTouchFrame[slot];
+  const rebound = last !== undefined && w.frame - last < TOUCH_RECOUNT_FRAMES;
+  w.lastTouchFrame[slot] = w.frame;
   w.lastHit = slot;
+  // Hat zwischendurch die andere Seite gespielt, ist es eine echte neue Berührung —
+  // dann greift das Fenster nicht.
+  if (rebound && w.lastTeam === team) return;
+  if (w.lastTeam !== team) { w.lastTeam = team; w.touches = 0; }
   w.touches += 1;
   const limit = game.settings.maxTouches;
   if (limit > 0 && w.touches > limit) endRally(game, otherTeam(team), "touches");
@@ -421,9 +508,14 @@ function ballBlobCollision(game, slot) {
 
   const hit = sweepBlob(p0.x, p0.y, ball.x - p0.x, ball.y - p0.y, shape, BALL_RADIUS);
   const here = blobDistance(ball.x, ball.y, shape, BALL_RADIUS);
-  // Die Sperre greift nur, solange der Ball auch wirklich noch anliegt. Wäre sie an das
-  // Merkmal allein gebunden, könnte ein schneller Ball im Sperrframe durchfliegen.
-  const blocked = w.touching[slot] && here.d <= 0.01;
+  // Entscheidend ist, ob der Ball schon zu Frame-BEGINN anlag — nicht, wo er am Ende liegt.
+  // Ein steigender Blob (15 px/Frame) ist schneller als der weggestoßene Ball (13,1 px/Frame)
+  // und holt ihn im nächsten Frame wieder ein; am Frame-Ende ist der Ball dann längst wieder
+  // draußen. Nur an `here` geprüft sah das jedes Mal wie ein neuer Treffer aus: ein einziger
+  // Sprungschlag zählte als vier Berührungen, in der Ecke als acht, beim Nachlaufen als
+  // siebzehn. Mit `maxTouches: 3` verlor damit der erste Schlag eines Ballwechsels den Punkt.
+  const start = blobDistance(p0.x, p0.y, shape, BALL_RADIUS);
+  const blocked = w.touching[slot] && (start.d <= 0.01 || here.d <= 0.01);
 
   if (hit && !blocked) {
     // Berührpunkt auf dem Flugweg, nicht die (schon durchflogene) Endposition
@@ -435,14 +527,22 @@ function ballBlobCollision(game, slot) {
     // gegen die alte, längst verlassene Strecke.
     p0.x = cx;
     p0.y = cy;
-    ball.vx = hit.nx * BALL_COLLISION_VELOCITY;
-    ball.vy = hit.ny * BALL_COLLISION_VELOCITY;
+    // Beide Anteile entlang der Stoßrichtung messen. Positiv heißt jeweils "bewegt sich
+    // auf den anderen zu"; ein wegziehender Blob ergibt 0 und bremst damit nicht — sonst
+    // könnte man den Ball durch Rückwärtslaufen künstlich abtöten.
+    const blob = w.blobs[slot];
+    const blobClosing = Math.max(0, (blob.vx || 0) * hit.nx + (blob.vy || 0) * hit.ny);
+    const ballClosing = Math.max(0, -(ball.vx * hit.nx + ball.vy * hit.ny));
+    const speed = Math.max(BALL_MIN_HIT_VELOCITY, Math.min(BALL_MAX_HIT_VELOCITY,
+      BALL_HIT_BASE + blobClosing * BLOB_MOMENTUM_TRANSFER + ballClosing * BALL_INCOMING_TRANSFER));
+    ball.vx = hit.nx * speed;
+    ball.vy = hit.ny * speed;
     ball.x += ball.vx;
     ball.y += ball.vy;
     registerTouch(game, slot);
-    // Nach dem Stoß liegt der Ball weit draußen — die Sperre ist damit sofort wieder frei
-    // und ein echter zweiter Treffer (der Blob läuft nach) kommt ohne Verzögerung an.
-    w.touching[slot] = false;
+    // Der Kontakt bleibt gesetzt. Ob der Ball wirklich entkommen ist, entscheidet der
+    // NÄCHSTE Frame anhand des Abstands — nicht die Annahme, ein Stoß reiche dafür immer.
+    w.touching[slot] = true;
     return;
   }
 
@@ -453,8 +553,10 @@ function ballBlobCollision(game, slot) {
     return;
   }
   // Anliegen heißt anliegen, nicht "hat mal gestreift": sonst bliebe die Sperre gesetzt,
-  // während der Ball längst frei ist, und der nächste Treffer würde verschluckt.
-  w.touching[slot] = here.d <= 0.01;
+  // während der Ball längst frei ist, und der nächste Treffer würde verschluckt. Geprüft
+  // werden beide Enden der Flugstrecke — sonst reißt der Kontakt genau in dem Frame ab, in
+  // dem der Blob den Ball vor sich herschiebt, und der Stoß zählt sofort wieder neu.
+  w.touching[slot] = start.d <= 0.01 || here.d <= 0.01;
 }
 
 function ballNetCollision(w) {
@@ -494,17 +596,32 @@ function ballNetCollision(w) {
 
 function spawnPowerup(w) {
   const t = Math.floor(Math.random() * POWERUP_TYPES.length);
-  w.powerup = { t, x: w.netX, y: netTopY(w) - POWERUP_ABOVE_NET, life: POWERUP_LIFETIME };
+  w.powerup = { t, x: w.netX, y: POWERUP_Y, life: POWERUP_LIFETIME };
 }
 
-function collectPowerup(w, team) {
-  applyEffect(w, w.powerup.t, team);
+// Einsammeln zündet NICHT mehr sofort, sondern legt das Powerup in den Slot des Spielers.
+// Gezündet wird per Leertaste (bv:power) — man entscheidet also selbst, wann es wirkt.
+function collectPowerup(w, slot) {
+  w.held[slot] = w.powerup.t;
   w.powerup = null;
   w.nextPowerupIn = POWERUP_SPAWN_FRAMES;
 }
 
-// Eingesammelt wird vom Ball (dem Team der letzten Berührung) oder direkt von einem Blob,
-// der hochspringt. Beides fühlt sich richtig an: zielen ODER klettern.
+// Slot voll? Dann geht dieser Spieler leer aus und das Powerup schwebt weiter. Bewusst so
+// herum: Wer schon eines hat, soll es erst einsetzen, statt es unbemerkt zu überschreiben.
+const canHold = (w, slot) => slot > 0 && w.held[slot] === undefined;
+
+// Zünden. In der Punktpause gesperrt — die Wirkdauer liefe dort ungenutzt ab.
+function usePowerup(game, slot) {
+  const w = game.world;
+  const t = w.held[slot];
+  if (t === undefined || w.phase === "point") return false;
+  delete w.held[slot];
+  applyEffect(w, t, teamOf(slot));
+  return true;
+}
+
+// Eingesammelt wird nur durch einen Blob, der hochspringt — der Ball löst nichts aus.
 function stepPowerups(game, slots) {
   const w = game.world;
 
@@ -527,7 +644,6 @@ function stepPowerups(game, slots) {
   }
 
   const p = w.powerup;
-  p.y = netTopY(w) - POWERUP_ABOVE_NET;
   p.life -= 1;
   if (p.life <= 0) {
     w.powerup = null;
@@ -535,21 +651,17 @@ function stepPowerups(game, slots) {
     return;
   }
 
-  if (w.phase === "rally" && w.lastHit) {
-    const ball = w.ball;
-    if (Math.hypot(ball.x - p.x, ball.y - p.y) < BALL_RADIUS + POWERUP_RADIUS) {
-      collectPowerup(w, teamOf(w.lastHit));
-      return;
-    }
-  }
-
+  // Eingesammelt wird ausschließlich mit dem eigenen Blob — man muss hochspringen. Der
+  // Ball holt es NICHT mehr ab: Das passierte oft nebenbei, ohne dass jemand darauf
+  // gezielt hätte, und verteilte die Powerups eher nach Zufall als nach Können.
   for (const slot of slots) {
+    if (!canHold(w, slot)) continue;
     const b = w.blobs[slot];
     const scale = blobScale(w, slot);
     const nearestX = Math.max(b.x - BLOBBY_LOWER_RADIUS * scale, Math.min(p.x, b.x + BLOBBY_LOWER_RADIUS * scale));
     const nearestY = Math.max(b.y - BLOBBY_HALF_H * scale, Math.min(p.y, b.y + BLOBBY_HALF_H * scale));
-    if (Math.hypot(p.x - nearestX, p.y - nearestY) < POWERUP_RADIUS) {
-      collectPowerup(w, teamOf(slot));
+    if (Math.hypot(p.x - nearestX, p.y - nearestY) < POWERUP_GRAB_RADIUS) {
+      collectPowerup(w, slot);
       return;
     }
   }
@@ -637,7 +749,11 @@ function sanitize(game) {
   const players = {};
   for (const slot of [1, 2, 3, 4]) {
     const p = game.players[slot];
-    players[slot] = p ? { name: p.name, connected: p.connected } : null;
+    // rtt/jit werden vom Client gemeldet (bv:rtt) und nur weiterverteilt — beide Seiten
+    // sollen die Verbindungsqualität des jeweils anderen sehen.
+    players[slot] = p
+      ? { name: p.name, connected: p.connected, rtt: p.rtt ?? null, jit: p.jit ?? null }
+      : null;
   }
   return {
     code: game.code,
@@ -676,6 +792,8 @@ function snapshot(game) {
       round2(b.x), round2(b.y), round2(b.vy),
       round2(blobScale(w, slot)), blobSpeedFactor(w, slot), b.grounded ? 1 : 0,
       w.inputs[slot].seq, w.frame - w.inputs[slot].since,
+      // Feld 8: eingesammeltes, noch nicht gezündetes Powerup (-1 = Slot leer)
+      w.held[slot] ?? -1,
     ];
     im[slot] = inputMask(w.inputs[slot]);
   }
@@ -693,6 +811,11 @@ function snapshot(game) {
     lh: w.lastHit,
     ef: w.effects.map((e) => [e.t, e.team, e.left]),
     pu: w.powerup ? [round2(w.powerup.x), round2(w.powerup.y), w.powerup.t] : null,
+    // Selbstauskunft des Servers für die Diagnose (?net=1 im Client):
+    // sh = tatsächlich gerechnete Frames der letzten Sekunde (soll 75)
+    // sb = längste Event-Loop-Blockade der letzten Sekunde in ms
+    sh: hzLastSec,
+    sb: lagWorstLastSec,
   };
 }
 
@@ -720,6 +843,55 @@ let loopIo = null;
 let lastLoopAt = 0;
 let loopCarry = 0;   // Rest-Millisekunden, die noch keinen ganzen Frame ergeben haben
 
+// ── Event-Loop-Überwachung ──────────────────────────────────────────────────
+// Der Physiktakt kann nur so gleichmäßig laufen wie der Node-Event-Loop — und der gehört
+// diesem Prozess nicht allein: Discord-Bot, Twitch-IRC und die synchronen SQLite-Stores
+// laufen im selben Thread. Blockiert einer davon, steht die Simulation still, ganz
+// unabhängig davon, wie wenig Mathematik das Spiel selbst braucht.
+//
+// Gemessen wird die Verspätung eines Timers, der alle LAG_PROBE_MS feuern soll. Der Wert
+// geht im Schnappschuss an die Clients und ist dort unter ?net=1 sichtbar — damit lässt
+// sich ohne Serverzugriff unterscheiden, ob ein Ruckler vom Netz oder vom Server kommt.
+const LAG_PROBE_MS = 20;
+const LAG_LOG_THRESHOLD = 150;   // ab hier eine Zeile ins Serverlog
+
+let lagProbe = null;
+let lagProbeAt = 0;
+let lagWorst = 0;            // schlimmste Blockade in der laufenden Sekunde
+let lagWorstLastSec = 0;
+let framesThisSec = 0;
+let hzLastSec = TICK_HZ;
+let secStartedAt = 0;
+
+function startLagProbe() {
+  if (lagProbe) return;
+  lagProbeAt = Date.now();
+  secStartedAt = lagProbeAt;
+  lagProbe = setInterval(() => {
+    const now = Date.now();
+    const late = now - lagProbeAt - LAG_PROBE_MS;
+    lagProbeAt = now;
+    if (late > lagWorst) lagWorst = late;
+    if (late > LAG_LOG_THRESHOLD) {
+      console.warn(`[blobby] Event-Loop ${Math.round(late)} ms blockiert — die Physik stand so lange still.`);
+    }
+    if (now - secStartedAt >= 1000) {
+      hzLastSec = Math.round((framesThisSec * 1000) / (now - secStartedAt));
+      lagWorstLastSec = Math.round(lagWorst);
+      framesThisSec = 0;
+      lagWorst = 0;
+      secStartedAt = now;
+    }
+  }, LAG_PROBE_MS);
+  if (typeof lagProbe.unref === "function") lagProbe.unref();
+}
+
+function stopLagProbe() {
+  if (!lagProbe) return;
+  clearInterval(lagProbe);
+  lagProbe = null;
+}
+
 const isLive = (game) =>
   game.status === "playing" && slotsFor(game.settings).every((s) => game.players[s]?.connected);
 
@@ -728,6 +900,7 @@ function ensureLoop(io) {
   if (loopHandle) return;
   lastLoopAt = Date.now();
   loopCarry = 0;
+  startLagProbe();
   // Kürzer als ein Frame takten: der Rest-Zähler bestimmt, wie viele Frames wirklich
   // fällig sind, und feineres Wecken hält die Schnappschüsse gleichmäßig.
   loopHandle = setInterval(runLoop, 5);
@@ -738,6 +911,7 @@ function stopLoopIfIdle() {
   for (const game of games.values()) if (isLive(game)) return;
   clearInterval(loopHandle);
   loopHandle = null;
+  stopLagProbe();
 }
 
 function runLoop() {
@@ -746,10 +920,17 @@ function runLoop() {
   // falsch: Windows weckt Timer nur alle ~15,6 ms, und round(15,6/13,33) = 1 ließe die
   // Simulation mit 64 statt 75 Hz laufen — das Spiel liefe in Zeitlupe, und jede
   // Client-Vorhersage würde dem Server unaufhaltsam davonrennen.
-  loopCarry = Math.min(loopCarry + (now - lastLoopAt), 8 * TICK_MS);
+  // Aufhol-Fenster: Alles, was länger als diese Spanne blockiert war, ist verlorene
+  // Simulationszeit — der Server läuft dann dauerhaft langsamer als Echtzeit. Auf dem
+  // Live-Server gemessen: nur ~50 statt 75 Frames/s, also ein Drittel weg. 8 Frames
+  // (107 ms) waren zu knapp für einen Prozess, der sich den Event-Loop mit Discord-Bot,
+  // Twitch-IRC und synchronen SQLite-Schreibvorgängen teilt.
+  // Das ist ein Pflaster: Die eigentliche Lösung ist, die Schleife dort herauszulösen.
+  loopCarry = Math.min(loopCarry + (now - lastLoopAt), 24 * TICK_MS);
   lastLoopAt = now;
   const steps = Math.floor(loopCarry / TICK_MS);
   loopCarry -= steps * TICK_MS;
+  if (steps > 0) framesThisSec += steps;
 
   for (const game of steps > 0 ? games.values() : []) {
     if (!isLive(game)) continue;
@@ -771,7 +952,11 @@ function runLoop() {
     // Nicht "frame % N": holt die Schleife mehrere Frames auf einmal nach, würde ein
     // Vielfaches sonst übersprungen und der Schnappschuss ausfallen
     if (game.world.frame - game.world.lastSnapFrame >= SNAPSHOT_EVERY) {
-      game.world.lastSnapFrame = game.world.frame;
+      // Um SNAPSHOT_EVERY weiterzählen statt auf den aktuellen Frame zu setzen: Holt die
+      // Schleife mehrere Frames auf einmal nach, ginge der Rest sonst verloren und die
+      // Sendekadenz driftete gegenüber der Simulation.
+      game.world.lastSnapFrame += SNAPSHOT_EVERY
+        * Math.floor((game.world.frame - game.world.lastSnapFrame) / SNAPSHOT_EVERY);
       loopIo.to(game.code).emit("bv:tick", snapshot(game));
     }
     // Punktestand wandert im Tick mit; die Lobby-Karten aktualisiert ein eigener
@@ -983,9 +1168,35 @@ function registerBlobbySocket(socket, io) {
     };
   });
 
-  // Laufzeitmessung für die Vorausberechnung im Client
+  // Eingesammeltes Powerup zünden (Leertaste)
+  socket.on("bv:power", () => {
+    const entry = socketIndex.get(socket.id);
+    if (!entry || entry.role !== "player") return;
+    const game = games.get(entry.code);
+    if (!game || game.status !== "playing") return;
+    usePowerup(game, entry.slot);
+  });
+
   socket.on("bv:ping", (payload = {}, ack) => {
     if (typeof ack === "function") ack({ c: payload.c, t: Date.now() });
+  });
+
+  // Gemessene Verbindungsqualität des Clients. Der Server glaubt sie ungeprüft — sie wird
+  // nur angezeigt und beeinflusst die Simulation nicht, ein gefälschter Wert schadet also
+  // niemandem außer der eigenen Anzeige. Rausgeschickt wird nur bei sichtbarer Änderung,
+  // sonst löst die Anzeige im Sekundentakt einen Lobby-Broadcast aus.
+  socket.on("bv:rtt", ({ rtt, jit } = {}) => {
+    const entry = socketIndex.get(socket.id);
+    if (!entry || entry.role !== "player") return;
+    const game = games.get(entry.code);
+    const p = game?.players[entry.slot];
+    if (!p) return;
+    const nextRtt = Math.max(0, Math.min(2000, Math.round(Number(rtt) || 0)));
+    const nextJit = Math.max(0, Math.min(2000, Math.round(Number(jit) || 0)));
+    const changed = Math.abs(nextRtt - (p.rtt ?? -99)) >= 8 || Math.abs(nextJit - (p.jit ?? -99)) >= 8;
+    p.rtt = nextRtt;
+    p.jit = nextJit;
+    if (changed) broadcast(io, game);
   });
 
   socket.on("bv:rematch", () => {
@@ -1057,8 +1268,28 @@ setInterval(() => {
   stopLoopIfIdle();
 }, STALE_SWEEP_MS);
 
+// Kurzbericht für /healthz des eigenen Prozesses (Backend/blobbyServer.js). Dieselben
+// Zahlen, die auch im Schnappschuss als `sh`/`sb` beim Client landen — damit lässt sich von
+// außen prüfen, ob der abgetrennte Prozess wirklich seine 75 Frames schafft, ohne dass
+// jemand mitspielen muss.
+function blobbyStats() {
+  let live = 0;
+  for (const game of games.values()) if (isLive(game)) live += 1;
+  return {
+    rooms: games.size,
+    live,
+    looping: !!loopHandle,
+    // hz ist nur aussagekräftig, solange die Schleife läuft — steht sie, ist der letzte
+    // gemessene Wert alt und würde als Ausfall missverstanden.
+    hz: loopHandle ? hzLastSec : null,
+    worstBlockMs: loopHandle ? lagWorstLastSec : null,
+    targetHz: TICK_HZ,
+  };
+}
+
 module.exports = {
   registerBlobbySocket,
+  blobbyStats,
   // für Tests / den Client-Renderer: dieselben Maße, damit nichts auseinanderläuft
   BLOBBY_CONSTANTS: {
     WORLD_H, GROUND_Y, FIELD_W,
