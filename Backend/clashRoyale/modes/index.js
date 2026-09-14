@@ -13,3 +13,7 @@ require('./elixirRush');
 require('./cardEvolution');
 require('./angelRoyale');
 require('./darkMaze');
+require('./trapSetter');
+require('./pyramidDraft');
+require('./elixirAuction2v2');
+require('./elixirRush2v2');

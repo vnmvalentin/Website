@@ -1,0 +1,128 @@
+[
+  {
+    "qid": "Q658",
+    "label": "Natrium",
+    "symbol": "Na",
+    "atomicNumber": 11,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Na%20%28Sodium%29.jpg?width=500",
+    "meltingPointC": 97.8,
+    "_sampleCount": 1
+  },
+  {
+    "qid": "Q663",
+    "label": "Aluminium",
+    "symbol": "Al",
+    "atomicNumber": 13,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Aluminium-4.jpg?width=500",
+    "meltingPointC": 660,
+    "_sampleCount": 2
+  },
+  {
+    "qid": "Q716",
+    "label": "Titan",
+    "symbol": "Ti",
+    "atomicNumber": 22,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Titan-crystal%20bar.JPG?width=500",
+    "meltingPointC": 1668.9,
+    "_sampleCount": 2
+  },
+  {
+    "qid": "Q677",
+    "label": "Eisen",
+    "symbol": "Fe",
+    "atomicNumber": 26,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Iron%20electrolytic%20and%201cm3%20cube.jpg?width=500",
+    "meltingPointC": 1538,
+    "_sampleCount": 1
+  },
+  {
+    "qid": "Q744",
+    "label": "Nickel",
+    "symbol": "Ni",
+    "atomicNumber": 28,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Electrolytic%20nickel.jpg?width=500",
+    "meltingPointC": 1488.3,
+    "_sampleCount": 3
+  },
+  {
+    "qid": "Q753",
+    "label": "Kupfer",
+    "symbol": "Cu",
+    "atomicNumber": 29,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cuivre%20Michigan.jpg?width=500",
+    "meltingPointC": 1083.9,
+    "_sampleCount": 2
+  },
+  {
+    "qid": "Q758",
+    "label": "Zink",
+    "symbol": "Zn",
+    "atomicNumber": 30,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Zinc%20fragment%20sublimed%20and%201cm3%20cube.jpg?width=500",
+    "meltingPointC": 419,
+    "_sampleCount": 1
+  },
+  {
+    "qid": "Q1090",
+    "label": "Silber",
+    "symbol": "Ag",
+    "atomicNumber": 47,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Silver%20crystal.jpg?width=500",
+    "meltingPointC": 960.6,
+    "_sampleCount": 1
+  },
+  {
+    "qid": "Q1096",
+    "label": "Zinn",
+    "symbol": "Sn",
+    "atomicNumber": 50,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/C%C3%ADn.PNG?width=500",
+    "meltingPointC": 231.8,
+    "_sampleCount": 2
+  },
+  {
+    "qid": "Q743",
+    "label": "Wolfram",
+    "symbol": "W",
+    "atomicNumber": 74,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Wolfram%20evaporated%20crystals%20and%201cm3%20cube.jpg?width=500",
+    "meltingPointC": 3410,
+    "_sampleCount": 2
+  },
+  {
+    "qid": "Q880",
+    "label": "Platin",
+    "symbol": "Pt",
+    "atomicNumber": 78,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Platinum%20crystals.jpg?width=500",
+    "meltingPointC": 1768.3,
+    "_sampleCount": 1
+  },
+  {
+    "qid": "Q897",
+    "label": "Gold",
+    "symbol": "Au",
+    "atomicNumber": 79,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gold-crystals.jpg?width=500",
+    "meltingPointC": 1064.2,
+    "_sampleCount": 1
+  },
+  {
+    "qid": "Q925",
+    "label": "Quecksilber",
+    "symbol": "Hg",
+    "atomicNumber": 80,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mercury-element.jpg?width=500",
+    "meltingPointC": -38.8,
+    "_sampleCount": 2
+  },
+  {
+    "qid": "Q708",
+    "label": "Blei",
+    "symbol": "Pb",
+    "atomicNumber": 82,
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lead%20electrolytic%20and%201cm3%20cube.jpg?width=500",
+    "meltingPointC": 327.6,
+    "_sampleCount": 2
+  }
+]

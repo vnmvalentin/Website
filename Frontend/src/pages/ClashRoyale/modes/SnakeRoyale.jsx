@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
-import { Crown, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import ModeShell from './ModeShell';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
+import { cardImageUrl } from '../data/cards';
 
 /** Akzentfarbe des Modus — Kopfzeile, Fortschritt, gültige Felder. */
 const ACCENT = '#22d3ee';
@@ -20,11 +22,10 @@ function AvatarCircle({ id, color, size = 28 }) {
   );
 }
 
-const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
-
 const SNAKE_I18N = {
   de: {
     you: 'Du',
+    roundLabel: 'Runde',
     gameOver: 'Spiel beendet',
     newSnake: 'Neue Schlange — freie Auswahl!',
     noMoveTimer: 'Kein Zug möglich – Timer läuft ab…',
@@ -35,6 +36,7 @@ const SNAKE_I18N = {
   },
   en: {
     you: 'You',
+    roundLabel: 'Round',
     gameOver: 'Game over',
     newSnake: 'New snake — pick anywhere!',
     noMoveTimer: 'No move possible – timer running out…',
@@ -42,6 +44,17 @@ const SNAKE_I18N = {
     turnOfPrefix: 'Turn:',
     round: (n) => `Round ${n}/8`,
     championLimitSuffix: ' (champion limit)',
+  },
+  es: {
+    you: 'Tú',
+    roundLabel: 'Ronda',
+    gameOver: 'Partida terminada',
+    newSnake: 'Nueva serpiente — ¡elección libre!',
+    noMoveTimer: 'No hay movimiento posible – se acaba el tiempo…',
+    yourTurn: 'Tu turno',
+    turnOfPrefix: 'Turno de',
+    round: (n) => `Ronda ${n}/8`,
+    championLimitSuffix: ' (límite de campeones)',
   },
 };
 
@@ -55,13 +68,16 @@ function getAdjacentIndices(idx, cols, totalCells) {
   return adj;
 }
 
-// Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand schimmerte er
-// durch und legte einen farbigen Schleier über jede Karte.
+// Kein FARBIGER Hintergrund: Bei Artworks mit transparentem Rand schimmerte er durch und
+// legte einen farbigen Schleier über jede Karte. Ein neutrales Dunkelgrau macht denselben
+// Fehler nicht — das Muster der Spielfläche (siehe GameSurface, cr-arcade-bg) durfte aber
+// vorher am transparenten Rand direkt durchscheinen, das ist jetzt der neue Grund für einen
+// (unbunten) Untergrund.
 function CardImg({ id, name }) {
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full bg-[#0d0d14]">
       <img
-        src={`${CARD_CDN}${id}.png`}
+        src={cardImageUrl(id)}
         alt={name}
         className="w-full h-full object-cover"
         style={CARD_CROP}
@@ -138,7 +154,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
               <DeckGrid deck={player.deck || []}
                 renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
               <div className="flex items-center gap-1.5">
-                <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+                <img src={crownIcon} alt="" width={14} height={12} className={champCount > 0 ? '' : 'opacity-15 grayscale'} />
                 <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
               </div>
             </PlayerPanel>
@@ -179,7 +195,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
       <GameSurface>
         {/* Kopfzeile: große Rundenzahl als Anker, Spielstatus leise daneben */}
         <GameHeader
-          label={lang === 'en' ? 'Round' : 'Runde'}
+          label={t.roundLabel}
           value={round}
           total={8}
           badge={
@@ -249,11 +265,17 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
                   key={idx}
                   onClick={() => isValid && !finished && isMyTurn && onPickCard(idx)}
                   title={`${cell.card.name}${isBlocked ? t.championLimitSuffix : ''}`}
+                  // Abdunkeln bedeutet "für dich gerade nicht wählbar" — das gilt nur
+                  // WÄHREND des eigenen Zugs. Ist niemand am Zug, der man selbst ist, sind
+                  // validSet/blockedSet immer leer (siehe useMemo oben) und die Bedingung
+                  // traf vorher auf JEDES Feld zu: das ganze Raster verblasste bei 25%
+                  // Deckkraft im Diamant-Karo fast unsichtbar, obwohl gerade niemand
+                  // überhaupt etwas wählen darf. Jetzt nur während des eigenen Zugs dunkler.
                   className={`
                     group relative aspect-square rounded-md overflow-hidden
                     ${isValid && isMyTurn && !finished ? 'cursor-pointer' : 'cursor-default'}
                     ${isPicked ? 'opacity-70' : ''}
-                    ${!isPicked && !isValid && !isBlocked ? 'opacity-25' : ''}
+                    ${!isPicked && isMyTurn && !isValid && !isBlocked ? 'opacity-25' : ''}
                     ${isBlocked ? 'opacity-15 grayscale' : ''}
                   `}
                   // Auswahl als INNERER Ring statt Rahmen: Ein Rahmen verschiebt die
@@ -286,7 +308,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
                   {/* Champion-Krone */}
                   {cell.card.isChampion && !isPicked && (
                     <div className="absolute top-0.5 right-0.5 bg-black/55 rounded p-0.5 pointer-events-none">
-                      <Crown size={9} className="text-amber-300" />
+                      <img src={crownIcon} alt="" width={11} height={10} />
                     </div>
                   )}
 

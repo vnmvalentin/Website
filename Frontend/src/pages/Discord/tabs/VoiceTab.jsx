@@ -48,14 +48,14 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 <p className="text-white/50 text-sm">Jeder der den Trigger-Channel betritt bekommt automatisch einen eigenen Voice-Channel.</p>
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-4">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4">
                 <h3 className="text-white font-semibold flex items-center gap-2">🔊 Trigger Channel</h3>
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Voice Channel auswählen</label>
                     <select
                         value={triggerChannelId}
                         onChange={e => setTriggerChannelId(e.target.value)}
-                        className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none"
+                        className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none"
                     >
                         <option value="">-- Deaktiviert --</option>
                         {voiceChannels.map(c => (
@@ -70,7 +70,7 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 </div>
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-3">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-3">
                 <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
                 <ul className="text-white/50 text-sm space-y-2">
                     <li>• Bot erstellt <span className="text-violet-400 font-mono">🔊 Usernames Kanal</span> in der gleichen Kategorie</li>
@@ -82,11 +82,11 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 </ul>
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-3">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-3">
                 <h3 className="text-white font-semibold text-sm">🎮 Commands (nur im dedizierten Text-Channel)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {COMMANDS.map(item => (
-                        <div key={item.cmd} className="bg-black/30 rounded-lg p-3">
+                        <div key={item.cmd} className="bg-[#0e0e1a]/85 rounded-lg p-3">
                             <div className="text-violet-400 font-mono text-xs mb-1">{item.cmd}</div>
                             <div className="text-white/50 text-xs">{item.desc}</div>
                         </div>

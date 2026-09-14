@@ -15,16 +15,33 @@
 // auction/useAuctionView.js, die Auflösung einer Karte aus auction/AuctionRevealCard.jsx.
 
 import React, { useEffect, useState } from 'react';
-import { Crown, CheckCircle, Sparkles, Shuffle, Eye } from 'lucide-react';
+import { CheckCircle, Sparkles, Eye } from 'lucide-react';
 import ModeShell from './ModeShell';
 import MotherWitchVisit from './MotherWitchVisit';
+import { GameHeader, ProgressHairline, GameFooter, PlayerPanel } from './GameChrome';
+import ElixirBar, { ElixirAmount } from '../ui/ElixirBar';
 import { PIG_IMG } from '../data/motherWitchAssets';
 import { CARD_CROP } from './cardCrop';
-import { ElixirDrop } from '../ui/CrIcons';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import chestIcon from '../../../assets/clashRoyale/ui/icon_menu_shop.png';
+import elixirIcon from '../../../assets/clashRoyale/ui/elixir_1.png';
 import { useAuctionView } from './auction/useAuctionView';
 import AuctionRevealCard from './auction/AuctionRevealCard';
+import { cardImageUrl } from '../data/cards';
 
-const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
+// Echter Elixier-Tropfen aus dem Spiel statt der handgezeichneten <ElixirDrop>-Kontur
+// (ui/CrIcons.jsx) — hier steht er als eigenständiges kleines Icon neben Zahlen, nicht als
+// Dutzende Male wiederholtes Fließtext-Symbol, da darf es die echte Grafik sein.
+// WICHTIG: Höhe per style, nicht per height-Attribut — Tailwinds Preflight setzt
+// `img { height: auto }`, das schlägt das HTML-Attribut. Nur ein style-Wert schlägt
+// wiederum das Preflight; ohne ihn rendert das Bild in seiner vollen Originalgröße
+// (bei elixir_1.png 85×99px statt der gewünschten 11-20px — genau der Fehler, der die
+// Tropfen riesig über die Kartentexte hat wachsen lassen).
+const Elixir = ({ size = 14, className = '' }) => (
+  <img src={elixirIcon} alt="" style={{ height: size, width: 'auto' }}
+    className={`inline-block align-middle shrink-0 ${className}`} />
+);
+
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 
@@ -42,6 +59,11 @@ const MW_BADGE_MINE = {
     swap: 'Mother Witch: opponents see the wrong cards',
     halved: "Mother Witch: opponents' bids only count half",
   },
+  es: {
+    pigs: 'Madre Bruja: los rivales pujan a ciegas (cerditos)',
+    swap: 'Madre Bruja: los rivales ven las cartas equivocadas',
+    halved: 'Madre Bruja: las pujas de los rivales solo cuentan la mitad',
+  },
 };
 
 const MW_REVEAL_AFFECTED = {
@@ -54,6 +76,11 @@ const MW_REVEAL_AFFECTED = {
     pigs: 'The Mother Witch was in play: you bid blind',
     swap: 'The Mother Witch was in play: your cards were swapped',
     halved: 'The Mother Witch was in play: your bid only counted half',
+  },
+  es: {
+    pigs: 'La Madre Bruja estaba en juego: pujaste a ciegas',
+    swap: 'La Madre Bruja estaba en juego: tus cartas fueron intercambiadas',
+    halved: 'La Madre Bruja estaba en juego: tu puja solo contó la mitad',
   },
 };
 
@@ -98,6 +125,26 @@ const AUCTION_I18N = {
     finalRoundHint: 'Leftover elixir is worthless afterwards: your bid is automatically your entire balance. Just pick a card.',
     spectatorsHeading: 'Spectators',
   },
+  es: {
+    loading: 'Cargando subasta…',
+    roundLabel: 'Ronda',
+    nextIn: (s) => `Siguiente en ${s}s`,
+    allBid: 'Todos han pujado',
+    bidProgress: (n, total) => `${n} de ${total} han pujado`,
+    notAwarded: 'Sin adjudicar',
+    revealing: 'La Madre Bruja revela…',
+    championLimit: 'Límite de campeones',
+    bidFor: (n) => `Pujar ${n}`,
+    bonusHeading: 'Cartas de bonificación — fuera del pool',
+    bonusNote: 'Aleatorio · ningún campeón posible',
+    spectator: 'Espectador — no se puede pujar',
+    bidPlaced: (name, amount) => `Puja por ${name} · ${amount} de elixir`,
+    setBidHint: 'Fija tu puja y luego elige una carta',
+    elixirAvailable: 'elixir disponible',
+    finalRoundTitle: 'Última ronda — todo o nada',
+    finalRoundHint: 'El elixir sobrante no valdrá nada después: tu puja es automáticamente todo tu saldo. Solo elige una carta.',
+    spectatorsHeading: 'Espectadores',
+  },
 };
 
 function Avatar({ id, color, size = 28 }) {
@@ -117,7 +164,10 @@ function Avatar({ id, color, size = 28 }) {
  * bereits eingebrannt mitbringt.
  */
 const CardArt = ({ card, className = '', style }) => (
-  <div className={`relative overflow-hidden ${className}`} style={style}>
+  // bg-[#0d0d14]: blickdichter Untergrund, solange das Bild noch lädt (oder falls es
+  // fehlschlägt) — die Karte sitzt jetzt auf dem Diamant-Karo (siehe GameSurface) statt
+  // auf einer einfarbigen Fläche, ohne eigenen Untergrund würde das Muster durchscheinen.
+  <div className={`relative overflow-hidden bg-[#0d0d14] ${className}`} style={style}>
     {card.isPig ? (
       <div className="w-full h-full bg-white/5 flex items-center justify-center">
         {PIG_IMG
@@ -125,7 +175,7 @@ const CardArt = ({ card, className = '', style }) => (
           : <span className="text-white/25 text-3xl font-black">?</span>}
       </div>
     ) : (
-      <img src={`${CARD_CDN}${card.id}.png`} alt={card.name}
+      <img src={cardImageUrl(card.id)} alt={card.name}
         className="w-full h-full object-cover" style={CARD_CROP} draggable={false}
         onError={e => { e.currentTarget.style.visibility = 'hidden'; }} />
     )}
@@ -179,35 +229,30 @@ export default function ElixirAuction(props) {
   const sidebar = (
     <>
       {v.activePlayers.map(p => (
-        <div key={p.id} className={`rounded-xl p-3 space-y-2.5 ${
-          p.id === myPlayerId ? 'bg-white/[0.06]' : 'bg-white/[0.02]'
-        }`}>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Avatar id={p.avatar} color={p.color} size={28} />
-            <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
-            <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/8</span>
-          </div>
-          {(p.id === myPlayerId || v.showOthersElixir) && (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1 bg-white/[0.07] rounded-full overflow-hidden">
-                {/* Bezugsgröße ist das Startguthaben der Runde: Voller Vorrat = voller Balken */}
-                <div className="h-full bg-fuchsia-400 rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min(100, ((p.elixir ?? 0) / v.startElixir) * 100)}%` }} />
-              </div>
-              <span className="text-fuchsia-300/70 text-[11px] tabular-nums shrink-0">{p.elixir ?? 0}</span>
+        <PlayerPanel key={p.id} isMe={p.id === myPlayerId}
+          header={
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Avatar id={p.avatar} color={p.color} size={28} />
+              <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
+              <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/8</span>
             </div>
+          }>
+          {/* Bezugsgröße ist das Startguthaben der Runde: Voller Vorrat = voller Balken */}
+          {(p.id === myPlayerId || v.showOthersElixir) && (
+            <ElixirBar value={p.elixir ?? 0} max={v.startElixir} size="sm" />
           )}
           <div className="grid grid-cols-4 gap-1">
             {Array.from({ length: 8 }, (_, ci) => {
               const c = p.deck?.[ci];
               return (
-                <div key={ci} className="aspect-square rounded-md overflow-hidden bg-white/[0.03]">
+                <div key={ci} className="aspect-square rounded-md overflow-hidden bg-black/25"
+                  style={{ border: '1.5px solid rgba(0,0,0,0.5)' }}>
                   {c && <CardArt card={c} className="w-full h-full" />}
                 </div>
               );
             })}
           </div>
-        </div>
+        </PlayerPanel>
       ))}
 
       {/* Zuschauer nehmen nicht teil — kompakt und abgesetzt ganz unten */}
@@ -230,47 +275,23 @@ export default function ElixirAuction(props) {
     <ModeShell sidebar={sidebar} playerCount={v.activePlayers.length} width="lg:w-56" lang={lang}>
       <MotherWitchVisit visit={motherWitchVisit} onRespond={onMotherWitchRespond} lang={lang} />
 
-      <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#0b0b12]">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0 cr-arcade-bg">
 
-        {/* ── Kopfzeile: eine große Zahl, alles andere leise ────────────────── */}
-        <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-4 flex items-baseline gap-3 sm:gap-4 flex-wrap">
-          <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none">
-            {t.roundLabel} {v.round}
-            <span className="text-white/20 font-normal"> / {v.maxRounds}</span>
-          </h2>
-
-          {mwBadgeText && (
+        <GameHeader
+          label={t.roundLabel} value={v.round} total={v.maxRounds}
+          badge={mwBadgeText && (
             <span className="flex items-center gap-1.5 text-fuchsia-300 text-[11px] font-semibold">
               <Sparkles size={12} className="shrink-0" />
               <span className="truncate max-w-[15rem] sm:max-w-none">{mwBadgeText}</span>
             </span>
           )}
+          meta={!v.isReveal ? (v.allBid ? t.allBid : t.bidProgress(v.pendingBidCount, v.effectiveActiveCount)) : undefined}
+          timerRemaining={!v.isReveal ? v.timerRemaining : undefined}
+          timerUrgent={v.timerUrgent}
+          right={v.isReveal ? <span className="text-fuchsia-300 text-sm font-semibold">{t.nextIn(v.revealCountdown)}</span> : undefined}
+        />
 
-          <div className="flex-1" />
-
-          {!v.isReveal ? (
-            <>
-              <span className="text-white/35 text-sm hidden sm:block">
-                {v.allBid ? t.allBid : t.bidProgress(v.pendingBidCount, v.effectiveActiveCount)}
-              </span>
-              <span className={`font-display text-2xl font-bold tabular-nums ${
-                v.timerUrgent ? 'text-red-400' : 'text-white/70'
-              }`}>
-                {v.timerRemaining}s
-              </span>
-            </>
-          ) : (
-            <span className="text-fuchsia-300 text-sm">{t.nextIn(v.revealCountdown)}</span>
-          )}
-        </div>
-
-        {/* Haarfeiner Fortschritt statt Balken — Information ohne Lärm */}
-        {!v.isReveal && (
-          <div className="shrink-0 h-px bg-white/[0.06] mx-4 sm:mx-10">
-            <div className={`h-full ${v.timerUrgent ? 'bg-red-400' : 'bg-fuchsia-400'}`}
-              style={{ width: `${v.timerPct}%`, transition: 'width 1s linear' }} />
-          </div>
-        )}
+        {!v.isReveal && <ProgressHairline pct={v.timerPct} accent="#e879f9" urgent={v.timerUrgent} />}
 
         {/* ── Karten: groß, luftig, mittig ──────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-10 py-6 sm:py-8">
@@ -301,29 +322,32 @@ export default function ElixirAuction(props) {
               const clickable = !myBid && !locked && !v.amSpectator;
 
               return (
+                // Eine einzige umrandete Kachel statt drei lose schwebender Teile (Karte,
+                // Name-Plakette, Gebots-Hinweis) — Bild oben, Name+Gebot als ein
+                // gemeinsames Namensschild unten, wie bei einer echten Sammelkarte.
                 <button
                   key={idx}
                   onClick={() => clickable && v.placeBid(idx)}
                   disabled={!clickable}
-                  className={`group flex flex-col items-center text-left ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
-                  style={{ width: 200, maxWidth: '42vw' }}>
+                  className={`group rounded-2xl overflow-hidden text-left transition-shadow duration-200 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
+                    clickable ? 'cursor-pointer group-hover:shadow-[0_16px_44px_rgba(0,0,0,0.65)]' : 'cursor-default'
+                  }`}
+                  style={{ width: 200, maxWidth: '42vw', border: '3px solid var(--cr-arcade-ink)' }}>
 
                   <div className="relative w-full">
                     <CardArt card={card}
-                      className={`rounded-2xl transition-shadow duration-200 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
-                        locked ? 'opacity-35' : ''
-                      } ${clickable ? 'group-hover:shadow-[0_16px_44px_rgba(0,0,0,0.65)]' : ''}`}
+                      className={locked ? 'opacity-35' : ''}
                       style={{ aspectRatio: '4/5' }} />
 
                     {card.isChampion && !card.isPig && (
-                      <span className="absolute top-2.5 right-2.5 bg-black/55 backdrop-blur-sm rounded-lg p-1.5">
-                        <Crown size={13} className="text-amber-300" />
+                      <span className="absolute top-2.5 right-2.5 bg-black/55 backdrop-blur-sm rounded-lg p-1">
+                        <img src={crownIcon} alt="" width={18} height={16} />
                       </span>
                     )}
 
                     {/* Champion-Sperre: sichtbar begründet, nicht nur ausgegraut */}
                     {locked && (
-                      <span className="absolute inset-0 rounded-2xl bg-black/55 flex items-center justify-center px-2 pointer-events-none">
+                      <span className="absolute inset-0 bg-black/55 flex items-center justify-center px-2 pointer-events-none">
                         <span className="text-red-300 text-xs font-bold text-center leading-tight">
                           {t.championLimit}
                         </span>
@@ -332,29 +356,32 @@ export default function ElixirAuction(props) {
 
                     {/* Auswahl als innerer Ring — kein Rahmen, kein Versprung */}
                     {(mine || clickable) && (
-                      <span className={`absolute inset-0 rounded-2xl pointer-events-none transition-opacity ${
+                      <span className={`absolute inset-0 pointer-events-none transition-opacity ${
                         mine ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                       }`}
                         style={{ boxShadow: 'inset 0 0 0 2px rgba(232,121,249,0.9)' }} />
                     )}
                   </div>
 
-                  <p className="text-white text-[15px] font-semibold mt-3 truncate w-full text-center">
-                    {card.name}
-                  </p>
-
-                  <div className="h-6 mt-1 flex items-center justify-center w-full">
-                    {mine ? (
-                      <span className="flex items-center gap-1.5 text-fuchsia-300 text-xs font-semibold">
-                        <CheckCircle size={13} /> {myBid.amount}
-                      </span>
-                    ) : locked ? (
-                      <span className="text-white/20 text-xs">{t.championLimit}</span>
-                    ) : clickable ? (
-                      <span className="flex items-center gap-1 text-white/25 text-xs group-hover:text-fuchsia-300 transition-colors">
-                        {t.bidFor(v.bidAmount)} <ElixirDrop size={11} />
-                      </span>
-                    ) : null}
+                  {/* Namensschild: Name UND Gebots-Hinweis in derselben Fläche statt zwei
+                      getrennter Plaketten. */}
+                  <div className="bg-[#111d2c] px-2.5 py-2 flex flex-col items-center gap-1">
+                    <p className="text-white text-[15px] font-semibold truncate w-full text-center">
+                      {card.name}
+                    </p>
+                    <div className="h-5 flex items-center justify-center w-full">
+                      {mine ? (
+                        <span className="flex items-center gap-1.5 text-fuchsia-300 text-xs font-semibold">
+                          <CheckCircle size={13} /> {myBid.amount}
+                        </span>
+                      ) : locked ? (
+                        <span className="text-white/40 text-xs">{t.championLimit}</span>
+                      ) : clickable ? (
+                        <span className="flex items-center gap-1 text-white/45 text-xs group-hover:text-fuchsia-300 transition-colors">
+                          {t.bidFor(v.bidAmount)} <Elixir size={11} />
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </button>
               );
@@ -366,7 +393,7 @@ export default function ElixirAuction(props) {
             <div className="mt-10">
               <div className="flex items-center gap-3 mb-4 max-w-2xl mx-auto">
                 <div className="h-px flex-1 bg-amber-400/20" />
-                <span className="text-amber-300/80 text-[11px] font-semibold uppercase tracking-wider">
+                <span className="text-amber-300/90 text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md bg-[#111d2c]">
                   {t.bonusHeading}
                 </span>
                 <div className="h-px flex-1 bg-amber-400/20" />
@@ -375,11 +402,12 @@ export default function ElixirAuction(props) {
                 {bonusResults.map(([pid, r]) => {
                   const bp = v.players.find(p => p.id === pid);
                   return (
-                    <div key={pid} className="rounded-2xl overflow-hidden bg-black/35" style={{ width: 160 }}>
+                    <div key={pid} className="rounded-2xl overflow-hidden bg-[#151022]"
+                      style={{ width: 160, border: '3px solid var(--cr-arcade-ink)' }}>
                       <div className="flex items-center gap-2 px-3 py-2 bg-amber-400/10">
                         <Avatar id={bp?.avatar} color={bp?.color} size={20} />
                         <span className="text-amber-200 text-xs font-bold truncate flex-1">{bp?.name}</span>
-                        <Shuffle size={11} className="text-amber-400/70 shrink-0" />
+                        <img src={chestIcon} alt="" width={16} height={16} className="shrink-0" />
                       </div>
                       <div className="aspect-square overflow-hidden">
                         <CardArt card={r.got} className="w-full h-full" />
@@ -398,14 +426,14 @@ export default function ElixirAuction(props) {
 
         {/* ── Fußzeile: Zuschauer / bereits geboten / Gebot festlegen ───────── */}
         {!v.isReveal && v.amSpectator && (
-          <div className="shrink-0 px-5 py-3.5 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-center gap-2">
+          <GameFooter className="flex items-center justify-center gap-2">
             <Eye size={14} className="text-white/30" />
             <span className="text-white/35 text-sm">{t.spectator}</span>
-          </div>
+          </GameFooter>
         )}
 
         {!v.isReveal && !v.amSpectator && myBid && (
-          <div className="shrink-0 px-5 sm:px-10 py-3.5 bg-white/[0.02] border-t border-white/[0.06]">
+          <GameFooter>
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
               <span className="flex items-center gap-2 text-fuchsia-300 text-sm font-semibold min-w-0">
                 <CheckCircle size={14} className="shrink-0" />
@@ -413,16 +441,13 @@ export default function ElixirAuction(props) {
                   {t.bidPlaced(v.currentCards[myBid.cardIndex]?.name || '?', myBid.amount)}
                 </span>
               </span>
-              <span className="flex items-center gap-1.5 shrink-0">
-                <ElixirDrop size={14} />
-                <span className="text-white font-bold text-base tabular-nums">{v.myElixir}</span>
-              </span>
+              <ElixirAmount value={v.myElixir} size={40} />
             </div>
-          </div>
+          </GameFooter>
         )}
 
         {!v.isReveal && !v.amSpectator && !myBid && (
-          <div className="shrink-0 px-4 sm:px-10 py-4 sm:py-5 bg-white/[0.02] border-t border-white/[0.06]">
+          <GameFooter>
             {v.finalRound ? (
               /* Letzte Runde: Der Server bietet automatisch das gesamte Restguthaben —
                  ein Regler wäre eine Lüge, also steht hier nur noch, was passiert. */
@@ -431,17 +456,15 @@ export default function ElixirAuction(props) {
                   <p className="text-white text-sm font-semibold">{t.finalRoundTitle}</p>
                   <p className="text-white/40 text-xs leading-relaxed mt-0.5">{t.finalRoundHint}</p>
                 </div>
-                <span className="flex items-center gap-2 shrink-0">
-                  <ElixirDrop size={20} />
-                  <span className="font-display text-3xl font-bold text-fuchsia-300 tabular-nums leading-none">
-                    {v.myElixir}
-                  </span>
-                </span>
+                <ElixirAmount value={v.myElixir} size={64} />
               </div>
             ) : (
               /* Bewusst breit (max-w-4xl): Bei 100 Elixier auf ~500px Reglerweg ist ein
                  Pixel ~0,2 Elixier — auf der vorherigen Breite ließ sich ein einzelner
-                 Punkt kaum treffen. */
+                 Punkt kaum treffen. Die ±5-Knöpfe tragen jetzt denselben harten 3D-Druck
+                 wie die ChunkyButtons im Hub (.cr-arcade-btn direkt statt der Komponente,
+                 weil die für ein quadratisches Icon-only-Knöpfchen keine passende Größe
+                 kennt). */
               <div className="max-w-4xl mx-auto space-y-3">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-white/35 text-xs">{t.setBidHint}</span>
@@ -450,28 +473,29 @@ export default function ElixirAuction(props) {
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  {/* ±5-Knöpfe für die letzte Feinjustierung, wenn der Regler zu grob greift */}
+                  {/* Größer als zuvor und links vom Regler statt in einer eigenen leisen
+                      Zeile darunter — genau hier, wo man gerade das Gebot zieht, will man
+                      auf den ersten Blick sehen, wie viel Elixier überhaupt da ist. */}
+                  <div className="flex flex-col items-center gap-0.5 shrink-0">
+                    <ElixirAmount value={v.myElixir} size={48} />
+                    <span className="text-white/30 text-[10px] uppercase tracking-wide">{t.elixirAvailable}</span>
+                  </div>
                   <button type="button" onClick={() => v.setBidAmount(x => Math.max(0, x - 5))}
-                    className="w-9 h-9 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-white font-bold shrink-0 transition-colors">
+                    className="cr-arcade-btn cr-arcade-btn--blue w-11 h-11 !p-0 shrink-0 text-lg font-black">
                     −
                   </button>
                   <input type="range" min={0} max={v.myElixir} value={v.bidAmount}
                     onChange={e => v.setBidAmount(Number(e.target.value))}
                     className="cr-slider flex-1"
-                    style={{ '--cr-slider-fill': `${v.myElixir ? (v.bidAmount / v.myElixir) * 100 : 0}%` }} />
+                    style={{ '--cr-slider-fill': `${v.myElixir ? (v.bidAmount / v.myElixir) * 100 : 0}%`, '--cr-slider-accent': '#e879f9' }} />
                   <button type="button" onClick={() => v.setBidAmount(x => Math.min(v.myElixir, x + 5))}
-                    className="w-9 h-9 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-white font-bold shrink-0 transition-colors">
+                    className="cr-arcade-btn cr-arcade-btn--blue w-11 h-11 !p-0 shrink-0 text-lg font-black">
                     +
                   </button>
                 </div>
-                <div className="flex items-center gap-2 text-white/35 text-xs">
-                  <ElixirDrop size={13} />
-                  <span className="text-white/70 font-semibold tabular-nums">{v.myElixir}</span>
-                  {t.elixirAvailable}
-                </div>
               </div>
             )}
-          </div>
+          </GameFooter>
         )}
       </div>
     </ModeShell>

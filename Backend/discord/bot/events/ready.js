@@ -15,13 +15,13 @@ const commands = [
         .addStringOption(opt => opt.setName('frage').setDescription('Deine Frage').setRequired(true)),
     new SlashCommandBuilder()
         .setName('pp')
-        .setDescription('Misst deinen PP für heute. Täglich neu!'),
+        .setDescription('Misst deinen PP in cm.'),
     new SlashCommandBuilder()
         .setName('aussehen')
-        .setDescription('Bewertet dein Aussehen für heute. Täglich neu!'),
+        .setDescription('Bewertet dein Aussehen.'),
     new SlashCommandBuilder()
         .setName('iq')
-        .setDescription('Misst deinen IQ für heute. Täglich neu!'),
+        .setDescription('Misst deinen IQ.'),
     new SlashCommandBuilder()
         .setName('größe')
         .setDescription('Misst deine Größe in cm.'),
@@ -36,6 +36,15 @@ const commands = [
     new SlashCommandBuilder()
         .setName('coinflip')
         .setDescription('Wirf eine Münze — Kopf oder Zahl?'),
+    new SlashCommandBuilder()
+        .setName('allstats')
+        .setDescription('Zeigt alle deine Fun-Stats (IQ, Größe, Gewicht, PP, Aussehen) auf einen Blick.'),
+    new SlashCommandBuilder()
+        .setName('superkraft')
+        .setDescription('Verleiht dir eine zufällige Superkraft — meistens nutzlos, manchmal richtig gut.'),
+    new SlashCommandBuilder()
+        .setName('ausrede')
+        .setDescription('Liefert dir eine zufällige Ausrede für jede Gelegenheit.'),
     new SlashCommandBuilder()
         .setName('voicelimit')
         .setDescription('Setzt das Userlimit deines Voice Channels (nur im Voice-Text-Kanal)')

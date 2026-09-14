@@ -1,0 +1,818 @@
+[
+  {
+    "id": "cheetah-sprint",
+    "label": "Höchstgeschwindigkeit eines Geparden",
+    "valueKmh": 110,
+    "description": "Der Gepard ist das schnellste Landtier der Erde, kann dieses Tempo aber nur wenige hundert Meter durchhalten.",
+    "wikiTitle": "Gepard",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cheetah%20(Acinonyx%20jubatus)%20female%202.jpg?width=500"
+  },
+  {
+    "id": "usain-bolt-peak",
+    "label": "Spitzengeschwindigkeit von Usain Bolt (100-m-Weltrekord)",
+    "valueKmh": 45,
+    "description": "Nicht sein Durchschnittstempo, sondern seine schnellste gemessene Momentangeschwindigkeit während des Laufs.",
+    "wikiTitle": "Usain Bolt",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Usain%20Bolt%20Rio%20100m%20final%202016k.jpg?width=500"
+  },
+  {
+    "id": "peregrine-falcon-dive",
+    "label": "Sturzflug eines Wanderfalken",
+    "valueKmh": 389,
+    "description": "Im Sturzflug auf Beute ist der Wanderfalke das schnellste Tier der Welt — schneller als jedes andere Lebewesen.",
+    "wikiTitle": "Wanderfalke",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Faucon%20pelerin%207%20mai.jpg?width=500"
+  },
+  {
+    "id": "sailfish-speed",
+    "label": "Schwimmgeschwindigkeit eines Segelfisches",
+    "valueKmh": 110,
+    "description": "Segelfische gelten gemeinhin als die schnellsten Fische im Meer.",
+    "wikiTitle": "Istiophoridae",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0e/White_Marlin_in_North_Carolina_1394318584.jpg/330px-White_Marlin_in_North_Carolina_1394318584.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "snail-speed",
+    "label": "Kriechgeschwindigkeit einer Weinbergschnecke",
+    "valueKmh": 0.05,
+    "description": "Der Inbegriff der Langsamkeit — für einen Meter braucht eine Schnecke rund eine Minute.",
+    "wikiTitle": "Weinbergschnecke",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Helix%20pomatia%2089a.jpg?width=500"
+  },
+  {
+    "id": "sloth-ground",
+    "label": "Fortbewegung eines Faultiers am Boden",
+    "valueKmh": 0.25,
+    "description": "Am Boden sind Faultiere fast hilflos langsam — in den Bäumen sind sie dafür überraschend wendig.",
+    "wikiTitle": "Faultiere",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bradypus.jpg?width=500"
+  },
+  {
+    "id": "greyhound-speed",
+    "label": "Höchstgeschwindigkeit eines Greyhounds",
+    "valueKmh": 70,
+    "description": "Die schnellste Hunderasse der Welt, gezüchtet für genau diese Sprintgeschwindigkeit.",
+    "wikiTitle": "Greyhound (Hunderasse)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/GraceTheGreyhound.jpg?width=500"
+  },
+  {
+    "id": "racehorse-speed",
+    "label": "Höchstgeschwindigkeit eines Rennpferdes",
+    "valueKmh": 71,
+    "description": "Der offizielle Geschwindigkeitsrekord für ein Englisches Vollblut im Galopp.",
+    "wikiTitle": "Englisches Vollblut",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Horseracing%20Churchill%20Downs.jpg?width=500"
+  },
+  {
+    "id": "human-walking",
+    "label": "Durchschnittliche menschliche Gehgeschwindigkeit",
+    "valueKmh": 5,
+    "description": "Das übliche Tempo eines entspannten Spaziergangs.",
+    "wikiTitle": "Spaziergang",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Joaqu%C3%ADn%20Sorolla%20y%20Bastida%20-%20Strolling%20along%20the%20Seashore%20-%20Google%20Art%20Project.jpg?width=500"
+  },
+  {
+    "id": "human-jogging",
+    "label": "Typisches Lauftempo beim Joggen",
+    "valueKmh": 10,
+    "description": "Ein moderates, für die meisten Menschen lange durchhaltbares Lauftempo.",
+    "wikiTitle": "Jogging",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Running%20in%20a%20park%20in%20Brussels%20-%202023%20-%20P060598-420352.jpg?width=500"
+  },
+  {
+    "id": "blue-whale-cruise",
+    "label": "Reisegeschwindigkeit eines Blauwals",
+    "valueKmh": 20,
+    "description": "Im entspannten Reisetempo schwimmt das größte Tier der Erde — bei Gefahr sind kurze Sprints deutlich schneller möglich.",
+    "wikiTitle": "Blauwal",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Anim1755%20-%20Flickr%20-%20NOAA%20Photo%20Library.jpg?width=500"
+  },
+  {
+    "id": "great-white-shark",
+    "label": "Sprintgeschwindigkeit eines Weißen Hais",
+    "valueKmh": 40,
+    "description": "Für einen kurzen Angriffssprint kann der Weiße Hai auf dieses Tempo beschleunigen.",
+    "wikiTitle": "Weißer Hai",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Carcharodon%20carcharias.jpg?width=500"
+  },
+  {
+    "id": "ostrich-run",
+    "label": "Höchstgeschwindigkeit eines Straußes",
+    "valueKmh": 70,
+    "description": "Der Strauß kann zwar nicht fliegen, ist dafür aber der schnellste Läufer unter den Vögeln.",
+    "wikiTitle": "Afrikanischer Strauß",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/North%20African%20Ostrich%20-%20Masai%20Ostrich%20(Struthio%20camelus%20massaicus)%20-%20Flickr%20-%20Lip%20Kee.jpg?width=500"
+  },
+  {
+    "id": "housefly-speed",
+    "label": "Fluggeschwindigkeit einer Stubenfliege",
+    "valueKmh": 8,
+    "description": "Trotz des chaotisch wirkenden Flugmusters ist eine Stubenfliege im Reiseflug eher gemütlich unterwegs.",
+    "wikiTitle": "Stubenfliege",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Musca%20domestica%20housefly.jpg?width=500"
+  },
+  {
+    "id": "hummingbird-flight",
+    "label": "Geschwindigkeit eines Kolibris im Vorwärtsflug",
+    "valueKmh": 50,
+    "description": "Im normalen Vorwärtsflug — bei Balzflügen im Sturzflug sind manche Arten noch deutlich schneller.",
+    "wikiTitle": "Kolibris",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Archilochus-alexandri-002-edit.jpg?width=500"
+  },
+  {
+    "id": "mosquito-flight",
+    "label": "Fluggeschwindigkeit einer Stechmücke",
+    "valueKmh": 2,
+    "description": "Eine der langsamsten fliegenden Insektenarten überhaupt — deshalb hört man sie meist, bevor man sie sieht.",
+    "wikiTitle": "Stechmücken",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mosquito%202007-2.jpg?width=500"
+  },
+  {
+    "id": "f1-car-top",
+    "label": "Spitzengeschwindigkeit eines Formel-1-Wagens",
+    "valueKmh": 350,
+    "description": "Auf schnellen Strecken mit langen Geraden erreichen Formel-1-Boliden Geschwindigkeiten in dieser Größenordnung.",
+    "wikiTitle": "Formel 1",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2018%20Austrian%20Grand%20Prix%20turn%201%20(43147259711).jpg?width=500"
+  },
+  {
+    "id": "autobahn-richtgeschwindigkeit",
+    "label": "Richtgeschwindigkeit auf deutschen Autobahnen",
+    "valueKmh": 130,
+    "description": "Die offizielle (nicht verpflichtende) Empfehlung für unbeschränkte Autobahnabschnitte in Deutschland.",
+    "wikiTitle": "Richtgeschwindigkeit",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Vienna%20Convention%20road%20sign%20G17.svg?width=500"
+  },
+  {
+    "id": "tgv-top-speed",
+    "label": "Höchstgeschwindigkeit des TGV im Regelbetrieb",
+    "valueKmh": 320,
+    "description": "Die im Linienbetrieb gefahrene Höchstgeschwindigkeit des französischen Hochgeschwindigkeitszugs.",
+    "wikiTitle": "TGV",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Deux%20TGV%20%C3%A0%20Paris-Lyon.jpg?width=500"
+  },
+  {
+    "id": "concorde-cruise",
+    "label": "Reisegeschwindigkeit der Concorde",
+    "valueKmh": 2180,
+    "description": "Das inzwischen ausgemusterte Überschall-Passagierflugzeug flog mehr als doppelt so schnell wie der Schall.",
+    "wikiTitle": "Concorde",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/British%20Airways%20Concorde%20G-BOAC%2003.jpg?width=500"
+  },
+  {
+    "id": "airliner-cruise",
+    "label": "Reisegeschwindigkeit eines Verkehrsflugzeugs (Boeing 747)",
+    "valueKmh": 900,
+    "description": "Die typische Reisegeschwindigkeit auf Langstreckenflügen in Reiseflughöhe.",
+    "wikiTitle": "Boeing 747",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/B-747%20Iberia.jpg?width=500"
+  },
+  {
+    "id": "bugatti-chiron-top",
+    "label": "Höchstgeschwindigkeit eines Bugatti Chiron",
+    "valueKmh": 420,
+    "description": "Einer der schnellsten Serien-Sportwagen der Welt, elektronisch abgeregelt.",
+    "wikiTitle": "Bugatti Chiron",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bugatti%20Chiron%202017.jpg?width=500"
+  },
+  {
+    "id": "bullet-9mm",
+    "label": "Mündungsgeschwindigkeit einer 9-mm-Pistolenpatrone",
+    "valueKmh": 1300,
+    "description": "So schnell verlässt das Geschoss den Lauf — deutlich schneller als der Schall.",
+    "wikiTitle": "Handfeuerwaffe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Handgun%20collection.JPG?width=500"
+  },
+  {
+    "id": "speed-of-sound",
+    "label": "Schallgeschwindigkeit in der Luft (Meereshöhe)",
+    "valueKmh": 1235,
+    "description": "Bei Normalbedingungen auf Meereshöhe breitet sich Schall mit diesem Tempo aus.",
+    "wikiTitle": "Schallgeschwindigkeit",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/FA-18%20Hornet%20breaking%20sound%20barrier%20(7%20July%201999)%20-%20filtered.jpg?width=500"
+  },
+  {
+    "id": "tornado-ef5-wind",
+    "label": "Windgeschwindigkeit im stärksten Tornado (EF5)",
+    "valueKmh": 500,
+    "description": "Die stärksten je gemessenen Tornados erreichen Windgeschwindigkeiten in dieser Größenordnung.",
+    "wikiTitle": "Tornado",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/F5%20tornado%20Elie%20Manitoba%202007.jpg?width=500"
+  },
+  {
+    "id": "hurricane-cat5-wind",
+    "label": "Mindest-Windgeschwindigkeit für Hurrikan-Kategorie 5",
+    "valueKmh": 252,
+    "description": "Ab dieser anhaltenden Windgeschwindigkeit gilt ein Hurrikan als die höchste Kategorie.",
+    "wikiTitle": "Hurrikan",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Donna%20navy%20radar.jpg?width=500"
+  },
+  {
+    "id": "wind-gust-record",
+    "label": "Weltrekord für die stärkste gemessene Windböe",
+    "valueKmh": 408,
+    "description": "Gemessen 1996 auf Barrow Island in Australien während eines Wirbelsturms — der offizielle Rekord für eine bodennahe Windböe.",
+    "wikiTitle": "Windgeschwindigkeit",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Wind%20wiki.png?width=500"
+  },
+  {
+    "id": "jet-stream-speed",
+    "label": "Typische Geschwindigkeit im Jetstream",
+    "valueKmh": 180,
+    "description": "In diesen schmalen, schnellen Windbändern hoch in der Atmosphäre nutzen Flugzeuge gerne Rückenwind.",
+    "wikiTitle": "Jetstream",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Straalstroom.jpg?width=500"
+  },
+  {
+    "id": "earth-rotation-equator",
+    "label": "Geschwindigkeit der Erdrotation am Äquator",
+    "valueKmh": 1670,
+    "description": "So schnell bewegt sich die Erdoberfläche am Äquator durch die Erddrehung — auch wenn man selbst nichts davon spürt.",
+    "wikiTitle": "Erdrotation",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Earth%20rotation.gif?width=500"
+  },
+  {
+    "id": "tsunami-open-ocean",
+    "label": "Ausbreitungsgeschwindigkeit eines Tsunamis auf offenem Ozean",
+    "valueKmh": 800,
+    "description": "Auf tiefem Wasser rast ein Tsunami etwa so schnell wie ein Düsenflugzeug — erst in Küstennähe wird er langsamer und dafür höher.",
+    "wikiTitle": "Tsunami",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Tsunami%20by%20hokusai%2019th%20century.jpg?width=500"
+  },
+  {
+    "id": "avalanche-powder",
+    "label": "Geschwindigkeit einer großen Pulverschnee-Lawine",
+    "valueKmh": 300,
+    "description": "Große trockene Schneelawinen können dieses Tempo erreichen — deutlich schneller als jeder Mensch flüchten könnte.",
+    "wikiTitle": "Lawine",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Laviin%20MAL-Pamir%2085%2002.jpg?width=500"
+  },
+  {
+    "id": "skydiver-freefall",
+    "label": "Sinkgeschwindigkeit im freien Fall (Fallschirmspringen)",
+    "valueKmh": 200,
+    "description": "In stabiler Bauchlage erreicht ein Fallschirmspringer nach einigen Sekunden diese ungefähre Endgeschwindigkeit.",
+    "wikiTitle": "Fallschirmspringen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Full%20size%20Ewan%20Cowie%20-%2020250513%20-%20ECP01970%2004.jpg?width=500"
+  },
+  {
+    "id": "baumgartner-freefall",
+    "label": "Spitzengeschwindigkeit von Felix Baumgartners Stratosphärensprung",
+    "valueKmh": 1360,
+    "description": "Beim Sprung aus fast 39 km Höhe wurde er 2012 für kurze Zeit schneller als der Schall — ohne Flugzeug oder Rakete.",
+    "wikiTitle": "Felix Baumgartner",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/12.%20Internationale%20Sportnacht%20Davos%202014%20(15409745296)%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "nerve-impulse-speed",
+    "label": "Geschwindigkeit der schnellsten menschlichen Nervenimpulse",
+    "valueKmh": 430,
+    "description": "Die am stärksten isolierten (myelinisierten) Nervenfasern des Körpers leiten Signale mit dieser Geschwindigkeit weiter.",
+    "wikiTitle": "Nervenzelle",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/PLoSBiol4.e126.Fig6fNeuron.jpg?width=500"
+  },
+  {
+    "id": "golf-ball-drive",
+    "label": "Ballgeschwindigkeit nach einem Profi-Abschlag (Driver)",
+    "valueKmh": 270,
+    "description": "Die typische Ballgeschwindigkeit direkt nach dem Treffmoment bei männlichen Profis auf der Tour.",
+    "wikiTitle": "Golfschläger",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/ASICS's%20wood%20clubs%20for%20Ground%20Golf%20and%20balls%20in%20Japan.jpg?width=500"
+  },
+  {
+    "id": "tennis-serve-record",
+    "label": "Schnellster je gemessener Tennis-Aufschlag",
+    "valueKmh": 263,
+    "description": "Der offizielle Rekord für den schnellsten gemessenen Aufschlag im Herren-Tennis.",
+    "wikiTitle": "Aufschlag (Tennis)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2013%20Australian%20Open%20-%20Guillaume%20Rufin.jpg?width=500"
+  },
+  {
+    "id": "baseball-pitch-record",
+    "label": "Schnellster je gemessener Baseball-Wurf",
+    "valueKmh": 169,
+    "description": "Der offizielle MLB-Rekord für den schnellsten je gemessenen Pitch.",
+    "wikiTitle": "Baseball",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Zack%20Greinke%20on%20July%2029%2C%202009.jpg?width=500"
+  },
+  {
+    "id": "lion-sprint",
+    "label": "Sprintgeschwindigkeit eines Löwen",
+    "valueKmh": 80,
+    "description": "Für einen kurzen Jagdsprint erreicht ein Löwe dieses Tempo.",
+    "wikiTitle": "Löwe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lion%20in%20masai%20mara.jpg?width=500"
+  },
+  {
+    "id": "domestic-cat-sprint",
+    "label": "Sprintgeschwindigkeit einer Hauskatze",
+    "valueKmh": 48,
+    "description": "Auch die heimische Hauskatze ist für kurze Strecken überraschend schnell.",
+    "wikiTitle": "Hauskatze",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cat%20grooming.jpg?width=500"
+  },
+  {
+    "id": "rabbit-running",
+    "label": "Höchstgeschwindigkeit eines Wildkaninchens",
+    "valueKmh": 56,
+    "description": "Auf der Flucht vor Fressfeinden erreicht ein Wildkaninchen dieses Tempo.",
+    "wikiTitle": "Wildkaninchen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Oryctolagus%20cuniculus%20Tasmania%202%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "grizzly-bear-run",
+    "label": "Höchstgeschwindigkeit eines Grizzlybären",
+    "valueKmh": 56,
+    "description": "Trotz seiner Masse kann ein Grizzly für kurze Strecken erstaunlich schnell laufen.",
+    "wikiTitle": "Grizzlybär",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/GrizzlyBearJeanBeaufort.jpg?width=500"
+  },
+  {
+    "id": "common-swift-flight",
+    "label": "Schnellster gemessener Vogel im horizontalen Flug",
+    "valueKmh": 112,
+    "description": "Im reinen Horizontalflug (nicht im Sturzflug) ist der Mauersegler der schnellste bestätigte Vogel der Welt.",
+    "wikiTitle": "Mauersegler",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Common%20Swift%202025%2007%2018%2002%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "giant-tortoise-walk",
+    "label": "Gehgeschwindigkeit einer Galápagos-Riesenschildkröte",
+    "valueKmh": 0.3,
+    "description": "Eine der langsamsten Landbewegungen im Tierreich — für einen Kilometer bräuchte sie über drei Stunden.",
+    "wikiTitle": "Galápagos-Riesenschildkröte",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/Galapagos_Geochelone_nigra_porteri.jpg/330px-Galapagos_Geochelone_nigra_porteri.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "chicken-running",
+    "label": "Höchstgeschwindigkeit eines Haushuhns",
+    "valueKmh": 14,
+    "description": "Hühner können zwar kaum fliegen, aber überraschend flott rennen.",
+    "wikiTitle": "Haushuhn",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kruppert%20Cubalaya%20cropped.JPG?width=500"
+  },
+  {
+    "id": "pig-running",
+    "label": "Höchstgeschwindigkeit eines Hausschweins",
+    "valueKmh": 17,
+    "description": "Schweine wirken behäbig, können bei Bedarf aber recht zügig rennen.",
+    "wikiTitle": "Hausschwein",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sow%20with%20piglet.jpg?width=500"
+  },
+  {
+    "id": "human-swimming",
+    "label": "Spitzengeschwindigkeit eines Profischwimmers (Freistil)",
+    "valueKmh": 9,
+    "description": "Selbst die schnellsten Menschen sind im Wasser extrem viel langsamer als an Land.",
+    "wikiTitle": "Freistilschwimmen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2008%20LEN%20European%20Championships%20Final%20400m%20Freestyle%20Women.JPG?width=500"
+  },
+  {
+    "id": "jet-ski-top",
+    "label": "Höchstgeschwindigkeit eines Jetskis",
+    "valueKmh": 100,
+    "description": "Serienmäßige Wassermotorräder erreichen typischerweise dieses Tempo.",
+    "wikiTitle": "Wassermotorrad",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b3/Family_on_a_jets_ski_Holland.jpg/330px-Family_on_a_jets_ski_Holland.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "city-bus-urban",
+    "label": "Typische Geschwindigkeit eines Linienbusses im Stadtverkehr",
+    "valueKmh": 30,
+    "description": "Mit Ampeln, Haltestellen und Verkehr liegt die Durchschnittsgeschwindigkeit im Stadtverkehr deutlich unter dem Tempolimit.",
+    "wikiTitle": "Linienbus",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ed/2001_Volgren_CR225L_on_Mercedes-Benz_O405NH_Swan_Transit_%28Transperth%29_%28TP1562%29.jpg/330px-2001_Volgren_CR225L_on_Mercedes-Benz_O405NH_Swan_Transit_%28Transperth%29_%28TP1562%29.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "escalator-speed",
+    "label": "Geschwindigkeit einer Rolltreppe",
+    "valueKmh": 1,
+    "description": "Die weltweit übliche Standardgeschwindigkeit für Rolltreppen in Kaufhäusern und U-Bahnhöfen.",
+    "wikiTitle": "Rolltreppe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Copenhagen%20Metro%20escalators.jpg?width=500"
+  },
+  {
+    "id": "highspeed-elevator",
+    "label": "Geschwindigkeit eines Hochgeschwindigkeitsaufzugs",
+    "valueKmh": 60,
+    "description": "Die schnellsten Aufzüge in Wolkenkratzern schießen mit diesem Tempo nach oben.",
+    "wikiTitle": "Personenaufzug",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/70/Hammetschwandlift-2-2.jpg/330px-Hammetschwandlift-2-2.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "bicycle-commute",
+    "label": "Durchschnittsgeschwindigkeit beim Fahrrad-Pendeln",
+    "valueKmh": 16,
+    "description": "Das typische Tempo eines Alltagsradlers auf dem Weg zur Arbeit.",
+    "wikiTitle": "Fahrrad",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/00%208327%20Historisches%20Fahrrad.jpg?width=500"
+  },
+  {
+    "id": "bicycle-race-average",
+    "label": "Durchschnittsgeschwindigkeit bei einer Flachetappe der Tour de France",
+    "valueKmh": 40,
+    "description": "Das Peloton hält dieses Tempo über hunderte Kilometer durch.",
+    "wikiTitle": "Peloton (Radsport)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/CanosaGiro2010-1.jpg?width=500"
+  },
+  {
+    "id": "rollercoaster-fastest",
+    "label": "Höchstgeschwindigkeit der schnellsten Achterbahn der Welt",
+    "valueKmh": 240,
+    "description": "Die Formula Rossa in Abu Dhabi beschleunigt in wenigen Sekunden auf dieses Tempo.",
+    "wikiTitle": "Formula Rossa",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Formula%20Rossa%20coaster.jpg?width=500"
+  },
+  {
+    "id": "hyperloop-test",
+    "label": "Höchstgeschwindigkeit beim schnellsten Hyperloop-Testlauf",
+    "valueKmh": 387,
+    "description": "Bei einem Testlauf in der Vakuumröhre wurde dieses Tempo erreicht — im echten Betrieb soll es noch deutlich schneller werden.",
+    "wikiTitle": "Hyperloop",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hyperloop%20all%20cutaway.png?width=500"
+  },
+  {
+    "id": "cruise-ship-typical",
+    "label": "Reisegeschwindigkeit eines Kreuzfahrtschiffs",
+    "valueKmh": 40,
+    "description": "Das übliche Reisetempo eines großen Kreuzfahrtschiffs auf offener See.",
+    "wikiTitle": "Kreuzfahrtschiff",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/0%207842%20Oslo%20-%20F%C3%A4hrhafen.jpg?width=500"
+  },
+  {
+    "id": "submarine-submerged",
+    "label": "Geschwindigkeit eines U-Boots unter Wasser",
+    "valueKmh": 46,
+    "description": "Getaucht erreichen moderne U-Boote dieses ungefähre Höchsttempo.",
+    "wikiTitle": "U-Boot",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/U%20995%20Laboe.JPG?width=500"
+  },
+  {
+    "id": "helicopter-cruise",
+    "label": "Reisegeschwindigkeit eines Hubschraubers",
+    "valueKmh": 250,
+    "description": "Das typische Reisetempo eines zivilen Hubschraubers.",
+    "wikiTitle": "Hubschrauber",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/LAPD%20Bell%20206%20Jetranger.jpg?width=500"
+  },
+  {
+    "id": "racing-drone-top",
+    "label": "Höchstgeschwindigkeit einer FPV-Racing-Drohne",
+    "valueKmh": 160,
+    "description": "Speziell für Drohnenrennen gebaute Modelle erreichen dieses rasante Tempo.",
+    "wikiTitle": "Multicopter",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/DJI%20Phantom%201%201530564a.jpg?width=500"
+  },
+  {
+    "id": "raindrop-falling",
+    "label": "Fallgeschwindigkeit eines mittelgroßen Regentropfens",
+    "valueKmh": 32,
+    "description": "Bei dieser Endgeschwindigkeit fällt ein typischer Regentropfen zu Boden — größere Tropfen fallen etwas schneller.",
+    "wikiTitle": "Regentropfen",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Dropphysics.jpg/330px-Dropphysics.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "snowflake-falling",
+    "label": "Fallgeschwindigkeit einer Schneeflocke",
+    "valueKmh": 5,
+    "description": "Deutlich langsamer als ein Regentropfen — deshalb wirkt Schneefall so ruhig.",
+    "wikiTitle": "Schneeflocke",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Snowflake%20-%20Flickr%20-%20Alexey%20Kljatov.jpg?width=500"
+  },
+  {
+    "id": "gulf-stream-current",
+    "label": "Strömungsgeschwindigkeit des Golfstroms",
+    "valueKmh": 9,
+    "description": "An seiner schnellsten Stelle transportiert dieser Meeresstrom Wasser mit diesem Tempo.",
+    "wikiTitle": "Golfstrom",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Golfstrom.jpg?width=500"
+  },
+  {
+    "id": "blood-flow-aorta",
+    "label": "Blutflussgeschwindigkeit in der Hauptschlagader (Ruhe)",
+    "valueKmh": 1,
+    "description": "So schnell strömt das Blut in Ruhe durch die Aorta, die größte Arterie des Körpers.",
+    "wikiTitle": "Aorta",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Aorta%20scheme%20noTags.svg?width=500"
+  },
+  {
+    "id": "badminton-smash-record",
+    "label": "Schnellster offiziell gemessener Badminton-Schlag",
+    "valueKmh": 426,
+    "description": "Der schnellste je in einem Wettkampf gemessene Schlag im Racket-Sport überhaupt.",
+    "wikiTitle": "Badminton",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Badmintonpan.jpg?width=500"
+  },
+  {
+    "id": "ice-hockey-slapshot",
+    "label": "Schnellster je gemessener Eishockey-Schlagschuss",
+    "valueKmh": 183,
+    "description": "Der offizielle Rekord für den härtesten gemessenen Schlagschuss.",
+    "wikiTitle": "Eishockey",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/NLA%2C%20Lausanne%20HC%20vs.%20Rapperswil-Jona%20Lakers%2C%2011th%20November%202014%2003.JPG?width=500"
+  },
+  {
+    "id": "cricket-bowling-record",
+    "label": "Schnellster je gemessener Cricket-Wurf",
+    "valueKmh": 161,
+    "description": "Der offizielle Rekord für den schnellsten je gemessenen Bowling-Wurf.",
+    "wikiTitle": "Cricket",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Muralitharan%20bowling%20to%20Adam%20Gilchrist.jpg?width=500"
+  },
+  {
+    "id": "table-tennis-smash",
+    "label": "Geschwindigkeit eines Tischtennis-Schmetterballs",
+    "valueKmh": 116,
+    "description": "Ein platzierter Smash im Profi-Tischtennis kann diese Geschwindigkeit erreichen.",
+    "wikiTitle": "Tischtennis",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mondial%20Ping%20-%20Men's%20Singles%20-%20Round%204%20-%20Kenta%20Matsudaira-Vladimir%20Samsonov%20-%2057.jpg?width=500"
+  },
+  {
+    "id": "skateboard-downhill-record",
+    "label": "Geschwindigkeitsrekord im Downhill-Skateboarding",
+    "valueKmh": 130,
+    "description": "Liegend auf dem Board wurde bei einer Bergabfahrt dieser Rekord aufgestellt.",
+    "wikiTitle": "Skateboard",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Judi%20Oyama%20frontside%20grind%20Winchester%20Skatepark%201979%20photo%20Richard%20Oyama.png?width=500"
+  },
+  {
+    "id": "zipline-fastest",
+    "label": "Höchstgeschwindigkeit auf der schnellsten Seilrutsche der Welt",
+    "valueKmh": 160,
+    "description": "Auf einer der längsten und steilsten Seilrutschen der Welt erreichen Fahrgäste dieses Tempo.",
+    "wikiTitle": "Seilrutsche",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Texas%20Zip%20liner%205430.JPG?width=500"
+  },
+  {
+    "id": "marathon-elite",
+    "label": "Tempo eines Elite-Marathonläufers",
+    "valueKmh": 21,
+    "description": "Die aktuellen Weltrekordläufer halten dieses Tempo über die volle Marathondistanz von 42,195 km durch.",
+    "wikiTitle": "Marathonlauf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Berlin%20marathon.jpg?width=500"
+  },
+  {
+    "id": "car-city-traffic",
+    "label": "Durchschnittsgeschwindigkeit im Stadtautoverkehr",
+    "valueKmh": 25,
+    "description": "Mit Ampeln und Stau kommt ein Auto in der Innenstadt im Schnitt kaum schneller voran als ein Fahrrad.",
+    "wikiTitle": "Innenstadt",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Vista%20a%C3%A9rea%20Centro%20do%20Rio%20de%20Janeiro%20RJ.jpg?width=500"
+  },
+  {
+    "id": "elephant-running",
+    "label": "Höchstgeschwindigkeit eines rennenden Elefanten",
+    "valueKmh": 25,
+    "description": "Trotz seines Gewichts kann ein Elefant im schnellen Trab überraschend zügig unterwegs sein.",
+    "wikiTitle": "Afrikanischer Elefant",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/178%20Male%20African%20bush%20elephant%20in%20Etosha%20National%20Park%20Photo%20by%20Giles%20Laurent.jpg?width=500"
+  },
+  {
+    "id": "kangaroo-hopping",
+    "label": "Höchstgeschwindigkeit eines hüpfenden Kängurus",
+    "valueKmh": 70,
+    "description": "Auf der Flucht erreicht ein Rotes Riesenkänguru im Sprung dieses Tempo.",
+    "wikiTitle": "Rotes Riesenkänguru",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Red%20kangaroo%20-%20melbourne%20zoo.jpg?width=500"
+  },
+  {
+    "id": "golden-eagle-dive",
+    "label": "Sturzfluggeschwindigkeit eines Steinadlers",
+    "valueKmh": 240,
+    "description": "Im gezielten Sturzflug auf Beute erreicht der Steinadler dieses Tempo — deutlich langsamer als der spezialisierte Wanderfalke.",
+    "wikiTitle": "Steinadler",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Maakotka%20(Aquila%20chrysaetos)%20by%20Jarkko%20J%C3%A4rvinen.jpg?width=500"
+  },
+  {
+    "id": "e-scooter-limit",
+    "label": "Zulässige Höchstgeschwindigkeit eines E-Scooters (Deutschland)",
+    "valueKmh": 20,
+    "description": "Mehr ist für zugelassene E-Tretroller auf deutschen Straßen gesetzlich nicht erlaubt.",
+    "wikiTitle": "Elektrokleinstfahrzeug",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2019%20Warszawa%20hulajnoga%20Lime%2C%201.jpg?width=500"
+  },
+  {
+    "id": "downhill-skiing-race",
+    "label": "Höchstgeschwindigkeit im alpinen Ski-Abfahrtslauf",
+    "valueKmh": 150,
+    "description": "Profi-Skifahrer erreichen im steilen Streckenabschnitt einer Weltcup-Abfahrt Geschwindigkeiten in dieser Größenordnung.",
+    "wikiTitle": "Abfahrtslauf",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/27/Wernervalgardena.jpg/330px-Wernervalgardena.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "speed-skating-race",
+    "label": "Höchstgeschwindigkeit beim Eisschnelllauf",
+    "valueKmh": 60,
+    "description": "Auf der Langbahn erreichen Spitzenläufer über kurze Streckenabschnitte dieses Tempo.",
+    "wikiTitle": "Eisschnelllauf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Shannon%20Rempel%20(08-12-2007).jpg?width=500"
+  },
+  {
+    "id": "container-ship-cruise",
+    "label": "Reisegeschwindigkeit eines großen Containerschiffs",
+    "valueKmh": 37,
+    "description": "Um Treibstoff zu sparen, fahren moderne Frachtschiffe bewusst langsamer, als sie könnten.",
+    "wikiTitle": "Containerschiff",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Container%20ships%20President%20Truman%20(IMO%208616283)%20and%20President%20Kennedy%20(IMO%208616295)%20at%20San%20Francisco.jpg?width=500"
+  },
+  {
+    "id": "delivery-drone-cruise",
+    "label": "Reisegeschwindigkeit einer Liefer-Drohne",
+    "valueKmh": 60,
+    "description": "Kommerzielle Lieferdrohnen fliegen typischerweise mit diesem Tempo zu ihrem Ziel.",
+    "wikiTitle": "Unbemanntes Luftfahrzeug",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/MQ-1C%20Warrior%20(2005-08-11).jpg?width=500"
+  },
+  {
+    "id": "hare-running",
+    "label": "Höchstgeschwindigkeit eines Feldhasen",
+    "valueKmh": 70,
+    "description": "Auf der Flucht vor Fressfeinden erreicht ein Feldhase dieses Tempo — deutlich schneller als ein Wildkaninchen.",
+    "wikiTitle": "Feldhase",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/European%20Brown%20Hare%20(50341079472).jpg?width=500"
+  },
+  {
+    "id": "wild-boar-running",
+    "label": "Höchstgeschwindigkeit eines Wildschweins",
+    "valueKmh": 45,
+    "description": "Trotz seines wuchtigen Körperbaus kann ein Wildschwein bei einer Flucht überraschend schnell sprinten.",
+    "wikiTitle": "Wildschwein",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Wildschwein%2C%20N%C3%A4he%20Pulverstampftor.jpg?width=500"
+  },
+  {
+    "id": "moped-limited",
+    "label": "Zulässige Höchstgeschwindigkeit eines 50er-Mopeds (Deutschland)",
+    "valueKmh": 45,
+    "description": "Mopeds dieser Klasse sind in Deutschland gedrosselt und dürfen gesetzlich nicht schneller fahren.",
+    "wikiTitle": "Kleinkraftrad",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fe/Kreidler_Florett_1966.jpeg/330px-Kreidler_Florett_1966.jpeg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "shinkansen-top-speed",
+    "label": "Höchstgeschwindigkeit des Shinkansen im Regelbetrieb",
+    "valueKmh": 320,
+    "description": "Japans Hochgeschwindigkeitszug fährt im Linienbetrieb ungefähr so schnell wie der französische TGV.",
+    "wikiTitle": "Shinkansen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/JR%20East%20Shinkansen%20lineup%20at%20Niigata%20Depot%20201210.jpg?width=500"
+  },
+  {
+    "id": "wind-turbine-blade-tip",
+    "label": "Geschwindigkeit der Rotorblattspitze einer Windkraftanlage",
+    "valueKmh": 300,
+    "description": "Obwohl sich der Rotor gemächlich dreht, rast die äußerste Spitze der langen Blätter mit diesem Tempo durch die Luft.",
+    "wikiTitle": "Windkraftanlage",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2019%2007%2026%20Trampe%20Windkraftanlagen%20DJI%200041.jpg?width=500"
+  },
+  {
+    "id": "sound-speed-helium",
+    "label": "Schallgeschwindigkeit in Helium (Grund der \"Micky-Maus-Stimme\")",
+    "valueKmh": 3640,
+    "description": "In Helium breitet sich Schall fast dreimal so schnell aus wie in Luft — deshalb klingt die Stimme nach dem Einatmen höher.",
+    "wikiTitle": "Helium",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Helium%20discharge%20tube.jpg?width=500"
+  },
+  {
+    "id": "tnt-detonation-velocity",
+    "label": "Detonationsgeschwindigkeit von TNT",
+    "valueKmh": 24840,
+    "description": "So schnell rast die chemische Reaktionsfront durch den Sprengstoff, wenn er zündet.",
+    "wikiTitle": "Trinitrotoluol",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c4/Trinitrotoluene.svg/langde-330px-Trinitrotoluene.svg.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "motogp-top-speed",
+    "label": "Geschwindigkeitsrekord einer MotoGP-Maschine",
+    "valueKmh": 369,
+    "description": "Aufgestellt 2026 von Jorge Martín beim Großen Preis von Italien in Mugello.",
+    "wikiTitle": "MotoGP",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Rossi%20and%20Lorenzo%202010%20French%20GP.jpg?width=500"
+  },
+  {
+    "id": "tgv-test-record",
+    "label": "Schienenfahrzeug-Weltrekord (TGV V150, Testfahrt 2007)",
+    "valueKmh": 575,
+    "description": "Ein eigens präparierter TGV-Zug stellte auf der LGV Est europäenne bis heute den Rekord für Rad-Schiene-Fahrzeuge auf.",
+    "wikiTitle": "TGV",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Deux%20TGV%20%C3%A0%20Paris-Lyon.jpg?width=500"
+  },
+  {
+    "id": "maglev-record",
+    "label": "Geschwindigkeitsrekord einer Magnetschwebebahn (Japan, Testfahrt 2015)",
+    "valueKmh": 603,
+    "description": "Der japanische SCMaglev L0 schwebt dabei berührungslos über der Strecke, angetrieben durch Magnetfelder statt Räder.",
+    "wikiTitle": "JR-Maglev",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/JR-Maglev-MLX01-2.jpg?width=500"
+  },
+  {
+    "id": "thrust-ssc-landspeed",
+    "label": "Landgeschwindigkeitsrekord (ThrustSSC, 1997)",
+    "valueKmh": 1228,
+    "description": "Das erste Landfahrzeug, das offiziell anerkannt die Schallmauer durchbrach.",
+    "wikiTitle": "ThrustSSC",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/ThrustSSC%20front.jpg?width=500"
+  },
+  {
+    "id": "speed-skydiving-record",
+    "label": "Weltrekord im Speed Skydiving",
+    "valueKmh": 530,
+    "description": "In dieser Fallschirmsport-Disziplin fliegen die Athleten kopfüber, um die höchste Fallgeschwindigkeit zu erreichen.",
+    "wikiTitle": "Speed Skydiving",
+    "image": null
+  },
+  {
+    "id": "sr71-blackbird",
+    "label": "Offizieller Geschwindigkeitsweltrekord für Flugzeuge (Lockheed SR-71, 1976)",
+    "valueKmh": 3529,
+    "description": "Der bis heute gültige Rekord für strahlgetriebene, luftatmende Flugzeuge steht seit fast 50 Jahren.",
+    "wikiTitle": "Lockheed SR-71",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/SR-71A%20in%20flight%20near%20Beale%20AFB%201988.JPEG?width=500"
+  },
+  {
+    "id": "x15-record",
+    "label": "Höchstgeschwindigkeit des Raketenflugzeugs X-15",
+    "valueKmh": 7274,
+    "description": "Bis zum Space Shuttle war die X-15 das schnellste je geflogene bemannte Flugzeug.",
+    "wikiTitle": "North American X-15",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/North%20American%20X-15.jpg?width=500"
+  },
+  {
+    "id": "apollo10-record",
+    "label": "Höchste je von Menschen erreichte Geschwindigkeit (Apollo 10, 1969)",
+    "valueKmh": 39897,
+    "description": "Beim Wiedereintritt der Landekapsel wurde ein bis heute ungebrochener Rekord aufgestellt.",
+    "wikiTitle": "Apollo 10",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20Apollo%2010%20Prime%20Crew%20-%20GPN-2000-001163.jpg?width=500"
+  },
+  {
+    "id": "iss-orbital-speed",
+    "label": "Bahngeschwindigkeit der Internationalen Raumstation (ISS)",
+    "valueKmh": 28800,
+    "description": "In diesem Tempo umrundet die ISS die Erde alle eineinhalb Stunden.",
+    "wikiTitle": "Internationale Raumstation",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20station%20pictured%20from%20the%20SpaceX%20Crew%20Dragon%205%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "escape-velocity-earth",
+    "label": "Fluchtgeschwindigkeit von der Erde",
+    "valueKmh": 40270,
+    "description": "So schnell muss ein Objekt mindestens sein, um die Erdanziehung ohne weiteren Antrieb endgültig zu verlassen.",
+    "wikiTitle": "Fluchtgeschwindigkeit (Raumfahrt)",
+    "image": null
+  },
+  {
+    "id": "voyager1-speed",
+    "label": "Reisegeschwindigkeit der Raumsonde Voyager 1",
+    "valueKmh": 61200,
+    "description": "Das am weitesten von der Erde entfernte von Menschen gebaute Objekt, unterwegs seit 1977.",
+    "wikiTitle": "Voyager 1",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Voyager%20spacecraft.jpg?width=500"
+  },
+  {
+    "id": "sun-milky-way-orbit",
+    "label": "Geschwindigkeit der Sonne auf ihrer Umlaufbahn um das Zentrum der Milchstraße",
+    "valueKmh": 828000,
+    "description": "Trotz diesem Tempo braucht die Sonne rund 230 Millionen Jahre für eine einzige Umrundung der Milchstraße.",
+    "wikiTitle": "Sonne",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Our%20Sun%20at%20a%20distance%20of%20150%20Mio.%20km.jpg?width=500"
+  },
+  {
+    "id": "parker-solar-probe",
+    "label": "Höchstgeschwindigkeit der Raumsonde Parker Solar Probe",
+    "valueKmh": 687000,
+    "description": "Bei ihrer nächsten Annäherung an die Sonne ist sie das schnellste je von Menschen gebaute Objekt.",
+    "wikiTitle": "Parker Solar Probe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Parker%20Solar%20Probe.jpg?width=500"
+  },
+  {
+    "id": "speed-of-light",
+    "label": "Lichtgeschwindigkeit im Vakuum",
+    "valueKmh": 1079252849,
+    "description": "Die Naturkonstante c — nichts im Universum kann sich nachweislich schneller fortbewegen.",
+    "wikiTitle": "Lichtgeschwindigkeit",
+    "image": null
+  },
+  {
+    "id": "pronghorn-sustained",
+    "label": "Höchstgeschwindigkeit eines Gabelbocks",
+    "valueKmh": 86,
+    "description": "Anders als der Gepard kann der Gabelbock ein sehr hohes Tempo über mehrere Kilometer durchhalten, nicht nur wenige hundert Meter.",
+    "wikiTitle": "Gabelbock",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Antilocapra%20americana.jpg?width=500"
+  },
+  {
+    "id": "gentoo-penguin-swim",
+    "label": "Schwimmgeschwindigkeit eines Eselspinguins",
+    "valueKmh": 36,
+    "description": "Der schnellste Schwimmer unter allen Pinguinarten — im Alltag schwimmt er aber meist deutlich gemütlicher.",
+    "wikiTitle": "Eselspinguin",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gentoo%20Penguin%20at%20Cooper%20Bay%2C%20South%20Georgia.jpg?width=500"
+  },
+  {
+    "id": "bar-tailed-godwit-migration",
+    "label": "Durchschnittstempo des längsten bekannten Non-Stop-Vogelzugs (Pfuhlschnepfe)",
+    "valueKmh": 51,
+    "description": "Ein Jungvogel flog 2022 ohne jede Pause 13.560 Kilometer von Alaska nach Tasmanien — elf Tage am Stück.",
+    "wikiTitle": "Pfuhlschnepfe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bar-tailed%20Godwit.jpg?width=500"
+  }
+]

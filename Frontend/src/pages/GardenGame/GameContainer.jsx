@@ -2,15 +2,29 @@
 // Smooth WASD movement, diagonal support, plant system, shop UI, lobby awareness
 
 import React, { memo, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+// Feedback 30.08.: "eigene Icons statt emojis ... statt lucide" — wo unten ein
+// eigenes Bild existiert (HudIcon/TabIcon aus gameIcons.jsx), ersetzt es die
+// frühere lucide-Komponente an GENAU der Stelle, die im Icon Atlas dafür vorgesehen
+// war. Nachlieferung 30.08.: Editor (LayoutGrid), Umkleide (Shirt), Logbuch-Knopf
+// (ScrollText) und die Vitrine im Schuppen (Trophy) haben jetzt ebenfalls eigene
+// Bilder — alle vier lucide-Importe dafür sind komplett raus. Nachlieferung 31.08.:
+// der Gold-Shop-Knopf (Gem) hat jetzt ebenfalls ein eigenes Bild (HudIcon.goldShop) —
+// auch dieser Import ist raus. Was hier bleibt, hat (noch) kein eigenes Bild: Sprout
+// (Logo/Erste-Schritte), FlaskConical (Beta-Marke), Play, Package (nur noch der leere
+// Ei-Platz — "Kiste" im Schuppen ist jetzt HudIcon.kiste), Info, Search (Zoom-Anzeige
+// — das gelieferte Bild ist erkennbar fürs Logbuch gezeichnet), MapPin (Standort-
+// Marker in der Online-Liste), SlidersHorizontal (Admin), Send (Chat — das gelieferte
+// Bild ist erkennbar fürs Postfach gezeichnet), Smile (neuer Emoji-Knopf im Chat,
+// Feedback 01.09. — kein eigenes Bild dafür geliefert).
 import {
-    Sprout, Trophy, Star, FlaskConical, Play, Coins, Backpack, Home, Store, ShoppingCart,
-    Settings, ScrollText, Shirt, PawPrint, ChevronDown, Lock, X, Check, Package, Mail, Users, Copy, Info, Trash2,
-    Search, Move, Plus, MapPin, MessageSquare, Send, Egg, SlidersHorizontal, LayoutGrid,
+    Sprout, FlaskConical, Play, Package, Info, Search,
+    MapPin, SlidersHorizontal, Send, Smile,
 } from "lucide-react";
-import Renderer from './engine/Renderer';
+import { HudIcon, TabIcon, WeatherIcon } from './ui/gameIcons';
+import Renderer, { LICHT_MAX, MAILBOX_RESKIN_BILD } from './engine/Renderer';
 import InputHandler from './engine/InputHandler';
 import { versionedAsset } from './engine/assetVersion';
-import { generatePlotSlots, TILE_SIZE, MAP_CONFIG, getHoveredCell, getHoveredRock, getMailboxHitArea, STEIN_REIHEN, MITTELWEG_REIHE, istWegReihe, istAndereReihe, spiegleZeile } from './engine/MapConfig';
+import { generatePlotSlots, TILE_SIZE, MAP_CONFIG, getHoveredCell, getHoveredRock, getMailboxHitArea, getDirtCellWorldPos, STEIN_REIHEN, STEIN_WEG_REIHEN, istSteinfeldWegRow, istWegReihe, istAndereReihe, spiegleZeile, kachelIstAcker } from './engine/MapConfig';
 // harvestPlant und getGoldfinderRange stehen bewusst nicht mehr hier: diese
 // Rechnungen macht ab v3.0 der Server (garden/core/economy).
 import {
@@ -20,9 +34,16 @@ import {
     wetterListe, wetterBoost, wetterChanceFuer, zyklusMinuten,
 } from './engine/PlantSystem';
 import {
-    PET_PROC_CHANCE, PET_ABILITY_TYPES, PET_ABILITY_LABELS, getPetTickMs,
-    getHarvesterYield, GAERTNER_WURZELWERK, getGaertnerStufe,
+    PET_PROC_CHANCE, PET_ABILITY_TYPES, PET_ABILITY_LABELS, PET_ABILITY_KURZ, getPetTickMs,
+    getGaertnerStufe, getErntehelferStufe, getErntehelferExtra,
+    getGaertnerNachwuchs, getGaertnerWurzelwerk, besteStufe, getGoldfinderRange,
+    getForscherStufe, getKaufmannStufe, getForscherBoost, getKaufmannBoost,
 } from './engine/PetSystem';
+import {
+    dunkelheit as tagesDunkelheit, partyStand, partyStaerke, uhrzeit as spielUhrzeit,
+    istNacht, partyTitelIndex, PARTY_RAINBOW_FAKTOR,
+} from './engine/Tageszeit';
+import SEO from '../../components/SEO';
 import PlantHoverLayer from './ui/PlantHoverLayer';
 import { createHoverStore } from './ui/hoverStore';
 import PetDetailModal from './ui/PetDetailModal';
@@ -30,1226 +51,47 @@ import MailboxModal from './ui/MailboxModal';
 import AblageModal, { FremdeVitrineModal } from './ui/AblageModal';
 import LogbuchModal from './ui/LogbuchModal';
 import SkillTreeModal from './ui/SkillTreeModal';
+import WardrobeModal from './ui/WardrobeModal';
+import QuestBoardModal from './ui/QuestBoardModal';
+import GoldShopModal from './ui/GoldShopModal';
+import { SHED_RESKIN_BILD } from './ui/reskins';
+import { ALLE_SKINS, STANDARD_SKIN, normalisiereSkin } from './ui/wardrobe';
+import { DEKO_KATALOG, DEKO_KATEGORIEN, dekoNachKategorie, dekoLicht, istBoden, alsVorratsstueck } from './ui/deko';
 import useGardenLobby, { letzteWelt, vergissWelt } from './useGardenLobby';
 import {
     RARITY_TEXT, RARITY_BORDER, RARITY_DOT, HUD_SURFACE,
     weatherIcon, toolIcon, categoryIcon, formatGold, formatDuration as formatDurationShared,
 } from './ui/gardenTokens';
-import { GardenModal, GoldTag, TabBar, PrimaryButton, RarityLabel } from './ui/gardenUi';
+import { GardenModal, GoldTag, TimerTag, TabBar, PrimaryButton, RarityLabel } from './ui/gardenUi';
 import { ItemIcon, SpecialItemIcon } from './ui/ItemIcon';
 import { itemSpecialName } from './ui/itemTints';
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
-import { GardenAdminBrowser } from "../../components/GardenAdminPanel";
+import { GardenAdminBrowser } from "./GardenAdminPanel";
 
-function TwitchGlyph({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-    </svg>
-  );
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-const PLAYER_SPEED = 14; // fast, responsive movement
-const INCUBATOR_UNLOCK_COSTS = [50000, 500000, 5000000, 50000000]; // slots 2–5
-const INTERACT_DIST = 180;
-const SHOP_ROTATION_MS = 5 * 60 * 1000;
-const TOOL_EGG_ROTATION_MS = 10 * 60 * 1000;
-const TARGET_FPS = 60;
-// Muss zu STEIN_REIHEN in engine/MapConfig.js passen (dort steht der Aufbau).
-const MAX_PLOT_EXPANSIONS = STEIN_REIHEN;
-const WORLD_BOOT_MIN_MS = 700;
-const WORLD_SLOTS = 8; // dauerhafte Welt: immer 8 Grundstücke (muss zu MAX_SLOTS im Backend passen)
-// Wer den Admin-Knopf im HUD sieht. Reine Anzeige — jede Änderung prüft der Server
-// noch einmal gegen STREAMER_TWITCH_ID (Backend/routes/adminRoutes.js).
-const GARTEN_ADMIN_ID = "160224748";
-// Näher an der Farm dran: Pflanzen erscheinen deutlich größer, ohne dass die Welt
-// wächst. Zusammen mit den schmaleren Wuchsformen gibt das den ruhigeren Blick.
-const WORLD_ZOOM = 1.4;
-// Mausrad: rauszoomen, um die Nachbarn zu sehen, reinzoomen für Details. Der Wert
-// liegt in einem Ref, nicht im State — das Rad soll nicht bei jeder Raste den
-// kompletten Baum neu rendern (dieselbe Überlegung wie beim Hover-Store).
-const ZOOM_MIN = 0.45;
-const ZOOM_MAX = 2.2;
-const ZOOM_SCHRITT = 1.12;   // pro Rastung; multiplikativ, damit es sich gleichmäßig anfühlt
-
-// Tier-Plätze auf dem eigenen Grundstück. Die ersten drei sind geschenkt, die
-// restlichen kosten — bewusst im Bereich der teuersten Samen, damit sie ein Ziel
-// fürs späte Spiel bleiben und nicht nebenbei abfallen.
-// Fassungsvermögen der beiden Ablagen — muss zu KISTE_MAX/VITRINE_MAX in
-// Backend/garden/core/economy.js passen (dort wird es durchgesetzt).
-const KISTE_MAX = 100;
-const VITRINE_MAX = 12;
-
-const PET_SLOTS_BASIS = 3;
-const PET_SLOTS_MAX = 6;
-// Die alten Preise (1 / 10 / 100 Mrd) lagen so hoch, dass der vierte Platz für die
-// meisten unerreichbar blieb und die Plätze 5 und 6 reine Zierde waren.
-// An die neue Goldfinder-Kurve angepasst: mit ~47 Mio/h je Stufe-5-Tier
-// amortisiert sich jeder Platz in gut drei bis vierzig Stunden.
-const PET_SLOT_PREISE = {
-    4: 150_000_000,
-    5: 600_000_000,
-    6: 1_800_000_000,
-};
-/** Preis für den NÄCHSTEN Platz, oder null wenn schon alle gekauft sind. */
-function getPetSlotPreis(aktuelleSlots) {
-    const naechster = Math.max(PET_SLOTS_BASIS, Number(aktuelleSlots) || PET_SLOTS_BASIS) + 1;
-    return PET_SLOT_PREISE[naechster] ?? null;
-}
-
-/**
- * Weltkoordinaten der vier Grundstücks-Gebäude. Wird an zwei Stellen gebraucht:
- * für das eigene Grundstück (engine.areas) und für die Gebäude der anderen, die
- * jeder in seiner Welt sehen soll. Eine gemeinsame Funktion, damit beide Seiten
- * nicht auseinanderlaufen.
- *
- * Jede Stelle liefert ZWEI Y-Werte:
- *   y      Mitte der belegten 1×1-Kachel — Kollision, Näheprüfung, Kachelgrenzen.
- *   fussY  Unterkante derselben Kachel. Darauf steht das Bild (Renderer).
- * Vorher wurde das Bild auf `y` zentriert; bei einem 100 px hohen trash.png hing es
- * damit knapp 20 px UNTER seiner Kachel und ragte am unteren Grundstücksrand auf den
- * Steinweg hinaus. Mit dem Fußpunkt steht jedes Gebäude sauber auf seinem Feld.
- */
-function berechneGebaeudePositionen(slot, versatz) {
-    const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
-    const rechteMitte = Math.round(
-        (slot.x + MAP_CONFIG.dirtOffsetX + MAP_CONFIG.baseDirtWidth + slot.x + MAP_CONFIG.territoryWidth) / 2,
-    );
-    const linkeMitte = Math.round(slot.x + MAP_CONFIG.dirtOffsetX / 2);
-    // `anchorY` liegt IMMER am Kiesweg — bei der oberen Reihe ist das die Unterkante
-    // des Grundstücks, bei der unteren die Oberkante. Die Standardplätze gehören in
-    // beiden Fällen an dieses Ende, denn von dort kommt man auf sein Grundstück.
-    //
-    // Für die untere Reihe wurde stattdessen vom GEGENÜBERLIEGENDEN Rand aus gerechnet
-    // (anchorY + territoryHeight - 120): Inkubator und Mülleimer der Spieler 5 bis 8
-    // standen dadurch am äußersten unteren Ende, und man musste erst das ganze
-    // Grundstück hinunterlaufen. Jetzt spiegelt sich die Anordnung sauber.
-    const zumWeg = slot.isTopRow ? -1 : 1;
-    const standardY = slot.anchorY + zumWeg * 120;
-    // Das zweite Gebäude je Seite steht weiter vom Weg weg — bei der unteren Reihe
-    // also nach unten statt nach oben.
-    const zweiteReihe = standardY + zumWeg * 170;
-
-    const ausVersatz = (v, ersatzX, ersatzY) => {
-        if (!v || !Number.isFinite(v.tx) || !Number.isFinite(v.ty)) {
-            // Standardplatz: keine Kachel im Raster, also die halbe Kachelhöhe als Fuß.
-            return { x: ersatzX, y: ersatzY, fussY: Math.round(ersatzY + TILE_SIZE / 2) };
-        }
-        const kachelOben = drawY + v.ty * TILE_SIZE;
-        return {
-            x: Math.round(slot.x + v.tx * TILE_SIZE + TILE_SIZE / 2),
-            y: Math.round(kachelOben + TILE_SIZE / 2),
-            fussY: Math.round(kachelOben + TILE_SIZE),
-        };
-    };
-
-    return {
-        incubator: ausVersatz(versatz?.incubator, rechteMitte, standardY),
-        trash: ausVersatz(versatz?.trash, rechteMitte, zweiteReihe),
-        chest: ausVersatz(versatz?.chest, linkeMitte, standardY),
-        vitrine: ausVersatz(versatz?.vitrine, linkeMitte, zweiteReihe),
-    };
-}
-
-/**
- * Standort der Grundstücks-Gebäude als Kachel-Versatz zum eigenen Grundstück.
- * Alles Unplausible wird zu null — dann greift wieder der Standardplatz.
- */
-function normalizeGebaeudeVersatz(roh) {
-    const eine = (v) => {
-        const tx = Number(v?.tx);
-        const ty = Number(v?.ty);
-        if (!Number.isFinite(tx) || !Number.isFinite(ty)) return null;
-        const maxX = Math.round(MAP_CONFIG.territoryWidth / TILE_SIZE) - 1;
-        const maxY = Math.round(MAP_CONFIG.territoryHeight / TILE_SIZE) - 1;
-        if (tx < 0 || tx > maxX || ty < 0 || ty > maxY) return null;
-        return { tx: Math.round(tx), ty: Math.round(ty) };
-    };
-    return {
-        incubator: eine(roh?.incubator),
-        trash: eine(roh?.trash),
-        chest: eine(roh?.chest),
-        vitrine: eine(roh?.vitrine),
-    };
-}
-// Etwas kleiner als INTERACT_DIST (180), aber groß genug, dass der eigene Kasten
-// direkt nach „Meine Farm" ansprechbar ist — dort steht man rund 130 Einheiten entfernt.
-const MAILBOX_INTERACT_DIST = 150;
-
-// Muss zu CHAT_MAX_LEN in Backend/garden/world/lobby.js passen: der Server kürzt
-// ohnehin, das Eingabefeld soll nur nicht mehr annehmen, als ankommt.
-const CHAT_MAX_LEN = 200;
-
-// So viele Klicks pro Feld dürfen sich stapeln, während eine Ernte unterwegs ist.
-// Genug für die größte Staude (8 Fruchtstände); alles darüber ist Gehämmer und
-// würde nur Absagen erzeugen.
-const ERNTE_WARTESCHLANGE_MAX = 8;
-
-// ─── Sortierung für Shop und Inventar ────────────────────────────────────────
-// Der Samen-Shop kam bisher fest nach Seltenheit und Preis vom Server, das Inventar
-// in Einfügereihenfolge. Bei 57 Arten und 50+ Plätzen sucht man sich damit einen Wolf.
-const RARITAETS_RANG = { COMMON: 0, UNCOMMON: 1, RARE: 2, EPIC: 3, LEGENDARY: 4, MYTHIC: 5 };
-const nachText = (a, b) => String(a || "").localeCompare(String(b || ""), "de");
-
-/** Katalog einmal nach seedId aufschlüsseln — sonst sucht jeder Vergleich neu. */
-const KATALOG_NACH_ID = new Map(SEED_CATALOGUE.map((s) => [s.id, s]));
-
-/**
- * Sekunden bis zur ERSTEN Ernte — die einzige Zahl, mit der sich Einmalernten und
- * Dauerträger sinnvoll vergleichen lassen.
- *
- *   Einmalernte  Mitte der Wachstumsspanne (growMin..growMax wird ausgewürfelt).
- *   Dauerträger  Aufbau der Staude PLUS ein Fruchtzyklus — vorher hängt nichts dran
- *                (siehe createFruitSlot: der erste Stand startet ab structureReadyAt).
- *
- * Unbekannte Arten landen ans Ende statt vorne.
- */
-function zeitBisErsteErnte(seed) {
-    const p = KATALOG_NACH_ID.get(seed?.seedId);
-    if (!p) return Number.MAX_SAFE_INTEGER;
-    return p.singleUse
-        ? ((p.growMinSec || 0) + (p.growMaxSec || 0)) / 2
-        : (p.structureGrowSec || 0) + (p.fruitCycleSec || 0);
-}
-
-const SHOP_SORTIERUNGEN = [
-    { key: "standard", label: "Seltenheit", vergleich: (a, b) => (RARITAETS_RANG[a.rarity] ?? 0) - (RARITAETS_RANG[b.rarity] ?? 0) || (a.shopPrice || 0) - (b.shopPrice || 0) },
-    { key: "preis_auf", label: "Preis ↑", vergleich: (a, b) => (a.shopPrice || 0) - (b.shopPrice || 0) },
-    { key: "preis_ab", label: "Preis ↓", vergleich: (a, b) => (b.shopPrice || 0) - (a.shopPrice || 0) },
-    { key: "dauer_auf", label: "Dauer ↑", vergleich: (a, b) => zeitBisErsteErnte(a) - zeitBisErsteErnte(b) },
-    { key: "dauer_ab", label: "Dauer ↓", vergleich: (a, b) => zeitBisErsteErnte(b) - zeitBisErsteErnte(a) },
-    // Dauerträger zuerst, innerhalb der Gruppe wie im Standard nach Seltenheit und Preis.
-    {
-        key: "art",
-        label: "Art",
-        vergleich: (a, b) => (a.singleUse === false ? 0 : 1) - (b.singleUse === false ? 0 : 1)
-            || (RARITAETS_RANG[a.rarity] ?? 0) - (RARITAETS_RANG[b.rarity] ?? 0)
-            || (a.shopPrice || 0) - (b.shopPrice || 0),
-    },
-    { key: "name", label: "Name", vergleich: (a, b) => nachText(a.name, b.name) },
-];
-
-const INVENTAR_SORTIERUNGEN = [
-    { key: "standard", label: "Zuletzt", vergleich: () => 0 },
-    { key: "wert", label: "Wert ↓", vergleich: (a, b) => (Number(b.sellValue) || 0) - (Number(a.sellValue) || 0) },
-    { key: "groesse", label: "Größe ↓", vergleich: (a, b) => (Number(b.size) || 0) - (Number(a.size) || 0) },
-    { key: "seltenheit", label: "Seltenheit", vergleich: (a, b) => (RARITAETS_RANG[b.rarity] ?? 0) - (RARITAETS_RANG[a.rarity] ?? 0) },
-    { key: "name", label: "Name", vergleich: (a, b) => nachText(a.customName || a.name, b.customName || b.name) },
-];
-
-/** Stabil sortieren — „Zuletzt" muss die Einfügereihenfolge unangetastet lassen. */
-function sortiere(liste, optionen, key) {
-    const gewaehlt = optionen.find((o) => o.key === key);
-    if (!gewaehlt || gewaehlt.key === "standard") return liste;
-    return liste.map((eintrag, i) => ({ eintrag, i }))
-        .sort((a, b) => gewaehlt.vergleich(a.eintrag, b.eintrag) || a.i - b.i)
-        .map((x) => x.eintrag);
-}
-
-/** Schmale Reiterleiste über der Liste. */
-function SortierLeiste({ wert, setzen, optionen }) {
-    return (
-        <div className="flex flex-wrap items-center gap-1 mb-2">
-            <span className="text-[10px] uppercase tracking-wider text-slate-600 mr-1">Sortierung</span>
-            {optionen.map((o) => (
-                <button
-                    key={o.key}
-                    type="button"
-                    onClick={() => setzen(o.key)}
-                    className={`px-2 py-1 rounded-sm border text-[10px] font-medium transition-colors ${
-                        wert === o.key
-                            ? "border-violet-600 bg-violet-600/20 text-violet-200"
-                            : "border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
-                    }`}
-                >
-                    {o.label}
-                </button>
-            ))}
-        </div>
-    );
-}
-
-
-// [R] SPIEGELT die Deko, es dreht sie nicht.
-//
-// Vorher gab es zwei Wege nebeneinander: Objekte mit `spin` drehten sich in 90°-Schritten,
-// alle anderen schalteten durch vier Ansichten. Beides ändert bei 90°/270° bzw. bei den
-// Seitenansichten den Fußabdruck — aus einer 1×2-Laterne wurde eine 2×1. Derselbe Klick
-// setzte das Objekt damit je nach Ausrichtung woandershin, was beim Platzieren wie Zufall
-// aussah. Spiegeln lässt den Fußabdruck unangetastet: der Klick bedeutet immer dasselbe.
-
-const DEFAULT_TOOL_INVENTORY = {
-    pickaxeUses: 0,
-    pickaxesBought: 0, // 7. ANPASSUNG
-    hasShovel: false,
-    backpackUpgraded: false,
-    backpackLevel: 0,
-    plantPots: 0,
-    wateringCans: 0,
-    petSlots: PET_SLOTS_BASIS,
-    hasChest: false,
-    hasVitrine: false,
-};
-const BASE_DIRT_COLS = Math.round(MAP_CONFIG.baseDirtWidth / TILE_SIZE);
-const BASE_DIRT_ROWS = Math.round(MAP_CONFIG.baseDirtHeight / TILE_SIZE);
-const AREA_IMAGES = {
-    seedShop: "/garden-assets/world/seed_shop.png",
-    toolShop: "/garden-assets/world/tool_shop.png",
-    eggShop: "/garden-assets/world/egg_shop.png",
-    decoShop: "/garden-assets/world/deco_shop.png",
-    incubator: "/garden-assets/world/incubator.png",
-    trash: "/garden-assets/world/trash.png",
-    market: "/garden-assets/world/market.png",
-    petMarket: "/garden-assets/world/pet_market.png",
-    // Noch zu zeichnen — bis die Dateien da sind, greift der Ersatz-Kasten im
-    // Renderer (Farbfläche mit Symbol), das Spiel läuft also auch ohne sie.
-    chest: "/garden-assets/world/chest.png",
-    vitrine: "/garden-assets/world/vitrine.png",
-};
-/** Beschriftung der vier umstellbaren Bauten — Meldungen und Hinweisbanner. */
-const GEBAEUDE_NAMEN = {
-    incubator: "Inkubator",
-    trash: "Mülleimer",
-    chest: "Vorratskiste",
-    vitrine: "Vitrine",
-};
-/**
- * Was von einem FREMDEN Grundstück gezeichnet wird. Nur die Vitrine ist anlaufbar —
- * sie ist zum Herzeigen da. Die drei anderen sind reine Kulisse: sie bekommen einen
- * eigenen Typ ohne Behandlung in activateInteractable, damit kein Klick sie öffnet.
- */
-const FREMDE_GEBAEUDE = [
-    { key: "incubator", type: "fremdesGebaeude", name: GEBAEUDE_NAMEN.incubator, anlaufbar: false },
-    { key: "trash", type: "fremdesGebaeude", name: GEBAEUDE_NAMEN.trash, anlaufbar: false },
-    { key: "chest", type: "fremdesGebaeude", name: GEBAEUDE_NAMEN.chest, anlaufbar: false },
-    { key: "vitrine", type: "fremdeVitrine", name: GEBAEUDE_NAMEN.vitrine, anlaufbar: true },
-];
-const TOOL_IMAGE_BY_KEY = {
-    pickaxe: "/garden-assets/tools/spitzhacke.png",
-    shovel: "/garden-assets/tools/schaufel.png",
-    pot: "/garden-assets/tools/topf.png",
-    watering: "/garden-assets/tools/gieskanne.png",
-    backpack: "/garden-assets/tools/rucksack.png",
-};
-const TOOL_IMAGE_BY_ID = {
-    pickaxe: TOOL_IMAGE_BY_KEY.pickaxe,
-    shovel: TOOL_IMAGE_BY_KEY.shovel,
-    plant_pot: TOOL_IMAGE_BY_KEY.pot,
-    watering_can: TOOL_IMAGE_BY_KEY.watering,
-    backpack_upgrade: TOOL_IMAGE_BY_KEY.backpack,
-    // Im Shop dasselbe Bild wie später auf dem Grundstück — man kauft sichtbar
-    // das, was danach dort steht, statt eines Ersatz-Emojis.
-    chest: AREA_IMAGES.chest,
-    vitrine: AREA_IMAGES.vitrine,
-};
-const TERRAIN_ASSET_IMAGES = [
-    "/garden-assets/structure/gras1.png",
-    "/garden-assets/structure/gras2.png",
-    "/garden-assets/structure/hohes_gras1.png",
-    "/garden-assets/structure/hohes_gras2.png",
-    "/garden-assets/structure/kiesweg1.png",
-    "/garden-assets/structure/kiesweg2.png",
-    "/garden-assets/structure/acker.png",
-    "/garden-assets/structure/stein.png",
-    "/garden-assets/structure/wood.png",
-];
-const PET_IMAGE_BY_TYPE = {
-    Huhn: "/garden-assets/animals/huhn.png",
-    Ente: "/garden-assets/animals/ente.png",
-    Schwein: "/garden-assets/animals/schwein.png",
-    Katze: "/garden-assets/animals/katze.png",
-    "Waschbär": "/garden-assets/animals/waschbaer.png",
-    Kuh: "/garden-assets/animals/kuh.png",
-    Schaf: "/garden-assets/animals/schaf.png",
-    Ziege: "/garden-assets/animals/ziege.png",
-    Pferd: "/garden-assets/animals/pferd.png",
-    Esel: "/garden-assets/animals/esel.png",
-    Hund: "/garden-assets/animals/hund.png",
-    Einhorn: "/garden-assets/animals/einhorn.png",
-    // Umlaute MÜSSEN hier stehen: die automatische Ableitung zerlegt "ö" zu "o"
-    // und käme auf phonix.png / gotterwesen.png — die Dateien heißen aber
-    // phoenix.png / goetterwesen.png. Ohne Eintrag wären beide Tiere unsichtbar.
-    "Phönix": "/garden-assets/animals/phoenix.png",
-    "Götterwesen": "/garden-assets/animals/goetterwesen.png",
-    Tiger: "/garden-assets/animals/tiger.png",
-    Drache: "/garden-assets/animals/drache.png",
-};
-const WEATHER_BY_ROLL = [
-    { max: 0.7, type: "sun", label: "Sonne" },
-    { max: 0.775, type: "rain", label: "Regen" },
-    { max: 0.85, type: "snow", label: "Schnee" },
-    { max: 0.925, type: "thunder", label: "Donner" },
-    { max: 1, type: "moonlight", label: "Mondschein" },
-];
-const DEFAULT_RENDER_PROFILE = {
-    level: "medium",
-    particleScale: 0.75,
-    simplifyPlantUi: false,
-};
-const RENDER_QUALITY_PRESETS = {
-    low: { level: "low", particleScale: 0.45, simplifyPlantUi: true },
-    medium: { level: "medium", particleScale: 0.75, simplifyPlantUi: false },
-    high: { level: "high", particleScale: 1, simplifyPlantUi: false },
-};
-
-/**
- * Spiegel von EGG_SHOP_CATALOGUE in Backend/routes/gardenGameRoutes.js.
- *
- * `level` je Eintrag ist neu: vorher hing die Fähigkeitsstufe allein an der
- * Seltenheit des EIS, die hatchTable bestimmte nur das Bild. Ein Götterwesen mit
- * 1 % Chance war damit exakt so viel wert wie ein Einhorn mit 40 % — die ganze
- * Spannung des Gacha war Attrappe.
- */
-const EGG_SHOP_CATALOGUE = [
-    { id: "common_egg", name: "Common Egg", emoji: "🥚", image: "/garden-assets/eggs/common_egg.png", rarity: "COMMON", price: 100000,
-      hatchTable: [{ type: "Huhn", chance: 70, level: 1 }, { type: "Ente", chance: 25, level: 1 }, { type: "Schwein", chance: 5, level: 2 }] },
-    { id: "uncommon_egg", name: "Uncommon Egg", emoji: "🥚", image: "/garden-assets/eggs/uncommon_egg.png", rarity: "UNCOMMON", price: 2000000,
-      hatchTable: [{ type: "Ente", chance: 60, level: 2 }, { type: "Katze", chance: 30, level: 2 }, { type: "Waschbär", chance: 10, level: 3 }] },
-    { id: "rare_egg", name: "Rare Egg", emoji: "🥚", image: "/garden-assets/eggs/rare_egg.png", rarity: "RARE", price: 20000000,
-      hatchTable: [{ type: "Kuh", chance: 60, level: 3 }, { type: "Schaf", chance: 30, level: 3 }, { type: "Pferd", chance: 10, level: 4 }] },
-    { id: "epic_egg", name: "Epic Egg", emoji: "🥚", image: "/garden-assets/eggs/epic_egg.png", rarity: "EPIC", price: 150000000,
-      hatchTable: [{ type: "Esel", chance: 55, level: 4 }, { type: "Hund", chance: 30, level: 4 }, { type: "Einhorn", chance: 10, level: 5 }, { type: "Tiger", chance: 5, level: 5 }] },
-    { id: "legendary_egg", name: "Legendary Egg", emoji: "🥚", image: "/garden-assets/eggs/legendary_egg.png", rarity: "LEGENDARY", price: 800000000,
-      hatchTable: [{ type: "Einhorn", chance: 40, level: 4 }, { type: "Tiger", chance: 30, level: 5 }, { type: "Phönix", chance: 20, level: 5 }, { type: "Drache", chance: 9, level: 5 }, { type: "Götterwesen", chance: 1, level: 5 }] },
-];
-
-const DECO_SHOP_ITEMS = [
-    // ── COMMON ──────────────────────────────────────────────────────────────
-    { id: "plant",        name: "Pflanze",       emoji: "🪴", rarity: "COMMON",    price: 5000,    image: "/garden-assets/deco/plant.png",               width: 1, height: 1 },
-    { id: "deco_bench",   name: "Gartenbank",    emoji: "🪑", rarity: "COMMON",    price: 8000,    image: "/garden-assets/deco/bank.png",               width: 1, height: 1 },
-    { id: "deco_lamp",    name: "Laterne",       emoji: "🏮", rarity: "COMMON",    price: 12000,   image: "/garden-assets/deco/lamp_placeholder.png",   width: 1, height: 2 },
-    // ── UNCOMMON ────────────────────────────────────────────────────────────
-    { id: "feuer",        name: "Feuerschale",   emoji: "🔥", rarity: "UNCOMMON",  price: 20000,   image: "/garden-assets/deco/feuer.png",               width: 1, height: 1 },
-    { id: "gnome1",       name: "Gartenzwerg",   emoji: "🧙", rarity: "UNCOMMON",  price: 25000,   image: "/garden-assets/deco/gnome1.png",              width: 1, height: 1 },
-    { id: "gnome2",       name: "Gartenzwerg 2", emoji: "🧙", rarity: "UNCOMMON",  price: 25000,   image: "/garden-assets/deco/gnome2.png",              width: 1, height: 1 },
-    { id: "gnome3",       name: "Gartenzwerg 3", emoji: "🧙", rarity: "UNCOMMON",  price: 25000,   image: "/garden-assets/deco/gnome3.png",              width: 1, height: 1 },
-    { id: "grill",        name: "Grill",         emoji: "🍖", rarity: "UNCOMMON",  price: 35000,   image: "/garden-assets/deco/grill.png",               width: 1, height: 1 },
-    { id: "tisch",        name: "Gartentisch",   emoji: "🪵", rarity: "UNCOMMON",  price: 40000,   image: "/garden-assets/deco/tisch.png",               width: 1, height: 1 },
-    // ── RARE ────────────────────────────────────────────────────────────────
-    { id: "deco_statue",  name: "Statue",        emoji: "🗿", rarity: "RARE",      price: 80000,   image: "/garden-assets/deco/statue_placeholder.png", width: 1, height: 2 },
-    { id: "teich",        name: "Teich",         emoji: "🐟", rarity: "RARE",      price: 120000,  image: "/garden-assets/deco/teich.png",               width: 2, height: 2 },
-    { id: "brunnen",      name: "Brunnen",       emoji: "⛲", rarity: "RARE",      price: 150000,  image: "/garden-assets/deco/brunnen1.png",            width: 2, height: 2 },
-    // ── EPIC ────────────────────────────────────────────────────────────────
-    { id: "pool",         name: "Pool",          emoji: "🏊", rarity: "EPIC",      price: 400000,  image: "/garden-assets/deco/pool.png",                width: 2, height: 2 },
-    { id: "deco_fountain",name: "Großbrunnen",   emoji: "⛲", rarity: "EPIC",      price: 500000,  image: "/garden-assets/deco/fountain_placeholder.png",width: 2, height: 2 },
-    // ── LEGENDARY ───────────────────────────────────────────────────────────
-    { id: "deco_arch",    name: "Holzbogen",    emoji: "🏛️", rarity: "LEGENDARY", price: 2000000, image: "/garden-assets/deco/bogen.png",               width: 2, height: 2 },
-];  
-
-// Changelog als Daten statt als handgebautes JSX — neue Einträge sind ein Objekt,
-// kein weiterer verschachtelter Block.
-const CHANGELOG_ENTRIES = [
-    {
-        version: "v3.2",
-        title: "Chat, Sortierung und viel Kleinkram, der lange genervt hat",
-        groups: [
-            {
-                heading: "Chat und Mitspieler",
-                items: [
-                    "Neu: ein Chat für die ganze Welt, rechts unter den Tieren. Er klappt per Klick auf und bleibt offen — beim Tippen soll er nicht zuschnappen, sobald die Maus danebengerät. Solange er zu ist, zählt ein Abzeichen die ungelesenen Zeilen.",
-                    "Die Anwesenheitsliste oben links klappt jetzt auf und zeigt alle Namen samt Platznummer. Ein Klick auf einen Namen bringt dich direkt zu dessen Grundstück — genauso wie ein Klick auf den Namen im Chat.",
-                    "Von fremden Grundstücken sind jetzt alle vier Bauten zu sehen, nicht mehr nur die Vitrine. Anfassen darfst du weiterhin nur die Vitrine: was in Inkubator, Mülleimer und Kiste liegt, geht niemanden außer dem Besitzer etwas an.",
-                ],
-            },
-            {
-                heading: "Kiste und Inventar",
-                items: [
-                    "Die Vorratskiste nimmt jetzt alles: Ernte, Samen, Eier, Deko und Tiere. Jedes Stück merkt sich, woher es kam, und geht beim Herausholen genau dorthin zurück. Die Vitrine bleibt bei der Ernte — ihr Inhalt geht an alle Mitspieler und ist auf Früchte zugeschnitten.",
-                    "Zwei neue Knöpfe in der Mitte: alles auf einmal einlagern und alles auf einmal herausholen. Läuft die Kiste dabei voll oder der Rucksack über, steht in der Meldung, was liegen geblieben ist.",
-                    "In Kiste und Vitrine steht jetzt der Verkaufswert jedes Stücks und die Summe über der Spalte. Vorher sah man eingelagert nicht mehr, was etwas wert ist.",
-                    "Auch im Inventar steht oben, was deine Ernte insgesamt einbringt.",
-                    "Sortierung für Inventar und Samen-Shop: im Rucksack nach Wert, Größe, Seltenheit oder Name, im Shop nach Seltenheit, Preis oder Name.",
-                    "Tiere tragen im Inventar ihren Namen unter dem Bild — bei drei Hühnern war sonst nur am Hovern zu erkennen, welches Chicky ist.",
-                ],
-            },
-            {
-                heading: "Shop",
-                items: [
-                    "Gießkannen und Pflanztöpfe gibt es jetzt zehnmal pro Lieferung statt fünfmal.",
-                    "Die Spitzhacke ist immer vorrätig. Das Limit von einem Stück pro Lieferung hieß in der Praxis: zehn Minuten warten. Gebremst wird sie weiterhin über ihren Preis, der mit jedem Kauf um 30 % steigt — der nächste Preis steht jetzt in der Zeile.",
-                    "Die Tier-Plätze sind deutlich billiger geworden: 200 Millionen, 1 Milliarde und 2 Milliarden statt 1, 10 und 100 Milliarden. Der vierte Platz war vorher für die meisten unerreichbar.",
-                ],
-            },
-            {
-                heading: "Grundstück und Deko",
-                items: [
-                    "Inkubator, Mülleimer, Kiste und Vitrine stehen jetzt sauber auf ihrer Kachel, statt ein Stück darunter zu hängen. Am unteren Grundstücksrand ragte vorher jedes davon auf den Steinweg hinaus.",
-                    "[R] spiegelt Deko, statt sie zu drehen. Drehen hat den belegten Platz mitgetauscht — aus einer 1×2-Laterne wurde eine 2×1, und derselbe Klick setzte sie mal hierhin, mal dorthin.",
-                    "Deko wird jetzt immer von der angeklickten Kachel nach oben aufgebaut, die Kachel ist also die untere linke Ecke. Nur diese eine muss freie Wiese sein — was darüber liegt, darf über den Acker ragen. Damit bekommt man Laternen endlich auch auf den schmalen Streifen unter dem Acker.",
-                ],
-            },
-            {
-                heading: "Tiere und Inkubator",
-                items: [
-                    "Tiere sind jetzt je nach Art verschieden groß: ein Huhn ist deutlich kleiner als ein Pferd, und Drache und Götterwesen überragen alles andere.",
-                    "Der Inkubator meldet sich, wenn etwas fertig ist: eine Nachricht, eine Zeile im Menü rechts und ein Marker über dem Gerät auf dem Grundstück. Vorher lief die Brutzeit bis zu zwei Stunden, ohne dass irgendetwas darauf hinwies.",
-                    "Der Kaufknopf für Tier-Plätze war zwischen den Tierzeilen kaum zu erkennen und sitzt jetzt abgesetzt darunter.",
-                ],
-            },
-            {
-                heading: "Logbuch",
-                items: [
-                    "Neu aufgebaut: ein Klick auf eine Art klappt darunter alles aus, was es davon zu farmen gibt — Größe 1 und Größe 50, Golden, Rainbow und jeder Wetter-Effekt, jeweils mit dem eingefärbten Bild der Frucht. Was du schon hattest, ist hell und abgehakt, der Rest ausgegraut.",
-                    "Vorher stand all das als eine Kette kleiner Textmarken hinter dem Namen; welche Ausprägungen es überhaupt gibt, war daran nicht abzulesen.",
-                ],
-            },
-            {
-                heading: "Optik",
-                items: [
-                    "Große Früchte werden in der Hand jetzt auch groß gezeichnet. Eine Honigmelone der Größe 50 ist fast so groß wie du selbst.",
-                    "Sonderformen und Wetter-Effekte färben die Frucht jetzt überall ein, wo sie auftaucht: in Kiste, Vitrine, Briefkasten und auf der Hover-Karte. Bisher ging das nur im Rucksack und in der Schnellleiste.",
-                ],
-            },
-            {
-                heading: "Behoben",
-                items: [
-                    "Schwerwiegend: Mit einer frischen Farm ließ sich nichts kaufen. Der Browser zeigte 500 Gold, der Server wusste von 0 — sein Spielstand entstand erst beim ersten Speichern, und Gold wird dort grundsätzlich aus dem bestehenden Stand übernommen. Wer davon betroffen war, bekommt sein Startkapital beim nächsten Laden zurück.",
-                    "Schwerwiegend: Durch schnelles Klicken ließen sich mehr Gießkannen, Töpfe, Spitzhacken und Eier kaufen, als es überhaupt gab — jeder Klick kam durch dieselbe Prüfung, weil der Bestand erst nach der Antwort des Servers abgezogen wurde. Dasselbe galt für Schaufel, Kiste, Vitrine und die Rucksack-Upgrades, die sich mehrfach bezahlen ließen.",
-                    "Schwerwiegend: Der Tool- und der Eier-Shop füllten sich alle 30 Sekunden von selbst wieder auf, ohne dass die Lieferung durch war. Gekauft, kurz gewartet, wieder da.",
-                    "Verschenkte Früchte kamen beim Empfänger mit „0 Gold\" an. Der Wert reist bewusst nicht mit der Sendung — er wird jetzt beim Abholen neu gerechnet.",
-                    "Das Ernten fühlte sich an, als wäre die Maus gedrosselt. Zwei Ursachen: Klicks während einer laufenden Ernte wurden weggeworfen statt angestellt, und nach jeder Frucht übernahm der Browser die Pflanze komplett vom Server — samt aller Fruchtstände, die seit dem letzten Speichern reif geworden waren. An einer Staude mit acht reifen Früchten kam so genau eine durch.",
-                    "Der Marker über dem Inkubator wurde nie gezeichnet, und ein Platz ohne Ei riss den ganzen Spielbildschirm mit.",
-                    "Bei den Grundstücken unterhalb des Weges standen Inkubator und Mülleimer am äußersten unteren Ende. Man musste erst das ganze Grundstück hinunterlaufen; jetzt stehen sie wie oben am Weg.",
-                    "Die Gold-Bestenliste klappte hinter die Tierliste darunter.",
-                    "Die Hover-Karte blieb über dem Spiel stehen, wenn man im Inventar einen Gegenstand anklickte.",
-                    "Bei mehreren gleichartigen Eiern oder Dekos lagerte ein Klick auf das dritte Stück das erste ein.",
-                    "Tiere verschiedener Stufen erzeugten laufend „429 Too Many Requests\" in der Browser-Konsole: der Browser fragte im Takt des schnellsten Tieres an, der Server rechnet aber pro Tier mit dessen eigener Stufe.",
-                ],
-            },
-        ],
-    },
-    {
-        version: "v3.1",
-        title: "Lager, Logbuch und ein hartnäckiger Erntefehler",
-        groups: [
-            {
-                heading: "Kiste, Vitrine und Logbuch",
-                items: [
-                    "Neu im Tool-Shop: die Vorratskiste. 100 Plätze für Ernte, die keinen Rucksackplatz belegen — endlich ein Ort für alles, was du nicht sofort verkaufen willst.",
-                    "Ebenfalls neu: die Vitrine mit 12 Schauplätzen. Was dort steht, sehen alle in der Welt: sie können an deinem Grundstück vorbeikommen, die Vitrine anklicken und sich deine Prachtstücke mit Größe, Sonderform und Wetter-Effekt ansehen — anfassen aber nicht.",
-                    "Beide stehen auf deinem Grundstück und lassen sich frei umstellen.",
-                    "Neues Logbuch oben rechts: für jede Art die kleinste und größte Größe, die du je geerntet hast, dazu jede Veredelung, die dir untergekommen ist. Mit Suche und einem Filter für das, was du schon hattest.",
-                ],
-            },
-            {
-                heading: "Briefkasten",
-                items: [
-                    "Eine Sendung nimmt jetzt bis zu 12 Gegenstände auf, statt einem Samen oder einer Frucht. Gold und Nachricht kommen wie gehabt obendrauf.",
-                    "Gleiche Sachen stehen als eine Zeile mit Anzahl da — sieben identische Karotten wählst du mit zwei Klicks statt mit sieben.",
-                    "Läuft das Sendelimit, steht jetzt dabei, wie lange es noch dauert. Vorher war es ein stummer Fehler.",
-                ],
-            },
-            {
-                heading: "Grundstück, Tiere und Kamera",
-                items: [
-                    "Inkubator und Mülleimer lassen sich umstellen: Knopf im jeweiligen Fenster, dann einmal auf die Wiese klicken. Beide unabhängig voneinander.",
-                    "Ab dem vierten Tier-Platz kannst du nachkaufen — bis zu sechs Tiere auf dem Grundstück. Die Plätze kosten 1, 10 und 100 Milliarden und werden direkt in der Tierliste angeboten.",
-                    "Der Mülleimer nimmt jetzt auch Samen. Gleiche Sorten stehen zusammengefasst da, mit „Einen\" und „Alle\".",
-                    "Mausrad zoomt die Kamera zwischen 32 % und 157 %. Weicht der Zoom vom Standard ab, steht oben rechts ein Prozentwert, der ihn per Klick zurücksetzt.",
-                    "Pflanzen auf fremden Äckern lassen sich anhovern: Größe, Wert, Restzeit und Fruchtstände wie bei dir. Nur zum Ansehen — geerntet wird dort nichts.",
-                    "Mehrkachelige Deko wächst nach unten, wenn nach oben kein Platz ist. Laterne und Statue passen damit auch auf den Wiesenstreifen direkt am Acker.",
-                ],
-            },
-            {
-                heading: "Behoben",
-                items: [
-                    "Schwerwiegend: Dauerträger ließen sich oft nicht ernten („Noch nicht reif.\"), obwohl reife Früchte am Strauch hingen. Der Server hat die Umstellung von Struktur auf Frucht zwar ausgeliefert, aber nie gespeichert — und den ersten Fruchtzyklus ab dem Moment gerechnet, in dem er das nächste Mal hinsah, statt ab dem Reifezeitpunkt. Eine Staude, die über Nacht fertig wurde, stand dadurch noch einen ganzen Zyklus leer.",
-                    "Wer gießt und sofort erntet, bekam ebenfalls ein „Noch nicht reif.\": der Acker liegt im Browser und wandert erst mit dem Speichern zum Server. Jetzt wird der Stand nachgereicht und die Ernte ein zweites Mal versucht.",
-                    "Schnelles Klicken auf einen Dauerträger meldete Fehler, sobald mehr Klicks rausgingen als Früchte reif waren. Das ist jetzt ein stilles Nichts-Passiert statt einer Fehlermeldung — und kann keine Frucht doppelt auszahlen.",
-                    "Schwerwiegend: Beim Verschenken mehrerer Sachen konnte ein Gegenstand verloren gehen. Wurde der Samen schon abgezogen und scheiterte danach die Prüfung des Tieres, war der Samen weg, ohne dass die Sendung zustande kam. Jetzt wird erst alles geprüft und dann in einem Schritt abgebucht.",
-                    "Verschenktes verschwindet sofort aus dem Rucksack. Vorher blieb ein weggeschickter Samen bis zur Antwort des Servers auswählbar — und ließ sich in der Zwischenzeit noch einpflanzen.",
-                    "Tiere kamen beim Empfänger als Ersatz-Emoji statt als Tier an, im Briefkasten wie im Rucksack. Dasselbe galt für verschenkte Samen. Der Bildpfad wird jetzt beim Empfänger aus der Art abgeleitet.",
-                    "Beim Samenkauf zählte der Ernte-Teil des Rucksacks nicht mit — die Platzprüfung sah immer nur die Samen.",
-                ],
-            },
-        ],
-    },
-    {
-        version: "v3.0",
-        title: "Die große Überarbeitung",
-        groups: [
-            {
-                heading: "Gemeinsame Welt",
-                items: [
-                    "Die Karte hat jetzt immer acht Grundstücke und ist dauerhaft bewohnt — es gibt keinen Einzelspieler-Modus mehr. Allein startest du oben links.",
-                    "Du siehst andere Farmer in Echtzeit über die Karte laufen, samt Namensschild, Abzeichen und ihrem Outfit.",
-                    "Fremde Äcker werden live angezeigt: Pflanzen, Deko und Tiere der anderen sind sichtbar.",
-                    "Private Welten mit fünfstelligem Code: eine eigene aufmachen, den Code weitergeben, gemeinsam farmen. Der Code steht oben rechts und lässt sich per Klick kopieren.",
-                    "Ist eine öffentliche Welt voll, landest du automatisch in der nächsten statt abgewiesen zu werden.",
-                    "Deine Farm zieht mit: der Acker hängt an deinem Konto, nicht an der Welt.",
-                ],
-            },
-            {
-                heading: "Briefkasten",
-                items: [
-                    "An jedem Grundstück steht ein Briefkasten. Am eigenen liest du Post, an fremden hinterlegst du Gold, Nachrichten und Samen.",
-                    "Der Empfänger ergibt sich aus dem Briefkasten, vor dem du stehst — kein Name einzutippen, keine Vertipper.",
-                    "Beträge prüft der Server: nur ganze Zahlen über 0, und nur wenn du sie wirklich besitzt. Es kann kein Gold aus dem Nichts entstehen.",
-                    "Ein Hinweis am Kasten zeigt, wie viele Sendungen auf dich warten.",
-                ],
-            },
-            {
-                heading: "Acker und Pflanzen",
-                items: [
-                    "Jede Art hat eine eigene Wuchsform: Gurken und Trauben ranken am Spalier, Karotten sitzen im Erdhügel, Bambus wächst als Halm, Beeren am Strauch.",
-                    "Alles wird nach Tiefe gezeichnet — du läufst hinter hohen Pflanzen und Gebäuden vorbei statt immer davor.",
-                    "Große Pflanzen decken die Reihe dahinter nicht mehr zu, und über jeder erntereifen Pflanze schwebt ein Marker in Seltenheitsfarbe.",
-                    "Bodenschatten und leichter Wind für Pflanzen, Deko und Tiere.",
-                    "Neue Strukturen und Bodentexturen, dazu Zäune als Grundstücksgrenze.",
-                    "Bei Schnee liegen Schneehaufen auf der Karte, bei Regen sammeln sich Pfützen.",
-                ],
-            },
-            {
-                heading: "Tiere",
-                items: [
-                    "Tiere lassen sich benennen; der Name steht für alle sichtbar über ihnen.",
-                    "Neue Fähigkeit Erntehelfer: erntet reife Pflanzen selbstständig ab, 1 bis 8 Stück je nach Stufe.",
-                    "Tiere können golden oder regenbogenfarben schlüpfen.",
-                    "Eigene Laufbilder für Drache, Einhorn und Katze — weitere folgen.",
-                    "Ein Klick auf ein Tier in der Liste zeigt Fundhöhe, Takt, Chance und Verkaufspreis.",
-                    "Tiger, Phönix, Drache und Götterwesen haben endlich ihr eigenes Bild statt eines Platzhalters — sie waren nur wegen eines Namensfehlers unsichtbar.",
-                    "Legendäre Eier: Einhorn 40 %, Tiger 30 %, Phönix 20 %, Drache 9 %, Götterwesen 1 %.",
-                ],
-            },
-            {
-                heading: "Gold und Ernte gehören jetzt dem Server",
-                items: [
-                    "Ernten, Verkaufen, Kaufen, Tierverkäufe und Tierfunde rechnet ab sofort der Server. Dein Browser meldet nur noch, was du tun willst.",
-                    "Der Verkaufswert wird beim Verkauf neu aus Größe, Sonderform und Wetter berechnet — ein manipulierter Wert im Spielstand hat keine Wirkung mehr.",
-                    "Ein Kauf wird erst gebucht, wenn der Server die Deckung bestätigt hat. Gold kann dabei nie unter null fallen.",
-                    "Ein Doppelklick auf „Ernten\" oder „Kaufen\" zählt nur noch einmal.",
-                    "Goldfunde deiner Tiere würfelt der Server und begrenzt ihren Takt — ein schnellerer Browser findet nicht mehr Gold.",
-                    "Dein Kontostand überlebt jetzt auch dann, wenn zwei Tabs gleichzeitig offen sind.",
-                ],
-            },
-            {
-                heading: "Oberfläche",
-                items: [
-                    "HUD, Shops, Inventar und Menüs komplett überarbeitet: ruhigere Flächen, klare Icons statt Emojis.",
-                    "Neue Hover-Karte an Pflanzen mit erwartetem Verkaufswert, Wuchsform, Restzeit und einer Zeile je Fruchtstand.",
-                    "Wetter-Effekte zeigen endlich ihren echten Bonus: Nass +25 %, Gefroren +50 %, Aufgeladen +100 %, Mondlicht +200 %.",
-                    "Info-Knopf im Samen-Shop mit Wachstumszeiten, Erträgen und Anzahl der Fruchtstände.",
-                    "Mülleimer auf dem Grundstück: nicht mehr benötigte Deko endgültig wegwerfen.",
-                    "Deko lässt sich beim Platzieren mit R drehen — Pool und Bank in der Ebene, anderes über Ansichten.",
-                ],
-            },
-            {
-                heading: "Leistung",
-                items: [
-                    "Im Leerlauf fallen statt 1541 nur noch 4 Oberflächen-Aktualisierungen in vier Sekunden an; die dafür nötige Rechenzeit sank von 1427 auf 23 Millisekunden.",
-                    "Ein Schwenk mit der Maus über den Acker kostet 30 statt 518 Aktualisierungen.",
-                    "Kein Einzelbild mehr über 20 Millisekunden — spürbar weniger Mikroruckler.",
-                    "Eine versteckte Endlosschleife im Samen-Shop entfernt, die den Server ununterbrochen abgefragt hätte, sobald eine Rotation ohne Samen zurückkommt.",
-                    "Grafiken zugeschnitten und verkleinert: rund 25 Prozent weniger Ladelast.",
-                ],
-            },
-            {
-                heading: "Behoben",
-                items: [
-                    "Zwei gefrorene Früchte am selben Strauch: das Ernten der einen setzte die andere zurück. Wetter-Effekte gehören jetzt zur einzelnen Frucht.",
-                    "Beim Ernten wurde gefühlt immer nur die erste Frucht abgezogen — jetzt zuerst die am längsten reife, und die Hover-Karte sortiert reife nach vorn.",
-                    "Die Hover-Karte zeigte nach dem Ernten weiter den alten Stand.",
-                    "Balancing-Änderungen wurden bei jedem Serverstart wieder rückgängig gemacht, weil das Migrationsskript veraltete Werte mitbrachte. Spinat, Kohl, Zucchini und Blaubeere stehen jetzt korrekt.",
-                    "Alte Pflanzen zeigten weiterhin ihre alten Strukturen; Bilder werden jetzt immer neu bestimmt statt aus dem Spielstand gelesen.",
-                    "Die anklickbare Fläche von Tieren blieb dort liegen, wo das Tier abgesetzt wurde — ein Klick auf den Pool öffnete das Tierfenster.",
-                    "Der Waschbär war unsichtbar, weil sein Bild anders hieß als erwartet.",
-                    "Bäume hatten einen zweiten Stamm unter dem eigentlichen.",
-                    "Das eigene Grundstück zeigte „Zu verkaufen“ statt deines Namens.",
-                    "Inkubator und Mülleimer wurden über den Charakter gezeichnet, Marktdächer von den Grundstücken abgeschnitten.",
-                    "Die Kategorienleiste in Shop und Inventar ließ sich minimal verschieben.",
-                    "Ernte konnte bei alten Spielständen abstürzen, wenn Pflanzendaten unvollständig waren.",
-                    "Die Schnellreise zum Shop-Areal setzte dich knapp außerhalb der Reichweite ab — der Öffnen-Knopf erschien nicht.",
-                    "Schwerwiegend: Ein Browser, der noch nicht fertig geladen hatte, konnte beim Speichern Deko, Tiere und Eier auf dem Server löschen. Der Server nimmt einen rundum leeren Spielstand jetzt nicht mehr an, und der Browser speichert erst, wenn deine Farm geladen ist.",
-                ],
-            },
-        ],
-    },
-    {
-        version: "v2.1",
-        title: "Optik & Bedienung",
-        groups: [
-            {
-                heading: "Acker & Pflanzen",
-                items: [
-                    "Jede Art hat jetzt eine eigene Wuchsform: Gurke und Traube ranken am Spalier, Karotten sitzen im Erdhügel, Bambus wächst als Halm, Drachenfrucht am Pfosten.",
-                    "Pflanzen, Deko, Tiere und dein Charakter werden nach Tiefe sortiert gezeichnet — du läufst hinter hohen Pflanzen vorbei statt immer davor.",
-                    "Große Pflanzen decken die Reihe dahinter nicht mehr zu, und über jeder erntereifen Pflanze schwebt ein Marker in Seltenheitsfarbe.",
-                    "Bodenschatten und leichter Wind für Pflanzen, Deko und Tiere.",
-                    "Tiere unterscheiden sichtbar zwischen Laufen und Grasen.",
-                ],
-            },
-            {
-                heading: "Oberfläche",
-                items: [
-                    "HUD, Shops und Inventar komplett überarbeitet: ruhigere Flächen, klare Icons statt Emojis.",
-                    "Neue Hover-Karte an Pflanzen — mit erwartetem Verkaufswert, Wuchsform, Restzeit und einer Zeile pro Fruchtstand.",
-                    "Wetter-Effekte zeigen endlich ihren echten Bonus (Nass +25 %, Gefroren +50 %, Aufgeladen +100 %, Mondlicht +200 %).",
-                    "Tiere lassen sich anklicken: eigenes Fenster mit Fundhöhe, Takt, Chance und Verkaufspreis.",
-                    "Wetter-Effekte sind jetzt auch im Inventar am Item zu sehen, nicht nur auf dem Acker.",
-                    "Deko lässt sich beim Platzieren mit R in 90°-Schritten drehen.",
-                ],
-            },
-            {
-                heading: "Behoben",
-                items: [
-                    "Waschbär-Grafik wurde wegen eines Dateinamens nie geladen und blieb unsichtbar.",
-                ],
-            },
-        ],
-    },
-    {
-        version: "v2.0",
-        title: "Economy Update",
-        groups: [
-            {
-                heading: "Wirtschaft",
-                items: [
-                    "Preise, Erträge und Wachstumszeiten auf ein neues Balancing umgestellt.",
-                    "Einige Pflanzen haben sehr kurze Cooldowns ab 4 Sekunden — aktives Spielen lohnt sich.",
-                    "Neue Ziele im Milliarden-Bereich, unter anderem die Mondblume.",
-                    "Bereits gepflanzte Samen wurden automatisch migriert.",
-                ],
-            },
-        ],
-    },
-    {
-        version: "v1.1",
-        title: "Alpha",
-        groups: [
-            {
-                heading: "Neu",
-                items: [
-                    "Einheitliche Skins und angepasste Größen von Strukturen und Charakteren.",
-                    "Überarbeitete Felder im 2×2-Design, neue Dekorationen in verschiedenen Größen.",
-                    "Hintergrundmusik mit eigenem Regler, neue Sounds für Ernten, Verkaufen und Pflanzen.",
-                    "Sub-Bonus (+50 % Verkauf) und Beta-Tester-Abzeichen.",
-                    "Tiere können an einem eigenen Stand verkauft werden.",
-                    "Deko, Tiere und Werkzeuge belegen keine Inventar-Slots mehr.",
-                ],
-            },
-            {
-                heading: "Behoben",
-                items: [
-                    "Inventar ist nicht mehr unbegrenzt groß.",
-                    "Shop-Bestände werden korrekt aktualisiert und nicht mehr ungewollt zurückgesetzt.",
-                    "Spezial-Overlays (Gold, Rainbow, Wetter) liegen bei Mehrfachpflanzen pro Frucht statt auf der ganzen Struktur.",
-                    "Gestreckte Pflanzen und Dekorationen rendern wieder im richtigen Seitenverhältnis.",
-                    "Eier- und Pflanzen-Timer laufen serverseitig statt lokal.",
-                ],
-            },
-        ],
-    },
-];
-
-const WARDROBE_SKINS = [
-    { id: "farmer",   name: "Bauer",     skin: "/garden-assets/wardrobe/farmer.png" },
-    { id: "wizard",   name: "Zauberer",  skin: "/garden-assets/wardrobe/wizard.png" },
-    { id: "king",     name: "König",     skin: "/garden-assets/wardrobe/king.png" },
-    { id: "duck", name: "Ente",   skin: "/garden-assets/wardrobe/duck.png" },
-];
-
-const PET_EMOJI_BY_TYPE = {
-    Huhn: "🐔",
-    Ente: "🦆",
-    Schwein: "🐷",
-    Katze: "🐈",
-    Waschbär: "🦝",
-    Kuh: "🐮",
-    Schaf: "🐑",
-    Phönix: "🐦‍🔥",
-    Tiger: "🐯",
-    Drache: "🐉",
-    Einhorn: "🦄",
-    Götterwesen: "👼",
-    Tier: "🐾",
-};
-
-function getPetEmoji(type) {
-    return PET_EMOJI_BY_TYPE[type] || "🐾";
-}
-
-function getToolImage(toolIdOrKey) {
-    return TOOL_IMAGE_BY_ID[toolIdOrKey] || TOOL_IMAGE_BY_KEY[toolIdOrKey] || null;
-}
-
-function getPetSpriteImage(type) {
-    if (PET_IMAGE_BY_TYPE[type]) return PET_IMAGE_BY_TYPE[type];
-    const slug = String(type || "tier")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/ß/g, "ss")
-        .replace(/[^a-zA-Z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "")
-        .toLowerCase();
-    return slug ? `/garden-assets/animals/${slug}.png` : "/garden-assets/animals/tier.png";
-}
-
-function hashToUnit(seed) {
-    const s = String(seed || "0");
-    let h = 2166136261;
-    for (let i = 0; i < s.length; i++) {
-        h ^= s.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0) / 4294967295;
-}
-
-function rollWeatherFromRotation(rotationKey) {
-    const unit = hashToUnit(`weather:${rotationKey}`);
-    return WEATHER_BY_ROLL.find((entry) => unit <= entry.max) || WEATHER_BY_ROLL[0];
-}
-
-/**
- * Preis der nächsten Spitzhacke.
- *
- * BALANCING: war 100.000 · 1,3^n. Über die 196 Steinfelder (49 Hacken à 4
- * Aufladungen) summierte sich das auf 128,6 MILLIARDEN — deutlich mehr, als das
- * freigelegte Feld je einbringt. Die letzten Reihen waren damit unerreichbar,
- * und der „Bergmann"-Skill hat als Save-Chance auf einer Exponentialkurve
- * gleich 90 % der Kosten gestrichen.
- *
- * 40.000 · 1,16^n landet beim Vollausbau bei rund 360 Millionen; die letzte
- * Hacke kostet 57 Mio, also gut zwei Minuten Lategame-Einkommen.
- */
-function getPickaxePrice(boughtCount = 0) {
-    return Math.floor(40000 * Math.pow(1.16, Math.max(0, boughtCount)));
-}
-
-/**
- * Vorschaubild eines Tieres. Nutzt das echte Sprite aus /garden-assets/animals/ —
- * vorher wurde hier eine SVG-Grafik mit Emoji gebaut, weshalb im Brutkasten
- * Emojis statt der gezeichneten Tiere standen.
- */
-function buildPetPreviewImage(petType) {
-    return getPetSpriteImage(petType);
-}
-
-function normalizeToolInventory(inv) {
-    const merged = {
-        ...DEFAULT_TOOL_INVENTORY,
-        ...(inv && typeof inv === "object" ? inv : {}),
-    };
-    const backpackLevel = Number(merged.backpackLevel || (merged.backpackUpgraded ? 1 : 0)) || 0;
-    merged.backpackLevel = Math.max(0, backpackLevel);
-    merged.backpackUpgraded = merged.backpackLevel > 0;
-    // Alte Spielstände kennen das Feld nicht — die bekommen die drei Grundplätze.
-    const slots = Number(merged.petSlots);
-    merged.petSlots = Number.isFinite(slots)
-        ? Math.max(PET_SLOTS_BASIS, Math.min(PET_SLOTS_MAX, Math.round(slots)))
-        : PET_SLOTS_BASIS;
-    return merged;
-}
-
-/**
- * Welche Gegenstände in der Leiste zeigen beim Hovern ihre Karte?
- *
- * Samen standen bisher nicht drin, obwohl der Tooltip längst einen eigenen Zweig
- * für sie hat (Name, Seltenheit, Preis) — er wurde nur nie ausgelöst. Deko kommt
- * mit dazu: dieselbe Karte, dieselbe Frage („was ist das?").
- */
-function hatTooltip(item) {
-    const art = item?._type;
-    return art === "plant" || art === "pet" || art === "seed" || art === "deco";
-}
-
-/**
- * Grüner Daumen: eine frisch gesetzte Pflanze wächst schneller.
- *
- * Wirkt nur beim PFLANZEN, nicht rückwirkend auf schon stehende — sonst würde ein
- * später gelernter Punkt reihenweise Beete auf einen Schlag reif machen. Die
- * Fruchtstände legt `ensurePerennialFruitingState` erst nach dem Aufbau an; sie
- * erben den verkürzten Zyklus dann von selbst.
- */
-function wachstumBeschleunigen(plant, anteil, now) {
-    const faktor = 1 - Math.max(0, Math.min(0.5, anteil));
-    if (faktor >= 1 || !plant) return plant;
-    if (Number.isFinite(plant.growthMs)) {
-        plant.growthMs = Math.max(3000, Math.round(plant.growthMs * faktor));
-    }
-    if (Number.isFinite(plant.structureReadyAt)) {
-        plant.structureReadyAt = now + Math.max(2000, Math.round((plant.structureReadyAt - now) * faktor));
-    }
-    if (Number.isFinite(plant.structureGrowthMs)) {
-        plant.structureGrowthMs = Math.max(2000, Math.round(plant.structureGrowthMs * faktor));
-    }
-    if (Number.isFinite(plant.fruitCycleMs)) {
-        plant.fruitCycleMs = Math.max(2000, Math.round(plant.fruitCycleMs * faktor));
-    }
-    return plant;
-}
-
-/** Erstes freies Ackerfeld — Notnagel, wenn zwei Pflanzen auf dieselbe Kachel fallen. */
-function freiesAckerfeld(belegt) {
-    for (let y = 0; y < BASE_DIRT_ROWS; y++) {
-        if (y === 7) continue;                       // Weg quer durch den Acker
-        for (let x = 0; x < BASE_DIRT_COLS; x++) {
-            if (x === 7) continue;                   // senkrechter Weg
-            const k = `${x}_${y}`;
-            if (!belegt[k]) return k;
-        }
-    }
-    return null;
-}
-
-/**
- * Kennung dieses Browser-Tabs. Bewusst ein Modul-Konstante und NICHT im
- * sessionStorage: sie soll je Seitenaufruf neu sein, damit zwei Tabs sich
- * unterscheiden — auch zwei Tabs desselben Fensters.
- *
- * Der Server merkt sich, wer zuletzt gespeichert hat. Damit lässt sich der eigene
- * verspätete Speicherstand (nachreichen ist richtig) von einem zweiten Tab
- * unterscheiden (nachreichen würde dessen Rucksack überschreiben).
- */
-const TAB_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
-
-/**
- * Rucksack-Upgrade: +10 Plätze je Stufe.
- *
- * BALANCING: war 25.000 · 1,85^n und mit 15 Stufen (200 Plätze) nach 299 Mio
- * durch — ein Rundungsfehler im Lategame. Schlimmer: der Deckel von 200 Plätzen
- * stand nur serverseitig, `backpackLevel` lief unbegrenzt weiter. Ab Stufe 15
- * kostete jedes Upgrade Millionen UND GAB NICHTS. Jetzt 25 Stufen bis 300 Plätze
- * mit flacherer Kurve (Vollausbau ~2,1 Mrd) und hartem Deckel im Kaufweg.
- */
-const BACKPACK_MAX_LEVEL = 25;
-function getBackpackUpgradePrice(level = 0) {
-    return Math.max(1, Math.floor(20000 * Math.pow(1.55, Math.max(0, level))));
-}
-
-function normalizePlotUnlockedCells(cells) {
-    if (!Array.isArray(cells)) return [];
-    const set = new Set();
-    const topMin = -MAX_PLOT_EXPANSIONS;
-    const topMax = -1;
-    const bottomMin = BASE_DIRT_ROWS;
-    const bottomMax = BASE_DIRT_ROWS + MAX_PLOT_EXPANSIONS - 1;
-    for (const raw of cells) {
-        if (typeof raw !== "string") continue;
-        const [xs, ys] = raw.split("_");
-        const x = Number(xs);
-        const y = Number(ys);
-        if (!Number.isInteger(x) || !Number.isInteger(y)) continue;
-        if (x < 0 || x >= BASE_DIRT_COLS) continue;
-        const validY = (y >= topMin && y <= topMax) || (y >= bottomMin && y <= bottomMax);
-        if (!validY) continue;
-        // Wege gehören nie in die Freigabeliste. Diese Funktion läuft auf JEDEM Weg
-        // in den Spielstand — Serverantwort, Reihenwechsel, Spitzhacke —, deshalb
-        // sitzt die Klemme hier und nicht an den einzelnen Aufrufern.
-        if (x === 7 || istWegReihe(y)) continue;
-        set.add(`${x}_${y}`);
-    }
-    return [...set];
-}
-
-/**
- * Rückfall für alte Spielstände, die nur eine ANZAHL Erweiterungsreihen kannten und
- * noch keine Liste einzelner Felder.
- *
- * Die beiden Holzwege und die Wegspalte werden ausgelassen. Vorher waren sie mit
- * dabei: der Rückfall gab die komplette Reihe frei, `getHoveredCell` hielt die
- * Wegkacheln damit für nutzbaren Acker, und man konnte mitten auf den Steg pflanzen —
- * auf Feldern, die sich mit der Spitzhacke nie freilegen lassen.
- */
-function unlockedCellsFromLegacyExpansions(expansions, isTopRow = true) {
-    const level = Math.max(0, Math.min(MAX_PLOT_EXPANSIONS, Number(expansions) || 0));
-    const out = [];
-    for (let row = 1; row <= level; row++) {
-        if (row === 1 || row === MITTELWEG_REIHE) continue;   // Holzwege
-        const y = isTopRow ? -row : (BASE_DIRT_ROWS + row - 1);
-        for (let x = 0; x < BASE_DIRT_COLS; x++) {
-            if (x === 7) continue;                            // senkrechter Holzweg
-            out.push(`${x}_${y}`);
-        }
-    }
-    return normalizePlotUnlockedCells(out);
-}
-
-/**
- * Freigelegte Steinfelder aus dem Spielstand.
- *
- * BEWUSST OHNE Prüfung auf die Reihe. Vorher wurde hier fest gegen die obere Reihe
- * gefiltert: wer aus der unteren Reihe kam, verlor damit beim Laden jedes einzeln
- * freigelegte Feld, und aus der bloßen ANZAHL wurden vollständige Reihen neu
- * erfunden — aus drei mühsam freigehackten Feldern wurden drei komplette Reihen.
- * Die Zählweise der Reihe rückt stattdessen der Umzugs-Effekt gerade, sobald der
- * eigene Platz feststeht.
- *
- * Die Ableitung aus `plotExpansions` bleibt als Rückfall für sehr alte Spielstände,
- * die noch gar keine Feldliste hatten.
- */
-function resolvePlotUnlockedCells(stateLike) {
-    const explicit = normalizePlotUnlockedCells(stateLike?.plotUnlockedCells);
-    if (explicit.length > 0) return explicit;
-    return unlockedCellsFromLegacyExpansions(stateLike?.plotExpansions, true);
-}
-
-/** Tiere können wie Pflanzen golden oder regenbogenfarben schlüpfen. */
-function rollPetSpecialType() {
-    const roll = Math.random();
-    if (roll < 0.01) return "Rainbow";
-    if (roll < 0.05) return "Golden";
-    return null;
-}
-
-function rollHatchResult(egg) {
-    const table = Array.isArray(egg?.hatchTable) ? egg.hatchTable : [];
-
-    // Fähigkeit auswürfeln
-    const chosenAbility = PET_ABILITY_TYPES[Math.floor(Math.random() * PET_ABILITY_TYPES.length)];
-    const rarityMap = { COMMON: 1, UNCOMMON: 2, RARE: 3, EPIC: 4, LEGENDARY: 5, MYTHIC: 6 };
-    const level = rarityMap[egg?.rarity || "COMMON"] || 1;
-    const specialType = rollPetSpecialType();
-
-    if (!table.length) {
-        const fallbackType = "Tier";
-        const fallbackEmoji = getPetEmoji(fallbackType);
-        return {
-            type: fallbackType,
-            emoji: fallbackEmoji,
-            image: getPetSpriteImage(fallbackType),
-            previewImage: buildPetPreviewImage(fallbackType, fallbackEmoji),
-            ability: { type: chosenAbility, level }
-        };
-    }
-    const roll = Math.random() * 100;
-    let acc = 0;
-    let treffer = table[0] || { type: "Tier" };
-    for (const entry of table) {
-        acc += Number(entry?.chance || 0);
-        if (roll <= acc) {
-            treffer = entry;
-            break;
-        }
-    }
-    const chosen = treffer.type || "Tier";
-    // Die Stufe kommt jetzt vom geschlüpften TIER, nicht mehr von der Seltenheit
-    // des Eies. Der seltene Treffer ist damit auch der stärkere; vorher war die
-    // Wahrscheinlichkeit reine Optik. Ohne Angabe gilt weiterhin die Ei-Stufe,
-    // damit ältere Sendungen und gespeicherte Eier nichts verlieren.
-    const echtesLevel = Math.max(1, Math.min(5, Math.floor(Number(treffer.level) || level)));
-    const emoji = getPetEmoji(chosen);
-    return {
-        type: chosen,
-        emoji,
-        image: getPetSpriteImage(chosen),
-        previewImage: buildPetPreviewImage(chosen),
-        specialType,
-        ability: { type: chosenAbility, level: echtesLevel },
-    };
-}
-
-const RARITY_COLORS = {
-    COMMON:    { bg: "bg-slate-500",   text: "text-slate-100",   border: "border-slate-400"   },
-    UNCOMMON:  { bg: "bg-green-600",   text: "text-green-50",    border: "border-green-400"   },
-    RARE:      { bg: "bg-blue-600",    text: "text-blue-50",     border: "border-blue-400"    },
-    EPIC:      { bg: "bg-purple-600",  text: "text-purple-50",   border: "border-purple-400"  },
-    LEGENDARY: { bg: "bg-amber-500",   text: "text-amber-50",    border: "border-amber-300"   },
-    MYTHIC:    { bg: "bg-pink-500",    text: "text-pink-50",     border: "border-pink-300"    },
-};
-
-function RarityBadge({ rarity }) {
-    const c = RARITY_COLORS[rarity] || RARITY_COLORS.COMMON;
-    return (
-        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${c.bg} ${c.text}`}>
-            {rarity}
-        </span>
-    );
-}
-
-function withVisuals(item) {
-    if (!item?.seedId) return item;
-    const visuals = getPlantVisuals(item.seedId, item.singleUse !== false);
-    return {
-        ...visuals,
-        ...item,
-        image: item.image || item.seedImage || item.seedShopImage || item.harvestImage || visuals.seedImage,
-        seedImage: item.seedImage || item.seedShopImage || visuals.seedImage,
-        seedShopImage: item.seedShopImage || visuals.seedShopImage,
-        plantedSeedImage: item.plantedSeedImage || visuals.plantedSeedImage,
-        growthImage: item.growthImage || visuals.growthImage,
-        structureImage: item.structureImage || visuals.structureImage,
-        fruitImage: item.fruitImage || visuals.fruitImage,
-        harvestImage: item.harvestImage || visuals.harvestImage,
-    };
-}
-
-/**
- * Dasselbe fuer Samen und Tiere. Beide koennen ohne Bildpfad vom Server kommen —
- * am deutlichsten nach dem Abholen aus dem Briefkasten: die Sendung traegt nur
- * Werte (Art, Seltenheit, Faehigkeit), keine Assets. Ohne diese Ableitung stand
- * im Rucksack des Empfaengers das Ersatz-Emoji statt des Tieres, und auf dem Acker
- * zeichnete der Renderer ebenfalls nur das Emoji.
- *
- * Bewusst wird NICHT der Bildpfad des Absenders uebernommen: der kaeme aus einem
- * fremden Browser und landete ungeprueft in einem <img src>. Die Art reicht — die
- * Pfade stehen ohnehin lokal im Katalog.
- */
-function hydratePet(pet) {
-    if (!pet?.name) return pet;
-    const sprite = getPetSpriteImage(pet.name);
-    return {
-        ...pet,
-        emoji: pet.emoji || getPetEmoji(pet.name),
-        image: pet.image || sprite,
-        previewImage: pet.previewImage || sprite,
-    };
-}
-
-function hydratePets(liste) {
-    return Array.isArray(liste) ? liste.map(hydratePet) : [];
-}
-
-function hydrateSeed(seed) {
-    if (!seed?.seedId) return seed;
-    const visuals = getPlantVisuals(seed.seedId, seed.singleUse !== false);
-    const bild = visuals.seedImage || visuals.seedShopImage || visuals.growthImage;
-    return { ...seed, image: seed.image || bild, seedImage: seed.seedImage || bild };
-}
-
-function hydrateSeeds(liste) {
-    return Array.isArray(liste) ? liste.map(hydrateSeed) : [];
-}
-
-function collectVisualAssetPaths(item) {
-    if (!item || typeof item !== "object") return [];
-    const candidatePaths = [
-        item.image,
-        item.seedImage,
-        item.seedShopImage,
-        item.plantedSeedImage,
-        item.growthImage,
-        item.structureImage,
-        item.fruitImage,
-        item.harvestImage,
-    ];
-    return candidatePaths.filter((p) => typeof p === "string" && p.length > 0);
-}
-
-/** Kennzahlen einer Art fürs Info-Fach im Shop. */
-function SeedFacts({ seed }) {
-    const profile = SEED_CATALOGUE.find((s) => s.id === seed.seedId);
-    if (!profile) return null;
-    const zeile = (label, wert) => (
-        <div className="flex items-center justify-between gap-3 py-0.5">
-            <span className="text-slate-400">{label}</span>
-            <span className="text-slate-200 font-medium tabular-nums text-right">{wert}</span>
-        </div>
-    );
-    return (
-        <div className="mt-2 pt-2 border-t border-slate-800 text-[11px]">
-            {profile.singleUse ? (
-                <>
-                    {zeile("Wachstum", `${formatDurationShared(profile.growMinSec * 1000)} – ${formatDurationShared(profile.growMaxSec * 1000)}`)}
-                    {zeile("Ertrag je Ernte", `${formatGold(profile.sellMin)} – ${formatGold(profile.sellMax)}`)}
-                    {zeile("Erntet", "einmal, danach ist das Feld frei")}
-                </>
-            ) : (
-                <>
-                    {zeile("Aufbau bis zur ersten Frucht", formatDurationShared(profile.structureGrowSec * 1000))}
-                    {zeile("Nachreifen je Frucht", formatDurationShared(profile.fruitCycleSec * 1000))}
-                    {zeile("Fruchtstände", `${profile.maxFruits}`)}
-                    {zeile("Ertrag je Frucht", `${formatGold(profile.fruitSellMin)} – ${formatGold(profile.fruitSellMax)}`)}
-                    {zeile("Erntet", "dauerhaft, die Pflanze bleibt stehen")}
-                </>
-            )}
-            <p className="text-slate-500 mt-1.5 leading-relaxed">
-                Größe und Sonderformen werden beim Wachsen ausgewürfelt; Wetter-Effekte erhöhen
-                den Verkaufswert zusätzlich.
-            </p>
-        </div>
-    );
-}
-
-const ShopSeedCard = memo(function ShopSeedCard({ seed, onBuy, canAfford, stock, rucksackVoll }) {
-    const visualSeed = withVisuals(seed);
-    const inactive = !seed.active && seed.active !== undefined;
-    const outOfStock = (stock ?? (seed.active ? 1 : 0)) <= 0;
-    const clickable = canAfford && !outOfStock && !inactive && !rucksackVoll;
-    const archetype = ARCHETYPE_LABELS[getPlantArchetypeKey(seed.seedId)] || "Pflanze";
-    const [showFacts, setShowFacts] = useState(false);
-    // Warum ein Kauf gerade nicht geht — steht dort, wo sonst „Kaufen" steht.
-    // „Rucksack voll" gehört dazu: vorher blieb die Zeile klickbar und jeder Klick
-    // lief in eine Meldung, die nach 2,5 s wieder weg war. Wer fünfzehn Kürbisse
-    // kaufen wollte und nur acht Plätze frei hatte, sah acht Käufe und danach
-    // scheinbar nichts mehr passieren.
-    const hinderung = inactive ? "Nicht im Angebot"
-        : outOfStock ? "Ausverkauft"
-            : rucksackVoll ? "Rucksack voll"
-                : !canAfford ? "Zu teuer" : null;
-    return (
-        <div
-            className={`group w-full p-3 rounded-md border transition-colors ${
-                inactive
-                    ? "border-slate-800 bg-slate-900/40 opacity-50"
-                    : clickable
-                        // Die ganze Zeile ist der Kaufknopf — ohne Hover-Rueckmeldung
-                        // sah eine kaufbare Zeile aus wie eine gesperrte.
-                        ? "border-slate-700 bg-slate-900/60 hover:border-violet-500 hover:bg-slate-800"
-                        : "border-slate-700 bg-slate-900/60"
-            }`}
-        >
-        <div className="flex gap-3 items-center">
-        <button
-            type="button"
-            disabled={!clickable}
-            onClick={() => clickable && onBuy(seed)}
-            className={`flex-1 min-w-0 text-left flex gap-3 items-center ${clickable ? "cursor-pointer" : "cursor-default"}`}
-        >
-            <ItemIcon item={visualSeed} className="w-11 h-11 shrink-0" emojiClassName="text-3xl" />
-            <div className="flex-1 min-w-0">
-                {/* Lesbarkeit: Name in vollem Weiß, Untertitel eine Stufe heller als vorher
-                    (slate-500 war auf slate-900 grenzwertig) */}
-                <div className="text-sm font-semibold text-white truncate">{seed.name}</div>
-                <div className="flex items-center gap-2 mt-0.5">
-                    <RarityLabel rarity={seed.rarity} />
-                    <span className="text-xs text-slate-300 truncate">
-                        {archetype} · {seed.singleUse ? "Einmalernte" : "Dauerträger"}
-                    </span>
-                </div>
-            </div>
-            <div className="text-right shrink-0">
-                <div className={`text-sm font-bold tabular-nums ${inactive ? "text-slate-500" : canAfford ? "text-amber-300" : "text-slate-400"}`}>
-                    {formatGold(seed.shopPrice)}
-                </div>
-                {/* „Ausverkauft" und „Nicht im Angebot" stehen jetzt im Knopf rechts —
-                    hier bleibt nur der Bestand, damit nichts doppelt dasteht. */}
-                {seed.active && !outOfStock && (
-                    <div className="text-xs mt-0.5 text-slate-300">{stock} auf Lager</div>
-                )}
-            </div>
-            {/* Kein <button> — die ganze Zeile ist bereits einer. Optisch derselbe
-                Knopf wie im Werkzeug- und Ei-Shop, damit klar ist, was ein Klick tut. */}
-            <span
-                className={`shrink-0 px-3 py-2 rounded-md text-xs font-semibold border transition-colors ${
-                    clickable
-                        ? "border-violet-500 text-violet-200 group-hover:bg-violet-600 group-hover:text-white"
-                        : "border-slate-800 bg-slate-900 text-slate-500"
-                }`}
-            >
-                {hinderung || "Kaufen"}
-            </span>
-        </button>
-        {/* Eigener Knopf neben der Kaufaktion — nicht darin verschachtelt,
-            damit ein Klick auf die Details nicht sofort kauft. */}
-        <button
-            type="button"
-            aria-label="Details anzeigen"
-            aria-expanded={showFacts}
-            onClick={() => setShowFacts((v) => !v)}
-            className={`shrink-0 w-8 h-8 rounded-md border flex items-center justify-center transition-colors ${
-                showFacts
-                    ? "border-violet-500 text-violet-300"
-                    : "border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"
-            }`}
-        >
-            <Info size={15} />
-        </button>
-        </div>
-        {showFacts && <SeedFacts seed={seed} />}
-        </div>
-    );
-});
+import {
+    TwitchGlyph, COLLISION_RADIUS_BY_AREA_TYPE, START_GOLD, GIESSKANNE_MINUTEN,
+    GIESSKANNE_MAX_ANTEIL, giesskanneMinuten, WAGEN_VERSATZ_X, INCUBATOR_UNLOCK_COSTS,
+    INTERACT_DIST, FRUEHES_ABBIEGEN_AB, SHOP_ROTATION_MS, TOOL_EGG_ROTATION_MS, TARGET_FPS,
+    MAX_PLOT_EXPANSIONS, ACKERRASTER_MARKE, MUSIK_BASIS, THEME_TRACKS, THEME_STANDARD,
+    PARTY_TRACKS, partyTrack, themeTrack, FARM_SEO, WORLD_BOOT_MIN_MS, WORLD_SLOTS,
+    GARTEN_ADMIN_ID, SHOTGUN_LAUTSTAERKE, SHOTGUN_HAND_ITEM, WORLD_ZOOM, ZOOM_MIN, ZOOM_MAX,
+    ZOOM_SCHRITT, KISTE_MAX, VITRINE_MAX, PET_SLOTS, SCHUPPEN_KACHELN,
+    berechneGebaeudePositionen, normalizeGebaeudeVersatz, MAILBOX_INTERACT_DIST, CHAT_MAX_LEN,
+    CHAT_FARBEN, CHAT_EMOJIS, ERNTE_WARTESCHLANGE_MAX, RARITAETS_RANG, nachText,
+    KATALOG_NACH_ID, zeitBisErsteErnte, SHOP_SORTIERUNGEN, INVENTAR_SORTIERUNGEN, sortiere,
+    SortierLeiste, DEFAULT_TOOL_INVENTORY, BASE_DIRT_COLS, BASE_DIRT_ROWS, AREA_IMAGES,
+    GEBAEUDE_NAMEN, FREMDE_GEBAEUDE, TOOL_IMAGE_BY_KEY, TOOL_IMAGE_BY_ID, TERRAIN_ASSET_IMAGES,
+    PET_IMAGE_BY_TYPE, WEATHER_BY_ROLL, DEFAULT_RENDER_PROFILE, RENDER_QUALITY_PRESETS,
+    EGG_SHOP_CATALOGUE, DECO_SHOP_ITEMS, WARDROBE_SKINS, PET_EMOJI_BY_TYPE, getPetEmoji,
+    getToolImage, getPetSpriteImage, hashToUnit, rollWeatherFromRotation, getPickaxePrice,
+    STEINFELDER_GESAMT, buildPetPreviewImage, normalizeToolInventory, hatTooltip,
+    wachstumBeschleunigen, freiesAckerfeld, TAB_ID, BACKPACK_MAX_LEVEL, BUY_ALL_WERKZEUGE,
+    getBackpackUpgradePrice, normalizePlotUnlockedCells, unlockedCellsFromLegacyExpansions,
+    resolvePlotUnlockedCells, rollPetSpecialType, rollHatchResult, RARITY_COLORS, RarityBadge,
+    withVisuals, hydratePet, hydratePets, hydrateSeed, hydrateSeeds, collectVisualAssetPaths,
+    SeedFacts, ShopSeedCard
+} from './engine/gameConstants';
+import { CHANGELOG_ENTRIES } from './data/changelogEntries';
 
 export default function GameContainer() {
     const { user: twitchUser, login: twitchLogin } = useContext(TwitchAuthContext);
@@ -1272,7 +114,13 @@ export default function GameContainer() {
     const [inventoryFilter, setInventoryFilter] = useState("all");
     const [inventoryMaxSlots, setInventoryMaxSlots] = useState(50);
     const [currentInteractable, setCurrentInteractable] = useState(null);
-    const [gold, setGold] = useState(500);
+    const [gold, setGold] = useState(START_GOLD);
+    // Lebenszeit-Gold (v2, Feedback 29.08.: "Gesamt gesammeltes Gold" in der
+    // Profil-Bubble) — reiner Anzeigewert, gehört dem Server (siehe
+    // gutschreiben() in economy.js). Nur an den Stellen nachgezogen, die
+    // tatsächlich Gold GUTSCHREIBEN (Ernte-Verkauf, Tierfund, Post); reine
+    // Käufe ändern ihn nie, die lassen ihn einfach stehen.
+    const [goldGesamt, setGoldGesamt] = useState(0);
     /**
      * Der Goldstand, sofort lesbar.
      *
@@ -1280,7 +128,7 @@ export default function GameContainer() {
      * startet den nächsten Kauf, bevor React den neuen Stand übernommen hat. Der
      * zweite Klick sähe dann das Gold von vor der ersten Zahlung.
      */
-    const goldRef = useRef(500);
+    const goldRef = useRef(START_GOLD);
     const [inventory, setInventory] = useState([]); // array of seed instances
     const [shopRotation, setShopRotation] = useState(null);
     const [shopCountdown, setShopCountdown] = useState(SHOP_ROTATION_MS);
@@ -1290,7 +138,7 @@ export default function GameContainer() {
     const [eggShopCountdown, setEggShopCountdown] = useState(TOOL_EGG_ROTATION_MS);
     const [toolShopStock, setToolShopStock] = useState({});
     const [eggShopStock, setEggShopStock] = useState({});
-    const [personalShopStock, setPersonalShopStock] = useState({}); // { seedId: count }
+    const [ladenBestand, setLadenBestand] = useState({}); // { seedId: count }
     const [shopFilter, setShopFilter] = useState("available"); // "all" | "available"
     const [plotPlants, setPlotPlants] = useState({}); // "cx_cy" → plant
     const [plotExpansions, setPlotExpansions] = useState(0);
@@ -1314,15 +162,34 @@ export default function GameContainer() {
     const [selectedDecoToPlace, setSelectedDecoToPlace] = useState(null);
     /** Wird die Deko in der Hand gespiegelt platziert? Umschalten mit [R]. */
     const [decoGespiegelt, setDecoGespiegelt] = useState(false);
+    /**
+     * Wird ein Bodenbelag in der Hand quer (90°) platziert? Ebenfalls [R] —
+     * bei Belägen macht Spiegeln optisch praktisch nie einen Unterschied
+     * (die meisten Texturen sind links-rechts symmetrisch), Drehen dagegen
+     * schon: der Trampelpfad etc. lässt sich damit auch hochkant verlegen.
+     */
+    const [decoRotiert, setDecoRotiert] = useState(false);
     const [shovelHoldState, setShovelHoldState] = useState({ active: false, progress: 0 });
     const [isIncubatorOpen, setIncubatorOpen] = useState(false);
     const [isTrashOpen, setTrashOpen] = useState(false);
-    // Inkubator und Mülleimer stehen dort, wo der Spieler sie hinstellt. Gespeichert
-    // wird ein Kachel-VERSATZ zum eigenen Grundstück, keine Weltkoordinate: der
-    // Slot wechselt zwischen Sitzungen, absolute Werte lägen dann beim Nachbarn.
+    /** Schuppen-Auswahl (Kiste/Vitrine/Mülleimer) — siehe activateInteractable "shed". */
+    const [isShedOpen, setShedOpen] = useState(false);
+    // ── Missionsbrett (Feedback 30.08.) ────────────────────────────────────────
+    // Katalog UND Fortschritt kommen vom Server (GET /rechte-Nachfolger GET
+    // /quests), wie beim Fähigkeitsbaum: die Route entscheidet, was gilt.
+    const [isQuestBoardOpen, setQuestBoardOpen] = useState(false);
+    const [questDaten, setQuestDaten] = useState({ taeglich: [], woechentlich: [] });
+    // ── Gold-Shop (Feedback 01.09.) ─────────────────────────────────────────────
+    // Rein kosmetische Reskins für Schuppen/Briefkasten/Werkzeug/Nameplate —
+    // Katalog UND "schon gekauft"/"ausgerüstet" kommen vom Server, siehe oben.
+    const [isGoldShopOpen, setGoldShopOpen] = useState(false);
+    const [goldShopDaten, setGoldShopDaten] = useState({ katalog: {}, ausgeruestet: {} });
+    // Der Schuppen steht dort, wo der Spieler ihn hinstellt. Gespeichert wird ein
+    // Kachel-VERSATZ zum eigenen Grundstück, keine Weltkoordinate: der Slot
+    // wechselt zwischen Sitzungen, absolute Werte lägen dann beim Nachbarn.
     // null = noch nie verschoben, also der Standardplatz.
-    const [gebaeudeVersatz, setGebaeudeVersatz] = useState({ incubator: null, trash: null });
-    /** "incubator" | "trash" | "chest" | "vitrine" | null — solange gesetzt, platziert der nächste Klick. */
+    const [gebaeudeVersatz, setGebaeudeVersatz] = useState({ shed: null });
+    /** "shed" | null — solange gesetzt, platziert der nächste Klick. */
     const [verschiebtGebaeude, setVerschiebtGebaeude] = useState(null);
     /**
      * Einrichtungs-Modus.
@@ -1355,12 +222,19 @@ export default function GameContainer() {
     const [weatherState, setWeatherState] = useState({ type: "sun", label: "Sonne", intensity: 1, startedAt: Date.now() });
     const [renderProfile, setRenderProfile] = useState(DEFAULT_RENDER_PROFILE);
     const [playerAppearance, setPlayerAppearance] = useState({
-        skin: "/garden-assets/wardrobe/farmer.png",
+        skin: STANDARD_SKIN,
     });
     const appearanceRef = useRef(playerAppearance);
     const [isWardrobeOpen, setWardrobeOpen] = useState(false);
     const [isChangelogOpen, setChangelogOpen] = useState(false);
+    /** Welche ÄLTEREN Fassungen aufgeklappt sind — die neueste steht immer offen. */
+    const [offeneChangelogs, setOffeneChangelogs] = useState([]);
     const [inspectedPet, setInspectedPet] = useState(null); // angeklicktes Tier → Detailfenster
+    // v2, Punkt "Look & Overlays": vorher eine Hover-Dropdown-Karte unter dem
+    // HUD-Knopf. Ein Overlay, das per Klick aufgeht (statt bei jeder zufälligen
+    // Mausbewegung über den Knopf), passt besser zu allem anderen hier — jedes
+    // andere Fenster im Spiel öffnet über einen Klick, nicht über Hover.
+    const [isPetOverlayOpen, setPetOverlayOpen] = useState(false);
 
     const [showLobbyScreen, setShowLobbyScreen] = useState(true);
     const [leaderboard, setLeaderboard] = useState([]);
@@ -1382,8 +256,15 @@ export default function GameContainer() {
     /** Admin-Menü im Spiel. Der Knopf ist reine Optik — geprüft wird auf dem Server. */
     const [adminPanelOffen, setAdminPanelOffen] = useState(false);
     const istGartenAdmin = Boolean(authUser?.id) && String(authUser.id) === GARTEN_ADMIN_ID;
-    /** Sortierung von Samen-Shop und Inventar — siehe SHOP_SORTIERUNGEN. */
-    const [shopSortierung, setShopSortierung] = useState("standard");
+    // Für Tastendruck und Klickauswertung, die beide ohne React-State auskommen.
+    const istGartenAdminRef = useRef(false);
+    istGartenAdminRef.current = istGartenAdmin;
+    /** Offener Reiter im Deko-Shop — der Katalog ist zu lang für eine Liste. */
+    const [dekoKategorie, setDekoKategorie] = useState(DEKO_KATEGORIEN[0].id);
+    // Samen-Shop sortiert seit Feedback 31.08. ("Sortierung raus, entrümpeln")
+    // wieder fest nach Seltenheit+Preis, ohne eigene Leiste — kein State mehr nötig.
+    const shopSortierung = "standard";
+    /** Sortierung des Inventars — siehe INVENTAR_SORTIERUNGEN. */
     const [inventarSortierung, setInventarSortierung] = useState("standard");
     /**
      * Anwesenheitsliste und Chat bleiben per Klick offen — beide sind zum Lesen und
@@ -1392,10 +273,32 @@ export default function GameContainer() {
      */
     const [istOnlineListeOffen, setOnlineListeOffen] = useState(false);
     const [istChatOffen, setChatOffen] = useState(false);
+    // v2 (Feedback 29.08., "Menü dropdown auflösen"): der bisherige Sammelknopf
+    // (Umkleide/Logbuch/Tiere/Inkubator/Lager) ist aufgeteilt in eine Profil-
+    // Bubble (Umkleide + Logbuch, direkt neben Gold/XP) und einen Tiere-Knopf.
+    // Kiste/Vitrine/Mülleimer UND (seit Feedback 30.08.) der Inkubator wohnen
+    // gemeinsam im Schuppen auf dem Feld, nicht mehr im HUD.
+    const [isProfilOffen, setProfilOffen] = useState(false);
     const [chatEingabe, setChatEingabe] = useState("");
+    // Eigene Chat-Textfarbe (Feedback 01.09.) — bleibt über Sitzungen hinweg
+    // erhalten wie die Musikauswahl (garden_farms_theme), gehört zu diesem
+    // Browser statt zum Spielstand.
+    const [chatFarbe, setChatFarbe] = useState(() => {
+        const saved = localStorage.getItem("garden_chat_farbe");
+        return CHAT_FARBEN.some((f) => f.id === saved) ? saved : null;
+    });
+    const [istFarbwahlOffen, setFarbwahlOffen] = useState(false);
+    const [istEmojiWahlOffen, setEmojiWahlOffen] = useState(false);
+    useEffect(() => {
+        if (chatFarbe) localStorage.setItem("garden_chat_farbe", chatFarbe);
+        else localStorage.removeItem("garden_chat_farbe");
+    }, [chatFarbe]);
     /** Zählt ungelesene Zeilen, solange das Chatfenster zu ist. */
     const [chatUngelesen, setChatUngelesen] = useState(0);
-    const chatEndeRef = useRef(null);
+    /** Die scrollbare Fläche selbst — nicht mehr ein Anker am Ende, siehe unten. */
+    const chatListeRef = useRef(null);
+    /** Klebt die Ansicht gerade am unteren Rand? Nur dann wird nachgescrollt. */
+    const chatAmEndeRef = useRef(true);
     const [worldBootState, setWorldBootState] = useState({ active: false, label: "", progress: 0 });
     const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
     // Als Ref, damit flushFarmStateToServer die Sperre ohne Stale-Closure lesen kann.
@@ -1403,6 +306,7 @@ export default function GameContainer() {
     const [isSubscriber, setIsSubscriber] = useState(false);
     const [isBeta, setIsBeta] = useState(false);
     const [tutorialCompleted, setTutorialCompleted] = useState(false);
+    const [ackerRasterMigriert, setAckerRasterMigriert] = useState(false);
     const [effectVolume, setEffectVolume] = useState(() => {
         const saved = localStorage.getItem("garden_farms_effect_volume");
         if (saved !== null) return parseFloat(saved);
@@ -1413,17 +317,79 @@ export default function GameContainer() {
         const saved = localStorage.getItem("garden_farms_music_volume");
         return saved !== null ? parseFloat(saved) : 0.1;
     });
+    const [themeId, setThemeId] = useState(() => {
+        const saved = localStorage.getItem("garden_farms_theme");
+        return THEME_TRACKS.some((t) => t.id === saved) ? saved : THEME_STANDARD;
+    });
+    /**
+     * Tageszeit und Party fürs HUD. Einmal je Sekunde — der Renderer liest beides
+     * direkt aus der Uhr (siehe drawState), hier geht es nur um Uhrzeit und Countdown.
+     */
+    /**
+     * Wetter und Party, die von Hand gesetzt wurden (Admin-Menü).
+     *
+     * Liegt NEBEN der Uhr, nicht in ihr: Tageszeit und Party rechnet
+     * engine/Tageszeit.js aus `Date.now()` und ist damit bei allen gleich, ohne dass
+     * jemand etwas verteilen müsste. „Jetzt Party" lässt sich daraus nicht ablesen —
+     * also kommt die Ausnahme über den Socket und wird hier oben draufgelegt.
+     */
+    const [weltUebersteuerung, setWeltUebersteuerung] = useState({ wetterTyp: null, wetterBis: null, partyBis: null });
+    const weltRef = useRef(weltUebersteuerung);
+    useEffect(() => { weltRef.current = weltUebersteuerung; }, [weltUebersteuerung]);
+    /**
+     * Läuft gerade eine Party — aus der Uhr ODER von Hand gestartet?
+     * Spiegel von istPartyAktiv() in Backend/garden/world/ereignisse.js.
+     */
+    const partyLaeuftJetzt = useCallback((now = Date.now()) => {
+        const bis = Number(weltRef.current?.partyBis) || 0;
+        return (bis > now) || partyStaerke(now) > 0;
+    }, []);
+
+    /** Party-Stärke fürs Zeichnen — die stärkere von Uhr und Übersteuerung. */
+    const partyStaerkeJetzt = useCallback((now = Date.now()) => {
+        const bis = Number(weltRef.current?.partyBis) || 0;
+        const ausUhr = partyStaerke(now);
+        if (!(bis > now)) return ausUhr;
+        // Dieselbe Ausblende wie in der Uhr-Variante (PARTY_BLENDE_MS = 6000).
+        return Math.max(ausUhr, Math.max(0, Math.min(1, (bis - now) / 6000)));
+    }, []);
+
+    const handleWelt = useCallback((welt) => {
+        setWeltUebersteuerung({
+            wetterTyp: welt?.wetterTyp || null,
+            wetterBis: Number(welt?.wetterBis) || null,
+            partyBis: Number(welt?.partyBis) || null,
+        });
+    }, []);
+
+    const [tagesInfo, setTagesInfo] = useState(() => {
+        const now = Date.now();
+        const p = partyStand(now);
+        return { uhrzeit: spielUhrzeit(now), nacht: istNacht(now), party: p.aktiv, verbleibendMs: p.verbleibendMs, partyBeginn: p.beginn };
+    });
+    const tagesInfoRef = useRef(tagesInfo);
+    useEffect(() => { tagesInfoRef.current = tagesInfo; }, [tagesInfo]);
     const mySlotRef = useRef(0);
     const plotExpansionsRef = useRef(0);
     const plotUnlockedCellsRef = useRef([]);
     const sellAllRef = useRef(() => {});
     const sellPetRef = useRef(() => {});
+    const ladeQuestsRef = useRef(() => {});
     const rotationBannerTimeoutsRef = useRef(new Set());
     const shovelHoldTimerRef = useRef(null);
     const shovelHoldProgressRef = useRef(null);
     const shovelHoldStartedAtRef = useRef(0);
     const isDragHarvestingRef = useRef(false);
     const dragHarvestedCellsRef = useRef(new Set());
+    /**
+     * Waehrend EINES Zuges gesammelte Zellen, noch nicht abgeschickt — Schluessel
+     * -> Pflanzen-Schnappschuss zum Zeitpunkt des Beruehrens (siehe ernteBeiZug).
+     * Ref statt State: sie wird bei jeder Mausbewegung befuellt, ein Rendervorgang
+     * dafuer waere Verschwendung — und genau das soll dieser Sammel-Umweg ja
+     * vermeiden (siehe handleHarvestMany).
+     */
+    const dragErnteSammlungRef = useRef(new Map());
+    const dragErnteFlushTimerRef = useRef(null);
     const toolRotationKeyRef = useRef(null);
     const eggRotationKeyRef = useRef(null);
     const seedRotationKeyRef = useRef(null);
@@ -1432,7 +398,27 @@ export default function GameContainer() {
     /** Aktuelles Interaktionsziel — auch fuer den Tastendruck, ohne React-State zu lesen. */
     const activeTargetRef = useRef(null);
     const decoGespiegeltRef = useRef(false);
+    const decoRotiertRef = useRef(false);
     const selectedDecoToPlaceRef = useRef(null);
+    const selectedSeedRef = useRef(null);
+    const selectedPetToPlaceRef = useRef(null);
+    /**
+     * Aufgestellte Deko und Deko-Vorrat als Ref.
+     *
+     * Bodenbeläge malt man mit gedrückter Maustaste über mehrere Kacheln. Die
+     * Aufrufe kommen dabei schneller, als React neu rendert — aus dem State gelesen
+     * sähe jede Kachel den Stand von vor dem Zug, und derselbe Belag würde immer
+     * wieder auf dieselbe Stelle gelegt, bis der Vorrat leer ist.
+     */
+    const decoPlacementsRef = useRef([]);
+    const decoInventoryRef = useRef([]);
+    /** Läuft gerade ein Malzug? Enthält die Kachel, die zuletzt bearbeitet wurde. */
+    const bodenMalenRef = useRef(null);
+    // Bodenbeläge werden schon bei mousedown gesetzt — der Browser schickt danach
+    // trotzdem noch einen "click" hinterher. Dieses Flag markiert genau diesen
+    // einen Klick als bereits erledigt, damit onCanvasClick ihn überspringt statt
+    // ihn (mit ggf. veraltetem State) nochmal zu verarbeiten. Siehe onCanvasClick.
+    const klickGehoertZuBodenMalenRef = useRef(false);
     const heldItemRef = useRef(null);
     const movingPlantSourceRef = useRef(null);
     const renderProfileRef = useRef(DEFAULT_RENDER_PROFILE);
@@ -1467,12 +453,72 @@ export default function GameContainer() {
     const kaufWarteschlangeRef = useRef([]);
     // Über Refs, damit ein eingereihter Klick denselben Handler noch einmal aufrufen
     // kann, ohne dass die Callbacks sich gegenseitig als Abhängigkeit brauchen.
+    // Ohne diese Refs bräuchte `verbraucheWerkzeug` apiCall, notify und setzeWerkzeug
+    // als Abhängigkeiten — und stünde damit im Quelltext hinter ihnen. Die Refs halten
+    // die Reihenfolge frei.
+    const apiCallRef = useRef(null);
+    const notifyRef = useRef(null);
+    const setzeWerkzeugRef = useRef(null);
     const handleBuySeedRef = useRef(null);
+    const handleBuySeedAllRef = useRef(null);
     const handleBuyToolRef = useRef(null);
+    const handleBuyToolAllRef = useRef(null);
     const handleBuyEggRef = useRef(null);
     const handleBuyDecoRef = useRef(null);
-    const handleBuyPetSlotRef = useRef(null);
     const unlockIncubatorSlotRef = useRef(null);
+    /**
+     * Der EINZIGE Weg, den Werkzeugkasten zu ändern.
+     *
+     * WARUM ES DEN GEBEN MUSS
+     * `toolInventory` ist React-State und damit erst beim nächsten Rendern zu sehen.
+     * Käufe laufen aber in einer Warteschlange, die sich über `setTimeout(0)` selbst
+     * weiterreicht — der zweite Kauf startet also, bevor React den ersten übernommen
+     * hat. Wer in dieser Lücke den alten Stand liest und daraus den neuen rechnet,
+     * überschreibt den ersten Kauf. Genau das war der Fehler „zehn Gießkannen gekauft,
+     * sechs bekommen": jeder verlorene Kauf war trotzdem bezahlt.
+     *
+     * Schlimmer noch las `handleBuyTool` aus `farmStateRef`, das mit
+     * DEFAULT_TOOL_INVENTORY (alles auf null) startet und ebenfalls erst per Effekt
+     * nachgezogen wird. Ein Kauf in diesem Fenster ersetzte den ganzen Kasten durch
+     * die Nullwerte — so verschwinden Pflanztöpfe und Gießkannen auf einen Schlag.
+     *
+     * Ab jetzt ist `toolInventoryRef` die Wahrheit: sie wird SYNCHRON geschrieben,
+     * der State folgt nur fürs Zeichnen. Jede Änderung geht durch diese Funktion.
+     */
+    const setzeWerkzeug = useCallback((aenderung) => {
+        const vorher = normalizeToolInventory(toolInventoryRef.current);
+        const roh = typeof aenderung === "function" ? aenderung(vorher) : aenderung;
+        const naechster = normalizeToolInventory(roh);
+        toolInventoryRef.current = naechster;
+        setToolInventory(naechster);
+        return naechster;
+    }, []);
+
+    /**
+     * Ein Verbrauchsgut aufbrauchen — über den SERVER.
+     *
+     * Der Werkzeugkasten gehört seit August 2026 dem Server (garden/core/werkzeug.js).
+     * Der Browser darf ihn nicht mehr selbst herunterzählen: sonst könnte ein
+     * zurückgedrehter Browserstand dieselbe Gießkanne beliebig oft benutzen — und
+     * umgekehrt ginge ein Verbrauch verloren, wenn der Stand verworfen wird.
+     *
+     * Gibt true zurück, wenn wirklich etwas verbraucht wurde. Nur dann darf der
+     * Aufrufer seine Wirkung anwenden.
+     */
+    const verbraucheWerkzeug = useCallback(async (feld, anzahl = 1) => {
+        try {
+            const daten = await apiCallRef.current?.("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "useTool", feld, anzahl }),
+            });
+            if (daten?.toolInventory) setzeWerkzeugRef.current?.(daten.toolInventory);
+            return true;
+        } catch (err) {
+            notifyRef.current?.(err?.message || "Das Werkzeug ist aufgebraucht.", "error");
+            return false;
+        }
+    }, []);
+
     const kaufEinreihen = useCallback((auftrag) => {
         if (kaufWarteschlangeRef.current.length >= KAUF_WARTESCHLANGE_MAX) return;
         kaufWarteschlangeRef.current.push(auftrag);
@@ -1488,14 +534,26 @@ export default function GameContainer() {
             kaufWarteschlangeRef.current.shift()?.();
         }, 0);
     }, []);
-    const personalShopStockRef = useRef({});
+    const ladenBestandRef = useRef({});
     const toolShopStockRef = useRef({});
     const eggShopStockRef = useRef({});
     const seedNextRotationAtRef = useRef(0);
     const toolNextRotationAtRef = useRef(0);
     const eggNextRotationAtRef = useRef(0);
     /** Samen-Shop: pro Rotation nur einmal auffüllen / aus Save übernehmen (nicht bei jedem /global-shop-Poll resetten) */
-    const personalShopSeededForGenAtRef = useRef(null);
+    const bestandFuerRotationRef = useRef(null);
+    /**
+     * Wann zuletzt ein Kauf den Bestand verändert hat. Damit verwirft
+     * `uebernimmBestand` Poll-Antworten, die älter sind als dieser Kauf.
+     */
+    const letzterKaufAtRef = useRef(0);
+    /**
+     * Dasselbe für den Werkzeug-Bestand (plant_pot, watering_can) — analog zu
+     * letzterKaufAtRef, aber ein EIGENER Zeitstempel: ein Samenkauf darf einen
+     * gerade erst frisch gesetzten Werkzeug-Bestand nicht wieder freigeben und
+     * umgekehrt. Siehe handleBuyTool und den werkzeugladen-Abgleich im Poll unten.
+     */
+    const letzterToolKaufAtRef = useRef(0);
     /**
      * Dasselbe für Tool- und Eier-Shop. Ohne diese Sperre setzte jeder /global-shop-Poll
      * (spätestens alle 30 s) den Bestand zurück auf den Rotationswert: gekaufte Gießkannen,
@@ -1506,8 +564,8 @@ export default function GameContainer() {
     const eggShopSeededForGenAtRef = useRef(null);
     /** Verhindert die Nachlade-Schleife, wenn eine Rotation ohne Samen zurückkommt. */
     const shopBootstrapTriedRef = useRef(false);
-    /** Gespeicherter Shop-Stock aus dem Farm-Save — wird einmalig von initPersonalStock konsumiert */
-    const savedShopStockRef = useRef(null); // { stock: {}, version: number } | null
+    /** Welcher Laden gerade offen ist — für den Abfragetakt des globalen Bestands. */
+    const ladenOffenRef = useRef(null);
     const savedToolShopStockRef = useRef(null);
     const savedEggShopStockRef = useRef(null);
     /** Zählt hoch, sobald ein geladener Spielstand seinen Ladenbestand hinterlegt hat. */
@@ -1536,6 +594,27 @@ export default function GameContainer() {
         if (soundsRef.current?.music) soundsRef.current.music.volume = musicVolume;
     }, [musicVolume]);
 
+    /**
+     * Welcher Titel gerade laufen soll: während der Party der Party-Titel, sonst das
+     * gewählte Thema. Beides läuft über DIESELBE Audio-Instanz, damit der Musikregler
+     * für beides gilt — ein zweites Audio-Objekt hätte seine eigene Lautstärke.
+     */
+    const laufenderPartyTitel = tagesInfo.party ? partyTrack(tagesInfo.partyBeginn || Date.now()) : null;
+    const aktuellerTitel = laufenderPartyTitel ? laufenderPartyTitel.src : themeTrack(themeId).src;
+    const aktuellerTitelRef = useRef(aktuellerTitel);
+    useEffect(() => {
+        aktuellerTitelRef.current = aktuellerTitel;
+        localStorage.setItem("garden_farms_theme", themeId);
+        const musik = soundsRef.current?.music;
+        if (!musik) return;
+        // `src` ist beim Vergleich absolut, der Katalog führt relative Pfade.
+        if (musik.src.endsWith(aktuellerTitel)) return;
+        musik.src = aktuellerTitel;
+        musik.volume = musicVolumeRef.current;
+        musik.currentTime = 0;
+        if (!showLobbyScreenRef.current) musik.play().catch(() => {});
+    }, [aktuellerTitel, themeId]);
+
     const showLobbyScreenRef = useRef(showLobbyScreen);
     useEffect(() => {
         showLobbyScreenRef.current = showLobbyScreen;
@@ -1557,7 +636,17 @@ export default function GameContainer() {
      */
     const [skillStand, setSkillStand] = useState(null);
     const [skillKatalog, setSkillKatalog] = useState([]);
+    /**
+     * Erfahrung je SORTE — kommt mit dem Fähigkeitsbaum vom Server.
+     *
+     * Je Sorte und nicht je Seltenheit, seit die Erfahrung auch an der Zykluslänge
+     * hängt (xpFuerErnte in Backend/garden/core/skills.js). Bewusst nicht hier
+     * gespiegelt: vergeben wird XP allein serverseitig, und eine Anzeige, die etwas
+     * anderes verspricht als die Kasse zahlt, ist schlimmer als gar keine Anzeige.
+     */
+    const [xpJeSorte, setXpJeSorte] = useState(null);
     const skillWirkungRef = useRef({});
+    const skillStufenRef = useRef({});
     const [skillsOffen, setSkillsOffen] = useState(false);
     /** Dieser Tab hat gegen einen anderen verloren und speichert nicht mehr. */
     const [nurZuschauen, setNurZuschauen] = useState(false);
@@ -1579,6 +668,10 @@ export default function GameContainer() {
     const worldBootStatusRef = useRef({ preloadDone: false, dataDone: false, minDoneAt: 0 });
     const worldBootFinishTimerRef = useRef(null);
     const playerBadgeRef = useRef(null);
+    // Ausgerüstete Gold-Shop-Reskins (core/reskins.js) — EIN Ref für alle vier
+    // Kategorien, aus demselben Grund wie playerBadgeRef: der Renderer braucht
+    // sie jedes Bild, ohne dafür einen Re-Render auszulösen.
+    const meineReskinsRef = useRef({ shed: null, mailbox: null, werkzeug: null, nameplate: null });
     const localPlayerNameRef = useRef("Spieler");
     const readyEggsCount = incubator.slots.filter(s => s && Date.now() >= s.hatchAt).length;
     /**
@@ -1590,7 +683,7 @@ export default function GameContainer() {
     readyEggsCountRef.current = readyEggsCount;
     // Refs for latest state values – readable in socket cleanup without stale closures
     const farmStateRef = useRef({
-        gold: 500,
+        gold: START_GOLD,
         inventory: [],
         plotPlants: {},
         plotExpansions: 0,
@@ -1604,7 +697,7 @@ export default function GameContainer() {
         toolInventory: DEFAULT_TOOL_INVENTORY,
         inventoryMaxSlots: 50,
         incubator: { unlockedSlots: 1, slots: [null] },
-        appearance: { skin: "/garden-assets/wardrobe/farmer.png" },
+        appearance: { skin: STANDARD_SKIN },
     });
     // Früh definiert, weil die Lobby-Verbindung darüber meldet und mySlotIndex daraus kommt.
     const notify = useCallback((msg, type = "success") => {
@@ -1620,7 +713,7 @@ export default function GameContainer() {
     // Umweg über ein Ref, weil die Lobby-Verbindung hier oben aufgebaut wird, das
     // Übernehmen des Serverstands aber erst weiter unten entsteht (applyServerState).
     const adminUpdateRef = useRef(null);
-    const handleAdminUpdate = useCallback((info) => adminUpdateRef.current?.(info), []);
+    const handleAdminUpdate = useCallback((info, art) => adminUpdateRef.current?.(info, art), []);
     /**
      * Der Server nennt beim Betreten seinen Zählerstand. Liegt er VOR unserem, hat
      * er den Spielstand selbst verändert, während wir nicht hingesehen haben — eine
@@ -1630,9 +723,95 @@ export default function GameContainer() {
     const serverVersionRef = useRef(null);
     const handleServerVersion = useCallback((version) => serverVersionRef.current?.(version), []);
 
-    // ── Dauerhafte 8-Plot-Welt ────────────────────────────────────────────────
-    // Es gibt keinen Singleplayer-Modus mehr: die Karte hat immer 8 Grundstücke,
-    // der Server vergibt den Slot. Alleine bekommt man Slot 0 (oben links).
+    /**
+     * Shotgun-Treffer in der Welt. Wieder über ein Ref, aus demselben Grund wie
+     * oben: Renderer und Klangausgabe entstehen erst weiter unten in dieser Datei,
+     * die Lobby-Verbindung wird aber hier aufgebaut.
+     */
+    const splatterRef = useRef(null);
+    const handleSplatter = useCallback((info) => splatterRef.current?.(info), []);
+    /** Selbst getroffen worden → zurück in die Lobby. */
+    const kickedRef = useRef(null);
+    const handleKicked = useCallback((grund) => kickedRef.current?.(grund), []);
+    /**
+     * Party-Veredelung vom Server übernehmen.
+     *
+     * Kommt als { "3_4": "Rainbow", "5_2": [0, 2] } — bei Einmalernten die Sorte, bei
+     * Dauerträgern die Nummern der veredelten Fruchtstände. Bewusst nur diese Zellen:
+     * ein Nachladen des ganzen Standes alle dreissig Sekunden mitten in einer Party
+     * würde den Acker jedes Mal durch die Serverfassung ersetzen und dabei alles
+     * verwerfen, was seit dem letzten Speichern gewachsen ist.
+     */
+    const handleVeredelt = useCallback((zellen) => {
+        let anzahl = 0;
+        const getroffeneKeys = [];
+        setPlotPlants((prev) => {
+            let geaendert = false;
+            const next = { ...prev };
+            for (const [key, wert] of Object.entries(zellen)) {
+                const pflanze = prev[key];
+                if (!pflanze) continue;
+                if (Array.isArray(wert)) {
+                    const slots = Array.isArray(pflanze.fruitSlots) ? pflanze.fruitSlots.slice() : [];
+                    let trefferHier = 0;
+                    for (const i of wert) {
+                        if (!slots[i] || slots[i].specialType) continue;
+                        slots[i] = { ...slots[i], specialType: "Rainbow" };
+                        trefferHier++;
+                    }
+                    if (!trefferHier) continue;
+                    next[key] = { ...pflanze, fruitSlots: slots };
+                    anzahl += trefferHier;
+                } else {
+                    if (pflanze.specialType) continue;
+                    next[key] = { ...pflanze, specialType: String(wert) };
+                    anzahl++;
+                }
+                getroffeneKeys.push(key);
+                geaendert = true;
+            }
+            return geaendert ? next : prev;
+        });
+        if (anzahl > 0) {
+            notifyRef.current?.(anzahl === 1
+                ? "Die Party hat eine Pflanze veredelt — Rainbow!"
+                : `Die Party hat ${anzahl} Stellen veredelt — Rainbow!`);
+            // Zusätzlich direkt an der betroffenen Zelle — der Toast sagt "was",
+            // das Funkeln auf dem Acker sagt "wo".
+            const renderer = engineRef.current?.renderer;
+            const meinSlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
+            if (renderer && meinSlot) {
+                for (const key of getroffeneKeys) {
+                    const [cx, cy] = key.split("_").map(Number);
+                    const pos = getDirtCellWorldPos(meinSlot, cx, cy);
+                    if (pos) renderer.spawnFeedback(pos.x + TILE_SIZE / 2, pos.y + TILE_SIZE / 2, "Rainbow!", { color: "#f472b6", durationMs: 1400 });
+                }
+            }
+        }
+    }, []);
+
+    /**
+     * Das eigene Abzeichen — EINE Quelle für beide Wege.
+     *
+     * Es wird an zwei völlig verschiedenen Stellen gebraucht: über dem eigenen Kopf
+     * zeichnet der Renderer aus `playerBadgeRef`, an die Mitspieler geht es über die
+     * Lobby-Verbindung. Standen dort zwei Ausdrücke, sah man bei sich selbst etwas
+     * anderes als alle anderen.
+     *
+     * „admin" verdrängt „subscriber": der Streamer IST für die Wirtschaft ein
+     * Abonnent (siehe ensureSubStatus im Backend, er bekommt die 50 %), tragen soll
+     * er aber das Admin-Abzeichen. Der Server setzt es ohnehin selbst noch einmal
+     * anhand der Twitch-ID — hier steht es, damit der eigene Kopf sofort stimmt.
+     */
+    const eigenesAbzeichen = istGartenAdmin
+        ? "admin"
+        : isSubscriber ? "subscriber" : isBeta ? "beta" : null;
+    useEffect(() => { playerBadgeRef.current = eigenesAbzeichen; }, [eigenesAbzeichen]);
+
+    // ── Dauerhafte 6-Plot-Welt ────────────────────────────────────────────────
+    // Es gibt keinen Singleplayer-Modus mehr: die Karte hat immer 6 Grundstücke
+    // (Feedback 01.09.: war 8), der Server vergibt den Slot. Alleine bekommt man
+    // Slot 0 (oben links).
     const {
         slotIndex: mySlotIndex,
         connected: lobbyConnected,
@@ -1646,16 +825,21 @@ export default function GameContainer() {
         isPublicWorld,
         chatVerlauf,
         sendChat,
+        sendShotgun,
     } = useGardenLobby({
         enabled: !showLobbyScreen,
         worldCode: pendingWorldCode,
         createWorld: pendingCreateWorld,
         appearance: playerAppearance,
-        badge: isSubscriber ? "subscriber" : isBeta ? "beta" : null,
+        badge: eigenesAbzeichen,
         onMail: handleIncomingMail,
         onNotify: notify,
         onAdminUpdate: handleAdminUpdate,
         onServerVersion: handleServerVersion,
+        onSplatter: handleSplatter,
+        onKicked: handleKicked,
+        onVeredelt: handleVeredelt,
+        onWelt: handleWelt,
     });
 
     const soundsRef = useRef(null); // lazy nach erster Nutzer-Interaktion (Autoplay-Policy)
@@ -1664,7 +848,9 @@ export default function GameContainer() {
 
     const ensureGardenSounds = useCallback(() => {
         if (soundsRef.current || typeof window === "undefined") return;
-        const musicObj = new Audio("/garden-assets/sounds/theme.mp3");
+        // Der Titel steht in einem Ref, nicht im State: dieser Aufbau läuft beim
+        // allerersten Klick und darf nicht an einem Rendervorgang hängen.
+        const musicObj = new Audio(aktuellerTitelRef.current);
         musicObj.loop = true;
         musicObj.volume = musicVolumeRef.current;
         soundsRef.current = {
@@ -1677,6 +863,7 @@ export default function GameContainer() {
             thunder: new Audio("/garden-assets/sounds/thunder.mp3"),
             plant: new Audio("/garden-assets/sounds/plant.mp3"),
             harvest: new Audio("/garden-assets/sounds/harvest.mp3"),
+            shotgun: new Audio("/garden-assets/sounds/shotgun.mp3"),
             music: musicObj,
         };
         if (!showLobbyScreenRef.current) {
@@ -1716,6 +903,7 @@ export default function GameContainer() {
         audio.play().catch(() => {});
     }, []);
 
+
     // ── Engine ref (canvas state, no re-renders) ──────────────────────────────
     const layout = useRef(generatePlotSlots(WORLD_SLOTS));
     const engineRef = useRef({
@@ -1723,7 +911,8 @@ export default function GameContainer() {
         input: null, // wird im Game-Loop erstellt + bei Unmount zerstört (kein globaler Leak)
         player: {
             x: 0, y: 0,
-            vx: 0, vy: 0,
+            tileX: 0, tileY: 0,
+            hopping: false, hopBob: 0,
             isMoving: false,
         },
         areas: {
@@ -1733,77 +922,103 @@ export default function GameContainer() {
             decoShop: { x: 0, y: 0, label: "Deko-Shop", type: "deco" },
             market: { x: 0, y: 0, label: "Markt", type: "market" },
             petMarket: { x: 0, y: 0, label: "Tier-Verkauf", type: "petMarket" },
-            incubator: { x: 0, y: 0, label: "Inkubator", type: "incubator" },
-            trash: { x: 0, y: 0, label: "Mülleimer", type: "trash" },
-            // Erscheinen erst nach dem Kauf — bis dahin bleiben sie aus der
-            // Zeichen- und Näheprüfung heraus (siehe areasAktiv).
-            chest: { x: 0, y: 0, label: "Vorratskiste", type: "chest" },
-            vitrine: { x: 0, y: 0, label: "Vitrine", type: "vitrine" },
+            // Kiste, Vitrine und Mülleimer wohnen seit v2 (Feedback 29.08.) alle
+            // im selben Schuppen — ein E-Tastendruck öffnet eine Auswahl statt
+            // dass jedes einzeln auf dem Grundstück steht.
+            shed: { x: 0, y: 0, label: "Schuppen", type: "shed" },
+            questBoard: { x: 0, y: 0, label: "Missionen", type: "questBoard" },
         },
         plotPlants: {}, // mirror for canvas reads without stale closure
         petPlacements: [],
         decoPlacements: [],
     });
 
+    // ── Shotgun-Treffer ───────────────────────────────────────────────────────
+    // Nachgereicht, weil die Lobby-Verbindung weiter oben aufgebaut wird, der
+    // Renderer und die Klangausgabe aber erst hier stehen (siehe splatterRef).
+    useEffect(() => {
+        splatterRef.current = ({ name, x, y }) => {
+            engineRef.current?.renderer?.spawnSplatter?.(x, y);
+            playSound("shotgun", SHOTGUN_LAUTSTAERKE);
+            if (name) notify(`${name} wurde aus der Welt geschossen.`);
+        };
+        kickedRef.current = (grund) => {
+            // AFK-Kick (v2, Punkt 8): kein Schuss-Sound/-Text — das wäre schlicht
+            // falsch für "zu lange nichts getan". Siehe garden:kicked in
+            // Backend/garden/world/lobby.js.
+            if (grund === "afk") {
+                notify("Du warst zu lange inaktiv und wurdest aus der Welt entfernt.", "error");
+            } else {
+                playSound("shotgun", SHOTGUN_LAUTSTAERKE);
+                notify("Du wurdest aus der Welt geschossen.", "error");
+            }
+            // Erst den Stand rausschreiben, dann zurück in die Lobby — sonst kostet
+            // ein Schuss die letzten Sekunden Fortschritt. Der Server nimmt einen
+            // ohnehin erst nach dem Effekt aus der Welt, die Zeit ist da.
+            Promise.resolve(flushFarmStateToServerRef.current?.())
+                .catch(() => {})
+                .finally(() => setShowLobbyScreen(true));
+        };
+    }, [playSound, notify]);
+
     // Initialize positions after layout
     useEffect(() => {
         const l = layout.current;
-        engineRef.current.player.x = l.centerX;
-        engineRef.current.player.y = l.centerY;
+        // Auf die Kachelmitte einrasten — sonst stünde der Geist beim ersten
+        // Sprung nicht mittig, weil der Startpunkt (Weltmitte) selten exakt auf
+        // dem TILE_SIZE-Raster liegt.
+        const spawnTileX = Math.round(l.centerX / TILE_SIZE);
+        const spawnTileY = Math.round(l.centerY / TILE_SIZE);
+        engineRef.current.player.tileX = spawnTileX;
+        engineRef.current.player.tileY = spawnTileY;
+        engineRef.current.player.x = spawnTileX * TILE_SIZE + TILE_SIZE / 2;
+        engineRef.current.player.y = spawnTileY * TILE_SIZE + TILE_SIZE / 2;
+        engineRef.current.player.hopping = false;
         const a = engineRef.current.areas;
-        
-        // Dynamisch den Abstand vom Zentrum berechnen, damit es immer auf dem Kiesweg ist
-        const shopOffsetX = 340;
-        const shopSpacing = 580;
-        
-        a.seedShop.x = l.centerX - shopOffsetX - shopSpacing; a.seedShop.y = l.centerPathTopY + 92; a.seedShop.image = AREA_IMAGES.seedShop;
-        a.toolShop.x = l.centerX - shopOffsetX; a.toolShop.y = l.centerPathTopY + 92; a.toolShop.image = AREA_IMAGES.toolShop;
-        
-        a.eggShop.x = l.centerX - shopOffsetX - shopSpacing; a.eggShop.y = l.centerPathBottomY - 140; a.eggShop.image = AREA_IMAGES.eggShop;
-        a.decoShop.x = l.centerX - shopOffsetX; a.decoShop.y = l.centerPathBottomY - 140; a.decoShop.image = AREA_IMAGES.decoShop;
-        
-        a.market.x = l.centerX + shopOffsetX + shopSpacing - 160; a.market.y = l.centerY; a.market.image = AREA_IMAGES.market;
-        a.petMarket.x = l.centerX + shopOffsetX + shopSpacing - 160 + 500; a.petMarket.y = l.centerY; a.petMarket.image = AREA_IMAGES.petMarket;
 
-        // Startplätze der vier Grundstücks-Gebäude. Bewusst über dieselbe Funktion wie
-        // später der Effekt mit dem gespeicherten Versatz — als das hier eine eigene
-        // Rechnung hatte, liefen die beiden auseinander.
-        const pos = berechneGebaeudePositionen(l.slots[0], null);
-        for (const art of ["incubator", "trash", "chest", "vitrine"]) {
-            a[art].x = pos[art].x;
-            a[art].y = pos[art].y;
-            a[art].fussY = pos[art].fussY;
+        // Dieselbe Rechnung wie in updateAreaPositions — die Werte standen hier
+        // doppelt und konnten auseinanderlaufen.
+        const yWagen = {
+            seedShop: l.centerPathTopY + 92, toolShop: l.centerPathTopY + 92,
+            eggShop: l.centerPathBottomY - 140, decoShop: l.centerPathBottomY - 140,
+            market: l.centerY, petMarket: l.centerY, questBoard: l.centerY,
+        };
+        for (const [art, versatz] of Object.entries(WAGEN_VERSATZ_X)) {
+            a[art].x = l.centerX + versatz;
+            a[art].y = yWagen[art];
             a[art].image = AREA_IMAGES[art];
         }
+
+        // Startplatz des Schuppens. Bewusst über dieselbe Funktion wie später der
+        // Effekt mit dem gespeicherten Versatz — als das hier eine eigene Rechnung
+        // hatte, liefen die beiden auseinander.
+        const pos = berechneGebaeudePositionen(l.slots[0], null);
+        a.shed.x = pos.shed.x;
+        a.shed.y = pos.shed.y;
+        a.shed.fussY = pos.shed.fussY;
+        a.shed.image = AREA_IMAGES.shed;
     }, []);
 
     useEffect(() => {
         appearanceRef.current = playerAppearance;
     }, [playerAppearance]);
 
-    // Inkubator und Mülleimer relativ zum eigenen Plot (Multiplayer: Slot wechselt).
-    // Ohne gespeicherten Versatz gilt der alte Standardplatz am rechten Ackerrand.
+    // Schuppen relativ zum eigenen Plot (Multiplayer: Slot wechselt). Ohne
+    // gespeicherten Versatz gilt der Standardplatz am rechten Ackerrand.
     useEffect(() => {
         const l = layout.current;
         const ownSlot = l.slots[mySlotIndex] || l.slots[0];
         const a = engineRef.current.areas;
-        // Standardplätze hängen NUR am Grundstück, nicht aneinander. Der Mülleimer
-        // hing vorher am aktuellen Inkubator-Standort und wanderte damit jedes Mal
-        // mit — obwohl er ein eigenes Gebäude mit eigenem Versatz ist.
         const pos = berechneGebaeudePositionen(ownSlot, gebaeudeVersatz);
-        for (const art of ["incubator", "trash", "chest", "vitrine"]) {
-            a[art].x = pos[art].x;
-            a[art].y = pos[art].y;
-            a[art].fussY = pos[art].fussY;
-            a[art].image = AREA_IMAGES[art];
-        }
-
-        // `aktiv: false` heißt: nicht zeichnen, nicht anlaufen, keine Kollision.
-        // Ungekaufte Gebäude stünden sonst als Geister auf dem Grundstück.
-        const werkzeug = normalizeToolInventory(toolInventory);
-        a.chest.aktiv = werkzeug.hasChest === true;
-        a.vitrine.aktiv = werkzeug.hasVitrine === true;
-    }, [mySlotIndex, gebaeudeVersatz, toolInventory]);
+        a.shed.x = pos.shed.x;
+        a.shed.y = pos.shed.y;
+        a.shed.fussY = pos.shed.fussY;
+        a.shed.image = AREA_IMAGES.shed;
+        // Der Schuppen selbst steht immer da (Mülleimer braucht keinen Kauf) —
+        // ob Kiste/Vitrine DARIN nutzbar sind, entscheidet die Auswahl beim
+        // Öffnen, nicht die Sichtbarkeit des Gebäudes.
+        a.shed.aktiv = true;
+    }, [mySlotIndex, gebaeudeVersatz]);
 
     // ── Helpers (defined before any useEffect that references them) ───────────
     const preloadImage = useCallback((src) => {
@@ -1854,6 +1069,20 @@ export default function GameContainer() {
             ...DECO_SHOP_ITEMS.map((item) => item.image),
             ...EGG_SHOP_CATALOGUE.map((item) => item.image), // HINZUGEFÜGT
             ...WARDROBE_SKINS.map((item) => item.skin).filter(Boolean),
+            // Feedback 01.09.: "richtig erst wenn alles geladen hat" — vorher liefen
+            // nur die eigenen Samen/Ernte/Deko/Eier/Tiere ein (unten, `enqueueItem`
+            // über den eigenen Bestand), der Rest des Katalogs (alles, was man noch
+            // NICHT besitzt — ein fremdes Grundstück, der Laden, eine frische Ernte)
+            // kam erst beim ersten Anblick nach, sichtbar als kurzes Nachpoppen.
+            // Der GANZE Samenkatalog deckt jede Sorte mit allen ihren Bildern ab
+            // (Same/Setzling/Wachstum/Struktur/Frucht/Ernte je einmal), unabhängig
+            // vom eigenen Rucksack — dieselbe Ableitung wie beim Hydrieren einer
+            // Pflanze (withVisuals), nur ohne echtes Item, nur mit Sorte + Bauart.
+            ...SEED_CATALOGUE.flatMap((s) => collectVisualAssetPaths(withVisuals({ seedId: s.id, singleUse: s.singleUse }))),
+            // Gold-Shop-Reskins: gehören niemandem hier auf dem eigenen Grundstück,
+            // können aber jederzeit bei einem Nachbarn auftauchen.
+            ...Object.values(SHED_RESKIN_BILD),
+            ...Object.values(MAILBOX_RESKIN_BILD),
         ]);
         const enqueueItem = (item) => {
             for (const path of collectVisualAssetPaths(withVisuals(item))) {
@@ -1865,7 +1094,7 @@ export default function GameContainer() {
         for (const plant of Object.values(plotPlants).slice(0, 180)) enqueueItem(plant);
         for (const deco of decoInventory.slice(0, 120)) enqueueItem(deco);
         for (const deco of decoPlacements.slice(0, 200)) enqueueItem(deco);
-        
+
         // HINZUGEFÜGT:
         for (const egg of eggInventory.slice(0, 120)) enqueueItem(egg);
         for (const pet of petInventory.slice(0, 120)) enqueueItem(pet);
@@ -1922,19 +1151,17 @@ export default function GameContainer() {
 
     const updateAreaPositions = useCallback((l) => {
         const a = engineRef.current.areas;
-
-        // Feste Abstände — die Welt hat immer 8 Grundstücke, kein Singleplayer-Layout mehr.
-        const shopOffsetX = 340;
-        const shopSpacing = 580;
-
-        a.seedShop.x = l.centerX - shopOffsetX - shopSpacing; a.seedShop.y = l.centerPathTopY + 92; a.seedShop.image = AREA_IMAGES.seedShop;
-        a.toolShop.x = l.centerX - shopOffsetX; a.toolShop.y = l.centerPathTopY + 92; a.toolShop.image = AREA_IMAGES.toolShop;
-
-        a.eggShop.x = l.centerX - shopOffsetX - shopSpacing; a.eggShop.y = l.centerPathBottomY - 140; a.eggShop.image = AREA_IMAGES.eggShop;
-        a.decoShop.x = l.centerX - shopOffsetX; a.decoShop.y = l.centerPathBottomY - 140; a.decoShop.image = AREA_IMAGES.decoShop;
-
-        a.market.x = l.centerX + shopOffsetX + shopSpacing - 160; a.market.y = l.centerY; a.market.image = AREA_IMAGES.market;
-        a.petMarket.x = l.centerX + shopOffsetX + shopSpacing - 160 + 500; a.petMarket.y = l.centerY; a.petMarket.image = AREA_IMAGES.petMarket;
+        // Siehe WAGEN_VERSATZ_X: die Werte halten Abstand zu den Grundstücksschildern.
+        const y = {
+            seedShop: l.centerPathTopY + 92, toolShop: l.centerPathTopY + 92,
+            eggShop: l.centerPathBottomY - 140, decoShop: l.centerPathBottomY - 140,
+            market: l.centerY, petMarket: l.centerY, questBoard: l.centerY,
+        };
+        for (const [art, versatz] of Object.entries(WAGEN_VERSATZ_X)) {
+            a[art].x = l.centerX + versatz;
+            a[art].y = y[art];
+            a[art].image = AREA_IMAGES[art];
+        }
     }, []);
 
     const startWorldBoot = useCallback((mode) => {
@@ -2010,15 +1237,13 @@ export default function GameContainer() {
             setActiveShop("deco");
         } else if (target.type === "petMarket") {
             sellPetRef.current();
-        } else if (target.type === "incubator") {
-            setIncubatorTargetSlot(null);
-            setIncubatorOpen(true);
-        } else if (target.type === "trash") {
-            setTrashOpen(true);
-        } else if (target.type === "chest") {
-            setAblageOffen("chest");
-        } else if (target.type === "vitrine") {
-            setAblageOffen("vitrine");
+        } else if (target.type === "shed") {
+            // v2 (Feedback 29.08.): EIN Gebäude für Kiste, Vitrine und Mülleimer —
+            // die Auswahl dazwischen übernimmt das Schuppen-Modal, siehe dort.
+            setShedOpen(true);
+        } else if (target.type === "questBoard") {
+            setQuestBoardOpen(true);
+            ladeQuestsRef.current?.();
         } else if (target.type === "fremdeVitrine") {
             // Die Momentaufnahme trägt nur Werte, keine Bildpfade (der Server kennt
             // keine Assets) — ohne Nachziehen bliebe die fremde Vitrine bildlos.
@@ -2042,15 +1267,40 @@ export default function GameContainer() {
      * Bei einem Grundstück der oberen Reihe steht man knapp darunter, bei einem der
      * unteren knapp darüber; sonst käme man auf der falschen Seite heraus.
      */
+    /**
+     * Spielfigur an eine Weltposition setzen — für JEDE Schnellreise, nicht nur
+     * ein Objekt-Update.
+     *
+     * BUGFIX: Die Kachel-Sprung-Bewegung (v2-Fundament) rechnet den nächsten Sprung
+     * NICHT von `player.x/y`, sondern von der separat geführten Logikkachel
+     * `player.tileX/tileY` aus (siehe Game-Loop weiter unten, "TILE-SPRUNG-
+     * BEWEGUNG"). Die Teleport-Funktionen setzten bisher nur x/y — tileX/tileY
+     * blieben auf der ALTEN Kachel stehen. Der nächste WASD-Druck sprang deshalb
+     * von dieser alten Kachel aus einen Schritt weiter, was nach einer großen
+     * Teleport-Distanz aussah wie "zurückgeteleportiert". Diese Funktion hält
+     * beide Zustände zusammen und räumt einen laufenden Sprung ab, damit auch
+     * kein alter hopFrom/hopTo mehr nachwirkt.
+     */
+    const setzePlayerPosition = useCallback((x, y) => {
+        const p = engineRef.current.player;
+        p.x = x;
+        p.y = y;
+        p.vx = 0;
+        p.vy = 0;
+        p.tileX = Math.round((x - TILE_SIZE / 2) / TILE_SIZE);
+        p.tileY = Math.round((y - TILE_SIZE / 2) / TILE_SIZE);
+        p.hopping = false;
+        p.hopBob = 0;
+    }, []);
+
     const teleportToSlot = useCallback((slotIndex) => {
         const slot = layout.current.slots[slotIndex];
         if (!slot) return;
-        const p = engineRef.current.player;
-        p.x = slot.x + MAP_CONFIG.territoryWidth / 2;
-        p.y = slot.isTopRow ? slot.anchorY - 22 : slot.anchorY + 22;
-        p.vx = 0;
-        p.vy = 0;
-    }, []);
+        setzePlayerPosition(
+            slot.x + MAP_CONFIG.territoryWidth / 2,
+            slot.isTopRow ? slot.anchorY - 22 : slot.anchorY + 22,
+        );
+    }, [setzePlayerPosition]);
 
     const teleportToMyFarm = useCallback(() => {
         teleportToSlot(layout.current.slots[mySlotRef.current] ? mySlotRef.current : 0);
@@ -2069,33 +1319,31 @@ export default function GameContainer() {
     const chatAbschicken = useCallback(() => {
         const text = chatEingabe.trim();
         if (!text) return;
-        if (!sendChat(text)) {
+        const farbHex = CHAT_FARBEN.find((f) => f.id === chatFarbe)?.hex || null;
+        if (!sendChat(text, farbHex)) {
             notify("Keine Verbindung zur Welt.", "error");
             return;
         }
         setChatEingabe("");
-    }, [chatEingabe, sendChat, notify]);
+    }, [chatEingabe, chatFarbe, sendChat, notify]);
 
     const teleportToShopArea = useCallback(() => {
-        const p = engineRef.current.player;
         const area = engineRef.current.areas.seedShop;
         // Muss INNERHALB von INTERACT_DIST (180) landen, sonst erscheint der
         // Öffnen-Knopf nicht und die Schnellreise bringt einen nur in die Nähe.
         // Der alte Versatz (+120/+180) lag mit 216 px genau darüber.
-        p.x = area.x;
-        p.y = area.y + 130;
-        p.vx = 0;
-        p.vy = 0;
-    }, []);
+        setzePlayerPosition(area.x, area.y + 130);
+    }, [setzePlayerPosition]);
 
     const teleportToMarketArea = useCallback(() => {
-        const p = engineRef.current.player;
         const area = engineRef.current.areas.market;
-        p.x = area.x;
-        p.y = area.y + 90;
-        p.vx = 0;
-        p.vy = 0;
-    }, []);
+        // Bug (Feedback 29.08.: "Shift+1 spawnt im Markt drin"): der Versatz lag
+        // mit 90 px UNTER dem Kollisionsradius des Markts (130, siehe
+        // COLLISION_RADIUS_BY_AREA_TYPE) — die Schnellreise setzte einen also
+        // mitten in die gesperrte Zone. teleportToShopArea nutzt zum Vergleich
+        // exakt den Kollisionsradius seines Ziels (130) als Versatz.
+        setzePlayerPosition(area.x, area.y + 150);
+    }, [setzePlayerPosition]);
 
     const setShopRotationIfChanged = useCallback((nextRotation) => {
         setShopRotation((prev) => {
@@ -2166,13 +1414,23 @@ export default function GameContainer() {
      * und im Wetter-Intervall gebraucht wird, wo ein State veraltet wäre.
      */
     const skillWirkung = useCallback((id) => skillWirkungRef.current[id] || 0, []);
+    /** Rohe Stufe einer Fähigkeit — für Staffeln, die nicht linear rechnen. */
+    const skillStufe = useCallback((id) => skillStufenRef.current[id] || 0, []);
     useEffect(() => {
         const raus = {};
+        const stufen = {};
         for (const skill of skillKatalog) {
             const stufe = Math.max(0, Math.min(skill.stufen, Number(skillStand?.skills?.[skill.id]) || 0));
-            raus[skill.id] = stufe * skill.proStufe;
+            stufen[skill.id] = stufe;
+            // Fähigkeiten mit `werte` sind eine feste Staffel statt eines Zuwachses
+            // je Stufe (siehe Regenmacher) — dieselbe Fallunterscheidung wie in
+            // wirkung() im Backend.
+            raus[skill.id] = Array.isArray(skill.werte)
+                ? (stufe === 0 ? 0 : (skill.werte[stufe - 1] ?? 0))
+                : stufe * skill.proStufe;
         }
         skillWirkungRef.current = raus;
+        skillStufenRef.current = stufen;
     }, [skillKatalog, skillStand]);
 
     useEffect(() => {
@@ -2289,6 +1547,7 @@ export default function GameContainer() {
         // Ab hier speichert dieser Browser gegen genau diesen Stand.
         stateVersionRef.current = Number(saved.stateVersion) || 0;
         if (typeof saved.gold === "number") setGold(saved.gold);
+        if (typeof saved.goldGesamt === "number") setGoldGesamt(saved.goldGesamt);
         if (Array.isArray(saved.inventory)) setInventory(hydrateSeeds(saved.inventory));
         if (saved.plotPlants) setPlotPlants(normalizePlotPlantsMap(saved.plotPlants));
         const unlocked = resolvePlotUnlockedCells(saved);
@@ -2303,27 +1562,17 @@ export default function GameContainer() {
         if (Array.isArray(saved.petPlacements)) setPetPlacements(hydratePets(saved.petPlacements));
         if (Array.isArray(saved.decoInventory)) setDecoInventory(saved.decoInventory);
         if (Array.isArray(saved.decoPlacements)) setDecoPlacements(saved.decoPlacements);
-        if (saved.toolInventory) {
-            const werkzeug = normalizeToolInventory(saved.toolInventory);
-            setToolInventory(werkzeug);
-            // Die Sperre gegen Doppelzahlung beim Spamklicken lässt `pickaxesBought`
-            // und `backpackLevel` im Ref nur STEIGEN (siehe Effekt weiter unten). Für
-            // eine Klickfolge ist das richtig, für einen Serverstand nicht: nach einem
-            // Nachladen blieb der Zähler oben stehen, obwohl der Server einen
-            // niedrigeren nennt. Der Laden zeigte dann den Preis für „einmal gekauft",
-            // der Kauf rechnete aber mit „viermal gekauft" — und brach still ab, weil
-            // das Gold für den höheren Preis nicht reichte. Genau so verschwindet der
-            // Kaufknopf, ohne dass irgendetwas passiert.
-            toolInventoryRef.current = werkzeug;
-        }
+        // Ein Serverstand ERSETZT den Kasten, er wird nicht verrechnet: was dort
+        // steht, ist die Wahrheit. `setzeWerkzeug` schreibt Ref und State in einem
+        // Zug, damit ein Kauf unmittelbar danach nicht mehr den alten Stand sieht.
+        if (saved.toolInventory) setzeWerkzeug(normalizeToolInventory(saved.toolInventory));
         setGebaeudeVersatz(normalizeGebaeudeVersatz(saved.gebaeudeVersatz));
         if (typeof saved.inventoryMaxSlots === "number") setInventoryMaxSlots(Math.max(50, saved.inventoryMaxSlots));
-        if (saved.shopStock && typeof saved.shopStock === "object" && Object.keys(saved.shopStock).length > 0) {
-            savedShopStockRef.current = {
-                stock: saved.shopStock,
-                version: typeof saved.shopStockVersion === "number" ? saved.shopStockVersion : 0,
-            };
-        }
+        // `saved.shopStock` wird BEWUSST nicht mehr übernommen: der Samenvorrat gilt
+        // zwar wieder je Spieler, gezählt wird er aber seit v4.0 beim SERVER. Ein
+        // Wert aus dem eigenen Spielstand würde den echten Reststand überschreiben —
+        // und wäre wieder der Weg, über den man sich unbegrenzt Samen kaufen konnte.
+        // Das Feld bleibt im Spielstand stehen, damit ältere Server damit klarkommen.
         if (saved.toolShopStock && typeof saved.toolShopStock === "object" && Object.keys(saved.toolShopStock).length > 0) {
             savedToolShopStockRef.current = {
                 stock: saved.toolShopStock,
@@ -2344,11 +1593,15 @@ export default function GameContainer() {
         // betrat, konnte Samen, Gießkannen, Töpfe und Eier beliebig oft kaufen.
         setLadenbestandGeladen((n) => n + 1);
         if (saved.incubator) setIncubator(saved.incubator);
-        if (saved.appearance) setPlayerAppearance(saved.appearance); // 🌟 NEU
+        // normalisiereSkin fängt den alten Pfad ab: der Hauptskin lag bis v3.6 unter
+        // wardrobe/farmer.png und ist jetzt eine von zwölf Farben im Unterordner.
+        // Ohne das wäre die Figur bei allen Bestandsspielern unsichtbar.
+        if (saved.appearance) setPlayerAppearance({ skin: normalisiereSkin(saved.appearance.skin) });
         if (typeof saved.tutorialCompleted === "boolean") setTutorialCompleted(saved.tutorialCompleted);
+        if (saved[ACKERRASTER_MARKE] === true) setAckerRasterMigriert(true);
         if (Array.isArray(saved.mailbox)) setMailboxState(saved.mailbox);
         return true;
-    }, [normalizePlotPlantsMap]);
+    }, [normalizePlotPlantsMap, setzeWerkzeug]);
 
     /**
      * Serverstand holen und übernehmen — der gemeinsame Weg für alles, was diesen
@@ -2375,6 +1628,7 @@ export default function GameContainer() {
         }
     }, [apiCall, applyServerState, notify]);
 
+
     // Bauplan des Fähigkeitsbaums — einmal je Sitzung, er ändert sich nicht.
     useEffect(() => {
         if (showLobbyScreen) return;
@@ -2384,10 +1638,75 @@ export default function GameContainer() {
                 if (abgebrochen) return;
                 if (Array.isArray(data?.katalog)) setSkillKatalog(data.katalog);
                 if (data?.stand) setSkillStand(data.stand);
+                if (data?.xpJeSorte) setXpJeSorte(data.xpJeSorte);
             })
             .catch(() => { /* ohne Baum spielt es sich weiter, nur ohne Boni-Anzeige */ });
         return () => { abgebrochen = true; };
     }, [showLobbyScreen, apiCall]);
+
+    /**
+     * Missionsbrett neu laden — beim Öffnen des Brettes (activateInteractable)
+     * UND nach jedem Abholen, damit der neue Stand (z. B. eine jetzt erreichte
+     * nächste Mission) sofort sichtbar ist.
+     */
+    const ladeQuests = useCallback(async () => {
+        try {
+            const data = await apiCall("/quests");
+            // Bug gefunden (Feedback 31.08.: "reset zeit sichtbar machen"): die beiden
+            // Reset-Zeitpunkte kommen vom Server mit, fielen hier aber unter den Tisch —
+            // die Countdown-Anzeige im Missionsbrett stand deshalb seit Einführung immer
+            // auf undefined und zeigte gar nichts.
+            setQuestDaten({
+                taeglich: Array.isArray(data?.taeglich) ? data.taeglich : [],
+                woechentlich: Array.isArray(data?.woechentlich) ? data.woechentlich : [],
+                naechsteTaeglicheAb: Number(data?.naechsteTaeglicheAb) || 0,
+                naechsteWoechentlicheAb: Number(data?.naechsteWoechentlicheAb) || 0,
+            });
+        } catch { /* Brett bleibt beim letzten bekannten Stand */ }
+    }, [apiCall]);
+
+    useEffect(() => {
+        ladeQuestsRef.current = ladeQuests;
+    }, [ladeQuests]);
+
+    /**
+     * Gold-Shop neu laden — beim Öffnen UND nach jedem Kauf/Ausrüsten, damit
+     * "schon gekauft"/"ausgerüstet" sofort stimmt. `meineReskinsRef` zieht
+     * gleich mit: der Renderer liest von dort (Schuppenbild, Briefkasten,
+     * Nameplate-Farbe), nicht aus dem React-State selbst.
+     */
+    const ladeGoldShop = useCallback(async () => {
+        try {
+            const data = await apiCall("/reskins");
+            setGoldShopDaten({
+                katalog: data?.katalog && typeof data.katalog === "object" ? data.katalog : {},
+                ausgeruestet: data?.ausgeruestet && typeof data.ausgeruestet === "object" ? data.ausgeruestet : {},
+            });
+            meineReskinsRef.current = {
+                shed: data?.ausgeruestet?.shed || null,
+                mailbox: data?.ausgeruestet?.mailbox || null,
+                werkzeug: data?.ausgeruestet?.werkzeug || null,
+                nameplate: data?.ausgeruestet?.nameplate || null,
+            };
+            // KEIN einmaliges area.shed.image = ... hier — die Positions-Effekte
+            // (a.shed.image = AREA_IMAGES.shed, siehe useEffect oben) laufen
+            // unabhängig davon noch einmal und hätten die Zuweisung wieder
+            // überschrieben. Der Schuppen bekommt sein Reskin deshalb wie
+            // Briefkasten/Nameplate JEDEN Frame in der Spielschleife (siehe dort).
+        } catch { /* Laden bleibt beim letzten bekannten Stand */ }
+    }, [apiCall]);
+
+    // Einmal beim Betreten laden — sonst zeigt der eigene Schuppen/Briefkasten
+    // erst nach dem ersten Öffnen des Gold-Shops das ausgerüstete Reskin.
+    useEffect(() => {
+        if (showLobbyScreen) return;
+        ladeGoldShop();
+    }, [showLobbyScreen, ladeGoldShop]);
+
+    // questAbholen selbst steht erst nach applyEconomy weiter unten — sie hängt
+    // per Dependency-Array direkt davon ab, und applyEconomy ist an dieser Stelle
+    // noch nicht deklariert (TDZ: "Cannot access 'applyEconomy' before
+    // initialization", gefunden beim ersten echten Laden im Browser).
 
     // Aufstieg melden. Der erste Stand nach dem Laden zählt nicht als Aufstieg —
     // sonst begrüßt einen das Spiel bei jedem Betreten mit „Level 14 erreicht".
@@ -2420,14 +1739,22 @@ export default function GameContainer() {
                 method: "POST", body: JSON.stringify({ action: "skillsZuruecksetzen" }),
             });
             if (data?.skillStand) setSkillStand(data.skillStand);
-            notify("Alle Fähigkeitspunkte sind wieder frei.");
+            // Zurücksetzen kostet seit v3.5 Gold — der Server bucht ab, hier wird
+            // sein Stand übernommen, damit der nächste Autosave ihn nicht überschreibt.
+            if (typeof data?.gold === "number") { goldRef.current = data.gold; setGold(data.gold); }
+            notify(data?.bezahlt
+                ? `Alle Punkte zurückgeholt — ${Number(data.bezahlt).toLocaleString("de-DE")} Gold bezahlt.`
+                : "Alle Fähigkeitspunkte sind wieder frei.");
         } catch (err) {
-            notify(err?.data?.error || "Das hat nicht geklappt.", "error");
+            notify(err?.data?.error || err?.message || "Das hat nicht geklappt.", "error");
         }
     }, [apiCall, notify]);
 
     useEffect(() => {
-        adminUpdateRef.current = (info) => uebernimmVomServer(info ? `Admin: ${info}` : "Deine Farm wurde angepasst.");
+        adminUpdateRef.current = (info, art) => uebernimmVomServer(
+            art === "helfer" ? (info || "Jemand hat auf deinem Feld gearbeitet.")
+                : info ? `Admin: ${info}` : "Deine Farm wurde angepasst.",
+        );
         serverVersionRef.current = (version) => {
             // Erst ab dem zweiten Betreten prüfen: beim ersten holt der Ladeweg den
             // Stand ohnehin frisch, und der Zähler steht dann noch auf 0.
@@ -2444,20 +1771,8 @@ export default function GameContainer() {
             try {
                 const data = await apiCall("/farm-state");
                 applyServerState(data.state);
-                // Was die Tiere verdient haben, während niemand zusah.
-                if (data.offline) {
-                    const o = data.offline;
-                    const teile = [];
-                    if (o.gold > 0) teile.push(`+${Number(o.gold).toLocaleString("de-DE")} Gold`);
-                    if (o.geerntet > 0) teile.push(`${o.geerntet}× geerntet und verkauft`);
-                    if (teile.length) {
-                        const dauer = o.minuten >= 60
-                            ? `${Math.floor(o.minuten / 60)} h ${o.minuten % 60} min`
-                            : `${o.minuten} min`;
-                        notify(`Deine Tiere haben ${dauer} gearbeitet: ${teile.join(", ")}`
-                            + (o.gedeckelt ? " (Höchstzeit erreicht)" : ""));
-                    }
-                }
+                // Kein Offline-Bericht mehr: Tiere arbeiten nur noch, solange man
+                // zusieht (siehe engine/PetSystem.js).
             } catch (err) {
                 console.error("Fehler beim Laden von der DB:", err);
                 const m = err?.message || "";
@@ -2480,7 +1795,12 @@ export default function GameContainer() {
     useEffect(() => {
         const savedApp = localStorage.getItem("garden_appearance");
         if (savedApp) {
-            try { setPlayerAppearance(JSON.parse(savedApp)); } catch { /* ignore */ }
+            // Auch hier über normalisiereSkin: im localStorage steht bei allen
+            // Bestandsspielern noch der alte Pfad wardrobe/farmer.png.
+            try {
+                const gelesen = JSON.parse(savedApp);
+                setPlayerAppearance({ skin: normalisiereSkin(gelesen?.skin) });
+            } catch { /* ignore */ }
         }
     }, []);
 
@@ -2509,7 +1829,7 @@ export default function GameContainer() {
             flushFarmStateToServerRef.current?.();
         }, 5000);
         return () => clearTimeout(timer);
-    }, [showLobbyScreen, isInitialLoadDone, gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, personalShopStock, shopRotation?.generatedAt,playerAppearance, tutorialCompleted, apiCall]);
+    }, [showLobbyScreen, isInitialLoadDone, gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, ladenBestand, shopRotation?.generatedAt,playerAppearance, tutorialCompleted, apiCall]);
 
     useEffect(() => {
         if (!isIncubatorOpen) return;
@@ -2528,41 +1848,41 @@ export default function GameContainer() {
         if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
         isDragHarvestingRef.current = false;
         dragHarvestedCellsRef.current.clear();
+        // Bewusst NICHT mehr abschicken (kein flushDragErnte hier) — die Seite
+        // wird gerade verlassen, eine Antwort träfe auf eine schon abgebaute
+        // Komponente. Nur den Timer stoppen, der sonst ins Leere liefe.
+        if (dragErnteFlushTimerRef.current) clearTimeout(dragErnteFlushTimerRef.current);
+        dragErnteSammlungRef.current.clear();
     }, []);
 
     useEffect(() => {
-        // Rucksackplätze = 50 Grund + 10 je Rucksackstufe + 5 je „Lagerist"-Stufe.
+        // Rucksackplätze = 50 Grund + 10 je Rucksackstufe. „Lagerist" gibt seit v2
+        // (Punkt 4) keine eigenen Plätze mehr dazu — er verbilligt nur noch den Kauf
+        // hier oben (siehe skillWirkung("lagerist") im Shop-Preis weiter unten), sonst
+        // wäre er derselbe Effekt wie diese Kaufkurve über einen zweiten Hebel.
         const level = Math.min(BACKPACK_MAX_LEVEL, normalizeToolInventory(toolInventory).backpackLevel || 0);
-        const ausSkill = Math.round(skillWirkung("lagerist"));
-        const ziel = 50 + level * 10 + ausSkill;
+        const ziel = 50 + level * 10;
         if (ziel > 50) setInventoryMaxSlots(prev => Math.max(prev, ziel));
-        // Nur ERHÖHEN, nie zurückdrehen.
+        // Das Ref wird hier BEWUSST nicht mehr geschrieben.
         //
-        // Ein Kauf schreibt seinen Ausgang sofort in dieses Ref, damit der nächste
-        // Klick nicht mehr den alten Preis sieht. Ein einfaches Überschreiben mit dem
-        // State machte das wieder zunichte: der Commit des VORIGEN Kaufs traf hier ein,
-        // nachdem der nächste Kauf schon hochgezählt hatte, und setzte den Zähler
-        // zurück — beim Spamklicken wurde derselbe Spitzhackenpreis dann zweimal
-        // bezahlt. Werte, die nur wachsen bzw. nur von false auf true gehen, bleiben
-        // deshalb auf ihrem Höchststand.
-        const vorher = toolInventoryRef.current || {};
-        toolInventoryRef.current = {
-            ...toolInventory,
-            pickaxesBought: Math.max(toolInventory.pickaxesBought || 0, vorher.pickaxesBought || 0),
-            backpackLevel: Math.max(toolInventory.backpackLevel || 0, vorher.backpackLevel || 0),
-            hasShovel: Boolean(toolInventory.hasShovel || vorher.hasShovel),
-            hasChest: Boolean(toolInventory.hasChest || vorher.hasChest),
-            hasVitrine: Boolean(toolInventory.hasVitrine || vorher.hasVitrine),
-        };
-    }, [toolInventory, skillWirkung, skillStand]);
+        // Früher stand hier ein Rückschreiben aus dem State, abgesichert mit Math.max
+        // für die Zähler, die nur wachsen. Das war ein Pflaster auf dem falschen
+        // Bein: der Commit des VORIGEN Kaufs traf ein, nachdem der nächste schon
+        // hochgezählt hatte, und drehte alles zurück, was nicht unter dem Math.max
+        // stand — Gießkannen, Pflanztöpfe, Hackenladungen. Seit alle Änderungen durch
+        // `setzeWerkzeug` laufen, ist das Ref die Wahrheit und der State ihr Abbild;
+        // die Gegenrichtung darf es gar nicht mehr geben.
+    }, [toolInventory]);
 
     /**
      * Bescheid geben, wenn im Inkubator etwas fertig geworden ist.
      *
-     * Vorher gab es dafür überhaupt kein Zeichen: die Brutzeit läuft bis zu zwei
-     * Stunden, und ob ein Ei durch ist, sah man nur, wenn man zufällig hinlief und
-     * das Fenster öffnete. Der Zähler wird mitgeführt, damit dieselbe fertige Brut
-     * nicht alle paar Sekunden erneut gemeldet wird.
+     * Vorher gab es dafür überhaupt kein Zeichen: die Brutzeit läuft bis zu drei
+     * Tage (Feedback 01.09.: Rarity-Brutzeiten deutlich angehoben, siehe
+     * hatchTimeByRarity in placeEggInIncubator), und ob ein Ei durch ist, sah man
+     * nur, wenn man zufällig hinlief und das Fenster öffnete. Der Zähler wird
+     * mitgeführt, damit dieselbe fertige Brut nicht alle paar Sekunden erneut
+     * gemeldet wird.
      */
     const gemeldeteEierRef = useRef(0);
     useEffect(() => {
@@ -2596,13 +1916,19 @@ export default function GameContainer() {
     }, [isBackpackOpen]);
 
     // Bestände in die Refs spiegeln — die Kaufprüfungen lesen ausschließlich dort.
-    useEffect(() => { personalShopStockRef.current = personalShopStock; }, [personalShopStock]);
+    useEffect(() => { ladenBestandRef.current = ladenBestand; }, [ladenBestand]);
     useEffect(() => { toolShopStockRef.current = toolShopStock; }, [toolShopStock]);
     useEffect(() => { eggShopStockRef.current = eggShopStock; }, [eggShopStock]);
 
     useEffect(() => {
         selectedToolRef.current = selectedTool;
     }, [selectedTool]);
+
+    // Samen und Tier in der Hand ebenfalls als Ref: der Klick-Handler laeuft
+    // aus einer Closure heraus und wuerde sonst den Stand von vor dem letzten
+    // Rendern sehen — beim schnellen Setzen mehrerer Samen genau den falschen.
+    useEffect(() => { selectedSeedRef.current = selectedSeed; }, [selectedSeed]);
+    useEffect(() => { selectedPetToPlaceRef.current = selectedPetToPlace; }, [selectedPetToPlace]);
 
     useEffect(() => {
         movingPlantSourceRef.current = movingPlantSource;
@@ -2612,6 +1938,10 @@ export default function GameContainer() {
         decoGespiegeltRef.current = decoGespiegelt;
     }, [decoGespiegelt]);
 
+    useEffect(() => {
+        decoRotiertRef.current = decoRotiert;
+    }, [decoRotiert]);
+
     // Spiegelung über mehrere Platzierungen hinweg behalten (man stellt selten nur eine
     // Laterne), aber zurücksetzen, sobald man die Deko ganz aus der Hand legt.
     useEffect(() => {
@@ -2619,9 +1949,19 @@ export default function GameContainer() {
         if (!selectedDecoToPlace) setDecoGespiegelt(false);
     }, [selectedDecoToPlace]);
 
+    // Spiegel für das Malen von Bodenbelägen. Fängt alles ab, was NICHT aus dem
+    // Setzen selbst kommt — Laden des Spielstands, Aufheben mit der Schaufel,
+    // Admin-Eingriff. Das Setzen schreibt die Refs schon vorher selbst.
+    useEffect(() => { decoPlacementsRef.current = decoPlacements; }, [decoPlacements]);
+    useEffect(() => { decoInventoryRef.current = decoInventory; }, [decoInventory]);
+
     useEffect(() => {
         if (selectedTool) {
-            heldItemRef.current = null;
+            // Werkzeuge zeichnet jeder Client für sich aus `selectedTool`; an die
+            // anderen geht nichts, sonst sähe man die Gießkanne aller Nachbarn.
+            // Die Shotgun ist die Ausnahme — dass die anderen sie sehen, IST der
+            // Witz an ihr. Sie geht deshalb als Hand-Item mit raus.
+            heldItemRef.current = selectedTool === "shotgun" ? SHOTGUN_HAND_ITEM : null;
             return;
         }
         if (selectedSeed) {
@@ -2690,33 +2030,28 @@ export default function GameContainer() {
         }
     }, [selectedTool, toolInventory.plantPots]);
 
-    // ── Personal shop stock helper ────────────────────────────────────────────
-    const initPersonalStock = useCallback((rotation) => {
-        // If we have a saved stock for this exact rotation version, restore it instead of wiping
-        const saved = savedShopStockRef.current;
-        if (saved && saved.version === Number(rotation?.generatedAt)) {
-            setPersonalShopStock(saved.stock);
-            savedShopStockRef.current = null;
-            return;
-        }
+    /**
+     * Ladenbestand aus der Serverantwort übernehmen.
+     *
+     * Der Bestand ist seit v4.0 GLOBAL und gehört dem Server: alle teilen sich
+     * einen Vorrat je Sorte. Vorher hatte jeder Spieler seinen eigenen, der Browser
+     * hat ihn selbst heruntergezählt und im Spielstand mitgeführt — geprüft hat ihn
+     * nie jemand. Der gespeicherte Bestand aus alten Ständen (`shopStock`) wird
+     * deshalb bewusst NICHT mehr wiederhergestellt; er würde den echten überschreiben.
+     */
+    const uebernimmBestand = useCallback((rotation, angefordertAm = Infinity) => {
+        // Eine Antwort, die VOR dem letzten Kauf losgeschickt wurde, kennt diesen
+        // Kauf noch nicht. Sie trägt damit den Stand von davor und würde die frisch
+        // abgezogene Zahl wieder hochsetzen — genau das Zurückspringen, das man nach
+        // dem Kaufen kurz sah. Der Laden fragt alle vier Sekunden nach; die Chance,
+        // dass ein Klick genau in eine laufende Abfrage fällt, ist entsprechend hoch.
+        if (angefordertAm < letzterKaufAtRef.current) return;
         const stock = {};
         for (const s of rotation?.seeds || []) {
-            stock[s.seedId] = s.active ? (s.stockPerPlayer ?? 5) : 0;
+            stock[s.seedId] = s.active ? Math.max(0, Number(s.stock) || 0) : 0;
         }
-        setPersonalShopStock(stock);
+        setLadenBestand(stock);
     }, []);
-
-    // Gespeicherten Ladenbestand übernehmen, sobald BEIDES da ist — die Rotation und
-    // der Spielstand. `ladenbestandGeladen` muss deshalb in den Abhängigkeiten stehen:
-    // welche der beiden Anfragen zuerst antwortet, ist reines Rennen.
-    useEffect(() => {
-        if (savedShopStockRef.current && shopRotation?.generatedAt) {
-            if (savedShopStockRef.current.version === Number(shopRotation.generatedAt)) {
-                setPersonalShopStock(savedShopStockRef.current.stock);
-            }
-            savedShopStockRef.current = null;
-        }
-    }, [shopRotation?.generatedAt, ladenbestandGeladen]);
 
     useEffect(() => {
         if (savedToolShopStockRef.current && toolShopRotation?.generatedAt) {
@@ -2743,15 +2078,18 @@ export default function GameContainer() {
         let rotationTimer = null;
         const fetchGlobalShop = async () => {
             try {
+                // Vor dem Abschicken merken: nur so lässt sich hinterher erkennen,
+                // ob zwischenzeitlich ein eigener Kauf durchging (siehe uebernimmBestand).
+                const angefordertAm = Date.now();
                 const data = await apiCall("/global-shop");
                 const now = Date.now();
 
                 setShopRotationIfChanged(data.shopRotation || null);
                 const seedGen = data.shopRotation?.generatedAt;
-                if (Number(seedGen) !== personalShopSeededForGenAtRef.current) {
-                    initPersonalStock(data.shopRotation);
-                    personalShopSeededForGenAtRef.current = Number(seedGen);
-                }
+                // Bei JEDER Antwort übernehmen, nicht nur beim Rotationswechsel:
+                // der Vorrat ist global und sinkt zwischendurch, weil andere kaufen.
+                uebernimmBestand(data.shopRotation, angefordertAm);
+                bestandFuerRotationRef.current = Number(seedGen);
                 const seedKey = String(data.shopRotation?.generatedAt || "");
                 if (seedKey && seedRotationKeyRef.current && seedRotationKeyRef.current !== seedKey) {
                     announceRotation("Samen-Shop hat rotiert");
@@ -2780,6 +2118,32 @@ export default function GameContainer() {
                     toolNextRotationAtRef.current = Number(data.nextToolRotation || data.toolShopRotation.nextRotation || 0);
                 }
 
+                // Server-Wahrheit bei JEDER Antwort übernehmen, nicht nur beim
+                // Rotationswechsel (genau wie uebernimmBestand für Samen oben) —
+                // sonst korrigiert sich ein einmal verdrehter Bestand (siehe
+                // handleBuyTool) erst wieder nach zehn Minuten von selbst. Nur die
+                // Sorten mit echtem Kontingent (plant_pot, watering_can): Spitzhacke
+                // und Rucksack sind absichtlich unbegrenzt, ihr `stock` aus
+                // werkzeugladen ist dafür nicht gedacht.
+                if (Array.isArray(data.werkzeugladen) && angefordertAm >= letzterToolKaufAtRef.current) {
+                    const mitKontingent = new Set(
+                        (data.toolShopRotation?.items || [])
+                            .filter((item) => item.type === "single")
+                            .map((item) => item.id),
+                    );
+                    if (mitKontingent.size > 0) {
+                        const naechsterBestand = {};
+                        for (const eintrag of data.werkzeugladen) {
+                            if (mitKontingent.has(eintrag.id) && Number.isFinite(eintrag.stock)) {
+                                naechsterBestand[eintrag.id] = Math.max(0, eintrag.stock);
+                            }
+                        }
+                        if (Object.keys(naechsterBestand).length > 0) {
+                            setToolShopStock((prev) => ({ ...prev, ...naechsterBestand }));
+                        }
+                    }
+                }
+
                 if (data.eggShopRotation) {
                     setEggShopRotation(data.eggShopRotation);
                     const eggKey = String(data.eggShopRotation.generatedAt || "");
@@ -2803,13 +2167,17 @@ export default function GameContainer() {
                 setToolShopCountdown(Math.max(0, toolNextRotationAtRef.current - now));
                 setEggShopCountdown(Math.max(0, eggNextRotationAtRef.current - now));
 
+                // Steht der Samenladen offen, häufiger nachfragen: der Vorrat ist
+                // global, andere kaufen währenddessen, und ein Regal, das erst nach
+                // 30 Sekunden leer wird, schickt einen bloss in „ausverkauft".
+                const takt = ladenOffenRef.current === "seed" ? 4_000 : 30_000;
                 const nextTimerMs = Math.max(1500, Math.min(
                     ...[
                         seedNextRotationAtRef.current,
                         toolNextRotationAtRef.current,
                         eggNextRotationAtRef.current,
                     ].filter(Boolean).map(ts => Math.max(0, ts - now)),
-                    30_000
+                    takt
                 ));
                 rotationTimer = setTimeout(fetchGlobalShop, nextTimerMs + 200);
             } catch {
@@ -2818,8 +2186,8 @@ export default function GameContainer() {
                 if (!shopRotation?.generatedAt) {
                     const fallback = generateShopRotation(8);
                     setShopRotationIfChanged(fallback);
-                    initPersonalStock(fallback);
-                    personalShopSeededForGenAtRef.current = Number(fallback.generatedAt);
+                    uebernimmBestand(fallback);
+                    bestandFuerRotationRef.current = Number(fallback.generatedAt);
                     seedNextRotationAtRef.current = Date.now() + SHOP_ROTATION_MS;
                     setShopCountdown(SHOP_ROTATION_MS);
                 }
@@ -2828,7 +2196,7 @@ export default function GameContainer() {
         };
         fetchGlobalShop();
         return () => clearTimeout(rotationTimer);
-    }, [showLobbyScreen, apiCall, initPersonalStock, announceRotation, setShopRotationIfChanged]);
+    }, [showLobbyScreen, apiCall, uebernimmBestand, announceRotation, setShopRotationIfChanged]);
 
     // Einmaliger Nachlade-Versuch, falls beim Betreten noch keine Rotation da ist.
     //
@@ -2852,11 +2220,11 @@ export default function GameContainer() {
                 if (!data?.shopRotation) return;
                 setShopRotationIfChanged(data.shopRotation);
                 const now = Date.now();
-                const seedGen = data.shopRotation?.generatedAt;
-                if (Number(seedGen) !== personalShopSeededForGenAtRef.current) {
-                    initPersonalStock(data.shopRotation);
-                    personalShopSeededForGenAtRef.current = Number(seedGen);
-                }
+                // Wie im regulären Poller: der Vorrat ist global und gehört dem
+                // Server, also wird er bei jeder Antwort übernommen statt nur beim
+                // Rotationswechsel.
+                uebernimmBestand(data.shopRotation);
+                bestandFuerRotationRef.current = Number(data.shopRotation?.generatedAt);
                 seedNextRotationAtRef.current = Number(data.nextRotation || data.shopRotation?.nextRotation || 0);
                 if (data.toolShopRotation) {
                     setToolShopRotation(data.toolShopRotation);
@@ -2871,13 +2239,20 @@ export default function GameContainer() {
                 setEggShopCountdown(Math.max(0, eggNextRotationAtRef.current - now));
             })
             .catch(() => { shopBootstrapTriedRef.current = false; });
-    }, [showLobbyScreen, shopRotation?.seeds?.length, apiCall, initPersonalStock, setShopRotationIfChanged]);
+    }, [showLobbyScreen, shopRotation?.seeds?.length, apiCall, uebernimmBestand, setShopRotationIfChanged]);
 
     useEffect(() => {
         if (showLobbyScreen) return;
         if (!shopRotation?.generatedAt) return;
         const rotationKey = String(shopRotation.generatedAt);
-        const nextWeather = rollWeatherFromRotation(rotationKey);
+        // Von Hand gesetztes Wetter schlägt die Rotation, solange es läuft. Der
+        // Rotationsschlüssel bleibt trotzdem der Anker für `startedAt`, damit die
+        // Intensitätsrampe nicht bei jedem Poll neu anfängt.
+        const uebersteuert = weltUebersteuerung.wetterTyp
+            && (Number(weltUebersteuerung.wetterBis) || 0) > Date.now()
+            ? WEATHER_BY_ROLL.find((w) => w.type === weltUebersteuerung.wetterTyp)
+            : null;
+        const nextWeather = uebersteuert || rollWeatherFromRotation(rotationKey);
         setWeatherState((prev) => {
             if (prev.type === nextWeather.type && prev.label === nextWeather.label && prev.startedAt === Number(rotationKey)) return prev;
             if (nextWeather.type === "rain") playSound("rain", 0.4);
@@ -2888,7 +2263,7 @@ export default function GameContainer() {
                 startedAt: Number(rotationKey) || Date.now(),
             };
         });
-    }, [showLobbyScreen, shopRotation?.generatedAt, notify, playSound]);
+    }, [showLobbyScreen, shopRotation?.generatedAt, weltUebersteuerung.wetterTyp, weltUebersteuerung.wetterBis, notify, playSound]);
 
     useEffect(() => {
         if (showLobbyScreen) return undefined;
@@ -2901,6 +2276,47 @@ export default function GameContainer() {
         }, 120);
         return () => clearInterval(timer);
     }, [showLobbyScreen, weatherState?.type]);
+
+    /**
+     * Uhrzeit und Party-Countdown fürs HUD — einmal je Sekunde.
+     *
+     * Der Renderer holt sich Dunkelheit und Party-Stärke jedes Bild direkt aus der Uhr
+     * (siehe drawState). Hier geht es nur um die Anzeige; ein Update je Bild würde die
+     * ganze Komponente sechzigmal pro Sekunde neu rendern.
+     */
+    useEffect(() => {
+        if (showLobbyScreen) return undefined;
+        let warParty = tagesInfoRef.current.party;
+        const lauf = () => {
+            const now = Date.now();
+            const p = partyStand(now);
+            const vonHand = Number(weltRef.current?.partyBis) || 0;
+            const naechste = {
+                uhrzeit: spielUhrzeit(now),
+                nacht: istNacht(now),
+                party: p.aktiv || vonHand > now,
+                verbleibendMs: Math.max(p.aktiv ? p.verbleibendMs : 0, vonHand > now ? vonHand - now : 0),
+                // Der Beginn bleibt über die ganze Party derselbe und ist damit der
+                // stabile Anker für die Titelwahl — `now` wäre es nicht.
+                partyBeginn: p.beginn,
+            };
+            setTagesInfo((alt) => (
+                alt.uhrzeit === naechste.uhrzeit && alt.nacht === naechste.nacht
+                    && alt.party === naechste.party && alt.partyBeginn === naechste.partyBeginn
+                    && Math.round(alt.verbleibendMs / 1000) === Math.round(naechste.verbleibendMs / 1000)
+                    ? alt : naechste
+            ));
+            if (naechste.party !== warParty) {
+                warParty = naechste.party;
+                notify(naechste.party
+                    ? `Partyzeit! „${partyTrack(naechste.partyBeginn).name}" läuft — Rainbow ist ${PARTY_RAINBOW_FAKTOR}× so wahrscheinlich.`
+                    : "Die Party ist vorbei. Rainbow ist wieder so selten wie sonst.");
+            }
+        };
+        lauf();
+        const timer = setInterval(lauf, 1000);
+        return () => clearInterval(timer);
+    }, [showLobbyScreen, notify]);
 
     useEffect(() => {
         if (showLobbyScreen) return undefined;
@@ -2973,12 +2389,37 @@ export default function GameContainer() {
         setChatUngelesen(Math.max(0, chatVerlauf.length - chatGesehenRef.current));
     }, [chatVerlauf.length, istChatOffen]);
 
-    // Immer die neueste Zeile zeigen. Ohne das steht man nach dem Öffnen oben im
-    // Verlauf und sieht ausgerechnet das nicht, worauf gerade geantwortet wird.
+    /**
+     * Immer die neueste Zeile zeigen.
+     *
+     * Vorher hing das an einem leeren Anker-`div` am Listenende und an
+     * `scrollIntoView`. Zwei Dinge gingen dabei schief:
+     *
+     *   1. Der Effekt lief nur, wenn sich die ANZAHL der Zeilen ändert. Ab 80
+     *      Nachrichten fällt vorne eine heraus, sobald hinten eine dazukommt
+     *      (CHAT_VERLAUF_MAX in useGardenLobby.js) — die Länge bleibt gleich, der
+     *      Effekt schweigt, und der Chat scrollt nicht mehr mit.
+     *   2. `scrollIntoView` scrollt JEDEN scrollbaren Vorfahren mit und riss dabei
+     *      auch die Seite darunter mit.
+     *
+     * Jetzt wird die Fläche selbst gescrollt, und zwar an der ID der letzten
+     * Nachricht statt an der Anzahl. Wer hochgescrollt hat, um etwas nachzulesen,
+     * wird dabei nicht weggerissen: nachgezogen wird nur, wenn die Ansicht ohnehin
+     * schon unten klebt.
+     */
+    const letzteChatId = chatVerlauf[chatVerlauf.length - 1]?.id || null;
     useEffect(() => {
         if (!istChatOffen) return;
-        chatEndeRef.current?.scrollIntoView({ block: "end" });
-    }, [istChatOffen, chatVerlauf.length]);
+        const liste = chatListeRef.current;
+        if (!liste) return;
+        if (!chatAmEndeRef.current) return;
+        liste.scrollTop = liste.scrollHeight;
+    }, [istChatOffen, letzteChatId, chatVerlauf.length]);
+
+    // Beim Öffnen immer ganz nach unten — egal, wo man beim letzten Mal stand.
+    useEffect(() => {
+        if (istChatOffen) chatAmEndeRef.current = true;
+    }, [istChatOffen]);
 
     // Universal countdown from absolute next-rotation timestamps
     //
@@ -2988,6 +2429,8 @@ export default function GameContainer() {
     // Projekt — jede Sekunde komplett neu aufbauen lassen, auch wenn niemand einen
     // Laden offen hatte. Beim Öffnen wird sofort gesetzt, damit nicht erst eine
     // Sekunde lang der alte Stand steht.
+    useEffect(() => { ladenOffenRef.current = activeShop; }, [activeShop]);
+
     useEffect(() => {
         if (showLobbyScreen || !activeShop) return undefined;
         const aktualisiere = () => {
@@ -3020,11 +2463,17 @@ export default function GameContainer() {
                 return;
             }
 
-            // Deko in der Hand spiegeln. Der Fußabdruck bleibt dabei gleich — nur so
-            // landet ein Objekt immer dort, wo man hinklickt (siehe DECO-Kommentar oben).
+            // Deko in der Hand spiegeln — oder, bei einem Bodenbelag, drehen. Der
+            // Fußabdruck bleibt so oder so gleich (Beläge sind immer 1×1): nur so
+            // landet ein Objekt immer dort, wo man hinklickt (siehe DECO-Kommentar
+            // oben). Dieselbe Taste macht bei Belägen bewusst etwas anderes, weil
+            // Spiegeln dort optisch fast nie sichtbar ist (Texturen sind meist
+            // links-rechts symmetrisch) — Drehen dagegen ist genau das, was einen
+            // Weg auch hochkant verlegbar macht.
             if (e.code === "KeyR" && !e.repeat && selectedDecoToPlaceRef.current) {
                 e.preventDefault();
-                setDecoGespiegelt((prev) => !prev);
+                if (istBoden(selectedDecoToPlaceRef.current)) setDecoRotiert((prev) => !prev);
+                else setDecoGespiegelt((prev) => !prev);
                 return;
             }
             
@@ -3052,6 +2501,7 @@ export default function GameContainer() {
                 if (e.code === "Digit2" && (inv.plantPots || 0) > 0) equip("pot");
                 if (e.code === "Digit3" && (inv.pickaxeUses || 0) > 0) equip("pickaxe");
                 if (e.code === "Digit4" && (inv.wateringCans || 0) > 0) equip("watering");
+                if (e.code === "Digit5" && istGartenAdminRef.current) equip("shotgun");
             }
 
             if (!e.shiftKey || e.repeat) return;
@@ -3129,62 +2579,89 @@ export default function GameContainer() {
             const { input, renderer, player } = engine;
             input.update(); // flush key events
 
-            // ── SMOOTH MOVEMENT ──────────────────────────────────────────────//
-            const { dx, dy } = input.getMovement();
-            const isMoving = dx !== 0 || dy !== 0;
-            player.isMoving = isMoving;
+            // ── TILE-SPRUNG-BEWEGUNG ─────────────────────────────────────────
+            // Ersetzt die vorherige kontinuierliche vx/vy-Bewegung: ein Tastendruck
+            // ist jetzt EIN Sprung zur Nachbarkachel (TILE_SIZE), kein Dauerlauf.
+            // `player.tileX/tileY` ist die logische, SOFORTIGE Kachel (Kollision
+            // prüft dagegen); `player.x/y` bleibt die gerenderte Position und
+            // tweent weich zur neuen Kachelmitte — Kamera, Nähe-Prüfung
+            // (INTERACT_DIST weiter unten) und sendMove lesen unverändert nur x/y
+            // und merken vom Sprung selbst nichts.
+            // Prüft + startet (falls möglich) einen Sprung in Richtung dx/dy ab der
+            // AKTUELLEN gerenderten Position. Eigene Funktion, weil sie jetzt an
+            // zwei Stellen gebraucht wird: normaler Sprungstart UND frühes Abbiegen
+            // (siehe unten) — beide teilen dieselbe Grenz-/Kollisionsprüfung.
+            const versucheSprung = (dx, dy) => {
+                const targetTileX = (player.tileX ?? 0) + dx;
+                const targetTileY = (player.tileY ?? 0) + dy;
+                const targetX = targetTileX * TILE_SIZE + TILE_SIZE / 2;
+                const targetY = targetTileY * TILE_SIZE + TILE_SIZE / 2;
 
-            // 🌟 NEU: Blickrichtung anhand des Inputs speichern
-            if (dx > 0) player.facingRight = true;
-            else if (dx < 0) player.facingRight = false;
+                const margin = 20;
+                const inBounds = targetX >= margin && targetX <= l.worldWidth - margin
+                    && targetY >= margin && targetY <= l.worldHeight - margin;
+                if (!inBounds) return;
 
-            // Apply velocity with smooth acceleration
-            const targetVX = dx * PLAYER_SPEED;
-            const targetVY = dy * PLAYER_SPEED;
-            const lerp = 1 - Math.pow(1 - 0.25, deltaFactor);
-            player.vx += (targetVX - player.vx) * lerp;
-            player.vy += (targetVY - player.vy) * lerp;
+                // Dieselben Ausschlussradien wie vorher beim weichen Wegdrücken —
+                // nur wird jetzt der SPRUNG verweigert, statt die Position im
+                // Nachhinein zurückzuschieben: auf der Zielkachel darf kein
+                // Ladenstand/Gebäude "im Weg stehen".
+                for (const area of Object.values(engine.areas || {})) {
+                    if (area?.aktiv === false) continue;
+                    const minDist = COLLISION_RADIUS_BY_AREA_TYPE[area?.type];
+                    if (!minDist) continue;
+                    if (Math.hypot(targetX - area.x, targetY - area.y) < minDist) return;
+                }
 
-            // Zero out tiny residual velocity (prevents drift)
-            if (Math.abs(player.vx) < 0.05) player.vx = 0;
-            if (Math.abs(player.vy) < 0.05) player.vy = 0;
+                if (dx > 0) player.facingRight = true;
+                else if (dx < 0) player.facingRight = false;
 
-            // Apply movement
-            let nextX = player.x + player.vx * deltaFactor;
-            let nextY = player.y + player.vy * deltaFactor;
-
-            // World boundary clamp
-            const margin = 20;
-            nextX = Math.max(margin, Math.min(l.worldWidth - margin, nextX));
-            nextY = Math.max(margin, Math.min(l.worldHeight - margin, nextY));
-            
-            // 1. ANPASSUNG: Größere Kollisionsradien für die Gebäude
-            const collisionRadiusByType = {
-                seed: 130,
-                tool: 130,
-                egg: 130,
-                deco: 130,
-                market: 130,
-                petMarket: 115,
-                incubator: 65,
-                trash: 55,
-                chest: 55,
-                vitrine: 60,
+                player.tileX = targetTileX;
+                player.tileY = targetTileY;
+                player.hopFromX = player.x;
+                player.hopFromY = player.y;
+                player.hopToX = targetX;
+                player.hopToY = targetY;
+                player.hopStart = now;
+                player.hopping = true;
+                player.hopDx = dx;
+                player.hopDy = dy;
             };
-            for (const area of Object.values(engine.areas || {})) {
-                if (area?.aktiv === false) continue;
-                const minDist = collisionRadiusByType[area?.type];
-                if (!minDist) continue;
-                const dxToPlayer = nextX - area.x;
-                const dyToPlayer = nextY - area.y;
-                const dist = Math.hypot(dxToPlayer, dyToPlayer) || 0.0001;
-                if (dist >= minDist) continue;
-                const scale = minDist / dist;
-                nextX = area.x + dxToPlayer * scale;
-                nextY = area.y + dyToPlayer * scale;
+
+            if (!player.hopping) {
+                const hop = input.consumeHop(MAP_CONFIG.hopRepeatMs);
+                if (hop) versucheSprung(hop.dx, hop.dy);
+            } else if (now - player.hopStart >= MAP_CONFIG.hopMs * FRUEHES_ABBIEGEN_AB) {
+                // Frühes Abbiegen (Feedback 28.08.: Richtungswechsel sollen sich
+                // "flüssiger" anfühlen) — ab einem Teil der Sprungstrecke darf eine
+                // FRISCH gedrückte, ANDERE Richtung den laufenden Sprung sofort
+                // ablösen, statt bis zur Kachelmitte zu warten. peekFreshDirection
+                // fasst dabei bewusst nicht dieselbe Wiederhol-Uhr an wie consumeHop
+                // (siehe dort) — ein bloß gehaltener Zweitschlüssel bleibt also ruhig.
+                const richtung = input.peekFreshDirection();
+                if (richtung && (richtung.dx !== player.hopDx || richtung.dy !== player.hopDy)) {
+                    versucheSprung(richtung.dx, richtung.dy);
+                }
             }
-            player.x = nextX;
-            player.y = nextY;
+
+            let isMoving = false;
+            if (player.hopping) {
+                const t = Math.min(1, (now - player.hopStart) / MAP_CONFIG.hopMs);
+                const eased = 1 - (1 - t) * (1 - t); // ease-out: schneller Start, sanftes Einbremsen
+                player.x = player.hopFromX + (player.hopToX - player.hopFromX) * eased;
+                player.y = player.hopFromY + (player.hopToY - player.hopFromY) * eased;
+                // Kleiner Hüpfer nach oben während des Sprungs, rein optisch (Renderer
+                // liest player.hopBob als zusätzlichen Y-Versatz beim Zeichnen).
+                player.hopBob = Math.sin(t * Math.PI) * MAP_CONFIG.hopBobPx;
+                isMoving = true;
+                if (t >= 1) {
+                    player.hopping = false;
+                    player.x = player.hopToX;
+                    player.y = player.hopToY;
+                    player.hopBob = 0;
+                }
+            }
+            player.isMoving = isMoving;
 
             // ── INTERACTION PROXIMITY + E/SPACE ─────────────────────────────
             // Kein Objekt-Spread pro Frame mehr: nur die Referenz auf das nächste Areal
@@ -3201,10 +2678,8 @@ export default function GameContainer() {
                 }
             }
 
-            // Gebäude der anderen: einmal pro Bild aus den Momentaufnahmen aufbauen.
-            // Ein Grundstück ohne seine vier Bauten sah leer aus, obwohl der Nachbar
-            // sie längst umgestellt hatte — jetzt steht bei allen dasselbe da.
-            // Anlaufbar ist trotzdem nur die Vitrine: was in Inkubator, Mülleimer und
+            // Schuppen der anderen: einmal pro Bild aus den Momentaufnahmen aufbauen.
+            // Anlaufbar ist nur, wenn er eine Vitrine enthält — was in Mülleimer und
             // Kiste liegt, geht niemanden außer dem Besitzer etwas an.
             fremdeGebaeude.length = 0;
             for (const [slotIndex, snapshot] of plotsRef.current) {
@@ -3214,22 +2689,25 @@ export default function GameContainer() {
                 const stellen = berechneGebaeudePositionen(fremdSlot, snapshot.gebaeudeVersatz);
                 const besitzer = snapshot.owner || "unbekannt";
                 for (const art of FREMDE_GEBAEUDE) {
-                    // Kiste und Vitrine erscheinen erst nach dem Kauf; Inkubator und
-                    // Mülleimer hat jeder von Anfang an.
+                    // Der Schuppen erscheint nur, wenn wenigstens die Vitrine gekauft ist —
+                    // sonst stünde bei jedem Neuling ein Gebäude ohne jeden Inhalt herum.
                     if (art.key === "vitrine" && !snapshot.vitrine) continue;
-                    if (art.key === "chest" && snapshot.hasChest !== true) continue;
-                    const stelle = stellen[art.key];
+                    const stelle = stellen.shed;
                     const bufKey = `${slotIndex}_${art.key}`;
                     const eintrag = fremdeGebaeudeBufs[bufKey] || (fremdeGebaeudeBufs[bufKey] = {
                         // `type` steuert die Bedienung, `art` das Aussehen — siehe bauart() im Renderer.
-                        type: art.type, art: art.key,
-                        label: "", image: AREA_IMAGES[art.key], owner: null, items: [],
+                        type: art.type, art: "shed",
+                        label: "", image: AREA_IMAGES.shed, owner: null, items: [],
                     });
                     eintrag.x = stelle.x;
                     eintrag.y = stelle.y;
                     eintrag.fussY = stelle.fussY;
                     eintrag.owner = snapshot.owner || null;
                     eintrag.label = `${art.name} von ${besitzer}`;
+                    // Reskin des Besitzers (core/reskins.js) — kommt mit der
+                    // Momentaufnahme, dieselbe Quelle wie snapshot.reskins.mailbox
+                    // beim eigenen Briefkasten-Zweig weiter unten.
+                    eintrag.image = SHED_RESKIN_BILD[snapshot.reskins?.shed] || AREA_IMAGES.shed;
                     fremdeGebaeude.push(eintrag);
                     if (!art.anlaufbar) continue;
                     eintrag.items = snapshot.vitrine.items || [];
@@ -3376,6 +2854,10 @@ export default function GameContainer() {
                         buf.unlockedCells = snapshot.plotUnlockedCells;
                         buf.owner = snapshot.owner;
                         buf.hasMail = snapshot.hasMail;
+                        buf.mailboxReskin = snapshot.reskins?.mailbox || null;
+                        // Farm-Schild bekommt denselben Skin wie die Nametag über dem
+                        // Kopf (Feedback 01.09.) — siehe _drawSign in Renderer.js.
+                        buf.nameplateReskin = snapshot.reskins?.nameplate || null;
                         slotsBuf[i] = buf;
                         // Tiere und Deko der anderen einsammeln — der Renderer bekommt
                         // sie als eine Liste und sortiert sie ueber `slotIndex` selbst
@@ -3395,7 +2877,20 @@ export default function GameContainer() {
                 mySlotBuf.plants = visiblePlants;
                 mySlotBuf.currentExpansions = plotExpansionsRef.current;
                 mySlotBuf.unlockedCells = plotUnlockedCellsRef.current;
+                // Eigener Briefkasten-Reskin — Nachbarn lesen ihren aus der
+                // Momentaufnahme (siehe foreign-Zweig oben), hier ist es der
+                // eigene, lokal ausgerüstete Stand.
+                mySlotBuf.mailboxReskin = meineReskinsRef.current.mailbox;
+                // Eigenes Farm-Schild — derselbe ausgerüstete Nameplate-Reskin wie
+                // die Nametag über dem Kopf (Feedback 01.09.: "synchronisieren").
+                mySlotBuf.nameplateReskin = meineReskinsRef.current.nameplate;
                 slotsBuf[i] = mySlotBuf;
+                // Eigener Schuppen-Reskin — JEDEN Frame statt einmalig in
+                // ladeGoldShop, sonst überschreiben die Positions-Effekte
+                // (a.shed.image = AREA_IMAGES.shed) die Zuweisung wieder.
+                if (engine.areas?.shed) {
+                    engine.areas.shed.image = SHED_RESKIN_BILD[meineReskinsRef.current.shed] || AREA_IMAGES.shed;
+                }
             }
 
             // ── MITSPIELER ───────────────────────────────────────────────────
@@ -3429,6 +2924,11 @@ export default function GameContainer() {
             drawState.selectedTool = selectedToolRef.current;
             drawState.heldItem = activeHeldItem; // Hier übergeben wir das frisch berechnete Item
             drawState.weather = weatherStateRef.current;
+            // Tageszeit und Party kommen aus der Uhr, nicht aus React-State: sie
+            // ändern sich stetig, und ein State-Update je Bild würde die ganze
+            // 8000-Zeilen-Komponente sechzigmal pro Sekunde neu rendern.
+            drawState.nacht = tagesDunkelheit(Date.now());
+            drawState.party = partyStaerkeJetzt(Date.now());
             drawState.renderProfile = renderProfileRef.current;
             // Eigene und fremde Tiere/Deko in einer Liste: der Renderer sortiert sie
             // ueber `slotIndex` auf die Grundstuecke und in die Tiefensortierung ein.
@@ -3447,6 +2947,7 @@ export default function GameContainer() {
             drawState.localPlayerName = localPlayerNameRef.current;
             drawState.playerAppearance = appearanceRef.current;
             drawState.playerBadge = playerBadgeRef.current;
+            drawState.playerNameplate = meineReskinsRef.current.nameplate;
             drawState.remotePlayers = remotes;
             // Raster nur über dem EIGENEN Grundstück; slot.id ist der Index + 1.
             drawState.editorSlotId = editorAktivRef.current ? mySlotRef.current + 1 : null;
@@ -3527,7 +3028,7 @@ export default function GameContainer() {
             inventory, plotPlants, plotExpansions, plotUnlockedCells,
             eggInventory, petInventory, petPlacements, decoInventory, decoPlacements,
             toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch,
-            shopStock: personalShopStock,
+            shopStock: ladenBestand,
             shopStockVersion: shopRotation?.generatedAt,
             toolShopStock: toolShopStock,
             toolShopStockVersion: toolShopRotation?.generatedAt,
@@ -3535,8 +3036,9 @@ export default function GameContainer() {
             eggShopStockVersion: eggShopRotation?.generatedAt,
             appearance: playerAppearance,
             tutorialCompleted,
+            [ACKERRASTER_MARKE]: ackerRasterMigriert,
         };
-    }, [gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, personalShopStock, shopRotation?.generatedAt, toolShopStock, toolShopRotation?.generatedAt, eggShopStock, eggShopRotation?.generatedAt, playerAppearance, tutorialCompleted]);
+    }, [gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, ladenBestand, shopRotation?.generatedAt, toolShopStock, toolShopRotation?.generatedAt, eggShopStock, eggShopRotation?.generatedAt, playerAppearance, tutorialCompleted, ackerRasterMigriert]);
 
     const debouncedSave = useCallback(() => {
         clearTimeout(saveTimeoutRef.current);
@@ -3693,6 +3195,96 @@ export default function GameContainer() {
     }, [showLobbyScreen, isInitialLoadDone, mySlotIndex, decoPlacements, petPlacements,
         plotUnlockedCells, plotPlants, notify, debouncedSave]);
 
+    /**
+     * Rasterumstellung: Deko, die nach der Verschiebung auf dem Acker steht.
+     *
+     * Der Acker ist um eine halbe Kachel nach rechts gerückt, damit Acker- und
+     * Dekoraster zusammenfallen (siehe dirtOffsetX in engine/MapConfig.js). Rechnerisch
+     * kann dabei nichts ungültig werden — die gesperrten Spalten wurden WENIGER, nicht
+     * mehr. Trotzdem läuft dieser Durchgang einmal je Spielstand: Gärten, die vor der
+     * Ackerprüfung eingerichtet wurden, haben teils Stücke mitten im Feld stehen, und
+     * ein zweites Mal sortiert er sie nicht (Marke im Spielstand).
+     *
+     * Bodenbeläge bleiben, wo sie sind: sie liegen UNTER allem und dürfen den Acker
+     * überziehen — das ist beim Aufstellen ausdrücklich erlaubt.
+     */
+    useEffect(() => {
+        if (showLobbyScreen || !isInitialLoadDone || ackerRasterMigriert) return;
+        if (!Number.isInteger(mySlotIndex) || mySlotIndex < 0) return;
+        const slot = layout.current.slots[mySlotIndex];
+        if (!slot) return;
+        const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
+        const maxTilesX = Math.round(MAP_CONFIG.territoryWidth / TILE_SIZE);
+        const maxTilesY = Math.round(MAP_CONFIG.territoryHeight / TILE_SIZE);
+        const eigene = decoPlacements.filter((d) => d && d.slotIndex === mySlotIndex);
+        const ankerKachel = (d) => ({
+            tx: Math.floor((d.x - slot.x) / TILE_SIZE),
+            ty: Math.floor((d.y - drawY) / TILE_SIZE),
+        });
+        const belegt = new Set();
+        for (const d of eigene) {
+            if (istBoden(d)) continue;
+            for (const k of d.occupiedKeys || [d.gridKey]) if (k) belegt.add(k);
+        }
+        const passt = (tx, ty, w, h) => {
+            for (let dx = 0; dx < w; dx++) {
+                for (let dy = 0; dy < h; dy++) {
+                    const cx = tx + dx;
+                    const cy = ty - dy;
+                    if (cx < 0 || cx >= maxTilesX || cy < 0 || cy >= maxTilesY) return false;
+                    if (belegt.has(`${cx}_${cy}`)) return false;
+                    if (dy === 0 && kachelIstAcker(slot, cx, cy)) return false;
+                }
+            }
+            return true;
+        };
+        // Ringweise nach außen suchen, damit ein verschobenes Stück möglichst nah an
+        // seinem alten Platz stehen bleibt.
+        const freierPlatz = (tx, ty, w, h) => {
+            for (let r = 1; r <= maxTilesY; r++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+                        if (passt(tx + dx, ty + dy, w, h)) return { tx: tx + dx, ty: ty + dy };
+                    }
+                }
+            }
+            return null;
+        };
+
+        let verschoben = 0;
+        const naechste = decoPlacements.map((d) => {
+            if (!d || d.slotIndex !== mySlotIndex || istBoden(d)) return d;
+            const { tx, ty } = ankerKachel(d);
+            if (!kachelIstAcker(slot, tx, ty)) return d;
+            const w = d.width || 1;
+            const h = d.height || 1;
+            for (const k of d.occupiedKeys || [d.gridKey]) if (k) belegt.delete(k);
+            const ziel = freierPlatz(tx, ty, w, h);
+            if (!ziel) { for (const k of d.occupiedKeys || [d.gridKey]) if (k) belegt.add(k); return d; }
+            const occupiedKeys = [];
+            for (let dx = 0; dx < w; dx++) {
+                for (let dy = 0; dy < h; dy++) occupiedKeys.push(`${ziel.tx + dx}_${ziel.ty - dy}`);
+            }
+            for (const k of occupiedKeys) belegt.add(k);
+            verschoben++;
+            return {
+                ...d,
+                x: slot.x + ziel.tx * TILE_SIZE + TILE_SIZE / 2,
+                y: drawY + ziel.ty * TILE_SIZE + TILE_SIZE / 2,
+                occupiedKeys,
+            };
+        });
+
+        setAckerRasterMigriert(true);
+        if (verschoben > 0) {
+            setDecoPlacements(naechste);
+            notify(`Der Acker liegt jetzt im selben Raster wie die Deko — ${verschoben} Stück wurden von der Erde geräumt.`);
+        }
+        debouncedSave();
+    }, [showLobbyScreen, isInitialLoadDone, ackerRasterMigriert, mySlotIndex,
+        decoPlacements, notify, debouncedSave]);
+
     /** Sofort speichern statt in 500 ms — noetig, bevor der Server ueber etwas
      *  entscheiden soll, das bisher nur im Browser steht (z. B. ein Tier). */
     const flushSave = useCallback(async (ueberschreibung) => {
@@ -3732,40 +3324,48 @@ export default function GameContainer() {
      * "Pflanzen nicht anfassen" (z. B. beim Verkaufen).
      */
     /**
-     * Trägt geerntete Stücke ins Logbuch ein: kleinste und größte Größe je Art und
-     * alles an Veredelungen, was einem je untergekommen ist. Reines Nachschlagewerk —
-     * nichts davon beeinflusst Werte, deshalb darf es im Browser geführt werden.
+     * Übernimmt den Logbuch-Eintrag, den der SERVER bei „harvest" mitschickt.
+     *
+     * UMGEBAUT (v2, Punkt 11): stand vorher komplett im Browser — „reines
+     * Nachschlagewerk ohne Spielwert". Seit „Seite komplett" Gold auszahlt
+     * (logbuchAktualisieren in core/economy.js), stimmt dieser Satz nicht mehr:
+     * ein selbst eingetragenes fertiges Logbuch hätte sich sonst bei der
+     * nächsten Ernte irgendeiner Art ausgezahlt. Der Browser übernimmt jetzt nur
+     * noch, was hier ankommt, statt es aus dem geernteten Stück nachzurechnen.
      */
-    const logbuchEintragen = useCallback((stuecke) => {
-        const liste = (Array.isArray(stuecke) ? stuecke : [stuecke]).filter((i) => i?.seedId);
-        if (liste.length === 0) return;
-        setLogbuch((prev) => {
-            const next = { ...prev };
-            let geaendert = false;
-            for (const item of liste) {
-                const alt = next[item.seedId] || { min: null, max: null, effekte: [], anzahl: 0 };
-                const groesse = Number(item.size) || 1;
-                const effekte = new Set(alt.effekte || []);
-                if (item.specialData?.name) effekte.add(item.specialData.name);
-                // Alle Wetter des Stücks, nicht nur das stärkste — sonst fehlt im
-                // Logbuch der Nachweis für jede Kombination, die man je hatte.
-                for (const e of wetterListe(item)) effekte.add(e);
-                next[item.seedId] = {
-                    min: alt.min === null ? groesse : Math.min(alt.min, groesse),
-                    max: alt.max === null ? groesse : Math.max(alt.max, groesse),
-                    effekte: [...effekte],
-                    anzahl: (alt.anzahl || 0) + 1,
-                };
-                geaendert = true;
-            }
-            return geaendert ? next : prev;
-        });
+    const logbuchUebernehmen = useCallback((serverLogbuch) => {
+        if (!serverLogbuch || typeof serverLogbuch !== "object") return;
+        setLogbuch((prev) => ({ ...prev, ...serverLogbuch }));
     }, []);
+
+    /** „Seite komplett": Meldung samt Gold-Betrag, evtl. plus Logbuch-Gesamtbonus. */
+    const logbuchBelohnungMelden = useCallback((belohnungen) => {
+        if (!Array.isArray(belohnungen)) return;
+        for (const b of belohnungen) {
+            if (!b?.seedId) continue;
+            const art = SEED_CATALOGUE.find((s) => s.id === b.seedId);
+            notify(
+                b.komplett
+                    ? `Logbuch komplett! ${art?.name || b.seedId} fertig — +${formatGold(b.belohnung)} Gold (inklusive Gesamtbonus).`
+                    : `${art?.name || b.seedId} im Logbuch komplett — +${formatGold(b.belohnung)} Gold.`,
+            );
+            playSound("cash", 0.6);
+        }
+    }, [notify, playSound]);
 
     const applyEconomy = useCallback((data, zellen) => {
         if (typeof data?.gold === "number") setGold(data.gold);
-        // Der Server nennt bei „harvest" ein Stück, bei „harvestMany" mehrere.
-        if (data?.item || Array.isArray(data?.items)) logbuchEintragen(data.items || data.item);
+        if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
+        // Bug (Feedback 29.08.: "bei Schnellernten kommt kein XP"): der Server
+        // schickt skillStand bei JEDER Aktion mit (siehe gardenGameRoutes.js,
+        // Kommentar dort), applyEconomy hat ihn nur nie gelesen. Level/XP-Leiste
+        // im HUD blieben deshalb nach JEDER Ernte stehen, wo sie vor der Ernte
+        // waren — bei einzelnen Klicks fiel das kaum auf, beim Shift-Ziehen über
+        // ein volles Feld (viele Ernten ohne Zwischenstopp) wirkte es wie "gar
+        // kein XP". Die schwebende "+X XP"-Rückmeldung war die ganze Zeit korrekt.
+        if (data?.skillStand) setSkillStand(data.skillStand);
+        if (data?.logbuch) logbuchUebernehmen(data.logbuch);
+        if (data?.logbuchBelohnungen?.length) logbuchBelohnungMelden(data.logbuchBelohnungen);
         if (Array.isArray(data?.harvestedItems)) setHarvestedItems(hydrateHarvestedItems(data.harvestedItems));
         if (!data?.plotPlants || typeof data.plotPlants !== "object") return;
         if (!zellen) {
@@ -3782,7 +3382,59 @@ export default function GameContainer() {
             }
             return next;
         });
-    }, [normalizePlotPlantsMap, hydratePlantVisuals, logbuchEintragen]);
+    }, [normalizePlotPlantsMap, hydratePlantVisuals, logbuchUebernehmen, logbuchBelohnungMelden]);
+
+    /**
+     * Missionsbelohnung abholen — steht erst hier (statt direkt bei ladeQuests
+     * weiter oben), weil sie applyEconomy aus dem Dependency-Array braucht und
+     * die erst ab dieser Zeile im Render existiert (siehe Kommentar dort).
+     */
+    const questAbholen = useCallback(async (questId) => {
+        try {
+            const data = await apiCall("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "questAbholen", questId }),
+            });
+            applyEconomy(data, []);
+            playSound("cash", 0.6);
+            notify(`${data?.name || "Mission"} abgeschlossen: +${formatGold(data?.belohnungGold || 0)} Gold, +${data?.belohnungXp || 0} XP`);
+            ladeQuests();
+        } catch (err) {
+            notify(err?.message || "Ging nicht.", "error");
+        }
+    }, [apiCall, applyEconomy, notify, playSound, ladeQuests]);
+
+    /**
+     * Gold-Shop: kaufen und ausrüsten — aus demselben Grund wie questAbholen
+     * erst hier (applyEconomy im Dependency-Array).
+     */
+    const reskinKaufen = useCallback(async (kategorie, id) => {
+        try {
+            const data = await apiCall("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "reskinKaufen", kategorie, id }),
+            });
+            applyEconomy(data, []);
+            playSound("cash", 0.6);
+            notify("Gekauft und ausgerüstet.");
+            await ladeGoldShop();
+        } catch (err) {
+            notify(err?.message || "Ging nicht.", "error");
+        }
+    }, [apiCall, applyEconomy, notify, playSound, ladeGoldShop]);
+
+    const reskinAusruesten = useCallback(async (kategorie, id) => {
+        try {
+            const data = await apiCall("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "reskinAusruesten", kategorie, id }),
+            });
+            applyEconomy(data, []);
+            await ladeGoldShop();
+        } catch (err) {
+            notify(err?.message || "Ging nicht.", "error");
+        }
+    }, [apiCall, applyEconomy, notify, ladeGoldShop]);
 
     /**
      * Ernte zwischen Rucksack und Ablage (Kiste/Vitrine) schieben. Beide Seiten
@@ -3850,6 +3502,27 @@ export default function GameContainer() {
         setzer(ref.current);
     }, []);
 
+    /**
+     * Gekaufte Ware SOFORT sichern, nicht über den 500-ms-Sammelspeicher.
+     *
+     * `payServer` bucht das Gold serverseitig ab; die Ware liegt danach bis zum
+     * nächsten Speichervorgang NUR im Browser. Alles, was in diesem Fenster den
+     * Zustand vom Server neu lädt — ein Ernte-Rücksprung nach Netzfehler, der
+     * Versionsabgleich beim Verbinden, ein Admin-Eingriff — verwirft sie, während
+     * das Gold weg bleibt. Genau so ist ein bezahltes legendäres Ei verschwunden.
+     *
+     * Die Überschreibung ist nötig, weil `setState` erst beim nächsten Rendern
+     * wirkt: ohne sie schickte der Speichervorgang den Stand VOR dem Kauf.
+     */
+    const kaufSichern = useCallback(async (feld, naechsterWert) => {
+        try {
+            await flushSave({ [feld]: naechsterWert });
+        } catch {
+            // Auch wenn es hier klemmt, ist der Kauf im Browser-Zustand — der
+            // reguläre Speicherweg holt ihn beim nächsten Versuch nach.
+        }
+    }, [flushSave]);
+
     const handleBuySeed = useCallback(async (seed) => {
         if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuySeedRef.current?.(seed)); return; }
         if (goldRef.current < seed.shopPrice) { notify(`Dafür fehlen dir ${formatGold(seed.shopPrice - goldRef.current)} Gold.`, "error"); return; }
@@ -3862,25 +3535,108 @@ export default function GameContainer() {
             notify("Rucksack voll — kauf ein Upgrade im Tool-Shop.", "error");
             return;
         }
-        if (!reserviere(personalShopStockRef, setPersonalShopStock, seed.seedId)) return;
+        // Vorbelegen, damit schnelle Klickfolgen nicht über den Vorrat hinauslaufen.
+        // Die Wahrheit steht danach trotzdem in der Serverantwort — dieser Zähler
+        // ist nur die Anzeige zwischen Klick und Antwort.
+        if (!reserviere(ladenBestandRef, setLadenBestand, seed.seedId)) return;
+        // Ab hier ist jede Poll-Antwort, die schon unterwegs war, veraltet.
+        letzterKaufAtRef.current = Date.now();
         offeneSamenkaeufeRef.current += 1;
         kaufLaeuftRef.current = true;
+        let antwort;
         try {
-            await payServer(seed.shopPrice);
+            /**
+             * Bestand, Preis und Gold rechnet der SERVER (Aktion `buySeed`).
+             *
+             * Vorher lief hier `payServer(seed.shopPrice)` — eine reine Abbuchung
+             * über den vom Browser genannten Betrag, während der Vorrat nur ein
+             * lokaler Zähler war. Beides war damit vom Client bestimmbar.
+             */
+            antwort = await apiCall("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "buySeed", seedId: seed.seedId }),
+            });
         } catch (err) {
-            gibZurueck(personalShopStockRef, setPersonalShopStock, seed.seedId);
+            gibZurueck(ladenBestandRef, setLadenBestand, seed.seedId);
             offeneSamenkaeufeRef.current = Math.max(0, offeneSamenkaeufeRef.current - 1);
+            // Bei „ausverkauft" schickt der Server den echten Reststand mit — sonst
+            // stünde die Anzeige weiter auf einem Stück, das es nicht mehr gibt.
+            if (typeof err?.data?.stock === "number") {
+                setLadenBestand((prev) => ({ ...prev, [seed.seedId]: Math.max(0, err.data.stock) }));
+            }
             notify(err?.message || "Kauf fehlgeschlagen.", "error");
             return;
         } finally {
             kaufLaeuftRef.current = false;
             naechstenKaufStarten();
         }
-        const boughtSeed = { ...seed, instanceId: Math.random().toString(36).slice(2) };
-        setInventory(inv => [...inv, boughtSeed]);
+        if (typeof antwort?.gold === "number") setGold(antwort.gold);
+        if (typeof antwort?.stock === "number") {
+            // Der Server hat gerade gerechnet — diese Zahl gilt. Der Zeitstempel
+            // wandert mit, damit auch eine Antwort, die WÄHREND des Kaufs unterwegs
+            // war, nicht mehr dazwischenfunkt.
+            letzterKaufAtRef.current = Date.now();
+            setLadenBestand((prev) => ({ ...prev, [seed.seedId]: Math.max(0, antwort.stock) }));
+        }
+        const boughtSeed = { ...seed, ...(antwort?.samen || {}) };
+        const naechstesInventar = [...(farmStateRef.current.inventory || []), boughtSeed];
+        setInventory(naechstesInventar);
         setSelectedSeed(prev => prev || boughtSeed);
-        debouncedSave();
-    }, [gold, notify, debouncedSave, payServer, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten]);
+        await kaufSichern("inventory", naechstesInventar);
+    }, [notify, apiCall, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
+
+    /**
+     * Buy-All (v2, Punkt 12): EIN Request statt denselben Samen im Sekundentakt
+     * einzeln wegzuklicken — siehe kaufeSamenAlle in gardenGameRoutes.js. Prüft
+     * Rucksackplatz vorab genauso wie handleBuySeed, kappt die gewünschte Menge
+     * aber serverseitig ohnehin auf Gold und Vorrat, ein zu hoher Wunsch hier ist
+     * also nie mehr als eine verschwendete Anfrage, nie ein falscher Kauf.
+     */
+    const handleBuySeedAll = useCallback(async (seed) => {
+        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuySeedAllRef.current?.(seed)); return; }
+        const { inventory: inv0, harvestedItems: hi0, inventoryMaxSlots: maxSlots } = farmStateRef.current;
+        const freiePlaetze = (maxSlots || 50) - (inv0?.length || 0) - (hi0?.length || 0) - offeneSamenkaeufeRef.current;
+        if (freiePlaetze <= 0) {
+            notify("Rucksack voll — kauf ein Upgrade im Tool-Shop.", "error");
+            return;
+        }
+        letzterKaufAtRef.current = Date.now();
+        kaufLaeuftRef.current = true;
+        let antwort;
+        try {
+            antwort = await apiCall("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "buySeedAll", seedId: seed.seedId }),
+            });
+        } catch (err) {
+            notify(err?.message || "Kauf fehlgeschlagen.", "error");
+            return;
+        } finally {
+            kaufLaeuftRef.current = false;
+            naechstenKaufStarten();
+        }
+        if (typeof antwort?.gold === "number") setGold(antwort.gold);
+        if (typeof antwort?.stock === "number") {
+            letzterKaufAtRef.current = Date.now();
+            setLadenBestand((prev) => ({ ...prev, [seed.seedId]: Math.max(0, antwort.stock) }));
+        }
+        const gekauft = Array.isArray(antwort?.samenListe) ? antwort.samenListe : [];
+        if (!gekauft.length) return;
+        // Wie beim Rucksackplatz-Vorabcheck: mehr als frei ist, käme vom Server nie
+        // zurück (der prüft dasselbe Limit selbst), das slice() ist nur eine zweite
+        // Absicherung, kein erwarteter Fall.
+        const passendGekauft = gekauft.slice(0, Math.max(0, freiePlaetze));
+        const naechstesInventar = [
+            ...(farmStateRef.current.inventory || []),
+            ...passendGekauft.map((s) => ({ ...seed, ...s })),
+        ];
+        setInventory(naechstesInventar);
+        setSelectedSeed(prev => prev || naechstesInventar[naechstesInventar.length - passendGekauft.length]);
+        notify(`${passendGekauft.length}× ${seed.name} gekauft.`);
+        await kaufSichern("inventory", naechstesInventar);
+    }, [notify, apiCall, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
+
+    useEffect(() => { handleBuySeedAllRef.current = handleBuySeedAll; }, [handleBuySeedAll]);
 
     // Ueber ein Ref, damit ein eingereihter Klick sich selbst nachreichen kann.
     useEffect(() => { handleBuySeedRef.current = handleBuySeed; }, [handleBuySeed]);
@@ -3897,14 +3653,25 @@ export default function GameContainer() {
         // „Grüner Daumen" plus „Wurzelwerk" des Gärtners — dieselbe Rechnung wie
         // serverseitig in wachstumsBonus() (garden/core/economy.js), damit eine von
         // Hand gesetzte Pflanze nicht anders wächst als eine nachgewachsene.
-        const wurzelwerk = getGaertnerStufe(petPlacements, mySlotRef.current) * GAERTNER_WURZELWERK;
+        const wurzelwerk = getGaertnerWurzelwerk(
+            getGaertnerStufe(petPlacements, mySlotRef.current), skillWirkung("zuechter"));
         const plant = wachstumBeschleunigen(
-            createPlantInstance(seedToPlant, cellX, cellY),
+            createPlantInstance(seedToPlant, cellX, cellY, partyLaeuftJetzt()),
             Math.min(0.8, skillWirkung("gruener_daumen") + wurzelwerk),
             Date.now(),
         );
         setPlotPlants(prev => ({ ...prev, [key]: plant }));
         playSound("plant", 0.5);
+        // v2 (Feedback 28.08.): Pflanz-Wurf — das Tütchen fällt sichtbar auf die
+        // Zelle, statt dass die Pflanze kommentarlos erscheint (siehe spawnSaatWurf).
+        const pflanzMySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
+        const pflanzWeltPos = pflanzMySlot ? getDirtCellWorldPos(pflanzMySlot, cellX, cellY) : null;
+        if (pflanzWeltPos) {
+            engineRef.current?.renderer?.spawnSaatWurf(
+                pflanzWeltPos.x + TILE_SIZE / 2, pflanzWeltPos.y + TILE_SIZE / 2,
+                seedToPlant.seedImage || seedToPlant.image, seedToPlant.emoji,
+            );
+        }
         setInventory(inv => {
             const nextInv = inv.filter(s => s.instanceId !== seedToPlant.instanceId);
             const nextSelected = nextInv.find(s => s.seedId === seedToPlant.seedId) || nextInv[0] || null;
@@ -3959,7 +3726,20 @@ export default function GameContainer() {
             const neueSlots = slots.slice();
             neueSlots[idx] = {
                 ...neueSlots[idx],
-                readyAt: jetzt + (Number(p.fruitCycleMs) || 60000),
+                // ×1,2 statt ×1 (Bug gefunden 01.09.: "beim Anklicken auf Multipflanzen,
+                // die bereits standen, 400 Bad Request"). Der Server würfelt den
+                // nachgewachsenen Fruchtstand bewusst OHNE Seed (neuerFruchtstand in
+                // core/economy.js, ×0,8 bis ×1,2 vom Zyklus — absichtlich nicht
+                // vorhersagbar, siehe Kommentar dort). Diese Vorschau hier riet bisher
+                // glatt ×1 — lag der Server-Wurf darüber (rund die Hälfte der Fälle),
+                // zeigte die Staude sich hier schon reif, während der Server beim
+                // Klick noch "Noch nicht reif."/"Keine reife Frucht." ablehnte. Bei
+                // einem 3-Stunden-Strauch (Blaubeere, Erdbeere) blieb das bis zu 36
+                // Minuten lang so UND wurde bei jedem Klick sofort zurückgerollt (siehe
+                // "veraltet" unten) — die Staude wirkte dauerhaft blockiert. ×1,2 ist die
+                // obere Grenze des Server-Wurfs: die Vorschau darf jetzt spät liegen,
+                // nie mehr zu früh.
+                readyAt: jetzt + Math.round((Number(p.fruitCycleMs) || 60000) * 1.2),
                 statusEffects: [], statusEffect: null, statusEffectUntil: null, specialType: null,
             };
             next[key] = { ...p, fruitSlots: neueSlots };
@@ -3969,6 +3749,65 @@ export default function GameContainer() {
             method: "POST",
             body: JSON.stringify({ action: "harvest", key }),
         });
+        // Weltposition der Zelle für die Rückmeldungsschicht (siehe unten) — einmal
+        // pro Ernte reicht, die Zelle bewegt sich während der Anfrage nicht.
+        const [ernteZellX, ernteZellY] = key.split("_").map(Number);
+        const ernteMySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
+        const ernteWeltPos = ernteMySlot ? getDirtCellWorldPos(ernteMySlot, ernteZellX, ernteZellY) : null;
+
+        /**
+         * Gold-Text, Doppelernte-Hinweis und Nachwuchs-Meldung an der Zelle — die
+         * gemeinsame Rückmeldungsschicht aus engine/Renderer.js (spawnFeedback).
+         */
+        const zeigeErnteFeedback = (data, nachwuchs) => {
+            const renderer = engineRef.current?.renderer;
+            if (!renderer || !ernteWeltPos) return;
+            const x = ernteWeltPos.x + TILE_SIZE / 2;
+            const y = ernteWeltPos.y + TILE_SIZE / 2;
+            // Beim Shift-Klick-Ziehen über ein volles Feld (viele Dauerträger mit
+            // vielen Fruchtständen) läuft diese Funktion dutzendfach in Sekunden —
+            // Feedback: "dann kommt ja alles voller Zahlen". Die Flug-Animation
+            // (ein eigenes Bild pro Ernte, das aufsteigt) fällt während des Ziehens
+            // weiterhin weg — reiner Text ist billig zu zeichnen, ein Dutzend
+            // fliegender Bilder gleichzeitig nicht.
+            //
+            // Die XP-Zahl blieb dabei erst versehentlich mit weg (Feedback 30.08.:
+            // "XP zeigen sich nicht beim Schnellernten") — das war nie Absicht, nur
+            // dieselbe Bedingung wie beim Flug-Bild wiederverwendet. Text kostet
+            // beim Zeichnen so gut wie nichts, die Gold-Zahl blieb ja auch die
+            // ganze Zeit sichtbar — jetzt läuft die XP-Zahl genauso mit.
+            const kompakt = isDragHarvestingRef.current;
+            if (data?.item) {
+                const special = data.item.specialData?.name;
+                const farbe = special === "Rainbow" ? "#f472b6" : special === "Golden" ? "#fde047" : "#fef08a";
+                // Keine Emoji-Icons mehr (siehe Feedback: "sieht billig/nach KI aus") —
+                // Farbe und Text unterscheiden Gold/Golden/Rainbow schon eindeutig.
+                renderer.spawnFeedback(x, y, `+${formatGold(data.item.sellValue)}`, { color: farbe });
+                // XP direkt darunter, in derselben Ernte-Rückmeldung — vorher stand die
+                // Erfahrung nirgends am Ort des Geschehens, nur im Fähigkeitsbaum-Fenster.
+                const xp = Number(data?.erfahrung?.xp) || 0;
+                if (xp > 0) {
+                    renderer.spawnFeedback(x, y + 16, `+${xp} XP`, { color: "#a78bfa", durationMs: 950 });
+                }
+                if (kompakt) return;
+                // v2 (Punkt 13, "Erntesamen-Flug"): das Stück fliegt sichtbar weg,
+                // statt kommentarlos im Rucksack aufzutauchen — siehe spawnItemFlug.
+                // Bild/Emoji kommen von der LOKALEN Pflanze, nicht aus `data.item`:
+                // der Server liefert nur Werte (siehe baueItem in economy.js), keine
+                // Bildpfade — die stehen ausschliesslich im Katalog, den nur der
+                // Client kennt.
+                renderer.spawnItemFlug(x, y, plant.harvestImage || plant.fruitImage || plant.image || plant.growthImage, plant.emoji);
+            }
+            if (data?.zweites) {
+                // Eigene Farbe und leicht versetzt, damit klar ist: DAS ist der Bonus aus
+                // „Reiche Ernte"/Erntehelfer, nicht dieselbe Ernte doppelt angezeigt.
+                renderer.spawnFeedback(x, y - 18, `2× +${formatGold(data.zweites.sellValue)}`, { color: "#c4b5fd" });
+            }
+            if (nachwuchs) {
+                renderer.spawnFeedback(x, y - 32, "Nachwuchs!", { color: "#86efac", durationMs: 1300 });
+            }
+        };
+
         /**
          * Antwort übernehmen, OHNE den eigenen Acker zu verwerfen.
          *
@@ -3986,10 +3825,23 @@ export default function GameContainer() {
         // Ernte rechnet damit weiter, statt auf das nächste Rendern zu warten.
         const uebernehmen = (data) => {
             applyEconomy(data, []);          // Gold und Lager ja, Pflanzen nein
+            zeigeErnteFeedback(data, plant.singleUse !== false && !!data?.singleUseNachwuchs);
             const nach = data?.nachgewachsen;
             if (!Number.isInteger(nach?.index) || !nach?.slot) {
-                // Einmalernte: die Zelle ist schon optimistisch geleert.
-                if (plant.singleUse !== false) return null;
+                if (plant.singleUse !== false) {
+                    // Gärtner-Nachwuchs bei einer Einmalernte: der Server hat die Zelle
+                    // NEU bepflanzt, statt sie leer zu lassen — die optimistische Leerung
+                    // von eben war also zu früh. Ohne das hier stünde die Zelle im Browser
+                    // für immer leer, obwohl der Server längst eine wachsende Pflanze führt
+                    // (nächster Klick auf die vermeintlich reife Zelle: "Noch nicht reif",
+                    // siehe singleUseNachwuchs in garden/core/economy.js).
+                    if (data?.singleUseNachwuchs) {
+                        const hydriert = hydratePlantVisuals(data.singleUseNachwuchs);
+                        setPlotPlants((prev) => ({ ...prev, [key]: hydriert }));
+                        return hydriert;
+                    }
+                    return null;
+                }
                 // Kein Fruchtstand gemeldet (alter Server) — dann wie früher.
                 const vomServer = data?.plotPlants?.[key];
                 if (!vomServer) return null;
@@ -4055,7 +3907,22 @@ export default function GameContainer() {
                     danach = uebernehmen(await ernte());
                     letzteErnteRef.current.set(key, Date.now());
                     return;   // finally raeumt ernteLaeuftRef auf
-                } catch { /* zweiter Versuch auch nein — unten wie gehabt melden */ }
+                } catch {
+                    // Zweiter Versuch auch nein: kein bloßes Überklicken (das ist
+                    // oben schon durch geradeGeerntet abgefangen), sondern ein
+                    // ECHTER, anhaltender Unterschied zwischen dem, was der Browser
+                    // zeigt, und dem, was der Server hat (Feedback 01.09.: "Bohne
+                    // bleibt voll angezeigt, Klick sagt trotzdem Keine reife
+                    // Frucht" — bisher nur durch Neuladen behebbar). Bisher stand
+                    // hier nur ein Kommentar und der Code lief unten in den
+                    // Rückfall, der GENAU DIESE veraltete Ansicht (vorherigerStand)
+                    // wieder hinschrieb — die Pflanze blieb also absichtlich falsch
+                    // reif stehen. Jetzt: ganzen Spielstand vom Server nachziehen,
+                    // dasselbe, was bisher nur ein manuelles Neuladen behoben hat.
+                    ernteWarteschlangeRef.current.delete(key);
+                    await uebernimmVomServer(null);
+                    return;   // finally raeumt ernteLaeuftRef auf
+                }
             }
             setPlotPlants((prev) => ({ ...prev, [key]: vorherigerStand }));
             // Ein Nein gilt für die ganze Warteschlange: sonst hämmert jeder
@@ -4082,134 +3949,286 @@ export default function GameContainer() {
     // Ueber ein Ref, damit die Warteschlange sich selbst aufrufen kann.
     useEffect(() => { handleHarvestRef.current = handleHarvest; }, [handleHarvest]);
 
-    /** Zusätzlichen Tier-Platz kaufen. Gold bucht der Server ab (payServer). */
-    const handleBuyPetSlot = useCallback(async () => {
-        // Einreihen statt verwerfen — dieselbe Behandlung wie bei Samen, Werkzeug
-        // und Eiern. Hier stand `return`, ein Klick während eines laufenden Kaufs
-        // ging also spurlos verloren.
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyPetSlotRef.current?.()); return; }
-        const toolInv = normalizeToolInventory(toolInventoryRef.current || toolInventory);
-        const aktuell = toolInv.petSlots;
-        const preis = getPetSlotPreis(aktuell);
-        if (preis === null) { notify(`Mehr als ${PET_SLOTS_MAX} Plätze gibt es nicht.`, "error"); return; }
-        if (goldRef.current < preis) { notify("Dafür reicht dein Gold nicht.", "error"); return; }
-        // Sofort vormerken, sonst zahlt ein zweiter Klick denselben Platz noch einmal.
-        toolInventoryRef.current = { ...toolInv, petSlots: Math.min(PET_SLOTS_MAX, aktuell + 1) };
-        kaufLaeuftRef.current = true;
+    /**
+     * Sammel-Ernte für das Schnellziehen (Shift + Maustaste über den Acker) —
+     * EIN Aufruf für den GANZEN Zug, egal wie viele Zellen dabei berührt wurden.
+     *
+     * Feedback 30.08. (erste Runde: "Shift-Ziehen erntet mit viel Lag") gab
+     * zunächst harvestAll — ein Aufruf je ZELLE statt je Frucht. Das reichte für
+     * eine einzelne vollbehangene Staude, aber ein Zug über ein volles FELD
+     * berührt viele Zellen: jede Antwort löste weiterhin ihren eigenen
+     * Rendervorgang aus, und trafen dabei auch noch Tier-/Skill-Ereignisse ein
+     * (Feedback 30.08., zweite Runde), summierte sich das spürbar zu Ruckeln.
+     * `ernteBeiZug` sammelt die berührten Zellen jetzt nur noch (siehe
+     * dragErnteSammlungRef) und diese Funktion schickt sie GESAMMELT — genau
+     * EIN Request, EINE Antwort, EIN Rendervorgang, unabhängig von der Anzahl
+     * Zellen (harvestMany, siehe harvestManyCells in core/economy.js).
+     *
+     * Bewusst ein eigener, einfacherer Weg statt eine Erweiterung von
+     * handleHarvest: dessen Warteschlange (ernteLaeuftRef) dient dem
+     * EINZELKLICK — rasch mehrfach dieselbe Zelle antippen.
+     *
+     * @param {Array<[string, object]>} eintraege [key, Pflanzen-Schnappschuss][]
+     */
+    const handleHarvestMany = useCallback(async (eintraege) => {
+        if (!eintraege || eintraege.length === 0) return;
+        playSound("harvest", 0.5);
+        const vorherKarte = new Map(eintraege);
+        const keys = eintraege.map(([key]) => key);
+
         try {
-            await payServer(preis);
+            const data = await apiCall("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "harvestMany", keys }),
+            });
+            applyEconomy(data, []);          // Gold und Lager ja, Pflanzen nein (siehe unten)
+
+            const ernten = data?.ernten && typeof data.ernten === "object" ? data.ernten : {};
+            const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
+            const renderer = engineRef.current?.renderer;
+            let irgendRucksackVoll = false;
+            // Jede Zelle in `ernten` kam aus `eintraege`, weil ernteBeiZug sie schon
+            // LOKAL für reif hielt (isPlantReady dort, vor dem Sammeln). Lehnt der
+            // Server so eine Zelle trotzdem ab, ist das kein normales "zu schnell
+            // gezogen" — das filtert der Zug selbst schon raus, bevor überhaupt
+            // etwas losgeschickt wird — sondern ein echter Unterschied zwischen dem,
+            // was der Browser zeigt, und dem, was der Server hat (Feedback 01.09.:
+            // dieselbe Meldung wie bei handleHarvest, siehe dort für den vollen
+            // Kommentar — "Bohne bleibt voll, obwohl geerntet").
+            let echterMismatch = false;
+            for (const ergebnis of Object.values(ernten)) {
+                if (!ergebnis?.ok && ergebnis?.error && !ergebnis.error.includes("Rucksack")) echterMismatch = true;
+            }
+
+            setPlotPlants((prev) => {
+                let next = prev;
+                let kopiert = false;
+                for (const [key, ergebnis] of Object.entries(ernten)) {
+                    if (!ergebnis?.ok) continue;   // diese eine Zelle war zu schnell dran — die anderen zaehlen trotzdem
+                    const vorherigerStand = vorherKarte.get(key);
+                    if (!vorherigerStand) continue;
+                    letzteErnteRef.current.set(key, Date.now());
+                    if (ergebnis.rucksackVoll) irgendRucksackVoll = true;
+
+                    // Rückmeldung an GENAU DIESER Zelle, nicht eine Sammel-Zahl
+                    // irgendwo auf dem Bildschirm — bei einem vollen Zug soll man
+                    // trotz des gebündelten Requests sehen, WAS wo passiert ist.
+                    if (renderer && mySlot) {
+                        const [cellX, cellY] = key.split("_").map(Number);
+                        const weltPos = getDirtCellWorldPos(mySlot, cellX, cellY);
+                        const x = weltPos.x + TILE_SIZE / 2;
+                        const y = weltPos.y + TILE_SIZE / 2;
+                        const items = Array.isArray(ergebnis.items) ? ergebnis.items : [];
+                        if (items.length > 0) {
+                            const goldSumme = items.reduce((summe, it) => summe + (Number(it?.sellValue) || 0), 0);
+                            renderer.spawnFeedback(x, y, `+${formatGold(goldSumme)}`, { color: "#fef08a" });
+                            const xp = Number(ergebnis.erfahrung?.xp) || 0;
+                            if (xp > 0) renderer.spawnFeedback(x, y + 16, `+${xp} XP`, { color: "#a78bfa", durationMs: 950 });
+                            const besonders = items.find((it) => it?.specialData?.name);
+                            if (besonders) {
+                                const special = besonders.specialData.name;
+                                const farbe = special === "Rainbow" ? "#f472b6" : "#fde047";
+                                renderer.spawnFeedback(x, y - 18, special === "Rainbow" ? "🌈 Rainbow!" : "✨ Golden!",
+                                    { color: farbe, durationMs: 1300 });
+                            }
+                            const bonusAnzahl = Number(ergebnis.bonusAnzahl) || 0;
+                            if (bonusAnzahl > 0) {
+                                renderer.spawnFeedback(x, y - 34, bonusAnzahl > 1 ? `${bonusAnzahl}× Bonus!` : "Bonus!",
+                                    { color: "#c4b5fd", durationMs: 1300 });
+                            }
+                            if (ergebnis.singleUseNachwuchs) {
+                                renderer.spawnFeedback(x, y - 50, "Nachwuchs!", { color: "#86efac", durationMs: 1300 });
+                            }
+                        }
+                    }
+
+                    // Nur die tatsächlich abgeernteten Fruchtstände übernehmen —
+                    // derselbe Grund wie bei handleHarvest (uebernehmen): der Acker
+                    // gehört dem Browser, der Server erreicht ihn nur alle paar
+                    // Sekunden. Vom Stand VOR dem Zug ausgehen, nicht vom aktuellen
+                    // React-State: der kann durch andere, seither abgeschlossene
+                    // Ernten schon weiter sein.
+                    const aenderungen = Array.isArray(ergebnis.aenderungen) ? ergebnis.aenderungen : [];
+                    if (!kopiert) { next = { ...next }; kopiert = true; }
+                    if (aenderungen.length > 0) {
+                        const basisSlots = Array.isArray(vorherigerStand?.fruitSlots) ? vorherigerStand.fruitSlots.slice() : null;
+                        if (basisSlots && next[key]) {
+                            for (const { index, slot } of aenderungen) {
+                                if (Number.isInteger(index) && index < basisSlots.length) basisSlots[index] = slot;
+                            }
+                            next[key] = { ...vorherigerStand, fruitSlots: basisSlots };
+                        }
+                    } else if (ergebnis.singleUseNachwuchs) {
+                        // Gärtner-Nachwuchs bei einer Einmalernte: die Zelle bleibt bepflanzt.
+                        next[key] = hydratePlantVisuals(ergebnis.singleUseNachwuchs);
+                    } else if (vorherigerStand?.singleUse !== false) {
+                        // Einmalernte ohne Nachwuchs: leer, wie der Zug es schon zeigte.
+                        delete next[key];
+                    }
+                }
+                return next;
+            });
+
+            if (irgendRucksackVoll) notify("Rucksack voll — der Rest hängt noch an der Pflanze.", "error");
+            // Statt die falsch reif aussehende(n) Zelle(n) einfach so stehen zu
+            // lassen (das war bisher der Fall — nur ein manuelles Neuladen half),
+            // den ganzen Spielstand vom Server nachziehen.
+            if (echterMismatch) await uebernimmVomServer(null);
         } catch (err) {
-            toolInventoryRef.current = toolInv;
-            notify(err?.message || "Kauf fehlgeschlagen.", "error");
-            return;
-        } finally {
-            kaufLaeuftRef.current = false;
-            naechstenKaufStarten();   // fehlte: eingereihte Klicks blieben liegen
+            const m = err?.message || "Ernte fehlgeschlagen.";
+            // Dieselbe Grosszügigkeit wie bei handleHarvest: "zu schnell gezogen"
+            // (nichts mehr reif, Zelle inzwischen leer) ist beim Schnellziehen der
+            // Normalfall, kein Fehler, den man melden muss. Lehnt der Server aber
+            // den GANZEN Zug ab (kein einziger Treffer, siehe harvestManyCells),
+            // obwohl ernteBeiZug jede gesammelte Zelle vorher für reif hielt, ist
+            // das derselbe echte Mismatch wie oben — auch hier nachziehen.
+            if (m.includes("Rucksack")) notify("Rucksack voll — verkauf erst Ernte oder kauf ein Upgrade.", "error");
+            else if (!m.includes("Noch nicht reif") && !m.includes("Keine reife Frucht") && !m.includes("wächst nichts")) {
+                notify(m, "error");
+            } else {
+                await uebernimmVomServer(null);
+            }
         }
-        setToolInventory((prev) => ({
-            ...normalizeToolInventory(prev),
-            petSlots: Math.min(PET_SLOTS_MAX, normalizeToolInventory(prev).petSlots + 1),
-        }));
-        playSound("cash", 0.5);
-        notify(`Tier-Platz ${aktuell + 1} freigeschaltet.`);
-        debouncedSave();
-    }, [toolInventory, payServer, notify, playSound, debouncedSave, kaufEinreihen, naechstenKaufStarten]);
+    }, [apiCall, applyEconomy, notify, playSound, hydratePlantVisuals, uebernimmVomServer]);
 
-    useEffect(() => { handleBuyPetSlotRef.current = handleBuyPetSlot; }, [handleBuyPetSlot]);
+    /**
+     * Sammlung leeren und abschicken — der einzige Ort, der `handleHarvestMany`
+     * tatsächlich aufruft. Sowohl vom Debounce-Timer (siehe planeDragErnteFlush)
+     * als auch direkt beim Loslassen der Maustaste (siehe stopShovelHold/
+     * onCanvasMove) aufgerufen, deshalb hier gebündelt statt an jeder Stelle
+     * dasselbe Leeren+Aufrufen zu wiederholen.
+     */
+    const flushDragErnte = useCallback(() => {
+        if (dragErnteFlushTimerRef.current) {
+            clearTimeout(dragErnteFlushTimerRef.current);
+            dragErnteFlushTimerRef.current = null;
+        }
+        const sammlung = dragErnteSammlungRef.current;
+        if (sammlung.size === 0) return;
+        const eintraege = Array.from(sammlung.entries());
+        sammlung.clear();
+        handleHarvestMany(eintraege);
+    }, [handleHarvestMany]);
 
+    /**
+     * Nach jeder neu gesammelten Zelle aufgerufen (siehe ernteBeiZug): stößt
+     * einen kurzen Debounce an, statt bei JEDER Zelle sofort abzuschicken —
+     * genau das war ja das ursprüngliche Problem (ein Request je Zelle). Ein
+     * zügiger Zug über viele Zellen sammelt sich so zu wenigen, teils sogar
+     * einem einzigen Request; bleibt die Maus kurz stehen oder endet der Zug,
+     * geht die Sammlung trotzdem zeitnah raus (120ms), fühlt sich also nicht
+     * verzögert an.
+     */
+    const DRAG_ERNTE_FLUSH_MS = 120;
+    const planeDragErnteFlush = useCallback(() => {
+        if (dragErnteFlushTimerRef.current) clearTimeout(dragErnteFlushTimerRef.current);
+        dragErnteFlushTimerRef.current = setTimeout(flushDragErnte, DRAG_ERNTE_FLUSH_MS);
+    }, [flushDragErnte]);
+
+    /**
+     * Werkzeug kaufen — Preis, Vorrat und Gutschrift liegen ALLE beim Server
+     * (garden/core/werkzeug.js).
+     *
+     * Vorher lief das in zwei Schritten: erst Gold abbuchen (`payServer`), dann den
+     * Werkzeugkasten im Browser fortschreiben und speichern. Zwischen beiden lag eine
+     * Lücke, und jeder Weg, der den Browserstand verwirft — Nachladen nach Konflikt,
+     * Migration beim Deploy, zweiter Tab — liess das Gold verschwinden, ohne dass das
+     * Werkzeug ankam. Genau das war „zehn Gießkannen gekauft, sechs bekommen".
+     *
+     * Jetzt ist es EIN Aufruf: der Server bucht ab und trägt ein, oder er tut beides
+     * nicht. Der Ladenbestand hier ist nur noch Anzeige; verbindlich zählt der Server.
+     */
     const handleBuyTool = useCallback(async (tool) => {
         if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyToolRef.current?.(tool)); return; }
-        // Der Besitzstand kommt aus dem Ref, nicht aus dem Render: sonst sieht ein
-        // schneller zweiter Klick noch „Schaufel nicht vorhanden" und zahlt erneut.
-        const toolInv = normalizeToolInventory(toolInventoryRef.current || toolInventory);
-        // 7. ANPASSUNG: Preisweiche
-        // „Bergmann" ist jetzt ein Preisnachlass auf die Spitzhacke (max −30 %).
-        // Als Save-Chance beim Abbau hat er die ANZAHL der Käufe gesenkt und damit
-        // auf der Exponentialkurve rund 90 % der Gesamtkosten gestrichen.
-        const effectivePrice = tool.id === "backpack_upgrade"
-            ? getBackpackUpgradePrice(toolInv.backpackLevel || 0)
-            : tool.id === "pickaxe"
-            ? Math.max(1, Math.floor(getPickaxePrice(toolInv.pickaxesBought || 0) * (1 - Math.min(0.6, skillWirkung("bergbau")))))
-            : tool.price;
-
-        // MIT Meldung: der Knopf im Laden rechnet mit dem Stand aus dem React-State,
-        // dieser Kauf mit dem aus dem Ref. Weichen sie ab, sah man einen aktiven
-        // Knopf, der beim Klick nichts tat — und keinen Hinweis, woran es lag.
-        if (goldRef.current < effectivePrice) {
-            notify(`Dafür fehlen dir ${formatGold(effectivePrice - goldRef.current)} Gold.`, "error");
-            return;
-        }
-        if (tool.id === "shovel" && toolInv.hasShovel) return;
-        // Kiste und Vitrine stehen einmal auf dem Grundstück — ein zweiter Kauf
-        // brächte nichts und würde nur Gold verbrennen.
-        if (tool.id === "chest" && toolInv.hasChest) { notify("Du hast schon eine Kiste.", "error"); return; }
-        if (tool.id === "vitrine" && toolInv.hasVitrine) { notify("Du hast schon eine Vitrine.", "error"); return; }
-
-        // Die Spitzhacke hatte hier früher ein Lagerlimit von 1 pro Shop-Rotation und
-        // war damit nur alle zehn Minuten einmal zu haben — beim Freilegen von Steinen
-        // wartete man mehr, als man spielte. Begrenzt wird sie jetzt allein über ihren
-        // Preis, der mit jedem Kauf um 30 % steigt.
         const hatBestand = tool.type === "single";
         if (hatBestand && !reserviere(toolShopStockRef, setToolShopStock, tool.id)) return;
-        // Alles, was den nächsten Kauf beeinflusst, sofort im Ref fortschreiben — bis
-        // der Server antwortet und React neu rendert, würde ein schneller zweiter Klick
-        // sonst noch den alten Stand sehen: bei einmaligen Sachen „habe ich noch nicht"
-        // und bei Spitzhacke und Rucksack den alten, niedrigeren Preis. Für die
-        // Spitzhacke ist das jetzt entscheidend, weil sie kein Lagerlimit mehr bremst.
-        if (tool.id === "shovel" || tool.id === "chest" || tool.id === "vitrine") {
-            const feld = tool.id === "shovel" ? "hasShovel" : tool.id === "chest" ? "hasChest" : "hasVitrine";
-            toolInventoryRef.current = { ...toolInv, [feld]: true };
-        } else if (tool.id === "pickaxe") {
-            toolInventoryRef.current = { ...toolInv, pickaxesBought: (toolInv.pickaxesBought || 0) + 1 };
-        } else if (tool.id === "backpack_upgrade") {
-            // Harter Deckel: der Server klemmt inventoryMaxSlots ab, backpackLevel
-            // lief aber unbegrenzt weiter — jedes Upgrade darüber kostete Millionen
-            // und gab nichts.
-            if ((toolInv.backpackLevel || 0) >= BACKPACK_MAX_LEVEL) {
-                notify(`Der Rucksack ist voll ausgebaut (${50 + BACKPACK_MAX_LEVEL * 10} Plätze).`, "error");
-                return;
-            }
-            toolInventoryRef.current = { ...toolInv, backpackLevel: (toolInv.backpackLevel || 0) + 1 };
-        }
+        // Ab hier ist jede Poll-Antwort, die schon unterwegs war, veraltet — siehe
+        // den werkzeugladen-Abgleich im /global-shop-Poll oben.
+        if (hatBestand) letzterToolKaufAtRef.current = Date.now();
 
         kaufLaeuftRef.current = true;
         try {
-            await payServer(effectivePrice);
+            const daten = await apiCall("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "buyTool", toolId: tool.id }),
+            });
+            if (typeof daten?.gold === "number") { goldRef.current = daten.gold; setGold(daten.gold); }
+            if (daten?.toolInventory) setzeWerkzeug(daten.toolInventory);
+            if (hatBestand && typeof daten?.stock === "number") {
+                // Der Server hat gerade gerechnet — diese Zahl gilt, nicht die
+                // optimistische Reservierung von oben.
+                letzterToolKaufAtRef.current = Date.now();
+                setToolShopStock((prev) => ({ ...prev, [tool.id]: Math.max(0, daten.stock) }));
+            }
+            // v2, Punkt 12: Kassen-Sound beim Werkzeugkauf raus — mit Buy-All (kauft
+            // oft mehrere auf einen Klick) wären das sonst mehrere Sounds übereinander.
         } catch (err) {
-            if (hatBestand) gibZurueck(toolShopStockRef, setToolShopStock, tool.id);
-            toolInventoryRef.current = toolInv;
+            if (hatBestand) {
+                gibZurueck(toolShopStockRef, setToolShopStock, tool.id);
+                // Bei „ausverkauft" (oder wenn der Kauf trotz einer Verbindungs-
+                // störung beim Server durchging und nur die Antwort verlorenging)
+                // den echten Reststand übernehmen, statt blind die Reservierung
+                // zurückzugeben — sonst zeigt der Laden mehr an, als noch da ist.
+                // Dieselbe Absicherung wie beim Samenkauf (handleBuySeed).
+                if (typeof err?.data?.stock === "number") {
+                    letzterToolKaufAtRef.current = Date.now();
+                    setToolShopStock((prev) => ({ ...prev, [tool.id]: Math.max(0, err.data.stock) }));
+                }
+            }
             notify(err?.message || "Kauf fehlgeschlagen.", "error");
-            return;
         } finally {
             kaufLaeuftRef.current = false;
             naechstenKaufStarten();
         }
-        setToolInventory(prev => {
-            const next = normalizeToolInventory(prev);
-            if (tool.id === "pickaxe") {
-                next.pickaxeUses = (next.pickaxeUses || 0) + (tool.uses || 0);
-                next.pickaxesBought = (next.pickaxesBought || 0) + 1;
-            } else if (tool.id === "shovel") {
-                next.hasShovel = true;
-            } else if (tool.id === "plant_pot") {
-                next.plantPots = (next.plantPots || 0) + 1;
-            } else if (tool.id === "backpack_upgrade") {
-                next.backpackLevel = (next.backpackLevel || 0) + 1;
-                next.backpackUpgraded = next.backpackLevel > 0;
-                setInventoryMaxSlots(current => Math.max(current, 50 + next.backpackLevel * 10));
-            } else if (tool.id === "watering_can") {
-                next.wateringCans = (next.wateringCans || 0) + 1;
-            } else if (tool.id === "chest") {
-                next.hasChest = true;
-            } else if (tool.id === "vitrine") {
-                next.hasVitrine = true;
+        // Kein `kaufSichern` mehr: der Server hat den Kauf bereits festgeschrieben.
+        // Ein Speichervorgang von hier könnte ihn nur noch überschreiben.
+    }, [apiCall, notify, playSound, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, setzeWerkzeug]);
+
+    /**
+     * Buy-All (v2, Punkt 12) fürs Werkzeug — siehe kaufeWerkzeugAlle in
+     * werkzeug.js. Läuft dieselbe Reservierung/Rückgabe wie handleBuyTool,
+     * nur für einen einzigen Request statt einer Klickserie.
+     */
+    const handleBuyToolAll = useCallback(async (tool) => {
+        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyToolAllRef.current?.(tool)); return; }
+        const hatBestand = tool.type === "single";
+        if (hatBestand && !reserviere(toolShopStockRef, setToolShopStock, tool.id)) return;
+        if (hatBestand) letzterToolKaufAtRef.current = Date.now();
+
+        kaufLaeuftRef.current = true;
+        try {
+            const daten = await apiCall("/action", {
+                method: "POST",
+                body: JSON.stringify({ action: "buyToolAll", toolId: tool.id }),
+            });
+            if (typeof daten?.gold === "number") { goldRef.current = daten.gold; setGold(daten.gold); }
+            if (daten?.toolInventory) setzeWerkzeug(daten.toolInventory);
+            if (hatBestand && typeof daten?.stock === "number") {
+                letzterToolKaufAtRef.current = Date.now();
+                setToolShopStock((prev) => ({ ...prev, [tool.id]: Math.max(0, daten.stock) }));
             }
-            return next;
-        });
-        debouncedSave();
-    }, [gold, toolInventory, debouncedSave, notify, payServer, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, skillWirkung]);
+            const anzahl = Number(daten?.anzahl) || 0;
+            if (anzahl > 0) notify(`${anzahl}× ${tool.name} gekauft.`);
+        } catch (err) {
+            if (hatBestand) {
+                gibZurueck(toolShopStockRef, setToolShopStock, tool.id);
+                if (typeof err?.data?.stock === "number") {
+                    letzterToolKaufAtRef.current = Date.now();
+                    setToolShopStock((prev) => ({ ...prev, [tool.id]: Math.max(0, err.data.stock) }));
+                }
+            }
+            notify(err?.message || "Kauf fehlgeschlagen.", "error");
+        } finally {
+            kaufLaeuftRef.current = false;
+            naechstenKaufStarten();
+        }
+    }, [apiCall, notify, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, setzeWerkzeug]);
 
     useEffect(() => { handleBuyToolRef.current = handleBuyTool; }, [handleBuyTool]);
+    useEffect(() => { handleBuyToolAllRef.current = handleBuyToolAll; }, [handleBuyToolAll]);
+    useEffect(() => { apiCallRef.current = apiCall; }, [apiCall]);
+    useEffect(() => { notifyRef.current = notify; }, [notify]);
+    useEffect(() => { setzeWerkzeugRef.current = setzeWerkzeug; }, [setzeWerkzeug]);
 
     const handleMineRock = useCallback(async (rockCell) => {
         if (!rockCell || !Number.isInteger(rockCell.cellX) || !Number.isInteger(rockCell.cellY)) return;
@@ -4227,7 +4246,14 @@ export default function GameContainer() {
         // gestrichen, sondern 90 %: weniger Käufe heisst auch ein kleinerer
         // Exponent. Der Skill gibt jetzt feste Zusatzladungen beim KAUF
         // (siehe handleBuyTool), der Abbau verbraucht wieder schlicht eine.
-        setToolInventory(prev => ({ ...normalizeToolInventory(prev), pickaxeUses: Math.max(0, (prev.pickaxeUses || 0) - 1) }));
+        // Erst die Ladung abbuchen — beim SERVER. Klappt das nicht, wird auch kein
+        // Stein freigelegt: sonst hätte man ein Feld gewonnen, ohne dafür zu zahlen.
+        if (!(await verbraucheWerkzeug("pickaxeUses"))) return;
+        // v2 (Punkt 13): Spitzhacken-Schwung — siehe spawnToolSchwung in
+        // engine/Renderer.js. Rein optisch, deshalb hier und nicht vor der
+        // Server-Prüfung: ein abgelehnter Abbau soll nicht so aussehen, als hätte
+        // er geklappt.
+        engineRef.current?.renderer?.spawnToolSchwung("pickaxe");
         setPlotUnlockedCells(prev => {
             const next = normalizePlotUnlockedCells([...prev, key]);
             setPlotExpansions(Math.min(MAX_PLOT_EXPANSIONS, Math.ceil(next.length / BASE_DIRT_COLS)));
@@ -4236,69 +4262,138 @@ export default function GameContainer() {
         const uebrig = Math.max(0, (toolInventory.pickaxeUses || 0) - 1);
         notify(`Stein abgebaut. Noch ${uebrig} Spitzhacken-Nutzungen übrig.`);
         debouncedSave();
-    }, [notify, plotUnlockedCells, toolInventory.pickaxeUses, debouncedSave]);
+    }, [notify, plotUnlockedCells, toolInventory.pickaxeUses, debouncedSave, verbraucheWerkzeug]);
 
     const handleWaterPlant = useCallback(async (cellX, cellY) => {
         const key = `${cellX}_${cellY}`;
         const plant = plotPlants[key];
         if (!plant) return;
-        if (isPlantReady(plant)) {
-            notify("Pflanze ist bereits ausgewachsen.", "error");
-            return;
-        }
+        // ACHTUNG: hier stand `isPlantReady(plant)`. Für einen Dauerträger heisst
+        // das „mindestens EINE Frucht ist reif" — ein Baum mit einer reifen und
+        // sechs wachsenden Früchten liess sich damit nicht mehr giessen, obwohl
+        // genau dafür die Kanne da ist. Gesperrt wird jetzt erst, wenn die Rechnung
+        // unten ergibt, dass es nichts zu verkürzen gibt.
         if ((toolInventory.wateringCans || 0) <= 0) {
             notify("Keine Gießkanne mehr verfügbar.", "error");
             return;
         }
-        setToolInventory(prev => ({ ...normalizeToolInventory(prev), wateringCans: Math.max(0, (prev.wateringCans || 0) - 1) }));
         const now = Date.now();
         /**
-         * PROZENTUAL statt absolut.
+         * FESTE Minuten, wie bei Magic Garden (dort 5 min für 5.000 Gold).
          *
-         * Vorher wurden pauschal 5 Minuten (mit „Regenmacher" 7,5) von `growthMs`
-         * ABGEZOGEN. Jede Pflanze mit bis zu 7,5 Minuten Wachstum wurde davon
-         * sofort reif: ein Kürbis für eine Kanne — bei einem Bruchteil des
-         * Preises. Bei Dauerträgern wurden zudem ALLE Fruchtstände gleichzeitig
-         * vorgezogen, was auf einer Banane über drei komplette Zyklen brachte.
-         * Ein fester Zeitabzug lässt sich in einer Wirtschaft, die über sechs
-         * Größenordnungen skaliert, nicht ausbalancieren — ein Anteil schon.
+         * Ein Prozentsatz der Restzeit war der Fehlversuch dazwischen: Prozente
+         * stapeln sich MULTIPLIKATIV. Bei 50 % je Guss lassen zehn Kannen aus einer
+         * Lieferung noch 0,1 % übrig — für 50.000 Gold wäre damit eine 20-Tage-
+         * Mondblume sofort fertig gewesen.
+         *
+         * Feste Minuten regulieren sich dagegen selbst: sie lohnen sich nur, wenn
+         * die Pflanze mehr als 1.000 Gold je Minute abwirft (Kannenpreis geteilt
+         * durch gesparte Minuten). Auf einem Löwenzahn ist die Kanne Verschwendung,
+         * auf einem Kürbis lohnt sie sich, und eine Mondblume bräuchte tausende.
          */
-        const anteil = Math.min(0.6, 0.25 * (1 + skillWirkung("giesskanne")));
-        let gespartMs = 0;
-        setPlotPlants(prev => {
-            const p = prev[key];
-            if (!p) return prev;
-            const next = { ...prev };
+        const minuten = giesskanneMinuten(skillStufe("giesskanne"));
+        const gespartMs = minuten * 60000;
+
+        /**
+         * Die neue Pflanze AUSSERHALB des State-Updaters bauen.
+         *
+         * Vorher wurde `wirklichGespart` im Updater gesetzt und direkt danach für
+         * die Meldung gelesen. React ruft den Updater aber erst beim nächsten
+         * Rendern auf — die Meldung sah also immer 0 und behauptete deshalb JEDES
+         * Mal „ist jetzt fertig", auch bei einer Ananas mit fünf Tagen Restzeit.
+         */
+        const berechne = (p) => {
             const np = { ...p };
+            let gespart = 0;
             if (np.singleUse) {
-                const rest = Math.max(0, (Number(np.plantedAt) || now) + (Number(np.growthMs) || 0) - now);
-                gespartMs = Math.round(rest * anteil);
-                np.growthMs = Math.max(1000, (Number(np.growthMs) || 0) - gespartMs);
+                // Untergrenze ist die volle Wachstumszeit, also faktisch keine —
+                // man darf bis zur Reife wässern. Sie steht nur da, damit ein
+                // manipulierter Browser nicht bei jedem Speichern erneut abzieht.
+                const basis = Number(np.growthMsBasis) || Number(np.growthMs) || 0;
+                const untergrenze = Math.round(basis * (1 - GIESSKANNE_MAX_ANTEIL));
+                const neu = Math.max(untergrenze, (Number(np.growthMs) || 0) - gespartMs);
+                gespart = (Number(np.growthMs) || 0) - neu;
+                np.growthMs = neu;
             } else if (np.stage === "structure") {
                 const rest = Math.max(0, (Number(np.structureReadyAt) || now) - now);
-                gespartMs = Math.round(rest * anteil);
-                np.structureReadyAt = Math.max(now, (Number(np.structureReadyAt) || now) - gespartMs);
+                gespart = Math.min(gespartMs, rest);
+                np.structureReadyAt = Math.max(now, (Number(np.structureReadyAt) || now) - gespart);
             } else {
-                // Nur den am weitesten fortgeschrittenen Stand giessen, nicht alle.
-                const slots = (np.fruitSlots || []).slice();
-                let idx = -1; let frueheste = Infinity;
-                for (let i = 0; i < slots.length; i++) {
-                    const ra = Number(slots[i]?.readyAt ?? Infinity);
-                    if (ra > now && ra < frueheste) { frueheste = ra; idx = i; }
-                }
-                if (idx === -1) return prev;
-                gespartMs = Math.round((frueheste - now) * anteil);
-                slots[idx] = { ...slots[idx], readyAt: Math.max(now, frueheste - gespartMs) };
-                np.fruitSlots = slots;
+                // Wie bei Magic Garden: ein Guss wirkt auf ALLE Fruchtstände.
+                // `gegossenMs` zählt mit, wie viel dieser Stand schon bekommen hat —
+                // der Server deckelt daran (siehe gegosseneReifezeit). Ohne den
+                // Zähler liesse sich mit jedem Speichern erneut abziehen.
+                const zyklus = Number(np.fruitCycleMs) || 60000;
+                const maxAbzug = Math.round(zyklus * GIESSKANNE_MAX_ANTEIL);
+                np.fruitSlots = (np.fruitSlots || []).map((s) => {
+                    const ra = Number(s?.readyAt ?? 0);
+                    if (ra <= now) return s;
+                    const bisher = Math.max(0, Math.min(maxAbzug, Number(s?.gegossenMs) || 0));
+                    const neu = Math.min(maxAbzug, bisher + gespartMs);
+                    const abzug = neu - bisher;
+                    if (abzug > gespart) gespart = abzug;
+                    return { ...s, readyAt: Math.max(now, ra - abzug), gegossenMs: neu };
+                });
             }
-            next[key] = np;
-            return next;
-        });
-        notify(gespartMs >= 60000
-            ? `Pflanze gewässert: -${Math.round(gespartMs / 60000)} Minuten Wachstum.`
-            : `Pflanze gewässert: -${Math.max(1, Math.round(gespartMs / 1000))} Sekunden Wachstum.`);
-        debouncedSave();
-    }, [plotPlants, toolInventory.wateringCans, notify, debouncedSave, skillWirkung]);
+            return { np, gespart };
+        };
+
+        const { np, gespart } = berechne(plant);
+
+        /**
+         * ERST rechnen, DANN bezahlen.
+         *
+         * Der Verbrauch stand vorher ganz oben, noch vor dieser Rechnung. Ergab sie
+         * dann null gesparte Zeit, war die Kanne trotzdem weg — die Meldung „da war
+         * nichts mehr zu gießen" kostete also 5.000 Gold.
+         */
+        if (gespart <= 0) {
+            notify(isPlantReady(plant, now)
+                ? "Pflanze ist bereits ausgewachsen."
+                : "Hier ist gerade nichts zu gießen.", "error");
+            return;
+        }
+        // Kanne serverseitig abbuchen. Erst wenn das durch ist, wirkt der Guss —
+        // andernfalls liesse sich mit einem zurückgedrehten Browserstand endlos gießen.
+        if (!(await verbraucheWerkzeug("wateringCans"))) return;
+        // v2 (Punkt 13): Gießkannen-Schwung — siehe spawnToolSchwung in
+        // engine/Renderer.js.
+        engineRef.current?.renderer?.spawnToolSchwung("watering");
+        setPlotPlants((prev) => (prev[key] ? { ...prev, [key]: np } : prev));
+
+        // Wirklich fertig ist sie nur, wenn danach nichts mehr aussteht.
+        const fertig = np.singleUse
+            ? (Number(np.plantedAt) || now) + (Number(np.growthMs) || 0) <= now
+            : isPlantReady(np);
+        if (fertig) {
+            notify("Pflanze gewässert — sie ist jetzt fertig.");
+        } else {
+            // Restzeit für JEDE Bauart nennen, nicht nur für Einzelpflanzen.
+            // Bei Dauerträgern zählt der nächste Fruchtstand, der noch aussteht.
+            let rest = 0;
+            if (np.singleUse) {
+                rest = Math.max(0, (Number(np.plantedAt) || now) + (Number(np.growthMs) || 0) - now);
+            } else if (np.stage === "structure") {
+                rest = Math.max(0, (Number(np.structureReadyAt) || now) - now);
+            } else {
+                const offen = (np.fruitSlots || [])
+                    .map((s) => Math.max(0, (Number(s?.readyAt) || 0) - now))
+                    .filter((ms) => ms > 0);
+                rest = offen.length > 0 ? Math.min(...offen) : 0;
+            }
+            notify(`Pflanze gewässert: -${Math.max(1, Math.round(gespart / 60000))} Minuten`
+                + (rest > 0 ? ` · noch ${formatDurationShared(rest)}` : ""));
+        }
+        // SOFORT statt debouncedSave (Bug gefunden 01.09.: "2 ripe angezeigt,
+        // Ernte trotzdem 400 Keine reife Frucht"). Die Verkürzung wirkt erst,
+        // wenn der Server sie über den PUT gesehen hat (core/economy.js kappt und
+        // übernimmt die gegossene Zeit nur dort, siehe gegosseneReifezeit in
+        // gardenGameRoutes.js) — debouncedSave wartet 500 ms auf Ruhe, und "gießen,
+        // dann sofort pflücken" ist genau die Reihenfolge, die diese 500 ms
+        // regelmäßig unterbietet: die Ernte kam beim Server an, bevor er vom Guss
+        // wusste, und lehnte die (dort noch nicht reife) Frucht ab.
+        await flushSave();
+    }, [plotPlants, toolInventory.wateringCans, notify, flushSave, skillStufe, verbraucheWerkzeug]);
 
     const handleMovePlantWithPot = useCallback(async (targetX, targetY) => {
         if ((toolInventory.plantPots || 0) <= 0) {
@@ -4329,14 +4424,15 @@ export default function GameContainer() {
             next[targetKey] = { ...src, cellX: targetX, cellY: targetY };
             return next;
         });
-        setToolInventory(prev => ({ ...normalizeToolInventory(prev), plantPots: Math.max(0, (prev.plantPots || 0) - 1) }));
+        // Topf serverseitig abbuchen, bevor die Pflanze umzieht.
+        if (!(await verbraucheWerkzeug("plantPots"))) return;
         setMovingPlantSource(null);
         notify("Pflanze erfolgreich umgesetzt.");
         // Ohne das lief die Aenderung erst mit dem 5-Sekunden-Autosave zum Server —
         // und erst DANN sahen die anderen den umgesetzten Acker. Alle uebrigen
         // Acker-Aktionen speichern seit jeher sofort; hier fehlte es schlicht.
         debouncedSave();
-    }, [toolInventory.plantPots, movingPlantSource, plotPlants, notify, debouncedSave]);
+    }, [toolInventory.plantPots, movingPlantSource, plotPlants, notify, debouncedSave, verbraucheWerkzeug]);
 
     const handleBuyEgg = useCallback(async (egg) => {
         if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyEggRef.current?.(egg)); return; }
@@ -4353,27 +4449,37 @@ export default function GameContainer() {
             kaufLaeuftRef.current = false;
             naechstenKaufStarten();
         }
-        setEggInventory(prev => [...prev, { ...egg, instanceId: Math.random().toString(36).slice(2) }]);
-        debouncedSave();
-    }, [gold, debouncedSave, notify, payServer, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten]);
+        const neuesEi = { ...egg, instanceId: Math.random().toString(36).slice(2) };
+        const naechste = [...(farmStateRef.current.eggInventory || []), neuesEi];
+        setEggInventory(naechste);
+        await kaufSichern("eggInventory", naechste);
+    }, [notify, payServer, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
 
     useEffect(() => { handleBuyEggRef.current = handleBuyEgg; }, [handleBuyEgg]);
 
-    const handleBuyDeco = useCallback(async (deco) => {
+    /**
+     * `anzahl` gibt es wegen der Bodenbeläge: einen Hof pflastert man mit zwanzig
+     * Kacheln, und zwanzig Einzelkäufe wären zwanzig Netzrunden. Bezahlt wird in
+     * EINEM Betrag, damit auch nur eine Prüfung über den Server geht.
+     */
+    const handleBuyDeco = useCallback(async (deco, anzahl = 1) => {
         if (!deco) return;
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyDecoRef.current?.(deco)); return; }
-        if (goldRef.current < deco.price) {
+        const stueck = Math.max(1, Math.min(50, Math.floor(Number(anzahl) || 1)));
+        const preis = deco.price * stueck;
+        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyDecoRef.current?.(deco, stueck)); return; }
+        if (goldRef.current < preis) {
             notify("Nicht genug Gold.", "error");
             return;
         }
-        const instance = {
-            ...deco,
+        const vorlage = alsVorratsstueck(deco);
+        const instanzen = Array.from({ length: stueck }, () => ({
+            ...vorlage,
             instanceId: `deco_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             _type: "deco",
-        };
+        }));
         kaufLaeuftRef.current = true;
         try {
-            await payServer(deco.price);
+            await payServer(preis);
         } catch (err) {
             notify(err?.message || "Kauf fehlgeschlagen.", "error");
             return;
@@ -4381,14 +4487,16 @@ export default function GameContainer() {
             kaufLaeuftRef.current = false;
             naechstenKaufStarten();
         }
-        setDecoInventory((prev) => [...prev, instance]);
-        if (!selectedDecoToPlace) setSelectedDecoToPlace(instance);
+        const naechsteDeko = [...(farmStateRef.current.decoInventory || []), ...instanzen];
+        setDecoInventory(naechsteDeko);
+        if (!selectedDecoToPlace) setSelectedDecoToPlace(instanzen[0]);
         setSelectedSeed(null);
         setSelectedTool(null);
         setSelectedCarryItem(null);
         setSelectedPetToPlace(null);
-        debouncedSave();
-    }, [gold, notify, selectedDecoToPlace, debouncedSave, payServer, kaufEinreihen, naechstenKaufStarten]);
+        if (stueck > 1) notify(`${stueck}× ${deco.name} gekauft.`);
+        await kaufSichern("decoInventory", naechsteDeko);
+    }, [notify, selectedDecoToPlace, payServer, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
 
     useEffect(() => { handleBuyDecoRef.current = handleBuyDeco; }, [handleBuyDeco]);
 
@@ -4413,10 +4521,11 @@ export default function GameContainer() {
             kaufLaeuftRef.current = false;
             naechstenKaufStarten();
         }
-        setIncubator(prev => ({ ...prev, unlockedSlots: prev.unlockedSlots + 1 }));
+        const naechsterInkubator = { ...incubator, unlockedSlots: incubator.unlockedSlots + 1 };
+        setIncubator(naechsterInkubator);
         notify(`Inkubator-Slot ${nextSlot + 1} freigeschaltet!`);
-        debouncedSave();
-    }, [incubator.unlockedSlots, notify, debouncedSave, payServer, kaufEinreihen, naechstenKaufStarten]);
+        await kaufSichern("incubator", naechsterInkubator);
+    }, [incubator, notify, payServer, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
 
     useEffect(() => { unlockIncubatorSlotRef.current = unlockIncubatorSlot; }, [unlockIncubatorSlot]);
 
@@ -4426,15 +4535,17 @@ export default function GameContainer() {
         const chosen = eggInventory.find(e => e.instanceId === eggInstanceId) || eggInventory[0];
         if (!chosen) return;
         const hatchResult = rollHatchResult(chosen);
-        // Balancing: Brutzeit skaliert mit Rarity (vorher pauschal 5min für alles)
+        // Balancing: Brutzeit skaliert mit Rarity (vorher pauschal 5min für alles).
+        // Feedback 01.09.: "way higher" — von Minuten auf Stunden/Tage angehoben,
+        // damit eine Legendary auch wirklich etwas kostet, worauf man wartet.
         const hatchTimeByRarity = {
-            COMMON: 2 * 60 * 1000,
-            UNCOMMON: 5 * 60 * 1000,
-            RARE: 15 * 60 * 1000,
-            EPIC: 45 * 60 * 1000,
-            LEGENDARY: 2 * 60 * 60 * 1000,
+            COMMON: 1 * 60 * 60 * 1000,       // 1h
+            UNCOMMON: 4 * 60 * 60 * 1000,      // 4h
+            RARE: 12 * 60 * 60 * 1000,         // 12h
+            EPIC: 24 * 60 * 60 * 1000,         // 1d
+            LEGENDARY: 3 * 24 * 60 * 60 * 1000, // 3d
         };
-        const hatchMs = hatchTimeByRarity[chosen.rarity] || 5 * 60 * 1000;
+        const hatchMs = hatchTimeByRarity[chosen.rarity] || 4 * 60 * 60 * 1000;
         setEggInventory(prev => prev.filter(e => e.instanceId !== chosen.instanceId));
         setIncubator(prev => {
             const slots = [...prev.slots];
@@ -4488,6 +4599,9 @@ export default function GameContainer() {
             if (shovelHoldTimerRef.current) clearTimeout(shovelHoldTimerRef.current);
             if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
             setShovelHoldState({ active: false, progress: 0 });
+            // Sonst malt der Zug weiter, sobald die Maus zurückkommt — auch wenn die
+            // Taste längst los ist.
+            bodenMalenRef.current = null;
         };
         // Muss die Umkehrung der Kamera im Renderer sein:
         //   translate(mitte) · scale(zoom) · translate(-spieler)
@@ -4503,8 +4617,238 @@ export default function GameContainer() {
             };
         };
 
+        /**
+         * Ein Stück Deko auf die Kachel unter (worldX, worldY) setzen.
+         *
+         * Ausgelagert, weil es zwei Wege hierher gibt: den einzelnen Klick und das
+         * Ziehen bei Bodenbelägen (ein Hof sind schnell zwanzig Kacheln, und jede
+         * einzeln anzuklicken wäre Fleißarbeit).
+         *
+         * Gelesen wird BEWUSST aus Refs statt aus dem React-State: beim Ziehen
+         * folgen die Aufrufe schneller aufeinander, als React neu rendert — mit dem
+         * State aus der Schließung sähe jede Kachel den Stand von vor dem Zug und
+         * pflasterte immer wieder über dieselbe Stelle.
+         *
+         * `still` unterdrückt die Meldung — beim Ziehen wäre sie Dauerfeuer.
+         */
+        const platziereDeko = (worldX, worldY, { still = false } = {}) => {
+            const gewaehlt = selectedDecoToPlaceRef.current;
+            if (!gewaehlt) return false;
+            if (!editorAktivRef.current) {
+                if (!still) notify("Deko stellst du im Editor auf.", "error");
+                return false;
+            }
+            const slot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
+            const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
+            // Spiegeln lässt den Fußabdruck unangetastet — die Maße kommen also
+            // immer unverändert aus dem Katalog. Beide Flags sind auf ihre jeweilige
+            // Deko-Art beschränkt (siehe [R]-Handler oben) — sonst könnte ein Belag,
+            // der nach einem gespiegelten Nicht-Belag ausgewählt wird, dessen alten
+            // Spiegel-Zustand erben, obwohl [R] für ihn nur noch dreht.
+            const gespiegelt = !istBoden(gewaehlt) && Boolean(decoGespiegeltRef.current);
+            // Drehen gilt nur für Bodenbeläge — die sind immer 1×1, eine 90°-Drehung
+            // ändert also nie den Fußabdruck.
+            const gedreht = istBoden(gewaehlt) && Boolean(decoRotiertRef.current);
+            const dw = gewaehlt.width || 1;
+            const dh = gewaehlt.height || 1;
+
+            // Die angeklickte Kachel ist IMMER die Ankerkachel unten links; von dort
+            // wächst das Objekt nach rechts und nach oben. Vorher gab es einen
+            // Rückfall auf „nach unten wachsen", wenn es nach oben nicht passte —
+            // damit landete derselbe Klick mal so und mal so.
+            const tileX = Math.floor((worldX - slot.x) / TILE_SIZE);
+            const tileY = Math.floor((worldY - drawY) / TILE_SIZE);
+
+            const maxTilesX = Math.round(MAP_CONFIG.territoryWidth / TILE_SIZE);
+            const maxTilesY = Math.round(MAP_CONFIG.territoryHeight / TILE_SIZE);
+            // Geprüft wird in KACHELN, nicht mehr in Pixeln — seit dirtOffsetX ganzzahlig
+            // ist, fallen Acker- und Dekoraster zusammen. Der alte Pixelvergleich lief mit
+            // <= gegen die Ackerkante und sperrte dadurch links wie rechts je eine
+            // Grasspalte zu viel. Die Holzwege IM Acker gelten jetzt als Wiese: pflanzen
+            // kann man dort ohnehin nicht, schmücken soll man dürfen.
+            const liegtAufAcker = (cx, cy) => kachelIstAcker(slot, cx, cy);
+
+            // Ein Belag liegt UNTER allem: er darf über den Acker gehen und stört
+            // keine Bank, die schon dort steht. Geprüft wird bei ihm nur, ob die
+            // Kachel überhaupt zum Grundstück gehört.
+            const istBelag = istBoden(gewaehlt);
+
+            const occupiedKeys = [];
+            let ausserhalb = false;
+            let ankerAufAcker = false;
+            for (let dx = 0; dx < dw; dx++) {
+                for (let dy = 0; dy < dh; dy++) {
+                    const cx = tileX + dx;
+                    const cy = tileY - dy;
+                    if (cx < 0 || cx >= maxTilesX || cy < 0 || cy >= maxTilesY) ausserhalb = true;
+                    occupiedKeys.push(`${cx}_${cy}`);
+                    // Nur die ANKERREIHE muss freie Wiese sein — darauf steht das
+                    // Objekt. Was darüber liegt, darf über den Acker ragen; sonst
+                    // bekäme man auf dem einreihigen Wiesenstreifen unter dem Acker
+                    // überhaupt keine Laterne unter, weil sie zwangsläufig in ihn
+                    // hineinreicht.
+                    if (!istBelag && dy === 0 && liegtAufAcker(cx, cy)) ankerAufAcker = true;
+                }
+            }
+
+            if (ausserhalb || ankerAufAcker) {
+                if (!still) {
+                    notify(ausserhalb
+                        ? "Kein Platz — das Objekt ragt über dein Grundstück hinaus."
+                        : "Kein Platz — die untere Kachel liegt auf dem Acker.", "error");
+                }
+                return false;
+            }
+
+            // Belag verdrängt Belag, Deko verdrängt nichts. Die beiden Ebenen prüfen
+            // also nur gegen ihresgleichen: sonst könnte man weder eine Bank auf den
+            // Steinweg stellen noch den Weg unter der Bank weiterziehen.
+            //
+            // Verglichen wird nur die ANKERREIHE (dy === 0) — genau wie bei der
+            // Acker-Prüfung oben. Sonst blockiert der nach oben überstehende Teil
+            // hoher Deko (z. B. eine Laterne) das Setzen, sobald irgendetwas anderes
+            // über der Ankerkachel steht, obwohl die Ankerkachel selbst frei ist. In
+            // `occupiedKeys` liegt dx außen/dy innen (siehe Schleife oben), die
+            // Ankerreihe sitzt also bei jedem Index, der glatt durch die Höhe teilbar
+            // ist — das gilt genauso für schon vorhandene Platzierungen.
+            const ankerreihe = (keys, hoehe) => keys.filter((_, i) => i % hoehe === 0);
+            const eigeneAnkerreihe = ankerreihe(occupiedKeys, dh);
+            const vorhanden = decoPlacementsRef.current;
+            const kollision = vorhanden.filter((d) => {
+                if (d.slotIndex !== mySlotRef.current || istBoden(d) !== istBelag) return false;
+                const dKeys = d.occupiedKeys || [d.gridKey];
+                const dAnkerreihe = ankerreihe(dKeys, d.height || 1);
+                return dAnkerreihe.some((k) => eigeneAnkerreihe.includes(k));
+            });
+
+            if (kollision.length > 0 && !istBelag) {
+                if (!still) notify("Hier steht bereits etwas.", "error");
+                return false;
+            }
+            // Derselbe Belag liegt schon genau dort: nichts tun, statt ein Stück aus
+            // dem Vorrat zu verbrauchen. Beim Ziehen über eine bereits gepflasterte
+            // Fläche passiert das ständig.
+            if (istBelag && kollision.length === 1
+                && kollision[0].decoId === gewaehlt.id
+                && (kollision[0].occupiedKeys || []).length === occupiedKeys.length) {
+                return false;
+            }
+            // Ein anderer Belag lag dort: er wird überpflastert und wandert zurück
+            // in den Rucksack — weggeworfen wird nichts.
+            const verdraengt = istBelag ? kollision : [];
+
+            // Mitte der Ankerkachel unten links — der Renderer zeichnet ab hier
+            // nach rechts und nach oben.
+            const gx = slot.x + tileX * TILE_SIZE + TILE_SIZE / 2;
+            const gy = drawY + tileY * TILE_SIZE + TILE_SIZE / 2;
+
+            const placed = {
+                id: `placed_${gewaehlt.instanceId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                decoId: gewaehlt.id,
+                name: gewaehlt.name,
+                emoji: gewaehlt.emoji,
+                image: gewaehlt.image,
+                rarity: gewaehlt.rarity || "COMMON",
+                width: dw,
+                height: dh,
+                mirrored: gespiegelt,
+                rotation: gedreht ? 90 : 0,
+                slotIndex: mySlotRef.current,
+                x: gx,
+                y: gy,
+                occupiedKeys,
+            };
+
+            const verdraengteIds = new Set(verdraengt.map((d) => d.id));
+            const naechstePlatzierungen = [...vorhanden.filter((d) => !verdraengteIds.has(d.id)), placed];
+
+            const zielInstanz = gewaehlt.instanceId || gewaehlt.id;
+            const naechsterVorrat = decoInventoryRef.current.filter(
+                (d) => (d.instanceId || d.id) !== zielInstanz);
+            // Überpflasterte Beläge kommen zurück in den Rucksack, damit Umgestalten
+            // nichts kostet.
+            for (const alt of verdraengt) {
+                naechsterVorrat.push({
+                    ...alt,
+                    id: alt.decoId || alt.id,
+                    instanceId: `deco_ersetzt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                    _type: "deco",
+                });
+            }
+            // Noch ein Stück DERSELBEN Sorte? Dann in der Hand behalten, damit man
+            // mehrere hintereinander setzen kann.
+            //
+            // Vorher stand hier `d.decoId === selectedDecoToPlace.decoId` als zweite
+            // Bedingung. Bei Vorratsstücken ist `decoId` auf BEIDEN Seiten undefined —
+            // der Vergleich war damit immer wahr und griff das erstbeste Stück
+            // irgendeiner Sorte. Wer eine Laterne setzte, hatte danach unbemerkt einen
+            // Gartenzwerg in der Hand und stellte ihn mit dem nächsten Klick ab.
+            const sorte = gewaehlt.id || gewaehlt.decoId;
+            const naechsteWahl = sorte
+                ? naechsterVorrat.find((d) => (d.id || d.decoId) === sorte) || null
+                : null;
+
+            // Refs SOFORT nachziehen, State danach: die nächste gemalte Kachel liest
+            // wieder aus den Refs und muss diese hier schon kennen.
+            decoPlacementsRef.current = naechstePlatzierungen;
+            decoInventoryRef.current = naechsterVorrat;
+            selectedDecoToPlaceRef.current = naechsteWahl;
+            setDecoPlacements(naechstePlatzierungen);
+            setDecoInventory(naechsterVorrat);
+            setSelectedDecoToPlace(naechsteWahl);
+            if (!still) notify(`${gewaehlt.name} platziert.`);
+            return true;
+        };
+
         const onCanvasClick = (e) => {
             const { worldX, worldY } = toWorld(e.clientX, e.clientY);
+
+            // Mit Shift gehört der Klick zur Schnellernte — die hat beim Drücken
+            // schon zugegriffen. Ohne diese Sperre ginge für die letzte Kachel eine
+            // zweite Anfrage raus, die der Server nur noch ablehnen kann.
+            if (e.shiftKey && isDragHarvestingRef.current) return;
+
+            // Bodenbelag wurde schon bei mousedown gelegt (siehe dort) — dieser
+            // Klick ist nur der automatische Nachlauf des Browsers und wird hier
+            // konsumiert, BEVOR irgendeine Prüfung `selectedDecoToPlace` (State,
+            // kann zu diesem Zeitpunkt noch den Stand von VOR dem mousedown tragen)
+            // anfasst. Ohne das fiel der Nachlaufklick, sobald genau diese Kachel
+            // den Vorrat auf 0 brachte, weiter unten in den "Deko aufheben"-Zweig
+            // durch und hob die gerade gelegte Kachel sofort wieder auf.
+            if (klickGehoertZuBodenMalenRef.current) {
+                klickGehoertZuBodenMalenRef.current = false;
+                return;
+            }
+
+            // ── Shotgun ──────────────────────────────────────────────────────
+            // Ganz vorne, noch vor der Grundstücksprüfung: geschossen wird auf
+            // Mitspieler, nicht auf Kacheln — auch von einem Fleck aus, auf dem
+            // sonst nichts zu tun wäre. Getroffen wird der NÄCHSTE Geist im
+            // Trefferfeld; ob der Schuss zählt, entscheidet der Server.
+            if (selectedTool === "shotgun") {
+                if (!istGartenAdminRef.current) return;
+                let ziel = null;
+                let besteEntfernung = Infinity;
+                for (const remote of remotePlayersRef.current.values()) {
+                    const dx = worldX - remote.x;
+                    // Der Geist wird 80 px hoch über seinem Fusspunkt gezeichnet
+                    // (siehe drawPlayer im Renderer) — das Trefferfeld sitzt also
+                    // deutlich ÜBER remote.y, nicht darum herum.
+                    const dy = worldY - (remote.y - 22);
+                    if (Math.abs(dx) > 34 || Math.abs(dy) > 42) continue;
+                    const entfernung = dx * dx + dy * dy;
+                    if (entfernung < besteEntfernung) {
+                        besteEntfernung = entfernung;
+                        ziel = remote;
+                    }
+                }
+                if (!ziel) {
+                    notify("Daneben — klick direkt auf einen Mitspieler.", "error");
+                    return;
+                }
+                sendShotgun(ziel.twitchId);
+                return;
+            }
 
             // Ohne eigenes Grundstück (Welt war voll) ist man nur Zuschauer: nichts
             // pflanzen, ernten oder platzieren — sonst würde die eigene Farm auf dem
@@ -4514,8 +4858,10 @@ export default function GameContainer() {
                 return;
             }
 
-            // Inkubator oder Mülleimer umstellen: derselbe Ablauf wie bei Deko —
-            // Modus an, einmal auf die Wiese klicken, fertig.
+            // Schuppen umstellen: derselbe Ablauf wie bei Deko — Modus an, einmal
+            // auf die Wiese klicken, fertig. Der Klick setzt die OBERE LINKE Ecke
+            // des Fußabdrucks (SCHUPPEN_KACHELN Kacheln im Quadrat) — ALLE Kacheln müssen frei
+            // vom Acker und von Deko sein, nicht nur die angeklickte.
             if (verschiebtGebaeude) {
                 const slot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
                 const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
@@ -4523,23 +4869,24 @@ export default function GameContainer() {
                 const ty = Math.floor((worldY - drawY) / TILE_SIZE);
                 const maxTilesX = Math.round(MAP_CONFIG.territoryWidth / TILE_SIZE);
                 const maxTilesY = Math.round(MAP_CONFIG.territoryHeight / TILE_SIZE);
-                if (tx < 0 || tx >= maxTilesX || ty < 0 || ty >= maxTilesY) {
-                    notify("Nur auf dem eigenen Grundstück abstellen.", "error");
+                if (tx < 0 || ty < 0 || tx + SCHUPPEN_KACHELN > maxTilesX || ty + SCHUPPEN_KACHELN > maxTilesY) {
+                    notify("Der Schuppen passt dort nicht mehr aufs Grundstück.", "error");
                     return;
                 }
-                const dirtX = slot.x + MAP_CONFIG.dirtOffsetX;
-                const dirtY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.baseDirtHeight - TILE_SIZE : drawY + TILE_SIZE;
-                const mitteX = slot.x + tx * TILE_SIZE + TILE_SIZE / 2;
-                const mitteY = drawY + ty * TILE_SIZE + TILE_SIZE / 2;
-                if (mitteX >= dirtX && mitteX <= dirtX + MAP_CONFIG.baseDirtWidth &&
-                    mitteY >= dirtY && mitteY <= dirtY + MAP_CONFIG.baseDirtHeight) {
+                const footprint = [];
+                for (let dx = 0; dx < SCHUPPEN_KACHELN; dx++) {
+                    for (let dy = 0; dy < SCHUPPEN_KACHELN; dy++) {
+                        footprint.push([tx + dx, ty + dy]);
+                    }
+                }
+                if (footprint.some(([fx, fy]) => kachelIstAcker(slot, fx, fy))) {
                     notify("Nicht auf dem Acker abstellen.", "error");
                     return;
                 }
-                const zielKachel = `${tx}_${ty}`;
+                const footprintKeys = new Set(footprint.map(([fx, fy]) => `${fx}_${fy}`));
                 const belegt = decoPlacements.some((d) =>
                     d.slotIndex === mySlotRef.current &&
-                    (d.occupiedKeys || [d.gridKey]).includes(zielKachel));
+                    (d.occupiedKeys || [d.gridKey]).some((k) => footprintKeys.has(k)));
                 if (belegt) {
                     notify("Dort steht schon Deko.", "error");
                     return;
@@ -4583,113 +4930,7 @@ export default function GameContainer() {
             }
 
             if (selectedDecoToPlace) {
-                // Aufstellen gehört ebenfalls in den Einrichtungs-Modus.
-                if (!editorAktivRef.current) {
-                    notify("Deko stellst du im Editor auf.", "error");
-                    return;
-                }
-                const slot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-                const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
-                // Spiegeln lässt den Fußabdruck unangetastet — die Maße kommen also
-                // immer unverändert aus dem Katalog.
-                const gespiegelt = Boolean(decoGespiegeltRef.current);
-                const dw = selectedDecoToPlace.width || 1;
-                const dh = selectedDecoToPlace.height || 1;
-
-                // Die angeklickte Kachel ist IMMER die Ankerkachel unten links; von dort
-                // wächst das Objekt nach rechts und nach oben. Vorher gab es einen
-                // Rückfall auf „nach unten wachsen", wenn es nach oben nicht passte —
-                // damit landete derselbe Klick mal so und mal so.
-                const tileX = Math.floor((worldX - slot.x) / TILE_SIZE);
-                const tileY = Math.floor((worldY - drawY) / TILE_SIZE);
-
-                const dirtX = slot.x + MAP_CONFIG.dirtOffsetX;
-                const dirtY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.baseDirtHeight - TILE_SIZE : drawY + TILE_SIZE;
-                const maxTilesX = Math.round(MAP_CONFIG.territoryWidth / TILE_SIZE);
-                const maxTilesY = Math.round(MAP_CONFIG.territoryHeight / TILE_SIZE);
-                const liegtAufAcker = (cx, cy) => {
-                    const checkX = slot.x + cx * TILE_SIZE + TILE_SIZE / 2;
-                    const checkY = drawY + cy * TILE_SIZE + TILE_SIZE / 2;
-                    return checkX >= dirtX && checkX <= dirtX + MAP_CONFIG.baseDirtWidth
-                        && checkY >= dirtY && checkY <= dirtY + MAP_CONFIG.baseDirtHeight;
-                };
-
-                const occupiedKeys = [];
-                let ausserhalb = false;
-                let ankerAufAcker = false;
-                for (let dx = 0; dx < dw; dx++) {
-                    for (let dy = 0; dy < dh; dy++) {
-                        const cx = tileX + dx;
-                        const cy = tileY - dy;
-                        if (cx < 0 || cx >= maxTilesX || cy < 0 || cy >= maxTilesY) ausserhalb = true;
-                        occupiedKeys.push(`${cx}_${cy}`);
-                        // Nur die ANKERREIHE muss freie Wiese sein — darauf steht das
-                        // Objekt. Was darüber liegt, darf über den Acker ragen; sonst
-                        // bekäme man auf dem einreihigen Wiesenstreifen unter dem Acker
-                        // überhaupt keine Laterne unter, weil sie zwangsläufig in ihn
-                        // hineinreicht.
-                        if (dy === 0 && liegtAufAcker(cx, cy)) ankerAufAcker = true;
-                    }
-                }
-
-                if (ausserhalb || ankerAufAcker) {
-                    notify(ausserhalb
-                        ? "Kein Platz — das Objekt ragt über dein Grundstück hinaus."
-                        : "Kein Platz — die untere Kachel liegt auf dem Acker.", "error");
-                    return;
-                }
-
-                const occupied = decoPlacements.some((d) =>
-                    d.slotIndex === mySlotRef.current &&
-                    (d.occupiedKeys || [d.gridKey]).some(k => occupiedKeys.includes(k))
-                );
-                if (occupied) {
-                    notify("Hier steht bereits etwas.", "error");
-                    return;
-                }
-
-                // Mitte der Ankerkachel unten links — der Renderer zeichnet ab hier
-                // nach rechts und nach oben.
-                const gx = slot.x + tileX * TILE_SIZE + TILE_SIZE / 2;
-                const gy = drawY + tileY * TILE_SIZE + TILE_SIZE / 2;
-
-                const decoInstanceId = selectedDecoToPlace.instanceId;
-                const placed = {
-                    id: `placed_${decoInstanceId}_${Date.now()}`,
-                    decoId: selectedDecoToPlace.id,
-                    name: selectedDecoToPlace.name,
-                    emoji: selectedDecoToPlace.emoji,
-                    image: selectedDecoToPlace.image,
-                    rarity: selectedDecoToPlace.rarity || "COMMON",
-                    width: dw,
-                    height: dh,
-                    mirrored: gespiegelt,
-                    slotIndex: mySlotRef.current,
-                    x: gx,
-                    y: gy,
-                    occupiedKeys,
-                };
-                setDecoPlacements((prev) => [...prev, placed]);
-                setDecoInventory((prev) => {
-                    const targetInstance = selectedDecoToPlace.instanceId || selectedDecoToPlace.id;
-                    const next = prev.filter((d) => (d.instanceId || d.id) !== targetInstance);
-                    // Noch ein Stück DERSELBEN Sorte? Dann in der Hand behalten, damit
-                    // man mehrere hintereinander setzen kann.
-                    //
-                    // Vorher stand hier `d.decoId === selectedDecoToPlace.decoId` als
-                    // zweite Bedingung. Bei Vorratsstücken ist `decoId` auf BEIDEN
-                    // Seiten undefined — der Vergleich war damit immer wahr und griff
-                    // das erstbeste Stück irgendeiner Sorte. Wer eine Laterne setzte,
-                    // hatte danach unbemerkt einen Gartenzwerg in der Hand und stellte
-                    // ihn mit dem nächsten Klick ab.
-                    const sorte = selectedDecoToPlace.id || selectedDecoToPlace.decoId;
-                    const nextSelected = sorte
-                        ? next.find((d) => (d.id || d.decoId) === sorte) || null
-                        : null;
-                    setSelectedDecoToPlace(nextSelected);
-                    return next;
-                });
-                notify(`${selectedDecoToPlace.name} platziert.`);
+                platziereDeko(worldX, worldY);
                 return;
             }
             if (selectedPetToPlace) {
@@ -4702,13 +4943,10 @@ export default function GameContainer() {
                     return;
                 }
 
-                // Tier-Plätze: drei gehören dazu, bis zu drei weitere sind kaufbar.
-                const petSlots = normalizeToolInventory(toolInventory).petSlots;
+                // Drei Plätze, einer je Fähigkeit.
                 const myPetsCount = petPlacements.filter(p => p.slotIndex === mySlotRef.current).length;
-                if (myPetsCount >= petSlots) {
-                    notify(petSlots >= PET_SLOTS_MAX
-                        ? `Alle ${PET_SLOTS_MAX} Tier-Plätze sind belegt.`
-                        : `Nur ${petSlots} Tier-Plätze — kauf oben rechts einen weiteren.`, "error");
+                if (myPetsCount >= PET_SLOTS) {
+                    notify(`Alle ${PET_SLOTS} Tier-Plätze sind belegt — pack erst eins ein.`, "error");
                     return;
                 }
 
@@ -4751,11 +4989,21 @@ export default function GameContainer() {
                 // Vorher genügte irgendein Linksklick in die Nähe: beim Laufen, beim
                 // Ernten, beim Anklicken des Briefkastens. Wer sein Grundstück
                 // eingerichtet hatte, räumte es beim Spielen versehentlich wieder ab.
-                const decoIdx = editorAktivRef.current ? decoPlacements.findIndex(d => {
+                //
+                // Was OBEN liegt, kommt zuerst: seit es Bodenbeläge gibt, steht auf
+                // derselben Kachel oft beides. Ohne diese Reihenfolge hätte ein Klick
+                // auf die Bank je nach Reihenfolge in der Liste die Steinplatte
+                // darunter aufgehoben und die Bank stehen lassen.
+                const trifft = (d) => {
                     if (d.slotIndex !== mySlotRef.current) return false;
                     const radius = 60 * Math.max(d.width || 1, d.height || 1) * 0.7;
                     return Math.hypot(worldX - d.x, worldY - d.y) < radius;
-                }) : -1;
+                };
+                let decoIdx = -1;
+                if (editorAktivRef.current) {
+                    decoIdx = decoPlacements.findIndex((d) => !istBoden(d) && trifft(d));
+                    if (decoIdx === -1) decoIdx = decoPlacements.findIndex((d) => istBoden(d) && trifft(d));
+                }
 
                 if (decoIdx !== -1) {
                     const deco = decoPlacements[decoIdx];
@@ -4767,6 +5015,20 @@ export default function GameContainer() {
                         _type: "deco",
                     }]);
                     notify(`${deco.name || "Deko"} aufgehoben.`);
+                    return;
+                }
+            }
+
+            // Schuppen direkt anklicken (Feedback 30.08.: "im Editor den Schuppen
+            // anklickbar machen") — bisher ging das nur über die E-Taste in der
+            // Nähe, ein Klick direkt auf das Gebäude tat nichts. Gilt in UND
+            // außerhalb des Editors, konsistent damit, dass Deko sich im Editor
+            // ebenfalls per Klick greifen lässt statt nur über die E-Taste.
+            const eigenerSchuppen = engineRef.current?.areas?.shed;
+            if (eigenerSchuppen && eigenerSchuppen.aktiv !== false) {
+                const distSchuppen = Math.hypot(worldX - eigenerSchuppen.x, worldY - eigenerSchuppen.y);
+                if (distSchuppen < COLLISION_RADIUS_BY_AREA_TYPE.shed) {
+                    setShedOpen(true);
                     return;
                 }
             }
@@ -4808,25 +5070,76 @@ export default function GameContainer() {
             handleCellClick(hovered.cellX, hovered.cellY);
         };
 
+        /**
+         * Eine Zelle im Schnellzug abernten ODER bepflanzen — je nachdem, was dort
+         * steht und was in der Hand ist. Dieselbe Regel wie beim Einzelklick (siehe
+         * onCanvasClick weiter unten: reif → ernten, sonst → mit ausgewähltem
+         * Samen pflanzen), nur übers ganze Feld gezogen statt Kachel für Kachel
+         * angeklickt (Feedback 30.08.: "Shift+Halten soll auch pflanzen, wenn man
+         * Samen hält").
+         *
+         * Der Acker kommt aus `engineRef` statt aus dem React-State: `handleHarvest`
+         * und `handleCellClick` sind asynchron bzw. laufen über setState, und bei
+         * einem zügigen Zug liegen mehrere Aktionen zwischen zwei Bildaufbauten. Die
+         * Schließung hier zeigte dann noch den Stand von vor dem Zug.
+         * `dragHarvestedCellsRef` verhindert zusätzlich, dass dieselbe Kachel
+         * zweimal losgeschickt wird — ob geerntet oder bepflanzt, EINE Aktion je
+         * Kachel und Zug reicht.
+         */
+        const ernteBeiZug = (worldX, worldY) => {
+            const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
+            const acker = engineRef.current.plotPlants || plotPlants;
+            const treffer = getHoveredCell(mySlot, worldX, worldY, acker);
+            if (!treffer) return;
+            const key = `${treffer.cellX}_${treffer.cellY}`;
+            if (dragHarvestedCellsRef.current.has(key)) return;
+            const pflanze = acker[key];
+            if (pflanze && isPlantReady(pflanze)) {
+                dragHarvestedCellsRef.current.add(key);
+                // Nur SAMMELN, nicht sofort abschicken (siehe handleHarvestMany):
+                // ein Zug über ein volles Feld berührt oft dutzende Zellen, ein
+                // Request je Zelle bedeutete ebenso viele Rendervorgänge kurz
+                // hintereinander — spürbar als Lag, besonders wenn dabei auch noch
+                // ein Tier- oder Skill-Ereignis eintraf (Feedback 30.08., zweite
+                // Runde). planeDragErnteFlush sammelt kurz (120ms) und schickt dann
+                // ALLE seither berührten Zellen in einem einzigen Aufruf.
+                dragErnteSammlungRef.current.set(key, pflanze);
+                planeDragErnteFlush();
+                return;
+            }
+            // Leere Zelle plus ein Samen in der Hand: pflanzen statt ernten.
+            if (!pflanze && selectedSeedRef.current) {
+                dragHarvestedCellsRef.current.add(key);
+                handleCellClick(treffer.cellX, treffer.cellY);
+            }
+        };
+
         const onCanvasMove = (e) => {
             const rect = canvas.getBoundingClientRect();
             const clientXLocal = e.clientX - rect.left;
             const clientYLocal = e.clientY - rect.top;
             const { worldX, worldY } = toWorld(e.clientX, e.clientY);
 
-            // Drag-harvest while mouse button is held.
+            // Boden malen, solange die Taste hängt. Still, sonst käme pro Kachel eine
+            // Meldung. Ist der Vorrat leer, setzt platziereDeko die Auswahl auf null
+            // und der Zug läuft von selbst aus.
+            if (bodenMalenRef.current) {
+                if (!selectedDecoToPlaceRef.current) bodenMalenRef.current = null;
+                else platziereDeko(worldX, worldY, { still: true });
+                return;
+            }
+
+            // Schnellernte, solange die linke Taste hängt. `e.buttons` fragt den
+            // TATSÄCHLICHEN Zustand ab: wird die Taste ausserhalb der Leinwand oder
+            // über einem Fenster losgelassen, kommt kein mouseup an, und der Zug
+            // lief sonst weiter, sobald die Maus zurückkam.
             if (isDragHarvestingRef.current) {
-                const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-                const dragHovered = getHoveredCell(mySlot, worldX, worldY, plotPlants);
-                if (dragHovered) {
-                    const dragKey = `${dragHovered.cellX}_${dragHovered.cellY}`;
-                    if (!dragHarvestedCellsRef.current.has(dragKey)) {
-                        const dragPlant = plotPlants[dragKey];
-                        if (dragPlant && isPlantReady(dragPlant)) {
-                            dragHarvestedCellsRef.current.add(dragKey);
-                            handleHarvest(dragKey, dragPlant);
-                        }
-                    }
+                if (!(e.buttons & 1)) {
+                    isDragHarvestingRef.current = false;
+                    dragHarvestedCellsRef.current = new Set();
+                    flushDragErnte();
+                } else {
+                    ernteBeiZug(worldX, worldY);
                 }
             }
 
@@ -4866,6 +5179,16 @@ export default function GameContainer() {
         };
 
         const onCanvasMouseDown = (e) => {
+            // Bodenbeläge malt man: Taste halten und ziehen. Der erste Klick liegt
+            // schon hier, damit auch ein kurzer Klick ohne Bewegung eine Kachel legt
+            // — `click` kommt danach und findet die Kachel bereits belegt.
+            if (istBoden(selectedDecoToPlaceRef.current) && editorAktivRef.current) {
+                const { worldX, worldY } = toWorld(e.clientX, e.clientY);
+                bodenMalenRef.current = true;
+                klickGehoertZuBodenMalenRef.current = true;
+                platziereDeko(worldX, worldY);
+                return;
+            }
             if (selectedTool === "shovel") {
                 const { worldX, worldY } = toWorld(e.clientX, e.clientY);
                 const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
@@ -4893,19 +5216,25 @@ export default function GameContainer() {
                 }, 900);
                 return;
             }
-            // Drag-harvest: start when no tool selected and clicking a ready plant.
-            if (!selectedTool && !selectedPetToPlace && !selectedDecoToPlace) {
+            // ── Schnellzug: Shift halten und ziehen — erntet ODER pflanzt ────
+            //
+            // Vorher lief das ohne Shift und startete NUR, wenn schon die erste
+            // Zelle unter dem Zeiger reif war. Beides war falsch: wer auf eine leere
+            // Kachel oder eine unreife Pflanze drückte und dann über ein volles Feld
+            // zog, erntete gar nichts — und wer nur die Ansicht verschieben wollte,
+            // erntete versehentlich eine halbe Reihe ab.
+            //
+            // Jetzt ist Shift der Schalter: gedrückt wird geerntet ODER bepflanzt,
+            // was der Zeiger berührt (siehe ernteBeiZug), egal womit der Zug
+            // angefangen hat. Ein ausgewählter Samen blockiert den Zug nicht mehr
+            // (Feedback 30.08.) — er ist jetzt der Grund, WARUM leere Zellen
+            // bepflanzt statt übersprungen werden. Ohne Shift bleibt es beim
+            // einzelnen Klick.
+            if (e.shiftKey && !selectedTool && !selectedPetToPlace && !selectedDecoToPlace) {
                 const { worldX, worldY } = toWorld(e.clientX, e.clientY);
-                const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-                const hovered = getHoveredCell(mySlot, worldX, worldY, plotPlants);
-                if (hovered) {
-                    const key = `${hovered.cellX}_${hovered.cellY}`;
-                    const plant = plotPlants[key];
-                    if (plant && isPlantReady(plant)) {
-                        isDragHarvestingRef.current = true;
-                        dragHarvestedCellsRef.current = new Set([key]);
-                    }
-                }
+                isDragHarvestingRef.current = true;
+                dragHarvestedCellsRef.current = new Set();
+                ernteBeiZug(worldX, worldY);
             }
         };
 
@@ -4913,8 +5242,33 @@ export default function GameContainer() {
             if (shovelHoldTimerRef.current) clearTimeout(shovelHoldTimerRef.current);
             if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
             setShovelHoldState({ active: false, progress: 0 });
-            isDragHarvestingRef.current = false;
+            // GEFUNDEN (Feedback 01.09.: "shift + leftclick... Ton, aber nichts
+            // geerntet, weil beim ersten Shift+Klick schon alles weg war"):
+            // Der Browser feuert nach JEDEM mouseup auf der Leinwand automatisch
+            // ein click — auch nach einem reinen Shift-Klick ohne Zug. Die Sperre
+            // in onCanvasClick ("Mit Shift gehört der Klick zur Schnellernte")
+            // prüft isDragHarvestingRef, aber die Zeile hier setzte das Flag schon
+            // VOR diesem click zurück, die Sperre griff also nie. Ergebnis: der
+            // click las die noch nicht aktualisierten plotPlants (harvestMany
+            // läuft ja noch), hielt die Staude für reif und schickte per
+            // handleHarvest eine ZWEITE, unabhängige Ernte-Anfrage für dieselbe
+            // Zelle los — mit ihrem EIGENEN, ebenso veralteten Vorher-Stand. Kam
+            // deren Antwort NACH der von handleHarvestMany zurück, überschrieb sie
+            // einen bereits geleerten Fruchtstand wieder mit dem alten (scheinbar
+            // reifen) Stand — sichtbar reife Frucht, die der Server längst nicht
+            // mehr hat. Der Ton kam vom zweiten, überflüssigen handleHarvest-Aufruf
+            // (der spielt ihn optimistisch VOR der Server-Antwort).
+            //
+            // Fix: das Flag bleibt bis nach dem click-Event stehen (setTimeout 0
+            // schiebt den Reset einen Tick weiter) — dieselbe Reihenfolge wie
+            // mousedown → mouseup → click, nur dass die Sperre jetzt tatsächlich
+            // noch etwas zum Sperren vorfindet.
+            setTimeout(() => { isDragHarvestingRef.current = false; }, 0);
             dragHarvestedCellsRef.current = new Set();
+            flushDragErnte();
+            // Ein Malzug endet mit der Maustaste — auch wenn sie ausserhalb der
+            // Leinwand losgelassen wird (mouseleave ruft dasselbe auf).
+            bodenMalenRef.current = null;
         };
 
         // Mausrad zoomt. passive:false, sonst scrollt die Seite darunter mit.
@@ -4955,7 +5309,7 @@ export default function GameContainer() {
         };
         // petPlacements und toolInventory fehlten hier: die Platzgrenze rechnete mit
         // dem Stand vom letzten Rendern dieses Effekts.
-    }, [showLobbyScreen, handleCellClick, handleHarvest, handleMineRock, handleMovePlantWithPot, handleWaterPlant, notify, plotPlants, selectedTool, selectedPetToPlace, selectedDecoToPlace, decoPlacements, petPlacements, toolInventory, hoverStore, verschiebtGebaeude, debouncedSave, plotsRef]);
+    }, [showLobbyScreen, handleCellClick, handleHarvest, planeDragErnteFlush, flushDragErnte, handleMineRock, handleMovePlantWithPot, handleWaterPlant, notify, plotPlants, selectedTool, selectedPetToPlace, selectedDecoToPlace, decoPlacements, petPlacements, toolInventory, hoverStore, verschiebtGebaeude, debouncedSave, plotsRef, remotePlayersRef, sendShotgun]);
 
     useEffect(() => {
         mySlotRef.current = mySlotIndex;
@@ -4972,15 +5326,26 @@ export default function GameContainer() {
         setWorldBootState((prev) => (prev.active ? { active: false, label: "", progress: 0 } : prev));
     }, [showLobbyScreen]);
 
-    // Tier-Spezialeffekte (Goldfinder / Seedfinder) — Geschwindigkeit abhängig vom höchsten Pet-Level
+    /**
+     * Goldfinder-Takt.
+     *
+     * Seit dem Tier-Umbau (August 2026) tickt nur noch DIESE eine Fähigkeit. Der
+     * Gärtner wirkt dauerhaft (Nachwuchs und Wachstum rechnet der Server beim Ernten
+     * bzw. beim Pflanzen), der Erntehelfer beim eigenen Ernten — beide brauchen keine
+     * Schleife mehr. Der frühere Erntehelfer-Zweig hat über `harvestMany` selbst
+     * abgeerntet und verkauft; genau das ist entfallen, weil es den Spieler ersetzt
+     * statt ihn zu verstärken.
+     */
     useEffect(() => {
         if (showLobbyScreen) return;
 
-        // Takt richtet sich nach dem höchsten Fähigkeits-Level unter den platzierten Tieren.
-        // Werte liegen in engine/PetSystem, damit das Tier-Modal dasselbe anzeigt.
+        const meineGoldfinder = () => farmStateRef.current.petPlacements
+            .filter((p) => p.slotIndex === mySlotRef.current && p.ability?.type === "goldfinder");
+
+        // Takt richtet sich nach dem höchsten Goldfinder-Level. Werte liegen in
+        // engine/PetSystem, damit das Tier-Modal dasselbe anzeigt.
         const getIntervalMs = () => {
-            const myPets = farmStateRef.current.petPlacements.filter(p => p.slotIndex === mySlotRef.current);
-            const maxLevel = myPets.reduce((m, p) => Math.max(m, p.ability?.level || 0), 0);
+            const maxLevel = meineGoldfinder().reduce((m, p) => Math.max(m, p.ability?.level || 0), 0);
             return getPetTickMs(maxLevel);
         };
 
@@ -4992,7 +5357,6 @@ export default function GameContainer() {
          * Wer ein Stufe-5- neben einem Stufe-1-Tier stehen hat, fragte für das
          * langsame dreimal so oft an, wie es darf — jede dieser Anfragen kam als
          * 429 „Zu früh" zurück und stand als Fehler in der Browser-Konsole.
-         * Dieselbe Rechnung wie dort, damit erst gar nichts Aussichtsloses rausgeht.
          */
         const darfAuszahlen = (petId, level) => {
             const zuletzt = petFundZeitenRef.current.get(petId) || 0;
@@ -5001,9 +5365,8 @@ export default function GameContainer() {
         const merkeAuszahlung = (petId) => petFundZeitenRef.current.set(petId, Date.now());
 
         let timerId;
-        // Gold und Ernte gehoeren ab v3.0 dem Server. Der Tick wuerfelt deshalb nur
-        // noch das Ausloesen (PET_PROC_CHANCE) und meldet die Absicht — die Hoehe
-        // eines Fundes und die Gueltigkeit einer Ernte entscheidet der Server.
+        // Der Tick würfelt nur das AUSLÖSEN (PET_PROC_CHANCE) und meldet die Absicht —
+        // die Höhe eines Fundes entscheidet der Server.
         const tick = async () => {
             // Ein zurückgetretener Tab lässt seine Tiere ruhen: er kann das
             // Ergebnis nie speichern, und jede Server-Aktion von ihm bringt den
@@ -5012,64 +5375,35 @@ export default function GameContainer() {
                 timerId = setTimeout(tick, getIntervalMs());
                 return;
             }
-            const state = farmStateRef.current;
-            const myPets = state.petPlacements.filter(p => p.slotIndex === mySlotRef.current);
-            if (myPets.length) {
+            const tiere = meineGoldfinder();
+            if (tiere.length) {
                 const msgs = [];
-                // „Züchter" aus dem Fähigkeitsbaum — gedeckelt wie serverseitig
-                // in garden/core/offline.js.
+                // „Züchter" aus dem Fähigkeitsbaum — gedeckelt wie serverseitig.
                 const procChance = Math.min(0.5, PET_PROC_CHANCE * (1 + skillWirkung("zuechter")));
 
-                for (const pet of myPets) {
-                    if (!pet.ability) continue;
+                for (const pet of tiere) {
                     if (Math.random() >= procChance) continue;
                     const petId = pet.id || pet.instanceId;
-
-                    if (pet.ability.type === "goldfinder") {
-                        if (!darfAuszahlen(petId, pet.ability.level)) continue;
-                        try {
-                            const data = await apiCall("/action", {
-                                method: "POST",
-                                body: JSON.stringify({ action: "petFind", petId, kind: "gold" }),
-                            });
-                            merkeAuszahlung(petId);
-                            if (typeof data?.gold === "number") setGold(data.gold);
-                            msgs.push(`${pet.customName || pet.name}: +${Number(data?.verdient || 0).toLocaleString('de-DE')} Gold`);
-                        } catch { /* Server hat abgelehnt (z. B. zu frueh) — stillhalten */ }
-                    } else if (pet.ability.type === "harvester") {
-                        // Der Server prueft Reife und Rucksackgrenze selbst; wir nennen
-                        // nur die Kandidaten in Reihenfolge.
-                        const plants = farmStateRef.current.plotPlants || {};
-                        const budget = getHarvesterYield(pet.ability.level);
-                        const keys = [];
-                        for (const [key, plant] of Object.entries(plants)) {
-                            if (keys.length >= budget) break;
-                            if (plant && isPlantReady(plant)) keys.push(key);
+                    if (!darfAuszahlen(petId, pet.ability.level)) continue;
+                    try {
+                        const data = await apiCall("/action", {
+                            method: "POST",
+                            body: JSON.stringify({ action: "petFind", petId, kind: "gold" }),
+                        });
+                        merkeAuszahlung(petId);
+                        if (typeof data?.gold === "number") setGold(data.gold);
+                        if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
+                        const verdient = Number(data?.verdient || 0);
+                        msgs.push(`${pet.customName || pet.name}: +${verdient.toLocaleString("de-DE")} Gold`);
+                        // Direkt am Spieler statt am Tier: dessen aktuelle Position kennt hier
+                        // nur die Render-Schleife (petPlacements führt keine live x/y), und
+                        // "wer" hat schon der Toast-Text oben — hier geht es nur ums "jetzt".
+                        const renderer = engineRef.current?.renderer;
+                        const spieler = engineRef.current?.player;
+                        if (renderer && spieler) {
+                            renderer.spawnFeedback(spieler.x, spieler.y - 40, `+${formatGold(verdient)}`, { color: "#fde047" });
                         }
-                        if (keys.length) {
-                            try {
-                                const data = await apiCall("/action", {
-                                    method: "POST",
-                                    body: JSON.stringify({ action: "harvestMany", keys }),
-                                });
-                                applyEconomy(data, keys);
-                                // Der Helfer VERKAUFT direkt (ab v3.3) — die Meldung nennt
-                                // deshalb den Erlös, nicht nur die Stückzahl.
-                                const anzahl = Number(data?.anzahl) || 0;
-                                if (anzahl) {
-                                    msgs.push(`${pet.customName || pet.name}: ${anzahl}× geerntet, `
-                                        + `+${Number(data?.verdient || 0).toLocaleString("de-DE")} Gold`);
-                                }
-                            } catch { /* nichts reif */ }
-                        }
-                    }
-                    // "seedfinder" ist jetzt der GÄRTNER und tickt gar nicht mehr:
-                    // seine Wirkung (kostenloser Nachwuchs beim Ernten, schnelleres
-                    // Wachstum) sitzt serverseitig in harvestCell bzw. im Wachstum
-                    // und greift damit auch offline. Der alte Zweig legte pro
-                    // Auslösung einen zufälligen Shop-Samen in den Rucksack — ohne
-                    // Platzprüfung, wodurch nach ein paar Stunden JEDE Ernte an
-                    // "Rucksack voll" scheiterte.
+                    } catch { /* Server hat abgelehnt (z. B. zu früh) — stillhalten */ }
                 }
 
                 if (msgs.length) notify(msgs.join(" | "), "info");
@@ -5079,10 +5413,7 @@ export default function GameContainer() {
 
         timerId = setTimeout(tick, getIntervalMs());
         return () => clearTimeout(timerId);
-        // `shopRotation` stand hier, weil der Samenfinder daraus gezogen hat. Der
-        // ist jetzt der Gärtner und tickt nicht mehr — damit setzt sich der Tier-Takt
-        // auch nicht mehr alle fünf Minuten mit der Ladenrotation neu auf.
-    }, [showLobbyScreen, notify, apiCall, applyEconomy, skillWirkung])
+    }, [showLobbyScreen, notify, apiCall, skillWirkung])
 
     useEffect(() => {
         localPlayerNameRef.current = authUser?.twitchLogin || authUser?.login || "Spieler";
@@ -5159,11 +5490,13 @@ export default function GameContainer() {
         if (!authUser) return;
         apiCall("/is-subscriber")
             .then((data) => {
-                const sub = Boolean(data.isSubscriber);
-                const beta = Boolean(data.isBeta);
-                setIsSubscriber(sub);
-                setIsBeta(beta);
-                playerBadgeRef.current = sub ? "subscriber" : beta ? "beta" : null;
+                setIsSubscriber(Boolean(data.isSubscriber));
+                setIsBeta(Boolean(data.isBeta));
+                // Das Abzeichen selbst wird NICHT hier gesetzt, sondern in einem
+                // eigenen Effekt aus `eigenesAbzeichen` — sonst hätte es zwei
+                // Quellen: diese hier für den eigenen Kopf und die Lobby-Verbindung
+                // für alle anderen. Genau daran lag es, dass über dem eigenen Kopf
+                // noch „Sub" stand, während die Mitspieler längst „Admin" sahen.
             })
             .catch(() => {});
     }, [authUser, apiCall]);
@@ -5205,6 +5538,9 @@ export default function GameContainer() {
         pot: (toolInventory.plantPots || 0) > 0 ? { name: String(toolInventory.plantPots || 0) } : null,
         pickaxe: (toolInventory.pickaxeUses || 0) > 0 ? { name: String(toolInventory.pickaxeUses || 0) } : null,
         watering: (toolInventory.wateringCans || 0) > 0 ? { name: String(toolInventory.wateringCans || 0) } : null,
+        // Hängt an der Person, nicht am Spielstand: die Shotgun steht in keinem
+        // Laden und lässt sich nicht kaufen.
+        shotgun: istGartenAdmin ? { name: "∞" } : null,
     };
     const hotbarItems = [
         ...inventory.map(s => ({ ...withVisuals(s), _type: "seed" })),
@@ -5234,7 +5570,19 @@ export default function GameContainer() {
             applyEconomy(data, []);
             playSound("cash", 0.6);
             const verdient = Number(data?.verdient || 0);
-            notify("Alles verkauft: +" + verdient.toLocaleString("de-DE") + " Gold");
+            // Feedback 30.08.: "nicht oben die kleine graue Bubble, sondern eine
+            // animierte Cartoon-Blase auf dem Markt mit dem gemachten Geld" — der
+            // Spieler steht beim Verkaufen immer am Markt (sellAllRef läuft nur aus
+            // activateInteractable/der Marktstand-Ansicht, beide setzen Nähe voraus),
+            // die Sprechblase kann also direkt über dem Marktstand erscheinen statt
+            // als Kopfzeilen-Meldung.
+            const marktBereich = engineRef.current?.areas?.market;
+            const renderer = engineRef.current?.renderer;
+            if (renderer && marktBereich) {
+                renderer.spawnVerkaufsBlase(marktBereich.x, marktBereich.y - 80, `+${formatGold(verdient)}`);
+            } else {
+                notify("Alles verkauft: +" + verdient.toLocaleString("de-DE") + " Gold");
+            }
         } catch (err) {
             notify(err?.message || "Verkauf fehlgeschlagen.", "error");
         }
@@ -5262,6 +5610,7 @@ export default function GameContainer() {
             setPetInventory(prev => prev.filter(p => (p.id || p.instanceId) !== petId));
             setSelectedPetToPlace(null);
             if (typeof data?.gold === "number") setGold(data.gold);
+            if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
             playSound("cash", 0.6);
             notify(`${name} verkauft: +${Number(data?.verdient || 0).toLocaleString('de-DE')} Gold`);
             debouncedSave();
@@ -5311,6 +5660,7 @@ export default function GameContainer() {
             });
             setPetPlacements(prev => prev.filter(p => p.id !== petId));
             if (typeof data?.gold === "number") setGold(data.gold);
+            if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
             playSound("cash", 0.6);
             notify(`${name} verkauft: +${Number(data?.verdient || 0).toLocaleString('de-DE')} Gold`);
             setInspectedPet(null);
@@ -5341,7 +5691,7 @@ export default function GameContainer() {
             inventory, plotPlants, plotExpansions, plotUnlockedCells,
             eggInventory, petInventory, petPlacements, decoInventory, decoPlacements,
             toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch,
-            shopStock: personalShopStock,
+            shopStock: ladenBestand,
             shopStockVersion: shopRotation?.generatedAt,
             toolShopStock: toolShopStock,
             toolShopStockVersion: toolShopRotation?.generatedAt,
@@ -5352,6 +5702,7 @@ export default function GameContainer() {
             // debouncedSave (Pflanzen, Kaufen, …) zog die Kleidung mit.
             appearance: playerAppearance,
             tutorialCompleted,
+            [ACKERRASTER_MARKE]: ackerRasterMigriert,
             // Gegen verspätete Speicherstände: der Server verwirft diesen PUT, wenn
             // seit dem Laden eine Aktion dazwischenkam (siehe erhoeheVersion).
             stateVersion: stateVersionRef.current,
@@ -5422,7 +5773,7 @@ export default function GameContainer() {
             // (garden:admin_update), das weiterhin nachlädt.
             console.warn("[Garden] Speichern kollidiert wiederholt — nächster Versuch folgt.");
         }
-    }, [apiCall, uebernimmVomServer, gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, personalShopStock, shopRotation?.generatedAt, toolShopStock, toolShopRotation?.generatedAt, eggShopStock, eggShopRotation?.generatedAt, playerAppearance, tutorialCompleted]);
+    }, [apiCall, uebernimmVomServer, gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, ladenBestand, shopRotation?.generatedAt, toolShopStock, toolShopRotation?.generatedAt, eggShopStock, eggShopRotation?.generatedAt, playerAppearance, tutorialCompleted, ackerRasterMigriert]);
 
     useEffect(() => { flushFarmStateToServerRef.current = flushFarmStateToServer; }, [flushFarmStateToServer]);
     useEffect(() => { isInitialLoadDoneRef.current = isInitialLoadDone; }, [isInitialLoadDone]);
@@ -5448,6 +5799,7 @@ export default function GameContainer() {
             const data = await apiCall("/mail/claim", { method: "POST", body: JSON.stringify({ id: mailId }) });
             setMailboxState(Array.isArray(data?.mailbox) ? data.mailbox : []);
             if (typeof data?.gold === "number") setGold(data.gold);
+            if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
             if (Array.isArray(data?.inventory)) setInventory(hydrateSeeds(data.inventory));
             if (Array.isArray(data?.harvestedItems)) setHarvestedItems(hydrateHarvestedItems(data.harvestedItems));
             if (Array.isArray(data?.petInventory)) setPetInventory(hydratePets(data.petInventory));
@@ -5581,10 +5933,13 @@ export default function GameContainer() {
     if (showLobbyScreen) {
         return (
             <div className="page-fade w-full flex-1 min-h-0 h-full relative overflow-y-auto custom-scrollbar flex items-center justify-center p-6 md:p-10">
+                {/* Ohne eigene Metadaten behielt der Reiter den Titel der Seite, von der
+                    man gekommen ist — auf der Farm stand dann „Home - vnmvalentin". */}
+                <SEO {...FARM_SEO} />
                 <div className="w-full max-w-2xl flex flex-col items-center gap-7 py-6">
 
                     <div className="flex items-center gap-3 self-start">
-                        <span className="flex items-center justify-center w-10 h-10 rounded-md border border-slate-700 bg-slate-900 text-violet-400 shrink-0">
+                        <span className="flex items-center justify-center w-10 h-10 rounded-2xl border border-slate-700 bg-slate-900 text-violet-400 shrink-0">
                             <Sprout size={20} />
                         </span>
                         <div>
@@ -5593,9 +5948,9 @@ export default function GameContainer() {
                         </div>
                     </div>
 
-                    <div className="w-full rounded-md border border-slate-700 bg-slate-900 overflow-hidden">
+                    <div className="w-full rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden">
                         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800">
-                            <Trophy size={14} className="text-amber-400" />
+                            <HudIcon.level size={14} className="text-amber-400" />
                             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-300">Bestenliste</h2>
                         </div>
                         {leaderboard.length === 0 ? (
@@ -5609,7 +5964,7 @@ export default function GameContainer() {
                                         </span>
                                         <span className="flex-1 min-w-0 text-sm text-white truncate" title={e.name}>{e.name}</span>
                                         <span className="flex items-center gap-1.5 text-sm font-semibold text-amber-400 tabular-nums shrink-0">
-                                            <Coins size={13} /> {formatGold(e.gold)}
+                                            <HudIcon.gold size={13} /> {formatGold(e.gold)}
                                         </span>
                                     </div>
                                 ))}
@@ -5617,7 +5972,7 @@ export default function GameContainer() {
                         )}
                     </div>
 
-                    <div className="w-full rounded-md border border-slate-700 bg-slate-900 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Twitch-Konto</div>
                             {authUser?.twitchLogin || authUser?.login ? (
@@ -5630,13 +5985,21 @@ export default function GameContainer() {
                             )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                            {authUser && isSubscriber && (
-                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-sm border border-amber-500/40 text-amber-300 text-[11px] font-medium">
-                                    <Star size={12} /> Subscriber · +50 % Verkauf
+                            {/* Der Admin trägt sein eigenes Schild statt „Subscriber" —
+                                den Verkaufsbonus bekommt er trotzdem, deshalb steht er
+                                weiterhin daneben. */}
+                            {authUser && istGartenAdmin && (
+                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-red-500/40 text-red-300 text-[11px] font-medium">
+                                    <HudIcon.trusted size={12} /> Admin{isSubscriber ? " · +50 % Verkauf" : ""}
+                                </span>
+                            )}
+                            {authUser && !istGartenAdmin && isSubscriber && (
+                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-amber-500/40 text-amber-300 text-[11px] font-medium">
+                                    <HudIcon.star size={12} /> Subscriber · +50 % Verkauf
                                 </span>
                             )}
                             {authUser && isBeta && (
-                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-sm border border-sky-500/40 text-sky-300 text-[11px] font-medium">
+                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-sky-500/40 text-sky-300 text-[11px] font-medium">
                                     <FlaskConical size={12} /> Beta
                                 </span>
                             )}
@@ -5644,7 +6007,7 @@ export default function GameContainer() {
                                 <button
                                     type="button"
                                     onClick={() => twitchLogin?.()}
-                                    className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-3 py-2 rounded-md text-xs font-semibold transition-colors"
+                                    className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-3 py-2 rounded-2xl text-xs font-semibold transition-colors"
                                 >
                                     <TwitchGlyph className="w-3.5 h-3.5" /> Mit Twitch anmelden
                                 </button>
@@ -5656,13 +6019,13 @@ export default function GameContainer() {
                         type="button"
                         onClick={() => enterWorld("public")}
                         disabled={!authUser}
-                        className="w-full bg-violet-600 hover:bg-violet-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold py-3 rounded-md text-sm transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-violet-600 hover:bg-violet-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold py-3 rounded-2xl text-sm transition-colors flex items-center justify-center gap-2"
                     >
                         <Play size={16} />
                         Öffentliche Welt betreten
                     </button>
 
-                    <div className="w-full rounded-md border border-slate-700 bg-slate-900 px-4 py-3 flex flex-col gap-3">
+                    <div className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 flex flex-col gap-3">
                         <div className="text-[10px] uppercase tracking-wider text-slate-500">Private Welt</div>
                         <div className="flex flex-col sm:flex-row gap-2">
                             <input
@@ -5672,13 +6035,13 @@ export default function GameContainer() {
                                 onKeyDown={(e) => { if (e.key === "Enter" && authUser) enterWorld("code"); }}
                                 placeholder="Weltcode"
                                 disabled={!authUser}
-                                className="flex-1 px-3 py-2 rounded-md bg-slate-950 border border-slate-700 text-sm text-white tracking-[0.3em] uppercase placeholder:tracking-normal placeholder:text-slate-600 focus:border-violet-500 focus:outline-none disabled:opacity-50"
+                                className="flex-1 px-3 py-2 rounded-2xl bg-slate-950 border border-slate-700 text-sm text-white tracking-[0.3em] uppercase placeholder:tracking-normal placeholder:text-slate-600 focus:border-violet-500 focus:outline-none disabled:opacity-50"
                             />
                             <button
                                 type="button"
                                 onClick={() => enterWorld("code")}
                                 disabled={!authUser || joinCodeInput.trim().length < 4}
-                                className="px-4 py-2 rounded-md border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 disabled:opacity-40 disabled:hover:border-slate-700 text-xs font-semibold transition-colors"
+                                className="px-4 py-2 rounded-2xl border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 disabled:opacity-40 disabled:hover:border-slate-700 text-xs font-semibold transition-colors"
                             >
                                 Beitreten
                             </button>
@@ -5686,7 +6049,7 @@ export default function GameContainer() {
                                 type="button"
                                 onClick={() => enterWorld("create")}
                                 disabled={!authUser}
-                                className="px-4 py-2 rounded-md border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 disabled:opacity-40 disabled:hover:border-slate-700 text-xs font-semibold transition-colors"
+                                className="px-4 py-2 rounded-2xl border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 disabled:opacity-40 disabled:hover:border-slate-700 text-xs font-semibold transition-colors"
                             >
                                 Neue Welt
                             </button>
@@ -5702,21 +6065,44 @@ export default function GameContainer() {
     }
 
     return (
-        <div className="relative w-full h-full min-h-0 flex-1 bg-slate-950 overflow-hidden" style={{ fontFamily: "'Courier New', monospace" }}>
+        // Nunito statt 'Courier New': die Schreibmaschinenschrift mit ihren harten
+        // Kanten passte nicht zu einem Farmspiel. Zahlen bleiben über `tabular-nums`
+        // an ihren Stellen stehen, dafür ist die Schrift nicht mehr dicktengleich.
+        <div className="relative w-full h-full min-h-0 flex-1 bg-slate-950 overflow-hidden" style={{ fontFamily: "'Baloo 2', 'Nunito', 'Segoe UI', system-ui, sans-serif" }}>
+            <SEO {...FARM_SEO} />
             <canvas ref={canvasRef} className="absolute inset-0" />
+            {/* Feedback 01.09.: "besserer Ladebildschirm, richtig erst fertig wenn
+                alles geladen hat" — der Balken bleibt unter 100 %, bis preloadCriticalAssets
+                (der GANZE Samenkatalog + alle Reskins, nicht nur der eigene Bestand) UND
+                die Serverdaten tatsächlich da sind (tryCompleteWorldBoot oben — kein
+                Balken, der einfach eine feste Zeit lang lief).
+                Das Bild (loading_screen.webp) trägt Titel + Untertitel schon eingebrannt;
+                der Balken sitzt als eigene Ebene in FESTEM Abstand zum Bild (`top: 41%`
+                seiner eigenen Box, nicht des Viewports) exakt unter dem Schriftzug —
+                das Bild läuft dafür immer mit object-contain in einer Box im selben
+                668:373-Seitenverhältnis mit, egal wie breit der Bildschirm ist. */}
             {worldBootState.active && (
-                <div className="absolute inset-0 z-[120] bg-slate-950/95 backdrop-blur-sm flex items-center justify-center">
-                    <div className="w-[min(460px,90vw)] rounded-md border border-slate-700 bg-slate-900 p-6">
-                        <div className="text-base font-semibold text-white mb-1">Virtual Farm wird geladen</div>
-                        <div className="text-xs text-slate-400 mb-4">{worldBootState.label || "Bitte warten..."}</div>
-                        <div className="h-1.5 w-full rounded-sm bg-slate-800 overflow-hidden">
+                <div className="absolute inset-0 z-[120] bg-slate-950 flex items-center justify-center p-6">
+                    <div className="relative w-[min(760px,94vw)]" style={{ aspectRatio: "668 / 373" }}>
+                        <img
+                            src="/garden-assets/world/loading_screen.webp"
+                            alt="Virtual Farm"
+                            className="absolute inset-0 h-full w-full object-contain"
+                            draggable={false}
+                        />
+                        <div className="absolute left-1/2 w-[46%] -translate-x-1/2" style={{ top: "41%" }}>
+                            <div className="h-2.5 w-full rounded-xl bg-slate-950/70 border border-white/10 overflow-hidden">
+                                <div
+                                    className="h-full rounded-xl bg-violet-500 transition-[width] duration-200"
+                                    style={{ width: `${Math.max(4, Math.min(100, worldBootState.progress || 0))}%` }}
+                                />
+                            </div>
                             <div
-                                className="h-full bg-violet-500 transition-[width] duration-200"
-                                style={{ width: `${Math.max(4, Math.min(100, worldBootState.progress || 0))}%` }}
-                            />
-                        </div>
-                        <div className="text-right text-[11px] text-slate-500 mt-2 tabular-nums">
-                            {Math.round(worldBootState.progress || 0)} %
+                                className="mt-1.5 text-center text-[11px] text-white/80 tabular-nums"
+                                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
+                            >
+                                {Math.round(worldBootState.progress || 0)} % — {worldBootState.label || "Bitte warten..."}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -5730,7 +6116,7 @@ export default function GameContainer() {
                         <Sprout size={14} /> Erste Schritte
                     </h3>
                     <div className="text-sm text-slate-300 leading-relaxed">
-                        {inventory.length === 0 && Object.keys(plotPlants).length === 0 && harvestedItems.length === 0 && gold <= 500 && (
+                        {inventory.length === 0 && Object.keys(plotPlants).length === 0 && harvestedItems.length === 0 && gold <= START_GOLD && (
                             <p>Willkommen. Geh zum <span className="text-white font-medium">Samen-Shop</span> und kauf deinen ersten Samen.</p>
                         )}
                         {inventory.length > 0 && Object.keys(plotPlants).length === 0 && harvestedItems.length === 0 && (
@@ -5742,13 +6128,13 @@ export default function GameContainer() {
                         {harvestedItems.length > 0 && (
                             <p>Geh zum <span className="text-white font-medium">Marktstand</span> und verkauf deine Ernte.</p>
                         )}
-                        {gold > 500 && harvestedItems.length === 0 && Object.keys(plotPlants).length === 0 && inventory.length === 0 && (
+                        {gold > START_GOLD && harvestedItems.length === 0 && Object.keys(plotPlants).length === 0 && inventory.length === 0 && (
                             <p>Geschafft — das war der Einstieg.</p>
                         )}
                     </div>
                     <button
                         type="button"
-                        className="mt-3 w-full py-1.5 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white rounded-md text-xs font-medium transition-colors"
+                        className="mt-3 w-full py-1.5 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white rounded-2xl text-xs font-medium transition-colors"
                         onClick={() => setTutorialCompleted(true)}
                     >
                         Nicht mehr anzeigen
@@ -5760,7 +6146,7 @@ export default function GameContainer() {
             {notification && (
                 <div
                     key={notification.id}
-                    className={`absolute top-24 left-1/2 -translate-x-1/2 z-[300] px-4 py-2.5 rounded-md text-sm font-medium border backdrop-blur-sm ${
+                    className={`absolute top-24 left-1/2 -translate-x-1/2 z-[300] px-4 py-2.5 rounded-2xl text-sm font-medium border backdrop-blur-sm ${
                         notification.type === "error"
                             ? "bg-rose-950/95 border-rose-800 text-rose-200"
                             : "bg-slate-900/95 border-slate-700 text-slate-100"
@@ -5771,7 +6157,7 @@ export default function GameContainer() {
             )}
             {/* ── Zweiter Tab: dieser hier speichert nicht mehr ────────────────── */}
             {nurZuschauen && (
-                <div className="absolute bottom-5 left-1/2 z-[290] w-[min(94vw,520px)] -translate-x-1/2 rounded-md border border-amber-800 bg-amber-950/95 px-4 py-3 backdrop-blur-sm">
+                <div className="absolute bottom-5 left-1/2 z-[290] w-[min(94vw,520px)] -translate-x-1/2 rounded-2xl border border-amber-800 bg-amber-950/95 px-4 py-3 backdrop-blur-sm">
                     <div className="flex items-start gap-3">
                         <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
                         <div className="flex-1 text-sm text-amber-100">
@@ -5790,7 +6176,7 @@ export default function GameContainer() {
                                     setNurZuschauen(false);
                                 }
                             }}
-                            className="shrink-0 rounded-sm border border-amber-700 bg-amber-900/60 px-3 py-1.5 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-900"
+                            className="shrink-0 rounded-xl border border-amber-700 bg-amber-900/60 px-3 py-1.5 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-900"
                         >
                             Hier weiterspielen
                         </button>
@@ -5803,7 +6189,7 @@ export default function GameContainer() {
                     {rotationBanners.map((b) => (
                         <div
                             key={b.id}
-                            className="rounded-md border border-slate-700 bg-slate-900/95 px-4 py-2 text-center text-sm font-medium text-slate-100 backdrop-blur-sm"
+                            className="rounded-2xl border border-slate-700 bg-slate-900/95 px-4 py-2 text-center text-sm font-medium text-slate-100 backdrop-blur-sm"
                         >
                             {b.msg}
                         </div>
@@ -5811,29 +6197,19 @@ export default function GameContainer() {
                 </div>
             )}
 
-            {/* ── Links oben: Einstellungen, Changelog, darunter Weltzustand ──── */}
+            {/* ── Links oben: Einstellungen, darunter Weltzustand ─────────────── */}
             <div className="absolute top-5 left-5 z-50 flex flex-col items-start gap-2">
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        aria-label="Einstellungen"
-                        onClick={(e) => {
-                            e.currentTarget.blur();
-                            setSettingsOpen((prev) => !prev);
-                        }}
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center ${HUD_SURFACE} text-slate-300 transition-colors hover:text-white`}
-                    >
-                        <Settings size={17} />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setChangelogOpen(true)}
-                        className={`flex h-10 shrink-0 items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
-                    >
-                        <ScrollText size={15} />
-                        <span className="hidden sm:inline">Changelog</span>
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    aria-label="Einstellungen"
+                    onClick={(e) => {
+                        e.currentTarget.blur();
+                        setSettingsOpen((prev) => !prev);
+                    }}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center ${HUD_SURFACE} text-slate-300 transition-colors hover:text-white`}
+                >
+                    <HudIcon.settings size={17} />
+                </button>
 
                 {/* Spielerzahl und Zoom sagen etwas über die Welt und die Ansicht, nicht
                     über die eigene Farm — deshalb hier bei den Einstellungen statt
@@ -5846,69 +6222,77 @@ export default function GameContainer() {
                         type="button"
                         onClick={(e) => { e.currentTarget.blur(); setOnlineListeOffen((offen) => !offen); }}
                         aria-expanded={istOnlineListeOffen}
-                        className={`flex h-10 w-[11rem] items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
+                        className={`flex h-10 w-[11rem] items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
                     >
-                        <Users size={15} className="shrink-0" />
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
+                            <HudIcon.players size={17} />
+                        </span>
                         <span className="truncate tabular-nums">
                             {lobbyConnected ? `${onlinePlayers.length + 1}/${WORLD_SLOTS} online` : "Verbinde…"}
                         </span>
-                        <ChevronDown
+                        <HudIcon.chevron
                             size={13}
-                            className={`ml-auto shrink-0 text-slate-500 transition-transform ${istOnlineListeOffen ? "rotate-180" : ""}`}
+                            className={`ml-auto shrink-0 transition-transform ${istOnlineListeOffen ? "rotate-180" : ""}`}
                         />
                     </button>
                     {istOnlineListeOffen && (
-                        <div className="mt-2 w-[15rem] max-h-64 overflow-y-auto bg-slate-900/95 border border-slate-700 rounded-md p-1.5 backdrop-blur-sm flex flex-col gap-0.5">
+                        // Cartoon-Überarbeitung 30.08. (zweite Runde, "Spielermenü ist noch
+                        // alt"): dieselbe dicke dunkle Holz-Kontur wie überall sonst, der
+                        // Innenraum bleibt dunkel (siehe GardenModal-Kommentar in gardenUi.jsx,
+                        // warum: der helle Text hier drin verträgt sich nicht mit hellem Grund).
+                        <div className="mt-2 w-[19rem] max-h-64 overflow-y-auto bg-slate-900/95 border-[3px] border-amber-950 rounded-2xl shadow-lg p-1.5 backdrop-blur-sm flex flex-col gap-0.5">
                             <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-slate-500">
                                 Klick bringt dich zum Grundstück
                             </div>
+                            {/* v2 (Feedback 30.08.: "Profil-Hover soll nicht mehr jedermanns
+                                Gold zeigen, stattdessen in die Online-Liste links") — dieselben
+                                Zahlen wie vorher in der Profil-Bubble beim Draufhalten, jetzt
+                                hier: eigener Stand aus `gold`/`skillStand` (Server hat sie
+                                bestätigt), die anderen aus dem Lobby-Tick (p.gold/p.level).
+                                Feedback 01.09. ("Dropdown hübscher, Katze als Bild, Level +
+                                Gold mit Icons"): eigenes Bild statt Stecknadel-Icon, beide
+                                Werte jetzt mit HudIcon statt nacktem Text. */}
                             {[
-                                { id: "ich", name: localPlayerNameRef.current || "Du", slotIndex: mySlotIndex, selbst: true },
+                                { id: "ich", name: localPlayerNameRef.current || "Du", slotIndex: mySlotIndex, gold, level: skillStand?.level || 1, skin: playerAppearance.skin, selbst: true },
                                 ...onlinePlayers.map((p) => ({
-                                    id: p.twitchId, name: p.name || "Farmer", slotIndex: p.slotIndex, selbst: false,
+                                    id: p.twitchId, name: p.name || "Farmer", slotIndex: p.slotIndex, gold: p.gold || 0, level: p.level || 1, skin: p.skin, selbst: false,
                                 })),
                             ].map((eintrag) => (
                                 <button
                                     key={eintrag.id}
                                     type="button"
                                     onClick={() => besucheSpieler(eintrag)}
-                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-sm border border-transparent text-left transition-colors hover:border-slate-700 hover:bg-slate-800/70 ${
+                                    className={`flex items-center gap-2.5 px-2 py-1.5 rounded-xl border border-transparent text-left transition-colors hover:border-slate-700 hover:bg-slate-800/70 ${
                                         eintrag.selbst ? "bg-slate-800/60" : ""
                                     }`}
                                 >
-                                    <MapPin size={12} className="shrink-0 text-slate-500" />
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-950">
+                                        {eintrag.skin ? (
+                                            <img src={eintrag.skin} alt="" draggable={false} className="h-6 w-6 object-contain" />
+                                        ) : (
+                                            <MapPin size={12} className="text-slate-600" />
+                                        )}
+                                    </span>
                                     <span className={`flex-1 min-w-0 truncate text-xs ${
                                         eintrag.selbst ? "text-white font-medium" : "text-slate-300"
                                     }`}>
                                         {eintrag.name}
                                     </span>
-                                    <span className="shrink-0 text-[10px] tabular-nums text-slate-500">
-                                        {Number.isInteger(eintrag.slotIndex) && eintrag.slotIndex >= 0
-                                            ? `Platz ${eintrag.slotIndex + 1}`
-                                            : "—"}
+                                    <span className="shrink-0 flex flex-col items-end gap-0.5">
+                                        {/* Feedback 01.09.: "Trophäen-Icon raus, stattdessen 'Lvl:' vor die
+                                            Zahl" — HudIcon.level raus, reiner Text wie beim Namen daneben. */}
+                                        <span className="text-[11px] font-bold tabular-nums text-violet-300">
+                                            Lvl: {eintrag.level}
+                                        </span>
+                                        <span className="flex items-center gap-1 text-[11px] font-semibold tabular-nums text-amber-400/90">
+                                            <HudIcon.gold size={11} className="shrink-0" /> {formatGold(eintrag.gold)}
+                                        </span>
                                     </span>
                                 </button>
                             ))}
                         </div>
                     )}
                 </div>
-
-                {/* Einrichten: Raster einblenden, Deko setzen und einpacken, Gebäude
-                    umstellen. Ausserhalb passiert davon nichts — im normalen Spiel
-                    hat ein Klick daneben sonst dauernd Deko eingesammelt. */}
-                <button
-                    type="button"
-                    onClick={() => setEditorAktiv((an) => {
-                        if (an) { setSelectedDecoToPlace(null); setVerschiebtGebaeude(null); }
-                        return !an;
-                    })}
-                    className={`flex h-10 items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium transition-colors ${
-                        editorAktiv ? "text-violet-300" : "text-slate-300 hover:text-white"
-                    }`}
-                >
-                    <LayoutGrid size={15} className="shrink-0" />
-                    <span className="hidden sm:inline">{editorAktiv ? "Editor beenden" : "Editor"}</span>
-                </button>
 
                 {/* Nur für den Streamer: Spielstände von hier aus bearbeiten, ohne den
                     Umweg über das Dashboard in einem zweiten Tab. */}
@@ -5942,7 +6326,7 @@ export default function GameContainer() {
                 steht und rechts die Einträge mit ihren Werten. */}
             {adminPanelOffen && istGartenAdmin && (
                 <div className="absolute inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-6xl h-[86vh] flex flex-col bg-slate-900 border border-slate-700 rounded-md p-4">
+                    <div className="w-full max-w-6xl h-[86vh] flex flex-col bg-slate-900 border border-slate-700 rounded-2xl p-4">
                         <GardenAdminBrowser
                             eigeneId={authUser?.id}
                             onClose={() => setAdminPanelOffen(false)}
@@ -5952,7 +6336,9 @@ export default function GameContainer() {
             )}
 
             {isSettingsOpen && (
-                <div className="absolute top-[68px] left-5 z-50 w-72 max-h-[calc(100vh-6rem)] overflow-y-auto bg-slate-900/95 border border-slate-700 rounded-md p-2 backdrop-blur-sm flex flex-col gap-1">
+                // Cartoon-Überarbeitung 30.08. (zweite Runde, "Einstellungsmenü ist noch
+                // alt"): dieselbe Holz-Kontur wie die anderen Klapp-Fenster.
+                <div className="absolute top-[68px] left-5 z-50 w-72 max-h-[calc(100vh-6rem)] overflow-y-auto bg-slate-900/95 border-[3px] border-amber-950 rounded-2xl shadow-lg p-2 backdrop-blur-sm flex flex-col gap-1">
 
                     {/* --- AUDIO --- */}
                     <div className="px-3 pt-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
@@ -5967,7 +6353,7 @@ export default function GameContainer() {
                                 onChange={(e) => setEffectVolume(parseFloat(e.target.value))}
                                 onMouseUp={(e) => e.currentTarget.blur()}
                                 onTouchEnd={(e) => e.currentTarget.blur()}
-                                className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                className="flex-1 h-1.5 bg-slate-700 rounded-2xl appearance-none cursor-pointer accent-cyan-500"
                             />
                             <span className="text-xs font-mono text-slate-400 w-8 text-right">{Math.round(effectVolume * 100)}%</span>
                         </div>
@@ -5979,9 +6365,36 @@ export default function GameContainer() {
                                 onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
                                 onMouseUp={(e) => e.currentTarget.blur()}
                                 onTouchEnd={(e) => e.currentTarget.blur()}
-                                className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-fuchsia-500"
+                                className="flex-1 h-1.5 bg-slate-700 rounded-2xl appearance-none cursor-pointer accent-fuchsia-500"
                             />
                             <span className="text-xs font-mono text-slate-400 w-8 text-right">{Math.round(musicVolume * 100)}%</span>
+                        </div>
+                        {/* Titelwahl. Während der Party läuft der Party-Titel über
+                            dieselbe Spur — deshalb der Hinweis statt einer gesperrten
+                            Auswahl: umstellen darf man weiterhin, es wirkt nur später. */}
+                        <div className="pt-1">
+                            <div className="mb-1 flex items-center justify-between">
+                                <span className="text-xs text-slate-300">Titel</span>
+                                {tagesInfo.party && (
+                                    <span className="text-[10px] text-fuchsia-300">Party läuft — {laufenderPartyTitel?.name}</span>
+                                )}
+                            </div>
+                            <div className="flex gap-1">
+                                {THEME_TRACKS.map((track) => (
+                                    <button
+                                        key={track.id}
+                                        type="button"
+                                        onClick={(e) => { e.currentTarget.blur(); setThemeId(track.id); }}
+                                        className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                                            themeId === track.id
+                                                ? "bg-violet-600 text-white"
+                                                : "bg-slate-800 text-slate-400 hover:text-white"
+                                        }`}
+                                    >
+                                        {track.name}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
@@ -6002,7 +6415,7 @@ export default function GameContainer() {
                                     setRenderProfile(preset);
                                     renderProfileRef.current = preset;
                                 }}
-                                className={`flex-1 px-2 py-1.5 rounded-sm text-xs font-medium transition-colors ${
+                                className={`flex-1 px-2 py-1.5 rounded-xl text-xs font-medium transition-colors ${
                                     renderProfile.level === level
                                         ? "bg-violet-600 text-white"
                                         : "bg-slate-800 text-slate-400 hover:text-white"
@@ -6028,11 +6441,23 @@ export default function GameContainer() {
                         ].map(([label, key]) => (
                             <div key={label} className="flex justify-between items-center gap-2">
                                 <span>{label}</span>
-                                <kbd className="bg-slate-800 border border-slate-700 text-slate-300 px-1.5 rounded-sm text-[10px]">{key}</kbd>
+                                <kbd className="bg-slate-800 border border-slate-700 text-slate-300 px-1.5 rounded-xl text-[10px]">{key}</kbd>
                             </div>
                         ))}
                     </div>
 
+                    {/* v2 (Feedback 29.08.: "Changelog in Settings rein") — stand vorher
+                        als eigener Knopf oben links, gebraucht aber nur, wer aktiv
+                        nachsehen will, was sich geändert hat — genau die Sorte "hin und
+                        wieder", für die die Einstellungen ohnehin schon da sind. */}
+                    <button
+                        type="button"
+                        onClick={() => { setSettingsOpen(false); setChangelogOpen(true); }}
+                        className="flex w-full items-center gap-2 text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors mt-1 border-t border-slate-800"
+                    >
+                        <HudIcon.changelog size={13} className="shrink-0" />
+                        Changelog
+                    </button>
                     <button
                         type="button"
                         onClick={async () => {
@@ -6040,277 +6465,222 @@ export default function GameContainer() {
                             setSettingsOpen(false);
                             setShowLobbyScreen(true);
                         }}
-                        className="w-full text-left px-3 py-2 rounded-sm hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors mt-1 border-t border-slate-800"
+                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
                     >
                         Zurück zum Hauptbildschirm
                     </button>
                     <button
                         type="button"
                         onClick={() => { window.location.href = "https://vnmvalentin.de"; }}
-                        className="w-full text-left px-3 py-2 rounded-sm hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
+                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
                     >
                         Zur Website
                     </button>
                 </div>
             )}
 
-            {/* ── Rechts: Wetter + Gold, darunter Post, Umkleide, Tiere ──────── */}
-            {/* items-end statt fester Spaltenbreite: die Gold-Zeile darf breiter sein
+            {/* ── Rechts: Profil, Post, Tiere, Chat, darunter Weltzustand ─────── */}
+            {/* items-end statt fester Spaltenbreite: die Profil-Karte darf breiter sein
                 als der Rest, ohne dass alles andere mitwächst. */}
             <div className="absolute top-5 right-5 z-40 flex flex-col items-end gap-2">
-                <div className="flex items-stretch gap-2">
-                    <div className={`flex h-10 items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300`}>
-                        {React.createElement(weatherIcon(weatherState?.type), { size: 15, className: "shrink-0 text-sky-400" })}
-                        <span className="truncate">{weatherState?.label || "Sonne"}</span>
+                {/* Partyzeit. Steht GANZ oben, weil es das seltenere und wichtigere
+                    Ereignis ist — und nur dann, wenn es auch läuft. */}
+                {tagesInfo.party && (
+                    <div className="flex h-10 items-center gap-2 rounded-2xl border border-fuchsia-500 bg-fuchsia-950/80 px-3 text-xs font-semibold text-fuchsia-100 backdrop-blur-sm">
+                        <HudIcon.party size={15} className="shrink-0" />
+                        <span>Partyzeit · Rainbow {PARTY_RAINBOW_FAKTOR}×</span>
+                        <span className="tabular-nums text-fuchsia-300">
+                            {Math.floor(tagesInfo.verbleibendMs / 60000)}:{String(Math.floor((tagesInfo.verbleibendMs % 60000) / 1000)).padStart(2, "0")}
+                        </span>
                     </div>
+                )}
 
-                    {/* Goldstand mit Bestenliste: beim Draufhalten steht darunter, wie
-                        die anderen in dieser Welt dastehen — der eigene Stand extra
-                        obendrüber, damit man den Abstand sofort sieht.
-
-                        `hover:z-[60]`: Gold- und Tier-Leiste hatten beide z-50 und bilden
-                        damit je einen eigenen Stapelkontext. Bei gleichem Wert gewinnt das
-                        SPÄTERE Element im Baum — die Bestenliste klappte also hinter die
-                        Tier-Leiste darunter. Wer gerade aufgeklappt ist, kommt jetzt nach
-                        vorn. */}
-                    <div className="group relative z-50 hover:z-[60] w-[12.5rem]">
-                        <div className={`flex h-10 w-full cursor-default items-center gap-2 ${HUD_SURFACE} px-3`}>
-                            <Coins size={15} className="shrink-0 text-amber-400" />
-                            <span className="truncate text-sm font-semibold tabular-nums text-amber-400">
-                                {gold.toLocaleString("de-DE")}
-                            </span>
-                            <ChevronDown size={13} className="ml-auto shrink-0 text-slate-500" />
+                {/* v2 (Feedback 29.08.: "Menü dropdown auflösen, Profil Bubble") —
+                    Gold + XP-Leiste an EINER Stelle statt einer reinen Zahl; Klick
+                    öffnet Umkleide/Logbuch (dasselbe Grüppchen wie vorher im "Menü",
+                    jetzt aber nach Thema getrennt statt in einer langen Liste).
+                    Die Bestenliste, die vorher hier beim Draufhalten erschien, zeigt
+                    jetzt niemandes Gold mehr auf einen bloßen Mauskontakt — siehe
+                    stattdessen die Online-Liste oben links (Feedback 30.08.). Das
+                    Klapp-Panel selbst ist seit Feedback 30.08. ("Profil-Fenster soll
+                    mittig und größer sein") kein Dropdown mehr, sondern ein echtes
+                    GardenModal — siehe isProfilOffen weiter unten bei den anderen
+                    Fenstern. */}
+                <div className="relative z-50 w-64">
+                    {/* Feedback 30.08.: "Profil soll oben rechts und größer sein" — zeigt
+                        jetzt schon zugeklappt das Geist-Bild und den Namen statt nur
+                        Level+Gold in einer schmalen Zeile, damit sie als DIE Anlaufstelle
+                        oben rechts erkennbar ist. */}
+                    <button
+                        type="button"
+                        onClick={(e) => { e.currentTarget.blur(); setProfilOffen((offen) => !offen); }}
+                        aria-expanded={isProfilOffen}
+                        className={`flex w-full items-center gap-3 ${HUD_SURFACE} px-3 py-2.5 text-left transition-colors hover:text-white`}
+                    >
+                        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950">
+                            <img
+                                src={playerAppearance.skin}
+                                alt=""
+                                draggable={false}
+                                className="h-8 w-8 object-contain"
+                            />
+                            {/* Offener Fähigkeitspunkt — sichtbar, ohne erst aufklappen zu
+                                müssen (übernimmt den Hinweis vom entfernten "Level N"-Knopf).
+                                Feedback 30.08. (zweite Runde): eine reine Farbmarkierung
+                                ging zu leicht unter — jetzt dieselbe Zahl-Plakette wie am
+                                "Fähigkeiten"-Knopf im aufgeklappten Profil, dazu ein
+                                dezentes Pulsieren, damit sie wirklich auffällt. */}
+                            {(skillStand?.punkteOffen || 0) > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 flex min-w-[18px] animate-pulse items-center justify-center rounded-xl border-2 border-slate-900 bg-violet-600 px-1 text-[10px] font-bold tabular-nums text-white">
+                                    {skillStand.punkteOffen}
+                                </span>
+                            )}
                         </div>
-                        <div className="absolute right-0 top-full z-50 hidden w-[15rem] pt-2 group-hover:block">
-                            <div className="flex flex-col gap-2 bg-slate-900/95 border border-slate-700 p-2 rounded-md backdrop-blur-sm">
-                                <div className="flex items-center gap-2 px-2 py-1.5 rounded-sm border border-amber-900/60 bg-amber-950/30">
-                                    <Coins size={14} className="shrink-0 text-amber-400" />
-                                    <span className="flex-1 min-w-0 text-xs text-slate-200 truncate">Du</span>
-                                    <span className="text-xs font-semibold tabular-nums text-amber-400 shrink-0">
-                                        {formatGold(gold)}
-                                    </span>
-                                </div>
-
-                                <div className="flex flex-col gap-0.5">
-                                    <div className="px-2 pb-0.5 text-[10px] uppercase tracking-wider text-slate-500">
-                                        In dieser Welt
-                                    </div>
-                                    {/* Allein braucht es keine Rangliste — der eigene Stand
-                                        steht schon darüber. */}
-                                    {onlinePlayers.length === 0 ? (
-                                        <div className="px-2 py-1 text-[11px] text-slate-600">
-                                            Sonst ist gerade niemand hier.
-                                        </div>
-                                    ) : (() => {
-                                        // Eigener Stand kommt aus `gold` (der Server hat ihn
-                                        // gerade bestätigt), die anderen aus dem Lobby-Tick.
-                                        const liste = [
-                                            { id: "ich", name: localPlayerNameRef.current || "Du", gold, selbst: true },
-                                            ...onlinePlayers.map((p) => ({
-                                                id: p.twitchId, name: p.name || "Farmer", gold: p.gold || 0, selbst: false,
-                                            })),
-                                        ].sort((a, b) => b.gold - a.gold);
-                                        return liste.map((eintrag, i) => (
-                                            <div
-                                                key={eintrag.id}
-                                                className={`flex items-center gap-2 px-2 py-1 rounded-sm ${
-                                                    eintrag.selbst ? "bg-slate-800/70" : ""
-                                                }`}
-                                            >
-                                                <span className="w-4 text-[10px] tabular-nums text-slate-500 shrink-0">{i + 1}.</span>
-                                                <span className={`flex-1 min-w-0 text-xs truncate ${
-                                                    eintrag.selbst ? "text-white font-medium" : "text-slate-300"
-                                                }`}>
-                                                    {eintrag.name}
-                                                </span>
-                                                <span className="text-xs tabular-nums text-amber-400/90 shrink-0">
-                                                    {formatGold(eintrag.gold)}
-                                                </span>
-                                            </div>
-                                        ));
-                                    })()}
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-white truncate">
+                                    {localPlayerNameRef.current || "Du"}
+                                </span>
+                                <span className="ml-auto flex items-center gap-1 text-xs font-semibold tabular-nums text-amber-400">
+                                    <HudIcon.gold size={13} className="shrink-0" />
+                                    {gold.toLocaleString("de-DE")}
+                                </span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-amber-100 shrink-0">Lv {skillStand?.level || 1}</span>
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-xl bg-slate-800">
+                                    <div
+                                        className="h-full bg-violet-500"
+                                        style={{
+                                            width: `${Math.min(100, Math.max(0,
+                                                (skillStand?.xpFuersNaechste || 0) > 0
+                                                    ? ((skillStand.xpDiesesLevel || 0) / skillStand.xpFuersNaechste) * 100
+                                                    : 100)) }%`,
+                                        }}
+                                    />
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </button>
                 </div>
 
                 <button
                     type="button"
                     onClick={() => { setMailboxMode("inbox"); setMailboxRecipient(""); setMailboxOpen(true); }}
-                    className={`relative flex h-10 w-[12.5rem] items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
+                    className={`relative flex h-10 w-[8.5rem] items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
                 >
-                    <Mail size={15} className="shrink-0" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
+                        <HudIcon.mailbox size={17} />
+                    </span>
                     <span>Briefkasten</span>
                     {mailbox.length > 0 && (
-                        <span className="ml-auto min-w-[18px] px-1 text-[10px] font-semibold text-white bg-violet-600 rounded-sm text-center tabular-nums">
+                        <span className="ml-auto min-w-[18px] px-1 text-[10px] font-semibold text-white bg-violet-600 rounded-xl text-center tabular-nums">
                             {mailbox.length}
                         </span>
                     )}
                 </button>
 
+                {/* Gold-Shop (Feedback 01.09.): rein kosmetische Reskins. */}
                 <button
                     type="button"
-                    onClick={() => setWardrobeOpen(true)}
-                    className={`flex h-10 w-[12.5rem] items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
+                    onClick={() => { setGoldShopOpen(true); ladeGoldShop(); }}
+                    className={`flex h-10 w-[8.5rem] items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
                 >
-                    <Shirt size={15} className="shrink-0" />
-                    <span>Umkleide</span>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
+                        <HudIcon.goldShop size={17} />
+                    </span>
+                    <span>Gold-Shop</span>
                 </button>
 
+                {/* Tiere — bis Feedback 30.08. ein Klapp-Menü mit dem Inkubator als
+                    zweitem Punkt darunter. Der Inkubator wohnt jetzt im Schuppen
+                    (Feedback 30.08.: "Inkubator in den Schuppen packen und aus dem
+                    Tiere-Dropdown entfernen"), damit bleibt hier nur noch EIN Ziel
+                    übrig — ein Klapp-Menü für einen einzigen Eintrag wäre unnötiger
+                    Umweg, also direkt ein einfacher Knopf wie beim Briefkasten. Die
+                    violette "Ei fertig"-Hervorhebung gehörte zum Inkubator, nicht zu
+                    den Tieren, und zieht mit ihm in den Schuppen (dort am Knopf UND
+                    als Marker über dem Gebäude auf dem Feld). */}
                 <button
                     type="button"
-                    onClick={() => setLogbuchOpen(true)}
-                    className={`flex h-10 w-[12.5rem] items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
+                    onClick={() => setPetOverlayOpen(true)}
+                    className={`flex h-10 w-[8.5rem] items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
                 >
-                    <ScrollText size={15} className="shrink-0" />
-                    <span className="tabular-nums">
-                        Logbuch {Object.keys(logbuch).length}/{SEED_CATALOGUE.length}
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
+                        <TabIcon.pet size={17} />
+                    </span>
+                    <span className="truncate tabular-nums">
+                        Tiere {petPlacements.filter((p) => p.slotIndex === mySlotIndex).length}/{PET_SLOTS}
                     </span>
                 </button>
-
-                {/* Tiere: gleiche Höhe, Dropdown darunter. `hover:z-[60]` wie beim
-                    Goldstand — sonst deckt die Tierliste die Bestenliste zu bzw. wird
-                    selbst von dem verdeckt, was unter ihr steht. */}
-                <div className="group relative z-50 hover:z-[60] w-[12.5rem]">
-                    <div className={`flex h-10 w-full cursor-default items-center justify-between gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300`}>
-                        <span className="flex min-w-0 items-center gap-2 truncate">
-                            <PawPrint size={15} className="shrink-0" />
-                            <span className="truncate tabular-nums">
-                                Tiere {petPlacements.filter((p) => p.slotIndex === mySlotIndex).length}/{normalizeToolInventory(toolInventory).petSlots}
-                            </span>
-                        </span>
-                        <ChevronDown size={13} className="shrink-0 text-slate-500" />
-                    </div>
-                    <div className="absolute right-0 top-full z-50 hidden w-full min-w-[12.5rem] pt-2 group-hover:block">
-                        <div className="flex flex-col gap-1 bg-slate-900/95 border border-slate-700 p-2 rounded-md backdrop-blur-sm">
-                                {petPlacements.filter(p => p.slotIndex === mySlotIndex).map((pet, i) => (
-                                    <button
-                                        key={pet.id || i}
-                                        type="button"
-                                        onClick={() => setInspectedPet(pet)}
-                                        className="flex items-center gap-2 px-2 py-1.5 rounded-sm border border-transparent hover:border-slate-700 hover:bg-slate-800/70 transition-colors text-left"
-                                    >
-                                        {/* Bild dazu, damit man bei mehreren Tieren sieht, welches gemeint ist */}
-                                        <img
-                                            src={pet.image || getPetSpriteImage(pet.name)}
-                                            alt=""
-                                            draggable={false}
-                                            className="w-6 h-6 object-contain shrink-0"
-                                        />
-                                        <span className="flex-1 min-w-0">
-                                            <span className="block text-xs text-slate-200 truncate">{pet.customName || pet.name}</span>
-                                            {pet.customName && <span className="block text-[10px] text-slate-500 truncate">{pet.name}</span>}
-                                        </span>
-                                        <span className={`text-[10px] shrink-0 ${RARITY_TEXT[pet.rarity] || RARITY_TEXT.COMMON}`}>
-                                            {pet.ability ? `Lv. ${pet.ability.level}` : "—"}
-                                        </span>
-                                    </button>
-                                ))}
-
-                            {/* Plätze nachkaufen — hier statt im Tool-Shop, weil man genau
-                                hier merkt, dass einer fehlt. */}
-                            {(() => {
-                                const slots = normalizeToolInventory(toolInventory).petSlots;
-                                const preis = getPetSlotPreis(slots);
-                                if (preis === null) {
-                                    return (
-                                        <div className="px-2 py-1.5 text-[10px] text-slate-500 border-t border-slate-800 mt-1 pt-2">
-                                            Alle {PET_SLOTS_MAX} Plätze freigeschaltet.
-                                        </div>
-                                    );
-                                }
-                                const bezahlbar = gold >= preis;
-                                // Der Knopf sah aus wie eine weitere Tierzeile und ging in der
-                                // Liste unter. Jetzt sitzt er abgesetzt unter einer Trennlinie
-                                // und trägt, sobald man ihn sich leisten kann, die Farbe der
-                                // übrigen Kaufknöpfe im Spiel.
-                                return (
-                                    <div className="mt-1 pt-2 border-t border-slate-800">
-                                        <button
-                                            type="button"
-                                            onClick={handleBuyPetSlot}
-                                            disabled={!bezahlbar}
-                                            className={`flex w-full items-center gap-2 px-2.5 py-2 rounded-md border text-left transition-colors ${
-                                                bezahlbar
-                                                    ? "border-violet-500 bg-violet-600 text-white hover:bg-violet-500"
-                                                    : "border-slate-800 bg-slate-900 text-slate-600 cursor-not-allowed"
-                                            }`}
-                                        >
-                                            <Plus size={15} className="shrink-0" />
-                                            <span className="flex-1 min-w-0">
-                                                <span className="block text-xs font-semibold truncate">
-                                                    Tier-Platz {slots + 1} kaufen
-                                                </span>
-                                                <span className={`block text-[10px] tabular-nums ${bezahlbar ? "text-violet-100" : "text-slate-600"}`}>
-                                                    {formatGold(preis)} Gold{bezahlbar ? "" : " — reicht noch nicht"}
-                                                </span>
-                                            </span>
-                                        </button>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Erscheint nur, wenn wirklich etwas fertig ist — eine dauerhaft
-                    sichtbare Inkubator-Zeile wäre die meiste Zeit nur eine Zeile mehr.
-                    Öffnet das Fenster von hier aus, wie es der Briefkasten daneben
-                    auch tut. */}
-                {readyEggsCount > 0 && (
-                    <button
-                        type="button"
-                        onClick={() => { setIncubatorTargetSlot(null); setIncubatorOpen(true); }}
-                        className="flex h-10 w-[12.5rem] items-center gap-2 rounded-md border border-violet-500 bg-violet-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-violet-500"
-                    >
-                        <Egg size={15} className="shrink-0" />
-                        <span className="truncate">
-                            {readyEggsCount === 1 ? "Ei fertig" : `${readyEggsCount} Eier fertig`}
-                        </span>
-                        <span className="ml-auto text-[10px] font-medium text-violet-100">Inkubator</span>
-                    </button>
-                )}
 
                 {/* Weltchat. Anders als Gold und Tiere klappt er per KLICK auf und
                     bleibt offen — beim Tippen darf er nicht zuschnappen, sobald der
                     Zeiger die Leiste verlässt. Der Verlauf gehört der Welt und wird
                     nicht gespeichert; wer später dazukommt, sieht ihn nicht. */}
-                <div className="w-[12.5rem]">
+                <div className="relative w-[8.5rem]">
                     <button
                         type="button"
-                        onClick={(e) => { e.currentTarget.blur(); setChatOffen((offen) => !offen); }}
+                        onClick={(e) => {
+                            e.currentTarget.blur();
+                            setChatOffen((offen) => !offen);
+                            // Sonst steht die Farb-/Emojiwahl beim nächsten Öffnen noch offen,
+                            // obwohl das Fenster selbst gerade erst wieder aufklappt.
+                            setFarbwahlOffen(false);
+                            setEmojiWahlOffen(false);
+                        }}
                         aria-expanded={istChatOffen}
-                        className={`flex h-10 w-full items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
+                        className={`flex h-10 w-full items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
                     >
-                        <MessageSquare size={15} className="shrink-0" />
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
+                            <HudIcon.chat size={17} />
+                        </span>
                         <span>Chat</span>
                         {chatUngelesen > 0 && !istChatOffen && (
-                            <span className="min-w-[18px] px-1 text-[10px] font-semibold text-white bg-violet-600 rounded-sm text-center tabular-nums">
+                            <span className="min-w-[18px] px-1 text-[10px] font-semibold text-white bg-violet-600 rounded-xl text-center tabular-nums">
                                 {chatUngelesen > 99 ? "99+" : chatUngelesen}
                             </span>
                         )}
-                        <ChevronDown
+                        <HudIcon.chevron
                             size={13}
-                            className={`ml-auto shrink-0 text-slate-500 transition-transform ${istChatOffen ? "rotate-180" : ""}`}
+                            className={`ml-auto shrink-0 transition-transform ${istChatOffen ? "rotate-180" : ""}`}
                         />
                     </button>
 
                     {istChatOffen && (
-                        <div className="mt-2 w-[19rem] -ml-[6.5rem] flex flex-col bg-slate-900/95 border border-slate-700 rounded-md backdrop-blur-sm">
+                        // Cartoon-Überarbeitung 30.08. (zweite Runde, "Chat Fenster ist noch
+                        // alt"): dieselbe Holz-Kontur wie die anderen Klapp-Fenster.
+                        //
+                        // Feedback 01.09.: "Chat-Fenster ragt aus dem Bildschirm" — die feste
+                        // -ml-[6.5rem] hat den Knopf mittig unter ein 19rem breites Fenster
+                        // gelegt, aber der Knopf steht ganz rechts im HUD, direkt am
+                        // Bildschirmrand. Rechtsbündig (absolute right-0) statt zentriert:
+                        // die rechte Kante bleibt IMMER an der Knopf-Kante, egal wie breit
+                        // das Fenster ist — nach links ist reichlich Platz, nach rechts nicht.
+                        <div className="absolute right-0 top-full mt-2 w-[19rem] flex flex-col bg-slate-900/95 border-[3px] border-amber-950 rounded-2xl shadow-lg backdrop-blur-sm">
                             <div
+                                ref={chatListeRef}
+                                // 24 px Spielraum: exakt am Pixel unten zu stehen schafft
+                                // niemand, und ohne Spielraum gälte der Chat schon nach
+                                // einer Mausradrastung als „liest gerade nach".
+                                onScroll={(e) => {
+                                    const el = e.currentTarget;
+                                    chatAmEndeRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+                                }}
                                 className="h-56 overflow-y-auto px-2.5 py-2 flex flex-col gap-1.5"
                                 style={{ overscrollBehavior: "contain" }}
                             >
                                 {chatVerlauf.length === 0 ? (
-                                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                                    <p className="text-xs text-slate-600 leading-relaxed">
                                         Noch nichts geschrieben. Was du hier schickst, lesen alle in dieser Welt.
                                     </p>
                                 ) : (
                                     chatVerlauf.map((n) => {
                                         const eigen = String(n.twitchId) === String(authUser?.twitchId ?? "");
                                         return (
-                                            <div key={n.id} className="text-[11px] leading-snug break-words">
+                                            // Feedback 01.09.: "Nachrichten größer anzeigen" — von text-[11px] auf
+                                            // text-sm (14px), das war für ein Weltchat kaum lesbar klein.
+                                            <div key={n.id} className="text-sm leading-snug break-words">
                                                 <button
                                                     type="button"
                                                     onClick={() => besucheSpieler({
@@ -6324,34 +6694,143 @@ export default function GameContainer() {
                                                     {n.from}
                                                 </button>
                                                 <span className="text-slate-600">: </span>
-                                                <span className="text-slate-300">{n.text}</span>
+                                                {/* Eigene Textfarbe (Feedback 01.09.) — kommt vom Server, geprüft
+                                                    gegen CHAT_FARBEN dort. Ohne Farbe (Standard oder eine vom Server
+                                                    verworfene) bleibt die bisherige feste Klasse. */}
+                                                <span
+                                                    className={n.color ? "" : "text-slate-300"}
+                                                    style={n.color ? { color: n.color } : undefined}
+                                                >
+                                                    {n.text}
+                                                </span>
                                             </div>
                                         );
                                     })
                                 )}
-                                <div ref={chatEndeRef} />
                             </div>
-                            <form
-                                onSubmit={(e) => { e.preventDefault(); chatAbschicken(); }}
-                                className="flex items-center gap-1.5 border-t border-slate-800 p-1.5"
-                            >
-                                <input
-                                    value={chatEingabe}
-                                    onChange={(e) => setChatEingabe(e.target.value)}
-                                    maxLength={CHAT_MAX_LEN}
-                                    placeholder={lobbyConnected ? "Nachricht" : "Nicht verbunden"}
-                                    disabled={!lobbyConnected}
-                                    className="flex-1 min-w-0 px-2 py-1.5 rounded-sm bg-slate-950 border border-slate-700 text-[11px] text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none disabled:text-slate-600"
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={!lobbyConnected || !chatEingabe.trim()}
-                                    aria-label="Nachricht schicken"
-                                    className="shrink-0 flex h-[26px] w-[26px] items-center justify-center rounded-sm bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:bg-slate-800 disabled:text-slate-600"
+                            <div className="relative border-t border-slate-800">
+                                {/* Farbwahl (Feedback 01.09.) — feste Palette, siehe CHAT_FARBEN oben.
+                                    Öffnet nach oben: die Leiste steht am unteren Rand des Fensters. */}
+                                {istFarbwahlOffen && (
+                                    <div className="absolute bottom-full left-1.5 z-10 mb-2 flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-lg">
+                                        <button
+                                            type="button"
+                                            title="Standard"
+                                            onClick={() => { setChatFarbe(null); setFarbwahlOffen(false); }}
+                                            className={`h-5 w-5 shrink-0 rounded-md border-2 bg-slate-700 transition-colors ${
+                                                !chatFarbe ? "border-white" : "border-transparent hover:border-slate-500"
+                                            }`}
+                                        />
+                                        {CHAT_FARBEN.map((f) => (
+                                            <button
+                                                key={f.id}
+                                                type="button"
+                                                title={f.id}
+                                                onClick={() => { setChatFarbe(f.id); setFarbwahlOffen(false); }}
+                                                className={`h-5 w-5 shrink-0 rounded-md border-2 transition-colors ${
+                                                    chatFarbe === f.id ? "border-white" : "border-transparent hover:border-slate-500"
+                                                }`}
+                                                style={{ background: f.hex }}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                                {/* Emoji-Feld (Feedback 01.09.) — kuratierte Auswahl, siehe CHAT_EMOJIS
+                                    oben. Bleibt nach einer Auswahl offen, falls mehrere folgen sollen. */}
+                                {istEmojiWahlOffen && (
+                                    <div className="absolute bottom-full left-1.5 z-10 mb-2 grid w-[15.5rem] grid-cols-7 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-lg">
+                                        {CHAT_EMOJIS.map((e) => (
+                                            <button
+                                                key={e}
+                                                type="button"
+                                                onClick={() => setChatEingabe((prev) => `${prev}${e}`.slice(0, CHAT_MAX_LEN))}
+                                                className="flex h-7 w-7 items-center justify-center rounded-md text-base hover:bg-slate-800"
+                                            >
+                                                {e}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                <form
+                                    onSubmit={(e) => { e.preventDefault(); chatAbschicken(); }}
+                                    className="flex items-center gap-1.5 p-1.5"
                                 >
-                                    <Send size={13} />
-                                </button>
-                            </form>
+                                    <button
+                                        type="button"
+                                        title="Textfarbe"
+                                        onClick={() => { setFarbwahlOffen((o) => !o); setEmojiWahlOffen(false); }}
+                                        className="shrink-0 flex h-[26px] w-[26px] items-center justify-center rounded-xl border border-slate-700 bg-slate-950 transition-colors hover:border-slate-500"
+                                    >
+                                        <span
+                                            className="h-3.5 w-3.5 rounded-sm"
+                                            style={{ background: CHAT_FARBEN.find((f) => f.id === chatFarbe)?.hex || "#64748b" }}
+                                        />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        title="Emoji"
+                                        onClick={() => { setEmojiWahlOffen((o) => !o); setFarbwahlOffen(false); }}
+                                        className="shrink-0 flex h-[26px] w-[26px] items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                                    >
+                                        <Smile size={14} />
+                                    </button>
+                                    <input
+                                        value={chatEingabe}
+                                        onChange={(e) => setChatEingabe(e.target.value)}
+                                        maxLength={CHAT_MAX_LEN}
+                                        placeholder={lobbyConnected ? "Nachricht" : "Nicht verbunden"}
+                                        disabled={!lobbyConnected}
+                                        className="flex-1 min-w-0 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[13px] text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none disabled:text-slate-600"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={!lobbyConnected || !chatEingabe.trim()}
+                                        aria-label="Nachricht schicken"
+                                        className="shrink-0 flex h-[26px] w-[26px] items-center justify-center rounded-xl bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:bg-slate-800 disabled:text-slate-600"
+                                    >
+                                        <Send size={13} />
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Weltzustand — unten in der Spalte (Feedback 30.08.: "Zeit unter den
+                    Chat"). Weniger dringend als Post/Tiere/Chat, war vorher aber ganz
+                    oben und damit das ERSTE, was ins Auge fiel. */}
+                <div className="flex items-stretch gap-2">
+                    {/* Uhrzeit der Welt — immer sichtbar, unabhängig vom Wetter. Ein
+                        Spieltag dauert 24 echte Minuten, eine Minute ist also eine
+                        Stunde — daran lässt sich ablesen, wie lange es noch hell bleibt
+                        (siehe engine/Tageszeit.js).
+                        Cartoon-Überarbeitung 30.08. ("Timer soll auch einen coolen
+                        Cartoon-Look bekommen"): eigene Himmelsfarbe statt des
+                        generischen Holz-Knopfes — Blau am Tag, Indigo bei Nacht — mit
+                        einem kleinen runden Sonne-/Mond-Medaillon, damit die Uhr als
+                        EIGENES Element auffällt statt zwischen den Navigations-Knöpfen
+                        unterzugehen. */}
+                    <div className={`flex h-10 items-center gap-2 pl-1 pr-3 rounded-2xl border-[3px] transition-colors ${
+                        tagesInfo.nacht
+                            ? "bg-gradient-to-b from-indigo-800 to-indigo-900 border-indigo-950 shadow-[0_4px_0_0_#1e1b4b]"
+                            : "bg-gradient-to-b from-sky-500 to-sky-600 border-sky-950 shadow-[0_4px_0_0_#0c4a6e]"
+                    } text-xs font-bold tabular-nums text-white`}>
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                            tagesInfo.nacht ? "bg-indigo-200 text-indigo-900" : "bg-yellow-300 text-amber-800"
+                        }`}>
+                            {tagesInfo.nacht ? <WeatherIcon.moonlight size={15} /> : <WeatherIcon.sun size={15} />}
+                        </span>
+                        {tagesInfo.uhrzeit}
+                    </div>
+
+                    {/* Wetter — eigene Kachel, getrennt von der Uhrzeit, und nur wenn
+                        wirklich eins aktiv ist. „Sonne" ist der neutrale Grundzustand
+                        ohne Effekt; seit es Tag und Nacht gibt, wäre sie dort auch
+                        nachts zu sehen und suggerierte ein Wetter, das keins ist. */}
+                    {weatherState?.type && weatherState.type !== "sun" && (
+                        <div className={`flex h-10 items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300`}>
+                            {React.createElement(weatherIcon(weatherState.type), { size: 15, className: "shrink-0 text-sky-400" })}
+                            <span className="truncate">{weatherState.label}</span>
                         </div>
                     )}
                 </div>
@@ -6368,7 +6847,7 @@ export default function GameContainer() {
                         }}
                         className={`flex h-10 w-[12.5rem] items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
                     >
-                        <Copy size={15} className="shrink-0" />
+                        <HudIcon.worldCode size={15} className="shrink-0" />
                         <span className="tracking-[0.2em] font-semibold">{activeCode}</span>
                     </button>
                 )}
@@ -6377,7 +6856,7 @@ export default function GameContainer() {
             {/* Umstell-Modus: ohne Hinweis wüsste niemand, dass der nächste Klick zählt. */}
             {verschiebtGebaeude && (
                 <div className={`absolute top-16 left-1/2 -translate-x-1/2 z-40 ${HUD_SURFACE} px-4 py-2.5 flex items-center gap-3 text-xs`}>
-                    <Move size={14} className="text-violet-400 shrink-0" />
+                    <HudIcon.reposition size={14} className="shrink-0" />
                     <span className="text-slate-200">
                         {GEBAEUDE_NAMEN[verschiebtGebaeude] || "Gebäude"} umstellen — auf eine Wiesenfläche
                         deines Grundstücks klicken
@@ -6385,7 +6864,7 @@ export default function GameContainer() {
                     <button
                         type="button"
                         onClick={() => setVerschiebtGebaeude(null)}
-                        className="text-slate-400 hover:text-white transition-colors font-medium"
+                        className="text-amber-100 hover:text-white transition-colors font-semibold underline"
                     >
                         Abbrechen
                     </button>
@@ -6407,7 +6886,7 @@ export default function GameContainer() {
                         onClick={() => { setSelectedTool(null); setMovingPlantSource(null); setShovelHoldState({ active: false, progress: 0 }); setSelectedDecoToPlace(null); }}
                         className="ml-1 text-slate-500 hover:text-white transition-colors"
                     >
-                        <X size={14} />
+                        <HudIcon.close size={14} />
                     </button>
                 </div>
             )}
@@ -6418,8 +6897,12 @@ export default function GameContainer() {
                     <span className="text-slate-400">· Klick setzt die untere linke Ecke</span>
                     <span className="text-slate-400 flex items-center gap-1">
                         ·
-                        <kbd className="bg-slate-800 border border-slate-700 px-1 rounded-sm text-[10px]">R</kbd>
-                        <span>{decoGespiegelt ? "gespiegelt" : "spiegeln"}</span>
+                        <kbd className="bg-slate-800 border border-slate-700 px-1 rounded-xl text-[10px]">R</kbd>
+                        <span>
+                            {istBoden(selectedDecoToPlace)
+                                ? (decoRotiert ? "hochkant" : "drehen")
+                                : (decoGespiegelt ? "gespiegelt" : "spiegeln")}
+                        </span>
                     </span>
                     <button
                         type="button"
@@ -6427,13 +6910,13 @@ export default function GameContainer() {
                         onClick={() => setSelectedDecoToPlace(null)}
                         className="ml-1 text-slate-500 hover:text-white transition-colors"
                     >
-                        <X size={14} />
+                        <HudIcon.close size={14} />
                     </button>
                 </div>
             )}
             {selectedPetToPlace && (
                 <div className={`absolute top-16 left-1/2 -translate-x-1/2 ${HUD_SURFACE} px-3 py-2 text-xs text-slate-200 flex items-center gap-2`}>
-                    <PawPrint size={14} className="text-emerald-400 shrink-0" />
+                    <TabIcon.pet size={14} className="shrink-0" />
                     <span className="font-medium">{selectedPetToPlace.name}</span>
                     <span className="text-slate-400">· auf dein Grundstück klicken</span>
                     <button
@@ -6442,13 +6925,13 @@ export default function GameContainer() {
                         onClick={() => setSelectedPetToPlace(null)}
                         className="ml-1 text-slate-500 hover:text-white transition-colors"
                     >
-                        <X size={14} />
+                        <HudIcon.close size={14} />
                     </button>
                 </div>
             )}
             {selectedTool === "shovel" && shovelHoldState.active && (
                 <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 w-44">
-                    <div className="h-1.5 w-full rounded-sm bg-slate-800 overflow-hidden">
+                    <div className="h-1.5 w-full rounded-xl bg-slate-800 overflow-hidden">
                         <div className="h-full bg-rose-500 transition-[width] duration-75" style={{ width: `${Math.round(shovelHoldState.progress * 100)}%` }} />
                     </div>
                     <div className="text-[10px] text-slate-400 text-center mt-1">Pflanze entfernen…</div>
@@ -6457,15 +6940,31 @@ export default function GameContainer() {
             <SkillTreeModal
                 offen={skillsOffen}
                 onClose={() => setSkillsOffen(false)}
+                onBack={() => { setSkillsOffen(false); setProfilOffen(true); }}
                 katalog={skillKatalog}
                 stand={skillStand}
                 onLernen={lerneSkill}
                 onZuruecksetzen={setzeSkillsZurueck}
             />
+            <QuestBoardModal
+                offen={isQuestBoardOpen}
+                onClose={() => setQuestBoardOpen(false)}
+                daten={questDaten}
+                onAbholen={questAbholen}
+            />
+            <GoldShopModal
+                offen={isGoldShopOpen}
+                onClose={() => setGoldShopOpen(false)}
+                daten={goldShopDaten}
+                gold={gold}
+                onKaufen={reskinKaufen}
+                onAusruesten={reskinAusruesten}
+            />
             {/* Der Schlüssel trägt den Grundstücks-Index vorne: "3:2_5". Ohne ihn
                 landete der Hover über einem fremden Acker im eigenen Bestand. */}
             <PlantHoverLayer
                 store={hoverStore}
+                xpJeSorte={xpJeSorte}
                 getPlant={(k) => {
                     const trenner = String(k).indexOf(":");
                     if (trenner === -1) return engineRef.current.plotPlants?.[k] || null;
@@ -6488,7 +6987,7 @@ export default function GameContainer() {
             {itemHoverTooltip?.item && (
                 <div
                     // 1. ANPASSUNG: 'fixed' zentriert das Modal immer perfekt am Mauszeiger, egal was der Container macht!
-                    className="fixed z-[100] pointer-events-none bg-slate-900/95 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 shadow-xl min-w-[150px]"
+                    className="fixed z-[100] pointer-events-none bg-slate-900/95 border border-slate-700 rounded-2xl px-3 py-2 text-xs text-slate-200 shadow-xl min-w-[150px]"
                     style={getItemTooltipStyle(itemHoverTooltip.x, itemHoverTooltip.y)}
                 >
                     <div className="font-medium text-white">{itemHoverTooltip.item.name || "Gegenstand"}</div>
@@ -6543,28 +7042,205 @@ export default function GameContainer() {
                 </div>
             )}
 
+            {/* v2 (Feedback 29.08.: "Klick auf Profil-Bubble zeigt Name, Geist-Bild,
+                Fähigkeitsbaum-/Umkleide-Knopf, aktuelles Gold, Gesamt gesammeltes
+                Gold, XP, Logbuch-Knopf") — war erst ein rechtsbündiges Klapp-Panel
+                unter der Bubble, per Feedback 30.08. ("Profil-Fenster soll mittig
+                und größer sein") jetzt ein echtes GardenModal wie Schuppen/Skillbaum/
+                Umkleide: Kopf (Geist + Name + Level), XP-Leiste mit Zahlen, Gold-
+                Block (Kontostand UND Lebenszeit-Summe, siehe goldGesamt/gutschreiben()
+                in economy.js), dann die drei Knöpfe. */}
+            {isProfilOffen && (
+                <GardenModal
+                    title="Profil"
+                    onClose={() => setProfilOffen(false)}
+                    width="max-w-md"
+                >
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950">
+                                <img
+                                    src={playerAppearance.skin}
+                                    alt=""
+                                    draggable={false}
+                                    className="h-16 w-16 object-contain"
+                                />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="text-lg font-semibold text-white truncate">
+                                    {localPlayerNameRef.current || "Du"}
+                                </div>
+                                <div className="text-sm text-slate-400">Level {skillStand?.level || 1}</div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+                                <span>XP</span>
+                                <span className="tabular-nums">
+                                    {(skillStand?.xpFuersNaechste || 0) > 0
+                                        ? `${(skillStand?.xpDiesesLevel || 0).toLocaleString("de-DE")} / ${skillStand.xpFuersNaechste.toLocaleString("de-DE")}`
+                                        : "Höchstlevel"}
+                                </span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-xl bg-slate-800">
+                                <div
+                                    className="h-full bg-violet-500"
+                                    style={{
+                                        width: `${Math.min(100, Math.max(0,
+                                            (skillStand?.xpFuersNaechste || 0) > 0
+                                                ? ((skillStand.xpDiesesLevel || 0) / skillStand.xpFuersNaechste) * 100
+                                                : 100)) }%`,
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5">
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                                    <HudIcon.gold size={13} className="shrink-0" /> Gold
+                                </span>
+                                <span className="text-sm font-semibold tabular-nums text-amber-400">{formatGold(gold)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                                    <HudIcon.goldLifetime size={13} className="shrink-0" /> Gesamt gesammelt
+                                </span>
+                                <span className="text-sm font-medium tabular-nums text-amber-400/70">{formatGold(goldGesamt)}</span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => { setProfilOffen(false); setSkillsOffen(true); }}
+                                className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
+                            >
+                                <HudIcon.level size={18} className="shrink-0" />
+                                <span className="text-xs font-medium">Fähigkeiten</span>
+                                {/* Übernimmt den Hinweis vom entfernten "Level N"-Knopf unten
+                                    rechts — ein offener Punkt soll nicht wochenlang unbemerkt
+                                    herumliegen. */}
+                                {(skillStand?.punkteOffen || 0) > 0 && (
+                                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] rounded-xl bg-violet-600 px-1 text-[9px] font-semibold tabular-nums text-white">
+                                        {skillStand.punkteOffen}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setProfilOffen(false); setWardrobeOpen(true); }}
+                                className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
+                            >
+                                <HudIcon.wardrobe size={18} className="shrink-0" />
+                                <span className="text-xs font-medium">Umkleide</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setProfilOffen(false); setLogbuchOpen(true); }}
+                                className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
+                            >
+                                <HudIcon.logbuch size={18} className="shrink-0" />
+                                <span className="text-xs font-medium tabular-nums">
+                                    Logbuch {Object.keys(logbuch).length}/{SEED_CATALOGUE.length}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </GardenModal>
+            )}
+
+            {/* v2 (Feedback 29.08.): Schuppen-Auswahl — Kiste, Vitrine und Mülleimer
+                stehen jetzt in EINEM Gebäude auf dem Feld; die E-Taste öffnet hier
+                erst die Auswahl, statt direkt eins der drei Fenster. */}
+            {isShedOpen && (
+                <GardenModal
+                    title="Schuppen"
+                    subtitle="Was möchtest du öffnen?"
+                    onClose={() => setShedOpen(false)}
+                    width="max-w-sm"
+                >
+                    <div className="flex flex-col gap-2">
+                        <button
+                            type="button"
+                            onClick={() => { setShedOpen(false); setAblageOffen("chest"); }}
+                            disabled={!normalizeToolInventory(toolInventory).hasChest}
+                            className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-800 disabled:hover:bg-slate-900/60"
+                        >
+                            <HudIcon.kiste size={18} className="shrink-0" />
+                            <span className="flex-1 text-sm font-medium text-white">Kiste</span>
+                            {!normalizeToolInventory(toolInventory).hasChest && (
+                                <span className="text-[11px] text-slate-600">nicht gekauft</span>
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setShedOpen(false); setAblageOffen("vitrine"); }}
+                            disabled={!normalizeToolInventory(toolInventory).hasVitrine}
+                            className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-800 disabled:hover:bg-slate-900/60"
+                        >
+                            <HudIcon.vitrine size={18} className="shrink-0" />
+                            <span className="flex-1 text-sm font-medium text-white">Vitrine</span>
+                            {!normalizeToolInventory(toolInventory).hasVitrine && (
+                                <span className="text-[11px] text-slate-600">nicht gekauft</span>
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setShedOpen(false); setTrashOpen(true); }}
+                            className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60"
+                        >
+                            <HudIcon.remove size={18} className="shrink-0" />
+                            <span className="flex-1 text-sm font-medium text-white">Mülleimer</span>
+                        </button>
+                        {/* Feedback 30.08.: "Inkubator in den Schuppen packen und aus dem
+                            Tiere-Dropdown entfernen" — zieht damit als vierte Tür in dasselbe
+                            Gebäude ein wie Kiste/Vitrine/Mülleimer. Das "Ei fertig"-Signal, das
+                            vorher am Tiere-Knopf hing, sitzt jetzt hier UND als Marker über dem
+                            Schuppen auf dem Feld (siehe _drawEierMarker in Renderer.js). */}
+                        <button
+                            type="button"
+                            onClick={() => { setShedOpen(false); setIncubatorTargetSlot(null); setIncubatorOpen(true); }}
+                            className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60"
+                        >
+                            <TabIcon.egg size={18} className="shrink-0" />
+                            <span className="flex-1 text-sm font-medium text-white">Inkubator</span>
+                            {readyEggsCount > 0 && (
+                                <span className="text-[11px] font-semibold text-violet-300">
+                                    {readyEggsCount === 1 ? "1 fertig" : `${readyEggsCount} fertig`}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => { setShedOpen(false); setEditorAktiv(true); setVerschiebtGebaeude("shed"); }}
+                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
+                    >
+                        <HudIcon.reposition size={13} /> Schuppen umstellen
+                    </button>
+                </GardenModal>
+            )}
+
             {isTrashOpen && (
                 <GardenModal
                     title="Mülleimer"
                     subtitle="Endgültig wegwerfen — das lässt sich nicht rückgängig machen"
                     onClose={() => setTrashOpen(false)}
+                    onBack={() => { setTrashOpen(false); setShedOpen(true); }}
                     width="max-w-lg"
-                    headerRight={
-                        <button
-                            type="button"
-                            onClick={() => { setTrashOpen(false); setEditorAktiv(true); setVerschiebtGebaeude("trash"); }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-medium transition-colors"
-                        >
-                            <Move size={13} /> Umstellen
-                        </button>
-                    }
                 >
+                    {/* Kein eigener "Umstellen"-Knopf hier: der Mülleimer wohnt seit dem
+                        Schuppen-Umbau (Feedback 29.08.) im selben Gebäude wie Kiste und
+                        Vitrine — verschoben wird der Schuppen als Ganzes, entweder aus
+                        dem Schuppen-Menü heraus oder aus der Kiste/Vitrine. */}
                     {/* Samen: gleiche Sorten stehen als eine Zeile mit Anzahl da. Wer 40
                         Löwenzahn loswerden will, klickt sonst 40-mal. */}
                     <div className="mb-4">
                         <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Samen</div>
                         {inventory.length === 0 ? (
-                            <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-md border border-slate-800 bg-slate-950">
+                            <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-2xl border border-slate-800 bg-slate-950">
                                 Keine Samen im Rucksack.
                             </p>
                         ) : (
@@ -6588,7 +7264,7 @@ export default function GameContainer() {
                                     return [...gruppen.values()].map((g) => (
                                         <div
                                             key={g.key}
-                                            className="p-3 rounded-md border border-slate-800 bg-slate-900/60 flex items-center gap-3"
+                                            className="p-3 rounded-2xl border border-slate-800 bg-slate-900/60 flex items-center gap-3"
                                         >
                                             <ItemIcon item={g.seed} className="w-9 h-9 shrink-0" emojiClassName="text-2xl" />
                                             <div className="flex-1 min-w-0">
@@ -6603,7 +7279,7 @@ export default function GameContainer() {
                                             <button
                                                 type="button"
                                                 onClick={() => wirfWeg([g.ids[0]], `${g.seed.name} weggeworfen.`)}
-                                                className="shrink-0 px-2.5 py-2 rounded-md border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-semibold transition-colors"
+                                                className="shrink-0 px-2.5 py-2 rounded-2xl border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-semibold transition-colors"
                                             >
                                                 Einen
                                             </button>
@@ -6611,9 +7287,9 @@ export default function GameContainer() {
                                                 <button
                                                     type="button"
                                                     onClick={() => wirfWeg(g.ids, `${g.ids.length}× ${g.seed.name} weggeworfen.`)}
-                                                    className="shrink-0 px-3 py-2 rounded-md border border-rose-800 text-rose-300 hover:text-white hover:bg-rose-900/40 text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
+                                                    className="shrink-0 px-3 py-2 rounded-2xl border border-rose-800 text-rose-300 hover:text-white hover:bg-rose-900/40 text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
                                                 >
-                                                    <Trash2 size={13} /> Alle {g.ids.length}
+                                                    <HudIcon.remove size={13} /> Alle {g.ids.length}
                                                 </button>
                                             )}
                                         </div>
@@ -6625,7 +7301,7 @@ export default function GameContainer() {
 
                     <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Deko</div>
                     {decoInventory.length === 0 ? (
-                        <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-md border border-slate-800 bg-slate-950">
+                        <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-2xl border border-slate-800 bg-slate-950">
                             Keine Deko im Inventar.
                         </p>
                     ) : (
@@ -6633,7 +7309,7 @@ export default function GameContainer() {
                             {decoInventory.map((deco) => (
                                 <div
                                     key={deco.instanceId || deco.id}
-                                    className="p-3 rounded-md border border-slate-800 bg-slate-900/60 flex items-center gap-3"
+                                    className="p-3 rounded-2xl border border-slate-800 bg-slate-900/60 flex items-center gap-3"
                                 >
                                     <ItemIcon item={deco} className="w-9 h-9 shrink-0" emojiClassName="text-2xl" />
                                     <div className="flex-1 min-w-0">
@@ -6651,9 +7327,9 @@ export default function GameContainer() {
                                             notify(`${deco.name} weggeworfen.`);
                                             debouncedSave();
                                         }}
-                                        className="shrink-0 px-3 py-2 rounded-md border border-rose-800 text-rose-300 hover:text-white hover:bg-rose-900/40 text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
+                                        className="shrink-0 px-3 py-2 rounded-2xl border border-rose-800 text-rose-300 hover:text-white hover:bg-rose-900/40 text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
                                     >
-                                        <Trash2 size={13} /> Wegwerfen
+                                        <HudIcon.remove size={13} /> Wegwerfen
                                     </button>
                                 </div>
                             ))}
@@ -6674,11 +7350,15 @@ export default function GameContainer() {
                     max={ablageOffen === "chest" ? KISTE_MAX : VITRINE_MAX}
                     busy={ablageBusy}
                     onClose={() => setAblageOffen(null)}
+                    onBack={() => { setAblageOffen(null); setShedOpen(true); }}
                     onEinlagern={(id) => handleAblage(ablageOffen, id, "ein")}
                     onAuslagern={(id) => handleAblage(ablageOffen, id, "aus")}
                     onAllesEin={() => handleAblage(ablageOffen, null, "ein")}
                     onAllesAus={() => handleAblage(ablageOffen, null, "aus")}
-                    onUmstellen={() => { const art = ablageOffen; setAblageOffen(null); setEditorAktiv(true); setVerschiebtGebaeude(art); }}
+                    // Umstellen bewegt seit dem Schuppen-Umbau IMMER das ganze Gebäude
+                    // (Kiste, Vitrine UND Mülleimer stecken darin), nicht nur die
+                    // gerade offene Ablage.
+                    onUmstellen={() => { setAblageOffen(null); setEditorAktiv(true); setVerschiebtGebaeude("shed"); }}
                 />
             )}
 
@@ -6691,7 +7371,11 @@ export default function GameContainer() {
             )}
 
             {isLogbuchOpen && (
-                <LogbuchModal logbuch={logbuch} onClose={() => setLogbuchOpen(false)} />
+                <LogbuchModal
+                    logbuch={logbuch}
+                    onClose={() => setLogbuchOpen(false)}
+                    onBack={() => { setLogbuchOpen(false); setProfilOffen(true); }}
+                />
             )}
 
             {isMailboxOpen && (
@@ -6717,16 +7401,130 @@ export default function GameContainer() {
                     <button
                         type="button"
                         onClick={async () => { await flushFarmStateToServer(); setShowLobbyScreen(true); }}
-                        className="px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition-colors"
+                        className="px-3 py-1.5 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition-colors"
                     >
                         Zurück zur Weltauswahl
                     </button>
                 </div>
             )}
 
+            {/* v2, "Look & Overlays": vorher eine Hover-Dropdown-Karte unter dem
+                HUD-Knopf — jedes andere Fenster im Spiel öffnet über einen Klick,
+                das hier tat es nicht. Jetzt ein eigenes Overlay, per Klick auf
+                "Tiere". Inhaltlich unverändert (Aktive-Boni-Zusammenfassung +
+                platzierte Tiere), nur als Karten statt als schmale Textliste —
+                das Rarität-Farbband je Karte macht die Übersicht auf einen Blick
+                bunter, ohne dass irgendwo eine neue Farbe erfunden werden musste. */}
+            {isPetOverlayOpen && (() => {
+                const goldStufe = besteStufe(petPlacements, "goldfinder", mySlotIndex);
+                const gaertner = getGaertnerStufe(petPlacements, mySlotIndex);
+                const helfer = getErntehelferStufe(petPlacements, mySlotIndex);
+                const forscher = getForscherStufe(petPlacements, mySlotIndex);
+                const kaufmann = getKaufmannStufe(petPlacements, mySlotIndex);
+                const [goldMin, goldMax] = getGoldfinderRange(goldStufe || 1);
+                const zuechter = skillWirkung("zuechter");
+                const eigenePets = petPlacements.filter((p) => p.slotIndex === mySlotIndex);
+                const zeilen = [
+                    {
+                        key: "goldfinder",
+                        stufe: goldStufe,
+                        wirkung: goldStufe
+                            ? `${formatGold(goldMin)}–${formatGold(goldMax)} alle ${Math.round(getPetTickMs(goldStufe) / 1000)} s`
+                            : null,
+                    },
+                    {
+                        key: "harvester",
+                        stufe: helfer,
+                        wirkung: helfer ? `+${Math.round(getErntehelferExtra(helfer, zuechter) * 100)} % zweites Stück je Ernte` : null,
+                    },
+                    {
+                        key: "seedfinder",
+                        stufe: gaertner,
+                        wirkung: gaertner
+                            ? `${Math.round(getGaertnerNachwuchs(gaertner, zuechter) * 100)} % Nachwuchs · ${Math.round(getGaertnerWurzelwerk(gaertner, zuechter) * 100)} % schneller`
+                            : null,
+                    },
+                    {
+                        key: "forscher",
+                        stufe: forscher,
+                        wirkung: forscher ? `+${Math.round(getForscherBoost(forscher, zuechter) * 100)} % XP je Ernte` : null,
+                    },
+                    {
+                        key: "kaufmann",
+                        stufe: kaufmann,
+                        wirkung: kaufmann ? `+${Math.round(getKaufmannBoost(kaufmann, zuechter) * 100)} % Verkaufspreis` : null,
+                    },
+                ];
+                return (
+                    <GardenModal
+                        title="Tiere"
+                        subtitle={`${eigenePets.length}/${PET_SLOTS} Plätze belegt — je Fähigkeit zählt die höchste Stufe`}
+                        onClose={() => setPetOverlayOpen(false)}
+                        width="max-w-lg"
+                    >
+                        <div className="mb-3 rounded-2xl border border-emerald-800/60 bg-emerald-950/20 px-3 py-2">
+                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+                                Aktive Boni
+                            </div>
+                            {zeilen.map((z) => (
+                                <div key={z.key} className="flex items-baseline justify-between gap-2 py-0.5">
+                                    <span className={`text-[11px] shrink-0 ${z.stufe ? "text-slate-300" : "text-slate-600"}`}>
+                                        {PET_ABILITY_LABELS[z.key]}
+                                    </span>
+                                    <span className={`text-right text-[10px] tabular-nums ${z.stufe ? "text-emerald-400" : "text-slate-600"}`}>
+                                        {z.wirkung || "kein Tier platziert"}
+                                    </span>
+                                </div>
+                            ))}
+                            <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                                Gleiche Tiere stapeln nicht. Tiere wirken nur, während du im Spiel bist.
+                                {zuechter > 0 ? ` „Züchter" ist eingerechnet.` : ""}
+                            </p>
+                        </div>
+
+                        {eigenePets.length === 0 ? (
+                            <div className="text-slate-500 text-sm text-center py-8">
+                                Noch kein Tier platziert. Im Inkubator ausbrüten und aufs Grundstück stellen.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-2">
+                                {eigenePets.map((pet, i) => (
+                                    <button
+                                        key={pet.id || i}
+                                        type="button"
+                                        onClick={() => { setPetOverlayOpen(false); setInspectedPet(pet); }}
+                                        className={`flex flex-col items-center gap-1 rounded-2xl border bg-slate-900/60 px-2 py-3 text-center transition-colors hover:bg-slate-800/70 ${RARITY_BORDER[pet.rarity] || RARITY_BORDER.COMMON}`}
+                                    >
+                                        <img
+                                            src={pet.image || getPetSpriteImage(pet.name)}
+                                            alt=""
+                                            draggable={false}
+                                            className="w-12 h-12 object-contain shrink-0"
+                                        />
+                                        <span className="block w-full text-xs text-slate-200 truncate">{pet.customName || pet.name}</span>
+                                        <span className={`text-[10px] ${RARITY_TEXT[pet.rarity] || RARITY_TEXT.COMMON}`}>
+                                            {pet.ability ? `${PET_ABILITY_LABELS[pet.ability.type] || pet.ability.type} · Lv. ${pet.ability.level}` : "ohne Fähigkeit"}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Kein Nachkauf mehr: drei Fähigkeiten, drei Plätze. Der Hinweis
+                            steht hier, weil man genau hier merkt, dass ein Platz fehlt —
+                            und weil sonst niemand erfährt, warum ein zweites gleiches Tier
+                            nichts bringt. */}
+                        <div className="mt-3 border-t border-slate-800 pt-2 text-[10px] leading-relaxed text-slate-500">
+                            Drei Plätze, einer je Fähigkeit. Zwei Tiere derselben Fähigkeit stapeln nicht — es zählt das stärkere.
+                        </div>
+                    </GardenModal>
+                );
+            })()}
+
             {inspectedPet && (
                 <PetDetailModal
                     pet={inspectedPet}
+                    zuechter={skillWirkung("zuechter")}
                     onClose={() => setInspectedPet(null)}
                     onStow={handleStowInspectedPet}
                     onSell={handleSellInspectedPet}
@@ -6741,18 +7539,43 @@ export default function GameContainer() {
             {editorAktiv && (
                 <div className={`absolute bottom-24 left-1/2 -translate-x-1/2 max-w-[min(56rem,92vw)] ${HUD_SURFACE} p-2`}>
                     <div className="flex items-center gap-2 mb-1.5 px-1">
-                        <LayoutGrid size={12} className="text-violet-400 shrink-0" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                        <HudIcon.editor size={12} className="shrink-0" />
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-100">
                             Einrichten — Klick wählt, Klick aufs Grundstück setzt ab,
-                            {" "}<kbd className="bg-slate-800 border border-slate-700 px-1 rounded-sm">R</kbd> spiegelt,
+                            {" "}<kbd className="bg-slate-800 border border-slate-700 px-1 rounded-xl text-slate-200">R</kbd> spiegelt,
                             {" "}Klick auf gesetzte Deko packt sie ein
                         </span>
-                        <span className="ml-auto text-[10px] text-slate-500 tabular-nums">
+                        <span className="ml-auto flex items-center gap-2 text-[10px] font-semibold text-amber-100/90 tabular-nums">
                             {decoInventory.length} vorrätig · {decoPlacements.filter((d) => d.slotIndex === mySlotIndex).length} aufgestellt
+                            {(() => {
+                                // Feedback 30.08.: "Lichter-Limit im Editor anzeigen" — LICHT_MAX
+                                // (Renderer.js) begrenzt, wie viele Laternen gleichzeitig LEUCHTEN
+                                // (die dem Spieler nächsten gewinnen, siehe _sichtbareLichter);
+                                // zusätzliche bleiben stehen, bleiben aber dunkel. Ohne diese Zahl
+                                // wirkte eine ausgegangene Laterne wie ein Fehler, nicht wie ein
+                                // erwartetes Limit.
+                                const eigeneLichter = decoPlacements
+                                    .filter((d) => d.slotIndex === mySlotIndex && dekoLicht(d.decoId)).length;
+                                if (eigeneLichter === 0) return null;
+                                const amLimit = eigeneLichter >= LICHT_MAX;
+                                return (
+                                    <span
+                                        title={amLimit
+                                            ? "Nur die dir nächsten Laternen leuchten gleichzeitig — weiter entfernte bleiben dunkel."
+                                            : "So viele deiner Laternen können gleichzeitig leuchten."}
+                                        className={`flex items-center gap-1 rounded-lg border px-1.5 py-0.5 ${
+                                            amLimit ? "border-amber-400/60 text-amber-300" : "border-amber-100/20 text-amber-100/70"
+                                        }`}
+                                    >
+                                        <WeatherIcon.moonlight size={11} />
+                                        {eigeneLichter}/{LICHT_MAX} Lichter
+                                    </span>
+                                );
+                            })()}
                         </span>
                     </div>
                     {decoInventory.length === 0 ? (
-                        <div className="px-2 py-3 text-xs text-slate-500">
+                        <div className="px-2 py-3 text-xs text-amber-100/80">
                             Keine Deko im Vorrat — im Deko-Shop gibt es Nachschub.
                         </div>
                     ) : (
@@ -6772,7 +7595,7 @@ export default function GameContainer() {
                                             setSelectedCarryItem(null);
                                             setSelectedPetToPlace(null);
                                         }}
-                                        className={`w-12 h-12 rounded-sm border flex items-center justify-center transition-colors ${
+                                        className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-colors ${
                                             gewaehlt
                                                 ? "border-violet-500 bg-violet-600/20"
                                                 : "border-slate-800 bg-slate-900/60 hover:border-slate-600"
@@ -6883,7 +7706,7 @@ export default function GameContainer() {
                                 setItemHoverTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : { item, x: e.clientX, y: e.clientY });
                             }}
                             onMouseLeave={() => setItemHoverTooltip(null)}
-                            className={`relative w-[50px] h-[50px] bg-slate-800/70 rounded-md border flex items-center justify-center transition-colors cursor-pointer group
+                            className={`relative w-[50px] h-[50px] bg-slate-800/70 rounded-2xl border flex items-center justify-center transition-colors cursor-pointer group
                             ${item ? "border-slate-700 hover:border-slate-500" : "border-slate-800"}
                             ${isHeldItem ? "border-violet-500 bg-slate-800" : specialRingClass}`}>
                             <span className="absolute top-0.5 left-1 text-[9px] font-medium text-slate-600 tabular-nums">{i + 1}</span>
@@ -6897,23 +7720,35 @@ export default function GameContainer() {
                     );
                 })}
             </div>
-            {currentInteractable && !activeShop && !isBackpackOpen && !isMarketOpen && !isIncubatorOpen && !isMailboxOpen && !isTrashOpen && (
+            {currentInteractable && !activeShop && !isBackpackOpen && !isMarketOpen && !isIncubatorOpen && !isMailboxOpen && !isTrashOpen && !isShedOpen && (
                 <button
                     type="button"
                     onClick={(e) => {
                         e.currentTarget.blur();
                         activateInteractable(currentInteractable);
                     }}
-                    className="absolute bottom-32 left-1/2 -translate-x-1/2 z-40 px-5 py-2.5 rounded-md border border-violet-500 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors flex items-center gap-2"
+                    // Feedback 30.08.: "Interaktions-Knöpfe (Briefkasten, Shops, …)
+                    // überlappen im Editor mit der Deko-Leiste" — die wächst bei vollem
+                    // Deko-Vorrat bis zu ihrem Deckel (max-h-32 im Icon-Raster) auf gut
+                    // 170 px, und lag damit über dem festen "bottom-32" hier drüber.
+                    // Rutscht im Editor einfach höher, statt die Deko-Leiste bei jeder
+                    // Vorratsgröße neu vermessen zu müssen.
+                    // Cartoon-Überarbeitung 30.08.: derselbe Stufen-Schatten wie HUD_SURFACE/
+                    // BTN_PRIMARY (gardenTokens.js), nur in Violett — das ist der Knopf, den
+                    // man während des Spielens am häufigsten sieht, verdient also denselben
+                    // drückbaren Auftritt wie alles andere.
+                    className={`absolute left-1/2 -translate-x-1/2 z-40 px-5 py-2.5 rounded-2xl border-[3px] border-violet-950 bg-gradient-to-b from-violet-500 to-violet-600 hover:from-violet-400 hover:to-violet-500 text-white text-sm font-bold shadow-[0_4px_0_0_#2e1065] active:translate-y-1 active:shadow-[0_1px_0_0_#2e1065] transition-[transform,box-shadow] duration-100 flex items-center gap-2 ${
+                        editorAktiv ? "bottom-72" : "bottom-32"
+                    }`}
                 >
                     {currentInteractable.label} öffnen
                     {/* Am eigenen Kasten direkt sehen, ob etwas drin liegt */}
                     {currentInteractable.type === "mailbox" && currentInteractable.isOwn && mailbox.length > 0 && (
-                        <span className="px-1.5 rounded-sm bg-white/20 text-[10px] font-semibold tabular-nums">
+                        <span className="px-1.5 rounded-xl bg-white/20 text-[10px] font-semibold tabular-nums">
                             {mailbox.length}
                         </span>
                     )}
-                    <kbd className="bg-violet-800/70 border border-violet-400/50 px-1.5 rounded-sm text-[10px] font-medium">E</kbd>
+                    <kbd className="bg-violet-900 border-2 border-violet-400/50 px-1.5 rounded-xl text-[10px] font-medium">E</kbd>
                 </button>
             )}
 
@@ -6923,44 +7758,78 @@ export default function GameContainer() {
             <button
                 type="button"
                 onClick={() => setBackpackOpen(true)}
-                className={`absolute bottom-5 right-5 px-4 py-3 ${HUD_SURFACE} text-slate-200 hover:text-white transition-colors flex items-center gap-2.5 text-sm font-medium`}
+                className={`absolute bottom-5 right-5 pl-1.5 pr-4 py-1.5 ${HUD_SURFACE} text-slate-200 hover:text-white transition-colors flex items-center gap-2.5 text-sm font-medium`}
             >
-                <Backpack size={18} /> Inventar
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
+                    <HudIcon.inventory size={24} />
+                </span>
+                Inventar
             </button>
 
-            {/* Fähigkeiten. Der Punkt-Zähler sitzt am Knopf, damit ein freier Punkt
-                nicht wochenlang unbemerkt herumliegt. */}
-            <button
-                type="button"
-                onClick={(e) => { e.currentTarget.blur(); setSkillsOffen(true); }}
-                title="Fähigkeiten"
-                className={`absolute bottom-[4.75rem] right-5 px-4 py-3 ${HUD_SURFACE} text-slate-200 hover:text-white transition-colors flex items-center gap-2.5 text-sm font-medium`}
-            >
-                <Trophy size={18} />
-                Level {skillStand?.level || 1}
-                {(skillStand?.punkteOffen || 0) > 0 && (
-                    <span className="rounded-sm bg-violet-600 px-1.5 text-[10px] font-semibold tabular-nums text-white">
-                        {skillStand.punkteOffen}
-                    </span>
-                )}
-            </button>
+            {/* Der eigene "Level N"-Knopf unten rechts ist raus (Feedback 30.08.:
+                "seit der Skilltree in der Profil-Bubble ist, braucht es ihn nicht
+                mehr doppelt") — Fähigkeiten öffnet jetzt nur noch über die
+                Profil-Bubble oben rechts, die auch den Punkte-frei-Hinweis trägt. */}
 
-            {/* ── Bottom-Left: Schnellreise ────────────────────────────────── */}
-            <div className="absolute bottom-5 left-5 flex flex-col gap-2">
+            {/* ── Oben Mitte: Schnellreise (Feedback 29.08.: "Verkauf, Shop und Farm
+                oben mittig nebeneinander") ─────────────────────────────────── */}
+            <div className="absolute top-5 left-1/2 z-40 -translate-x-1/2 flex items-center gap-2">
                 {[
-                    { label: "Verkauf-Areal", icon: Store, action: teleportToMarketArea },
-                    { label: "Shop-Areal", icon: ShoppingCart, action: teleportToShopArea },
-                    { label: "Meine Farm", icon: Home, action: teleportToMyFarm },
+                    { label: "Verkauf-Areal", icon: HudIcon.sellArea, action: teleportToMarketArea },
+                    { label: "Shop-Areal", icon: HudIcon.shopArea, action: teleportToShopArea },
+                    { label: "Meine Farm", icon: HudIcon.farm, action: teleportToMyFarm },
                 ].map(({ label, icon: Icon, action }) => (
                     <button
                         key={label}
                         type="button"
                         onClick={(e) => { e.currentTarget.blur(); action(); }}
-                        className={`px-4 py-3 ${HUD_SURFACE} text-slate-200 hover:text-white transition-colors flex items-center gap-2.5 text-sm font-medium`}
+                        className={`pl-1.5 pr-4 py-1.5 ${HUD_SURFACE} text-slate-200 hover:text-white transition-colors flex items-center gap-2.5 text-sm font-medium`}
                     >
-                        <Icon size={18} /> {label}
+                        {/* Feedback 30.08.: "man sieht die Icons kaum" — die Bilder sind
+                            kleine, bunte Szenen (Marktstand, Hoftor), auf dem unruhigen
+                            Holzton bei 18px kaum zu erkennen. Ein cremefarbenes Schild
+                            dahinter UND ein größeres Bild lösen beides zugleich. */}
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
+                            <Icon size={26} />
+                        </span>
+                        {label}
                     </button>
                 ))}
+            </div>
+
+            {/* ── Bottom-Left: Editor (Feedback 29.08.) ───────────────────────── */}
+            <div className="absolute bottom-5 left-5 flex flex-col gap-2">
+                {/* Einrichten: Raster einblenden, Deko setzen und einpacken, Gebäude
+                    umstellen. Ausserhalb passiert davon nichts — im normalen Spiel
+                    hat ein Klick daneben sonst dauernd Deko eingesammelt. */}
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (editorAktiv) {
+                            setSelectedDecoToPlace(null);
+                            setVerschiebtGebaeude(null);
+                            // Bisher hing das Sichern von Deko-Änderungen komplett am
+                            // allgemeinen 5-Sekunden-Autosave — der Timer läuft bei
+                            // JEDER Aktion neu an, eine ganze Dekorier-Session konnte
+                            // also lange ungesichert bleiben. Ein Besucher sah in der
+                            // Zwischenzeit den alten Stand (fehlende/verschobene Deko).
+                            // Jetzt wird beim Verlassen des Editors sofort gesichert,
+                            // zusätzlich zum weiterlaufenden Autosave. (Kein Aufruf
+                            // innerhalb von setEditorAktiv selbst — React darf Updater-
+                            // Funktionen mehrfach ausführen, ein PUT gehört da nicht rein.)
+                            flushFarmStateToServerRef.current?.();
+                        }
+                        setEditorAktiv((an) => !an);
+                    }}
+                    className={`flex h-10 items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium transition-colors ${
+                        editorAktiv ? "text-violet-300" : "text-slate-300 hover:text-white"
+                    }`}
+                >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
+                        <HudIcon.editor size={17} />
+                    </span>
+                    <span className="hidden sm:inline">{editorAktiv ? "Editor beenden" : "Editor"}</span>
+                </button>
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════
@@ -6969,17 +7838,14 @@ export default function GameContainer() {
             {activeShop === "seed" && (
                 <GardenModal
                     title="Samen-Shop"
-                    subtitle={`Nächste Rotation in ${formatCountdown(shopMins, shopSecs)}`}
                     onClose={() => setActiveShop(null)}
-                    headerRight={<GoldTag gold={gold} />}
+                    headerRight={
+                        <>
+                            <TimerTag title="Nächste Rotation" label={formatCountdown(shopMins, shopSecs)} />
+                            <GoldTag gold={gold} />
+                        </>
+                    }
                 >
-                    <div className="h-1 bg-slate-800 rounded-sm mb-4 overflow-hidden">
-                        <div
-                            className="h-full bg-violet-500 transition-[width]"
-                            style={{ width: `${(shopCountdown / SHOP_ROTATION_MS) * 100}%` }}
-                        />
-                    </div>
-
                     <TabBar
                         active={shopFilter}
                         onSelect={setShopFilter}
@@ -6989,21 +7855,17 @@ export default function GameContainer() {
                         ]}
                     />
 
-                    <SortierLeiste
-                        wert={shopSortierung}
-                        setzen={setShopSortierung}
-                        optionen={SHOP_SORTIERUNGEN}
-                    />
-
                     <div className="space-y-1.5">
                         {visibleShopSeeds.map(seed => (
                             <ShopSeedCard
                                 key={seed.seedId}
                                 seed={seed}
-                                stock={personalShopStock[seed.seedId] ?? (seed.active ? (seed.stockPerPlayer ?? 0) : 0)}
+                                stock={ladenBestand[seed.seedId] ?? (seed.active ? (seed.stock ?? 0) : 0)}
                                 canAfford={gold >= seed.shopPrice}
                                 rucksackVoll={rucksackVoll}
+                                xpJeSorte={xpJeSorte}
                                 onBuy={handleBuySeed}
+                                onBuyAll={handleBuySeedAll}
                             />
                         ))}
                         {(!shopRotation?.seeds || shopRotation.seeds.length === 0) && (
@@ -7015,16 +7877,14 @@ export default function GameContainer() {
             {activeShop === "tool" && (
                 <GardenModal
                     title="Werkzeug-Shop"
-                    subtitle={`Neue Lieferung in ${formatCountdown(toolMins, toolSecs)}`}
                     onClose={() => setActiveShop(null)}
-                    headerRight={<GoldTag gold={gold} />}
+                    headerRight={
+                        <>
+                            <TimerTag title="Neue Lieferung" label={formatCountdown(toolMins, toolSecs)} />
+                            <GoldTag gold={gold} />
+                        </>
+                    }
                 >
-                    <div className="h-1 bg-slate-800 rounded-sm mb-4 overflow-hidden">
-                        <div
-                            className="h-full bg-violet-500 transition-[width]"
-                            style={{ width: `${(toolShopCountdown / TOOL_EGG_ROTATION_MS) * 100}%` }}
-                        />
-                    </div>
                     <div className="space-y-1.5">
                         {(toolShopRotation?.items || []).map(tool => {
                             const toolInv = normalizeToolInventory(toolInventory);
@@ -7032,40 +7892,57 @@ export default function GameContainer() {
                             // Laden einen anderen Preis an, als die Kasse abbucht.
                             const hackenRabatt = 1 - Math.min(0.6, skillWirkung("bergbau"));
                             const hackenPreis = (n) => Math.max(1, Math.floor(getPickaxePrice(n) * hackenRabatt));
+                            // „Lagerist" (v2, Punkt 4): derselbe Rabatt-Aufbau wie oben bei
+                            // der Spitzhacke, nur auf den Rucksack — muss zu preisFuer in
+                            // werkzeug.js passen.
+                            const lagerRabatt = 1 - Math.min(0.6, skillWirkung("lagerist"));
+                            const rucksackPreisMitRabatt = (n) => Math.max(1, Math.floor(getBackpackUpgradePrice(n) * lagerRabatt));
                             const price = tool.id === "backpack_upgrade"
-                                ? getBackpackUpgradePrice(toolInv.backpackLevel || 0)
+                                ? rucksackPreisMitRabatt(toolInv.backpackLevel || 0)
                                 : tool.id === "pickaxe"
                                 ? hackenPreis(toolInv.pickaxesBought || 0)
                                 : tool.price;
                             // Kiste und Vitrine stehen einmal auf dem Grundstück —
                             // danach gilt derselbe „schon vorhanden"-Zustand wie bei
                             // der Schaufel, sonst bliebe der Kauf-Knopf aktiv.
+                            // Spitzhacken über den Bedarf hinaus sind rausgeworfenes
+                            // Gold: mehr Nutzungen als offene Steinfelder lassen sich
+                            // nie einlösen. Muss zur Prüfung in handleBuyTool passen.
+                            const offeneSteine = Math.max(0,
+                                STEINFELDER_GESAMT - normalizePlotUnlockedCells(plotUnlockedCells).length);
+                            const hackenGedeckt = tool.id === "pickaxe"
+                                && (toolInv.pickaxeUses || 0) >= offeneSteine;
                             const isPermanentOwned = (tool.id === "shovel" && toolInv.hasShovel)
                                 || (tool.id === "chest" && toolInv.hasChest)
                                 || (tool.id === "vitrine" && toolInv.hasVitrine)
                                 // Voll ausgebauter Rucksack: der Knopf blieb aktiv und
                                 // hat weiter Gold gekostet, ohne Plätze zu geben.
-                                || (tool.id === "backpack_upgrade" && (toolInv.backpackLevel || 0) >= BACKPACK_MAX_LEVEL);
+                                || (tool.id === "backpack_upgrade" && (toolInv.backpackLevel || 0) >= BACKPACK_MAX_LEVEL)
+                                || hackenGedeckt;
                             // Die Spitzhacke ist bewusst NICHT mehr dabei: sie ist immer
                             // vorrätig, gebremst allein durch ihren steigenden Preis.
                             const hasRotationStock = tool.type === "single";
                             const singleStock = hasRotationStock ? (toolShopStock[tool.id] ?? 0) : null;
                             const canBuy = gold >= price && !isPermanentOwned && (!hasRotationStock || (singleStock ?? 0) > 0);
                             const description = {
-                                pickaxe: `4 Nutzungen pro Kauf · immer vorrätig · nächster Kauf ${formatGold(hackenPreis((toolInv.pickaxesBought || 0) + 1))}`,
+                                pickaxe: offeneSteine === 0
+                                    ? "Dein Grundstück ist komplett freigelegt."
+                                    : hackenGedeckt
+                                        ? `Du hast ${toolInv.pickaxeUses} Nutzungen für ${offeneSteine} offene Steinfelder — das reicht.`
+                                        : `4 Nutzungen pro Kauf · noch ${offeneSteine} Steinfelder frei · nächster Kauf ${formatGold(hackenPreis((toolInv.pickaxesBought || 0) + 1))}`,
                                 shovel: "Dauerhaft · entfernt Pflanzen restlos",
                                 plant_pot: "Einmalig · versetzt eine Pflanze",
                                 backpack_upgrade: (toolInv.backpackLevel || 0) >= BACKPACK_MAX_LEVEL
                                     ? `Voll ausgebaut · ${50 + BACKPACK_MAX_LEVEL * 10} Plätze`
                                     : `Stufe ${toolInv.backpackLevel || 0} von ${BACKPACK_MAX_LEVEL} · +10 Plätze pro Upgrade`,
-                                watering_can: "Einmalig · verkürzt die Restzeit um ein Viertel",
+                                watering_can: `Einmalig · verkürzt das Wachstum um ${giesskanneMinuten(skillStufe("giesskanne"))} Minuten · wirkt auf alle Fruchtstände`,
                                 chest: `Dauerhaft · ${KISTE_MAX} Plätze für Ernte, ohne Rucksack zu belegen`,
                                 vitrine: `Dauerhaft · ${VITRINE_MAX} Schauplätze, für alle in der Welt sichtbar`,
                             }[tool.id] || "";
                             return (
                                 <div
                                     key={tool.id}
-                                    className={`p-3 rounded-md border bg-slate-900/50 flex items-center gap-3 transition-colors ${
+                                    className={`p-3 rounded-2xl border bg-slate-900/50 flex items-center gap-3 transition-colors ${
                                         canBuy ? "border-slate-800 hover:border-violet-500" : "border-slate-800"
                                     }`}
                                 >
@@ -7080,9 +7957,24 @@ export default function GameContainer() {
                                             <div className="text-[11px] text-slate-500">{singleStock ?? 0} auf Lager</div>
                                         )}
                                     </div>
-                                    <PrimaryButton onClick={() => handleBuyTool(tool)} disabled={!canBuy} className="shrink-0">
-                                        {isPermanentOwned ? "Im Besitz" : "Kaufen"}
-                                    </PrimaryButton>
+                                    <div className="flex shrink-0 items-center gap-1.5">
+                                        {/* Buy-All (v2, Punkt 12): nur bei Werkzeugen, die man
+                                            sinnvoll mehrfach kauft — bei Schaufel/Kiste/Vitrine
+                                            wäre "Alle" dasselbe wie "Kaufen", nur verwirrender. */}
+                                        {canBuy && BUY_ALL_WERKZEUGE.has(tool.id) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleBuyToolAll(tool)}
+                                                title="So viele kaufen, wie Vorrat/Deckel und Gold hergeben"
+                                                className="px-2.5 py-2 rounded-2xl text-xs font-semibold border border-slate-700 text-slate-300 hover:border-violet-500 hover:text-violet-200 transition-colors"
+                                            >
+                                                Alle
+                                            </button>
+                                        )}
+                                        <PrimaryButton onClick={() => handleBuyTool(tool)} disabled={!canBuy}>
+                                            {hackenGedeckt ? "Gedeckt" : isPermanentOwned ? "Im Besitz" : "Kaufen"}
+                                        </PrimaryButton>
+                                    </div>
                                 </div>
                             );
                         })}
@@ -7092,16 +7984,14 @@ export default function GameContainer() {
             {activeShop === "egg" && (
                 <GardenModal
                     title="Eier-Shop"
-                    subtitle={`Neues Angebot in ${formatCountdown(eggMins, eggSecs)}`}
                     onClose={() => setActiveShop(null)}
-                    headerRight={<GoldTag gold={gold} />}
+                    headerRight={
+                        <>
+                            <TimerTag title="Neues Angebot" label={formatCountdown(eggMins, eggSecs)} />
+                            <GoldTag gold={gold} />
+                        </>
+                    }
                 >
-                    <div className="h-1 bg-slate-800 rounded-sm mb-4 overflow-hidden">
-                        <div
-                            className="h-full bg-violet-500 transition-[width]"
-                            style={{ width: `${(eggShopCountdown / TOOL_EGG_ROTATION_MS) * 100}%` }}
-                        />
-                    </div>
                     <div className="space-y-1.5">
                         {EGG_SHOP_CATALOGUE.map(egg => {
                             const stock = eggShopStock[egg.id] ?? 0;
@@ -7109,7 +7999,7 @@ export default function GameContainer() {
                             return (
                                 <div
                                     key={egg.id}
-                                    className={`p-3 rounded-md border flex items-center gap-3 ${
+                                    className={`p-3 rounded-2xl border flex items-center gap-3 ${
                                         available
                                             ? `border-slate-700 bg-slate-900/60 ${gold >= egg.price && stock > 0 ? "hover:border-violet-500" : ""}`
                                             : "border-slate-800 bg-slate-900/40 opacity-50"
@@ -7145,20 +8035,49 @@ export default function GameContainer() {
                     </div>
                 </GardenModal>
             )}
-            {activeShop === "deco" && (
+            {activeShop === "deco" && (() => {
+                const kategorie = DEKO_KATEGORIEN.find((k) => k.id === dekoKategorie) || DEKO_KATEGORIEN[0];
+                const sichtbar = dekoNachKategorie(kategorie.id);
+                return (
                 <GardenModal
                     title="Deko-Shop"
-                    subtitle="Platzierbar auf den Grasflächen deiner Farm — beim Setzen mit R drehbar"
+                    subtitle={kategorie.hinweis
+                        ? `${kategorie.name} — ${kategorie.hinweis}`
+                        : "Platzierbar auf den Grasflächen deiner Farm — beim Setzen mit R spiegelbar"}
                     onClose={() => setActiveShop(null)}
                     headerRight={<GoldTag gold={gold} />}
+                    /* Feste Höhe UND feststehende Reiter. Vorher wuchs das Fenster mit
+                       seinem Inhalt und sass dabei mittig — jeder Kategoriewechsel
+                       verschob es also auf dem Bildschirm, und die Reiter sprangen
+                       unter dem Mauszeiger weg. Dazu scrollten sie beim Blättern aus
+                       dem Bild, sodass man zum Wechseln erst wieder hochfahren musste. */
+                    feste
+                    toolbar={
+                        <div className="flex flex-wrap gap-1">
+                            {DEKO_KATEGORIEN.map((k) => (
+                                <button
+                                    key={k.id}
+                                    type="button"
+                                    onClick={(e) => { e.currentTarget.blur(); setDekoKategorie(k.id); }}
+                                    className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                                        k.id === kategorie.id
+                                            ? "bg-slate-800 text-white"
+                                            : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                                    }`}
+                                >
+                                    {k.name}
+                                </button>
+                            ))}
+                        </div>
+                    }
                 >
                     <div className="grid grid-cols-2 gap-1.5">
-                        {DECO_SHOP_ITEMS.map((deco) => {
+                        {sichtbar.map((deco) => {
                             const canBuy = gold >= deco.price;
                             return (
                                 <div
                                     key={deco.id}
-                                    className={`p-3 rounded-md border bg-slate-900/50 flex items-center gap-3 transition-colors ${
+                                    className={`p-3 rounded-2xl border bg-slate-900/50 flex items-center gap-3 transition-colors ${
                                         canBuy ? "border-slate-800 hover:border-violet-500" : "border-slate-800"
                                     }`}
                                 >
@@ -7172,16 +8091,32 @@ export default function GameContainer() {
                                     </div>
                                     <div className="text-right shrink-0">
                                         <div className="text-sm font-semibold text-amber-400 tabular-nums mb-1">{formatGold(deco.price)}</div>
-                                        <PrimaryButton onClick={() => handleBuyDeco(deco)} disabled={!canBuy}>
-                                            Kaufen
-                                        </PrimaryButton>
+                                        <div className="flex items-center gap-1 justify-end">
+                                            <PrimaryButton onClick={() => handleBuyDeco(deco)} disabled={!canBuy}>
+                                                Kaufen
+                                            </PrimaryButton>
+                                            {/* Zehnerkauf nur bei Belägen: von einer Statue will
+                                                niemand zehn, von Steinplatten fast immer. */}
+                                            {deco.ebene === "boden" && (
+                                                <button
+                                                    type="button"
+                                                    title={`10× ${deco.name} für ${formatGold(deco.price * 10)}`}
+                                                    onClick={(e) => { e.currentTarget.blur(); handleBuyDeco(deco, 10); }}
+                                                    disabled={gold < deco.price * 10}
+                                                    className="rounded-xl border border-slate-700 px-2 py-1 text-xs text-slate-300 transition-colors hover:border-slate-500 hover:text-white disabled:border-slate-800 disabled:text-slate-600"
+                                                >
+                                                    ×10
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
                 </GardenModal>
-            )}
+                );
+            })()}
 
             {/* ═══════════════════════════════════════════════════════════════
                 MODAL: UNIFIED INVENTORY
@@ -7214,19 +8149,20 @@ export default function GameContainer() {
                 const lagerwert = harvestedItems.reduce((s, i) => s + (Number(i?.sellValue) || 0), 0);
                 return (
                 <GardenModal
-                    title="Inventar"
+                    title="Rucksack"
                     subtitle="Deko, Tiere und Werkzeug belegen keine Slots"
                     onClose={() => { setItemHoverTooltip(null); setBackpackOpen(false); }}
+                    width="max-w-4xl"
                     headerRight={
                         <div className="flex items-center gap-3">
                             {lagerwert > 0 && (
                                 <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 tabular-nums whitespace-nowrap">
-                                    <Coins size={13} />
+                                    <HudIcon.gold size={13} />
                                     {formatGold(lagerwert)}
                                 </span>
                             )}
                             <div className="flex items-center gap-2 w-40">
-                                <div className="flex-1 h-1.5 rounded-sm bg-slate-800 overflow-hidden">
+                                <div className="flex-1 h-1.5 rounded-xl bg-slate-800 overflow-hidden">
                                     <div
                                         className={`h-full transition-[width] duration-300 ${
                                             fillRatio >= 1 ? "bg-rose-500" : fillRatio >= 0.75 ? "bg-amber-500" : "bg-emerald-500"
@@ -7244,6 +8180,7 @@ export default function GameContainer() {
                         <TabBar
                             active={activeFilter}
                             onSelect={setInventoryFilter}
+                            accent="amber"
                             tabs={backpackFilters.map((f) => ({
                                 key: f,
                                 label: filterLabels[f],
@@ -7315,13 +8252,13 @@ export default function GameContainer() {
                                                 onMouseEnter={(e) => setItemHoverTooltip({ item, x: e.clientX, y: e.clientY })}
                                                 onMouseMove={(e) => setItemHoverTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : { item, x: e.clientX, y: e.clientY })}
                                                 onMouseLeave={() => setItemHoverTooltip(null)}
-                                                className={`group relative aspect-square rounded-md border flex items-center justify-center transition-colors bg-slate-800/60 ${spClass} ${(isSeed || isPlant || isPet || isDeco) ? "cursor-pointer hover:bg-slate-700/70" : "cursor-default"}`}>
+                                                className={`group relative aspect-square rounded-2xl border flex items-center justify-center transition-colors bg-amber-950/20 ${spClass} ${(isSeed || isPlant || isPet || isDeco) ? "cursor-pointer hover:bg-amber-900/30" : "cursor-default"}`}>
                                                 <SpecialItemIcon item={item} special={sp} className="w-9 h-9" emojiClassName="text-2xl" />
                                                 {/* Tiere tragen Namen — bei mehreren Hühnern war sonst nur am
                                                     Hovern zu erkennen, welches Chicky und welches Berta ist.
                                                     Der Seltenheitspunkt rückt dafür nach oben. */}
                                                 {isPet && (
-                                                    <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[8px] leading-tight text-center text-slate-200 truncate bg-slate-950/85 rounded-b-md">
+                                                    <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[8px] leading-tight text-center text-slate-200 truncate bg-slate-950/85 rounded-b-xl">
                                                         {item.customName || item.name}
                                                     </span>
                                                 )}
@@ -7357,7 +8294,7 @@ export default function GameContainer() {
                     {harvestedItems.length === 0 ? (
                         <div className="text-slate-500 text-sm py-8 text-center">Nichts zum Verkaufen im Lager.</div>
                     ) : (
-                        <div className="rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2">
                             <div className="flex items-center justify-between py-1 text-xs">
                                 <span className="text-slate-400">Erntestücke im Lager</span>
                                 <span className="text-white font-semibold tabular-nums">{harvestedItems.length}</span>
@@ -7370,7 +8307,9 @@ export default function GameContainer() {
                             </div>
                             {isSubscriber && (
                                 <div className="flex items-center justify-between py-1 text-xs border-t border-slate-800 mt-1 pt-2">
-                                    <span className="text-slate-400">Sub-Bonus</span>
+                                    {/* Derselbe Bonus, aber beim Admin nicht „Sub-Bonus"
+                                        nennen — er ist keiner, er bekommt ihn nur. */}
+                                    <span className="text-slate-400">{istGartenAdmin ? "Admin-Bonus" : "Sub-Bonus"}</span>
                                     <span className="text-emerald-400 font-semibold">+50 %</span>
                                 </div>
                             )}
@@ -7383,23 +8322,13 @@ export default function GameContainer() {
                     title="Inkubator"
                     subtitle="Eier einlegen, ausbrüten, Tier auf der Farm platzieren"
                     onClose={() => { setIncubatorTargetSlot(null); setIncubatorOpen(false); }}
+                    onBack={() => { setIncubatorTargetSlot(null); setIncubatorOpen(false); setShedOpen(true); }}
                     width="max-w-4xl"
+                    // Kein eigener "Umstellen"-Knopf: der Inkubator hat kein eigenes
+                    // Gebäude mehr, sondern wohnt seit Feedback 30.08. im Schuppen
+                    // (dessen "Schuppen umstellen"-Knopf zieht ihn automatisch mit).
                     headerRight={
-                        <span className="flex items-center gap-3">
-                            <span className="text-xs text-slate-400 tabular-nums">{eggInventory.length} Eier im Inventar</span>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIncubatorTargetSlot(null);
-                                    setIncubatorOpen(false);
-                                    setEditorAktiv(true);
-                                    setVerschiebtGebaeude("incubator");
-                                }}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-medium transition-colors"
-                            >
-                                <Move size={13} /> Umstellen
-                            </button>
-                        </span>
+                        <span className="text-xs text-slate-400 tabular-nums">{eggInventory.length} Eier im Inventar</span>
                     }
                 >
                         <div className="grid grid-cols-5 gap-2">
@@ -7409,12 +8338,12 @@ export default function GameContainer() {
                                 const unlockCost = INCUBATOR_UNLOCK_COSTS[idx - 1];
                                 return (
                                     <div key={idx}
-                                        className={`rounded-md border p-3 flex flex-col min-h-[210px] ${unlocked ? "border-slate-700 bg-slate-900/60" : "border-slate-800 bg-slate-900/30"}`}
+                                        className={`rounded-2xl border p-3 flex flex-col min-h-[210px] ${unlocked ? "border-slate-700 bg-slate-900/60" : "border-slate-800 bg-slate-900/30"}`}
                                     >
                                         <div className="text-[10px] text-center mb-1.5 text-slate-500 tabular-nums">Platz {idx + 1}</div>
                                         {!unlocked && (
                                             <div className="flex flex-col items-center justify-center flex-1 gap-2">
-                                                <Lock size={18} className="text-slate-600" />
+                                                <HudIcon.locked size={18} />
                                                 <div className="text-[11px] text-slate-400 tabular-nums">{formatGold(unlockCost)}</div>
                                                 <PrimaryButton onClick={unlockIncubatorSlot} disabled={gold < unlockCost} className="px-2 py-1">
                                                     Freischalten
@@ -7423,7 +8352,7 @@ export default function GameContainer() {
                                         )}
                                         {unlocked && !slot && (
                                             <>
-                                                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-700 rounded-md">
+                                                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-700 rounded-2xl">
                                                     <Package size={22} className="text-slate-700" />
                                                 </div>
                                                 <PrimaryButton onClick={() => setIncubatorTargetSlot(idx)} className="mt-2 w-full py-1.5">
@@ -7438,9 +8367,9 @@ export default function GameContainer() {
                                             <>
                                                 <div className="flex items-center justify-center">
                                                     {isHatching ? (
-                                                        <ItemIcon item={slot.egg} className="w-16 h-16 object-contain rounded-md border border-slate-800 bg-slate-950/60" />
+                                                        <ItemIcon item={slot.egg} className="w-16 h-16 object-contain rounded-2xl border border-slate-800 bg-slate-950/60" />
                                                     ) : (
-                                                        <img src={slot.hatchResult?.previewImage || buildPetPreviewImage(slot.hatchResult?.type)} alt="" className="w-16 h-16 object-contain rounded-md border border-slate-800 bg-slate-950/60" />
+                                                        <img src={slot.hatchResult?.previewImage || buildPetPreviewImage(slot.hatchResult?.type)} alt="" className="w-16 h-16 object-contain rounded-2xl border border-slate-800 bg-slate-950/60" />
                                                     )}
                                                 </div>
                                                 {/* Ohne die Absicherung reisst ein Platz ohne `egg` den ganzen
@@ -7463,7 +8392,7 @@ export default function GameContainer() {
                             })}
                         </div>
                         {incubatorTargetSlot !== null && (
-                            <div className="mt-4 border border-slate-800 rounded-md p-3 bg-slate-950/50">
+                            <div className="mt-4 border border-slate-800 rounded-2xl p-3 bg-slate-950/50">
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="text-xs text-slate-300 font-medium">Ei für Platz {incubatorTargetSlot + 1} wählen</div>
                                     <button
@@ -7483,7 +8412,7 @@ export default function GameContainer() {
                                                 key={egg.instanceId}
                                                 type="button"
                                                 onClick={() => placeEggInIncubator(incubatorTargetSlot, egg.instanceId)}
-                                                className="p-2 rounded-md border border-slate-800 hover:border-slate-600 bg-slate-900 transition-colors text-center flex flex-col items-center gap-1"
+                                                className="p-2 rounded-2xl border border-slate-800 hover:border-slate-600 bg-slate-900 transition-colors text-center flex flex-col items-center gap-1"
                                             >
                                                 <ItemIcon item={egg} className="w-8 h-8" emojiClassName="text-xl" />
                                                 <div className="text-[10px] text-slate-400 truncate w-full">{egg.name}</div>
@@ -7506,6 +8435,11 @@ export default function GameContainer() {
                     { key: "pot", label: "Topf", hotkey: "2" },
                     { key: "pickaxe", label: "Hacke", hotkey: "3" },
                     { key: "watering", label: "Kanne", hotkey: "4" },
+                    // Nur beim Admin, und nur dort auch sichtbar: bei allen anderen
+                    // fehlt der Platz ganz, statt leer und grau danebenzustehen.
+                    ...(istGartenAdmin
+                        ? [{ key: "shotgun", label: "Shotgun — auf einen Mitspieler klicken", hotkey: "5" }]
+                        : []),
                 ].map((slot) => {
                     const owned = Boolean(equippedTools[slot.key]);
                     const isActive = selectedTool === slot.key;
@@ -7527,7 +8461,7 @@ export default function GameContainer() {
                                 setSelectedTool(prev => (prev === slot.key ? null : slot.key));
                                 if (slot.key !== "pot") setMovingPlantSource(null);
                             }}
-                            className={`relative w-[50px] h-[50px] rounded-md border flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none ${
+                            className={`relative w-[50px] h-[50px] rounded-2xl border flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none ${
                                 isActive
                                     ? "border-violet-500 bg-slate-800"
                                     : owned
@@ -7550,42 +8484,14 @@ export default function GameContainer() {
                 })}
             </div>
             {/* 5. ANPASSUNG: Wardrobe Modal - Jetzt mit Preset-Buttons */}
-            {isWardrobeOpen && (
-                <GardenModal
-                    title="Umkleide"
-                    subtitle="Weitere Outfits folgen über Drops und den Shop"
-                    onClose={() => setWardrobeOpen(false)}
-                    width="max-w-md"
-                    footer={
-                        <PrimaryButton onClick={() => setWardrobeOpen(false)} className="w-full py-2.5">
-                            Fertig
-                        </PrimaryButton>
-                    }
-                >
-                    <div className="grid grid-cols-4 gap-2">
-                        {WARDROBE_SKINS.map(skin => {
-                            const isActive = playerAppearance.skin === skin.skin;
-                            return (
-                                <button
-                                    key={skin.id}
-                                    type="button"
-                                    onClick={() => setPlayerAppearance({ skin: skin.skin })}
-                                    className={`p-3 rounded-md border flex flex-col items-center justify-center gap-1.5 transition-colors ${
-                                        isActive
-                                            ? "border-violet-500 bg-slate-800"
-                                            : "border-slate-800 bg-slate-900/50 hover:border-slate-600"
-                                    }`}
-                                >
-                                    <ItemIcon item={{ image: skin.skin }} className="w-12 h-12" emojiClassName="text-2xl" />
-                                    <span className={`text-[11px] text-center leading-tight ${isActive ? "text-white" : "text-slate-400"}`}>
-                                        {skin.name}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </GardenModal>
-            )}
+            <WardrobeModal
+                offen={isWardrobeOpen}
+                onClose={() => setWardrobeOpen(false)}
+                onBack={() => { setWardrobeOpen(false); setProfilOffen(true); }}
+                aktuellerSkin={playerAppearance.skin}
+                level={skillStand?.level || 1}
+                onWaehlen={(skin) => setPlayerAppearance({ skin })}
+            />
             {/* Changelog Modal. Die Versionsnummer im Untertitel kommt aus den Daten
                 statt fest verdrahtet — sonst steht dort nach jeder Fassung wieder eine
                 veraltete Nummer (stand zuletzt auf 3.0, während 3.1 schon draußen war). */}
@@ -7596,30 +8502,57 @@ export default function GameContainer() {
                     onClose={() => setChangelogOpen(false)}
                     width="max-w-2xl"
                 >
-                    <div className="space-y-5">
-                        {CHANGELOG_ENTRIES.map((release) => (
-                            <section key={release.version}>
-                                <div className="flex items-baseline gap-2 mb-2 pb-2 border-b border-slate-800">
-                                    <h3 className="text-sm font-semibold text-white">{release.version}</h3>
-                                    <span className="text-xs text-slate-500">{release.title}</span>
-                                </div>
-                                {release.groups.map((group) => (
-                                    <div key={group.heading} className="mb-3">
-                                        <h4 className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">
-                                            {group.heading}
-                                        </h4>
-                                        <ul className="space-y-1">
-                                            {group.items.map((item, i) => (
-                                                <li key={i} className="text-xs text-slate-300 leading-relaxed flex gap-2">
-                                                    <span className="text-slate-600 select-none">–</span>
-                                                    <span>{item}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                ))}
-                            </section>
-                        ))}
+                    {/* Die neueste Fassung steht offen und trägt eine Marke, alle älteren
+                        sind zugeklappt. Vorher lagen alle Versionen gleichrangig
+                        untereinander — nach vier Fassungen musste man erst suchen, was
+                        eigentlich neu ist. */}
+                    <div className="space-y-2">
+                        {CHANGELOG_ENTRIES.map((release, index) => {
+                            const neueste = index === 0;
+                            const offen = neueste || offeneChangelogs.includes(release.version);
+                            return (
+                                <section key={release.version} className={neueste ? "" : "border-t border-slate-800 pt-2"}>
+                                    <button
+                                        type="button"
+                                        // Die neueste Fassung lässt sich nicht zuklappen: sie ist
+                                        // der Grund, warum das Fenster überhaupt aufgeht.
+                                        onClick={() => {
+                                            if (neueste) return;
+                                            setOffeneChangelogs((alt) => (alt.includes(release.version)
+                                                ? alt.filter((v) => v !== release.version)
+                                                : [...alt, release.version]));
+                                        }}
+                                        className={`flex w-full items-baseline gap-2 text-left ${neueste ? "cursor-default pb-2 mb-2 border-b border-slate-800" : "py-1"}`}
+                                    >
+                                        {!neueste ? (
+                                            <HudIcon.chevron size={13} className={`shrink-0 self-center transition-transform ${offen ? "" : "-rotate-90"}`} />
+                                        ) : null}
+                                        <h3 className={`text-sm font-semibold ${neueste ? "text-white" : "text-slate-400"}`}>{release.version}</h3>
+                                        {neueste ? (
+                                            <span className="rounded-md border border-violet-500 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-300">
+                                                Neu
+                                            </span>
+                                        ) : null}
+                                        <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{release.title}</span>
+                                    </button>
+                                    {offen ? release.groups.map((group) => (
+                                        <div key={group.heading} className="mb-3">
+                                            <h4 className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">
+                                                {group.heading}
+                                            </h4>
+                                            <ul className="space-y-1">
+                                                {group.items.map((item, i) => (
+                                                    <li key={i} className="text-xs text-slate-300 leading-relaxed flex gap-2">
+                                                        <span className="text-slate-600 select-none">–</span>
+                                                        <span>{item}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )) : null}
+                                </section>
+                            );
+                        })}
                     </div>
                 </GardenModal>
             )}

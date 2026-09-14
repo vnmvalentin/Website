@@ -10,6 +10,9 @@
 //
 //   id            Modus-Kennung, identisch mit lobby.mode
 //   gameType      Wert von lobby.game.type; Snake setzt historisch keinen → weglassen
+//   partyModes    ['solo']|['duo']|['solo','duo'] — in welchen Lobby-Party-Modi der Modus
+//                 wählbar ist. Fehlt das Feld, gilt ['solo'] (alle bisherigen Modi kennen
+//                 kein Team-Konzept und dürfen deshalb nicht in einer Duo-Lobby auftauchen).
 //   settings      { feldName: SettingSpec } — modus-EXKLUSIVE Lobby-Einstellungen.
 //                 Von mehreren Modi genutzte Felder (timerSeconds, cardsPerRound …)
 //                 bleiben Teil der Lobby-Grundausstattung.
@@ -65,6 +68,10 @@ const modeForLobby = (lobby) => (lobby ? modes.get(lobby.mode) || null : null);
 const modeIds = () => [...modes.keys()];
 
 const allModes = () => [...modes.values()];
+
+// Fehlt partyModes an einem Modus, gilt er als solo-only — genau das Verhalten, das alle
+// bisherigen Modi ohne Änderung an ihnen selbst brauchen (siehe Deskriptor-Kommentar oben).
+const modeAllowsParty = (mode, partyMode) => (mode?.partyModes || ['solo']).includes(partyMode);
 
 function eachSetting(fn) {
   for (const mode of modes.values()) {
@@ -123,6 +130,7 @@ module.exports = {
   modeForLobby,
   modeIds,
   allModes,
+  modeAllowsParty,
   defaultSettings,
   publicSettings,
   getSettingSpec,

@@ -34,7 +34,7 @@
 // override würde eine versehentlich mit hochgeladene .env im Projektordner still die
 // Dienstkonfiguration aushebeln — ein Fehler, den man erst am falschen Port bemerkt.
 // Fehlt die Datei ganz, tut dotenv nichts; der Server braucht keine Variable zwingend.
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
 const http = require("http");
 const { Server } = require("socket.io");

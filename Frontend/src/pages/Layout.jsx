@@ -35,10 +35,19 @@ export default function Layout() {
 
   const [systemBroadcast, setSystemBroadcast] = useState(null);
 
+  // React Router matcht Routen unabhängig von einem abschließenden "/" (/clash-royale UND
+  // /clash-royale/ rendern dieselbe Seite) — dieser Vergleich hier war das aber NICHT: ein
+  // exakter String-Vergleich auf location.pathname sah bei "/clash-royale/" kein Match mehr,
+  // isFullBleedGame kippte auf false, und die Seite bekam plötzlich die normale Polsterung
+  // (p-4 md:p-8) und overflow-y-auto statt randlos volle Höhe — genau das sah dann wie ein
+  // "Rausgezoomt" mit Rand ringsum aus, obwohl es nur eine falsch behandelte Route war.
+  const normalizedPath = location.pathname.length > 1
+    ? location.pathname.replace(/\/+$/, "")
+    : location.pathname;
   const isFullBleedGame =
-    location.pathname === "/garden" || location.pathname === "/adventures" ||
-    location.pathname === "/discord-bot" || location.pathname === "/WinChallenge-Overlay" ||
-    location.pathname === "/clash-royale";
+    normalizedPath === "/garden" || normalizedPath === "/adventures" ||
+    normalizedPath === "/discord-bot" || normalizedPath === "/WinChallenge-Overlay" ||
+    normalizedPath === "/clash-royale";
 
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('globalIsMuted') === 'true';
@@ -134,8 +143,8 @@ export default function Layout() {
   const categoryHasDot = (cat) => cat.links.some((l) => linkHasDot(l.label));
 
   const isCategoryActive = (cat) =>
-    location.pathname === cat.to ||
-    cat.links.some((l) => l.to && location.pathname === l.to);
+    normalizedPath === cat.to ||
+    cat.links.some((l) => l.to && normalizedPath === l.to);
 
   const openFeedback = useCallback(() => setFeedbackModalOpen(true), []);
 
@@ -311,7 +320,7 @@ export default function Layout() {
               <Link
                 to="/updates"
                 className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                  location.pathname === "/updates" ? "text-white bg-white/5" : "text-white/50 hover:text-white hover:bg-white/5"
+                  normalizedPath === "/updates" ? "text-white bg-white/5" : "text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="Updates & News"
               >
@@ -340,7 +349,7 @@ export default function Layout() {
                 <Link
                   to="/profile"
                   className={`flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-lg border transition-colors ${
-                    location.pathname === "/profile"
+                    normalizedPath === "/profile"
                       ? "bg-white/10 border-white/15"
                       : "border-transparent hover:bg-white/5 hover:border-white/10"
                   }`}

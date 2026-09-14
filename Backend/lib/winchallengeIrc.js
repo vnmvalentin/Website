@@ -18,9 +18,10 @@ try {
   /* optional dependency */
 }
 
-const createWinchallengeRouter = require("../routes/winchallengeRoutes");
-const streamToolRaids = require("./streamToolRaids");
-const streamToolStats = require("./streamToolStats");
+const createWinchallengeRouter = require("../winchallenge/winchallengeRoutes");
+const streamToolRaids = require("../streamTool/lib/streamToolRaids");
+const streamToolStats = require("../streamTool/lib/streamToolStats");
+const winTrackerChat = require("../clashRoyale/lib/winTrackerChat");
 const { step } = require("./startupLog");
 
 let client = null;
@@ -410,6 +411,12 @@ function getChannelList() {
   } catch (e) {
     console.warn("[stream-tool] Overlay-Kanäle nicht lesbar:", e.message);
   }
+  // Win-Tracker: Kanäle mit aktiviertem "!tracker"-Chatbefehl.
+  try {
+    for (const c of winTrackerChat.getTrackerChannels()) set.add(normalizeChannel(c));
+  } catch (e) {
+    console.warn("[win-tracker] Chat-Kanäle nicht lesbar:", e.message);
+  }
   return [...set];
 }
 
@@ -683,6 +690,18 @@ async function onChatMessage(channel, tags, message, self) {
   if (!startsWithCommandChar(message)) return;
 
   const ch = normalizeChannel(channel.replace(/^#/, ""));
+
+  // Win-Tracker: "!tracker #TAG" — eigener Kanalkreis und eigene Mod-Prüfung, unabhängig
+  // davon, ob der Kanal auch einem Win-Challenge-Doc gehört.
+  try {
+    // Async seit "!tracker add" (ruft die Royale API auf) — die übrigen Unterbefehle laufen
+    // synchron durch, siehe winTrackerChat.js.
+    const trackerResult = await winTrackerChat.applyTrackerChatLine(ch, tags, message);
+    if (trackerResult && trackerResult.reply) queueChatReply(channel, trackerResult.reply);
+  } catch (e) {
+    console.error("[win-tracker] command failed:", e.message);
+  }
+
   const uid = findUserIdForChannel(ch);
   if (!uid) return;
   const db = createWinchallengeRouter.loadDb();

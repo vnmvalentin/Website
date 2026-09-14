@@ -6,7 +6,7 @@
 
 import React from 'react';
 import CardTile from '../ui/CardTile';
-import { RARITY_ORDER, RARITY_LABEL } from '../constants';
+import { RARITY_ORDER, RARITY_LABEL, RARITY_LABEL_ES } from '../constants';
 import { RARITY_COLOR, ALL_CARDS } from '../data/cards';
 
 /**
@@ -33,7 +33,7 @@ export default function CardGrid({ query = '', renderCard, emptyText, lang = 'de
           // 122 Karten flüssig, gerade auf dem Handy.
           <div key={rarity} style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 480px' }}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: RARITY_COLOR[rarity] }}>
-              {lang === 'en' ? rarity : (RARITY_LABEL[rarity] || rarity)}
+              {lang === 'de' ? (RARITY_LABEL[rarity] || rarity) : lang === 'es' ? (RARITY_LABEL_ES[rarity] || rarity) : rarity}
             </p>
             <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-9 gap-1.5">
               {cards.map(card => (

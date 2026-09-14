@@ -65,6 +65,7 @@ const BINGO_CARD_ATTRS = {
   'bomb-tower':        ['cost_high', 'type_building', 'splash', 'rarity_rare', 'target_ground'],
   'hog-rider':         ['cost_mid',  'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_rare', 'gender_male',   'speed_very_fast', 'target_buildings', 'target_ground'],
   'flying-machine':    ['cost_mid',  'type_troop',    'move_air',    'range_ranged', 'single', 'rarity_rare', 'gender_none',   'speed_fast', 'target_ground_air'],
+  'minion-giant':      ['cost_mid',  'type_troop',    'move_air',    'range_ranged', 'single', 'rarity_rare', 'gender_none',   'speed_medium', 'target_buildings', 'target_ground'],
   'battle-healer':     ['cost_mid',  'type_troop',    'move_ground', 'range_melee',  'single', 'rarity_rare', 'gender_female', 'speed_medium', 'target_ground'],
   'zappies':           ['cost_mid',  'type_troop',    'move_ground', 'range_ranged', 'swarm',  'rarity_rare', 'gender_none',   'speed_medium', 'target_ground_air'],
   'furnace':           ['cost_mid',  'type_troop',    'move_ground', 'range_ranged', 'single', 'rarity_rare', 'gender_none', 'speed_medium', 'has_evo', 'target_ground_air'],

@@ -1,7 +1,7 @@
 ﻿import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
-import BingoGrid from "../../components/bingo/BingoGrid";
+import BingoGrid from "./BingoGrid";
 import SEO from "../../components/SEO";
 import {
   getSession,

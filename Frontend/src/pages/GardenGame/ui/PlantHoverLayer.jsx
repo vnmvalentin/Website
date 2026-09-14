@@ -4,7 +4,7 @@
 import React, { useSyncExternalStore } from 'react';
 import PlantHoverCard from './PlantHoverCard';
 
-export default function PlantHoverLayer({ store, getPlant, getOwner }) {
+export default function PlantHoverLayer({ store, getPlant, getOwner, xpJeSorte = null }) {
     const hover = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
     if (!hover?.key) return null;
     // Bewusst nur der Schluessel: die Karte holt sich die Pflanze bei jedem eigenen
@@ -17,6 +17,7 @@ export default function PlantHoverLayer({ store, getPlant, getOwner }) {
             x={hover.x}
             y={hover.y}
             owner={getOwner?.(hover.key) || null}
+            xpJeSorte={xpJeSorte}
         />
     );
 }

@@ -1,0 +1,810 @@
+[
+  {
+    "id": "rad",
+    "label": "Das Rad",
+    "year": -3500,
+    "description": "Vermutlich zuerst für Töpferscheiben in Mesopotamien genutzt, bevor es an Fahrzeuge kam.",
+    "wikiTitle": "Rad",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hub%20(PSF).png?width=500"
+  },
+  {
+    "id": "keilschrift",
+    "label": "Die Keilschrift",
+    "year": -3200,
+    "description": "Eines der ältesten bekannten Schriftsysteme der Menschheit, entwickelt in Mesopotamien.",
+    "wikiTitle": "Keilschrift",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sales%20contract%20Shuruppak%20Louvre%20AO3766.jpg?width=500"
+  },
+  {
+    "id": "papier",
+    "label": "Papier",
+    "year": 105,
+    "description": "Der chinesische Hofbeamte Cai Lun gilt als entscheidender Verbesserer der Papierherstellung.",
+    "wikiTitle": "Papier",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Paperball%202.jpeg?width=500"
+  },
+  {
+    "id": "kompass",
+    "label": "Der Magnetkompass zur Navigation",
+    "year": 1100,
+    "description": "Ursprünglich in China eher zur Wahrsagerei genutzt, kam der Kompass erst später zur Schifffahrt.",
+    "wikiTitle": "Kompass",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Plastic-compass.jpg?width=500"
+  },
+  {
+    "id": "schwarzpulver",
+    "label": "Schwarzpulver",
+    "year": 850,
+    "description": "In China zunächst eher zufällig bei der Suche nach einem Unsterblichkeits-Elixier entdeckt.",
+    "wikiTitle": "Schwarzpulver",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2023%20Czarny%20proch%20Vesuvit%20LC%20(3).jpg?width=500"
+  },
+  {
+    "id": "brille",
+    "label": "Die Brille",
+    "year": 1286,
+    "description": "Die frühesten bekannten Sehhilfen mit geschliffenen Linsen entstanden in Italien.",
+    "wikiTitle": "Brille",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2023%20Okulary%20korekcyjne.jpg?width=500"
+  },
+  {
+    "id": "buchdruck",
+    "label": "Der Buchdruck mit beweglichen Lettern",
+    "year": 1440,
+    "description": "Johannes Gutenbergs Erfindung veränderte die Verbreitung von Wissen in Europa grundlegend.",
+    "wikiTitle": "Johannes Gutenberg",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gutenberg.jpg?width=500"
+  },
+  {
+    "id": "mikroskop",
+    "label": "Das zusammengesetzte Mikroskop",
+    "year": 1590,
+    "description": "Der niederländische Brillenmacher Zacharias Janssen wird oft als früher Erfinder genannt.",
+    "wikiTitle": "Mikroskop",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Fine%20rotative%20table%20Microscope%205%20(12996283235).jpg?width=500"
+  },
+  {
+    "id": "teleskop",
+    "label": "Das Teleskop",
+    "year": 1608,
+    "description": "Der Brillenmacher Hans Lippershey meldete das erste bekannte Patent dafür an.",
+    "wikiTitle": "Teleskop",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lunette%20mg%202368.jpg?width=500"
+  },
+  {
+    "id": "dampfmaschine",
+    "label": "Die erste praxistaugliche Dampfmaschine",
+    "year": 1712,
+    "description": "Thomas Newcomens Maschine pumpte Wasser aus englischen Bergwerken.",
+    "wikiTitle": "Dampfmaschine",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/%D0%93%D0%BE%D1%80%D0%B8%D0%B7%D0%BE%D0%BD%D1%82%D0%B0%D0%BB%D1%8C%D0%BD%D0%B0%D1%8F%20%D1%81%D1%82%D0%B0%D1%86%D0%B8%D0%BE%D0%BD%D0%B0%D1%80%D0%BD%D0%B0%D1%8F%20%D0%BF%D0%B0%D1%80%D0%BE%D0%B2%D0%B0%D1%8F%20%D0%BC%D0%B0%D1%88%D0%B8%D0%BD%D0%B0.JPG?width=500"
+  },
+  {
+    "id": "blitzableiter",
+    "label": "Der Blitzableiter",
+    "year": 1752,
+    "description": "Benjamin Franklins berühmtes Drachenexperiment führte zu dieser lebensrettenden Erfindung.",
+    "wikiTitle": "Blitzableiter",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/Lightning-rod-diagram_de.svg/langde-330px-Lightning-rod-diagram_de.svg.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "fallschirm",
+    "label": "Der erste geglückte Fallschirmsprung",
+    "year": 1783,
+    "description": "Louis-Sébastien Lenormand sprang damit von einem Turm in Frankreich.",
+    "wikiTitle": "Fallschirm",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/NASA's%20Orion%20Spacecraft%20Parachutes%20Tested%20at%20U.S.%20Army%20Yuma%20Proving%20Ground.jpg?width=500"
+  },
+  {
+    "id": "dampflokomotive",
+    "label": "Die Dampflokomotive",
+    "year": 1804,
+    "description": "Richard Trevithicks Lokomotive fuhr erstmals mit eigener Kraft auf Schienen.",
+    "wikiTitle": "Dampflokomotive",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/3511%20-%20Hartswater%20240481.jpg?width=500"
+  },
+  {
+    "id": "fotografie",
+    "label": "Die dauerhafte Fotografie",
+    "year": 1826,
+    "description": "Joseph Nicéphore Niépce belichtete die älteste erhaltene Fotografie der Welt.",
+    "wikiTitle": "Joseph Nicéphore Niépce",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Posthumous%20portrait%20of%20Nic%C3%A9phore%20Ni%C3%A9pce.png?width=500"
+  },
+  {
+    "id": "telegraf",
+    "label": "Der elektrische Telegraf",
+    "year": 1837,
+    "description": "Samuel Morse entwickelte dazu auch den bekannten Morsecode.",
+    "wikiTitle": "Elektrischer Telegraf",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/PSM_V09_D091_Morse_key_and_register.jpg/330px-PSM_V09_D091_Morse_key_and_register.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "vulkanisation",
+    "label": "Die Kautschuk-Vulkanisation",
+    "year": 1839,
+    "description": "Charles Goodyear machte Naturkautschuk erst durch dieses Verfahren dauerhaft nutzbar.",
+    "wikiTitle": "Vulkanisation",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/VulcanizationMold1941.jpg?width=500"
+  },
+  {
+    "id": "naehmaschine",
+    "label": "Die praxistaugliche Nähmaschine",
+    "year": 1846,
+    "description": "Elias Howe patentierte eine der ersten wirklich funktionierenden Nähmaschinen.",
+    "wikiTitle": "Nähmaschine",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/730%20sw%20ori.jpg?width=500"
+  },
+  {
+    "id": "dynamit",
+    "label": "Dynamit",
+    "year": 1867,
+    "description": "Alfred Nobel machte Nitroglycerin damit erstmals sicher handhabbar.",
+    "wikiTitle": "Dynamit",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Caisse%20dynamite%20nobel%20paulilles%20expo.JPG?width=500"
+  },
+  {
+    "id": "telefon",
+    "label": "Das Telefon",
+    "year": 1876,
+    "description": "Alexander Graham Bell meldete das grundlegende Patent dafür an.",
+    "wikiTitle": "Telefon",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Telefon%20BW%202012-02-18%2013-44-32.JPG?width=500"
+  },
+  {
+    "id": "gluehbirne",
+    "label": "Die praxistaugliche Glühbirne",
+    "year": 1879,
+    "description": "Thomas Edison war nicht der Erste mit einer Glühbirne, aber der Erste mit einer wirtschaftlich brauchbaren Version.",
+    "wikiTitle": "Glühlampe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gluehlampe%2001%20KMJ.jpg?width=500"
+  },
+  {
+    "id": "automobil",
+    "label": "Das Automobil mit Verbrennungsmotor",
+    "year": 1886,
+    "description": "Carl Benz erhielt das Patent für seinen Benz Patent-Motorwagen.",
+    "wikiTitle": "Automobil",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bundesarchiv%20Bild%20183-J0711-0001-003%2C%20Warnem%C3%BCnde%2C%20Stau.jpg?width=500"
+  },
+  {
+    "id": "roentgenstrahlung",
+    "label": "Die Röntgenstrahlung",
+    "year": 1895,
+    "description": "Wilhelm Conrad Röntgen entdeckte sie eher zufällig bei Experimenten mit Kathodenstrahlen.",
+    "wikiTitle": "Röntgenstrahlung",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/X-ray%20by%20Wilhelm%20R%C3%B6ntgen%20of%20Albert%20von%20K%C3%B6lliker's%20hand%20-%2018960123-02.jpg?width=500"
+  },
+  {
+    "id": "radio",
+    "label": "Die drahtlose Telegrafie (Radio)",
+    "year": 1896,
+    "description": "Guglielmo Marconi meldete ein grundlegendes Patent für die drahtlose Übertragung an.",
+    "wikiTitle": "Guglielmo Marconi",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Guglielmo%20Marconi.jpg?width=500"
+  },
+  {
+    "id": "reissverschluss",
+    "label": "Der moderne, zuverlässige Reißverschluss",
+    "year": 1913,
+    "description": "Gideon Sundback verbesserte frühere, noch unzuverlässige Versionen entscheidend.",
+    "wikiTitle": "Reißverschluss",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Coil%20plastic%20and%20metal%20zippers.jpg?width=500"
+  },
+  {
+    "id": "flugzeug",
+    "label": "Das motorisierte Flugzeug",
+    "year": 1903,
+    "description": "Den Gebrüdern Wright gelang der erste kontrollierte Motorflug in Kitty Hawk, USA.",
+    "wikiTitle": "Wright Flyer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/First%20flight2.jpg?width=500"
+  },
+  {
+    "id": "fliessband",
+    "label": "Das moderne industrielle Fließband",
+    "year": 1913,
+    "description": "Henry Ford revolutionierte damit die Automobilproduktion.",
+    "wikiTitle": "Massenproduktion",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hyundai%20car%20assembly%20line.jpg?width=500"
+  },
+  {
+    "id": "panzer",
+    "label": "Der Panzer (erster Kampfeinsatz)",
+    "year": 1916,
+    "description": "Im Ersten Weltkrieg kamen die ersten Kampfpanzer an der Somme zum Einsatz.",
+    "wikiTitle": "Panzer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Army2016demo-007.jpg?width=500"
+  },
+  {
+    "id": "fernsehen",
+    "label": "Die rein elektronische Fernsehübertragung",
+    "year": 1927,
+    "description": "Philo Farnsworth übertrug damit erstmals ein rein elektronisch erzeugtes Bild.",
+    "wikiTitle": "Philo Farnsworth",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Philo%20T%20Farnsworth.jpg?width=500"
+  },
+  {
+    "id": "penicillin",
+    "label": "Penicillin",
+    "year": 1928,
+    "description": "Alexander Fleming entdeckte es eher zufällig an einer verschimmelten Petrischale.",
+    "wikiTitle": "Penicillin",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1c/Penicillium_notatum.jpg/330px-Penicillium_notatum.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "kuehlschrank",
+    "label": "Der massentaugliche elektrische Haushaltskühlschrank",
+    "year": 1927,
+    "description": "Das General-Electric-Modell 'Monitor-Top' machte den Kühlschrank für breite Käuferschichten erschwinglich.",
+    "wikiTitle": "Kühlschrank",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/LG%20refrigerator%20interior.jpg?width=500"
+  },
+  {
+    "id": "hubschrauber",
+    "label": "Der erste praxistaugliche Hubschrauber",
+    "year": 1939,
+    "description": "Igor Sikorskys VS-300 gilt als erster wirklich praxistauglicher Hubschrauber.",
+    "wikiTitle": "Igor Sikorsky",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4d/Sikorsky%2C_Igor.jpg/330px-Sikorsky%2C_Igor.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "kernspaltung",
+    "label": "Die Kernspaltung (Entdeckung)",
+    "year": 1938,
+    "description": "Otto Hahn und Fritz Straßmann entdeckten sie in Berlin.",
+    "wikiTitle": "Kernspaltung",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kernspaltung%20--%20induced%20nuclear%20fission.svg?width=500"
+  },
+  {
+    "id": "kugelschreiber",
+    "label": "Der moderne Kugelschreiber",
+    "year": 1938,
+    "description": "László Bíró löste damit das Problem auslaufender Füllfederhalter.",
+    "wikiTitle": "Kugelschreiber",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/03-BICcristal2008-03-26.jpg?width=500"
+  },
+  {
+    "id": "zuse-z3",
+    "label": "Der erste funktionsfähige programmierbare Computer (Zuse Z3)",
+    "year": 1941,
+    "description": "Konrad Zuse baute ihn in Berlin, weitgehend unbeachtet vom Rest der Welt.",
+    "wikiTitle": "Zuse Z3",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Z3%20Deutsches%20Museum.JPG?width=500"
+  },
+  {
+    "id": "transistor",
+    "label": "Der Transistor",
+    "year": 1947,
+    "description": "Diese Erfindung in den Bell Labs machte spätere Computer erst im großen Stil möglich.",
+    "wikiTitle": "Transistor",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Transistors.agr.jpg?width=500"
+  },
+  {
+    "id": "mikrowellenherd",
+    "label": "Der Mikrowellenherd",
+    "year": 1946,
+    "description": "Percy Spencer bemerkte den Effekt, als ein Schokoriegel in seiner Hosentasche schmolz.",
+    "wikiTitle": "Mikrowellenherd",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Panasonic%20NN-SD69LS%2020220410.jpg?width=500"
+  },
+  {
+    "id": "klettverschluss",
+    "label": "Der Klettverschluss",
+    "year": 1948,
+    "description": "Georges de Mestral kam auf die Idee, nachdem er Kletten aus dem Fell seines Hundes entfernt hatte.",
+    "wikiTitle": "Klettverschluss",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Velcro%20photomicrograph.jpg?width=500"
+  },
+  {
+    "id": "polio-impfstoff",
+    "label": "Der Polio-Impfstoff",
+    "year": 1955,
+    "description": "Jonas Salks Impfstoff war ein entscheidender Schritt im Kampf gegen Kinderlähmung.",
+    "wikiTitle": "Jonas Salk",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Jonas%20Salk%20candid.jpg?width=500"
+  },
+  {
+    "id": "laser",
+    "label": "Der Laser",
+    "year": 1960,
+    "description": "Theodore Maiman baute das erste funktionierende Gerät.",
+    "wikiTitle": "Laser",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lasers.JPG?width=500"
+  },
+  {
+    "id": "computermaus",
+    "label": "Die Computermaus",
+    "year": 1964,
+    "description": "Douglas Engelbart stellte den hölzernen Prototyp erstmals öffentlich vor.",
+    "wikiTitle": "Computermaus",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2023%20Mysz%20komputerowa%20Logitech%20G903%20Lightspeed.jpg?width=500"
+  },
+  {
+    "id": "herzschrittmacher",
+    "label": "Der implantierbare Herzschrittmacher",
+    "year": 1958,
+    "description": "Schwedische Ärzte und Ingenieure setzten das erste Gerät einem Patienten ein.",
+    "wikiTitle": "Herzschrittmacher",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pacemaker%20GuidantMeridianSR.jpg?width=500"
+  },
+  {
+    "id": "mobiltelefon",
+    "label": "Das erste tragbare Mobiltelefon",
+    "year": 1973,
+    "description": "Martin Cooper von Motorola führte damit den ersten öffentlichen Handy-Anruf.",
+    "wikiTitle": "Martin Cooper",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2007Computex%20e21Forum-MartinCooper.jpg?width=500"
+  },
+  {
+    "id": "personal-computer",
+    "label": "Der kommerziell erfolgreiche Personal Computer (Apple II)",
+    "year": 1977,
+    "description": "Einer der drei einflussreichen ersten Massen-Heimcomputer, die 1977 auf den Markt kamen.",
+    "wikiTitle": "Apple II",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Apple%20II%20IMG%204212.jpg?width=500"
+  },
+  {
+    "id": "arpanet",
+    "label": "Das ARPANET (erste Netzwerkverbindung)",
+    "year": 1969,
+    "description": "Der Vorläufer des heutigen Internets verband zunächst nur wenige US-Universitäten.",
+    "wikiTitle": "ARPANET",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Arpanet%20logical%20map%2C%20march%201977.png?width=500"
+  },
+  {
+    "id": "gps",
+    "label": "Das GPS-System (erster Satellit)",
+    "year": 1978,
+    "description": "Der erste Satellit des heutigen globalen Navigationssystems wurde von den USA gestartet.",
+    "wikiTitle": "Global Positioning System",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/9/9c/ConstellationGPS.gif?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+  },
+  {
+    "id": "compact-disc",
+    "label": "Die Compact Disc",
+    "year": 1982,
+    "description": "Gemeinsam von Philips und Sony entwickelt und vermarktet.",
+    "wikiTitle": "Compact Disc",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/OD%20Compact%20disc.svg?width=500"
+  },
+  {
+    "id": "world-wide-web",
+    "label": "Das World Wide Web",
+    "year": 1989,
+    "description": "Tim Berners-Lee schlug es als Informationssystem am CERN vor.",
+    "wikiTitle": "Tim Berners-Lee",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/LS3%204919%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "digitalkamera",
+    "label": "Die erste funktionsfähige Digitalkamera",
+    "year": 1975,
+    "description": "Steven Sasson baute den sperrigen Prototyp bei Kodak.",
+    "wikiTitle": "Digitalkamera",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Canon%20PowerShot%20A95%20-%20front%20and%20back.jpg?width=500"
+  },
+  {
+    "id": "mp3",
+    "label": "Das MP3-Format",
+    "year": 1993,
+    "description": "Am Fraunhofer-Institut in Erlangen entwickelt, veränderte es später die gesamte Musikindustrie.",
+    "wikiTitle": "MP3-Player",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Ipod%205th%20Generation%20white.jpg?width=500"
+  },
+  {
+    "id": "smartphone",
+    "label": "Das moderne Touchscreen-Smartphone (iPhone)",
+    "year": 2007,
+    "description": "Apples erstes iPhone prägte das Design praktisch aller späteren Smartphones.",
+    "wikiTitle": "IPhone (1. Generation)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/IPhone%201st%20Gen.svg?width=500"
+  },
+  {
+    "id": "papyrus",
+    "label": "Papyrus als Beschreibstoff",
+    "year": -3000,
+    "description": "Aus dem Mark der Papyrusstaude hergestellt — namensgebend für unser Wort \"Papier\", obwohl es botanisch etwas anderes ist.",
+    "wikiTitle": "Papyrus (Beschreibstoff)",
+    "image": null
+  },
+  {
+    "id": "muenzen-lydien",
+    "label": "Die ersten geprägten Münzen (Königreich Lydien)",
+    "year": -600,
+    "description": "Vor Münzen wurde meist mit abgewogenem Rohmetall oder im Tauschhandel bezahlt.",
+    "wikiTitle": "Lydische Münzprägung",
+    "image": null
+  },
+  {
+    "id": "diamant-sutra-blockdruck",
+    "label": "Der älteste exakt datierte gedruckte Text der Welt (Diamant-Sutra, Blockdruck)",
+    "year": 868,
+    "description": "Jahrhunderte vor Gutenbergs beweglichen Lettern wurde in China bereits mit geschnitzten Holzblöcken gedruckt.",
+    "wikiTitle": "Diamant-Sutra",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Jingangjing.jpg?width=500"
+  },
+  {
+    "id": "papiergeld-song",
+    "label": "Das erste staatlich ausgegebene Papiergeld (Song-Dynastie, China)",
+    "year": 1023,
+    "description": "Jahrhunderte bevor Papiergeld in Europa gebräuchlich wurde.",
+    "wikiTitle": "Jiaozi",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Jiaozi-close-look.jpg?width=500"
+  },
+  {
+    "id": "fahrrad-laufmaschine",
+    "label": "Die Laufmaschine, der unmittelbare Vorläufer des Fahrrads",
+    "year": 1817,
+    "description": "Noch ohne Pedale — angetrieben wurde sie allein durch Abstoßen mit den Füßen vom Boden.",
+    "wikiTitle": "Laufmaschine",
+    "image": null
+  },
+  {
+    "id": "pockenimpfung-jenner",
+    "label": "Die erste wissenschaftlich dokumentierte Impfung (Pockenschutzimpfung)",
+    "year": 1796,
+    "description": "Edward Jenner nutzte dafür das deutlich harmlosere Kuhpocken-Virus — namensgebend für den Begriff \"Vakzine\" (lateinisch vacca, Kuh).",
+    "wikiTitle": "Pockenimpfstoff",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Smallpox%20vaccine.jpg?width=500"
+  },
+  {
+    "id": "barometer-torricelli",
+    "label": "Das Quecksilberbarometer",
+    "year": 1643,
+    "description": "Damit ließ sich zum ersten Mal der Luftdruck zuverlässig messen.",
+    "wikiTitle": "Barometer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Dosen-barometer.jpg?width=500"
+  },
+  {
+    "id": "thermometer-fahrenheit",
+    "label": "Das erste zuverlässige Quecksilberthermometer",
+    "year": 1714,
+    "description": "Erst dieses Gerät machte Temperaturmessungen wirklich reproduzierbar und vergleichbar.",
+    "wikiTitle": "Thermometer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/-%20Thermometer%20-.jpg?width=500"
+  },
+  {
+    "id": "heissluftballon",
+    "label": "Der Heißluftballon",
+    "year": 1783,
+    "description": "Die Gebrüder Montgolfier schickten damit die ersten Menschen überhaupt in die Luft.",
+    "wikiTitle": "Heißluftballon",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/17.%20Th%C3%BCringer%20Montgolfiade%20-%2035.jpg?width=500"
+  },
+  {
+    "id": "guillotine",
+    "label": "Die Guillotine als standardisiertes Hinrichtungsgerät",
+    "year": 1789,
+    "description": "Sie sollte eigentlich für einen schnelleren, gleicheren Tod sorgen als die bis dahin üblichen Methoden.",
+    "wikiTitle": "Guillotine",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Badische%20Guillotine.JPG?width=500"
+  },
+  {
+    "id": "streichholz",
+    "label": "Das Streichholz (Reibkopf-Zündholz)",
+    "year": 1826,
+    "description": "Vorher brauchte es für offenes Feuer deutlich umständlichere Methoden.",
+    "wikiTitle": "Streichholz",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Streichholz.jpg?width=500"
+  },
+  {
+    "id": "aether-anaesthesie",
+    "label": "Die erste öffentliche Vorführung einer Vollnarkose (Äther-Anästhesie)",
+    "year": 1846,
+    "description": "Vor dieser Demonstration in Boston waren Operationen für die Patienten bei vollem Bewusstsein eine Tortur.",
+    "wikiTitle": "Anästhesie",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fb/Mask_Ventilation.jpg/330px-Mask_Ventilation.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "rolltreppe",
+    "label": "Das erste patentierte Personenförderband (Vorläufer der Rolltreppe)",
+    "year": 1892,
+    "description": "Bis zur heute bekannten Rolltreppe mit keilförmigen Stufen dauerte es danach noch einige Jahre technischer Weiterentwicklung.",
+    "wikiTitle": "Rolltreppe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Copenhagen%20Metro%20escalators.jpg?width=500"
+  },
+  {
+    "id": "aspirin",
+    "label": "Aspirin (Acetylsalicylsäure in reiner, stabiler Form)",
+    "year": 1897,
+    "description": "Eines der bis heute meistverkauften Medikamente der Welt.",
+    "wikiTitle": "Acetylsalicylsäure",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Acetylsalicylicacid-crystals.jpg?width=500"
+  },
+  {
+    "id": "klimaanlage",
+    "label": "Die moderne elektrische Klimaanlage",
+    "year": 1902,
+    "description": "Ursprünglich entwickelt, um die Luftfeuchtigkeit in einer Druckerei konstant zu halten, nicht für menschlichen Komfort.",
+    "wikiTitle": "Klimaanlage",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/TECO%20MA-750B%20in%20Nangang%2020110217.jpg?width=500"
+  },
+  {
+    "id": "scheibenwischer",
+    "label": "Der Scheibenwischer",
+    "year": 1903,
+    "description": "Erfunden von Mary Anderson, nachdem sie beobachtet hatte, wie Straßenbahnfahrer bei Regen ständig anhalten mussten, um die Scheibe von Hand zu säubern.",
+    "wikiTitle": "Scheibenwischer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Windscreen%20Wiper.gif?width=500"
+  },
+  {
+    "id": "bakelit",
+    "label": "Bakelit, der erste vollsynthetische Kunststoff",
+    "year": 1907,
+    "description": "Er läutete das Zeitalter der industriell hergestellten Kunststoffe ein.",
+    "wikiTitle": "Bakelit",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bakelite%20bangles.jpg?width=500"
+  },
+  {
+    "id": "kaffeefilter-papier",
+    "label": "Der Papier-Kaffeefilter",
+    "year": 1908,
+    "description": "Erfunden von der Dresdnerin Melitta Bentz, die genug vom bitteren Kaffeesatz in ihrer Tasse hatte.",
+    "wikiTitle": "Melitta Bentz",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Melitta%20Bentz.jpg?width=500"
+  },
+  {
+    "id": "waschmaschine-elektrisch",
+    "label": "Die erste elektrische Waschmaschine",
+    "year": 1908,
+    "description": "Vorher war Wäschewaschen fast ausschließlich mühsame Handarbeit mit Waschbrett und Kurbel.",
+    "wikiTitle": "Waschmaschine",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/LG%20%EB%93%9C%EB%9F%BC%EC%84%B8%ED%83%81%EA%B8%B0%EC%99%80%20%EC%8B%9D%EA%B8%B0%EC%84%B8%EC%B2%99%EA%B8%B0%2C%20%EC%98%81%EA%B5%AD%EC%84%9C%20%EB%AC%BC%EC%82%AC%EC%9A%A9%20%ED%9A%A8%EC%9C%A8%20%EC%B5%9C%EC%9A%B0%EC%88%98%20%EC%A0%9C%ED%92%88%20%EC%88%98%EC%83%81.jpg?width=500"
+  },
+  {
+    "id": "teebeutel",
+    "label": "Der Teebeutel",
+    "year": 1908,
+    "description": "Der Legende nach entstand er eher zufällig, als Kunden kleine Musterbeutel mit losem Tee versehentlich direkt mit aufgossen.",
+    "wikiTitle": "Teebeutel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Teabag%20with%20green%20tag.jpg?width=500"
+  },
+  {
+    "id": "sicherheitsnadel",
+    "label": "Die Sicherheitsnadel",
+    "year": 1849,
+    "description": "Ihr Erfinder soll die Idee dafür genutzt haben, um eine Schuld zu begleichen.",
+    "wikiTitle": "Sicherheitsnadel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Safety%20Pin.jpg?width=500"
+  },
+  {
+    "id": "stacheldraht",
+    "label": "Der Stacheldraht",
+    "year": 1874,
+    "description": "Er veränderte die Landwirtschaft der nordamerikanischen Prärie grundlegend, weil sich Weideland damit erstmals günstig einzäunen ließ.",
+    "wikiTitle": "Stacheldraht",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Barbed%20Wire%201.JPG?width=500"
+  },
+  {
+    "id": "kronkorken",
+    "label": "Der Kronkorken",
+    "year": 1892,
+    "description": "Bis heute im Grundprinzip kaum verändert der weltweit gebräuchlichste Flaschenverschluss für Getränke.",
+    "wikiTitle": "Kronkorken",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kronenkorken%2001%20KMJ.jpg?width=500"
+  },
+  {
+    "id": "insulin",
+    "label": "Die erste erfolgreiche Insulin-Behandlung eines Diabetes-Patienten",
+    "year": 1921,
+    "description": "Vorher war eine Diagnose mit Typ-1-Diabetes praktisch ein Todesurteil.",
+    "wikiTitle": "Insulin",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Insulin.jpg?width=500"
+  },
+  {
+    "id": "neonroehre",
+    "label": "Die Neonröhre",
+    "year": 1910,
+    "description": "Ihr charakteristisches, farbiges Leuchten prägte schon bald die Reklame ganzer Innenstädte.",
+    "wikiTitle": "Neonröhre",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/53/Cold_Cathode_Fluorescent_Lamp.JPG/330px-Cold_Cathode_Fluorescent_Lamp.JPG?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "pop-up-toaster",
+    "label": "Der automatische Auswurf-Toaster (Pop-up-Toaster)",
+    "year": 1919,
+    "description": "Erst dieser Mechanismus machte den Toaster zu einem Gerät, das man kurz laufen lassen und sich nebenbei anderem widmen konnte.",
+    "wikiTitle": "Toaster",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hoteltoaster%2001%20(sk).jpg?width=500"
+  },
+  {
+    "id": "radar",
+    "label": "Das erste voll funktionsfähige Radargerät",
+    "year": 1935,
+    "description": "Mehrere Länder entwickelten fast zeitgleich und zunächst unabhängig voneinander ähnliche Systeme.",
+    "wikiTitle": "Radar",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Radar%20antenna.jpg?width=500"
+  },
+  {
+    "id": "dna-doppelhelix",
+    "label": "Die Entdeckung der DNA-Doppelhelix-Struktur",
+    "year": 1953,
+    "description": "Sie erklärte erstmals, wie Erbinformation überhaupt kopiert und weitergegeben werden kann.",
+    "wikiTitle": "Doppelhelix",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Double%20Helix.png?width=500"
+  },
+  {
+    "id": "barcode",
+    "label": "Der Barcode (Patentanmeldung)",
+    "year": 1952,
+    "description": "Bis zum ersten tatsächlichen Einsatz an einer Supermarktkasse dauerte es danach noch mehr als zwanzig Jahre.",
+    "wikiTitle": "Strichcode",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Code93.png?width=500"
+  },
+  {
+    "id": "kreditkarte",
+    "label": "Die erste universell einsetzbare Kreditkarte (Diners Club)",
+    "year": 1950,
+    "description": "Zunächst nur eine Pappkarte, die in einer Handvoll New Yorker Restaurants akzeptiert wurde.",
+    "wikiTitle": "Diners Club",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a3/150307_ANA_Diners_Super_Flyers_Premium_Card01s.jpg/330px-150307_ANA_Diners_Super_Flyers_Premium_Card01s.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "videospielkonsole",
+    "label": "Die erste kommerzielle Heim-Videospielkonsole (Magnavox Odyssey)",
+    "year": 1972,
+    "description": "Ganz ohne Sound und ohne Farbe — bunte Overlays wurden dafür einfach auf den Fernsehbildschirm geklebt.",
+    "wikiTitle": "Magnavox Odyssey",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/99/Magnavox-Odyssey-Console-Set.jpg/330px-Magnavox-Odyssey-Console-Set.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "sicherheitsgurt-dreipunkt",
+    "label": "Der Dreipunkt-Sicherheitsgurt",
+    "year": 1959,
+    "description": "Volvo gab das Patent dafür bewusst zur freien Nutzung frei, weil die Sicherheit wichtiger war als der wirtschaftliche Vorteil.",
+    "wikiTitle": "Sicherheitsgurt",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Female%20driver%20buckling%20seatbelt.jpg?width=500"
+  },
+  {
+    "id": "integrierter-schaltkreis",
+    "label": "Der integrierte Schaltkreis (Mikrochip)",
+    "year": 1958,
+    "description": "Die Grundlage praktisch jeder modernen Elektronik, vom Taschenrechner bis zum Smartphone.",
+    "wikiTitle": "Integrierter Schaltkreis",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/NXP%20PCF8577C%20LCD%20driver%20with%20I%C2%B2C%20(Colour%20Corrected).jpg?width=500"
+  },
+  {
+    "id": "sputnik",
+    "label": "Sputnik 1, der erste künstliche Erdsatellit",
+    "year": 1957,
+    "description": "Sein Start löste in den USA den sogenannten \"Sputnikschock\" aus und beschleunigte das Wettrennen ins All erheblich.",
+    "wikiTitle": "Sputnik 1",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sputnik.jpg?width=500"
+  },
+  {
+    "id": "airbag-serienproduktion",
+    "label": "Der Airbag in einem Serienauto",
+    "year": 1973,
+    "description": "Vom Patent bis zum ersten tatsächlich verkauften Auto damit vergingen noch über zwanzig Jahre.",
+    "wikiTitle": "Airbag",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Airbag%20SEAT%20Ibiza.jpg?width=500"
+  },
+  {
+    "id": "glasfaserkabel",
+    "label": "Das erste praxistaugliche, verlustarme Glasfaserkabel",
+    "year": 1970,
+    "description": "Es legte den Grundstein für die heutigen weltumspannenden Datennetze.",
+    "wikiTitle": "Lichtwellenleiter",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Fibreoptic.jpg?width=500"
+  },
+  {
+    "id": "email",
+    "label": "Die erste E-Mail zwischen zwei verschiedenen Computern",
+    "year": 1971,
+    "description": "Von Ray Tomlinson verschickt, der dabei auch gleich das @-Zeichen zur Adress-Trennung einführte.",
+    "wikiTitle": "E-Mail",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/%28at%29.svg/langde-330px-%28at%29.svg.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "altair-8800",
+    "label": "Der Altair 8800, der erste im Bausatz erhältliche Personal Computer",
+    "year": 1975,
+    "description": "Er inspirierte unter anderem zwei junge Programmierer namens Bill Gates und Paul Allen zur Gründung von Microsoft.",
+    "wikiTitle": "Altair 8800",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/CPU%20Altair%208800.jpg?width=500"
+  },
+  {
+    "id": "ibm-simon-smartphone",
+    "label": "Das erste Smartphone überhaupt (IBM Simon)",
+    "year": 1992,
+    "description": "Es vereinte bereits Telefon, Kalender, Adressbuch und sogar eine Faxfunktion in einem einzigen Gerät — 15 Jahre vor dem iPhone.",
+    "wikiTitle": "IBM Simon",
+    "image": null
+  },
+  {
+    "id": "quarzuhr",
+    "label": "Die erste kommerzielle Quarzarmbanduhr",
+    "year": 1969,
+    "description": "Sie war deutlich genauer als jede mechanische Uhr zuvor und läutete das Ende der Dominanz mechanischer Uhrwerke ein.",
+    "wikiTitle": "Quarzuhr",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/24h%20wecker.jpg?width=500"
+  },
+  {
+    "id": "post-it",
+    "label": "Der Post-it-Klebezettel",
+    "year": 1974,
+    "description": "Entstanden aus einem eigentlich \"gescheiterten\" Klebstoff, der viel zu schwach haftete, um wie geplant verwendet zu werden.",
+    "wikiTitle": "Haftnotiz",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d7/Post-It.jpg/330px-Post-It.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "bluetooth",
+    "label": "Der Bluetooth-Funkstandard",
+    "year": 1994,
+    "description": "Benannt nach einem dänischen Wikingerkönig, der zerstrittene Stämme vereinte — ganz ähnlich, wie der Standard verschiedene Geräte verbinden sollte.",
+    "wikiTitle": "Bluetooth",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bluetooth%20headset.jpg?width=500"
+  },
+  {
+    "id": "usb",
+    "label": "Der USB-Standard",
+    "year": 1996,
+    "description": "Er sollte den vorher verbreiteten Wirrwarr unterschiedlichster Anschlüsse an Computern vereinheitlichen.",
+    "wikiTitle": "Universal Serial Bus",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/USB%20Type-A%20plug%20coloured.svg?width=500"
+  },
+  {
+    "id": "dvd",
+    "label": "Die DVD",
+    "year": 1996,
+    "description": "Sie löste die deutlich geringer auflösende VHS-Kassette als Videostandard für zu Hause ab.",
+    "wikiTitle": "DVD",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/DVD-Video%20bottom-side.jpg?width=500"
+  },
+  {
+    "id": "fernbedienung-drahtlos",
+    "label": "Die erste drahtlose Fernbedienung für einen Fernseher (Zenith Flash-Matic)",
+    "year": 1955,
+    "description": "Sie steuerte den Fernseher noch per gebündeltem Lichtstrahl, nicht per Funk oder Infrarot.",
+    "wikiTitle": "Fernbedienung",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Television%20remote%20control%20-%20black%20colour.jpg?width=500"
+  },
+  {
+    "id": "kaugummi-modern",
+    "label": "Der moderne, industriell hergestellte Kaugummi",
+    "year": 1871,
+    "description": "Als Basis diente zunächst Chicle, der eingedickte Milchsaft des mittelamerikanischen Breiapfelbaums.",
+    "wikiTitle": "Kaugummi",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Streifenkaugummi.jpg?width=500"
+  },
+  {
+    "id": "otis-fahrstuhl-sicherheitsbremse",
+    "label": "Der Aufzug mit Absturzsicherung",
+    "year": 1854,
+    "description": "Elisha Otis bewies die Sicherheit seiner Bremse live auf einer Ausstellung, indem er das Halteseil unter sich durchtrennen ließ.",
+    "wikiTitle": "Elisha Otis",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/Otis.jpg/330px-Otis.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "tonfilm",
+    "label": "Der erste abendfüllende Tonfilm (\"Der Jazzsänger\")",
+    "year": 1927,
+    "description": "Er markierte das Ende der reinen Stummfilm-Ära in Hollywood.",
+    "wikiTitle": "Der Jazzsänger",
+    "image": null
+  },
+  {
+    "id": "schreibmaschine-kommerziell",
+    "label": "Die erste kommerziell erfolgreiche Schreibmaschine",
+    "year": 1873,
+    "description": "Sie etablierte nebenbei auch gleich die bis heute gebräuchliche QWERTY-Tastaturbelegung.",
+    "wikiTitle": "Schreibmaschine",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Olivetti%20Lettera%2022%20by%20LjL.jpeg?width=500"
+  },
+  {
+    "id": "wifi-standard",
+    "label": "Der WLAN-Standard IEEE 802.11",
+    "year": 1997,
+    "description": "Die erste Version war nach heutigen Maßstäben extrem langsam, machte Netzwerke aber erstmals wirklich kabellos.",
+    "wikiTitle": "IEEE 802.11",
+    "image": null
+  },
+  {
+    "id": "dieselmotor",
+    "label": "Der erste funktionsfähige Dieselmotor",
+    "year": 1897,
+    "description": "Rudolf Diesel wollte damit ursprünglich einen effizienteren Motor für kleine Handwerksbetriebe schaffen.",
+    "wikiTitle": "Rudolf Diesel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Rudolf%20Diesel2.jpg?width=500"
+  }
+]

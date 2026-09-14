@@ -2,13 +2,14 @@
 //
 // Die Bilder liegen in src/assets/avatars/ (siehe avatars.js) und werden zur Bauzeit
 // eingelesen; die Lobby kennt nur den Dateinamen ("Golem.jpg") und schickt genau den
-// über den Socket.
+// über den Socket. `avatarUrl` (Prop) ist der Ausnahmefall: die Profil-Option "Twitch-Bild
+// verwenden" schickt eine echte Bild-URL statt eines Dateinamens — die hat dann Vorrang.
 
 import React from 'react';
 import { Shield } from 'lucide-react';
-import { avatarUrl } from './avatars';
+import { avatarUrl as resolveAvatarUrl } from './avatars';
 
-export default function PlayerAvatar({ avatarId, size = 28, className = '', isAdmin = false }) {
+export default function PlayerAvatar({ avatarId, avatarUrl, size = 28, className = '', isAdmin = false }) {
   if (isAdmin) {
     return (
       <div
@@ -19,7 +20,7 @@ export default function PlayerAvatar({ avatarId, size = 28, className = '', isAd
     );
   }
 
-  const url = avatarUrl(avatarId);
+  const url = avatarUrl || resolveAvatarUrl(avatarId);
   if (!url) {
     return (
       <div

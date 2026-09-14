@@ -1,5 +1,9 @@
-// Clash Royale card pool — 120 Karten (1 fehlt noch für das 11×11-Grid / 121 Zellen).
-// Image CDN: https://cdn.royaleapi.com/static/img/cards-150/{id}.png
+// Clash Royale card pool — 123 Karten.
+// Bild-URLs kommen aus cardIconUrls.json (offizielle Clash-Royale-API, api-assets.clashroyale.com)
+// statt live von cdn.royaleapi.com — siehe cardImageUrl() unten. Die JSON-Datei wird per
+// `npm run cr:card-icons` (Backend) neu erzeugt (Backend/clashRoyale/tools/cardIconSpiegel.js),
+// z.B. wenn eine neue Karte dazukommt.
+import CARD_ICON_URLS from './cardIconUrls.json';
 
 export const ALL_CARDS = [
   // ── Commons (29) ──────────────────────────────────────────────────────────
@@ -33,7 +37,7 @@ export const ALL_CARDS = [
   { id: 'elite-barbarians',    name: 'Elite Barbarians',      rarity: 'Common',     isChampion: false },
   { id: 'royal-recruits',      name: 'Royal Recruits',        rarity: 'Common',     isChampion: false },
 
-  // ── Rares (30) ────────────────────────────────────────────────────────────
+  // ── Rares (31) ────────────────────────────────────────────────────────────
   { id: 'heal-spirit',         name: 'Heal Spirit',           rarity: 'Rare',       isChampion: false },
   { id: 'ice-golem',           name: 'Ice Golem',             rarity: 'Rare',       isChampion: false },
   { id: 'suspicious-bush',     name: 'Suspicious Bush',       rarity: 'Rare',       isChampion: false },
@@ -52,6 +56,7 @@ export const ALL_CARDS = [
   { id: 'bomb-tower',          name: 'Bomb Tower',            rarity: 'Rare',       isChampion: false },
   { id: 'hog-rider',           name: 'Hog Rider',             rarity: 'Rare',       isChampion: false },
   { id: 'flying-machine',      name: 'Flying Machine',        rarity: 'Rare',       isChampion: false },
+  { id: 'minion-giant',        name: 'Minion Giant',          rarity: 'Rare',       isChampion: false },
   { id: 'battle-healer',       name: 'Battle Healer',         rarity: 'Rare',       isChampion: false },
   { id: 'zappies',             name: 'Zappies',               rarity: 'Rare',       isChampion: false },
   { id: 'furnace',             name: 'Furnace',               rarity: 'Rare',       isChampion: false },
@@ -100,7 +105,7 @@ export const ALL_CARDS = [
   { id: 'electro-giant',       name: 'Electro Giant',         rarity: 'Epic',       isChampion: false },
   { id: 'golem',               name: 'Golem',                 rarity: 'Epic',       isChampion: false },
 
-  // ── Legendaries (21) ──────────────────────────────────────────────────────
+  // ── Legendaries (22) ──────────────────────────────────────────────────────
   { id: 'the-log',             name: 'The Log',               rarity: 'Legendary',  isChampion: false },
   { id: 'miner',               name: 'Miner',                 rarity: 'Legendary',  isChampion: false },
   { id: 'ice-wizard',          name: 'Ice Wizard',            rarity: 'Legendary',  isChampion: false },
@@ -135,8 +140,9 @@ export const ALL_CARDS = [
   { id: 'boss-bandit',          name: 'Bossbandit',            rarity: 'Champion',   isChampion: true },
 ];
 
-// 29 Common + 30 Rare + 33 Epic + 21 Legendary + 8 Champion = 120 Karten
-// → 1 Karte fehlt noch für das vollständige 11×11-Grid (121 Zellen).
+// 29 Common + 31 Rare + 33 Epic + 22 Legendary + 8 Champion = 123 Karten
+// (der alte Kommentar hier sprach von 120/121 fürs 11×11-Grid — der zählte schon vor Minion
+// Giant nicht mehr, es waren schon 122; jetzt sind es 123).
 
 export const RARITY_COLOR = {
   Common:    '#9ca3af',
@@ -153,8 +159,17 @@ export const RARITY_COLOR = {
 // Das Deck-Overlay für OBS (streamer/DeckOverlayPage.jsx) führt weiterhin eine eigene,
 // lokale Tabelle — dort ist der farbige Rahmen als Lesehilfe im Stream gewollt.
 
-export function cardImageUrl(id) {
-  return `https://cdn.royaleapi.com/static/img/cards-150/${id}.png`;
+// variant: undefined/null für die Basiskarte, "ev1" für die Evolution, "hero" für die seit
+// Dezember 2025 existierende Hero-Form mancher Karten (ein permanenter Kartenrework, kein
+// Deck-Slot). Fällt auf die Basiskarte zurück, wenn die Karte die verlangte Form gar nicht hat
+// (z.B. variant="hero" bei einer Karte ohne Hero-Form) — besser ein sichtbares Bild als gar
+// keins. Bestehende Aufrufer mit nur einer id bleiben unverändert.
+export function cardImageUrl(id, variant) {
+  const entry = CARD_ICON_URLS[id];
+  if (!entry) return null;
+  if (variant === 'ev1' && entry.ev1) return entry.ev1;
+  if (variant === 'hero' && entry.hero) return entry.hero;
+  return entry.base;
 }
 
 export function shuffle(arr) {

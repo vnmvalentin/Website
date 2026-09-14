@@ -17,6 +17,10 @@ const EVENT_DEFS_I18N = {
     { key: "gameStart", title: "Minigame starts", desc: "Triggered as soon as the host starts a minigame — e.g. switch to the browser scene with the minigame." },
     { key: "draftEnd", title: "Draft finished", desc: "Triggered once all decks are complete — e.g. switch back to the Clash Royale scene." },
   ],
+  es: [
+    { key: "gameStart", title: "Empieza el minijuego", desc: "Se activa en cuanto el host inicia un minijuego — por ejemplo, cambiar a la escena del navegador con el minijuego." },
+    { key: "draftEnd", title: "Draft terminado", desc: "Se activa cuando todos los mazos están completos — por ejemplo, volver a la escena de Clash Royale." },
+  ],
 };
 
 const STREAMER_I18N = {
@@ -65,6 +69,7 @@ const STREAMER_I18N = {
     saving: 'Speichern…',
     saveConfig: 'Konfiguration speichern',
     genericError: 'Fehler',
+    obsNotConnected: 'OBS nicht verbunden',
   },
   en: {
     title: 'Streamer Setup',
@@ -111,6 +116,54 @@ const STREAMER_I18N = {
     saving: 'Saving…',
     saveConfig: 'Save configuration',
     genericError: 'Error',
+    obsNotConnected: 'OBS not connected',
+  },
+  es: {
+    title: 'Configuración de streamer',
+    subtitle: 'Automatizaciones de OBS y overlay de mazos global',
+    loginPrompt: 'Inicia sesión con Twitch para guardar tu configuración de streamer.',
+    loginBtn: 'Iniciar sesión con Twitch',
+    loadingConfig: 'Cargando configuración…',
+    loadError: 'No se pudo cargar la configuración.',
+    step1Title: 'Añadir fuente de navegador',
+    step1Body: 'Esta fuente es necesaria para todo lo demás.',
+    step1Why: 'Es a la vez el overlay de mazos y el puente hacia OBS: después de cada draft completado muestra automáticamente los mazos finales — en cualquier sala en la que juegues — y ejecuta las automatizaciones del paso 3, incluso mientras está oculta.',
+    whyLabel: '¿Para qué sirve esto?',
+    step1HowToPre: 'En OBS: "+" bajo Fuentes →',
+    step1HowToBrowser: 'Navegador',
+    step1HowToPost: '→ crear nueva fuente → pega este enlace:',
+    copied: 'Copiado',
+    copy: 'Copiar',
+    step1Bullet1: 'Ajusta el ancho/alto a 1920×1080 en las propiedades de la fuente — el fondo es transparente.',
+    step1Bullet2: 'NO actives "Apagar fuente cuando no esté visible" en las propiedades de la fuente — si no, las automatizaciones se pausan.',
+    regenerateLink: 'Regenerar enlace (el enlace anterior dejará de funcionar)',
+    regenerateConfirm: '¿Regenerar el enlace del overlay? El enlace anterior (también en OBS) dejará de funcionar.',
+    step2Title: 'Conectar con OBS',
+    step2Body: 'En OBS: Herramientas → Ajustes del servidor WebSocket → actívalo, luego introduce aquí la contraseña.',
+    step2Why: 'La conexión va directamente de este navegador (o de la fuente del overlay) a OBS en el mismo PC — nada de esto pasa por nuestro servidor. En cuanto se conecta, la contraseña se guarda automáticamente.',
+    host: 'Host',
+    port: 'Puerto',
+    password: 'Contraseña',
+    passwordPlaceholder: 'Contraseña del WebSocket de OBS',
+    reconnect: 'Reconectar',
+    connectAndLoad: 'Conectar y cargar escenas',
+    connected: (n) => `Conectado — ${n} escenas cargadas`,
+    step3Title: 'Automatizaciones',
+    testNow: 'Probar ahora',
+    actionExecuted: 'Acción ejecutada en OBS.',
+    switchSceneTo: 'Cambiar a la escena',
+    noSceneChange: '— no cambiar de escena —',
+    source: 'Fuente',
+    noSourceAction: '— sin acción de fuente —',
+    showSource: 'Mostrar fuente',
+    hideSource: 'Ocultar fuente',
+    sourceWithGroups: 'Fuente (incluidas dentro de grupos/carpetas)',
+    chooseSource: '— elegir fuente —',
+    saved: 'Guardado',
+    saving: 'Guardando…',
+    saveConfig: 'Guardar configuración',
+    genericError: 'Error',
+    obsNotConnected: 'OBS no conectado',
   },
 };
 
@@ -167,7 +220,7 @@ function Why({ label, children }) {
   );
 }
 
-export default function StreamerConfigPanel({ onClose, lang = "de" }) {
+export default function StreamerConfigPanel({ onClose, lang = "de", bare = false }) {
   const { user, login } = useContext(TwitchAuthContext);
   const s = STREAMER_I18N[lang] || STREAMER_I18N.de;
   const EVENT_DEFS = EVENT_DEFS_I18N[lang] || EVENT_DEFS_I18N.de;
@@ -310,7 +363,7 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
         await connectToObs();
         client = obsClientRef.current;
       }
-      if (!client?.connected) throw new Error(lang === "en" ? "OBS not connected" : "OBS nicht verbunden");
+      if (!client?.connected) throw new Error(s.obsNotConnected);
       await runObsEventActions(client, formToAction(actions[eventKey]));
       setTestStatus((prev) => ({ ...prev, [eventKey]: "ok" }));
     } catch (e) {
@@ -379,24 +432,11 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
     "w-full bg-[#1a1a20] border border-white/10 rounded-sm px-3 py-2 text-sm text-white focus:border-cyan-500 outline-none";
   const labelCls = "block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1.5";
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-start md:items-center justify-center p-4 overflow-y-auto" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-3xl bg-[#0f0f13] border border-white/10 rounded-sm my-4 max-h-[92vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
-          <div className="flex items-center gap-3">
-            <Monitor size={18} className="text-cyan-400" />
-            <div>
-              <h2 className="text-base font-black text-white leading-none">{s.title}</h2>
-              <p className="text-[11px] text-gray-500 mt-0.5">{s.subtitle}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-sm transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+  // `bare`: nur den Inhalt liefern, ohne eigenes Overlay/Header/Scroll-Rahmen — genutzt,
+  // wenn ein anderer Dialog (das Profil-Modal) die Hülle stellt. Standalone (bare=false)
+  // bleibt exakt wie zuvor, für den Fall, dass der Panel-Trigger woanders wiederverwendet wird.
+  const body = (
+    <>
           {!user ? (
             <div className="text-center py-10">
               <p className="text-gray-400 text-sm mb-5">
@@ -576,6 +616,30 @@ export default function StreamerConfigPanel({ onClose, lang = "de" }) {
               </div>
             </>
           )}
+    </>
+  );
+
+  if (bare) return <div className="space-y-6">{body}</div>;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-start md:items-center justify-center p-4 overflow-y-auto" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-3xl bg-[#0f0f13] border border-white/10 rounded-sm my-4 max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
+          <div className="flex items-center gap-3">
+            <Monitor size={18} className="text-cyan-400" />
+            <div>
+              <h2 className="text-base font-black text-white leading-none">{s.title}</h2>
+              <p className="text-[11px] text-gray-500 mt-0.5">{s.subtitle}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-sm transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+          {body}
         </div>
       </div>
     </div>

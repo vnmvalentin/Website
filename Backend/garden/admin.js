@@ -17,6 +17,7 @@
 // Spieler ein Nachladen an (notifyAdminUpdate in world/lobby.js).
 const { verkaufswert } = require("./core/economy");
 const { SEED_CATALOGUE } = require("./core/catalogue");
+const { DEKO_KATALOG, KATEGORIEN: DEKO_KATEGORIEN, alsVorratsstueck } = require("./core/deko");
 
 // Spiegel von PET_IMAGE_BY_TYPE / PET_EMOJI_BY_TYPE in
 // Frontend/src/pages/GardenGame/GameContainer.jsx. Neue Tierart: dort UND hier.
@@ -40,27 +41,14 @@ const TIER_ARTEN = [
     { type: "Götterwesen", emoji: "👼",   image: "/garden-assets/animals/goetterwesen.png", rarity: "MYTHIC" },
 ];
 
-// Spiegel von DECO_SHOP_ITEMS im GameContainer. Breite und Höhe gehören dazu:
-// ohne sie zeichnet der Renderer die Deko in falscher Größe.
-const DEKO_KATALOG = [
-    { id: "plant",         name: "Pflanze",       emoji: "🪴",  rarity: "COMMON",    price: 5000,    image: "/garden-assets/deco/plant.png",               width: 1, height: 1 },
-    { id: "deco_bench",    name: "Gartenbank",    emoji: "🪑",  rarity: "COMMON",    price: 8000,    image: "/garden-assets/deco/bank.png",                width: 1, height: 1 },
-    { id: "deco_lamp",     name: "Laterne",       emoji: "🏮",  rarity: "COMMON",    price: 12000,   image: "/garden-assets/deco/lamp_placeholder.png",    width: 1, height: 2 },
-    { id: "feuer",         name: "Feuerschale",   emoji: "🔥",  rarity: "UNCOMMON",  price: 20000,   image: "/garden-assets/deco/feuer.png",               width: 1, height: 1 },
-    { id: "gnome1",        name: "Gartenzwerg",   emoji: "🧙",  rarity: "UNCOMMON",  price: 25000,   image: "/garden-assets/deco/gnome1.png",              width: 1, height: 1 },
-    { id: "gnome2",        name: "Gartenzwerg 2", emoji: "🧙",  rarity: "UNCOMMON",  price: 25000,   image: "/garden-assets/deco/gnome2.png",              width: 1, height: 1 },
-    { id: "gnome3",        name: "Gartenzwerg 3", emoji: "🧙",  rarity: "UNCOMMON",  price: 25000,   image: "/garden-assets/deco/gnome3.png",              width: 1, height: 1 },
-    { id: "grill",         name: "Grill",         emoji: "🍖",  rarity: "UNCOMMON",  price: 35000,   image: "/garden-assets/deco/grill.png",               width: 1, height: 1 },
-    { id: "tisch",         name: "Gartentisch",   emoji: "🪵",  rarity: "UNCOMMON",  price: 40000,   image: "/garden-assets/deco/tisch.png",               width: 1, height: 1 },
-    { id: "deco_statue",   name: "Statue",        emoji: "🗿",  rarity: "RARE",      price: 80000,   image: "/garden-assets/deco/statue_placeholder.png",  width: 1, height: 2 },
-    { id: "teich",         name: "Teich",         emoji: "🐟",  rarity: "RARE",      price: 120000,  image: "/garden-assets/deco/teich.png",               width: 2, height: 2 },
-    { id: "brunnen",       name: "Brunnen",       emoji: "⛲",  rarity: "RARE",      price: 150000,  image: "/garden-assets/deco/brunnen1.png",            width: 2, height: 2 },
-    { id: "pool",          name: "Pool",          emoji: "🏊",  rarity: "EPIC",      price: 400000,  image: "/garden-assets/deco/pool.png",                width: 2, height: 2 },
-    { id: "deco_fountain", name: "Großbrunnen",   emoji: "⛲",  rarity: "EPIC",      price: 500000,  image: "/garden-assets/deco/fountain_placeholder.png",width: 2, height: 2 },
-    { id: "deco_arch",     name: "Holzbogen",     emoji: "🏛️",  rarity: "LEGENDARY", price: 2000000, image: "/garden-assets/deco/bogen.png",               width: 2, height: 2 },
-];
+// Der Deko-Katalog steht jetzt in core/deko.js — er wird auch vom Renderer für
+// Lichtquellen und Bodenbeläge gebraucht, und drei Kopien derselben Liste waren
+// eine zu viel. Spiegel im Browser: Frontend/src/pages/GardenGame/ui/deko.js.
 
-const FAEHIGKEITEN = ["goldfinder", "seedfinder", "harvester"];
+// v2 (Punkt 9): forscher/kaufmann neu — Spiegel von PET_ABILITY_TYPES in
+// Frontend/.../engine/PetSystem.js. "kaufmann" (nicht "haendler"): der Skill
+// "Händler" im Fähigkeitsbaum existiert schon und macht etwas Ähnliches.
+const FAEHIGKEITEN = ["goldfinder", "seedfinder", "harvester", "forscher", "kaufmann"];
 const SELTENHEITEN = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"];
 const WETTER_EFFEKTE = ["wet", "frozen", "charged", "moonlit"];
 const SONDERFORMEN = ["Golden", "Rainbow"];
@@ -175,7 +163,7 @@ function baueTier(spec) {
 function baueDeko(spec) {
     const deko = DEKO_KATALOG.find((d) => d.id === spec?.decoId);
     if (!deko) return { error: "Diese Deko gibt es nicht." };
-    return { item: { ...deko, instanceId: kennung("adm") } };
+    return { item: { ...alsVorratsstueck(deko), instanceId: kennung("adm") } };
 }
 
 const FABRIKEN = { samen: baueSamen, ernte: baueErnte, ei: baueEi, tier: baueTier, deko: baueDeko };
@@ -316,6 +304,7 @@ function baueKatalog(spielKatalog) {
         seeds: spielKatalog.seeds,
         eggs: spielKatalog.eggs,
         deko: DEKO_KATALOG,
+        dekoKategorien: DEKO_KATEGORIEN,
         tiere: TIER_ARTEN,
         faehigkeiten: FAEHIGKEITEN,
         seltenheiten: SELTENHEITEN,

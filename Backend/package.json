@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node index.js",
     "blobby": "node blobbyServer.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "garden:spiegel": "node garden/tools/katalogSpiegel.js",
+    "garden:spiegel:pruefen": "node garden/tools/katalogSpiegel.js --pruefen",
+    "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +23,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
+    "multer": "^2.2.0",
     "nanoid": "^5.1.6",
     "node-fetch": "^3.3.2",
     "socket.io": "^4.8.3",

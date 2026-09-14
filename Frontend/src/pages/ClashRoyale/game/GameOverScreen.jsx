@@ -2,13 +2,15 @@
 // Admins können hier einzelne Karten nachträglich austauschen.
 
 import React, { useState } from 'react';
-import { Trophy, LayoutGrid, Rows, Repeat, LogOut, ArrowLeftRight } from 'lucide-react';
+import { LayoutGrid, Rows, Repeat, LogOut, ArrowLeftRight, Monitor, Copy, Check } from 'lucide-react';
 import CardTile from '../ui/CardTile';
+import ChunkyButton from '../ui/ChunkyButton';
 import PlayerAvatar from '../components/PlayerAvatar';
 import AdminCardSwapModal from './AdminCardSwapModal';
 import DeckQrModal, { DeckQrButton } from './DeckQrModal';
 import Leaderboard from './Leaderboard';
 import { SIZE_COLS } from '../constants';
+import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
 
 /** Deck-Karte im Endscreen — für Admins klickbar, um sie auszutauschen. */
 function DeckCardTile({ card, canSwap, onSwap, t }) {
@@ -29,14 +31,28 @@ function DeckCardTile({ card, canSwap, onSwap, t }) {
 
 export default function GameOverScreen({
   gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, onRestart, lang = 'de', t,
-  lobbyPlayers, trackingEnabled,
+  lobbyPlayers, trackingEnabled, overlayKey,
 }) {
   const [size, setSize] = useState('m');
   const [layout, setLayout] = useState('grid'); // 'grid' | 'list'
   const [swapTarget, setSwapTarget] = useState(null); // { player, deckIndex }
   const [qrTarget, setQrTarget] = useState(null);     // { player, deckLink }
+  const [overlayCopied, setOverlayCopied] = useState(false);
 
   const activePlayers = (gameOver.players || []).filter(p => !p.isSpectator);
+
+  // Lobbyeigenes Deck-Overlay (siehe streamer/LobbyDeckOverlayPage.jsx): derselbe Link für
+  // die komplette Sitzung, jeder Spieler kann ihn als OBS-Browserquelle einfügen — genau wie
+  // das persönliche Streamer-Setup, nur ohne Twitch-Login und an diese eine Lobby gebunden.
+  const overlayUrl = overlayKey
+    ? `${window.location.origin}/clash-royale/overlay/lobby-decks/${overlayKey}`
+    : '';
+  const copyOverlayUrl = () => {
+    if (!overlayUrl) return;
+    navigator.clipboard.writeText(overlayUrl).catch(() => {});
+    setOverlayCopied(true);
+    setTimeout(() => setOverlayCopied(false), 1500);
+  };
 
   // Verlassen ist nicht rückholbar (zurück auf die Startseite, Wiedereintritt nur mit
   // Code) — deshalb einmal nachfragen. Der Hinweis auf "Erneut spielen" steht nur beim
@@ -46,7 +62,7 @@ export default function GameOverScreen({
   };
 
   const playerCard = (p, i, deckCols) => (
-    <div key={p.id || i} className="panel p-4 space-y-3">
+    <div key={p.id || i} className="cr-game-card p-4 space-y-3">
       <div className="flex items-center gap-2.5">
         <PlayerAvatar avatarId={p.avatar} size={layout === 'grid' ? 36 : 32} />
         <span className="text-white font-bold text-sm truncate flex-1">{p.name}</span>
@@ -64,7 +80,7 @@ export default function GameOverScreen({
   );
 
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar p-4 sm:p-6">
+    <div className="h-full overflow-y-auto custom-scrollbar cr-arcade-bg p-4 sm:p-6">
       {swapTarget && (
         <AdminCardSwapModal
           player={swapTarget.player}
@@ -83,11 +99,11 @@ export default function GameOverScreen({
       )}
 
       <div className="max-w-6xl mx-auto space-y-5">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="cr-arcade-panel px-4 sm:px-5 py-4 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <Trophy size={20} className="text-amber-400" />
+            <img src={trophyIcon} alt="" width={30} height={30} className="shrink-0" />
             <div>
-              <h2 className="font-display text-lg font-bold text-white">{t.draftDone}</h2>
+              <h2 className="font-arcade text-lg font-bold text-white">{t.draftDone}</h2>
               <p className="text-white/40 text-xs">{isAdmin ? t.adminSwapHint : t.allDecksReady}</p>
             </div>
           </div>
@@ -125,33 +141,24 @@ export default function GameOverScreen({
                 <>
                   {/* "Erneut spielen" ist die Hauptaktion — es führt zurück in die Lobby.
                       Das Verlassen daneben ist bewusst zurückhaltend und fragt nach. */}
-                  <button onClick={onRestart}
-                    className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2 rounded-lg transition-colors text-sm flex items-center gap-2">
-                    <Repeat size={14} />
+                  <ChunkyButton variant="green" size="sm" icon={Repeat} onClick={onRestart}>
                     {t.playAgain}
-                  </button>
-                  <button onClick={confirmLeave}
-                    className="bg-transparent border border-white/10 text-white/50 hover:text-red-300 hover:border-red-500/40 hover:bg-red-500/10 font-bold px-5 py-2 rounded-lg transition-colors text-sm flex items-center gap-2">
-                    <LogOut size={14} />
+                  </ChunkyButton>
+                  <ChunkyButton variant="red" size="sm" icon={LogOut} onClick={confirmLeave}>
                     <span className="hidden sm:inline">{t.leaveLobbyBtn}</span>
-                  </button>
+                  </ChunkyButton>
                 </>
               ) : (
                 <>
                   <span className="text-white/40 text-sm">{t.waitingForHost}</span>
-                  <button onClick={confirmLeave}
-                    className="bg-transparent border border-white/10 text-white/50 hover:text-red-300 hover:border-red-500/40 hover:bg-red-500/10 font-bold px-5 py-2 rounded-lg transition-colors text-sm flex items-center gap-2">
-                    <LogOut size={14} />
+                  <ChunkyButton variant="red" size="sm" icon={LogOut} onClick={confirmLeave}>
                     <span className="hidden sm:inline">{t.leaveLobbyBtn}</span>
-                  </button>
+                  </ChunkyButton>
                 </>
               )}
             </div>
           </div>
         </div>
-
-        {/* Steht über den Decks: Wer getrackt hat, will zuerst den Punktestand sehen */}
-        <Leaderboard lobbyPlayers={lobbyPlayers} trackingEnabled={trackingEnabled} t={t} />
 
         {layout === 'grid' ? (
           <div className={`grid ${SIZE_COLS[size]} gap-4`}>
@@ -162,6 +169,27 @@ export default function GameOverScreen({
             {activePlayers.map((p, i) => playerCard(p, i, 'grid-cols-4 sm:grid-cols-8'))}
           </div>
         )}
+
+        {/* Für die komplette Sitzung gültig (siehe LobbyDeckOverlayPage) — jeder in der
+            Lobby kann die Quelle kopieren, nicht nur der per Twitch verknüpfte Streamer. */}
+        {overlayUrl && (
+          <div className="cr-arcade-panel px-4 sm:px-5 py-4 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <Monitor size={22} className="text-white/60 shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-arcade text-sm font-bold text-white">{t.deckOverlayTitle}</h3>
+                <p className="text-white/40 text-xs">{t.deckOverlayHint}</p>
+              </div>
+            </div>
+            <ChunkyButton variant="blue" size="sm" icon={overlayCopied ? Check : Copy} onClick={copyOverlayUrl}>
+              {overlayCopied ? t.deckOverlayCopied : t.deckOverlayBtn}
+            </ChunkyButton>
+          </div>
+        )}
+
+        {/* Unter dem Deck-Overlay-Panel statt darüber — bei sehr vielen Spielern würde die
+            Tabelle sonst die Decks so weit nach unten schieben, dass man sie kaum noch sieht. */}
+        <Leaderboard lobbyPlayers={lobbyPlayers} trackingEnabled={trackingEnabled} t={t} />
       </div>
     </div>
   );

@@ -1,13 +1,17 @@
-// ── Streamer-Integration (OBS-Automatiken + globales Deck-Overlay) ──────────
-// Spieler, die beim Verbinden per Session-Cookie eingeloggt waren, tragen ihre
-// (serverseitig verifizierte) twitchId. Für jeden solchen Spieler mit
-// Streamer-Konfiguration feuern Lobby-Ereignisse Events an sein Deck-Overlay,
-// das als Browserquelle in OBS läuft und dort lokal Szenen/Quellen schaltet.
+// ── Streamer-Integration (OBS-Automatiken + Deck-Overlays) ──────────────────
+// Zwei unabhängige Deck-Overlay-Wege teilen sich hier dieselbe Payload:
+//   1. Pro Lobby (lobby.overlayKey, siehe lobbies.js): läuft für die komplette Sitzung,
+//      jeder Spieler kann den Link kopieren (Endscreen-Button) — kein Login nötig.
+//   2. Pro Twitch-Account (crStreamerStore.js): Spieler, die beim Verbinden per
+//      Session-Cookie eingeloggt waren, tragen ihre (serverseitig verifizierte) twitchId.
+//      Für jeden solchen Spieler mit Streamer-Konfiguration feuern Lobby-Ereignisse
+//      zusätzlich Events an sein persönliches Deck-Overlay, das als Browserquelle in OBS
+//      läuft und dort lokal Szenen/Quellen schaltet (Automatiken, siehe StreamerConfigPanel).
 //
 // Fehler werden hier bewusst geschluckt und nur geloggt: ein kaputtes Overlay-Setup
 // eines einzelnen Zuschauers darf niemals den Spielablauf der ganzen Lobby stoppen.
 
-const crStreamerStore = require('../../lib/crStreamerStore');
+const crStreamerStore = require('../lib/crStreamerStore');
 
 function lobbyStreamerIds(lobby) {
   const ids = new Set();
@@ -54,6 +58,14 @@ function buildDeckFeedPayload(lobby) {
 function updateDeckFeeds(lobby, io) {
   const payload = buildDeckFeedPayload(lobby);
   if (!payload.players.length) return;
+
+  // Lobbyeigenes Deck-Overlay (siehe lobbies.js: findLobbyByOverlayKey) — unabhängig vom
+  // Twitch-Login einzelner Spieler, ein Schlüssel pro Lobby statt pro Account. Läuft
+  // parallel zur Pro-Streamer-Schleife unten, die weiterhin die alten Accounts bedient.
+  if (lobby.overlayKey) {
+    io.to(`crlobbydeck:${lobby.overlayKey}`).emit('cr:lobbydeck:update', payload);
+  }
+
   for (const tid of lobbyStreamerIds(lobby)) {
     try {
       const cfg = crStreamerStore.setLastDecks(tid, payload);

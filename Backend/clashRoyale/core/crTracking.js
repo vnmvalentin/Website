@@ -23,7 +23,7 @@
 // 16 Anfragen/Minute. Mehrere Lobbys mit demselben Tag (Streamer spielt in zweien mit)
 // teilen sich den Cache unten, damit die Last nicht mit der Lobbyzahl wächst.
 
-const { isConfigured, fetchBattlelog } = require('../../lib/crApi');
+const { isConfigured, fetchBattlelog } = require('../lib/crApi');
 
 const POLL_INTERVAL_MS = 30 * 1000;
 // So lange gilt ein einmal geholtes Battlelog als frisch genug, um es erneut zu benutzen.

@@ -9,9 +9,7 @@
 // Beide Seiten gehören dem Server: der Client schickt nur „dieses Stück, dorthin"
 // bzw. „alles". Verschoben und geprüft wird in garden/core/economy.js.
 import React, { useMemo, useState } from 'react';
-import {
-    ArrowRight, ArrowLeft, ChevronsRight, ChevronsLeft, Move, Package, Trophy, Coins,
-} from 'lucide-react';
+import { HudIcon } from './gameIcons';
 import { GardenModal, RarityLabel } from './gardenUi';
 import { SpecialItemIcon } from './ItemIcon';
 import { beschreibeErnte } from './itemTints';
@@ -55,7 +53,6 @@ function wertVon(item) {
 }
 
 function Zeile({ item, aktion, richtung, busy }) {
-    const Pfeil = richtung === "ein" ? ArrowRight : ArrowLeft;
     const wert = wertVon(item);
     return (
         <div className="flex items-center gap-2.5 px-2.5 py-1.5 border-b border-slate-800 last:border-b-0">
@@ -68,7 +65,7 @@ function Zeile({ item, aktion, richtung, busy }) {
                         nicht mehr zu sehen, was ein Stück wert ist. */}
                     {wert > 0 && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 tabular-nums">
-                            <Coins size={10} />
+                            <HudIcon.gold size={10} />
                             {formatGold(wert)}
                         </span>
                     )}
@@ -81,7 +78,10 @@ function Zeile({ item, aktion, richtung, busy }) {
                 className="shrink-0 w-7 h-7 flex items-center justify-center rounded border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40 transition-colors"
                 aria-label={richtung === "ein" ? "Einlagern" : "Herausnehmen"}
             >
-                <Pfeil size={13} />
+                {/* move_one.png bringt seinen eigenen Pfeil schon mit (nach rechts/oben) —
+                    fuers Herausnehmen einfach seitenverkehrt, statt ein zweites Bild
+                    fuer die Gegenrichtung zu brauchen. */}
+                <HudIcon.moveOne size={13} style={richtung === "ein" ? undefined : { transform: "scaleX(-1)" }} />
             </button>
         </div>
     );
@@ -122,7 +122,7 @@ function Spalte({ titel, hinweis, gruppen, aktion, richtung, busy, leerText }) {
                             key={k.key}
                             type="button"
                             onClick={() => setReiter(k.key)}
-                            className={`px-2 py-1 rounded-sm border text-[10px] font-medium transition-colors ${
+                            className={`px-2 py-1 rounded-xl border text-[10px] font-medium transition-colors ${
                                 aktiv === k.key
                                     ? "border-violet-600 bg-violet-600/20 text-violet-200"
                                     : "border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
@@ -136,12 +136,12 @@ function Spalte({ titel, hinweis, gruppen, aktion, richtung, busy, leerText }) {
             )}
 
             {gesamt === 0 ? (
-                <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-md border border-slate-800 bg-slate-950">
+                <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-2xl border border-slate-800 bg-slate-950">
                     {leerText}
                 </p>
             ) : (
                 <div
-                    className="max-h-72 overflow-y-auto rounded-md border border-slate-700 bg-slate-950"
+                    className="max-h-72 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950"
                     style={{ overscrollBehavior: "contain" }}
                 >
                     {items.map((item) => (
@@ -154,10 +154,10 @@ function Spalte({ titel, hinweis, gruppen, aktion, richtung, busy, leerText }) {
 }
 
 export default function AblageModal({
-    art, inhalt, rucksack, max, onClose, onEinlagern, onAuslagern, onAllesEin, onAllesAus, onUmstellen, busy,
+    art, inhalt, rucksack, max, onClose, onBack, onEinlagern, onAuslagern, onAllesEin, onAllesAus, onUmstellen, busy,
 }) {
     const istVitrine = art === "vitrine";
-    const Symbol = istVitrine ? Trophy : Package;
+    const Symbol = istVitrine ? HudIcon.vitrine : HudIcon.kiste;
 
     // Der Kisteninhalt kommt als eine Liste und trägt seine Kategorie mit sich.
     const inhaltGruppen = useMemo(() => {
@@ -176,14 +176,15 @@ export default function AblageModal({
                 ? "Was hier steht, sehen alle in der Welt — sie können es ansehen, aber nicht anfassen"
                 : "Lagerplatz für Ernte, Samen, Eier, Deko und Tiere. Was hier liegt, belegt keinen Rucksackplatz"}
             onClose={onClose}
+            onBack={onBack}
             width="max-w-3xl"
             headerRight={
                 <button
                     type="button"
                     onClick={onUmstellen}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-medium transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-medium transition-colors"
                 >
-                    <Move size={13} /> Umstellen
+                    <HudIcon.reposition size={13} /> Umstellen
                 </button>
             }
         >
@@ -207,9 +208,9 @@ export default function AblageModal({
                         disabled={busy || rucksackGesamt === 0 || voll}
                         title={voll ? `${istVitrine ? "Vitrine" : "Kiste"} ist voll` : "Alles einlagern"}
                         aria-label="Alles einlagern"
-                        className="w-9 h-9 flex items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-slate-900 transition-colors"
+                        className="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-slate-900 transition-colors"
                     >
-                        <ChevronsRight size={16} />
+                        <HudIcon.moveAll size={16} />
                     </button>
                     <Symbol size={16} className="text-slate-700" />
                     <button
@@ -218,9 +219,9 @@ export default function AblageModal({
                         disabled={busy || inhalt.length === 0}
                         title="Alles herausholen"
                         aria-label="Alles herausholen"
-                        className="w-9 h-9 flex items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-slate-900 transition-colors"
+                        className="w-9 h-9 flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-slate-900 transition-colors"
                     >
-                        <ChevronsLeft size={16} />
+                        <HudIcon.moveAll size={16} style={{ transform: "scaleX(-1)" }} />
                     </button>
                 </div>
 
@@ -261,7 +262,7 @@ export function FremdeVitrineModal({ owner, items, onClose }) {
                     {items.map((item, i) => (
                         <div
                             key={`${item.seedId}-${i}`}
-                            className="p-3 rounded-md border border-slate-800 bg-slate-900/60 flex items-center gap-3"
+                            className="p-3 rounded-2xl border border-slate-800 bg-slate-900/60 flex items-center gap-3"
                         >
                             <SpecialItemIcon item={item} className="w-9 h-9 shrink-0" emojiClassName="text-2xl" />
                             <div className="flex-1 min-w-0">

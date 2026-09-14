@@ -200,13 +200,23 @@ const routesToPrerender = [
   }
 
   await browser.close();
-  server.httpServer.close();
+  // server.close() statt server.httpServer.close(): erstens die öffentliche, awaitbare
+  // Vite-API (echtes Promise, räumt auch das intern eigene Zeug mit auf, nicht nur den
+  // rohen HTTP-Server), zweitens der eigentliche Grund für den Fix hier — vorher lief
+  // server.httpServer.close() OHNE await nebenher, während direkt danach process.exit()
+  // den Prozess sofort hart beendete. Auf Windows reißt das den TCP-Server-Handle (und
+  // ggf. noch nicht ganz geschlossene Puppeteer-Pipes) mitten aus dem Schließen — genau
+  // das löst den libuv-Absturz "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)"
+  // aus (dieselbe Windows-Eigenheit wie der Kommentar an closeDb() in garden/store/farms.js).
+  await server.close();
 
   if (failedRoutes.length) {
     console.error(`\n💥 Prerendering fehlgeschlagen für: ${failedRoutes.join(', ')}`);
-    process.exit(1);
+    // process.exitCode statt process.exit(1): setzt nur den Exit-Code, der Prozess beendet
+    // sich von selbst, sobald die Event-Loop leer ist — kein hartes Abwürgen mehr, das
+    // browser.close()/server.close() oben ohnehin schon vollständig abgewartet haben.
+    process.exitCode = 1;
+  } else {
+    console.log('🎉 Prerendering erfolgreich abgeschlossen!');
   }
-
-  console.log('🎉 Prerendering erfolgreich abgeschlossen!');
-  process.exit(0);
 })();

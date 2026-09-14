@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import PollRenderer from "../../components/PollRenderer";
+import PollRenderer from "./PollRenderer";
 import { ArrowLeft, Calendar, Clock, AlertCircle } from "lucide-react";
 import SEO from "../../components/SEO";
 import { socket, useFeedRoom } from "../../utils/socket";

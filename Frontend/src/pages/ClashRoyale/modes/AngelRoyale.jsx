@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Crown, Check, FishingRod, Hourglass, Eye } from 'lucide-react';
-import { RARITY_COLOR } from '../data/cards';
+import { Check, FishingRod, Hourglass, Eye } from 'lucide-react';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import { RARITY_COLOR, cardImageUrl } from '../data/cards';
 import ModeShell from './ModeShell';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
@@ -10,7 +11,6 @@ const ACCENT = '#38bdf8';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
-const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
 
 // Kartengröße im Fluss (Seitenverhältnis der CDN-Bilder ist 150×180).
 // Diese Werte gelten in REFERENZEINHEITEN, nicht in Bildschirmpixeln — der Fluss wird
@@ -37,6 +37,7 @@ function fishScale(W, H) {
 const ANGEL_I18N = {
   de: {
     you: 'Du',
+    cardsLabel: 'Karten',
     loading: 'Lade Angel Royale…',
     done: 'Fertig',
     decksDone: (done, total) => `${done}/${total} Decks fertig`,
@@ -65,6 +66,7 @@ const ANGEL_I18N = {
   },
   en: {
     you: 'You',
+    cardsLabel: 'Cards',
     loading: 'Loading Angel Royale…',
     done: 'Done',
     decksDone: (done, total) => `${done}/${total} decks done`,
@@ -89,6 +91,35 @@ const ANGEL_I18N = {
       champion: 'Champion limit (max. 2)!',
       deckfull: 'Your deck is full!',
       countdown: 'Not yet — wait for the start!',
+    },
+  },
+  es: {
+    you: 'Tú',
+    cardsLabel: 'Cartas',
+    loading: 'Cargando Pesca Royale…',
+    done: 'Listo',
+    decksDone: (done, total) => `${done}/${total} mazos listos`,
+    cardsOf: (count, deckSize) => `${count}/${deckSize} cartas`,
+    allDecksFull: '¡Todos los mazos están completos — draft terminado!',
+    spectatorLive: 'Espectador — ves el río en directo.',
+    yourDeckFull: '¡Tu mazo está completo! Espera a que los demás terminen…',
+    catchHint: 'Haz clic en las cartas que pasan flotando para pescarlas — las cartas sumergidas no se pueden atrapar.',
+    getReady: 'Preparad las cañas…',
+    riverOpens: 'El río se abre para todos al mismo tiempo',
+    yourDeck: 'Tu mazo',
+    rodReady: 'Caña lista',
+    reelingIn: (s) => `Recogiendo el sedal… ${s}s`,
+    caughtBy: (name) => `¡${name} la pescó!`,
+    yourCatch: '¡Pescada!',
+    autoIn: (s) => `Pesca automática en ${s}s`,
+    autoCaught: (name) => `Demasiado lento — ¡${name} la pescó por ti!`,
+    denied: {
+      cooldown: '¡Tu caña todavía no está lista!',
+      diving: '¡Sumergida — no se puede atrapar!',
+      late: '¡Demasiado tarde — ya no está!',
+      champion: '¡Límite de campeones (máx. 2)!',
+      deckfull: '¡Tu mazo está completo!',
+      countdown: '¡Todavía no — espera al inicio!',
     },
   },
 };
@@ -119,7 +150,7 @@ const _imgCache = new Map();
 function getCardImage(id) {
   if (!_imgCache.has(id)) {
     const img = new Image();
-    img.src = `${CARD_CDN}${id}.png`;
+    img.src = cardImageUrl(id);
     _imgCache.set(id, img);
   }
   return _imgCache.get(id);
@@ -137,10 +168,11 @@ function AvatarCircle({ id, color, size = 28 }) {
 
 function CardImg({ id, name }) {
   return (
-    // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
-    // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
-    <div className="relative w-full h-full">
-      <img src={`${CARD_CDN}${id}.png`} alt={name} className="w-full h-full object-cover" draggable={false}
+    // Kein FARBIGER Hintergrund (siehe entsprechenden Kommentar in SnakeRoyale.jsx) —
+    // ein neutrales Dunkelgrau verhindert nur, dass das Diamant-Karo der Spielfläche
+    // durch transparente Bildränder scheint.
+    <div className="relative w-full h-full bg-[#0d0d14]">
+      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover" draggable={false}
         style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
   );
@@ -174,7 +206,7 @@ const AngelSidebar = React.memo(function AngelSidebar({ state, myPlayerId, t }) 
             <DeckGrid deck={p.deck || []} size={state.deckSize}
               renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
             <div className="flex items-center gap-1.5">
-              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <img src={crownIcon} alt="" width={14} height={12} className={champCount > 0 ? '' : 'opacity-15 grayscale'} />
               <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
           </PlayerPanel>
@@ -577,10 +609,17 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
     return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, [deniedRef]);
 
+  // touch-action: none — ohne das kann ein Wisch übers Spielfeld die Seite scrollen/zoomen
+  // statt nur den Fisch zu fangen (gleiches Muster wie DarkMaze.jsx).
   return (
-    <div ref={containerRef} className="absolute inset-0">
+    <div ref={containerRef} className="absolute inset-0" style={{ touchAction: 'none' }}>
+      {/* block + w-full/h-full: ein <canvas> ist von Haus aus inline-block und behält
+          dadurch den Grundlinien-Abstand, den Inline-Elemente unter sich freilassen —
+          zwischen Kopfzeile und Fluss blieb dadurch ein paar Pixel Diamant-Karo sichtbar,
+          obwohl der Elternkasten bereits exakt bis dorthin reichte. */}
       <canvas
         ref={canvasRef}
+        className="block w-full h-full"
         onMouseMove={e => {
           const rect = e.currentTarget.getBoundingClientRect();
           const k = fishScale(rect.width, rect.height);
@@ -652,7 +691,7 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
 
         {/* Kopfzeile: der eigene Deckfortschritt ist das Ziel des Modus */}
         <GameHeader
-          label={lang === 'en' ? 'Cards' : 'Karten'}
+          label={t.cardsLabel}
           value={amSpectator ? '–' : myDeck.length}
           total={amSpectator ? undefined : state.deckSize}
           badge={
@@ -680,8 +719,9 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
           pct={amSpectator ? 0 : (myDeck.length / state.deckSize) * 100}
           accent={ACCENT} />
 
-        {/* Fluss */}
-        <div className="flex-1 relative overflow-hidden">
+        {/* Fluss — Grundfarbe als Fallback, bis der Canvas beim ersten Resize das Wasser
+            zeichnet (siehe RiverCanvas), damit dort nie kurz das Diamant-Karo durchschlägt. */}
+        <div className="flex-1 relative overflow-hidden bg-[#0d2a3d]">
           <RiverCanvas
             state={state}
             canInteract={canInteract}
@@ -691,14 +731,14 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
 
           {/* Abgelehnt-Toast */}
           {showDeniedToast && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/40 backdrop-blur-md pointer-events-none">
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-red-950/85 border border-red-500/40 backdrop-blur-md pointer-events-none">
               <p className="text-red-300 text-xs font-bold">{t.denied[denied.reason] || t.denied.late}</p>
             </div>
           )}
 
           {/* Zwangs-Angel-Toast: der Server hat die Karte für einen gezogen */}
           {showAutoToast && !showDeniedToast && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-amber-500/15 border border-amber-500/40 backdrop-blur-md pointer-events-none">
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-amber-950/85 border border-amber-500/40 backdrop-blur-md pointer-events-none">
               <p className="text-amber-200 text-xs font-bold">{t.autoCaught(autoCatch.card?.name || '')}</p>
             </div>
           )}
@@ -708,10 +748,13 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
             // Breiter als vorher (40rem): Auf großen Schirmen waren die acht Kacheln
             // in der Leiste kleiner als die Karten, die im Fluss vorbeischwimmen.
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,52rem)]">
+              {/* Deckbalken schwimmt über dem Fluss (Diamant-Karo, siehe GameSurface) — bei
+                  40% Deckkraft war die Schrift darauf kaum noch zu lesen, jetzt deutlich
+                  dunkler (backdrop-blur bleibt für den Glas-Effekt). */}
               <div className={`rounded-2xl backdrop-blur-md px-4 py-3 transition-colors ${
-                isCooling ? 'bg-red-950/40'
-                : idleUrgent ? 'bg-amber-950/40'
-                : 'bg-black/40'}`}>
+                isCooling ? 'bg-red-950/85'
+                : idleUrgent ? 'bg-amber-950/85'
+                : 'bg-black/80'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">{t.yourDeck}</span>
                   {showRodStatus && (
@@ -730,7 +773,7 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
                     const card = myDeck[i];
                     return (
                       <div key={i} title={card?.name}
-                        className={`aspect-[5/6] rounded-md overflow-hidden ${card ? '' : 'bg-black/25'}`}>
+                        className={`aspect-[5/6] rounded-md overflow-hidden ${card ? '' : 'bg-[#0d0d14]'}`}>
                         {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
                       </div>
                     );

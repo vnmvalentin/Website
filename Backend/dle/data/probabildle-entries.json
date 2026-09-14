@@ -1,0 +1,810 @@
+[
+  {
+    "id": "coin-flip-heads",
+    "label": "Eine faire Münze zeigt Kopf",
+    "valuePercent": 50,
+    "description": "Bei einem einzelnen Wurf einer fairen Münze ist Kopf genau so wahrscheinlich wie Zahl.",
+    "wikiTitle": "Münzwurf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Coin%20Toss%20(3635981474).jpg?width=500"
+  },
+  {
+    "id": "dice-roll-six",
+    "label": "Ein Würfel zeigt eine Sechs",
+    "valuePercent": 17,
+    "description": "Bei einem fairen sechsseitigen Würfel hat jede einzelne Augenzahl genau diese Chance.",
+    "wikiTitle": "Spielwürfel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Black%20Polyhedral%20Game%20Dice.jpg?width=500"
+  },
+  {
+    "id": "dice-double-six",
+    "label": "Zwei geworfene Würfel zeigen beide eine Sechs",
+    "valuePercent": 3,
+    "description": "Von 36 möglichen Kombinationen zweier Würfel trifft nur eine genau diesen Doppel-Sechser.",
+    "wikiTitle": "Würfelspiel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Craps.jpg?width=500"
+  },
+  {
+    "id": "card-drawn-ace",
+    "label": "Aus einem gemischten Kartenspiel wird ein Ass gezogen",
+    "valuePercent": 8,
+    "description": "4 der 52 Karten in einem französischen Blatt sind Asse.",
+    "wikiTitle": "Spielkarte",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Karty%20do%20gry%20.%20Playing%20card.JPG?width=500"
+  },
+  {
+    "id": "roulette-single-number",
+    "label": "Eine bestimmte Zahl fällt beim europäischen Roulette",
+    "valuePercent": 3,
+    "description": "Bei 37 möglichen Zahlen (0 bis 36) trifft jede einzelne mit derselben, kleinen Chance.",
+    "wikiTitle": "Roulette",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/13-02-27-spielbank-wiesbaden-by-RalfR-093.jpg?width=500"
+  },
+  {
+    "id": "poker-royal-flush",
+    "label": "Ein zufälliges 5-Karten-Pokerblatt ist ein Royal Flush",
+    "valuePercent": 0.0002,
+    "description": "Die seltenste und wertvollste Handkombination im Poker — in einem echten Spielerleben taucht sie kaum je auf.",
+    "wikiTitle": "Poker",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gda%C5%84sk%2C%20Poland%20(Unsplash%20GikVY%20KS9vQ).jpg?width=500"
+  },
+  {
+    "id": "lottery-jackpot-6aus49",
+    "label": "Ein Lottotipp trifft den Hauptgewinn bei 6 aus 49",
+    "valuePercent": 0.00001,
+    "description": "Rund 1 zu 14 Millionen — von allen möglichen Tipps trifft nur einer alle sechs Zahlen.",
+    "wikiTitle": "6 aus 49",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f0/Losverk%C3%A4ufer.JPG/330px-Losverk%C3%A4ufer.JPG?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "lightning-strike-lifetime",
+    "label": "Ein Mensch wird im Laufe seines Lebens vom Blitz getroffen",
+    "valuePercent": 0.006,
+    "description": "Grobe US-Schätzung: Etwa einer von rund 15.000 Menschen trifft es irgendwann im Leben.",
+    "wikiTitle": "Blitzschlag",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4b/Lightning3.jpg/330px-Lightning3.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "coin-lands-edge",
+    "label": "Eine geworfene Münze bleibt auf der Kante stehen",
+    "valuePercent": 0.02,
+    "description": "Physikalisch möglich, aber extrem selten — Schätzungen gehen von etwa 1 zu 6.000 Würfen aus.",
+    "wikiTitle": "Münze",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kiloware.JPG?width=500"
+  },
+  {
+    "id": "identical-twins-birth",
+    "label": "Eine Schwangerschaft führt zu eineiigen Zwillingen",
+    "valuePercent": 0.4,
+    "description": "Eineiige Zwillinge entstehen rein zufällig, unabhängig von Erbanlagen oder Herkunft der Eltern.",
+    "wikiTitle": "Eineiige Zwillinge",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Marian%20and%20Vivian%20Brown.jpg?width=500"
+  },
+  {
+    "id": "sea-turtle-hatchling-survival",
+    "label": "Eine geschlüpfte Meeresschildkröte erreicht das Erwachsenenalter",
+    "valuePercent": 0.1,
+    "description": "Vögel, Fische und Krabben machen Jagd auf die winzigen Jungtiere — nur eine Handvoll von tausend überlebt.",
+    "wikiTitle": "Meeresschildkröten",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Green%20turtle%20swimming%20over%20coral%20reefs%20in%20Kona.jpg?width=500"
+  },
+  {
+    "id": "left-handedness",
+    "label": "Ein zufällig ausgewählter Mensch ist Linkshänder",
+    "valuePercent": 10,
+    "description": "Der Anteil der Linkshänder ist über verschiedene Kulturen und Epochen hinweg erstaunlich konstant.",
+    "wikiTitle": "Händigkeit",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/HolbeinErasmusHands.jpg/330px-HolbeinErasmusHands.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "baby-boy-birth",
+    "label": "Ein neugeborenes Baby ist ein Junge",
+    "valuePercent": 51,
+    "description": "Weltweit kommen im Schnitt geringfügig mehr Jungen als Mädchen zur Welt.",
+    "wikiTitle": "Neugeborenes",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Baby%20care%2C%20Newborn%20baby%20girl%2C%20Moscow%2C%20Russia.jpg?width=500"
+  },
+  {
+    "id": "red-hair-recessive",
+    "label": "Ein Kind hat rote Haare, wenn beide Eltern die Anlage dafür unsichtbar in sich tragen",
+    "valuePercent": 25,
+    "description": "Klassische Mendelsche Genetik: Bei zwei rezessiven Anlageträgern erbt im Schnitt ein Viertel der Kinder das Merkmal sichtbar.",
+    "wikiTitle": "Rothaarigkeit",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f9/Regina_and_Sebasti%C3%A1n_%286512348761%29.jpg/330px-Regina_and_Sebasti%C3%A1n_%286512348761%29.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "infant-survival-year-one",
+    "label": "Ein Neugeborenes in einem Industrieland erlebt seinen ersten Geburtstag",
+    "valuePercent": 99,
+    "description": "Dank moderner Medizin ist die Säuglingssterblichkeit in wohlhabenden Ländern heute sehr gering.",
+    "wikiTitle": "Säuglingssterblichkeit",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Infant-mortality.svg/langde-330px-Infant-mortality.svg.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "human-chimp-dna",
+    "label": "So viel DNA teilen sich Mensch und Schimpanse",
+    "valuePercent": 98,
+    "description": "Trotz der offensichtlichen Unterschiede sind sich beide Arten auf genetischer Ebene verblüffend ähnlich.",
+    "wikiTitle": "Schimpansen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/013%20Alpha%20male%20chimpanzee%20at%20Kibale%20forest%20National%20Park%20Photo%20by%20Giles%20Laurent.jpg?width=500"
+  },
+  {
+    "id": "human-banana-dna",
+    "label": "So viel DNA teilen sich Mensch und Banane",
+    "valuePercent": 60,
+    "description": "Viele grundlegende biologische Prozesse sind bei allen Lebewesen mit Zellkern gleich aufgebaut — daher die überraschend hohe Übereinstimmung.",
+    "wikiTitle": "Obstbanane",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0d/Musa_paradisiaca_Blanco1.88.png/330px-Musa_paradisiaca_Blanco1.88.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "earth-surface-water",
+    "label": "So viel der Erdoberfläche ist von Wasser bedeckt",
+    "valuePercent": 71,
+    "description": "Ozeane, Meere und Seen zusammen — deshalb wirkt die Erde vom Weltall aus blau.",
+    "wikiTitle": "Erde",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20Blue%20Marble%20(5052124705).jpg?width=500"
+  },
+  {
+    "id": "human-body-water",
+    "label": "So viel des Körpergewichts eines erwachsenen Menschen ist Wasser",
+    "valuePercent": 60,
+    "description": "Der genaue Anteil schwankt mit Alter, Geschlecht und Körperbau, liegt bei Erwachsenen aber ungefähr hier.",
+    "wikiTitle": "Mensch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Akha%20cropped%20hires.JPG?width=500"
+  },
+  {
+    "id": "atmosphere-nitrogen",
+    "label": "So viel der Erdatmosphäre besteht aus Stickstoff",
+    "valuePercent": 78,
+    "description": "Nicht Sauerstoff, sondern Stickstoff ist mit Abstand das häufigste Gas in der Luft, die wir atmen.",
+    "wikiTitle": "Erdatmosphäre",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Atmosphere%20layers-en.svg?width=500"
+  },
+  {
+    "id": "atmosphere-oxygen",
+    "label": "So viel der Erdatmosphäre besteht aus Sauerstoff",
+    "valuePercent": 21,
+    "description": "Der Rest ist überwiegend Stickstoff plus Spuren anderer Gase.",
+    "wikiTitle": "Sauerstoff",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Liquid%20oxygen%20in%20a%20beaker%204.jpg?width=500"
+  },
+  {
+    "id": "earth-population-asia",
+    "label": "So viel der Weltbevölkerung lebt in Asien",
+    "valuePercent": 59,
+    "description": "Mit Abstand der bevölkerungsreichste Kontinent der Erde.",
+    "wikiTitle": "Asien",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Asia%20satellite%20orthographic.jpg?width=500"
+  },
+  {
+    "id": "world-urbanization",
+    "label": "So viel der Weltbevölkerung lebt in Städten",
+    "valuePercent": 57,
+    "description": "Der Anteil der Stadtbevölkerung ist in den letzten Jahrzehnten weltweit stark gestiegen.",
+    "wikiTitle": "Urbanisierung",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Shenzhenshi.jpg?width=500"
+  },
+  {
+    "id": "desert-land-earth",
+    "label": "So viel der Landfläche der Erde ist Wüste",
+    "valuePercent": 33,
+    "description": "Nicht nur heiße Sandwüsten zählen dazu — auch kalte Wüsten wie die Antarktis.",
+    "wikiTitle": "Wüste",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Deserto%20libico%20-%20Driving%20-%20panoramio.jpg?width=500"
+  },
+  {
+    "id": "freshwater-frozen",
+    "label": "So viel des weltweiten Süßwassers steckt in Eis und Gletschern",
+    "valuePercent": 68,
+    "description": "Nur ein winziger Bruchteil des Süßwassers der Erde ist als flüssiges Grundwasser oder in Flüssen und Seen sofort verfügbar.",
+    "wikiTitle": "Süßwasser",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pond%20in%20Flatwoods%20(4884909518).jpg?width=500"
+  },
+  {
+    "id": "right-handedness",
+    "label": "Ein zufällig ausgewählter Mensch ist Rechtshänder",
+    "valuePercent": 90,
+    "description": "Der große Rest neben den etwa 10 % Linkshändern.",
+    "wikiTitle": "Händigkeit",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/HolbeinErasmusHands.jpg/330px-HolbeinErasmusHands.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "tongue-rolling",
+    "label": "Ein zufällig ausgewählter Mensch kann seine Zunge zur Röhre rollen",
+    "valuePercent": 65,
+    "description": "Lange als einfaches Schulbeispiel für einen dominanten Erbgang gelehrt — tatsächlich ist es genetisch komplizierter, der Anteil in Studien liegt aber ungefähr hier.",
+    "wikiTitle": "Zunge",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Tongue.agr.jpg?width=500"
+  },
+  {
+    "id": "penalty-kick-success",
+    "label": "Ein Elfmeter im Profifußball wird verwandelt",
+    "valuePercent": 75,
+    "description": "Die meisten Elfmeter bei Profis landen im Tor — Torhüter halten nur eine Minderheit.",
+    "wikiTitle": "Elfmeter",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/Elfmeter-birgit-prinz-2008-ffc001.jpg/330px-Elfmeter-birgit-prinz-2008-ffc001.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "free-throw-nba",
+    "label": "Ein Freiwurf eines durchschnittlichen NBA-Spielers trifft",
+    "valuePercent": 75,
+    "description": "Über die ganze Liga gemittelt treffen Profis etwa drei von vier Freiwürfen.",
+    "wikiTitle": "National Basketball Association",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2013%20NBA%20Slam%20Dunk%20Contest%20at%20Toyota%20Center.JPG?width=500"
+  },
+  {
+    "id": "earth-core-mass",
+    "label": "So viel der Gesamtmasse der Erde entfällt auf den Erdkern",
+    "valuePercent": 32,
+    "description": "Der überwiegend aus Eisen und Nickel bestehende Kern ist zwar klein im Volumen, aber extrem dicht.",
+    "wikiTitle": "Erdkern",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Earth%20poster.svg?width=500"
+  },
+  {
+    "id": "protein-coding-dna",
+    "label": "So viel des menschlichen Erbguts codiert tatsächlich für Proteine",
+    "valuePercent": 2,
+    "description": "Der weit überwiegende Teil der menschlichen DNA hat andere oder noch unbekannte Funktionen.",
+    "wikiTitle": "Genom",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Human%20karyotype.svg?width=500"
+  },
+  {
+    "id": "marriage-divorce-rate",
+    "label": "Eine geschlossene Ehe endet irgendwann in einer Scheidung",
+    "valuePercent": 40,
+    "description": "Diese oft zitierte Schätzung (v.a. aus den USA) wird von Statistikern kontrovers diskutiert — die tatsächliche Rate hängt stark von Land und Berechnungsmethode ab.",
+    "wikiTitle": "Scheidung",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/NoWedding.jpg?width=500"
+  },
+  {
+    "id": "jellyfish-water-content",
+    "label": "So viel des Körpers einer Qualle besteht aus Wasser",
+    "valuePercent": 95,
+    "description": "Ohne Skelett und mit kaum festem Gewebe bestehen Quallen fast komplett aus Wasser.",
+    "wikiTitle": "Qualle",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Jelly%20cc11.jpg?width=500"
+  },
+  {
+    "id": "lightning-strike-survival",
+    "label": "Ein Mensch überlebt einen Blitzschlag",
+    "valuePercent": 90,
+    "description": "Ein Blitzschlag ist lebensgefährlich, aber die meisten Getroffenen überleben ihn.",
+    "wikiTitle": "Blitz",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lightning%20Pritzerbe%2001%20(MK).jpg?width=500"
+  },
+  {
+    "id": "literacy-rate-global",
+    "label": "Ein zufällig ausgewählter Erwachsener weltweit kann lesen und schreiben",
+    "valuePercent": 87,
+    "description": "Die weltweite Alphabetisierungsrate ist in den letzten Jahrzehnten stark gestiegen.",
+    "wikiTitle": "Analphabetismus",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20illiterate%20woman%20(1869)%2C%20by%20Odoardo%20Borrani.jpg?width=500"
+  },
+  {
+    "id": "smartphone-ownership-global",
+    "label": "Ein zufällig ausgewählter Mensch weltweit besitzt ein Smartphone",
+    "valuePercent": 70,
+    "description": "Der Anteil ist in den letzten zehn Jahren rasant gestiegen und wächst weiter.",
+    "wikiTitle": "Smartphone",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Android%20phones.jpg?width=500"
+  },
+  {
+    "id": "redhead-population",
+    "label": "Ein zufällig ausgewählter Mensch weltweit hat natürliche rote Haare",
+    "valuePercent": 2,
+    "description": "Damit ist Rothaarigkeit eine der seltensten natürlichen Haarfarben überhaupt.",
+    "wikiTitle": "Rote Haare",
+    "image": null
+  },
+  {
+    "id": "blue-eyes-population",
+    "label": "Ein zufällig ausgewählter Mensch weltweit hat blaue Augen",
+    "valuePercent": 8,
+    "description": "Braune Augen sind weltweit mit großem Abstand am häufigsten.",
+    "wikiTitle": "Augenfarbe",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b7/Farbverlauf_Augenfarben.jpg/330px-Farbverlauf_Augenfarben.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "type-o-blood",
+    "label": "Ein zufällig ausgewählter Mensch weltweit hat Blutgruppe 0",
+    "valuePercent": 45,
+    "description": "Grobe weltweite Schätzung — die Verteilung der Blutgruppen unterscheidet sich stark je nach Weltregion.",
+    "wikiTitle": "Blutgruppe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/BloodDonorsAndReceivers.JPG?width=500"
+  },
+  {
+    "id": "rh-negative-blood-europe",
+    "label": "Ein zufällig ausgewählter Mensch in Europa hat Rhesus-negatives Blut",
+    "valuePercent": 15,
+    "description": "In Europa ist dieser Anteil deutlich höher als im weltweiten Durchschnitt, wo Rhesus-positiv noch stärker überwiegt.",
+    "wikiTitle": "Rhesusfaktor",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/96/Macaque_India_3.jpg/330px-Macaque_India_3.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "spam-email-share",
+    "label": "So viel des weltweiten E-Mail-Verkehrs ist Spam",
+    "valuePercent": 45,
+    "description": "Trotz guter Filter besteht laut Schätzungen fast die Hälfte des globalen Mailverkehrs aus unerwünschter Werbung und Betrugsversuchen.",
+    "wikiTitle": "Spam",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Spammed-mail-folder.png?width=500"
+  },
+  {
+    "id": "chess-draw-grandmaster",
+    "label": "Eine klassische Turnierpartie zwischen zwei Großmeistern endet remis",
+    "valuePercent": 50,
+    "description": "Auf höchstem Niveau enden überraschend viele Partien unentschieden.",
+    "wikiTitle": "Schach",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Opening%20chess%20position%20from%20black%20side.jpg?width=500"
+  },
+  {
+    "id": "wisdom-teeth-removed-usa",
+    "label": "Ein US-Amerikaner hat seine Weisheitszähne entfernen lassen",
+    "valuePercent": 53,
+    "description": "Laut einer Umfrage von 2024 betrifft das gut die Hälfte der Gesamtbevölkerung — bei den 18- bis 29-Jährigen sind es mit 26 % deutlich weniger.",
+    "wikiTitle": "Weisheitszahn",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Weisheitsz%C3%A4hne-1.jpg?width=500"
+  },
+  {
+    "id": "congenital-heart-defect-germany",
+    "label": "Ein Neugeborenes in Deutschland kommt mit einem angeborenen Herzfehler zur Welt",
+    "valuePercent": 0.8,
+    "description": "Rund 6.000 Kinder pro Jahr — dank moderner Medizin erreichen heute etwa 90 % von ihnen das Erwachsenenalter.",
+    "wikiTitle": "Herzfehler",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/VSD%20image.jpg?width=500"
+  },
+  {
+    "id": "red-green-colorblind-men",
+    "label": "Ein zufällig ausgewählter Mann ist rot-grün-farbenschwach oder -blind",
+    "valuePercent": 9,
+    "description": "Bei Frauen sind es mit unter 1 % deutlich weniger, weil die Veranlagung auf dem X-Chromosom liegt.",
+    "wikiTitle": "Rot-Grün-Sehschwäche",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/6/68/47-rg12.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+  },
+  {
+    "id": "green-eyes-population",
+    "label": "Ein zufällig ausgewählter Mensch weltweit hat grüne Augen",
+    "valuePercent": 2,
+    "description": "Grün gilt als die seltenste natürliche Augenfarbe der Welt.",
+    "wikiTitle": "Augenfarbe",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b7/Farbverlauf_Augenfarben.jpg/330px-Farbverlauf_Augenfarben.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "human-fruitfly-dna",
+    "label": "So viele Gene teilen sich Mensch und Fruchtfliege",
+    "valuePercent": 60,
+    "description": "Rund drei Viertel aller menschlichen Krankheitsgene haben sogar ein erkennbares Gegenstück im Erbgut der Fruchtfliege.",
+    "wikiTitle": "Drosophila melanogaster",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Drosophila%20melanogaster%20-%20side%20(aka).jpg?width=500"
+  },
+  {
+    "id": "twin-birth-rate-usa",
+    "label": "Eine Schwangerschaft in den USA führt zu Zwillingen (eineiig oder zweieiig)",
+    "valuePercent": 3.4,
+    "description": "Damit sind Zwillinge mit Abstand die häufigste Form einer Mehrlingsgeburt.",
+    "wikiTitle": "Zwillinge",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/A%20cross-section%20of%20a%20pregnant%20uterus%20containing%20twins.%20Engra%20Wellcome%20V0014950.jpg?width=500"
+  },
+  {
+    "id": "triplet-birth-rate-usa",
+    "label": "Eine Schwangerschaft in den USA führt zu Drillingen",
+    "valuePercent": 0.1,
+    "description": "Deutlich seltener als Zwillinge — etwa eine von tausend Geburten.",
+    "wikiTitle": "Drillinge",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/TripletBoys.JPG?width=500"
+  },
+  {
+    "id": "blood-type-ab-usa",
+    "label": "Ein zufällig ausgewählter US-Amerikaner hat Blutgruppe AB",
+    "valuePercent": 4,
+    "description": "Damit ist AB (positiv und negativ zusammen) die seltenste der vier Blutgruppen.",
+    "wikiTitle": "AB0-System",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/BlutAgglutination.JPG?width=500"
+  },
+  {
+    "id": "human-body-oxygen-element",
+    "label": "Anteil des chemischen Elements Sauerstoff am Körpergewicht eines Menschen",
+    "valuePercent": 65,
+    "description": "Das häufigste Element im menschlichen Körper — vor allem gebunden in Wassermolekülen.",
+    "wikiTitle": "Chemische Zusammensetzung des menschlichen Körpers",
+    "image": null
+  },
+  {
+    "id": "human-body-carbon-element",
+    "label": "Anteil des chemischen Elements Kohlenstoff am Körpergewicht eines Menschen",
+    "valuePercent": 18,
+    "description": "Nach Sauerstoff das zweithäufigste Element im Körper — die Grundlage jeder organischen Verbindung.",
+    "wikiTitle": "Chemische Zusammensetzung des menschlichen Körpers",
+    "image": null
+  },
+  {
+    "id": "brain-bodyweight-share",
+    "label": "Anteil des Gehirns am Körpergewicht eines erwachsenen Menschen",
+    "valuePercent": 2,
+    "description": "Trotz seines geringen Gewichts verbraucht es einen weit größeren Anteil der Körperenergie.",
+    "wikiTitle": "Gehirn",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Vertebrate-brain-regions%20small.png?width=500"
+  },
+  {
+    "id": "brain-energy-use-share",
+    "label": "Anteil des Energieverbrauchs des Körpers in Ruhe, den allein das Gehirn beansprucht",
+    "valuePercent": 20,
+    "description": "Zehnmal mehr, als sein Anteil am Körpergewicht vermuten lässt.",
+    "wikiTitle": "Gehirn",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Vertebrate-brain-regions%20small.png?width=500"
+  },
+  {
+    "id": "octopus-arm-neurons",
+    "label": "So viele Nervenzellen eines Oktopus sitzen in seinen Armen statt im zentralen Gehirn",
+    "valuePercent": 67,
+    "description": "Jeder Arm kann dadurch erstaunlich eigenständig auf seine Umgebung reagieren.",
+    "wikiTitle": "Achtarmige Kraken",
+    "image": null
+  },
+  {
+    "id": "plastic-recycled-global",
+    "label": "So viel des jemals produzierten Plastiks weltweit wurde bislang recycelt",
+    "valuePercent": 9,
+    "description": "Der überwiegende Rest wurde verbrannt, liegt auf Deponien oder in der Umwelt.",
+    "wikiTitle": "Plastikmüll",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/Syndiotactic_polypropene.png/330px-Syndiotactic_polypropene.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "amazon-deforested",
+    "label": "So viel des Amazonas-Regenwaldes gilt inzwischen als abgeholzt",
+    "valuePercent": 26,
+    "description": "Rinderweidewirtschaft gilt dabei als der mit Abstand größte Einzeltreiber der Rodung.",
+    "wikiTitle": "Amazonas-Regenwald",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Amazon%20Manaus%20forest.jpg?width=500"
+  },
+  {
+    "id": "earth-atmosphere-argon",
+    "label": "So viel der Erdatmosphäre besteht aus Argon",
+    "valuePercent": 0.93,
+    "description": "Nach Stickstoff und Sauerstoff das dritthäufigste Gas der Luft, die wir atmen.",
+    "wikiTitle": "Erdatmosphäre",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Atmosphere%20layers-en.svg?width=500"
+  },
+  {
+    "id": "earth-atmosphere-co2",
+    "label": "So viel der Erdatmosphäre besteht aktuell aus Kohlenstoffdioxid",
+    "valuePercent": 0.04,
+    "description": "Ein winziger Anteil — mit spürbaren Folgen fürs Klima, weil er stetig steigt.",
+    "wikiTitle": "Erdatmosphäre",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Atmosphere%20layers-en.svg?width=500"
+  },
+  {
+    "id": "earth-crust-oxygen",
+    "label": "So viel der Erdkruste besteht (nach Masse) aus Sauerstoff",
+    "valuePercent": 46,
+    "description": "Das häufigste Element der Erdkruste — meist gebunden in Silikat- und Oxid-Mineralien, nicht als Gas.",
+    "wikiTitle": "Erdkruste",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Erdkruste-i.png?width=500"
+  },
+  {
+    "id": "earth-water-saltwater",
+    "label": "So viel des gesamten Wassers auf der Erde ist Salzwasser",
+    "valuePercent": 96.5,
+    "description": "Der Rest verteilt sich auf Süßwasser in Eis, Grundwasser, Seen und Flüssen.",
+    "wikiTitle": "Wasser",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Ice%20water%20vapor.jpg?width=500"
+  },
+  {
+    "id": "everest-summit-air-pressure",
+    "label": "Luftdruck am Gipfel des Mount Everest im Vergleich zum Meeresspiegel",
+    "valuePercent": 33,
+    "description": "Deshalb enthält jeder Atemzug dort oben nur etwa ein Drittel des Sauerstoffs, den er auf Meereshöhe hätte.",
+    "wikiTitle": "Mount Everest",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mount%20Everest%20as%20seen%20from%20Drukair2%20PLW%20edit.jpg?width=500"
+  },
+  {
+    "id": "earth-forest-cover",
+    "label": "So viel der Landfläche der Erde ist von Wald bedeckt",
+    "valuePercent": 31,
+    "description": "Trotzdem verschwindet davon jedes Jahr weiter Fläche durch Rodung.",
+    "wikiTitle": "Wald",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Adirondacks%20in%20May%202008.jpg?width=500"
+  },
+  {
+    "id": "earth-agriculture-land-use",
+    "label": "So viel der bewohnbaren Landfläche der Erde wird landwirtschaftlich genutzt",
+    "valuePercent": 50,
+    "description": "Der weitaus größte Teil davon dient dabei der Tierhaltung, nicht dem Anbau von Pflanzen für Menschen.",
+    "wikiTitle": "Landwirtschaft",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Unload%20wheat%20by%20the%20combine%20Claas%20Lexion%20584.jpg?width=500"
+  },
+  {
+    "id": "beetle-share-animal-species",
+    "label": "So viele aller bislang beschriebenen Tierarten sind Käfer",
+    "valuePercent": 25,
+    "description": "Mit rund 400.000 beschriebenen Arten die mit Abstand artenreichste Ordnung des Tierreichs.",
+    "wikiTitle": "Käfer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lucanus%20cervus.jpg?width=500"
+  },
+  {
+    "id": "sun-hydrogen-composition",
+    "label": "So viel der ursprünglichen Masse der Sonne bestand aus Wasserstoff",
+    "valuePercent": 71,
+    "description": "Der Rest ist vor allem Helium, dazu eine winzige Beimischung schwererer Elemente.",
+    "wikiTitle": "Sonne",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Our%20Sun%20at%20a%20distance%20of%20150%20Mio.%20km.jpg?width=500"
+  },
+  {
+    "id": "sun-helium-composition",
+    "label": "So viel der ursprünglichen Masse der Sonne bestand aus Helium",
+    "valuePercent": 27,
+    "description": "Das zweithäufigste Element der Sonne, entstanden aus derselben interstellaren Wolke wie der Wasserstoff.",
+    "wikiTitle": "Sonne",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Our%20Sun%20at%20a%20distance%20of%20150%20Mio.%20km.jpg?width=500"
+  },
+  {
+    "id": "jupiter-atmosphere-hydrogen",
+    "label": "Wasserstoffanteil der Jupiteratmosphäre (nach Masse)",
+    "valuePercent": 76,
+    "description": "Jupiter besteht damit chemisch fast wie ein kleiner, nie gezündeter Stern.",
+    "wikiTitle": "Jupiter (Planet)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Jupiter%20OPAL%202024.png?width=500"
+  },
+  {
+    "id": "moon-visible-from-earth",
+    "label": "So viel der Mondoberfläche ist im Laufe der Zeit von der Erde aus sichtbar",
+    "valuePercent": 59,
+    "description": "Durch die sogenannte Libration wackelt der Mond leicht, wodurch mehr als nur die exakte Vorderseite sichtbar wird.",
+    "wikiTitle": "Mond",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/FullMoon2010.jpg?width=500"
+  },
+  {
+    "id": "universe-dark-energy",
+    "label": "So viel des gesamten Universums besteht aus Dunkler Energie",
+    "valuePercent": 68,
+    "description": "Der größte Einzelposten der kosmischen Energiebilanz — und bis heute nicht direkt nachgewiesen, nur aus ihrer Wirkung erschlossen.",
+    "wikiTitle": "Dunkle Energie",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/UniverseComposition.svg?width=500"
+  },
+  {
+    "id": "universe-dark-matter",
+    "label": "So viel des gesamten Universums besteht aus Dunkler Materie",
+    "valuePercent": 27,
+    "description": "Unsichtbar und bislang nur über ihre Gravitationswirkung nachweisbar.",
+    "wikiTitle": "Dunkle Materie",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/UniverseComposition.svg?width=500"
+  },
+  {
+    "id": "universe-ordinary-matter",
+    "label": "So viel des gesamten Universums besteht aus gewöhnlicher, sichtbarer Materie",
+    "valuePercent": 5,
+    "description": "Alles, was wir sehen können — Sterne, Planeten, Galaxien, wir selbst — ist nur ein kleiner Rest der kosmischen Bilanz.",
+    "wikiTitle": "Lambda-CDM-Modell",
+    "image": null
+  },
+  {
+    "id": "cheetah-hunt-success",
+    "label": "Erfolgsquote eines Geparden bei der Jagd auf Thomson-Gazellen (Serengeti)",
+    "valuePercent": 70,
+    "description": "Damit hat der Gepard die höchste Jagderfolgsquote unter den großen afrikanischen Raubtieren.",
+    "wikiTitle": "Gepard",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cheetah%20(Acinonyx%20jubatus)%20female%202.jpg?width=500"
+  },
+  {
+    "id": "lion-hunt-success",
+    "label": "Erfolgsquote eines Löwen bei der Jagd (Serengeti-Studie)",
+    "valuePercent": 26,
+    "description": "Überraschend niedrig im Vergleich zum Geparden — Löwen jagen dafür häufiger im Rudel und im Team.",
+    "wikiTitle": "Löwe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lion%20in%20masai%20mara.jpg?width=500"
+  },
+  {
+    "id": "wild-dog-hunt-success",
+    "label": "Erfolgsquote eines Afrikanischen Wildhundes bei der Jagd (Serengeti-Studie)",
+    "valuePercent": 57,
+    "description": "Deutlich höher als beim Löwen — die Koordination im Rudel macht den Wildhund zu einem der effizientesten Jäger Afrikas.",
+    "wikiTitle": "Afrikanischer Wildhund",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lycaon%20pictus%20(Temminck%2C%201820).jpg?width=500"
+  },
+  {
+    "id": "titanic-survival-rate",
+    "label": "So viele Menschen an Bord der Titanic überlebten den Untergang",
+    "valuePercent": 32,
+    "description": "Weniger als ein Drittel — die Rettungsboote hatten bei weitem nicht genug Plätze für alle.",
+    "wikiTitle": "Titanic",
+    "image": null
+  },
+  {
+    "id": "coin-3-in-row-same",
+    "label": "Drei Münzwürfe hintereinander zeigen alle dieselbe Seite",
+    "valuePercent": 25,
+    "description": "Ob alle Kopf oder alle Zahl — beide Fälle zusammengenommen ergeben genau ein Viertel.",
+    "wikiTitle": "Münzwurf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Coin%20Toss%20(3635981474).jpg?width=500"
+  },
+  {
+    "id": "dice-two-same",
+    "label": "Zwei geworfene Würfel zeigen dieselbe Zahl",
+    "valuePercent": 16.7,
+    "description": "Egal welche Zahl der erste Würfel zeigt — der zweite hat immer genau eine von sechs Möglichkeiten, sie zu treffen.",
+    "wikiTitle": "Spielwürfel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Black%20Polyhedral%20Game%20Dice.jpg?width=500"
+  },
+  {
+    "id": "dice-triple-six",
+    "label": "Drei geworfene Würfel zeigen alle eine Sechs",
+    "valuePercent": 0.463,
+    "description": "Deutlich seltener als der Doppel-Sechser mit zwei Würfeln.",
+    "wikiTitle": "Spielwürfel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Black%20Polyhedral%20Game%20Dice.jpg?width=500"
+  },
+  {
+    "id": "yahtzee-first-roll",
+    "label": "Der erste Wurf mit fünf Würfeln beim Kniffel zeigt sofort fünf gleiche Zahlen",
+    "valuePercent": 0.0772,
+    "description": "Der seltene Volltreffer, für den normalerweise zwei Nachwürfe zur Verfügung stehen.",
+    "wikiTitle": "Kniffel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Original%20Yahtzee%20game%20set%20-%201980s%20UK%20release.jpg?width=500"
+  },
+  {
+    "id": "blackjack-natural",
+    "label": "Ein ausgeteiltes Zwei-Karten-Blatt beim Blackjack ist sofort ein Blackjack",
+    "valuePercent": 4.83,
+    "description": "Also eine Kombination aus Ass und einer Karte im Wert von zehn.",
+    "wikiTitle": "Black Jack (Kartenspiel)",
+    "image": null
+  },
+  {
+    "id": "roulette-red",
+    "label": "Die Kugel fällt beim europäischen Roulette auf eine rote Zahl",
+    "valuePercent": 48.6,
+    "description": "Wegen der grünen Null ist die Chance minimal kleiner als die naheliegenden 50 %.",
+    "wikiTitle": "Roulette",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/13-02-27-spielbank-wiesbaden-by-RalfR-093.jpg?width=500"
+  },
+  {
+    "id": "card-4-same-suit-row",
+    "label": "Die obersten vier Karten eines gemischten Kartenspiels haben alle dieselbe Farbe",
+    "valuePercent": 0.264,
+    "description": "Mit jeder gezogenen Karte sinkt die Chance auf eine weitere passende Karte im restlichen Stapel.",
+    "wikiTitle": "Spielkarte",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Karty%20do%20gry%20.%20Playing%20card.JPG?width=500"
+  },
+  {
+    "id": "birthday-paradox-23",
+    "label": "In einem Raum mit 23 zufälligen Menschen haben mindestens zwei am selben Tag Geburtstag",
+    "valuePercent": 50.7,
+    "description": "Das berühmte Geburtstagsparadoxon — mit nur 23 Personen liegt die Chance schon über 50 %, weit weniger, als die meisten schätzen.",
+    "wikiTitle": "Geburtstagsproblem",
+    "image": null
+  },
+  {
+    "id": "monty-hall-switch",
+    "label": "Beim Ziegenproblem gewinnt, wer nach der Tür-Wahl wechselt, das Auto",
+    "valuePercent": 66.7,
+    "description": "Kontraintuitiv, aber mathematisch bewiesen: Wechseln verdoppelt die Gewinnchance gegenüber dem Festhalten an der ersten Wahl.",
+    "wikiTitle": "Ziegenproblem",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Monty%20open%20door.svg?width=500"
+  },
+  {
+    "id": "monty-hall-stay",
+    "label": "Beim Ziegenproblem gewinnt, wer bei der ursprünglichen Tür-Wahl bleibt, das Auto",
+    "valuePercent": 33.3,
+    "description": "Genau die Hälfte der Gewinnchance, die ein Wechsel der Tür bringen würde.",
+    "wikiTitle": "Ziegenproblem",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Monty%20open%20door.svg?width=500"
+  },
+  {
+    "id": "poker-four-of-a-kind",
+    "label": "Eine zufällige 5-Karten-Pokerhand ist ein Vierling",
+    "valuePercent": 0.024,
+    "description": "Vier Karten desselben Werts plus eine beliebige fünfte Karte.",
+    "wikiTitle": "Poker",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gda%C5%84sk%2C%20Poland%20(Unsplash%20GikVY%20KS9vQ).jpg?width=500"
+  },
+  {
+    "id": "poker-full-house",
+    "label": "Eine zufällige 5-Karten-Pokerhand ist ein Full House",
+    "valuePercent": 0.144,
+    "description": "Ein Drilling und ein Paar in derselben Hand.",
+    "wikiTitle": "Poker",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gda%C5%84sk%2C%20Poland%20(Unsplash%20GikVY%20KS9vQ).jpg?width=500"
+  },
+  {
+    "id": "poker-flush",
+    "label": "Eine zufällige 5-Karten-Pokerhand ist ein Flush",
+    "valuePercent": 0.197,
+    "description": "Fünf Karten derselben Farbe, aber nicht in Reihenfolge.",
+    "wikiTitle": "Poker",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gda%C5%84sk%2C%20Poland%20(Unsplash%20GikVY%20KS9vQ).jpg?width=500"
+  },
+  {
+    "id": "poker-straight",
+    "label": "Eine zufällige 5-Karten-Pokerhand ist eine Straße",
+    "valuePercent": 0.392,
+    "description": "Fünf Karten in direkter Reihenfolge, aber aus gemischten Farben.",
+    "wikiTitle": "Poker",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gda%C5%84sk%2C%20Poland%20(Unsplash%20GikVY%20KS9vQ).jpg?width=500"
+  },
+  {
+    "id": "poker-three-of-a-kind",
+    "label": "Eine zufällige 5-Karten-Pokerhand ist ein Drilling",
+    "valuePercent": 2.11,
+    "description": "Drei Karten desselben Werts, dazu zwei unpassende Beikarten.",
+    "wikiTitle": "Poker",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gda%C5%84sk%2C%20Poland%20(Unsplash%20GikVY%20KS9vQ).jpg?width=500"
+  },
+  {
+    "id": "poker-two-pair",
+    "label": "Eine zufällige 5-Karten-Pokerhand enthält zwei Paare",
+    "valuePercent": 4.75,
+    "description": "Zwei verschiedene Paare plus eine unpassende Beikarte.",
+    "wikiTitle": "Poker",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gda%C5%84sk%2C%20Poland%20(Unsplash%20GikVY%20KS9vQ).jpg?width=500"
+  },
+  {
+    "id": "poker-one-pair",
+    "label": "Eine zufällige 5-Karten-Pokerhand enthält genau ein Paar",
+    "valuePercent": 42.3,
+    "description": "Die mit Abstand häufigste Wertigkeit einer zufälligen Pokerhand.",
+    "wikiTitle": "Poker",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gda%C5%84sk%2C%20Poland%20(Unsplash%20GikVY%20KS9vQ).jpg?width=500"
+  },
+  {
+    "id": "blood-plasma-water",
+    "label": "Wasseranteil im menschlichen Blutplasma",
+    "valuePercent": 92,
+    "description": "Blutplasma besteht damit fast ausschließlich aus Wasser — der Rest sind vor allem gelöste Proteine, Salze und Nährstoffe.",
+    "wikiTitle": "Blutplasma",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/FreshFrozenPlasma.JPG?width=500"
+  },
+  {
+    "id": "skeleton-bodyweight-share",
+    "label": "Anteil des Skeletts am Körpergewicht eines erwachsenen Menschen",
+    "valuePercent": 15,
+    "description": "Deutlich weniger, als die meisten Menschen beim bloßen Draufschauen schätzen würden.",
+    "wikiTitle": "Skelett des Menschen",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Govard_Bidloo_t87.jpg/330px-Govard_Bidloo_t87.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "pacific-ocean-share-of-oceans",
+    "label": "Anteil des Pazifischen Ozeans an der gesamten Meeresfläche der Erde",
+    "valuePercent": 46,
+    "description": "Allein er ist damit flächenmäßig größer als die gesamte Landfläche der Erde.",
+    "wikiTitle": "Pazifischer Ozean",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pacific%20Ocean.png?width=500"
+  },
+  {
+    "id": "brain-grey-matter-share",
+    "label": "Anteil der grauen Substanz am Volumen des menschlichen Gehirns",
+    "valuePercent": 40,
+    "description": "Der Rest ist vor allem weiße Substanz — die \"Verkabelung\" zwischen den Nervenzellen.",
+    "wikiTitle": "Graue Substanz",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Human%20brain%20right%20dissected%20lateral%20view%20description.JPG?width=500"
+  },
+  {
+    "id": "car-color-white-global",
+    "label": "So viele weltweit neu verkaufte Autos sind weiß oder hell lackiert",
+    "valuePercent": 35,
+    "description": "Damit seit Jahren die mit Abstand beliebteste Autofarbe der Welt, deutlich vor Schwarz und Grau.",
+    "wikiTitle": "Fahrzeuglackierung",
+    "image": null
+  },
+  {
+    "id": "overweight-adults-who-global",
+    "label": "So viele Erwachsene weltweit gelten laut WHO als übergewichtig",
+    "valuePercent": 39,
+    "description": "Ein Anteil, der sich seit den 1970er-Jahren weltweit fast verdreifacht hat.",
+    "wikiTitle": "Adipositas",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Obesity-waist%20circumference.svg?width=500"
+  },
+  {
+    "id": "glasses-wearers-germany",
+    "label": "So viele deutsche Erwachsene tragen eine Brille oder Kontaktlinsen",
+    "valuePercent": 63,
+    "description": "Mit steigendem Alter liegt der Anteil noch deutlich höher.",
+    "wikiTitle": "Fehlsichtigkeit",
+    "image": null
+  },
+  {
+    "id": "brain-water-content",
+    "label": "Wasseranteil des menschlichen Gehirns",
+    "valuePercent": 75,
+    "description": "Eines der wasserreichsten Organe des Körpers, direkt nach dem Blut.",
+    "wikiTitle": "Gehirn",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Vertebrate-brain-regions%20small.png?width=500"
+  }
+]

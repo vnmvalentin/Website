@@ -6,6 +6,13 @@
 // Einstellungsfenster des Hosts lag hier ebenfalls, ist aber auf den zentrierten Dialog
 // (ui/Modal.jsx) umgezogen — am rechten Bildschirmrand war es auf breiten Schirmen zu
 // weit weg von dem, was man gerade einstellt.
+//
+// Farben/Rand jetzt an ui/Modal.jsx angeglichen (derselbe dunkelblaue Verlauf, derselbe
+// Tinten-Rand) — vorher war dies der letzte Dialog der Spielmodi im alten schlichten
+// Grauton, während Modal längst den Comic-Look von Hub/Lobby trug. Kein .cr-arcade-panel
+// hier: das setzt einen Rand auf ALLEN vier Seiten, ein Drawer klebt aber an einer
+// Bildschirmkante und darf dort keinen Rand haben (sähe wie eine abgeschnittene Linie
+// am Fensterrand aus) — deshalb der Rand einzeln nur an den freien Kanten.
 
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -39,20 +46,22 @@ export default function Drawer({ open, onClose, title, icon, footer, children })
         aria-label={title}
         tabIndex={-1}
         className="cr-drawer-panel relative w-full sm:w-[26rem] max-h-[92vh] sm:max-h-none sm:h-full
-                   flex flex-col bg-[#0d0d18] border-t sm:border-t-0 sm:border-l border-white/10
-                   rounded-t-2xl sm:rounded-none shadow-2xl shadow-black/60">
+                   flex flex-col bg-gradient-to-b from-[#17293f] to-[#0c1725]
+                   border-t-[3px] sm:border-t-0 sm:border-l-[3px]
+                   rounded-t-2xl sm:rounded-none shadow-2xl shadow-black/60"
+        style={{ borderColor: 'var(--cr-arcade-ink)' }}>
         {/* Zieh-Griff: rein optisch, signalisiert auf dem Handy "das ist ein Blatt" */}
         <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
           <span className="w-10 h-1 rounded-full bg-white/20" />
         </div>
 
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10 shrink-0">
-          <span className="text-white font-bold flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b-2 border-black/30 shrink-0">
+          <span className="text-white font-arcade font-semibold flex items-center gap-2 min-w-0">
             {icon}
             <span className="truncate">{title}</span>
           </span>
           <button onClick={onClose} aria-label="Close"
-            className="text-white/40 hover:text-white p-1.5 -mr-1.5 rounded-lg hover:bg-white/5 transition-colors shrink-0">
+            className="text-white/40 hover:text-white p-1.5 -mr-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0">
             <X size={16} />
           </button>
         </div>
@@ -62,7 +71,7 @@ export default function Drawer({ open, onClose, title, icon, footer, children })
         {/* Fußbereich klebt am unteren Rand — die Hauptaktion bleibt erreichbar,
             egal wie weit man in den Einstellungen gescrollt hat. */}
         {footer && (
-          <div className="shrink-0 border-t border-white/10 px-5 py-4 bg-[#0d0d18]">{footer}</div>
+          <div className="shrink-0 border-t-2 border-black/30 px-5 py-4 bg-black/20">{footer}</div>
         )}
       </div>
     </div>,

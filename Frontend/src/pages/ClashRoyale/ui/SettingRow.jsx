@@ -62,7 +62,9 @@ export default function SettingRow({
  * z.B. das Aufdecksystem des Karussells (Dynamisch / Immer 2 / Immer 1). Ein Slider
  * wäre hier falsch: die Optionen sind keine Skala.
  *
- * @param {Array}    options   [{ id, label, disabled?, title? }]
+ * @param {Array}    options   [{ id, label, disabled?, title?, icon? }] — icon ist ein
+ *                             optionales lucide-Symbol VOR dem Label, für Wahlen, bei denen
+ *                             ein Icon die Option schneller erkennbar macht als reiner Text.
  * @param {*}        value     Aktuell gewählte id
  * @param {Function} onChange  Bekommt die neue id
  * @param {string}   accent    Tailwind-Klassen für den aktiven Zustand
@@ -81,6 +83,7 @@ export function SegmentedControl({
       {options.map(opt => {
         const active = opt.id === value;
         const isDisabled = disabled || opt.disabled;
+        const Icon = opt.icon;
         return (
           <button
             key={opt.id}
@@ -89,13 +92,14 @@ export function SegmentedControl({
             disabled={isDisabled}
             title={opt.title}
             aria-pressed={active}
-            className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
               isDisabled
                 ? 'bg-black/30 text-white/20 cursor-not-allowed'
                 : active
                   ? accent
                   : 'bg-black/30 text-white/50 hover:text-white hover:bg-black/50'
             }`}>
+            {Icon && <Icon size={13} />}
             {opt.label}
           </button>
         );

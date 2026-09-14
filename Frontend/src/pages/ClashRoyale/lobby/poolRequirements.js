@@ -17,6 +17,18 @@ const REQUIREMENTS = {
   'elixir-rush': (lobby, active) => active * 8 + (lobby?.rushMarketSize || 5),
   'angel-royale': (_lobby, active) => active * 8 + 6,
   'dark-maze': (_lobby, active) => active * 8 + 2,
+  'trap-setter': (lobby, active) => active * 8 + (lobby?.trapGridSize || 9),
+  // Vom Host gewählte Rastergröße (falls gesetzt und groß genug), sonst die kleinste
+  // Dreieckszahl n(n+1)/2 für 8 Runden × (aktiv + Blockrate) — 1:1 aus
+  // resolvedPyramidRows() in Backend/clashRoyale/modes/pyramidDraft.js.
+  'pyramid-draft': (lobby, active) => {
+    const blocks = [0, 1, 2, 3].includes(lobby?.pyramidBlocksPerRound) ? lobby.pyramidBlocksPerRound : 1;
+    const needed = 8 * (Math.max(1, active) + blocks);
+    let minRows = 1, total = 1;
+    while (total < needed) { minRows++; total += minRows; }
+    const n = Number.isInteger(lobby?.pyramidRows) ? Math.max(minRows, lobby.pyramidRows) : minRows;
+    return (n * (n + 1)) / 2;
+  },
   // Start ist reine Wildcards — echte Karten kommen erst on demand, kein Mindestpool
   'card-evolution': () => 0,
 };
@@ -30,6 +42,20 @@ const defaultRequirement = (lobby, active) => {
 export function requiredPoolFor(lobby, activeCount) {
   const fn = REQUIREMENTS[lobby?.mode] || defaultRequirement;
   return fn(lobby, activeCount);
+}
+
+// 2v2-Modi brauchen beide Teams vollständig (Slot 1 + Slot 2) — eine reine Spielerzahl-Prüfung
+// (>= 2) würde z.B. 3 Spieler in Team A und 1 in Team B fälschlich als startbereit zeigen.
+// Spiegelbild von isDuoTeamsReady() in Backend/clashRoyale/core/teams.js.
+function teamsReady(lobby) {
+  if (lobby?.partyMode !== 'duo') return true;
+  const players = lobby?.players || [];
+  return ['A', 'B'].every(letter => {
+    const slots = new Set(
+      players.filter(p => p.teamId === letter && !p.isSpectator).map(p => p.teamSlot)
+    );
+    return slots.has(1) && slots.has(2);
+  });
 }
 
 /**
@@ -47,12 +73,14 @@ export function lobbyReadiness(lobby, activeCount, poolSize, canControlLobby) {
   const poolTooSmall = lobby?.mode !== 'shadow-carousel'
     && lobby?.mode !== 'card-evolution'
     && poolSize < requiredPool;
+  const teamsNotReady = !teamsReady(lobby);
 
   return {
     requiredPool,
     poolTooSmall,
     carouselMaxPlayers,
     carouselTooMany,
-    canStart: !!canControlLobby && activeCount >= 2 && !carouselTooMany && !poolTooSmall,
+    teamsNotReady,
+    canStart: !!canControlLobby && activeCount >= 2 && !carouselTooMany && !poolTooSmall && !teamsNotReady,
   };
 }

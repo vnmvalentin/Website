@@ -8,10 +8,11 @@
 // Der Inhalt steht in modeTutorials.js, das Aussehen hier.
 
 import React from 'react';
-import { Target, ListOrdered, Lightbulb, Sliders } from 'lucide-react';
+import { Target, Lightbulb, Sliders } from 'lucide-react';
 import Modal from '../ui/Modal';
-import { modeImage } from '../modesConfig';
+import { modeCover } from '../modesConfig';
 import { tutorialFor, TUTORIAL_I18N } from './modeTutorials';
+import scrollIcon from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
 
 /** Überschrift eines Abschnitts — Symbol, Text, dünne Linie. */
 function SectionTitle({ icon: Icon, children }) {
@@ -22,6 +23,13 @@ function SectionTitle({ icon: Icon, children }) {
       <div className="h-px flex-1 bg-white/[0.07]" />
     </div>
   );
+}
+
+/** Questrollen-Symbol statt einer nummerierten Liste als Aufmacher für "So läuft's ab" —
+ *  passt zur Bedeutung (Ablauf/Anleitung) besser als das generische Listen-Icon. Braucht
+ *  dieselbe size/className-Hülle wie ein lucide-Symbol, siehe SectionTitle oben. */
+function ScrollIcon({ size = 14, className = '' }) {
+  return <img src={scrollIcon} alt="" width={size} height={size} className={className} style={{ objectFit: 'contain' }} />;
 }
 
 export default function ModeTutorialModal({ mode, name, description, lang = 'de', onClose }) {
@@ -38,7 +46,7 @@ export default function ModeTutorialModal({ mode, name, description, lang = 'de'
 
       {/* Bild als Aufmacher. Fehlt es, entfällt es ersatzlos — der Text trägt allein. */}
       <div className="relative aspect-[16/7] bg-[#0e0e1a] overflow-hidden">
-        <img src={modeImage(mode.id)} alt="" loading="lazy" decoding="async"
+        <img src={modeCover(mode.id)} alt="" loading="lazy" decoding="async"
           className="w-full h-full object-cover"
           onError={e => { e.currentTarget.closest('div').style.display = 'none'; }} />
         <div className="absolute inset-0"
@@ -57,7 +65,7 @@ export default function ModeTutorialModal({ mode, name, description, lang = 'de'
 
         {guide?.steps?.length > 0 && (
           <div>
-            <SectionTitle icon={ListOrdered}>{t.steps}</SectionTitle>
+            <SectionTitle icon={ScrollIcon}>{t.steps}</SectionTitle>
             <ol className="space-y-2.5">
               {guide.steps.map((step, i) => (
                 <li key={i} className="flex gap-3">

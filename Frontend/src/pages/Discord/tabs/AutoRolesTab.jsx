@@ -47,12 +47,12 @@ export default function AutoRolesTab({ selectedServer, serverRoles }) {
                 </p>
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-5 max-w-2xl">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-5 max-w-2xl">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-white text-sm font-medium mb-2">Quell-Rolle <span className="text-white/40 font-normal">(haben diese Rolle)</span></label>
                         <select value={sourceRoleId} onChange={e => { setSourceRoleId(e.target.value); setResult(null); setError(''); }}
-                            className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                             <option value="">-- Rolle auswählen --</option>
                             {serverRoles.map(r => <option key={r.id} value={r.id}>@{r.name}</option>)}
                         </select>
@@ -60,7 +60,7 @@ export default function AutoRolesTab({ selectedServer, serverRoles }) {
                     <div>
                         <label className="block text-white text-sm font-medium mb-2">Ziel-Rolle <span className="text-white/40 font-normal">(sollen diese erhalten)</span></label>
                         <select value={assignRoleId} onChange={e => { setAssignRoleId(e.target.value); setResult(null); setError(''); }}
-                            className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                             <option value="">-- Rolle auswählen --</option>
                             {serverRoles.map(r => <option key={r.id} value={r.id}>@{r.name}</option>)}
                         </select>
@@ -68,7 +68,7 @@ export default function AutoRolesTab({ selectedServer, serverRoles }) {
                 </div>
 
                 {sourceRoleId && assignRoleId && (
-                    <div className="bg-black/30 rounded-lg p-4 text-sm flex flex-wrap items-center gap-2">
+                    <div className="bg-[#0e0e1a]/85 rounded-lg p-4 text-sm flex flex-wrap items-center gap-2">
                         <span className="text-white/50">Gib allen</span>
                         <span className="font-mono px-2 py-0.5 rounded-lg border text-sm"
                             style={{ color: roleColor(sourceRoleId), borderColor: roleColor(sourceRoleId) + '40', background: roleColor(sourceRoleId) + '15' }}>
@@ -109,7 +109,7 @@ export default function AutoRolesTab({ selectedServer, serverRoles }) {
                 )}
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-2 max-w-2xl">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-2 max-w-2xl">
                 <h3 className="text-white font-semibold text-sm">ℹ️ Hinweis</h3>
                 <ul className="text-white/50 text-sm space-y-1">
                     <li>• Die Aktion wird sofort ausgeführt und kann nicht rückgängig gemacht werden</li>

@@ -1,8 +1,9 @@
 // Zuschnitt des Kartenartworks.
 //
-// Die Bilder von cdn.royaleapi.com bringen den Seltenheitsrahmen MIT — orange bei Rare,
-// grau bei Common, violett bei Epic und so weiter. Eine rahmenlose Variante gibt es dort
-// nicht (geprüft: /cards/, /cards-150/, /card-art/ — alle mit Rahmen bzw. nicht vorhanden).
+// Die Bilder von Supercells eigenem Asset-CDN (api-assets.clashroyale.com, siehe
+// cardImageUrl() in data/cards.js — früher cdn.royaleapi.com, dieselbe Prüfung dort ergab
+// dasselbe Bild) bringen den Seltenheitsrahmen MIT — orange bei Rare, grau bei Common, violett
+// bei Epic und so weiter. Eine rahmenlose Variante liefert die API nicht.
 //
 // Wer die Karten rahmenlos will, hat deshalb nur eine Möglichkeit: leicht hineinzoomen,
 // sodass der Rahmen aus dem sichtbaren Bereich fällt. Der Container muss dafür

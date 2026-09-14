@@ -228,7 +228,7 @@ export default function DiscordBotDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {servers.map(server => (
                         <div key={server.id} className="panel p-6 flex flex-col items-center group">
-                            <div className="w-20 h-20 rounded-2xl bg-black/30 mb-4 overflow-hidden border border-white/10 group-hover:border-violet-400/30 transition-colors">
+                            <div className="w-20 h-20 rounded-2xl bg-[#0e0e1a]/85 mb-4 overflow-hidden border border-white/10 group-hover:border-violet-400/30 transition-colors">
                                 {server.icon
                                     ? <img src={server.icon} className="w-full h-full object-cover " alt={server.name} />
                                     : <div className="text-3xl text-white/40 w-full h-full flex items-center justify-center">{server.name.charAt(0)}</div>}
@@ -263,12 +263,12 @@ export default function DiscordBotDashboard() {
             />
 
             {/* Top bar — fixed, never scrolls */}
-            <div className="shrink-0 h-14 bg-black/25 border-b border-white/10 flex items-center px-4 gap-3">
+            <div className="shrink-0 h-14 bg-[#0e0e1a]/80 border-b border-white/10 flex items-center px-4 gap-3">
                 <button onClick={() => setSelectedServer(null)}
                     className="text-white/40 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5 shrink-0">
                     <ChevronLeft size={20} />
                 </button>
-                <div className="w-8 h-8 rounded-lg bg-black/40 overflow-hidden border border-white/10 shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-[#0e0e1a]/90 overflow-hidden border border-white/10 shrink-0">
                     {selectedServer.icon
                         ? <img src={selectedServer.icon} className="w-full h-full object-cover" alt={selectedServer.name} />
                         : <div className="text-sm text-white/50 w-full h-full flex items-center justify-center font-bold">{selectedServer.name.charAt(0)}</div>}
@@ -281,7 +281,7 @@ export default function DiscordBotDashboard() {
             <div className="flex-1 flex overflow-hidden">
 
                 {/* Sidebar — fixed, never scrolls */}
-                <div className="w-56 shrink-0 bg-black/20 border-r border-white/10 flex flex-col py-2 px-2 overflow-y-auto custom-scrollbar">
+                <div className="w-56 shrink-0 bg-[#0e0e1a]/75 border-r border-white/10 flex flex-col py-2 px-2 overflow-y-auto custom-scrollbar">
                     {GROUPS.map(group => (
                         <div key={group.label} className="mb-1">
                             <p className="text-white/30 text-[10px] font-semibold uppercase tracking-wider px-3 pt-3 pb-1">{group.label}</p>

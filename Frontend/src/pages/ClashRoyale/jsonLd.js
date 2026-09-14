@@ -9,8 +9,33 @@
 import { SITE_URL } from './constants';
 import { MODES, modeNameFor, modeDescFor } from './modesConfig';
 
+// Nur die paar Wörter, die nicht schon über t (PAGE_I18N) oder modesConfig.js laufen.
+const JSONLD_I18N = {
+  de: {
+    subCategory: 'Multiplayer-Draft-Minigames',
+    browserReq: 'Benötigt JavaScript und einen aktuellen Browser',
+    modesListName: 'Clash Royale Spielmodi',
+    home: 'Startseite',
+  },
+  en: {
+    subCategory: 'Multiplayer draft minigames',
+    browserReq: 'Requires JavaScript and a modern browser',
+    modesListName: 'Clash Royale minigame modes',
+    home: 'Home',
+  },
+  es: {
+    subCategory: 'Minijuegos de draft multijugador',
+    browserReq: 'Requiere JavaScript y un navegador moderno',
+    modesListName: 'Modos de minijuegos de Clash Royale',
+    home: 'Inicio',
+  },
+};
+
 export function buildClashJsonLd(t, lang) {
-  const pageUrl = lang === 'en' ? `${SITE_URL}/clash-royale?lang=en` : `${SITE_URL}/clash-royale`;
+  const j = JSONLD_I18N[lang] || JSONLD_I18N.de;
+  // lang selbst ist bereits 'de'/'en'/'es' — passt 1:1 als ?lang= und als inLanguage-Code,
+  // Deutsch bleibt ohne Parameter die kanonische Fassung.
+  const pageUrl = lang === 'de' ? `${SITE_URL}/clash-royale` : `${SITE_URL}/clash-royale?lang=${lang}`;
   const availableModes = MODES.filter(m => m.available);
 
   return [
@@ -21,10 +46,10 @@ export function buildClashJsonLd(t, lang) {
       url: pageUrl,
       description: t.seoDesc,
       applicationCategory: 'GameApplication',
-      applicationSubCategory: lang === 'en' ? 'Multiplayer draft minigames' : 'Multiplayer-Draft-Minigames',
+      applicationSubCategory: j.subCategory,
       operatingSystem: 'Web browser',
-      browserRequirements: lang === 'en' ? 'Requires JavaScript and a modern browser' : 'Benötigt JavaScript und einen aktuellen Browser',
-      inLanguage: lang === 'en' ? 'en' : 'de',
+      browserRequirements: j.browserReq,
+      inLanguage: lang,
       isAccessibleForFree: true,
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
       author: { '@type': 'Person', name: 'vnmvalentin', url: SITE_URL },
@@ -33,7 +58,7 @@ export function buildClashJsonLd(t, lang) {
     {
       '@context': 'https://schema.org',
       '@type': 'ItemList',
-      name: lang === 'en' ? 'Clash Royale minigame modes' : 'Clash Royale Spielmodi',
+      name: j.modesListName,
       itemListElement: availableModes.map((m, i) => ({
         '@type': 'ListItem',
         position: i + 1,
@@ -54,7 +79,7 @@ export function buildClashJsonLd(t, lang) {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: lang === 'en' ? 'Home' : 'Startseite', item: SITE_URL },
+        { '@type': 'ListItem', position: 1, name: j.home, item: SITE_URL },
         { '@type': 'ListItem', position: 2, name: 'Clash Royale', item: `${SITE_URL}/clash` },
         { '@type': 'ListItem', position: 3, name: 'Minigames', item: pageUrl },
       ],

@@ -1,0 +1,911 @@
+[
+  {
+    "id": "human-blink-duration",
+    "label": "Ein einzelner menschlicher Lidschlag",
+    "value": 300,
+    "unit": " Millisekunden",
+    "description": "So lange dauert im Schnitt ein normales, unwillkürliches Blinzeln.",
+    "wikiTitle": "Augenlid",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Eye%20macro.jpg?width=500"
+  },
+  {
+    "id": "human-reaction-time",
+    "label": "Reaktionszeit eines Menschen auf ein plötzliches optisches Signal",
+    "value": 250,
+    "unit": " Millisekunden",
+    "description": "So lange braucht ein durchschnittlicher Mensch, um auf ein unerwartetes visuelles Signal zu reagieren.",
+    "wikiTitle": "Reaktionszeit",
+    "image": null
+  },
+  {
+    "id": "hummingbird-wingbeat",
+    "label": "Ein einzelner Flügelschlag eines Kolibris",
+    "value": 20,
+    "unit": " Millisekunden",
+    "description": "Kolibris schlagen bis zu 50-mal pro Sekunde mit den Flügeln — jeder einzelne Schlag dauert nur einen Wimpernschlag.",
+    "wikiTitle": "Kolibris",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Archilochus-alexandri-002-edit.jpg?width=500"
+  },
+  {
+    "id": "housefly-wingbeat",
+    "label": "Ein einzelner Flügelschlag einer Stubenfliege",
+    "value": 5,
+    "unit": " Millisekunden",
+    "description": "Bei rund 200 Flügelschlägen pro Sekunde ist jeder einzelne extrem kurz.",
+    "wikiTitle": "Stubenfliege",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Musca%20domestica%20housefly.jpg?width=500"
+  },
+  {
+    "id": "lightning-flash-duration",
+    "label": "Ein sichtbarer Blitz am Himmel",
+    "value": 200,
+    "unit": " Millisekunden",
+    "description": "Was wie ein einziger Lichtblitz aussieht, besteht meist aus mehreren extrem kurzen Teilentladungen kurz hintereinander.",
+    "wikiTitle": "Blitz",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lightning%20Pritzerbe%2001%20(MK).jpg?width=500"
+  },
+  {
+    "id": "human-sneeze-duration",
+    "label": "Ein menschliches Niesen",
+    "value": 500,
+    "unit": " Millisekunden",
+    "description": "Der eigentliche Ausstoß bei einem Nieser ist überraschend kurz, auch wenn es sich länger anfühlt.",
+    "wikiTitle": "Niesen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sneeze.JPG?width=500"
+  },
+  {
+    "id": "tv-commercial-standard",
+    "label": "Ein klassischer Fernsehwerbespot",
+    "value": 30,
+    "unit": " Sekunden",
+    "description": "Die mit Abstand gängigste Standardlänge für TV-Werbung weltweit.",
+    "wikiTitle": "Werbespot",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f4/Actor_portraying_Alexander_Graham_Bell_in_an_AT%26T_promotional_film_%281926%29.jpg/330px-Actor_portraying_Alexander_Graham_Bell_in_an_AT%26T_promotional_film_%281926%29.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "cheetah-sprint-burst",
+    "label": "Ein Sprint eines Geparden bei Höchsttempo",
+    "value": 20,
+    "unit": " Sekunden",
+    "description": "Länger hält der Gepard sein Spitzentempo wegen drohender Überhitzung nicht durch.",
+    "wikiTitle": "Gepard",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cheetah%20(Acinonyx%20jubatus)%20female%202.jpg?width=500"
+  },
+  {
+    "id": "hundred-meter-sprint-record",
+    "label": "Ein 100-Meter-Sprint auf Weltrekord-Niveau",
+    "value": 10,
+    "unit": " Sekunden",
+    "description": "Der aktuelle Weltrekord liegt hauchdünn darunter — als Richtwert gilt seit Langem diese Marke.",
+    "wikiTitle": "100-Meter-Lauf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Leichtathletik%20WM%202013%20Moskau%20100%20m%20Vorlauf.jpg?width=500"
+  },
+  {
+    "id": "resting-breath-cycle",
+    "label": "Ein vollständiger Atemzug (ein- und ausatmen) in Ruhe",
+    "value": 4,
+    "unit": " Sekunden",
+    "description": "Erwachsene atmen in Ruhe im Schnitt etwa 15-mal pro Minute — das ergibt diese ungefähre Zykluslänge.",
+    "wikiTitle": "Atmung",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bubble%20Blowing%2015.jpg?width=500"
+  },
+  {
+    "id": "solar-eclipse-totality",
+    "label": "Die Totalitätsphase einer typischen totalen Sonnenfinsternis",
+    "value": 4,
+    "unit": " Minuten",
+    "description": "Länger als etwa 7,5 Minuten kann die Totalität aus rein astronomischen Gründen nie dauern — die meisten Finsternisse sind deutlich kürzer.",
+    "wikiTitle": "Sonnenfinsternis",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Solar%20eclipse%201999%204.jpg?width=500"
+  },
+  {
+    "id": "egg-boiling-hard",
+    "label": "Ein hartgekochtes Ei",
+    "value": 10,
+    "unit": " Minuten",
+    "description": "So lange braucht ein Hühnerei ab dem Einlegen in sprudelndes Wasser, um komplett durchzuhärten.",
+    "wikiTitle": "Hühnerei",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Day%20017%20Photo365%20Eggs%20(95960053).jpeg?width=500"
+  },
+  {
+    "id": "movie-average-length",
+    "label": "Ein durchschnittlicher Kinospielfilm",
+    "value": 120,
+    "unit": " Minuten",
+    "description": "Die meisten heutigen Spielfilme im Kino dauern etwa zwei Stunden.",
+    "wikiTitle": "Kino",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Berlin%20Filmtheater%20am%20Friedrichshain%20asv2024-06%20img6.jpg?width=500"
+  },
+  {
+    "id": "anglo-zanzibar-war",
+    "label": "Der kürzeste Krieg der Geschichte (Anglo-Sansibar-Krieg, 1896)",
+    "value": 40,
+    "unit": " Minuten",
+    "description": "Der offiziell kürzeste Krieg der Geschichte war nach weniger als einer Dreiviertelstunde vorbei.",
+    "wikiTitle": "Sultanat Sansibar",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c4/Flag_of_the_Sultanate_of_Zanzibar_%281963%29.svg/langde-330px-Flag_of_the_Sultanate_of_Zanzibar_%281963%29.svg.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "iss-orbit-duration",
+    "label": "Eine komplette Erdumrundung der Internationalen Raumstation",
+    "value": 90,
+    "unit": " Minuten",
+    "description": "Die ISS umkreist die Erde dadurch etwa 16-mal am Tag.",
+    "wikiTitle": "Internationale Raumstation",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20station%20pictured%20from%20the%20SpaceX%20Crew%20Dragon%205%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "black-tea-steep-time",
+    "label": "Ziehzeit für einen kräftigen Schwarztee",
+    "value": 5,
+    "unit": " Minuten",
+    "description": "Kürzer ergibt einen milderen, deutlich länger einen bitteren Tee.",
+    "wikiTitle": "Schwarzer Tee",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/A%20cup%20of%20black%20tea%20from%20Srimangal%20Bangladesh.jpg?width=500"
+  },
+  {
+    "id": "marathon-worldrecord-hours",
+    "label": "Der aktuelle Marathon-Weltrekord der Männer",
+    "value": 2,
+    "unit": " Stunden",
+    "description": "Der echte Rekord liegt hauchdünn über dieser Marke — die viel diskutierte Zwei-Stunden-Grenze ist im offiziellen Rennen noch nicht gefallen.",
+    "wikiTitle": "Marathonlauf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Berlin%20marathon.jpg?width=500"
+  },
+  {
+    "id": "workday-fulltime",
+    "label": "Ein klassischer Arbeitstag in Vollzeit",
+    "value": 8,
+    "unit": " Stunden",
+    "description": "Die historisch erkämpfte Standardlänge eines Achtstundentags.",
+    "wikiTitle": "Büroarbeit",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/09/Channel_1_Israel_DSC0021.jpg/330px-Channel_1_Israel_DSC0021.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "recommended-adult-sleep",
+    "label": "Empfohlene Schlafdauer für einen Erwachsenen",
+    "value": 8,
+    "unit": " Stunden",
+    "description": "Die meisten Gesundheitsorganisationen empfehlen Erwachsenen ungefähr diese Schlafdauer pro Nacht.",
+    "wikiTitle": "Schlaf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lion%20and%20lioness%20sleeping.JPG?width=500"
+  },
+  {
+    "id": "transatlantic-flight",
+    "label": "Ein Langstreckenflug zwischen Europa und Nordamerika",
+    "value": 8,
+    "unit": " Stunden",
+    "description": "Je nach genauer Strecke und Rückenwind schwankt das etwas, aber das ist eine typische Flugzeit.",
+    "wikiTitle": "Verkehrsflugzeug",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Concorde.planview.arp.jpg?width=500"
+  },
+  {
+    "id": "filibuster-record",
+    "label": "Der längste ununterbrochene Redebeitrag (Filibuster) im US-Senat",
+    "value": 24,
+    "unit": " Stunden",
+    "description": "Aufgestellt 1957 — der Senator sprach über einen ganzen Tag hinweg ohne Unterbrechung.",
+    "wikiTitle": "Strom Thurmond",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Strom%20Thurmond%2C%20c%201961%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "everest-final-summit-push",
+    "label": "Der letzte Aufstiegsabschnitt zum Mount-Everest-Gipfel ab dem letzten Hochlager",
+    "value": 10,
+    "unit": " Stunden",
+    "description": "Der wohl anstrengendste Abschnitt der gesamten Besteigung, meist in der Nacht begonnen.",
+    "wikiTitle": "Mount Everest",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mount%20Everest%20as%20seen%20from%20Drukair2%20PLW%20edit.jpg?width=500"
+  },
+  {
+    "id": "hackathon-typical",
+    "label": "Ein klassisches Hackathon-Event",
+    "value": 24,
+    "unit": " Stunden",
+    "description": "Das gängige Format für diese Programmier-Wettbewerbe: ein ganzer Tag und eine Nacht durchcoden.",
+    "wikiTitle": "Hackathon",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Junction%202015.jpg?width=500"
+  },
+  {
+    "id": "mayfly-adult-lifespan",
+    "label": "Die Lebensspanne einer erwachsenen Eintagsfliege",
+    "value": 24,
+    "unit": " Stunden",
+    "description": "Bei vielen Arten lebt das erwachsene, flugfähige Insekt nur ganz kurz — die eigentliche Lebenszeit verbringt es als Larve im Wasser.",
+    "wikiTitle": "Eintagsfliegen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Ephemeroptera01.jpg?width=500"
+  },
+  {
+    "id": "moon-sidereal-orbit",
+    "label": "Eine vollständige Mondumlaufbahn um die Erde",
+    "value": 27,
+    "unit": " Tage",
+    "description": "Der sogenannte siderische Monat — leicht kürzer als der bekanntere Mondphasen-Zyklus.",
+    "wikiTitle": "Mond",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/FullMoon2010.jpg?width=500"
+  },
+  {
+    "id": "moon-phase-cycle",
+    "label": "Ein vollständiger Mondphasen-Zyklus (Neumond bis Neumond)",
+    "value": 30,
+    "unit": " Tage",
+    "description": "Dieser sogenannte synodische Monat ist die Grundlage vieler historischer Kalender.",
+    "wikiTitle": "Mondphase",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lunar%20libration%20with%20phase%20Oct%202007%20(continuous%20loop).gif?width=500"
+  },
+  {
+    "id": "flu-recovery-typical",
+    "label": "Eine typische Grippe-Erkrankung bei einem gesunden Erwachsenen",
+    "value": 7,
+    "unit": " Tage",
+    "description": "Die akuten Symptome klingen bei den meisten gesunden Erwachsenen etwa nach einer Woche wieder ab.",
+    "wikiTitle": "Influenza",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/3D%20Influenza%20virus.png?width=500"
+  },
+  {
+    "id": "pizza-dough-cold-ferment",
+    "label": "Lange Kühlschrank-Gare für besonders aromatischen Pizzateig",
+    "value": 2,
+    "unit": " Tage",
+    "description": "Über mehrere Tage im Kühlschrank entwickelt der Teig deutlich mehr Aroma als bei Zimmertemperatur.",
+    "wikiTitle": "Pizza",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Eq%20it-na%20pizza-margherita%20sep2005%20sml.jpg?width=500"
+  },
+  {
+    "id": "dog-pregnancy",
+    "label": "Trächtigkeit bei einem Hund",
+    "value": 63,
+    "unit": " Tage",
+    "description": "Eine der zuverlässigsten Zahlen in der Tiermedizin — mit sehr wenig Streuung zwischen den Rassen.",
+    "wikiTitle": "Hund",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/42/Harzer_Fuchs_H%C3%BCndin_2.jpg/330px-Harzer_Fuchs_H%C3%BCndin_2.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "chicken-egg-incubation-days",
+    "label": "Ausbrütung eines Hühnereis bis zum Schlüpfen",
+    "value": 21,
+    "unit": " Tage",
+    "description": "Von der Bebrütung bis zum Schlüpfen eines Kükens vergeht fast genau diese Zeit.",
+    "wikiTitle": "Hühnerei",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Day%20017%20Photo365%20Eggs%20(95960053).jpeg?width=500"
+  },
+  {
+    "id": "fruit-fly-lifespan",
+    "label": "Lebenserwartung einer Fruchtfliege",
+    "value": 40,
+    "unit": " Tage",
+    "description": "Im Labor bei Zimmertemperatur gehalten lebt die als Forschungsobjekt berühmte Taufliege ungefähr so lange.",
+    "wikiTitle": "Taufliegen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Drosophila.jpg?width=500"
+  },
+  {
+    "id": "human-pregnancy-full-term",
+    "label": "Eine vollständige menschliche Schwangerschaft",
+    "value": 40,
+    "unit": " Wochen",
+    "description": "Von der letzten Periode bis zum errechneten Geburtstermin gerechnet.",
+    "wikiTitle": "Schwangerschaft",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pregnant%20asian%20woman.jpg?width=500"
+  },
+  {
+    "id": "tadpole-to-frog",
+    "label": "Entwicklung einer Kaulquappe zum fertigen Frosch",
+    "value": 12,
+    "unit": " Wochen",
+    "description": "Je nach Art und Wassertemperatur schwankt das stark — das ist ein typischer Wert für heimische Frösche.",
+    "wikiTitle": "Kaulquappe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Tadpoles%2010%20days.jpg?width=500"
+  },
+  {
+    "id": "broken-bone-healing",
+    "label": "Heilung eines einfachen Knochenbruchs (z.B. Unterarm) bis zur Belastbarkeit",
+    "value": 6,
+    "unit": " Wochen",
+    "description": "Ein grober Richtwert für gesunde Erwachsene — Alter und Bruchart verändern das stark.",
+    "wikiTitle": "Knochenbruch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Broken%20fixed%20arm.jpg?width=500"
+  },
+  {
+    "id": "elephant-gestation",
+    "label": "Trächtigkeit bei einem Elefanten",
+    "value": 22,
+    "unit": " Monate",
+    "description": "Die längste Tragzeit aller Landsäugetiere.",
+    "wikiTitle": "Afrikanischer Elefant",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/178%20Male%20African%20bush%20elephant%20in%20Etosha%20National%20Park%20Photo%20by%20Giles%20Laurent.jpg?width=500"
+  },
+  {
+    "id": "beard-full-growth",
+    "label": "Ein vollständiger, dichter Vollbart ganz ohne Rasur",
+    "value": 4,
+    "unit": " Monate",
+    "description": "Die genaue Dauer hängt stark von Genetik und Wachstumsrate ab, aber das ist ein üblicher Richtwert.",
+    "wikiTitle": "Bart",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Photography-wallpaper-facial-hair-man-beard-chin-moustache-human-elder-portrait-1453095.jpg?width=500"
+  },
+  {
+    "id": "puppy-to-adult-dog",
+    "label": "Ein Hundewelpen (kleine bis mittlere Rasse) erreicht die volle Erwachsenengröße",
+    "value": 12,
+    "unit": " Monate",
+    "description": "Große Rassen brauchen dafür oft deutlich länger, bis zu zwei Jahre.",
+    "wikiTitle": "Hund",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/42/Harzer_Fuchs_H%C3%BCndin_2.jpg/330px-Harzer_Fuchs_H%C3%BCndin_2.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "eiffel-tower-construction",
+    "label": "Bauzeit des Eiffelturms",
+    "value": 26,
+    "unit": " Monate",
+    "description": "Von 1887 bis 1889 errichtet — für die damalige Zeit ein bemerkenswert schnelles Bauprojekt dieser Größe.",
+    "wikiTitle": "Eiffelturm",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Tour%20Eiffel%20Wikimedia%20Commons.jpg?width=500"
+  },
+  {
+    "id": "hibernating-bear-winter",
+    "label": "Ein typischer Winterschlaf eines Braunbären",
+    "value": 5,
+    "unit": " Monate",
+    "description": "Je nach Klima und Region schwankt das zwischen etwa drei und sieben Monaten.",
+    "wikiTitle": "Winterschlaf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Eptesicus%20nilssonii%20hibernating.JPG?width=500"
+  },
+  {
+    "id": "dog-lifespan-average",
+    "label": "Durchschnittliche Lebenserwartung eines Hundes",
+    "value": 12,
+    "unit": " Jahre",
+    "description": "Kleinere Rassen werden im Schnitt spürbar älter als sehr große.",
+    "wikiTitle": "Haushund",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Greenland%20467%20(35130903436)%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "cat-lifespan-average",
+    "label": "Durchschnittliche Lebenserwartung einer Hauskatze",
+    "value": 15,
+    "unit": " Jahre",
+    "description": "Reine Wohnungskatzen werden im Schnitt deutlich älter als Freigänger.",
+    "wikiTitle": "Hauskatze",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cat%20grooming.jpg?width=500"
+  },
+  {
+    "id": "human-life-expectancy-global",
+    "label": "Durchschnittliche weltweite Lebenserwartung eines Menschen",
+    "value": 73,
+    "unit": " Jahre",
+    "description": "Der globale Durchschnitt liegt deutlich unter dem vieler einzelner wohlhabender Länder.",
+    "wikiTitle": "Lebenserwartung",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Comparison%20of%20male%20and%20female%20life%20expectancy%20-world.svg?width=500"
+  },
+  {
+    "id": "hundred-years-war",
+    "label": "Der Hundertjährige Krieg zwischen England und Frankreich",
+    "value": 116,
+    "unit": " Jahre",
+    "description": "Trotz seines Namens dauerte dieser Konflikt mit Unterbrechungen deutlich länger als hundert Jahre.",
+    "wikiTitle": "Hundertjähriger Krieg",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Battle%20of%20crecy%20froissart.jpg?width=500"
+  },
+  {
+    "id": "periodical-cicada-cycle",
+    "label": "Lebenszyklus einer Periodischen Zikade bis zum Schlüpfen als erwachsenes Insekt",
+    "value": 17,
+    "unit": " Jahre",
+    "description": "Fast das gesamte Leben verbringt diese berühmte Zikadenart als Larve unterirdisch, bevor sie synchron mit Millionen Artgenossen schlüpft.",
+    "wikiTitle": "Periodische Zikaden",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/d/d6/Magicicada_fg06_ver%C3%A4ndert.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+  },
+  {
+    "id": "giant-tortoise-lifespan",
+    "label": "Lebenserwartung einer Galápagos-Riesenschildkröte",
+    "value": 100,
+    "unit": " Jahre",
+    "description": "Einzelne Tiere werden nachweislich noch deutlich älter.",
+    "wikiTitle": "Galápagos-Riesenschildkröte",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/Galapagos_Geochelone_nigra_porteri.jpg/330px-Galapagos_Geochelone_nigra_porteri.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "queen-elizabeth-reign",
+    "label": "Die Regierungszeit von Königin Elisabeth II.",
+    "value": 70,
+    "unit": " Jahre",
+    "description": "Die längste Regierungszeit eines britischen Monarchen in der Geschichte, von 1952 bis 2022.",
+    "wikiTitle": "Elisabeth II.",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Queen%20Elizabeth%20II%20in%20March%202015.jpg?width=500"
+  },
+  {
+    "id": "oak-tree-lifespan",
+    "label": "Typische Lebenserwartung einer Stieleiche",
+    "value": 300,
+    "unit": " Jahre",
+    "description": "Einzelne besonders alte Exemplare werden noch um ein Vielfaches älter.",
+    "wikiTitle": "Stieleiche",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Paprastasis%20azuolas.JPG?width=500"
+  },
+  {
+    "id": "taj-mahal-construction",
+    "label": "Bauzeit des Taj Mahal",
+    "value": 22,
+    "unit": " Jahre",
+    "description": "Der Hauptbau war schneller fertig, der gesamte Komplex mit Gärten und Torbauten brauchte aber diese Zeit.",
+    "wikiTitle": "Taj Mahal",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Taj%20Mahal%20(Edited).jpeg?width=500"
+  },
+  {
+    "id": "great-pyramid-construction",
+    "label": "Bauzeit der Großen Pyramide von Gizeh",
+    "value": 20,
+    "unit": " Jahre",
+    "description": "Nach der oft zitierten (wenn auch nicht unumstrittenen) antiken Schätzung des Historikers Herodot.",
+    "wikiTitle": "Cheops-Pyramide",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kheops-Pyramid.jpg?width=500"
+  },
+  {
+    "id": "camera-flash-duration",
+    "label": "Ein typischer Blitz einer Kamera",
+    "value": 1,
+    "unit": " Millisekunden",
+    "description": "Kurz genug, um selbst schnelle Bewegungen scharf einzufrieren.",
+    "wikiTitle": "Elektronenblitzgerät",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f1/Naumann_Blitzlichaufnahme_1888_crop.jpg/330px-Naumann_Blitzlichaufnahme_1888_crop.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "mosquito-wingbeat",
+    "label": "Ein einzelner Flügelschlag einer Stechmücke",
+    "value": 1.7,
+    "unit": " Millisekunden",
+    "description": "Bei rund 600 Flügelschlägen pro Sekunde ist jeder einzelne extrem kurz — daher der charakteristische hohe Summton.",
+    "wikiTitle": "Stechmücken",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mosquito%202007-2.jpg?width=500"
+  },
+  {
+    "id": "hummingbird-heartbeat-interval",
+    "label": "Abstand zwischen zwei Herzschlägen eines Kolibris im Flug",
+    "value": 50,
+    "unit": " Millisekunden",
+    "description": "Sein Herz schlägt im Flug bis zu 1.200-mal pro Minute — eines der schnellsten aller Wirbeltierherzen.",
+    "wikiTitle": "Kolibris",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Archilochus-alexandri-002-edit.jpg?width=500"
+  },
+  {
+    "id": "human-heartbeat-interval",
+    "label": "Abstand zwischen zwei Herzschlägen eines Menschen in Ruhe",
+    "value": 830,
+    "unit": " Millisekunden",
+    "description": "Bei rund 70 Schlägen pro Minute liegt zwischen zwei Schlägen etwas weniger als eine Sekunde.",
+    "wikiTitle": "Herzfrequenz",
+    "image": null
+  },
+  {
+    "id": "wright-brothers-first-flight",
+    "label": "Der allererste motorisierte Flug der Gebrüder Wright (1903)",
+    "value": 12,
+    "unit": " Sekunden",
+    "description": "Kürzer als die meisten heutigen Start-Ansagen — trotzdem der Beginn der Luftfahrtgeschichte.",
+    "wikiTitle": "Gebrüder Wright",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6d/WrightBrothers.jpg/330px-WrightBrothers.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "yawn-duration",
+    "label": "Ein durchschnittliches menschliches Gähnen",
+    "value": 6,
+    "unit": " Sekunden",
+    "description": "Warum Gähnen überhaupt so ansteckend ist, ist bis heute nicht abschließend geklärt.",
+    "wikiTitle": "Gähnen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Macaca%20fuscata%20juvenile%20yawning.jpg?width=500"
+  },
+  {
+    "id": "espresso-extraction",
+    "label": "Extraktionszeit eines klassischen Espressos",
+    "value": 27,
+    "unit": " Sekunden",
+    "description": "Zu kurz, und der Kaffee schmeckt sauer und wässrig — zu lang, und er wird bitter.",
+    "wikiTitle": "Espresso",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Espresso%20BW%201.jpg?width=500"
+  },
+  {
+    "id": "instant-noodles-cook",
+    "label": "Kochzeit einer Portion Instant-Nudeln",
+    "value": 3,
+    "unit": " Minuten",
+    "description": "Genau das war der ursprüngliche Verkaufsclou der Erfindung: essfertig in wenigen Minuten.",
+    "wikiTitle": "Instant-Nudeln",
+    "image": null
+  },
+  {
+    "id": "soft-boiled-egg",
+    "label": "Ein weichgekochtes Ei",
+    "value": 6,
+    "unit": " Minuten",
+    "description": "Deutlich kürzer als ein hartgekochtes Ei — das Eigelb bleibt dabei noch cremig-flüssig.",
+    "wikiTitle": "Frühstücksei",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/75/Boiled_eggs%2C_increasing_in_boiling_time_from_left_to_right.jpg/330px-Boiled_eggs%2C_increasing_in_boiling_time_from_left_to_right.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "average-pop-song",
+    "label": "Länge eines durchschnittlichen Popsongs im Radio",
+    "value": 3.5,
+    "unit": " Minuten",
+    "description": "Ein Format, das sich seit den Zeiten der Single-Schallplatte kaum verändert hat.",
+    "wikiTitle": "Popmusik",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Michaeljacksonphoto%20drewcohen%202.JPG?width=500"
+  },
+  {
+    "id": "chess-blitz-total",
+    "label": "Eine klassische Blitzschach-Partie (5 Minuten Bedenkzeit pro Spieler)",
+    "value": 10,
+    "unit": " Minuten",
+    "description": "Die Gesamtbedenkzeit beider Spieler zusammen, unabhängig davon, wie lange die Partie tatsächlich dauert.",
+    "wikiTitle": "Blitzschach",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/82/DGT_2010_digital_chess_clock.ajb.jpg/330px-DGT_2010_digital_chess_clock.ajb.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "average-shower",
+    "label": "Eine durchschnittliche Dusche",
+    "value": 8,
+    "unit": " Minuten",
+    "description": "Deutlich länger, als viele Menschen selbst schätzen würden.",
+    "wikiTitle": "Dusche",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Showerhead.JPG?width=500"
+  },
+  {
+    "id": "rem-sleep-cycle",
+    "label": "Ein vollständiger menschlicher Schlafzyklus (Leicht-, Tief- und Traumschlaf)",
+    "value": 90,
+    "unit": " Minuten",
+    "description": "Eine typische Nacht durchläuft davon mehrere hintereinander.",
+    "wikiTitle": "Schlafphase",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3a/A_child_sleeping.jpg/330px-A_child_sleeping.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "concorde-transatlantic-flight",
+    "label": "Ein Überschallflug der Concorde zwischen New York und London",
+    "value": 3.5,
+    "unit": " Stunden",
+    "description": "Weniger als halb so lange wie ein gewöhnlicher Linienflug auf derselben Strecke.",
+    "wikiTitle": "Concorde",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/British%20Airways%20Concorde%20G-BOAC%2003.jpg?width=500"
+  },
+  {
+    "id": "apollo11-moon-surface-time",
+    "label": "Zeit, die Apollo 11 insgesamt auf der Mondoberfläche verbrachte",
+    "value": 21.5,
+    "unit": " Stunden",
+    "description": "Nur ein kleiner Teil davon war der eigentliche Mondspaziergang selbst.",
+    "wikiTitle": "Apollo 11",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Apollo%2011%20Crew.jpg?width=500"
+  },
+  {
+    "id": "titanic-sinking-duration",
+    "label": "Zeit zwischen dem Eisbergzusammenstoß der Titanic und ihrem vollständigen Untergang",
+    "value": 2.7,
+    "unit": " Stunden",
+    "description": "Knapp genug Zeit für eine teilweise Evakuierung — aber nicht annähernd genug Rettungsboote für alle an Bord.",
+    "wikiTitle": "Titanic",
+    "image": null
+  },
+  {
+    "id": "longest-nonstop-flight",
+    "label": "Der längste durchgehend beflogene Linienflug der Welt (Singapur–New York)",
+    "value": 18.5,
+    "unit": " Stunden",
+    "description": "Ohne jede Zwischenlandung fliegt die Maschine dabei fast einmal um die halbe Welt.",
+    "wikiTitle": "Singapore Airlines",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Singapore%20Airlines%20A380-800(9V-SKH)%20(5441780270).jpg?width=500"
+  },
+  {
+    "id": "hamster-gestation",
+    "label": "Tragzeit eines Goldhamsters",
+    "value": 18,
+    "unit": " Tage",
+    "description": "Eine der kürzesten Tragzeiten aller Nagetiere — Hamsterweibchen können dadurch mehrmals im Jahr Nachwuchs bekommen.",
+    "wikiTitle": "Goldhamster",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Peach%20the%20pet%20hamster.jpg?width=500"
+  },
+  {
+    "id": "opossum-gestation",
+    "label": "Tragzeit eines Opossums",
+    "value": 13,
+    "unit": " Tage",
+    "description": "Eine der kürzesten Tragzeiten aller Säugetiere überhaupt — die Jungtiere sind bei der Geburt noch fast embryonal.",
+    "wikiTitle": "Opossums",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/AwesomePossum-AmericanOpossum.jpg?width=500"
+  },
+  {
+    "id": "kangaroo-gestation",
+    "label": "Tragzeit eines Roten Riesenkängurus",
+    "value": 33,
+    "unit": " Tage",
+    "description": "Den Großteil ihrer Entwicklung verbringt die Jungtier-Winzling danach noch monatelang im Beutel der Mutter.",
+    "wikiTitle": "Rotes Riesenkänguru",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Red%20kangaroo%20-%20melbourne%20zoo.jpg?width=500"
+  },
+  {
+    "id": "rabbit-gestation",
+    "label": "Tragzeit eines Hauskaninchens",
+    "value": 31,
+    "unit": " Tage",
+    "description": "Kurz genug, dass ein Kaninchenweibchen theoretisch mehrfach im Jahr werfen kann.",
+    "wikiTitle": "Wildkaninchen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Oryctolagus%20cuniculus%20Tasmania%202%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "guinea-pig-gestation",
+    "label": "Tragzeit eines Meerschweinchens",
+    "value": 65,
+    "unit": " Tage",
+    "description": "Ungewöhnlich lang für ein so kleines Nagetier — die Jungtiere kommen dafür bereits sehr weit entwickelt zur Welt.",
+    "wikiTitle": "Hausmeerschweinchen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cochon%20d'Inde%20(Cavia%20porcellus)%20(2).jpg?width=500"
+  },
+  {
+    "id": "titanic-voyage-before-sinking",
+    "label": "Fahrzeit der Titanic von der Abfahrt in Southampton bis zum Eisbergzusammenstoß",
+    "value": 4,
+    "unit": " Tage",
+    "description": "Auf ihrer Jungfernfahrt kam das Schiff nie an seinem eigentlichen Ziel New York an.",
+    "wikiTitle": "Titanic",
+    "image": null
+  },
+  {
+    "id": "great-fire-of-london-duration",
+    "label": "Der Große Brand von London (1666)",
+    "value": 4,
+    "unit": " Tage",
+    "description": "Er zerstörte einen Großteil der mittelalterlichen Innenstadt, forderte aber nur sehr wenige nachweisliche Todesopfer.",
+    "wikiTitle": "Großer Brand von London",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Great%20Fire%20London.jpg?width=500"
+  },
+  {
+    "id": "cuban-missile-crisis-duration",
+    "label": "Die Kubakrise (1962)",
+    "value": 13,
+    "unit": " Tage",
+    "description": "Eine der Situationen, die die Welt dem Atomkrieg am nächsten gebracht haben soll.",
+    "wikiTitle": "Kubakrise",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Soviet-R-12-nuclear-ballistic%20missile.jpg?width=500"
+  },
+  {
+    "id": "apollo11-mission-duration",
+    "label": "Die gesamte Mission von Apollo 11, vom Start bis zur Wasserung",
+    "value": 8,
+    "unit": " Tage",
+    "description": "Acht Tage für Hinflug, Mondlandung, Mondspaziergang und Rückflug zusammen.",
+    "wikiTitle": "Apollo 11",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Apollo%2011%20Crew.jpg?width=500"
+  },
+  {
+    "id": "potato-growing-time",
+    "label": "Übliche Wachstumszeit einer Kartoffel bis zur Ernte",
+    "value": 100,
+    "unit": " Tage",
+    "description": "Je nach Sorte kann das deutlich variieren, von frühen bis zu späten Kartoffelsorten.",
+    "wikiTitle": "Kartoffel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Potato%20sprout%2C%20January%2023%2C%202006.jpg?width=500"
+  },
+  {
+    "id": "everest-expedition-total",
+    "label": "Eine komplette Mount-Everest-Expedition, von der Ankunft im Basislager bis zur Rückkehr",
+    "value": 60,
+    "unit": " Tage",
+    "description": "Der weitaus größte Teil davon dient allein der Höhenanpassung des Körpers, nicht dem eigentlichen Aufstieg.",
+    "wikiTitle": "Mount Everest",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mount%20Everest%20as%20seen%20from%20Drukair2%20PLW%20edit.jpg?width=500"
+  },
+  {
+    "id": "blue-whale-gestation",
+    "label": "Tragzeit eines Blauwals",
+    "value": 11,
+    "unit": " Monate",
+    "description": "Das größte je bekannte Lebewesen trägt seinen Nachwuchs trotzdem nicht einmal ein volles Jahr aus.",
+    "wikiTitle": "Blauwal",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Anim1755%20-%20Flickr%20-%20NOAA%20Photo%20Library.jpg?width=500"
+  },
+  {
+    "id": "giraffe-gestation",
+    "label": "Tragzeit einer Giraffe",
+    "value": 15,
+    "unit": " Monate",
+    "description": "Die Jungtiere kommen dabei aus fast zwei Metern Höhe zur Welt — und stehen oft schon nach einer Stunde.",
+    "wikiTitle": "Giraffe",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/68/Giraffen.jpg/330px-Giraffen.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "empire-state-building-construction",
+    "label": "Bauzeit des Empire State Buildings",
+    "value": 13.5,
+    "unit": " Monate",
+    "description": "Rund ein Stockwerk pro Woche — bis heute eine der schnellsten Bauzeiten für ein Gebäude dieser Größe.",
+    "wikiTitle": "Empire State Building",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Empire%20State%20Building%20(aerial%20view).jpg?width=500"
+  },
+  {
+    "id": "berlin-airlift-duration",
+    "label": "Die Berliner Luftbrücke (1948/49)",
+    "value": 11,
+    "unit": " Monate",
+    "description": "Fast ein Jahr lang wurde West-Berlin während der sowjetischen Blockade ausschließlich aus der Luft versorgt.",
+    "wikiTitle": "Berliner Luftbrücke",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/C-54%20landing%20at%20Tempelhof.jpg?width=500"
+  },
+  {
+    "id": "suez-canal-construction",
+    "label": "Bauzeit des Suezkanals",
+    "value": 10,
+    "unit": " Jahre",
+    "description": "Er verbindet seit seiner Eröffnung 1869 das Mittelmeer direkt mit dem Roten Meer.",
+    "wikiTitle": "Sueskanal",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Egypt_adm_location_map.svg/langde-330px-Egypt_adm_location_map.svg.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "burj-khalifa-construction",
+    "label": "Bauzeit des Burj Khalifa, des höchsten Gebäudes der Welt",
+    "value": 6,
+    "unit": " Jahre",
+    "description": "Mit über 828 Metern überragt er das zweithöchste Gebäude der Welt um mehr als 180 Meter.",
+    "wikiTitle": "Burj Khalifa",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Dubai%20skyline%202015%20(crop).jpg?width=500"
+  },
+  {
+    "id": "berlin-wall-duration",
+    "label": "Wie lange die Berliner Mauer stand",
+    "value": 28,
+    "unit": " Jahre",
+    "description": "Von ihrem Bau im August 1961 bis zu ihrem Fall im November 1989.",
+    "wikiTitle": "Berliner Mauer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Berlin%20Wall%20Potsdamer%20Platz%20November%201975%20looking%20east%20crop.jpg?width=500"
+  },
+  {
+    "id": "ww2-europe-duration",
+    "label": "Der Zweite Weltkrieg in Europa",
+    "value": 6,
+    "unit": " Jahre",
+    "description": "Vom deutschen Überfall auf Polen 1939 bis zur bedingungslosen Kapitulation 1945.",
+    "wikiTitle": "Zweiter Weltkrieg",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Infobox%20collage%20for%20WWII.PNG?width=500"
+  },
+  {
+    "id": "black-death-europe-duration",
+    "label": "Die Hauptwelle des Schwarzen Todes in Europa (1347–1351)",
+    "value": 4,
+    "unit": " Jahre",
+    "description": "Innerhalb dieser wenigen Jahre starb schätzungsweise ein Drittel der europäischen Bevölkerung.",
+    "wikiTitle": "Schwarzer Tod",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Doutielt3.jpg?width=500"
+  },
+  {
+    "id": "louis-xiv-reign",
+    "label": "Die Regierungszeit von Ludwig XIV., dem „Sonnenkönig“",
+    "value": 72,
+    "unit": " Jahre",
+    "description": "Die mit Abstand längste belegte Regierungszeit eines europäischen Monarchen.",
+    "wikiTitle": "Ludwig XIV.",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Louis%20XIV%20of%20France.jpg?width=500"
+  },
+  {
+    "id": "halleys-comet-orbit",
+    "label": "Umlaufzeit des Halleyschen Kometen um die Sonne",
+    "value": 76,
+    "unit": " Jahre",
+    "description": "Deshalb bekommt ihn im Schnitt nur etwa jede zweite bis dritte Generation zu Gesicht.",
+    "wikiTitle": "Halleyscher Komet",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lspn%20comet%20halley.jpg?width=500"
+  },
+  {
+    "id": "hongkong-lease-duration",
+    "label": "Die britische Pacht der Neuen Territorien Hongkongs (1898–1997)",
+    "value": 99,
+    "unit": " Jahre",
+    "description": "Der Ablauf dieser Pacht führte 1997 zur Rückgabe ganz Hongkongs an China.",
+    "wikiTitle": "Neue Territorien",
+    "image": null
+  },
+  {
+    "id": "bowhead-whale-lifespan",
+    "label": "Lebenserwartung eines Grönlandwals",
+    "value": 200,
+    "unit": " Jahre",
+    "description": "Das am längsten lebende Säugetier der Welt — alte Harpunenspitzen in erlegten Tieren belegten teils über 100 Jahre alte Narben.",
+    "wikiTitle": "Grönlandwal",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bowheads42.jpg?width=500"
+  },
+  {
+    "id": "greenland-shark-lifespan",
+    "label": "Lebenserwartung eines Grönlandhais",
+    "value": 272,
+    "unit": " Jahre",
+    "description": "Nach heutigem Kenntnisstand das am längsten lebende Wirbeltier der Welt, nachgewiesen per Radiokarbondatierung der Augenlinse.",
+    "wikiTitle": "Grönlandhai",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Somniosus%20microcephalus1.jpg?width=500"
+  },
+  {
+    "id": "bristlecone-pine-age",
+    "label": "Alter des ältesten je exakt datierten, nicht-klonalen Baums der Welt (eine Langlebige Kiefer)",
+    "value": 4950,
+    "unit": " Jahre",
+    "description": "Das Alter wurde anhand seiner Jahresringe exakt gezählt, nachdem der Baum 1964 gefällt worden war.",
+    "wikiTitle": "Langlebige Kiefer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Big%20bristlecone%20pine%20Pinus%20longaeva.jpg?width=500"
+  },
+  {
+    "id": "panama-canal-construction",
+    "label": "Bauzeit des Panamakanals (US-Bauphase)",
+    "value": 10,
+    "unit": " Jahre",
+    "description": "Tausende Arbeiter starben während der Bauzeit vor allem an Gelbfieber und Malaria.",
+    "wikiTitle": "Panamakanal",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Panama%20Canal%20Gatun%20Locks.jpg?width=500"
+  },
+  {
+    "id": "transcontinental-railroad-construction",
+    "label": "Bauzeit der ersten transkontinentalen Eisenbahnlinie der USA",
+    "value": 6,
+    "unit": " Jahre",
+    "description": "Zwei Baufirmen arbeiteten sich dabei von Ost und West aufeinander zu, bis sie sich 1869 in Utah trafen.",
+    "wikiTitle": "Pacific Railroad",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/East_and_West_Shaking_hands_at_the_laying_of_last_rail_Union_Pacific_Railroad_-_Restoration.jpg/330px-East_and_West_Shaking_hands_at_the_laying_of_last_rail_Union_Pacific_Railroad_-_Restoration.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "sydney-opera-house-construction",
+    "label": "Bauzeit des Opernhauses von Sydney",
+    "value": 14,
+    "unit": " Jahre",
+    "description": "Ursprünglich waren nur vier Jahre veranschlagt — die Kosten stiegen am Ende auf mehr als das Zehnfache des Budgets.",
+    "wikiTitle": "Sydney Opera House",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/00%201375%20Sydney%20Opera%20House%20(Australia).jpg?width=500"
+  },
+  {
+    "id": "statue-of-liberty-total",
+    "label": "Von der ersten Planung bis zur Einweihung der Freiheitsstatue",
+    "value": 9,
+    "unit": " Jahre",
+    "description": "Gebaut in Frankreich, in Einzelteile zerlegt verschifft und erst in New York wieder zusammengesetzt.",
+    "wikiTitle": "Freiheitsstatue",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Statue%20of%20Liberty%20and%20a%20sightseeing%20boat%2C%20Liberty%20Island%2C%20New%20York.jpg?width=500"
+  },
+  {
+    "id": "housefly-adult-lifespan",
+    "label": "Lebenserwartung einer erwachsenen Stubenfliege",
+    "value": 21,
+    "unit": " Tage",
+    "description": "Trotz der kurzen Lebensspanne kann ein einzelnes Weibchen in dieser Zeit mehrere hundert Eier legen.",
+    "wikiTitle": "Stubenfliege",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Musca%20domestica%20housefly.jpg?width=500"
+  },
+  {
+    "id": "penguin-egg-incubation",
+    "label": "Brutzeit eines Kaiserpinguin-Eis",
+    "value": 65,
+    "unit": " Tage",
+    "description": "Während dieser gesamten Zeit hält das Männchen das Ei allein auf seinen Füßen warm, mitten im antarktischen Winter.",
+    "wikiTitle": "Kaiserpinguin",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Aptenodytes%20forsteri%20-Snow%20Hill%20Island%2C%20Antarctica%20-adults%20and%20juvenile-8.jpg?width=500"
+  },
+  {
+    "id": "baby-birth-weight-double",
+    "label": "Zeit, bis ein gesundes menschliches Baby sein Geburtsgewicht verdoppelt hat",
+    "value": 5,
+    "unit": " Monate",
+    "description": "Ein grober, aber weit verbreiteter Richtwert der Kinderheilkunde.",
+    "wikiTitle": "Säugling",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Being%20a%20twin%20means%20you%20always%20have%20a%20pillow%20or%20blanket%20handy.jpg?width=500"
+  },
+  {
+    "id": "queen-ant-lifespan",
+    "label": "Lebenserwartung einer Ameisenkönigin",
+    "value": 30,
+    "unit": " Jahre",
+    "description": "Ungewöhnlich alt für ein Insekt — ein einzelnes Volk kann dadurch jahrzehntelang bestehen.",
+    "wikiTitle": "Ameisen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Fourmi%20(Formica%20rufa)%20(5%20dioptries).jpg?width=500"
+  },
+  {
+    "id": "octopus-lifespan",
+    "label": "Lebenserwartung eines Gewöhnlichen Kraken",
+    "value": 18,
+    "unit": " Monate",
+    "description": "Erstaunlich kurz für ein so intelligentes Tier — die meisten Arten sterben schon kurz nach der einzigen Fortpflanzung.",
+    "wikiTitle": "Gemeiner Krake",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8f/Pulpo_com%C3%BAn_%28Octopus_vulgaris%29%2C_franja_marina_Teno-Rasca%2C_Tenerife%2C_Espa%C3%B1a%2C_2022-01-08%2C_DD_53.jpg/330px-Pulpo_com%C3%BAn_%28Octopus_vulgaris%29%2C_franja_marina_Teno-Rasca%2C_Tenerife%2C_Espa%C3%B1a%2C_2022-01-08%2C_DD_53.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  }
+]

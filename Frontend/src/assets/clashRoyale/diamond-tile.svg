@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 140 140">
+  <!-- DRITTER Anlauf: der zweite (Flachfarbe + Strich auf ALLEN fünf Formen) hat den
+       Fehler der ersten Fassung nicht behoben, sondern nur verschoben — jetzt liefen
+       zusätzlich zu den Rauten auch waagerechte/senkrechte Linien am Rand jeder 140×140-
+       Kachel mit, ein Quadratraster ÜBER dem Rautenmuster. Grund: Die vier Eck-Dreiecke
+       haben je zwei Kanten — eine schräge (die eigentliche Rautenkante, geteilt mit der
+       Raute in der Mitte) und zwei gerade, die exakt auf dem Kachelrand liegen. Ein Strich
+       auf ALLEN Kanten der Dreiecke zeichnet also zwangsläufig auch den Kachelrand mit,
+       und der wiederholt sich beim Kacheln zu einem durchgehenden Quadratgitter.
+       Lösung: Strich nur auf der MITTEL-Raute, die als einzige der fünf Formen ausschließlich
+       schräge Kanten hat. Jede ihrer vier Kanten ist zugleich exakt eine Kante der "Rauten
+       zwischen den Kacheln" (die erst entsteht, wenn sich vier Kacheln an einer Ecke
+       treffen) — ein Strich hier zeichnet also automatisch BEIDE Rauten-Sorten nach, ohne
+       dass die Eck-Dreiecke selbst je eine eigene Kontur brauchen. -->
+  <polygon points="0,0 70,0 0,70" fill="#154c82"/>
+  <polygon points="140,0 140,70 70,0" fill="#154c82"/>
+  <polygon points="140,140 70,140 140,70" fill="#154c82"/>
+  <polygon points="0,140 0,70 70,140" fill="#154c82"/>
+  <polygon points="70,0 140,70 70,140 0,70" fill="#1c5b96"
+    stroke="rgba(0,0,0,0.16)" stroke-width="1" stroke-linejoin="round"/>
+</svg>

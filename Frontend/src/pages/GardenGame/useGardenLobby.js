@@ -27,7 +27,7 @@ export function vergissWelt() {
     try { localStorage.removeItem(WELT_SPEICHER); } catch { /* egal */ }
 }
 
-export default function useGardenLobby({ enabled, worldCode, createWorld, appearance, badge, onMail, onNotify, onAdminUpdate, onServerVersion }) {
+export default function useGardenLobby({ enabled, worldCode, createWorld, appearance, badge, onMail, onNotify, onAdminUpdate, onServerVersion, onSplatter, onKicked, onVeredelt, onWelt }) {
     const socketRef = useRef(null);
     /** twitchId -> { name, slotIndex, x, y, tx, ty, facingRight, isMoving, appearance, badge } */
     const remotePlayersRef = useRef(new Map());
@@ -55,14 +55,36 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
     const onNotifyRef = useRef(onNotify);
     const onAdminUpdateRef = useRef(onAdminUpdate);
     const onServerVersionRef = useRef(onServerVersion);
+    const onSplatterRef = useRef(onSplatter);
+    const onKickedRef = useRef(onKicked);
+    const onVeredeltRef = useRef(onVeredelt);
+    const onWeltRef = useRef(onWelt);
+    /**
+     * Aussehen und Abzeichen als Ref.
+     *
+     * Gebraucht direkt im `connect`-Handler: dort steht kein React-State zur
+     * Verfügung, der Effekt unten hängt aber an genau diesem State und läuft beim
+     * erneuten Verbinden nicht zwingend noch einmal.
+     */
+    const appearanceRef = useRef(appearance);
+    const badgeRef = useRef(badge);
+    useEffect(() => { appearanceRef.current = appearance; }, [appearance]);
+    useEffect(() => { badgeRef.current = badge; }, [badge]);
     useEffect(() => { onMailRef.current = onMail; }, [onMail]);
     useEffect(() => { onNotifyRef.current = onNotify; }, [onNotify]);
     useEffect(() => { onAdminUpdateRef.current = onAdminUpdate; }, [onAdminUpdate]);
     useEffect(() => { onServerVersionRef.current = onServerVersion; }, [onServerVersion]);
+    useEffect(() => { onSplatterRef.current = onSplatter; }, [onSplatter]);
+    useEffect(() => { onKickedRef.current = onKicked; }, [onKicked]);
+    useEffect(() => { onVeredeltRef.current = onVeredelt; }, [onVeredelt]);
+    useEffect(() => { onWeltRef.current = onWelt; }, [onWelt]);
 
     const syncOnlineList = useCallback(() => {
         const naechste = [...remotePlayersRef.current.values()].map((p) => ({
             twitchId: p.twitchId, name: p.name, slotIndex: p.slotIndex, gold: p.gold || 0,
+            // Katze fürs Dropdown (Feedback 01.09.: "aktive Katze als Bild") und Level
+            // daneben — beide kommen im selben Tick wie das Gold mit.
+            skin: p.appearance?.skin || null, level: Number(p.level) || 1,
         }));
         // Nur bei echter Änderung neu setzen. Der Goldstand kommt jetzt im
         // 15-Hz-Tick mit; würde jede Meldung durchgereicht, rendert GameContainer
@@ -73,7 +95,8 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
                 for (let i = 0; i < alt.length; i++) {
                     const a = alt[i]; const b = naechste[i];
                     if (a.twitchId !== b.twitchId || a.name !== b.name
-                        || a.slotIndex !== b.slotIndex || a.gold !== b.gold) { gleich = false; break; }
+                        || a.slotIndex !== b.slotIndex || a.gold !== b.gold
+                        || a.skin !== b.skin || a.level !== b.level) { gleich = false; break; }
                 }
                 if (gleich) return alt;
             }
@@ -110,10 +133,14 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
                 isMoving: Boolean(raw.isMoving),
                 appearance: raw.appearance || null,
                 badge: raw.badge || null,
+                // Gold-Shop-Reskin des Namensschilds (core/reskins.js) — live vom
+                // Server, wie badge/appearance auch.
+                nameplate: raw.nameplate || null,
                 // Das Positions-Update traegt kein `held` — sonst wuerde das, was
                 // jemand in der Hand haelt, bei jeder Bewegung verschwinden.
                 held: raw.held !== undefined ? raw.held : (existing?.held ?? null),
                 gold: Number.isFinite(raw.gold) ? raw.gold : (existing?.gold ?? 0),
+                level: Number.isFinite(raw.level) ? raw.level : (existing?.level ?? 1),
             });
         };
 
@@ -125,6 +152,16 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
             // createWorld = private Welt aufmachen; sonst mit (optionalem) Code beitreten.
             if (createWorld) socket.emit("garden:create");
             else socket.emit("garden:join", { code: worldCode || "" });
+            // Aussehen SOFORT hinterher — der Server legt den Spielereintrag beim
+            // Beitreten ohne Aussehen an (`existing?.appearance ?? null`), weil es den
+            // vorherigen Eintrag nicht mehr gibt. Ohne diese Zeile blieb der Geist für
+            // alle anderen der Standard-Farmer, bis der Spieler zufällig in der
+            // Umkleide etwas umstellte: der Effekt unten hängt am React-State, und der
+            // ändert sich beim erneuten Verbinden nicht.
+            socket.emit("garden:appearance", {
+                skin: appearanceRef.current?.skin || null,
+                badge: badgeRef.current || null,
+            });
         });
 
         socket.on("disconnect", () => {
@@ -212,8 +249,36 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
         // Ein Admin hat den Spielstand von aussen geändert. Rucksack, Tiere, Eier und
         // Deko gehören diesem Browser — ohne Nachladen würde sein nächstes Speichern
         // den Eingriff wieder überschreiben.
-        socket.on("garden:admin_update", ({ info } = {}) => {
-            onAdminUpdateRef.current?.(String(info || ""));
+        socket.on("garden:admin_update", ({ info, art } = {}) => {
+            onAdminUpdateRef.current?.(String(info || ""), String(art || "admin"));
+        });
+
+        // Shotgun: kommt an ALLE in der Welt, auch an den Getroffenen. Der Standort
+        // stammt vom Server (er kennt die letzte gemeldete Position), nicht aus dem
+        // nachgezogenen x/y hier — sonst läge die Wolke einen Tick daneben.
+        socket.on("garden:splatter", ({ twitchId, name, x, y } = {}) => {
+            onSplatterRef.current?.({ twitchId: String(twitchId || ""), name: name || "", x, y });
+        });
+
+        // Selbst getroffen worden: raus aus der Welt. Der Server hat den Platz schon
+        // freigegeben, dieser Browser muss nur noch aufräumen.
+        socket.on("garden:kicked", ({ grund } = {}) => {
+            remotePlayersRef.current.clear();
+            plotsRef.current.clear();
+            syncOnlineList();
+            onKickedRef.current?.(String(grund || ""));
+        });
+
+        // Party-Veredelung: der Server hat auf dem eigenen Acker etwas zu Rainbow
+        // gemacht. `specialType` gehört ihm, der Acker dem Browser — deshalb kommen
+        // nur die betroffenen Zellen, statt den ganzen Stand neu zu laden.
+        socket.on("garden:veredelt", ({ zellen } = {}) => {
+            if (zellen && typeof zellen === "object") onVeredeltRef.current?.(zellen);
+        });
+
+        // Wetter oder Party wurden von Hand gesetzt (Admin-Menü).
+        socket.on("garden:welt", (welt) => {
+            onWeltRef.current?.(welt || {});
         });
 
         socket.on("garden:chat", (nachricht) => {
@@ -259,6 +324,12 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
             socketRef.current = null;
             remotePlayersRef.current.clear();
             plotsRef.current.clear();
+            // MUSS hier stehen: `removeAllListeners` nimmt den disconnect-Handler mit,
+            // der das sonst erledigt hätte. Ohne diese Zeile blieb `connected` über
+            // den ganzen Weltwechsel auf true — beim nächsten Verbinden war
+            // `setConnected(true)` dann ein Nichts-Update, und JEDER Effekt, der an
+            // `connected` hängt, lief nicht wieder an.
+            setConnected(false);
         };
     }, [enabled, worldCode, createWorld, syncOnlineList]);
 
@@ -288,6 +359,34 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
         socket.emit("garden:move", { x, y, facingRight, isMoving });
     }, []);
 
+    /**
+     * AFK-Kick (v2, Punkt 8): dem Server melden, dass gerade wirklich gespielt
+     * wird — der Server entscheidet anhand dieses Zeitstempels, siehe
+     * istAktivGenug/AFK_KICK_GRENZE_MS in Backend/garden/world/lobby.js.
+     *
+     * Bewusst ROH auf Tastendruck/Klick statt an eine bestimmte Aktion gebunden
+     * (Ernten, Kaufen, Chatten zählen also mit) und auf 20 s gedrosselt — es geht
+     * nur darum, ob überhaupt noch jemand da ist, nicht um jede einzelne Eingabe.
+     */
+    const lastActivitySentRef = useRef(0);
+    useEffect(() => {
+        if (!connected) return undefined;
+        const melden = () => {
+            const socket = socketRef.current;
+            if (!socket?.connected) return;
+            const now = performance.now();
+            if (now - lastActivitySentRef.current < 20000) return;
+            lastActivitySentRef.current = now;
+            socket.emit("garden:activity");
+        };
+        window.addEventListener("keydown", melden);
+        window.addEventListener("pointerdown", melden);
+        return () => {
+            window.removeEventListener("keydown", melden);
+            window.removeEventListener("pointerdown", melden);
+        };
+    }, [connected]);
+
     /** Was man in der Hand haelt, an die Welt melden. Nur bei echter Aenderung. */
     const sendHeld = useCallback((held) => {
         const socket = socketRef.current;
@@ -301,18 +400,34 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
         socket.emit("garden:held", { held: held || null });
     }, []);
 
-    /** Chatzeile abschicken. Der Server prüft Länge und Takt und verteilt sie. */
-    const sendChat = useCallback((text) => {
+    /**
+     * Auf einen Mitspieler schiessen. Ob das erlaubt ist, entscheidet AUSSCHLIESSLICH
+     * der Server (garden:shotgun in Backend/garden/world/lobby.js) — hier wird nur
+     * gemeldet, wen es treffen soll.
+     */
+    const sendShotgun = useCallback((targetId) => {
+        const socket = socketRef.current;
+        if (!socket?.connected || !targetId) return;
+        socket.emit("garden:shotgun", { targetId: String(targetId) });
+    }, []);
+
+    /**
+     * Chatzeile abschicken. Der Server prüft Länge und Takt und verteilt sie.
+     * `color` ist optional (Feedback 01.09.: Farbwahl) — der Server prüft sie
+     * gegen seine eigene feste Palette (CHAT_FARBEN, lobby.js) und verwirft alles,
+     * was nicht drinsteht, statt dem Client zu vertrauen.
+     */
+    const sendChat = useCallback((text, color) => {
         const socket = socketRef.current;
         if (!socket?.connected) return false;
         const sauber = String(text || "").trim();
         if (!sauber) return false;
-        socket.emit("garden:chat", { text: sauber });
+        socket.emit("garden:chat", { text: sauber, color: color || null });
         return true;
     }, []);
 
     return {
         slotIndex, connected, worldFull, onlinePlayers, remotePlayersRef, plotsRef, sendMove, sendHeld,
-        activeCode, isPublicWorld, joinError, chatVerlauf, sendChat,
+        activeCode, isPublicWorld, joinError, chatVerlauf, sendChat, sendShotgun,
     };
 }

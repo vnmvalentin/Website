@@ -1,12 +1,15 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const createWinchallengeRouter = require("./winchallengeRoutes");
-const createGardenRouter = require("./gardenGameRoutes");
+const createWinchallengeRouter = require("../winchallenge/winchallengeRoutes");
+const createGardenRouter = require("../garden/routes/gardenGameRoutes");
 const { farmStates, setFarmState, scheduleFarmsSave } = require("../garden/store/farms");
 const { getFollowerCounts } = require("../lib/twitchFollowers");
 const { wendeAn, baueKatalog } = require("../garden/admin");
-const { notifyAdminUpdate, notifyPlotChanged, istOnline } = require("../garden/world/lobby");
+const {
+    notifyAdminUpdate, notifyPlotChanged, istOnline, weltUebersicht, notifyWelt,
+} = require("../garden/world/lobby");
+const ereignisse = require("../garden/world/ereignisse");
 
 const ROOT_DIR = process.cwd();
 
@@ -57,21 +60,27 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
   });
 
   // --- STATS OVERVIEW ---
+  // Die Casino-Kennzahlen (Gesamt-Credits, Zahl der Casino-User) stehen hier
+  // bewusst nicht mehr: das Dashboard zeigt sie nicht an, und eine Zahl, die
+  // niemand liest, muss auch niemand ausrechnen. Die Farm-Zahlen kommen aus dem
+  // Arbeitsspeicher, es gibt also keinen Grund, sie separat nachzuladen.
   router.get("/stats", (req, res) => {
-      const casino = loadJson("casino");
       const adventure = loadJson("adventure");
       const bingo = loadJson("bingo");
       const winchallenge = createWinchallengeRouter.loadDb();
       const promo = loadJson("promo");
 
-      const totalCredits = Object.values(casino).reduce((acc, u) => acc + (parseInt(u.credits) || 0), 0);
-      const totalUsers = Object.keys(casino).length;
       const advPlayers = Object.keys(adventure).length;
       const activeBingoSessions = Object.values(bingo).length;
       const activeChallenges = Object.values(winchallenge).length;
       const activeCodes = Object.values(promo).length;
+      const welten = weltUebersicht();
+      const gardenOnline = welten.reduce((s, w) => s + w.playerCount, 0);
 
-      res.json({ totalCredits, totalUsers, advPlayers, activeBingoSessions, activeChallenges, activeCodes });
+      res.json({
+        advPlayers, activeBingoSessions, activeChallenges, activeCodes,
+        gardenPlayers: farmStates.size, gardenOnline, gardenWorlds: welten.length,
+      });
   });
 
   // --- GENERIC GETTER ---
@@ -213,9 +222,56 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
     res.json({ users: rows });
   });
 
+  /**
+   * GET /api/admin/garden/worlds — wer steht gerade in welcher Welt.
+   *
+   * Getrennt von /garden/users, weil beide etwas anderes beantworten: dort steht,
+   * WER einen Spielstand hat (Datenbank, ändert sich langsam), hier, wer JETZT
+   * verbunden ist (Arbeitsspeicher, ändert sich im Sekundentakt).
+   */
+  router.get("/garden/worlds", (req, res) => {
+    const worlds = weltUebersicht();
+    res.json({
+      worlds,
+      online: worlds.reduce((s, w) => s + w.playerCount, 0),
+      at: Date.now(),
+    });
+  });
+
   // GET /api/admin/garden/catalogue  — Auswahllisten für das Admin-Menü
   router.get("/garden/catalogue", (req, res) => {
     res.json(baueKatalog(createGardenRouter.katalog));
+  });
+
+  // ─── Welt: Wetter und Party von Hand ───────────────────────────────────────
+  // Beides läuft sonst aus der Uhr bzw. der Ladenrotation und gilt damit bei allen
+  // gleich (siehe garden/core/tageszeit.js). Hier liegt die Ausnahme davon; sie
+  // steht nur im Arbeitsspeicher und ist nach einem Neustart wieder weg.
+
+  // GET /api/admin/garden/welt — was gerade zusätzlich gilt
+  router.get("/garden/welt", (req, res) => {
+    res.json({ ...ereignisse.stand(), lagen: ereignisse.WETTERLAGEN, maxMinuten: ereignisse.MAX_MINUTEN });
+  });
+
+  // POST /api/admin/garden/welt { op: "wetter"|"party"|"aus", typ?, minuten? }
+  router.post("/garden/welt", (req, res) => {
+    const op = String(req.body?.op || "");
+    let ergebnis;
+    if (op === "wetter") ergebnis = ereignisse.setzeWetter(req.body?.typ, req.body?.minuten);
+    else if (op === "party") ergebnis = ereignisse.starteParty(req.body?.minuten);
+    else if (op === "aus") ergebnis = ereignisse.beendeAlles();
+    else return res.status(400).json({ error: "Unbekannte Aktion." });
+    if (!ergebnis.ok) return res.status(400).json({ error: ergebnis.error });
+
+    // Sofort an alle. Der Poll auf /global-shop würde es auch mitbringen, aber erst
+    // nach bis zu vier Sekunden — bei einem Knopf, der etwas Sichtbares auslöst,
+    // ist das der Unterschied zwischen „geht" und „hakt".
+    const welt = ereignisse.stand();
+    notifyWelt(welt);
+    const info = op === "wetter"
+      ? `Wetter auf ${req.body?.typ} gesetzt.`
+      : op === "party" ? "Party gestartet." : "Wetter und Party wieder aus der Uhr.";
+    res.json({ ...welt, info });
   });
 
   // GET /api/admin/garden/user/:userId  — full state for one player

@@ -1,5 +1,5 @@
 // engine/Renderer.js
-import { MAP_CONFIG, TILE_SIZE, STEIN_REIHEN, MITTELWEG_REIHE, getSignLayout } from './MapConfig';
+import { MAP_CONFIG, TILE_SIZE, STEIN_REIHEN, istSteinfeldWegRow, getSignLayout } from './MapConfig';
 import { versionedAsset } from './assetVersion';
 import {
     getGrowthProgressForRender,
@@ -11,6 +11,7 @@ import {
     USE_PROCEDURAL_SUPPORTS,
 } from './PlantSystem';
 import { getPetSize } from './PetSystem';
+import { DEKO_KATALOG, istBoden } from '../ui/deko';
 
 /**
  * Kantenlänge eines Tieres bei Größenfaktor 1. Bezug ist die Spielfigur, die mit
@@ -25,10 +26,15 @@ const PET_BASIS_GROESSE = 70;
  * Fläche mit Symbol. Gilt für alle, die auf einem Grundstück stehen.
  */
 const AREA_ERSATZ = {
+    // trash/chest/vitrine/incubator stehen seit v2 nicht mehr einzeln auf dem
+    // Feld — alle vier wohnen im Schuppen (siehe "shed" unten). Die Einträge
+    // bleiben als Ersatzkasten stehen, falls irgendwo noch ein alter Spielstand
+    // mit einer dieser Bauarten hereinkommt.
     incubator: { farbe: "#14b8a6", symbol: "🧪" },
     trash:     { farbe: "#57534e", symbol: "🗑️" },
     chest:     { farbe: "#a16207", symbol: "📦" },
     vitrine:   { farbe: "#7c3aed", symbol: "🏆" },
+    shed:      { farbe: "#a16207", symbol: "🧰" },
 };
 
 /**
@@ -41,6 +47,40 @@ const AREA_ERSATZ = {
 function bauart(area) {
     return area?.art || area?.type || "incubator";
 }
+
+// Fallback für Grundstücke ohne eigene Deko — EINE geteilte, eingefrorene Liste
+// statt je Grundstück und Bild ein neues `[]`, siehe _gruppiereDekoNachSlot.
+const LEERE_DEKO_LISTE = Object.freeze([]);
+
+// Gold-Shop: Namensschild-Farben je Reskin — MUSS zu core/reskins.js (Backend)
+// UND ui/reskins.js (Frontend-Katalog fürs Kaufmenü) passen. Bewusst dieselbe
+// kleine Kopie wie AREA_IMAGES/TOOL_IMAGE_BY_KEY weiter unten: der Renderer
+// zeichnet unabhängig davon, ob der Laden je geöffnet wurde.
+// `bg2` = zweiter Verlaufs-Halt (Feedback 01.09.: "Textur statt flacher
+// Farbe") — _drawPlayerNametag zeichnet damit einen diagonalen Verlauf statt
+// einer flachen Füllung.
+const NAMEPLATE_RESKIN_FARBEN = {
+    gold: { bg: "#fef3c7", bg2: "#fcd34d", border: "#92400e", text: "#78350f" },
+    royal: { bg: "#ede9fe", bg2: "#c4b5fd", border: "#5b21b6", text: "#4c1d95" },
+    neon: { bg: "#022c22", bg2: "#065f46", border: "#10b981", text: "#6ee7b7" },
+    rose: { bg: "#fce7f3", bg2: "#f9a8d4", border: "#be185d", text: "#831843" },
+    obsidian: { bg: "#18181b", bg2: "#3f3f46", border: "#71717a", text: "#e4e4e7" },
+};
+// Gold-Shop: Briefkasten-Bildpfade je Reskin. Der Schuppen braucht keine eigene
+// Kopie hier — sein Bild kommt schon fertig als area.image an (GameContainer.jsx
+// setzt es je nach ausgerüstetem Reskin), genau wie beim Standard-Look.
+// Exportiert (Feedback 01.09.: vollständiger Ladebildschirm), damit
+// GameContainer.jsx dieselben Pfade fürs Vorladen nutzt statt einer dritten,
+// separat gepflegten Kopie.
+export const MAILBOX_RESKIN_BILD = {
+    brick: "/garden-assets/world/mailbox_variants/brick.png",
+    cyber: "/garden-assets/world/mailbox_variants/cyber.png",
+    dark: "/garden-assets/world/mailbox_variants/dark.png",
+    future: "/garden-assets/world/mailbox_variants/future.png",
+    magepunk: "/garden-assets/world/mailbox_variants/magepunk.png",
+    nature: "/garden-assets/world/mailbox_variants/nature.png",
+    rusty: "/garden-assets/world/mailbox_variants/rusty.png",
+};
 
 const RARITY_COLORS = {
     COMMON:    "#94a3b8",
@@ -73,6 +113,8 @@ const TOOL_IMAGE_BY_KEY = {
     pot: "/garden-assets/tools/topf.png",
     watering: "/garden-assets/tools/gieskanne.png",
     backpack: "/garden-assets/tools/rucksack.png",
+    // Nur der Admin bekommt sie überhaupt in die Hand (siehe GameContainer).
+    shotgun: "/garden-assets/world/shotgun-removebg-preview.png",
 };
 const TOOL_EMOJI_BY_KEY = {
     pickaxe: "⛏️",
@@ -80,7 +122,81 @@ const TOOL_EMOJI_BY_KEY = {
     pot: "🪴",
     watering: "🪣",
     backpack: "🎒",
+    shotgun: "🔫",
 };
+// Die Shotgun ist deutlich länger als Hacke oder Kanne — auf 32 px gestaucht wäre
+// sie ein Strich. Werkzeuge ohne Eintrag bleiben bei der Standardgröße.
+const TOOL_GROESSE_BY_KEY = {
+    shotgun: 52,
+};
+// Dasselbe für FREMDE Spieler. Von denen kennt der Renderer nur das Hand-Item, und
+// davon überlebt die Prüfung im Server (sanitizeHeld) nur eine Handvoll Felder —
+// der Werkzeugschlüssel gehört nicht dazu. Über den Bildpfad geht es trotzdem.
+const TOOL_GROESSE_BY_BILD = new Map(
+    Object.entries(TOOL_GROESSE_BY_KEY).map(([key, groesse]) => [TOOL_IMAGE_BY_KEY[key], groesse]),
+);
+// Werkzeuge, deren Grafik nach LINKS zeigt. Der Geist blickt standardmaessig nach
+// rechts und haelt das Werkzeug auf der rechten Seite — die Gieskanne goss damit
+// zurueck auf den Traeger statt nach vorn. Diese hier bekommen eine zusaetzliche
+// Spiegelung, danach zeigen sie immer in Blickrichtung.
+const TOOL_SPRITE_ZEIGT_LINKS = {
+    watering: true,
+};
+// Abzeichen über dem Namensschild. „admin" vergibt ausschliesslich der Server
+// (garden:appearance in Backend/garden/world/lobby.js) und verdrängt dort „Sub" —
+// zwei Schilder übereinander wären nur Gedränge.
+const BADGE_TEXT = {
+    subscriber: "Sub",
+    beta: "Beta",
+    admin: "Admin",
+};
+const BADGE_FARBEN = {
+    subscriber: { fuellung: "rgba(250,176,5,0.92)",  rand: "#fbbf24" },
+    beta:       { fuellung: "rgba(96,165,250,0.92)", rand: "#93c5fd" },
+    admin:      { fuellung: "rgba(248,113,113,0.94)", rand: "#fca5a5" },
+};
+
+// Wie lange eine Splatter-Wolke steht. MUSS zu SPLATTER_MS in
+// Backend/garden/world/lobby.js passen: dort wird der Getroffene nach genau
+// dieser Zeit aus der Welt genommen.
+const SPLATTER_DAUER_MS = 1100;
+const SPLATTER_TROPFEN = 26;
+
+// v2-Fundament: gemeinsame Rückmeldungsschicht (siehe spawnFeedback weiter
+// unten) — EIN System für Ernte-Gold, Doppelernte, Tier-Auslöser, Nachwuchs
+// und Veredelung, statt für jeden Auslöser eine eigene Animation zu bauen.
+const FEEDBACK_DAUER_MS = 1100;
+const FEEDBACK_AUFSTIEG_PX = 46;
+const FEEDBACK_MAX = 40;
+
+// v2 (Punkt 13): Werkzeug-Schwung beim Gießen/Abbauen — Winkel in Radiant, je
+// Werkzeug eigen, weil ein Hacken-Schlag weiter ausholt als ein Kannen-Kipp.
+// Werkzeuge ohne Eintrag schwingen nicht (z. B. Schaufel — die hat keine
+// eigene "Benutzen"-Aktion, sie zieht direkt eine Pflanze um).
+const TOOL_SCHWUNG_MAX_RAD = {
+    pickaxe: (55 * Math.PI) / 180,
+    watering: (28 * Math.PI) / 180,
+};
+const TOOL_SCHWUNG_DAUER_MS = 380;
+// Fliegende Ernte-Symbole (spawnItemFlug) — siehe dort.
+const ITEM_FLUG_DAUER_MS = 500;
+const ITEM_FLUG_MAX = 24;
+// Fallendes Saat-Tütchen beim Pflanzen (spawnSaatWurf) — siehe dort.
+const SAAT_WURF_DAUER_MS = 420;
+const SAAT_WURF_MAX = 16;
+// Cartoon-Sprechblase beim Verkaufen (spawnVerkaufsBlase) — siehe dort. Länger
+// als das normale Feedback (1100ms): sie zeigt den GANZEN Verkaufserlös, nicht
+// eine einzelne Ernte, darf also einen Moment länger stehen bleiben.
+const VERKAUF_BLASE_DAUER_MS = 1900;
+const VERKAUF_BLASE_MAX = 6;
+
+/** Klassischer Überschwing-Ease — für den Pop-Auftritt der Verkaufs-Blase. */
+function easeOutBack(x) {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+}
+
 const DEFAULT_RENDER_PROFILE = {
     level: "high",
     particleScale: 1,
@@ -91,19 +207,36 @@ const MERGED_TILE_STRIDE = 2; // permanent 2x2 tile merge
 /**
  * Deko, die nachts leuchtet — Schlüssel ist die `decoId` der Platzierung.
  *
- *   radius    Reichweite in Weltpixeln (wird mit dem Zoom skaliert)
- *   farbe     Warmton des Scheins
- *   hoehe     Wie weit ÜBER dem Fußpunkt die Flamme sitzt. Bei der 1×2 hohen
- *             Laterne oben am Mast, bei der Feuerschale fast auf dem Boden —
- *             ein Schein aus der Bildmitte sähe bei beiden falsch aus.
- *   flackern  Anteil, um den der Radius atmet (0 = ruhig, 1 = wild)
+ * Die Werte stehen im Katalog (ui/deko.js) und nicht mehr hier: welche Lampe wie
+ * weit und wie hoch leuchtet, gehört zum Stück, nicht zum Zeichner. Wer eine neue
+ * Leuchte einträgt, gibt ihr dort ein `licht` — hier ist danach nichts zu tun.
  */
-const DEKO_LICHT = {
-    deco_lamp: { radius: 215, farbe: [253, 224, 71], hoehe: 76, flackern: 0.05 },
-    feuer: { radius: 165, farbe: [251, 146, 60], hoehe: 12, flackern: 0.17 },
-};
-/** Obergrenze je Bild — ein Garten voller Laternen soll die Bildrate nicht drücken. */
-const LICHT_MAX = 24;
+const DEKO_LICHT = Object.fromEntries(
+    DEKO_KATALOG.filter((d) => d.licht).map((d) => [d.id, d.licht]),
+);
+/**
+ * Sorten, die ihre Kachel randlos ausfüllen sollen (siehe `voll` im Katalog) —
+ * normale Deko steht bewusst mit 10 % Rand in ihrer Kachel, aber ein modulares
+ * Zaunfeld muss bis an beide Kanten reichen, sonst "knüpft" es nicht an sein
+ * Nachbarfeld an (siehe _collectDeco).
+ */
+const DEKO_VOLL = new Set(DEKO_KATALOG.filter((d) => d.voll).map((d) => d.id));
+/**
+ * Sorten, die den Spieler wie eine Pflanze verdecken dürfen (siehe `sichtschutz`
+ * im Katalog) — die Ausnahme von der Ausnahme in compareByBaseY. Ein Zaun sieht
+ * dahinter besser aus als davor; normale Möblierung (Bank, Statue …) nicht.
+ */
+const DEKO_SICHTSCHUTZ = new Set(DEKO_KATALOG.filter((d) => d.sichtschutz).map((d) => d.id));
+/**
+ * Obergrenze je Bild — ein Garten voller Laternen soll die Bildrate nicht drücken.
+ * Nur die dem Spieler NÄCHSTEN Lichter leuchten tatsächlich (siehe
+ * _sichtbareLichter unten); alles darüber bleibt platziert, aber dunkel.
+ *
+ * Exportiert, damit die Einrichten-Leiste (GameContainer.jsx) denselben Wert
+ * anzeigen kann ("12/24 Lichter") statt eine zweite Zahl zu pflegen, die
+ * irgendwann von dieser hier abweicht.
+ */
+export const LICHT_MAX = 24;
 const MAX_VISIBLE_FRUITS = 6;
 const PLANT_CACHE_MAX = 400;
 
@@ -122,8 +255,27 @@ const SHADOW_COLOR = "rgba(12, 20, 10, 0.30)";
 function lerpSize(a, b, t) {
     return a + (b - a) * t;
 }
-/** Sortierkriterium der Tiefenliste: kleinerer Fußpunkt = weiter hinten = zuerst gezeichnet. */
+/**
+ * Sortierkriterium der Tiefenliste: kleinerer Fußpunkt = weiter hinten = zuerst
+ * gezeichnet.
+ *
+ * Ausnahme: Spieler vs. Deko. Bei Pflanzen ist es gewollt, dass eine hohe Staude
+ * den Spieler verdeckt (siehe drawTerritories) — bei den meisten Deko-Stücken
+ * (Bank, Statue …) nicht: das ist flache Möblierung, kein Sichtschutz, und ein
+ * halb hinter einer Gartenbank verschwindender Spieler sieht nach einem Fehler
+ * aus. Der Spieler gewinnt deshalb hier gegen Deko, unabhängig vom Fußpunkt —
+ * AUSSER bei Sorten mit `sichtschutz` im Katalog (Zäune): dahinter zu
+ * verschwinden sieht bei denen gerade richtig aus, wie bei einer Pflanze. Wer
+ * dadurch vor einem eigentlich weiter hinten stehenden (nicht-Sichtschutz-)Stück
+ * landet, wird stattdessen halbtransparent gezeichnet — siehe _markSpielerGeist,
+ * die VOR diesem Sortieren laufen muss, weil sie die rohen Fußpunkte braucht,
+ * die hier überstimmt werden.
+ */
 function compareByBaseY(a, b) {
+    const aSpieler = a.kind === "player" || a.kind === "remote";
+    const bSpieler = b.kind === "player" || b.kind === "remote";
+    if (aSpieler && b.kind === "deco" && !DEKO_SICHTSCHUTZ.has(b.ref?.decoId)) return 1;
+    if (bSpieler && a.kind === "deco" && !DEKO_SICHTSCHUTZ.has(a.ref?.decoId)) return -1;
     return a.baseY - b.baseY;
 }
 /** Stabiler 0..1-Hash für Phasenversatz (Wind, Tier-Federung) — gleiche Pflanze wackelt immer gleich. */
@@ -192,6 +344,16 @@ export default class Renderer {
         this._atlasLoadStarted = false;
         this._tileVariantCache = new Map();
         this._slotStaticCache = new Map();
+        this._bodenLayerCache = new Map();
+        /**
+         * Deko-Zuordnung slotIndex → Array, EINMAL pro Bild neu befüllt (siehe
+         * _gruppiereDekoNachSlot). Vorher durchsuchten _getBodenLayer UND _collectDeco
+         * je Grundstück UNABHÄNGIG voneinander die komplette Welt-Deko-Liste nach ihrem
+         * Slot — bei einer belebten Welt mit mehreren gut dekorierten Grundstücken (z. B.
+         * 8 × 100+ Stück) kostete allein das Filtern mehr als das eigentliche Zeichnen.
+         * Jetzt läuft EIN Durchlauf über die Liste je Bild, danach nur noch Map-Zugriffe.
+         */
+        this._decoBySlot = new Map();
         this._renderProfile = DEFAULT_RENDER_PROFILE;
         this._frameNow = Date.now();
         // Tiefensortierte Zeichenliste pro Grundstück. Die Einträge stammen aus einem
@@ -209,10 +371,29 @@ export default class Renderer {
         this._petFrameCache = new Map();
         // Wiederverwendete Hülle, damit der Render-Aufruf pro Frame kein neues Objekt erzeugt
         this._playerPayload = {
-            selectedTool: null, heldItem: null, localPlayerName: "", playerAppearance: null, playerBadge: null,
+            selectedTool: null, heldItem: null, localPlayerName: "", playerAppearance: null, playerBadge: null, playerNameplate: null,
         };
         this._remotePlayers = null;
         this._drawnRemotes = new Set();
+        /** Laufende Splatter-Wolken: { x, y, start, tropfen[] } — siehe spawnSplatter. */
+        this._splatter = [];
+        /** Laufende Rückmeldungen: { x, y, text, icon, color, start } — siehe spawnFeedback. */
+        this._feedback = [];
+        /** Laufende Verkaufs-Sprechblasen: { x, y, text, start } — siehe spawnVerkaufsBlase. */
+        this._verkaufsBlasen = [];
+        /**
+         * v2 (Punkt 13, "Animationen"): Werkzeug-Schwung des LOKALEN Spielers — nur
+         * EIN aktiver Schwung gleichzeitig, kein Array wie bei Splatter/Feedback.
+         * Reicht, weil nur der eigene Spieler sein eigenes ausgewähltes Werkzeug
+         * zeichnet (siehe drawPlayer: `selectedTool` kommt nur beim lokalen Aufruf
+         * mit, bei Fremden ist es immer null) — es kann also nie zwei gleichzeitig
+         * geben, die dasselbe Feld brauchen.
+         */
+        this._toolSchwung = null;
+        /** Fliegende Ernte-Symbole nach dem Einsammeln — siehe spawnItemFlug. */
+        this._itemFlug = [];
+        /** Fallende Saat-Tütchen beim Pflanzen — siehe spawnSaatWurf. */
+        this._saatWurf = [];
         // Reusable scratch canvas for isolated tinted blits (multi-use fruits, held items).
         // We need an offscreen surface so source-atop maskings only affect the item's pixels,
         // not whatever background was already drawn underneath on the main canvas.
@@ -220,6 +401,10 @@ export default class Renderer {
         this._tintScratch.width = 128;
         this._tintScratch.height = 128;
         this._tintScratchCtx = this._tintScratch.getContext("2d");
+        // Fläche für den Nachtschleier — wird erst beim ersten Einsatz auf
+        // Leinwandgröße gebracht, damit sie tagsüber keinen Speicher belegt.
+        this._nachtLayer = null;
+        this._nachtLayerCtx = null;
         this._loadAtlas();
     }
 
@@ -240,7 +425,13 @@ export default class Renderer {
             localPlayerName = "",
             playerAppearance = {},
             playerBadge = null,
+            playerNameplate = null,
             remotePlayers = null,
+            // Tageszeit und Party kommen fertig gerechnet aus dem GameContainer
+            // (engine/Tageszeit.js). Der Renderer entscheidet nichts davon selbst —
+            // sonst liefe seine Uhr gegen die des Servers.
+            nacht = 0,
+            party = 0,
         } = state;
         this._remotePlayers = remotePlayers;
         this._readyEggs = state.readyEggsCount || 0;
@@ -284,16 +475,22 @@ export default class Renderer {
         this._playerPayload.localPlayerName = localPlayerName;
         this._playerPayload.playerAppearance = playerAppearance;
         this._playerPayload.playerBadge = playerBadge;
+        this._playerPayload.playerNameplate = playerNameplate;
 
-        // Inkubator und Mülleimer stehen AUF einem Grundstück und werden dort in die
-        // Tiefenliste einsortiert (siehe _collectPlotAreas). Alles andere steht am
-        // Kiesweg und wird wie gehabt danach gezeichnet — sonst schnitte die Rasenfläche
-        // des Grundstücks die Dächer der Marktwagen ab.
-        // Die Gebäude der anderen kommen mit in die Tiefenliste: _collectPlotAreas
+        // Der Schuppen steht AUF einem Grundstück und wird dort in die Tiefenliste
+        // einsortiert (siehe _collectPlotAreas). Alles andere steht am Kiesweg und
+        // wird wie gehabt danach gezeichnet — sonst schnitte die Rasenfläche des
+        // Grundstücks die Dächer der Marktwagen ab.
+        // Die Schuppen der anderen kommen mit in die Tiefenliste: _collectPlotAreas
         // sortiert jeden Eintrag über seine Koordinaten dem richtigen Grundstück zu,
         // also landen sie automatisch beim jeweiligen Nachbarn.
-        this._plotAreas = [areas.incubator, areas.trash, areas.chest, areas.vitrine, ...fremdeGebaeude]
+        this._plotAreas = [areas.shed, ...fremdeGebaeude]
             .filter((a) => a && a.aktiv !== false);
+        // Referenz auf den EIGENEN Schuppen, getrennt von den fremden mit
+        // gleicher Bauart ("shed") — sonst zeigte "Ei fertig" (siehe unten bei
+        // "area"-Einträgen) über JEDEM Schuppen auf dem Bildschirm, nicht nur
+        // dem eigenen.
+        this._ownShed = areas.shed || null;
         const playerDrawn = this.drawTerritories(
             layout, player, petPlacements, decoPlacements, this._playerPayload,
         );
@@ -303,16 +500,152 @@ export default class Renderer {
         if (remotePlayers) {
             for (const remote of remotePlayers) {
                 if (this._drawnRemotes.has(remote)) continue;
-                this.drawPlayer(remote, null, remote.held || null, remote.name, remote.appearance || {}, remote.badge, "remote");
+                this.drawPlayer(remote, null, remote.held || null, remote.name, remote.appearance || {}, remote.badge, "remote", remote.nameplate);
             }
         }
         if (!playerDrawn) {
-            this.drawPlayer(player, selectedTool, heldItem, localPlayerName, playerAppearance, playerBadge);
+            this.drawPlayer(player, selectedTool, heldItem, localPlayerName, playerAppearance, playerBadge, "local", playerNameplate);
         }
+
+        // Ganz zuletzt in der Weltansicht: der Splatter liegt über allem, was an
+        // seiner Stelle steht — sonst verschwände er hinter der nächsten Pflanze.
+        this._drawSplatter();
+        this._drawItemFlug();
+        this._drawSaatWurf();
+        this._drawFeedback();
+        this._drawVerkaufsBlasen();
 
         ctx.restore();
         // 1. ANPASSUNG: Player übergeben für Map-relativen Regen
-        this._drawWeatherOverlay(weather, player); 
+        this._drawWeatherOverlay(weather, player, nacht);
+        // Discolaser NACH dem Schleier: sie sind selbst Licht und dürfen von keiner
+        // Laterne ausgestanzt werden — dieselbe Begründung wie bei den Blitzen.
+        this._drawParty(party);
+    }
+
+    /**
+     * Discolaser des Party-Events.
+     *
+     * Bildschirmfest statt weltfest, und das ist Absicht: die Strahlen kommen von
+     * „über der Welt", nicht von einem Punkt auf dem Acker. Weltfeste Kegel müssten
+     * an einem Ort hängen — dann sähe die halbe Welt gar nichts von der Party.
+     *
+     * @param {number} staerke 0 = keine Party, 1 = voll aufgedreht
+     */
+    _drawParty(staerke) {
+        if (!(staerke > 0.01)) return;
+        const { ctx, canvas } = this;
+        const t = this.frame * 0.02;
+        const detail = Math.max(0.3, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
+        const strahlen = Math.max(3, Math.round(5 * detail));
+        const FARBEN = [
+            [255, 64, 120], [64, 200, 255], [180, 80, 255], [80, 255, 160], [255, 200, 60],
+        ];
+        const cx = canvas.width / 2;
+        const cy = -canvas.height * 0.12;
+        const laenge = canvas.height * 1.9;
+
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < strahlen; i++) {
+            const [r, g, b] = FARBEN[i % FARBEN.length];
+            // Jeder Strahl schwingt um die Senkrechte, mit eigener Geschwindigkeit —
+            // gleicher Takt sähe aus wie ein Fächer, nicht wie eine Lichtanlage.
+            const winkel = Math.sin(t * (0.45 + i * 0.13) + i * 1.7) * 0.95;
+            const halbe = 0.05 + 0.022 * Math.sin(t * 1.7 + i);
+            const puls = 0.5 + 0.5 * Math.sin(t * 2.4 + i * 0.9);
+            const alpha = (0.13 + 0.11 * puls) * staerke;
+            const zx = cx + Math.sin(winkel) * laenge;
+            const zy = cy + Math.cos(winkel) * laenge;
+            const grad = ctx.createLinearGradient(cx, cy, zx, zy);
+            grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+            grad.addColorStop(0.6, `rgba(${r},${g},${b},${alpha * 0.45})`);
+            grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.sin(winkel - halbe) * laenge, cy + Math.cos(winkel - halbe) * laenge);
+            ctx.lineTo(cx + Math.sin(winkel + halbe) * laenge, cy + Math.cos(winkel + halbe) * laenge);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Takt: ein kaum sichtbarer Farbstoß über das ganze Bild, damit die Anlage
+        // auch dann zu spüren ist, wenn gerade kein Strahl über den Spieler wandert.
+        const takt = Math.pow(0.5 + 0.5 * Math.sin(t * 3.1), 4);
+        ctx.fillStyle = `rgba(255, 120, 220, ${0.05 * takt * staerke})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        this._drawPartyNebel(staerke, takt);
+        this._drawKonfetti(staerke, detail);
+    }
+
+    /**
+     * Bodennebel der Anlage.
+     *
+     * Liegt UNTER dem Konfetti und über allem anderen: zwei weiche Bänder am unteren
+     * Bildrand, die im Takt atmen. Ohne den Nebel hängen die Strahlen im Nichts — es
+     * fehlt das, worin sich Licht überhaupt zeigt.
+     */
+    _drawPartyNebel(staerke, takt) {
+        const { ctx, canvas } = this;
+        const t = this.frame * 0.02;
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 2; i++) {
+            const hoehe = canvas.height * (0.30 + 0.08 * Math.sin(t * 0.7 + i * 2.1));
+            const y = canvas.height - hoehe;
+            const g = ctx.createLinearGradient(0, canvas.height, 0, y);
+            const a1 = (0.055 + 0.03 * takt) * staerke;
+            g.addColorStop(0, i === 0 ? `rgba(180, 110, 255, ${a1})` : `rgba(90, 200, 255, ${a1 * 0.8})`);
+            g.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = g;
+            // Leicht versetzt, damit die beiden Bänder nicht deckungsgleich liegen.
+            const versatz = Math.sin(t * 0.5 + i * 3) * canvas.width * 0.12;
+            ctx.fillRect(versatz - canvas.width * 0.2, y, canvas.width * 1.4, hoehe);
+        }
+        ctx.restore();
+    }
+
+    /**
+     * Konfetti.
+     *
+     * Rein rechnerisch statt als Teilchenliste: Position, Drehung und Farbe eines
+     * Schnipsels ergeben sich aus seinem Index und der Bildnummer. Damit gibt es
+     * nichts zu verwalten, nichts läuft nach dem Ende der Party weiter, und der
+     * Speicher bleibt unangetastet — dasselbe Muster wie beim Regen darüber.
+     *
+     * Die Schnipsel hängen am BILD, nicht an der Welt: sie fallen vor der Kamera,
+     * nicht über dem Acker. Weltfest wären sie beim Laufen sofort weg.
+     */
+    _drawKonfetti(staerke, detail) {
+        const { ctx, canvas } = this;
+        const anzahl = Math.round(70 * detail * staerke);
+        if (anzahl <= 0) return;
+        const FARBEN = ["#ff4d7d", "#4dd2ff", "#b46bff", "#5cff9d", "#ffd24d", "#ffffff"];
+        const f = this.frame;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, staerke);
+        for (let i = 0; i < anzahl; i++) {
+            // Jeder Schnipsel bekommt aus seinem Index eine eigene Spur und ein eigenes
+            // Tempo — sonst fallen alle im Gleichschritt.
+            const spur = ((i * 61.7) % 1000) / 1000;
+            const tempo = 1.1 + ((i * 37) % 13) * 0.13;
+            const breite = 4 + ((i * 17) % 4);
+            const hoehe = 7 + ((i * 23) % 6);
+            const y = ((f * tempo + i * 53) % (canvas.height + 60)) - 30;
+            // Seitliches Pendeln, damit es taumelt statt zu regnen.
+            const x = spur * canvas.width + Math.sin(f * 0.03 + i) * 26;
+            const dreh = (f * 0.06 + i) % (Math.PI * 2);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(dreh);
+            // Die Höhe schwankt mit der Drehung — das liest sich als Flattern.
+            ctx.fillStyle = FARBEN[i % FARBEN.length];
+            ctx.fillRect(-breite / 2, -hoehe / 2, breite, hoehe * Math.abs(Math.cos(dreh)));
+            ctx.restore();
+        }
+        ctx.restore();
     }
 
     _drawGround(layout, player) {
@@ -337,10 +670,15 @@ export default class Renderer {
             ctx.fillRect(-canvas.width, -canvas.height, layout.worldWidth + canvas.width * 2, layout.worldHeight + canvas.height * 2);
         }
 
-        const viewLeft = player.x - canvas.width / 2 - TILE_SIZE * 2;
-        const viewRight = player.x + canvas.width / 2 + TILE_SIZE * 2;
-        const viewTop = player.y - canvas.height / 2 - TILE_SIZE * 2;
-        const viewBottom = player.y + canvas.height / 2 + TILE_SIZE * 2;
+        // Halbe Bildschirmbreite/-höhe steht in PIXELN, die Sicht in WELT-Einheiten
+        // ist beim Herauszoomen aber größer als das (1 Welt-Einheit sind bei
+        // zoom < 1 weniger als 1 Bildschirm-Pixel) — ohne die Division bleibt
+        // dieses Fenster beim Herauszoomen zu eng und schneidet sichtbaren Rand ab.
+        const zoom = this._zoom || 1;
+        const viewLeft = player.x - canvas.width / 2 / zoom - TILE_SIZE * 2;
+        const viewRight = player.x + canvas.width / 2 / zoom + TILE_SIZE * 2;
+        const viewTop = player.y - canvas.height / 2 / zoom - TILE_SIZE * 2;
+        const viewBottom = player.y + canvas.height / 2 / zoom + TILE_SIZE * 2;
         const startX = Math.max(0, Math.floor(viewLeft / step) * step);
         const endX = Math.min(layout.worldWidth, Math.ceil(viewRight / step) * step);
         const startY = Math.max(0, Math.floor(viewTop / step) * step);
@@ -444,8 +782,11 @@ export default class Renderer {
         const step = TILE_SIZE * MERGED_TILE_STRIDE;
         const pathTop = layout.centerPathTopY;
         const pathHeight = layout.centerPathBottomY - layout.centerPathTopY;
-        const viewLeft = player.x - canvas.width / 2 - TILE_SIZE * 2;
-        const viewRight = player.x + canvas.width / 2 + TILE_SIZE * 2;
+        // Siehe _drawGround — ohne die Division ist das Fenster beim Herauszoomen
+        // zu eng.
+        const zoom = this._zoom || 1;
+        const viewLeft = player.x - canvas.width / 2 / zoom - TILE_SIZE * 2;
+        const viewRight = player.x + canvas.width / 2 / zoom + TILE_SIZE * 2;
         const startX = Math.max(0, Math.floor(viewLeft / step) * step);
         const endX = Math.min(layout.worldWidth, Math.ceil(viewRight / step) * step);
 
@@ -467,58 +808,124 @@ export default class Renderer {
 
     // 1. ANPASSUNG: Player Objekt ergänzt für Parallax Scrolling
     /**
-     * Laternen und Feuerschalen leuchten in die Dunkelheit.
+     * Bildschirmposition, Radius und Flackern der sichtbaren Lichtquellen.
      *
-     * Läuft NACH dem dunklen Schleier und in Bildschirmkoordinaten — die Kamera ist
-     * an dieser Stelle längst zurückgesetzt, deshalb wird ihre Rechnung hier von Hand
-     * nachgezogen (dieselben Rundungen wie in draw(), sonst zittert der Lichtkegel
-     * gegen die Deko, auf der er sitzt).
-     *
-     * Zwei Durchgänge: erst wird der Schleier weggenommen (`destination-out`), damit
-     * unter der Laterne wirklich das Grundstück sichtbar wird statt nur ein heller
-     * Fleck AUF dem Dunkel. Dann kommt der warme Schein obendrauf.
+     * Die Kamera ist zum Zeitpunkt des Aufrufs längst zurückgesetzt, deshalb wird
+     * ihre Rechnung hier von Hand nachgezogen — mit denselben Rundungen wie in
+     * draw(), sonst zittert der Lichtkegel gegen die Deko, auf der er sitzt.
      */
-    _leuchteLichter(staerke, player) {
+    _sichtbareLichter(player) {
         const lichter = this._lichter;
-        if (!lichter || lichter.length === 0 || staerke <= 0.01) return;
-        const { ctx, canvas } = this;
+        if (!lichter || lichter.length === 0) return [];
+        const { canvas } = this;
         const zoom = this._zoom || 1;
         const mx = Math.round(canvas.width / 2);
         const my = Math.round(canvas.height / 2);
-        const ox = Math.round(-(player?.x || 0));
-        const oy = Math.round(-(player?.y || 0));
+        const px = player?.x || 0;
+        const py = player?.y || 0;
+        const ox = Math.round(-px);
+        const oy = Math.round(-py);
 
-        // Bildschirmposition und Flackern einmal ausrechnen, nicht je Durchgang.
-        const sichtbar = [];
+        // Erst ALLE auf dem Schirm sichtbaren Lichter einsammeln und erst danach,
+        // falls es mehr als LICHT_MAX sind, die dem Spieler nächsten behalten.
+        //
+        // Vorher gewann schlicht, wer zuerst in `this._lichter` stand (Reihenfolge
+        // aus decoPlacements) — bei vielen Laternen auf einem Grundstück kippte
+        // dieselbe Handvoll je nach Kamera-Ausschnitt mal rein, mal raus in die
+        // Kappung, unabhängig von der Entfernung zum Spieler. Das sah aus wie
+        // zufälliges Ein-/Ausschalten der Lichtkegel ("geht random aus oder an,
+        // selbst wenn in Reichweite oder nicht") — gemeldet ab einer gewissen
+        // Laternen-Zahl, war aber die ganze Zeit dieselbe feste Kappung, nur mit
+        // instabiler Auswahl. Distanz-Sortierung macht die Auswahl deterministisch
+        // (die nächsten Laternen leuchten immer, nicht irgendwelche) und blendet
+        // weiter entfernte sauber aus, statt sie sichtbar hin- und herspringen zu
+        // lassen.
+        const kandidaten = [];
         for (const l of lichter) {
             const sx = mx + (l.x + ox) * zoom;
             const sy = my + (l.y + oy) * zoom;
             const r = l.licht.radius * zoom;
             if (sx + r < 0 || sx - r > canvas.width || sy + r < 0 || sy - r > canvas.height) continue;
-            // Phase aus der Position: sonst flackern alle Laternen im Gleichtakt.
-            const p = this.frame * 0.08 + l.x * 0.017 + l.y * 0.011;
-            const welle = 0.5 + 0.5 * (Math.sin(p) * 0.6 + Math.sin(p * 2.7) * 0.4);
-            sichtbar.push({ sx, sy, r: r * (1 - l.licht.flackern + l.licht.flackern * welle), farbe: l.licht.farbe });
-            if (sichtbar.length >= LICHT_MAX) break;
+            const dx = l.x - px;
+            const dy = l.y - py;
+            kandidaten.push({ sx, sy, r, licht: l.licht, x: l.x, y: l.y, distSq: dx * dx + dy * dy });
         }
-        if (sichtbar.length === 0) return;
+        if (kandidaten.length > LICHT_MAX) {
+            kandidaten.sort((a, b) => a.distSq - b.distSq);
+            kandidaten.length = LICHT_MAX;
+        }
 
-        ctx.save();
-        ctx.globalCompositeOperation = "destination-out";
-        for (const l of sichtbar) {
-            const g = ctx.createRadialGradient(l.sx, l.sy, 0, l.sx, l.sy, l.r);
-            g.addColorStop(0, `rgba(0,0,0,${0.92 * staerke})`);
-            g.addColorStop(0.55, `rgba(0,0,0,${0.45 * staerke})`);
-            g.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.fillStyle = g;
-            ctx.fillRect(l.sx - l.r, l.sy - l.r, l.r * 2, l.r * 2);
+        const sichtbar = [];
+        for (const k of kandidaten) {
+            // Phase aus der Position: sonst flackern alle Laternen im Gleichtakt.
+            const p = this.frame * 0.08 + k.x * 0.017 + k.y * 0.011;
+            const welle = 0.5 + 0.5 * (Math.sin(p) * 0.6 + Math.sin(p * 2.7) * 0.4);
+            sichtbar.push({ sx: k.sx, sy: k.sy, r: k.r * (1 - k.licht.flackern + k.licht.flackern * welle), farbe: k.licht.farbe });
         }
+        return sichtbar;
+    }
+
+    /**
+     * Nächtlicher Schleier samt Laternenschein.
+     *
+     * WARUM EINE ZWISCHENFLÄCHE UND NICHT DIREKT AUF DIE LEINWAND
+     * Eine Laterne soll den SCHLEIER wegnehmen, nicht das Bild. Vorher lief das
+     * `destination-out` direkt auf der Hauptleinwand — das nimmt aber die Deckkraft
+     * ALLER dort schon gezeichneten Pixel weg, also auch die des Grundstücks. Unter
+     * der Laterne wurde die Leinwand durchsichtig, und durch das Loch schien der
+     * fast schwarze Seitenhintergrund (bg-slate-950) hindurch. Genau das war zu
+     * sehen: ein grauschwarzer Kegel mit dunklem Rand statt beleuchtetem Boden.
+     *
+     * Jetzt entsteht der Schleier auf einer eigenen Fläche, dort werden die Lichter
+     * ausgestanzt, und erst das Ergebnis legt sich über das Bild. Was unter der
+     * Laterne liegt, bleibt dadurch unangetastet sichtbar. Der warme Schein kommt
+     * danach mit `lighter` obendrauf.
+     *
+     * @param {(lctx: CanvasRenderingContext2D) => void} maleSchleier zeichnet die
+     *        Verdunklung auf die Zwischenfläche
+     */
+    _dunkelheitMitLicht(staerke, player, maleSchleier) {
+        const { ctx, canvas } = this;
+        if (!this._nachtLayer) this._nachtLayer = document.createElement("canvas");
+        const layer = this._nachtLayer;
+        if (layer.width !== canvas.width || layer.height !== canvas.height) {
+            layer.width = canvas.width;
+            layer.height = canvas.height;
+            this._nachtLayerCtx = layer.getContext("2d");
+        }
+        const lctx = this._nachtLayerCtx || (this._nachtLayerCtx = layer.getContext("2d"));
+
+        lctx.globalCompositeOperation = "source-over";
+        lctx.clearRect(0, 0, canvas.width, canvas.height);
+        maleSchleier(lctx);
+
+        const sichtbar = staerke > 0.01 ? this._sichtbareLichter(player) : [];
+        if (sichtbar.length > 0) {
+            lctx.globalCompositeOperation = "destination-out";
+            for (const l of sichtbar) {
+                const g = lctx.createRadialGradient(l.sx, l.sy, 0, l.sx, l.sy, l.r);
+                // Bis zum Rand auf null: bliebe dort ein Rest stehen, zeichnete sich
+                // die Kante des Farbverlaufs als Ring in den Schleier.
+                g.addColorStop(0, "rgba(0,0,0,1)");
+                g.addColorStop(0.45, "rgba(0,0,0,0.82)");
+                g.addColorStop(0.75, "rgba(0,0,0,0.38)");
+                g.addColorStop(1, "rgba(0,0,0,0)");
+                lctx.fillStyle = g;
+                lctx.fillRect(l.sx - l.r, l.sy - l.r, l.r * 2, l.r * 2);
+            }
+            lctx.globalCompositeOperation = "source-over";
+        }
+
+        ctx.drawImage(layer, 0, 0);
+
+        if (sichtbar.length === 0) return;
+        ctx.save();
         ctx.globalCompositeOperation = "lighter";
         for (const l of sichtbar) {
             const [cr, cg, cb] = l.farbe;
             const g = ctx.createRadialGradient(l.sx, l.sy, 0, l.sx, l.sy, l.r * 0.8);
-            g.addColorStop(0, `rgba(${cr},${cg},${cb},${0.34 * staerke})`);
-            g.addColorStop(0.4, `rgba(${cr},${cg},${cb},${0.13 * staerke})`);
+            g.addColorStop(0, `rgba(${cr},${cg},${cb},${0.26 * staerke})`);
+            g.addColorStop(0.4, `rgba(${cr},${cg},${cb},${0.1 * staerke})`);
             g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
             ctx.fillStyle = g;
             ctx.fillRect(l.sx - l.r, l.sy - l.r, l.r * 2, l.r * 2);
@@ -526,10 +933,44 @@ export default class Renderer {
         ctx.restore();
     }
 
-    _drawWeatherOverlay(weather, player) {
+    /**
+     * Wetter UND Tageszeit. Beide verdunkeln, deshalb gehören sie in EINEN Durchgang.
+     *
+     * Vorher zeichnete nur das Wetter einen Schleier (Mondschein, Gewitter). Mit dem
+     * Tag-Nacht-Wechsel gäbe es zwei davon — und zwei übereinandergelegte Schleier
+     * ergeben in der tiefen Nacht bei Gewitter ein fast schwarzes Bild. Genommen wird
+     * deshalb der STÄRKERE von beiden, nicht die Summe.
+     *
+     * @param {number} nacht Dunkelheit der Tageszeit, 0 bis 1 (engine/Tageszeit.js)
+     */
+    _drawWeatherOverlay(weather, player, nacht = 0) {
         const type = weather?.type || "sun";
         const intensity = Math.max(0, Math.min(1, Number.isFinite(weather?.intensity) ? weather.intensity : 1));
         const { ctx, canvas } = this;
+        const nachtStaerke = Math.max(0, Math.min(1, Number(nacht) || 0));
+        const wetterStaerke = type === "moonlight" ? 0.4 * intensity
+            : type === "thunder" ? 0.45 * intensity
+            : 0;
+        const schleier = Math.max(nachtStaerke, wetterStaerke);
+        const mondschein = type === "moonlight" || nachtStaerke > 0.05;
+
+        // Der Schleier hängt an der Tageszeit und läuft deshalb auch bei "sun".
+        if (schleier > 0.01) {
+            this._dunkelheitMitLicht(schleier, player, (lctx) => {
+                lctx.fillStyle = `rgba(15, 23, 42, ${schleier})`;
+                lctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (!mondschein) return;
+                // Mondschein von oben rechts. Er hellt den SCHLEIER auf und gehört
+                // deshalb hier hinein — sonst stanzt ihn eine Laterne darunter nicht
+                // mit weg und es bliebe ein heller Rand stehen.
+                const gradient = lctx.createRadialGradient(canvas.width, 0, 0, canvas.width, 0, canvas.width * 0.8);
+                gradient.addColorStop(0, `rgba(186, 230, 253, ${0.45 * schleier})`);
+                gradient.addColorStop(1, "rgba(15, 23, 42, 0)");
+                lctx.fillStyle = gradient;
+                lctx.fillRect(0, 0, canvas.width, canvas.height);
+            });
+        }
+
         if (type === "sun" || intensity <= 0.01) return;
 
         // Offset des Spielers abziehen, damit Regen an der Map "klebt"
@@ -538,26 +979,16 @@ export default class Renderer {
 
         ctx.save();
         if (type === "moonlight") {
-            // 2. ANPASSUNG: Hellerer Hintergrund und Schein von oben rechts
-            ctx.fillStyle = `rgba(15, 23, 42, ${0.4 * intensity})`;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            const gradient = ctx.createRadialGradient(canvas.width, 0, 0, canvas.width, 0, canvas.width * 0.8);
-            gradient.addColorStop(0, `rgba(186, 230, 253, ${0.2 * intensity})`);
-            gradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
-
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+            // Mondschein bringt nur den Schleier mit, und der ist oben schon gemalt.
             ctx.restore();
-            // Nach dem restore: die Lichter setzen ihren eigenen Zeichenmodus.
-            this._leuchteLichter(intensity, player);
             return;
         }
 
         if (type === "thunder") {
-            ctx.fillStyle = `rgba(15, 23, 42, ${0.45 * intensity})`; 
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+            // Blitze kommen NACH dem Schleier auf die Hauptleinwand: sie sind selbst
+            // eine Lichtquelle und dürfen von keiner Laterne ausgestanzt werden.
+            ctx.save();
 
             const particleScale = Math.max(0.2, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
             const boltCount = Math.max(1, Math.round(4 * particleScale));
@@ -587,7 +1018,6 @@ export default class Renderer {
                 ctx.shadowBlur = 0;
             }
             ctx.restore();
-            this._leuchteLichter(intensity, player);
             return;
         }
 
@@ -632,19 +1062,52 @@ export default class Renderer {
      *
      * @returns {boolean} ob der Spieler bereits einsortiert gezeichnet wurde
      */
+    /**
+     * decoPlacements (die WELTWEITE Liste, alle Grundstücke gemischt) einmal
+     * nach slotIndex sortieren — siehe Kommentar bei this._decoBySlot im
+     * Konstruktor. Leere Arrays statt fehlender Einträge, damit die Aufrufer
+     * nicht jedes Mal auf undefined prüfen müssen.
+     */
+    _gruppiereDekoNachSlot(decoPlacements) {
+        const map = this._decoBySlot;
+        map.clear();
+        if (!Array.isArray(decoPlacements)) return map;
+        for (const deco of decoPlacements) {
+            const slotIndex = deco?.slotIndex;
+            if (!Number.isInteger(slotIndex)) continue;
+            let liste = map.get(slotIndex);
+            if (!liste) map.set(slotIndex, (liste = []));
+            liste.push(deco);
+        }
+        return map;
+    }
+
     drawTerritories(layout, player, petPlacements = [], decoPlacements = [], playerPayload = null) {
         const { ctx } = this;
         const { territoryWidth, territoryHeight, baseDirtWidth, baseDirtHeight, dirtOffsetX } = MAP_CONFIG;
         const viewMargin = 200;
-        const viewLeft = player.x - this.canvas.width / 2 - viewMargin;
-        const viewRight = player.x + this.canvas.width / 2 + viewMargin;
-        const viewTop = player.y - this.canvas.height / 2 - viewMargin;
-        const viewBottom = player.y + this.canvas.height / 2 + viewMargin;
+        // Ohne die Division durchs Zoom bleibt dieses Fenster beim Herauszoomen
+        // enger als der tatsächlich sichtbare Ausschnitt (1 Welt-Einheit sind bei
+        // zoom < 1 weniger als 1 Bildschirm-Pixel, die sichtbare Welt in
+        // Welt-Einheiten also GRÖSSER als canvas.width/2 Pixel). Betroffen waren
+        // u. a. Laternen: ihr Licht wird nur eingesammelt, wenn ihr _drawSize_-
+        // Fußabdruck (klein, ~1 Kachel) durch dieses Fenster kommt — nicht ihr
+        // viel größerer Lichtradius. Beim Herauszoomen, Herumlaufen oder
+        // Hineinzoomen rutschte eine an sich sichtbare Laterne dadurch immer
+        // wieder knapp über die (zu enge) Kante und verschwand kurz samt Schein —
+        // gemeldet am 21.08.2026 als "Laternen flackern/gehen aus, auch mitten im
+        // sichtbaren Bereich".
+        const zoom = this._zoom || 1;
+        const viewLeft = player.x - this.canvas.width / 2 / zoom - viewMargin;
+        const viewRight = player.x + this.canvas.width / 2 / zoom + viewMargin;
+        const viewTop = player.y - this.canvas.height / 2 / zoom - viewMargin;
+        const viewBottom = player.y + this.canvas.height / 2 / zoom + viewMargin;
         let playerDrawn = false;
         // Ein Mitspieler darf nur einmal gezeichnet werden, auch wenn sich Grundstücke
         // an den Rändern überlappen.
         const drawnRemotes = this._drawnRemotes;
         drawnRemotes.clear();
+        const dekoBySlot = this._gruppiereDekoNachSlot(decoPlacements);
 
         layout.slots.forEach(slot => {
             const drawY = slot.isTopRow ? slot.anchorY - territoryHeight : slot.anchorY;
@@ -656,6 +1119,11 @@ export default class Renderer {
             const unlockedCells = Array.isArray(slot.unlockedCells) ? slot.unlockedCells : [];
             const staticLayer = this._getSlotStaticLayer(slot, drawY, unlockedCells);
             if (staticLayer) ctx.drawImage(staticLayer, slot.x, drawY);
+            const slotDeko = dekoBySlot.get(slot.id - 1) || LEERE_DEKO_LISTE;
+            // Bodenbeläge direkt auf den Grundlayer: sie ERSETZEN den Untergrund an
+            // ihrer Kachel. Danach kommt alles andere darüber, das Raster inbegriffen.
+            const bodenLayer = this._getBodenLayer(slot, drawY, slotDeko);
+            if (bodenLayer) ctx.drawImage(bodenLayer, slot.x, drawY);
             // Editor: Kachelraster über dem eigenen Grundstück, damit man sieht,
             // woran sich Deko und Gebäude ausrichten.
             if (this._editorSlotId === slot.id) this._drawEditorRaster(slot, drawY);
@@ -670,7 +1138,7 @@ export default class Renderer {
             this._poolUsed = 0;
 
             this._collectPlants(bucket, slot, drawY, viewLeft, viewTop, viewRight, viewBottom, dirtOffsetX, baseDirtHeight, baseDirtWidth);
-            this._collectDeco(bucket, slot, drawY, decoPlacements, viewLeft, viewTop, viewRight, viewBottom);
+            this._collectDeco(bucket, slot, drawY, slotDeko, viewLeft, viewTop, viewRight, viewBottom);
             this._collectPets(bucket, slot, petPlacements, drawY);
 
             // Der Spieler wird nur auf dem Grundstück einsortiert, auf dem er steht —
@@ -681,6 +1149,8 @@ export default class Renderer {
                 const entry = this._poolEntry();
                 entry.kind = "player";
                 entry.baseY = player.y;
+                entry.x = player.x;
+                entry.ghost = false;
                 bucket.push(entry);
                 playerDrawn = true;
             }
@@ -694,6 +1164,8 @@ export default class Renderer {
                     entry.kind = "remote";
                     entry.ref = remote;
                     entry.baseY = remote.y;
+                    entry.x = remote.x;
+                    entry.ghost = false;
                     bucket.push(entry);
                     drawnRemotes.add(remote);
                 }
@@ -713,6 +1185,9 @@ export default class Renderer {
                 }
             }
 
+            // Muss VOR dem Sortieren laufen: sie vergleicht die rohen Fußpunkte, bevor
+            // compareByBaseY sie für Deko überstimmt (siehe dort).
+            this._markSpielerGeist(bucket);
             bucket.sort(compareByBaseY);
 
             for (let i = 0; i < bucket.length; i++) {
@@ -724,9 +1199,16 @@ export default class Renderer {
                 } else if (entry.kind === "area") {
                     const a = entry.ref;
                     const ersatz = AREA_ERSATZ[bauart(a)] || AREA_ERSATZ.incubator;
+                    // BUG (Feedback 30.08.: "Schild ueber dem Schuppen zeigen, wenn ein Ei
+                    // fertig ist") — hier stand noch `a.type === "incubator"`, ein Rest aus
+                    // der Zeit, als der Inkubator sein eigenes Gebäude auf dem Feld hatte.
+                    // Seit er im Schuppen wohnt, lief das ins Leere. Wichtig: `a === this.
+                    // _ownShed`, NICHT `bauart(a) === "shed"` — dieser Zweig zeichnet auch
+                    // die Schuppen der Nachbarn (gleiche Bauart!), und deren "Ei fertig"
+                    // geht niemanden außer ihnen selbst etwas an.
                     this._drawAreaBuilding(
                         a, ersatz.farbe, ersatz.symbol,
-                        a.label || "", a.type === "incubator" ? this._readyEggs : 0,
+                        a.label || "", a === this._ownShed ? this._readyEggs : 0,
                     );
                 } else if (entry.kind === "pet") {
                     this._drawPetItem(entry);
@@ -734,11 +1216,17 @@ export default class Renderer {
                     // Fremde tragen ihr Item sichtbar in der Hand — inklusive
                     // Groesse und Sonderform, gezeichnet vom selben Code wie beim
                     // eigenen Spieler.
+                    // `ghost`: siehe _markSpielerGeist — steht eigentlich hinter
+                    // dieser Deko, wird aber (Absicht) davor gezeichnet.
+                    this.ctx.globalAlpha = entry.ghost ? 0.5 : 1;
                     this.drawPlayer(
                         entry.ref, null, entry.ref.held || null,
                         entry.ref.name, entry.ref.appearance || {}, entry.ref.badge, "remote",
+                        entry.ref.nameplate,
                     );
+                    this.ctx.globalAlpha = 1;
                 } else if (entry.kind === "player") {
+                    this.ctx.globalAlpha = entry.ghost ? 0.5 : 1;
                     this.drawPlayer(
                         player,
                         playerPayload.selectedTool,
@@ -746,7 +1234,10 @@ export default class Renderer {
                         playerPayload.localPlayerName,
                         playerPayload.playerAppearance,
                         playerPayload.playerBadge,
+                        "local",
+                        playerPayload.playerNameplate,
                     );
+                    this.ctx.globalAlpha = 1;
                 }
             }
 
@@ -768,18 +1259,136 @@ export default class Renderer {
         const pool = this._renderPool;
         let entry = pool[this._poolUsed];
         if (!entry) {
-            entry = { kind: "", baseY: 0, plant: null, cellX: 0, cellY: 0, slotId: 0, cacheKey: "", ref: null, size: 0, x: 0, y: 0 };
+            entry = { kind: "", baseY: 0, plant: null, cellX: 0, cellY: 0, slotId: 0, cacheKey: "", ref: null, size: 0, x: 0, y: 0, ghost: false };
             pool[this._poolUsed] = entry;
         }
         this._poolUsed++;
         return entry;
     }
 
-    _collectDeco(bucket, slot, drawY, decoPlacements, viewLeft, viewTop, viewRight, viewBottom) {
-        if (!Array.isArray(decoPlacements) || decoPlacements.length === 0) return;
-        const slotIndex = slot.id - 1;
-        for (const deco of decoPlacements) {
-            if (deco?.slotIndex !== slotIndex) continue;
+    /**
+     * Deko soll den Spieler meist nie verschlucken — Bank, Statue & Co. sind flache
+     * Möblierung, kein Sichtschutz (siehe compareByBaseY, das sie deshalb IMMER vor
+     * Deko einsortiert). Damit das nicht aussieht, als liefe man einfach durch eine
+     * Statue hindurch, wird halbdurchsichtig gezeichnet, wer nach der eigentlichen
+     * Fußpunkt-Ordnung eigentlich dahinter stünde — ein Geist vor der Deko statt
+     * unsichtbar dahinter. Pflanzen UND Deko mit `sichtschutz` (Zäune) bleiben aussen
+     * vor: dahinter zu verschwinden ist dort gewollt (siehe Kommentar oben bei
+     * drawTerritories bzw. bei compareByBaseY).
+     *
+     * Muss vor bucket.sort() laufen, weil sie mit den ROHEN Fußpunkten vergleicht —
+     * genau der Fall, den compareByBaseY danach überstimmt.
+     */
+    _markSpielerGeist(bucket) {
+        for (let i = 0; i < bucket.length; i++) {
+            const spieler = bucket[i];
+            if (spieler.kind !== "player" && spieler.kind !== "remote") continue;
+            for (let j = 0; j < bucket.length; j++) {
+                const deko = bucket[j];
+                if (deko.kind !== "deco") continue;
+                if (DEKO_SICHTSCHUTZ.has(deko.ref?.decoId)) continue; // darf normal verdecken, kein Geist
+                if (deko.baseY <= spieler.baseY) continue; // stand ohnehin schon davor
+                // Grober Sichtkontakt statt echter Kollision: nah genug in beide
+                // Richtungen, dass sich die Bilder auf dem Bildschirm überlappen würden.
+                if (Math.abs(deko.x - spieler.x) > deko.size / 2 + 30) continue;
+                if (deko.baseY - spieler.baseY > TILE_SIZE * 2.5) continue;
+                spieler.ghost = true;
+                break;
+            }
+        }
+    }
+
+    /**
+     * Bodenbeläge eines Grundstücks — als eigene, pro Grundstück gecachte Fläche,
+     * genau wie `_getSlotStaticLayer` für den Rasen darunter.
+     *
+     * Vorher zeichnete `_drawBoden` JEDE Belag-Kachel bei JEDEM Frame einzeln neu
+     * (bei einem voll gepflasterten Grundstück potenziell hunderte drawImage-
+     * Aufrufe pro Frame, nur für den Boden) — ein spürbarer Teil der gemeldeten
+     * Ruckler bei viel Dekoration. Die Fläche ändert sich aber nur, wenn
+     * tatsächlich etwas gepflastert oder entfernt wird.
+     *
+     * WICHTIG: der Cache-Schlüssel kann NICHT einfach die `decoPlacements`-
+     * Referenz sein. Der erste Versuch tat genau das (Annahme: React-State-Array,
+     * neue Referenz nur bei echter Änderung) — aber was hier ankommt, ist NICHT
+     * der React-State direkt, sondern `alleDeko`, ein in GameContainer.jsx pro
+     * Spielschleife wiederverwendetes Sammel-Array (`alleDeko.length = 0` + neu
+     * befüllen JEDES Bildes) — dieselbe Referenz bei JEDEM Frame, egal ob sich
+     * am Inhalt etwas geändert hat. Damit hätte der Cache sich nach dem ersten
+     * Aufbau NIE wieder aktualisiert: neu gesetzte oder entfernte Bodenkacheln
+     * wären auf dem Bildschirm einfach nicht mehr aufgetaucht. Deshalb hier ein
+     * simpler Inhalts-Fingerabdruck (Kennung + Drehung jeder Belag-Kachel dieses
+     * Grundstücks) statt eines Referenzvergleichs — kostet einen Durchlauf über
+     * die Liste, aber ohne die vielen drawImage-Aufrufe ist das immer noch
+     * deutlich billiger als das alte Verhalten.
+     *
+     * Kein Viewport-Culling nötig: die Fläche ist ohnehin auf die Größe des
+     * Grundstücks begrenzt, nicht auf die riesige Weltkarte.
+     */
+    // `slotDeko`: schon auf dieses Grundstück eingegrenzt (siehe _gruppiereDekoNachSlot)
+    // — hier nur noch die Bodenbeläge aus dieser bereits kleinen Liste herausfiltern.
+    _getBodenLayer(slot, drawY, slotDeko) {
+        const belaege = slotDeko.filter(istBoden);
+        const fingerabdruck = belaege.map((d) => `${d.id}:${d.rotation || 0}`).join("|");
+
+        const cached = this._bodenLayerCache.get(slot.id);
+        if (cached && cached.fingerabdruck === fingerabdruck) return cached.canvas;
+
+        const { territoryWidth, territoryHeight } = MAP_CONFIG;
+        const layer = document.createElement("canvas");
+        layer.width = territoryWidth;
+        layer.height = territoryHeight;
+        const lctx = layer.getContext("2d");
+        if (!lctx) return null;
+
+        // Kachel für Kachel statt einmal über die ganze Fläche gestreckt: eine
+        // 2×1-Platte würde sonst in die Breite gezogen und passte nicht mehr zur
+        // Nachbarkachel derselben Sorte.
+        const seite = Math.ceil(TILE_SIZE) + 1;
+        for (const deco of belaege) {
+            const x = Number(deco?.x);
+            const y = Number(deco?.y);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+            const img = this._getImage(deco.image);
+            if (!img) continue;
+            const dw = deco.width || 1;
+            const dh = deco.height || 1;
+            for (let cx = 0; cx < dw; cx++) {
+                for (let cy = 0; cy < dh; cy++) {
+                    // In lokale Layer-Koordinaten statt Weltkoordinaten — der
+                    // Layer beginnt bei (slot.x, drawY).
+                    const left = x - slot.x - TILE_SIZE / 2 + cx * TILE_SIZE;
+                    const top = y - drawY - TILE_SIZE / 2 - cy * TILE_SIZE;
+                    // Aufgerundet und um ein Pixel überlappend gezeichnet: bei
+                    // gebrochenem Zoom lässt Canvas sonst Haarrisse zwischen den
+                    // Kacheln stehen, und die sieht man auf einer Fläche sofort.
+                    if (deco.rotation) {
+                        // Nur bei 1×1-Belägen gesetzt (siehe platziereDeko in
+                        // GameContainer.jsx) — um die Kachelmitte drehen, sonst
+                        // rutscht die Textur beim Drehen aus ihrer Kachel heraus.
+                        lctx.save();
+                        lctx.translate(left + TILE_SIZE / 2, top + TILE_SIZE / 2);
+                        lctx.rotate((deco.rotation * Math.PI) / 180);
+                        lctx.drawImage(img, -seite / 2, -seite / 2, seite, seite);
+                        lctx.restore();
+                    } else {
+                        lctx.drawImage(img, Math.floor(left), Math.floor(top), seite, seite);
+                    }
+                }
+            }
+        }
+
+        this._bodenLayerCache.set(slot.id, { fingerabdruck, canvas: layer });
+        return layer;
+    }
+
+    // `slotDeko`: schon auf dieses Grundstück eingegrenzt (siehe _gruppiereDekoNachSlot).
+    _collectDeco(bucket, slot, drawY, slotDeko, viewLeft, viewTop, viewRight, viewBottom) {
+        if (slotDeko.length === 0) return;
+        for (const deco of slotDeko) {
+            // Beläge sind schon über _getBodenLayer durch — sie gehören unter alles
+            // und dürfen deshalb nicht noch einmal in die Tiefensortierung.
+            if (istBoden(deco)) continue;
             const x = Number(deco?.x); // Mitte der unten-links liegenden Ankerkachel
             const y = Number(deco?.y);
             if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
@@ -788,7 +1397,8 @@ export default class Renderer {
             // Sichtbare Mitte: nach rechts um (dw-1)/2, nach oben um (dh-1)/2 Kacheln
             const visualX = x + ((dw - 1) * TILE_SIZE) / 2;
             const visualY = y - ((dh - 1) * TILE_SIZE) / 2;
-            const drawSize = TILE_SIZE * Math.max(dw, dh) * 0.9;
+            const randFaktor = DEKO_VOLL.has(deco.decoId) ? 1 : 0.9;
+            const drawSize = TILE_SIZE * Math.max(dw, dh) * randFaktor;
             if (visualX + drawSize < viewLeft || visualX - drawSize > viewRight ||
                 visualY + drawSize < viewTop || visualY - drawSize > viewBottom) continue;
             const entry = this._poolEntry();
@@ -834,8 +1444,11 @@ export default class Renderer {
         // ein Schatten darunter sah aus, als würde das Wasser schweben.
         const src = this._resolveDecoImage(deco);
 
-        // Gedrehte Deko gibt es nur noch aus alten Spielständen (rotation/view). Neue
-        // Platzierungen tragen ausschließlich `mirrored`.
+        // `rotation` bei NICHT-Belägen gibt es nur noch aus alten Spielständen
+        // (rotation/view) — neue Platzierungen tragen dafür ausschließlich
+        // `mirrored`. Bodenbeläge nutzen `rotation` dagegen aktiv (siehe [R] in
+        // GameContainer.jsx), landen aber nie hier: sie werden in _getBodenLayer
+        // gezeichnet, das dieselbe Drehung eigenständig anwendet.
         const spin = Number(deco.rotation) || 0;
         if (spin) {
             const { ctx } = this;
@@ -902,8 +1515,8 @@ export default class Renderer {
         const { territoryWidth, territoryHeight, baseDirtWidth, baseDirtHeight, dirtOffsetX } = MAP_CONFIG;
         const dirtCols = Math.round(baseDirtWidth / TILE_SIZE);
         const dirtRows = Math.round(baseDirtHeight / TILE_SIZE);
-        // Muss zu EXTRA_ROWS und MITTELWEG_REIHE in MapConfig.js passen — dort steht
-        // auch, warum es 16 Reihen sind und der Querweg auf 9 liegt.
+        // Muss zu EXTRA_ROWS in MapConfig.js passen — dort steht auch, warum es
+        // STEIN_REIHEN Reihen sind und wo die Querwege liegen (istSteinfeldWegRow).
         const EXTRA_ROWS = STEIN_REIHEN;
         const normalizedUnlocked = [...new Set(unlockedCells)].sort().join("|");
         const cacheKey = `${slot.owner || ""}:${normalizedUnlocked}:${slot.isTopRow ? 1 : 0}`;
@@ -931,6 +1544,15 @@ export default class Renderer {
         // Grundstücksgrenze: bevorzugt ein Zaunbild, sonst die alte Linie.
         // Der Zaun wird nur an den SEITEN gestapelt — oben und unten grenzen die
         // Grundstücke an den Kiesweg bzw. den Weltrand, dort stünde er im Weg.
+        //
+        // BUGFIX (Look & Map, v2): stand beide Male genau HALB ausserhalb des
+        // Layer-Canvas — `lctx` ist exakt territoryWidth breit (siehe
+        // `layer.width = territoryWidth` oben), der Zaun wurde aber MITTIG auf die
+        // Kante gesetzt (`slot.x - drawW/2` bzw. `... + territoryWidth - drawW/2`).
+        // Nach dem translate(-slot.x, -drawY) landet das bei lokal -drawW/2 bzw.
+        // territoryWidth + drawW/2 — je zur Hälfte vom Canvas abgeschnitten. Der
+        // Zaun stand also faktisch nie sichtbar da, nur ein paar Pixel schmaler
+        // Rand blieben übrig. Jetzt bündig INNERHALB der Grenze, wächst nach innen.
         const fence = this._getImage("/garden-assets/structure/fence_v.png");
         if (fence) {
             const fw = Math.max(1, fence.naturalWidth || fence.width);
@@ -941,8 +1563,8 @@ export default class Renderer {
             for (let fy = drawY; fy < drawY + territoryHeight; fy += drawH) {
                 const h = Math.min(drawH, drawY + territoryHeight - fy);
                 const sh = fh * (h / drawH);
-                lctx.drawImage(fence, 0, 0, fw, sh, slot.x - drawW / 2, fy, drawW, h);
-                lctx.drawImage(fence, 0, 0, fw, sh, slot.x + territoryWidth - drawW / 2, fy, drawW, h);
+                lctx.drawImage(fence, 0, 0, fw, sh, slot.x, fy, drawW, h);
+                lctx.drawImage(fence, 0, 0, fw, sh, slot.x + territoryWidth - drawW, fy, drawW, h);
             }
         } else {
             lctx.strokeStyle = slot.owner ? "#86efac" : "#166534";
@@ -982,7 +1604,7 @@ export default class Renderer {
                 const cellY = isTop ? (dirtY - r * TILE_SIZE) : (dirtY + baseDirtHeight + (r - 1) * TILE_SIZE);
                 const logicalY = isTop ? -r : (dirtRows + r - 1);
                 const key = `${cx}_${logicalY}`;
-                if (cx === 7 || r === 1 || r === MITTELWEG_REIHE) {
+                if (cx === 7 || istSteinfeldWegRow(r)) {
                     const woodImg = this._getImage(this._terrainSrc("wood", "wood.png"));
                     if (woodImg) {
                         lctx.drawImage(woodImg, cellX, cellY, TILE_SIZE, TILE_SIZE);
@@ -1186,7 +1808,7 @@ export default class Renderer {
         const { ctx } = this;
         const text = label.length > 16 ? `${label.slice(0, 15)}…` : label;
         ctx.save();
-        ctx.font = "bold 10px monospace";
+        ctx.font = "bold 10px Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const w = Math.ceil(ctx.measureText(text).width) + 12;
@@ -1279,7 +1901,7 @@ export default class Renderer {
         ctx.strokeRect(cellX, cellY, TILE_SIZE, TILE_SIZE);
         if (isFirstInRow) {
             ctx.fillStyle = "rgba(255,255,255,0.9)";
-            ctx.font = "bold 18px monospace";
+            ctx.font = "bold 18px Nunito, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText("⛏️", cellX + TILE_SIZE / 2, cellY + TILE_SIZE / 2);
@@ -1331,11 +1953,12 @@ export default class Renderer {
     _slotPlantCache(slotId) {
         let map = this._plantCache.get(slotId);
         if (!map) {
-            // Eine Welt hat 8 Grundstücke — die alte Grenze von 16 wurde damit NIE
-            // erreicht, und der Cache eines verlassenen Slots blieb für immer
-            // liegen (bis zu PLANT_CACHE_MAX Offscreen-Canvases). Beim Wechsel des
-            // eigenen Grundstücks summierte sich das über eine Sitzung.
-            if (this._plantCache.size >= 8) {
+            // Eine Welt hat 6 Grundstücke (Feedback 01.09.: war 8) — die alte
+            // Grenze von 16 wurde damit NIE erreicht, und der Cache eines
+            // verlassenen Slots blieb für immer liegen (bis zu PLANT_CACHE_MAX
+            // Offscreen-Canvases). Beim Wechsel des eigenen Grundstücks summierte
+            // sich das über eine Sitzung.
+            if (this._plantCache.size >= 6) {
                 const aeltester = this._plantCache.keys().next().value;
                 const alt = this._plantCache.get(aeltester);
                 if (alt) for (const entry of alt.values()) freigeben(entry?.canvas);
@@ -1381,6 +2004,9 @@ export default class Renderer {
         this._petFrameCache.clear();
         freigeben(this._tintScratch);
         this._tintScratchCtx = null;
+        freigeben(this._nachtLayer);
+        this._nachtLayer = null;
+        this._nachtLayerCtx = null;
         this._atlasImage = null;
         this._groundPattern = null;
         this._renderBucket.length = 0;
@@ -1388,6 +2014,7 @@ export default class Renderer {
         this._lichter.length = 0;
         this._drawnRemotes.clear();
         this._remotePlayers = null;
+        this._splatter.length = 0;
         this.ctx = null;
     }
 
@@ -1439,6 +2066,16 @@ export default class Renderer {
         const targetH = this._plantVisualHeight(plant, profile, now);
         const maxW = TILE_SIZE * profile.widthScale * 1.15;
 
+        // Feedback 30.08.: "themed samen" — jede Sorte bekommt ihr eigenes seed.png
+        // statt eines gemeinsamen Bildes. Bis wirklich jede der ~57 Sorten eins hat,
+        // weicht dieser eine Fleck auf das alte gemeinsame Bild aus, statt leer zu
+        // bleiben: _bildStatus prüft nur den ZULETZT bekannten Ladezustand (kein
+        // Nachladen), das eigene Bild wird trotzdem ganz normal über _getImage in
+        // drawAnchored() unten angestoßen.
+        const semenBild = this._bildStatus(visuals.plantedSeedImage) === "error"
+            ? visuals.plantedSeedFallbackImage
+            : visuals.plantedSeedImage;
+
         // Höhe führt, Breite begrenzt: dadurch bleibt ein Baum schlank und hoch statt
         // die ganze Nachbarreihe zuzudecken.
         const drawAnchored = (src, emoji, heightPx, widthCap) => {
@@ -1463,7 +2100,7 @@ export default class Renderer {
 
         // Single-use: kompletter Körper. Multi-use: nur Struktur (Früchte dynamisch in _drawPlant).
         if (isSeedling && plant.singleUse) {
-            drawAnchored(visuals.plantedSeedImage, "", targetH, TILE_SIZE * 0.6);
+            drawAnchored(semenBild, "", targetH, TILE_SIZE * 0.6);
         } else if (plant.singleUse) {
             drawAnchored(visuals.growthImage, plant.emoji, targetH, maxW);
         } else {
@@ -1472,7 +2109,7 @@ export default class Renderer {
                 ? Math.max(0, Math.min(1, (now - (plant.plantedAt || now)) / plant.structureGrowthMs))
                 : 1;
             if (inStructure && structureProgress < 0.2) {
-                drawAnchored(visuals.plantedSeedImage, "", targetH, TILE_SIZE * 0.6);
+                drawAnchored(semenBild, "", targetH, TILE_SIZE * 0.6);
             } else {
                 drawAnchored(visuals.structureImage || visuals.growthImage, plant.emoji, targetH, maxW);
             }
@@ -2015,6 +2652,11 @@ export default class Renderer {
             entry.status = "ready";
             this._slotStaticCache.clear();
             this._plantCache.clear();
+            // Sonst bleibt eine Belag-Kachel, deren Bild beim ersten Aufbau des
+            // Layers noch nicht geladen war, dauerhaft leer — der Cache-Schlüssel
+            // ist die decoPlacements-Referenz, die sich durchs Nachladen eines
+            // Bildes ja nicht ändert (siehe _getBodenLayer).
+            this._bodenLayerCache.clear();
         };
         img.onerror = () => { entry.status = "error"; };
         img.src = src;
@@ -2141,15 +2783,30 @@ export default class Renderer {
     _drawSign(slot, centerX, centerY) {
         const { ctx } = this;
         const w = 180; const h = 36;
-        ctx.fillStyle = "#92400e";
-        ctx.strokeStyle = "#78350f";
+        // Gold-Shop-Reskin (core/reskins.js): dasselbe Farbschema wie die
+        // schwebende Nametag über dem Kopf (_drawPlayerNametag) — Feedback
+        // 01.09.: "Schild an der Farm mit dem Nametag über dem Kopf
+        // synchronisieren, damit es auch den Skin bekommt". `slot.nameplateReskin`
+        // kommt bei fremden Grundstücken aus der Momentaufnahme, beim eigenen
+        // aus dem lokalen Stand (siehe GameContainer.jsx, wie mailboxReskin).
+        const reskinFarbe = slot.owner ? (NAMEPLATE_RESKIN_FARBEN[slot.nameplateReskin] || null) : null;
+        if (reskinFarbe) {
+            const verlauf = ctx.createLinearGradient(centerX - w / 2, centerY, centerX + w / 2, centerY + h);
+            verlauf.addColorStop(0, reskinFarbe.bg);
+            verlauf.addColorStop(1, reskinFarbe.bg2 || reskinFarbe.bg);
+            ctx.fillStyle = verlauf;
+            ctx.strokeStyle = reskinFarbe.border;
+        } else {
+            ctx.fillStyle = "#92400e";
+            ctx.strokeStyle = "#78350f";
+        }
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.roundRect(centerX - w / 2, centerY, w, h, 6);
         ctx.fill(); ctx.stroke();
 
-        ctx.fillStyle = "#fef3c7";
-        ctx.font = "bold 14px monospace";
+        ctx.fillStyle = reskinFarbe ? reskinFarbe.text : "#fef3c7";
+        ctx.font = "bold 14px Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const label = slot.owner ? `${slot.owner}` : "Zu verkaufen";
@@ -2157,9 +2814,13 @@ export default class Renderer {
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
 
-        // Draw Mailbox
+        // Draw Mailbox — Gold-Shop-Reskin (core/reskins.js) übersteuert das
+        // Standardbild, wenn der Besitzer eins ausgerüstet hat. `slot.mailboxReskin`
+        // kommt bei fremden Grundstücken aus der Momentaufnahme, beim eigenen aus
+        // dem lokalen Stand (siehe GameContainer.jsx).
         if (slot.owner) {
-            const mailboxImg = this._getImage("/garden-assets/world/mailbox.png");
+            const mailboxSrc = MAILBOX_RESKIN_BILD[slot.mailboxReskin] || "/garden-assets/world/mailbox.png";
+            const mailboxImg = this._getImage(mailboxSrc);
             if (mailboxImg) {
                 // Preserve aspect ratio
                 const imgRatio = mailboxImg.width / mailboxImg.height;
@@ -2198,28 +2859,37 @@ export default class Renderer {
         this._drawAreaBuilding(areas.toolShop, "#9333ea", "🛠️", "Tools");
         this._drawAreaBuilding(areas.eggShop, "#0d9488", "🥚", "Eier");
         this._drawAreaBuilding(areas.decoShop, "#db2777", "🪴", "Deko");
-        if (!plotAreas.includes(areas.incubator)) this._drawAreaBuilding(areas.incubator, "#14b8a6", "🧪", "Inkubator", readyEggsCount);
         this._drawAreaBuilding(areas.market, "#ea580c", "💰", "Verkauf");
         this._drawAreaBuilding(areas.petMarket, "#b45309", "🐾", "Tier-Verkauf");
-        if (!plotAreas.includes(areas.trash)) this._drawAreaBuilding(areas.trash, "#57534e", "🗑️", "Müll");
-        if (!plotAreas.includes(areas.chest)) this._drawAreaBuilding(areas.chest, "#a16207", "📦", "Kiste");
-        if (!plotAreas.includes(areas.vitrine)) this._drawAreaBuilding(areas.vitrine, "#7c3aed", "🏆", "Vitrine");
+        // Feedback 30.08.: Missionsbrett. Bekommt noch ein echtes Holzschild-Bild;
+        // bis dahin greift derselbe Notbild-Weg wie beim Schuppen vor seinem Bild.
+        this._drawAreaBuilding(areas.questBoard, "#92400e", "📜", "Missionen");
+        // Kiste, Vitrine, Mülleimer UND (seit Feedback 30.08.) der Inkubator wohnen
+        // alle im selben Schuppen — readyEggsCount reicht durch, damit der Marker
+        // weiß, ob über dem Dach ein "Ei fertig"-Schild schweben soll.
+        if (!plotAreas.includes(areas.shed)) this._drawAreaBuilding(areas.shed, "#a16207", "🧰", "Schuppen", readyEggsCount);
     }
 
     _drawAreaBuilding(area, color, icon, label, readyEggsCount = 0) {
-        // `aktiv: false` = noch nicht gekauft (Kiste, Vitrine)
+        // `aktiv: false` = kein Grundstück dafür (z. B. kein eigenes Schild)
         if (!area || area.aktiv === false) return;
         const { ctx, frame } = this;
         const image = this._getImage(area.image);
-        
+
         const art = bauart(area);
-        const isIncubator = art === "incubator";
-        const isPetMarket = art === "petMarket";
-        // Kiste und Vitrine stehen wie Inkubator und Mülleimer auf dem Grundstück,
-        // sind also klein gegenüber den Marktbuden am Kiesweg.
-        const isKlein = art === "trash" || art === "chest" || art === "vitrine";
-        const maxW = isKlein ? 80 : isIncubator ? 85 : isPetMarket ? 200 : 290;
-        const maxH = isKlein ? 100 : isIncubator ? 70 : isPetMarket ? 160 : 235;
+        // Feedback 29.08.: "Tierverkauf und normaler Markt gleich groß machen" —
+        // der Tier-Markt stand extra verkleinert (200×160 statt 290×235), ohne
+        // dass dafür ein Grund erkennbar war. Beide Marktbuden am Kiesweg zählen
+        // jetzt zur selben Größe, keine eigene Fallunterscheidung mehr nötig.
+        // Der Schuppen (Kiste/Vitrine/Mülleimer) ist als 3×3-Kachel-Gebäude fest
+        // auf 192×192 gedeckelt — muss zu SCHUPPEN_KACHELN in GameContainer.jsx
+        // passen (war 2×2/128, Feedback 30.08.: "sieht klein aus für ein Gebäude").
+        const isShed = art === "shed";
+        // Missionsbrett (Feedback 31.08.): 2×2-Kachel-Gebäude statt der vollen
+        // Marktwagen-Größe — ein Schild an einem Pfosten, kein ganzer Stand.
+        const isQuestBoard = art === "questBoard";
+        const maxW = isShed ? 192 : isQuestBoard ? TILE_SIZE * 2 : 290;
+        const maxH = isShed ? 192 : isQuestBoard ? TILE_SIZE * 2 : 235;
 
         if (image) {
             const naturalW = Math.max(1, image.naturalWidth || image.width || maxW);
@@ -2227,29 +2897,24 @@ export default class Renderer {
             const scale = Math.min(maxW / naturalW, maxH / naturalH);
             const drawW = Math.round(naturalW * scale);
             const drawH = Math.round(naturalH * scale);
-            // Gebäude auf einem Grundstück tragen einen Fußpunkt (Unterkante ihrer
-            // 1×1-Kachel) und STEHEN darauf. Alles am Kiesweg hat keinen und bleibt
+            // Gebäude auf einem Grundstück tragen einen Fußpunkt (Unterkante ihres
+            // Fußabdrucks) und STEHEN darauf. Alles am Kiesweg hat keinen und bleibt
             // wie gehabt auf seiner Mitte zentriert.
             const oben = Number.isFinite(area.fussY)
                 ? area.fussY - drawH
                 : area.y - drawH / 2;
             ctx.drawImage(image, area.x - drawW / 2, oben, drawW, drawH);
-            // Der Marker für fertige Eier hing bisher IM Ersatzkasten und war damit
-            // nie zu sehen: sobald es ein Bild gibt (und das gibt es), kam der Code
-            // nie an. Jetzt sitzt er über dem gezeichneten Inkubator.
-            if (isIncubator && readyEggsCount > 0) {
-                this._drawEierMarker(area.x, oben - 14, readyEggsCount);
-            }
+            if (isShed && readyEggsCount > 0) this._drawEierMarker(area.x, oben - 14, readyEggsCount);
             return;
         }
         const pulse = 0.5 + 0.5 * Math.sin(frame * 0.05);
         ctx.fillStyle = color;
         ctx.beginPath();
-        
-        const boxW = isIncubator ? 200 : isPetMarket ? 260 : 375;
-        const boxH = isIncubator ? 140 : isPetMarket ? 185 : 264;
-        const roofY = isIncubator ? 120 : isPetMarket ? 150 : 225;
-        const textY = isIncubator ? -6 : isPetMarket ? -8 : -12;
+
+        const boxW = isShed ? 200 : isQuestBoard ? 140 : 375;
+        const boxH = isShed ? 140 : isQuestBoard ? 100 : 264;
+        const roofY = isShed ? 120 : isQuestBoard ? 85 : 225;
+        const textY = isShed ? -6 : isQuestBoard ? -6 : -12;
 
         ctx.roundRect(area.x - boxW/2, area.y - boxH/2, boxW, boxH, 24);
         ctx.fill();
@@ -2265,27 +2930,25 @@ export default class Renderer {
         ctx.fill();
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = (isIncubator || isPetMarket) ? "bold 16px monospace" : "bold 24px monospace";
+        ctx.font = (isShed || isQuestBoard) ? "bold 16px Nunito, sans-serif" : "bold 24px Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(`${icon} ${label}`, area.x, area.y + textY);
         ctx.textAlign = "left";
-
-        if (isIncubator && readyEggsCount > 0) {
-            this._drawEierMarker(area.x, area.y - 45, readyEggsCount);
-        }
+        if (isShed && readyEggsCount > 0) this._drawEierMarker(area.x, area.y - roofY - 14, readyEggsCount);
     }
 
     /**
-     * „Hier ist etwas fertig" über dem Inkubator: Anzahl in einer Sprechblase, die
-     * sanft auf und ab wippt. Die Bewegung ist der eigentliche Zweck — ein starrer
-     * Punkt geht zwischen Pflanzen und Deko unter.
+     * „Hier ist ein Ei fertig" über dem Schuppen (der Inkubator wohnt seit
+     * Feedback 30.08. darin, ohne eigenes Gebäude): Anzahl in einer Sprechblase,
+     * die sanft auf und ab wippt. Die Bewegung ist der eigentliche Zweck — ein
+     * starrer Punkt geht zwischen Pflanzen und Deko unter.
      */
     _drawEierMarker(x, y, anzahl) {
         const { ctx, frame } = this;
         const bob = Math.sin(frame * 0.1) * 4;
         const text = String(anzahl);
         ctx.save();
-        ctx.font = "bold 15px monospace";
+        ctx.font = "bold 15px Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const breite = Math.max(26, ctx.measureText(text).width + 20);
@@ -2310,16 +2973,340 @@ export default class Renderer {
         ctx.restore();
     }
 
-    _drawPlayerNametag(centerX, topY, label, style = "local", badge = null) {
+    /**
+     * Ein Geist wurde von der Shotgun erwischt: Wolke aus Tropfen am Standort.
+     *
+     * Die Flugbahnen werden EINMAL beim Anlegen ausgewürfelt und danach nur noch
+     * über die verstrichene Zeit ausgewertet. Würde pro Bild neu gewürfelt, zappelte
+     * die Wolke, statt auseinanderzufliegen.
+     */
+    spawnSplatter(x, y) {
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+        const tropfen = [];
+        for (let i = 0; i < SPLATTER_TROPFEN; i++) {
+            const winkel = Math.random() * Math.PI * 2;
+            const tempo = 60 + Math.random() * 190;
+            tropfen.push({
+                dx: Math.cos(winkel) * tempo,
+                // Nach oben etwas schwungvoller: die Schwerkraft weiter unten holt
+                // die Tropfen zurück, das ergibt einen Bogen statt einer Scheibe.
+                dy: Math.sin(winkel) * tempo - 90,
+                r: 3 + Math.random() * 7,
+                ton: Math.random() < 0.25 ? "#7f1d1d" : "#b91c1c",
+            });
+        }
+        this._splatter.push({ x, y, start: this._frameNow || Date.now(), tropfen });
+    }
+
+    _drawSplatter() {
+        if (this._splatter.length === 0) return;
+        const { ctx } = this;
+        const now = this._frameNow;
+        ctx.save();
+        for (let i = this._splatter.length - 1; i >= 0; i--) {
+            const wolke = this._splatter[i];
+            const t = (now - wolke.start) / SPLATTER_DAUER_MS;
+            if (t >= 1) { this._splatter.splice(i, 1); continue; }
+            const rest = 1 - t;
+            // Erst ein harter Blitz, dann sacken die Tropfen weg.
+            ctx.globalAlpha = Math.min(1, rest * 1.6);
+            for (const tr of wolke.tropfen) {
+                const px = wolke.x + tr.dx * t;
+                const py = wolke.y + tr.dy * t + 260 * t * t;
+                ctx.fillStyle = tr.ton;
+                ctx.beginPath();
+                ctx.arc(px, py, Math.max(0.5, tr.r * rest), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Fleck am Boden, der stehen bleibt, solange die Wolke lebt.
+            ctx.globalAlpha = Math.min(0.75, rest);
+            ctx.fillStyle = "#7f1d1d";
+            ctx.beginPath();
+            ctx.ellipse(wolke.x, wolke.y + 18, 34 + 26 * t, 12 + 9 * t, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    /**
+     * Kurze Rückmeldung an einer Weltposition — Gold-Zahl beim Ernten, „2×!" bei
+     * Doppelernte, „🐣 Nachwuchs!", ein Tier-Icon beim Auslösen, „✨ Rainbow!"
+     * bei Veredelung. Treibt nach oben weg und blendet aus, nach demselben
+     * start/t-Muster wie die Splatter-Wolke oben — nur ohne Physik.
+     *
+     * EIN gemeinsames System, damit nicht jeder Auslöser (Ernte, Tier-Tick,
+     * Gärtner-Nachwuchs, Glückspilz-Veredelung, …) seine eigene Zeichenroutine
+     * braucht. Aufrufer übergeben nur Text + Weltposition, den Rest (Timing,
+     * Ein-/Ausblenden, Deckel gegen ausufernde Listen) erledigt diese Datei.
+     *
+     * @param {number} x/y Weltkoordinaten, meist die Zellen- oder Tiermitte
+     * @param {string} text z. B. "+12.500" oder "Nachwuchs!"
+     * @param {object} opts { color, icon, durationMs }
+     */
+    spawnFeedback(x, y, text, opts = {}) {
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !text) return;
+        this._feedback.push({
+            x, y, text: String(text),
+            icon: opts.icon || null,
+            color: opts.color || "#fef08a",
+            start: this._frameNow || Date.now(),
+            durationMs: opts.durationMs || FEEDBACK_DAUER_MS,
+        });
+        // Deckel gegen ausufernde Listen bei Massenaktionen (sellAll, Massen-Ernte)
+        // — die ältesten fliegen zuerst raus, nicht die gerade entstandenen.
+        if (this._feedback.length > FEEDBACK_MAX) this._feedback.splice(0, this._feedback.length - FEEDBACK_MAX);
+    }
+
+    _drawFeedback() {
+        if (this._feedback.length === 0) return;
+        const { ctx } = this;
+        const now = this._frameNow;
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        for (let i = this._feedback.length - 1; i >= 0; i--) {
+            const f = this._feedback[i];
+            const t = (now - f.start) / f.durationMs;
+            if (t >= 1) { this._feedback.splice(i, 1); continue; }
+            // Erstes Fünftel: Einblenden + leichtes Pop. Letztes Drittel: Ausblenden.
+            // Dazwischen treibt der Text geradlinig nach oben.
+            const einblenden = Math.min(1, t / 0.2);
+            const ausblenden = t < 0.7 ? 1 : Math.max(0, 1 - (t - 0.7) / 0.3);
+            const alpha = einblenden * ausblenden;
+            const scale = 0.75 + einblenden * 0.35;
+            const y = f.y - FEEDBACK_AUFSTIEG_PX * t;
+            const label = f.icon ? `${f.icon} ${f.text}` : f.text;
+
+            ctx.globalAlpha = Math.max(0, alpha);
+            ctx.font = `bold ${Math.round(15 * scale)}px sans-serif`;
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "rgba(15,23,42,0.85)";
+            ctx.strokeText(label, f.x, y);
+            ctx.fillStyle = f.color;
+            ctx.fillText(label, f.x, y);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    /**
+     * Cartoon-Sprechblase über dem Markt beim Verkaufen (Feedback 30.08.: "nicht
+     * oben die kleine graue Bubble, sondern eine animierte Cartoon-Blase auf dem
+     * Markt mit dem gemachten Geld"). Eigenes System statt spawnFeedback: das
+     * ist reiner Text ohne Fläche und für einzelne Ernten gedacht, hier soll der
+     * GANZE Verkaufserlös deutlich herausstechen — mit Hintergrund, Sprechblasen-
+     * Spitze zum Markt hin und einem Pop-Auftritt mit Überschwinger.
+     */
+    spawnVerkaufsBlase(x, y, text) {
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !text) return;
+        this._verkaufsBlasen.push({ x, y, text: String(text), start: this._frameNow || Date.now() });
+        // Deckel wie bei den anderen Rückmeldungslisten — mehrere Verkäufe kurz
+        // hintereinander (z. B. zwei Tabs) sollen nicht unbegrenzt stapeln.
+        if (this._verkaufsBlasen.length > VERKAUF_BLASE_MAX) {
+            this._verkaufsBlasen.splice(0, this._verkaufsBlasen.length - VERKAUF_BLASE_MAX);
+        }
+    }
+
+    _drawVerkaufsBlasen() {
+        if (this._verkaufsBlasen.length === 0) return;
+        const { ctx } = this;
+        const now = this._frameNow;
+        const goldImg = this._getImage("/garden-assets/icons/hud/gold.png");
+        for (let i = this._verkaufsBlasen.length - 1; i >= 0; i--) {
+            const b = this._verkaufsBlasen[i];
+            const t = (now - b.start) / VERKAUF_BLASE_DAUER_MS;
+            if (t >= 1) { this._verkaufsBlasen.splice(i, 1); continue; }
+
+            // Pop-Auftritt (erste 30%: 0.3 -> ~1.08 mit Überschwinger, dann fest bei
+            // 1), hält, treibt dabei sacht nach oben, blendet im letzten Viertel aus.
+            const popT = Math.min(1, t / 0.3);
+            const scale = t < 0.3 ? 0.3 + easeOutBack(popT) * 0.7 : 1;
+            const ausblenden = t < 0.75 ? 1 : Math.max(0, 1 - (t - 0.75) / 0.25);
+            const treiben = Math.min(1, t / 0.75);
+            const y = b.y - 34 * treiben;
+
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, ausblenden);
+            ctx.translate(b.x, y);
+            ctx.scale(Math.max(0, scale), Math.max(0, scale));
+
+            ctx.font = "bold 17px Nunito, sans-serif";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            const iconSize = 20;
+            const textW = ctx.measureText(b.text).width;
+            const padX = 14;
+            const boxW = iconSize + 6 + textW + padX * 2;
+            const boxH = 42;
+            const boxY = -boxH - 16;
+
+            // Sprechblase: Holzschild-Farbton wie der Rest des HUDs (Feedback
+            // 30.08., "Cartoon-Überarbeitung") — cremefarbener Grund, dicke dunkle
+            // Kontur, kleine Spitze nach unten in Richtung Markt.
+            ctx.fillStyle = "#fffbeb";
+            ctx.strokeStyle = "#78350f";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(-boxW / 2, boxY, boxW, boxH, 16);
+            ctx.moveTo(-9, boxY + boxH - 1);
+            ctx.lineTo(0, boxY + boxH + 12);
+            ctx.lineTo(9, boxY + boxH - 1);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            if (goldImg) {
+                const gh = iconSize;
+                const gw = (goldImg.naturalWidth || goldImg.width || 1) * (gh / (goldImg.naturalHeight || goldImg.height || 1));
+                ctx.drawImage(goldImg, -boxW / 2 + padX, boxY + (boxH - gh) / 2, gw, gh);
+            }
+            ctx.fillStyle = "#78350f";
+            ctx.fillText(b.text, -boxW / 2 + padX + iconSize + 6, boxY + boxH / 2);
+            ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    /**
+     * Werkzeug-Schwung (v2, Punkt 13) — Gießkanne und Spitzhacke standen bisher
+     * bei Benutzung genauso still wie beim bloßen Ausrüsten; ein Klick auf die
+     * Pflanze bzw. den Stein sah man nur am Ergebnis, nie am Werkzeug selbst.
+     *
+     * Nur EIN Schwung gleichzeitig (siehe `_toolSchwung` oben) — ein zweiter
+     * Aufruf, während der erste noch läuft, ersetzt ihn einfach; das passt zum
+     * Spielgefühl besser als eine Warteschlange (schnelles Nachklicken soll den
+     * Schwung neu anstoßen, nicht stauen).
+     *
+     * @param {string} tool "pickaxe" | "watering" — andere Werkzeuge schwingen nicht.
+     */
+    spawnToolSchwung(tool) {
+        if (!TOOL_SCHWUNG_MAX_RAD[tool]) return;
+        this._toolSchwung = { tool, start: this._frameNow || Date.now() };
+    }
+
+    /**
+     * Aktueller Schwung-Winkel für `tool`, oder 0 — ein sanfter Auf-und-Ab-Bogen
+     * (sin über die Laufzeit), kein hartes Ein-/Ausschalten. Räumt sich selbst
+     * ab, sobald die Zeit um ist, statt eines separaten Aufräum-Durchlaufs wie
+     * bei Splatter/Feedback — es ist ja immer höchstens EIN Eintrag.
+     */
+    _toolSchwungWinkel(tool) {
+        const s = this._toolSchwung;
+        if (!s || s.tool !== tool) return 0;
+        const t = (this._frameNow - s.start) / TOOL_SCHWUNG_DAUER_MS;
+        if (t >= 1) { this._toolSchwung = null; return 0; }
+        return Math.sin(t * Math.PI) * (TOOL_SCHWUNG_MAX_RAD[tool] || 0);
+    }
+
+    /**
+     * Fliegendes Symbol nach dem Ernten (v2, Punkt 13 "Erntesamen-Flug") — steigt
+     * auf, driftet leicht zur Seite und schrumpft dabei, statt dass das Stück
+     * kommentarlos im Rucksack auftaucht. Dieselbe start/t-Bauweise wie
+     * spawnFeedback, nur mit einem Bild/Emoji statt Text.
+     *
+     * `drift` wird EINMAL beim Erzeugen gewürfelt (nicht pro Bild neu) — sonst
+     * würde das Symbol zappeln statt geradlinig wegzufliegen, aus demselben
+     * Grund wie beim Splatter-Tropfen oben.
+     */
+    spawnItemFlug(x, y, imgSrc, emoji) {
+        if (!Number.isFinite(x) || !Number.isFinite(y) || (!imgSrc && !emoji)) return;
+        this._itemFlug.push({
+            x, y, imgSrc: imgSrc || null, emoji: emoji || "",
+            drift: (Math.random() - 0.5) * 30,
+            start: this._frameNow || Date.now(),
+        });
+        if (this._itemFlug.length > ITEM_FLUG_MAX) this._itemFlug.splice(0, this._itemFlug.length - ITEM_FLUG_MAX);
+    }
+
+    _drawItemFlug() {
+        if (this._itemFlug.length === 0) return;
+        const { ctx } = this;
+        const now = this._frameNow;
+        for (let i = this._itemFlug.length - 1; i >= 0; i--) {
+            const f = this._itemFlug[i];
+            const t = (now - f.start) / ITEM_FLUG_DAUER_MS;
+            if (t >= 1) { this._itemFlug.splice(i, 1); continue; }
+            const ease = 1 - Math.pow(1 - t, 2); // schnell los, sanft aus
+            const x = f.x + f.drift * ease;
+            const y = f.y - 50 * ease;
+            const scale = 1 - 0.5 * ease;
+            const alpha = t < 0.7 ? 1 : Math.max(0, 1 - (t - 0.7) / 0.3);
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            this._drawImageOrEmojiContain(f.imgSrc, f.emoji, x, y, 26 * scale);
+            ctx.restore();
+        }
+    }
+
+    /**
+     * Pflanz-Wurf (Feedback 28.08.2026: "man merkt gar nicht, dass man pflanzt")
+     * — das Samentütchen fällt sichtbar von oben aufs Feld, statt dass die
+     * Pflanze kommentarlos an der Zelle auftaucht. Umgekehrtes Timing zu
+     * spawnItemFlug (fällt statt steigt), mit kurzem Rückfeder-Hüpfer und
+     * einem Bodenschatten statt Wegdriften.
+     */
+    spawnSaatWurf(x, y, imgSrc, emoji) {
+        if (!Number.isFinite(x) || !Number.isFinite(y) || (!imgSrc && !emoji)) return;
+        this._saatWurf.push({
+            x, y, imgSrc: imgSrc || null, emoji: emoji || "",
+            start: this._frameNow || Date.now(),
+        });
+        if (this._saatWurf.length > SAAT_WURF_MAX) this._saatWurf.splice(0, this._saatWurf.length - SAAT_WURF_MAX);
+    }
+
+    _drawSaatWurf() {
+        if (this._saatWurf.length === 0) return;
+        const { ctx } = this;
+        const now = this._frameNow;
+        for (let i = this._saatWurf.length - 1; i >= 0; i--) {
+            const f = this._saatWurf[i];
+            const t = (now - f.start) / SAAT_WURF_DAUER_MS;
+            if (t >= 1) { this._saatWurf.splice(i, 1); continue; }
+            // Erste 75 %: Fall mit Beschleunigung (ease-in) aus der Höhe. Letztes
+            // Viertel: ein kurzer, abklingender Hüpfer statt hart aufzuschlagen.
+            let hoehe;
+            if (t < 0.75) {
+                const fallT = t / 0.75;
+                hoehe = 60 * (1 - fallT * fallT);
+            } else {
+                const bounceT = (t - 0.75) / 0.25;
+                hoehe = Math.abs(Math.sin(bounceT * Math.PI)) * 10 * (1 - bounceT);
+            }
+            const y = f.y - hoehe;
+            const naehe = Math.max(0, 1 - hoehe / 60); // 0 = noch hoch oben, 1 = am Boden
+
+            ctx.save();
+            ctx.globalAlpha = 0.3 * naehe;
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.ellipse(f.x, f.y + 4, 11 * naehe, 4.5 * naehe, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(f.x, y);
+            // Kippt beim Fallen leicht nach vorn, richtet sich beim Aufkommen auf.
+            ctx.rotate((1 - naehe) * -0.45);
+            this._drawImageOrEmojiContain(f.imgSrc, f.emoji, 0, 0, 28);
+            ctx.restore();
+        }
+    }
+
+    _drawPlayerNametag(centerX, topY, label, style = "local", badge = null, nameplateReskin = null) {
         const { ctx } = this;
         const text = String(label || "").trim();
         if (!text) return;
         const isLocal = style === "local";
 
-        const badgeText = badge === "subscriber" ? "⭐ Sub" : badge === "beta" ? "🔬 Beta" : null;
+        const badgeText = BADGE_TEXT[badge] || null;
+        const badgeFarben = BADGE_FARBEN[badge] || BADGE_FARBEN.beta;
+        // Gold-Shop-Reskin (core/reskins.js) übersteuert die Standardfarben —
+        // gilt für JEDEN, der es sich ausgerüstet hat, egal ob lokal oder fremd.
+        const reskinFarbe = NAMEPLATE_RESKIN_FARBEN[nameplateReskin] || null;
 
         ctx.save();
-        ctx.font = "bold 11px monospace";
+        ctx.font = "bold 11px Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         const padX = 8;
@@ -2329,25 +3316,36 @@ export default class Renderer {
         const h = 18;
         const x = centerX - w / 2;
         const y = topY - h;
-        ctx.fillStyle = isLocal ? "rgba(15,23,42,0.88)" : "rgba(30,58,138,0.88)";
-        ctx.strokeStyle = isLocal ? "rgba(148,163,184,0.7)" : "rgba(147,197,253,0.75)";
+        // Reskin: diagonaler Verlauf statt flacher Füllung (Feedback 01.09.:
+        // "Textur statt flacher Farbe") — von der oberen linken zur unteren
+        // rechten Ecke der Pille, dieselben zwei Töne wie die Shop-Vorschau
+        // (GoldShopModal.jsx zeichnet denselben Verlauf in CSS).
+        if (reskinFarbe) {
+            const verlauf = ctx.createLinearGradient(x, y, x + w, y + h);
+            verlauf.addColorStop(0, reskinFarbe.bg);
+            verlauf.addColorStop(1, reskinFarbe.bg2 || reskinFarbe.bg);
+            ctx.fillStyle = verlauf;
+        } else {
+            ctx.fillStyle = isLocal ? "rgba(15,23,42,0.88)" : "rgba(30,58,138,0.88)";
+        }
+        ctx.strokeStyle = reskinFarbe ? reskinFarbe.border : (isLocal ? "rgba(148,163,184,0.7)" : "rgba(147,197,253,0.75)");
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.roundRect(x, y, w, h, 5);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = isLocal ? "#e2e8f0" : "#dbeafe";
+        ctx.fillStyle = reskinFarbe ? reskinFarbe.text : (isLocal ? "#e2e8f0" : "#dbeafe");
         ctx.fillText(text.length > 22 ? `${text.slice(0, 20)}…` : text, centerX, topY - padY);
 
         if (badgeText) {
-            ctx.font = "bold 9px monospace";
+            ctx.font = "bold 9px Nunito, sans-serif";
             const bm = ctx.measureText(badgeText);
             const bw = Math.ceil(bm.width) + 8;
             const bh = 13;
             const bx = centerX - bw / 2;
             const by = y - bh - 1;
-            ctx.fillStyle = badge === "subscriber" ? "rgba(250,176,5,0.92)" : "rgba(96,165,250,0.92)";
-            ctx.strokeStyle = badge === "subscriber" ? "#fbbf24" : "#93c5fd";
+            ctx.fillStyle = badgeFarben.fuellung;
+            ctx.strokeStyle = badgeFarben.rand;
             ctx.beginPath();
             ctx.roundRect(bx, by, bw, bh, 4);
             ctx.fill();
@@ -2369,6 +3367,14 @@ export default class Renderer {
 
         // Große Früchte rücken nach außen, sonst verschwindet die Figur dahinter.
         const x = urspungX + Math.max(0, scale - 1) * 14;
+        // v2 (Punkt 13, "Pflanze im Topf in der Hand"): vorher stand die Pflanze
+        // bewegungslos in der Hand — als einziges Held-Item ohne jede Animation,
+        // während Ernte, Tier-Ticks und jetzt auch Werkzeuge alle etwas tun. Ein
+        // leises Schwanken reicht: `_frameNow` läuft durchgehend (kein
+        // start/Dauer-Eintrag nötig wie beim Schwung), macht daraus also von
+        // selbst eine Endlosschleife statt eines einmaligen Effekts.
+        const schwankenY = Math.sin((this._frameNow || 0) / 420) * 2;
+        y += schwankenY;
         const drawSize = 38 * scale;
         const imgSrc = item.harvestImage || item.image || item.fruitImage || item.growthImage;
 
@@ -2445,8 +3451,8 @@ export default class Renderer {
         this.ctx.drawImage(this._tintScratch, 0, 0, sw, sh, dx, dy, dw, dh);
     }
 
-    drawPlayer(player, selectedTool, heldItem = null, localPlayerName = "", playerAppearance = {}, badge = null, nametagStyle = "local") {
-        const { ctx, frame } = this;
+    drawPlayer(player, selectedTool, heldItem = null, localPlayerName = "", playerAppearance = {}, badge = null, nametagStyle = "local", nameplateReskin = null) {
+        const { ctx } = this;
         const px = Math.round(player.x);
         const py = Math.round(player.y);
         const facingRight = player.facingRight !== false; // Standard nach rechts
@@ -2456,8 +3462,22 @@ export default class Renderer {
         ctx.translate(px, py);
         ctx.scale(facingRight ? 1 : -1, 1);
 
-        const skinUrl = playerAppearance?.skin || "/garden-assets/wardrobe/farmer.png";
-        const bob = player.isMoving ? Math.sin(frame * 0.2) * 3 : 0;
+        // Rückfall auf den Standardskin. Der lag bis v3.6 direkt im wardrobe-Ordner,
+        // dann bis Feedback 30.08. unter farmer/farmer.png (Farmer-Ghost) — beide
+        // Pfade liefern inzwischen einen 404 und damit statt der Figur nur noch das
+        // 🌱-Notbild von _drawImageOrEmojiContain. STANDARD_SKIN (wardrobe.js) zeigt
+        // seit der Katzen-Umstellung auf farmer/normal.png; dieselbe Datei hier fest
+        // verdrahtet, weil drawPlayer rein von der Engine kommt und die Skin-Liste
+        // aus ui/wardrobe.js nicht importiert.
+        const skinUrl = playerAppearance?.skin === "/garden-assets/wardrobe/farmer.png"
+            || playerAppearance?.skin === "/garden-assets/wardrobe/farmer/farmer.png"
+            || !playerAppearance?.skin
+            ? "/garden-assets/wardrobe/farmer/normal.png"
+            : playerAppearance.skin;
+        // v2-Fundament: Kachel-Sprung statt Dauerlauf — player.hopBob kommt fertig
+        // aus dem Game-Loop (ein Sinusbogen über die Sprungdauer, siehe dort) und
+        // ersetzt das frühere framebasierte Wackeln, das für Dauerbewegung gedacht war.
+        const bob = -(player.hopBob || 0);
         this._drawImageOrEmojiContain(skinUrl, "", 0, -20 + bob, 80);
 
         const selectedToolKey = selectedTool || null;
@@ -2467,8 +3487,28 @@ export default class Renderer {
         if (selectedToolKey) {
             const toolImg = TOOL_IMAGE_BY_KEY[selectedToolKey];
             const toolEmoji = TOOL_EMOJI_BY_KEY[selectedToolKey];
-            this._drawImageOrEmojiContain(toolImg, toolEmoji, 22, -6, 32);
-            
+            const toolSize = TOOL_GROESSE_BY_KEY[selectedToolKey] || 32;
+            // v2 (Punkt 13): Schwung beim Gießen/Abbauen (siehe spawnToolSchwung) —
+            // 0 bei jedem anderen Werkzeug oder im Ruhezustand, dann bleibt die
+            // Rotation unten ein No-Op und alles zeichnet wie zuvor.
+            const schwung = this._toolSchwungWinkel(selectedToolKey);
+            if (TOOL_SPRITE_ZEIGT_LINKS[selectedToolKey]) {
+                // Um die eigene Mitte spiegeln, damit die Position gleich bleibt.
+                ctx.save();
+                ctx.translate(22, -6);
+                ctx.scale(-1, 1);
+                ctx.rotate(schwung);
+                this._drawImageOrEmojiContain(toolImg, toolEmoji, 0, 0, toolSize);
+                ctx.restore();
+            } else {
+                ctx.save();
+                ctx.translate(22, -6);
+                ctx.rotate(schwung);
+                this._drawImageOrEmojiContain(toolImg, toolEmoji, 0, 0, toolSize);
+                ctx.restore();
+            }
+
+
             if (selectedToolKey === "pot" && heldItem) {
                 this._renderHeldPlantEffect(heldItem, 22, -24); 
             }
@@ -2477,8 +3517,8 @@ export default class Renderer {
                 this._renderHeldPlantEffect(heldItem, 22, -8);
             } else {
                 const heldImage = heldItem.image || heldItem.seedImage || heldItem.seedShopImage || heldItem.harvestImage || null;
-                const heldEmoji = heldItem.emoji || ""; 
-                this._drawImageOrEmojiContain(heldImage, heldEmoji, 22, -6, 32);
+                const heldEmoji = heldItem.emoji || "";
+                this._drawImageOrEmojiContain(heldImage, heldEmoji, 22, -6, TOOL_GROESSE_BY_BILD.get(heldImage) || 32);
             }
         }
 
@@ -2486,7 +3526,7 @@ export default class Renderer {
 
         // Nametag (darf NICHT gespiegelt werden!)
         if (localPlayerName) {
-            this._drawPlayerNametag(px, py - 57, localPlayerName, nametagStyle, badge);
+            this._drawPlayerNametag(px, py - 57, localPlayerName, nametagStyle, badge, nameplateReskin);
         }
     }
 }

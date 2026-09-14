@@ -21,7 +21,20 @@ const { SEED_CATALOGUE } = require("../core/catalogue");
 const { XP_JE_SELTENHEIT, levelZuXp, XP_FAKTOR, XP_FAKTOR_ALT } = require("../core/skills");
 
 const MARKE = "xpAusLogbuch";
-const MARKE_KURVE = "xpKurve250";
+/**
+ * Marken der (fehlerhaften) Streckungen samt dem Faktor, mit dem sie gerechnet
+ * haben. Es gab ZWEI Fassungen — erst XP_FAKTOR 250, dann 400 — und beide haben
+ * ihre eigene Marke gesetzt. Wer beide Stände nacheinander bekommen hat, wurde
+ * damit ZWEIMAL gestreckt (8,33 × 13,33 = 111-fach). Die Korrektur unten rechnet
+ * jede gesetzte Marke einzeln heraus, egal in welcher Reihenfolge sie kamen.
+ */
+const STRECKUNGEN = [
+    { marke: "xpKurve250", faktor: 250 / 30 },
+    { marke: "xpKurve400", faktor: 400 / 30 },
+];
+/** Rückwärtskompatibel: einzelne Marke, die ältere Aufrufer noch importieren. */
+const MARKE_KURVE = "xpKurve400";
+const MARKE_KORREKTUR = "xpKurveKorrektur";
 const SELTENHEIT_JE_SAMEN = new Map(SEED_CATALOGUE.map((s) => [s.id, s.rarity]));
 
 /** XP-Summe aus einem Logbuch. Unbekannte Arten zählen als COMMON. */
@@ -83,43 +96,77 @@ function runXpMigration(farmStates, { scheduleFarmsSave } = {}) {
 }
 
 /**
- * Umstellung der XP-Kurve (XP_FAKTOR 30 → 250).
+ * Korrektur der XP-Kurven-Umstellung.
  *
- * Die Kurve wurde gestreckt, weil der Fähigkeitsbaum vorher nach wenigen Minuten
- * komplett ausgebaut war. Ohne diese Umrechnung würde jeder bestehende Spielstand
- * dabei Level verlieren: bei gleichem XP-Stand ist das Level um den Faktor
- * sqrt(250/30) ≈ 2,9 niedriger. Deshalb wird die vorhandene Erfahrung mit
- * demselben Faktor hochgerechnet — das Level bleibt exakt erhalten, die
- * NÄCHSTEN Level dauern ab jetzt länger.
+ * WAS SCHIEFGING: Als XP_FAKTOR von 30 auf 400 stieg, hat eine frühere Fassung
+ * dieser Datei die vorhandene Erfahrung mit demselben Faktor HOCHGERECHNET, damit
+ * niemand ein Level verliert. Das war der Denkfehler — das alte Level war ja
+ * gerade das Problem: unter Faktor 30 reichten 73.500 XP für Level 50, und die
+ * XP-Nachzahlung aus dem Logbuch (oben) hat diese Summe bei jedem länger
+ * spielenden Konto sofort übersprungen. Praktisch waren alle sofort Höchstlevel
+ * und hatten den kompletten Fähigkeitsbaum offen.
  *
- * Gerechnet wird über die Levelgrenze, nicht über die rohe XP-Zahl: so bleibt
- * auch der Fortschritt innerhalb des aktuellen Levels anteilig gleich.
+ * Die Streckung hat diesen Zustand also sauber konserviert statt ihn zu beheben.
+ *
+ * DIESE MIGRATION nimmt die Streckung wieder zurück. Die XP-EINHEIT hat sich nie
+ * geändert (eine gewöhnliche Ernte gibt weiterhin 1 XP) — nur die Kurve ist
+ * steiler. Derselbe XP-Stand ergibt damit ein deutlich niedrigeres, ehrlicheres
+ * Level: aus 73.500 XP wird Level 14 statt 50.
+ *
+ * Die Fähigkeitspunkte werden dabei zurückgegeben, wenn mehr vergeben sind, als
+ * das neue Level hergibt. Ohne das behielte man dauerhaft Stufen, die man sich
+ * nie verdient hat, und bekäme bis auf Weiteres keinen einzigen Punkt mehr.
  */
-function runXpKurveMigration(farmStates, { scheduleFarmsSave } = {}) {
+function runXpKurveKorrektur(farmStates, { scheduleFarmsSave } = {}) {
     const entries = typeof farmStates.entries === "function"
         ? Array.from(farmStates.entries())
         : Object.entries(farmStates);
 
-    let staende = 0;
-    const faktor = XP_FAKTOR / XP_FAKTOR_ALT;
+    let gestreckt = 0;
+    let zurueckgesetzt = 0;
 
-    for (const [, state] of entries) {
+    for (const [userId, state] of entries) {
         if (!state || typeof state !== "object") continue;
-        if (state[MARKE_KURVE]) continue;
-        const vorher = Math.max(0, Number(state.xp) || 0);
-        if (vorher > 0) {
-            state.xp = Math.round(vorher * faktor);
-            staende++;
+        if (state[MARKE_KORREKTUR]) continue;
+
+        // Jede gelaufene Streckung einzeln herausrechnen. Wer beide Fassungen
+        // bekommen hat, wurde zweimal gestreckt — dann greifen auch beide Teiler.
+        const gelaufen = STRECKUNGEN.filter((s) => state[s.marke]);
+        if (gelaufen.length > 0) {
+            const vorher = Math.max(0, Number(state.xp) || 0);
+            if (vorher > 0) {
+                const teiler = gelaufen.reduce((f, s) => f * s.faktor, 1);
+                state.xp = Math.round(vorher / teiler);
+                gestreckt++;
+                console.log(`[Garden] XP-Korrektur ${userId}: `
+                    + `${vorher.toLocaleString("de-DE")} → ${state.xp.toLocaleString("de-DE")} XP `
+                    + `(Level ${levelZuXp(vorher)} → ${levelZuXp(state.xp)}) — `
+                    + `zurückgerechnet über ${gelaufen.map((s) => s.marke).join(" + ")}`);
+            }
         }
-        state[MARKE_KURVE] = true;
+
+        // Punkte neu verteilen lassen, falls das Level nicht mehr dazu passt.
+        const level = levelZuXp(Math.max(0, Number(state.xp) || 0));
+        const verfuegbar = Math.max(0, level - 1);
+        const vergeben = Object.values(state.skills || {})
+            .reduce((n, v) => n + Math.max(0, Math.floor(Number(v) || 0)), 0);
+        if (vergeben > verfuegbar) {
+            state.skills = {};
+            zurueckgesetzt++;
+        }
+
+        state[MARKE_KORREKTUR] = true;
     }
 
-    if (staende > 0) {
-        console.log(`[Garden] XP-Kurve umgestellt: ${staende} Spielstände `
-            + `mit Faktor ${faktor.toFixed(2)} hochgerechnet — kein Level geht verloren.`);
+    if (gestreckt > 0 || zurueckgesetzt > 0) {
+        console.log(`[Garden] XP-Kurve korrigiert: ${gestreckt} Spielstände zurückgerechnet, `
+            + `bei ${zurueckgesetzt} die Fähigkeitspunkte zur Neuverteilung freigegeben.`);
     }
     scheduleFarmsSave?.(farmStates);
-    return { staende, faktor };
+    return { gestreckt, zurueckgesetzt };
 }
 
-module.exports = { runXpMigration, runXpKurveMigration, xpAusLogbuch, MARKE, MARKE_KURVE };
+module.exports = {
+    runXpMigration, runXpKurveKorrektur, xpAusLogbuch,
+    MARKE, MARKE_KURVE, MARKE_KORREKTUR, STRECKUNGEN,
+};

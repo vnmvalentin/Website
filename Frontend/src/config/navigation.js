@@ -22,6 +22,7 @@ import {
   MessagesSquare,
   Disc,
   Volleyball,
+  Puzzle,
 } from "lucide-react";
 import { InstagramGlyph } from "../components/BrandGlyphs";
 
@@ -61,6 +62,12 @@ export const NAV_CATEGORIES = [
         to: "/blobby",
         icon: Volleyball,
         description: "Strandvolleyball im Browser — 1v1 oder 2v2, mit Powerups. Link teilen und spielen.",
+      },
+      {
+        label: "Daily Games",
+        to: "/daily",
+        icon: Puzzle,
+        description: "Tägliche Schätzspiele im Browser — mit Bestenliste und Ergebnis zum Teilen.",
       },
     ],
   },

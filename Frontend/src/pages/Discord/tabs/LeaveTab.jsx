@@ -13,7 +13,7 @@ export default function LeaveTab({ leaveChannel, setLeaveChannel, leaveMessage, 
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Abschied-Kanal</label>
                     <select value={leaveChannel} onChange={e => setLeaveChannel(e.target.value)}
-                        className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                        className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                         <option value="">-- Deaktiviert --</option>
                         {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                     </select>
@@ -21,7 +21,7 @@ export default function LeaveTab({ leaveChannel, setLeaveChannel, leaveMessage, 
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Nachricht</label>
                     <textarea value={leaveMessage} onChange={e => setLeaveMessage(e.target.value)} rows="4"
-                        className="w-full bg-black/20 border border-white/10 rounded-lg p-4 text-white focus:border-violet-500 outline-none resize-y" />
+                        className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-4 text-white focus:border-violet-500 outline-none resize-y" />
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <span className={VAR} title="Benutzername (kein Ping — Person hat den Server verlassen)">[USER]</span>

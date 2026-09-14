@@ -14,8 +14,8 @@
 // Der Server rechnet (siehe Backend/garden/world/mail.js); hier wird nur so weit geprüft,
 // dass keine offensichtlich sinnlose Anfrage rausgeht.
 import React, { useMemo, useState } from 'react';
-import { Coins, Send, PawPrint } from 'lucide-react';
 import { GardenModal, PrimaryButton, RarityLabel } from './gardenUi';
+import { HudIcon, TabIcon } from './gameIcons';
 import { ItemIcon, SpecialItemIcon } from './ItemIcon';
 import { beschreibeErnte } from './itemTints';
 import { hydrateHarvestedItem, getPlantVisuals } from '../engine/PlantSystem';
@@ -63,7 +63,7 @@ function MailEntry({ mail, onClaim, busy }) {
     const pets = fasseZusammen(anhaenge(mail.pets, mail.pet), beschreibeTier);
 
     return (
-        <div className="p-3 rounded-md border border-slate-800 bg-slate-900/60">
+        <div className="p-3 rounded-2xl border border-slate-800 bg-slate-900/60">
             <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span className="text-sm font-medium text-white truncate">{mail.from}</span>
                 <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
@@ -77,7 +77,7 @@ function MailEntry({ mail, onClaim, busy }) {
                 <div className="flex items-center gap-x-3 gap-y-1 flex-wrap min-w-0">
                     {mail.gold > 0 && (
                         <span className="flex items-center gap-1.5 text-xs text-amber-400 font-semibold tabular-nums">
-                            <Coins size={13} /> {mail.gold.toLocaleString("de-DE")} Gold
+                            <HudIcon.gold size={13} /> {mail.gold.toLocaleString("de-DE")} Gold
                         </span>
                     )}
                     {seeds.map((g) => (
@@ -97,7 +97,7 @@ function MailEntry({ mail, onClaim, busy }) {
                     ))}
                     {pets.map((g) => (
                         <span key={`t-${g.text}`} className="flex items-center gap-1.5 text-xs text-sky-300">
-                            <PawPrint size={13} /> {g.text}
+                            <TabIcon.pet size={13} /> {g.text}
                             {g.anzahl > 1 && <span className="text-slate-400 tabular-nums">× {g.anzahl}</span>}
                         </span>
                     ))}
@@ -183,11 +183,11 @@ function GruppenListe({ label, gruppen, auswahl, setAuswahl, restplaetze, leerTe
             </div>
 
             {gruppen.length === 0 ? (
-                <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-md border border-slate-800 bg-slate-950">
+                <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-2xl border border-slate-800 bg-slate-950">
                     {leerText}
                 </p>
             ) : (
-                <div className="max-h-40 overflow-y-auto rounded-md border border-slate-700 bg-slate-950 divide-y divide-slate-800" style={{ overscrollBehavior: "contain" }}>
+                <div className="max-h-40 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 divide-y divide-slate-800" style={{ overscrollBehavior: "contain" }}>
                     {gruppen.map((gruppe) => {
                         const anzahl = gruppe.ids.reduce((n, id) => n + (auswahl.includes(id) ? 1 : 0), 0);
                         const voll = anzahl >= gruppe.ids.length || restplaetze <= 0;
@@ -338,7 +338,7 @@ export default function MailboxModal({
             </div>
             <PrimaryButton onClick={submit} disabled={!canSend} className="w-full py-2.5">
                 <span className="inline-flex items-center gap-2">
-                    <Send size={14} /> In den Briefkasten legen
+                    <HudIcon.send size={14} /> In den Briefkasten legen
                 </span>
             </PrimaryButton>
         </div>
@@ -364,7 +364,7 @@ export default function MailboxModal({
                         value={goldInput}
                         onChange={(e) => setGoldInput(e.target.value)}
                         placeholder="0"
-                        className={`w-full px-3 py-2 rounded-md bg-slate-950 border text-sm text-white placeholder:text-slate-600 focus:outline-none tabular-nums ${
+                        className={`w-full px-3 py-2 rounded-2xl bg-slate-950 border text-sm text-white placeholder:text-slate-600 focus:outline-none tabular-nums ${
                             goldInvalid ? "border-rose-600 focus:border-rose-500" : "border-slate-700 focus:border-violet-500"
                         }`}
                     />
@@ -384,7 +384,7 @@ export default function MailboxModal({
                         maxLength={MESSAGE_MAX}
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md bg-slate-950 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none resize-none"
+                        className="w-full px-3 py-2 rounded-2xl bg-slate-950 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none resize-none"
                     />
                     <div className="text-[10px] text-slate-600 text-right mt-0.5 tabular-nums">
                         {message.length}/{MESSAGE_MAX}

@@ -17,11 +17,12 @@
 //   • Champion-Krone
 
 import React from 'react';
-import { Crown, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { CARD_CROP } from '../cardCrop';
-import { ElixirDrop } from '../../ui/CrIcons';
+import crownIcon from '../../../../assets/clashRoyale/ui/crown.png';
+import elixirIcon from '../../../../assets/clashRoyale/ui/elixir_1.png';
+import { cardImageUrl } from '../../data/cards';
 
-const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 
@@ -53,8 +54,8 @@ export default function AuctionRevealCard({
   accent = '#a78bfa', radius = 'rounded-xl', width = 186, labels, fake = false,
 }) {
   return (
-    <div className={`${radius} overflow-hidden bg-black/35 flex flex-col transition-opacity duration-300`}
-      style={{ width }}>
+    <div className={`${radius} overflow-hidden bg-[#151022] flex flex-col transition-opacity duration-300`}
+      style={{ width, border: '3px solid var(--cr-arcade-ink)' }}>
 
       {/* Kopf: wer hat sie bekommen. Solange die Mutterhexe noch aufdeckt, darf hier
           nichts stehen — der Gewinner gehört zur echten Karte, nicht zur vertauschten. */}
@@ -79,12 +80,12 @@ export default function AuctionRevealCard({
       {/* Kartenbild */}
       <div className="relative aspect-square overflow-hidden transition-opacity duration-300"
         style={{ opacity: fake ? 0.5 : 1 }}>
-        <img src={`${CARD_CDN}${card.id}.png`} alt={card.name}
+        <img src={cardImageUrl(card.id)} alt={card.name}
           className="w-full h-full object-cover" style={CARD_CROP} draggable={false}
           onError={e => { e.currentTarget.style.visibility = 'hidden'; }} />
         {!fake && card.isChampion && (
           <span className="absolute top-2 right-2 bg-black/65 rounded-md p-1">
-            <Crown size={12} className="text-amber-300" />
+            <img src={crownIcon} alt="" width={15} height={13} />
           </span>
         )}
       </div>
@@ -113,7 +114,8 @@ export default function AuctionRevealCard({
                 </span>
                 {/* Halbiertes Gebot durch die Mutterhexe */}
                 {bid.halved && <span className="text-[9px] shrink-0" style={{ color: accent }}>(½)</span>}
-                <ElixirDrop size={11} className={isWin ? '' : 'opacity-50'} />
+                <img src={elixirIcon} alt="" style={{ height: 12, width: 'auto' }}
+                  className={`shrink-0 ${isWin ? '' : 'opacity-50'}`} />
               </div>
             );
           })}

@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Clock, Crown, Zap, Shuffle, Gift, Search, X, Check, ArrowRight, Ban, Eye } from 'lucide-react';
-import { RARITY_COLOR } from '../data/cards';
+import { Clock, Shuffle, Gift, Search, X, Check, ArrowRight, Ban, Eye } from 'lucide-react';
+import { RARITY_COLOR, cardImageUrl } from '../data/cards';
 import { BINGO_ATTR_COLOR, getCardAttrs, bingoAttrLabel } from '../data/bingoAttributes';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import tradeIcon from '../../../assets/clashRoyale/ui/icon_trader.png';
+import wildcardIcon from '../../../assets/clashRoyale/ui/wildcard.png';
 import ModeShell from './ModeShell';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
-const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
-
 /** Akzentfarbe des Modus — Bingo ist golden. */
 const ACCENT = '#fbbf24';
 
@@ -17,6 +18,7 @@ const BINGO_I18N = {
   de: {
     loading: 'Lade Bingo Royale…',
     you: 'Du',
+    roundLabel: 'Runde',
     tokensCount: (n) => `${n} Token`,
     actingNow: 'am Zug',
     draftDone: 'Draft abgeschlossen!',
@@ -77,6 +79,7 @@ const BINGO_I18N = {
   en: {
     loading: 'Loading Bingo Royale…',
     you: 'You',
+    roundLabel: 'Round',
     tokensCount: (n) => `${n} token${n === 1 ? '' : 's'}`,
     actingNow: 'acting now',
     draftDone: 'Draft complete!',
@@ -134,6 +137,67 @@ const BINGO_I18N = {
     watchingBoardOf: (name) => `${name}'s board`,
     pickPlayerToWatch: 'Pick a player on the left to see their board.',
   },
+  es: {
+    loading: 'Cargando Bingo Royale…',
+    you: 'Tú',
+    roundLabel: 'Ronda',
+    tokensCount: (n) => `${n} ficha${n === 1 ? '' : 's'}`,
+    actingNow: 'en su turno',
+    draftDone: '¡Draft completado!',
+    yourTurn: 'Es tu turno',
+    turnHintChoose: 'Elige una de las cartas disponibles.',
+    turnHintFreePlace: (name) => `"${name}" no encaja en ninguna casilla libre — elige una casilla y confirma el bloqueo.`,
+    turnHintMatching: (name) => `"${name}" seleccionada — colócala en una casilla marcada en azul.`,
+    turnOf: (name) => `Turno de ${name}`,
+    spectatorWatching: 'Estás mirando.',
+    waitYourTurn: 'Espera a que sea tu turno.',
+    blockedSuffix: ' (bloqueada)',
+    blocked: 'Bloqueada',
+    clickAgain: 'Haz clic de nuevo',
+    tradeWithPrefix: 'Intercambiado con',
+    rerolledPrefix: 'La carta de',
+    rerolledSuffix: 'fue rerolleada',
+    jokerPoolPick: 'Carta elegida del pool',
+    continueShortly: 'Continúa en unos segundos…',
+    givenLabel: 'Entregada',
+    receivedLabel: 'Recibida',
+    beforeLabel: 'Antes',
+    afterLabel: 'Después',
+    replacedLabel: 'Reemplazada',
+    newLabel: 'Nueva',
+    tokenShopTitle: 'Tienda de fichas',
+    ownTokensLeft: (n) => `${n} fichas propias restantes`,
+    live: 'En directo',
+    noPowerupChosen: 'Todavía no se ha elegido ningún power-up',
+    selectedCardLabel: 'carta seleccionada',
+    tokensRemainingTotal: (n) => `${n} fichas restantes en total`,
+    yourTokenShopTurn: 'Tu turno en la tienda de fichas',
+    tokensLeftBadge: (n) => `${n} ficha${n === 1 ? '' : 's'} restante${n === 1 ? '' : 's'}`,
+    tokenShopIntro: 'Se te asignaron 2 power-ups al azar. Si se acaba el tiempo, pierdes la ficha.',
+    pickOwnCardSwap: 'Elige una de tus cartas para intercambiar',
+    tradePrefix: 'Intercambia',
+    tradeSuffix: 'por la carta de un rival',
+    pickOpponentCardReroll: 'Elige la carta de un rival para rerollear',
+    pickOwnCardJoker: 'Elige una de tus cartas para reemplazar',
+    replacePrefix: 'Reemplaza',
+    replaceSuffix: 'por:',
+    searchCardPlaceholder: 'Buscar cartas…',
+    noCardsFound: 'No se encontraron cartas',
+    protectedSuffix: ' (protegida)',
+    roundOf: (round, maxRounds) => `Ronda ${round}/${maxRounds}`,
+    availableCardsRound: (round) => `Cartas disponibles — ronda ${round}`,
+    championLimitSuffix: ' (límite de campeones)',
+    blockWarningTitle: (name) => `"${name}" no encaja en ninguna casilla libre de tu cartón de bingo`,
+    blockFieldPrefix: (label) => `La casilla "${label}" se bloqueará de forma permanente y no contará para ningún bingo.`,
+    blockConfirmHint: 'Haz clic de nuevo para confirmarlo',
+    blockConfirmSuffix: '— o elige otra casilla, o arriba otra carta.',
+    blockGenericBody: 'No importa dónde la coloques: la casilla se bloqueará de forma permanente y no contará para ningún bingo. Las casillas marcadas en naranja se pueden elegir — haz doble clic para confirmar. Si no quieres sacrificar una casilla, elige otra carta arriba.',
+    matchesHint: (name) => `"${name}" encaja — colócala en una de las casillas marcadas en azul.`,
+    yourBingoCard: 'Tu cartón de bingo',
+    rowsOf10: (n) => `${n}/10 líneas`,
+    watchingBoardOf: (name) => `Tablero de ${name}`,
+    pickPlayerToWatch: 'Elige un jugador a la izquierda para ver su tablero.',
+  },
 };
 
 const BINGO_LINES = [
@@ -143,7 +207,21 @@ const BINGO_LINES = [
 ];
 const BINGO_LINE_IDS = ['row0','row1','row2','row3','col0','col1','col2','col3','diag0','diag1'];
 
-const POWERUP_ICONS = { swap: Zap, reroll: Shuffle, joker: Gift };
+// POWERUP_ICONS wird an mehreren Stellen als Komponente aufgerufen (<Icon size={..}
+// className={..}/>) — echte CR-Grafiken brauchen dafür dieselbe kleine Hülle wie die
+// handgezeichneten Symbole in ui/CrIcons.jsx, nur mit <img> statt <svg> als Inhalt.
+// className hat auf ein <img> keine Farbwirkung (kein currentColor) — macht hier nichts,
+// die Grafiken bringen ihre Farbe schon selbst mit.
+function imgIcon(src) {
+  return function PowerupImgIcon({ size = 16, className = '' }) {
+    return <img src={src} alt="" width={size} height={size} className={className} style={{ objectFit: 'contain' }} />;
+  };
+}
+
+// "Der Dieb" tauscht Karten — der echte Umtausch-Pfeil aus dem Spiel statt eines
+// generischen Blitzes; "Der Joker" ersetzt eine Karte zufällig — die Wildcard-Grafik
+// trifft die Bedeutung genauer als ein Geschenk-Symbol.
+const POWERUP_ICONS = { swap: imgIcon(tradeIcon), reroll: Shuffle, joker: imgIcon(wildcardIcon) };
 
 const POWERUP_META_I18N = {
   de: {
@@ -155,6 +233,11 @@ const POWERUP_META_I18N = {
     swap:   { label: 'The Thief',    desc: "Trade one of your cards for an opponent's card." },
     reroll: { label: 'The Troll',    desc: "Choose an opponent's card — it gets replaced with a random one." },
     joker:  { label: 'The Planner',  desc: 'Choose any card and add it to your deck.' },
+  },
+  es: {
+    swap:   { label: 'El Ladrón',        desc: 'Intercambia una de tus cartas por la de un rival.' },
+    reroll: { label: 'El Troll',         desc: 'Elige la carta de un rival — se reemplazará por una al azar.' },
+    joker:  { label: 'El Planificador',  desc: 'Elige cualquier carta y añádela a tu mazo.' },
   },
 };
 
@@ -175,6 +258,14 @@ const LIVE_STEP_TEXT_I18N = {
     reroll:      "is choosing an opponent's card to reroll…",
     joker_mine:  'is choosing one of its own cards to replace…',
     joker_pick:  'is browsing the card pool for a new card…',
+  },
+  es: {
+    choose:      'está decidiendo qué power-up usar…',
+    swap_mine:   'está eligiendo una de sus cartas para intercambiar…',
+    swap_target: 'está buscando la carta de un rival para robar…',
+    reroll:      'está eligiendo la carta de un rival para rerollear…',
+    joker_mine:  'está eligiendo una de sus cartas para reemplazar…',
+    joker_pick:  'está buscando en el pool de cartas una nueva carta…',
   },
 };
 
@@ -205,10 +296,11 @@ function AvatarCircle({ id, color, size = 28 }) {
 
 function CardImg({ id, name, contain = false }) {
   return (
-    // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
-    // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
-    <div className="relative w-full h-full">
-      <img src={`${CARD_CDN}${id}.png`} alt={name}
+    // Kein FARBIGER Hintergrund (siehe entsprechenden Kommentar in SnakeRoyale.jsx) —
+    // ein neutrales Dunkelgrau verhindert nur, dass das Diamant-Karo der Spielfläche
+    // durch transparente Bildränder scheint.
+    <div className="relative w-full h-full bg-[#0d0d14]">
+      <img src={cardImageUrl(id)} alt={name}
         className={`w-full h-full ${contain ? 'object-contain' : 'object-cover'}`}
         style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
@@ -267,7 +359,7 @@ function BingoSidebar({ state, myPlayerId, t, amSpectator = false, watchPlayerId
             <DeckGrid deck={p.deck || []}
               renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
             <div className="flex items-center gap-1.5">
-              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <img src={crownIcon} alt="" width={14} height={12} className={champCount > 0 ? '' : 'opacity-15 grayscale'} />
               <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
           </PlayerPanel>
@@ -295,9 +387,11 @@ function TurnBanner({ state, myPlayerId, selectedCard, freePlace, amSpectator, t
   const currentPlayer = state.players.find(p => p.id === state.currentPlayerId);
   const isMyTurn = state.currentPlayerId === myPlayerId && !amSpectator;
 
-  // Flächig statt umrandet — der Hinweis führt, ohne als Kasten aufzufallen.
+  // Blickdicht statt eines kaum sichtbaren Weißschleiers — das Banner sitzt jetzt auf dem
+  // Diamant-Karo der Spielfläche (siehe GameSurface) statt auf einer einfarbigen Fläche,
+  // bei 2% Deckkraft war der Text darauf kaum noch zu lesen.
   const wrap = (children) => (
-    <div className="shrink-0 px-4 sm:px-10 py-2.5 bg-white/[0.02] flex items-center gap-3">{children}</div>
+    <div className="shrink-0 px-4 sm:px-10 py-2.5 bg-[#111d2c] border-b-2 border-black/40 flex items-center gap-3">{children}</div>
   );
 
   if (state.finished) return wrap(<>
@@ -341,7 +435,15 @@ function MyBingoCard({ grid, completedLines = [], validCells, matchingCells, fre
     // `min(100%, 100cqh)` löst beides: 100cqh ist die Höhe des Elternteils (deshalb
     // steht dort container-type: size), 100% seine Breite — es gewinnt die knappere
     // von beiden, und aspect-ratio macht daraus ein Quadrat.
-    <div className="mx-auto" style={{ width: 'min(100%, 100cqh)', maxWidth: '100%', aspectRatio: '1 / 1' }}>
+    //
+    // boxSizing: 'border-box' ist hier kein Detail, sondern hält die Rechnung oben
+    // intakt: Padding+Rahmen (das hinterlegte Panel, sonst schwebten die Felder ohne
+    // jede Fläche direkt über dem Spielhintergrund) zählen dadurch INNERHALB von
+    // min(100%, 100cqh) statt zusätzlich dazu — bei gleichem Padding auf allen Seiten
+    // bleibt das Quadrat ein Quadrat, nur der Inhalt schrumpft um den Rahmen.
+    <div className="mx-auto rounded-2xl p-2 sm:p-3 border-2 border-amber-400/25"
+      style={{ width: 'min(100%, 100cqh)', maxWidth: '100%', aspectRatio: '1 / 1', boxSizing: 'border-box',
+        background: 'linear-gradient(to bottom, #17130a, #0c0a06)' }}>
     <div className="grid gap-1.5 sm:gap-2.5 h-full" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(4, 1fr)' }}>
       {grid.map((cell, ci) => {
         const isFilled    = cell.card !== null;
@@ -859,7 +961,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
 
         {/* Kopfzeile: große Rundenzahl als Anker */}
         <GameHeader
-          label={lang === 'en' ? 'Round' : 'Runde'}
+          label={t.roundLabel}
           value={round}
           total={maxRounds}
           timerRemaining={finished ? undefined : timerRemaining}
@@ -873,7 +975,8 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
 
         {/* Verfügbare Karten der Runde */}
         <div className="shrink-0 px-4 sm:px-10 py-4">
-          <p className="text-white/30 text-[11px] uppercase tracking-wider mb-3 text-center">{t.availableCardsRound(round)}</p>
+          <p className="text-white/50 text-[11px] uppercase tracking-wider mb-3 mx-auto px-3 py-1 rounded-lg bg-[#111d2c]"
+            style={{ display: 'table' }}>{t.availableCardsRound(round)}</p>
           <div className="flex gap-4 sm:gap-5 flex-wrap justify-center">
             {currentCards.map((card, idx) => {
               const isPicked     = pickedThisRound[idx] != null;
@@ -897,7 +1000,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
                     <CardImg id={card.id} name={card.name} />
                     {card.isChampion && !isPicked && (
                       <div className="absolute top-1.5 right-1.5 bg-black/55 backdrop-blur-sm rounded-md p-1">
-                        <Crown size={11} className="text-amber-300" />
+                        <img src={crownIcon} alt="" width={14} height={12} />
                       </div>
                     )}
                     {isPicked && pickedPlayer && (
@@ -930,14 +1033,19 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
             // gemeinsam mittig — das Feld selbst stünde dadurch nach links versetzt.
             // Unter lg stapelt alles: nebeneinander blieben vom Feld auf einem
             // 390px-Handy nur gut 100px übrig.
-            // lg:grid-rows-1 ist nicht kosmetisch: Ohne definierte Zeilenhöhe richtet sich
-            // die Rasterzeile nach ihrem Inhalt, das maxHeight:100% des Bingofelds hat
-            // dann keinen Bezugswert und das Feld wird so hoch wie es breit ist — auf
-            // 1920×1080 lief es dadurch unten aus dem Bild.
-            <div className="w-full mx-auto flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[15rem_minmax(0,1fr)_15rem] lg:grid-rows-1 gap-3 lg:gap-4">
+            // landscape:sm: schaltet dieselbe Dreispalten-Ansicht zusätzlich schon ab 640px
+            // im Querformat frei (Handy/Tablet quer) — dort ist die Höhe der Engpass, nicht
+            // die Breite: gestapelt müssten sich Feld und Hinweise die knappe Höhe teilen,
+            // nebeneinander bekommt das quadratische Feld die volle Höhe. Die reine
+            // Hochformat-Stapelung auf einem 390px-Handy bleibt davon unberührt.
+            // lg:grid-rows-1 (und landscape:sm:grid-rows-1) ist nicht kosmetisch: Ohne
+            // definierte Zeilenhöhe richtet sich die Rasterzeile nach ihrem Inhalt, das
+            // maxHeight:100% des Bingofelds hat dann keinen Bezugswert und das Feld wird so
+            // hoch wie es breit ist — auf 1920×1080 lief es dadurch unten aus dem Bild.
+            <div className="w-full mx-auto flex-1 min-h-0 flex flex-col landscape:sm:grid lg:grid landscape:sm:grid-cols-[15rem_minmax(0,1fr)_15rem] lg:grid-cols-[15rem_minmax(0,1fr)_15rem] landscape:sm:grid-rows-1 lg:grid-rows-1 gap-3 lg:gap-4">
 
               {/* Gegengewicht zur Hinweisspalte — hält das Feld in der Bildschirmmitte */}
-              <div className="hidden lg:block" aria-hidden="true" />
+              <div className="hidden landscape:sm:block lg:block" aria-hidden="true" />
 
               {/* Abgehobenes Board-Panel — das Board selbst skaliert per aspect-square mit,
                   damit auf niedrigeren Auflösungen (z.B. 1920×1080) kein Scrollen nötig ist,
@@ -945,13 +1053,15 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
               {/* overflow-hidden MUSS bleiben: Ohne es hat der Kasten keine feste Höhe
                   mehr, das maxHeight:100% des Bingofelds greift ins Leere und die
                   unteren Reihen laufen aus dem Bild. */}
-              <div className="min-w-0 min-h-0 h-full flex-1 lg:flex-none overflow-hidden flex flex-col gap-3">
-                <div className="shrink-0 flex items-center justify-between gap-3">
-                  <p className="text-white/40 text-xs font-semibold uppercase tracking-wider">{t.yourBingoCard}</p>
+              <div className="min-w-0 min-h-0 h-full flex-1 landscape:sm:flex-none lg:flex-none overflow-hidden flex flex-col gap-3">
+                {/* Blickdichte Plakette statt bloßen Fließtexts — sitzt auf dem Diamant-Karo
+                    der Spielfläche und braucht dafür einen eigenen Untergrund. */}
+                <div className="shrink-0 flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg bg-[#111d2c]">
+                  <p className="text-white/60 text-xs font-semibold uppercase tracking-wider">{t.yourBingoCard}</p>
                   <div className="flex items-center gap-2.5">
-                    <span className="text-[11px] text-white/30">{t.rowsOf10((me.completedLines || []).length)}</span>
+                    <span className="text-[11px] text-white/40">{t.rowsOf10((me.completedLines || []).length)}</span>
                     {myTokens > 0 && (
-                      <span className="text-amber-300 text-xs font-semibold bg-amber-400/12 px-2 py-0.5 rounded-lg">
+                      <span className="text-amber-300 text-xs font-semibold bg-amber-400/20 px-2 py-0.5 rounded-lg">
                         {t.tokensCount(myTokens)}
                       </span>
                     )}
@@ -982,7 +1092,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
               <div className="w-full min-w-0 flex flex-col justify-center gap-3">
                 {/* Deutliche Warnung, wenn die Karte ein Feld blockieren würde */}
                 {selectedCard && isMyTurn && placement.freePlace && (
-                  <div className="flex flex-col gap-2 bg-red-500/10 rounded-xl px-4 py-3">
+                  <div className="flex flex-col gap-2 bg-red-950/80 rounded-xl px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Ban size={16} className="text-red-400 shrink-0" />
                       <p className="text-red-300 text-sm font-bold leading-snug">{t.blockWarningTitle(selectedCard.name)}</p>
@@ -996,7 +1106,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
                   </div>
                 )}
                 {selectedCard && isMyTurn && !placement.freePlace && (
-                  <div className="flex flex-col gap-2 bg-cyan-500/10 rounded-xl px-4 py-3">
+                  <div className="flex flex-col gap-2 bg-cyan-950/80 rounded-xl px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Check size={15} className="text-cyan-400 shrink-0" />
                       <p className="text-cyan-300 text-xs font-bold uppercase tracking-wider">{t.yourTurn}</p>
@@ -1012,12 +1122,12 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
             watchedPlayer?.bingoGrid?.length > 0 ? (
               <div className="max-w-3xl w-full mx-auto flex-1 min-h-0 flex flex-col gap-3">
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-3">
-                  <div className="shrink-0 flex items-center justify-between gap-3">
+                  <div className="shrink-0 flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg bg-[#111d2c]">
                     <div className="flex items-center gap-2 min-w-0">
                       <Eye size={13} className="text-cyan-400 shrink-0" />
-                      <p className="text-white/40 text-xs font-semibold uppercase tracking-wider truncate">{t.watchingBoardOf(watchedPlayer.name)}</p>
+                      <p className="text-white/60 text-xs font-semibold uppercase tracking-wider truncate">{t.watchingBoardOf(watchedPlayer.name)}</p>
                     </div>
-                    <span className="text-[11px] text-white/30 shrink-0">{t.rowsOf10((watchedPlayer.completedLines || []).length)}</span>
+                    <span className="text-[11px] text-white/40 shrink-0">{t.rowsOf10((watchedPlayer.completedLines || []).length)}</span>
                   </div>
                   {/* container-type: size macht die eigene Größe für 100cqh im Bingofeld
                     messbar — siehe Erklärung in MyBingoCard. */}
@@ -1040,7 +1150,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
               </div>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-white/30 text-sm">{t.pickPlayerToWatch}</p>
+                <p className="text-white/50 text-sm px-4 py-2 rounded-lg bg-[#111d2c]">{t.pickPlayerToWatch}</p>
               </div>
             )
           ) : null}

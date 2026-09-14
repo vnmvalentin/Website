@@ -10,11 +10,14 @@ const { handleGroesse } = require('../commands/groesse');
 const { handleGewicht } = require('../commands/gewicht');
 const { handleShip } = require('../commands/ship');
 const { handleCoinflip } = require('../commands/coinflip');
+const { handleAllStats } = require('../commands/allstats');
+const { handleSuperkraft } = require('../commands/superkraft');
+const { handleAusrede } = require('../commands/ausrede');
 const { handleApply, handleApprove, handleReject } = require('../commands/approval');
 const { handleVoiceCommand } = require('../commands/voice');
 const { handleTicketCreateButton, handleTicketModalSubmit, handleTicketClose } = require('../commands/tickets');
 
-const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'pp', 'aussehen', 'iq', 'größe', 'gewicht', 'ship', 'coinflip'];
+const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'pp', 'aussehen', 'iq', 'größe', 'gewicht', 'ship', 'coinflip', 'allstats', 'superkraft', 'ausrede'];
 const VOICE_COMMANDS = ['voicelimit', 'voicelock', 'voice_rename', 'voice_hide', 'voice_unhide', 'voice_transfer'];
 
 module.exports = {
@@ -46,6 +49,9 @@ module.exports = {
                 if (cmd === 'gewicht') return handleGewicht(interaction);
                 if (cmd === 'ship') return handleShip(interaction);
                 if (cmd === 'coinflip') return handleCoinflip(interaction);
+                if (cmd === 'allstats') return handleAllStats(interaction);
+                if (cmd === 'superkraft') return handleSuperkraft(interaction);
+                if (cmd === 'ausrede') return handleAusrede(interaction);
             }
 
             // Voice Commands

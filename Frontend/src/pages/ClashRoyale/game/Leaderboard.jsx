@@ -9,6 +9,7 @@ import React from 'react';
 import { Activity, Medal } from 'lucide-react';
 import PlayerAvatar from '../components/PlayerAvatar';
 import CrScoreBadge from '../lobby/CrScoreBadge';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 
 /** Gold, Silber, Bronze für die ersten drei; danach nur die Platzziffer. */
 const RANK_COLOR = ['text-amber-400', 'text-white/60', 'text-orange-400'];
@@ -26,10 +27,10 @@ export default function Leaderboard({ lobbyPlayers = [], trackingEnabled, t }) {
   const anyPlayed = ranked.some(p => p.crScore.wins > 0 || p.crScore.losses > 0);
 
   return (
-    <div className="panel p-4 sm:p-5">
+    <div className="cr-arcade-panel p-4 sm:p-5">
       <div className="flex items-center gap-2 mb-4">
         <Activity size={15} className="text-green-400" />
-        <h3 className="text-white font-semibold text-sm">{t.leaderboard}</h3>
+        <h3 className="text-white font-arcade font-semibold text-sm">{t.leaderboard}</h3>
       </div>
 
       {anyPlayed ? (
@@ -37,18 +38,15 @@ export default function Leaderboard({ lobbyPlayers = [], trackingEnabled, t }) {
           {ranked.map((p, i) => (
             <li key={p.id} className="flex items-center gap-3 rounded-lg bg-black/25 px-3 py-2">
               <span className={`w-5 text-center font-bold tabular-nums text-sm shrink-0 ${RANK_COLOR[i] || 'text-white/30'}`}>
-                {i < 3 ? <Medal size={15} className="mx-auto" /> : i + 1}
+                {i === 0
+                  ? <img src={crownIcon} alt="" width={18} height={16} className="mx-auto" />
+                  : i < 3 ? <Medal size={15} className="mx-auto" /> : i + 1}
               </span>
               <PlayerAvatar avatarId={p.avatar} size={28} />
               <div className="min-w-0 flex-1">
                 <p className="text-white font-semibold text-sm truncate">{p.name}</p>
                 {p.crName && <p className="text-white/30 text-[11px] truncate">{p.crName}</p>}
               </div>
-              {p.crScore.lastMode && (
-                <span className="hidden sm:inline text-white/25 text-[11px] truncate max-w-[10rem]">
-                  {p.crScore.lastMode}
-                </span>
-              )}
               <CrScoreBadge score={p.crScore} t={t} size="lg" />
             </li>
           ))}

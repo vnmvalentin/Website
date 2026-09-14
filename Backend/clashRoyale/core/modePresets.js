@@ -70,6 +70,16 @@ const carouselSize = (lobby, activeCount, wanted) => {
 const FISH_SPAWN_RATES = [1, 1.5, 2, 2.5, 3];
 const RUSH_MARKET_SIZES = [3, 4, 5, 6, 7, 8];
 
+// Kopie der Dreieckszahl-Formel aus pyramidDraft.js (direkter Import wäre ein Zirkelbezug:
+// pyramidDraft.js hängt über core/lobbies.js an dieser Datei). Kleinste Dreieckszahl
+// n(n+1)/2, die 8 Runden × (Spieler + Blockrate) Felder aufnimmt.
+function pyramidRowsForPreset(active, blocksPerRound) {
+  const needed = 8 * (Math.max(1, active) + blocksPerRound);
+  let n = 1, total = 1;
+  while (total < needed) { n++; total += n; }
+  return n;
+}
+
 // Jeder Modus MUSS dieses Preset haben — es ist der Startzustand jeder Lobby.
 const SUGGESTED_ID = 'suggested';
 
@@ -169,6 +179,52 @@ const MODE_PRESETS = {
   // dieselben Kisten, deshalb etwas mehr Zeit.
   'dark-maze': [
     { id: 'suggested', values: (lobby, n) => ({ mazeTimeSeconds: n <= 4 ? 120 : 180 }) },
+  ],
+  // Das Raster muss active × trapDisguiseCount Fallen aufnehmen — bei mehr Spielern deshalb
+  // ein größeres Raster, nicht mehr Fallen pro Spieler (das würde die Klickphase nur wuseliger
+  // machen, ohne dass die Grundidee — eine Falle pro Person — sich ändert).
+  'trap-setter': [
+    {
+      id: 'suggested',
+      values: (lobby, n) => ({
+        trapDisguiseSeconds: 25,
+        trapDisguiseCount: 1,
+        trapGridSize: n <= 4 ? 9 : n <= 6 ? 12 : 16,
+      }),
+    },
+    {
+      id: 'chaos',
+      values: (lobby, n) => ({
+        trapDisguiseSeconds: 15,
+        trapDisguiseCount: 2,
+        trapGridSize: n <= 3 ? 12 : 16,
+      }),
+    },
+  ],
+  // 2v2: nur der Team-Elixier-Pool ist eine Einstellung — Rundenzeiten sind in diesem Modus
+  // bewusst fest (10s Hinweis-Phase, siehe elixirAuction2v2.js).
+  'elixir-auction-2v2': [
+    { id: 'suggested', values: () => ({ teamElixirPool: 200, cardsPerRound: 3 }) },
+  ],
+  // 2v2: Marktgröße/Kartenlebensdauer 1:1 wie Solo-Rush — nur Elixier-Kapazität/-Rate sind
+  // hier fest (siehe elixirRush2v2.js), deshalb keine eigene Einstellung dafür.
+  'elixir-rush-2v2': [
+    { id: 'suggested', values: () => ({ rush2v2MarketSize: 5, rush2v2CardLifetime: 8 }) },
+  ],
+  // "Vorgeschlagen" ist bewusst die kleinste tragfähige Pyramide (kein Puffer verschenkt) —
+  // damit kommt man am ehesten bis zur Spitze durch. "Chaos" blockiert viel mehr pro Runde
+  // (schnelleres, unvorhersehbareres Freilegen) und braucht deshalb selbst eine größere
+  // Pyramide, um trotzdem für alle 8 Runden zu reichen.
+  'pyramid-draft': [
+    {
+      id: 'suggested',
+      values: (lobby, n) => ({ timerSeconds: 25, pyramidBlocksPerRound: 1, pyramidRows: pyramidRowsForPreset(n, 1) }),
+    },
+    { id: 'fast', values: (lobby, n) => ({ timerSeconds: 12, pyramidBlocksPerRound: 1, pyramidRows: pyramidRowsForPreset(n, 1) }) },
+    {
+      id: 'chaos',
+      values: (lobby, n) => ({ timerSeconds: 15, pyramidBlocksPerRound: 3, pyramidRows: pyramidRowsForPreset(n, 3) }),
+    },
   ],
 };
 

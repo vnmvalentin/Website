@@ -4,9 +4,6 @@
 // Screens gleichermaßen gebraucht. Bewusst ohne React-Import, damit auch reine
 // Helfer-Module (i18n, jsonLd) sie ziehen können, ohne den React-Chunk anzufassen.
 
-/** Kartenartwork. 150px-Variante reicht für alle Ansichten inkl. Retina-Kacheln. */
-export const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
-
 /** Twitch-ID des Streamers — nur dieser Account darf per ?adminCode= in fremde Lobbys. */
 export const STREAMER_ID = '160224748';
 
@@ -20,6 +17,15 @@ export const RARITY_LABEL = {
   Epic: 'Episch',
   Legendary: 'Legendär',
   Champion: 'Champions',
+};
+
+/** Spanische Beschriftung der Seltenheiten (siehe RARITY_LABEL für die deutsche Fassung). */
+export const RARITY_LABEL_ES = {
+  Common: 'Común',
+  Rare: 'Rara',
+  Epic: 'Épica',
+  Legendary: 'Legendaria',
+  Champion: 'Campeón',
 };
 
 // Spaltenzahl der Deck-Karten im Endscreen je Größenstufe (S/M/L-Umschalter).

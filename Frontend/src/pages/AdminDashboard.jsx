@@ -2,22 +2,23 @@ import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import {
-  Radio, Gamepad2, Eye, LayoutDashboard, Swords, Coins, Sprout, Ticket,
+  Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout, Ticket,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Plus, Infinity as InfinityIcon, Layers, Users, SlidersHorizontal,
+  Plus, Infinity as InfinityIcon, Users, SlidersHorizontal, Globe, Lock,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../components/SEO";
-import CardPresetAdminPanel from "./ClashRoyale/admin/CardPresetAdminPanel";
-import GardenAdminPanel from "../components/GardenAdminPanel";
+import GardenAdminPanel from "./GardenGame/GardenAdminPanel";
 
 // DEINE ID
 const STREAMER_ID = "160224748";
 
+// Der Reiter "Credits" (die Casino-User-Tabelle) ist bewusst entfernt — die Daten
+// werden im Dashboard nicht mehr gepflegt. Die Credits der adVentures-Spieler
+// stehen weiterhin in deren eigener Tabelle.
 const SECTIONS = [
   { id: "overview", label: "Übersicht", icon: LayoutDashboard },
   { id: "adventures", label: "adVentures", icon: Swords },
-  { id: "casino", label: "Credits", icon: Coins },
   { id: "garden", label: "Virtual Farm", icon: Sprout },
   { id: "codes", label: "Promo-Codes", icon: Ticket },
   { id: "winchallenge", label: "Win-Challenges", icon: Trophy },
@@ -43,6 +44,34 @@ function searchTextFor(id, val) {
     val?.theme?.name,
   ];
   return parts.filter(Boolean).join(" ").toLowerCase();
+}
+
+/**
+ * Umschalter der Virtual-Farm-Ansicht. „Spieler" ist die Datenbank (jeder, der
+ * je gespielt hat), „Welten" der Arbeitsspeicher des Servers (wer JETZT drin
+ * steht) — zwei Fragen, die sich nicht in eine Tabelle pressen lassen.
+ */
+function GardenSubNav({ aktiv, onWechsel }) {
+  return (
+    <div className="flex border-b border-white/5 mb-5">
+      {[
+        { id: "spieler", label: "Spieler", icon: Users },
+        { id: "welten", label: "Aktive Welten", icon: Globe },
+      ].map(sub => {
+        const SubIcon = sub.icon;
+        const active = aktiv === sub.id;
+        return (
+          <button key={sub.id} onClick={() => onWechsel(sub.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-colors border-b-2 ${
+              active ? "border-violet-400 text-white bg-white/[0.03]" : "border-transparent text-white/40 hover:text-white/70"
+            }`}>
+            <SubIcon size={14} />
+            {sub.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function AdminDashboard() {
@@ -98,8 +127,12 @@ export default function AdminDashboard() {
   const [gardenEditGold, setGardenEditGold] = useState("");
   // Wessen Farm gerade im ausführlichen Admin-Menü offen ist ({ userId, name }).
   const [gardenDetail, setGardenDetail] = useState(null);
+  const [gardenSubTab, setGardenSubTab] = useState("spieler"); // 'spieler' | 'welten'
+  // Live-Belegung der Farm-Welten. Steht nur im Arbeitsspeicher des Servers, es
+  // gibt also nichts zwischenzuspeichern — die Liste wird zyklisch neu geholt.
+  const [gardenWorlds, setGardenWorlds] = useState([]);
+  const [gardenWorldsAt, setGardenWorldsAt] = useState(0);
   const [clashLobbies, setClashLobbies] = useState([]);
-  const [clashSubTab, setClashSubTab] = useState("lobbies"); // 'lobbies' | 'presets'
   // Follower-Zahlen der Win-Challenge-Streamer: twitchId → Anzahl (null = unbekannt).
   // Kommen von Twitch und laden deshalb getrennt von der Liste nach.
   const [wcFollowers, setWcFollowers] = useState({});
@@ -136,6 +169,28 @@ export default function AdminDashboard() {
       } catch(e) { console.error(e); }
   };
 
+  // Wer steht gerade in welcher Farm-Welt. Eigene Funktion statt eines Zweigs in
+  // fetchData, weil sie im Sekundentakt laufen soll, ohne die Spielerliste
+  // (Datenbank, deutlich teurer) jedes Mal mitzuziehen.
+  const fetchGardenWorlds = async () => {
+      try {
+          const r = await fetch("/api/admin/garden/worlds", { credentials: "include" });
+          const j = await r.json();
+          setGardenWorlds(Array.isArray(j.worlds) ? j.worlds : []);
+          setGardenWorldsAt(j.at || Date.now());
+      } catch(e) { console.error(e); }
+  };
+
+  // Solange die Weltansicht offen ist, zieht sie sich alle fünf Sekunden nach.
+  // Ohne das stünde dort eine Momentaufnahme, die schon beim Hinsehen falsch ist —
+  // Spieler kommen und gehen im Sekundentakt.
+  useEffect(() => {
+      if (activeTab !== "garden" || gardenSubTab !== "welten") return undefined;
+      fetchGardenWorlds();
+      const t = setInterval(fetchGardenWorlds, 5000);
+      return () => clearInterval(t);
+  }, [activeTab, gardenSubTab]);
+
   // Follower nachladen. fresh=1 umgeht den 15-Minuten-Zwischenspeicher im Backend.
   const fetchWcFollowers = async (fresh = false) => {
       setWcFollowersLoading(true);
@@ -156,7 +211,6 @@ export default function AdminDashboard() {
       const keyMap = {
           "overview": "stats",
           "adventures": "adventure",
-          "casino": "casino",
           "garden": "garden",
           "winchallenge": "winchallenge",
           "bingo": "bingo",
@@ -190,7 +244,6 @@ export default function AdminDashboard() {
            const keyMap = {
               "overview": "stats",
               "adventures": "adventure",
-              "casino": "casino",
               "winchallenge": "winchallenge",
               "bingo": "bingo",
               "codes": "codes"
@@ -335,11 +388,12 @@ export default function AdminDashboard() {
           if (!data) return null;
 
           const statCards = [
-              { label: "Total Credits", value: data.totalCredits?.toLocaleString(), accent: "text-amber-400", border: "border-amber-500/20" },
-              { label: "Casino User", value: data.totalUsers, accent: "text-blue-400", border: "border-blue-500/20" },
-              { label: "adVentures Spieler", value: data.advPlayers, accent: "text-emerald-400", border: "border-emerald-500/20" },
+              { label: "Farm gerade online", value: data.gardenOnline, accent: "text-emerald-400", border: "border-emerald-500/20" },
+              { label: "Farm-Welten aktiv", value: data.gardenWorlds, accent: "text-violet-300", border: "border-violet-500/20" },
+              { label: "adVentures Spieler", value: data.advPlayers, accent: "text-sky-400", border: "border-sky-500/20" },
           ];
           const miniCards = [
+              { label: "Farm-Spielstände", value: data.gardenPlayers },
               { label: "Aktive Bingos", value: data.activeBingoSessions },
               { label: "Win-Challenges", value: data.activeChallenges },
               { label: "Aktive Promo-Codes", value: data.activeCodes },
@@ -474,8 +528,8 @@ export default function AdminDashboard() {
           );
       }
 
-      // 2. ADVENTURES & CASINO
-      if (activeTab === "adventures" || activeTab === "casino") {
+      // 2. ADVENTURES
+      if (activeTab === "adventures") {
           return (
               <div className="panel overflow-hidden">
                 <div className="overflow-x-auto">
@@ -484,13 +538,9 @@ export default function AdminDashboard() {
                           <tr>
                               <th className="p-3 font-bold">User</th>
                               <th className="p-3 font-bold">Credits</th>
-                              {activeTab === "adventures" && (
-                                  <>
-                                      <th className="p-3 font-bold">Highscore</th>
-                                      <th className="p-3 font-bold">Skins</th>
-                                      <th className="p-3 font-bold">Slots</th>
-                                  </>
-                              )}
+                              <th className="p-3 font-bold">Highscore</th>
+                              <th className="p-3 font-bold">Skins</th>
+                              <th className="p-3 font-bold">Slots</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -508,36 +558,32 @@ export default function AdminDashboard() {
                                           className="w-24 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
                                       />
                                   </td>
-                                  {activeTab === "adventures" && (
-                                      <>
-                                          <td className="p-3">
-                                              <input
-                                                  type="number"
-                                                  defaultValue={u.highScore}
-                                                  onBlur={(e) => updateUser(id, { highScore: e.target.value })}
-                                                  className="w-20 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
-                                              />
-                                          </td>
-                                          <td className="p-3 max-w-xs truncate text-xs text-white/40">
-                                              {u.skins?.join(", ")}
-                                              <button
-                                                  onClick={() => {
-                                                      const newSkins = prompt("Skins (kommagetrennt):", u.skins?.join(","));
-                                                      if(newSkins !== null) updateUser(id, { skins: newSkins.split(",").map(s=>s.trim()) });
-                                                  }}
-                                                  className="ml-2 text-violet-300 hover:text-violet-200 inline-flex align-middle"
-                                              ><Pencil size={12} /></button>
-                                          </td>
-                                          <td className="p-3">
-                                              <input
-                                                  type="number"
-                                                  defaultValue={u.unlockedSlots}
-                                                  onBlur={(e) => updateUser(id, { unlockedSlots: e.target.value })}
-                                                  className="w-14 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
-                                              />
-                                          </td>
-                                      </>
-                                  )}
+                                  <td className="p-3">
+                                      <input
+                                          type="number"
+                                          defaultValue={u.highScore}
+                                          onBlur={(e) => updateUser(id, { highScore: e.target.value })}
+                                          className="w-20 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
+                                      />
+                                  </td>
+                                  <td className="p-3 max-w-xs truncate text-xs text-white/40">
+                                      {u.skins?.join(", ")}
+                                      <button
+                                          onClick={() => {
+                                              const newSkins = prompt("Skins (kommagetrennt):", u.skins?.join(","));
+                                              if(newSkins !== null) updateUser(id, { skins: newSkins.split(",").map(s=>s.trim()) });
+                                          }}
+                                          className="ml-2 text-violet-300 hover:text-violet-200 inline-flex align-middle"
+                                      ><Pencil size={12} /></button>
+                                  </td>
+                                  <td className="p-3">
+                                      <input
+                                          type="number"
+                                          defaultValue={u.unlockedSlots}
+                                          onBlur={(e) => updateUser(id, { unlockedSlots: e.target.value })}
+                                          className="w-14 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
+                                      />
+                                  </td>
                               </tr>
                           ))}
                           {entries.length === 0 && (
@@ -669,8 +715,105 @@ export default function AdminDashboard() {
               setGardenUsers(prev => prev.map(u => u.userId === uid ? { ...u, gold: Number(gold) } : u));
               setGardenEditId(null);
           };
+
+          // ── Welten: wer steht gerade wo ────────────────────────────────────
+          if (gardenSubTab === "welten") {
+              const s = search.toLowerCase();
+              // Gesucht wird über Weltcode UND Spielernamen: tippt man einen Namen,
+              // bleiben die Welten stehen, in denen er steht.
+              const welten = s
+                  ? gardenWorlds.filter(w =>
+                      w.code.toLowerCase().includes(s) ||
+                      w.players.some(p => searchTextFor(p.twitchId, p).includes(s)))
+                  : gardenWorlds;
+              const online = gardenWorlds.reduce((sum, w) => sum + w.playerCount, 0);
+              return (
+                  <div>
+                      <GardenSubNav aktiv={gardenSubTab} onWechsel={setGardenSubTab} />
+                      <div className="flex gap-3 mb-5 flex-wrap items-center">
+                          <div className="panel px-4 py-2.5 flex items-center gap-2">
+                              <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Online</span>
+                              <span className="text-lg font-bold text-emerald-400">{online}</span>
+                          </div>
+                          <div className="panel px-4 py-2.5 flex items-center gap-2">
+                              <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Welten</span>
+                              <span className="text-lg font-bold text-white">{gardenWorlds.length}</span>
+                          </div>
+                          <span className="text-xs text-white/30">
+                              {gardenWorldsAt
+                                  ? `Stand ${new Date(gardenWorldsAt).toLocaleTimeString("de-DE")} · aktualisiert sich alle 5 s`
+                                  : "Lädt..."}
+                          </span>
+                          <button onClick={fetchGardenWorlds} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-semibold transition-colors">
+                              <RefreshCw size={14} /> Jetzt aktualisieren
+                          </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {welten.map(w => (
+                              <div key={w.code} className="panel p-4">
+                                  <div className="flex items-center justify-between mb-3">
+                                      <span className="font-mono text-lg font-bold text-violet-300 flex items-center gap-2">
+                                          {w.isPublic ? <Globe size={15} className="text-white/40" /> : <Lock size={15} className="text-white/40" />}
+                                          {w.code}
+                                      </span>
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 border border-white/10 px-2 py-0.5 rounded-md">
+                                          {w.playerCount} / {w.maxSlots}
+                                      </span>
+                                  </div>
+                                  <ul className="space-y-1.5">
+                                      {w.players.map(p => (
+                                          <li key={p.twitchId} className="flex items-center gap-2 text-sm">
+                                              <span
+                                                  title={p.ruht ? "Verbunden, Tab im Hintergrund" : "Aktiv"}
+                                                  className={`w-1.5 h-1.5 rounded-sm shrink-0 ${p.ruht ? "bg-white/25" : "bg-emerald-400"}`}
+                                              />
+                                              <span className="text-white font-semibold truncate">{p.name || p.twitchId}</span>
+                                              {p.badge === "admin" && (
+                                                  <span className="text-[9px] font-bold uppercase tracking-wider text-red-300 border border-red-500/30 px-1.5 rounded">Admin</span>
+                                              )}
+                                              <span className="ml-auto text-amber-400 text-xs font-semibold tabular-nums shrink-0">
+                                                  {p.gold.toLocaleString("de-DE")}
+                                              </span>
+                                              <button
+                                                  onClick={() => setGardenDetail({ userId: p.twitchId, name: p.name })}
+                                                  title="Farm bearbeiten"
+                                                  className="text-white/30 hover:text-white shrink-0"
+                                              >
+                                                  <SlidersHorizontal size={12} />
+                                              </button>
+                                          </li>
+                                      ))}
+                                  </ul>
+                              </div>
+                          ))}
+                          {welten.length === 0 && (
+                              <div className="col-span-full text-center text-white/30 italic py-10">
+                                  {gardenWorlds.length === 0 ? "Gerade ist niemand in einer Welt." : "Keine Welt passt zur Suche."}
+                              </div>
+                          )}
+                      </div>
+
+                      {gardenDetail && (
+                          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+                               onClick={() => setGardenDetail(null)}>
+                              <div className="w-full max-w-5xl max-h-[88vh] flex flex-col bg-slate-900 border border-slate-700 rounded-md p-4"
+                                   onClick={(e) => e.stopPropagation()}>
+                                  <GardenAdminPanel
+                                      userId={gardenDetail.userId}
+                                      anzeigeName={gardenDetail.name}
+                                      onClose={() => { setGardenDetail(null); fetchGardenWorlds(); }}
+                                  />
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              );
+          }
+
           return (
               <div>
+                  <GardenSubNav aktiv={gardenSubTab} onWechsel={setGardenSubTab} />
                   <div className="flex gap-3 mb-5 flex-wrap items-center">
                       <div className="panel px-4 py-2.5 flex items-center gap-2">
                           <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Spieler</span>
@@ -788,28 +931,6 @@ export default function AdminDashboard() {
               : clashLobbies;
           return (
               <div>
-                  {/* Aktive Lobbys oder die Karten-Presets verwalten */}
-                  <div className="flex border-b border-white/5 mb-5">
-                      {[
-                          { id: "lobbies", label: "Aktive Lobbys", icon: Gamepad2 },
-                          { id: "presets", label: "Karten-Presets", icon: Layers },
-                      ].map(sub => {
-                          const SubIcon = sub.icon;
-                          const active = clashSubTab === sub.id;
-                          return (
-                              <button key={sub.id} onClick={() => setClashSubTab(sub.id)}
-                                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-colors border-b-2 ${
-                                      active ? "border-violet-400 text-white bg-white/[0.03]" : "border-transparent text-white/40 hover:text-white/70"
-                                  }`}>
-                                  <SubIcon size={14} />
-                                  {sub.label}
-                              </button>
-                          );
-                      })}
-                  </div>
-
-                  {clashSubTab === "presets" ? <CardPresetAdminPanel search={search} /> : (
-                  <div>
                   <div className="flex gap-3 mb-5 flex-wrap items-center">
                       <div className="panel px-4 py-2.5 flex items-center gap-2">
                           <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Aktive Lobbys</span>
@@ -848,8 +969,6 @@ export default function AdminDashboard() {
                           </div>
                       )}
                   </div>
-                  </div>
-                  )}
               </div>
           );
       }

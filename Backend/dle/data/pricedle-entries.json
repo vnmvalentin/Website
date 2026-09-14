@@ -1,0 +1,978 @@
+[
+  {
+    "id": "apple-i",
+    "label": "Apple I (1976, als bestückte Platine)",
+    "priceUsd": 666.66,
+    "description": "Der ungewöhnliche Preis wird oft auf Steve Wozniaks Vorliebe für Wiederholungszahlen zurückgeführt.",
+    "wikiTitle": "Apple I",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Apple1%20MLB.jpg?width=500"
+  },
+  {
+    "id": "ibm-pc-5150",
+    "label": "IBM PC 5150 (1981, Basismodell)",
+    "priceUsd": 1565,
+    "description": "Der Rechner, der den Begriff 'PC' als Gattungsnamen etablierte.",
+    "wikiTitle": "IBM Personal Computer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/IBM%20PC%205150.jpg?width=500"
+  },
+  {
+    "id": "apple-macintosh-1984",
+    "label": "Apple Macintosh (1984)",
+    "priceUsd": 2495,
+    "description": "Berühmt für den legendären '1984'-Werbespot zur Markteinführung.",
+    "wikiTitle": "Macintosh 128K",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Macintosh%20128k%20transparency.png?width=500"
+  },
+  {
+    "id": "commodore-64",
+    "label": "Commodore 64 (1982)",
+    "priceUsd": 595,
+    "description": "Bis heute der meistverkaufte Heimcomputer eines einzelnen Modells überhaupt.",
+    "wikiTitle": "Commodore 64",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Commodore-64-Computer-FL.jpg?width=500"
+  },
+  {
+    "id": "commodore-vic20",
+    "label": "Commodore VIC-20 (1980)",
+    "priceUsd": 300,
+    "description": "Der erste Heimcomputer, der sich über eine Million Mal verkaufte.",
+    "wikiTitle": "VIC-20",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f1/Commodore-VIC-20-FL.jpg/330px-Commodore-VIC-20-FL.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "nintendo-nes",
+    "label": "Nintendo Entertainment System (USA, 1985)",
+    "priceUsd": 199,
+    "description": "Rettete den nordamerikanischen Videospielmarkt nach dem großen Crash von 1983.",
+    "wikiTitle": "Nintendo Entertainment System",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Wikipedia%20NES%20PAL.jpg?width=500"
+  },
+  {
+    "id": "sega-genesis",
+    "label": "Sega Genesis / Mega Drive (USA, 1989)",
+    "priceUsd": 189,
+    "description": "Sega positionierte die Konsole bewusst als 'erwachsenere' Alternative zu Nintendo.",
+    "wikiTitle": "Sega Mega Drive",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sega-Genesis-NA-Mk2-Console-Set.png?width=500"
+  },
+  {
+    "id": "atari-2600",
+    "label": "Atari 2600 (1977)",
+    "priceUsd": 199,
+    "description": "Die Konsole, die austauschbare Spielmodule für ein breites Publikum populär machte.",
+    "wikiTitle": "Atari 2600",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Atari-2600-Light-Sixer-FL.jpg?width=500"
+  },
+  {
+    "id": "nintendo-gameboy",
+    "label": "Nintendo Game Boy (USA, 1989)",
+    "priceUsd": 90,
+    "description": "Trotz schwächerer Technik als Konkurrenzgeräte dank Akkulaufzeit und Tetris ein Riesenerfolg.",
+    "wikiTitle": "Game Boy",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Game-Boy-FL.jpg?width=500"
+  },
+  {
+    "id": "sony-playstation-1995",
+    "label": "Sony PlayStation (US-Markteinführung, 1995)",
+    "priceUsd": 299,
+    "description": "Sonys erster Einstieg in den Konsolenmarkt, ursprünglich als Nintendo-Kooperation geplant.",
+    "wikiTitle": "PlayStation",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/PSX-Console-wController.jpg?width=500"
+  },
+  {
+    "id": "sony-playstation2",
+    "label": "Sony PlayStation 2 (USA, 2000)",
+    "priceUsd": 299,
+    "description": "Bis heute die meistverkaufte Spielkonsole aller Zeiten.",
+    "wikiTitle": "PlayStation 2",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/PS2-Versions.jpg?width=500"
+  },
+  {
+    "id": "microsoft-xbox",
+    "label": "Microsoft Xbox (USA, 2001)",
+    "priceUsd": 299,
+    "description": "Microsofts erster Einstieg in den Konsolenmarkt.",
+    "wikiTitle": "Xbox",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Xbox-console.jpg?width=500"
+  },
+  {
+    "id": "nintendo-wii",
+    "label": "Nintendo Wii (USA, 2006)",
+    "priceUsd": 250,
+    "description": "Die Bewegungssteuerung sprach gezielt auch Nicht-Gamer an.",
+    "wikiTitle": "Wii",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Wii-console.jpg?width=500"
+  },
+  {
+    "id": "xbox360-premium",
+    "label": "Xbox 360 Premium-Paket (USA, 2005)",
+    "priceUsd": 400,
+    "description": "Kam ein knappes Jahr vor der Konkurrenz von Sony und Nintendo auf den Markt.",
+    "wikiTitle": "Xbox 360",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Xbox-360-Consoles-Infobox.png?width=500"
+  },
+  {
+    "id": "motorola-dynatac",
+    "label": "Motorola DynaTAC 8000X — erstes kommerzielles Mobiltelefon (1983)",
+    "priceUsd": 4000,
+    "description": "Das legendäre 'Ziegelstein'-Handy wog fast ein Kilogramm.",
+    "wikiTitle": "Motorola DynaTAC",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/DynaTAC8000X.jpg?width=500"
+  },
+  {
+    "id": "erstes-iphone",
+    "label": "Erstes iPhone (USA, 2007, 8-GB-Modell)",
+    "priceUsd": 500,
+    "description": "Steve Jobs stellte es als Kombination aus iPod, Telefon und Internet-Gerät vor.",
+    "wikiTitle": "IPhone (1. Generation)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/IPhone%201st%20Gen.svg?width=500"
+  },
+  {
+    "id": "erstes-ipad",
+    "label": "Erstes iPad (USA, 2010, WLAN 16 GB)",
+    "priceUsd": 500,
+    "description": "Schuf faktisch eine neue Geräteklasse zwischen Smartphone und Laptop.",
+    "wikiTitle": "IPad (1. Generation)",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d2/IPad_10.2%E2%80%91inch.png/330px-IPad_10.2%E2%80%91inch.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "amazon-kindle",
+    "label": "Amazon Kindle, erste Generation (USA, 2007)",
+    "priceUsd": 400,
+    "description": "War innerhalb weniger Stunden nach Verkaufsstart ausverkauft.",
+    "wikiTitle": "Amazon Kindle",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Amazon%20Kindle%203.JPG?width=500"
+  },
+  {
+    "id": "hp35-taschenrechner",
+    "label": "HP-35 — erster wissenschaftlicher Taschenrechner (1972)",
+    "priceUsd": 395,
+    "description": "Machte den mechanischen Rechenschieber innerhalb weniger Jahre praktisch überflüssig.",
+    "wikiTitle": "HP-35",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hp-35%201972.jpg?width=500"
+  },
+  {
+    "id": "palm-pilot",
+    "label": "Palm Pilot 1000 (USA, 1996)",
+    "priceUsd": 300,
+    "description": "Einer der ersten wirklich erfolgreichen digitalen Taschenorganizer.",
+    "wikiTitle": "Palm Pilot",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/e/e7/PalmPilot5000.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+  },
+  {
+    "id": "ford-model-t",
+    "label": "Ford Model T (USA, 1908)",
+    "priceUsd": 850,
+    "description": "Das Fließband senkte den Preis in den Folgejahren noch deutlich weiter.",
+    "wikiTitle": "Ford Modell T",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Ford%20T%20Jon%20Sullivan.jpg?width=500"
+  },
+  {
+    "id": "commodore-amiga1000",
+    "label": "Commodore Amiga 1000 (USA, 1985)",
+    "priceUsd": 1300,
+    "description": "Seiner Zeit mit Multitasking-Betriebssystem und Grafikfähigkeiten technisch weit voraus.",
+    "wikiTitle": "Amiga 1000",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Amiga%201000.jpg?width=500"
+  },
+  {
+    "id": "ti-99-4a",
+    "label": "Texas Instruments TI-99/4A (USA, 1981)",
+    "priceUsd": 525,
+    "description": "Einer der ersten Heimcomputer mit 16-Bit-Prozessor.",
+    "wikiTitle": "TI-99/4A",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/TI99-IMG_7143.jpg/330px-TI99-IMG_7143.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "windows95-vollversion",
+    "label": "Microsoft Windows 95 Vollversion (USA, 1995)",
+    "priceUsd": 210,
+    "description": "Der Verkaufsstart wurde mit einer der teuersten Werbekampagnen der damaligen Zeit begleitet.",
+    "wikiTitle": "Windows 95",
+    "image": "https://thumb.wikimedia.org/wikipedia/de/thumb/6/65/Windows_95_C_Startmen%C3%BC_System_mit_allen_Updates_2010-03-01.png/330px-Windows_95_C_Startmen%C3%BC_System_mit_allen_Updates_2010-03-01.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "google-nest-thermostat",
+    "label": "Google Nest Learning Thermostat (USA, 2011)",
+    "priceUsd": 250,
+    "description": "Eines der ersten bekannten 'Smart Home'-Geräte für ein Massenpublikum.",
+    "wikiTitle": "Nest Labs",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b0/Google_Nest_logo.svg/langde-330px-Google_Nest_logo.svg.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "sega-game-gear",
+    "label": "Sega Game Gear (USA, 1990)",
+    "priceUsd": 150,
+    "description": "Sega positionierte den tragbaren Handheld als Farbdisplay-Konkurrenz zum Game Boy.",
+    "wikiTitle": "Game Gear",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cf/Sega-Game-Gear-WB.png/330px-Sega-Game-Gear-WB.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "nintendo-64",
+    "label": "Nintendo 64 (USA, 1996)",
+    "priceUsd": 200,
+    "description": "Setzte im Gegensatz zur Konkurrenz weiter auf Spielmodule statt CDs.",
+    "wikiTitle": "Nintendo 64",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Nintendo-64-wController-L.jpg?width=500"
+  },
+  {
+    "id": "sony-playstation3",
+    "label": "Sony PlayStation 3 (USA, 2006, 20-GB-Modell)",
+    "priceUsd": 500,
+    "description": "Der hohe Preis bei Markteinführung sorgte damals für viel Kritik.",
+    "wikiTitle": "PlayStation 3",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/PS3Versions.png?width=500"
+  },
+  {
+    "id": "microsoft-xboxone",
+    "label": "Microsoft Xbox One (USA, 2013)",
+    "priceUsd": 500,
+    "description": "Wurde ursprünglich zusammen mit dem Kinect-Sensor als Paket verkauft.",
+    "wikiTitle": "Xbox One",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Microsoft-Xbox-One-Console-Set-wKinect.jpg?width=500"
+  },
+  {
+    "id": "sony-playstation4",
+    "label": "Sony PlayStation 4 (USA, 2013)",
+    "priceUsd": 400,
+    "description": "War beim Start günstiger als die konkurrierende Xbox One.",
+    "wikiTitle": "PlayStation 4",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/PS4-Console-wDS4.jpg?width=500"
+  },
+  {
+    "id": "nintendo-switch",
+    "label": "Nintendo Switch (USA, 2017)",
+    "priceUsd": 300,
+    "description": "Ließ sich als erste große Konsole nahtlos zwischen Fernseher und mobilem Gerät wechseln.",
+    "wikiTitle": "Nintendo Switch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Nintendo-Switch-wJoyCons-BlRd-Standing-FL.jpg?width=500"
+  },
+  {
+    "id": "apple-watch-erste-generation",
+    "label": "Apple Watch, erste Generation (Basismodell, USA, 2015)",
+    "priceUsd": 350,
+    "description": "Teurere Sondereditionen der ersten Generation kosteten damals bis zu 17.000 Dollar.",
+    "wikiTitle": "Apple Watch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/AppleWatchAppleStore.jpg?width=500"
+  },
+  {
+    "id": "dji-phantom",
+    "label": "DJI Phantom — frühe Consumer-Drohne mit Kamera-Halterung (2013)",
+    "priceUsd": 680,
+    "description": "Trug wesentlich dazu bei, Luftaufnahmen für Hobbyfilmer erschwinglich zu machen.",
+    "wikiTitle": "Multicopter",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/DJI%20Phantom%201%201530564a.jpg?width=500"
+  },
+  {
+    "id": "amazon-echo",
+    "label": "Amazon Echo, erste Generation (USA, 2014)",
+    "priceUsd": 180,
+    "description": "Machte den smarten Lautsprecher mit Sprachassistentin für ein Massenpublikum salonfähig.",
+    "wikiTitle": "Amazon Echo",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Amazon%20Echo.jpg?width=500"
+  },
+  {
+    "id": "gopro-hero",
+    "label": "Erste GoPro HD Hero (USA, 2010)",
+    "priceUsd": 300,
+    "description": "Ursprünglich vor allem für Surfer und Extremsportler gedacht.",
+    "wikiTitle": "GoPro",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/GoPro%20Hero%209%20Black%20-%20Front%202.jpg?width=500"
+  },
+  {
+    "id": "fitbit-erste-generation",
+    "label": "Erster Fitbit-Tracker (USA, 2009)",
+    "priceUsd": 100,
+    "description": "Einer der ersten kommerziell erfolgreichen tragbaren Fitness-Tracker.",
+    "wikiTitle": "Fitbit",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/FitbitStand.jpg?width=500"
+  },
+  {
+    "id": "macbook-air-2008",
+    "label": "Erstes MacBook Air (USA, 2008, Basismodell)",
+    "priceUsd": 1800,
+    "description": "Bei der Vorstellung berühmt aus einem gewöhnlichen Büro-Versandumschlag gezogen.",
+    "wikiTitle": "MacBook Air",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/M2%20Macbook%20Air%20Midnight%20model%20-%201.jpg?width=500"
+  },
+  {
+    "id": "iphone-x",
+    "label": "iPhone X (USA, 2017, Basismodell)",
+    "priceUsd": 1000,
+    "description": "Das erste iPhone-Modell, das die symbolische 1.000-Dollar-Marke erreichte.",
+    "wikiTitle": "IPhone X",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/IPhone%20X%20vector.svg?width=500"
+  },
+  {
+    "id": "polaroid-sx70",
+    "label": "Polaroid SX-70 Sofortbildkamera (USA, 1972)",
+    "priceUsd": 180,
+    "description": "Die erste faltbare Spiegelreflex-Sofortbildkamera mit sich selbst entwickelnden Bildern.",
+    "wikiTitle": "Polaroid SX-70",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Polaroid%20SX-70%20(4462345243).jpg?width=500"
+  },
+  {
+    "id": "commodore-pet",
+    "label": "Commodore PET 2001 (USA, 1977)",
+    "priceUsd": 800,
+    "description": "Einer der ersten vollständig vormontierten Heimcomputer überhaupt.",
+    "wikiTitle": "Commodore PET",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/Commodore_2001_Series-IMG_0448b.jpg/330px-Commodore_2001_Series-IMG_0448b.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "ibm-simon",
+    "label": "IBM Simon — häufig als erstes Smartphone bezeichnet (USA, 1994, mit Vertrag)",
+    "priceUsd": 900,
+    "description": "Kombinierte bereits Telefon, Fax, E-Mail und einen Touchscreen mit Kalender.",
+    "wikiTitle": "Personal Digital Assistant",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pocket%20PC.jpg?width=500"
+  },
+  {
+    "id": "sinclair-zx81",
+    "label": "Sinclair ZX81 (als Bausatz, 1981)",
+    "priceUsd": 70,
+    "description": "Einer der günstigsten Wege dieser Zeit, überhaupt einen eigenen Computer zu besitzen.",
+    "wikiTitle": "Sinclair ZX81",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sinclair-ZX81.png?width=500"
+  },
+  {
+    "id": "atari-lynx",
+    "label": "Atari Lynx Handheld (USA, 1989)",
+    "priceUsd": 180,
+    "description": "Technisch dem Game Boy überlegen, aber durch kürzere Akkulaufzeit im Nachteil.",
+    "wikiTitle": "Atari Lynx",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Atari-Lynx-I-Handheld.png?width=500"
+  },
+  {
+    "id": "gameboy-color",
+    "label": "Game Boy Color (USA, 1998)",
+    "priceUsd": 80,
+    "description": "Brachte den seit fast zehn Jahren erfolgreichen Handheld erstmals in Farbe.",
+    "wikiTitle": "Game Boy Color",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Nintendo-Game-Boy-Color-FL.png?width=500"
+  },
+  {
+    "id": "sony-psp",
+    "label": "Sony PSP (USA, 2004)",
+    "priceUsd": 250,
+    "description": "Sonys erster Versuch im tragbaren Konsolenmarkt, direkt gegen Nintendos Handhelds.",
+    "wikiTitle": "PlayStation Portable",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Psp-1000.jpg?width=500"
+  },
+  {
+    "id": "xbox-series-x",
+    "label": "Microsoft Xbox Series X (USA, 2020)",
+    "priceUsd": 500,
+    "description": "Startete gleichzeitig mit der günstigeren, discless Xbox Series S.",
+    "wikiTitle": "Xbox Series X",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Xbox%20series%20X%20(50648118708).jpg?width=500"
+  },
+  {
+    "id": "sony-playstation5",
+    "label": "Sony PlayStation 5 (USA, 2020)",
+    "priceUsd": 500,
+    "description": "War wegen Lieferengpässen über Monate hinweg extrem schwer zu bekommen.",
+    "wikiTitle": "PlayStation 5",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/PlayStation%205%20and%20DualSense%20with%20transparent%20background.png?width=500"
+  },
+  {
+    "id": "casio-f91w",
+    "label": "Casio F-91W Digitaluhr (üblicher Neupreis)",
+    "priceUsd": 15,
+    "description": "Seit den 1990ern nahezu unverändert produziert — einer der langlebigsten Elektronik-Longseller überhaupt.",
+    "wikiTitle": "Armbanduhr",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Watch%20(clothing).jpg?width=500"
+  },
+  {
+    "id": "speak-and-spell",
+    "label": "Texas Instruments Speak & Spell (USA, 1978)",
+    "priceUsd": 50,
+    "description": "Eines der ersten Spielzeuge mit einem Sprachchip zur elektronischen Sprachausgabe.",
+    "wikiTitle": "Sprachausgabe",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b6/Homer_Dudley_%28October_1940%29._%22The_Carrier_Nature_of_Speech%22._Bell_System_Technical_Journal%2C_XIX%284%29%3B495-515._--_Fig.7_Schematic_circuit_of_the_vocoder_%28derived_from_Fig.8%29.jpg/330px-thumbnail.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "sony-cdp101",
+    "label": "Sony CDP-101 — einer der ersten CD-Player (Japan/USA, 1982)",
+    "priceUsd": 730,
+    "description": "Kam praktisch zeitgleich mit der Compact Disc selbst auf den Markt.",
+    "wikiTitle": "Compact Disc",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/OD%20Compact%20disc.svg?width=500"
+  },
+  {
+    "id": "polaroid-model95",
+    "label": "Polaroid Model 95, die allererste Sofortbildkamera (USA, 1948)",
+    "priceUsd": 89.75,
+    "description": "Fast ein Vierteljahrhundert vor der bekannteren SX-70 brachte sie die Sofortbildfotografie überhaupt erst auf den Markt.",
+    "wikiTitle": "Polaroid Model 95",
+    "image": null
+  },
+  {
+    "id": "nintendo-game-and-watch",
+    "label": "Erstes Nintendo Game & Watch, \"Ball\" (Japan, 1980)",
+    "priceUsd": 20,
+    "description": "Der Grundstein für Nintendos gesamte spätere Handheld-Sparte, vom Game Boy bis zur Switch.",
+    "wikiTitle": "Game & Watch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Game-and-watch-ball.png?width=500"
+  },
+  {
+    "id": "nintendo-power-glove",
+    "label": "Nintendo Power Glove (USA, 1989)",
+    "priceUsd": 100,
+    "description": "Als Steuerungs-Zubehör für das NES beworben, in der Praxis aber notorisch ungenau und schnell wieder vom Markt verschwunden.",
+    "wikiTitle": "Power Glove",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/NES-Power-Glove.jpg?width=500"
+  },
+  {
+    "id": "amazon-echo-dot-first",
+    "label": "Erster Amazon Echo Dot (USA, 2016)",
+    "priceUsd": 50,
+    "description": "Die deutlich kleinere und günstigere Variante des ursprünglichen Amazon Echo.",
+    "wikiTitle": "Amazon Echo",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Amazon%20Echo.jpg?width=500"
+  },
+  {
+    "id": "google-chromecast-first",
+    "label": "Erster Google Chromecast (USA, 2013)",
+    "priceUsd": 35,
+    "description": "Ein einfacher HDMI-Stick, der jeden Fernseher im Handumdrehen internetfähig machte.",
+    "wikiTitle": "Chromecast",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Collection%20of%20Chromecast%20devices.jpg?width=500"
+  },
+  {
+    "id": "amazon-fire-tv-stick",
+    "label": "Erster Amazon Fire TV Stick (USA, 2014)",
+    "priceUsd": 39,
+    "description": "Amazons Antwort auf den bereits etablierten Chromecast.",
+    "wikiTitle": "Amazon Fire TV",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Amazon%20Fire%20TV%20with%20remote.JPG?width=500"
+  },
+  {
+    "id": "nintendo-nes-classic",
+    "label": "Nintendo NES Classic Edition (USA, 2016)",
+    "priceUsd": 59.99,
+    "description": "Eine Mini-Nachbildung der Original-Konsole mit fest eingebauten Klassikern — wegen der Nachfrage monatelang praktisch überall ausverkauft.",
+    "wikiTitle": "NES Classic Edition",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8b/NCM_Konsole_mit_Controller.jpg/330px-NCM_Konsole_mit_Controller.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "texas-instruments-ti83",
+    "label": "Texas Instruments TI-83 Grafikrechner (USA, 1996)",
+    "priceUsd": 95,
+    "description": "Über Jahrzehnte hinweg im US-Schulunterricht praktisch Pflichtausstattung für den Matheunterricht.",
+    "wikiTitle": "Texas Instruments TI-83",
+    "image": null
+  },
+  {
+    "id": "nintendo-ds",
+    "label": "Nintendo DS, die erste Konsole mit Doppelbildschirm (USA, 2004)",
+    "priceUsd": 149.99,
+    "description": "Ihr zweiter, berührungsempfindlicher Bildschirm eröffnete damals völlig neue Arten von Spielen.",
+    "wikiTitle": "Nintendo DS",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Nintendo-DS-Fat-Blue.jpg?width=500"
+  },
+  {
+    "id": "apple-ipod-shuffle",
+    "label": "Erster Apple iPod Shuffle (USA, 2005)",
+    "priceUsd": 99,
+    "description": "Bewusst ganz ohne Bildschirm — Apple bewarb das fehlende Display als Feature, nicht als Einschränkung.",
+    "wikiTitle": "IPod Shuffle",
+    "image": null
+  },
+  {
+    "id": "apple-airpods-first",
+    "label": "Erste Apple AirPods (USA, 2016)",
+    "priceUsd": 159,
+    "description": "Anfangs vielfach belächelt, entwickelten sie sich zu einem der meistverkauften Kopfhörer-Produkte überhaupt.",
+    "wikiTitle": "AirPods",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/AirPods%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "motorola-razr-v3",
+    "label": "Motorola RAZR V3, das ikonische Klapphandy (USA, 2004)",
+    "priceUsd": 500,
+    "description": "Mit über 130 Millionen verkauften Geräten eines der erfolgreichsten Mobiltelefone aller Zeiten.",
+    "wikiTitle": "Motorola Razr",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/31/Black-RAZRV3-closed.jpg/330px-Black-RAZRV3-closed.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "irobot-roomba",
+    "label": "Erster iRobot Roomba (USA, 2002)",
+    "priceUsd": 200,
+    "description": "Der erste wirklich massentaugliche Saugroboter für den Hausgebrauch.",
+    "wikiTitle": "Roomba",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Roomba%20original.jpg?width=500"
+  },
+  {
+    "id": "playstation-vr",
+    "label": "Sony PlayStation VR (USA, 2016)",
+    "priceUsd": 399,
+    "description": "Machte VR-Gaming erstmals einem breiten Konsolen-Publikum zugänglich, ganz ohne teuren Gaming-PC.",
+    "wikiTitle": "PlayStation VR",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sony-PlayStation-4-PSVR-Headset-Mk1-FL.jpg?width=500"
+  },
+  {
+    "id": "apple-newton-messagepad",
+    "label": "Apple Newton MessagePad (USA, 1993)",
+    "priceUsd": 700,
+    "description": "Einer der ersten kommerziellen PDAs, seiner Zeit aber technisch deutlich voraus — und dadurch auch entsprechend unausgereift.",
+    "wikiTitle": "Apple Newton",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/24/Apple_Newton.jpg/330px-Apple_Newton.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "sony-discman-d50",
+    "label": "Sony D-50, der erste tragbare CD-Player (Japan/USA, 1984)",
+    "priceUsd": 300,
+    "description": "Kaum größer als eine CD-Hülle selbst — für die damalige Zeit eine technische Sensation.",
+    "wikiTitle": "Discman",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sony%20Discman%20D-145%20face%2020160921a.jpg?width=500"
+  },
+  {
+    "id": "atari-jaguar",
+    "label": "Atari Jaguar (USA, 1993)",
+    "priceUsd": 250,
+    "description": "Als erste \"64-Bit\"-Konsole beworben — konnte den Rückstand auf Nintendo und Sega damit aber nicht mehr aufholen.",
+    "wikiTitle": "Atari Jaguar",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Atari-Jaguar-Console-Set.jpg?width=500"
+  },
+  {
+    "id": "sega-dreamcast",
+    "label": "Sega Dreamcast (USA, 1999)",
+    "priceUsd": 199,
+    "description": "Segas letzte eigene Konsole, mit eingebautem Modem bereits früh auf Online-Spiele ausgelegt.",
+    "wikiTitle": "Dreamcast",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Dreamcast-Console-Set.jpg?width=500"
+  },
+  {
+    "id": "nintendo-virtualboy",
+    "label": "Nintendo Virtual Boy (USA, 1995)",
+    "priceUsd": 180,
+    "description": "Eines der größten kommerziellen Flops in Nintendos Geschichte, unter anderem wegen der monochromen Rot-Darstellung und häufiger Kopfschmerzen.",
+    "wikiTitle": "Virtual Boy",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Virtual-Boy-Set.png?width=500"
+  },
+  {
+    "id": "blackberry-5810",
+    "label": "Erstes BlackBerry mit Telefonfunktion, Modell 5810 (USA, 2002)",
+    "priceUsd": 500,
+    "description": "Vorher waren BlackBerrys reine Pager-artige E-Mail-Geräte ganz ohne Telefonfunktion.",
+    "wikiTitle": "BlackBerry (Unternehmen)",
+    "image": null
+  },
+  {
+    "id": "google-nexus-one",
+    "label": "Google Nexus One, das erste Google-eigene Smartphone (USA, 2010)",
+    "priceUsd": 529,
+    "description": "Google verkaufte es zunächst ungewöhnlicherweise direkt über einen eigenen Online-Shop, ganz ohne Mobilfunkanbieter.",
+    "wikiTitle": "Nexus One",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Nexus%20One.png?width=500"
+  },
+  {
+    "id": "google-pixel-first",
+    "label": "Erstes Google Pixel Smartphone (USA, 2016)",
+    "priceUsd": 649,
+    "description": "Damit beendete Google die Nexus-Reihe und positionierte sich erstmals als eigene Premium-Smartphone-Marke.",
+    "wikiTitle": "Pixel (Smartphone)",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/Google_Pixel_and_Pixel_XL_smartphones_%2830155272575%29.jpg/330px-Google_Pixel_and_Pixel_XL_smartphones_%2830155272575%29.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "samsung-galaxy-s-first",
+    "label": "Erstes Samsung Galaxy S (USA, 2010, mit Vertrag)",
+    "priceUsd": 199,
+    "description": "Der Beginn einer der bis heute erfolgreichsten Smartphone-Reihen der Welt.",
+    "wikiTitle": "Samsung Galaxy S",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Samsung%20Galaxy%20S.svg?width=500"
+  },
+  {
+    "id": "amazon-kindle-fire",
+    "label": "Amazon Kindle Fire Tablet (USA, 2011)",
+    "priceUsd": 199,
+    "description": "Deutlich günstiger als ein iPad, dafür auf Amazons eigenes Ökosystem statt auf Googles Play Store zugeschnitten.",
+    "wikiTitle": "Amazon Fire (Tablet)",
+    "image": null
+  },
+  {
+    "id": "apple-ipad-mini-first",
+    "label": "Erstes Apple iPad Mini (USA, 2012)",
+    "priceUsd": 329,
+    "description": "Eine kompaktere, günstigere Ergänzung zum bereits etablierten großen iPad.",
+    "wikiTitle": "IPad Mini",
+    "image": null
+  },
+  {
+    "id": "apple-homepod-first",
+    "label": "Erster Apple HomePod (USA, 2018)",
+    "priceUsd": 349,
+    "description": "Deutlich teurer als die smarten Lautsprecher von Amazon und Google zu dem Zeitpunkt.",
+    "wikiTitle": "HomePod",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/An%20Apple%20HomePod%20speaker%20.png?width=500"
+  },
+  {
+    "id": "microsoft-zune",
+    "label": "Erster Microsoft Zune (USA, 2006)",
+    "priceUsd": 249.99,
+    "description": "Microsofts direkte Antwort auf den iPod — konnte sich gegen Apples Dominanz aber nie durchsetzen.",
+    "wikiTitle": "Zune",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Zune80and4.jpg?width=500"
+  },
+  {
+    "id": "tivo-first-generation",
+    "label": "Erster TiVo-Festplattenrecorder (USA, 1999)",
+    "priceUsd": 499,
+    "description": "Er machte \"TiVo\" für eine ganze Generation praktisch zum Synonym für digitale Fernsehaufzeichnung.",
+    "wikiTitle": "TiVo",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Series%202%20tivo%20front.jpg?width=500"
+  },
+  {
+    "id": "dycam-digital-camera",
+    "label": "Dycam Model 1, eine der ersten digitalen Verbraucherkameras (USA, 1990)",
+    "priceUsd": 995,
+    "description": "Noch ganz ohne Farbdisplay zur Bildkontrolle — die Fotos ließen sich erst nach dem Anschluss an einen Computer ansehen.",
+    "wikiTitle": "Dycam Model 1",
+    "image": null
+  },
+  {
+    "id": "ipod-original",
+    "label": "Erster Apple iPod (USA, 2001, 5-GB-Modell)",
+    "priceUsd": 399,
+    "description": "\"1.000 Songs in deiner Tasche\" lautete Apples Werbeversprechen dazu.",
+    "wikiTitle": "IPod",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/IPods%202010.svg?width=500"
+  },
+  {
+    "id": "sony-walkman-tps-l2",
+    "label": "Sony Walkman TPS-L2, der erste Walkman (USA-Einführung, 1980)",
+    "priceUsd": 150,
+    "description": "Er machte das Musikhören unterwegs über Kopfhörer erstmals massentauglich.",
+    "wikiTitle": "Walkman",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Thinktank%20Birmingham%20-%20object%201986S03911.00001(1).jpg?width=500"
+  },
+  {
+    "id": "sony-betamax-lv1901",
+    "label": "Sony LV-1901, der erste Betamax-Videorecorder für Verbraucher (USA, 1975)",
+    "priceUsd": 2295,
+    "description": "Er kam mit eingebautem Fernseher — ein separater Videorecorder ganz ohne TV-Gerät folgte erst später.",
+    "wikiTitle": "Betamax",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Betamax%20Tape%20v2.jpg?width=500"
+  },
+  {
+    "id": "ibm-thinkpad-700c",
+    "label": "Erstes IBM ThinkPad, Modell 700C (USA, 1992)",
+    "priceUsd": 4350,
+    "description": "Der Name \"ThinkPad\" wurde später zu einer der langlebigsten Laptop-Marken der Computergeschichte.",
+    "wikiTitle": "ThinkPad",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/IBM%20Thinkpad%20R51.jpg?width=500"
+  },
+  {
+    "id": "osborne-1-portable",
+    "label": "Osborne 1, einer der ersten tragbaren Computer (USA, 1981)",
+    "priceUsd": 1795,
+    "description": "Mit rund 11 Kilogramm Gewicht \"tragbar\" nur im großzügigsten Sinne des Wortes.",
+    "wikiTitle": "Osborne 1",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Osborne%201%20open.jpg?width=500"
+  },
+  {
+    "id": "compaq-portable",
+    "label": "Compaq Portable (USA, 1983)",
+    "priceUsd": 2995,
+    "description": "Einer der ersten IBM-PC-kompatiblen \"tragbaren\" Rechner — und der Grundstein für Compaqs späteren Erfolg.",
+    "wikiTitle": "Compaq Portable",
+    "image": null
+  },
+  {
+    "id": "pulsar-p1-digitalwatch",
+    "label": "Pulsar P1, die erste digitale Armbanduhr (USA, 1972)",
+    "priceUsd": 2100,
+    "description": "Das Gehäuse bestand aus purem 18-karätigem Gold — Digitaluhren waren damals ein absolutes Luxusgut.",
+    "wikiTitle": "Pulsar (Uhrenmarke)",
+    "image": null
+  },
+  {
+    "id": "vw-kaefer-us-import",
+    "label": "VW Käfer, US-Importpreis (1949)",
+    "priceUsd": 800,
+    "description": "Der Beginn des VW-Käfer-Erfolgs in den USA — anfangs verkaufte sich das ungewohnt kleine Auto dort nur zögerlich.",
+    "wikiTitle": "Volkswagen Käfer",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/96/VW_K%C3%A4fer_Baujahr_1966.jpg/330px-VW_K%C3%A4fer_Baujahr_1966.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "apple-macbook-first",
+    "label": "Erstes Apple MacBook (USA, 2006, Basismodell)",
+    "priceUsd": 1099,
+    "description": "Es löste das PowerBook als Apples Einsteiger-Notebook ab und war das erste MacBook mit Intel-Prozessor.",
+    "wikiTitle": "MacBook",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/MacBook%20white.png?width=500"
+  },
+  {
+    "id": "apple-lisa",
+    "label": "Apple Lisa (USA, 1983, Basismodell)",
+    "priceUsd": 9995,
+    "description": "Einer der ersten Personal Computer überhaupt mit grafischer Benutzeroberfläche und Maus — dafür aber auch entsprechend teuer.",
+    "wikiTitle": "Apple Lisa",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Apple%20Lisa%20Computer.jpg?width=500"
+  },
+  {
+    "id": "tappan-electronic-oven",
+    "label": "Tappan Electronic Oven, einer der ersten für den Hausgebrauch beworbenen Mikrowellenherde (USA, 1956)",
+    "priceUsd": 1250,
+    "description": "Erst deutlich kleinere und günstigere Nachfolgemodelle machten die Mikrowelle wirklich massentauglich.",
+    "wikiTitle": "Mikrowellenherd",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Panasonic%20NN-SD69LS%2020220410.jpg?width=500"
+  },
+  {
+    "id": "rca-color-tv-ct100",
+    "label": "RCA CT-100, einer der ersten Farbfernseher im Handel (USA, 1954)",
+    "priceUsd": 1000,
+    "description": "Zum Vergleich: ein komplettes neues Auto kostete zu dieser Zeit nicht wesentlich mehr.",
+    "wikiTitle": "Colortron",
+    "image": null
+  },
+  {
+    "id": "ampex-vrx1000-vcr",
+    "label": "Ampex VRX-1000, der erste praxistaugliche Videorecorder für Fernsehsender (USA, 1956)",
+    "priceUsd": 50000,
+    "description": "Ausschließlich für professionelle Fernsehstudios gedacht — an ein Gerät für den Hausgebrauch war damals noch gar nicht zu denken.",
+    "wikiTitle": "Ampex VRX-1000",
+    "image": null
+  },
+  {
+    "id": "segway-pt",
+    "label": "Segway PT (USA, 2002)",
+    "priceUsd": 5000,
+    "description": "Trotz gewaltigem Vorab-Hype verkaufte er sich über seine gesamte Produktionszeit hinweg nur rund 140.000 Mal.",
+    "wikiTitle": "Segway",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/Segway_PT_%282006%29-02.jpg/330px-Segway_PT_%282006%29-02.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "google-glass-explorer",
+    "label": "Google Glass Explorer Edition (USA, 2013)",
+    "priceUsd": 1500,
+    "description": "Zunächst nur an ausgewählte \"Glass Explorer\" verkauft, bevor es kurzzeitig für die breite Öffentlichkeit erhältlich war.",
+    "wikiTitle": "Google Glass",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Google%20Glass%20Explorer%20Edition.jpeg?width=500"
+  },
+  {
+    "id": "juicero-press",
+    "label": "Juicero-Saftpresse (USA, 2016)",
+    "priceUsd": 399,
+    "description": "Berühmt-berüchtigt wurde sie, nachdem Reporter zeigten, dass sich die vorportionierten Beutel auch einfach von Hand ausdrücken ließen.",
+    "wikiTitle": "Juicero",
+    "image": null
+  },
+  {
+    "id": "amazon-fire-phone",
+    "label": "Amazon Fire Phone (USA, 2014, mit Vertrag)",
+    "priceUsd": 199,
+    "description": "Eines der größten Flops in Amazons Firmengeschichte — die Produktion wurde bereits nach rund einem Jahr wieder eingestellt.",
+    "wikiTitle": "Fire Phone",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Amazon%203D%20Fire%20Smartphone-2%20(14507506603).jpg?width=500"
+  },
+  {
+    "id": "apple-vision-pro",
+    "label": "Apple Vision Pro (USA, 2024, Basismodell)",
+    "priceUsd": 3499,
+    "description": "Deutlich teurer als praktisch jedes andere Mixed-Reality-Headset zuvor.",
+    "wikiTitle": "Apple Vision Pro",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/91/Apple_Vision_Pro_in_Apple_Store_Nagoya_-_4.jpg/330px-Apple_Vision_Pro_in_Apple_Store_Nagoya_-_4.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "tesla-roadster-2008",
+    "label": "Tesla Roadster, das erste Serienfahrzeug von Tesla (USA, 2008, Basismodell)",
+    "priceUsd": 109000,
+    "description": "Das erste in Serie gebaute Elektroauto mit Lithium-Ionen-Akku und über 300 Kilometern Reichweite.",
+    "wikiTitle": "Tesla Roadster (2008)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Tesla%20Roadster%202011%20in%20Hobart%2C%20Tasmania.jpg?width=500"
+  },
+  {
+    "id": "cray1-supercomputer",
+    "label": "Cray-1-Superrechner (erster Verkauf, 1977)",
+    "priceUsd": 8860000,
+    "description": "Für diesen Preis bekam die Käuferin, das National Center for Atmospheric Research, damals den mit Abstand schnellsten Rechner der Welt.",
+    "wikiTitle": "Cray-1",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cray-1-p1010221.jpg?width=500"
+  },
+  {
+    "id": "nintendo-3ds",
+    "label": "Nintendo 3DS (USA, 2011)",
+    "priceUsd": 249.99,
+    "description": "Sein 3D-Effekt funktionierte völlig ohne spezielle Brille — dafür musste der Bildschirm aus dem richtigen Winkel betrachtet werden.",
+    "wikiTitle": "Nintendo 3DS",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Nintendo-3DS-AquaOpen.jpg?width=500"
+  },
+  {
+    "id": "xbox-kinect-sensor",
+    "label": "Xbox Kinect Bewegungssensor (USA, 2010)",
+    "priceUsd": 150,
+    "description": "Er machte den Controller überflüssig — gesteuert wurde allein durch Körperbewegungen vor der Kamera.",
+    "wikiTitle": "Kinect",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Xbox-360-Kinect-Standalone.png?width=500"
+  },
+  {
+    "id": "amazon-kindle-paperwhite-first",
+    "label": "Erster Amazon Kindle Paperwhite (USA, 2012)",
+    "priceUsd": 119,
+    "description": "Sein beleuchtetes E-Ink-Display machte Lesen im Dunkeln erstmals ohne separate Lampe möglich.",
+    "wikiTitle": "Kindle (E-Book-Reader)",
+    "image": null
+  },
+  {
+    "id": "coca-cola-original-1886",
+    "label": "Coca-Cola, Verkaufspreis pro Glas an der Limonadentheke (Einführung, 1886)",
+    "priceUsd": 0.05,
+    "description": "Dieser Preis blieb sage und schreibe rund 70 Jahre lang praktisch unverändert.",
+    "wikiTitle": "Coca-Cola",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/15-09-26-RalfR-WLC-0098%20-%20Coca-Cola%20glass%20bottle%20(Germany).jpg?width=500"
+  },
+  {
+    "id": "mcdonalds-original-hamburger-1948",
+    "label": "Ein Hamburger beim allerersten McDonald’s-Schnellrestaurant (USA, 1948)",
+    "priceUsd": 0.15,
+    "description": "Mit diesem radikal einfachen, schnellen Menü legten die Brüder McDonald den Grundstein für das Fast-Food-Prinzip.",
+    "wikiTitle": "McDonald’s",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/New-McDonald-HU-lg%20(43261171540).jpg?width=500"
+  },
+  {
+    "id": "big-mac-original-1967",
+    "label": "Der Big Mac bei seiner Einführung (USA, 1967)",
+    "priceUsd": 0.45,
+    "description": "Erfunden von einem einzelnen McDonald’s-Franchisenehmer in Pennsylvania, bevor er landesweit ins Menü übernommen wurde.",
+    "wikiTitle": "Big Mac",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Big%20Mac%20hamburger%20edit.jpg?width=500"
+  },
+  {
+    "id": "disneyland-opening-admission-1955",
+    "label": "Eintritt für Erwachsene am Eröffnungstag von Disneyland (USA, 1955, ohne Fahrgeschäfte)",
+    "priceUsd": 1,
+    "description": "Für die einzelnen Fahrgeschäfte mussten Gäste damals noch zusätzlich separate Ticketbücher kaufen.",
+    "wikiTitle": "Disneyland",
+    "image": null
+  },
+  {
+    "id": "us-minimum-wage-1938",
+    "label": "Der allererste gesetzliche Mindestlohn der USA, pro Stunde (1938)",
+    "priceUsd": 0.25,
+    "description": "Eingeführt mit dem Fair Labor Standards Act, einem der zentralen Arbeitsgesetze des New Deal.",
+    "wikiTitle": "Fair Labor Standards Act of 1938",
+    "image": null
+  },
+  {
+    "id": "us-first-postage-stamp-1847",
+    "label": "Die allererste offizielle Briefmarke der USA (1847, mit Benjamin Franklin)",
+    "priceUsd": 0.05,
+    "description": "Vorher mussten Postgebühren meist bar am Postschalter beglichen werden, ganz ohne Marke.",
+    "wikiTitle": "Briefmarken der Vereinigten Staaten",
+    "image": null
+  },
+  {
+    "id": "big-mac-usa-today",
+    "label": "Durchschnittlicher Preis eines Big Mac in den USA (aktuell)",
+    "priceUsd": 5.29,
+    "description": "Über das \"Big Mac Index\" genannte Vergleichsmaß nutzen Ökonomen diesen Burger sogar, um Kaufkraft verschiedener Länder zu vergleichen.",
+    "wikiTitle": "Big-Mac-Index",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/McDonalds-Big-Mac-Price-World-Map-2022.png/330px-McDonalds-Big-Mac-Price-World-Map-2022.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "movie-ticket-usa-average",
+    "label": "Durchschnittlicher Kinokarten-Preis in den USA (aktuell)",
+    "priceUsd": 11.75,
+    "description": "Je nach Bundesstaat, Stadt und Kinokette schwankt dieser Wert allerdings erheblich.",
+    "wikiTitle": "Kino",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Berlin%20Filmtheater%20am%20Friedrichshain%20asv2024-06%20img6.jpg?width=500"
+  },
+  {
+    "id": "netflix-standard-usa",
+    "label": "Monatsabo Netflix Standard-Paket (USA, aktuell)",
+    "priceUsd": 15.49,
+    "description": "Damit lässt sich in Full HD auf zwei Geräten gleichzeitig streamen.",
+    "wikiTitle": "Netflix",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Netflix%20headquarters.jpg?width=500"
+  },
+  {
+    "id": "spotify-premium-usa",
+    "label": "Monatsabo Spotify Premium Individual (USA, aktuell)",
+    "priceUsd": 11.99,
+    "description": "Damit verschwindet vor allem eines: die Werbeunterbrechungen zwischen den Songs.",
+    "wikiTitle": "Spotify",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Spotify%20HK%20Stockholm.jpg?width=500"
+  },
+  {
+    "id": "gym-membership-usa-average",
+    "label": "Durchschnittliche monatliche Fitnessstudio-Mitgliedschaft in den USA",
+    "priceUsd": 45,
+    "description": "Budget-Ketten sind davon oft deutlich günstiger, Premium-Studios dafür ein Vielfaches teurer.",
+    "wikiTitle": "Fitnessstudio",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Salle%20de%20musculation%20de%20l'%C3%89cole%20polytechnique.jpg?width=500"
+  },
+  {
+    "id": "haircut-usa-average",
+    "label": "Durchschnittlicher Preis für einen Herrenhaarschnitt in den USA",
+    "priceUsd": 35,
+    "description": "In Großstädten liegt dieser Wert oft deutlich höher als auf dem Land.",
+    "wikiTitle": "Friseur",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Amanda%20Fran%C3%A7ozo%2010.jpg?width=500"
+  },
+  {
+    "id": "gallon-gas-usa-average",
+    "label": "Durchschnittlicher Preis für eine Gallone Benzin in den USA (aktuell)",
+    "priceUsd": 3.5,
+    "description": "Eine US-Gallone entspricht knapp 3,79 Litern.",
+    "wikiTitle": "Benzinpreis",
+    "image": null
+  },
+  {
+    "id": "nyc-subway-fare-today",
+    "label": "Eine einzelne Fahrt mit der New Yorker U-Bahn (aktuell)",
+    "priceUsd": 2.9,
+    "description": "Bei der Eröffnung 1904 kostete eine Fahrt dagegen nur einen einzigen Nickel (5 Cent) — und blieb es bis 1948.",
+    "wikiTitle": "New York City Subway",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/F%20leaving%20Smith-9th.jpeg?width=500"
+  },
+  {
+    "id": "nyc-pizza-slice-average",
+    "label": "Ein Stück Pizza in New York City (aktuell, durchschnittlich)",
+    "priceUsd": 3,
+    "description": "Der Legende nach (\"Pizza-Prinzip\") entspricht der Preis eines Stücks seit Jahrzehnten ungefähr dem einer U-Bahn-Fahrt.",
+    "wikiTitle": "New Yorker Pizza",
+    "image": null
+  },
+  {
+    "id": "starbucks-latte-average",
+    "label": "Ein Tall Caffè Latte bei Starbucks (USA, aktuell)",
+    "priceUsd": 5.45,
+    "description": "Je nach Bundesstaat und Filiale können die Preise dabei spürbar variieren.",
+    "wikiTitle": "Starbucks",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Starbuckscenter.jpg?width=500"
+  },
+  {
+    "id": "gallon-milk-usa-average",
+    "label": "Eine Gallone Vollmilch im US-Supermarkt (aktuell, durchschnittlich)",
+    "priceUsd": 4,
+    "description": "Eine US-Gallone entspricht knapp 3,79 Litern.",
+    "wikiTitle": "Milch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Glass%20of%20Milk%20(33657535532).jpg?width=500"
+  },
+  {
+    "id": "domino-large-pizza-usa",
+    "label": "Eine große Pizza bei Domino’s (USA, aktuell, Standardbelag)",
+    "priceUsd": 13.99,
+    "description": "Über Lieferdienst-Apps und Coupon-Aktionen liegt der tatsächlich gezahlte Preis oft deutlich darunter.",
+    "wikiTitle": "Domino’s Pizza",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Domino's%20Pizza%20Lobby%20Entrance%20Domino's%20Farms%20Ann%20Arbor%20Township%20Michigan.JPG?width=500"
+  },
+  {
+    "id": "bic-lighter-usa",
+    "label": "Ein BIC-Einwegfeuerzeug im US-Handel",
+    "priceUsd": 1.29,
+    "description": "Trotz seines simplen, seit Jahrzehnten praktisch unveränderten Designs eines der meistverkauften Feuerzeuge der Welt.",
+    "wikiTitle": "Bic",
+    "image": null
+  },
+  {
+    "id": "loaf-bread-usa-average",
+    "label": "Ein Laib normales Weißbrot im US-Supermarkt (aktuell, durchschnittlich)",
+    "priceUsd": 3,
+    "description": "Über die Jahrzehnte hinweg einer der meistzitierten Warenkorb-Preise für die US-Inflationsrate.",
+    "wikiTitle": "Toastbrot",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Toast-2.jpg?width=500"
+  }
+]

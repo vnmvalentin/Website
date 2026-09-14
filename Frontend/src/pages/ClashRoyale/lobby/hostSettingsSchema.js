@@ -20,6 +20,7 @@
 
 import {
   Clock, Worm, Hash, Zap, Repeat, Eye, Sparkles, FishingRod, Hourglass, Flashlight,
+  Skull, Grid3x3, Triangle, Lock,
 } from 'lucide-react';
 // Elixier und Kartenstapel als Clash-Royale-eigene Symbole statt als generischer
 // Wassertropfen bzw. Raute — siehe ui/CrIcons.jsx.
@@ -32,6 +33,19 @@ const FISH_SPAWN_RATES = [1, 1.5, 2, 2.5, 3];          // modes/angelRoyale.js
 const FISH_COOLDOWNS = [0, 1, 2, 3, 5];                // modes/angelRoyale.js
 const FISH_IDLE_SECONDS = [0, 3, 5, 8, 10];            // modes/angelRoyale.js
 const CAROUSEL_TABLE_SIZES = [8, 12, 16];              // modes/shadowCarousel.js
+const TRAP_DISGUISE_COUNTS = [1, 2, 3];                // modes/trapSetter.js
+const TRAP_GRID_SIZES = [9, 12, 16];                   // modes/trapSetter.js
+const PYRAMID_BLOCK_OPTIONS = [0, 1, 2, 3];            // modes/pyramidDraft.js
+const PYRAMID_ROWS_HEADROOM = 8;                       // modes/pyramidDraft.js
+
+// Kopie der Dreieckszahl-Formel aus modes/pyramidDraft.js — bestimmt, wie weit der
+// Rastergrößen-Regler nach unten gehen darf (das rechnerische Minimum für 8 Runden).
+function pyramidMinRows(active, blocksPerRound) {
+  const needed = 8 * (Math.max(1, active) + blocksPerRound);
+  let n = 1, total = 1;
+  while (total < needed) { n++; total += n; }
+  return n;
+}
 
 /** Farbwelten je Modus. `css` geht in den Slider-Verlauf, die übrigen sind Tailwind-Klassen. */
 export const ACCENT = {
@@ -64,8 +78,9 @@ export const HOST_SETTINGS = [
   {
     key: 'timerSeconds',
     // Elixir Rush und Angel Royale laufen in Echtzeit, Karten-Evolution und das
-    // Labyrinth haben eigene Gesamt-Timer statt eines Zug-Timers.
-    modes: ['snake', 'auction', 'bingo', 'shadow-carousel'],
+    // Labyrinth haben eigene Gesamt-Timer statt eines Zug-Timers. Fallensteller nutzt eine
+    // eigene Einstellung fürs Verschleiern (trapDisguiseSeconds), nicht diese hier.
+    modes: ['snake', 'auction', 'bingo', 'shadow-carousel', 'pyramid-draft'],
     control: 'slider',
     icon: Clock, accent: 'neutral',
     label: ({ t, mode }) => (mode === 'auction' ? t.timePerRound : t.timePerPick),
@@ -134,6 +149,33 @@ export const HOST_SETTINGS = [
     label: ({ t }) => t.motherWitchVisits,
     note: ({ t }) => t.motherWitchNote,
     apply: (a, v) => a.setMotherWitch(v),
+  },
+
+  // ── Elixir Auction 2v2 ────────────────────────────────────────────────────
+  // cardsPerRound ist hier "Karten pro Seite" (X- und Y-Karten je Runde) — eigener Eintrag
+  // statt den geteilten 'auction'/'bingo'-Regler oben mitzunutzen, weil Bedeutung, Bereich
+  // und Beschriftung hier komplett anders sind (siehe elixirAuction2v2.js computeRoundSizing).
+  {
+    key: 'cardsPerRound',
+    modes: ['elixir-auction-2v2'],
+    control: 'segmented',
+    icon: CardStack, accent: 'purple',
+    label: ({ t }) => t.cardsPerSide,
+    // Untergrenze 2 (nicht 1): das geteilte clash:setCardsPerRound klemmt ohnehin auf
+    // Math.max(2, …) — siehe Backend/routes/clashRoyaleRoutes.js.
+    options: () => [2, 3, 4, 5, 6].map(n => ({ id: n, label: String(n) })),
+    note: ({ t }) => t.cardsPerSideNote,
+    apply: (a, v) => a.setCardsPerRound(v),
+  },
+  {
+    key: 'teamElixirPool',
+    modes: ['elixir-auction-2v2'],
+    control: 'slider',
+    icon: ElixirDrop, accent: 'violet',
+    label: ({ t }) => t.teamElixirPool,
+    note: ({ t }) => t.teamElixirPoolNote,
+    min: 20, max: 2000, step: 10,
+    apply: (a, v) => a.setTeamElixirPool(v),
   },
 
   // ── Bingo Royale ──────────────────────────────────────────────────────────
@@ -225,6 +267,41 @@ export const HOST_SETTINGS = [
     apply: (a, v) => a.setRushShowTimer(v),
   },
 
+  // ── Elixir Rush 2v2 ───────────────────────────────────────────────────────
+  // Marktgröße/Kartenlebensdauer 1:1 wie im Solo-Modus. Die Kapazität des geteilten
+  // Team-Elixier-Balkens ist einstellbar (rush2v2MaxElixir); die Aufladerate selbst
+  // bleibt fix, siehe modes/elixirRush2v2.js.
+  {
+    key: 'rush2v2MarketSize',
+    modes: ['elixir-rush-2v2'],
+    control: 'segmented',
+    icon: Zap, accent: 'fuchsia',
+    label: ({ t }) => t.marketplaceCards,
+    options: () => RUSH_MARKET_SIZES.map(n => ({ id: n, label: String(n) })),
+    note: ({ t }) => t.marketplaceCardsNote,
+    apply: (a, v) => a.setRush2v2MarketSize(v),
+  },
+  {
+    key: 'rush2v2CardLifetime',
+    modes: ['elixir-rush-2v2'],
+    control: 'segmented',
+    icon: Clock, accent: 'fuchsia',
+    label: ({ t }) => t.marketplaceLifetime,
+    options: () => RUSH_LIFETIMES.map(s => ({ id: s, label: secs(s) })),
+    note: ({ t }) => t.marketplaceLifetimeNote,
+    apply: (a, v) => a.setRush2v2Lifetime(v),
+  },
+  {
+    key: 'rush2v2MaxElixir',
+    modes: ['elixir-rush-2v2'],
+    control: 'slider',
+    icon: ElixirDrop, accent: 'fuchsia',
+    label: ({ t }) => t.rush2v2MaxElixir,
+    note: ({ t }) => t.rush2v2MaxElixirNote,
+    min: 10, max: 40, step: 2,
+    apply: (a, v) => a.setRush2v2MaxElixir(v),
+  },
+
   // ── Angel Royale ──────────────────────────────────────────────────────────
   {
     key: 'fishSpawnRate',
@@ -299,5 +376,76 @@ export const HOST_SETTINGS = [
     min: 1, max: 99, step: 1,
     note: ({ t }) => t.evolutionTokensNote,
     apply: (a, v) => a.setEvolutionTokens(v),
+  },
+
+  // ── Fallensteller ─────────────────────────────────────────────────────────
+  {
+    key: 'trapDisguiseSeconds',
+    modes: ['trap-setter'],
+    control: 'slider',
+    icon: Clock, accent: 'amber',
+    label: ({ t }) => t.trapDisguiseTime,
+    min: 5, max: 90, step: 5, format: secs,
+    note: ({ t }) => t.trapDisguiseTimeNote,
+    apply: (a, v) => a.setTrapDisguiseSeconds(v),
+  },
+  {
+    key: 'trapDisguiseCount',
+    modes: ['trap-setter'],
+    control: 'segmented',
+    icon: Skull, accent: 'amber',
+    label: ({ t }) => t.trapCount,
+    options: () => TRAP_DISGUISE_COUNTS.map(n => ({ id: n, label: String(n) })),
+    note: ({ t }) => t.trapCountNote,
+    apply: (a, v) => a.setTrapDisguiseCount(v),
+  },
+  {
+    key: 'trapGridSize',
+    modes: ['trap-setter'],
+    control: 'segmented',
+    icon: Grid3x3, accent: 'amber',
+    label: ({ t }) => t.trapGridSizeLabel,
+    // 9 = 3×3, 12 = 4×3, 16 = 4×4 — die Beschriftung zeigt die Spaltenform, keine Wurzel
+    // (12 ist kein perfektes Quadrat).
+    options: ({ t }) => [
+      { id: 9, label: t.trapGridLabel(9, '3×3') },
+      { id: 12, label: t.trapGridLabel(12, '4×3') },
+      { id: 16, label: t.trapGridLabel(16, '4×4') },
+    ],
+    note: ({ t }) => t.trapGridSizeNote,
+    // active × Fallen pro Spieler muss ins Raster passen — sonst lehnt der Server den Start ab.
+    warning: ({ t, activeCount, lobbyData, value }) => {
+      const active = activeCount || 2;
+      const needed = active * (lobbyData?.trapDisguiseCount || 1);
+      return needed > value ? t.trapGridTooSmallWarning(needed, value) : null;
+    },
+    apply: (a, v) => a.setTrapGridSize(v),
+  },
+
+  // ── Pyramidendraft ───────────────────────────────────────────────────────
+  {
+    key: 'pyramidBlocksPerRound',
+    modes: ['pyramid-draft'],
+    control: 'segmented',
+    icon: Lock, accent: 'sky',
+    label: ({ t }) => t.pyramidBlocks,
+    options: () => PYRAMID_BLOCK_OPTIONS.map(n => ({ id: n, label: String(n) })),
+    note: ({ t }) => t.pyramidBlocksNote,
+    apply: (a, v) => a.setPyramidBlocks(v),
+  },
+  {
+    key: 'pyramidRows',
+    modes: ['pyramid-draft'],
+    control: 'slider',
+    icon: Triangle, accent: 'sky',
+    label: ({ t }) => t.pyramidRowsLabel,
+    // Minimum hängt von Spielerzahl UND der (eventuell schon geänderten) Blockrate ab —
+    // beides schon in lobbyData bekannt, sobald der Host eins von beiden anfasst.
+    min: ({ activeCount, lobbyData }) => pyramidMinRows(activeCount || 2, lobbyData?.pyramidBlocksPerRound ?? 1),
+    max: ({ activeCount, lobbyData }) => pyramidMinRows(activeCount || 2, lobbyData?.pyramidBlocksPerRound ?? 1) + PYRAMID_ROWS_HEADROOM,
+    step: 1,
+    format: (v) => `${v} (${(v * (v + 1)) / 2})`,
+    note: ({ t }) => t.pyramidRowsNote,
+    apply: (a, v) => a.setPyramidRows(v),
   },
 ];

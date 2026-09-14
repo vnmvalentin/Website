@@ -96,8 +96,42 @@ export const BINGO_ATTR_LABEL_EN = {
   target_ground_air:'Target: Ground & Air',
 };
 
+export const BINGO_ATTR_LABEL_ES = {
+  cost_low:         'Coste: 1-2',
+  cost_mid:         'Coste: 3-4',
+  cost_high:        'Coste: 5+',
+  type_troop:       'Tropa',
+  type_spell:       'Hechizo',
+  type_building:    'Edificio',
+  move_air:         'Unidad aérea',
+  move_ground:      'Tropa terrestre',
+  range_melee:      'Cuerpo a cuerpo',
+  range_ranged:     'A distancia',
+  target_buildings: 'Solo ataca edificios',
+  splash:           'Daño en área',
+  swarm:            'Enjambre (2+ unidades)',
+  single:           'Unidad única',
+  rarity_common:    'Común',
+  rarity_rare:      'Rara',
+  rarity_epic:      'Épica',
+  rarity_legendary: 'Legendaria',
+  champion:         'Campeón',
+  gender_male:      'Masculino',
+  gender_female:    'Femenino',
+  gender_none:      'Sin género',
+  speed_slow:       'Velocidad: Lenta',
+  speed_medium:     'Velocidad: Media',
+  speed_fast:       'Velocidad: Rápida',
+  speed_very_fast:  'Velocidad: Muy rápida',
+  has_evo:          'Tiene evolución',
+  target_ground:    'Objetivo: Solo terrestre',
+  target_ground_air:'Objetivo: Terrestre y aéreo',
+};
+
+const BINGO_ATTR_LABEL_BY_LANG = { de: BINGO_ATTR_LABEL, en: BINGO_ATTR_LABEL_EN, es: BINGO_ATTR_LABEL_ES };
+
 export function bingoAttrLabel(attrKey, lang = 'de') {
-  const dict = lang === 'en' ? BINGO_ATTR_LABEL_EN : BINGO_ATTR_LABEL;
+  const dict = BINGO_ATTR_LABEL_BY_LANG[lang] || BINGO_ATTR_LABEL;
   return dict[attrKey] || attrKey;
 }
 

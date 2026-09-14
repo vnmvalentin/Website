@@ -9,7 +9,8 @@
 // sich bewegt (jede Bewegung rendert GameContainer neu) — stand die Maus still, fror der
 // Countdown ein. Jetzt rendert sich nur diese Karte neu.
 import React, { useEffect, useMemo, useState } from 'react';
-import { Coins, Ruler, Clock, Sparkles, Rainbow, Check } from 'lucide-react';
+import { Clock } from 'lucide-react';
+import { HudIcon, SpecialIcon } from './gameIcons';
 import {
     getGrowthProgressForRender,
     isPlantReadyForRender,
@@ -67,8 +68,11 @@ function timeToNext(plant, now) {
 /**
  * @param {string|null} owner Gesetzt, wenn die Pflanze auf einem FREMDEN Grundstück
  *   steht. Dann ist die Karte reine Auskunft — geerntet wird dort nichts.
+ * @param {object|null} xpJeSorte Erfahrung je Ernte, nach seedId. Kommt vom Server
+ *   (GET /api/garden/skills), damit die Karte die Formel nicht spiegeln muss —
+ *   vergeben wird die XP ausschliesslich serverseitig.
  */
-export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null }) {
+export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null, xpJeSorte = null }) {
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
         const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -112,6 +116,10 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null 
 
     if (!plant || !data) return null;
 
+    // Nur zeigen, was der Server auch wirklich gutschreibt. Fehlt die Tabelle (noch
+    // nicht geladen), bleibt die Zeile weg statt eine Zahl zu raten.
+    const xpProErnte = xpJeSorte?.[plant.seedId] || 0;
+
     const iconSrc = plant.singleUse
         ? (plant.growthImage || plant.harvestImage || plant.image)
         : (plant.fruitImage || plant.structureImage || plant.image);
@@ -129,7 +137,7 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null 
 
     return (
         <div
-            className={`absolute z-50 pointer-events-none bg-slate-900/97 border ${RARITY_BORDER[data.rarity] || RARITY_BORDER.COMMON} rounded-md shadow-xl overflow-hidden`}
+            className={`absolute z-50 pointer-events-none bg-slate-900/97 border ${RARITY_BORDER[data.rarity] || RARITY_BORDER.COMMON} rounded-2xl shadow-xl overflow-hidden`}
             style={{ left, top, width: CARD_WIDTH }}
         >
             {/* Kopf */}
@@ -165,7 +173,7 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null 
             <div className="px-3 py-2.5 border-b border-slate-800">
                 {data.ready ? (
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-1.5">
-                        <Check size={13} />
+                        <HudIcon.check size={13} />
                         {plant.singleUse
                             ? "Erntereif"
                             : `${data.readySlots.length} von ${data.slots.length} reif`}
@@ -192,26 +200,32 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null 
                 {plant.singleUse ? (
                     <>
                         <StatLine
-                            icon={Coins}
+                            icon={HudIcon.gold}
                             label="Verkaufswert"
                             value={`${data.singleValue.toLocaleString("de-DE")} Gold`}
                             valueClass="text-amber-400"
                         />
                         <StatLine
-                            icon={Ruler}
+                            icon={HudIcon.ruler}
                             label="Größe"
                             value={`${sizeFromNorm(plant.norm ?? 0.5)} / 50`}
                         />
+                        {xpProErnte ? (
+                            <StatLine icon={HudIcon.star} label="Erfahrung" value={`+${xpProErnte} XP`} valueClass="text-violet-300" />
+                        ) : null}
                     </>
                 ) : (
                     <>
                         <StatLine
-                            icon={Coins}
+                            icon={HudIcon.gold}
                             label={data.readySlots.length ? "Reife Früchte wert" : "Noch nichts reif"}
                             value={data.readySlots.length ? `${data.readyTotal.toLocaleString("de-DE")} Gold` : "—"}
                             valueClass={data.readySlots.length ? "text-amber-400" : "text-slate-500"}
                         />
-                        <StatLine icon={Ruler} label="Fruchtstände" value={`${data.slots.length}`} />
+                        <StatLine icon={HudIcon.ruler} label="Fruchtstände" value={`${data.slots.length}`} />
+                        {xpProErnte ? (
+                            <StatLine icon={HudIcon.star} label="Erfahrung" value={`+${xpProErnte} XP je Frucht`} valueClass="text-violet-300" />
+                        ) : null}
                     </>
                 )}
             </div>
@@ -222,7 +236,7 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null 
                     {data.special === "Golden" && (
                         <div className="flex items-center justify-between text-[11px]">
                             <span className="flex items-center gap-1.5 text-amber-400 font-medium">
-                                <Sparkles size={12} /> Golden
+                                <SpecialIcon.golden size={12} /> Golden
                             </span>
                             <span className="text-slate-400">2× Wert</span>
                         </div>
@@ -230,7 +244,7 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null 
                     {data.special === "Rainbow" && (
                         <div className="flex items-center justify-between text-[11px]">
                             <span className="flex items-center gap-1.5 text-fuchsia-400 font-medium">
-                                <Rainbow size={12} /> Rainbow
+                                <SpecialIcon.rainbow size={12} /> Rainbow
                             </span>
                             <span className="text-slate-400">5× Wert</span>
                         </div>
@@ -296,7 +310,7 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null 
                                         ) : null}
                                         {slot.ready && slot.specialType ? (
                                             <span className={`flex items-center gap-1 ${slot.specialType === "Golden" ? "text-amber-400" : "text-fuchsia-400"}`}>
-                                                {slot.specialType === "Golden" ? <Sparkles size={10} /> : <Rainbow size={10} />}
+                                                {slot.specialType === "Golden" ? <SpecialIcon.golden size={10} /> : <SpecialIcon.rainbow size={10} />}
                                                 {slot.specialType}
                                             </span>
                                         ) : null}

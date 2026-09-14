@@ -13,7 +13,7 @@ import { useFocusTrap } from './useFocusTrap';
  * @param {React.ReactNode} icon      Symbol links neben dem Titel (optional)
  * @param {string}          title     Überschrift des Dialogs
  * @param {Function}        onClose   Schließen (Backdrop-Klick, X, Escape)
- * @param {string}          size      'sm' | 'md' | 'lg' — Maximalbreite
+ * @param {string}          size      'sm' | 'md' | 'lg' | 'xl' — Maximalbreite
  * @param {React.ReactNode} footer    Fest stehender Bereich unter dem Inhalt (optional)
  * @param {boolean}         bodyScroll  false = der Inhalt regelt sein Scrollen selbst
  */
@@ -21,7 +21,7 @@ export default function Modal({
   icon, title, onClose, size = 'lg', footer, bodyScroll = true, children,
 }) {
   const containerRef = useFocusTrap(true, onClose);
-  const maxWidth = { sm: 'max-w-sm', md: 'max-w-2xl', lg: 'max-w-4xl' }[size] || 'max-w-4xl';
+  const maxWidth = { sm: 'max-w-sm', md: 'max-w-2xl', lg: 'max-w-4xl', xl: 'max-w-6xl' }[size] || 'max-w-4xl';
 
   // Portal an <body>, aus demselben Grund wie beim Drawer: der Inhaltsbereich der Seite
   // ist `relative z-0` (pages/Layout.jsx) und deckelt jedes z-index darin unter dem
@@ -39,9 +39,9 @@ export default function Modal({
         aria-label={title}
         tabIndex={-1}
         onClick={e => e.stopPropagation()}
-        className={`cr-modal-panel panel-strong w-full ${maxWidth} max-h-[92vh] sm:max-h-[85vh] flex flex-col shadow-2xl shadow-black/60 rounded-b-none sm:rounded-b-[14px]`}>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5 shrink-0">
-          <span className="text-white font-bold flex items-center gap-2 min-w-0">
+        className={`cr-modal-panel cr-arcade-panel w-full ${maxWidth} max-h-[92vh] sm:max-h-[85vh] flex flex-col rounded-b-none sm:rounded-b-[18px]`}>
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b-2 border-white/5 shrink-0">
+          <span className="text-white font-arcade font-semibold text-base flex items-center gap-2.5 min-w-0">
             {icon}
             <span className="truncate">{title}</span>
           </span>

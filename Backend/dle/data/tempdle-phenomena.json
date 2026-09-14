@@ -1,0 +1,1010 @@
+[
+  {
+    "id": "human-body-temp",
+    "label": "Körperkerntemperatur (Mensch)",
+    "valueC": 37,
+    "description": "Die durchschnittliche Körperkerntemperatur eines gesunden Menschen.",
+    "wikiTitle": "Fieberthermometer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2023%20Elektroniczny%20termometr%20lekarski.jpg?width=500"
+  },
+  {
+    "id": "human-fever-emergency",
+    "label": "Hohes Fieber (medizinischer Notfall)",
+    "valueC": 41,
+    "description": "Ab dieser Körperkerntemperatur spricht man von Hyperpyrexie — ein medizinischer Notfall.",
+    "wikiTitle": "Fieber",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Clinical%20thermometer%2038.7.JPG?width=500"
+  },
+  {
+    "id": "burn-threshold",
+    "label": "Verbrennungsschwelle beim Berühren",
+    "valueC": 60,
+    "description": "Eine Oberfläche mit dieser Temperatur verursacht schon nach wenigen Sekunden Kontakt eine Verbrennung.",
+    "wikiTitle": "Verbrennung (Medizin)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Brandwond-graad2.JPG?width=500"
+  },
+  {
+    "id": "water-boiling",
+    "label": "Siedepunkt von Wasser (Meereshöhe)",
+    "valueC": 100,
+    "description": "Bei normalem Luftdruck (1013 hPa) beginnt Wasser bei dieser Temperatur zu kochen.",
+    "wikiTitle": "Wasser",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Ice%20water%20vapor.jpg?width=500"
+  },
+  {
+    "id": "water-boiling-everest",
+    "label": "Siedepunkt von Wasser (Mount-Everest-Gipfel)",
+    "valueC": 71,
+    "description": "Auf fast 8.849 m Höhe ist der Luftdruck so gering, dass Wasser schon deutlich früher kocht — zum Tee kochen reicht das kaum.",
+    "wikiTitle": "Mount Everest",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mount%20Everest%20as%20seen%20from%20Drukair2%20PLW%20edit.jpg?width=500"
+  },
+  {
+    "id": "pressure-cooker",
+    "label": "Schnellkochtopf (Innendruck-Temperatur)",
+    "valueC": 121,
+    "description": "Der Überdruck im Topf lässt Wasser erst bei dieser höheren Temperatur kochen — dadurch gart das Essen schneller.",
+    "wikiTitle": "Schnellkochtopf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Autothermos.jpg?width=500"
+  },
+  {
+    "id": "absolute-zero",
+    "label": "Absoluter Nullpunkt",
+    "valueC": -273,
+    "description": "Die tiefste theoretisch mögliche Temperatur überhaupt — hier kommt jede Teilchenbewegung zum Stillstand.",
+    "wikiTitle": "Absoluter Nullpunkt",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gas%20thermometer%20and%20absolute%20zero%20fr.jpg?width=500"
+  },
+  {
+    "id": "dry-ice",
+    "label": "Trockeneis (festes CO₂)",
+    "valueC": -78,
+    "description": "Bei dieser Temperatur geht festes Kohlendioxid direkt in Gas über, ohne vorher flüssig zu werden.",
+    "wikiTitle": "Trockeneis",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Dry%20Ice%20Pellets%20Subliming.jpg?width=500"
+  },
+  {
+    "id": "liquid-nitrogen",
+    "label": "Flüssiger Stickstoff (Siedepunkt)",
+    "valueC": -196,
+    "description": "Bei Normaldruck siedet flüssiger Stickstoff bei dieser Temperatur — daher der charakteristische Nebel.",
+    "wikiTitle": "Flüssiger Stickstoff",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/ba/Liquid_nitrogen_dsc04496.jpg/330px-Liquid_nitrogen_dsc04496.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "earth-average",
+    "label": "Durchschnittliche Oberflächentemperatur der Erde",
+    "valueC": 15,
+    "description": "Der weltweite Durchschnitt über Land und Meer, über ein ganzes Jahr gemittelt.",
+    "wikiTitle": "Erde",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20Blue%20Marble%20(5052124705).jpg?width=500"
+  },
+  {
+    "id": "comfortable-room-temp",
+    "label": "Angenehme Raumtemperatur",
+    "valueC": 21,
+    "description": "Die von den meisten Menschen als angenehm empfundene Innentemperatur eines Wohnraums.",
+    "wikiTitle": "Zimmerthermometer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Zimmer-u.Au%C3%9Fenthermometer.jpg?width=500"
+  },
+  {
+    "id": "fridge-temp",
+    "label": "Kühlschrank-Innentemperatur",
+    "valueC": 4,
+    "description": "Die empfohlene Temperatur, damit Lebensmittel im Kühlschrank sicher haltbar bleiben.",
+    "wikiTitle": "Kühlschrank",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/LG%20refrigerator%20interior.jpg?width=500"
+  },
+  {
+    "id": "freezer-temp",
+    "label": "Gefrierschrank-Innentemperatur",
+    "valueC": -18,
+    "description": "Die weltweit übliche Standard-Temperatur für Tiefkühlfächer und -truhen.",
+    "wikiTitle": "Gefrierschrank",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7b/Open_refrigerator_with_food_at_night.jpg/330px-Open_refrigerator_with_food_at_night.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "deep-ocean",
+    "label": "Tiefsee (unterhalb von 1.000 m)",
+    "valueC": 4,
+    "description": "Fernab der Sonne pendelt sich die Tiefsee weltweit auf ungefähr Kühlschranktemperatur ein.",
+    "wikiTitle": "Tiefsee",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Deepsea.svg?width=500"
+  },
+  {
+    "id": "hydrothermal-vents",
+    "label": "Schwarze Raucher (heiße Quellen am Meeresgrund)",
+    "valueC": 400,
+    "description": "Aus diesen vulkanischen Schloten am Meeresboden schießt Wasser mit dieser Temperatur — trotzdem siedet es dort wegen des enormen Drucks nicht.",
+    "wikiTitle": "Schwarzer Raucher",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/Blacksmoker_in_Atlantic_Ocean.jpg/330px-Blacksmoker_in_Atlantic_Ocean.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "oymyakon-winter",
+    "label": "Wintermittel in Oimjakon (Russland)",
+    "valueC": -50,
+    "description": "Der kälteste dauerhaft bewohnte Ort der Welt — im Januar liegt der Durchschnitt bei dieser Temperatur.",
+    "wikiTitle": "Oimjakon",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Oymyakon%20-%20190228%20DSC%205642.jpg?width=500"
+  },
+  {
+    "id": "sahara-sand",
+    "label": "Sandoberfläche in der Sahara (Hochsommer)",
+    "valueC": 80,
+    "description": "Die Luft wird in der Sahara heiß, aber der Sand selbst in der prallen Sonne wird noch deutlich heißer.",
+    "wikiTitle": "Sahara",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sahara%20real%20color.jpg?width=500"
+  },
+  {
+    "id": "death-valley-record",
+    "label": "Hitzerekord Death Valley (1913)",
+    "valueC": 57,
+    "description": "Die höchste je verlässlich gemessene Lufttemperatur der Erde, gemessen in Furnace Creek, USA.",
+    "wikiTitle": "Death Valley",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Badwater%20Desolation.jpg?width=500"
+  },
+  {
+    "id": "vostok-record",
+    "label": "Kälterekord Wostok-Station (Antarktis, 1983)",
+    "valueC": -89,
+    "description": "Die tiefste je verlässlich gemessene natürliche Lufttemperatur der Erde.",
+    "wikiTitle": "Wostok-Station",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Vostok%20Station%202024.png?width=500"
+  },
+  {
+    "id": "hot-car-interior",
+    "label": "Innenraum eines geparkten Autos (Sommertag)",
+    "valueC": 70,
+    "description": "Schon bei milden Außentemperaturen heizt sich ein in der Sonne geparktes Auto lebensgefährlich auf.",
+    "wikiTitle": "Auto",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d0/Benz_Patent-Motorwagen_Nr_2.jpg/330px-Benz_Patent-Motorwagen_Nr_2.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "hot-asphalt",
+    "label": "Asphaltoberfläche an einem heißen Sommertag",
+    "valueC": 65,
+    "description": "Straßenbelag speichert Sonnenwärme und wird deutlich heißer als die Luft darüber.",
+    "wikiTitle": "Asphalt",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Asphalt%20base.jpg?width=500"
+  },
+  {
+    "id": "sauna",
+    "label": "Finnische Sauna",
+    "valueC": 90,
+    "description": "Die typische Lufttemperatur in einer klassischen finnischen Sauna.",
+    "wikiTitle": "Sauna",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sauna%202.jpg?width=500"
+  },
+  {
+    "id": "old-faithful",
+    "label": "Geysir Old Faithful (Ausbruchswasser)",
+    "valueC": 95,
+    "description": "Das Wasser, das dieser berühmte Geysir im Yellowstone-Nationalpark ausstößt, ist fast am Kochen.",
+    "wikiTitle": "Old Faithful",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Yellowstone%20National%20Park%20(WY%2C%20USA)%2C%20Old%20Faithful%20Geyser%20--%202022%20--%202599.jpg?width=500"
+  },
+  {
+    "id": "kilauea-lava",
+    "label": "Lava des Kīlauea (Hawaii)",
+    "valueC": 1170,
+    "description": "Die basaltische Lava dieses besonders aktiven Vulkans erreicht typischerweise diese Temperatur.",
+    "wikiTitle": "Kīlauea",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kilauea%20-%20Landsat%20mosaic.jpg?width=500"
+  },
+  {
+    "id": "germany-heat-record",
+    "label": "Hitzerekord in Deutschland",
+    "valueC": 41,
+    "description": "Der bisherige deutsche Rekord wurde am 25. Juli 2019 in Lingen (Emsland) gemessen.",
+    "wikiTitle": "Lingen (Ems)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Urbodomo%20de%20Lingen%201.jpg?width=500"
+  },
+  {
+    "id": "germany-cold-record",
+    "label": "Kälterekord in Deutschland",
+    "valueC": -38,
+    "description": "Der bisherige offizielle deutsche Rekord wurde im Dezember 1929 in Wolnzach-Hüll (Bayern) gemessen.",
+    "wikiTitle": "Wolnzach",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Wolnzach%20Ortszentrum.jpg?width=500"
+  },
+  {
+    "id": "german-average-summer-day",
+    "label": "Typischer Hochsommer-Tageshöchstwert in Deutschland",
+    "valueC": 28,
+    "description": "An einem warmen, aber nicht extremen Sommertag liegt die Tageshöchsttemperatur in weiten Teilen Deutschlands ungefähr hier.",
+    "wikiTitle": "Sommer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Field%20Hamois%20Belgium%20Luc%20Viatour.jpg?width=500"
+  },
+  {
+    "id": "german-winter-night",
+    "label": "Klare Frostnacht im deutschen Winter",
+    "valueC": -5,
+    "description": "In einer kalten, wolkenlosen Winternacht sinkt die Temperatur in weiten Teilen Deutschlands ungefähr auf diesen Wert.",
+    "wikiTitle": "Winter",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Crater%20Lake%20winter%20pano2.jpg?width=500"
+  },
+  {
+    "id": "seawater-freezing",
+    "label": "Gefrierpunkt von Meerwasser",
+    "valueC": -2,
+    "description": "Der Salzgehalt senkt den Gefrierpunkt gegenüber reinem Süßwasser (0 °C) spürbar ab.",
+    "wikiTitle": "Meerwasser",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sea%20water%202.jpg?width=500"
+  },
+  {
+    "id": "ethanol-boiling",
+    "label": "Siedepunkt von reinem Alkohol (Ethanol)",
+    "valueC": 78,
+    "description": "Deutlich niedriger als der von Wasser — deshalb funktioniert das Trennen beim Schnapsbrennen.",
+    "wikiTitle": "Ethanol",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sample%20of%20Absolute%20Ethanol.jpg?width=500"
+  },
+  {
+    "id": "home-oven-max",
+    "label": "Höchsttemperatur eines normalen Haushaltsbackofens",
+    "valueC": 250,
+    "description": "Mehr geht bei den meisten handelsüblichen Backöfen nicht — für original neapolitanische Pizza reicht das nicht annähernd.",
+    "wikiTitle": "Backofen",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/RoemischerBackofen.jpg/330px-RoemischerBackofen.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "charcoal-grill",
+    "label": "Temperatur über der Glut eines Holzkohlegrills",
+    "valueC": 275,
+    "description": "Direkte Grillhitze über gut durchgeglühter Kohle liegt ungefähr in diesem Bereich.",
+    "wikiTitle": "Grillen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Schweinefleisch%20auf%20Schwenkgrill.jpg?width=500"
+  },
+  {
+    "id": "hedgehog-hibernation",
+    "label": "Körpertemperatur eines winterschlafenden Igels",
+    "valueC": 5,
+    "description": "Im Winterschlaf senkt der Igel seine Temperatur fast auf Umgebungsniveau, um Energie zu sparen.",
+    "wikiTitle": "Igel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Igel.JPG?width=500"
+  },
+  {
+    "id": "dog-body-temp",
+    "label": "Normale Körpertemperatur eines Hundes",
+    "valueC": 39,
+    "description": "Hunde haben von Natur aus eine höhere Körpertemperatur als Menschen — das ist bei ihnen kein Fieber.",
+    "wikiTitle": "Hund",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/42/Harzer_Fuchs_H%C3%BCndin_2.jpg/330px-Harzer_Fuchs_H%C3%BCndin_2.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "elephant-body-temp",
+    "label": "Normale Körpertemperatur eines Elefanten",
+    "valueC": 36,
+    "description": "Trotz seiner enormen Größe liegt die Körpertemperatur eines Elefanten nah an der menschlichen.",
+    "wikiTitle": "Afrikanischer Elefant",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/178%20Male%20African%20bush%20elephant%20in%20Etosha%20National%20Park%20Photo%20by%20Giles%20Laurent.jpg?width=500"
+  },
+  {
+    "id": "hot-spring-yellowstone",
+    "label": "Wassertemperatur der Grand-Prismatic-Quelle (Yellowstone)",
+    "valueC": 87,
+    "description": "Die größte heiße Quelle der USA ist so heiß, dass nur spezialisierte hitzeliebende Bakterien darin leben.",
+    "wikiTitle": "Grand Prismatic Spring",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Yellowstone%20National%20Park%20(WY%2C%20USA)%2C%20Grand%20Prismatic%20Spring%20--%202022%20--%202514.jpg?width=500"
+  },
+  {
+    "id": "tea-drinking-temp",
+    "label": "Angenehme Trinktemperatur für heißen Tee",
+    "valueC": 60,
+    "description": "Frisch aufgebrüht ist Tee viel heißer — bis er ohne Verbrühungsgefahr trinkbar ist, kühlt er auf ungefähr diesen Wert ab.",
+    "wikiTitle": "Tee",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Longjing%20tea%20after%20steeping.jpg?width=500"
+  },
+  {
+    "id": "champagne-serving",
+    "label": "Serviertemperatur für Champagner",
+    "valueC": 7,
+    "description": "Kälter als normaler Weißwein serviert — nur so bleibt die Kohlensäure schön prickelnd.",
+    "wikiTitle": "Champagner",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Champagne%20flute%20and%20bottle.jpg?width=500"
+  },
+  {
+    "id": "swimming-lake-comfortable",
+    "label": "Angenehme Badeseetemperatur im Sommer",
+    "valueC": 23,
+    "description": "Ab dieser Wassertemperatur empfinden die meisten Menschen einen Badesee als angenehm warm zum Schwimmen.",
+    "wikiTitle": "Baggersee",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Duisburg%20Masurensee.jpg?width=500"
+  },
+  {
+    "id": "espresso-extraction",
+    "label": "Wassertemperatur bei der Espresso-Extraktion",
+    "valueC": 92,
+    "description": "In diesem engen Fenster löst die Espressomaschine Aroma und Crema optimal aus dem gemahlenen Kaffee.",
+    "wikiTitle": "Espresso",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Espresso%20BW%201.jpg?width=500"
+  },
+  {
+    "id": "candle-wax-melting",
+    "label": "Schmelzpunkt von Kerzenwachs (Paraffin)",
+    "valueC": 58,
+    "description": "Deutlich niedriger als Bienenwachs — deshalb schmelzen einfache Paraffinkerzen schon in einem heißen Auto.",
+    "wikiTitle": "Paraffin",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Paraffin.jpg?width=500"
+  },
+  {
+    "id": "compost-pile-core",
+    "label": "Kerntemperatur eines gut arbeitenden Komposthaufens",
+    "valueC": 60,
+    "description": "Mikroorganismen erzeugen beim Abbau organischen Materials so viel Wärme, dass der Kern eines Komposthaufens richtig heiß wird.",
+    "wikiTitle": "Kompost",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Compost%20pile.JPG?width=500"
+  },
+  {
+    "id": "steak-medium-rare",
+    "label": "Kerntemperatur eines Steaks (medium rare)",
+    "valueC": 54,
+    "description": "Die Zieltemperatur im Inneren, bei der ein Steak als 'medium rare' gilt.",
+    "wikiTitle": "Steak",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Eye%20Fillet%2C%20Grass-Fed%20Beef.jpg?width=500"
+  },
+  {
+    "id": "chicken-safe-temp",
+    "label": "Sichere Kerntemperatur für gegartes Hähnchen",
+    "valueC": 74,
+    "description": "Ab dieser Innentemperatur gelten Krankheitserreger in Geflügelfleisch als sicher abgetötet.",
+    "wikiTitle": "Brathähnchen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Max's%20Roasted%20Chicken%20-%20Evan%20Swigart.jpg?width=500"
+  },
+  {
+    "id": "coffee-brewing",
+    "label": "Ideale Brühtemperatur für Kaffee",
+    "valueC": 93,
+    "description": "In diesem Bereich lösen sich die Aromastoffe aus dem Kaffeepulver am besten, ohne zu verbrennen.",
+    "wikiTitle": "Kaffee",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/A%20small%20cup%20of%20coffee.JPG?width=500"
+  },
+  {
+    "id": "caramelization",
+    "label": "Karamellisierung von Zucker",
+    "valueC": 160,
+    "description": "Ab dieser Temperatur beginnt reiner Haushaltszucker zu karamellisieren.",
+    "wikiTitle": "Karamellisieren",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f4/Caramel-3.jpg/330px-Caramel-3.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "chocolate-tempering",
+    "label": "Temperieren von dunkler Schokolade",
+    "valueC": 31,
+    "description": "Bei dieser Verarbeitungstemperatur bekommt dunkle Schokolade ihren glänzenden, knackigen Bruch.",
+    "wikiTitle": "Schokolade",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cocoa%20Powder%20and%20Chocolate%20on%20Marble%20Background.jpg?width=500"
+  },
+  {
+    "id": "deep-frying-oil",
+    "label": "Frittieröl (typische Gartemperatur)",
+    "valueC": 180,
+    "description": "Die gängige Temperatur zum Frittieren von z.B. Pommes frites.",
+    "wikiTitle": "Frittieren",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Frituren.jpg?width=500"
+  },
+  {
+    "id": "bread-oven",
+    "label": "Ofentemperatur zum Brotbacken",
+    "valueC": 230,
+    "description": "Klassisches Haus- oder Bäckerbrot wird bei dieser Ofentemperatur gebacken.",
+    "wikiTitle": "Brot",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Assorted%20bread.jpg?width=500"
+  },
+  {
+    "id": "neapolitan-pizza-oven",
+    "label": "Ofentemperatur für original neapolitanische Pizza",
+    "valueC": 450,
+    "description": "Der holzbefeuerte Ofen für eine echte Pizza Napoletana (nach AVPN-Standard) backt bei dieser Temperatur in 60–90 Sekunden.",
+    "wikiTitle": "Pizza",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Eq%20it-na%20pizza-margherita%20sep2005%20sml.jpg?width=500"
+  },
+  {
+    "id": "pasteurization",
+    "label": "Pasteurisierung von Milch (Kurzzeiterhitzung)",
+    "valueC": 72,
+    "description": "Milch wird bei dieser Temperatur für etwa 15 Sekunden erhitzt, um Keime abzutöten.",
+    "wikiTitle": "Pasteurisieren",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9e/60s_Pama_pasteurizer.jpg/330px-60s_Pama_pasteurizer.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "candle-flame",
+    "label": "Flamme einer Kerze",
+    "valueC": 1000,
+    "description": "Der heißeste Teil einer gewöhnlichen Kerzenflamme erreicht ungefähr diese Temperatur.",
+    "wikiTitle": "Kerze",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/%22Candle%22.JPG?width=500"
+  },
+  {
+    "id": "campfire",
+    "label": "Lagerfeuer (Holzfeuer)",
+    "valueC": 750,
+    "description": "Ein normales, gut brennendes Holzfeuer erreicht in der Glut ungefähr diese Temperatur.",
+    "wikiTitle": "Lagerfeuer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/A%20simple%20campfire.jpg?width=500"
+  },
+  {
+    "id": "bunsen-burner",
+    "label": "Bunsenbrenner (Chemieunterricht)",
+    "valueC": 1500,
+    "description": "Mit voll geöffneter Luftzufuhr erreicht die nicht-leuchtende Flamme diese Temperatur.",
+    "wikiTitle": "Bunsenbrenner",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mechero%20Bunsen.jpg?width=500"
+  },
+  {
+    "id": "blacksmith-forge",
+    "label": "Schmiedefeuer (zum Stahl schmieden)",
+    "valueC": 1200,
+    "description": "Bei dieser Glühfarbe ('kirschrot') lässt sich Stahl in der Schmiede formen.",
+    "wikiTitle": "Schmied",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Smid2%20openluchtmuseum.jpg?width=500"
+  },
+  {
+    "id": "moon-daytime",
+    "label": "Mondoberfläche (Tag)",
+    "valueC": 127,
+    "description": "Ohne schützende Atmosphäre heizt sich der Mond in der zweiwöchigen Tagphase stark auf.",
+    "wikiTitle": "Mond",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/FullMoon2010.jpg?width=500"
+  },
+  {
+    "id": "moon-nighttime",
+    "label": "Mondoberfläche (Nacht)",
+    "valueC": -173,
+    "description": "Sobald die Sonne untergeht, fällt die Temperatur auf dem Mond ohne Atmosphäre extrem ab.",
+    "wikiTitle": "Mond",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/FullMoon2010.jpg?width=500"
+  },
+  {
+    "id": "mercury-planet-day",
+    "label": "Oberfläche des Planeten Merkur (Tagseite)",
+    "valueC": 430,
+    "description": "Merkur ist der sonnennächste Planet — tagsüber wird es dort brutal heiß.",
+    "wikiTitle": "Merkur (Planet)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mercury%20in%20color%20-%20Prockter07%20centered.jpg?width=500"
+  },
+  {
+    "id": "mars-average",
+    "label": "Durchschnittstemperatur auf dem Mars",
+    "valueC": -63,
+    "description": "Die mittlere Oberflächentemperatur des Mars — nachts sinkt sie noch deutlich tiefer.",
+    "wikiTitle": "Mars (Planet)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mars%20-%20August%2030%202021%20-%20Flickr%20-%20Kevin%20M.%20Gill.png?width=500"
+  },
+  {
+    "id": "venus-average",
+    "label": "Durchschnittstemperatur auf der Venus",
+    "valueC": 464,
+    "description": "Der Treibhauseffekt der dichten Venus-Atmosphäre macht sie zum heißesten Planeten des Sonnensystems.",
+    "wikiTitle": "Venus (Planet)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/PIA23791-Venus-RealAndEnhancedContrastViews-20200608%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "pluto-average",
+    "label": "Durchschnittstemperatur auf Pluto",
+    "valueC": -229,
+    "description": "So weit von der Sonne entfernt bleibt es auf Pluto fast durchgehend eisig kalt.",
+    "wikiTitle": "Pluto",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Global%20LORRI%20mosaic%20of%20Pluto%20in%20true%20colour.jpg?width=500"
+  },
+  {
+    "id": "iss-sunlit",
+    "label": "Außenhülle der ISS in direkter Sonne",
+    "valueC": 121,
+    "description": "Ohne Atmosphäre als Puffer schwankt die Außentemperatur der Raumstation je nach Sonnenlicht extrem.",
+    "wikiTitle": "Internationale Raumstation",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20station%20pictured%20from%20the%20SpaceX%20Crew%20Dragon%205%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "cpu-load",
+    "label": "Prozessor eines PCs unter Volllast",
+    "valueC": 75,
+    "description": "So heiß wird der Chip eines Computers typischerweise, wenn er unter Last läuft — die Kühlung hält ihn absichtlich in diesem Bereich.",
+    "wikiTitle": "Mikroprozessor",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Ic-photo-Motorola--XPC750PRX333SE--(PowerPC-CPU).png?width=500"
+  },
+  {
+    "id": "household-iron",
+    "label": "Bügeleisen (Baumwolle-Einstellung)",
+    "valueC": 200,
+    "description": "Für Baumwolle wird ein Bügeleisen auf diese Temperatur eingestellt — die heißeste gängige Stufe.",
+    "wikiTitle": "Bügeleisen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Electric%20steam%20iron.jpg?width=500"
+  },
+  {
+    "id": "hair-straightener",
+    "label": "Glätteisen für Haare",
+    "valueC": 200,
+    "description": "Die meisten Glätteisen arbeiten in diesem Temperaturbereich.",
+    "wikiTitle": "Haarglättung",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/8/83/Hair_straightening_before_and_after.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+  },
+  {
+    "id": "hair-dryer",
+    "label": "Luftstrom eines Haartrockners",
+    "valueC": 70,
+    "description": "Die heiße Stufe eines Haartrockners bläst Luft mit ungefähr dieser Temperatur.",
+    "wikiTitle": "Haartrockner",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hairdryer%2020101109.jpg?width=500"
+  },
+  {
+    "id": "toaster-element",
+    "label": "Heizdraht in einem Toaster",
+    "valueC": 700,
+    "description": "Der Draht selbst glüht beim Toasten auf eine deutlich höhere Temperatur, als man dem Gerät ansieht.",
+    "wikiTitle": "Toaster",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hoteltoaster%2001%20(sk).jpg?width=500"
+  },
+  {
+    "id": "beeswax-melting",
+    "label": "Schmelzpunkt von Bienenwachs",
+    "valueC": 63,
+    "description": "Bienenwachs wird schon bei relativ niedriger Temperatur weich und formbar.",
+    "wikiTitle": "Bienenwachs",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bijenwas1591.JPG?width=500"
+  },
+  {
+    "id": "butter-melting",
+    "label": "Schmelzpunkt von Butter",
+    "valueC": 34,
+    "description": "Butter schmilzt schon knapp über Körpertemperatur — deshalb zergeht sie im Mund.",
+    "wikiTitle": "Butter",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Butter%20at%20the%20Borough%20Market.jpg?width=500"
+  },
+  {
+    "id": "mozzarella-melting",
+    "label": "Schmelzpunkt von Mozzarella",
+    "valueC": 60,
+    "description": "Ab dieser Temperatur wird der Käse auf einer Pizza schön zähflüssig.",
+    "wikiTitle": "Mozzarella",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mozzarella%20di%20bufala3.jpg?width=500"
+  },
+  {
+    "id": "beer-serving",
+    "label": "Serviertemperatur von Lagerbier",
+    "valueC": 6,
+    "description": "Helles Lagerbier schmeckt bei dieser kühlen Temperatur am besten.",
+    "wikiTitle": "Bier",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/NCI%20Visuals%20Food%20Beer.jpg?width=500"
+  },
+  {
+    "id": "yogurt-ferment",
+    "label": "Gärtemperatur bei der Joghurt-Herstellung",
+    "valueC": 43,
+    "description": "Bei dieser Temperatur fühlen sich die Joghurtkulturen am wohlsten und verwandeln Milch in Joghurt.",
+    "wikiTitle": "Joghurt",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Joghurt.jpg?width=500"
+  },
+  {
+    "id": "ice-cream-scoop",
+    "label": "Ideale Serviertemperatur von Speiseeis",
+    "valueC": -14,
+    "description": "Kälter als das wird Eis zu hart zum Schöpfen, wärmer schmilzt es zu schnell.",
+    "wikiTitle": "Speiseeis",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/A%20cup%20of%20three%20ice%20cream%20in%20Victoria%20Peak%20Hong%20Kong.jpg?width=500"
+  },
+  {
+    "id": "swimming-pool",
+    "label": "Angenehme Schwimmbad-Wassertemperatur",
+    "valueC": 27,
+    "description": "Die meisten öffentlichen Schwimmbecken halten ihr Wasser in diesem Bereich.",
+    "wikiTitle": "Schwimmbad",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/ca/Bad_Gastein_Schwimmbad_in_einem_Hotel.jpg/330px-Bad_Gastein_Schwimmbad_in_einem_Hotel.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "aquarium-tropical",
+    "label": "Wassertemperatur in einem tropischen Aquarium",
+    "valueC": 26,
+    "description": "Tropische Zierfische wie Guppys fühlen sich in diesem Temperaturbereich am wohlsten.",
+    "wikiTitle": "Aquarium",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Male%20whale%20shark%20at%20Georgia%20Aquarium.jpg?width=500"
+  },
+  {
+    "id": "frostbite-onset",
+    "label": "Hauttemperatur, ab der Erfrierungen beginnen",
+    "valueC": 0,
+    "description": "Sinkt die Haut auf diese Temperatur, beginnt Gewebe zu gefrieren.",
+    "wikiTitle": "Erfrierung",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Frost%20bite.jpg?width=500"
+  },
+  {
+    "id": "hypothermia-onset",
+    "label": "Körperkerntemperatur, ab der Unterkühlung beginnt",
+    "valueC": 35,
+    "description": "Unterhalb dieser Kerntemperatur spricht man medizinisch von Unterkühlung.",
+    "wikiTitle": "Unterkühlung",
+    "image": null
+  },
+  {
+    "id": "skin-surface-temp",
+    "label": "Oberflächentemperatur der menschlichen Haut",
+    "valueC": 33,
+    "description": "Die Haut ist spürbar kühler als der Körperkern (37 °C) — der Körper hält die Oberfläche absichtlich etwas kühler.",
+    "wikiTitle": "Haut",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Komodo%20dragon%20skin.jpg?width=500"
+  },
+  {
+    "id": "bird-body-temp",
+    "label": "Körpertemperatur eines Vogels",
+    "valueC": 41,
+    "description": "Vögel haben einen spürbar höheren Stoffwechsel als Säugetiere und dadurch eine höhere Körpertemperatur.",
+    "wikiTitle": "Vögel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bird%20Diversity%202011.png?width=500"
+  },
+  {
+    "id": "beehive-temp",
+    "label": "Innentemperatur eines Bienenstocks (Brutbereich)",
+    "valueC": 35,
+    "description": "Bienen heizen und kühlen ihren Stock aktiv, um den Brutbereich konstant auf dieser Temperatur zu halten.",
+    "wikiTitle": "Honigbiene",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4d/Apis_mellifera_Western_honey_bee.jpg/330px-Apis_mellifera_Western_honey_bee.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "camel-body-temp",
+    "label": "Körpertemperatur eines Kamels (heißer Wüstentag)",
+    "valueC": 41,
+    "description": "Kamele lassen ihre Körpertemperatur tagsüber bewusst ansteigen, um Wasser durchs Schwitzen zu sparen.",
+    "wikiTitle": "Kamele",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Camel%20seitlich%20trabend.jpg?width=500"
+  },
+  {
+    "id": "hibernating-bear",
+    "label": "Körpertemperatur eines winterschlafenden Bären",
+    "valueC": 33,
+    "description": "Anders als kleine Winterschläfer senken Bären ihre Temperatur nur moderat ab.",
+    "wikiTitle": "Winterschlaf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Eptesicus%20nilssonii%20hibernating.JPG?width=500"
+  },
+  {
+    "id": "jupiter-clouds",
+    "label": "Wolkenobergrenze des Jupiter",
+    "valueC": -108,
+    "description": "So kalt ist es an der sichtbaren Wolkendecke des größten Planeten unseres Sonnensystems.",
+    "wikiTitle": "Jupiter (Planet)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Jupiter%20OPAL%202024.png?width=500"
+  },
+  {
+    "id": "titan-moon",
+    "label": "Oberfläche des Saturnmonds Titan",
+    "valueC": -179,
+    "description": "Auf Titan ist es so kalt, dass Methan dort als Flüssigkeit vorkommt — wie Wasser auf der Erde.",
+    "wikiTitle": "Titan (Mond)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Titan%20in%20true%20color%20by%20Kevin%20M.%20Gill.jpg?width=500"
+  },
+  {
+    "id": "lut-desert",
+    "label": "Bodenoberfläche der Wüste Dasht-e Lut (Iran)",
+    "valueC": 71,
+    "description": "Per Satellit gemessen gilt dieser Wüstenboden als einer der heißesten Orte der Erdoberfläche.",
+    "wikiTitle": "Dasht-e Lut",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Dasht-e_Lut_Iran_2006-02-28_ISS012-E-18779.jpg/330px-Dasht-e_Lut_Iran_2006-02-28_ISS012-E-18779.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "hurricane-trigger",
+    "label": "Meerestemperatur, die Hurrikane entstehen lässt",
+    "valueC": 27,
+    "description": "Erst ab dieser Wasseroberflächentemperatur liefert der Ozean genug Energie, damit sich ein tropischer Wirbelsturm bildet.",
+    "wikiTitle": "Tropischer Wirbelsturm",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Dramatic%20Views%20of%20Hurricane%20Florence%20from%20the%20International%20Space%20Station%20From%209%2012%20(42828603210)%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "coral-bleaching",
+    "label": "Wassertemperatur, ab der Korallenbleiche einsetzt",
+    "valueC": 30,
+    "description": "Wird das Wasser nur wenige Grad wärmer als gewohnt, stoßen Korallen ihre lebenswichtigen Algen ab und bleichen aus.",
+    "wikiTitle": "Korallenbleiche",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bleachedcoral.jpg?width=500"
+  },
+  {
+    "id": "dead-sea-water",
+    "label": "Wassertemperatur des Toten Meeres (Sommer)",
+    "valueC": 31,
+    "description": "Das extrem salzhaltige Wasser des Toten Meeres heizt sich im Sommer stark auf.",
+    "wikiTitle": "Totes Meer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Dead%20Sea%20by%20David%20Shankbone.jpg?width=500"
+  },
+  {
+    "id": "permafrost-ground",
+    "label": "Bodentemperatur im Permafrost",
+    "valueC": -5,
+    "description": "Permafrostboden bleibt definitionsgemäß mindestens zwei Jahre am Stück gefroren.",
+    "wikiTitle": "Permafrost",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Birch%20Creek%20permafrost.jpg?width=500"
+  },
+  {
+    "id": "egg-incubator",
+    "label": "Bruttemperatur im Hühner-Brutkasten",
+    "valueC": 38,
+    "description": "Fast genau die Körpertemperatur eines Menschen — bei dieser Temperatur schlüpfen Hühnerküken zuverlässig.",
+    "wikiTitle": "Hühnerei",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Day%20017%20Photo365%20Eggs%20(95960053).jpeg?width=500"
+  },
+  {
+    "id": "red-wine-serving",
+    "label": "Serviertemperatur für Rotwein",
+    "valueC": 17,
+    "description": "Bei dieser Temperatur entfalten sich Aroma und Tannine der meisten Rotweine am besten.",
+    "wikiTitle": "Rotwein",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pouring%20a%20glass%20of%20red%20wine.tiff?width=500"
+  },
+  {
+    "id": "glacier-ice",
+    "label": "Innentemperatur eines gemäßigten Gletschers",
+    "valueC": 0,
+    "description": "Ein \"gemäßigter\" Gletscher ist im Inneren durchgehend genau am Schmelzpunkt — anders als kalte Polar-Gletscher.",
+    "wikiTitle": "Gletscher",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/%D0%9B%D0%B5%D0%B4%D0%BD%D0%B8%D0%BA%20%D0%BD%D0%B0%20%D0%B7%D0%B0%D0%BF%D0%B0%D0%B4%D0%BD%D0%BE%D0%BC%20%D0%BF%D0%BE%D0%B1%D0%B5%D1%80%D0%B5%D0%B6%D1%8C%D0%B5%20%D0%97%D0%B5%D0%BC%D0%BB%D0%B8%20%D0%93%D1%80%D0%B5%D0%B9%D0%B0%D0%BC%D0%B0.jpg?width=500"
+  },
+  {
+    "id": "baby-bath-water",
+    "label": "Ideale Badewannen-Temperatur für ein Baby",
+    "valueC": 37,
+    "description": "Zufällig fast exakt die menschliche Körperkerntemperatur — so fühlt sich das Wasser weder zu warm noch zu kalt an.",
+    "wikiTitle": "Säugling",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Being%20a%20twin%20means%20you%20always%20have%20a%20pillow%20or%20blanket%20handy.jpg?width=500"
+  },
+  {
+    "id": "car-tire-driving",
+    "label": "Reifentemperatur bei starker Beanspruchung",
+    "valueC": 80,
+    "description": "Durch Reibung und Walkarbeit wird Gummi im Reifen bei schneller Fahrt deutlich wärmer als die Straße.",
+    "wikiTitle": "Autoreifen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Car%20tires.jpg?width=500"
+  },
+  {
+    "id": "solar-panel-surface",
+    "label": "Oberfläche einer Solarzelle (sonniger Tag)",
+    "valueC": 55,
+    "description": "Direkte Sonneneinstrahlung heizt die dunkle Oberfläche eines Solarpanels deutlich über die Lufttemperatur hinaus auf.",
+    "wikiTitle": "Photovoltaik",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/SolarPowerPlantSerpa.jpg?width=500"
+  },
+  {
+    "id": "mount-fuji-summit",
+    "label": "Durchschnittstemperatur auf dem Fuji-Gipfel (Sommer)",
+    "valueC": 6,
+    "description": "Trotz mildem japanischem Sommer ist es auf 3.776 m Höhe ganzjährig kühl.",
+    "wikiTitle": "Fuji (Berg)",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d9/Kodaki_fuji_frm_shojinko.jpg/330px-Kodaki_fuji_frm_shojinko.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "sahara-night",
+    "label": "Nachttemperatur in der Sahara (Winter)",
+    "valueC": -5,
+    "description": "Ohne Wolkendecke, die die Wärme speichert, kann die Wüste nachts erstaunlich kalt werden — trotz sengender Hitze tagsüber.",
+    "wikiTitle": "Sahara",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sahara%20real%20color.jpg?width=500"
+  },
+  {
+    "id": "mild-fever",
+    "label": "Leichtes Fieber (typische Erkältung)",
+    "valueC": 39,
+    "description": "Ab dieser Körperkerntemperatur spricht man von echtem Fieber, meist noch harmlos.",
+    "wikiTitle": "Fieber",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Clinical%20thermometer%2038.7.JPG?width=500"
+  },
+  {
+    "id": "hot-shower",
+    "label": "Angenehme Duschtemperatur",
+    "valueC": 40,
+    "description": "Die von den meisten Menschen als angenehm heiß empfundene Wassertemperatur beim Duschen.",
+    "wikiTitle": "Dusche",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Showerhead.JPG?width=500"
+  },
+  {
+    "id": "dishwasher-hot",
+    "label": "Geschirrspüler (Hygiene-Programm)",
+    "valueC": 65,
+    "description": "Das intensive Spülprogramm heizt das Wasser auf diese Temperatur auf, um Fett zuverlässig zu lösen.",
+    "wikiTitle": "Geschirrspüler",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/44/Geschirrspuelmaschine.JPG/330px-Geschirrspuelmaschine.JPG?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "washing-machine-hot",
+    "label": "Waschmaschine (Kochwäsche)",
+    "valueC": 90,
+    "description": "Die heißeste reguläre Waschprogramm-Stufe, gedacht für stark verschmutzte, kochfeste Wäsche.",
+    "wikiTitle": "Waschmaschine",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/LG%20%EB%93%9C%EB%9F%BC%EC%84%B8%ED%83%81%EA%B8%B0%EC%99%80%20%EC%8B%9D%EA%B8%B0%EC%84%B8%EC%B2%99%EA%B8%B0%2C%20%EC%98%81%EA%B5%AD%EC%84%9C%20%EB%AC%BC%EC%82%AC%EC%9A%A9%20%ED%9A%A8%EC%9C%A8%20%EC%B5%9C%EC%9A%B0%EC%88%98%20%EC%A0%9C%ED%92%88%20%EC%88%98%EC%83%81.jpg?width=500"
+  },
+  {
+    "id": "sourdough-proofing",
+    "label": "Gärtemperatur für Sauerteig",
+    "valueC": 26,
+    "description": "Bei dieser Temperatur fühlen sich die wilden Hefen und Bakterien im Sauerteig am wohlsten.",
+    "wikiTitle": "Sauerteig",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Masa%20madre.jpg?width=500"
+  },
+  {
+    "id": "wine-fridge-white",
+    "label": "Kühlschrank-Temperatur für Weißwein",
+    "valueC": 8,
+    "description": "Bei dieser kühlen Temperatur entfaltet sich das Aroma der meisten Weißweine am besten.",
+    "wikiTitle": "Weißwein",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Two%20Chenin%20Blanc%20wines%20in%20glass.jpg?width=500"
+  },
+  {
+    "id": "mulled-wine",
+    "label": "Serviertemperatur von Glühwein",
+    "valueC": 70,
+    "description": "Glühwein wird bewusst nicht gekocht, sondern nur auf diese Temperatur erhitzt — sonst verdampft der Alkohol und das Aroma leidet.",
+    "wikiTitle": "Glühwein",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/March%C3%A9s%20des%20Producteurs%20de%20Pays%2011%2016%2021.jpg?width=500"
+  },
+  {
+    "id": "sauna-infrared",
+    "label": "Infrarotkabine",
+    "valueC": 55,
+    "description": "Deutlich kühler als eine klassische finnische Sauna — hier wärmt die Strahlung direkt den Körper statt die Luft.",
+    "wikiTitle": "Infrarotkabine",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a3/Infraszauna_001.jpg/330px-Infraszauna_001.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "cold-plunge",
+    "label": "Eisbaden (Kaltwassertherapie)",
+    "valueC": 10,
+    "description": "Bei dieser Temperatur steigen viele Wellness-Fans bewusst zum Abhärten ins kalte Wasser.",
+    "wikiTitle": "Eisbaden",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/89/Ice_swimming_46.jpg/330px-Ice_swimming_46.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "optimal-sleep-room",
+    "label": "Empfohlene Schlafzimmertemperatur",
+    "valueC": 18,
+    "description": "Kühler als die meisten anderen Wohnräume — bei dieser Temperatur schläft man Studien zufolge am besten.",
+    "wikiTitle": "Schlaf",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lion%20and%20lioness%20sleeping.JPG?width=500"
+  },
+  {
+    "id": "greenhouse-tropical",
+    "label": "Tropisches Gewächshaus",
+    "valueC": 28,
+    "description": "Für tropische Pflanzen wird ein Gewächshaus ganzjährig auf dieser Temperatur gehalten.",
+    "wikiTitle": "Gewächshaus",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Greenhouse%20for%20strawberry.jpg?width=500"
+  },
+  {
+    "id": "terrarium-reptile",
+    "label": "Terrarium für tropische Reptilien",
+    "valueC": 30,
+    "description": "Wechselwarme Tiere wie viele Echsen brauchen diese Umgebungstemperatur, um aktiv zu bleiben.",
+    "wikiTitle": "Terrarium",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Terrarium%20small.jpg?width=500"
+  },
+  {
+    "id": "antarctica-coastal-summer",
+    "label": "Antarktis-Küste im Südsommer",
+    "valueC": 0,
+    "description": "An der Küste wird es im antarktischen Sommer erstaunlich mild — ganz anders als im eisigen Inneren des Kontinents.",
+    "wikiTitle": "Antarktis",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/1%20Almirante%20Brown%20-%20Antarktische%20Halbinsel.jpg?width=500"
+  },
+  {
+    "id": "dubai-summer",
+    "label": "Dubai im Hochsommer (Tageshöchstwert)",
+    "valueC": 42,
+    "description": "Im Juli und August sind Temperaturen in dieser Höhe in Dubai normal.",
+    "wikiTitle": "Dubai",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Dubai%20Skyline%20mit%20Burj%20Khalifa%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "moscow-winter",
+    "label": "Moskau im Winter (Tagesmittel Januar)",
+    "valueC": -7,
+    "description": "Der durchschnittliche Januar in der russischen Hauptstadt liegt deutlich unter dem Gefrierpunkt.",
+    "wikiTitle": "Moskau",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Saint%20Basil's%20Cathedral%20and%20the%20Red%20Square.jpg?width=500"
+  },
+  {
+    "id": "deepest-mine",
+    "label": "Gesteinstemperatur in der tiefsten Goldmine der Welt",
+    "valueC": 66,
+    "description": "In der südafrikanischen Mponeng-Mine, fast 4 km unter der Oberfläche, wird das Gestein durch die Erdwärme extrem heiß.",
+    "wikiTitle": "Bergbau",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Aggregate%20Processing%20Plant.jpg?width=500"
+  },
+  {
+    "id": "north-pole-winter",
+    "label": "Nordpol im Winter (Durchschnitt)",
+    "valueC": -30,
+    "description": "Anders als die Antarktis liegt der Nordpol auf gefrorenem Meereis, trotzdem wird es im Winter extrem kalt.",
+    "wikiTitle": "Nordpol",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Noaa3-2006-0602-1206%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "jet-engine-exhaust",
+    "label": "Abgasstrahl eines Düsentriebwerks",
+    "valueC": 600,
+    "description": "So heiß ist die sichtbare Abgasfahne hinter der Turbine — im Inneren der Brennkammer ist es noch deutlich heißer.",
+    "wikiTitle": "Düsentriebwerk",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/be/B747-engine.jpg/330px-B747-engine.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "olive-oil-smoke-point",
+    "label": "Rauchpunkt von nativem Olivenöl",
+    "valueC": 190,
+    "description": "Wird Olivenöl über diese Temperatur erhitzt, beginnt es zu rauchen und bitter zu schmecken.",
+    "wikiTitle": "Olivenöl",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Italian%20olive%20oil%202007.jpg?width=500"
+  },
+  {
+    "id": "steel-tempering",
+    "label": "Anlassen von gehärtetem Werkzeugstahl",
+    "valueC": 200,
+    "description": "Nach dem Härten wird Stahl auf diese Temperatur erhitzt, um ihn weniger spröde zu machen.",
+    "wikiTitle": "Stahl",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kaltbandcoils.jpg?width=500"
+  },
+  {
+    "id": "pottery-bisque-fire",
+    "label": "Schrühbrand beim Töpfern",
+    "valueC": 950,
+    "description": "Der erste Brand eines Keramikstücks, bevor es glasiert wird.",
+    "wikiTitle": "Töpferei",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pottenbakkersschijf.JPG?width=500"
+  },
+  {
+    "id": "beer-mashing",
+    "label": "Maischen beim Bierbrauen",
+    "valueC": 65,
+    "description": "Bei dieser Temperatur wandeln Enzyme die Stärke im Malz in vergärbaren Zucker um.",
+    "wikiTitle": "Maischen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2008-09-20%20Wort%20first%20run-off%202.jpg?width=500"
+  },
+  {
+    "id": "autoclave-sterilization",
+    "label": "Autoklav (medizinische Sterilisation)",
+    "valueC": 121,
+    "description": "Unter Druck erhitzter Dampf tötet bei dieser Temperatur zuverlässig auch hitzeresistente Bakteriensporen ab.",
+    "wikiTitle": "Autoklav",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sterilisator%20offen.jpg?width=500"
+  },
+  {
+    "id": "hot-yoga-studio",
+    "label": "Hot-Yoga-Studio (Bikram)",
+    "valueC": 41,
+    "description": "Die klassische Bikram-Yoga-Stunde findet bei genau dieser Raumtemperatur statt.",
+    "wikiTitle": "Bikram-Yoga",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/Bikram_Yoga_sequence_of_asanas.jpg/330px-Bikram_Yoga_sequence_of_asanas.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "black-tea-brewing",
+    "label": "Ziehtemperatur für Schwarzen Tee",
+    "valueC": 95,
+    "description": "Schwarzer Tee verträgt fast kochendes Wasser, ohne bitter zu werden.",
+    "wikiTitle": "Schwarzer Tee",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/A%20cup%20of%20black%20tea%20from%20Srimangal%20Bangladesh.jpg?width=500"
+  },
+  {
+    "id": "green-tea-brewing",
+    "label": "Ziehtemperatur für Grünen Tee",
+    "valueC": 75,
+    "description": "Deutlich kühler als Schwarzer Tee — zu heißes Wasser macht Grünen Tee schnell bitter.",
+    "wikiTitle": "Grüner Tee",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Green%20tea%2C%20Pu'er%20tea%2C%20Tea%20from%20China%2C%20Rostov-on-Don%2C%20Russia.jpg?width=500"
+  },
+  {
+    "id": "wood-stove-surface",
+    "label": "Oberfläche eines Kaminofens (in Betrieb)",
+    "valueC": 300,
+    "description": "Die Außenhülle eines gut befeuerten Kaminofens kann diese Temperatur erreichen — Verbrennungsgefahr bei Berührung.",
+    "wikiTitle": "Kaminofen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kaminofen%20in%20Betrieb%20IMG%206067.jpg?width=500"
+  },
+  {
+    "id": "hot-glue-gun",
+    "label": "Heißklebepistole",
+    "valueC": 200,
+    "description": "Die gängige Betriebstemperatur einer normalen (nicht Niedertemperatur-) Heißklebepistole.",
+    "wikiTitle": "Heißklebepistole",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/MVC-013F.jpg?width=500"
+  },
+  {
+    "id": "newborn-incubator",
+    "label": "Wärmebett für Frühgeborene",
+    "valueC": 37,
+    "description": "Der Inkubator hält Frühchen auf ungefähr dieser Temperatur — nah an der Körpertemperatur im Mutterleib.",
+    "wikiTitle": "Inkubator (Medizin)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Couveuse%20pour%20pr%C3%A9matur%C3%A9.jpg?width=500"
+  }
+]

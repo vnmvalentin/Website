@@ -2,8 +2,9 @@
 // Host-Status übergeben, ohne das Spiel zu unterbrechen.
 
 import React from 'react';
-import { Shield, X, Crown, ArrowLeftRight } from 'lucide-react';
+import { Shield, X, ArrowLeftRight } from 'lucide-react';
 import PlayerAvatar from '../components/PlayerAvatar';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 
 export default function AdminControlPanel({ players, hostId, onTransferHost, onSetSpectator, onClose, t }) {
   return (
@@ -23,7 +24,7 @@ export default function AdminControlPanel({ players, hostId, onTransferHost, onS
           <div key={p.id} className="flex items-center gap-2 bg-black/30 border border-white/5 rounded-lg px-2.5 py-1.5">
             <PlayerAvatar avatarId={p.avatar} size={20} />
             <span className="text-white text-xs font-semibold max-w-[100px] truncate">{p.name}</span>
-            {p.id === hostId && <Crown size={10} className="text-amber-400 shrink-0" />}
+            {p.id === hostId && <img src={crownIcon} alt="" width={13} height={11} className="shrink-0" />}
             {p.isSpectator && (
               <span className="text-[8px] text-white/40 border border-white/10 px-1 rounded-lg shrink-0">{t.spectator}</span>
             )}

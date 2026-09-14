@@ -22,8 +22,13 @@ const REFRESH_MS = 60000;
  * @param {boolean} bare  true = ohne eigenen Rahmen. Gebraucht, seit die Liste innerhalb
  *                        des gemeinsamen Startseiten-Rahmens sitzt — ein Kasten im Kasten
  *                        war genau der Eindruck, der weg sollte.
+ * @param {number} [maxListHeight]  Deckelt die Liste selbst (nicht den Header) mit eigenem
+ *                        Scrollen — im Hauptmenü steht die Liste neben dem Karussell und
+ *                        darf dessen Höhe nicht überragen, sonst zwingt eine wachsende
+ *                        Streamer-Zahl die ganze Seite zum Scrollen. Ohne Angabe (Standard)
+ *                        wächst die Liste wie bisher uneingeschränkt mit.
  */
-export default function UsedByPanel({ t, bare = false }) {
+export default function UsedByPanel({ t, bare = false, maxListHeight }) {
   const [streamers, setStreamers] = useState(USED_BY_FALLBACK);
 
   useEffect(() => {
@@ -44,20 +49,21 @@ export default function UsedByPanel({ t, bare = false }) {
   }, []);
 
   return (
-    <div className={bare ? '' : 'panel-strong overflow-hidden'}>
-      <div className={`flex items-center gap-2 ${bare ? 'mb-1' : 'px-5 py-4 border-b border-white/10'}`}>
+    <div className={bare ? '' : 'cr-arcade-panel overflow-hidden'}>
+      <div className={`flex items-center gap-2 ${bare ? 'mb-1' : 'px-4 py-2.5 border-b border-white/10'}`}>
         <Users size={14} className="text-violet-300" />
         <h2 className="text-xs font-bold uppercase tracking-widest text-violet-300/80">{t.usedBy}</h2>
       </div>
-      <ul className={`flex flex-col ${bare ? '' : 'p-2'}`}>
+      <ul className={`flex flex-col ${bare ? '' : 'p-1.5'} ${maxListHeight ? 'overflow-y-auto custom-scrollbar' : ''}`}
+        style={maxListHeight ? { maxHeight: maxListHeight } : undefined}>
         {streamers.map(s => (
           <li key={s.login}>
             <a href={`https://twitch.tv/${s.login}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-white/[0.06] transition-colors">
+              className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-white/[0.06] transition-colors">
               {s.avatar ? (
-                <img src={s.avatar} alt="" className="w-9 h-9 rounded-full object-cover border border-white/10 shrink-0" />
+                <img src={s.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
               ) : (
-                <span className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 text-xs font-bold shrink-0">
+                <span className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 text-xs font-bold shrink-0">
                   {s.name.slice(0, 1).toUpperCase()}
                 </span>
               )}

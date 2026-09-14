@@ -3,6 +3,8 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Arcade-Schrift der Clash-Royale-Minigames — siehe Kommentar in index.html */
+  --font-arcade: "Fredoka", "Nunito", ui-rounded, system-ui, sans-serif;
 }
 
 /* Tailwind v4 setzt Buttons bewusst auf `cursor: default` (in v3 war das noch der
@@ -195,10 +197,12 @@ button:not(:disabled),
 /* ===================================================================
    CLASH ROYALE — DESIGN-TOKENS & PRIMITIVE
    -------------------------------------------------------------------
-   Der CR-Bereich bleibt bewusst im Look der übrigen Seite: dieselben
-   Panels, dasselbe Violett, keine Verläufe/Glows. Das "Clash Royale"
-   kommt aus dem INHALT — Kartenartwork, Seltenheitsfarben, Liga-Embleme —
-   plus einem Gold-Akzent, der Host- und Sieg-Elemente markiert.
+   Bis Ende August 2026 galt hier bewusst: "bleibt im Look der übrigen
+   Seite, keine Verläufe/Glows". Seit dem Menü-Redesign (Hub + Lobby)
+   gilt für Hub und Lobby das Gegenteil — siehe den ARCADE-SKIN-Block
+   weiter unten: gesättigte Verlaufsfarben, harte 3D-Button-Schatten,
+   Comic-Text-Shadow. Diese Tokens hier (--cr-gold usw.) bleiben für den
+   Rest des CR-Bereichs (Kartenraster, Slider, In-Game-UI) unverändert.
    =================================================================== */
 :root {
   --cr-gold: #f0b429;          /* Host, Krone, Sieg */
@@ -209,15 +213,23 @@ button:not(:disabled),
   --cr-line: rgba(255, 255, 255, 0.08);
 }
 
-/* Kartenkachel: bewusst RAHMENLOS, damit nur das Artwork wirkt. Fehlt ein
-   Bild (CDN-Ausfall, sehr neue Karte), bleibt die dunkle Fläche als Platzhalter
-   stehen statt eines Lochs im Raster. */
+/* Kartenkachel — Comic-Spielkarten-Look (Ausbaustufe "voller visueller Pass"):
+   dicker dunkler Rahmen + runde Ecken statt der vorherigen rahmenlosen Optik.
+   box-sizing: border-box gilt seitenweit (Tailwind-Preflight), ein border ändert die
+   Außenmaße der Kachel also NICHT — Raster verspringen dadurch nicht, der alte Verzicht
+   auf einen Rahmen war für dieses Sizing-Modell nicht mehr nötig.
+   Auswahl/Hover bewusst UNTERSCHIEDLICH: --active (dauerhaft ausgewählt) bekommt einen
+   goldenen Rahmen + sanftes Glühen, aber KEIN transform — mehrere ausgewählte Karten im
+   selben Raster dürfen sich nicht gegenseitig überlappen. --selectable:hover (nur die
+   Karte unter dem Zeiger) bekommt zusätzlich scale(1.05) + rotate(2deg), wie eine
+   angehobene Spielkarte. */
 .cr-card {
   position: relative;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.35);
-  border: 0;
+  border: 2px solid var(--cr-arcade-ink, #2b1c10);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .cr-card > img {
   display: block;
@@ -225,23 +237,33 @@ button:not(:disabled),
   height: 100%;
   object-fit: cover;
 }
-/* Auswahl/Fokus markieren wir mit einem INNEREN Ring statt eines Rahmens —
-   ein border würde das Artwork um 1px stauchen und das Raster verspringen lassen. */
-.cr-card--selectable:hover::after,
-.cr-card--active::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 2px var(--cr-accent);
-  pointer-events: none;
+.cr-card--selectable:hover {
+  transform: scale(1.05) rotate(2deg);
+  border-color: var(--cr-arcade-gold, #f0b429);
+  z-index: 2;
+}
+.cr-card--active {
+  border-color: var(--cr-arcade-gold, #f0b429);
+  box-shadow: 0 0 0 2px rgba(240, 180, 41, 0.35);
 }
 .cr-card--disabled > img { filter: grayscale(1); opacity: 0.3; }
 
+@media (prefers-reduced-motion: reduce) {
+  .cr-card { transition: none; }
+  .cr-card--selectable:hover { transform: none; }
+}
+
 /* ── Slider ────────────────────────────────────────────────────────────
    Nativer <input type="range">: Touch-, Tastatur- und Screenreader-Bedienung
-   kommen vom Browser. Sichtbare Spur 6px, Trefferfläche aber 40px hoch —
-   auf dem Handy sonst kaum zu greifen. */
+   kommen vom Browser. Sichtbare Spur 12px, Trefferfläche aber 40px hoch —
+   auf dem Handy sonst kaum zu greifen.
+   ZWEITER Anlauf, chunky: die erste Fassung war eine dünne 6px-Linie mit einem
+   schlichten weißen Punkt — neben den dicken Tinten-Rändern von Knöpfen und Karten sah
+   sie aus wie aus einer anderen, nüchternen App. Jetzt trägt die Spur denselben
+   Tinten-Rand wie alles andere im Arcade-Skin, die Füllung ist eine Flachfarbe statt
+   eines Verlaufs (derselbe Cartoon-Grund wie beim Elixierbalken, siehe ui/ElixirBar.jsx),
+   und der Griff ist ein kleiner Knopf mit eigenem Tinten-Rand und Schlagschatten statt
+   eines reinen Kreises. */
 .cr-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -252,24 +274,26 @@ button:not(:disabled),
 }
 .cr-slider:disabled { cursor: not-allowed; opacity: 0.4; }
 
-/* Der gefüllte Teil links vom Thumb kommt aus einem Verlauf, dessen Stopp die
-   Komponente als --cr-slider-fill (0–100%) setzt. Zwei Elemente (Spur + Füllung)
-   wären bei einem nativen Range nicht möglich. */
+/* Der gefüllte Teil links vom Thumb kommt aus einem harten Farbwechsel, dessen Stopp
+   die Komponente als --cr-slider-fill (0–100%) setzt — keine Verlaufsfarbe mehr, siehe
+   oben. Zwei Elemente (Spur + Füllung) wären bei einem nativen Range nicht möglich. */
 .cr-slider::-webkit-slider-runnable-track {
-  height: 6px;
+  height: 12px;
   border-radius: 999px;
+  border: 2px solid var(--cr-arcade-ink);
   background:
     linear-gradient(to right,
       var(--cr-slider-accent, var(--cr-accent)) 0 var(--cr-slider-fill, 0%),
-      rgba(255, 255, 255, 0.1) var(--cr-slider-fill, 0%) 100%);
+      #1a1424 var(--cr-slider-fill, 0%) 100%);
 }
 .cr-slider::-moz-range-track {
-  height: 6px;
+  height: 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--cr-arcade-ink);
+  background: #1a1424;
 }
 .cr-slider::-moz-range-progress {
-  height: 6px;
+  height: 12px;
   border-radius: 999px;
   background: var(--cr-slider-accent, var(--cr-accent));
 }
@@ -277,30 +301,31 @@ button:not(:disabled),
 .cr-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: #fff;
-  border: 0;
-  /* Thumb mittig zur 6px-Spur: (18 - 6) / 2 = 6px nach oben */
-  margin-top: -6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  transition: box-shadow 0.15s ease;
+  border: 3px solid var(--cr-arcade-ink);
+  /* Thumb mittig zur 12px-Spur inkl. deren 2px-Rand: (26 - 16) / 2 = 5px nach oben */
+  margin-top: -5px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
 }
 .cr-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: #fff;
-  border: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  border: 3px solid var(--cr-arcade-ink);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
 }
+.cr-slider:active::-webkit-slider-thumb { transform: scale(0.92); }
 /* Fokus über Tastatur sichtbar machen, ohne den Ring bei Mausklick zu zeigen */
 .cr-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.35);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(139, 92, 246, 0.45);
 }
 .cr-slider:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.35);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(139, 92, 246, 0.45);
 }
 .cr-slider:focus { outline: none; }
 
@@ -347,6 +372,236 @@ summary::-webkit-details-marker { display: none; }
   .cr-drawer-panel,
   .cr-modal-backdrop,
   .cr-modal-panel { animation: none; }
+}
+
+/* ===================================================================
+   CLASH ROYALE — ARCADE-SKIN (Hub + Lobby, Video-Spiel-Menü-Look)
+   -------------------------------------------------------------------
+   Chunky 3D-Buttons: harter, UNVERSCHWOMMENER box-shadow nach unten
+   erzeugt Tiefe; :active lässt den Button exakt um die Schattentiefe
+   nach unten rutschen und der Schatten verschwindet — simuliert einen
+   physischen Tastendruck. Farben sind knallig/gesättigt mit leichtem
+   Verlauf von oben nach unten für Plastizität: Blau = neutrale Aktion,
+   Grün = Bestätigen/Start, Gold = Hervorhebung, Rot = Gefahr/Verlassen.
+   Karten (.cr-arcade-card) bekommen einen dicken dunklen Rahmen und
+   drehen/wachsen beim Hover leicht — wie eine physische Spielkarte, die
+   man antippt. Nur unter dem .cr-arcade-* Namespace wirksam; der Rest
+   der Seite (Garden, generische Panels) bleibt komplett unberührt.
+   =================================================================== */
+:root {
+  --cr-arcade-shadow-depth: 6px;
+
+  --cr-arcade-blue: #2f7bff;
+  --cr-arcade-blue-light: #6aa3ff;
+  --cr-arcade-blue-dark: #1a4fb4;
+
+  --cr-arcade-green: #34c759;
+  --cr-arcade-green-light: #6adf82;
+  --cr-arcade-green-dark: #1f8f3b;
+
+  --cr-arcade-gold: #ffc93c;
+  --cr-arcade-gold-light: #ffe08a;
+  --cr-arcade-gold-dark: #d99a12;
+
+  --cr-arcade-red: #ff4d4f;
+  --cr-arcade-red-light: #ff8384;
+  --cr-arcade-red-dark: #c92325;
+
+  --cr-arcade-ink: #2b1c10; /* dunkles Braun statt reinem Schwarz für Kartenrahmen */
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────
+   Die Farbe kommt über eine der --btn(-lg)-Modifier-Klassen, die drei
+   --cr-arcade-face-* Variablen setzt; die Basis-Klasse kennt nur deren
+   Namen, nicht die konkreten Farben — ein neuer Farbton braucht also nur
+   einen neuen Modifier, keine Kopie des ganzen Blocks. */
+.cr-arcade-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  /* Rahmen in der dunklen Variante der eigenen Knopffarbe (--cr-arcade-face-dark, dieselbe
+     Farbe wie der Schatten darunter) statt eines für alle Farben gleichen Braun-Tons — vorher
+     trug nur der Schatten die Kontur, ohne echten Rand wirkten die Buttons flacher als die
+     Karten; ein einheitliches Braun passte aber farblich nicht zu jedem Knopf gleich gut. */
+  border: 3px solid var(--cr-arcade-face-dark);
+  border-radius: 14px;
+  padding: 0.85em 1.5em;
+  line-height: 1.1;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+  background: linear-gradient(to bottom, var(--cr-arcade-face-light), var(--cr-arcade-face));
+  box-shadow:
+    0 var(--cr-arcade-shadow-depth) 0 var(--cr-arcade-face-dark),
+    0 calc(var(--cr-arcade-shadow-depth) + 2px) 10px rgba(0, 0, 0, 0.35);
+  transform: translateY(0);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+}
+.cr-arcade-btn:hover:not(:disabled) { filter: brightness(1.05); }
+.cr-arcade-btn:active:not(:disabled) {
+  transform: translateY(var(--cr-arcade-shadow-depth));
+  box-shadow: 0 0 0 var(--cr-arcade-face-dark);
+  filter: brightness(0.97);
+}
+.cr-arcade-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6) brightness(0.75);
+}
+.cr-arcade-btn--block { width: 100%; }
+.cr-arcade-btn--lg { padding: 1.05em 1.8em; font-size: 1.15rem; border-radius: 18px; --cr-arcade-shadow-depth: 7px; }
+.cr-arcade-btn--sm { padding: 0.55em 1.05em; font-size: 0.82rem; border-radius: 10px; --cr-arcade-shadow-depth: 4px; }
+
+.cr-arcade-btn--blue {
+  --cr-arcade-face: var(--cr-arcade-blue);
+  --cr-arcade-face-light: var(--cr-arcade-blue-light);
+  --cr-arcade-face-dark: var(--cr-arcade-blue-dark);
+}
+.cr-arcade-btn--green {
+  --cr-arcade-face: var(--cr-arcade-green);
+  --cr-arcade-face-light: var(--cr-arcade-green-light);
+  --cr-arcade-face-dark: var(--cr-arcade-green-dark);
+}
+.cr-arcade-btn--red {
+  --cr-arcade-face: var(--cr-arcade-red);
+  --cr-arcade-face-light: var(--cr-arcade-red-light);
+  --cr-arcade-face-dark: var(--cr-arcade-red-dark);
+}
+/* Gold braucht dunklen statt weißen Text — Kontrast auf hellem Gelb */
+.cr-arcade-btn--gold {
+  --cr-arcade-face: var(--cr-arcade-gold);
+  --cr-arcade-face-light: var(--cr-arcade-gold-light);
+  --cr-arcade-face-dark: var(--cr-arcade-gold-dark);
+  color: #4a2e00;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* ── Overlay-Karten im Comic-Look ─────────────────────────────────────────
+   Undurchsichtige Ersatzhülle für .panel/.panel-strong innerhalb des Arcade-Bereichs:
+   Erstellen/Beitreten/Minigames/FAQ/Support im Hub sowie "Benutzt von" — vor dem
+   unruhigen Diamant-Hintergrund wirkte die alte halbtransparente Glas-Optik verwaschen.
+   Kein rgba() mehr, ein fester dunkelblauer Verlauf plus dicker Rahmen wie bei den
+   Draft-Karten. */
+.cr-arcade-panel {
+  position: relative;
+  background: linear-gradient(to bottom, #17293f, #0c1725);
+  border: 3px solid var(--cr-arcade-ink);
+  border-radius: 18px;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.35), 0 12px 26px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Kleine Icon-Buttons im Arcade-Look ───────────────────────────────────
+   Ersatz für die alten schlichten "border border-white/10 hover:border-white/30"-Knöpfe
+   (Code kopieren/verdecken, Spieler kicken/Host übertragen …) — passend zu den großen
+   ChunkyButtons, nur kompakter: fester Verlauf, dünnerer Rahmen, kein Klick-Rutsch (das
+   wäre bei einem 32px-Knopf kaum sichtbar), aber derselbe Rahmen-Farbwechsel je nach
+   `tone` beim Hover wie schon bei den ChunkyButton-Varianten. */
+.cr-arcade-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 2px solid var(--cr-arcade-ink);
+  background: linear-gradient(to bottom, #24405f, #17293f);
+  color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.cr-arcade-icon-btn:hover {
+  color: #fff;
+  border-color: var(--cr-arcade-accent, #8b5cf6);
+}
+.cr-arcade-icon-btn--amber:hover { color: #ffe08a; border-color: var(--cr-arcade-gold); }
+.cr-arcade-icon-btn--red:hover { color: #ff9a9b; border-color: var(--cr-arcade-red); }
+.cr-arcade-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Draft-Karten im Comic-Look ───────────────────────────────────────── */
+.cr-arcade-card {
+  position: relative;
+  border-radius: 14px;
+  border: 4px solid var(--cr-arcade-ink);
+  overflow: hidden;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.cr-arcade-card--hoverable:hover {
+  transform: scale(1.05) rotate(2deg);
+  border-color: var(--cr-arcade-gold);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+
+/* ── In-Game-Spielerkachel ─────────────────────────────────────────────
+   Kompaktere Entsprechung von .cr-arcade-panel für die Seitenleiste der Spielmodi
+   (modes/GameChrome.jsx, PlayerPanel) — dort stehen bis zu acht Stück untereinander,
+   der volle Panel-Schatten wäre da zu viel Gewicht. Nur Rand + Fläche, kein Bevel. */
+.cr-game-card {
+  border-radius: 14px;
+  border: 2px solid var(--cr-arcade-ink);
+  background: linear-gradient(to bottom, #1c3049, #111d2c);
+}
+.cr-game-card--me { border-color: var(--cr-arcade-gold); }
+
+/* ── Comic-Titel ───────────────────────────────────────────────────────
+   Die Kontur kommt aus acht gestapelten text-shadows rings um den Text statt aus
+   -webkit-text-stroke: Stroke überlappt mit der Füllung und erzeugt bei dieser Schrift
+   in engen Rundungen (R, y, g) ein "gestreiftes" Antialiasing-Artefakt — der Ring aus
+   text-shadows hat dieses Problem nicht und funktioniert überall gleich, auch in
+   Browsern ohne -webkit-text-stroke. */
+.cr-arcade-title {
+  font-weight: 700;
+  color: #fff;
+  text-shadow:
+    -2px -2px 0 var(--cr-arcade-ink),
+     2px -2px 0 var(--cr-arcade-ink),
+    -2px  2px 0 var(--cr-arcade-ink),
+     2px  2px 0 var(--cr-arcade-ink),
+    -2px  0    0 var(--cr-arcade-ink),
+     2px  0    0 var(--cr-arcade-ink),
+     0   -2px 0 var(--cr-arcade-ink),
+     0    2px 0 var(--cr-arcade-ink),
+     4px  4px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* ── Diamant-Hintergrund ──────────────────────────────────────────────
+   Das blaue Rauten-Karo aus dem Clash-Royale-Menü — ein Base64-Inline-SVG.
+   Kachel deckt die 140×140-Fläche komplett mit FÜNF Formen ab, keine davon eine
+   Kachel-weite Fläche: eine Raute (Ecken auf den Kantenmitten) plus vier Eck-Dreiecke —
+   macht zusammen exakt die Kachelfläche aus (4× 70×70/2 + 140×140/2 = 140×140), keine
+   Lücke, keine Überlappung.
+   DRITTER Anlauf, jetzt bewusst flach: die ersten beiden Fassungen gaben jeder Form
+   einen eigenen weichen Verlauf als Bevel — von weitem sah das Karo dadurch wie
+   Panzerglas aus, unruhiger als das Vorbild und in den Minigame-Fenstern regelrecht
+   grell hinter den Karten. Jetzt trägt jede Form nur noch eine Flachfarbe (zwei
+   abwechselnde Blautöne, schachbrettartig).
+   VIERTER Anlauf (nur der Strich): Fassung drei legte den Rand-Strich auf ALLE fünf
+   Formen (ein <g stroke=...> um alles) — die vier Eck-Dreiecke haben aber neben ihrer
+   schrägen Rautenkante auch zwei GERADE Kanten, die exakt auf dem 140×140-Kachelrand
+   liegen. Die wurden beim Wiederholen mitgezeichnet und ergaben ein durchgehendes
+   Quadratraster ÜBER dem Rautenmuster. Der Strich sitzt jetzt nur noch auf der
+   MITTEL-Raute — als einzige der fünf Formen hat sie ausschließlich schräge Kanten,
+   und jede davon ist zugleich exakt eine Kante der Raute, die erst zwischen vier
+   Kacheln entsteht. Ein Strich hier zeichnet also beide Rauten-Sorten sauber nach,
+   ohne dass je eine Kachelkante mitgemalt wird — „nur die Diamanten", keine Linien
+   dazwischen.
+   Wird auf den Hub-, Lobby- und (seit dem Minigame-Reskin) den ModeShell-Wurzel-
+   Container gelegt (überdeckt dort den seitenweiten .app-bg). Kachel-SVG liegt
+   zusätzlich als Datei unter src/assets/clashRoyale/diamond-tile.svg — bei Änderungen
+   dort UND hier neu base64-kodieren (Buffer.from(svgOhneKommentar).toString('base64')). */
+.cr-arcade-bg {
+  background-color: #154c82;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNDAiIGhlaWdodD0iMTQwIiB2aWV3Qm94PSIwIDAgMTQwIDE0MCI+PHBvbHlnb24gcG9pbnRzPSIwLDAgNzAsMCAwLDcwIiBmaWxsPSIjMTU0YzgyIi8+PHBvbHlnb24gcG9pbnRzPSIxNDAsMCAxNDAsNzAgNzAsMCIgZmlsbD0iIzE1NGM4MiIvPjxwb2x5Z29uIHBvaW50cz0iMTQwLDE0MCA3MCwxNDAgMTQwLDcwIiBmaWxsPSIjMTU0YzgyIi8+PHBvbHlnb24gcG9pbnRzPSIwLDE0MCAwLDcwIDcwLDE0MCIgZmlsbD0iIzE1NGM4MiIvPjxwb2x5Z29uIHBvaW50cz0iNzAsMCAxNDAsNzAgNzAsMTQwIDAsNzAiIGZpbGw9IiMxYzViOTYiIHN0cm9rZT0icmdiYSgwLDAsMCwwLjE2KSIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+");
+  background-repeat: repeat;
+  background-size: 140px 140px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-arcade-btn,
+  .cr-arcade-card { transition: none; }
+  .cr-arcade-card--hoverable:hover { transform: none; }
 }
 
 /* ===================================================================

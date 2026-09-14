@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ArrowUp, ArrowDown, Check, Crown, Lock, Shuffle } from 'lucide-react';
-import { RARITY_COLOR } from '../data/cards';
+import { Sparkles, ArrowUp, ArrowDown, Check, Lock, Shuffle } from 'lucide-react';
+import { RARITY_COLOR, cardImageUrl } from '../data/cards';
 import ModeShell from './ModeShell';
 import { WILDCARD_IMG, TOKEN_IMG } from '../data/wildcardTokenAssets';
 import { CARD_CROP } from './cardCrop';
 import { GameFooter, PlayerPanel } from './GameChrome';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
-const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
 const RARITY_ORDER = ['Common', 'Rare', 'Epic', 'Legendary', 'Champion'];
 const LOCK_COST = 3;
 const SABOTAGE_COST = 3;
@@ -56,6 +56,27 @@ const EVO_I18N = {
     phaseSabotage: 'Round 2 · Sabotage',
     phaseRound3: 'Round 3 · Pick cards',
   },
+  es: {
+    loading: 'Cargando Evolución de Cartas…',
+    finished: '¡Evolución completada!',
+    you: 'Tú',
+    upgrade: 'Mejorar',
+    downgrade: 'Degradar',
+    maxRarity: 'Nivel máximo alcanzado',
+    championLimit: 'Límite de campeones (2)',
+    poolEmpty: 'Pool vacío',
+    notEnoughTokens: 'No hay suficientes fichas',
+    chooseOne: 'Elige una de las dos cartas',
+    wildcardOf: (r) => `Comodín ${r}`,
+    lockCard: 'Bloquear carta',
+    locked: 'Bloqueada',
+    notEnoughTokensLock: 'No hay suficientes fichas para bloquear',
+    sabotageHint: 'Haz clic en una carta sin bloquear de un rival para rerollearla por 3 fichas.',
+    yourTokens: 'Tus fichas',
+    phaseRound1: 'Ronda 1 · Elegir cartas',
+    phaseSabotage: 'Ronda 2 · Sabotaje',
+    phaseRound3: 'Ronda 3 · Elegir cartas',
+  },
 };
 
 // Bewusst nur scale+opacity (kein 3D-Flip mehr) — leichtgewichtig und ruckelfrei, auch
@@ -93,10 +114,10 @@ function AvatarCircle({ id, color, size = 28 }) {
 
 function CardImg({ id, name }) {
   return (
-    // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
-    // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
-    <div className="relative w-full h-full">
-      <img src={`${CARD_CDN}${id}.png`} alt={name} className="w-full h-full object-cover"
+    // bg-[#0d0d14]: blickdichter Untergrund für Ladezeit/Fehlerfall — die Karte sitzt jetzt
+    // auf dem Diamant-Karo statt auf einer einfarbigen Fläche.
+    <div className="relative w-full h-full bg-[#0d0d14]">
+      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover"
         style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
   );
@@ -106,8 +127,11 @@ function SlotArt({ slot }) {
   if (slot.card) return <CardImg id={slot.card.id} name={slot.card.name} rarity={slot.card.rarity} />;
   const wc = WILDCARD_IMG[slot.rarity];
   return (
+    // Deutlich kräftigerer Rarity-Ton als vorher (18 statt aa in Hex-Alpha): leere Slots
+    // liegen jetzt auf dem Diamant-Karo (siehe GameChrome/GameSurface) statt auf einer
+    // einfarbigen Fläche — bei 9% Deckkraft hätte das Muster die Kachel dominiert.
     <div className="relative w-full h-full flex items-center justify-center"
-      style={{ background: (RARITY_COLOR[slot.rarity] || '#555') + '18' }}>
+      style={{ background: (RARITY_COLOR[slot.rarity] || '#555') + 'aa' }}>
       {wc && <img src={wc} alt={slot.rarity} className="w-full h-full object-contain p-1.5" />}
     </div>
   );
@@ -149,14 +173,14 @@ function OwnTokens({ count, t }) {
 function SpectatorPlayerRow({ player, flashing, t, interactive = false, canAct = false, onSlotClick }) {
   const champCount = player.slots.filter(s => s.card?.isChampion).length;
   return (
-    <div className="rounded-2xl bg-white/[0.02] p-4 space-y-3">
+    <div className="cr-game-card p-4 space-y-3">
       <div className="flex items-center gap-2.5 flex-wrap">
         <AvatarCircle id={player.avatar} color={player.color} size={28} />
         <span className="text-white font-semibold text-sm truncate">{player.name}</span>
         <div className="flex items-center gap-2.5 ml-auto shrink-0">
           <TokenBadge type="normal" count={player.tokens} />
           <span className="flex items-center gap-1 text-white/30 text-[11px]">
-            <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} /> {champCount}/2
+            <img src={crownIcon} alt="" width={14} height={12} className={champCount > 0 ? '' : 'opacity-15 grayscale'} /> {champCount}/2
           </span>
         </div>
       </div>
@@ -175,7 +199,7 @@ function SpectatorPlayerRow({ player, flashing, t, interactive = false, canAct =
               <div className={`w-full h-full ${isFlashing ? 'evo-pop' : ''}`}><SlotArt slot={slot} /></div>
               {slot.card?.isChampion && (
                 <span className="absolute top-1 right-1 bg-black/55 rounded-md p-1">
-                  <Crown size={10} className="text-amber-300" />
+                  <img src={crownIcon} alt="" width={13} height={11} />
                 </span>
               )}
               {slot.locked && (
@@ -233,7 +257,7 @@ function EvoSidebar({ players, myPlayerId, flashSlots, t }) {
               })}
             </div>
             <div className="flex items-center gap-1.5">
-              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <img src={crownIcon} alt="" width={14} height={12} className={champCount > 0 ? '' : 'opacity-15 grayscale'} />
               <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
           </PlayerPanel>
@@ -269,13 +293,22 @@ function CardStageUnit({ me, slot, slotIdx, poolCounts, champCount, disabled, al
   return (
     // Breite ist flexibel (basis-0 + grow): auf schmalen Fenstern schrumpfen alle acht Karten
     // gemeinsam, statt umzubrechen. Erst unter ~5,5rem pro Karte wird tatsächlich umgebrochen.
-    <div className="flex flex-col items-center gap-2 basis-0 grow min-w-[6rem] max-w-[10rem]">
+    // landscape: verkleinert nur die Mindestbreite — im Querformat (Handy/Tablet, aber unter
+    // lg noch nicht am Desktop) passen so eher alle 8 Karten in eine Reihe statt umzubrechen.
+    // Die Tasten bleiben durch min-h-10 an den Buttons trotzdem groß genug zum Antippen.
+    //
+    // Auf-/Ab-Knopf, Karte und Name lagen vorher als drei lose Teile übereinander — jetzt
+    // EIN gemeinsam umrandeter Rahmen für die ganze Spalte, wie eine Gerätekonsole statt
+    // dreier einzelner Aufkleber.
+    <div className="flex flex-col basis-0 grow min-w-[6rem] landscape:min-w-[4.5rem] lg:min-w-[6rem] max-w-[10rem]
+      rounded-2xl overflow-hidden shadow-[0_10px_28px_rgba(0,0,0,0.45)]"
+      style={{ border: '3px solid var(--cr-arcade-ink)' }}>
       <button disabled={disabled || isLocked || !!up.reason} onClick={() => onAction(slotIdx, 'up')}
         title={isLocked ? t.locked : (up.reason || `${t.upgrade} — ${up.cost}`)}
-        className={`flex items-center justify-center gap-1.5 w-full min-h-10 py-2 rounded-lg transition-colors ${
+        className={`flex items-center justify-center gap-1.5 w-full min-h-10 py-2 transition-colors ${
           disabled || isLocked || up.reason
-            ? 'bg-white/[0.03] text-white/20 cursor-not-allowed'
-            : 'bg-green-500/12 text-green-400 hover:bg-green-500/22 cursor-pointer'
+            ? 'bg-black/50 text-white/20 cursor-not-allowed'
+            : 'bg-green-600/40 text-green-300 hover:bg-green-600/55 cursor-pointer'
         }`}>
         <ArrowUp size={16} />
         <span className="text-xs font-bold">{up.cost || '—'}</span>
@@ -285,11 +318,11 @@ function CardStageUnit({ me, slot, slotIdx, poolCounts, champCount, disabled, al
         title={isLocked ? t.locked : !allowLock ? undefined : (canLock ? `${t.lockCard} — ${LOCK_COST}` : t.notEnoughTokensLock)}
         // "Gesperrt" bleibt am Gold erkennbar, jetzt als innerer Ring statt als
         // Rahmen — zusammen mit dem Schloss-Abzeichen unten links.
-        className={`relative w-full aspect-square rounded-2xl overflow-hidden shadow-[0_10px_28px_rgba(0,0,0,0.45)] ${isLocked ? 'ring-[3px] ring-inset ring-amber-400/70' : ''} ${canLock ? 'cursor-pointer' : 'cursor-default'}`}>
+        className={`relative w-full aspect-square ${isLocked ? 'ring-[3px] ring-inset ring-amber-400/70' : ''} ${canLock ? 'cursor-pointer' : 'cursor-default'}`}>
         <div className={`w-full h-full ${isFlashing ? 'evo-pop' : ''}`}><SlotArt slot={slot} /></div>
         {slot.card?.isChampion && (
-          <span className="absolute top-2 right-2 bg-black/55 backdrop-blur-sm rounded-lg p-1.5">
-            <Crown size={12} className="text-amber-300" />
+          <span className="absolute top-2 right-2 bg-black/55 backdrop-blur-sm rounded-lg p-1">
+            <img src={crownIcon} alt="" width={15} height={13} />
           </span>
         )}
         {isLocked ? (
@@ -302,16 +335,16 @@ function CardStageUnit({ me, slot, slotIdx, poolCounts, champCount, disabled, al
           </span>
         ) : null}
       </button>
-      <p className="text-white text-[13px] font-semibold text-center truncate w-full">
+      <p className="text-white text-[13px] font-semibold text-center truncate w-full px-2 py-1.5 bg-[#111d2c]">
         {slot.card ? slot.card.name : t.wildcardOf(slot.rarity)}
       </p>
 
       <button disabled={disabled || isLocked || !!down.reason} onClick={() => onAction(slotIdx, 'down')}
         title={isLocked ? t.locked : (down.reason || `${t.downgrade} — ${down.cost}`)}
-        className={`flex items-center justify-center gap-1.5 w-full min-h-10 py-2 rounded-lg transition-colors ${
+        className={`flex items-center justify-center gap-1.5 w-full min-h-10 py-2 transition-colors ${
           disabled || isLocked || down.reason
-            ? 'bg-white/[0.03] text-white/20 cursor-not-allowed'
-            : 'bg-red-500/12 text-red-400 hover:bg-red-500/22 cursor-pointer'
+            ? 'bg-black/50 text-white/20 cursor-not-allowed'
+            : 'bg-red-600/40 text-red-300 hover:bg-red-600/55 cursor-pointer'
         }`}>
         <ArrowDown size={16} />
         <span className="text-xs font-bold">{down.cost || '—'}</span>
@@ -379,13 +412,15 @@ function SabotageStage({ players, myTokens, onSabotage, flashSlots, t }) {
 function PendingChoiceModal({ pending, onChoose, t }) {
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#16161a] rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+      <div className="bg-[#16161a] rounded-2xl p-4 sm:p-6 max-w-lg w-full mx-4 shadow-2xl">
         <p className="text-amber-300 text-xs font-semibold uppercase tracking-widest text-center mb-5">{t.chooseOne}</p>
-        <div className="flex items-center justify-center gap-5">
+        {/* w-28/h-28 auf dem Handy, sonst reichen zwei w-36-Karten samt Zwischenraum auf
+            einem ~360px-Bildschirm nicht (328px Modal-Innenbreite gegen 308px Kartenbedarf). */}
+        <div className="flex items-center justify-center gap-3 sm:gap-5">
           {pending.candidates.map((c, i) => (
             <button key={i} onClick={() => onChoose(i)}
-              className="group w-36 rounded-2xl overflow-hidden shadow-[0_10px_28px_rgba(0,0,0,0.5)] relative">
-              <div className="w-36 h-36"><CardImg id={c.id} name={c.name} /></div>
+              className="group w-28 sm:w-36 rounded-2xl overflow-hidden shadow-[0_10px_28px_rgba(0,0,0,0.5)] relative">
+              <div className="w-28 h-28 sm:w-36 sm:h-36"><CardImg id={c.id} name={c.name} /></div>
               <p className="text-white text-[13px] font-semibold text-center py-2 px-1 truncate bg-black/40">{c.name}</p>
               <span className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
                 style={{ boxShadow: 'inset 0 0 0 2px #22d3ee' }} />
@@ -446,12 +481,14 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
   const phaseLabel = t[PHASE_LABEL_KEY[evoState.phase]] || '';
 
   return (
-    <div className="h-full flex flex-col overflow-hidden select-none bg-[#0b0b12]">
+    <div className="h-full flex flex-col overflow-hidden select-none cr-arcade-bg">
       <style>{EVO_STYLE}</style>
 
       {/* Kopfzeile: die Phase ist hier der Anker — sie bestimmt, was man tun darf.
           Der Kartenpool je Seltenheit steht als leise Zeile darunter. */}
-      <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-3 flex items-baseline gap-3 sm:gap-4 flex-wrap">
+      <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-3 flex items-baseline gap-3 sm:gap-4 flex-wrap
+        bg-gradient-to-b from-[#17293f] to-[#0c1725] border-b-[3px]"
+        style={{ borderColor: 'var(--cr-arcade-ink)' }}>
         <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none">
           {evoState.finished ? t.finished : phaseLabel}
         </h2>
@@ -467,8 +504,10 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
       </div>
 
       {/* Kartenpool: Seltenheitsfarbe als Punkt statt als Rahmen um jeden Wert —
-          acht umrandete Kästchen nebeneinander waren die unruhigste Stelle des Modus. */}
-      <div className="shrink-0 px-4 sm:px-10 pb-3 flex items-center gap-4 flex-wrap">
+          acht umrandete Kästchen nebeneinander waren die unruhigste Stelle des Modus.
+          Eigener blickdichter Untergrund: sitzt direkt unter der Kopfzeile auf dem
+          Diamant-Karo der Spielfläche. */}
+      <div className="shrink-0 px-4 sm:px-10 py-2.5 flex items-center gap-4 flex-wrap bg-[#111d2c]">
         <Sparkles size={13} className="text-cyan-400 shrink-0" />
         {RARITY_ORDER.map(r => (
           <span key={r} className="flex items-center gap-1.5 text-[11px] text-white/40">

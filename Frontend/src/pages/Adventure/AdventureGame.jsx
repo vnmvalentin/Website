@@ -1,7 +1,7 @@
 // src/pages/Adventures/AdventureGame.jsx
 import React, { useEffect, useRef, useState, useContext } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
-import GameEngine from "../../components/Adventure/AdventureEngine";
+import GameEngine from "./AdventureEngine";
 import ArenaMode from "./ArenaMode";
 import CoinIcon from "../../components/CoinIcon";
 import SEO from "../../components/SEO";

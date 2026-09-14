@@ -4,7 +4,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { socket, ensureSocketConnected } from "../../utils/socket";
-import ArenaEngine from "../../components/Adventure/ArenaEngine";
+import ArenaEngine from "./ArenaEngine";
 import { Trophy, LogOut, Skull, Swords } from "lucide-react";
 
 export default function ArenaMode({ skinFile, onExit }) {

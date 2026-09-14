@@ -55,7 +55,7 @@ export default function LiveRoleTab({ selectedServer, serverRoles }) {
 
     const RoleSelect = ({ value, onChange, placeholder }) => (
         <select value={value} onChange={e => onChange(e.target.value)}
-            className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
             <option value="">{placeholder}</option>
             {serverRoles.map(r => (
                 <option key={r.id} value={r.id}>@{r.name}</option>
@@ -70,7 +70,7 @@ export default function LiveRoleTab({ selectedServer, serverRoles }) {
                 <p className="text-white/50 text-sm">Mitglieder erhalten automatisch eine Rolle, wenn sie auf Twitch live gehen.</p>
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-5 max-w-2xl">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-5 max-w-2xl">
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Live-Rolle <span className="text-red-400">*</span></label>
                     <p className="text-white/40 text-xs mb-3">Diese Rolle wird vergeben, wenn jemand live geht.</p>
@@ -121,7 +121,7 @@ export default function LiveRoleTab({ selectedServer, serverRoles }) {
                 </div>
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-5 max-w-2xl">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 max-w-2xl">
                 <h3 className="text-white font-semibold text-sm mb-2">Hinweis</h3>
                 <ul className="text-white/50 text-sm space-y-1">
                     <li>• Mitglieder müssen ihren Twitch-Account mit Discord verbinden</li>

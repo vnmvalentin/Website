@@ -61,7 +61,7 @@ export default function SyncChatTab({ selectedServer, channels }) {
             </div>
 
             {taverne ? (
-                <div className="max-w-lg bg-black/20 border border-violet-500/20 rounded-lg p-6 space-y-4">
+                <div className="max-w-lg bg-[#0e0e1a]/75 border border-violet-500/20 rounded-lg p-6 space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
                             <Globe size={20} className="text-violet-400" />
@@ -83,13 +83,13 @@ export default function SyncChatTab({ selectedServer, channels }) {
                     </p>
                 </div>
             ) : (
-                <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-4 max-w-lg">
+                <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-lg">
                     <h3 className="text-white font-semibold flex items-center gap-2">
                         <Plus size={16} /> Taverne einrichten
                     </h3>
                     <div className="flex gap-3">
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
-                            className="flex-1 bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                            className="flex-1 bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                             <option value="">-- Kanal auswählen --</option>
                             {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                         </select>
@@ -102,7 +102,7 @@ export default function SyncChatTab({ selectedServer, channels }) {
                 </div>
             )}
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-5 max-w-lg space-y-2">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 max-w-lg space-y-2">
                 <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
                 <ul className="text-white/50 text-sm space-y-1">
                     <li>• Jeder Server hat genau einen Taverne-Kanal</li>

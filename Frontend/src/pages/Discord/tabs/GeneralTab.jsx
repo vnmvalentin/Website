@@ -8,12 +8,12 @@ export default function GeneralTab({ prefix, setPrefix, botNickname, setBotNickn
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Befehls-Prefix</label>
                     <input type="text" value={prefix} onChange={e => setPrefix(e.target.value)}
-                        className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
+                        className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
                 </div>
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Bot Nickname</label>
                     <input type="text" value={botNickname} onChange={e => setBotNickname(e.target.value)}
-                        className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+                        className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
                         placeholder="Leer = Standard" />
                 </div>
             </div>

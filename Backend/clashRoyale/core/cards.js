@@ -33,7 +33,7 @@ const ALL_CARDS = [
   { id: 'royal-giant',       name: 'Royal Giant',       rarity: 'Common',    isChampion: false },
   { id: 'elite-barbarians',  name: 'Elite Barbarians',  rarity: 'Common',    isChampion: false },
   { id: 'royal-recruits',    name: 'Royal Recruits',    rarity: 'Common',    isChampion: false },
-  // Rares (30)
+  // Rares (31)
   { id: 'heal-spirit',       name: 'Heal Spirit',       rarity: 'Rare',      isChampion: false },
   { id: 'ice-golem',         name: 'Ice Golem',         rarity: 'Rare',      isChampion: false },
   { id: 'suspicious-bush',   name: 'Suspicious Bush',   rarity: 'Rare',      isChampion: false },
@@ -52,6 +52,7 @@ const ALL_CARDS = [
   { id: 'bomb-tower',        name: 'Bomb Tower',        rarity: 'Rare',      isChampion: false },
   { id: 'hog-rider',         name: 'Hog Rider',         rarity: 'Rare',      isChampion: false },
   { id: 'flying-machine',    name: 'Flying Machine',    rarity: 'Rare',      isChampion: false },
+  { id: 'minion-giant',      name: 'Minion Giant',      rarity: 'Rare',      isChampion: false },
   { id: 'battle-healer',     name: 'Battle Healer',     rarity: 'Rare',      isChampion: false },
   { id: 'zappies',           name: 'Zappies',           rarity: 'Rare',      isChampion: false },
   { id: 'furnace',           name: 'Furnace',           rarity: 'Rare',      isChampion: false },
@@ -98,7 +99,7 @@ const ALL_CARDS = [
   { id: 'pekka',             name: 'P.E.K.K.A',         rarity: 'Epic',      isChampion: false },
   { id: 'electro-giant',     name: 'Electro Giant',     rarity: 'Epic',      isChampion: false },
   { id: 'golem',             name: 'Golem',             rarity: 'Epic',      isChampion: false },
-  // Legendaries (21)
+  // Legendaries (22)
   { id: 'the-log',           name: 'The Log',           rarity: 'Legendary', isChampion: false },
   { id: 'miner',             name: 'Miner',             rarity: 'Legendary', isChampion: false },
   { id: 'ice-wizard',        name: 'Ice Wizard',        rarity: 'Legendary', isChampion: false },
@@ -143,6 +144,7 @@ const ELIXIR_COST = {
   'barbarians': 5, 'minion-horde': 5, 'rascals': 5,
   'royal-giant': 6, 'elite-barbarians': 6, 'royal-recruits': 7,
   // Rares
+  'minion-giant': 4,
   'heal-spirit': 1, 'ice-golem': 2, 'suspicious-bush': 2,
   'mega-minion': 3, 'dart-goblin': 3, 'earthquake': 3, 'elixir-golem': 3, 'tombstone': 3,
   'musketeer': 4, 'mini-pekka': 4, 'goblin-hut': 4, 'goblin-cage': 4, 'fireball': 4, 'valkyrie': 4,
@@ -176,4 +178,13 @@ function getCardPool(lobby) {
   return ALL_CARDS.filter(c => !excluded.has(c.id));
 }
 
-module.exports = { ALL_CARDS, ELIXIR_COST, getElixirCost, getCardPool };
+// Offizieller Kartenname (aus der Clash-Royale-API, z.B. "Mini P.E.K.K.A" oder "X-Bow") ->
+// lokale Karten-ID. Verglichen wird über Kleinbuchstaben ohne Sonderzeichen, damit
+// Schreibweisen wie ".", "-" keinen Unterschied machen. Geteilter Baustein für alles, was
+// API-Kartennamen gegen ALL_CARDS auflösen muss (Win-Tracker-Deck-Erkennung, freigeschaltete
+// Karten pro Spieler — siehe fetchPlayerCards in lib/crApi.js).
+const normalizeCardName = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const CARD_ID_BY_NAME = new Map(ALL_CARDS.map(c => [normalizeCardName(c.name), c.id]));
+const cardIdByOfficialName = (name) => CARD_ID_BY_NAME.get(normalizeCardName(name)) || null;
+
+module.exports = { ALL_CARDS, ELIXIR_COST, getElixirCost, getCardPool, normalizeCardName, cardIdByOfficialName };

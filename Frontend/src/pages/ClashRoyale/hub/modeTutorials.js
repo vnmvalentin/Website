@@ -154,6 +154,41 @@ const TUTORIALS = {
       ],
       host: 'Das Zeitlimit ist einstellbar.',
     },
+
+    'trap-setter': {
+      goal: 'Tarne eine deiner Trap-Karten als etwas Attraktives — und sei beim Wettklick schneller als alle anderen.',
+      steps: [
+        'Du bekommst 3 private Trap-Karten — unterdurchschnittliche Karten, aber nicht sichtbar als "schlecht" markiert. Wähle eine davon und tarne sie mit einer von 4 gezogenen Kandidaten als attraktive Karte.',
+        'Alle Tarnungen landen zusammen mit echten Karten in einem gemeinsamen Raster.',
+        'Nach einem kurzen Countdown ist das Raster live: Klicke so schnell wie möglich auf ein Feld.',
+        'Klicken zwei Spieler dasselbe Feld, gewinnt der schnellere Klick das echte Feld.',
+        'Der Langsamere wird zufällig auf ein übrig gebliebenes Feld umgeleitet — das kann wieder eine fremde Falle sein.',
+        'Nach 8 Runden hat jeder acht Karten.',
+      ],
+      tips: [
+        'Du weißt, welches Feld deine eigene Falle ist — die kannst du gezielt meiden.',
+        'Eine auffällig gute Karte im Raster ist nicht unbedingt echt.',
+        'Bei der Umleitung zählt reiner Zufall — auch ein verlorenes Rennen kann noch gut ausgehen.',
+      ],
+      host: 'Zeit zum Verschleiern, Anzahl Fallen pro Spieler und Rastergröße sind einstellbar.',
+    },
+
+    'pyramid-draft': {
+      goal: 'Draftet reihum eine Kartenpyramide leer — nur die unterste Reihe liegt zu Beginn offen.',
+      steps: [
+        'Nur wer dran ist, kann eine offene, noch nicht vergebene Karte wählen.',
+        'Eine verdeckte Karte wird erst sichtbar, wenn BEIDE Karten direkt darunter vergeben sind.',
+        'Die Zugreihenfolge wechselt jede Runde, damit niemand dauerhaft zuerst dran ist.',
+        'Am Ende jeder Runde wird zusätzlich eine offene, noch niemandem gehörende Karte zufällig blockiert — sie zählt für die Freilegung, aber niemand kann sie mehr nehmen.',
+        'Nach acht Runden hat jeder Spieler acht Karten.',
+      ],
+      tips: [
+        'Die Pyramidengröße richtet sich automatisch nach der Spielerzahl — mehr Spieler, mehr Reihen.',
+        'Eine Karte in der Mitte freizulegen braucht oft zwei verschiedene Nachbar-Picks, nicht nur deinen eigenen.',
+        'Die Blockade am Rundenende ist Zufall — plane nicht darauf, dass eine bestimmte Karte als Nächstes offen liegt.',
+      ],
+      host: 'Die Bedenkzeit pro Zug ist einstellbar. Die Pyramidengröße wird automatisch berechnet.',
+    },
   },
 
   en: {
@@ -293,6 +328,215 @@ const TUTORIALS = {
       ],
       host: 'The time limit is configurable.',
     },
+
+    'trap-setter': {
+      goal: 'Disguise one of your trap cards as something attractive — then be faster than everyone else in the click race.',
+      steps: [
+        'You get 3 private trap cards — underperforming picks, but never shown labeled as "bad". Pick one and disguise it as something attractive, choosing from 4 drawn candidates.',
+        'All disguised traps land together with real cards in a shared grid.',
+        'After a short countdown the grid goes live: click a cell as fast as you can.',
+        'If two players click the same cell, the faster click wins the real card there.',
+        'The slower one gets redirected to a random leftover cell — which can be someone else\'s trap.',
+        'After 8 rounds everyone has eight cards.',
+      ],
+      tips: [
+        'You know which cell is your own trap, so you can avoid it on purpose.',
+        'A suspiciously good card on the grid is not necessarily real.',
+        'Redirection is pure luck — even losing a race can still work out.',
+      ],
+      host: 'Disguise time, traps per player and grid size are configurable.',
+    },
+
+    'pyramid-draft': {
+      goal: 'Draft a card pyramid empty in turn order — only the bottom row starts face up.',
+      steps: [
+        'Only the player whose turn it is can pick a face-up, unclaimed card.',
+        'A face-down card only turns face up once BOTH cards directly beneath it are gone.',
+        'The pick order rotates every round so nobody is always first.',
+        'At the end of each round, one more face-up, unclaimed card gets randomly blocked — it still counts for revealing cards above it, but nobody can take it anymore.',
+        'After eight rounds every player has eight cards.',
+      ],
+      tips: [
+        'The pyramid size scales automatically with player count — more players, more rows.',
+        'Revealing a card in the middle usually takes two different neighboring picks, not just your own.',
+        'The end-of-round block is random — don\'t plan around a specific card opening up next.',
+      ],
+      host: 'Time per turn is configurable. Pyramid size is calculated automatically.',
+    },
+  },
+
+  es: {
+    snake: {
+      goal: 'Construye un mazo de 8 cartas en ocho rondas — pero solo puedes moverte por la cuadrícula casilla por casilla.',
+      steps: [
+        'Los jugadores juegan por turnos. Quien tiene el turno ve una barra de tiempo límite arriba.',
+        'La primera elección es libre: puedes tomar cualquier casilla de la cuadrícula.',
+        'Después solo puedes tomar una casilla directamente adyacente a la última tomada — arriba, abajo, izquierda o derecha.',
+        'Si no queda ninguna casilla adyacente libre, la serpiente se reinicia y puedes volver a elegir libremente.',
+        'Tras ocho rondas todos tienen ocho cartas.',
+      ],
+      tips: [
+        'La elección anterior determina tus opciones. Es mejor una carta mediocre en un buen sitio que la mejor carta en una esquina.',
+        'Las casillas tomadas también bloquean a los rivales. Puedes empujar a alguien deliberadamente hacia una esquina vacía.',
+        'Las cartas campeón están limitadas a dos por mazo — después aparecen en gris.',
+      ],
+      host: 'El tamaño de la cuadrícula y el tiempo de reflexión por turno son configurables. Cuadrículas más grandes hacen el draft más relajado, las más pequeñas obligan antes a hacer concesiones.',
+    },
+
+    auction: {
+      goal: 'Gana las mejores cartas con un presupuesto fijo de elixir que debe alcanzar para toda la partida.',
+      steps: [
+        'Cada ronda se muestran varias cartas a la vez.',
+        'Fija tu puja y luego haz clic en la carta que quieres. Todos pujan a ciegas.',
+        'Cuando todos han pujado (o se acaba el tiempo) se resuelve: quien pujó más se lleva la carta.',
+        'Todas las cantidades se revelan — ves exactamente quién apostó cuánto.',
+        'Quien se queda sin nada recibe una carta por la que nadie pujó, o una carta de bonificación fuera del pool.',
+        'En la última ronda todo tu elixir restante se puja automáticamente — solo eliges la carta.',
+      ],
+      tips: [
+        'El elixir que sobra al final se pierde. Calcula al revés: ¿qué quieres poder permitirte todavía en las últimas rondas?',
+        'Las pujas reveladas valen dinero real. Quien acaba de gastar 40 no podrá competir en la siguiente ronda.',
+        'Pujar por una carta que todos quieren puede costar más que llevarse tranquilamente una carta ignorada por 1 de elixir.',
+        'Si la Madre Bruja está en juego, una ronda puede estar manipulada — no confíes ciegamente en lo que ves.',
+      ],
+      host: 'El elixir inicial, las cartas por ronda, el tiempo de puja, la visibilidad del elixir rival y la Madre Bruja son configurables.',
+    },
+
+    bingo: {
+      goal: 'Rellena tu cartón de bingo: cada casilla exige una propiedad de carta, y las líneas completas te dan power-ups.',
+      steps: [
+        'Todos reciben su propio cartón de bingo 4×4. Cada casilla indica una propiedad, por ejemplo "Legendaria" o "Coste: 5+".',
+        'Por turnos, cada jugador elige una de las cartas disponibles.',
+        'La carta debe colocarse en una casilla cuya propiedad cumpla.',
+        'Si no encaja en ninguna, puedes colocarla donde quieras — pero esa casilla queda bloqueada.',
+        'Una fila, columna o diagonal completa da fichas para la tienda de power-ups.',
+      ],
+      tips: [
+        'Guarda una carta que encaje en muchas casillas. Coloca de inmediato a las especialistas.',
+        'Bloquear no siempre es malo: una casilla sacrificada a propósito puede superar a una carta que no necesitas.',
+        'Vigila las líneas a las que solo les falta una casilla — merece la pena dejar pasar una buena carta por eso.',
+      ],
+      host: 'Las cartas por ronda y el tiempo de reflexión son configurables.',
+    },
+
+    'shadow-carousel': {
+      goal: 'Toma cartas de una mesa llena de cartas boca abajo — luego pasa a la mesa del siguiente jugador.',
+      steps: [
+        'Cada jugador se sienta en su propia mesa de cartas boca abajo.',
+        'Primero debes agotar tus revelados: dos en las primeras rondas, uno más adelante.',
+        'Solo después puedes tomar una carta — cualquiera de la mesa, incluso una boca abajo.',
+        'Al final de la ronda todas las mesas rotan un asiento. Lo que revelaste y dejaste, el siguiente jugador no puede verlo.',
+      ],
+      tips: [
+        'Revelar una buena carta y no tomarla se la regala al siguiente jugador — sin que sepa que es buena.',
+        'Tomar una carta boca abajo es un verdadero riesgo, pero al final de la ronda puede ser la única oportunidad de conseguir algo raro.',
+        'Recuerda qué había en las mesas que ya tuviste — el carrusel las trae de vuelta.',
+      ],
+      host: 'El tamaño de la mesa (8, 12 o 16 cartas) y el sistema de revelado son configurables.',
+    },
+
+    'elixir-rush': {
+      goal: 'Compra cartas del mercado antes que nadie más — el elixir se recarga en tiempo real.',
+      steps: [
+        'En el mercado hay varias cartas con coste de elixir.',
+        'Tu barra de elixir se llena continuamente sola.',
+        'Haz clic en una carta que puedas permitirte — es tuya al instante. El primer clic gana.',
+        'Las cartas compradas o caducadas se reponen; la oferta cambia constantemente.',
+        'Si tu barra está llena y no compras nada, el juego compra algo al azar por ti tras un momento.',
+      ],
+      tips: [
+        'Una barra llena significa tiempo de recarga desperdiciado. Comprar barato más a menudo es mejor que ahorrar para la carta cara.',
+        'Vigila el tiempo restante de las cartas: una a punto de caducar puede estar a salvo de otros compradores.',
+        'Para las cartas caras vale la pena esperar a que la barra esté casi llena — si no, alguien te la quitará antes.',
+      ],
+      host: 'El número de puestos de mercado, el tiempo de cambio de las cartas y la visibilidad del elixir y el temporizador son configurables.',
+    },
+
+    'card-evolution': {
+      goal: 'Empieza con marcadores de posición y súbelos a cartas reales con fichas — o sabotea a los demás.',
+      steps: [
+        'Todos empiezan con ocho marcadores de posición y un presupuesto de fichas.',
+        'La flecha arriba mejora una casilla, la flecha abajo la degrada. Ambas cuestan fichas y muestran dos candidatas para elegir.',
+        'Cada clic adicional en la misma casilla cuesta más.',
+        'Hacer clic en la propia carta la congela — después nadie puede cambiarla, ni siquiera tú.',
+        'En la ronda de sabotaje puedes rerollear las cartas sin bloquear de los demás.',
+      ],
+      tips: [
+        'Congelar es la única protección contra el sabotaje. Bloquea pronto lo que realmente te importa.',
+        'El pool de cartas es limitado — la barra de arriba muestra cuántas quedan de cada rareza.',
+        'Las fichas escasean. No alcanza para subir las ocho cartas a Legendaria.',
+      ],
+      host: 'El presupuesto inicial de fichas y la duración de las rondas de elección y sabotaje son configurables.',
+    },
+
+    'angel-royale': {
+      goal: 'Pesca ocho cartas de un río por el que van flotando — si dudas demasiado, se te asigna una.',
+      steps: [
+        'Las cartas flotan por el río de un lado a otro.',
+        'Haz clic en una carta para pescarla. Después tu caña necesita un momento antes de estar lista de nuevo.',
+        'Si esperas demasiado sin pescar, recibes automáticamente una carta aleatoria que esté flotando.',
+        'Algunas cartas cruzan la pantalla en ráfagas cortas — a esas hay que darles.',
+        'Terminas en cuanto tienes ocho cartas.',
+      ],
+      tips: [
+        'Todos pescan en el mismo río. Lo que dejas pasar, otro puede tomarlo.',
+        'El enfriamiento de la caña es el verdadero precio: una carta mediocre ahora puede costar más que esperar tres segundos.',
+        'El plazo hasta la pesca forzada sigue corriendo — la barra de abajo lo muestra.',
+      ],
+      host: 'Cuántas cartas aparecen por segundo, el enfriamiento de la caña y el plazo de la pesca forzada son configurables.',
+    },
+
+    'dark-maze': {
+      goal: 'Busca cofres en un laberinto oscuro — tu luz solo alcanza unos pocos pasos.',
+      steps: [
+        'Te mueves por un laberinto con las flechas (o deslizando el dedo).',
+        'Solo es visible una pequeña zona a tu alrededor.',
+        'Los cofres contienen cartas. Ponte sobre un cofre y recógelo.',
+        'Todos los jugadores recorren el mismo laberinto — un cofre abierto desaparece para los demás.',
+        'La partida termina cuando todos tienen ocho cartas o se acaba el tiempo.',
+      ],
+      tips: [
+        'Buscar sistemáticamente en una dirección es mejor que ir y venir sin rumbo.',
+        'Las luces de los demás jugadores revelan dónde ya se ha buscado.',
+        'El tiempo restante está arriba — quien tenga menos de ocho cartas al final se queda solo con lo que encontró.',
+      ],
+      host: 'El límite de tiempo es configurable.',
+    },
+
+    'trap-setter': {
+      goal: 'Disfraza una de tus cartas trampa como algo atractivo — y sé más rápido que todos los demás en la carrera de clics.',
+      steps: [
+        'Recibes 3 cartas trampa privadas — elecciones por debajo de la media, pero nunca marcadas como "malas". Elige una y disfrázala de algo atractivo, escogiendo entre 4 candidatas.',
+        'Todas las trampas disfrazadas acaban junto a cartas reales en una cuadrícula compartida.',
+        'Tras una breve cuenta atrás la cuadrícula se activa: haz clic en una casilla lo más rápido posible.',
+        'Si dos jugadores hacen clic en la misma casilla, el clic más rápido se lleva la carta real de ahí.',
+        'El más lento es redirigido al azar a una casilla sobrante — que puede ser la trampa de otro.',
+        'Tras 8 rondas todos tienen ocho cartas.',
+      ],
+      tips: [
+        'Sabes cuál es tu propia trampa, así que puedes evitarla a propósito.',
+        'Una carta sospechosamente buena en la cuadrícula no es necesariamente real.',
+        'La redirección es pura suerte — incluso perder una carrera puede acabar bien.',
+      ],
+      host: 'El tiempo para disfrazar, las trampas por jugador y el tamaño de la cuadrícula son configurables.',
+    },
+
+    'pyramid-draft': {
+      goal: 'Draftea una pirámide de cartas por turnos hasta vaciarla — solo la fila inferior empieza boca arriba.',
+      steps: [
+        'Solo el jugador en turno puede elegir una carta boca arriba sin dueño.',
+        'Una carta boca abajo solo se voltea cuando las DOS cartas justo debajo han sido tomadas.',
+        'El orden de turno rota cada ronda para que nadie vaya siempre primero.',
+        'Al final de cada ronda, una carta más boca arriba y sin dueño se bloquea al azar — sigue contando para revelar las cartas de encima, pero ya nadie puede tomarla.',
+        'Tras ocho rondas, cada jugador tiene ocho cartas.',
+      ],
+      tips: [
+        'El tamaño de la pirámide se ajusta automáticamente al número de jugadores — más jugadores, más filas.',
+        'Revelar una carta del centro suele necesitar dos elecciones vecinas distintas, no solo la tuya.',
+        'El bloqueo de fin de ronda es aleatorio — no planees contando con que se abra una carta concreta a continuación.',
+      ],
+      host: 'El tiempo por turno es configurable. El tamaño de la pirámide se calcula automáticamente.',
+    },
   },
 };
 
@@ -318,5 +562,13 @@ export const TUTORIAL_I18N = {
     host: 'What the host can configure',
     openLabel: (name) => `Open the ${name} guide`,
     howToPlay: 'How to play',
+  },
+  es: {
+    goal: 'Objetivo',
+    steps: 'Cómo funciona una ronda',
+    tips: 'Consejos',
+    host: 'Qué puede configurar el host',
+    openLabel: (name) => `Abrir la guía de ${name}`,
+    howToPlay: 'Cómo jugar',
   },
 };

@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { createSession, deleteSession, getMySessions, getThemes } from "../../utils/bingoApi";
-import { parseJoinKey } from "../../components/bingo/bingoUtils";
+import { parseJoinKey } from "./bingoUtils";
 import SEO from "../../components/SEO";
 
 export default function BingoPage() {

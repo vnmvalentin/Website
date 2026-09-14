@@ -10,6 +10,11 @@
 // Falls hier künftig neue Karten in ALL_CARDS ergänzt werden, bevor diese Liste nachgezogen
 // ist: buildDeckLink() unten erkennt fehlende IDs automatisch und liefert { ok: false }, statt
 // einen falschen Link zu erzeugen. Auffrischen einfach per selbem API-Call (Karten-Name → id).
+//
+// 'minion-giant' (Season 87, Sept. 2026, id 26000107) kam nachträglich dazu: zum Einbau der
+// Karte war die ID nirgends verifizierbar (weder offizielle API noch RoyaleAPI-Datenspiegel
+// kannten sie schon), kurz darauf aus einem echten Battlelog bestätigt (Spieler-Tag #2002G90JR
+// hatte die Karte bereits im Deck) statt geraten.
 export const CARD_DECK_ID = {
   'knight': 26000000,
   'archers': 26000001,
@@ -97,6 +102,7 @@ export const CARD_DECK_ID = {
   'berserker': 26000102,
   'boss-bandit': 26000103,
   'ronin': 26000106,
+  'minion-giant': 26000107,
   'cannon': 27000000,
   'goblin-hut': 27000001,
   'mortar': 27000002,

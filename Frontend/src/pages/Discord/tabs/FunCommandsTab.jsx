@@ -1,5 +1,5 @@
 import React from 'react';
-import { Grid3x3, Sparkles, Ruler, Heart, Coins, Eye, Brain, PersonStanding, Scale } from 'lucide-react';
+import { Grid3x3, Sparkles, Ruler, Heart, Coins, Eye, Brain, PersonStanding, Scale, BarChart3, Zap, MessageCircleQuestion } from 'lucide-react';
 
 const COMMANDS = [
     {
@@ -16,33 +16,33 @@ const COMMANDS = [
     },
     {
         icon: <Ruler size={28} />, name: 'pp', displayName: '/pp', tag: 'Spaß',
-        desc: 'Misst täglich den PP eines Nutzers. Jeder Nutzer bekommt eine zufällige Zahl pro Tag.',
+        desc: 'Misst den PP eines Nutzers.',
         usage: '/pp  |  !pp',
-        details: ['1–25 cm zufällig pro Tag', 'Gleicher Wert bei Wiederholung', 'Zeigt Nutzernamen in der Antwort'],
+        details: ['1–25 cm zufällig', 'Jedes Mal neu gewürfelt', 'Zeigt Nutzernamen in der Antwort'],
     },
     {
         icon: <Eye size={28} />, name: 'aussehen', displayName: '/aussehen', tag: 'Spaß',
-        desc: 'Bewertet täglich das Aussehen eines Nutzers. Jeder Nutzer bekommt eine zufällige Note pro Tag.',
+        desc: 'Bewertet das Aussehen eines Nutzers.',
         usage: '/aussehen',
-        details: ['1–10 zufällig pro Tag', 'Gleicher Wert bei Wiederholung', 'Zeigt Nutzernamen in der Antwort'],
+        details: ['1–10 zufällig', 'Jedes Mal neu gewürfelt', 'Zeigt Nutzernamen in der Antwort'],
     },
     {
         icon: <Brain size={28} />, name: 'iq', displayName: '/iq', tag: 'Spaß',
-        desc: 'Misst täglich den IQ eines Nutzers. Jeder Nutzer bekommt eine zufällige Zahl pro Tag.',
+        desc: 'Misst den IQ eines Nutzers.',
         usage: '/iq',
-        details: ['0–180 zufällig pro Tag', 'Gleicher Wert bei Wiederholung', 'Zeigt Nutzernamen in der Antwort'],
+        details: ['40–180 zufällig', 'Jedes Mal neu gewürfelt', 'Zeigt Nutzernamen in der Antwort'],
     },
     {
         icon: <PersonStanding size={28} />, name: 'größe', displayName: '/größe', tag: 'Spaß',
         desc: 'Misst die Größe eines Nutzers in cm.',
         usage: '/größe  |  !größe',
-        details: ['0–200 cm zufällig', 'Jedes Mal neu gewürfelt'],
+        details: ['120–220 cm zufällig', 'Jedes Mal neu gewürfelt'],
     },
     {
         icon: <Scale size={28} />, name: 'gewicht', displayName: '/gewicht', tag: 'Spaß',
         desc: 'Misst das Gewicht eines Nutzers in kg.',
         usage: '/gewicht  |  !gewicht',
-        details: ['0–200 kg zufällig', 'Jedes Mal neu gewürfelt'],
+        details: ['30–200 kg zufällig', 'Jedes Mal neu gewürfelt'],
     },
     {
         icon: <Heart size={28} />, name: 'ship', displayName: '/ship', tag: 'Spaß',
@@ -55,6 +55,24 @@ const COMMANDS = [
         desc: 'Wirf eine Münze — Kopf oder Zahl?',
         usage: '/coinflip  |  !coinflip',
         details: ['50/50 Chance', 'Kopf oder Zahl'],
+    },
+    {
+        icon: <BarChart3 size={28} />, name: 'allstats', displayName: '/allstats', tag: 'Spaß',
+        desc: 'Zeigt IQ, Größe, Gewicht, PP und Aussehen eines Nutzers gesammelt untereinander an.',
+        usage: '/allstats  |  !allstats',
+        details: ['Fasst alle 5 Fun-Stats in einer Antwort zusammen', 'Nutzt dieselben Zufallsbereiche wie die Einzel-Commands'],
+    },
+    {
+        icon: <Zap size={28} />, name: 'superkraft', displayName: '/superkraft', tag: '18+',
+        desc: 'Verleiht eine zufällige Superkraft — meistens komplett nutzlos, selten richtig gut. Enthält auch derbere Sprüche.',
+        usage: '/superkraft  |  !superkraft',
+        details: ['190 mögliche Superkräfte', 'Überwiegend nutzlos/witzig, ein kleinerer Teil wirklich stark', 'Teilweise deftiger Humor (18+)'],
+    },
+    {
+        icon: <MessageCircleQuestion size={28} />, name: 'ausrede', displayName: '/ausrede', tag: '18+',
+        desc: 'Liefert eine zufällige Ausrede für jede Gelegenheit. Enthält auch derbere Sprüche.',
+        usage: '/ausrede  |  !ausrede',
+        details: ['179 mögliche Ausreden', 'Meist absurd, ein Teil deftiger Humor (18+)'],
     },
 ];
 
@@ -85,12 +103,12 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                 <p className="text-white/50 text-sm">Slash Commands und Prefix-Commands für alle Mitglieder. Optional auf einen Kanal beschränken.</p>
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-4 max-w-lg">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-lg">
                 <h3 className="text-white font-semibold flex items-center gap-2">⚙️ Kanal-Einschränkung</h3>
                 <div>
                     <label className="block text-white text-sm font-medium mb-2">Fun Commands Kanal</label>
                     <select value={funChannel} onChange={e => setFunChannel(e.target.value)}
-                        className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                        className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                         <option value="">-- Überall erlaubt --</option>
                         {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                     </select>
@@ -115,7 +133,7 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                     {COMMANDS.map(cmd => {
                         const enabled = isEnabled(cmd.name);
                         return (
-                            <div key={cmd.name} className={`bg-black/20 border rounded-lg p-5 flex flex-col gap-3 transition-colors ${
+                            <div key={cmd.name} className={`bg-[#0e0e1a]/75 border rounded-lg p-5 flex flex-col gap-3 transition-colors ${
                                 enabled ? 'border-white/5 hover:border-violet-500/20' : 'border-white/5 opacity-60'
                             }`}>
                                 <div className="flex items-center gap-3">
@@ -127,7 +145,7 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                                     <Toggle enabled={enabled} onToggle={() => toggleCommand(cmd.name)} />
                                 </div>
                                 <p className="text-white/50 text-sm flex-1">{cmd.desc}</p>
-                                <div className="bg-black/30 rounded-lg p-3 font-mono text-xs text-violet-400 leading-relaxed">{cmd.usage}</div>
+                                <div className="bg-[#0e0e1a]/85 rounded-lg p-3 font-mono text-xs text-violet-400 leading-relaxed">{cmd.usage}</div>
                                 <ul className="text-white/40 text-xs space-y-1">
                                     {cmd.details.map((d, i) => <li key={i}>• {d}</li>)}
                                 </ul>

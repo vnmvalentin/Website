@@ -196,7 +196,7 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                 <p className="text-white/50 text-sm">Sende automatisch eine Nachricht wenn ein Twitch-Kanal live geht.</p>
             </div>
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-4 max-w-2xl">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-2xl">
                 <h3 className="text-white font-semibold flex items-center gap-2">
                     {editingId ? '✏️ Bearbeiten' : '➕ Neue Benachrichtigung'}
                 </h3>
@@ -205,12 +205,12 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                         <label className="block text-white text-sm font-medium mb-2">Twitch Nutzername</label>
                         <input value={twitchUsername} onChange={e => setTwitchUsername(e.target.value)}
                             placeholder="z.B. shroud"
-                            className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
+                            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
                     </div>
                     <div>
                         <label className="block text-white text-sm font-medium mb-2">Discord Kanal</label>
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
-                            className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                             <option value="">-- Kanal auswählen --</option>
                             {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                         </select>
@@ -223,9 +223,9 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                         onClick={e => updateMentionState(e.target.value, e.target.selectionStart)}
                         onBlur={() => setMentionOpen(false)}
                         rows={3}
-                        className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none resize-none font-mono text-sm" />
+                        className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none resize-none font-mono text-sm" />
                     {mentionOpen && (
-                        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-black/40 border border-white/10 rounded-lg shadow-2xl max-h-48 overflow-y-auto">
+                        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-[#0e0e1a]/90 border border-white/10 rounded-lg shadow-2xl max-h-48 overflow-y-auto">
                             {mentionMatches.length > 0 ? mentionMatches.map((r, i) => (
                                 <div key={r.id}
                                     onMouseDown={e => { e.preventDefault(); insertRoleMention(r); }}
@@ -241,7 +241,7 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                     <div className="flex flex-wrap gap-2 mt-2">
                         {VARIABLES.map(v => (
                             <button key={v} onClick={() => setMessageTemplate(prev => prev + v)}
-                                className="text-xs bg-black/30 border border-white/10 hover:border-violet-500/40 text-violet-400 px-2 py-1 rounded-lg transition-colors font-mono">
+                                className="text-xs bg-[#0e0e1a]/85 border border-white/10 hover:border-violet-500/40 text-violet-400 px-2 py-1 rounded-lg transition-colors font-mono">
                                 {v}
                             </button>
                         ))}
@@ -267,7 +267,7 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                 <div className="max-w-2xl space-y-3">
                     <h3 className="text-white font-semibold text-lg">Aktive Benachrichtigungen</h3>
                     {notifs.map(n => (
-                        <div key={n.id} className="bg-black/20 border border-white/5 rounded-lg p-4 flex items-start gap-4">
+                        <div key={n.id} className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-4 flex items-start gap-4">
                             <div className="text-2xl shrink-0">📺</div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-1">
@@ -292,7 +292,7 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                 </div>
             )}
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-5 max-w-2xl">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 max-w-2xl">
                 <h3 className="text-white font-semibold text-sm mb-2">ℹ️ Hinweis</h3>
                 <ul className="text-white/50 text-sm space-y-1">
                     <li>• Der Bot prüft alle 2 Minuten ob neue Streams live sind</li>

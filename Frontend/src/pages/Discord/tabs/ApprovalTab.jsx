@@ -159,7 +159,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
 
                 <div className="space-y-6 max-w-2xl">
                     {/* ① Allgemein */}
-                    <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-4">
+                    <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-4">
                         <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">① Allgemein</h3>
                         <div>
                             <label className="block text-white text-sm font-medium mb-2">Interner Name (nur im Dashboard)</label>
@@ -168,7 +168,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 value={form.title}
                                 onChange={e => setField('title', e.target.value)}
                                 placeholder="z.B. Mitglieder-Bewerbung"
-                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+                                className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
                             />
                         </div>
                         <div>
@@ -177,7 +177,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 value={form.channelId}
                                 onChange={e => setField('channelId', e.target.value)}
                                 disabled={!!editingId}
-                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none disabled:opacity-50"
+                                className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none disabled:opacity-50"
                             >
                                 <option value="">-- Kanal wählen --</option>
                                 {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
@@ -187,7 +187,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                     </div>
 
                     {/* ② Embed Inhalt */}
-                    <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-4">
+                    <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-4">
                         <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">② Embed Inhalt</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -197,12 +197,12 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                     value={form.embedTitle}
                                     onChange={e => setField('embedTitle', e.target.value)}
                                     placeholder="📩 Mitgliedschaft beantragen"
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
                                 />
                             </div>
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Embed Farbe</label>
-                                <div className="flex gap-2 items-center bg-black/30 border border-white/10 rounded-lg p-1.5 pr-4">
+                                <div className="flex gap-2 items-center bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-1.5 pr-4">
                                     <input
                                         type="color"
                                         value={form.embedColor}
@@ -221,12 +221,12 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                     onChange={e => setField('embedText', e.target.value)}
                                     rows="4"
                                     placeholder="Beschreibe hier wie der Bewerbungsprozess abläuft..."
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg p-4 pr-12 text-white focus:border-violet-500 outline-none resize-y"
+                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-4 pr-12 text-white focus:border-violet-500 outline-none resize-y"
                                 />
                                 {serverEmojis.length > 0 && (
                                     <button
                                         onClick={() => setShowEmbedEmojiPicker(v => !v)}
-                                        className="absolute right-3 top-3 p-2 text-white/50 hover:text-violet-400 bg-black/20 rounded-lg border border-white/5 transition-colors"
+                                        className="absolute right-3 top-3 p-2 text-white/50 hover:text-violet-400 bg-[#0e0e1a]/75 rounded-lg border border-white/5 transition-colors"
                                         title="Server Emoji einfügen"
                                         type="button"
                                     >
@@ -234,7 +234,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                     </button>
                                 )}
                                 {showEmbedEmojiPicker && (
-                                    <div className="absolute right-0 top-14 w-64 bg-black/30 border border-white/10 rounded-lg p-3 z-50">
+                                    <div className="absolute right-0 top-14 w-64 bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 z-50">
                                         <div className="text-xs text-white/50 mb-2 font-medium">Server Emoji einfügen</div>
                                         <div
                                             className="grid grid-cols-5 gap-1.5 max-h-48 overflow-y-auto pr-1"
@@ -259,7 +259,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                     </div>
 
                     {/* ③ Genehmiger */}
-                    <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-4">
+                    <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-4">
                         <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">③ Genehmiger</h3>
                         <p className="text-white/50 text-xs">Diese Mitglieder erhalten Zugriff auf den privaten Thread und können genehmigen/ablehnen.</p>
 
@@ -294,7 +294,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                     onChange={e => { setMemberSearch(e.target.value); setShowMemberDropdown(true); }}
                                     onFocus={() => setShowMemberDropdown(true)}
                                     placeholder="Mitglied suchen..."
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-9 pr-4 text-white focus:border-violet-500 outline-none"
+                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg py-3 pl-9 pr-4 text-white focus:border-violet-500 outline-none"
                                 />
                                 {memberSearch && (
                                     <button
@@ -306,7 +306,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                             </div>
 
                             {showMemberDropdown && (
-                                <div className="absolute z-50 w-full mt-1 bg-black/30 border border-white/10 rounded-lg overflow-hidden">
+                                <div className="absolute z-50 w-full mt-1 bg-[#0e0e1a]/85 border border-white/10 rounded-lg overflow-hidden">
                                     {filteredMembers.length === 0 ? (
                                         <div className="px-4 py-3 text-white/40 text-sm text-center">
                                             {memberSearch ? `Kein Mitglied gefunden für "${memberSearch}"` : 'Alle Mitglieder bereits ausgewählt'}
@@ -344,7 +344,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                     </div>
 
                     {/* ④ Freischaltung */}
-                    <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-4">
+                    <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-4">
                         <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">④ Freischaltung bei Genehmigung</h3>
                         <div>
                             <label className="block text-white text-sm font-medium mb-2">Art der Freischaltung</label>
@@ -357,7 +357,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                         className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors border ${
                                             form.accessType === val
                                                 ? 'bg-violet-500/20 border-violet-500/50 text-violet-400'
-                                                : 'bg-black/30 border-white/10 text-white/50 hover:border-white/20'
+                                                : 'bg-[#0e0e1a]/85 border-white/10 text-white/50 hover:border-white/20'
                                         }`}
                                     >
                                         {label}
@@ -372,7 +372,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                             <select
                                 value={form.accessId}
                                 onChange={e => setField('accessId', e.target.value)}
-                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none"
+                                className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none"
                             >
                                 <option value="">-- {form.accessType === 'role' ? 'Rolle' : 'Kanal'} wählen --</option>
                                 {form.accessType === 'role'
@@ -389,7 +389,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 max="8760"
                                 value={form.cooldownHours}
                                 onChange={e => setField('cooldownHours', parseInt(e.target.value) || 0)}
-                                className="w-32 bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+                                className="w-32 bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
                             />
                             <p className="text-white/40 text-xs mt-1">
                                 {form.cooldownHours === 0
@@ -458,7 +458,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                         return (
                             <div
                                 key={cfg.id}
-                                className="bg-black/20 border-l-4 rounded-lg p-5 relative group transition-colors"
+                                className="bg-[#0e0e1a]/75 border-l-4 rounded-lg p-5 relative group transition-colors"
                                 style={{ borderLeftColor: cfg.embedColor || '#06b6d4' }}
                             >
                                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -504,7 +504,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                 </div>
             )}
 
-            <div className="bg-black/20 border border-white/5 rounded-lg p-5 space-y-2">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-2">
                 <h3 className="text-white font-semibold text-sm">ℹ️ Ablauf</h3>
                 <ol className="text-white/50 text-sm space-y-1 list-decimal list-inside">
                     <li>Nutzer klickt auf "📩 Anfragen" im Embed</li>

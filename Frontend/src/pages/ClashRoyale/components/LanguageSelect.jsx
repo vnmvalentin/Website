@@ -27,9 +27,19 @@ function FlagGB({ size = 18 }) {
   );
 }
 
+function FlagES({ size = 18 }) {
+  return (
+    <svg viewBox="0 0 60 30" width={size} height={size * 0.6} className="rounded-[2px] shrink-0" aria-hidden="true">
+      <rect width="60" height="30" fill="#AA151B" />
+      <rect y="7.5" width="60" height="15" fill="#F1BF00" />
+    </svg>
+  );
+}
+
 const LANGUAGES = [
   { id: 'de', label: 'Deutsch', Flag: FlagDE },
   { id: 'en', label: 'English', Flag: FlagGB },
+  { id: 'es', label: 'Español', Flag: FlagES },
 ];
 
 export default function LanguageSelect({ lang, onChange, className = '' }) {
@@ -50,34 +60,44 @@ export default function LanguageSelect({ lang, onChange, className = '' }) {
 
   const current = LANGUAGES.find(l => l.id === lang) || LANGUAGES[0];
   const CurrentFlag = current.Flag;
-  const label = lang === 'de' ? 'Sprache wählen' : 'Choose language';
+  const label = lang === 'de' ? 'Sprache wählen' : lang === 'es' ? 'Elegir idioma' : 'Choose language';
 
   return (
     <div ref={ref} className={`relative ${className}`}>
+      {/* Gleicher solider Arcade-Chip wie der Profil-Knopf daneben/darüber — vorher ein
+          fast unsichtbarer bg-white/5-Knopf, dadurch kaum als eigenes Bedienelement zu
+          erkennen. Zeigt jetzt zusätzlich den Sprachcode als Text, nicht nur die Flagge. */}
       <button
         onClick={() => setOpen(v => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={label}
         title={label}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white transition-colors">
-        <CurrentFlag />
-        <ChevronDown size={12} className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+        className="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl bg-[#17293f] hover:bg-[#1d3348] border-2 transition-colors font-arcade font-semibold text-sm text-white"
+        style={{ borderColor: 'var(--cr-arcade-ink)', boxShadow: '0 3px 0 rgba(0,0,0,0.35)' }}>
+        <CurrentFlag size={20} />
+        <span className="uppercase">{current.id}</span>
+        <ChevronDown size={13} className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div role="listbox" className="absolute right-0 top-full mt-1.5 z-50 min-w-[9.5rem] panel-strong overflow-hidden py-1">
+        // .cr-arcade-panel setzt selbst position:relative (ungeschichtetes CSS schlägt
+        // Tailwinds @layer-utilities-.absolute unabhängig von der Reihenfolge im
+        // Stylesheet) — genau das ließ die Liste bisher den Fluss verschieben statt zu
+        // schweben. style gewinnt gegen jede Klasse, deshalb hier explizit erzwungen.
+        <div role="listbox" className="cr-arcade-panel absolute right-0 top-full mt-2 z-50 min-w-[10rem] overflow-hidden py-1.5"
+          style={{ position: 'absolute' }}>
           {LANGUAGES.map(l => {
             const Flag = l.Flag;
             const active = l.id === lang;
             return (
               <button key={l.id} role="option" aria-selected={active}
                 onClick={() => { onChange(l.id); setOpen(false); }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                  active ? 'bg-white/[0.06] text-white font-semibold' : 'text-white/60 hover:bg-white/[0.04] hover:text-white'
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-arcade transition-colors ${
+                  active ? 'bg-white/[0.08] text-white font-semibold' : 'text-white/60 hover:bg-white/[0.05] hover:text-white'
                 }`}>
                 <Flag />
                 <span className="flex-1 text-left">{l.label}</span>
-                {active && <Check size={13} className="text-violet-400 shrink-0" />}
+                {active && <Check size={14} className="text-violet-400 shrink-0" />}
               </button>
             );
           })}

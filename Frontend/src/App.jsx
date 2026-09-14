@@ -3,54 +3,73 @@ import { Component, lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./pages/Layout";
 import Home from "./pages/Home";
-import Abstimmung from "./pages/Abstimmung/Abstimmung";
-import AbstimmungDetail from "./pages/Abstimmung/AbstimmungDetail";
-import AuthTwitch from "./pages/AuthTwitch";
-import WinChallenge from "./pages/WinChallenge/WinChallenge";
-import WinChallengeOverlay from "./pages/WinChallenge/WinChallengeOverlay";
-import WinChallengeControl from "./pages/WinChallenge/WinChallengeControl";
-import GiveawaysPage from "./pages/GiveawaysPage";
-import BingoPage from "./pages/Bingo/BingoPage";
-import BingoEditorPage from "./pages/Bingo/BingoEditorPage";
-import BingoJoinPage from "./pages/Bingo/BingoJoinPage";
-import BingoOverlayPage from "./pages/Bingo/BingoOverlayPage";
-import AdminDashboard from "./pages/AdminDashboard";
-import YTMBotPage from "./pages/YTM/YTMBotPage";
-import TwitchAuthProvider from "./components/TwitchAuthProvider";
-import Updates from "./pages/Updates";
-import StreamCredits from "./pages/StreamCredits";
-import DiscordBotPrivacyPage from "./pages/Discord/DiscordBotPrivacyPage";
-import DiscordBotTermsPage from "./pages/Discord/DiscordBotTermsPage";
-import BannedCardsOverlayPage from "./pages/ClashRoyale/BannedCards/BannedCardsOverlayPage";
-import DeckOverlayPage from "./pages/ClashRoyale/streamer/DeckOverlayPage";
-import NuzlockePage from "./pages/ClashRoyale/Nuzlocke/NuzlockePage";
-import WinTrackerPage from "./pages/ClashRoyale/WinTracker/WinTrackerPage";
-import WinTrackerOverlayPage from "./pages/ClashRoyale/WinTracker/WinTrackerOverlayPage";
-import PollsPredictionsPage from "./pages/StreamTool/PollsPredictionsPage";
-import PollsPredictionsOverlay from "./pages/StreamTool/PollsPredictionsOverlay";
-import CategoryPage from "./pages/CategoryPage";
 import NotFound from "./pages/NotFound";
-import Profile from "./pages/Profile";
-import Connect4Page from "./pages/Connect4/Connect4Page";
-import Connect4Room from "./pages/Connect4/Connect4Room";
-import BlobbyPage from "./pages/Blobby/BlobbyPage";
-import BlobbyRoom from "./pages/Blobby/BlobbyRoom";
+import TwitchAuthProvider from "./components/TwitchAuthProvider";
 
 // ── Nachgeladene Routen ─────────────────────────────────────────────────────
-// Diese vier sind die Schwergewichte der Anwendung. Als statische Importe landeten
-// sie im selben Chunk wie die Startseite — wer nur die Startseite öffnete, lud und
-// PARSTE also auch das Garden-Game, die Adventure-Engine, alle Clash-Royale-Modi und
-// das Discord-Dashboard. Das Parsen blockiert den Main-Thread, deshalb reagierte die
-// Seite anfangs verzögert. Mit lazy() holt der Browser den Code erst, wenn die Route
-// wirklich aufgerufen wird.
+// Eager importiert bleibt nur, was auf JEDER Seite gebraucht wird (Layout, die
+// Startseite selbst, TwitchAuthProvider als Context-Provider um den ganzen Baum,
+// NotFound für eine sofort da stehende 404). Alles andere war früher ein
+// statischer Import und landete dadurch im selben Chunk wie die Startseite — wer
+// nur die Startseite öffnete, lud und PARSTE auch das Garden-Game, die Adventure-
+// Engine, jede Clash-Royale-Unterseite, jedes Bingo/WinChallenge/Connect4/Blobby-
+// Overlay usw. mit. Das Parsen blockiert den Main-Thread, deshalb reagierte die
+// Seite anfangs verzögert (Haupt-Chunk lag bei ~900 KB). Mit lazy() holt der
+// Browser den Code erst, wenn die jeweilige Route wirklich aufgerufen wird.
 //
-// ACHTUNG bei Änderungen: /clash-royale und /discord-bot werden von prerender.js
-// vorgerendert. Das Skript wartet darauf, dass der Suspense-Fallback verschwindet
-// (data-page-fallback), und bricht den Build ab, wenn er es doch ins HTML schafft.
+// ACHTUNG bei Änderungen: mehrere Routen hier werden von prerender.js vorgerendert
+// (siehe dortige routesToPrerender-Liste — u.a. /clash-royale, /discord-bot,
+// /Bingo, /nuzlocke, /clash-royale/win-tracker, /twitch-tools, /tutorial/ytm-bot,
+// /WinChallenge-Overlay). Das Skript wartet dafür generisch darauf, dass der
+// Suspense-Fallback verschwindet (data-page-fallback), und bricht den Build ab,
+// wenn er es doch ins HTML schafft — das gilt unabhängig davon, welche der
+// Routen hier lazy sind, trotzdem beim Umbenennen/Verschieben einer der oben
+// gelisteten Routen an prerender.js denken.
 const GameContainer = lazy(() => import("./pages/GardenGame/GameContainer"));
 const AdventureGame = lazy(() => import("./pages/Adventure/AdventureGame"));
 const ClashRoyalePage = lazy(() => import("./pages/ClashRoyale/ClashRoyalePage"));
 const DiscordBotDashboard = lazy(() => import("./pages/Discord/DiscordBotDashboard"));
+
+const Abstimmung = lazy(() => import("./pages/Abstimmung/Abstimmung"));
+const AbstimmungDetail = lazy(() => import("./pages/Abstimmung/AbstimmungDetail"));
+const AuthTwitch = lazy(() => import("./pages/AuthTwitch"));
+const WinChallenge = lazy(() => import("./pages/WinChallenge/WinChallenge"));
+const WinChallengeOverlay = lazy(() => import("./pages/WinChallenge/WinChallengeOverlay"));
+const WinChallengeControl = lazy(() => import("./pages/WinChallenge/WinChallengeControl"));
+const GiveawaysPage = lazy(() => import("./pages/GiveawaysPage"));
+const BingoPage = lazy(() => import("./pages/Bingo/BingoPage"));
+const BingoEditorPage = lazy(() => import("./pages/Bingo/BingoEditorPage"));
+const BingoJoinPage = lazy(() => import("./pages/Bingo/BingoJoinPage"));
+const BingoOverlayPage = lazy(() => import("./pages/Bingo/BingoOverlayPage"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const YTMBotPage = lazy(() => import("./pages/YTM/YTMBotPage"));
+const Updates = lazy(() => import("./pages/Updates"));
+const StreamCredits = lazy(() => import("./pages/StreamCredits"));
+const DiscordBotPrivacyPage = lazy(() => import("./pages/Discord/DiscordBotPrivacyPage"));
+const DiscordBotTermsPage = lazy(() => import("./pages/Discord/DiscordBotTermsPage"));
+const BannedCardsOverlayPage = lazy(() => import("./pages/ClashRoyale/BannedCards/BannedCardsOverlayPage"));
+const DeckOverlayPage = lazy(() => import("./pages/ClashRoyale/streamer/DeckOverlayPage"));
+const LobbyDeckOverlayPage = lazy(() => import("./pages/ClashRoyale/streamer/LobbyDeckOverlayPage"));
+const NuzlockePage = lazy(() => import("./pages/ClashRoyale/Nuzlocke/NuzlockePage"));
+const WinTrackerPage = lazy(() => import("./pages/ClashRoyale/WinTracker/WinTrackerPage"));
+const WinTrackerOverlayPage = lazy(() => import("./pages/ClashRoyale/WinTracker/WinTrackerOverlayPage"));
+const PollsPredictionsPage = lazy(() => import("./pages/StreamTool/PollsPredictionsPage"));
+const PollsPredictionsOverlay = lazy(() => import("./pages/StreamTool/PollsPredictionsOverlay"));
+const CategoryPage = lazy(() => import("./pages/CategoryPage"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Connect4Page = lazy(() => import("./pages/Connect4/Connect4Page"));
+const Connect4Room = lazy(() => import("./pages/Connect4/Connect4Room"));
+const BlobbyPage = lazy(() => import("./pages/Blobby/BlobbyPage"));
+const BlobbyRoom = lazy(() => import("./pages/Blobby/BlobbyRoom"));
+const DleHubPage = lazy(() => import("./pages/Dle/DleHubPage"));
+const TempdlePage = lazy(() => import("./pages/Dle/Tempdle/TempdlePage"));
+const VelocidlePage = lazy(() => import("./pages/Dle/Velocidle/VelocidlePage"));
+const ProbabildlePage = lazy(() => import("./pages/Dle/Probabildle/ProbabildlePage"));
+const DuratidlePage = lazy(() => import("./pages/Dle/Duratidle/DuratidlePage"));
+const InventiondlePage = lazy(() => import("./pages/Dle/Inventiondle/InventiondlePage"));
+const PricedlePage = lazy(() => import("./pages/Dle/Pricedle/PricedlePage"));
+const BalancdlePage = lazy(() => import("./pages/Dle/Balancdle/BalancdlePage"));
+const CrColorMatchPage = lazy(() => import("./pages/Dle/CrColorMatch/CrColorMatchPage"));
 
 // Der Marker data-page-fallback ist die Schnittstelle zu prerender.js — nicht umbenennen.
 function PageFallback() {
@@ -115,6 +134,7 @@ export default function App() {
           <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
           <Route path="/banned-cards/overlay/:overlayKey" element={<BannedCardsOverlayPage />} />
           <Route path="/clash-royale/overlay/decks/:overlayKey" element={<DeckOverlayPage />} />
+          <Route path="/clash-royale/overlay/lobby-decks/:overlayKey" element={<LobbyDeckOverlayPage />} />
           <Route path="/clash-royale/win-tracker/overlay/:overlayKey" element={<WinTrackerOverlayPage />} />
           <Route path="/twitch-tools/overlay/:overlayKey" element={<PollsPredictionsOverlay />} />
 
@@ -149,6 +169,15 @@ export default function App() {
             <Route path="blobby" element={<BlobbyPage/>} />
             <Route path="blobby/:code" element={<BlobbyRoom/>} />
             <Route path="garden" element={<GameContainer />} />
+            <Route path="daily" element={<DleHubPage/>} />
+            <Route path="daily/tempdle" element={<TempdlePage/>} />
+            <Route path="daily/velocidle" element={<VelocidlePage/>} />
+            <Route path="daily/probabildle" element={<ProbabildlePage/>} />
+            <Route path="daily/duratidle" element={<DuratidlePage/>} />
+            <Route path="daily/inventiondle" element={<InventiondlePage/>} />
+            <Route path="daily/pricedle" element={<PricedlePage/>} />
+            <Route path="daily/balancdle" element={<BalancdlePage/>} />
+            <Route path="daily/cr-color-match" element={<CrColorMatchPage/>} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="tutorial/ytm-bot" element={<YTMBotPage />} />
             <Route path="tutorial/ytm-songrequest" element={<Navigate to="/tutorial/ytm-bot" replace />} />

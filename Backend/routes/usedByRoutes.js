@@ -6,7 +6,6 @@ const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...ar
 const USED_BY_STREAMERS = [
   { name: "BigSpinCR", login: "bigspincr" },
   { name: "xopxsam", login: "xopxsam" },
-  { name: "Zodiac_Cr", login: "zodiac_cr" },
   { name: "DOoOMcr", login: "dooomcr" },
   { name: "Vinc", login: "vinc" },
   { name: "Tryaz", login: "tryaz" },

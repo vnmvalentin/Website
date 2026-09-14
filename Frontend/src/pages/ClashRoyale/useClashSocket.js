@@ -43,10 +43,15 @@ export function useClashSocket(user) {
   const [selectedAvatar, setSelectedAvatar] = useState(
     () => readSession()?.avatar || AVATAR_IDS[0] || ''
   );
+  // Profil-Option "Twitch-Bild verwenden" — gesetzt von ClashRoyalePage, sobald das Profil
+  // geladen ist und der Nutzer verbunden ist. null = normaler Avatar aus selectedAvatar.
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState(null);
   const [myId, setMyId] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [lobbyData, setLobbyData] = useState(null);
   const [historyData, setHistoryData] = useState([]);
+  // Offene öffentliche Lobbies für den Lobby-Browser im Hub (siehe "Lobby beitreten")
+  const [publicLobbies, setPublicLobbies] = useState([]);
 
   // Fehler als { key, params, message } — übersetzt wird erst beim Rendern
   // (resolveError() in i18n.js). null = kein Fehler.
@@ -68,6 +73,12 @@ export function useClashSocket(user) {
   const [fishDenied, setFishDenied] = useState(null);
   const [fishAutoCatch, setFishAutoCatch] = useState(null);
   const [mazeState, setMazeState] = useState(null);
+  const [trapState, setTrapState] = useState(null);
+  const [pyramidState, setPyramidState] = useState(null);
+  const [auction2v2State, setAuction2v2State] = useState(null);
+  const [auction2v2Reveal, setAuction2v2Reveal] = useState(null);
+  const [rush2v2State, setRush2v2State] = useState(null);
+  const [rush2v2Denied, setRush2v2Denied] = useState(null);
 
   // Refs, damit Socket-Handler (einmalig beim Mount registriert) nicht auf
   // eingefrorene Werte aus ihrer Closure zugreifen
@@ -86,6 +97,10 @@ export function useClashSocket(user) {
     setEvoState(null);
     setFishState(null); setFishDenied(null); setFishAutoCatch(null);
     setMazeState(null);
+    setTrapState(null);
+    setPyramidState(null);
+    setAuction2v2State(null); setAuction2v2Reveal(null);
+    setRush2v2State(null); setRush2v2Denied(null);
   }, []);
 
   /**
@@ -140,6 +155,8 @@ export function useClashSocket(user) {
           code: saved.code, playerName: saved.playerName, avatar: saved.avatar || '', auto: true,
         });
       }
+      // Erstaufbau des Lobby-Browsers — danach hält clash:publicLobbiesUpdate ihn aktuell
+      socket.emit('clash:listPublicLobbies', {}, setPublicLobbies);
     });
     if (socket.id) setMyId(socket.id);
 
@@ -161,6 +178,9 @@ export function useClashSocket(user) {
 
     socket.on('clash:lobbyUpdate', setLobbyData);
     socket.on('clash:historyData', setHistoryData);
+    // Live-Update der Lobby-Browser-Liste — der Server schickt sie an ALLE verbundenen
+    // Sockets, sobald sich irgendeine öffentliche Lobby ändert (siehe clashRoyaleRoutes.js).
+    socket.on('clash:publicLobbiesUpdate', setPublicLobbies);
 
     socket.on('clash:lobbyRestart', ({ cancelled } = {}) => {
       setPhase('lobby');
@@ -185,6 +205,9 @@ export function useClashSocket(user) {
       setBingoState(patch);
       setCarouselState(patch);
       setEvoState(patch);
+      setTrapState(patch);
+      setPyramidState(patch);
+      setAuction2v2State(patch);
     });
 
     // ── Elixir Auction ──────────────────────────────────────────────────────
@@ -203,6 +226,23 @@ export function useClashSocket(user) {
         players: prev.players.map(p => (p.id === myPid ? { ...p, elixir } : p)),
       } : prev));
     });
+
+    // ── Elixir Auction 2v2 ───────────────────────────────────────────────────
+    // clash:auction2v2:round trägt bereits die individuelle Sicht des jeweiligen Spielers
+    // (Hinweis- oder Gebot-Phase) — der Server broadcastet pro Socket, nicht an die Lobby.
+    socket.on('clash:auction2v2:round', (data) => { setAuction2v2State(data); setAuction2v2Reveal(null); });
+    socket.on('clash:auction2v2:hintProgress', ({ pendingCount, total }) =>
+      setAuction2v2State(prev => (prev ? { ...prev, pendingCount, total } : prev)));
+    socket.on('clash:auction2v2:bidProgress', ({ pendingCount, total }) =>
+      setAuction2v2State(prev => (prev ? { ...prev, pendingCount, total } : prev)));
+    socket.on('clash:auction2v2:reveal', (data) => { setAuction2v2Reveal(data); setAuction2v2State(data); });
+
+    // ── Elixir Rush 2v2 ──────────────────────────────────────────────────────
+    socket.on('clash:rush2v2:state', (data) => setRush2v2State({ ...data, clientReceivedAt: Date.now() }));
+    socket.on('clash:rush2v2:sync', (sync) => setRush2v2State(prev => (prev ? {
+      ...prev, serverNow: sync.serverNow, clientReceivedAt: Date.now(), teamElixir: sync.teamElixir,
+    } : prev)));
+    socket.on('clash:rush2v2:denied', (d) => setRush2v2Denied({ ...d, ts: Date.now() }));
 
     // ── Bingo / Karussell / Evolution ───────────────────────────────────────
     socket.on('clash:bingo:state', setBingoState);
@@ -237,6 +277,16 @@ export function useClashSocket(user) {
     // ── Dunkles Labyrinth ───────────────────────────────────────────────────
     socket.on('clash:maze:state', (data) => setMazeState({ ...data, clientReceivedAt: Date.now() }));
     socket.on('clash:maze:pos', ({ positions }) => setMazeState(prev => (prev ? { ...prev, positions } : prev)));
+
+    // ── Fallensteller ───────────────────────────────────────────────────────
+    socket.on('clash:trap:state', (data) => setTrapState({ ...data, clientReceivedAt: Date.now() }));
+    // Leichtes Zwischen-Update, während die Klickphase läuft (nur die Anzahl, kein Klickziel —
+    // sonst nähme es der Renn-Spannung die Überraschung).
+    socket.on('clash:trap:clickUpdate', ({ pendingClickCount }) =>
+      setTrapState(prev => (prev ? { ...prev, pendingClickCount } : prev)));
+
+    // ── Pyramidendraft ──────────────────────────────────────────────────────
+    socket.on('clash:pyramid:state', (data) => setPyramidState({ ...data, clientReceivedAt: Date.now() }));
 
     // ── Sitzungsereignisse ──────────────────────────────────────────────────
     socket.on('clash:kicked', () => {
@@ -321,17 +371,20 @@ export function useClashSocket(user) {
     setError(null);
     // Der Modus wird erst in der Lobby gewählt — hier startet sie mit dem Standard
     emit('clash:createLobby', {
-      playerName: playerName.trim(), mode: 'snake', timerSeconds: 60, avatar: selectedAvatar,
+      playerName: playerName.trim(), mode: 'snake', timerSeconds: 60,
+      avatar: selectedAvatar, avatarUrl: selectedAvatarUrl,
     });
-  }, [emit, playerName, selectedAvatar, flashError]);
+  }, [emit, playerName, selectedAvatar, selectedAvatarUrl, flashError]);
 
   const joinLobby = useCallback((joinCode) => {
     const target = (joinCode || '').toUpperCase().trim();
     if (!playerName.trim()) return flashError({ key: 'nameRequired' });
     if (!target) return flashError({ key: 'codeRequired' });
     setError(null);
-    emit('clash:joinLobby', { code: target, playerName: playerName.trim(), avatar: selectedAvatar });
-  }, [emit, playerName, selectedAvatar, flashError]);
+    emit('clash:joinLobby', {
+      code: target, playerName: playerName.trim(), avatar: selectedAvatar, avatarUrl: selectedAvatarUrl,
+    });
+  }, [emit, playerName, selectedAvatar, selectedAvatarUrl, flashError]);
 
   const leaveLobby = useCallback(() => {
     clearSession();
@@ -360,12 +413,14 @@ export function useClashSocket(user) {
 
   return {
     // Zustand
-    phase, lobbyData, historyData, error,
-    playerName, setPlayerName, selectedAvatar, setSelectedAvatar, initialJoinCode,
+    phase, lobbyData, historyData, publicLobbies, error,
+    playerName, setPlayerName, selectedAvatar, setSelectedAvatar,
+    selectedAvatarUrl, setSelectedAvatarUrl, initialJoinCode,
     myId: mySocketId, effectiveIsHost, isClashAdmin, canControlLobby,
     gameState, gameOver, auctionState, auctionReveal, myBid, motherWitchVisit,
     bingoState, carouselState, rushState, rushDenied, evoState,
-    fishState, fishDenied, fishAutoCatch, mazeState,
+    fishState, fishDenied, fishAutoCatch, mazeState, trapState, pyramidState,
+    auction2v2State, auction2v2Reveal, rush2v2State, rush2v2Denied,
 
     // Sitzung
     createLobby, joinLobby, leaveLobby, requestHistory,

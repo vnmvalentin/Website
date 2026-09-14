@@ -1,82 +1,123 @@
 // garden/core/catalogue.js
 // EINZIGE Backend-Quelle fuer die Pflanzenwerte.
 //
-// Erzeugt aus Frontend/src/pages/GardenGame/engine/PlantSystem.js. Vorher hatte
-// garden/migrations/plants.js eine eigene, eingefrorene Kopie — die stand noch auf den
-// Werten VOR dem Balancing und hat es bei jedem Serverstart wieder rueckgaengig
-// gemacht (Spinat 30-90 statt 450-1350, Blaubeere 21h-Zyklus statt 3h, …).
+// DIESE DATEI IST DIE QUELLE. Der Frontend-Spiegel wird daraus ERZEUGT, nicht von
+// Hand gepflegt:
 //
-// Beim naechsten Balancing: hier UND im Frontend aendern, sonst laufen sie erneut
-// auseinander.
+//     cd Backend && npm run garden:spiegel          (schreibt den Spiegel neu)
+//     cd Backend && npm run garden:spiegel:pruefen  (meldet nur Abweichungen)
+//
+// Vorher hatte garden/migrations/plants.js eine eigene, eingefrorene Kopie — die
+// stand noch auf den Werten VOR dem Balancing und hat es bei jedem Serverstart
+// wieder rueckgaengig gemacht. Danach lief stattdessen der Frontend-Spiegel weg
+// (neun Sorten mit groesseren Ladenbestaenden als der Server fuehrte). Beides ist
+// dieselbe Krankheit: ein zweiter Datenhalter, der von Hand gepflegt wird.
+//
+// ── stockMin / stockMax ──────────────────────────────────────────────────────
+// HANDARBEIT. Diese Zahlen sind bewusst je Sorte eingestellt und duerfen nicht
+// pauschal umgerechnet werden — ein Skript, das sie "balanciert", macht genau die
+// Feinarbeit kaputt, fuer die sie da sind.
+//
+// ── shopChance ───────────────────────────────────────────────────────────────
+// Aug 2026 um 15 % gesenkt (x0,85). Der Nachzieh-Zaehler in gardenGameRoutes.js
+// (pityGrenze) faengt Pechstraehnen weiterhin ab: keine Sorte bleibt laenger als
+// das Doppelte ihrer erwarteten Wartezeit aus dem Regal.
+//
+// v2-Balancing (Punkt 5): innerhalb COMMON/UNCOMMON/RARE gab es schon echte
+// Varianz zwischen den Sorten. EPIC (12 Sorten) und LEGENDARY (10 Sorten) hatten
+// dagegen trotz 20-facher bzw. 200-facher Preisspanne innerhalb der Stufe eine
+// einzige, identische shopChance (0.17 / 0.043) — die teuersten Sorten waren
+// nicht seltener als die billigsten. Neu gestaffelt mit shopChance_i ∝ 1/√preis_i,
+// normiert auf denselben Stufen-Mittelwert wie vorher (Summe bleibt 12×0.17 bzw.
+// 10×0.043) — der Nachzieh-Zaehler bleibt dadurch fuer die Stufe insgesamt fair,
+// nur innerhalb der Stufe verschiebt sich, wer haeufiger/seltener auftaucht.
+// pityGrenze() haengt ohnehin an der shopChance JEDER Sorte einzeln, nicht an
+// einem Stufen-Mittelwert, und braucht deshalb keine Anpassung.
 const SEED_CATALOGUE = [
     // ── COMMON ──
-    { id: "loewenzahn",   name: "Löwenzahn",    emoji: "🌼", rarity: "COMMON", singleUse: true,  shopPrice: 40,       growMinSec: 4,       growMaxSec: 12,      sellMin: 65,       sellMax: 195       }, // mg: Carrot
-    { id: "minze",        name: "Minze",         emoji: "🌿", rarity: "COMMON", singleUse: true,  shopPrice: 525,      growMinSec: 60,      growMaxSec: 150,     sellMin: 851,       sellMax: 2553      }, // mg: Daisy
-    { id: "brennnesseln", name: "Brennnesseln",  emoji: "🌱", rarity: "COMMON", singleUse: true,  shopPrice: 393,      growMinSec: 45,      growMaxSec: 112,     sellMin: 636,      sellMax: 1908      }, // mg: Aloe
-    { id: "spinat",       name: "Spinat",        emoji: "🍃", rarity: "COMMON", singleUse: true,  shopPrice: 2400,      growMinSec: 240,     growMaxSec: 720,     sellMin: 3890,      sellMax: 11670     }, // Balancing: war 30-90 (Verlust bei 4-12min Wachstum)
-    { id: "salat",        name: "Salat",         emoji: "🥬", rarity: "COMMON", singleUse: true,  shopPrice: 600,      growMinSec: 60,      growMaxSec: 180,     sellMin: 972,      sellMax: 2916     }, // mg: Beet
-    { id: "radieschen",   name: "Radieschen",    emoji: "🌿", rarity: "COMMON", singleUse: true,  shopPrice: 3750,      growMinSec: 300,     growMaxSec: 1200,    sellMin: 6080,      sellMax: 18240     }, // mg: Rose
-    { id: "kohl",         name: "Kohl",          emoji: "🥬", rarity: "COMMON", singleUse: true,  shopPrice: 780,      growMinSec: 78,      growMaxSec: 234,     sellMin: 1260,      sellMax: 3780     }, // Balancing: war 76-228 (garantierter Verlust)
-    { id: "zwiebel",      name: "Zwiebel",       emoji: "🧅", rarity: "COMMON", singleUse: true,  shopPrice: 500,     growMinSec: 50,      growMaxSec: 150,     sellMin: 810,     sellMax: 2430     }, // mg: Daffodil
-    { id: "karotte",      name: "Karotte",       emoji: "🥕", rarity: "COMMON", singleUse: true,  shopPrice: 7200,     growMinSec: 720,     growMaxSec: 2160,    sellMin: 11700,     sellMax: 35100     }, // mg: Watermelon
-    { id: "erbsen",       name: "Erbsen",        emoji: "🫘", rarity: "COMMON", singleUse: false, shopPrice: 1800,       structureGrowSec: 45,    fruitCycleSec: 35,    maxFruits: 1,  fruitSellMin: 189,    fruitSellMax: 567   }, // mg: Cabbage
-    { id: "bohne",        name: "Bohne",         emoji: "🫘", rarity: "COMMON", singleUse: false, shopPrice: 1800,       structureGrowSec: 70,    fruitCycleSec: 10,    maxFruits: 5,  fruitSellMin: 11,    fruitSellMax: 33    }, // mg: Strawberry
+    { id: "loewenzahn",   name: "Löwenzahn",    emoji: "🌼", rarity: "COMMON", singleUse: true,  shopPrice: 10, shopChance: 0.85, stockMin: 6, stockMax: 25,       growMinSec: 4,       growMaxSec: 12,      sellMin: 20,       sellMax: 60       }, // mg: Carrot
+    { id: "minze",        name: "Minze",         emoji: "🌿", rarity: "COMMON", singleUse: true,  shopPrice: 100, shopChance: 0.64, stockMin: 3, stockMax: 10,      growMinSec: 90,      growMaxSec: 270,     sellMin: 130,       sellMax: 390      }, // mg: Daisy
+    { id: "brennnesseln", name: "Brennnesseln",  emoji: "🌱", rarity: "COMMON", singleUse: true,  shopPrice: 135, shopChance: 0.64, stockMin: 3, stockMax: 10,      growMinSec: 45,      growMaxSec: 135,     sellMin: 310,      sellMax: 930      }, // mg: Aloe
+    { id: "spinat",       name: "Spinat",        emoji: "🍃", rarity: "COMMON", singleUse: true,  shopPrice: 170, shopChance: 0.85, stockMin: 3, stockMax: 10,      growMinSec: 120,     growMaxSec: 360,     sellMin: 260,      sellMax: 780     }, // Balancing: war 30-90 (Verlust bei 4-12min Wachstum)
+    { id: "salat",        name: "Salat",         emoji: "🥬", rarity: "COMMON", singleUse: true,  shopPrice: 210, shopChance: 0.85, stockMin: 3, stockMax: 10,      growMinSec: 60,      growMaxSec: 180,     sellMin: 350,      sellMax: 1050     }, // mg: Beet
+    { id: "radieschen",   name: "Radieschen",    emoji: "🌿", rarity: "COMMON", singleUse: true,  shopPrice: 229, shopChance: 0.85, stockMin: 3, stockMax: 10,      growMinSec: 300,     growMaxSec: 900,    sellMin: 300,      sellMax: 900     }, // mg: Rose
+    { id: "kohl",         name: "Kohl",          emoji: "🥬", rarity: "COMMON", singleUse: true,  shopPrice: 600, shopChance: 0.29, stockMin: 6, stockMax: 25,      growMinSec: 90,      growMaxSec: 270,     sellMin: 800,      sellMax: 2400     }, // Balancing: war 76-228 (garantierter Verlust)
+    { id: "zwiebel",      name: "Zwiebel",       emoji: "🧅", rarity: "COMMON", singleUse: true,  shopPrice: 948, shopChance: 0.13, stockMin: 1, stockMax: 4,     growMinSec: 50,      growMaxSec: 150,     sellMin: 1090,     sellMax: 3270     }, // mg: Daffodil
+    { id: "karotte",      name: "Karotte",       emoji: "🥕", rarity: "COMMON", singleUse: true,  shopPrice: 2350, shopChance: 0.12, stockMin: 1, stockMax: 6,     growMinSec: 720,     growMaxSec: 2160,    sellMin: 2708,     sellMax: 8124     }, // mg: Watermelon
+    { id: "erbsen",       name: "Erbsen",        emoji: "🫘", rarity: "COMMON", singleUse: false, shopPrice: 52, shopChance: 0.85, stockMin: 2, stockMax: 3,       structureGrowSec: 52,    fruitCycleSec: 45,    maxFruits: 1,  fruitSellMin: 42,    fruitSellMax: 126   }, // mg: Cabbage
+    { id: "bohne",        name: "Bohne",         emoji: "🫘", rarity: "COMMON", singleUse: false, shopPrice: 86, shopChance: 0.85, stockMin: 1, stockMax: 6,       structureGrowSec: 15,    fruitCycleSec: 70,    maxFruits: 5,  fruitSellMin: 14,    fruitSellMax: 42    }, // mg: Strawberry
 
     // ── UNCOMMON ──
-    { id: "knoblauch",    name: "Knoblauch",     emoji: "🧄", rarity: "UNCOMMON", singleUse: true,  shopPrice: 168000,     growMinSec: 2100,    growMaxSec: 6300,    sellMin: 272000,     sellMax: 816000    }, // mg: Pumpkin
-    { id: "kartoffel",    name: "Kartoffel",     emoji: "🥔", rarity: "UNCOMMON", singleUse: true,  shopPrice: 9000,     growMinSec: 120,     growMaxSec: 330,     sellMin: 14600,     sellMax: 43800    }, // mg: Echeveria
-    { id: "ingwer",       name: "Ingwer",        emoji: "🌿", rarity: "UNCOMMON", singleUse: true,  shopPrice: 7200,     growMinSec: 90,      growMaxSec: 270,     sellMin: 11700,    sellMax: 35100    }, // mg: Gentian
-    { id: "paprika",      name: "Paprika",       emoji: "🫑", rarity: "UNCOMMON", singleUse: true,  shopPrice: 8000,    growMinSec: 100,     growMaxSec: 300,     sellMin: 13000,    sellMax: 39000    }, // mg: Lavender
-    { id: "aubergine",    name: "Aubergine",     emoji: "🍆", rarity: "UNCOMMON", singleUse: true,  shopPrice: 288000,    growMinSec: 3600,   growMaxSec: 10800,   sellMin: 467000,    sellMax: 1401000    }, // mg: Pine Tree
-    { id: "mais",         name: "Mais",          emoji: "🌽", rarity: "UNCOMMON", singleUse: true,  shopPrice: 18000,    growMinSec: 240,     growMaxSec: 660,     sellMin: 29200,    sellMax: 87600    }, // mg: Lily
-    { id: "kuebi",        name: "Kürbis",        emoji: "🎃", rarity: "UNCOMMON", singleUse: true,  shopPrice: 14400,    growMinSec: 180,     growMaxSec: 540,     sellMin: 23300,    sellMax: 69900   }, // mg: Saffron
-    { id: "rhabarber",    name: "Rhabarber",     emoji: "🌿", rarity: "UNCOMMON", singleUse: false, shopPrice: 72000,      structureGrowSec: 900,   fruitCycleSec: 240,   maxFruits: 8,  fruitSellMin: 1300,    fruitSellMax: 3900    }, // mg: Fava Bean
-    { id: "gurke",        name: "Gurke",         emoji: "🥒", rarity: "UNCOMMON", singleUse: false, shopPrice: 72000,      structureGrowSec: 105,   fruitCycleSec: 22,    maxFruits: 5,  fruitSellMin: 190,    fruitSellMax: 570    }, // mg: Blueberry
-    { id: "zucchini",     name: "Zucchini",      emoji: "🥒", rarity: "UNCOMMON", singleUse: false, shopPrice: 72000,      structureGrowSec: 21600, fruitCycleSec: 5400,  maxFruits: 7,  fruitSellMin: 33300,   fruitSellMax: 99900   }, // Balancing: Ertrag an 6h-Aufbauzeit angepasst
-    { id: "tomate",       name: "Tomate",        emoji: "🍅", rarity: "UNCOMMON", singleUse: false, shopPrice: 72000,      structureGrowSec: 1100,  fruitCycleSec: 40,    maxFruits: 2,  fruitSellMin: 864,    fruitSellMax: 2592    }, // mg: Tomato
-    { id: "chili",        name: "Chili",         emoji: "🌶️", rarity: "UNCOMMON", singleUse: false, shopPrice: 72000,     structureGrowSec: 130,   fruitCycleSec: 30,    maxFruits: 1,  fruitSellMin: 1300,    fruitSellMax: 3900    }, // mg: Corn
+    { id: "knoblauch",    name: "Knoblauch",     emoji: "🧄", rarity: "UNCOMMON", singleUse: true,  shopPrice: 3000, shopChance: 0.085, stockMin: 1, stockMax: 4,     growMinSec: 2100,    growMaxSec: 6300,    sellMin: 3700,     sellMax: 11100    }, // mg: Pumpkin
+    { id: "kartoffel",    name: "Kartoffel",     emoji: "🥔", rarity: "UNCOMMON", singleUse: true,  shopPrice: 2500, shopChance: 0.12, stockMin: 1, stockMax: 2,     growMinSec: 1200,     growMaxSec: 3600,     sellMin: 3200,     sellMax: 9600    }, // mg: Echeveria
+    { id: "ingwer",       name: "Ingwer",        emoji: "🌿", rarity: "UNCOMMON", singleUse: true,  shopPrice: 8700, shopChance: 0.43, stockMin: 1, stockMax: 3,     growMinSec: 90,      growMaxSec: 270,     sellMin: 10000,    sellMax: 30000    }, // mg: Gentian
+    { id: "paprika",      name: "Paprika",       emoji: "🫑", rarity: "UNCOMMON", singleUse: true,  shopPrice: 10000, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 100,     growMaxSec: 300,     sellMin: 20000,    sellMax: 60000    }, // mg: Lavender
+    { id: "aubergine",    name: "Aubergine",     emoji: "🍆", rarity: "UNCOMMON", singleUse: true,  shopPrice: 12000, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 79200,   growMaxSec: 237600,   sellMin: 75000,    sellMax: 225000    }, // mg: Pine Tree
+    { id: "mais",         name: "Mais",          emoji: "🌽", rarity: "UNCOMMON", singleUse: true,  shopPrice: 17500, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 240,     growMaxSec: 720,     sellMin: 20123,    sellMax: 60369    }, // mg: Lily
+    { id: "kuebi",        name: "Kürbis",        emoji: "🎃", rarity: "UNCOMMON", singleUse: true,  shopPrice: 30000, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 120,     growMaxSec: 360,     sellMin: 50000,    sellMax: 150000   }, // mg: Saffron
+    { id: "rhabarber",    name: "Rhabarber",     emoji: "🌿", rarity: "UNCOMMON", singleUse: false, shopPrice: 296, shopChance: 0.64, stockMin: 2, stockMax: 5,      structureGrowSec: 360,   fruitCycleSec: 900,   maxFruits: 8,  fruitSellMin: 30,    fruitSellMax: 90    }, // mg: Fava Bean
+    { id: "gurke",        name: "Gurke",         emoji: "🥒", rarity: "UNCOMMON", singleUse: false, shopPrice: 400, shopChance: 0.64, stockMin: 1, stockMax: 5,      structureGrowSec: 33,   fruitCycleSec: 105,    maxFruits: 5,  fruitSellMin: 23,    fruitSellMax: 69    }, // mg: Blueberry
+    { id: "zucchini",     name: "Zucchini",      emoji: "🥒", rarity: "UNCOMMON", singleUse: false, shopPrice: 2000, shopChance: 0.15,  stockMin: 1, stockMax: 6,      structureGrowSec: 300, fruitCycleSec: 1200,  maxFruits: 7,  fruitSellMin: 70,   fruitSellMax: 210   }, // Balancing: Ertrag an 6h-Aufbauzeit angepasst
+    { id: "tomate",       name: "Tomate",        emoji: "🍅", rarity: "UNCOMMON", singleUse: false, shopPrice: 800, shopChance: 0.64, stockMin: 1, stockMax: 3,      structureGrowSec: 60,  fruitCycleSec: 1100,    maxFruits: 2,  fruitSellMin: 27,    fruitSellMax: 81    }, // mg: Tomato
+    { id: "chili",        name: "Chili",         emoji: "🌶️", rarity: "UNCOMMON", singleUse: false, shopPrice: 1300, shopChance: 0.15,  stockMin: 1, stockMax: 6,     structureGrowSec: 45,   fruitCycleSec: 130,    maxFruits: 1,  fruitSellMin: 36,    fruitSellMax: 108    }, // mg: Corn
 
     // ── RARE ──
-    { id: "grapefruit",   name: "Grapefruit",    emoji: "🍊", rarity: "RARE", singleUse: true,  shopPrice: 6910000,   growMinSec: 14400,   growMaxSec: 28800,  sellMin: 11200000,   sellMax: 33600000   }, // mg: Mushroom
-    { id: "zitrone",      name: "Zitrone",       emoji: "🍋", rarity: "RARE", singleUse: true,  shopPrice: 4030000,   growMinSec: 9000,    growMaxSec: 16200,   sellMin: 6530000,   sellMax: 19590000   }, // mg: Cactus
-    { id: "aprikose",     name: "Aprikose",      emoji: "🍑", rarity: "RARE", singleUse: true,  shopPrice: 4610000,   growMinSec: 9000,   growMaxSec: 19800,   sellMin: 7470000,   sellMax: 22410000  }, // mg: Bamboo
-    { id: "honigmelone",  name: "Honigmelone",   emoji: "🍉", rarity: "RARE", singleUse: true,  shopPrice: 5760000,   growMinSec: 12600,   growMaxSec: 23400,  sellMin: 9340000,   sellMax: 28020000  }, // mg: Violet Cort
-    { id: "cranberry",    name: "Cranberry",     emoji: "🫐", rarity: "RARE", singleUse: false, shopPrice: 1730000,     structureGrowSec: 1500,  fruitCycleSec: 200,   maxFruits: 3,  fruitSellMin: 23000,  fruitSellMax: 69000  }, // mg: Squash
-    { id: "stachelbeere", name: "Stachelbeere",  emoji: "🟢", rarity: "RARE", singleUse: false, shopPrice: 1730000,     structureGrowSec: 21600, fruitCycleSec: 5400,  maxFruits: 7,  fruitSellMin: 267000,   fruitSellMax: 801000   }, // mg: Pear
-    { id: "blaubeere",    name: "Blaubeere",     emoji: "🫐", rarity: "RARE", singleUse: false, shopPrice: 1730000,    structureGrowSec: 43200, fruitCycleSec: 10800, maxFruits: 7,  fruitSellMin: 533000,  fruitSellMax: 1599000  }, // Balancing: war 21h-Zyklus mit 30-90 Gold (kaputt)
-    { id: "himbeere",     name: "Himbeere",      emoji: "🫐", rarity: "RARE", singleUse: false, shopPrice: 1730000,    structureGrowSec: 14400, fruitCycleSec: 4500,  maxFruits: 5,  fruitSellMin: 311000,  fruitSellMax: 933000  }, // mg: Banana
-    { id: "erdbeere",     name: "Erdbeere",      emoji: "🍓", rarity: "RARE", singleUse: false, shopPrice: 1730000,    structureGrowSec: 86400, fruitCycleSec: 10800, maxFruits: 8,  fruitSellMin: 467000,  fruitSellMax: 1401000 }, // mg: Camellia
-    { id: "kirsche",      name: "Kirsche",       emoji: "🍒", rarity: "RARE", singleUse: false, shopPrice: 1730000,    structureGrowSec: 7200,  fruitCycleSec: 5400,  maxFruits: 7,  fruitSellMin: 267000,  fruitSellMax: 801000 }, // mg: Peach
-    { id: "limette",      name: "Limette",       emoji: "🍋", rarity: "RARE", singleUse: false, shopPrice: 1730000,    structureGrowSec: 1800,  fruitCycleSec: 100,   maxFruits: 2,  fruitSellMin: 17300,  fruitSellMax: 51900 }, // mg: Burro's Tail
+    { id: "grapefruit",   name: "Grapefruit",    emoji: "🍊", rarity: "RARE", singleUse: true,  shopPrice: 139000, shopChance: 0.085, stockMin: 16, stockMax: 25,   growMinSec: 79200,   growMaxSec: 237600,  sellMin: 160000,   sellMax: 480000   }, // mg: Mushroom
+    { id: "zitrone",      name: "Zitrone",       emoji: "🍋", rarity: "RARE", singleUse: true,  shopPrice: 191000, shopChance: 0.085, stockMin: 5, stockMax: 15,   growMinSec: 10800,    growMaxSec: 32400,   sellMin: 220000,   sellMax: 660000   }, // mg: Cactus
+    { id: "aprikose",     name: "Aprikose",      emoji: "🍑", rarity: "RARE", singleUse: true,  shopPrice: 400000, shopChance: 0.043, stockMin: 5, stockMax: 10,   growMinSec: 79200,   growMaxSec: 237600,   sellMin: 500000,   sellMax: 1500000  }, // mg: Bamboo
+    { id: "honigmelone",  name: "Honigmelone",   emoji: "🍉", rarity: "RARE", singleUse: true,  shopPrice: 520000, shopChance: 0.043, stockMin: 3, stockMax: 9,   growMinSec: 79200,   growMaxSec: 237600,  sellMin: 600000,   sellMax: 1800000  }, // mg: Violet Cort
+    { id: "cranberry",    name: "Cranberry",     emoji: "🫐", rarity: "RARE", singleUse: false, shopPrice: 55000, shopChance: 0.34, stockMin: 1, stockMax: 1,     structureGrowSec: 900,  fruitCycleSec: 1500,   maxFruits: 3,  fruitSellMin: 7000,  fruitSellMax: 21000  }, // mg: Squash
+    { id: "stachelbeere", name: "Stachelbeere",  emoji: "🟢", rarity: "RARE", singleUse: false, shopPrice: 25900, shopChance: 0.085, stockMin: 1, stockMax: 2,     structureGrowSec: 8100, fruitCycleSec: 79200,  maxFruits: 7,  fruitSellMin: 3000,   fruitSellMax: 9000   }, // mg: Pear
+    { id: "blaubeere",    name: "Blaubeere",     emoji: "🫐", rarity: "RARE", singleUse: false, shopPrice: 30200, shopChance: 0.34, stockMin: 1, stockMax: 1,    structureGrowSec: 10800, fruitCycleSec: 79200, maxFruits: 7,  fruitSellMin: 3500,  fruitSellMax: 10500  }, // Balancing: war 21h-Zyklus mit 30-90 Gold (kaputt)
+    { id: "himbeere",     name: "Himbeere",      emoji: "🫐", rarity: "RARE", singleUse: false, shopPrice: 15000, shopChance: 0.21, stockMin: 1, stockMax: 3,    structureGrowSec: 6750, fruitCycleSec: 79200,  maxFruits: 5,  fruitSellMin: 1750,  fruitSellMax: 5250  }, // mg: Banana
+    { id: "erdbeere",     name: "Erdbeere",      emoji: "🍓", rarity: "RARE", singleUse: false, shopPrice: 55000, shopChance: 0.34, stockMin: 1, stockMax: 1,    structureGrowSec: 8100, fruitCycleSec: 79200, maxFruits: 8,  fruitSellMin: 4875,  fruitSellMax: 14625 }, // mg: Camellia
+    { id: "kirsche",      name: "Kirsche",       emoji: "🍒", rarity: "RARE", singleUse: false, shopPrice: 85000, shopChance: 0.34, stockMin: 1, stockMax: 1,    structureGrowSec: 8100,  fruitCycleSec: 79200,  maxFruits: 7,  fruitSellMin: 9000,  fruitSellMax: 27000 }, // mg: Peach
+    { id: "limette",      name: "Limette",       emoji: "🍋", rarity: "RARE", singleUse: false, shopPrice: 93000, shopChance: 0.34, stockMin: 2, stockMax: 3,    structureGrowSec: 270,  fruitCycleSec: 1800,   maxFruits: 2,  fruitSellMin: 6000,  fruitSellMax: 18000 }, // mg: Burro's Tail
 
     // ── EPIC ──
-    { id: "holunder",     name: "Holunder",      emoji: "🍇", rarity: "EPIC", singleUse: true,  shopPrice: 18400000,  growMinSec: 3600,    growMaxSec: 10800,   sellMin: 29900000,  sellMax: 89700000  }, // mg: Ube
-    { id: "guave",        name: "Guave",         emoji: "🍈", rarity: "EPIC", singleUse: true,  shopPrice: 36800000,  growMinSec: 7200,    growMaxSec: 21600,   sellMin: 59700000,  sellMax: 179100000 }, // Interpolated
-    { id: "pfirsich",     name: "Pfirsich",      emoji: "🍑", rarity: "EPIC", singleUse: true,  shopPrice: 73700000,  growMinSec: 14400,   growMaxSec: 43200,   sellMin: 119000000,  sellMax: 357000000 }, // Interpolated
-    { id: "avocado",      name: "Avocado",       emoji: "🥑", rarity: "EPIC", singleUse: true,  shopPrice: 111000000, growMinSec: 28800,  growMaxSec: 57600,  sellMin: 179000000, sellMax: 537000000 }, // mg: Dawnbreaker
-    { id: "apfel",        name: "Apfel",         emoji: "🍎", rarity: "EPIC", singleUse: false, shopPrice: 46100000,   structureGrowSec: 10800, fruitCycleSec: 5400,  maxFruits: 4,  fruitSellMin: 3730000, fruitSellMax: 11190000 }, // mg: Poinsettia
-    { id: "birne",        name: "Birne",         emoji: "🍐", rarity: "EPIC", singleUse: false, shopPrice: 46100000,   structureGrowSec: 2700,  fruitCycleSec: 7200,  maxFruits: 3,  fruitSellMin: 6630000,fruitSellMax: 19890000}, // mg: Eggplant
-    { id: "traube",       name: "Traube",        emoji: "🍇", rarity: "EPIC", singleUse: false, shopPrice: 46100000,   structureGrowSec: 86400, fruitCycleSec: 10800, maxFruits: 7,  fruitSellMin: 4260000, fruitSellMax: 12780000 }, // mg: Chrysanthemum
-    { id: "orange",       name: "Orange",        emoji: "🍊", rarity: "EPIC", singleUse: false, shopPrice: 46100000,   structureGrowSec: 64800, fruitCycleSec: 3600,  maxFruits: 11, fruitSellMin: 905000, fruitSellMax: 2715000 }, // mg: Date
-    { id: "kiwi",         name: "Kiwi",          emoji: "🥝", rarity: "EPIC", singleUse: false, shopPrice: 46100000,   structureGrowSec: 86400, fruitCycleSec: 900,   maxFruits: 1,  fruitSellMin: 2490000, fruitSellMax: 7470000 }, // mg: Grape
-    { id: "pflaume",      name: "Pflaume",       emoji: "🍑", rarity: "EPIC", singleUse: false, shopPrice: 46100000,  structureGrowSec: 560,   fruitCycleSec: 600,   maxFruits: 9,  fruitSellMin: 184000,  fruitSellMax: 552000 }, // mg: Pepper
-    { id: "mango",        name: "Mango",         emoji: "🥭", rarity: "EPIC", singleUse: false, shopPrice: 46100000,  structureGrowSec: 43200, fruitCycleSec: 3600,  maxFruits: 6,  fruitSellMin: 1660000, fruitSellMax: 4980000 }, // mg: Lemon
-    { id: "olive",        name: "Olive",         emoji: "🫒", rarity: "EPIC", singleUse: false, shopPrice: 46100000,  structureGrowSec: 86400, fruitCycleSec: 2700,  maxFruits: 2,  fruitSellMin: 3730000, fruitSellMax: 11190000 }, // mg: Passion Fruit
+    { id: "holunder",     name: "Holunder",      emoji: "🍇", rarity: "EPIC", singleUse: true,  shopPrice: 1000000, shopChance: 0.19, stockMin: 3, stockMax: 13,  growMinSec: 3600,    growMaxSec: 10800,   sellMin: 2000000,  sellMax: 6000000  }, // mg: Ube
+    { id: "guave",        name: "Guave",         emoji: "🍈", rarity: "EPIC", singleUse: true,  shopPrice: 2500000, shopChance: 0.12, stockMin: 5, stockMax: 15,  growMinSec: 7200,    growMaxSec: 21600,   sellMin: 4000000,  sellMax: 12000000 }, // Interpolated
+    { id: "pfirsich",     name: "Pfirsich",      emoji: "🍑", rarity: "EPIC", singleUse: true,  shopPrice: 5000000, shopChance: 0.09, stockMin: 7, stockMax: 14,  growMinSec: 14400,   growMaxSec: 43200,   sellMin: 7500000,  sellMax: 22500000 }, // Interpolated
+    { id: "avocado",      name: "Avocado",       emoji: "🥑", rarity: "EPIC", singleUse: true,  shopPrice: 10000000, shopChance: 0.06, stockMin: 4, stockMax: 12, growMinSec: 244800,  growMaxSec: 734400,  sellMin: 12000000, sellMax: 36000000 }, // mg: Dawnbreaker
+    { id: "apfel",        name: "Apfel",         emoji: "🍎", rarity: "EPIC", singleUse: false, shopPrice: 900000, shopChance: 0.20, stockMin: 1, stockMax: 4,   structureGrowSec: 540, fruitCycleSec: 79200,  maxFruits: 4,  fruitSellMin: 20000, fruitSellMax: 60000 }, // mg: Poinsettia
+    { id: "birne",        name: "Birne",         emoji: "🍐", rarity: "EPIC", singleUse: false, shopPrice: 500000, shopChance: 0.27, stockMin: 1, stockMax: 4,   structureGrowSec: 10800,  fruitCycleSec: 79200,  maxFruits: 3,  fruitSellMin: 100000,fruitSellMax: 300000}, // mg: Eggplant
+    { id: "traube",       name: "Traube",        emoji: "🍇", rarity: "EPIC", singleUse: false, shopPrice: 670000, shopChance: 0.23, stockMin: 1, stockMax: 4,   structureGrowSec: 16200, fruitCycleSec: 79200, maxFruits: 7,  fruitSellMin: 18000, fruitSellMax: 54000 }, // mg: Chrysanthemum
+    { id: "orange",       name: "Orange",        emoji: "🍊", rarity: "EPIC", singleUse: false, shopPrice: 750000, shopChance: 0.22, stockMin: 1, stockMax: 4,   structureGrowSec: 10800, fruitCycleSec: 79200,  maxFruits: 11, fruitSellMin: 15000, fruitSellMax: 45000 }, // mg: Date
+    { id: "kiwi",         name: "Kiwi",          emoji: "🥝", rarity: "EPIC", singleUse: false, shopPrice: 850000, shopChance: 0.21, stockMin: 1, stockMax: 4,   structureGrowSec: 1350, fruitCycleSec: 79200,   maxFruits: 1,  fruitSellMin: 50000, fruitSellMax: 150000 }, // mg: Grape
+    { id: "pflaume",      name: "Pflaume",       emoji: "🍑", rarity: "EPIC", singleUse: false, shopPrice: 1000000, shopChance: 0.19, stockMin: 1, stockMax: 4,  structureGrowSec: 270,   fruitCycleSec: 79200,   maxFruits: 9,  fruitSellMin: 7000,  fruitSellMax: 21000 }, // mg: Pepper
+    { id: "mango",        name: "Mango",         emoji: "🥭", rarity: "EPIC", singleUse: false, shopPrice: 2000000, shopChance: 0.14, stockMin: 1, stockMax: 4,  structureGrowSec: 5400, fruitCycleSec: 79200,  maxFruits: 6,  fruitSellMin: 50000, fruitSellMax: 150000 }, // mg: Lemon
+    { id: "olive",        name: "Olive",         emoji: "🫒", rarity: "EPIC", singleUse: false, shopPrice: 2750000, shopChance: 0.12, stockMin: 1, stockMax: 4,  structureGrowSec: 5400, fruitCycleSec: 79200,  maxFruits: 2,  fruitSellMin: 200000, fruitSellMax: 600000 }, // mg: Passion Fruit
 
     // ── LEGENDARY ──
-    { id: "ananas",       name: "Ananas",        emoji: "🍍", rarity: "LEGENDARY", singleUse: true,  shopPrice: 590000000, growMinSec: 21600,  growMaxSec: 36000,  sellMin: 957000000, sellMax: 2871000000}, // Interpolated Huge
-    { id: "bambus",       name: "Bambus",        emoji: "🎋", rarity: "LEGENDARY", singleUse: true,  shopPrice: 886000000,growMinSec: 28800,  growMaxSec: 57600, sellMin: 1440000000,sellMax: 4320000000}, // Interpolated Huge
-    { id: "kakao",        name: "Kakao",         emoji: "🫘", rarity: "LEGENDARY", singleUse: true,  shopPrice: 1330000000,growMinSec: 43200,  growMaxSec: 86400, sellMin: 2150000000,sellMax: 6450000000},// Interpolated Huge
-    { id: "drachenfrucht", name: "Drachenfrucht", emoji: "🐉", rarity: "LEGENDARY", singleUse: true,  shopPrice: 1770000000,growMinSec: 57600,  growMaxSec: 115200, sellMin: 2870000000,sellMax: 8610000000},// Interpolated Huge
-    { id: "banane",       name: "Banane",        emoji: "🍌", rarity: "LEGENDARY", singleUse: false, shopPrice: 1180000000, structureGrowSec: 1800,  fruitCycleSec: 900,   maxFruits: 7,  fruitSellMin: 2850000, fruitSellMax: 8550000 }, // mg: Dragon Fruit
-    { id: "acai",         name: "Acai",          emoji: "🫐", rarity: "LEGENDARY", singleUse: false, shopPrice: 1180000000,structureGrowSec: 86400, fruitCycleSec: 5400,  maxFruits: 6,  fruitSellMin: 19900000, fruitSellMax: 59700000}, // mg: Cacao
-    { id: "passionsfrucht", name: "Passionsfrucht", emoji: "🌺", rarity: "LEGENDARY", singleUse: false, shopPrice: 1180000000,structureGrowSec: 86400, fruitCycleSec: 1800,  maxFruits: 6,  fruitSellMin: 6640000, fruitSellMax: 19920000}, // mg: Lychee
-    { id: "sternfrucht",  name: "Sternfrucht",   emoji: "⭐", rarity: "LEGENDARY", singleUse: false, shopPrice: 1180000000,structureGrowSec: 86400, fruitCycleSec: 18000, maxFruits: 1,  fruitSellMin: 399000000,fruitSellMax: 1197000000},// mg: Sunflower
-    { id: "dattel",       name: "Dattel",        emoji: "🌴", rarity: "LEGENDARY", singleUse: false, shopPrice: 1180000000,structureGrowSec: 86400, fruitCycleSec: 86400, maxFruits: 1,  fruitSellMin: 1910000000,fruitSellMax: 5730000000},// Balancing: ROI war 45-90 Tage
-    { id: "kokosnuss",    name: "Kokosnuss",     emoji: "🥥", rarity: "LEGENDARY", singleUse: false, shopPrice: 1180000000,structureGrowSec: 86400, fruitCycleSec: 86400, maxFruits: 1,  fruitSellMin: 1910000000,fruitSellMax: 5730000000},// Balancing: ROI war >1 Jahr
+    { id: "ananas",       name: "Ananas",        emoji: "🍍", rarity: "LEGENDARY", singleUse: true,  shopPrice: 50000000, shopChance: 0.041, stockMin: 5, stockMax: 7, growMinSec: 259200,  growMaxSec: 777600,  sellMin: 62000000, sellMax: 186000000}, // Interpolated Huge
+    { id: "bambus",       name: "Bambus",        emoji: "🎋", rarity: "LEGENDARY", singleUse: true,  shopPrice: 100000000, shopChance: 0.029, stockMin: 2, stockMax: 6,growMinSec: 345600,  growMaxSec: 1036800, sellMin: 125000000,sellMax: 375000000}, // Interpolated Huge
+    { id: "kakao",        name: "Kakao",         emoji: "🫘", rarity: "LEGENDARY", singleUse: true,  shopPrice: 500000000, shopChance: 0.013, stockMin: 3, stockMax: 8,growMinSec: 432000,  growMaxSec: 1296000, sellMin: 630000000,sellMax: 1890000000},// Interpolated Huge
+    { id: "drachenfrucht", name: "Drachenfrucht", emoji: "🐉", rarity: "LEGENDARY", singleUse: true,  shopPrice: 1000000000, shopChance: 0.009, stockMin: 4, stockMax: 10,growMinSec: 604800,  growMaxSec: 1814400, sellMin: 1300000000,sellMax: 3900000000},// Interpolated Huge
+    // BALANCING Aug 2026 (zweite Runde — banane/passionsfrucht/sternfrucht/dattel/
+    // kokosnuss): ROI (Kaufpreis ÷ Ertrag pro Stunde, bei maximaler Fruchtgröße)
+    // lag bei 7–25 Tagen, bei Kokosnuss und Passionsfrucht abgezogen von der
+    // fruitCycleSec-Rechnung sogar noch länger. Referenz ist Acai (unverändert,
+    // ROI ~3,5 Tage, stündlicher Ertrag ~1,2 % des Kaufpreises) — alle fünf sind
+    // jetzt auf denselben Maßstab gebracht, ~3 Tage ROI und 1,4–1,5 % Kaufpreis/h.
+    // Bei Sternfrucht/Dattel/Kokosnuss (je nur EIN Fruchtstand, ein Fruchtstand
+    // pro Tag) ging das nicht über den Verkaufswert allein: ihre lange
+    // Aufbauzeit (22–46 h) hätte sonst entweder einen Ertrag verlangt, der die
+    // ganze Investition mit der ERSTEN Frucht zurückzahlt (Preisverzerrung nach
+    // oben), oder wäre bei moderatem Ertrag nie unter ~5,4 Tage gekommen — die
+    // Aufbauzeit ist deshalb ebenfalls gekürzt (nicht auf null: sie bleiben
+    // spürbar langsamer als Acai/Banane/Passionsfrucht mit ihren vielen
+    // Fruchtständen). fruitCycleSec/maxFruits bleiben unangetastet — daran hängt
+    // auch die Erfahrung (siehe xpFuerErnte in economy.js), die soll hier
+    // unberührt bleiben.
+    { id: "banane",       name: "Banane",        emoji: "🍌", rarity: "LEGENDARY", singleUse: false, shopPrice: 5000000, shopChance: 0.131, stockMin: 1, stockMax: 4, structureGrowSec: 450,  fruitCycleSec: 79200,   maxFruits: 7,  fruitSellMin: 75000, fruitSellMax: 225000 }, // mg: Dragon Fruit
+    { id: "acai",         name: "Acai",          emoji: "🫐", rarity: "LEGENDARY", singleUse: false, shopPrice: 10000000, shopChance: 0.092, stockMin: 1, stockMax: 4,structureGrowSec: 5400, fruitCycleSec: 79200,  maxFruits: 6,  fruitSellMin: 150000, fruitSellMax: 450000}, // mg: Cacao — Preis unveraendert, Referenzwert für die Balancing-Runde oben
+    { id: "passionsfrucht", name: "Passionsfrucht", emoji: "🌺", rarity: "LEGENDARY", singleUse: false, shopPrice: 25000000, shopChance: 0.058, stockMin: 1, stockMax: 4,structureGrowSec: 900, fruitCycleSec: 79200,  maxFruits: 6,  fruitSellMin: 425000, fruitSellMax: 1275000}, // mg: Lychee
+    { id: "sternfrucht",  name: "Sternfrucht",   emoji: "⭐", rarity: "LEGENDARY", singleUse: false, shopPrice: 100000000, shopChance: 0.029, stockMin: 1, stockMax: 4,structureGrowSec: 9900, fruitCycleSec: 86400, maxFruits: 1,  fruitSellMin: 12000000,fruitSellMax: 35000000},// mg: Sunflower
+    { id: "dattel",       name: "Dattel",        emoji: "🌴", rarity: "LEGENDARY", singleUse: false, shopPrice: 300000000, shopChance: 0.017, stockMin: 1, stockMax: 3,structureGrowSec: 20700, fruitCycleSec: 86400, maxFruits: 1,  fruitSellMin: 40000000,fruitSellMax: 110000000},// Balancing: ROI war 45-90 Tage, dann ~14 Tage, jetzt ~3 Tage
+    { id: "kokosnuss",    name: "Kokosnuss",     emoji: "🥥", rarity: "LEGENDARY", singleUse: false, shopPrice: 1000000000, shopChance: 0.009, stockMin: 1, stockMax: 2,structureGrowSec: 20700, fruitCycleSec: 86400, maxFruits: 1,  fruitSellMin: 120000000,fruitSellMax: 360000000},// Balancing: ROI war >1 Jahr, dann ~15 Tage, jetzt ~3 Tage
 
     // ── MYTHIC ──
-    { id: "mondblume",    name: "Mondblume",     emoji: "🌙", rarity: "MYTHIC",    singleUse: true,  shopPrice: 28400000000,growMinSec: 115200, growMaxSec: 230400, sellMin: 46000000000, sellMax: 138000000000}, // mg: Moonbinder (interpolated for Single Use)
+    { id: "mondblume",    name: "Mondblume",     emoji: "🌙", rarity: "MYTHIC",    singleUse: true,  shopPrice: 50000000000, shopChance: 0.00025, stockMin: 1, stockMax: 3,growMinSec: 864000, growMaxSec: 2592000, sellMin: 65000000000, sellMax: 195000000000}, // mg: Moonbinder (interpolated for Single Use)
 ];
 
 module.exports = { SEED_CATALOGUE };

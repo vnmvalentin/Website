@@ -1,5 +1,8 @@
 const express = require("express");
-require("dotenv").config({ override: true });
+// quiet: true unterdrückt die rotierenden "tip:"-Werbezeilen, die dotenv seit v16.4
+// bei jedem Start ausgibt (u.a. für unabhängige Nebenprojekte des Maintainers) —
+// mit dem eigentlichen Laden der .env hat das nichts zu tun.
+require("dotenv").config({ override: true, quiet: true });
 const helmet = require("helmet");
 const cors = require("cors");
 const fs = require("fs");
@@ -17,39 +20,41 @@ const { Server } = require("socket.io");
 const createBingoRouter = require("./routes/bingoRoutes");
 const createAwardsRouter = require("./routes/awardsRoutes");
 const createGiveawayRouter = require("./routes/giveawayRoutes");
-const createWinchallengeRouter = require("./routes/winchallengeRoutes");
+const createWinchallengeRouter = require("./winchallenge/winchallengeRoutes");
 const createPollRouter = require("./routes/pollRoutes");
 const createCasinoRouter = require("./routes/casinoRoutes");
 const createAdventureRouter = require("./routes/adVenturesRoutes");
 const createAdminRouter = require("./routes/adminRoutes");
 const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
-const createGardenGameRouter = require("./routes/gardenGameRoutes");
+const createGardenGameRouter = require("./garden/routes/gardenGameRoutes");
 const discordClient = require("./discord/bot/index");
 const createDiscordRouter = require("./discord/api/index");
-const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./routes/clashRoyaleRoutes");
+const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./clashRoyale/routes/clashRoyaleRoutes");
 const { registerArenaSocket, createArenaRouter } = require("./routes/adventureArenaRoutes");
 const { registerConnect4Socket } = require("./routes/connect4Routes");
 // Blobby Volley läuft NICHT hier, sondern als eigener Prozess: blobbyServer.js. Seine
 // 75-Hz-Physik verträgt den Event-Loop dieses Prozesses nicht, in dem Discord-Bot,
 // Twitch-IRC und synchrone SQLite-Schreibvorgänge stecken. Begründung dort im Kopf.
-const createCrStreamerRouter = require("./routes/crStreamerRoutes");
-const { initCrStreamerStore } = require("./lib/crStreamerStore");
-const createBannedCardsRouter = require("./routes/bannedCardsRoutes");
-const createNuzlockeRouter = require("./routes/nuzlockeRoutes");
-const createCrWinTrackerRouter = require("./routes/crWinTrackerRoutes");
-const createCrPresetRouter = require("./routes/crPresetRoutes");
-const createStreamToolRouter = require("./routes/streamToolRoutes");
+const createCrStreamerRouter = require("./clashRoyale/routes/crStreamerRoutes");
+const { initCrStreamerStore } = require("./clashRoyale/lib/crStreamerStore");
+const createCrProfileRouter = require("./clashRoyale/routes/crProfileRoutes");
+const { initCrProfileStore } = require("./clashRoyale/lib/crProfileStore");
+const createBannedCardsRouter = require("./clashRoyale/routes/bannedCardsRoutes");
+const createNuzlockeRouter = require("./clashRoyale/routes/nuzlockeRoutes");
+const createCrWinTrackerRouter = require("./clashRoyale/routes/crWinTrackerRoutes");
+const createCrPresetRouter = require("./clashRoyale/routes/crPresetRoutes");
+const createStreamToolRouter = require("./streamTool/routes/streamToolRoutes");
 const { registerLiveBadgesSocket } = require("./lib/liveBadges");
-const { startModeScanner } = require("./clashRoyale/core/officialModeScanner");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
+const createDleRouter = require("./dle/routes/dleRoutes");
 const {
     saveAllFarmsOnExit, initGardenFarmsStore, farmStates,
     scheduleFarmsSave: scheduleFarmsSaveFuerMigration,
 } = require("./garden/store/farms");
 const { registerGardenSocket } = require("./garden/world/lobby");
 const { runGardenMigrations } = require("./garden/migrations");
-const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./lib/winchallengeStore");
+const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./winchallenge/winchallengeStore");
 const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc } = require("./lib/winchallengeIrc");
 const { step } = require("./lib/startupLog");
 
@@ -285,13 +290,17 @@ app.use("/api/garden", createGardenGameRouter({ requireAuth }));
 app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, sessions, saveSessionsToFile }));
 // Streamer-Konfiguration VOR dem allgemeinen Clash-Router mounten (spezifischerer Pfad)
 app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
-app.use("/api/clash/presets", createCrPresetRouter({ requireAuth, STREAMER_TWITCH_ID }));
+app.use("/api/clash/profile", createCrProfileRouter({ requireAuth }));
+app.use("/api/clash/presets", createCrPresetRouter({ requireAuth }));
 app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));
 app.use("/api/cr-wintracker", createCrWinTrackerRouter({ requireAuth }));
 app.use("/api/stream-tool", createStreamToolRouter({ requireAuth }));
 app.use("/api/used-by", createUsedByRouter());
+// Keine requireAuth-Abhängigkeit: die -dle-Tagesspiele sind ohne Login spielbar,
+// siehe Kommentarkopf in dle/routes/dleRoutes.js.
+app.use("/api/dle", createDleRouter());
 
 // =================== SOCKET.IO LOGIC ===================
 io.on("connection", (socket) => {
@@ -358,19 +367,22 @@ const PORT = process.env.PORT || 3001;
     process.exit(1);
   }
   try {
-    const irc = await initWinchallengeIrc();
-    step("Winchallenge-IRC", irc.status, irc.detail);
+    initCrProfileStore();
+    step("CR-Profil-DB", true);
   } catch (e) {
-    step("Winchallenge-IRC", false, e.message);
+    step("CR-Profil-DB", false, e.message);
+    process.exit(1);
   }
-  // Erkennt im Hintergrund die Kartenpools offizieller Clash-Royale-Spezialmodi
-  // (nur mit CLASH_ROYALE_API_TOKEN, erster Lauf ~1 Minute nach dem Start)
-  try {
-    const started = startModeScanner();
-    step("CR-Modus-Scanner", started ? true : "warn", started ? "alle 6 h" : "kein CLASH_ROYALE_API_TOKEN");
-  } catch (e) {
-    step("CR-Modus-Scanner", false, e.message);
-  }
+  // Ab hier lauscht der Server SOFORT — Twitch-IRC und der Win-Tracker-Sync brauchen beide
+  // einen externen Netzwerk-Handshake (waren vorher per `await` vor `listen()` gesetzt und
+  // hielten die ganze API unnötig auf, ~1s bei jedem Start). Beide sind schon von Haus aus
+  // fehlertolerant: initWinchallengeIrc() wirft bei Fehlern nicht (eigenes try/catch, kein
+  // process.exit), und jeder Aufrufer von winchallengeIrc-Funktionen (siehe
+  // winchallenge/winchallengeRoutes.js, streamTool/routes/streamToolRoutes.js,
+  // clashRoyale/routes/crWinTrackerRoutes.js)
+  // behandelt eine noch nicht verbundene IRC-Instanz bereits als Normalfall, nicht als Bug —
+  // sie liefen also schon immer mit "IRC evtl. noch nicht da" zurecht, nur bisher nie beim
+  // allerersten Request.
   server.once("error", (err) => {
     if (err && err.code === "EADDRINUSE") {
       step(
@@ -384,6 +396,22 @@ const PORT = process.env.PORT || 3001;
     process.exit(1);
   });
   server.listen(PORT, "0.0.0.0", () => step("Server", true, `Port ${PORT}`));
+
+  try {
+    const irc = await initWinchallengeIrc();
+    step("Winchallenge-IRC", irc.status, irc.detail);
+  } catch (e) {
+    step("Winchallenge-IRC", false, e.message);
+  }
+  // Synct aktive Win-Tracker-Accounts regelmäßig im Hintergrund, auch ohne offenes Overlay —
+  // sonst fallen bei langen Sessions Spiele aus dem ~25-Spiele-Fenster des Battlelogs, bevor sie
+  // je gespeichert wurden, und die Tagesstatistik zählt zu wenig.
+  try {
+    const started = createCrWinTrackerRouter.startBackgroundSync();
+    step("Win-Tracker-Sync", started ? true : "warn", started ? "alle 5 min" : "kein Token konfiguriert");
+  } catch (e) {
+    step("Win-Tracker-Sync", false, e.message);
+  }
 })();
 
 function shutdownGardenFarms() {

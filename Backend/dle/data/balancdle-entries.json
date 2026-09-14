@@ -1,0 +1,810 @@
+[
+  {
+    "id": "paperclip",
+    "label": "Eine Büroklammer",
+    "weightG": 1,
+    "description": "Eine gewöhnliche Standard-Büroklammer aus Metall.",
+    "wikiTitle": "Büroklammer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bueroklammern.jpg?width=500"
+  },
+  {
+    "id": "sheet-of-paper",
+    "label": "Ein Blatt Druckerpapier (A4, 80 g/m²)",
+    "weightG": 5,
+    "description": "Die gängigste Papiersorte für Büro und Drucker.",
+    "wikiTitle": "Papier",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Paperball%202.jpeg?width=500"
+  },
+  {
+    "id": "euro-cent-coin",
+    "label": "Eine 1-Cent-Münze",
+    "weightG": 2,
+    "description": "Die leichteste im Euroraum ausgegebene Münze.",
+    "wikiTitle": "1-Cent-Münze",
+    "image": null
+  },
+  {
+    "id": "aa-battery",
+    "label": "Eine AA-Batterie",
+    "weightG": 23,
+    "description": "Die meistverkaufte Batteriegröße für Fernbedienungen und Spielzeug.",
+    "wikiTitle": "Mignonzelle",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5f/Three_batteries.JPG/330px-Three_batteries.JPG?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "golf-ball",
+    "label": "Ein Golfball",
+    "weightG": 46,
+    "description": "Das offizielle Mindestgewicht im Turnierregelwerk.",
+    "wikiTitle": "Golfball",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Golfball.jpg?width=500"
+  },
+  {
+    "id": "ping-pong-ball",
+    "label": "Ein Tischtennisball",
+    "weightG": 3,
+    "description": "Deutlich leichter als ein Golfball, dafür viel größer.",
+    "wikiTitle": "Tischtennisball",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Balle%2038%2040.jpg?width=500"
+  },
+  {
+    "id": "tennis-ball",
+    "label": "Ein Tennisball",
+    "weightG": 58,
+    "description": "Das offizielle Turniergewicht laut ITF-Reglement.",
+    "wikiTitle": "Tennisball",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Tennisball.jpg?width=500"
+  },
+  {
+    "id": "baseball",
+    "label": "Ein Baseball",
+    "weightG": 145,
+    "description": "Das offizielle Wettkampfgewicht in der MLB.",
+    "wikiTitle": "Baseball",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Zack%20Greinke%20on%20July%2029%2C%202009.jpg?width=500"
+  },
+  {
+    "id": "smartphone",
+    "label": "Ein durchschnittliches Smartphone",
+    "weightG": 180,
+    "description": "Moderne Smartphones liegen meist in diesem Bereich.",
+    "wikiTitle": "Smartphone",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Android%20phones.jpg?width=500"
+  },
+  {
+    "id": "apple-fruit",
+    "label": "Ein mittelgroßer Apfel",
+    "weightG": 180,
+    "description": "Die Größe schwankt stark, ein handelsüblicher Apfel liegt aber ungefähr hier.",
+    "wikiTitle": "Kulturapfel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Tree%20with%20red%20apples%20in%20Barkedal%204.jpg?width=500"
+  },
+  {
+    "id": "banana",
+    "label": "Eine Banane (mit Schale)",
+    "weightG": 120,
+    "description": "Ohne Schale wiegt eine Banane nur noch etwa zwei Drittel davon.",
+    "wikiTitle": "Obstbanane",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0d/Musa_paradisiaca_Blanco1.88.png/330px-Musa_paradisiaca_Blanco1.88.png?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "chicken-egg",
+    "label": "Ein Hühnerei (Größe M)",
+    "weightG": 60,
+    "description": "Die EU-Handelsklasse 'M' reicht von 53 bis 63 Gramm.",
+    "wikiTitle": "Hühnerei",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Day%20017%20Photo365%20Eggs%20(95960053).jpeg?width=500"
+  },
+  {
+    "id": "soda-can",
+    "label": "Eine gefüllte Getränkedose (330 ml)",
+    "weightG": 370,
+    "description": "Die leere Aluminiumdose selbst wiegt nur etwa 15 Gramm davon.",
+    "wikiTitle": "Getränkedose",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/POE%20Stay-on%20tab.jpg?width=500"
+  },
+  {
+    "id": "water-liter",
+    "label": "Ein Liter Wasser",
+    "weightG": 1000,
+    "description": "Per Definition (bei 4 °C) exakt ein Kilogramm.",
+    "wikiTitle": "Liter",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/CubeLitre.svg?width=500"
+  },
+  {
+    "id": "basketball",
+    "label": "Ein Basketball",
+    "weightG": 600,
+    "description": "Das offizielle Wettkampfgewicht laut FIBA-Reglement.",
+    "wikiTitle": "Basketball",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Dream%20Team%20at%20the%201992%20Summer%20Olympics.JPEG?width=500"
+  },
+  {
+    "id": "soccer-ball",
+    "label": "Ein Fußball",
+    "weightG": 430,
+    "description": "Das offizielle Wettkampfgewicht laut FIFA-Reglement.",
+    "wikiTitle": "Fußball (Sportgerät)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Football%20Pallo%20valmiina-cropped.jpg?width=500"
+  },
+  {
+    "id": "laptop",
+    "label": "Ein durchschnittliches Laptop",
+    "weightG": 1800,
+    "description": "Sehr leichte Ultrabooks wiegen deutlich weniger, Gaming-Laptops oft mehr.",
+    "wikiTitle": "Laptop",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9a/Late_2016_MacBook_Pro.jpg/330px-Late_2016_MacBook_Pro.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "brick",
+    "label": "Ein Ziegelstein",
+    "weightG": 2500,
+    "description": "Ein normaler Mauerziegel für den Hausbau.",
+    "wikiTitle": "Ziegelstein",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/Stapel_bakstenen_-_Pile_of_bricks_2005_Fruggo.jpg/330px-Stapel_bakstenen_-_Pile_of_bricks_2005_Fruggo.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "house-cat",
+    "label": "Eine ausgewachsene Hauskatze",
+    "weightG": 4500,
+    "description": "Rasse und Ernährung sorgen für erhebliche Unterschiede.",
+    "wikiTitle": "Hauskatze",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cat%20grooming.jpg?width=500"
+  },
+  {
+    "id": "chihuahua",
+    "label": "Ein ausgewachsener Chihuahua",
+    "weightG": 2000,
+    "description": "Eine der kleinsten Hunderassen der Welt.",
+    "wikiTitle": "Chihuahua (Hunderasse)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Chihuahuas-%20Holly%2C%20Nina%2C%20Doralice.jpg?width=500"
+  },
+  {
+    "id": "newborn-baby",
+    "label": "Ein neugeborenes menschliches Baby (Durchschnitt)",
+    "weightG": 3400,
+    "description": "Als 'normal' gilt medizinisch ein Bereich von etwa 2.500 bis 4.500 Gramm.",
+    "wikiTitle": "Neugeborenes",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Baby%20care%2C%20Newborn%20baby%20girl%2C%20Moscow%2C%20Russia.jpg?width=500"
+  },
+  {
+    "id": "milk-liter",
+    "label": "Ein Liter Vollmilch",
+    "weightG": 1030,
+    "description": "Etwas schwerer als Wasser, wegen der gelösten Fette und Proteine.",
+    "wikiTitle": "Milch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Glass%20of%20Milk%20(33657535532).jpg?width=500"
+  },
+  {
+    "id": "wine-bottle",
+    "label": "Eine volle Weinflasche (0,75 l)",
+    "weightG": 1200,
+    "description": "Leer wiegt die klassische Glasflasche allein schon etwa 500 Gramm.",
+    "wikiTitle": "Weinflasche",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bouteille.jpg?width=500"
+  },
+  {
+    "id": "human-brain",
+    "label": "Ein menschliches Gehirn",
+    "weightG": 1400,
+    "description": "Männliche Gehirne sind im Schnitt etwas schwerer als weibliche — ohne dass das etwas über die Intelligenz aussagt.",
+    "wikiTitle": "Gehirn",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Vertebrate-brain-regions%20small.png?width=500"
+  },
+  {
+    "id": "human-heart",
+    "label": "Ein menschliches Herz",
+    "weightG": 300,
+    "description": "Etwa so groß und schwer wie die eigene Faust.",
+    "wikiTitle": "Herz",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Heart%20numlabels.svg?width=500"
+  },
+  {
+    "id": "bowling-ball",
+    "label": "Eine Bowlingkugel (Turniergewicht)",
+    "weightG": 7000,
+    "description": "Das zulässige Höchstgewicht im Bowlingsport liegt bei 16 Pfund, umgerechnet etwa hier.",
+    "wikiTitle": "Bowling",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bowlerbowling.JPG?width=500"
+  },
+  {
+    "id": "hammer",
+    "label": "Ein normaler Hammer",
+    "weightG": 500,
+    "description": "Ein üblicher Schlosserhammer für den Haushalt.",
+    "wikiTitle": "Hammer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Claw-hammer.jpg?width=500"
+  },
+  {
+    "id": "bicycle",
+    "label": "Ein normales Fahrrad",
+    "weightG": 11000,
+    "description": "Leichte Rennräder wiegen deutlich weniger, klassische Hollandräder oft mehr.",
+    "wikiTitle": "Fahrrad",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/00%208327%20Historisches%20Fahrrad.jpg?width=500"
+  },
+  {
+    "id": "microwave",
+    "label": "Eine Mikrowelle",
+    "weightG": 12000,
+    "description": "Ein handelsübliches Standgerät für die Küche.",
+    "wikiTitle": "Mikrowellenherd",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Panasonic%20NN-SD69LS%2020220410.jpg?width=500"
+  },
+  {
+    "id": "golden-retriever",
+    "label": "Ein ausgewachsener Golden Retriever",
+    "weightG": 30000,
+    "description": "Eine der beliebtesten großen Familienhunderassen.",
+    "wikiTitle": "Golden Retriever",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Golden%20Retriever%20Dukedestiny01%20drvd.jpg?width=500"
+  },
+  {
+    "id": "cinder-block",
+    "label": "Ein Betonstein (Standard-Hohlblockstein)",
+    "weightG": 13000,
+    "description": "Deutlich schwerer als ein einzelner Ziegelstein.",
+    "wikiTitle": "Betonstein",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Milano_-_Stazione_Centrale_-_Chimera_-_Foto_Giovanni_Dall%27Orto_1-1-2007_-_08.jpg/330px-Milano_-_Stazione_Centrale_-_Chimera_-_Foto_Giovanni_Dall%27Orto_1-1-2007_-_08.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "bowling-pin",
+    "label": "Ein Bowling-Pin (Kegel)",
+    "weightG": 1500,
+    "description": "Das Reglement erlaubt ein Gewicht von 1,5 bis 1,6 Kilogramm.",
+    "wikiTitle": "Bowling",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bowlerbowling.JPG?width=500"
+  },
+  {
+    "id": "great-dane",
+    "label": "Eine ausgewachsene Deutsche Dogge",
+    "weightG": 55000,
+    "description": "Eine der größten Hunderassen der Welt.",
+    "wikiTitle": "Deutsche Dogge",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/8675eds%20win.jpg?width=500"
+  },
+  {
+    "id": "adult-human-average",
+    "label": "Ein durchschnittlicher erwachsener Mensch (weltweit)",
+    "weightG": 62000,
+    "description": "Der weltweite Durchschnitt liegt deutlich unter dem vieler einzelner wohlhabender Länder.",
+    "wikiTitle": "Mensch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Akha%20cropped%20hires.JPG?width=500"
+  },
+  {
+    "id": "lion-adult",
+    "label": "Ein ausgewachsener männlicher Löwe",
+    "weightG": 190000,
+    "description": "Männliche Löwen sind deutlich schwerer als Löwinnen.",
+    "wikiTitle": "Löwe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lion%20in%20masai%20mara.jpg?width=500"
+  },
+  {
+    "id": "grand-piano",
+    "label": "Ein Konzertflügel",
+    "weightG": 480000,
+    "description": "Kleinere Klaviere sind deutlich leichter als ein großer Konzertflügel.",
+    "wikiTitle": "Flügel (Musikinstrument)",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9f/Boesendorfer_002.jpg/330px-Boesendorfer_002.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "car-tire",
+    "label": "Ein Autoreifen (PKW, mit Felge)",
+    "weightG": 9000,
+    "description": "Die Felge macht einen erheblichen Teil des Gesamtgewichts aus.",
+    "wikiTitle": "Autoreifen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Car%20tires.jpg?width=500"
+  },
+  {
+    "id": "mattress",
+    "label": "Eine Doppelbett-Matratze",
+    "weightG": 25000,
+    "description": "Material und Größe sorgen für spürbare Unterschiede im Gewicht.",
+    "wikiTitle": "Matratze",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Pillowtop-mattress.jpg?width=500"
+  },
+  {
+    "id": "washing-machine",
+    "label": "Eine Waschmaschine",
+    "weightG": 70000,
+    "description": "Ein Großteil des Gewichts steckt im Betongegengewicht gegen die Vibration.",
+    "wikiTitle": "Waschmaschine",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/LG%20%EB%93%9C%EB%9F%BC%EC%84%B8%ED%83%81%EA%B8%B0%EC%99%80%20%EC%8B%9D%EA%B8%B0%EC%84%B8%EC%B2%99%EA%B8%B0%2C%20%EC%98%81%EA%B5%AD%EC%84%9C%20%EB%AC%BC%EC%82%AC%EC%9A%A9%20%ED%9A%A8%EC%9C%A8%20%EC%B5%9C%EC%9A%B0%EC%88%98%20%EC%A0%9C%ED%92%88%20%EC%88%98%EC%83%81.jpg?width=500"
+  },
+  {
+    "id": "refrigerator",
+    "label": "Ein Kühlschrank (Standardgröße)",
+    "weightG": 65000,
+    "description": "Kombi-Geräte mit Gefrierteil wiegen tendenziell mehr.",
+    "wikiTitle": "Kühlschrank",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/LG%20refrigerator%20interior.jpg?width=500"
+  },
+  {
+    "id": "emperor-penguin",
+    "label": "Ein ausgewachsener Kaiserpinguin",
+    "weightG": 30000,
+    "description": "Die größte und schwerste aller Pinguinarten.",
+    "wikiTitle": "Kaiserpinguin",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Aptenodytes%20forsteri%20-Snow%20Hill%20Island%2C%20Antarctica%20-adults%20and%20juvenile-8.jpg?width=500"
+  },
+  {
+    "id": "watermelon",
+    "label": "Eine große Wassermelone",
+    "weightG": 5000,
+    "description": "Rekordexemplare erreichen sogar mehr als das Zehnfache davon.",
+    "wikiTitle": "Wassermelone",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Watermelon-garden.jpg?width=500"
+  },
+  {
+    "id": "gold-bar",
+    "label": "Ein Standard-Goldbarren (Good Delivery)",
+    "weightG": 12500,
+    "description": "Das im internationalen Handel übliche Format für Zentralbanken.",
+    "wikiTitle": "Goldbarren",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gold%20Ingots%20on%20white%20background.jpg?width=500"
+  },
+  {
+    "id": "tiger-adult",
+    "label": "Ein ausgewachsener männlicher Tiger",
+    "weightG": 220000,
+    "description": "Die größte Katzenart der Welt — noch etwas schwerer als der Löwe.",
+    "wikiTitle": "Tiger",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Adult%20male%20Royal%20Bengal%20tiger.jpg?width=500"
+  },
+  {
+    "id": "dining-table",
+    "label": "Ein normaler Esstisch aus Holz (für sechs Personen)",
+    "weightG": 40000,
+    "description": "Massivholz-Tische wiegen spürbar mehr als Modelle mit Spanplattenkern.",
+    "wikiTitle": "Esstisch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/WVDiningRoom.jpg?width=500"
+  },
+  {
+    "id": "riding-horse",
+    "label": "Ein ausgewachsenes Reitpferd",
+    "weightG": 500000,
+    "description": "Je nach Rasse liegt das Gewicht zwischen 400 und 700 Kilogramm.",
+    "wikiTitle": "Hauspferd",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Biandintz%20eta%20zaldiak%20-%20modified2.jpg?width=500"
+  },
+  {
+    "id": "surfboard",
+    "label": "Ein normales Surfbrett",
+    "weightG": 3000,
+    "description": "Anfängerboards sind meist etwas voluminöser und schwerer als Shortboards.",
+    "wikiTitle": "Surfbrett",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Elevenfootersmall.jpg?width=500"
+  },
+  {
+    "id": "motorcycle",
+    "label": "Ein mittelgroßes Motorrad",
+    "weightG": 180000,
+    "description": "Leichte Naked Bikes wiegen deutlich weniger als schwere Tourenmaschinen.",
+    "wikiTitle": "Motorrad",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Norton%20Motorcycle.jpg?width=500"
+  },
+  {
+    "id": "skateboard",
+    "label": "Ein komplettes Skateboard",
+    "weightG": 3200,
+    "description": "Deck, Achsen und Rollen zusammen ergeben dieses ungefähre Gewicht.",
+    "wikiTitle": "Skateboard",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Judi%20Oyama%20frontside%20grind%20Winchester%20Skatepark%201979%20photo%20Richard%20Oyama.png?width=500"
+  },
+  {
+    "id": "toaster",
+    "label": "Ein normaler Toaster",
+    "weightG": 1500,
+    "description": "Modelle mit vier Schlitzen wiegen tendenziell mehr als Zwei-Schlitz-Toaster.",
+    "wikiTitle": "Toaster",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hoteltoaster%2001%20(sk).jpg?width=500"
+  },
+  {
+    "id": "grain-of-rice",
+    "label": "Ein Korn ungekochter Reis",
+    "weightG": 0.03,
+    "description": "Eines der kleinsten Dinge, die man einzeln noch bewusst abwiegen kann.",
+    "wikiTitle": "Reis",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/White%2C%20Brown%2C%20Red%20%26%20Wild%20rice.jpg?width=500"
+  },
+  {
+    "id": "wine-cork",
+    "label": "Ein Weinkorken",
+    "weightG": 4,
+    "description": "Aus der Rinde der Korkeiche gewonnen, die dafür nicht gefällt werden muss.",
+    "wikiTitle": "Kork",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Korkeiche%20Andalusien2004.jpg?width=500"
+  },
+  {
+    "id": "staple",
+    "label": "Eine einzelne Heftklammer",
+    "weightG": 0.04,
+    "description": "Kaum spürbar in der Hand, trotzdem hält sie dutzende Blätter zusammen.",
+    "wikiTitle": "Heftklammer",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Heftklammer.jpg?width=500"
+  },
+  {
+    "id": "honeybee",
+    "label": "Eine Honigbiene",
+    "weightG": 0.1,
+    "description": "Für ein einziges Glas Honig müssen zehntausende Bienen tausende Blüten besuchen.",
+    "wikiTitle": "Westliche Honigbiene",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/(MHNT)%20Apis%20mellifera%20(female)%20-%20on%20viburnum%20tinus%20flowers.jpg?width=500"
+  },
+  {
+    "id": "match",
+    "label": "Ein einzelnes Streichholz",
+    "weightG": 0.13,
+    "description": "Der allergrößte Teil seines Gewichts steckt im Holzstiel, nicht im Zündkopf.",
+    "wikiTitle": "Streichholz",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Streichholz.jpg?width=500"
+  },
+  {
+    "id": "teabag",
+    "label": "Ein Teebeutel (mit Inhalt)",
+    "weightG": 2,
+    "description": "Das Papier des Beutels selbst macht dabei nur einen winzigen Bruchteil aus.",
+    "wikiTitle": "Teebeutel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Teabag%20with%20green%20tag.jpg?width=500"
+  },
+  {
+    "id": "us-quarter-coin",
+    "label": "Eine US-amerikanische 25-Cent-Münze (Quarter)",
+    "weightG": 5.67,
+    "description": "In den USA bis heute die für Automaten wichtigste Münze.",
+    "wikiTitle": "Quarter Dollar",
+    "image": null
+  },
+  {
+    "id": "two-euro-coin",
+    "label": "Eine 2-Euro-Münze",
+    "weightG": 8.5,
+    "description": "Die schwerste und größte regulär im Umlauf befindliche Euro-Münze.",
+    "wikiTitle": "2-Euro-Münze",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Piece%20Comm-2Euro%20(pile).jpg?width=500"
+  },
+  {
+    "id": "door-key",
+    "label": "Ein gewöhnlicher Haustürschlüssel",
+    "weightG": 10,
+    "description": "Trotz seiner geringen Größe fast immer aus massivem Metall gefertigt.",
+    "wikiTitle": "Schlüssel (Schließtechnik)",
+    "image": null
+  },
+  {
+    "id": "usb-stick",
+    "label": "Ein kleiner USB-Stick",
+    "weightG": 10,
+    "description": "Er wiegt kaum mehr als der Schlüsselbund, an dem er oft hängt.",
+    "wikiTitle": "USB-Stick",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Kingston%20Technology%20USB%20flash%20drives.%20USB%203.0.jpg?width=500"
+  },
+  {
+    "id": "compact-disc",
+    "label": "Eine Musik-CD (ohne Hülle)",
+    "weightG": 16,
+    "description": "Fast ausschließlich aus Polycarbonat-Kunststoff gefertigt, nur die Datenschicht ist hauchdünnes Metall.",
+    "wikiTitle": "Compact Disc",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/OD%20Compact%20disc.svg?width=500"
+  },
+  {
+    "id": "chess-king-piece",
+    "label": "Eine Schachfigur (König, Turnierset)",
+    "weightG": 35,
+    "description": "Die größte und meist auch schwerste Figur auf dem Brett.",
+    "wikiTitle": "Schachfigur",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Wfm%20lewis%20chessmen.jpg?width=500"
+  },
+  {
+    "id": "sunglasses",
+    "label": "Eine Sonnenbrille",
+    "weightG": 28,
+    "description": "Moderne Kunststoffgestelle wiegen oft nur einen Bruchteil älterer Metallmodelle.",
+    "wikiTitle": "Sonnenbrille",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/RayBanAviator.jpg?width=500"
+  },
+  {
+    "id": "light-bulb",
+    "label": "Eine klassische Glühbirne",
+    "weightG": 45,
+    "description": "Der größte Teil ihres Gewichts steckt im Glaskolben, nicht im dünnen Glühdraht.",
+    "wikiTitle": "Glühlampe",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gluehlampe%2001%20KMJ.jpg?width=500"
+  },
+  {
+    "id": "lemon",
+    "label": "Eine Zitrone",
+    "weightG": 65,
+    "description": "Trotz ihrer dicken Schale erstaunlich leicht für ihre Größe.",
+    "wikiTitle": "Zitrone",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Citrus%20x%20limon%20-%20K%C3%B6hler%E2%80%93s%20Medizinal-Pflanzen-041.jpg?width=500"
+  },
+  {
+    "id": "kiwi-fruit",
+    "label": "Eine Kiwi",
+    "weightG": 75,
+    "description": "Innen genauso grün wie außen behaart.",
+    "wikiTitle": "Kiwi (Frucht)",
+    "image": null
+  },
+  {
+    "id": "dark-chocolate-bar",
+    "label": "Eine Tafel Schokolade",
+    "weightG": 100,
+    "description": "Die Standardgröße im Supermarktregal seit Jahrzehnten praktisch unverändert.",
+    "wikiTitle": "Schokolade",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cocoa%20Powder%20and%20Chocolate%20on%20Marble%20Background.jpg?width=500"
+  },
+  {
+    "id": "onion",
+    "label": "Eine Küchenzwiebel",
+    "weightG": 110,
+    "description": "Ihr Wassergehalt liegt bei rund 90 Prozent.",
+    "wikiTitle": "Küchenzwiebel",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Illustration_Allium_schoenoprasum_and_Allium_cepa0.jpg/330px-Illustration_Allium_schoenoprasum_and_Allium_cepa0.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "deck-of-cards",
+    "label": "Ein Kartenspiel (Skatblatt, mit Verpackung)",
+    "weightG": 90,
+    "description": "Trotz nur 32 dünner Papp-Karten kommt durch die Schachtel einiges an Gewicht zusammen.",
+    "wikiTitle": "Spielkarte",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Karty%20do%20gry%20.%20Playing%20card.JPG?width=500"
+  },
+  {
+    "id": "computer-mouse",
+    "label": "Eine kabellose Computermaus",
+    "weightG": 90,
+    "description": "Eine eingebaute Batterie macht sie spürbar schwerer als ein kabelgebundenes Modell.",
+    "wikiTitle": "Computermaus",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/2023%20Mysz%20komputerowa%20Logitech%20G903%20Lightspeed.jpg?width=500"
+  },
+  {
+    "id": "wallet-leather",
+    "label": "Ein leeres Leder-Portemonnaie",
+    "weightG": 150,
+    "description": "Mit Karten und Bargeld gefüllt bringt es schnell deutlich mehr auf die Waage.",
+    "wikiTitle": "Geldbörse",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3c/WalletMpegMan.jpg/330px-WalletMpegMan.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "roll-of-toilet-paper",
+    "label": "Eine Rolle Toilettenpapier",
+    "weightG": 130,
+    "description": "Fast ausschließlich Luft — zusammengepresst würde das Papier selbst nur einen Bruchteil des Volumens einnehmen.",
+    "wikiTitle": "Toilettenpapier",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Toiletpapier%20(Gobran111).jpg?width=500"
+  },
+  {
+    "id": "orange-fruit",
+    "label": "Eine Orange",
+    "weightG": 130,
+    "description": "Rund ein Viertel ihres Gewichts steckt allein in der dicken Schale.",
+    "wikiTitle": "Orange (Frucht)",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Oranges%20-%20whole-halved-segment.jpg?width=500"
+  },
+  {
+    "id": "avocado",
+    "label": "Eine Avocado",
+    "weightG": 200,
+    "description": "Der große Kern in der Mitte macht dabei einen überraschend großen Anteil des Gesamtgewichts aus.",
+    "wikiTitle": "Avocado",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Persea%20americana%20fruit%202.JPG?width=500"
+  },
+  {
+    "id": "wristwatch",
+    "label": "Eine mechanische Armbanduhr",
+    "weightG": 60,
+    "description": "Das feine Innenleben aus Federn und Zahnrädern wiegt erstaunlich wenig — das meiste Gewicht steckt im Metallgehäuse und Armband.",
+    "wikiTitle": "Armbanduhr",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Watch%20(clothing).jpg?width=500"
+  },
+  {
+    "id": "mango-fruit",
+    "label": "Eine Mango",
+    "weightG": 320,
+    "description": "Je nach Sorte kann ihr Gewicht stark schwanken.",
+    "wikiTitle": "Mango",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20Botanical%20Magazine.%20Mango.jpg?width=500"
+  },
+  {
+    "id": "butter-block",
+    "label": "Ein Stück Markenbutter",
+    "weightG": 250,
+    "description": "Die gebräuchliche Verpackungsgröße im deutschen Supermarkt.",
+    "wikiTitle": "Butter",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Butter%20at%20the%20Borough%20Market.jpg?width=500"
+  },
+  {
+    "id": "paperback-book",
+    "label": "Ein Taschenbuch (durchschnittlicher Roman)",
+    "weightG": 220,
+    "description": "Deutlich leichter als dieselbe Geschichte in gebundener Ausgabe.",
+    "wikiTitle": "Taschenbuch",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Nephrology%20pocket%20book.jpg?width=500"
+  },
+  {
+    "id": "bicycle-helmet",
+    "label": "Ein Fahrradhelm",
+    "weightG": 350,
+    "description": "Moderne Helme sind meist aus einem harten Außenschaum-Kern gefertigt, der überraschend leicht ist.",
+    "wikiTitle": "Fahrradhelm",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Casque%20v%C3%A9lo%20de%20course.jpg?width=500"
+  },
+  {
+    "id": "running-shoe-single",
+    "label": "Ein einzelner Laufschuh (Herrengröße 42)",
+    "weightG": 280,
+    "description": "Läufer achten bei Wettkampfschuhen oft ganz besonders auf jedes eingesparte Gramm.",
+    "wikiTitle": "Laufschuh",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2e/Adidas_chibaPR.jpg/330px-Adidas_chibaPR.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "umbrella",
+    "label": "Ein zusammengeklappter Regenschirm",
+    "weightG": 400,
+    "description": "Kompakte Taschenschirme wiegen oft nur einen Bruchteil eines klassischen Stockschirms.",
+    "wikiTitle": "Regenschirm",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/M0354%20000727-005%201.jpg?width=500"
+  },
+  {
+    "id": "loaf-of-bread",
+    "label": "Ein Laib Brot",
+    "weightG": 500,
+    "description": "Beim Backen verliert der Teig durch das Verdunsten von Wasser im Ofen noch einmal deutlich an Gewicht.",
+    "wikiTitle": "Brot",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Assorted%20bread.jpg?width=500"
+  },
+  {
+    "id": "tennis-racket",
+    "label": "Ein Tennisschläger",
+    "weightG": 300,
+    "description": "Profis bevorzugen dabei oft etwas schwerere Modelle als Freizeitspieler, wegen der stabileren Ballkontrolle.",
+    "wikiTitle": "Tennisschläger",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Babolatpuredriveplus.jpg?width=500"
+  },
+  {
+    "id": "hardcover-book",
+    "label": "Ein gebundenes Buch (durchschnittlicher Roman)",
+    "weightG": 600,
+    "description": "Der feste Einband macht dabei einen erheblichen Teil des Gesamtgewichts aus.",
+    "wikiTitle": "Einband",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The%20St%20Cuthbert%20Gospel%20of%20St%20John.%20(formerly%20known%20as%20the%20Stonyhurst%20Gospel)%20is%20the%20oldest%20intact%20European%20book.%20-%20Upper%20cover%20(Add%20Ms%2089000)%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "tablet-computer",
+    "label": "Ein durchschnittliches Tablet",
+    "weightG": 470,
+    "description": "Deutlich leichter als ein Laptop, aber schwerer als die meisten Smartphones.",
+    "wikiTitle": "Tablet-Computer",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d5/IFA_2010_Internationale_Funkausstellung_Berlin_18.JPG/330px-IFA_2010_Internationale_Funkausstellung_Berlin_18.JPG?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "guinea-pig",
+    "label": "Ein ausgewachsenes Meerschweinchen",
+    "weightG": 900,
+    "description": "Trotz seiner kompakten Größe deutlich schwerer, als viele erwarten würden.",
+    "wikiTitle": "Hausmeerschweinchen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cochon%20d'Inde%20(Cavia%20porcellus)%20(2).jpg?width=500"
+  },
+  {
+    "id": "two-liter-soda-bottle",
+    "label": "Eine volle 2-Liter-Flasche Limonade",
+    "weightG": 2100,
+    "description": "Das Leergewicht der Kunststoffflasche selbst macht davon nur einen kleinen Teil aus.",
+    "wikiTitle": "PET-Flasche",
+    "image": null
+  },
+  {
+    "id": "rabbit-pet",
+    "label": "Ein ausgewachsenes Hauskaninchen",
+    "weightG": 2200,
+    "description": "Je nach Rasse kann das Gewicht stark variieren, von Zwergkaninchen bis zu großen Widderkaninchen.",
+    "wikiTitle": "Hauskaninchen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/EnglishSpotRabbitChocolate1(cropped).jpg?width=500"
+  },
+  {
+    "id": "car-battery",
+    "label": "Eine Autobatterie",
+    "weightG": 15000,
+    "description": "Das schwere Blei in ihrem Inneren macht sie für ihre Größe ungewöhnlich massiv.",
+    "wikiTitle": "Autobatterie",
+    "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/07/Starterbatterie_Blei-Calcium.jpg/330px-Starterbatterie_Blei-Calcium.jpg?utm_source=de.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+  },
+  {
+    "id": "dumbbell-20kg",
+    "label": "Eine 20-kg-Hantelscheibe",
+    "weightG": 20000,
+    "description": "Eine gängige Gewichtsstufe im Fitnessstudio.",
+    "wikiTitle": "Hantel",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Gym-dynamic-premium.png?width=500"
+  },
+  {
+    "id": "cement-bag-25kg",
+    "label": "Ein Sack Zement (kleine Gebindegröße)",
+    "weightG": 25000,
+    "description": "Auf jeder Baustelle ein vertrauter Anblick.",
+    "wikiTitle": "Zement",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cement%2002%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "cement-bag-50kg",
+    "label": "Ein Sack Zement (große Gebindegröße)",
+    "weightG": 50000,
+    "description": "Die doppelte Menge der kleineren, ebenfalls gebräuchlichen Sackgröße.",
+    "wikiTitle": "Zement",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Cement%2002%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "office-chair",
+    "label": "Ein gepolsterter Bürodrehstuhl",
+    "weightG": 15000,
+    "description": "Stabile Rollen und ein schwerer Metallfuß sorgen für sicheren Stand.",
+    "wikiTitle": "Bürostuhl",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Buerostuhl%20(fcm).jpg?width=500"
+  },
+  {
+    "id": "panda-adult",
+    "label": "Ein ausgewachsener Großer Panda",
+    "weightG": 100000,
+    "description": "Trotz seiner überwiegend pflanzlichen, nährstoffarmen Bambus-Diät erreicht er ein beachtliches Gewicht.",
+    "wikiTitle": "Großer Panda",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Giant%20Panda%202004-03-2.jpg?width=500"
+  },
+  {
+    "id": "silverback-gorilla",
+    "label": "Ein ausgewachsenes männliches Gorilla-Silberrücken-Männchen",
+    "weightG": 160000,
+    "description": "Trotz seiner enormen Kraft ernährt es sich fast ausschließlich von Pflanzen.",
+    "wikiTitle": "Gorillas",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Lowland%20Gorilla%20(8973697544).jpg?width=500"
+  },
+  {
+    "id": "upright-piano",
+    "label": "Ein Klavier (aufrechtes Klavier, kein Flügel)",
+    "weightG": 250000,
+    "description": "Deutlich leichter als ein Konzertflügel, weil die Saiten steiler statt waagerecht gespannt sind.",
+    "wikiTitle": "Klavier",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Steinway%20%26%20Sons%20concert%20grand%20piano%2C%20model%20D-274%2C%20manufactured%20at%20Steinway's%20factory%20in%20Hamburg%2C%20Germany.png?width=500"
+  },
+  {
+    "id": "heavy-touring-motorcycle",
+    "label": "Ein schweres Reisemotorrad (vollgetankt, z.B. Harley-Davidson Tourenmodell)",
+    "weightG": 370000,
+    "description": "Deutlich schwerer als ein durchschnittliches Motorrad, unter anderem wegen großem Tank und viel Gepäckausstattung.",
+    "wikiTitle": "Motorrad",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Norton%20Motorcycle.jpg?width=500"
+  },
+  {
+    "id": "polar-bear-adult",
+    "label": "Ein ausgewachsener männlicher Eisbär",
+    "weightG": 450000,
+    "description": "Das größte an Land lebende Raubtier der Welt.",
+    "wikiTitle": "Eisbär",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Polar%20Bear%20-%20Alaska%20(cropped).jpg?width=500"
+  },
+  {
+    "id": "dairy-cow",
+    "label": "Eine ausgewachsene Milchkuh",
+    "weightG": 650000,
+    "description": "Moderne Hochleistungs-Milchrassen sind dabei oft schwerer als traditionelle Rassen.",
+    "wikiTitle": "Hausrind",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Bulgarian%20gray%20cattle.jpg?width=500"
+  },
+  {
+    "id": "small-car",
+    "label": "Ein typischer Kleinwagen (Leergewicht)",
+    "weightG": 1200000,
+    "description": "Trotz seiner kompakten Außenmaße bringt allein die Karosserie mit Motor mehr als eine Tonne auf die Waage.",
+    "wikiTitle": "Kleinwagen",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Renault%20Clio%20TCe%2090%20Luxe%20(IV)%20%E2%80%93%20Frontansicht%2C%2017.%20Mai%202013%2C%20M%C3%BCnster.jpg?width=500"
+  },
+  {
+    "id": "african-elephant",
+    "label": "Ein ausgewachsener männlicher Afrikanischer Elefant",
+    "weightG": 6000000,
+    "description": "Das größte an Land lebende Tier der Welt — allein sein Herz wiegt schon mehrere Kilogramm.",
+    "wikiTitle": "Afrikanische Elefanten",
+    "image": "https://commons.wikimedia.org/wiki/Special:FilePath/African%20Bush%20Elephant.jpg?width=500"
+  }
+]

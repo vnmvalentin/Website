@@ -11,14 +11,14 @@ function Accordion({ title, subtitle, children, defaultOpen = false }) {
     return (
         <div className="border border-white/5 rounded-lg overflow-hidden">
             <button onClick={() => setOpen(o => !o)}
-                className="w-full flex items-center justify-between px-5 py-4 bg-black/30 hover:bg-white/5 transition-colors text-left">
+                className="w-full flex items-center justify-between px-5 py-4 bg-[#0e0e1a]/85 hover:bg-white/5 transition-colors text-left">
                 <div>
                     <p className="text-white font-semibold text-sm">{title}</p>
                     {subtitle && <p className="text-white/40 text-xs mt-0.5">{subtitle}</p>}
                 </div>
                 <ChevronDown size={16} className={`text-white/40 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
             </button>
-            {open && <div className="p-5 pt-4 bg-black/20 space-y-4">{children}</div>}
+            {open && <div className="p-5 pt-4 bg-[#0e0e1a]/75 space-y-4">{children}</div>}
         </div>
     );
 }
@@ -156,7 +156,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Kanal für Setup-Nachricht <span className="text-red-400">*</span></label>
                                 <select value={setupChannelId} onChange={e => setSetupChannelId(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                                     <option value="">-- Kanal auswählen --</option>
                                     {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                                 </select>
@@ -164,7 +164,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Kategorie für Ticket-Kanäle <span className="text-white/40 font-normal">(optional)</span></label>
                                 <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
                                     <option value="">-- Keine Kategorie --</option>
                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
@@ -175,15 +175,15 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Embed-Titel</label>
                                 <input value={embedTitle} onChange={e => setEmbedTitle(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
+                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
                             </div>
                             <div>
                                 <label className="block text-white text-sm font-medium mb-2">Farbe</label>
                                 <div className="flex gap-2">
                                     <input type="color" value={embedColor} onChange={e => setEmbedColor(e.target.value)}
-                                        className="h-[46px] w-14 bg-black/30 border border-white/10 rounded-lg cursor-pointer p-1 shrink-0" />
+                                        className="h-[46px] w-14 bg-[#0e0e1a]/85 border border-white/10 rounded-lg cursor-pointer p-1 shrink-0" />
                                     <input value={embedColor} onChange={e => setEmbedColor(e.target.value)}
-                                        className="flex-1 bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none font-mono text-sm" />
+                                        className="flex-1 bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none font-mono text-sm" />
                                 </div>
                             </div>
                         </div>
@@ -191,7 +191,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                         <div>
                             <label className="block text-white text-sm font-medium mb-2">Embed-Beschreibung</label>
                             <textarea value={embedDescription} onChange={e => setEmbedDescription(e.target.value)} rows={3}
-                                className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none resize-none" />
+                                className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none resize-none" />
                         </div>
 
                         <div>
@@ -231,7 +231,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                         subtitle="Was der User beim Erstellen eines Tickets ausfüllt (max. 5 Felder)">
                         <div className="space-y-3">
                             {fields.map((f, i) => (
-                                <div key={i} className="bg-black/30 border border-white/5 rounded-lg p-4 space-y-3">
+                                <div key={i} className="bg-[#0e0e1a]/85 border border-white/5 rounded-lg p-4 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="text-white/40 text-xs font-mono">Feld {i + 1}</span>
                                         <div className="flex items-center gap-1">
@@ -244,12 +244,12 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                                         <div>
                                             <label className="block text-white/50 text-xs mb-1">Label <span className="text-red-400">*</span></label>
                                             <input value={f.label} onChange={e => updateField(i, 'label', e.target.value)} placeholder="z.B. Name"
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-violet-500 outline-none" />
+                                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-violet-500 outline-none" />
                                         </div>
                                         <div>
                                             <label className="block text-white/50 text-xs mb-1">Platzhalter</label>
                                             <input value={f.placeholder} onChange={e => updateField(i, 'placeholder', e.target.value)} placeholder="z.B. Dein Name..."
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-violet-500 outline-none" />
+                                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-violet-500 outline-none" />
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-5">
@@ -284,7 +284,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
             )}
 
             {/* Ticket-Verlauf */}
-            <div className="bg-black/20 border border-white/5 rounded-lg p-6 space-y-4 max-w-4xl">
+            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-4xl">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
                         <h3 className="text-white font-semibold">Ticket-Verlauf</h3>
@@ -317,7 +317,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                                     <span className="text-white/30 text-xs shrink-0 hidden sm:block">{formatDate(t.createdAt)}</span>
                                 </button>
                                 {expandedTicket === t.id && (
-                                    <div className="border-t border-white/5 px-4 py-3 bg-black/20 space-y-2.5">
+                                    <div className="border-t border-white/5 px-4 py-3 bg-[#0e0e1a]/75 space-y-2.5">
                                         <div className="flex flex-wrap gap-4 text-xs text-white/40 mb-2">
                                             <span>Erstellt: {formatDate(t.createdAt)}</span>
                                             {t.closedAt && <span>Geschlossen: {formatDate(t.closedAt)}</span>}

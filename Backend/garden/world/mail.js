@@ -13,7 +13,7 @@
 // im PUT weiterhin frei setzen. Der Briefkasten macht das nicht schlimmer — er ist nur
 // kein zusätzliches Schlupfloch.
 
-const { verkaufswert } = require("../core/economy");
+const { verkaufswert, gutschreiben } = require("../core/economy");
 
 const MAIL_MAX_ITEMS = 50;              // pro Briefkasten
 const MAIL_MESSAGE_MAX = 200;           // Zeichen
@@ -347,7 +347,10 @@ function claimMail(farmStates, twitchId, mailId) {
     if (mail.gold > 0) {
         const amount = normalizeGoldAmount(mail.gold);
         if (amount !== null) {
-            state.gold = Number(state.gold || 0) + amount;
+            // gutschreiben() statt der Zeile von Hand — zählt jetzt auch fürs
+            // Lebenszeit-Gold mit (siehe economy.js): Post von anderen ist genauso
+            // "verdient" wie ein Verkauf, aus Sicht des Empfängers.
+            gutschreiben(state, amount);
             credited.gold = amount;
         }
     }
@@ -404,6 +407,9 @@ module.exports = {
     getMailbox,
     checkRateLimit,
     filtereVerschenkte,
+    // Auch der Feld-Manager gibt Sachen aus einer Browser-Liste weg (ein Samen, der
+    // auf fremdem Grund landet) und braucht denselben Schutz vor verspaeteten PUTs.
+    merkeVerschenkt,
     // exportiert für die Tests
     normalizeGoldAmount,
     sanitizeMessage,

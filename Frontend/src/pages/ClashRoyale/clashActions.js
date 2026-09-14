@@ -19,7 +19,9 @@ export function createClashActions(emitToLobby, setMyBid) {
     startGame: () => emitToLobby('clash:startGame'),
     restartLobby: () => emitToLobby('clash:restartLobby'),
     kickPlayer: (playerId) => emitToLobby('clash:kickPlayer', { playerId }),
+    addBot: () => emitToLobby('clash:addBot'),
     setLobbyLocked: (locked) => emitToLobby('clash:setLobbyLocked', { locked }),
+    setLobbyPublic: (isPublic) => emitToLobby('clash:setLobbyPublic', { isPublic }),
 
     // ── Clash-Royale-Account & Tracking ─────────────────────────────────────
     // Diese drei antworten per Ack, weil der Client auf das Ergebnis wartet: ob der Tag
@@ -36,8 +38,15 @@ export function createClashActions(emitToLobby, setMyBid) {
     setPlayerSpectator: (targetPlayerId, isSpectator) =>
       emitToLobby('clash:setPlayerSpectator', { targetPlayerId, isSpectator }),
     setMode: (mode) => emitToLobby('clash:setMode', { mode }),
+    // ── Solo/Duo & Teams ─────────────────────────────────────────────────────
+    setPartyMode: (partyMode) => emitToLobby('clash:setPartyMode', { partyMode }),
+    switchTeam: (team, targetPlayerId) => emitToLobby('clash:switchTeam', { team, targetPlayerId }),
     applyPreset: (presetId) => emitToLobby('clash:applyModePreset', { presetId }),
     setExcludedCards: (cardIds) => emitToLobby('clash:setExcludedCards', { cardIds }),
+    // Kartenpool auf die Schnittmenge der freigeschalteten Karten aller verknüpften Spieler
+    // zuschneiden — per Ack, der Client zeigt Erfolg/Fehler direkt im Kartenpool-Dialog an.
+    trimPoolToUnlocked: () => new Promise(resolve =>
+      emitToLobby('clash:trimPoolToUnlocked', {}, resolve)),
 
     // ── Modusübergreifende Einstellungen ────────────────────────────────────
     setTimer: (seconds) => emitToLobby('clash:setTimer', { seconds }),
@@ -59,6 +68,11 @@ export function createClashActions(emitToLobby, setMyBid) {
     },
     motherWitchRespond: (accept) => emitToLobby('clash:motherWitch:respond', { accept }),
 
+    // ── Elixir Auction 2v2 ───────────────────────────────────────────────────
+    setTeamElixirPool: (amount) => emitToLobby('clash:setTeamElixirPool', { amount }),
+    auction2v2SendHint: (cardIndex, tagIds) => emitToLobby('clash:auction2v2:hint', { cardIndex, tagIds }),
+    auction2v2Bid: (cardIndex, amount) => emitToLobby('clash:auction2v2:bid', { cardIndex, amount }),
+
     // ── Bingo Royale ────────────────────────────────────────────────────────
     setTokenShopTimer: (seconds) => emitToLobby('clash:setTokenShopTimer', { seconds }),
     bingoPick: (cardIndex, bingoCell) => emitToLobby('clash:bingo:pick', { cardIndex, bingoCell }),
@@ -78,6 +92,12 @@ export function createClashActions(emitToLobby, setMyBid) {
     setRushShowElixir: (show) => emitToLobby('clash:setRushShowElixir', { show }),
     setRushShowTimer: (show) => emitToLobby('clash:setRushShowTimer', { show }),
     rushBuy: (slotIdx, seq) => emitToLobby('clash:rush:buy', { slotIdx, seq }),
+
+    // ── Elixir Rush 2v2 ──────────────────────────────────────────────────────
+    setRush2v2MarketSize: (count) => emitToLobby('clash:setRush2v2MarketSize', { count }),
+    setRush2v2Lifetime: (seconds) => emitToLobby('clash:setRush2v2Lifetime', { seconds }),
+    setRush2v2MaxElixir: (amount) => emitToLobby('clash:setRush2v2MaxElixir', { amount }),
+    rush2v2Buy: (slotIdx, seq) => emitToLobby('clash:rush2v2:buy', { slotIdx, seq }),
 
     // ── Karten-Evolution ────────────────────────────────────────────────────
     setEvolutionPickSeconds: (seconds) => emitToLobby('clash:setEvolutionPickSeconds', { seconds }),
@@ -102,6 +122,19 @@ export function createClashActions(emitToLobby, setMyBid) {
     mazeDraftPick: (choice) => emitToLobby('clash:maze:draftPick', { choice }),
     mazeJokerPick: (cardId) => emitToLobby('clash:maze:jokerPick', { cardId }),
     mazeCloseDraft: () => emitToLobby('clash:maze:closeDraft'),
+
+    // ── Fallensteller ───────────────────────────────────────────────────────
+    setTrapDisguiseSeconds: (seconds) => emitToLobby('clash:setTrapDisguiseSeconds', { seconds }),
+    setTrapDisguiseCount: (count) => emitToLobby('clash:setTrapDisguiseCount', { count }),
+    setTrapGridSize: (size) => emitToLobby('clash:setTrapGridSize', { size }),
+    trapChooseBadCard: (badCardIndex) => emitToLobby('clash:trap:chooseBadCard', { badCardIndex }),
+    trapChooseTarget: (targetIndex) => emitToLobby('clash:trap:chooseTarget', { targetIndex }),
+    trapClick: (cellIndex) => emitToLobby('clash:trap:click', { cellIndex }),
+
+    // ── Pyramidendraft ──────────────────────────────────────────────────────
+    setPyramidBlocks: (count) => emitToLobby('clash:setPyramidBlocks', { count }),
+    setPyramidRows: (rows) => emitToLobby('clash:setPyramidRows', { rows }),
+    pyramidPick: (row, col) => emitToLobby('clash:pyramid:pick', { row, col }),
 
     // ── Admin ───────────────────────────────────────────────────────────────
     adminSwapCard: (targetPlayerId, deckIndex, newCardId) =>

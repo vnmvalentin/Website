@@ -49,7 +49,7 @@ export default function StatsTab({ selectedServer }) {
                     {DAY_OPTIONS.map(d => (
                         <button key={d} onClick={() => setDays(d)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                days === d ? 'bg-violet-600 text-white' : 'bg-black/30 text-white/50 hover:text-white border border-white/5'
+                                days === d ? 'bg-violet-600 text-white' : 'bg-[#0e0e1a]/85 text-white/50 hover:text-white border border-white/5'
                             }`}>
                             {d}d
                         </button>
@@ -65,7 +65,7 @@ export default function StatsTab({ selectedServer }) {
                     { label: 'Voice-Zeit gesamt', value: formatDuration(totalVoiceSecs), icon: '🎙️' },
                     { label: 'Voice-Nutzer', value: voiceStats.length, icon: '👥' },
                 ].map(card => (
-                    <div key={card.label} className="bg-black/20 border border-white/5 rounded-lg p-5">
+                    <div key={card.label} className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5">
                         <div className="text-2xl mb-2">{card.icon}</div>
                         <div className="text-2xl font-bold text-white">{loading ? '–' : card.value}</div>
                         <div className="text-white/40 text-xs mt-1">{card.label}</div>
@@ -75,7 +75,7 @@ export default function StatsTab({ selectedServer }) {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Message stats by channel */}
-                <div className="bg-black/20 border border-white/5 rounded-lg p-6">
+                <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6">
                     <h3 className="text-white font-semibold mb-4 flex items-center gap-2">💬 Nachrichten nach Kanal</h3>
                     {loading ? (
                         <p className="text-white/40 text-sm">Lade...</p>
@@ -89,7 +89,7 @@ export default function StatsTab({ selectedServer }) {
                                         <span className="text-white/60 truncate">#{row.channelName}</span>
                                         <span className="text-white/50 shrink-0 ml-2">{(row.total ?? 0).toLocaleString('de')}</span>
                                     </div>
-                                    <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
+                                    <div className="h-1.5 bg-[#0e0e1a]/85 rounded-full overflow-hidden">
                                         <div className="h-full bg-violet-500 rounded-full transition-all duration-500"
                                             style={{ width: `${(row.total / maxMessages) * 100}%` }} />
                                     </div>
@@ -100,7 +100,7 @@ export default function StatsTab({ selectedServer }) {
                 </div>
 
                 {/* Voice activity by user */}
-                <div className="bg-black/20 border border-white/5 rounded-lg p-6">
+                <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6">
                     <h3 className="text-white font-semibold mb-4 flex items-center gap-2">🎙️ Voice-Zeit nach Nutzer</h3>
                     {loading ? (
                         <p className="text-white/40 text-sm">Lade...</p>
@@ -114,7 +114,7 @@ export default function StatsTab({ selectedServer }) {
                                         <span className="text-white/60 truncate">{row.displayName}</span>
                                         <span className="text-white/50 shrink-0 ml-2">{formatDuration(row.totalSeconds)}</span>
                                     </div>
-                                    <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
+                                    <div className="h-1.5 bg-[#0e0e1a]/85 rounded-full overflow-hidden">
                                         <div className="h-full bg-violet-500 rounded-full transition-all duration-500"
                                             style={{ width: `${(row.totalSeconds / maxVoice) * 100}%` }} />
                                     </div>

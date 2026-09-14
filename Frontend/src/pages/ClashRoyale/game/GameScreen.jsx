@@ -6,10 +6,11 @@
 // Chunk vor, sobald in der Lobby feststeht, welcher Modus dran ist — der Suspense-
 // Fallback wird deshalb in aller Regel gar nicht sichtbar.
 
-import React, { lazy, Suspense } from 'react';
-import { XCircle, LogOut, Shield } from 'lucide-react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { XCircle, LogOut, Shield, Maximize2, Minimize2 } from 'lucide-react';
 import SEO from '../../../components/SEO';
 import LanguageSelect from '../components/LanguageSelect';
+import ChunkyButton from '../ui/ChunkyButton';
 import AdminControlPanel from './AdminControlPanel';
 import GameOverScreen from './GameOverScreen';
 import { modeInfo, modeNameFor } from '../modesConfig';
@@ -22,6 +23,10 @@ const ElixirRush = lazy(() => import('../modes/ElixirRush'));
 const CardEvolution = lazy(() => import('../modes/CardEvolution'));
 const AngelRoyale = lazy(() => import('../modes/AngelRoyale'));
 const DarkMaze = lazy(() => import('../modes/DarkMaze'));
+const TrapSetter = lazy(() => import('../modes/TrapSetter'));
+const PyramidDraft = lazy(() => import('../modes/PyramidDraft'));
+const ElixirAuction2v2 = lazy(() => import('../modes/ElixirAuction2v2'));
+const ElixirRush2v2 = lazy(() => import('../modes/ElixirRush2v2'));
 
 /**
  * Welche Komponente spielt welchen Modus, und woher kommen ihre Daten.
@@ -77,6 +82,10 @@ const MODE_VIEWS = {
   },
   'angel-royale': {
     Component: AngelRoyale,
+    // Rein horizontale Fischbewegung — im Hochformat frisst die Deck-Leiste zusätzlich
+    // Höhe, deshalb der Modus mit dem stärksten Querformat-Vorteil (siehe Fullscreen-Knopf
+    // unten: bestmögliche Sperre, wo der Browser das erlaubt).
+    preferredOrientation: 'landscape',
     props: (s, a) => ({
       fishState: s.fishState,
       onCatch: a.fishCatch,
@@ -86,6 +95,7 @@ const MODE_VIEWS = {
   },
   'dark-maze': {
     Component: DarkMaze,
+    preferredOrientation: 'landscape',
     props: (s, a) => ({
       mazeState: s.mazeState,
       onMove: a.mazeMove,
@@ -94,6 +104,35 @@ const MODE_VIEWS = {
       onJokerPick: a.mazeJokerPick,
       onCloseDraft: a.mazeCloseDraft,
     }),
+  },
+  'trap-setter': {
+    Component: TrapSetter,
+    props: (s, a) => ({
+      trapState: s.trapState,
+      onChooseBadCard: a.trapChooseBadCard,
+      onChooseTarget: a.trapChooseTarget,
+      onCellClick: a.trapClick,
+    }),
+  },
+  'pyramid-draft': {
+    Component: PyramidDraft,
+    props: (s, a) => ({
+      pyramidState: s.pyramidState,
+      onPick: a.pyramidPick,
+    }),
+  },
+  'elixir-auction-2v2': {
+    Component: ElixirAuction2v2,
+    props: (s, a) => ({
+      auctionState: s.auction2v2State,
+      revealState: s.auction2v2Reveal,
+      onSendHint: a.auction2v2SendHint,
+      onBid: a.auction2v2Bid,
+    }),
+  },
+  'elixir-rush-2v2': {
+    Component: ElixirRush2v2,
+    props: (s, a) => ({ rushState: s.rush2v2State, onBuy: a.rush2v2Buy, denied: s.rush2v2Denied }),
   },
   snake: {
     Component: SnakeRoyale,
@@ -122,6 +161,43 @@ export default function GameScreen({
   const ModeComponent = view.Component;
   const modeReady = view.ready ? view.ready(socket) : true;
 
+  // Fullscreen: iOS Safari kennt die Fullscreen-API für normale Webseiten nicht
+  // (document.fullscreenEnabled bleibt dort false) — der Knopf blendet sich über dieses
+  // Feature-Flag von selbst aus, ohne Browser-Weiche.
+  const containerRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const fullscreenSupported = typeof document !== 'undefined' && !!document.fullscreenEnabled;
+
+  useEffect(() => {
+    if (!fullscreenSupported) return;
+    const onChange = () => {
+      const active = document.fullscreenElement === containerRef.current;
+      setIsFullscreen(active);
+      // Verlässt der Nutzer Fullscreen anders als über unseren Knopf (Android-Zurück-Taste,
+      // Geste, …), muss eine evtl. gesetzte Quer-Sperre trotzdem wieder aufgehoben werden.
+      if (!active) { try { screen.orientation?.unlock?.(); } catch { /* nicht unterstützt */ } }
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, [fullscreenSupported]);
+
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await containerRef.current.requestFullscreen();
+        // Bestmöglich: funktioniert praktisch nur in Chrome/Android und nur im Fullscreen.
+        // Überall sonst (v.a. iOS) schlägt der Aufruf fehl oder existiert gar nicht —
+        // dann bleibt es beim echten Drehen des Geräts, das Layout passt sich ohnehin an.
+        if (view.preferredOrientation && screen.orientation?.lock) {
+          screen.orientation.lock(view.preferredOrientation).catch(() => {});
+        }
+      }
+    } catch { /* z.B. vom Nutzer/Browser verweigert — Knopf bleibt einfach wirkungslos */ }
+  };
+
   const loading = (
     <div className="h-full flex items-center justify-center">
       <p className="text-white/40 text-sm animate-pulse">{t.loadingGame}</p>
@@ -129,36 +205,39 @@ export default function GameScreen({
   );
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-[#0a0a0d]">
+    <div ref={containerRef} className="h-full flex flex-col overflow-hidden bg-[#0a0a0d]">
       <SEO title={gameModeName} description={t.gameSeoDesc} path="/clash-royale" lang={lang} noindex />
 
-      <div className="shrink-0 h-12 bg-black/25 border-b border-white/10 flex items-center px-3 sm:px-4 gap-2 sm:gap-3">
+      <div className="shrink-0 h-12 bg-gradient-to-b from-[#1c3049] to-[#111d2c] border-b-2 border-black/40 flex items-center px-3 sm:px-4 gap-2 sm:gap-3">
         <ModeIcon size={15} className="text-violet-400 shrink-0" />
         {/* Auf schmalen Geräten weicht der Modusname dem Platz für die Aktionen rechts */}
-        <span className="text-white font-semibold text-sm truncate hidden xs:inline sm:inline">{gameModeName}</span>
+        <span className="text-white font-arcade font-semibold text-sm truncate hidden xs:inline sm:inline">{gameModeName}</span>
         <div className="flex-1" />
         {error && <span className="text-red-400 text-xs animate-pulse truncate max-w-[40%]">{error}</span>}
         <LanguageSelect lang={lang} onChange={changeLang} />
         {isClashAdmin && (
           <button onClick={() => setShowAdminPanel(v => !v)} title={t.adminControlTitle}
             aria-label={t.adminControlTitle}
-            className={`p-1.5 rounded-lg border transition-colors ${
-              showAdminPanel
-                ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
-                : 'border-white/10 text-white/40 hover:text-violet-300 hover:border-violet-500/30'
-            }`}>
+            className="cr-arcade-icon-btn w-8 h-8"
+            style={showAdminPanel ? { '--cr-arcade-accent': '#8b5cf6', borderColor: '#8b5cf6', color: '#c4b5fd' } : undefined}>
             <Shield size={14} />
           </button>
         )}
         {canControlLobby && !gameOver && (
-          <button onClick={onCancelGame} title={t.cancelGameTitle}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-xs font-semibold">
-            <XCircle size={13} />
+          <ChunkyButton variant="red" size="sm" icon={XCircle} onClick={onCancelGame} title={t.cancelGameTitle}>
             <span className="hidden sm:inline">{t.cancelGameBtn}</span>
+          </ChunkyButton>
+        )}
+        {fullscreenSupported && (
+          <button onClick={toggleFullscreen}
+            aria-label={isFullscreen ? t.exitFullscreenBtn : t.fullscreenBtn}
+            title={isFullscreen ? t.exitFullscreenBtn : t.fullscreenBtn}
+            className="cr-arcade-icon-btn w-8 h-8">
+            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
           </button>
         )}
         <button onClick={onLeave} aria-label={t.leaveLobbyBtn} title={t.leaveLobbyBtn}
-          className="text-white/30 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5">
+          className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-8 h-8">
           <LogOut size={15} />
         </button>
       </div>
@@ -193,6 +272,7 @@ export default function GameScreen({
               // dadurch bleibt das Leaderboard auch im Endscreen aktuell (siehe Leaderboard.jsx)
               lobbyPlayers={lobbyData?.players || []}
               trackingEnabled={!!lobbyData?.trackingEnabled}
+              overlayKey={lobbyData?.overlayKey}
             />
           ) : modeReady ? (
             <ModeComponent myPlayerId={myId} lang={lang} {...view.props(socket, actions)} />

@@ -1,5 +1,6 @@
 import React from 'react';
 import { MOTHER_WITCH_IMG } from '../data/motherWitchAssets';
+import ChunkyButton from '../ui/ChunkyButton';
 
 const MOTHER_WITCH_VISIT_I18N = {
   de: {
@@ -15,6 +16,13 @@ const MOTHER_WITCH_VISIT_I18N = {
     cost: (cost) => `Cost: ${cost} elixir`,
     accept: 'Accept',
     decline: 'Decline',
+  },
+  es: {
+    alt: 'Madre Bruja',
+    appears: 'Aparece la Madre Bruja…',
+    cost: (cost) => `Coste: ${cost} de elixir`,
+    accept: 'Aceptar',
+    decline: 'Rechazar',
   },
 };
 
@@ -50,18 +58,12 @@ export default function MotherWitchVisit({ visit, onRespond, lang = 'de' }) {
           <p className="text-black font-bold text-sm mb-4">{t.cost(visit.cost)}</p>
 
           <div className="flex gap-3">
-            <button
-              onClick={() => onRespond(true)}
-              className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-2 rounded-sm border border-black transition-colors text-sm"
-            >
+            <ChunkyButton variant="green" size="sm" block onClick={() => onRespond(true)}>
               {t.accept}
-            </button>
-            <button
-              onClick={() => onRespond(false)}
-              className="flex-1 bg-white hover:bg-gray-100 text-black font-bold py-2 rounded-sm border border-black transition-colors text-sm"
-            >
+            </ChunkyButton>
+            <ChunkyButton variant="red" size="sm" block onClick={() => onRespond(false)}>
               {t.decline}
-            </button>
+            </ChunkyButton>
           </div>
         </div>
       </div>

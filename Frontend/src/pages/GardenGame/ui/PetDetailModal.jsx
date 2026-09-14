@@ -2,16 +2,31 @@
 // Detailfenster für ein platziertes Tier. Vorher konnte man ein Tier nur anklicken,
 // um es wortlos einzupacken — was es überhaupt kann, stand nirgends.
 import React, { useEffect, useState } from 'react';
-import { Coins, Sprout, Clock, Percent, PawPrint, Sparkles, Rainbow, Pencil, Scissors } from 'lucide-react';
+import { Clock, Percent, Pencil } from 'lucide-react';
+import { HudIcon, PetIcon, SpecialIcon } from './gameIcons';
 import {
     PET_ABILITY_LABELS, PET_ABILITY_DESCRIPTIONS, PET_PROC_CHANCE,
-    getPetTickMs, getGoldfinderRange, getPetSellPrice, getHarvesterYield,
-    getGaertnerNachwuchs, getGaertnerWurzelwerk,
+    getPetTickMs, getGoldfinderRange, getPetSellPrice, getErntehelferExtra,
+    getGaertnerNachwuchs, getGaertnerWurzelwerk, getForscherBoost, getKaufmannBoost,
 } from '../engine/PetSystem';
+
+/**
+ * Erklärtext unter den Stat-Zeilen, je Fähigkeit — v2 (Punkt 9) hat aus dem
+ * vorherigen 3-fach-Ternary eine Lookup-Tabelle gemacht: mit fünf statt drei
+ * Fähigkeiten hätte ein weiterer verschachtelter Ternary die vierte/fünfte
+ * stillschweigend auf den Gärtner-Text zurückfallen lassen.
+ */
+const ABILITY_ERKLAERUNG = {
+    goldfinder: "Sucht nur, solange du im Spiel bist. Der Takt richtet sich nach dem höchsten Goldfinder-Level unter deinen platzierten Tieren.",
+    seedfinder: "Wirkt dauerhaft auf alles, was auf deinem Grundstück wächst. Mehrere Gärtner stapeln nicht — es zählt der stärkste.",
+    harvester: "Wirkt bei jeder Pflanze, die du selbst abpflückst — zusätzlich zur Fähigkeit „Reiche Ernte“. Mehrere Erntehelfer stapeln nicht: es zählt der stärkste.",
+    forscher: "Wirkt bei jeder Ernte, egal welcher Pflanze. Mehrere Forscher stapeln nicht — es zählt der stärkste.",
+    kaufmann: "Wirkt nur beim Verkaufen des gesamten Ernte-Lagers, nicht beim einzelnen Verkauf. Mehrere Kaufleute stapeln nicht — es zählt der stärkste.",
+};
 import { RARITY_TEXT, RARITY_DOT, formatGold, formatDuration } from './gardenTokens';
 import { GardenModal, PrimaryButton, StatLine } from './gardenUi';
 
-export default function PetDetailModal({ pet, onClose, onStow, onSell, onRename }) {
+export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onSell, onRename }) {
     const [draftName, setDraftName] = useState("");
     useEffect(() => {
         setDraftName(pet ? (pet.customName || "") : "");
@@ -47,7 +62,7 @@ export default function PetDetailModal({ pet, onClose, onStow, onSell, onRename 
                     <button
                         type="button"
                         onClick={onSell}
-                        className="flex-1 px-3 py-2 rounded-md border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-semibold transition-colors"
+                        className="flex-1 px-3 py-2 rounded-2xl border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-semibold transition-colors"
                     >
                         Verkaufen · {formatGold(sellPrice)}
                     </button>
@@ -55,11 +70,11 @@ export default function PetDetailModal({ pet, onClose, onStow, onSell, onRename 
             }
         >
             <div className="flex items-center gap-4 mb-4">
-                <div className="w-20 h-20 shrink-0 rounded-md border border-slate-800 bg-slate-950 flex items-center justify-center">
+                <div className="w-20 h-20 shrink-0 rounded-2xl border border-slate-800 bg-slate-950 flex items-center justify-center">
                     {pet.image ? (
                         <img src={pet.image} alt="" className="w-16 h-16 object-contain" draggable={false} />
                     ) : (
-                        <PawPrint size={28} className="text-slate-600" />
+                        <PetIcon.emptySlot size={28} />
                     )}
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
@@ -70,12 +85,12 @@ export default function PetDetailModal({ pet, onClose, onStow, onSell, onRename 
             </div>
 
             {ability ? (
-                <div className="rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4">
                     <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Fähigkeit</div>
 
                     {ability.type === "goldfinder" && (
                         <StatLine
-                            icon={Coins}
+                            icon={PetIcon.goldfinder}
                             label="Fund pro Auslösung"
                             value={`${formatGold(goldMin)} – ${formatGold(goldMax)}`}
                             valueClass="text-amber-400"
@@ -84,31 +99,47 @@ export default function PetDetailModal({ pet, onClose, onStow, onSell, onRename 
                     {ability.type === "seedfinder" && (
                         <>
                             <StatLine
-                                icon={Sprout}
+                                icon={PetIcon.gaertner}
                                 label="Nachwuchs ohne Samen"
-                                value={`${Math.round(getGaertnerNachwuchs(level) * 100)} % je Einmalernte`}
+                                value={`${Math.round(getGaertnerNachwuchs(level, zuechter) * 100)} % je Einmalernte`}
                                 valueClass="text-emerald-400"
                             />
                             <StatLine
                                 icon={Clock}
                                 label="Wächst schneller"
-                                value={`+${Math.round(getGaertnerWurzelwerk(level) * 100)} % auf dem ganzen Grundstück`}
+                                value={`+${Math.round(getGaertnerWurzelwerk(level, zuechter) * 100)} % auf dem ganzen Grundstück`}
                                 valueClass="text-emerald-400"
                             />
                         </>
                     )}
                     {ability.type === "harvester" && (
                         <StatLine
-                            icon={Scissors}
-                            label="Erntet und verkauft"
-                            value={`${getHarvesterYield(level)} Stück je Auslösung`}
+                            icon={PetIcon.erntehelfer}
+                            label="Zweites Stück je eigener Ernte"
+                            value={`${Math.round(getErntehelferExtra(level, zuechter) * 100)} % Chance`}
                             valueClass="text-emerald-400"
                         />
                     )}
+                    {ability.type === "forscher" && (
+                        <StatLine
+                            icon={PetIcon.forscher}
+                            label="Mehr Erfahrung je Ernte"
+                            value={`+${Math.round(getForscherBoost(level, zuechter) * 100)} % XP`}
+                            valueClass="text-sky-400"
+                        />
+                    )}
+                    {ability.type === "kaufmann" && (
+                        <StatLine
+                            icon={PetIcon.kaufmann}
+                            label="Höherer Verkaufspreis"
+                            value={`+${Math.round(getKaufmannBoost(level, zuechter) * 100)} % beim Alles-Verkaufen`}
+                            valueClass="text-amber-400"
+                        />
+                    )}
 
-                    {/* Der Gärtner wirkt dauerhaft, nicht im Takt — Takt und Chance
-                        gelten nur für die beiden anderen Fähigkeiten. */}
-                    {ability.type !== "seedfinder" && (
+                    {/* Nur der Goldfinder läuft im Takt. Die anderen wirken dauerhaft bzw.
+                        genau dann, wenn der Spieler selbst erntet/verkauft. */}
+                    {ability.type === "goldfinder" && (
                         <>
                             <StatLine icon={Clock} label="Versuch alle" value={formatDuration(tickMs)} />
                             <StatLine icon={Percent} label="Chance je Versuch" value={`${Math.round(PET_PROC_CHANCE * 100)} %`} />
@@ -116,24 +147,26 @@ export default function PetDetailModal({ pet, onClose, onStow, onSell, onRename 
                     )}
 
                     <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-                        {ability.type === "seedfinder"
-                            ? "Wirkt dauerhaft und auch dann, wenn du nicht im Spiel bist. Mehrere Gärtner stapeln nicht — es zählt der stärkste."
-                            : "Der Takt richtet sich nach dem höchsten Level unter deinen platzierten Tieren — ein starkes Tier beschleunigt also auch die schwächeren."}
+                        {ABILITY_ERKLAERUNG[ability.type] || ""}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+                        Tiere arbeiten nur, während du im Spiel bist. Offline verdienen sie nichts mehr.
+                        {zuechter > 0 ? ` Der Skill „Züchter" ist eingerechnet (+${Math.round(zuechter * 100)} %).` : ""}
                     </p>
                 </div>
             ) : null}
 
             {pet.specialType ? (
-                <div className="rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4 flex items-center justify-between">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4 flex items-center justify-between">
                     <span className={`flex items-center gap-1.5 text-xs font-semibold ${pet.specialType === "Golden" ? "text-amber-400" : "text-fuchsia-400"}`}>
-                        {pet.specialType === "Golden" ? <Sparkles size={13} /> : <Rainbow size={13} />}
+                        {pet.specialType === "Golden" ? <SpecialIcon.golden size={13} /> : <SpecialIcon.rainbow size={13} />}
                         {pet.specialType}
                     </span>
                     <span className="text-[11px] text-slate-400">Seltene Färbung</span>
                 </div>
             ) : null}
 
-            <div className="rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4">
                 <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Name geben</label>
                 <div className="flex gap-2">
                     <input
@@ -143,7 +176,7 @@ export default function PetDetailModal({ pet, onClose, onStow, onSell, onRename 
                         placeholder={pet.name}
                         onChange={(e) => setDraftName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") onRename?.(pet, draftName.trim()); }}
-                        className="flex-1 px-2.5 py-1.5 rounded-md bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none"
+                        className="flex-1 px-2.5 py-1.5 rounded-2xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none"
                     />
                     <PrimaryButton onClick={() => onRename?.(pet, draftName.trim())} className="shrink-0">
                         <span className="inline-flex items-center gap-1.5"><Pencil size={12} /> Speichern</span>
@@ -151,10 +184,10 @@ export default function PetDetailModal({ pet, onClose, onStow, onSell, onRename 
                 </div>
             </div>
 
-            <div className="rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2">
                 <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Wert</div>
                 <StatLine
-                    icon={Coins}
+                    icon={HudIcon.gold}
                     label="Verkaufspreis am Tier-Stand"
                     value={`${sellPrice.toLocaleString("de-DE")} Gold`}
                     valueClass="text-amber-400"

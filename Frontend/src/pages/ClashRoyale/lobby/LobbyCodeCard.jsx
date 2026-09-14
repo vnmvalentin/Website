@@ -5,7 +5,7 @@
 // ihn bewusst auf, wenn er ihn vorlesen will.
 
 import React, { useState } from 'react';
-import { Copy, Check, Eye, EyeOff, Lock } from 'lucide-react';
+import { Copy, Check, Eye, EyeOff, Lock, Globe } from 'lucide-react';
 import Toggle from '../ui/Toggle';
 
 function SecretRow({ label, children, onCopy, copied, hidden, onToggleHidden, t }) {
@@ -14,18 +14,20 @@ function SecretRow({ label, children, onCopy, copied, hidden, onToggleHidden, t 
       <span className="text-white/40 text-xs w-10 shrink-0">{label}</span>
       {children}
       <button onClick={onCopy} title={t.copy} aria-label={t.copy}
-        className="p-2 border border-white/10 rounded-lg hover:border-white/30 transition-colors text-white/40 hover:text-white shrink-0">
+        className="cr-arcade-icon-btn w-9 h-9 shrink-0">
         {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
       </button>
       <button onClick={onToggleHidden} aria-label={label}
-        className="p-2 border border-white/10 rounded-lg hover:border-white/30 transition-colors text-white/40 hover:text-white shrink-0">
+        className="cr-arcade-icon-btn w-9 h-9 shrink-0">
         {hidden ? <Eye size={14} /> : <EyeOff size={14} />}
       </button>
     </div>
   );
 }
 
-export default function LobbyCodeCard({ code, link, t, locked, canControlLobby, onToggleLock }) {
+export default function LobbyCodeCard({
+  code, link, t, locked, canControlLobby, onToggleLock, isPublic, onTogglePublic,
+}) {
   const [copied, setCopied] = useState('');
   const [codeHidden, setCodeHidden] = useState(true);
   const [linkHidden, setLinkHidden] = useState(true);
@@ -38,7 +40,7 @@ export default function LobbyCodeCard({ code, link, t, locked, canControlLobby, 
   };
 
   return (
-    <div className="panel p-5 space-y-3">
+    <div className="cr-arcade-panel p-5 space-y-3">
       <SecretRow
         label={t.codeLabel} t={t}
         onCopy={() => copyText(code, 'code')} copied={copied === 'code'}
@@ -82,6 +84,18 @@ export default function LobbyCodeCard({ code, link, t, locked, canControlLobby, 
               <p className="text-white/30 text-xs mt-0.5">{t.lockLobbyNote}</p>
             </div>
             <Toggle checked={!!locked} onChange={onToggleLock} accent="bg-amber-400" aria-label={t.lockLobby} />
+          </div>
+
+          <div className="h-px bg-white/5" />
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-white text-sm font-semibold flex items-center gap-2">
+                <Globe size={13} className={isPublic ? 'text-green-400' : 'text-white/40'} />
+                {t.makePublicLabel}
+              </p>
+              <p className="text-white/30 text-xs mt-0.5">{t.makePublicNote}</p>
+            </div>
+            <Toggle checked={!!isPublic} onChange={onTogglePublic} accent="bg-green-500" aria-label={t.makePublicLabel} />
           </div>
         </>
       ) : locked && (

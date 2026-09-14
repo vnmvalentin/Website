@@ -25,7 +25,7 @@ function canonicalUrl(path = "", search = "") {
  * image        Social-Card-Bild (relativ oder absolut)
  * keywords     optionale Keyword-Liste
  * noindex      true = Seite aus dem Index halten (Overlays, Steuerseiten, Lobby-Ansichten)
- * lang         Sprache des Inhalts für og:locale ("de" | "en")
+ * lang         Sprache des Inhalts für og:locale ("de" | "en" | "es")
  * alternates   [{ hrefLang, path, search }] für hreflang-Verweise zwischen Sprachvarianten
  * jsonLd       Objekt oder Array von Objekten mit strukturierten Daten (schema.org)
  * type         og:type, Standard "website"
@@ -80,7 +80,7 @@ export default function SEO({
       {/* Open Graph (Facebook, Discord, WhatsApp) */}
       <meta property="og:type" content={type} />
       <meta property="og:site_name" content={SITE_TITLE} />
-      <meta property="og:locale" content={lang === "en" ? "en_US" : "de_DE"} />
+      <meta property="og:locale" content={{ en: "en_US", es: "es_ES" }[lang] || "de_DE"} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={url} />

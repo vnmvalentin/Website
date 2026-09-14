@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Crown, Check, Flashlight, Search, Clock, Gift, Sparkles, X, Eye,
+  Check, Flashlight, Search, Clock, Gift, Sparkles, X, Eye,
   Users, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Hand,
 } from 'lucide-react';
-import { RARITY_COLOR, ALL_CARDS } from '../data/cards';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import { RARITY_COLOR, ALL_CARDS, cardImageUrl } from '../data/cards';
 import ghostImgSrc from '../../../assets/clashRoyale/Royale_Ghost.png';
 import chestImgSrc from '../../../assets/clashRoyale/draft-chest.png';
 import jokerImgSrc from '../../../assets/clashRoyale/UnknownCard.png';
@@ -15,8 +16,6 @@ const ACCENT = '#a78bfa';
 
 const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
 const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
-const CARD_CDN = 'https://cdn.royaleapi.com/static/img/cards-150/';
-
 const CARD_BY_ID = Object.fromEntries(ALL_CARDS.map(c => [c.id, c]));
 
 // So viele Kacheln passen in die kürzere Bildschirmseite. Der Wert bestimmt den Zoom
@@ -39,6 +38,7 @@ const MOVE_ACK_TIMEOUT_MS = 2000;
 const MAZE_I18N = {
   de: {
     you: 'Du',
+    cardsLabel: 'Karten',
     loading: 'Lade Dunkles Labyrinth…',
     done: 'Fertig',
     decksDone: (done, total) => `${done}/${total} Decks fertig`,
@@ -68,6 +68,7 @@ const MAZE_I18N = {
   },
   en: {
     you: 'You',
+    cardsLabel: 'Cards',
     loading: 'Loading Dark Maze…',
     done: 'Done',
     decksDone: (done, total) => `${done}/${total} decks done`,
@@ -95,6 +96,36 @@ const MAZE_I18N = {
     frozenNote: 'You don\'t have to take anything — close with X or Esc and move on.',
     closeTitle: 'Close without a card (Esc)',
   },
+  es: {
+    you: 'Tú',
+    cardsLabel: 'Cartas',
+    loading: 'Cargando Laberinto Oscuro…',
+    done: 'Listo',
+    decksDone: (done, total) => `${done}/${total} mazos listos`,
+    cardsOf: (count, deckSize) => `${count}/${deckSize} cartas`,
+    allDecksFull: '¡Todos los mazos están completos — draft terminado!',
+    timeUp: 'Se acabó el tiempo — las casillas de mazo vacías se rellenaron al azar.',
+    spectatorLive: 'Espectador — ves todo el laberinto sin oscuridad.',
+    yourDeckFull: '¡Tu mazo está completo! Espera a los demás o al temporizador…',
+    moveHint: 'WASD / flechas: moverse · Espacio: recoger y abrir cofres',
+    moveHintTouch: 'Cruceta: moverse · Botón de mano: recoger y abrir cofres',
+    players: 'Jugadores',
+    pickupBtn: 'Recoger',
+    getReady: 'Prepárate…',
+    mazeOpens: 'El laberinto se abre para todos al mismo tiempo',
+    pickupHint: 'Espacio: recoger carta',
+    chestHint: 'Espacio: abrir cofre',
+    jokerHint: 'Espacio: tomar el comodín',
+    draftTitle: 'Cofre de draft',
+    draftSub: 'Elige 1 de 2 cartas',
+    jokerTitle: '¡El comodín!',
+    jokerSub: 'Elige cualquier carta libre para tu mazo',
+    searchCard: 'Buscar cartas…',
+    noCardFound: 'No se encontró ninguna carta.',
+    championLimit: 'Límite de campeones (máx. 2)',
+    frozenNote: 'No tienes que llevarte nada — cierra con X o Esc y sigue adelante.',
+    closeTitle: 'Cerrar sin carta (Esc)',
+  },
 };
 
 function useNow(intervalMs = 200) {
@@ -117,7 +148,7 @@ const chestSprite = loadImage(chestImgSrc);
 const jokerSprite = loadImage(jokerImgSrc);
 const _imgCache = new Map();
 function getCardImage(id) {
-  if (!_imgCache.has(id)) _imgCache.set(id, loadImage(`${CARD_CDN}${id}.png`));
+  if (!_imgCache.has(id)) _imgCache.set(id, loadImage(cardImageUrl(id)));
   return _imgCache.get(id);
 }
 
@@ -136,7 +167,7 @@ function CardImg({ id, name }) {
     // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
     // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
     <div className="relative w-full h-full">
-      <img src={`${CARD_CDN}${id}.png`} alt={name} className="w-full h-full object-cover" draggable={false}
+      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover" draggable={false}
         style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
     </div>
   );
@@ -149,7 +180,8 @@ const MazeSidebar = React.memo(function MazeSidebar({ state, myPlayerId, t }) {
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const spectators = state.players.filter(p => p.isSpectator);
   return (
-    <div className="w-60 shrink-0 bg-[#16161a] border-r border-white/[0.06] overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3">
+    <div className="w-60 shrink-0 bg-gradient-to-b from-[#17293f] to-[#0c1725] border-r-[3px] overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3"
+      style={{ borderColor: 'var(--cr-arcade-ink)' }}>
       {activePlayers.map(p => {
         const isMe = p.id === myPlayerId;
         const done = (p.deck || []).length >= state.deckSize;
@@ -168,7 +200,7 @@ const MazeSidebar = React.memo(function MazeSidebar({ state, myPlayerId, t }) {
             <DeckGrid deck={p.deck || []} size={state.deckSize}
               renderCard={(card) => <CardImg id={card.id} name={card.name} />} />
             <div className="flex items-center gap-1.5">
-              <Crown size={11} className={champCount > 0 ? 'text-amber-300' : 'text-white/15'} />
+              <img src={crownIcon} alt="" width={14} height={12} className={champCount > 0 ? '' : 'opacity-15 grayscale'} />
               <span className="text-white/30 text-[11px]">{champCount}/2 Champions</span>
             </div>
           </PlayerPanel>
@@ -665,7 +697,7 @@ function DraftModal({ draft, myChampCount, onPick, onClose, t }) {
                   <CardImg id={card.id} name={card.name} rarity={card.rarity} />
                 </div>
                 <div className="px-2 py-1.5 bg-black/40 flex items-center gap-1.5">
-                  {card.isChampion && <Crown size={11} className="text-cyan-400 shrink-0" />}
+                  {card.isChampion && <img src={crownIcon} alt="" width={14} height={12} className="shrink-0" />}
                   <span className="text-white text-xs font-semibold truncate">{card.name}</span>
                 </div>
               </button>
@@ -722,7 +754,7 @@ function JokerModal({ availableIds, myChampCount, onPick, onClose, t }) {
                   <CardImg id={card.id} name={card.name} rarity={card.rarity} />
                   {card.isChampion && (
                     <span className="absolute top-0.5 right-0.5 bg-black/60 rounded-[2px] p-0.5">
-                      <Crown size={9} className="text-cyan-400" />
+                      <img src={crownIcon} alt="" width={11} height={10} />
                     </span>
                   )}
                 </button>
@@ -795,7 +827,7 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
   );
 
   return (
-    <div className="h-full flex overflow-hidden select-none relative">
+    <div className="h-full flex overflow-hidden select-none relative bg-gradient-to-b from-[#171a26] to-[#0e1018]">
       {/* Ab md fest neben dem Labyrinth, darunter als Schublade darüber */}
       <div className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex absolute md:relative inset-y-0 left-0 z-40 md:z-auto shadow-2xl shadow-black/70 md:shadow-none`}>
         <MazeSidebar state={state} myPlayerId={myPlayerId} t={t} />
@@ -817,7 +849,7 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
           </button>
 
           <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none">
-            {lang === 'en' ? 'Cards' : 'Karten'} {amSpectator ? '–' : myDeck.length}
+            {t.cardsLabel} {amSpectator ? '–' : myDeck.length}
             {!amSpectator && <span className="text-white/20 font-normal"> / {state.deckSize}</span>}
           </h2>
 

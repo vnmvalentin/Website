@@ -2,8 +2,9 @@
 // Welten der Virtual Farm: Slot-Vergabe, Anwesenheit, Positionen — pro Welt getrennt.
 //
 // Es gibt eine öffentliche Welt, der man ohne Code beitritt, und beliebig viele private
-// Welten mit fünfstelligem Code. Jede Welt hat ihre eigenen 8 Grundstücke, ihre eigene
-// Anwesenheitsliste und ihren eigenen socket.io-Raum.
+// Welten mit fünfstelligem Code. Jede Welt hat ihre eigenen 6 Grundstücke (Feedback
+// 01.09.: "8 auf 6 reduzieren, 3 oben 3 unten" — war vorher 8, siehe MAX_SLOTS), ihre
+// eigene Anwesenheitsliste und ihren eigenen socket.io-Raum.
 //
 // Aufteilung der Autorität (bewusst, nicht aus Faulheit):
 //   * Positionen/Anwesenheit  → Server verteilt, aber jeder Client bewegt sich selbst.
@@ -13,14 +14,57 @@
 //   * Briefkasten            → vollständig serverseitig, siehe garden/world/mail.js.
 //
 // Die Positionen laufen über einen gesammelten Server-Tick statt eines Echos pro Bewegung:
-// bei 8 Spielern × 60 Hz wären das bis zu 3.360 Nachrichten/s, so sind es 15.
+// bei 6 Spielern × 60 Hz wären das bis zu 2.160 Nachrichten/s, so sind es 15.
 
 const { wetterListe } = require("../core/weather");
+const { skillStand } = require("../core/skills");
+const { normalisiereSkin, istFreigeschaltet, STANDARD_SKIN, istAdminId } = require("../core/wardrobe");
+const { istBoden: istBodenDeko } = require("../core/deko");
+const { ausgeruesteteReskins } = require("../core/reskins");
 
-const MAX_SLOTS = 8;
+// Feedback 01.09.: "Lobby-Größe von 8 auf 6 reduzieren (3 Farmen oben, 3 unten)".
+// Muss zu WORLD_SLOTS in Frontend/src/pages/GardenGame/GameContainer.jsx UND dem
+// Default-Argument von generatePlotSlots (engine/MapConfig.js) passen — alle drei
+// bestimmen dieselbe Zahl aus verschiedenen Richtungen (wie viele Spieler
+// tatsächlich reinpassen, wie das Layout aussieht, wie viele Grundstücke gezeichnet
+// werden).
+const MAX_SLOTS = 6;
 const TICK_MS = 66;              // ~15 Hz Positionsverteilung
 const STALE_AFTER_MS = 45000;    // Karteileichen aufräumen
+
+/**
+ * AFK-Kick (v2, Punkt 8). Bisher kannte diese Datei nur "Tab offen" (istOnline,
+ * gesetzt über einen verbundenen Socket) — das reicht als Gate für die
+ * Party-Veredelung (siehe world/ereignisse.js), unterscheidet aber nicht
+ * zwischen "spielt gerade" und "Tab liegt offen rum, ein Bot hält die
+ * Verbindung". Das ist bewusst NICHT dasselbe wie die Karteileichen-Räumung
+ * oben (STALE_AFTER_MS): die räumt nur tote Verbindungen weg und lässt jeden,
+ * der noch verbunden ist, ausdrücklich in Ruhe zusehen — das bleibt so. Hier
+ * geht es um eine ECHTE Eingabe (Taste/Klick, siehe garden:activity unten),
+ * unabhängig davon, ob die Verbindung noch steht.
+ *
+ * Zwei Schwellen, nicht eine: die Party-Veredelung fällt schon nach der
+ * kürzeren weg (derselbe Acker soll nicht mehr weiter veredelt werden, sobald
+ * niemand mehr wirklich da ist), der harte Rauswurf aus der Welt kommt erst
+ * deutlich später — ein Grundstück soll nicht nach jeder kurzen Pause an einen
+ * Fremden gehen.
+ */
+const VEREDELUNG_AKTIV_GRENZE_MS = 10 * 60 * 1000;  // 10 Min ohne Eingabe: keine Veredelung mehr
+const AFK_KICK_GRENZE_MS = 25 * 60 * 1000;          // 25 Min ohne Eingabe: raus, Platz wird frei
 const MAX_PLANTS_PER_SNAPSHOT = 320;
+// Getrennte Budgets, siehe dekoFuerSnapshot. Ein Grundstück hat 29 × 33 Kacheln;
+// 400 Belagskacheln decken eine grosszügige Fläche ab, ohne dass die Momentaufnahme
+// eines einzelnen Nachbarn ins Uferlose wächst.
+//
+// DEKO_SNAPSHOT_MAX stand vorher bei 120 — zu knapp: allein ein einreihiger
+// Zaun rund um ein volles Grundstück (aus 1×1-Zaunfeldern) kommt schon auf
+// über 80 Stück, dazu Laternen, Zwerge, Pool etc. Wer viel dekoriert hatte,
+// verlor dadurch STILLSCHWEIGEND die zuletzt gesetzten Stücke aus der Sicht
+// anderer Spieler — der Besitzer selbst sah sie ja weiter, weil bei ihm nichts
+// gekappt wird (nur diese Momentaufnahme für ANDERE ist betroffen). Gemeldet
+// am 21.08.2026 als "Freundin sieht meinen Pool/die oberste Zaunreihe nicht".
+const BODEN_SNAPSHOT_MAX = 400;
+const DEKO_SNAPSHOT_MAX = 400;
 // Muss zu VITRINE_MAX in garden/core/economy.js passen.
 const VITRINE_SNAPSHOT_MAX = 12;
 
@@ -38,6 +82,19 @@ const CREATE_MAX_PER_WINDOW = 5;
 const CHAT_MAX_LEN = 200;
 const CHAT_WINDOW_MS = 10 * 1000;
 const CHAT_MAX_PER_WINDOW = 8;
+
+// Chat-Textfarbe (Feedback 01.09.: "Farbe auswählen können"): feste Palette statt
+// freier Farbwahl — sonst könnte ein umgebauter Client einen beliebigen CSS-Wert
+// einschleusen. MUSS zu CHAT_FARBEN in Frontend/src/pages/GardenGame/GameContainer.jsx
+// passen, sonst zeigt der Farbwähler eine Option, die der Server wieder verwirft.
+const CHAT_FARBEN = new Set([
+    "#f87171", "#fb923c", "#facc15", "#4ade80", "#60a5fa", "#c084fc", "#f472b6",
+]);
+
+// Wie lange der Splatter steht, bevor der Getroffene die Welt verlässt. Muss zu
+// SPLATTER_DAUER_MS in Frontend/src/pages/GardenGame/engine/Renderer.js passen —
+// kürzer hier hiesse, der Geist verschwindet mitten in der Wolke.
+const SPLATTER_MS = 1100;
 
 /** code -> { code, isPublic, players: Map, slotOwners: Array, dirty: bool, createdAt } */
 const worlds = new Map();
@@ -253,9 +310,12 @@ function buildPlotSnapshot(twitchId) {
     return {
         slotIndex: player.slotIndex,
         owner: state.twitchLogin || player.twitchLogin || null,
+        // Die Kennung des Besitzers — der Briefkasten (Post schicken) und die
+        // Momentaufnahme-Anzeige (wessen Feld man gerade ansieht) brauchen sie.
+        ownerTwitchId: String(twitchId),
         plants,
         plotUnlockedCells: Array.isArray(state.plotUnlockedCells) ? state.plotUnlockedCells : [],
-        decoPlacements: Array.isArray(state.decoPlacements) ? state.decoPlacements.slice(0, 120) : [],
+        decoPlacements: dekoFuerSnapshot(state.decoPlacements),
         petPlacements: Array.isArray(state.petPlacements) ? state.petPlacements.slice(0, 24) : [],
         hasMail: Array.isArray(state.mailbox) && state.mailbox.length > 0,
         // Die Vitrine ist zum Angucken da — also muss sie mit in die Momentaufnahme:
@@ -267,7 +327,35 @@ function buildPlotSnapshot(twitchId) {
         // bleibt bewusst draußen — die Kiste ist privat, nur die Vitrine ist zum Zeigen.
         hasChest: state?.toolInventory?.hasChest === true,
         gebaeudeVersatz: state.gebaeudeVersatz || null,
+        // Kosmetische Reskins (Schuppen/Briefkasten/Nameplate) sind fürs GANZE
+        // Grundstück sichtbar — Nachbarn sehen das gerade ausgerüstete Stück
+        // genauso wie den Standard-Look, ohne dessen Bilder liegt es beim
+        // Fallback-Bild (siehe Renderer.js).
+        reskins: ausgeruesteteReskins(state),
     };
+}
+
+/**
+ * Deko eines fremden Grundstücks für die Momentaufnahme.
+ *
+ * Bodenbeläge und aufgestellte Stücke bekommen GETRENNTE Obergrenzen. Vorher galt
+ * eine gemeinsame Grenze von 120 — ein gepflasterter Hof besteht aber schnell aus
+ * über hundert Kacheln, und die hätten den Gartenzwerg, die Laterne und den Teich
+ * aus der Liste gedrängt. Für die Nachbarn wäre der halbe Garten leer gewesen.
+ */
+function dekoFuerSnapshot(liste) {
+    if (!Array.isArray(liste)) return [];
+    const boeden = [];
+    const objekte = [];
+    for (const d of liste) {
+        if (!d) continue;
+        if (istBodenDeko(d)) {
+            if (boeden.length < BODEN_SNAPSHOT_MAX) boeden.push(d);
+        } else if (objekte.length < DEKO_SNAPSHOT_MAX) {
+            objekte.push(d);
+        }
+    }
+    return [...boeden, ...objekte];
 }
 
 /** Sichtbarer Teil der Vitrine — nur Schaustücke, keine Verkaufswerte. */
@@ -305,6 +393,13 @@ function publicPlayer(p) {
         // Client — Gold gehört seit v3.0 ohnehin dem Server. Eine Zahl mehr pro
         // Spieler und Tick fällt neben Position und Aussehen nicht ins Gewicht.
         gold: Math.max(0, Number(farmStatesRef?.get(String(p.twitchId))?.gold) || 0),
+        // Namensschild-Reskin: live aus dem Farmstand statt eines eigenen Felds am
+        // Spielerobjekt — dieselbe Quelle wie beim Grundstück (siehe publicSlotView
+        // oben), also nie mit ihr auseinanderlaufen kann.
+        nameplate: farmStatesRef?.get(String(p.twitchId))?.reskins?.ausgeruestet?.nameplate || null,
+        // Level für die Online-Liste (Feedback 01.09.: "Level + Gold mit Icons") —
+        // dieselbe Rechnung wie skillStand() selbst, nur der eine Wert daraus.
+        level: skillStand(farmStatesRef?.get(String(p.twitchId)) || {}).level,
     };
 }
 
@@ -358,6 +453,23 @@ function startTick() {
             // seine Änderungen wurden nicht mehr verteilt (`playerWorld` war weg).
             // Wer noch verbunden ist, bleibt drin — egal wie lange er zusieht.
             for (const [id, p] of world.players) {
+                // AFK-Kick (v2, Punkt 8) — unabhängig von der Zombie-Prüfung unten:
+                // die Verbindung kann tadellos stehen, ohne dass seit Ewigkeiten
+                // eine echte Eingabe kam (siehe AFK_KICK_GRENZE_MS oben).
+                if (now - (p.lastRealInput || 0) > AFK_KICK_GRENZE_MS) {
+                    world.players.delete(id);
+                    playerWorld.delete(id);
+                    releaseSlot(world, id);
+                    const s = p.socketId ? ioRef.sockets.sockets.get(p.socketId) : null;
+                    if (s) {
+                        s.leave(roomName(world.code));
+                        s.data.gardenTwitchId = null;
+                        s.emit("garden:kicked", { grund: "afk" });
+                    }
+                    ioRef.to(roomName(world.code)).emit("garden:player_left", { twitchId: id });
+                    world.dirty = true;
+                    continue;
+                }
                 if (now - p.lastSeen <= STALE_AFTER_MS) continue;
                 if (p.socketId && ioRef.sockets.sockets.get(p.socketId)?.connected) {
                     p.lastSeen = now; // Verbindung steht — nur der Tab ruht
@@ -442,7 +554,7 @@ function joinWorld(socket, session, world) {
     const twitchId = String(session.twitchId);
     const slotIndex = claimSlot(world, twitchId);
     if (slotIndex === -1) {
-        socket.emit("garden:error", { error: "Diese Welt ist voll (8 Grundstücke)." });
+        socket.emit("garden:error", { error: "Diese Welt ist voll (6 Grundstücke)." });
         return false;
     }
 
@@ -476,6 +588,9 @@ function joinWorld(socket, session, world) {
         badge: existing?.badge ?? null,
         held: existing?.held ?? null,
         lastSeen: Date.now(),
+        // Bei einem Doppel-Tab (existing vorhanden) gilt die Eingabezeit des
+        // alten Tabs weiter — ein blosser Tab-Wechsel ist keine neue Aktivität.
+        lastRealInput: existing?.lastRealInput ?? Date.now(),
     };
     world.players.set(twitchId, player);
     playerWorld.set(twitchId, world.code);
@@ -601,6 +716,17 @@ function registerGardenSocket(socket, io, getSessionFromSocket, farmStates) {
         world.dirty = true;
     });
 
+    // Echte Eingabe (Taste/Klick) — siehe AFK_KICK_GRENZE_MS oben. Der Browser
+    // schickt das gedrosselt, siehe useGardenLobby.js; hier wird nur der
+    // Zeitstempel gesetzt, keine weitere Prüfung nötig.
+    socket.on("garden:activity", () => {
+        const twitchId = socket.data.gardenTwitchId;
+        if (!twitchId) return;
+        const code = playerWorld.get(twitchId);
+        const player = code ? worlds.get(code)?.players.get(twitchId) : null;
+        if (player) player.lastRealInput = Date.now();
+    });
+
     // Was jemand in der Hand hält, ändert sich selten — deshalb ein eigenes
     // Ereignis statt es an jeden Positions-Tick zu hängen.
     socket.on("garden:held", (data) => {
@@ -622,12 +748,80 @@ function registerGardenSocket(socket, io, getSessionFromSocket, farmStates) {
         const world = code ? worlds.get(code) : null;
         const player = world?.players.get(twitchId);
         if (!player) return;
-        const skin = typeof data?.skin === "string" ? data.skin : null;
+        const roh = typeof data?.skin === "string" ? data.skin : null;
         // Nur Pfade aus dem eigenen Asset-Ordner zulassen — sonst könnte ein Client
         // allen anderen eine beliebige externe URL ins Bild rendern.
-        player.appearance = skin && skin.startsWith("/garden-assets/") ? { skin } : null;
-        player.badge = data?.badge === "subscriber" || data?.badge === "beta" ? data.badge : null;
+        //
+        // Zusätzlich die Levelfreischaltung prüfen: die Geister hängen am Level aus
+        // dem Fähigkeitsbaum. Ohne diese Zeile könnte ein manipulierter Browser
+        // jeden Geist tragen, und für alle anderen sähe es echt aus. Der Skin ist
+        // rein kosmetisch, die Prüfung kostet aber praktisch nichts.
+        let erlaubt = null;
+        if (roh && roh.startsWith("/garden-assets/")) {
+            const skin = normalisiereSkin(roh);
+            const stand = farmStatesRef?.get(String(twitchId));
+            const level = skillStand(stand || {}).level;
+            erlaubt = istFreigeschaltet(skin, level, twitchId) ? { skin } : { skin: STANDARD_SKIN };
+        }
+        player.appearance = erlaubt;
+        // Das Admin-Abzeichen vergibt der SERVER anhand der Twitch-ID, nicht der
+        // Browser. Sonst hinge die einzige sichtbare Kennzeichnung eines Admins an
+        // einer Zeile, die jeder Client mitschicken kann. Es verdrängt „Sub":
+        // beides gleichzeitig anzuzeigen wäre nur Gedränge über dem Kopf.
+        if (istAdminId(twitchId)) {
+            player.badge = "admin";
+        } else {
+            player.badge = data?.badge === "subscriber" || data?.badge === "beta" ? data.badge : null;
+        }
         world.dirty = true;
+    });
+
+    // ── Shotgun ──────────────────────────────────────────────────────────────
+    // Reiner Spaßknopf des Admins: Klick auf einen Mitspieler → alle in der Welt
+    // sehen den Splatter und hören den Schuss, der Getroffene fliegt raus.
+    //
+    // GEPRÜFT WIRD HIER, nicht im Browser. Der Knopf im Spiel ist Optik; ohne
+    // diese Prüfung könnte jeder beliebige Client jeden anderen aus der Welt
+    // werfen, indem er das Ereignis von Hand schickt.
+    socket.on("garden:shotgun", (data) => {
+        const twitchId = socket.data.gardenTwitchId;
+        if (!twitchId || !istAdminId(twitchId)) return;
+        const code = playerWorld.get(twitchId);
+        const world = code ? worlds.get(code) : null;
+        if (!world) return;
+        const zielId = String(data?.targetId || "");
+        const ziel = world.players.get(zielId);
+        // Auf sich selbst zu schießen wäre lustig, würde aber den Admin aus seiner
+        // eigenen Welt werfen — dafür gibt es den Knopf „Welt verlassen".
+        if (!ziel || zielId === twitchId) return;
+
+        ioRef?.to(roomName(code)).emit("garden:splatter", {
+            twitchId: zielId,
+            name: ziel.twitchLogin,
+            x: ziel.x,
+            y: ziel.y,
+        });
+
+        // Erst der Effekt, dann der Rauswurf: würde der Getroffene sofort aus
+        // world.players verschwinden, hätten die anderen im selben Augenblick ein
+        // `player_left` und der Splatter liefe über einem leeren Fleck.
+        setTimeout(() => {
+            const welt = worlds.get(code);
+            const nochDa = welt?.players.get(zielId);
+            if (!nochDa) return;
+            welt.players.delete(zielId);
+            playerWorld.delete(zielId);
+            releaseSlot(welt, zielId);
+            const zielSocket = nochDa.socketId ? ioRef?.sockets?.sockets?.get(nochDa.socketId) : null;
+            if (zielSocket) {
+                zielSocket.leave(roomName(code));
+                zielSocket.data.gardenTwitchId = null;
+                zielSocket.emit("garden:kicked", { grund: "shotgun" });
+            }
+            ioRef?.to(roomName(code)).emit("garden:player_left", { twitchId: zielId });
+            welt.dirty = true;
+            disposeIfEmpty(welt);
+        }, SPLATTER_MS);
     });
 
     // Weltchat: geht an alle im selben Raum, also nur an die eigene Welt.
@@ -647,12 +841,17 @@ function registerGardenSocket(socket, io, getSessionFromSocket, farmStates) {
             return;
         }
         player.lastSeen = Date.now();
+        // Nur eine Farbe aus der festen Palette durchlassen — alles andere (kein
+        // Wert, ein alter/kaputter Client, ein Manipulationsversuch) heisst null,
+        // der Client fällt dann auf seine Standardfarbe zurück.
+        const color = CHAT_FARBEN.has(data?.color) ? data.color : null;
         ioRef?.to(roomName(code)).emit("garden:chat", {
             id: `${twitchId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             twitchId,
             from: player.twitchLogin,
             slotIndex: player.slotIndex,
             text,
+            color,
             at: Date.now(),
         });
     });
@@ -661,11 +860,64 @@ function registerGardenSocket(socket, io, getSessionFromSocket, farmStates) {
     socket.on("disconnect", () => leaveCurrentWorld(socket));
 }
 
+/**
+ * Wer steht gerade in welcher Welt? Für die Live-Ansicht im Admin-Dashboard.
+ *
+ * Die Welten leben nur im Arbeitsspeicher — es gibt keine Tabelle, die man
+ * abfragen könnte, also muss die Übersicht von hier kommen. Leere Welten fallen
+ * raus (die öffentliche Nummer 1 besteht dauerhaft, auch wenn niemand drin ist),
+ * sortiert wird nach Belegung, damit die vollen oben stehen.
+ */
+function weltUebersicht() {
+    const liste = [];
+    for (const world of worlds.values()) {
+        if (world.players.size === 0) continue;
+        const spieler = [...world.players.values()].map((p) => ({
+            twitchId: p.twitchId,
+            name: p.twitchLogin,
+            slotIndex: p.slotIndex,
+            gold: Math.max(0, Number(farmStatesRef?.get(String(p.twitchId))?.gold) || 0),
+            skin: p.appearance?.skin || null,
+            badge: p.badge || null,
+            // Verbunden, aber der Tab ruht: `lastSeen` kommt aus der Renderschleife
+            // des Browsers und steht still, sobald der Tab in den Hintergrund geht.
+            ruht: Date.now() - p.lastSeen > 5000,
+        }));
+        spieler.sort((a, b) => a.slotIndex - b.slotIndex);
+        liste.push({
+            code: world.code,
+            isPublic: Boolean(world.isPublic),
+            maxSlots: MAX_SLOTS,
+            playerCount: spieler.length,
+            createdAt: world.createdAt,
+            players: spieler,
+        });
+    }
+    liste.sort((a, b) => b.playerCount - a.playerCount || a.code.localeCompare(b.code));
+    return liste;
+}
+
 /** Steht dieser Spieler gerade in einer Welt? */
 function istOnline(twitchId) {
     const code = playerWorld.get(String(twitchId));
     const world = code ? worlds.get(code) : null;
     return Boolean(world?.players.get(String(twitchId))?.socketId);
+}
+
+/**
+ * Kam von diesem Spieler in den letzten `grenzeMs` eine ECHTE Eingabe (Taste/
+ * Klick, siehe garden:activity)? Anders als istOnline geht es hier nicht um die
+ * Verbindung, sondern darum, ob gerade wirklich gespielt wird — siehe
+ * AFK_KICK_GRENZE_MS oben. Ohne Eintrag (noch nie eine Aktivität gemeldet)
+ * gilt „nicht aktiv genug", nicht „aktiv" — ein frisch verbundener Bot ohne
+ * jede Eingabe soll nicht als aktiv durchgehen.
+ */
+function istAktivGenug(twitchId, grenzeMs = VEREDELUNG_AKTIV_GRENZE_MS) {
+    const code = playerWorld.get(String(twitchId));
+    const world = code ? worlds.get(code) : null;
+    const player = world?.players.get(String(twitchId));
+    if (!player) return false;
+    return Date.now() - (player.lastRealInput || 0) <= grenzeMs;
 }
 
 /**
@@ -680,22 +932,56 @@ function istOnline(twitchId) {
  *
  * Gibt zurück, ob jemand erreicht wurde, damit die Route es melden kann.
  */
-function notifyAdminUpdate(twitchId, info = "") {
+function notifyAdminUpdate(twitchId, info = "", art = "admin") {
     if (!ioRef) return false;
     const code = playerWorld.get(String(twitchId));
     const world = code ? worlds.get(code) : null;
     const player = world?.players.get(String(twitchId));
     if (!player?.socketId) return false;
-    ioRef.to(player.socketId).emit("garden:admin_update", { info: String(info || "") });
+    // `art` unterscheidet den Admin-Eingriff von der Arbeit eines Helfers. Beide
+    // führen zum selben Verhalten (der Browser lädt nach, weil ihm sonst Acker und
+    // Rucksack auseinanderlaufen), aber der Spieler soll lesen können, was passiert
+    // ist — „Admin: …" bei einer fremden Farm wäre schlicht falsch.
+    ioRef.to(player.socketId).emit("garden:admin_update", { info: String(info || ""), art: String(art) });
+    return true;
+}
+
+/**
+ * Veredelte Zellen an den Besitzer melden.
+ *
+ * `specialType` gehört dem Server (siehe verplausibilisierePflanzen), der Acker
+ * dem Browser. Ohne diese Meldung sähe der Spieler seine frisch veredelten Pflanzen
+ * erst beim nächsten Laden — und ein Nachladen alle dreissig Sekunden mitten in
+ * einer Party wäre die schlechtere Lösung.
+ */
+function notifyVeredelt(twitchId, zellen) {
+    if (!ioRef) return false;
+    const code = playerWorld.get(String(twitchId));
+    const player = code ? worlds.get(code)?.players.get(String(twitchId)) : null;
+    if (!player?.socketId) return false;
+    ioRef.to(player.socketId).emit("garden:veredelt", { zellen });
+    return true;
+}
+
+/** Wetter- und Party-Übersteuerung an ALLE verteilen. */
+function notifyWelt(welt) {
+    if (!ioRef) return false;
+    ioRef.emit("garden:welt", welt || {});
     return true;
 }
 
 module.exports = {
+    notifyVeredelt,
+    notifyWelt,
     registerGardenSocket,
     notifyPlotChanged,
     notifyMail,
     notifyAdminUpdate,
     istOnline,
+    istAktivGenug,
+    VEREDELUNG_AKTIV_GRENZE_MS,
+    AFK_KICK_GRENZE_MS,
+    weltUebersicht,
     MAX_SLOTS,
     PUBLIC_CODE,
 };

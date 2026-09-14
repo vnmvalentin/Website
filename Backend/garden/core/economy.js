@@ -14,17 +14,45 @@
 //   * Käufe (Samen, Werkzeug, Eier, Deko) und Tierfunde laufen noch clientseitig.
 const { SEED_CATALOGUE } = require("./catalogue");
 const {
-    getPetSellPrice, getGoldfinderRange, getPetTickMs, getSeedfinderFallbackGold,
+    getPetSellPrice, getGoldfinderRange, getPetTickMs,
     clampLevel, findePet, petId: petIdOf,
     GAERTNER_NACHWUCHS, GAERTNER_WURZELWERK, getGaertnerStufe,
+    getErntehelferStufe, getErntehelferExtra,
+    FORSCHER_XP_PRO_STUFE, KAUFMANN_VERKAUF_PRO_STUFE, getForscherStufe, getKaufmannStufe,
 } = require("./pets");
 
 const { wetterListe, staerksterEffekt, wetterBoost } = require("./weather");
 const { wirkung, gibXp, skillStand } = require("./skills");
+// Über world/ereignisse, nicht direkt über tageszeit: eine vom Admin gestartete
+// Party steht in keiner Uhr, soll aber genauso auf die Rainbow-Chance wirken.
+const { sonderform } = require("../world/ereignisse");
+const { unitAusText } = require("./tageszeit");
 
 const SPECIAL_BOOST = { golden: 2.0, rainbow: 5.0 };
 const GOLD_MAX = 9_000_000_000_000_000;
 const SUB_BONUS = 1.5;
+
+/**
+ * Gold gutschreiben UND den Lebenszeit-Zähler mitführen (v2, Feedback 29.08.:
+ * "Gesamt gesammeltes Gold" in der Profil-Bubble).
+ *
+ * `state.gold` ist der KONTOSTAND — geht mit jedem Kauf wieder runter.
+ * `state.goldGesamt` zählt nur nach oben: jeder Gulden, der je gutgeschrieben
+ * wurde, bleibt darin stehen, auch wenn er längst wieder ausgegeben ist. EIN
+ * Helfer für JEDEN Gewinn-Pfad (Verkauf, Tierfund, Logbuch-Belohnung,
+ * Briefkasten-Empfang) statt einer zweiten Zeile an jeder Stelle einzeln —
+ * ein künftiger Gewinn-Pfad, der das hier vergisst, würde sonst leise vom
+ * Lebenszeit-Stand abweichen, ohne dass es auffällt.
+ *
+ * Käufe und Abbuchungen laufen NICHT hierüber (siehe spendGold) — Ausgeben
+ * ist kein "Verdienen".
+ */
+function gutschreiben(state, betrag) {
+    const n = Math.max(0, Math.floor(Number(betrag) || 0));
+    if (n <= 0) return;
+    state.gold = Math.min(GOLD_MAX, Math.max(0, Number(state.gold) || 0) + n);
+    state.goldGesamt = Math.max(0, Number(state.goldGesamt) || 0) + n;
+}
 
 function lerp(min, max, t) { return min + (max - min) * t; }
 function clamp01(v) { return Math.max(0, Math.min(1, Number(v) || 0)); }
@@ -55,9 +83,14 @@ function bringeDauertraegerAufStand(plant, now) {
     if (!Array.isArray(plant.fruitSlots) || plant.fruitSlots.length === 0) {
         const cycleMs = Number(plant.fruitCycleMs) || 60000;
         const start = strukturFertig || now;
+        // Seed über die instanceId: dieselbe Pflanze liefert bei Server UND Browser
+        // dieselbe Reifezeit, egal wer zuerst hinsieht (siehe neuerFruchtstand).
+        // Ganz alte Pflanzen ohne instanceId fallen auf echten Zufall zurück — für
+        // die bleibt das Risiko bestehen, das war aber schon vorher der Stand.
+        const iid = plant.instanceId;
         plant.fruitSlots = Array.from(
             { length: Math.max(1, Number(plant.maxFruits) || 1) },
-            () => neuerFruchtstand(start, cycleMs),
+            (_, i) => neuerFruchtstand(start, cycleMs, iid ? `${iid}:erstfrucht:${i}` : null),
         );
     }
     return plant;
@@ -75,13 +108,62 @@ function istReif(plant, now) {
 }
 
 /**
+ * Aufschlag des Skills „Züchter" auf ALLE Tierfähigkeiten — 1 = ungelernt.
+ *
+ * Eine Zahl für drei Wirkungen, damit der Skill hält, was sein Name sagt. Vorher
+ * hing er allein an der Auslösechance und traf damit nur noch den Goldfinder, weil
+ * die anderen beiden seit dem Tier-Umbau gar nicht mehr ticken.
+ */
+function tierVerstaerkung(state) {
+    return 1 + wirkung(state, "zuechter");
+}
+
+/**
+ * Chance des Gärtners auf kostenlosen Nachwuchs, mit Züchter.
+ *
+ * Gedeckelt bei 80 %, und das ist keine Willkür: bei 100 % wächst eine Einmalernte
+ * immer von selbst nach und wäre damit dasselbe wie ein Dauerträger — der einzige
+ * Unterschied zwischen den beiden Bauarten wäre weg.
+ */
+function nachwuchsChance(state) {
+    return Math.min(0.8, getGaertnerStufe(state) * GAERTNER_NACHWUCHS * tierVerstaerkung(state));
+}
+
+/**
  * Wie stark das Wachstum auf diesem Grundstück verkürzt ist — „Grüner Daumen"
- * aus dem Fähigkeitsbaum plus „Wurzelwerk" des Gärtners. Beide stapeln sich
- * additiv und sind bei 80 % gedeckelt, damit keine Kombination eine Pflanze
- * auf null Sekunden zieht.
+ * aus dem Fähigkeitsbaum plus „Wurzelwerk" des Gärtners (mit Züchter). Beide
+ * stapeln sich additiv und sind bei 80 % gedeckelt, damit keine Kombination eine
+ * Pflanze auf null Sekunden zieht.
  */
 function wachstumsBonus(state) {
-    return Math.min(0.8, wirkung(state, "gruener_daumen") + getGaertnerStufe(state) * GAERTNER_WURZELWERK);
+    return Math.min(0.8, wirkung(state, "gruener_daumen")
+        + getGaertnerStufe(state) * GAERTNER_WURZELWERK * tierVerstaerkung(state));
+}
+
+/** Aufschlag des Forschers auf jede XP-Gutschrift, mit Züchter — siehe gibXp weiter unten. */
+function forscherBoost(state) {
+    return 1 + getForscherStufe(state) * FORSCHER_XP_PRO_STUFE * tierVerstaerkung(state);
+}
+
+/** Aufschlag des Kaufmann-Tiers auf den Verkaufspreis, mit Züchter — siehe sellAll weiter unten. */
+function kaufmannBoost(state) {
+    return 1 + getKaufmannStufe(state) * KAUFMANN_VERKAUF_PRO_STUFE * tierVerstaerkung(state);
+}
+
+/**
+ * Verkaufspreis-Multiplikator aus Skill „Händler" UND Tier „Kaufmann" zusammen.
+ *
+ * BUGFIX (gefunden beim Bau von Punkt 9): harvestCell schrieb den Skill-Bonus
+ * bisher NUR in `item.sellValue` — die Anzeige im Rucksack/„Gesamtwert"-Dialog.
+ * verkaufswert(), das sellAll tatsächlich AUSZAHLT, rechnete ihn nie mit. Wer
+ * „Händler" gelernt hatte, sah beim Verkaufen also weniger Gold, als die Anzeige
+ * kurz vorher versprochen hatte — genau der Fehler, vor dem die Kommentare in
+ * dieser Datei an mehreren Stellen warnen. Diese eine Funktion wird jetzt an
+ * BEIDEN Stellen verwendet (harvestCell für die Anzeige, sellAll für die
+ * Auszahlung), damit sie nicht wieder auseinanderlaufen können.
+ */
+function haendlerMultiplikator(state) {
+    return (1 + wirkung(state, "haendler")) * kaufmannBoost(state);
 }
 
 /**
@@ -94,15 +176,17 @@ function wachstumsBonus(state) {
 function neuePflanzeAus(vorlage, profil, now, state) {
     const spanne = Math.max(0, Number(profil.growMaxSec) - Number(profil.growMinSec));
     const roheMs = 1000 * (Number(profil.growMinSec) + Math.random() * spanne);
-    const roll = Math.random();
     return {
         ...vorlage,
         plantedAt: now,
         growthMs: Math.max(1000, Math.round(roheMs * (1 - wachstumsBonus(state)))),
+        // Ausgangsdauer merken — daran hängt der Gießkannen-Deckel. Ohne das
+        // erbte der Nachwuchs die schon heruntergegossene Zeit als Basis.
+        growthMsBasis: Math.max(1000, Math.round(roheMs * (1 - wachstumsBonus(state)))),
         stage: "growing",
         harvested: 0,
         norm: Math.pow(Math.random(), 1.35),
-        specialType: roll < 0.01 ? "Rainbow" : roll < 0.05 ? "Golden" : null,
+        specialType: sonderform(now),
         // Das Wetter fängt an der neuen Pflanze bei null an.
         statusEffects: [],
         statusEffect: null,
@@ -110,18 +194,117 @@ function neuePflanzeAus(vorlage, profil, now, state) {
     };
 }
 
-function neuerFruchtstand(now, cycleMs) {
+/**
+ * `seed`: macht die Reifezeit-Streuung (0,8–1,2× Zyklus) UND die Sonderform
+ * reproduzierbar statt per `Math.random()` gewürfelt — NUR wenn übergeben.
+ * Gebraucht für den ERSTEN Fruchtstand eines Dauerträgers (siehe
+ * bringeDauertraegerAufStand): Server UND Browser rechnen den unabhängig
+ * voneinander aus (der Browser rät lokal, damit die Staude nicht bis zum
+ * nächsten Kontakt mit dem Server leer dasteht — siehe
+ * ensurePerennialFruitingState in engine/PlantSystem.js). Ohne denselben Seed
+ * kommen zwei ECHTE Zufallszahlen heraus, die sich fast nie decken:
+ *   Reifezeit    der Browser zeigt eine reife Frucht, der Server würfelt beim
+ *                ersten Ernteversuch eine ANDERE (meist spätere) Zeit und lehnt
+ *                mit „Noch nicht reif." ab — behoben, gemeldet 21.08.2026.
+ *   Sonderform   der Browser zeigt einen goldenen Ring auf der Kachel, geerntet
+ *                wird aber eine gewöhnliche Frucht, weil der Server unabhängig
+ *                eine ANDERE Sonderform gewürfelt hat — behoben, gemeldet
+ *                30.08.2026 (derselbe Fehler wie oben, nur an der Sonderform
+ *                statt an der Zeit — beim ersten Fix übersehen).
+ * Ein eigenes Sub-Wort (":sonderform") hinter dem Seed, damit die beiden Würfe
+ * nicht denselben Hash teilen und sich Reifezeit und Sonderform nicht heimlich
+ * aneinanderhängen. Nachwuchs NACH einer Ernte braucht das nicht: der ist
+ * ohnehin ausschliesslich hier serverseitig gewürfelt und geht als fertiges
+ * Ergebnis an den Browser, nie als eigene Vorhersage.
+ */
+function neuerFruchtstand(now, cycleMs, seed = null) {
+    const streuung = seed != null ? unitAusText(seed) : Math.random();
     const norm = Math.pow(Math.random(), 1.35);
-    const roll = Math.random();
     return {
-        readyAt: now + Math.round(cycleMs * (0.8 + Math.random() * 0.4)),
+        readyAt: now + Math.round(cycleMs * (0.8 + streuung * 0.4)),
         norm,
         size: Math.max(1, Math.round(lerp(1, 50, norm))),
-        specialType: roll < 0.01 ? "Rainbow" : roll < 0.05 ? "Golden" : null,
+        specialType: sonderform(now, seed != null ? `${seed}:sonderform` : null),
         statusEffects: [],
         statusEffect: null,
         statusEffectUntil: null,
     };
+}
+
+/**
+ * Logbuch (v2, Punkt 11): "Seite komplett" bringt jetzt eine Belohnung.
+ *
+ * WARUM DAS EINE ECHTE UMSTELLUNG IST, nicht nur ein Bonus obendrauf: das
+ * Logbuch stand bisher explizit im Browser (siehe logbuchEintragen in
+ * GameContainer.jsx — "nichts davon beeinflusst Werte, deshalb darf es im
+ * Browser geführt werden"). Sobald eine Belohnung dranhängt, stimmt dieser Satz
+ * nicht mehr: ein manipulierter Spielstand könnte sich sonst ein fertiges
+ * Logbuch eintragen und für jede der 57 Arten sofort kassieren. Deshalb zieht
+ * DIESE Datei das Logbuch jetzt hier mit, genau wie Gold und Erfahrung — der
+ * Browser übernimmt nur noch, was hier zurückkommt, und führt nichts mehr
+ * selbst nach.
+ *
+ * Die acht möglichen Ausprägungen je Art (Größe 1, Größe 50, Golden, Rainbow,
+ * die vier Wetter-Effekte) müssen zur Liste in ui/LogbuchModal.jsx passen.
+ */
+const LOGBUCH_VARIANTEN_GESAMT = 8;
+const LOGBUCH_BELOHNUNG_JE_SELTENHEIT = {
+    COMMON: 5000, UNCOMMON: 25000, RARE: 150000, EPIC: 1000000, LEGENDARY: 10000000, MYTHIC: 100000000,
+};
+// Bewusst weit über der teuersten Einzel-Belohnung: alle Arten fertigzustellen
+// ist ein Ziel für Wochen, kein Nebenbei — siehe die ursprüngliche Klage
+// "es gibt kein Langzeitziel mehr" (v2-Planung, 21.08.2026).
+const LOGBUCH_KOMPLETT_BONUS = 5_000_000_000;
+
+function logbuchVollstaendig(eintrag) {
+    if (!eintrag) return false;
+    const effekte = new Set(eintrag.effekte || []);
+    return eintrag.min === 1 && eintrag.max === 50
+        && effekte.has("Golden") && effekte.has("Rainbow")
+        && effekte.has("wet") && effekte.has("frozen") && effekte.has("charged") && effekte.has("moonlit");
+}
+
+/**
+ * Ein geerntetes Stück ins Logbuch einrechnen und, falls dadurch eine Art (oder
+ * das ganze Logbuch) zum ersten Mal vollständig wird, sofort Gold gutschreiben.
+ *
+ * `state.logbuchBelohnungen` merkt sich, welche Arten schon ausgezahlt haben —
+ * ohne diese Sperre zahlte jede weitere Ernte derselben, längst vollständigen
+ * Art erneut aus.
+ *
+ * @returns {{ seedId: string, belohnung: number, komplett: boolean }|null}
+ *          nur gesetzt, wenn GERADE JETZT eine neue Belohnung ausgelöst wurde.
+ */
+function logbuchAktualisieren(state, item) {
+    if (!item?.seedId) return null;
+    if (!state.logbuch || typeof state.logbuch !== "object") state.logbuch = {};
+    if (!state.logbuchBelohnungen || typeof state.logbuchBelohnungen !== "object") state.logbuchBelohnungen = {};
+
+    const alt = state.logbuch[item.seedId] || { min: null, max: null, effekte: [], anzahl: 0 };
+    const groesse = Number(item.size) || 1;
+    const effekte = new Set(alt.effekte || []);
+    if (item.specialData?.name) effekte.add(item.specialData.name);
+    for (const e of wetterListe(item)) effekte.add(e);
+    const neu = {
+        min: alt.min === null ? groesse : Math.min(alt.min, groesse),
+        max: alt.max === null ? groesse : Math.max(alt.max, groesse),
+        effekte: [...effekte],
+        anzahl: (alt.anzahl || 0) + 1,
+    };
+    state.logbuch[item.seedId] = neu;
+
+    if (state.logbuchBelohnungen[item.seedId] || !logbuchVollstaendig(neu)) return null;
+    state.logbuchBelohnungen[item.seedId] = true;
+
+    const rarity = String(item.rarity || "COMMON").toUpperCase();
+    let belohnung = LOGBUCH_BELOHNUNG_JE_SELTENHEIT[rarity] || LOGBUCH_BELOHNUNG_JE_SELTENHEIT.COMMON;
+
+    // Erst NACH dem Eintragen prüfen: die gerade eingetragene Art zählt schon mit.
+    const komplett = SEED_CATALOGUE.every((s) => state.logbuchBelohnungen[s.id]);
+    if (komplett) belohnung += LOGBUCH_KOMPLETT_BONUS;
+
+    gutschreiben(state, belohnung);
+    return { seedId: item.seedId, belohnung, komplett };
 }
 
 /**
@@ -152,9 +335,8 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
     const profil = katalog(plant.seedId);
     if (!profil) return { ok: false, status: 400, error: "Unbekannte Pflanze." };
 
-    // Der Platz zählt nur, wenn das Stück auch im Rucksack landet. Ein Erntehelfer
-    // verkauft direkt vom Feld weg (siehe petErnteVerkauf) — für ihn wäre ein voller
-    // Rucksack ein Grund stehenzubleiben, obwohl er gar nichts ablegen will.
+    // Der Platz zählt nur, wenn das Stück auch im Rucksack landet. `einlagern: false`
+    // ist der Weg für Aufrufer, die den Wert nur berechnen wollen.
     if (einlagern) {
         const maxSlots = Math.max(1, Number(state.inventoryMaxSlots) || 50);
         const belegt = (state.inventory?.length || 0) + (state.harvestedItems?.length || 0);
@@ -165,6 +347,9 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
     // Welcher Fruchtstand nachgewachsen ist. Der Browser übernimmt danach GENAU
     // diesen einen Stand und behält seine übrigen — siehe Rückgabe unten.
     let nachgewachsen = null;
+    // Bei einer Einmalernte ersetzt der Gärtner-Nachwuchs die GANZE Pflanze
+    // (nicht nur einen Fruchtstand wie beim Dauerträger) — siehe unten.
+    let singleUseNachwuchs = null;
 
     if (plant.singleUse !== false) {
         norm = clamp01(plant.norm ?? 0.5);
@@ -178,9 +363,15 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
         // die nimmt der Gärtner anteilig weg. Bewusst HIER und nicht im Browser —
         // so wirkt es beim Erntehelfer und in der Offline-Verrechnung mit, ohne
         // dass die Rechnung ein zweites Mal irgendwo stehen muss.
-        const stufe = getGaertnerStufe(state);
-        if (stufe > 0 && Math.random() < stufe * GAERTNER_NACHWUCHS) {
-            plants[key] = neuePflanzeAus(plant, profil, now, state);
+        //
+        // WICHTIG: die neue Pflanze muss mit der Antwort mit — sonst weiß der
+        // Browser (der die Zelle beim Klick schon optimistisch geleert hat)
+        // nichts von ihr, zeigt die Zelle dauerhaft als leer/erntereif an und
+        // „Noch nicht reif" schlägt fehl, sobald doch geklickt wird (gemeldet
+        // 28.08.2026 — plants[key] wurde hier gesetzt, aber nie zurückgegeben).
+        if (getGaertnerStufe(state) > 0 && Math.random() < nachwuchsChance(state)) {
+            singleUseNachwuchs = neuePflanzeAus(plant, profil, now, state);
+            plants[key] = singleUseNachwuchs;
         } else {
             plant.stage = "harvested";
             delete plants[key];
@@ -220,9 +411,8 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
     }
 
     const groesse = Math.max(1, Math.round(lerp(1, 50, norm)));
-    const haendler = 1 + wirkung(state, "haendler");
     const gold = Math.max(1, Math.floor(
-        Math.max(1, Math.floor(basis * specialBoost(special))) * wetterBoost(effekte) * haendler,
+        Math.max(1, Math.floor(basis * specialBoost(special))) * wetterBoost(effekte) * haendlerMultiplikator(state),
     ));
 
     const baueItem = () => ({
@@ -242,14 +432,33 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
     });
     const item = baueItem();
 
-    // ── Reiche Ernte: Chance auf ein zweites Stück ────────────────────────────
+    // ── Zweites Stück: Fähigkeit „Reiche Ernte" plus Erntehelfer ──────────────
+    // Beide zahlen auf dieselbe Chance ein und stapeln sich additiv. Der Erntehelfer
+    // sitzt bewusst HIER und nicht mehr in einem eigenen Tick: er verstärkt den Klick
+    // des Spielers, statt ihn zu ersetzen (siehe core/pets.js).
+    //
     // Nur wenn eingelagert wird UND noch ein Platz frei ist. Sonst fiele das
     // Zusatzstück lautlos unter den Tisch und der Spieler hielte die Fähigkeit
     // für kaputt.
     let zweites = null;
-    if (Math.random() < wirkung(state, "ertrag")) zweites = baueItem();
+    const extraChance = wirkung(state, "ertrag")
+        + getErntehelferExtra(getErntehelferStufe(state)) * tierVerstaerkung(state);
+    if (Math.random() < extraChance) zweites = baueItem();
 
-    const erfahrung = gibXp(state, seltenheit);
+    // Erfahrung hängt jetzt auch an der Zykluslänge (siehe xpFuerErnte). Für eine
+    // Einmalernte ist das ihre Wachstumszeit, für einen Dauerträger der Fruchtzyklus —
+    // beides aus dem KATALOG, nicht aus der Pflanze: eine gegossene Pflanze soll nicht
+    // weniger Erfahrung bringen als eine ungegossene.
+    const zyklusMinuten = (plant.singleUse !== false
+        ? ((Number(profil.growMinSec) || 0) + (Number(profil.growMaxSec) || 0)) / 2
+        : (Number(profil.fruitCycleSec) || 0)) / 60;
+    const erfahrung = gibXp(state, seltenheit, zyklusMinuten, forscherBoost(state));
+
+    // Logbuch (v2, Punkt 11) — siehe logbuchAktualisieren oben. Beide Stücke
+    // zählen, falls „Reiche Ernte"/Erntehelfer ein zweites gebracht hat; welches
+    // von beiden zuerst eine Art vollmacht, ist Zufall und für die Belohnung egal.
+    const logbuchBelohnungen = [logbuchAktualisieren(state, item), logbuchAktualisieren(state, zweites)]
+        .filter(Boolean);
 
     if (einlagern) {
         const lager = Array.isArray(state.harvestedItems) ? state.harvestedItems : [];
@@ -264,7 +473,136 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
     // Server-Pflanze komplett, verlöre er jeden Fruchtstand, der seit dem letzten
     // Speichern reif geworden ist — und müsste auf dessen Nachwachsen warten.
     // Der neue Stand wird weiterhin HIER gewürfelt, nicht im Browser.
-    return { ok: true, item, zweites, nachgewachsen, erfahrung, skillStand: skillStand(state) };
+    //
+    // `singleUseNachwuchs` ist bei einer Einmalernte dagegen unbedenklich als
+    // GANZE Pflanze zu übernehmen: die Zelle war bis eben leer (Browser hat sie
+    // beim Klick geleert), es gibt also nichts, was seit dem letzten Speichern
+    // verloren gehen könnte.
+    return {
+        ok: true, item, zweites, nachgewachsen, singleUseNachwuchs, erfahrung, skillStand: skillStand(state),
+        // Nur der eigene Eintrag, nicht das ganze Logbuch — der Browser mischt ihn
+        // in seinen Stand, ein voller Katalog wäre bei jeder einzelnen Ernte
+        // unnötiger Ballast. `gold` oben spiegelt jede Logbuch-Belohnung schon mit,
+        // das hier ist nur fürs Anzeigen ("Logbuch komplett: Löwenzahn").
+        logbuch: { [item.seedId]: state.logbuch[item.seedId] },
+        logbuchBelohnungen,
+    };
+}
+
+/**
+ * Alle reifen Früchte EINER Zelle in EINEM Aufruf abernten — das Rückgrat des
+ * Sammel-Endpunkts "harvestAll" (siehe gardenGameRoutes.js).
+ *
+ * WARUM DAS HIER LIEGT: Feedback 30.08. ("Shift-Ziehen erntet mit viel Lag")
+ * — bisher kostete jede einzelne reife Frucht eine eigene Netzrunde (bis zu elf
+ * bei einer vollbehangenen Orange), macht bei einem vollen Feld dutzende
+ * Anfragen in Sekunden. Ruft `harvestCell` einfach WIEDERHOLT im selben
+ * Request auf, statt die Schleife über das Netz zu schicken — jeder Durchlauf
+ * bleibt exakt so, wie ein einzelner Klick ihn auch bekäme (derselbe
+ * Sonderform-Wurf, derselbe Glückspilz-Check, dieselbe Logbuch-Prüfung), nur
+ * ohne Wartezeit dazwischen. Ein Sammel-Aufruf bleibt damit so teuer wie eine
+ * einzelne Ernte, egal wie viele Früchte gerade reif sind.
+ *
+ * `max` deckelt die Schleife selbst — gegen einen kaputt zusammengebauten
+ * Spielstand mit mehr Fruchtständen, als der Katalog je vergibt (der grösste,
+ * Orange, hat elf), liefe eine Endlosschleife sonst den Server fest.
+ */
+function harvestCellAll(state, key, now = Date.now(), { einlagern = true, max = 20 } = {}) {
+    const items = [];
+    // Ein Eintrag je tatsächlich abgeerntetem Fruchtstand — dieselbe Form wie
+    // das einzelne `nachgewachsen`, nur als Liste. Der Browser wendet beide
+    // Male dieselbe Übernahme an, siehe uebernehmenAlle in GameContainer.jsx.
+    const aenderungen = [];
+    let singleUseNachwuchs = null;
+    let erfahrungGesamt = 0;
+    // Wie oft "Reiche Ernte"/Erntehelfer ein zweites Stück gebracht haben — die
+    // Anzeige zählt beim Sammel-Ernten sonst nur den GOLD-Gesamtbetrag, ohne
+    // erkennen zu lassen, dass da unterwegs mehrfach ein Bonus dabei war
+    // (Feedback 30.08.: "mehr Animationen/Messages für Nachwachsen, doppelte
+    // Ernte").
+    let bonusAnzahl = 0;
+    const logbuch = {};
+    const logbuchBelohnungen = [];
+    let skillStandAktuell = null;
+    let letzterFehler = null;
+    let treffer = 0;
+
+    for (let i = 0; i < max; i++) {
+        const r = harvestCell(state, key, now, { einlagern });
+        if (!r.ok) { letzterFehler = r; break; }
+        treffer++;
+        items.push(r.item);
+        if (r.zweites) { items.push(r.zweites); bonusAnzahl++; }
+        if (r.nachgewachsen) aenderungen.push(r.nachgewachsen);
+        if (r.singleUseNachwuchs) singleUseNachwuchs = r.singleUseNachwuchs;
+        erfahrungGesamt += Number(r.erfahrung?.xp) || 0;
+        Object.assign(logbuch, r.logbuch);
+        logbuchBelohnungen.push(...r.logbuchBelohnungen);
+        skillStandAktuell = r.skillStand;
+        // Einmalernte: die Zelle ist danach entweder neu bepflanzt (Gärtner)
+        // oder leer — beides würde der nächste Durchlauf ohnehin mit „Noch
+        // nicht reif."/„Dort wächst nichts." beenden, ein eigener Abbruch
+        // spart nur die eine unnötige Runde.
+        if (r.item.singleUse) break;
+    }
+
+    if (treffer === 0) return letzterFehler || { ok: false, status: 400, error: "Keine reife Frucht." };
+    return {
+        ok: true, items, aenderungen, singleUseNachwuchs, bonusAnzahl,
+        erfahrung: { xp: erfahrungGesamt },
+        skillStand: skillStandAktuell,
+        logbuch, logbuchBelohnungen,
+        // Eigene Marke statt eines Fehlers: die Ernte, die schon im Rucksack
+        // liegt, war erfolgreich — der Browser soll das nur ANZEIGEN, nicht
+        // als Fehlschlag werten.
+        rucksackVoll: letzterFehler?.error === "Rucksack voll.",
+    };
+}
+
+/**
+ * Mehrere Zellen in EINEM Aufruf abernten — das Rückgrat des Sammel-Endpunkts
+ * "harvestMany" (siehe gardenGameRoutes.js).
+ *
+ * WARUM: harvestCellAll oben bündelt schon alle Fruchtstände EINER Zelle in
+ * einen Request. Ein Zug beim Schnellernten (Shift + Ziehen) berührt aber oft
+ * VIELE Zellen — vorher kam für jede ihr eigener Request, und jede Antwort löst
+ * im Browser einen eigenen Rendervorgang aus. Bei einem vollen Feld (dutzende
+ * Zellen) und dazwischen vielleicht noch einem Tier- oder Skill-Ereignis
+ * summierte sich das spürbar zu Ruckeln (Feedback 30.08.: "lagged, wenn
+ * gleichzeitig durch Tiere/Skills etwas nachwächst"). Ein Aufruf für den GANZEN
+ * Zug macht daraus GENAU EINEN Request und GENAU EINE Rückmeldung, egal wie
+ * viele Zellen dabei waren — siehe handleHarvestMany in GameContainer.jsx.
+ *
+ * Anders als bei harvestCellAll bricht eine einzelne fehlgeschlagene Zelle
+ * (zu schnell gezogen, inzwischen leer) die übrigen NICHT ab — jede Zelle
+ * bekommt ihr eigenes Teilergebnis, der Browser wertet das getrennt aus.
+ */
+function harvestManyCells(state, keys, now = Date.now(), { einlagern = true } = {}) {
+    const ernten = {};
+    const logbuch = {};
+    const logbuchBelohnungen = [];
+    let treffer = false;
+
+    for (const roh of keys) {
+        const key = String(roh || "");
+        if (!key || ernten[key]) continue;   // dieselbe Zelle nicht zweimal
+        const r = harvestCellAll(state, key, now, { einlagern });
+        if (r.ok) {
+            treffer = true;
+            ernten[key] = {
+                ok: true, items: r.items, aenderungen: r.aenderungen,
+                singleUseNachwuchs: r.singleUseNachwuchs, bonusAnzahl: r.bonusAnzahl,
+                erfahrung: r.erfahrung, rucksackVoll: r.rucksackVoll,
+            };
+            Object.assign(logbuch, r.logbuch);
+            logbuchBelohnungen.push(...r.logbuchBelohnungen);
+        } else {
+            ernten[key] = { ok: false, error: r.error };
+        }
+    }
+
+    if (!treffer) return { ok: false, status: 400, error: "Keine reife Frucht." };
+    return { ok: true, ernten, logbuch, logbuchBelohnungen };
 }
 
 // ─── Kiste und Vitrine ───────────────────────────────────────────────────────
@@ -471,53 +809,17 @@ function sellAll(state, isSubscriber = false) {
 
     let summe = 0;
     for (const item of lager) summe += verkaufswert(item);
-    const gesamt = Math.floor(summe * (isSubscriber ? SUB_BONUS : 1));
+    // haendlerMultiplikator statt nur kaufmannBoost: verkaufswert() selbst kennt den
+    // Skill „Händler" nicht (siehe dessen Kommentar — absichtlich zustandslos für den
+    // Briefkasten-Fall), der muss also hier rein, sonst zahlt die Kasse weniger als
+    // die Rucksack-Anzeige (item.sellValue, siehe harvestCell) versprochen hat.
+    const gesamt = Math.floor(summe * (isSubscriber ? SUB_BONUS : 1) * haendlerMultiplikator(state));
     const anzahl = lager.length;
     state.harvestedItems = [];
-    state.gold = Math.min(GOLD_MAX, Math.max(0, Number(state.gold || 0)) + gesamt);
+    gutschreiben(state, gesamt);
     return { ok: true, gold: state.gold, verdient: gesamt, anzahl };
 }
 
-/**
- * Erntehelfer-Tier: pflücken UND sofort verkaufen — zum selben Preis wie beim
- * Marktverkauf, Sub-Bonus eingeschlossen.
- *
- * WARUM VERKAUFEN STATT EINLAGERN
- * Vorher legte der Helfer seine Ernte in den Rucksack. Der ist nach ein paar
- * Minuten voll, danach lieferte der Server nur noch „Rucksack voll." zurück und
- * das Tier stand still — es hat sich schlicht nicht gelohnt. Ein Tier, das für
- * einen mitarbeitet, muss auch abrechnen können.
- *
- * Der Wert kommt aus `harvestCell` (Größe, Sonderform, Wetter) und wird HIER
- * summiert; der Sub-Bonus gilt auf die Summe, genau wie in `sellAll`.
- */
-function petErnteVerkauf(state, keys, isSubscriber = false, now = Date.now()) {
-    const nachgewachsen = [];
-    const geerntet = [];
-    let summe = 0;
-
-    for (const key of Array.isArray(keys) ? keys : []) {
-        const einzel = harvestCell(state, key, now, { einlagern: false });
-        if (!einzel.ok) continue;
-        // „Reiche Ernte" zählt auch für den Harvester: er verkauft beide Stücke.
-        for (const stueck of [einzel.item, einzel.zweites]) {
-            if (!stueck) continue;
-            summe += Number(stueck.sellValue) || 0;
-            geerntet.push(stueck);
-        }
-        // Dauerträger: der Browser übernimmt genau den nachgewachsenen Stand.
-        if (einzel.nachgewachsen) nachgewachsen.push({ key, ...einzel.nachgewachsen });
-    }
-
-    if (geerntet.length === 0) return { ok: false, status: 400, error: "Nichts geerntet." };
-
-    const gesamt = Math.floor(summe * (isSubscriber ? SUB_BONUS : 1));
-    state.gold = Math.min(GOLD_MAX, Math.max(0, Number(state.gold) || 0) + gesamt);
-    return {
-        ok: true, gold: state.gold, verdient: gesamt, anzahl: geerntet.length,
-        items: geerntet, nachgewachsen, skillStand: skillStand(state),
-    };
-}
 
 /**
  * Zieht Gold ab (Kauf). Kann Gold nur VERRINGERN — daraus lässt sich nichts
@@ -544,7 +846,7 @@ function sellPet(state, id) {
     if (!treffer) return { ok: false, status: 400, error: "Tier nicht gefunden." };
     const preis = getPetSellPrice(treffer.pet?.rarity);
     state[treffer.feld] = state[treffer.feld].filter((_, i) => i !== treffer.idx);
-    state.gold = Math.min(GOLD_MAX, Math.max(0, Number(state.gold) || 0) + preis);
+    gutschreiben(state, preis);
     return { ok: true, gold: state.gold, verdient: preis, name: treffer.pet?.customName || treffer.pet?.name || "Tier" };
 }
 
@@ -559,10 +861,12 @@ function petFind(state, id, art, letzteFunde, now = Date.now()) {
         return { ok: false, status: 400, error: "Tier steht nicht auf dem Grundstück." };
     }
     const pet = treffer.pet;
-    const typ = pet?.ability?.type;
     const level = clampLevel(pet?.ability?.level);
-    const erwartet = art === "seedFallback" ? "seedfinder" : "goldfinder";
-    if (typ !== erwartet) return { ok: false, status: 400, error: "Falsche Fähigkeit." };
+    // Nur noch der Goldfinder zahlt im Takt aus. Der Gärtner wirkt dauerhaft, der
+    // Erntehelfer beim Ernten — beide brauchen keine Auszahlung mehr.
+    if (pet?.ability?.type !== "goldfinder") {
+        return { ok: false, status: 400, error: "Falsche Fähigkeit." };
+    }
 
     const schluessel = petIdOf(pet);
     const zuletzt = Number(letzteFunde.get(schluessel) || 0);
@@ -572,21 +876,17 @@ function petFind(state, id, art, letzteFunde, now = Date.now()) {
     }
     letzteFunde.set(schluessel, now);
 
-    let betrag;
-    if (erwartet === "goldfinder") {
-        const [min, max] = getGoldfinderRange(level);
-        betrag = Math.floor(Math.random() * (max - min + 1)) + min;
-    } else {
-        betrag = getSeedfinderFallbackGold(level);
-    }
-    state.gold = Math.min(GOLD_MAX, Math.max(0, Number(state.gold) || 0) + betrag);
+    const [min, max] = getGoldfinderRange(level);
+    const betrag = Math.floor(Math.random() * (max - min + 1)) + min;
+    gutschreiben(state, betrag);
     return { ok: true, gold: state.gold, verdient: betrag, name: pet?.customName || pet?.name || "Tier" };
 }
 
 module.exports = {
-    harvestCell, sellAll, spendGold, sellPet, petFind, istReif, verkaufswert,
-    petErnteVerkauf,
-    bringeDauertraegerAufStand, wachstumsBonus, ablageEinlagern, ablageAuslagern,
+    harvestCell, harvestCellAll, harvestManyCells, sellAll, spendGold, sellPet, petFind, istReif, verkaufswert, gutschreiben,
+    bringeDauertraegerAufStand, wachstumsBonus, tierVerstaerkung, nachwuchsChance,
+    forscherBoost, kaufmannBoost, haendlerMultiplikator,
+    ablageEinlagern, ablageAuslagern,
     ablageAllesEin, ablageAllesAus,
     KISTE_MAX, VITRINE_MAX, GOLD_MAX, SUB_BONUS,
 };

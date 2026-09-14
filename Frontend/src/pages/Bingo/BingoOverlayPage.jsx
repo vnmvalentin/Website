@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import BingoGrid from "../../components/bingo/BingoGrid";
+import BingoGrid from "./BingoGrid";
 import { getOverlay, markOverlayCell } from "../../utils/bingoApi";
 
 export default function BingoOverlayPage() {

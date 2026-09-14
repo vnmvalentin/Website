@@ -1,12 +1,13 @@
-// Inhalt des Host-Panels: Spielmodus, Presets, Kartenpool und die Modusregler.
+// Presets und die Modusregler — eingebettet in GameSettingsCard.jsx (linke Spalte der
+// Lobby, dauerhaft sichtbar; früher ein eigenes Modal, HostPanel.jsx, mittlerweile entfernt).
 //
 // Die Modusregler rendert diese Datei nicht von Hand, sondern aus dem Schema in
 // hostSettingsSchema.js. Damit gibt es pro Einstellung genau EINE Definition statt
 // eines eigenen JSX-Blocks — vorher rund 620 Zeilen mit vierzehn Kopien derselben
 // Struktur, in denen sich Abstände und Farben auseinandergelebt hatten.
 //
-// Der Start-Knopf liegt bewusst NICHT hier, sondern im Fuß des Drawers (HostPanel.jsx)
-// und in der Lobby selbst: er soll erreichbar bleiben, egal wie weit man in den
+// Der Start-Knopf liegt bewusst NICHT hier, sondern im Band über beiden Spalten
+// (ModeStartBand.jsx): er soll erreichbar bleiben, egal wie weit man in den
 // Einstellungen gescrollt hat.
 
 import React from 'react';

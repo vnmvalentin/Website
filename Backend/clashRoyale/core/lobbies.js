@@ -4,6 +4,7 @@
 // Schlüssel ist der 6-stellige Lobby-Code, Wert das Lobby-Objekt mit players/game/Einstellungen.
 // Bewusst modulweit — genau ein Prozess bedient alle Lobbys.
 
+const { nanoid } = require('nanoid');
 const registry = require('./registry');
 const { presetsForLobby } = require('./modePresets');
 const { trackingScoreFor } = require('./crTracking');
@@ -30,6 +31,31 @@ function generateCode() {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
+// Eigenes Geheimnis fürs lobbyeigene Deck-Overlay (siehe streamerFeed.js) — bewusst NICHT
+// der Lobby-Code: der Code öffnet die Lobby selbst (wird zum Beitreten geteilt), der
+// Overlay-Link ist nur lesbar und soll unabhängig davon weitergegeben werden können, ohne
+// dabei aus Versehen auch den Beitritts-Code preiszugeben.
+function generateOverlayKey() {
+  return nanoid(14);
+}
+
+// Test-Bots: eine "bot-"-Vorsilbe genügt, damit man eine ID beim Debuggen sofort als Bot
+// erkennt — Kollisionen mit echten socket.id-Werten sind wegen des Präfixes ausgeschlossen.
+function generateBotId() {
+  return `bot-${nanoid(10)}`;
+}
+
+// Lobbyeigenes Deck-Overlay: über die ganze Sitzung hinweg dieselbe Adresse, egal wie oft
+// die Lobby neu startet — jeder Spieler kann sie kopieren, nicht nur ein eingeloggter
+// Streamer (siehe crStreamerStore.js für die Variante pro Twitch-Account).
+function findLobbyByOverlayKey(overlayKey) {
+  if (!overlayKey) return null;
+  for (const lobby of lobbies.values()) {
+    if (lobby.overlayKey === overlayKey) return lobby;
+  }
+  return null;
+}
+
 // Ist niemand mehr da, der die Lobby am Leben hält? Spieler mit left=true bleiben während
 // einer laufenden Runde im Array (turnOrder hält Indizes!), sind aber effektiv weg — sie
 // dürfen eine leere Lobby nicht am Leben halten. Admin-Beobachter zählen ebenfalls nicht.
@@ -51,7 +77,13 @@ function shuffle(arr) {
 function sanitizeLobby(lobby) {
   return {
     code: lobby.code,
+    // Lesbar für alle Lobbymitglieder — öffnet nur das Deck-Overlay (siehe oben), nicht
+    // die Lobby selbst, ist also kein Geheimnis auf demselben Niveau wie der Code.
+    overlayKey: lobby.overlayKey,
     mode: lobby.mode,
+    // 'solo' (Standard) | 'duo' — schaltet um, welche Modi wählbar sind (registry.
+    // modeAllowsParty) und ob die Spielerliste Teams zeigt.
+    partyMode: lobby.partyMode || 'solo',
     host: lobby.host,
     timerSeconds: lobby.timerSeconds,
     tokenShopTimerSeconds: lobby.tokenShopTimerSeconds ?? 60,
@@ -72,6 +104,10 @@ function sanitizeLobby(lobby) {
     // wer den Code hat und nicht reinkommt, soll den Grund sehen statt eine
     // kommentarlose Fehlermeldung.
     locked: !!lobby.locked,
+    // Öffentlich = taucht im Lobby-Browser auf ("Lobby beitreten" im Hub) und ist dort
+    // ohne Code anklickbar. Intern hat die Lobby weiterhin einen Code (Raum-Mechanismus,
+    // Einladungslink) — "ohne Code" heißt für den Spieler nur: nicht selbst eintippen.
+    isPublic: !!lobby.isPublic,
     // Damit die Lobby "3/8 Spieler" anzeigen kann, ohne die Zahl im Client zu doppeln
     maxPlayers: MAX_PLAYERS_PER_LOBBY,
     // Tracking über die offizielle API (siehe crTracking.js). Die internen Zeitstempel
@@ -82,9 +118,18 @@ function sanitizeLobby(lobby) {
     // Aktiv gegangene Spieler tauchen in der Lobby-Liste nicht mehr auf
     players: lobby.players.filter(p => !p.left).map(p => ({
       id: p.id, name: p.name, color: p.color, avatar: p.avatar || 'knight',
+      // Profilbild-Option "Twitch-Bild verwenden" — echte Bild-URL statt eines der festen
+      // Avatare; null wenn nicht gesetzt, dann greift PlayerAvatar auf `avatar` zurück.
+      avatarUrl: p.avatarUrl || null,
       deck: p.deck || [], elixir: p.elixir ?? (lobby.startElixir ?? 100),
       isSpectator: p.isSpectator ?? false, disconnected: p.disconnected ?? false,
       isAdmin: p.isAdmin ?? false,
+      // Test-Bot statt echter Verbindung (siehe generateBotId) — steuert sich in den
+      // Duo-2v2-Modi selbst, damit man nicht für jeden Test 4 echte Leute braucht.
+      isBot: p.isBot ?? false,
+      // Duo-Team-Zuordnung (siehe core/teams.js) — null solange partyMode 'solo' ist oder
+      // der Spieler noch keinem Team beigetreten ist.
+      teamId: p.teamId ?? null, teamSlot: p.teamSlot ?? null,
       // Verknüpfter Clash-Royale-Account. Der Tag ist öffentlich (er steht im Spielprofil
       // und wird zum Zuschauen weitergegeben), enthält also nichts Schützenswertes.
       crTag: p.crTag || null,
@@ -113,14 +158,42 @@ function getActiveLobbiesForAdmin() {
     });
 }
 
+// ── Lobby-Browser: öffentliche, offene Lobbies ──────────────────────────────
+// Gezeigt im Hub unter "Lobby beitreten" — jeder Besucher sieht diese Liste, auch ohne
+// Login. Der Code steht mit drin (anders als bei getActiveLobbiesForAdmin sind das nur
+// Lobbies, die der Host SELBST als öffentlich markiert hat — ihr Code ist kein Geheimnis
+// mehr, der Host will ja gefunden werden). Gesperrte/gestartete Lobbies fehlen: gesperrt
+// nimmt ohnehin niemanden mehr auf, gestartet ist nichts mehr zum Beitreten da.
+function getPublicLobbies() {
+  return [...lobbies.values()]
+    .filter(l => l.isPublic && !l.locked && !l.started)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .map(l => {
+      const realPlayers = l.players.filter(p => !p.isAdmin && !p.left);
+      const hostPlayer = l.players.find(p => p.id === l.host);
+      return {
+        code: l.code,
+        mode: l.mode,
+        playerCount: realPlayers.length,
+        maxPlayers: MAX_PLAYERS_PER_LOBBY,
+        hostName: hostPlayer?.name || '—',
+        createdAt: l.createdAt || null,
+      };
+    });
+}
+
 module.exports = {
   lobbies,
   PLAYER_COLORS,
   LOBBY_DISCONNECT_GRACE_MS,
   MAX_PLAYERS_PER_LOBBY,
   generateCode,
+  generateOverlayKey,
+  generateBotId,
+  findLobbyByOverlayKey,
   lobbyIsAbandoned,
   shuffle,
+  getPublicLobbies,
   sanitizeLobby,
   getActiveLobbiesForAdmin,
 };

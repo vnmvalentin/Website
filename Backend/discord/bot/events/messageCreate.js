@@ -13,6 +13,9 @@ const { handleAussehen } = require('../commands/aussehen');
 const { handleIQ } = require('../commands/iq');
 const { handleGroesse } = require('../commands/groesse');
 const { handleGewicht } = require('../commands/gewicht');
+const { handleAllStats } = require('../commands/allstats');
+const { handleSuperkraft } = require('../commands/superkraft');
+const { handleAusrede } = require('../commands/ausrede');
 
 // Cache für Sync-Webhook-IDs (verhindert Relay-Loops)
 const syncWebhookIds = new Set();
@@ -175,25 +178,33 @@ module.exports = {
         const cmdName = args.shift().toLowerCase();
 
         // ── !sync — Slash Commands synchronisieren (nur Admins) ──────────────
+        // Global- und Server-Commands sind bei Discord getrennte Registrierungen —
+        // wer beide gleichzeitig belegt, sieht jeden Command doppelt im Picker.
+        // "!sync . clear" räumt die Server-Kopie wieder weg, ohne die globale anzufassen.
         if (cmdName === 'sync') {
             if (!message.member?.permissions.has(PermissionFlagsBits.Administrator)) return;
             const { getCommandsJSON } = require('../events/ready');
             const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);
             const guildSync = args[0] === '.';
+            const clearGuild = guildSync && args[1] === 'clear';
             try {
+                if (clearGuild) {
+                    await rest.put(Routes.applicationGuildCommands(client.user.id, message.guildId), { body: [] });
+                    return message.reply('✅ Server-spezifische Slash Commands für **diesen Server** entfernt. Die globalen Commands bleiben unverändert — Duplikate sollten weg sein.');
+                }
                 if (guildSync) {
                     await rest.put(Routes.applicationGuildCommands(client.user.id, message.guildId), { body: getCommandsJSON() });
-                    return message.reply('✅ Slash Commands für **diesen Server** synchronisiert — sofort aktiv!');
+                    return message.reply('✅ Slash Commands für **diesen Server** synchronisiert — sofort aktiv!\n⚠️ Läuft parallel zu den globalen Commands. Sobald die globale Sync durch ist, mit `!sync . clear` die Server-Kopie wieder entfernen, sonst erscheint jeder Command doppelt.');
                 } else {
                     await rest.put(Routes.applicationCommands(client.user.id), { body: getCommandsJSON() });
-                    return message.reply('✅ Slash Commands **global** synchronisiert — kann bis zu 1 Stunde dauern.\nTipp: `!sync .` für sofortige Aktivierung auf diesem Server.');
+                    return message.reply('✅ Slash Commands **global** synchronisiert — kann bis zu 1 Stunde dauern.\nTipp: `!sync .` für sofortige Aktivierung auf diesem Server, danach `!sync . clear` zum Aufräumen (sonst Duplikate).');
                 }
             } catch (e) {
                 return message.reply(`❌ Fehler beim Sync: ${e.message}`);
             }
         }
 
-        const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'miesmuschel', 'pp', 'ship', 'coinflip', 'aussehen', 'iq', 'größe', 'gewicht'];
+        const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'miesmuschel', 'pp', 'ship', 'coinflip', 'aussehen', 'iq', 'größe', 'gewicht', 'allstats', 'superkraft', 'ausrede'];
         if (!FUN_COMMANDS.includes(cmdName)) return;
 
         // Fun-Channel-Check
@@ -221,6 +232,9 @@ module.exports = {
         if (canonicalName === 'iq') return handleIQ(interaction);
         if (canonicalName === 'größe') return handleGroesse(interaction);
         if (canonicalName === 'gewicht') return handleGewicht(interaction);
+        if (canonicalName === 'allstats') return handleAllStats(interaction);
+        if (canonicalName === 'superkraft') return handleSuperkraft(interaction);
+        if (canonicalName === 'ausrede') return handleAusrede(interaction);
         if (canonicalName === 'ship') {
             const mentions = message.mentions.users;
             if (mentions.size < 2) {

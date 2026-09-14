@@ -28,6 +28,7 @@ const MESSAGES = {
     `Kartenpool zu klein: ${needed} Karten benötigt, nur ${available} verfügbar. Schließe weniger Karten aus!`,
   carouselTooManyPlayers: ({ perTable, maxPlayers, poolSize }) =>
     `Bei ${perTable} Karten pro Tisch sind max. ${maxPlayers} Spieler möglich (Kartenpool: ${poolSize})!`,
+  teamsNotReady: () => 'Beide Teams brauchen genau 2 Spieler (Slot 1 + Slot 2)!',
 
   // ── Modusübergreifend ─────────────────────────────────────────────────────
   championLimit: () => 'Max. 2 Champions pro Deck!',
@@ -63,6 +64,10 @@ const MESSAGES = {
   noneOfRarityLeft: ({ rarity }) => `Keine ${rarity}-Karten mehr im Pool.`,
   poolEmpty: () => 'Keine Karten mehr im Pool.',
   alreadyPending: () => 'Du hast bereits eine offene Wahl.',
+
+  // ── Fallensteller ─────────────────────────────────────────────────────────
+  trapGridTooSmall: ({ active, disguiseCount, gridSize }) =>
+    `Bei ${disguiseCount} Falle(n) pro Spieler und ${active} Spielern reicht ein ${gridSize}er-Raster nicht — größeres Raster wählen oder weniger Fallen pro Spieler!`,
 
   // ── Account-Verknüpfung / Tracking ────────────────────────────────────────
   apiNotConfigured: () => 'Die Clash-Royale-API ist auf diesem Server nicht eingerichtet.',

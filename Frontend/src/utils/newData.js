@@ -1,5 +1,50 @@
 export const NEWS_UPDATES = [
   {
+    date: "14.09.2026",
+    version: "v6.5: Sechs neue Daily Games, Clash-Royale-Win-Tracker im 2v2-Modus & Virtual Farm mit neuer Oberfläche",
+    sections: [
+      {
+        title: "Neu: Daily Games",
+        items: [
+          "Neuer Spielhub unter /daily mit sechs täglichen Rate-Minispielen: Tempdle (Temperaturen), Velocidle (Geschwindigkeiten), Duratidle (Zeitspannen), Inventiondle (Erfindungsjahre), Pricedle (Einführungspreise von Technik-Produkten) und Balancdle (Gewichte). Ein siebtes, CR Color Match für Clash-Royale-Kartenfarben, ist in der Kachel-Übersicht schon sichtbar und folgt, sobald die Kalibrierung für alle Karten fertig ist",
+          "Jede Runde: den echten Wert über einen Regler schätzen, Punkte nach Nähe zum tatsächlichen Wert (bis 100 pro Runde), mehrere Runden pro Spiel und Tag",
+          "Für jedes Spiel einzeln als Favorit markierbar, die Kachel zeigt direkt, ob heute schon gespielt wurde und mit welchem Ergebnis",
+          "Rundenverlauf einsehbar, Ergebnis teilbar — kein Account nötig, für alle nutzbar",
+        ]
+      },
+      {
+        title: "Clash Royale — Win Tracker: 2v2-Modus & Twitch-Commands",
+        items: [
+          "Der Win Tracker kennt jetzt einen dritten trackbaren Wert: 2v2 Ranked, neben den bisherigen Ranked-Medaillen und der Trophäenstraße — mit eigenem zuletzt gespieltem Deck, getrennt von 1v1",
+          "Neue Twitch-Chat-Befehle für Mods und den Broadcaster: „!tracker set #TAG“ schaltet den aktiven Account um, „!tracker mode <ranked|trophy|2v2>“ wechselt den getrackten Wert, „!tracker add #TAG“ verknüpft einen neuen Account und „!tracker list“ zeigt alle verknüpften Accounts mit Spielername. Der bisherige Kurzbefehl „!tracker #TAG“ bleibt als Alias erhalten",
+          "Antworten im Chat erscheinen auf Deutsch oder Englisch, je nachdem, welche Sprache im Overlay eingestellt ist",
+        ]
+      },
+      {
+        title: "Virtual Farm — Komplett neue Oberfläche",
+        items: [
+          "Das ganze HUD ist neu gezeichnet: aus flachen, dunklen Flächen wurden Fenster im Holzschild-Look — Farbverlauf für Volumen, dicke dunkle Kontur, große Radien. Knöpfe bekommen einen sichtbaren „Stufen-Schatten“, der beim Klicken einsackt, statt nur die Farbe zu wechseln",
+          "Jedes Fenster (Shop, Inventar, Fähigkeitsbaum, Logbuch, Briefkasten, Missionsbrett, …) läuft jetzt über einen gemeinsamen Rahmen mit demselben Kopf- und Schließ-Verhalten, statt dass sich jedes Fenster seinen eigenen Header und Radius gebaut hat. Dazu ein „Zurück“-Knopf für Fenster, die aus einem anderen Fenster heraus geöffnet wurden (z. B. Profil → Umkleide, Schuppen → Kiste)",
+          "Eigenes, handgezeichnetes Icon-Set ersetzt lucide-Icons und Emojis in großen Teilen des HUDs",
+          "Das Dropdown-Menü ist weg: ein einziges Profil-Widget oben rechts zeigt Charakterbild, Name, Gold sowie Level mit XP-Balken auf einen Blick. Ein Klick öffnet direkt Umkleide oder Fähigkeitsbaum, statt durch eine lange Liste zu blättern — offene Fähigkeitspunkte zeigen sich jetzt als pulsierende Zahl direkt am Profilbild",
+          "Mitspieler-Liste und Chat neu gestaltet, Reiter in Shops und Fenstern laufen jetzt über einen Unterstrich statt runder „Pillen“-Buttons, der Inkubator ist in den Schuppen gewandert statt ein eigenes Klapp-Menü zu sein",
+        ]
+      },
+      {
+        title: "Virtual Farm — Neuer Inhalt",
+        items: [
+          "Der Charakter ist jetzt durchgängig eine Katze: zwölf echte Farb- und Musterungs-Varianten statt der bisherigen eingefärbten Standard-Figur, alle von Level 1 an frei wählbar",
+          "Zehn neue, über das Level freischaltbare Kostüme (vom Entdecker bis zum Astronauten) ersetzen die alten Fantasy-Geister und die alten levelfreien Outfits",
+          "Neuer Gold-Shop: rein kosmetische Reskins für Schuppen, Briefkasten und Namensschild — teuer, weil sie nichts als den Look ändern. Jede Kategorie hat einen kostenlosen Weg zurück zum Standard-Look",
+          "Neues Missionsbrett: tägliche und wöchentliche Aufgaben (Ernten, Verkaufen, Gießen, Samen kaufen) gegen Gold und Erfahrung",
+          "Drei neue Tiere: Waschbär, Ziege und Tiger",
+          "Neuer, größerer Ladebildschirm beim Weltbeitritt",
+          "Gegen das Lategame-Problem „nichts mehr zu kaufen“ sind weitere Bausteine in Planung, darunter ein Prestige-System",
+        ]
+      },
+    ]
+  },
+  {
     date: "06.08.2026",
     version: "v6.4: Win-Challenge überarbeitet, Stream-Statistik & Raid-Clips",
     sections: [

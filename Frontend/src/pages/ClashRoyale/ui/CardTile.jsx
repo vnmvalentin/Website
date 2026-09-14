@@ -11,7 +11,7 @@
 // beim Auswählen nicht um 2px, was bei einem border unvermeidlich wäre.
 
 import React from 'react';
-import { CARD_CDN } from '../constants';
+import { cardImageUrl } from '../data/cards';
 
 /**
  * @param {object}   card         Kartenobjekt mit { id, name }; null = leerer Platz
@@ -55,7 +55,7 @@ export default function CardTile({
     <>
       {card && (
         <img
-          src={`${CARD_CDN}${card.id}.png`}
+          src={cardImageUrl(card.id)}
           alt={card.name || ''}
           loading="lazy"
           decoding="async"
