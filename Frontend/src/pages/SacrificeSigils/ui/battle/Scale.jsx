@@ -16,13 +16,14 @@ export default function Scale({ value, compact = false, labels = ["Du", "Gegner"
   const beamRef = useRef(/** @type {SVGGElement|null} */ (null));
   const leftRef = useRef(/** @type {SVGGElement|null} */ (null));
   const rightRef = useRef(/** @type {SVGGElement|null} */ (null));
-  const state = useRef({ a: 0, v: 0, target: 0 });
+  const state = useRef(/** @type {{ a: number, v: number, target: number, sleeping?: boolean, wake?: () => void }} */ ({ a: 0, v: 0, target: 0 }));
   const tense = Math.abs(value) >= SCALE_WIN - 1;
 
   useEffect(() => {
     // Deine Schale (links) sinkt bei Vorsprung → Balken dreht gegen den Uhrzeigersinn (negativer Winkel = links runter)
     state.current.target = -Math.max(-SCALE_WIN - 1, Math.min(SCALE_WIN + 1, value)) * DEG_PER;
     state.current.v += (state.current.target - state.current.a) * 0.08; // Stoß beim Einschlag der Gewichte
+    state.current.wake?.();
   }, [value]);
 
   useEffect(() => {
@@ -40,6 +41,13 @@ export default function Scale({ value, compact = false, labels = ["Du", "Gegner"
     };
     const loop = (t) => {
       const s = state.current;
+      // In Ruhe schlafen: kein Frame-Aufwand, bis sich der Wert ändert (siehe wake unten)
+      if (!tense && Math.abs(s.v) < 0.002 && Math.abs(s.a - s.target) < 0.01) {
+        place(s.target);
+        s.a = s.target;
+        s.sleeping = true;
+        return;
+      }
       if (prefs.reduceMotion) {
         s.a = s.target;
         s.v = 0;
@@ -51,6 +59,12 @@ export default function Scale({ value, compact = false, labels = ["Du", "Gegner"
       place(s.a + jitter);
       raf = requestAnimationFrame(loop);
     };
+    state.current.wake = () => {
+      if (!state.current.sleeping) return;
+      state.current.sleeping = false;
+      raf = requestAnimationFrame(loop);
+    };
+    state.current.sleeping = false;
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [prefs.reduceMotion, tense]);

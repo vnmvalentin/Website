@@ -187,7 +187,7 @@
 .ss-hand {
   position: relative;
   width: min(100%, 760px);
-  height: calc(var(--hand-w, 118px) * 1.55);
+  height: calc(var(--hand-w, 118px) * 1.45);
   margin-top: 6px;
 }
 .ss-hand-card {
@@ -380,3 +380,15 @@
   .ss-side-left { flex-wrap: nowrap; align-items: stretch; }
   .ss-side-left > .ss-panel:first-child svg { width: 128px; height: auto; }
 }
+
+/* Sigil-Transfer: das Tuschesymbol löst sich und brennt sich in die Zielkarte ein */
+.ss-a-burnin { animation: ss-burnin 1.4s ease-in forwards; transform: translate(-50%, -50%); }
+@keyframes ss-burnin {
+  0% { transform: translate(-50%, -160%) scale(1.6) rotate(-20deg); opacity: 0; filter: drop-shadow(0 0 0 #f2b54a); }
+  30% { opacity: 1; }
+  70% { transform: translate(-50%, -50%) scale(1) rotate(0deg); filter: drop-shadow(0 0 14px #f2b54a) sepia(1); }
+  100% { transform: translate(-50%, 40%) scale(0.45); opacity: 0; filter: drop-shadow(0 0 4px #e0762a); }
+}
+
+/* Hover-Vorschau auf dem Tisch (Desktop) */
+.ss-hover-preview { position: fixed; z-index: 75; pointer-events: none; width: 290px; padding: 10px; animation: ss-fade-in 0.12s ease-out; }

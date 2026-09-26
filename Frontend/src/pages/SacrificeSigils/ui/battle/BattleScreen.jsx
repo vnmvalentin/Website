@@ -5,7 +5,7 @@
 // Auf dem Desktop zusätzlich Drag & Drop aus der Hand auf einen Slot.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Card from "../card/Card.jsx";
-import CardDetail from "../card/CardDetail.jsx";
+import CardDetail, { SigilTexts } from "../card/CardDetail.jsx";
 import Scale from "./Scale.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
@@ -141,12 +141,15 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
   const [hoverSlot, setHoverSlot] = useState(/** @type {string|null} */ (null));
   const [totemHover, setTotemHover] = useState(/** @type {any} */ (null));
   const toastTimer = useRef(/** @type {any} */ (null));
+  const [hover, setHover] = useState(/** @type {any} */ (null));
+  const hoverTimer = useRef(/** @type {any} */ (null));
   const { w: vw, h: vh } = useViewport();
   const mobile = vw < 1080;
   const handW = vw < 640 ? 78 : vh < 760 ? 92 : 108;
   // Slotgröße aus Breite UND Höhe: Tisch (4 Reihen à 1,2 Slots) + Hand + Kopfzeilen sollen ins Fenster passen
   const byWidth = vw < 1080 ? (vw - 28) / 4 : Math.min((vw - 2 * 230 - 90) / 4, 140);
-  const byHeight = (vh - 56 - 34 - 56 - handW * 1.5 - 70) / (4 * 1.2 + 0.15);
+  // Kopfzeile 56 + Infozeile 45 + Gegnerhand 50 + Hinweis 50 + Hand (Kartenhöhe 1,4 + Anheben) + Luft
+  const byHeight = (vh - 56 - 45 - 50 - 50 - handW * 1.45 - 30) / (4 * 1.2 + 0.15);
   const slotPx = Math.max(62, Math.min(byWidth, vw < 1080 ? byWidth : byHeight, 140));
   const floats = useFloats(anim, b);
 
@@ -248,7 +251,8 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
       return;
     }
     if (!canAct) {
-      setDetail({ card });
+      // Während eigener Animationen überspringt der Klick nur (GameScreen); Details gibt es per Rechtsklick/Long-Press
+      if (!myTurn) setDetail({ card });
       return;
     }
     if (needDraw) {
@@ -325,7 +329,7 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
   else if (you === null) hint = `${names[live.active]} ist am Zug.`;
   else if (!myTurn) hint = pending ? null : `${de.ui.opponentThinking}`;
   else if (pending?.kind === "discard") hint = "Handlimit: Wirf eine Karte ab (antippen).";
-  else if (needDraw) hint = "Ziehe eine Karte: Hauptdeck oder Nebendeck (rechts).";
+  else if (liveMe && !liveMe.drew) hint = "Ziehe eine Karte: Hauptdeck oder Nebendeck.";
   else if (mode === "hammer") hint = "Hammer: Tippe eine eigene Karte an, um sie zu zerstören (gibt Knochen, kein Blut).";
   else if (mode === "item" && item) hint = pinUnit ? "Wähle das Sigil, das entfernt werden soll." : `${de.items[item].name}: Ziel wählen.`;
   else if (selCard && selCard.cost.type === "blood" && needBlood > 0) hint = `Opfer wählen: ${sacSum}/${needBlood} Blut${target ? " – dann bestätigen" : bloodReady ? " – jetzt Zielslot antippen" : ""}.`;
@@ -481,7 +485,16 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
               const glow = totemTribe && u.card.tribe === totemTribe && own;
               return (
                 <div key={u.uid} className="ss-unit" style={{ transform: `translate(calc(var(--slot-w) * ${lane}), ${rowTop(ri)})`, zIndex: anim?.ev?.uid === u.uid ? 20 : 5 }}>
-                  <div className={animClassFor(u)}>
+                  <div
+                    className={animClassFor(u)}
+                    onMouseEnter={(e) => {
+                      if (mobile) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      clearTimeout(hoverTimer.current);
+                      hoverTimer.current = setTimeout(() => setHover({ uid: u.uid, rect }), 380);
+                    }}
+                    onMouseLeave={() => { clearTimeout(hoverTimer.current); setHover(null); }}
+                  >
                     <Card
                       card={u.card}
                       uid={u.uid}
@@ -687,6 +700,19 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
       {pending?.kind === "seer" && canAct && pending.cards && (
         <SeerDialog cards={pending.cards} onConfirm={(order) => act({ type: "seer", order })} />
       )}
+      {hover && !detail && (() => {
+        const found = units.find((x) => x.u.uid === hover.uid);
+        if (!found) return null;
+        const u = found.u;
+        const left = hover.rect.right + 300 < vw ? hover.rect.right + 12 : hover.rect.left - 302;
+        const topPx = Math.max(64, Math.min(vh - 460, hover.rect.top - 40));
+        return (
+          <div className="ss-hover-preview ss-paper" style={{ left, top: topPx }} aria-hidden>
+            <div className="flex justify-center mb-2"><Card card={u.card} width={170} attack={r.attackOf(u)} health={u.health} maxHealth={u.maxHealth} auras={aurasOf(b, u)} wick={u.wick} /></div>
+            <SigilTexts sigils={u.sigils} auras={aurasOf(b, u)} />
+          </div>
+        );
+      })()}
       {detail && <CardDetail card={detail.card} unit={detail.unit} auras={detail.auras} attack={detail.attack} onClose={() => setDetail(null)} />}
       {toast && <div className="ss-toast ss-paper" role="status">{toast}</div>}
       {anim?.ev?.type === "battleEnd" && (

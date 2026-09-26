@@ -38,7 +38,7 @@ export const EVENT_TIMING = {
   heal: { ms: 260 },
   transform: { ms: 760, when: "pre", sound: "transform" },
   devour: { ms: 480, sound: "hit" },
-  scale: { ms: 480, sound: "weight" },
+  scale: { ms: 480, sound: "scale" },
   wick: { ms: 160 },
   stunned: { ms: 260 },
   hammer: { ms: 380, sound: "hit" },
@@ -53,7 +53,7 @@ export const EVENT_TIMING = {
   chainLimit: { ms: 0 },
   turnEnd: { ms: 120 },
   battleEnd: { ms: 1500 },
-  battleResult: { ms: 200 },
+  battleResult: { ms: 200, sound: "coins" },
   phase: { ms: 0 },
 };
 

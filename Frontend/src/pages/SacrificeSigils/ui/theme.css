@@ -76,15 +76,15 @@
 .ss-game.ss-tense .ss-table-bg::after {
   background: radial-gradient(ellipse at 50% 45%, transparent 18%, rgb(0 0 0 / 0.9) 85%);
 }
-.ss-game.ss-tense { --flicker: 0.55 !important; }
+.ss-game.ss-tense .ss-table-bg { --flicker: 0.55 !important; }
 
 .ss-content { position: relative; z-index: 1; }
 
 /* ───────── Typografie ───────── */
 .ss-title { font-family: var(--font-title); letter-spacing: 0.04em; color: var(--parchment-light); }
 .ss-num { font-family: var(--font-num); font-variant-numeric: lining-nums; }
-.ss-dim { color: rgb(232 223 204 / 0.68); }
-.ss-faint { color: rgb(232 223 204 / 0.45); }
+.ss-dim { color: rgb(232 223 204 / 0.74); }
+.ss-faint { color: rgb(232 223 204 / 0.56); }
 .ss-ink { color: var(--ink); }
 
 /* ───────── Pergamentzettel mit gerissener Kante ───────── */
@@ -281,7 +281,6 @@
   z-index: 40;
   background: linear-gradient(180deg, rgb(23 15 10 / 0.96), rgb(23 15 10 / 0.82));
   border-bottom: 1px solid rgb(176 141 87 / 0.35);
-  backdrop-filter: blur(4px);
 }
 
 /* ───────── Startseite ───────── */
@@ -291,7 +290,7 @@
   line-height: 0.95;
   letter-spacing: 0.03em;
   color: var(--parchment-light);
-  text-shadow: 0 2px 0 #000, 0 0 30px rgb(242 181 74 / calc(0.25 * var(--flicker)));
+  text-shadow: 0 2px 0 #000, 0 0 30px rgb(242 181 74 / 0.22);
 }
 .ss-hero-title em { font-style: normal; color: var(--wax-red-light); }
 .ss-menu-item {
@@ -344,6 +343,8 @@
   height: 160px;
   margin-left: -80px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(242 181 74 / calc(0.28 * var(--flicker))), transparent 65%);
+  background: radial-gradient(circle, rgb(242 181 74 / 0.28), transparent 65%);
   pointer-events: none;
+  animation: ss-glow-flicker 2.7s ease-in-out infinite;
 }
+@keyframes ss-glow-flicker { 0%, 100% { opacity: 0.85; } 30% { opacity: 1; } 55% { opacity: 0.7; } 80% { opacity: 0.95; } }

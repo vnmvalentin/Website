@@ -2,6 +2,7 @@
 // Knoten wählen, dann die Szene des Knotens. Vom Gegner sieht man nur „denkt …“ bzw. „hat gewählt“.
 import React, { useEffect, useMemo, useState } from "react";
 import NodeIcon from "./NodeIcon.jsx";
+import SigilIcon from "../icons/SigilIcon.jsx";
 import Card from "../card/Card.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
 import DeckSummary from "../common/DeckSummary.jsx";
@@ -186,7 +187,12 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
       {result && (
         <div className="ss-banner ss-paper" style={{ animationDuration: "2.6s", top: "45%" }} role="status">
           <p className="ss-title !text-[var(--ink)] text-2xl mb-2">{RESULT_TEXT[result.ev.type](result.ev)}</p>
-          {result.ev.card && <div className={`inline-block ${result.ev.type === "campfireLost" ? "ss-a-tear" : result.ev.type === "fused" ? "ss-a-land" : ""}`}><Card card={result.ev.card} width={150} /></div>}
+          {result.ev.card && (
+            <div className={`relative inline-block ${result.ev.type === "campfireLost" ? "ss-a-tear" : result.ev.type === "fused" ? "ss-a-land" : ""}`}>
+              <Card card={result.ev.card} width={150} />
+              {result.ev.type === "transferred" && <span className="absolute left-1/2 top-1/3 ss-a-burnin" aria-hidden><SigilIcon sigil={result.ev.sigil} size={56} /></span>}
+            </div>
+          )}
           {result.ev.victimCard && <p className="text-sm mt-2 text-[var(--ink)]">{result.ev.victimCard.name} bekommt Kerzendocht 3.</p>}
         </div>
       )}

@@ -1240,9 +1240,18 @@ export function renderArtSvg(card) {
   return svg;
 }
 
-/** Data-URI für <img>. @param {any} card */
+/** @type {Map<string, string>} */
+const URI_CACHE = new Map();
+
+/** Data-URI für <img> (gecacht: encodeURIComponent eines ~15-KB-SVG bei jedem Rendern wäre teuer). @param {any} card */
 export function artDataUri(card) {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderArtSvg(card))}`;
+  const key = `${card.id}|${card.art.seed}|${card.rarity}|${card.cursed ? 1 : 0}`;
+  let uri = URI_CACHE.get(key);
+  if (!uri) {
+    uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderArtSvg(card))}`;
+    URI_CACHE.set(key, uri);
+  }
+  return uri;
 }
 
 export const SILHOUETTE_FAMILIES = Object.keys(FAMILIES);

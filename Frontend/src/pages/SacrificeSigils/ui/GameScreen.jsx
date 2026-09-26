@@ -83,6 +83,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         break;
       }
       case "scale": {
+        sound.play("weight");
         const s = centerOf('[data-anchor="scale"]');
         if (s) particles.burst("spark", s.x, s.y - 10, { n: 6 });
         if (display) {
@@ -91,10 +92,15 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         }
         break;
       }
-      case "battleEnd":
-        sound.play(ev.winner === you || you === null ? "victory" : "defeat");
+      case "battleEnd": {
+        // Sieg: Kerzen flammen auf (Glut), Niederlage: sie verlöschen (Asche)
+        const won = ev.winner === you || you === null;
+        sound.play(won ? "victory" : "defeat");
         setTension(0);
+        const s = centerOf('[data-anchor="scale"]');
+        if (s) particles.burst(won ? "ember" : "ash", s.x, s.y, { n: 50, spread: 2.5 });
         break;
+      }
       case "burn":
       case "candle": {
         const s = centerOf('[data-anchor="scale"]');

@@ -58,6 +58,7 @@ function SettingsPopover({ onClose }) {
 export default function Shell() {
   const prefs = usePrefs();
   const rootRef = useRef(/** @type {HTMLDivElement|null} */ (null));
+  const bgRef = useRef(/** @type {HTMLDivElement|null} */ (null));
   const canvasRef = useRef(/** @type {HTMLCanvasElement|null} */ (null));
   const [tip, setTip] = useState(/** @type {any} */ (null));
   const [tension, setTension] = useState(0);
@@ -104,8 +105,10 @@ export default function Shell() {
   useEffect(() => { particles.reduced = prefs.reduceMotion; }, [prefs.reduceMotion]);
 
   // Flackerndes Kerzenlicht: zufällige Intensität, Lichtpunkt folgt leicht der Maus
+  // Die Variablen sitzen nur auf der Hintergrund-Ebene: auf der Wurzel würden sie (vererbt) jedes Frame die Styles der
+  // ganzen Seite neu berechnen lassen.
   useEffect(() => {
-    const el = rootRef.current;
+    const el = bgRef.current;
     if (!el) return undefined;
     let raf = 0;
     let target = { x: 50, y: 30 };
@@ -149,7 +152,7 @@ export default function Shell() {
   return (
     <ShellContext.Provider value={ctx}>
       <div ref={rootRef} className={`ss-game ${prefs.reduceMotion ? "ss-reduced" : ""} ${tension >= 4 ? "ss-tense" : ""}`}>
-        <div className="ss-table-bg" aria-hidden />
+        <div ref={bgRef} className="ss-table-bg" aria-hidden />
         <header className="ss-content ss-topbar">
           <div className="max-w-[1500px] mx-auto px-3 md:px-5 h-14 flex items-center gap-3 md:gap-6">
             <Link to="/sacrifice-and-sigils" className="ss-title text-lg md:text-xl whitespace-nowrap" title="Hauptmenü">

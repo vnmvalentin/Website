@@ -952,6 +952,8 @@ export class Resolver {
     if (a.zone !== "front" && a.zone !== "back") return "badSlot";
     if (!Number.isInteger(a.lane) || a.lane < 0 || a.lane >= LANES) return "badSlot";
     const sacs = Array.isArray(a.sacrifices) ? a.sacrifices : [];
+    // Mehr als 8 Opfer sind nie gültig (8 Slots) — begrenzt auch die Arbeit bei manipulierten Nachrichten
+    if (sacs.length > LANES * 2) return "badSacrifice";
     /** @type {Unit[]} */
     const victims = [];
     for (const sref of sacs) {

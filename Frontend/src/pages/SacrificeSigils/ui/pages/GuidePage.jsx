@@ -58,7 +58,8 @@ export default function GuidePage() {
       </Section>
 
       <Section title="Bedienung">
-        <p>Karte antippen, dann einen Slot antippen. Blutkarten: erst die Opfer nacheinander antippen, dann den Zielslot, dann bestätigen. Auf dem Desktop geht auch Drag & Drop. Lange drücken oder Rechtsklick öffnet die Detailansicht. Ein Klick während einer Animation überspringt sie.</p>
+        <p>Karte antippen, dann einen Slot antippen. Blutkarten: erst die Opfer nacheinander antippen, dann den Zielslot, dann bestätigen. Auf dem Desktop geht auch Drag & Drop. Lange drücken oder Rechtsklick öffnet die Detailansicht, auf dem Desktop reicht kurzes Verweilen mit der Maus. Ein Klick während einer Animation überspringt sie.</p>
+        <p>Tastatur: Mit Tab durch Hand, Slots und Knöpfe, Enter wählt aus bzw. spielt, <kbd>i</kbd> zeigt die Details einer Karte, Escape schließt sie.</p>
       </Section>
     </div>
   );

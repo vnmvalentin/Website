@@ -61,7 +61,11 @@ function TutorialRun({ run, restart }) {
   return (
     <div>
       <SEO title="Sacrifice & Sigils – Tutorial" description="Geführter Übungskampf: Opfer, Knochen, Wachs, Waage und Hinterreihe Schritt für Schritt." path="/sacrifice-and-sigils/tutorial" noindex />
-      <GameScreen game={game} onExit={() => navigate("/sacrifice-and-sigils")} />
+      <GameScreen
+        game={game}
+        onExit={() => navigate("/sacrifice-and-sigils")}
+        extra={<button type="button" className="ss-btn ss-btn-sm ss-btn-ghost" onClick={() => { setPrefs({ seenTips: [], tipsOff: false }); restart(); }}>Tutorial neu starten</button>}
+      />
       {tip && (
         <div className="fixed left-3 bottom-3 z-[80] max-w-[360px] ss-paper p-4 ss-fade-in" role="dialog" aria-label={tip.title}>
           <p className="ss-title !text-[var(--ink)] text-lg">{tip.title}</p>
@@ -72,9 +76,6 @@ function TutorialRun({ run, restart }) {
           </div>
         </div>
       )}
-      <div className="fixed right-3 top-16 z-[60] flex gap-2">
-        <button type="button" className="ss-btn ss-btn-sm" onClick={() => { setPrefs({ seenTips: [], tipsOff: false }); restart(); }}>Neu starten</button>
-      </div>
     </div>
   );
 }
