@@ -33,6 +33,7 @@ const createDiscordRouter = require("./discord/api/index");
 const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./clashRoyale/routes/clashRoyaleRoutes");
 const { registerConnect4Socket } = require("./routes/connect4Routes");
 const { registerSeedRunnersSocket } = require("./routes/seedRunnersRoutes");
+const { registerSacrificeSigilsSocket } = require("./routes/sacrificeSigilsRoutes");
 const { createSeedRunnersRouter } = require("./seedRunners/routes");
 const { getRuntime: getSeedRunnersRuntime } = require("./seedRunners/runtime");
 // Blobby Volley läuft NICHT hier, sondern als eigener Prozess: blobbyServer.js. Seine
@@ -352,6 +353,9 @@ io.on("connection", (socket) => {
 
     // Seed Runners — Räume und Rennen; die Physik läuft komplett im Browser (siehe seedRunnersRoutes.js)
     registerSeedRunnersSocket(socket, io);
+
+    // Sacrifice & Sigils — 1v1-Kartenspiel, serverautoritativ (Engine-Spiegel, siehe sacrificeSigilsRoutes.js)
+    registerSacrificeSigilsSocket(socket, io);
 
     // Abstimmungen/Giveaways: Vollpayload nur für die jeweilige Seite, sonst
     // nur der schlanke Nav-Punkt (siehe lib/liveBadges.js)

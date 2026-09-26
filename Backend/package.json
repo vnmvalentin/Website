@@ -12,7 +12,10 @@
     "seedrunners:spiegel:pruefen": "node seedRunners/tools/simSpiegel.js --pruefen",
     "garden:spiegel": "node garden/tools/katalogSpiegel.js",
     "garden:spiegel:pruefen": "node garden/tools/katalogSpiegel.js --pruefen",
-    "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js"
+    "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js",
+    "test:sigils": "node --test \"sacrificeSigils/**/*.test.js\"",
+    "sigils:spiegel": "node sacrificeSigils/tools/spiegel.js",
+    "sigils:spiegel:pruefen": "node sacrificeSigils/tools/spiegel.js --pruefen"
   },
   "keywords": [],
   "author": "",

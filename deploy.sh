@@ -27,6 +27,12 @@ check_sim_mirror() {
     echo "Abbruch: Sim-Spiegel veraltet. Im Ordner Backend:  npm run seedrunners:spiegel" >&2
     exit 1
   fi
+  # Sacrifice & Sigils: Der Server spielt mit einer gespiegelten Kopie der Engine (Backend/sacrificeSigils/shared,
+  # erzeugt aus Frontend/src/pages/SacrificeSigils/engine und data). Veraltet ⇒ Server und Browser rechnen verschieden.
+  if ! (cd "$ROOT/Backend" && node sacrificeSigils/tools/spiegel.js --pruefen); then
+    echo "Abbruch: Sacrifice-&-Sigils-Spiegel veraltet. Im Ordner Backend:  npm run sigils:spiegel" >&2
+    exit 1
+  fi
 }
 
 deploy_frontend() {
