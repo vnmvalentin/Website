@@ -40,7 +40,7 @@ export default function AccountButton() {
         <span className="hidden lg:inline max-w-[120px] truncate normal-case tracking-normal">{user.display_name}</span>
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-56 sr-panel px-4 py-3">
+        <div data-sr-popup className="absolute right-0 z-50 mt-2 w-56 sr-panel px-4 py-3">
           <p className="sr-label mb-1">Angemeldet</p>
           <p className="sr-ink font-semibold truncate mb-2">{user.display_name}</p>
           <p className="text-xs sr-faint leading-relaxed mb-3">Deine Sterne und Favoriten gelten auf jedem Gerät.</p>

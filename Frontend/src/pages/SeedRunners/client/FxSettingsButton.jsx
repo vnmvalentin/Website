@@ -100,6 +100,7 @@ export default function FxSettingsButton({ align = "right" }) {
       </button>
       {open && (
         <div
+          data-sr-popup
           className={`absolute z-50 mt-2 w-72 max-h-[calc(100dvh-80px)] overflow-y-auto sr-panel px-4 py-3 ${align === "left" ? "left-0" : "right-0"}`}
         >
           <p className="sr-label mb-1">Ton und Effekte</p>

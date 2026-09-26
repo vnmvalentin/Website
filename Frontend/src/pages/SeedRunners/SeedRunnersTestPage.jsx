@@ -552,7 +552,7 @@ export default function SeedRunnersTestPage() {
                   <div className="min-w-0">
                     <p className="text-xs text-white/70">{action.label}</p>
                     <p className="text-sm text-white truncate">
-                      {rebinding === action.id ? "Taste drücken …" : (bindings[action.id] || []).map(keyLabel).join("  /  ")}
+                      {rebinding === action.id ? "Taste oder Maustaste drücken …" : (bindings[action.id] || []).map(keyLabel).join("  /  ")}
                     </p>
                   </div>
                   <button

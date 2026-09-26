@@ -113,8 +113,8 @@ test('Einsendung: Prüfung mit den Parametern des Tages-Levels, danach steht sie
     assert.equal(calls[0].fp, 'fp1');
     const board = daily.board(DAY);
     assert.equal(board.total, 1);
-    assert.deepEqual(board.entries, [{ rank: 1, name: 'Anna', ticks: 5000, deaths: 2 }], 'öffentlich: kein Schlüssel, kein Log');
-    assert.deepEqual(daily.me(DAY, KEY_A), { name: 'Anna', ticks: 5000, deaths: 2, rank: 1 });
+    assert.deepEqual(board.entries, [{ rank: 1, name: 'Anna', ticks: 5000, deaths: 2, splits: [[1, 50]] }], 'öffentlich: kein Schlüssel, kein Log — Zwischenzeiten aus dem Nachspielen');
+    assert.deepEqual(daily.me(DAY, KEY_A), { name: 'Anna', ticks: 5000, deaths: 2, splits: [[1, 50]], rank: 1 });
     assert.equal(daily.me(DAY, KEY_B), null);
     assert.equal(daily.me(DAY, 'unsinn'), null);
   } finally {
@@ -255,7 +255,7 @@ test('HTTP: Einsenden, Rangliste, eigener Platz per Kopfzeile, Vortag', async ()
     const board = await (await fetch(`${base}/daily`, { headers: { 'X-Player-Key': KEY_A } })).json();
     assert.equal(board.today.dateKey, DAY);
     assert.equal(board.today.entries.length, 1);
-    assert.deepEqual(board.me, { name: 'Anna', ticks: 5000, deaths: 2, rank: 1 });
+    assert.deepEqual(board.me, { name: 'Anna', ticks: 5000, deaths: 2, splits: [[1, 50]], rank: 1 });
     assert.equal(board.yesterday.dateKey, '2026-09-20');
     assert.ok(!JSON.stringify(board).includes(KEY_A), 'der Schlüssel steht nie in einer Antwort');
     assert.equal((await (await fetch(`${base}/daily`)).json()).me, null);

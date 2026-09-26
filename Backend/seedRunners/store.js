@@ -83,7 +83,7 @@ function createStore(dbPath = defaultPath()) {
         splits_json = excluded.splits_json, log_json = excluded.log_json, sim_fp = excluded.sim_fp,
         source = excluded.source, created_at = excluded.created_at
       WHERE excluded.ticks < sr_daily_runs.ticks`),
-    board: db.prepare(`SELECT player_key, player_name, ticks, deaths, source, created_at FROM sr_daily_runs
+    board: db.prepare(`SELECT player_key, player_name, ticks, deaths, splits_json, source, created_at FROM sr_daily_runs
       WHERE date_key = ? ORDER BY ticks ASC, created_at ASC LIMIT ?`),
     count: db.prepare('SELECT COUNT(*) AS c FROM sr_daily_runs WHERE date_key = ?'),
     ahead: db.prepare(`SELECT COUNT(*) AS c FROM sr_daily_runs
@@ -91,7 +91,17 @@ function createStore(dbPath = defaultPath()) {
     pruneLogs: db.prepare('UPDATE sr_daily_runs SET log_json = NULL WHERE date_key < ? AND log_json IS NOT NULL'),
   };
 
+  const parseSplits = (json) => {
+    try {
+      const s = JSON.parse(json);
+      return Array.isArray(s) ? s : [];
+    } catch {
+      return [];
+    }
+  };
   const toEntry = (row) => ({
+    // Zwischenzeiten [[Checkpoint, Tick], …] — die aus dem Nachspielen des Servers, also so fälschungssicher wie die Zeit
+    ...(row.splits_json !== undefined ? { splits: parseSplits(row.splits_json) } : {}),
     playerKey: row.player_key,
     name: row.player_name,
     ticks: row.ticks,

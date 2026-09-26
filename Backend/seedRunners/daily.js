@@ -90,7 +90,8 @@ function createDailyService(deps) {
     return dateKey === previousDay(today) && berlinHour(now()) < GRACE_HOURS;
   }
 
-  const publicEntry = (e) => ({ rank: e.rank, name: e.name, ticks: e.ticks, deaths: e.deaths });
+  // (mit den Zwischenzeiten je Checkpoint: Das Tagesrennen zeigt, wo die anderen an jedem Checkpoint waren)
+  const publicEntry = (e) => ({ rank: e.rank, name: e.name, ticks: e.ticks, deaths: e.deaths, splits: e.splits || [] });
 
   const api = {
     dailyParams: paramsFor,
@@ -109,7 +110,7 @@ function createDailyService(deps) {
       if (!KEY_RE.test(String(playerKey || ''))) return null;
       const run = store.getRun(dateKey, playerKey);
       if (!run) return null;
-      return { name: run.name, ticks: run.ticks, deaths: run.deaths, rank: store.rankOf(dateKey, run.ticks, run.createdAt) };
+      return { name: run.name, ticks: run.ticks, deaths: run.deaths, splits: run.splits || [], rank: store.rankOf(dateKey, run.ticks, run.createdAt) };
     },
 
     /**

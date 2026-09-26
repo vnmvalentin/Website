@@ -1,5 +1,5 @@
 // ControlsDialog.jsx — das Fenster „Steuerung“: Tastenbelegung ansehen und umbelegen, Gamepad, Regeln einer Runde.
-// Die Belegung liegt im Browser (client/input.js, dieselbe wie im Übungsbereich) und gilt ab dem nächsten Rennen.
+// Die Belegung liegt im Browser (client/input.js, dieselbe wie im Übungsbereich) und gilt sofort überall, auch im laufenden Rennen.
 import React, { useEffect, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { Modal, Tabs } from "./kit.jsx";
@@ -86,7 +86,7 @@ export default function ControlsDialog({ open, onClose }) {
         label="Steuerung"
         value={tab}
         onChange={setTab}
-        tabs={[{ id: "tasten", label: "Tastatur" }, { id: "pad", label: "Gamepad" }, { id: "regeln", label: "So läuft eine Runde" }]}
+        tabs={[{ id: "tasten", label: "Tastatur & Maus" }, { id: "pad", label: "Gamepad" }, { id: "regeln", label: "So läuft eine Runde" }]}
         className="mb-4"
       />
 
@@ -94,14 +94,14 @@ export default function ControlsDialog({ open, onClose }) {
         <div>
           <div className="sr-rows">
             {ACTIONS.map((a) => (
-              <div key={a.id} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-2.5">
-                <div className="min-w-0 flex-1 basis-56">
+              <div key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-1.5 py-2.5">
+                <div className="min-w-0 col-span-2 sm:col-span-1">
                   <p className="font-semibold sr-ink leading-tight">{a.label}</p>
                   <p className="text-xs sr-faint leading-snug">{HINWEISE[a.id]}</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-start sm:justify-end gap-1.5 sm:max-w-[250px]">
                   {rebinding === a.id
-                    ? <span className="sr-cond sr-accent-text font-semibold">Taste drücken … (Esc bricht ab)</span>
+                    ? <span className="sr-cond sr-accent-text font-semibold">Taste drücken oder hier klicken … (Esc bricht ab)</span>
                     : (bindings[a.id] || []).map((code) => <span key={code} className="sr-kbd">{keyLabel(code)}</span>)}
                 </div>
                 <button type="button" onClick={() => toggle(a.id)} className="sr-btn sr-btn-sm sr-btn-ghost w-24">
@@ -111,7 +111,10 @@ export default function ControlsDialog({ open, onClose }) {
             ))}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
-            <p className="text-xs sr-faint">Gilt ab dem nächsten Rennen und bleibt in diesem Browser gespeichert.</p>
+            <p className="text-xs sr-faint max-w-[400px]">
+              Auch Maustasten gehen: „Ändern“, dann mit der gewünschten Maustaste auf eine freie Stelle im Fenster klicken. Eine
+              Maustaste kommt zu den Tasten dazu, statt sie zu ersetzen. Gilt sofort — auch in einem laufenden Rennen — und bleibt in diesem Browser gespeichert.
+            </p>
             <button type="button" onClick={reset} className="sr-btn sr-btn-sm sr-btn-quiet"><RotateCcw size={14} />Standard</button>
           </div>
         </div>

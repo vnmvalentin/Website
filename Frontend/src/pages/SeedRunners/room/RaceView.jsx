@@ -188,6 +188,22 @@ function RennAnsicht({
     return () => input.detach();
   }, [input]);
 
+  // Während des Rennens drücken Leertaste und Enter keine Knöpfe der Seite: Nach dem Schließen des Fensters „Steuerung“ (oder
+  // einem Klick auf „Runde starten“) liegt der Fokus auf einem Knopf — eine gerade nicht belegte Leertaste öffnete dann das
+  // Fenster mitten im Lauf wieder. In einem offenen Fenster (Dialog, Einstellungen) bleibt die Tastatur normal bedienbar.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.code !== "Space" && e.code !== "Enter" && e.code !== "NumpadEnter") return;
+      if (live.current.phase !== "racing" && live.current.phase !== "countdown") return;
+      const el = e.target;
+      if (!el || !el.closest || !el.closest("button, a, [role='button']") || el.closest("[role='dialog'], [aria-expanded='true'], [data-sr-popup]")) return;
+      e.preventDefault();
+      el.blur();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   // ── Hauptschleife ────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;

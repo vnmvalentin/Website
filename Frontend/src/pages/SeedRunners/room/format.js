@@ -16,3 +16,15 @@ export function formatGap(ticks) {
   if (ticks === null || ticks === undefined || !Number.isFinite(ticks)) return '–';
   return ticks === 0 ? '–' : `+${formatTicks(ticks)}`;
 }
+
+/**
+ * Abstand an einem Checkpoint, mit Vorzeichen und kurz: "+1.25", "−0.40", ab einer Minute "+1:02.10". Minus = schneller.
+ * (Minuszeichen U+2212, damit die Zahlen in einer Spalte bündig stehen)
+ */
+export function formatDelta(ticks) {
+  if (ticks === null || ticks === undefined || !Number.isFinite(ticks)) return '–';
+  if (ticks === 0) return '±0.00';
+  const hundredths = Math.floor((Math.abs(ticks) / TICK_HZ) * 100);
+  const text = hundredths >= 6000 ? formatTicks(Math.abs(ticks)) : `${Math.floor(hundredths / 100)}.${String(hundredths % 100).padStart(2, '0')}`;
+  return `${ticks < 0 ? '−' : '+'}${text}`;
+}

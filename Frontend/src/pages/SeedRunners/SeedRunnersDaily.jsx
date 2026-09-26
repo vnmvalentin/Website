@@ -10,7 +10,8 @@ import SEO from "../../components/SEO";
 import RaceView from "./room/RaceView.jsx";
 import { getIdentity, saveIdentity, getDailyKey } from "./room/identity.js";
 import { getDailyBoard, submitDailyRun } from "./room/dailyApi.js";
-import { formatTicks } from "./room/format.js";
+import { formatTicks, formatDelta } from "./room/format.js";
+import { checkpointSpalten, besteJeCheckpoint, splitVergleich } from "./room/splits.js";
 import { vorerzeugen, pfadLevel } from "./client/generateWorldAsync.js";
 import RateBox from "./ui/RateBox.jsx";
 import { refForParams } from "./ui/levelRef.js";
@@ -58,6 +59,9 @@ function SubmitNote({ submit, onRetry }) {
 
 function Leaderboard({ board, me, ownName }) {
   const entries = board?.today.entries || [];
+  // Zwischenzeiten je Checkpoint (vom Server nachgespielt); die schnellste an jedem Checkpoint ist hervorgehoben
+  const cps = checkpointSpalten(...entries.map((e) => e.splits));
+  const beste = besteJeCheckpoint(entries);
   const yesterday = board?.yesterday.entries[0];
   return (
     <Panel>
@@ -84,6 +88,7 @@ function Leaderboard({ board, me, ownName }) {
                 <th className="px-2 py-2.5 font-semibold">Name</th>
                 <th className="px-2 py-2.5 font-semibold">Zeit</th>
                 <th className="px-2 py-2.5 font-semibold">Tode</th>
+                {cps.map((cp) => <th key={cp} className="px-2 py-2.5 font-semibold whitespace-nowrap">CP {cp}</th>)}
               </tr>
             </thead>
             <tbody className="sr-rows">
@@ -98,6 +103,11 @@ function Leaderboard({ board, me, ownName }) {
                     </td>
                     <td className="px-2 py-2.5 sr-num sr-ink whitespace-nowrap">{formatTicks(e.ticks)}</td>
                     <td className="px-2 py-2.5 sr-num sr-dim">{e.deaths}</td>
+                    {cps.map((cp) => {
+                      const tick = (e.splits || []).find((s) => s[0] === cp)?.[1];
+                      const top = tick !== undefined && beste.get(cp)?.tick === tick;
+                      return <td key={cp} className={`px-2 py-2.5 sr-num whitespace-nowrap ${top ? "sr-accent-text" : "sr-dim"}`}>{tick === undefined ? "–" : formatTicks(tick)}</td>;
+                    })}
                   </tr>
                 );
               })}
@@ -106,6 +116,7 @@ function Leaderboard({ board, me, ownName }) {
         </div>
       )}
 
+      {cps.length > 0 && <p className="px-4 py-2.5 sr-divider text-xs sr-faint">CP = Zeit am jeweiligen Checkpoint; hervorgehoben die schnellste des Tages.</p>}
       {me && !entries.some((e) => e.rank === me.rank) && (
         <p className="px-4 py-2.5 sr-divider text-sm sr-dim">
           Du: Platz {me.rank} · {formatTicks(me.ticks)} · {me.deaths} {me.deaths === 1 ? "Tod" : "Tode"}
@@ -117,6 +128,47 @@ function Leaderboard({ board, me, ownName }) {
         </p>
       )}
     </Panel>
+  );
+}
+
+/**
+ * Wo warst du an jedem Checkpoint? Der Lauf (der letzte oder die eigene Bestzeit) gegen die eigene Bestzeit und gegen die
+ * schnellste Zwischenzeit des Tages — mit Namen, wer dort vorn war. Minus = schneller.
+ */
+function SplitVergleich({ lauf, titel, me, entries, mitBestDu }) {
+  const zeilen = splitVergleich(lauf, mitBestDu ? me?.splits : [], entries);
+  if (!zeilen.length) return null;
+  const ton = (d) => (d === null ? "sr-faint" : d < 0 ? "sr-good" : d > 0 ? "sr-bad" : "sr-dim");
+  return (
+    <div data-testid="split-vergleich">
+      <p className="sr-label mb-1.5">{titel}</p>
+      <div className="overflow-x-auto sr-sunk">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left sr-label">
+              <th className="px-3 py-2 font-semibold">Checkpoint</th>
+              <th className="px-3 py-2 font-semibold">Zeit</th>
+              {mitBestDu && <th className="px-3 py-2 font-semibold">zu deiner Bestzeit</th>}
+              <th className="px-3 py-2 font-semibold">zur Tagesbesten</th>
+              <th className="px-3 py-2 font-semibold">Tagesbeste dort</th>
+            </tr>
+          </thead>
+          <tbody className="sr-rows">
+            {zeilen.map((z) => (
+              <tr key={z.cp}>
+                <td className="px-3 py-1.5 sr-num sr-dim">CP {z.cp}</td>
+                <td className="px-3 py-1.5 sr-num sr-ink">{formatTicks(z.du)}</td>
+                {mitBestDu && <td className={`px-3 py-1.5 sr-num ${ton(z.zuBestDu)}`}>{formatDelta(z.zuBestDu)}</td>}
+                <td className={`px-3 py-1.5 sr-num ${ton(z.zuTagesBest)}`}>{formatDelta(z.zuTagesBest)}</td>
+                <td className="px-3 py-1.5 sr-dim whitespace-nowrap">
+                  {z.tagesBest ? <><span className="sr-num">{formatTicks(z.tagesBest.tick)}</span> <span className="sr-faint">· {z.tagesBest.name}</span></> : "–"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -278,6 +330,7 @@ export default function SeedRunnersDaily() {
                 </p>
                 <SubmitNote submit={submit} onRetry={() => send(run, name.trim())} />
               </div>
+              <SplitVergleich lauf={run.splits} titel="Deine Zwischenzeiten" me={board.me} entries={board.today.entries} mitBestDu={!!board.me} />
               {dailyRef && <RateBox levelRef={dailyRef} level={builtLevel} title="Wie war das Level von heute?" />}
             </Panel>
           )}
@@ -299,6 +352,11 @@ export default function SeedRunnersDaily() {
           />
 
           <Leaderboard board={board} me={board.me} ownName={name.trim()} />
+          {!(phase === "finished" && run) && board.me?.splits?.length > 0 && (
+            <Panel className="px-4 py-3">
+              <SplitVergleich lauf={board.me.splits} titel="Deine Bestzeit von heute an den Checkpoints" me={board.me} entries={board.today.entries} mitBestDu={false} />
+            </Panel>
+          )}
         </div>
       )}
     </div>
