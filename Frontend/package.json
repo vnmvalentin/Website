@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:seedrunners": "node --test \"src/pages/SeedRunners/**/*.test.js\"",
     "seedrunners:solve": "node src/pages/SeedRunners/gen/tools/solveAll.js",
+    "test:sigils": "node --test \"src/pages/SacrificeSigils/**/*.test.js\"",
     "preview": "vite preview",
     "tailwind:init": "tailwindcss init -p"
   },
