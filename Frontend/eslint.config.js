@@ -9,7 +9,7 @@ export default defineConfig([
   {
     // Build-Skripte laufen in Node, nicht im Browser. Ohne diesen Block meldet
     // no-undef jedes `process` als Fehler, obwohl es dort völlig korrekt ist.
-    files: ['vite.config.js', 'prerender.js', 'eslint.config.js', 'src/pages/SeedRunners/gen/tools/**'],
+    files: ['vite.config.js', 'prerender.js', 'eslint.config.js', 'src/pages/SeedRunners/gen/tools/**', 'src/pages/SacrificeSigils/tools/**', 'src/pages/SacrificeSigils/__tests__/**'],
     languageOptions: { globals: globals.node },
   },
   {

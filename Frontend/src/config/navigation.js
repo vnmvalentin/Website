@@ -24,6 +24,7 @@ import {
   Flag,
   Volleyball,
   Puzzle,
+  Flame,
 } from "lucide-react";
 import { InstagramGlyph } from "../components/BrandGlyphs";
 
@@ -69,6 +70,12 @@ export const NAV_CATEGORIES = [
         to: "/seed-runners",
         icon: Flag,
         description: "Speedrun-Rennen im Browser: alle laufen dasselbe Zufallslevel, wer zuerst im Ziel ist, gewinnt.",
+      },
+      {
+        label: "Sacrifice & Sigils",
+        to: "/sacrifice-and-sigils",
+        icon: Flame,
+        description: "Düsteres 1v1-Kartenspiel: draften, opfern, die Waage neigen. Online oder gegen die KI.",
       },
       {
         label: "Daily Games",

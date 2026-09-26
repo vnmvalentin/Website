@@ -73,6 +73,13 @@ const SeedRunnersLevel = lazy(() => import("./pages/SeedRunners/SeedRunnersLevel
 const SeedRunnersCreator = lazy(() => import("./pages/SeedRunners/SeedRunnersCreator"));
 const SeedRunnersShell = lazy(() => import("./pages/SeedRunners/ui/GameShell"));
 const DleHubPage = lazy(() => import("./pages/Dle/DleHubPage"));
+const SigilsShell = lazy(() => import("./pages/SacrificeSigils/ui/Shell.jsx"));
+const SigilsHome = lazy(() => import("./pages/SacrificeSigils/ui/screens/HomeScreen.jsx"));
+const SigilsRoom = lazy(() => import("./pages/SacrificeSigils/ui/pages/RoomPage.jsx"));
+const SigilsPractice = lazy(() => import("./pages/SacrificeSigils/ui/pages/PracticePage.jsx"));
+const SigilsCodex = lazy(() => import("./pages/SacrificeSigils/ui/pages/CodexPage.jsx"));
+const SigilsGuide = lazy(() => import("./pages/SacrificeSigils/ui/pages/GuidePage.jsx"));
+const SigilsTutorial = lazy(() => import("./pages/SacrificeSigils/ui/pages/TutorialPage.jsx"));
 const TempdlePage = lazy(() => import("./pages/Dle/Tempdle/TempdlePage"));
 const VelocidlePage = lazy(() => import("./pages/Dle/Velocidle/VelocidlePage"));
 const ProbabildlePage = lazy(() => import("./pages/Dle/Probabildle/ProbabildlePage"));
@@ -163,6 +170,16 @@ export default function App() {
             {/* Nach dem Beitreten steht der Code nicht mehr in der Adresse (Streamer-Schutz, room/raumCode.js) */}
             <Route path="raum" element={<SeedRunnersRoom/>} />
             <Route path=":code" element={<SeedRunnersRoom/>} />
+          </Route>
+
+          {/* Sacrifice & Sigils: eigenes Kartenspiel mit eigener Hülle (Kohle & Kerzenwachs) */}
+          <Route path="/sacrifice-and-sigils" element={<SigilsShell />}>
+            <Route index element={<SigilsHome/>} />
+            <Route path="raum/:code" element={<SigilsRoom/>} />
+            <Route path="uebung" element={<SigilsPractice/>} />
+            <Route path="kartenbuch" element={<SigilsCodex/>} />
+            <Route path="anleitung" element={<SigilsGuide/>} />
+            <Route path="tutorial" element={<SigilsTutorial/>} />
           </Route>
 
           {/* Alle “normalen” Seiten unter Layout */}

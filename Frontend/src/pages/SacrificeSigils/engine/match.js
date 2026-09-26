@@ -383,3 +383,25 @@ export function awaiting(s) {
 }
 
 export { PICKS_PER_PLAYER };
+
+/**
+ * Match direkt im Kampf beginnen (Tutorial, Tests): feste Decks, kein Draft, kein Pfad nötig.
+ * @param {{ seed: string, names?: string[], decks: string[][], sideTypes?: string[], winsNeeded?: number, starter?: 0|1, totems?: any[] }} opts
+ */
+export function createBattleMatch(opts) {
+  const s = createMatch({ seed: opts.seed, names: opts.names, salt: `direkt-${opts.seed}` });
+  s.settings.winsNeeded = opts.winsNeeded || 1;
+  s.draft.picks = [[], []];
+  s.draft.extras = [{ head: 0, side: "moorling" }, { head: 0, side: "moorling" }];
+  for (const q of /** @type {const} */ ([0, 1])) {
+    const P = s.players[q];
+    P.deck = [];
+    for (const id of opts.decks[q]) newDeckCard(s, q, id);
+    P.sideType = opts.sideTypes?.[q] || "moorling";
+    P.totems = opts.totems?.[q] || { tribe: null, lane: null };
+  }
+  /** @type {any[]} */
+  const events = [];
+  startBattle(s, opts.starter ?? 0, events);
+  return s;
+}

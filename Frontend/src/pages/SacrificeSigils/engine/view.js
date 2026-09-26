@@ -18,8 +18,10 @@ export function viewFor(state, viewer) {
   v.viewer = viewer;
 
   // Match-Decks: eigenes Deck (aufgelöst), gegnerisches nur als Anzahl
+  // Nach dem Match gibt es nichts mehr zu verbergen: der Ergebnis-Screen zeigt beide finalen Decks
+  const over = state.phase === "over";
   v.players = v.players.map((/** @type {any} */ P, /** @type {number} */ q) => {
-    const own = q === viewer;
+    const own = q === viewer || over;
     const out = { ...P, deckSize: P.deck.length };
     if (own) {
       out.deck = P.deck.map((/** @type {any} */ dc) => ({ ...dc, card: resolveCard(dc.baseId, dc.mods, dc.uid) }));

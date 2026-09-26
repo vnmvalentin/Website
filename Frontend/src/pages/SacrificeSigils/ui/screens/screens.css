@@ -1,0 +1,44 @@
+/* Draft, Extras, Rast, Ergebnis */
+.ss-draft {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 14px 30px;
+}
+@media (max-width: 960px) { .ss-draft { grid-template-columns: 1fr; } }
+.ss-draft-table {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 10px;
+  padding: 14px 6px;
+}
+.ss-draft-card { position: relative; transition: transform 0.25s ease, opacity 0.35s ease, filter 0.3s ease; }
+.ss-draft-card:hover { transform: translateY(-6px) rotate(0deg) scale(1.04) !important; z-index: 5; }
+.ss-draft-card.ss-taken { opacity: 0.28; filter: grayscale(0.8); pointer-events: none; }
+.ss-draft-card .ss-owner {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  z-index: 6;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-title);
+  color: #f7e6d0;
+  background: radial-gradient(circle, #b3302a, #8e1b1b 60%, #5c0f0f);
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.5);
+}
+.ss-draft-card.ss-just-picked { animation: ss-picked 0.6s ease-in forwards; }
+@keyframes ss-picked { 0% { transform: none; } 40% { transform: translateY(-20px) scale(1.08); } 100% { transform: translate(40vw, 30vh) scale(0.3) rotate(20deg); opacity: 0; } }
+.ss-curve { display: flex; align-items: flex-end; gap: 3px; height: 70px; }
+.ss-curve > div { flex: 1; display: flex; flex-direction: column-reverse; gap: 1px; align-items: stretch; }
+.ss-curve span { display: block; height: 9px; border-radius: 1px; }
+.ss-deck-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px dashed rgb(26 22 18 / 0.2); font-size: 0.95rem; }
+.ss-deck-row:last-child { border-bottom: none; }

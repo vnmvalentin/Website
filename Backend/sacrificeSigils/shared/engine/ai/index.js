@@ -125,7 +125,8 @@ export function evaluateBattle(b, p) {
     const sign = side === p ? 1 : -1;
     for (const u of r.units(side)) {
       const atk = r.attackOf(u);
-      let v = atk * 1.6 + Math.max(0, u.health) * 0.9;
+      // Präsenz: jede Karte auf dem Feld ist auch Opfer-Futter für Blutkarten
+      let v = 0.6 + atk * 1.6 + Math.max(0, u.health) * 0.9;
       for (const [id, n] of r.sigilList(u)) v += Math.max(-1, sigilPower(id + (n > 1 ? `:${n}` : ""))) * 0.5;
       if (u.zone === "back") v *= 0.75;
       if (u.wick !== null) v *= Math.min(1, 0.4 + u.wick * 0.2);
@@ -142,7 +143,7 @@ export function evaluateBattle(b, p) {
     }
   }
   const P = b.players[p];
-  score += P.bones * 0.35 + P.wax * 0.45 + Math.min(P.hand.length, 6) * 0.9 + P.items.length * 0.8 + P.bloodBonus * 0.8;
+  score += P.bones * 0.35 + P.wax * 0.45 + Math.min(P.hand.length, 6) * 0.6 + P.items.length * 0.8 + P.bloodBonus * 0.8;
   const Q = b.players[q];
   score -= Q.bones * 0.2 + Q.wax * 0.25 + Math.min(Q.hand.length, 6) * 0.6;
   return score;
