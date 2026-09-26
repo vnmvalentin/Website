@@ -13,5 +13,5 @@ export default defineCards("tiefe", [
   ["grundkrake", "Grundkrake", "b3", 3, 4, ["koeder"], "rare", "Ein Arm lockt, sieben warten."],
   ["schlingaal", "Schlingaal", "b2", 2, 2, ["tauchgang", "todesstachel"], "rare", "Sein Biss ist kalt wie der Grund des Sees."],
   ["tiefenmutter", "Die Tiefenmutter", "b4", 4, 5, ["tauchgang", "koeder", "schildrinde"], "legendary", "Unter der Kapelle schläft sie. Unter ihr nichts mehr."],
-  ["glasaal", "Glasaal", "b1", 2, 2, ["tauchgang"], "common", "Man sieht sein Herz schlagen. Man sieht ihn nicht kommen.", { token: true }],
+  ["glasaal", "Glasaal", "b1", 1, 2, ["tauchgang"], "common", "Man sieht sein Herz schlagen. Man sieht ihn nicht kommen.", { token: true }],
 ]);

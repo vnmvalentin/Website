@@ -2,7 +2,7 @@
 import { defineCards } from "./_define.js";
 
 export default defineCards("myzel", [
-  ["sporenknirps", "Sporenknirps", "k1", 0, 1, ["brut"], "common", "Wo er niest, wächst morgen ein Wald."],
+  ["sporenknirps", "Sporenknirps", "k2", 0, 1, ["brut"], "common", "Wo er niest, wächst morgen ein Wald."],
   ["schleimpilz", "Schleimpilz", "k2", 0, 3, [], "common", "Er kriecht, er denkt, er wartet auf Regen."],
   ["stinkmorchel", "Stinkmorchel", "k2", 1, 1, ["stinkdruese"], "common", "Niemand kämpft gut, wenn ihm die Augen tränen."],
   ["moderhut", "Moderhut", "k3", 1, 2, ["faeulnis"], "common", "Sein Schatten ist feucht, sein Atem auch."],

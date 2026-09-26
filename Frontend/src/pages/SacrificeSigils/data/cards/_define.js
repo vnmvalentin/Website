@@ -3,7 +3,8 @@
 //   [key, name, cost, attack, health, sigils, rarity, flavor, extra?]
 //   cost:   "b2" = 2 Blut, "k5" = 5 Knochen, "w3" = 3 Wachs
 //   attack: Zahl oder "schwarmzahl" | "knochenlast" | "flammenmass" | "handschwere"
-//   extra:  { evolvesTo?: key, silhouette?, palette?, token?, cursed?, tribe? }
+//   extra:  { evolvesTo?: key, silhouette?, palette?, token?, cursed?, tribe?, balanceNote? }
+//           balanceNote begründet eine bewusste Abweichung vom Kostenbudget (Auftrag 8.3), z. B. aus dem Balancing-Lauf
 //
 // Die ID wird "<stamm>_<key>", evolvesTo ohne Unterstrich bekommt denselben Präfix. Der Artwork-Seed ist ein Hash der ID,
 // damit eine Karte ihr Bild behält, auch wenn sich die Reihenfolge in der Datei ändert.
@@ -51,6 +52,7 @@ export function defineCards(tribe, rows) {
     if (evolvesTo) card.evolvesTo = evolvesTo;
     if (extra.token) card.token = true;
     if (extra.cursed) card.cursed = true;
+    if (extra.balanceNote) card.balanceNote = extra.balanceNote;
     return card;
   });
 }

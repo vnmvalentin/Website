@@ -13,6 +13,6 @@ export default defineCards("bestien", [
   ["luchsschatten", "Luchsschatten", "b2", 2, 2, ["hinterhalt", "fluchtreflex"], "uncommon", "Man sieht nur die Ohren. Dann nichts mehr."],
   ["hungerwolf", "Hungerwolf", "b1", 3, 1, ["hunger"], "uncommon", "Er frisst, was neben ihm steht. Auch Freunde."],
   ["mondluchs", "Mondluchs", "b3", 4, 3, ["zwillingsbiss"], "rare", "Zwei Bisse, ein Atemzug. Der Mond zählt mit."],
-  ["grauerfuerst", "Der Graue Fürst", "b4", 5, 5, ["rudelruf", "leittier"], "legendary", "Jeder Wolf im Moor senkt den Kopf, wenn er vorbeigeht."],
+  ["grauerfuerst", "Der Graue Fürst", "b3", 4, 4, ["rudelruf", "leittier"], "legendary", "Jeder Wolf im Moor senkt den Kopf, wenn er vorbeigeht."],
   ["grauwolf", "Grauwolf", "b1", 2, 2, ["rudelruf"], "common", "Aus der Welpe wurde, was der Nebel versprach.", { token: true }],
 ]);

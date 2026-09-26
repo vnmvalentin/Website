@@ -13,5 +13,5 @@ export default defineCards("schwaerme", [
   ["stachelwespe", "Stachelwespe", "b1", 1, 1, ["todesstachel"], "uncommon", "Ein Stich. Mehr braucht es nicht."],
   ["termitenhuegel", "Termitenhügel", "w4", 0, 5, ["brut"], "uncommon", "Ein Berg aus Speichel und Geduld."],
   ["schwarmkoenigin", "Schwarmkönigin", "b3", "schwarmzahl", 4, ["brut", "leittier"], "rare", "Jeder Schlag ihrer Flügel ist ein Befehl an tausend."],
-  ["goldwespe", "Goldwespe", "b1", 2, 1, ["schwinge"], "common", "Sie glänzt wie ein Versprechen, das sticht.", { token: true }],
+  ["goldwespe", "Goldwespe", "b1", 1, 1, ["schwinge"], "common", "Sie glänzt wie ein Versprechen, das sticht.", { token: true }],
 ]);

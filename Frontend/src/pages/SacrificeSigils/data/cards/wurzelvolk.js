@@ -8,7 +8,7 @@ export default defineCards("wurzelvolk", [
   ["dornbusch", "Dornbusch", "w2", 0, 2, ["dornenkleid"], "common", "Er hält fest, was ihn berührt."],
   ["efeuwuerger", "Efeuwürger", "w4", 1, 2, ["aderlass"], "common", "Er umarmt die Kraft aus allem, woran er wächst."],
   ["moosschrat", "Moosschrat", "w4", 1, 3, ["moosheilung"], "common", "Jede Wunde wächst bei ihm grün zu."],
-  ["wurzelwacht", "Wurzelwacht", "w4", 0, 3, ["hochwuchs", "leibwaechter"], "common", "Ihre Wurzeln reichen unter jede Lane."],
+  ["wurzelwacht", "Wurzelwacht", "w3", 0, 3, ["hochwuchs", "leibwaechter"], "common", "Ihre Wurzeln reichen unter jede Lane."],
   ["dornvater", "Dornvater", "w5", 2, 3, ["dornenkleid"], "uncommon", "Er hat die Dornen nicht gewollt. Er hat sie gebraucht."],
   ["rindenhueter", "Rindenhüter", "w5", 1, 4, ["schildrinde"], "uncommon", "Die erste Axt prallt ab. Die zweite auch, meistens."],
   ["wurzelbrecher", "Wurzelbrecher", "w6", 3, 3, ["panzer"], "rare", "Er bricht aus dem Boden wie ein alter Streit."],

@@ -31,6 +31,16 @@ und wo bewusst abgewichen wird.
    zurückzugeben. `applyAction` klont den State vorher, nach außen bleibt die Funktion rein.
 5. **Totem-Köpfe im Draft kommen mit einer Start-Basis**, sonst wäre der gewählte Kopf bis zum ersten
    Totem-Schrein wirkungslos (der Schrein ist nicht garantiert). Im Schrein lassen sich Kopf und Basis frei tauschen.
+6. **Ausgleich für den Zweitspieler geändert (Ergebnis des Balancing-Tools).** Mit den Regeln aus 3.3/3.4 (Startspieler
+   zieht im ersten Zug nicht, Zweiter +1 Wachs und +1 Nebendeck-Karte) gewann der Startspieler nur 17 % der Kämpfe
+   (5000 Matches). Gemessen wurden vier Varianten; gewählt ist „Startspieler zieht normal, Zweiter +1 Wachs“ mit 52–54 %.
+   Umschaltbar über `SECOND_PLAYER_BONUS` in `engine/battle.js`.
+7. **Patt-Brecher eskaliert:** ab Zug 30 zunächst 1 Gewicht pro Zugende, alle 6 Züge eines mehr. Mit konstant 1 Gewicht
+   pendelte die Waage bei festgefahrenen Brettern endlos zwischen beiden Seiten (vom Fuzz-Test gefunden).
+8. **Opfer und Todeseffekte:** Opfern zählt als Tod (Knochen, Nesthüter, Rachsucht …), Wiedergänger und Nachgeburt greifen
+   beim Opfern aber nicht, weil der Slot sonst der ausgespielten Karte im Weg stünde.
+9. **Handlimit beim passiven Spieler:** Karten, die der gerade nicht aktive Spieler über 8 hinaus bekäme (z. B. Nesthüter
+   im gegnerischen Zug), verbrennen sofort, weil er nicht am Zug ist, um abzuwerfen.
 
 ## 2. Ordnerstruktur
 

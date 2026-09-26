@@ -10,6 +10,10 @@
     "test:seedrunners": "node --test \"src/pages/SeedRunners/**/*.test.js\"",
     "seedrunners:solve": "node src/pages/SeedRunners/gen/tools/solveAll.js",
     "test:sigils": "node --test \"src/pages/SacrificeSigils/**/*.test.js\"",
+    "sigils:check": "node src/pages/SacrificeSigils/tools/checkCards.js",
+    "balance": "node src/pages/SacrificeSigils/tools/balance.js",
+    "art:export": "node src/pages/SacrificeSigils/tools/artExport.js",
+    "art:prompts": "node src/pages/SacrificeSigils/tools/artPrompts.js",
     "preview": "vite preview",
     "tailwind:init": "tailwindcss init -p"
   },

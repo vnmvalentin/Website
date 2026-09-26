@@ -13,18 +13,18 @@ testCard("T_blood1", { attack: 1, health: 1, cost: { type: "blood", amount: 1 } 
 testCard("T_bones3", { attack: 1, health: 1, cost: { type: "bones", amount: 3 } });
 testCard("T_wax2", { attack: 1, health: 1, cost: { type: "wax", amount: 2 } });
 
-test("Kampfstart: Starthand 3+1, zweiter Spieler +1 Nebendeck-Karte und +1 Wachs, Startspieler zieht im ersten Zug nicht", () => {
+test("Kampfstart: Starthand 3+1, zweiter Spieler +1 Wachs (Ausgleich siehe SECOND_PLAYER_BONUS), Startspieler zieht normal", () => {
   const deck = Array.from({ length: 10 }, () => dc("T_a2h2"));
   const { state } = createBattle({ battleNo: 1, starter: 0, rng: 7, players: [
     { deck, sideType: "moorling", items: [], totems: {} },
     { deck: deck.map((c) => ({ ...c })), sideType: "wachsling", items: [], totems: {} },
   ] });
   assert.equal(state.players[0].hand.length, 4);
-  assert.equal(state.players[1].hand.length, 5);
+  assert.equal(state.players[1].hand.length, 4);
   assert.equal(state.players[0].wax, 1); // eigener Zugbeginn
   assert.equal(state.players[1].wax, 1); // Ausgleich
-  assert.equal(state.players[0].drew, true);
-  assert.equal(state.players[1].hand.filter((c) => c.baseId === "side_wachsling").length, 2);
+  assert.equal(state.players[0].drew, false);
+  assert.equal(state.players[1].hand.filter((c) => c.baseId === "side_wachsling").length, 1);
 });
 
 test("Wachs: +1 pro eigenem Zug, Maximum 6", () => {

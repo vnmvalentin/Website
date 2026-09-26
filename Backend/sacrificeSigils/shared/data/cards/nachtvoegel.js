@@ -7,7 +7,7 @@ export default defineCards("nachtvoegel", [
   ["sturmsegler", "Sturmsegler", "b1", 2, 1, ["vorpreschen"], "common", "Er landet nie. Er fällt nur langsamer."],
   ["wachkauz", "Wachkauz", "b1", 0, 3, ["leibwaechter"], "common", "Ein Auge offen, das andere auch."],
   ["schleiereule", "Schleiereule", "b2", 2, 2, ["schwinge"], "common", "Ihr Gesicht ist eine Maske aus Mondlicht."],
-  ["nachtreiher", "Nachtreiher", "b2", 1, 4, ["hochwuchs"], "common", "Er steht im Schilf, bis das Schilf ihn vergisst."],
+  ["nachtreiher", "Nachtreiher", "b1", 1, 4, ["hochwuchs"], "common", "Er steht im Schilf, bis das Schilf ihn vergisst.", { balanceNote: "Balancing 5000 Matches: mit 2 Blut nur 42 % Siegquote, reine Mauern sind schwächer als die Formel." }],
   ["uhu", "Moor-Uhu", "b3", 3, 3, ["schwinge"], "uncommon", "Wenn er ruft, verstummen die Frösche."],
   ["blutfink", "Blutfink", "b1", 0, 1, ["dreifachblut"], "uncommon", "Klein wie ein Tropfen, schwer wie drei."],
   ["glockenrabe", "Glockenrabe", "b2", 2, 2, ["schwinge", "glockenschlag"], "uncommon", "Er hat im Turm gewohnt, als es noch eine Glocke gab."],

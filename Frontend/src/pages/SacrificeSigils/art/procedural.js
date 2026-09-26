@@ -165,7 +165,7 @@ const SPECIES_RULES = [
 ];
 
 /** @param {{ id: string, name?: string }} card */
-function speciesOf(card) {
+export function speciesOf(card) {
   const key = `${card.name || ""} ${card.id}`.toLowerCase();
   for (const [re, sp] of SPECIES_RULES) if (re.test(key)) return sp;
   return null;

@@ -427,7 +427,7 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
           <div className="ss-table" role="grid" aria-label="Spielfeld">
             {rows.map((row, ri) => (
               <React.Fragment key={`${row.p}${row.zone}`}>
-                <span className="ss-row-label" style={{ top: rowTop(ri), height: "var(--slot-h)" }}>{row.p === bottom ? "Du · " : ""}{row.label}</span>
+                <span className="ss-row-label" style={{ top: rowTop(ri), height: "var(--slot-h)" }}>{you === null ? `${names[row.p]} · ` : row.p === bottom ? "Du · " : ""}{row.label}</span>
                 {Array.from({ length: LANES }, (_, lane) => {
                   const u = b.players[row.p][row.zone][lane];
                   const own = row.p === bottom;
@@ -662,7 +662,8 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
               </button>
             </>
           )}
-          <p className="text-xs ss-faint text-center">{de.ui.hand}: {me.hand.length}/{HAND_LIMIT}</p>
+          {you !== null && <p className="text-xs ss-faint text-center">{de.ui.hand}: {me.hand.length}/{HAND_LIMIT}</p>}
+          {you === null && <p className="text-xs ss-faint text-center">{names[bottom]}: {me.handSize ?? me.hand.length} Karten · {names[top]}: {opp.handSize ?? opp.hand.length} Karten</p>}
         </div>
       </aside>
 

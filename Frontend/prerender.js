@@ -26,6 +26,9 @@ const routesToPrerender = [
   // Twitch-Overlay-Tools: hinter dem Login liegt nur die Konfiguration — der Text
   // oberhalb beschreibt das Tool und soll auffindbar sein.
   '/twitch-tools',
+  // Sacrifice & Sigils: Startseite, Anleitung und Kartenbuch sind reine Inhaltsseiten (Spiel läuft erst nach Klick)
+  '/sacrifice-and-sigils',
+  '/sacrifice-and-sigils/anleitung',
 ];
 
 (async () => {

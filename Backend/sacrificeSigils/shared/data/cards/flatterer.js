@@ -3,7 +3,7 @@ import { defineCards } from "./_define.js";
 
 export default defineCards("flatterer", [
   ["seidenraupe", "Seidenraupe", "w1", 0, 1, ["metamorphose"], "common", "Sie spinnt sich ein Grab und steigt als Schatten heraus.", { evolvesTo: "totenkopffalter" }],
-  ["zwergfledermaus", "Zwergfledermaus", "w2", 1, 1, ["kundschafter"], "common", "Sie hört die Karten, bevor du sie ziehst."],
+  ["zwergfledermaus", "Zwergfledermaus", "w3", 1, 1, ["kundschafter"], "common", "Sie hört die Karten, bevor du sie ziehst."],
   ["nachtfalter", "Nachtfalter", "w2", 0, 2, ["seher"], "common", "Auf seinen Flügeln stehen die nächsten drei Nächte."],
   ["blendfalter", "Blendfalter", "w2", 0, 3, ["koeder"], "common", "Seine Augen sind gemalt. Das weiß nur niemand."],
   ["staubmotte", "Staubmotte", "w3", 1, 1, ["schwinge"], "common", "Sie lebt vom Staub alter Gebetbücher."],

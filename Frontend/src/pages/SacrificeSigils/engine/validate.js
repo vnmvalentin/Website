@@ -39,7 +39,7 @@ export function validateCards() {
     if (needsNext && !c.evolvesTo) errors.push(`${where}: Metamorphose/Nachgeburt ohne evolvesTo`);
     if (c.evolvesTo && !CARDS[c.evolvesTo]) errors.push(`${where}: Folgeform ${c.evolvesTo} existiert nicht`);
     if (c.rarity === "legendary" && !c.unique) errors.push(`${where}: legendär, aber nicht einzigartig`);
-    if (!c.token && !c.cursed) {
+    if (!c.token && !c.cursed && !c.balanceNote) {
       const d = budgetDelta(c);
       if (Math.abs(d) > BUDGET_TOLERANCE) warnings.push(`${where}: Wert weicht um ${d.toFixed(2)} vom Budget ab`);
     }

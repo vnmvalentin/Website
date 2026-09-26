@@ -118,6 +118,24 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://vnmvalentin.de/sacrifice-and-sigils</loc>
+    <lastmod>2026-09-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/sacrifice-and-sigils/kartenbuch</loc>
+    <lastmod>2026-09-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/sacrifice-and-sigils/anleitung</loc>
+    <lastmod>2026-09-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
     <loc>https://vnmvalentin.de/seed-runners</loc>
     <lastmod>2026-09-21</lastmod>
     <changefreq>monthly</changefreq>

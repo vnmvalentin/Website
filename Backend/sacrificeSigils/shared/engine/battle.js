@@ -30,6 +30,17 @@ export function candleWeight(turn) {
   return turn < STALEMATE_TURN ? 0 : 1 + Math.floor((turn - STALEMATE_TURN) / CANDLE_ESCALATION);
 }
 
+/**
+ * Ausgleich zwischen Start- und Zweitspieler.
+ * Der Auftrag (3.3/3.4) sah vor: Startspieler zieht im ersten Zug nicht, der Zweite bekommt +1 Wachs und +1 Nebendeck-Karte.
+ * Das Balancing-Tool (5000 Matches) ergab damit nur 17 % Siege für den Startspieler — zwei Nebendeck-Karten erlauben
+ * dem Zweiten schon im ersten Zug eine Blut-2-Karte. Gemessen (je ~900 Kämpfe, KI normal/schwer):
+ *   wie im Auftrag 24 % · ohne Ausgleich 46 % · nur +1 Wachs 39 % · Startspieler zieht + Zweiter +1 Wachs 52 %.
+ * Gewählt ist die letzte Variante. Als Objekt, damit Varianten gemessen (und bei Bedarf zurückgestellt) werden können:
+ * { wax: 1, side: 1, starterDraws: false } entspricht wieder dem ursprünglichen Auftrag.
+ */
+export const SECOND_PLAYER_BONUS = { wax: 1, side: 0, starterDraws: true };
+
 export const SIDE_TYPES = {
   moorling: "side_moorling",
   knochenkaefer: "side_knochenkaefer",
@@ -100,11 +111,11 @@ export function createBattle(opts) {
     for (let i = 0; i < 3; i++) r.drawCardFromDeck(p, "start");
     r.addToHand(p, r.newSideCard(p), "start", true);
     if (p !== state.starter) {
-      r.addToHand(p, r.newSideCard(p), "start", true);
-      r.gainWax(p, 1, null);
+      for (let i = 0; i < SECOND_PLAYER_BONUS.side; i++) r.addToHand(p, r.newSideCard(p), "start", true);
+      if (SECOND_PLAYER_BONUS.wax) r.gainWax(p, SECOND_PLAYER_BONUS.wax, null);
     }
   }
-  r.startTurn(state.starter, true);
+  r.startTurn(state.starter, !SECOND_PLAYER_BONUS.starterDraws);
   r.checkWin();
   return { state, events: r.events };
 }

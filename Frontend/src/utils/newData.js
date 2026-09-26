@@ -1,5 +1,22 @@
 export const NEWS_UPDATES = [
   {
+    date: "26.09.2026",
+    version: "v6.7: Neues Kartenspiel „Sacrifice & Sigils“",
+    sections: [
+      {
+        title: "Neu: Sacrifice & Sigils",
+        items: [
+          "Neues 1v1-Kartenspiel unter Fun: In einer versunkenen Kapelle im Aschemoor zeichnen zwei Zeichner Kreaturen, die lebendig werden und kämpfen. Wer die Messingwaage um fünf Gewichte zu sich neigt, gewinnt den Kampf",
+          "Drei Ressourcen: Blut (Opfer beim Ausspielen), Knochen (von jeder gefallenen Kreatur) und Wachs (jeden Zug eine Kerze mehr). Zwei Reihen pro Seite – Karten in der Hinterreihe rücken nach",
+          "167 Karten in 14 Stämmen, 47 Sigils, Totems aus Kopf und Basis, 12 Items. Jede Karte hat ein prozedural gezeichnetes Artwork im Kohle-und-Tusche-Stil",
+          "Ein Match: Draft (gemeinsamer Pool als Snake-Draft oder getrennte, gespiegelte Pools), dann Kämpfe im Best-of-3 oder Best-of-5. Dazwischen wandern beide über eine Moorkarte: Kartenwahl, Lagerfeuer, Verschmelzung, Sigil-Transfer, Händler, Totem-Schrein, Kopist und acht seltene Ereignisse",
+          "Online per Raum-Link mit Zug-Timer, Reconnect und Zuschauern – der Server rechnet jeden Zug nach, versteckte Karten bleiben verborgen. Dazu Übung gegen die KI in drei Stufen, Hotseat zu zweit, ein Tutorial und ein Kartenbuch",
+          "Animationen für jede Aktion, eine physikalisch schwingende Waage und prozedural erzeugte Klänge. Auf dem Handy per Tippen spielbar",
+        ]
+      },
+    ]
+  },
+  {
     date: "21.09.2026",
     version: "v6.6: Neues Minispiel „Seed Runners“",
     sections: [

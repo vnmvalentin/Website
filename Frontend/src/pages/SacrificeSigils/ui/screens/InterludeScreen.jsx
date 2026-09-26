@@ -40,7 +40,7 @@ export default function InterludeScreen({ view, you, send, names }) {
               <button type="button" className="ss-seal" onClick={() => choose(you)}>{de.ui.iStart}</button>
               <button type="button" className="ss-btn" onClick={() => choose(1 - you)}>{de.ui.theyStart}</button>
             </div>
-            <p className="text-sm ss-faint">Wer als Zweiter beginnt, bekommt +1 Wachs und eine zusätzliche Nebendeck-Karte.</p>
+            <p className="text-sm ss-faint">Wer als Zweiter beginnt, bekommt zum Ausgleich +1 Wachs.</p>
           </>
         ) : (
           <p className="ss-dim">{names[chooser]} entscheidet, wer beginnt …</p>
