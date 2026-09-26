@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Download, RotateCcw, Trophy, ArrowLeft, Copy, Check, AlertCircle } from 'lucide-react';
 import { generateShareCard, downloadShareCard } from './shareCard';
-import { rgbToHex } from './colorScoring';
 
 // navigator.clipboard.write mit einem image/png-ClipboardItem ist der einzige Weg, ein Bild
 // per Strg+V direkt in Discord/Slack/etc. einfügbar zu machen (ein <a download> tut das
@@ -73,32 +72,17 @@ export default function DailyGameResults({
       </div>
 
       <div className="space-y-2 mb-8">
-        {rounds.map((r, i) => {
-          // Farb-Spiele (z.B. CR Color Match) raten/schätzen ein {r,g,b}-Objekt statt einer
-          // Zahl — dafür zwei kleine Farbmuster statt der generischen Zahlen-Zeile.
-          const isColor = r.guess && typeof r.guess === 'object';
-          return (
-            <div key={r.id || i} className="flex items-center justify-between panel p-3">
-              <div className="min-w-0 pr-3 flex items-center gap-2">
-                {isColor && (
-                  <span className="flex items-center gap-1 shrink-0">
-                    <span className="w-4 h-4 rounded-full border border-white/20" style={{ background: rgbToHex(r.guess) }} title="Deine Wahl" />
-                    <span className="w-4 h-4 rounded-full border border-white/20" style={{ background: rgbToHex(r.value) }} title="Richtig" />
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <p className="text-white text-sm font-semibold truncate">{r.label}</p>
-                  {!isColor && (
-                    <p className="text-white/40 text-xs tabular-nums">{r.guess}{r.unit ?? unit} geraten — richtig war {r.value}{r.unit ?? unit}</p>
-                  )}
-                </div>
-              </div>
-              <span className="shrink-0 text-white font-bold tabular-nums bg-violet-500/15 border border-violet-400/20 rounded-lg px-2.5 py-1 text-sm">
-                {r.score}
-              </span>
+        {rounds.map((r, i) => (
+          <div key={r.id || i} className="flex items-center justify-between panel p-3">
+            <div className="min-w-0 pr-3">
+              <p className="text-white text-sm font-semibold truncate">{r.label}</p>
+              <p className="text-white/40 text-xs tabular-nums">{r.guess}{r.unit ?? unit} geraten — richtig war {r.value}{r.unit ?? unit}</p>
             </div>
-          );
-        })}
+            <span className="shrink-0 text-white font-bold tabular-nums bg-violet-500/15 border border-violet-400/20 rounded-lg px-2.5 py-1 text-sm">
+              {r.score}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-8">

@@ -32,6 +32,12 @@ export default defineConfig({
       transformMixedEsModules: true,
     },
   },
+  // Web Worker als ES-Module bauen: Der Welten-Worker von Seed Runners lädt eingefrorene Generator-Versionen erst bei Bedarf
+  // nach (client/generatorArchiv.js) — das braucht Code-Splitting, das mit dem Standardformat "iife" nicht geht. Der Worker
+  // wird ohnehin als { type: 'module' } gestartet (client/generateWorldAsync.js).
+  worker: {
+    format: "es",
+  },
   plugins: [
     // Unterdrückt den harmlosen "ws proxy socket error: ECONNABORTED" bei Browser-Refresh
     {

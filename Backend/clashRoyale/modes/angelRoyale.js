@@ -7,7 +7,7 @@
 const { getCardPool } = require('../core/cards');
 const { lobbies } = require('../core/lobbies');
 const { clearTurnTimer } = require('../core/timers');
-const { notifyDraftComplete, updateDeckFeeds } = require('../core/streamerFeed');
+const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
 const FISH_TICK_MS            = 250;
 const FISH_DECK_SIZE          = 8;
@@ -202,7 +202,6 @@ function fishingApplyCatch(lobby, player, fishId, io) {
     g.cooldowns[player.id] = now + g.catchCooldownMs;
   }
   resetFishIdle(g, player.id, now);
-  updateDeckFeeds(lobby, io);
   io.to(lobby.code).emit('clash:fish:state', buildFishingState(lobby));
   checkFishingEnd(lobby, io);
   return { ok: true };

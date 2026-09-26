@@ -295,22 +295,24 @@ function Pill({ label, active, onClick, title }) {
 function PillGroup({ label, children }) {
   return (
     <div>
-      <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5">{label}</p>
-      <div className="flex flex-wrap items-center gap-1.5">{children}</div>
+      <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2.5">{label}</p>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }
 
-// ── Abschnitts-Karte, öffenbar ───────────────────────────────────────────────
-// Der Einstellungen-Tab war vorher eine einzige lange, fließende Liste — Farben, Getrackter Wert
-// und die Anzeige-Module ohne erkennbare Grenzen dazwischen. Jetzt bekommt jeder Themenblock
-// seine eigene Karte mit Symbol+Titel (Nutzer-Feedback: "separate the settings better"), UND
-// lässt sich einzeln zu- und aufklappen (Nutzer-Feedback: "openable menu to save space") — per
-// Klick auf die ganze Kopfzeile, nicht nur den Pfeil, größere Trefffläche.
-function SectionCard({ icon: Icon, title, description, children, defaultOpen = true }) {
+// ── Einstellungs-Abschnitt, aufklappbar ──────────────────────────────────────
+// Kein eigener Kasten pro Abschnitt mehr (Nutzer-Feedback: nicht jedes Modul in eine einzelne
+// schwebende Glas-Pille packen) — alle Abschnitte teilen sich die EINE Fläche aus SettingsTab,
+// getrennt nur durch die Linien des umgebenden divide-y. Symbol+Titel in der Kopfzeile, per Klick
+// auf die ganze Zeile (nicht nur den Pfeil, größere Trefffläche) zu- und aufklappbar; ob ein
+// Abschnitt beim Öffnen der Seite offen ist, bestimmt defaultOpen.
+function SettingsSection({ icon: Icon, title, description, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="panel p-5">
+    // Großzügige Abstände (Nutzer-Feedback: man erkannte kaum, wo ein Abschnitt endet und die
+    // nächste Option beginnt): mehr Luft um den Abschnitt und deutlich mehr zwischen seinen Teilen.
+    <section className="px-6 py-6">
       <button type="button" onClick={() => setOpen(o => !o)} title={description}
         className="w-full flex items-center justify-between gap-3 text-left">
         <h3 className="text-white font-bold text-sm flex items-center gap-2">
@@ -319,8 +321,8 @@ function SectionCard({ icon: Icon, title, description, children, defaultOpen = t
         </h3>
         <ChevronDown size={16} className={`text-gray-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && <div className="space-y-4 mt-4">{children}</div>}
-    </div>
+      {open && <div className="space-y-6 mt-5">{children}</div>}
+    </section>
   );
 }
 
@@ -364,9 +366,9 @@ function ColorSwatch({ label, value, onChange, auto, onReset, resetTitle }) {
 // wählbar, wie SegmentedControl, nur mit Bildchen statt nur Text (Nutzer-Feedback: "more visually
 // appealing" statt einer reinen Text-Pillen-Reihe).
 function VisualPicker({ options, value, onChange, disabled, columns = 3 }) {
-  const colClass = columns === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3';
+  const colClass = columns === 4 ? 'grid-cols-2 sm:grid-cols-4' : columns === 2 ? 'grid-cols-2' : 'grid-cols-3';
   return (
-    <div className={`grid ${colClass} gap-2`} role="group">
+    <div className={`grid ${colClass} gap-3`} role="group">
       {options.map(opt => {
         const active = opt.id === value;
         const isDisabled = disabled || opt.disabled;
@@ -429,7 +431,7 @@ const moduleDefs = (t) => ({
 
 // ── Modul-Zeile: Name + Sichtbarkeit, Feinabstimmung (falls vorhanden) einzeln aufklappbar ────
 // Kein eigener Kasten mehr pro Zeile (Nutzer-Feedback: keine "bubbles") — nur eine Trennlinie
-// zur vorherigen Zeile, alle drei teilen sich den Hintergrund der umgebenden SectionCard. Die
+// zur vorherigen Zeile, alle drei teilen sich den Hintergrund der umgebenden SettingsSection. Die
 // Feinabstimmung ist jetzt standardmäßig EINGEKLAPPT (Nutzer-Feedback: "openable menu to save
 // space") statt immer offen — Klick auf den Zeilentitel (nicht auf den Sichtbarkeits-Schalter
 // rechts, der bleibt unabhängig) klappt sie auf. Sichtbarkeit bleibt ein echter Schalter (Toggle,
@@ -439,7 +441,10 @@ function ModuleControlRow({ t, moduleKey, label, description, visible, onToggle,
   const hasChildren = !!children;
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-t border-white/5 pt-3 first:border-t-0 first:pt-0">
+    // Gleich viel Luft über und unter der Trennlinie, und die Linie ist jetzt deutlich sichtbar
+    // (vorher white/5 mit Abstand nur nach unten) — so endet ein Modul erkennbar, bevor das
+    // nächste beginnt.
+    <div className="border-t border-white/10 pt-5 mt-5 first:border-t-0 first:pt-0 first:mt-0">
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => hasChildren && setOpen(o => !o)} disabled={!hasChildren}
           title={description}
@@ -457,7 +462,9 @@ function ModuleControlRow({ t, moduleKey, label, description, visible, onToggle,
         </div>
       </div>
       {open && children && (
-        <div className="mt-3 pl-5 space-y-3">
+        // Senkrechte Führungslinie: alles darunter gehört zu DIESEM Modul, nicht zum nächsten.
+        // Die einzelnen Optionsgruppen darin haben deutlich mehr Abstand als vorher (space-y-3).
+        <div className="mt-4 ml-1.5 pl-5 border-l border-white/10 space-y-6">
           {children}
         </div>
       )}
@@ -466,7 +473,7 @@ function ModuleControlRow({ t, moduleKey, label, description, visible, onToggle,
 }
 
 // ── Einstellungen (OBS-Link + Anzeige-Optionen) ──────────────────────────────
-function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured, activeAccount, onTrackModeChange, onAutoSwitchChange, onResetSession, flashError }) {
+function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured, activeAccount, onResetSession, flashError }) {
   const { user } = useContext(TwitchAuthContext);
   const [hidden, setHidden] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -520,20 +527,25 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
   const last5Direction = settings.last5Direction || 'newestLeft';
 
   return (
-    // Breiter als früher (siehe max-width-Wahl auf Seitenebene) UND eine sticky rechte Spalte:
-    // die Vorschau/der Link/die Chat-Befehle bleiben beim Scrollen durch die (jetzt in eigene
-    // Karten unterteilten) Einstellungen links die ganze Zeit sichtbar — vorher musste man nach
+    // Eine einzige, undurchsichtige Fläche für den ganzen Editor statt je einer schwebenden Karte
+    // pro Modul — die Abschnitte sind nur durch Linien getrennt. Breiter als früher (siehe
+    // max-width-Wahl auf Seitenebene) UND eine sticky rechte Spalte: die Vorschau/der Link bleiben
+    // beim Scrollen durch die Einstellungen links die ganze Zeit sichtbar — vorher musste man nach
     // jeder Änderung weit unten wieder hoch scrollen, um das Ergebnis zu sehen (Nutzer-Feedback).
-    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
-      {/* Linke Spalte: die eigentlichen Einstellungen, jetzt in klar getrennte Themen-Karten
-          aufgeteilt (Farben / Getrackter Wert / Anzeige) statt einer einzigen langen Liste. */}
-      <div className="space-y-5 min-w-0">
-        <SectionCard icon={Palette} title={t.sectionColorsTitle} description={t.sectionColorsDesc}>
+    // Bewusst KEIN items-start am Grid: die linke Spalte soll auf volle Zeilenhöhe strecken, damit
+    // ihre rechte Trennlinie auch dann durchgehend ist, wenn die (sticky, self-start) Vorschau
+    // höher ist als die zugeklappte linke Spalte. Kein overflow-* an diesem Element, sonst
+    // funktioniert sticky nicht mehr.
+    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] bg-[#0f0f13] border border-white/10 rounded-lg">
+      {/* Linke Spalte: die eigentlichen Einstellungen (Farben / Getrackter Wert / Anzeige /
+          Chat-Befehle) als Abschnitte übereinander, getrennt durch divide-y. */}
+      <div className="min-w-0 divide-y divide-white/10 xl:border-r xl:border-white/10">
+        <SettingsSection icon={Palette} title={t.sectionColorsTitle} description={t.sectionColorsDesc}>
           {/* Alle drei Farben in einer Reihe statt jede in ihrer eigenen vollbreiten Zeile
               (Nutzer-Feedback: "make the colours go side by side so they dont use that much
               space") — der Verlauf-Knopf sitzt als vierter, gleich großer Swatch mit an, statt
               eine eigene Umschalter-Zeile zu brauchen. */}
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-5">
             <ColorSwatch label={t.bgColorLabel} value={settings.bgColor} onChange={toggle('bgColor')} />
             <button type="button" onClick={() => toggle('bgGradient')(!settings.bgGradient)} title={t.bgGradientDesc}
               className="flex flex-col items-center gap-1.5 w-16">
@@ -562,15 +574,20 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
               onChange={e => toggle('bgOpacity')(Number(e.target.value))}
               className="w-full accent-violet-500" />
           </div>
-        </SectionCard>
+        </SettingsSection>
 
-        {/* Getrackter Wert — eigene Karte, NICHT im Profil-Kopf verschachtelt: wirkt zwar auf den
-            aktiven Account, ändert aber nicht nur den Kopf, sondern auch Session/letzte-5/Deck
+        {/* Getrackter Wert — eigener Abschnitt, NICHT im Profil-Kopf verschachtelt: wirkt zwar auf
+            den aktiven Account, ändert aber nicht nur den Kopf, sondern auch Session/letzte-5/Deck
             (jeder Modus hat seine eigene Statistik und sein eigenes Deck, siehe
             crWinTrackerRoutes.js). Ohne aktiven Account (noch keiner verknüpft) gibt es nichts
-            zu wählen. */}
+            zu zeigen. Rein informativ: track_mode wird IMMER automatisch auf den zuletzt
+            gespielten Modus gestellt (siehe autoSwitchTrackMode in crWinTrackerRoutes.js) — daher
+            fest disabled statt einer echten Auswahl, es gibt nichts mehr manuell umzustellen; der
+            Hinweistext darüber sagt das dem Nutzer. Standardmäßig zugeklappt, weil dort nichts
+            mehr eingestellt wird (bis auf den Session-Reset). */}
         {activeAccount && (
-          <SectionCard icon={Trophy} title={t.trackedValue} description={t.sectionTrackedDesc}>
+          <SettingsSection icon={Trophy} title={t.trackedValue} description={t.sectionTrackedDesc} defaultOpen={false}>
+            <p className="text-gray-500 text-xs leading-relaxed">{t.trackedAutoHint}</p>
             <VisualPicker
               options={[
                 {
@@ -586,36 +603,30 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
                   id: '2v2', label: t.opt2v2, title: t.titleLeague2v2Season,
                   preview: <img src={trophy2v2Icon} alt="" className="h-8 w-auto object-contain" />,
                 },
-              ]}
+              // Beendete saisonale Ranked-Modi (z.B. 2v2 nach Season-Ende) liefert der Server
+              // nicht mehr in availableModes — siehe availableTrackModes in crWinTrackerRoutes.js.
+              ].filter(o => !activeAccount.availableModes || activeAccount.availableModes.includes(o.id))}
+              columns={activeAccount.availableModes?.length || 3}
               value={activeAccount.trackMode}
-              onChange={(v) => onTrackModeChange(activeAccount, v)}
-              disabled={activeAccount.autoSwitchMode}
+              disabled
             />
 
-            {/* Autoswitch übersteuert die Auswahl oben bei jedem Sync automatisch — deshalb
-                während aktiv gleich ausgegraut (disabled oben). Beide Knöpfe zusammen auf einer
-                Zeile statt gestapelt (Nutzer-Feedback: "compact... 2 buttons on the same line"). */}
-            <div className="flex gap-2">
-              <ToggleButton label={t.autoSwitchLabel} title={t.autoSwitchDesc} className="flex-1"
-                checked={!!activeAccount.autoSwitchMode} onLabel={t.onLabel} offLabel={t.offLabel}
-                onChange={(v) => onAutoSwitchChange(activeAccount, v)} />
-              {/* Wirkt auf die Session DIESES Modus (Ranked1v1 deckt medals+trophies ab, 2v2 hat
-                  seine eigene) — für wer vor Stream-Start schon ein paar Spiele gespielt hat und
-                  die nicht in Profit/Win-Loss/letzte 5 sehen will, ohne auf die automatische
-                  4h-Pausen-Regel zu warten (siehe SESSION_GAP_MS in crWinTrackerRoutes.js). */}
-              <button onClick={() => onResetSession(activeAccount)} title={t.resetSessionTitle}
-                className="flex-1 bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5">
-                <RotateCcw size={14} />
-                {t.resetSessionBtn}
-              </button>
-            </div>
-          </SectionCard>
+            {/* Wirkt auf die Session DIESES Modus (Ranked1v1 deckt medals+trophies ab, 2v2 hat
+                seine eigene) — für wer vor Stream-Start schon ein paar Spiele gespielt hat und
+                die nicht in Profit/Win-Loss/letzte 5 sehen will, ohne auf die automatische
+                4h-Pausen-Regel zu warten (siehe SESSION_GAP_MS in crWinTrackerRoutes.js). */}
+            <button onClick={() => onResetSession(activeAccount)} title={t.resetSessionTitle}
+              className="w-full bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5">
+              <RotateCcw size={14} />
+              {t.resetSessionBtn}
+            </button>
+          </SettingsSection>
         )}
 
         {/* Anzeige: Sichtbarkeit (Schalter) + Feinabstimmung direkt an Ort und Stelle, dauerhaft
             sichtbar statt nur beim Hover auf der Vorschau. Der Profil-Kopf steht separat zuerst:
             aus-/einblendbar wie Session und Deck, bleibt aber immer an erster Stelle. */}
-        <SectionCard icon={LayoutGrid} title={t.sectionVisualsTitle} description={t.sectionVisualsDesc}>
+        <SettingsSection icon={LayoutGrid} title={t.sectionVisualsTitle} description={t.sectionVisualsDesc}>
           {/* Kein space-y hier: die Trennlinie + das Padding jeder ModuleControlRow (siehe dort)
               übernehmen den Abstand bereits selbst. */}
           <div>
@@ -624,8 +635,8 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
               visible={settings.showProfile !== false}
               onToggle={() => toggle('showProfile')(settings.showProfile === false)}>
               <PillGroup label={t.displayGroupLabel}>
-                <Pill label={t.stepBarPill} title={t.stepBarTitle}
-                  active={settings.showLadderBar !== false} onClick={() => toggle('showLadderBar')(settings.showLadderBar === false)} />
+                <Pill label={t.showClanPill} title={t.showClanTitle}
+                  active={!!settings.showClan} onClick={() => toggle('showClan')(!settings.showClan)} />
               </PillGroup>
             </ModuleControlRow>
 
@@ -644,7 +655,7 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
               {settings.showLast5 && (
                 <>
                   <div>
-                    <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5">{t.last5DisplayGroupLabel}</p>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2.5">{t.last5DisplayGroupLabel}</p>
                     <VisualPicker
                       options={[
                         { id: 'result', label: t.styleResultLabel, title: t.styleResultTitle, preview: <Last5StylePreview kind="result" /> },
@@ -670,7 +681,7 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
             <ModuleControlRow t={t} moduleKey="deck" visible={moduleVisibility.deck}
               onToggle={() => setModuleVisible('deck', !moduleVisibility.deck)}>
               <div>
-                <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5">{t.deckPlacementGroupLabel}</p>
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2.5">{t.deckPlacementGroupLabel}</p>
                 <VisualPicker
                   options={[
                     { id: 'top', label: t.placementTop, title: t.placementTopTitle, preview: <PlacementPreview side="top" /> },
@@ -682,12 +693,36 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
                   value={deckPlacement} onChange={(v) => toggle('deckPlacement')(v)} />
               </div>
             </ModuleControlRow>
+
+            {/* Paginierung: statt Profilkopf/Deck/Session dauerhaft übereinander zu stapeln,
+                zeigt das Overlay nur EINEN Teil zur Zeit und wechselt automatisch durch — macht
+                die Karte kompakter (siehe WinTrackerOverlayPage.jsx). Eigene Zeile statt Teil
+                eines ModuleControlRow, weil sie sich auf ALLE Teile gemeinsam bezieht, nicht auf
+                einen einzelnen. */}
+            <div className="pt-5 mt-5 border-t border-white/10">
+              <ToggleButton label={t.paginateLabel} title={t.paginateDesc} className="w-full"
+                checked={!!settings.paginateOverlay} onLabel={t.onLabel} offLabel={t.offLabel}
+                onChange={(v) => toggle('paginateOverlay')(v)} />
+              {settings.paginateOverlay && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                    <span>{t.paginateIntervalLabel}</span>
+                    <span className="text-white font-bold tabular-nums">{settings.paginateIntervalS}s</span>
+                  </div>
+                  <input type="range" min="2" max="30" value={settings.paginateIntervalS}
+                    onChange={e => toggle('paginateIntervalS')(Number(e.target.value))}
+                    className="w-full accent-violet-500" />
+                </div>
+              )}
+            </div>
           </div>
-        </SectionCard>
+        </SettingsSection>
 
         {/* Ganz unten, im linken Hauptfluss statt in der (sonst zu vollen) rechten Seitenleiste
-            — Nutzer-Feedback: "you have to scroll super far down to see the button for on". */}
-        <SectionCard icon={MessageSquare} title={t.chatCmdTitle}
+            — Nutzer-Feedback: "you have to scroll super far down to see the button for on".
+            Standardmäßig zugeklappt: die Befehlsliste braucht man nur einmal, danach nimmt sie
+            nur Platz weg. */}
+        <SettingsSection icon={MessageSquare} title={t.chatCmdTitle} defaultOpen={false}
           description={`${t.chatCmdDescPre}${t.chatCmdDescMod}${t.chatCmdDescMid}`}>
           {/* Jeder Befehl als eigene Zeile mit Code-Badge statt einer reinen Aufzählung mit
               Gedankenstrich — auf einen Blick als "das ist tippbar" erkennbar (Nutzer-Feedback:
@@ -708,12 +743,13 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
             title={user?.login ? wt(t, 'chatActiveDesc', { channel: user.login }) : t.chatActiveDescEmpty}
             checked={settings.chatEnabled} onLabel={t.onLabel} offLabel={t.offLabel}
             onChange={(v) => toggle('chatEnabled')(v)} />
-        </SectionCard>
+        </SettingsSection>
       </div>
 
-      {/* Rechte Spalte: sticky, bleibt beim Scrollen durch die Karten links stehen. */}
-      <div className="xl:sticky xl:top-6 space-y-5 min-w-0">
-        <SectionCard title={t.livePreviewTitle}>
+      {/* Rechte Spalte: sticky, bleibt beim Scrollen durch die Abschnitte links stehen. Unter xl
+          (einspaltig) rutscht sie unter die linke Spalte und bekommt dafür eine Linie darüber. */}
+      <div className="xl:sticky xl:top-6 xl:self-start min-w-0 divide-y divide-white/10 border-t border-white/10 xl:border-t-0">
+        <SettingsSection title={t.livePreviewTitle}>
           <OverlayPreview
             settings={settings}
             overlayKey={overlayKey}
@@ -722,9 +758,9 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
             onToggleProfile={() => toggle('showProfile')(settings.showProfile === false)}
             refreshSignal={activeAccount ? `${activeAccount.accountId}:${activeAccount.trackMode}:${activeAccount.ladder?.step ?? ''}` : ''}
           />
-        </SectionCard>
+        </SettingsSection>
 
-        <SectionCard icon={Link2} title={t.obsOverlayTitle} description={t.obsOverlayHint}>
+        <SettingsSection icon={Link2} title={t.obsOverlayTitle} description={t.obsOverlayHint}>
           <div className={`bg-black/30 border border-white/10 rounded-lg px-3.5 py-3 text-gray-300 text-xs font-mono break-all transition-all ${hidden ? 'blur-sm select-none pointer-events-none' : ''}`}>
             {link || t.linkLoading}
           </div>
@@ -747,16 +783,19 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
             <RefreshCw size={12} />
             {t.regenLink}
           </button>
-        </SectionCard>
+        </SettingsSection>
 
         {/* Kleiner Statuschip statt einer großen, farbig hinterlegten Box — die Information ist
             wichtig, aber selten die aktive Aufgabe auf dieser Seite; der volle Text steht noch
-            als Tooltip bereit. */}
-        <div className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border ${
-          apiConfigured ? 'text-green-400 border-green-500/20 bg-green-500/5' : 'text-amber-400 border-amber-500/20 bg-amber-500/5'
-        }`} title={apiConfigured ? t.apiConnectedDesc : t.apiNotConfiguredDesc}>
-          <span className={`w-1.5 h-1.5 rounded-full ${apiConfigured ? 'bg-green-400' : 'bg-amber-400'}`} />
-          {apiConfigured ? t.apiConnectedShort : t.apiNotConfiguredShort}
+            als Tooltip bereit. Als letzte Zeile der rechten Spalte, mit demselben Innenabstand wie
+            die Abschnitte darüber. */}
+        <div className="px-5 py-4">
+          <div className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border ${
+            apiConfigured ? 'text-green-400 border-green-500/20 bg-green-500/5' : 'text-amber-400 border-amber-500/20 bg-amber-500/5'
+          }`} title={apiConfigured ? t.apiConnectedDesc : t.apiNotConfiguredDesc}>
+            <span className={`w-1.5 h-1.5 rounded-full ${apiConfigured ? 'bg-green-400' : 'bg-amber-400'}`} />
+            {apiConfigured ? t.apiConnectedShort : t.apiNotConfiguredShort}
+          </div>
         </div>
       </div>
     </div>
@@ -773,7 +812,8 @@ export default function WinTrackerPage() {
     showDailyProfit: true, showWinLossNumbers: true, showWinLossPercent: true, showLast5: true,
     bgColor: '#0c0c12', bgOpacity: 88, bgGradient: false, bgColor2: '#1a1a2e', borderColor: '',
     last5Style: 'result', last5Direction: 'newestLeft', last5NewBadge: true,
-    showDeck: true, showProfile: true, deckPlacement: 'top', showLadderBar: true, language: 'de', chatChannel: '', chatEnabled: false,
+    showDeck: true, showProfile: true, deckPlacement: 'top', language: 'de', chatChannel: '', chatEnabled: false,
+    paginateOverlay: false, paginateIntervalS: 6, showClan: false,
   });
   const [apiConfigured, setApiConfigured] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -821,19 +861,6 @@ export default function WinTrackerPage() {
     } catch (e) { flashError(e.message); }
   };
 
-  const handleTrackModeChange = async (acc, trackMode) => {
-    if (acc.trackMode === trackMode) return;
-    // Optimistisch umschalten, damit der angezeigte Wert sofort mitwechselt
-    setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, trackMode } : a));
-    try {
-      const res = await api.setAccountTrackMode(acc.accountId, trackMode);
-      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? res.account : a));
-    } catch (e) {
-      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, trackMode: acc.trackMode } : a));
-      flashError(e.message);
-    }
-  };
-
   const handleLadderStepChange = async (acc, step) => {
     const max = acc.ladder?.maxSteps || 0;
     if (!max || step === acc.ladder.step) return;
@@ -849,18 +876,6 @@ export default function WinTrackerPage() {
       setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? res.account : a));
     } catch (e) {
       if (staysInLeague) setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, ladder: acc.ladder } : a));
-      flashError(e.message);
-    }
-  };
-
-  const handleAutoSwitchChange = async (acc, enabled) => {
-    // Optimistisch umschalten, damit die SegmentedControl sofort (aus-/ein-)ausgegraut reagiert.
-    setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, autoSwitchMode: enabled } : a));
-    try {
-      const res = await api.setAccountAutoSwitch(acc.accountId, enabled);
-      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? res.account : a));
-    } catch (e) {
-      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, autoSwitchMode: acc.autoSwitchMode } : a));
       flashError(e.message);
     }
   };
@@ -990,8 +1005,6 @@ export default function WinTrackerPage() {
           {tab === 'settings' && (
             <SettingsTab t={t} overlayKey={overlayKey} settings={settings} onSettingsChange={setSettings} apiConfigured={apiConfigured}
               activeAccount={accounts?.find(a => a.isActive) || null}
-              onTrackModeChange={handleTrackModeChange}
-              onAutoSwitchChange={handleAutoSwitchChange}
               onResetSession={handleResetSession}
               flashError={flashError} />
           )}

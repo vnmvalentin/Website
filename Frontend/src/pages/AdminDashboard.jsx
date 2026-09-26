@@ -4,11 +4,12 @@ import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import {
   Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout, Ticket,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Plus, Infinity as InfinityIcon, Users, SlidersHorizontal, Globe, Lock,
+  Plus, Infinity as InfinityIcon, Users, SlidersHorizontal, Globe, Lock, Flag,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../components/SEO";
 import GardenAdminPanel from "./GardenGame/GardenAdminPanel";
+import ModerationPanel from "./SeedRunners/mod/ModerationPanel.jsx";
 
 // DEINE ID
 const STREAMER_ID = "160224748";
@@ -24,6 +25,7 @@ const SECTIONS = [
   { id: "winchallenge", label: "Win-Challenges", icon: Trophy },
   { id: "bingo", label: "Bingo", icon: Grid3x3 },
   { id: "clashroyale", label: "Clash Royale", icon: Crown },
+  { id: "seedrunners", label: "Seed Runners", icon: Flag },
   { id: "broadcast", label: "Broadcast", icon: Radio },
 ];
 
@@ -917,6 +919,11 @@ export default function AdminDashboard() {
           );
       }
 
+      // SEED RUNNERS TAB — Moderation (Meldungen, Sperren); holt sich ihre Daten selbst, wie GardenAdminPanel
+      if (activeTab === "seedrunners") {
+          return <ModerationPanel />;
+      }
+
       // CLASH ROYALE TAB
       if (activeTab === "clashroyale") {
           const modeLabel = {
@@ -1014,7 +1021,7 @@ export default function AdminDashboard() {
                       <activeSection.icon size={18} className="text-violet-300" /> {activeSection.label}
                   </h2>
 
-                  {!["codes", "broadcast"].includes(activeTab) && (
+                  {!["codes", "broadcast", "seedrunners"].includes(activeTab) && (
                       <div className="relative w-full sm:w-72">
                           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
                           <input

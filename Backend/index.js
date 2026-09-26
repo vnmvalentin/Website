@@ -31,8 +31,10 @@ const createGardenGameRouter = require("./garden/routes/gardenGameRoutes");
 const discordClient = require("./discord/bot/index");
 const createDiscordRouter = require("./discord/api/index");
 const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./clashRoyale/routes/clashRoyaleRoutes");
-const { registerArenaSocket, createArenaRouter } = require("./routes/adventureArenaRoutes");
 const { registerConnect4Socket } = require("./routes/connect4Routes");
+const { registerSeedRunnersSocket } = require("./routes/seedRunnersRoutes");
+const { createSeedRunnersRouter } = require("./seedRunners/routes");
+const { getRuntime: getSeedRunnersRuntime } = require("./seedRunners/runtime");
 // Blobby Volley läuft NICHT hier, sondern als eigener Prozess: blobbyServer.js. Seine
 // 75-Hz-Physik verträgt den Event-Loop dieses Prozesses nicht, in dem Discord-Bot,
 // Twitch-IRC und synchrone SQLite-Schreibvorgänge stecken. Begründung dort im Kopf.
@@ -158,7 +160,7 @@ function getTwitchIdFromSocket(socket) {
   return session.twitchId;
 }
 
-// Wie getTwitchIdFromSocket, liefert aber die volle Session (inkl. Login-Name) — für die Arena
+// Wie getTwitchIdFromSocket, liefert aber die volle Session (inkl. Login-Name)
 function getSessionFromSocket(socket) {
   const cookies = parseCookieHeader(socket.handshake.headers.cookie);
   const sessionId = cookies.session;
@@ -180,6 +182,17 @@ function requireAuth(req, res, next) {
   }
   req.twitchId = session.twitchId;
   req.twitchLogin = session.twitchLogin;
+  next();
+}
+
+// Wie requireAuth, lässt aber Gäste durch: Ist eine gültige Session da, sind twitchId/twitchLogin gesetzt, sonst bleiben sie leer.
+// Für Wege, die ohne Login funktionieren, aber mit Login mehr können (Seed Runners: Level-Browser, Läufe auf Leveln).
+function optionalAuth(req, res, next) {
+  const session = sessions[req.cookies.session];
+  if (session && session.expiresAt >= Date.now()) {
+    req.twitchId = session.twitchId;
+    req.twitchLogin = session.twitchLogin;
+  }
   next();
 }
 
@@ -283,7 +296,6 @@ app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }))
 app.use("/api/casino", createCasinoRouter({ requireAuth, io }));
 app.use("/api/", createCasinoRouter.createLegacyCardsAdminRouter());
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
-app.use("/api/adventure", createArenaRouter());
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
 app.use("/api/garden", createGardenGameRouter({ requireAuth }));
@@ -301,6 +313,17 @@ app.use("/api/used-by", createUsedByRouter());
 // Keine requireAuth-Abhängigkeit: die -dle-Tagesspiele sind ohne Login spielbar,
 // siehe Kommentarkopf in dle/routes/dleRoutes.js.
 app.use("/api/dle", createDleRouter());
+// Seed Runners: Tagesrangliste, ohne Login (Identität = Schlüssel aus dem Browser-Token), siehe seedRunners/daily.js
+try {
+  app.use("/api/seed-runners", createSeedRunnersRouter({
+    ...getSeedRunnersRuntime(),
+    requireAuth,
+    optionalAuth,
+    isAdmin: (req) => !!STREAMER_TWITCH_ID && String(req.twitchId) === String(STREAMER_TWITCH_ID),
+  }));
+} catch (e) {
+  console.error("[seed-runners] Tagesrangliste nicht verfügbar:", e);
+}
 
 // =================== SOCKET.IO LOGIC ===================
 io.on("connection", (socket) => {
@@ -321,14 +344,14 @@ io.on("connection", (socket) => {
     const clashSocketTwitchLogin = getSessionFromSocket(socket)?.twitchLogin || null;
     registerClashRoyaleSocket(socket, io, { isAdmin: isClashAdmin, twitchId: clashSocketTwitchId, twitchLogin: clashSocketTwitchLogin });
 
-    // adVentures PvPvE Arena
-    registerArenaSocket(socket, io, getSessionFromSocket);
-
     // Virtual Farm: dauerhafte 8-Plot-Welt (Slots, Anwesenheit, Positionen)
     registerGardenSocket(socket, io, getSessionFromSocket, farmStates);
 
     // Connect4 (Vier Gewinnt) — Link-basierte 1v1-Räume
     registerConnect4Socket(socket, io);
+
+    // Seed Runners — Räume und Rennen; die Physik läuft komplett im Browser (siehe seedRunnersRoutes.js)
+    registerSeedRunnersSocket(socket, io);
 
     // Abstimmungen/Giveaways: Vollpayload nur für die jeweilige Seite, sonst
     // nur der schlanke Nav-Punkt (siehe lib/liveBadges.js)
@@ -408,7 +431,11 @@ const PORT = process.env.PORT || 3001;
   // je gespeichert wurden, und die Tagesstatistik zählt zu wenig.
   try {
     const started = createCrWinTrackerRouter.startBackgroundSync();
-    step("Win-Tracker-Sync", started ? true : "warn", started ? "alle 5 min" : "kein Token konfiguriert");
+    // Aus SYNC_LOOP_INTERVAL_MS abgeleitet statt fest eingetippt — sonst genau das Problem, das
+    // schon einmal auftrat: der Wert wurde geändert (5 Minuten -> 90s), aber diese Logzeile hier
+    // sagte weiter "alle 5 min".
+    const intervalS = Math.round(createCrWinTrackerRouter.SYNC_LOOP_INTERVAL_MS / 1000);
+    step("Win-Tracker-Sync", started ? true : "warn", started ? `alle ${intervalS}s` : "kein Token konfiguriert");
   } catch (e) {
     step("Win-Tracker-Sync", false, e.message);
   }

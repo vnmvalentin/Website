@@ -6,7 +6,7 @@
 const { ALL_CARDS, getCardPool } = require('../core/cards');
 const { ALL_BINGO_ATTR_KEYS, getBingoCardAttrs } = require('../core/bingoAttributes');
 const { lobbies, shuffle } = require('../core/lobbies');
-const { clearTurnTimer } = require('../core/timers');
+const { clearTurnTimer, emitTimerTick } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
 const { emitClashError } = require('../core/errors');
@@ -165,6 +165,7 @@ function startBingoTurnTimer(lobby, io) {
   clearTurnTimer(lobby);
   const g = lobby.game;
   g.timerRemaining = lobby.timerSeconds;
+  emitTimerTick(lobby, io);
   g.timerInterval = setInterval(() => {
     g.timerRemaining--;
     io.to(lobby.code).emit('clash:timerTick', { remaining: g.timerRemaining });

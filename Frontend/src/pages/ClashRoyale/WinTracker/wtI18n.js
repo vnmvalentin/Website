@@ -61,8 +61,6 @@ export const WT_I18N = {
     resetSessionBtn: 'Session zurücksetzen',
     resetSessionTitle: 'Profit/Win-Loss/letzte 5 auf jetzt zurücksetzen, ohne auf die automatische 4h-Pause zu warten',
     confirmResetSession: 'Session-Statistik jetzt zurücksetzen? Bereits gespielte Matches zählen danach nicht mehr für Profit/Win-Loss/letzte 5.',
-    autoSwitchLabel: 'Automatisch umschalten',
-    autoSwitchDesc: 'Wechselt den getrackten Wert bei jedem Sync automatisch auf den zuletzt gespielten Modus (Ranked, Trophäen oder 2v2) — die Auswahl oben ist dann gesperrt, weil sie sonst vom nächsten Sync sofort überschrieben würde.',
 
     // ── LadderValue ────────────────────────────────────────────────────────
     stepsUnit: 'Stufen',
@@ -101,6 +99,9 @@ export const WT_I18N = {
     borderColorAutoTitle: 'Dezente helle Linie passend zur Deckkraft — keine eigene Farbe gesetzt',
     // ── Getrackter-Wert-Karte ────────────────────────────────────────────────
     sectionTrackedDesc: 'Welcher Wert im Kopf der Karte steht — jeder Modus hat seine eigene Session-Statistik und sein eigenes Deck.',
+    // Sichtbarer Kurzhinweis über der Auswahl: die Werte darunter sind nur eine Übersicht (fest
+    // disabled), der Modus folgt automatisch dem zuletzt gespielten Match.
+    trackedAutoHint: 'Das Overlay wechselt automatisch auf den Modus deines letzten Matches. Die Werte darunter zeigen nur, welche es gibt.',
     // ── Anzeige-Karte ────────────────────────────────────────────────────────
     sectionVisualsTitle: 'Anzeige',
     sectionVisualsDesc: 'Welche Teile die Karte zeigt, und wie sie dargestellt werden.',
@@ -113,8 +114,8 @@ export const WT_I18N = {
     apiConnectedShort: 'API verbunden',
     apiNotConfiguredShort: 'API nicht konfiguriert',
     displayGroupLabel: 'Anzeige',
-    stepBarPill: 'Stufenleiste',
-    stepBarTitle: 'Die gefüllten Balken unter der Stufenzahl (nur Liga 1-6) — ausblenden macht das Overlay etwas niedriger, die Zahl selbst bleibt',
+    showClanPill: 'Clan',
+    showClanTitle: 'Clan-Name + Abzeichen unter dem Spielernamen — funktioniert in jedem Modus (Ranked, Trophäen, 2v2)',
     dailyProfitPill: 'Daily Profit',
     dailyProfitTitle: 'Saldo der laufenden Session (+/-)',
     winLossNumbersPill: 'Win/Loss-Zahlen',
@@ -146,6 +147,9 @@ export const WT_I18N = {
     placementLeftTitle: 'Eigene Spalte links neben allem — genau so hoch wie der Rest',
     placementRight: 'Rechts',
     placementRightTitle: 'Eigene Spalte rechts neben allem — genau so hoch wie der Rest',
+    paginateLabel: 'Overlay paginieren',
+    paginateDesc: 'Statt Profilkopf/Deck/Session dauerhaft übereinander zu stapeln, zeigt das Overlay immer nur EINEN Teil und wechselt automatisch durch — macht die Karte kompakter. Jede Seite bekommt dieselbe feste Höhe (die der größten), die Fenstergröße ändert sich beim Wechseln also nie.',
+    paginateIntervalLabel: 'Anzeigedauer je Seite',
 
     obsOverlayTitle: 'OBS-Overlay',
     obsOverlayHint: 'Binde diesen Link als Browser-Quelle in OBS ein.',
@@ -234,8 +238,6 @@ export const WT_I18N = {
     resetSessionBtn: 'Reset session',
     resetSessionTitle: 'Reset profit/win-loss/last 5 to right now, without waiting for the automatic 4h gap',
     confirmResetSession: 'Reset session stats now? Already played matches will no longer count for profit/win-loss/last 5 afterwards.',
-    autoSwitchLabel: 'Auto-switch',
-    autoSwitchDesc: "Switches the tracked value automatically to whatever mode you last played (ranked, trophies or 2v2) on every sync — the selection above is locked while this is on, since a manual choice would just get overwritten by the next sync anyway.",
 
     // ── LadderValue ────────────────────────────────────────────────────────
     stepsUnit: 'Steps',
@@ -274,6 +276,7 @@ export const WT_I18N = {
     borderColorAutoTitle: 'Subtle light line that follows the opacity — no custom color set',
     // ── Tracked value card ───────────────────────────────────────────────────
     sectionTrackedDesc: 'Which value shows in the card header — every mode has its own session stats and its own deck.',
+    trackedAutoHint: 'The overlay automatically switches to the mode of your last match. The values below only show which ones exist.',
     // ── Visuals card ─────────────────────────────────────────────────────────
     sectionVisualsTitle: 'Visuals',
     sectionVisualsDesc: 'Which parts the card shows, and how they’re displayed.',
@@ -286,8 +289,8 @@ export const WT_I18N = {
     apiConnectedShort: 'API connected',
     apiNotConfiguredShort: 'API not configured',
     displayGroupLabel: 'Display',
-    stepBarPill: 'Step bar',
-    stepBarTitle: 'The filled bars under the step number (league 1-6 only) — hiding it makes the overlay a bit shorter, the number itself stays',
+    showClanPill: 'Clan',
+    showClanTitle: 'Clan name + badge under the player name — works in every mode (ranked, trophies, 2v2)',
     dailyProfitPill: 'Daily Profit',
     dailyProfitTitle: 'Balance of the current session (+/-)',
     winLossNumbersPill: 'Win/Loss numbers',
@@ -319,6 +322,9 @@ export const WT_I18N = {
     placementLeftTitle: "Its own column to the left of everything — exactly as tall as the rest",
     placementRight: 'Right',
     placementRightTitle: "Its own column to the right of everything — exactly as tall as the rest",
+    paginateLabel: 'Paginate overlay',
+    paginateDesc: "Instead of always stacking profile/deck/session on top of each other, the overlay shows only ONE part at a time and cycles through automatically — makes the card more compact. Every page gets the same fixed height (the tallest one), so the window size never changes while switching.",
+    paginateIntervalLabel: 'Time per page',
 
     obsOverlayTitle: 'OBS Overlay',
     obsOverlayHint: 'Add this link as a browser source in OBS.',

@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build && node prerender.js",
     "lint": "eslint .",
+    "test:seedrunners": "node --test \"src/pages/SeedRunners/**/*.test.js\"",
+    "seedrunners:solve": "node src/pages/SeedRunners/gen/tools/solveAll.js",
     "preview": "vite preview",
     "tailwind:init": "tailwindcss init -p"
   },

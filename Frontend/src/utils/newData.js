@@ -1,12 +1,35 @@
 export const NEWS_UPDATES = [
   {
+    date: "21.09.2026",
+    version: "v6.6: Neues Minispiel „Seed Runners“",
+    sections: [
+      {
+        title: "Neu: Seed Runners",
+        items: [
+          "Neues Minispiel unter Fun: ein schneller Platformer als Rennen für 1 bis 8 Spieler. Raum erstellen, Link teilen, Countdown — wer zuerst im Ziel ist, gewinnt",
+          "Alle Spieler laufen dieselbe Welt: Aus einem Seed entsteht das Level, und jeder erzeugt es in seinem Browser identisch. Gespielt wird komplett lokal, es gibt also keinen Lag; die Verbindung spielt nur beim gemeinsamen Start und für die Rangliste eine Rolle",
+          "Bewegung mit Wandsprung, Doppelsprung, Dash in acht Richtungen und Grapple an Ankerpunkten; springen, Dash und Grapple lassen sich mit Schwung kombinieren. Alle Tasten sind umbelegbar, ein Gamepad wird erkannt",
+          "Viele Hindernisse und Modifikatoren: Spikes, Sägen, Laser, fallende und bröckelnde Blöcke, bewegte Plattformen, Förderbänder, Eis, klebrige Wände, Sprungpads, Boost-Ringe, Dash-Kristalle, Wind, Gravitations-Umkehr, Portale, Schalter, Schlüssel und Türen",
+          "Die Level werden aus fast 70 handgebauten Abschnitten zusammengesetzt, mit ansteigender Schwierigkeit, fünf Biomen (Wiese, Eis, Fabrik, Höhle, Himmel) und wahlweise kurz, mittel oder lang. Jeder Abschnitt ist mit einem Suchlauf auf Lösbarkeit geprüft",
+          "Drei Tempo-Klassen — Normal, Schnell und Super schnell — machen die Lücken breiter; der Host wählt sie für die ganze Runde",
+          "Seed als Zufall, als Tages-Seed (alle bekommen heute dasselbe Level) oder selbst gewählt. Nach der Runde gibt es eine Ergebnis-Tabelle mit Zeit, Abstand zum Ersten, Toden und den besten Zwischenzeiten je Checkpoint, dazu „Nächste Runde“ und „Revanche“ mit gleichem Seed",
+          "Im Übungsbereich (/seed-runners/test) lässt sich die Bewegung allein ausprobieren und mit Reglern einstellen",
+          "Kombinierte Hindernisse: Windböen, breite fallende Blöcke, Sprungpads in alle Richtungen, Ringketten, Kopfüber-Korridore mit Spikes und Lasern, Portalfallen und mehr. Bröckelblöcke werden im Lauf des Levels schneller, und der Dash merkt sich einen kurz zu früh gedrückten Tastendruck",
+          "Tagesrennen (/seed-runners/daily): Jeden Tag ein festes Level für alle, allein gespielt, so oft du willst. Die beste Zeit kommt in die Tages-Rangliste — aber erst, wenn der Server deinen Lauf aus den aufgezeichneten Eingaben nachgespielt und dieselbe Zeit herausbekommen hat. Erfundene oder manipulierte Zeiten kommen nicht hinein",
+          "In Mehrspieler-Räumen wird der Lauf des Siegers ebenfalls nachgespielt (beim Tages-Level alle); ein grüner Haken zeigt eine bestätigte Zeit, eine nicht bestätigte zählt nicht und der Nächste rückt auf",
+          "Effekte und Ton: Partikel, Bildschütteln, Squash und Stretch, Nachbilder beim Dash, Parallax-Hintergründe je Biom und synthetisierte Klänge. Unter dem Spielfeld lassen sich Ton, Lautstärke, Bildschütteln und Partikel einzeln abschalten",
+        ]
+      },
+    ]
+  },
+  {
     date: "14.09.2026",
     version: "v6.5: Sechs neue Daily Games, Clash-Royale-Win-Tracker im 2v2-Modus & Virtual Farm mit neuer Oberfläche",
     sections: [
       {
         title: "Neu: Daily Games",
         items: [
-          "Neuer Spielhub unter /daily mit sechs täglichen Rate-Minispielen: Tempdle (Temperaturen), Velocidle (Geschwindigkeiten), Duratidle (Zeitspannen), Inventiondle (Erfindungsjahre), Pricedle (Einführungspreise von Technik-Produkten) und Balancdle (Gewichte). Ein siebtes, CR Color Match für Clash-Royale-Kartenfarben, ist in der Kachel-Übersicht schon sichtbar und folgt, sobald die Kalibrierung für alle Karten fertig ist",
+          "Neuer Spielhub unter /daily mit sechs täglichen Rate-Minispielen: Tempdle (Temperaturen), Velocidle (Geschwindigkeiten), Duratidle (Zeitspannen), Inventiondle (Erfindungsjahre), Pricedle (Einführungspreise von Technik-Produkten) und Balancdle (Gewichte)",
           "Jede Runde: den echten Wert über einen Regler schätzen, Punkte nach Nähe zum tatsächlichen Wert (bis 100 pro Runde), mehrere Runden pro Spiel und Tag",
           "Für jedes Spiel einzeln als Favorit markierbar, die Kachel zeigt direkt, ob heute schon gespielt wurde und mit welchem Ergebnis",
           "Rundenverlauf einsehbar, Ergebnis teilbar — kein Account nötig, für alle nutzbar",

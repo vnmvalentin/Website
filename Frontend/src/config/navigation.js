@@ -21,6 +21,7 @@ import {
   MessageSquare,
   MessagesSquare,
   Disc,
+  Flag,
   Volleyball,
   Puzzle,
 } from "lucide-react";
@@ -62,6 +63,12 @@ export const NAV_CATEGORIES = [
         to: "/blobby",
         icon: Volleyball,
         description: "Strandvolleyball im Browser — 1v1 oder 2v2, mit Powerups. Link teilen und spielen.",
+      },
+      {
+        label: "Seed Runners",
+        to: "/seed-runners",
+        icon: Flag,
+        description: "Speedrun-Rennen im Browser: alle laufen dasselbe Zufallslevel, wer zuerst im Ziel ist, gewinnt.",
       },
       {
         label: "Daily Games",

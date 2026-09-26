@@ -73,14 +73,6 @@ async function main() {
     console.log("geschrieben:", t);
   }
 
-  // Zusätzlich als globale JS-Variable für admin-lasso.html (dle/tools/) — die Seite läuft per
-  // Doppelklick über file:// (siehe eigener Kommentar dort), fetch()/import auf eine JSON-Datei
-  // würde dort an CORS scheitern. Ein simples <script src>-Include auf eine Nachbardatei
-  // funktioniert dagegen auch über file://.
-  const adminLassoTarget = path.join(__dirname, "..", "..", "dle", "tools", "adminLassoCardIconUrls.js");
-  fs.writeFileSync(adminLassoTarget, `// Automatisch erzeugt von cardIconSpiegel.js — nicht von Hand bearbeiten.\nwindow.CR_CARD_ICON_URLS = ${json};\n`, "utf8");
-  console.log("geschrieben:", adminLassoTarget);
-
   const withEvo = Object.values(mapping).filter((e) => e.ev1).length;
   const withHero = Object.values(mapping).filter((e) => e.hero).length;
   console.log(`${ALL_CARDS.length} Karten gespiegelt (${withEvo} mit Evolution, ${withHero} mit Hero-Form).`);

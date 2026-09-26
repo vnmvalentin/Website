@@ -358,6 +358,22 @@ function verplausibilisierePflanzen(eingehend, bestehend, unlockedCount, now = D
                 fruitSlots: mischeFruchtstaende(vorher.fruitSlots, roh.fruitSlots, vorher.fruitCycleMs),
             };
         } else {
+            // Zuvor geerntete instanceId? Dann NICHT als frische Pflanzung werten.
+            //
+            // GEFUNDEN 14.09. ("gieße, dann kann ich ganz oft einsammeln, Saat kommt
+            // wieder, bekomme random Frucht"): ein PUT, der eine LÄNGST geerntete
+            // Pflanze erneut an ihrem alten Schlüssel einreicht (Browser-Wettlauf:
+            // Schnellzug + nachlaufender Einzelklick treffen dieselbe Zelle, siehe
+            // handleHarvest in GameContainer.jsx — dort jetzt eigenständig behoben),
+            // fand hier keinen Treffer mehr (die Zelle ist ja leer) und landete
+            // ungeprüft im „neu gesetzt"-Zweig darunter — kostenloser Nachschub ohne
+            // bezahlten Samen, beliebig oft wiederholbar. Zweite Absicherung, unabhängig
+            // vom Browser-Fix: merkeGeerntet() in core/economy.js trägt jede geerntete
+            // instanceId hier ein, diese Zelle bleibt dann schlicht leer.
+            const geerntet = bestehend?._kuerzlichGeerntet;
+            if (roh.instanceId && geerntet && typeof geerntet === "object" && geerntet[roh.instanceId] != null) {
+                continue;
+            }
             // Neu gesetzt: Zeiten hier würfeln, ab jetzt laufend.
             const single = profil.singleUse !== false;
             const gemeinsam = {
@@ -826,8 +842,6 @@ function generateGlobalShopRotation() {
         if (n < grenze) { pityZaehler.set(seed.seedId, n); continue; }
         activeSet.add(seed.seedId);
         pityZaehler.set(seed.seedId, 0);
-        console.log(`[Garden] Shop-Nachzug: ${seed.name} nach ${grenze} Rotationen erzwungen `
-            + `(Chance ${(seed.shopChance * 100).toFixed(3)} %).`);
     }
 
     if (activeSet.size === 0 && SHOP_POOL.length > 0) {
@@ -1220,12 +1234,28 @@ module.exports = function ({ requireAuth }) {
                 // Manchmal gibt Twitch auch einen neuen Refresh Token zurück, den übernehmen wir dann!
                 if (d.refresh_token) broadcasterRefreshToken = d.refresh_token;
 
-                // Speichern für den nächsten Server-Neustart
-                fs.writeFileSync(TWITCH_TOKEN_FILE, JSON.stringify({
-                    access_token: broadcasterAccessToken,
-                    refresh_token: broadcasterRefreshToken
-                }));
-                
+                // Speichern für den nächsten Server-Neustart. EIGENES try/catch: der neue
+                // Token oben im Speicher ist gültig und muss auch dann zurückgegeben
+                // werden, wenn NUR das Wegschreiben scheitert — sonst wirft ein reiner
+                // Festplatten-/Verzeichnisfehler den frisch geholten Token weg, und
+                // ensureSubStatus() (Aufrufer) haelt den Refresh faelschlich fuer
+                // gescheitert (Sub-Bonus faellt dann bis zum naechsten 401 weg).
+                // GEFUNDEN 14.09. (Prod-Log): "/var/www/admin-api/garden/data/" gab es
+                // auf dem Server nicht — writeFileSync legt Verzeichnisse nicht selbst
+                // an und warf ENOENT, wodurch der äußere catch unten den ganzen
+                // Refresh als fehlgeschlagen behandelt hat, OBWOHL Twitch längst einen
+                // gültigen neuen Token geliefert hatte.
+                try {
+                    fs.mkdirSync(path.dirname(TWITCH_TOKEN_FILE), { recursive: true });
+                    fs.writeFileSync(TWITCH_TOKEN_FILE, JSON.stringify({
+                        access_token: broadcasterAccessToken,
+                        refresh_token: broadcasterRefreshToken
+                    }));
+                } catch (schreibFehler) {
+                    console.error("[Twitch] ⚠️ Token erneuert, aber nicht auf Platte gespeichert "
+                        + "(überlebt keinen Neustart):", schreibFehler);
+                }
+
                 console.log("[Twitch] ✅ Broadcaster Token erfolgreich vollautomatisch erneuert!");
                 return broadcasterAccessToken;
             } else {
@@ -1579,6 +1609,11 @@ module.exports = function ({ requireAuth }) {
         // kennt, darf sie nicht wieder abräumen.
         if (existing[ACKERRASTER_MARKE]) compact[ACKERRASTER_MARKE] = true;
         if (existing.serverAenderungAb) compact.serverAenderungAb = existing.serverAenderungAb;
+        // Tombstones frisch geernteter instanceIds (siehe merkeGeerntet in
+        // core/economy.js) — ohne diese Zeile würfe jeder PUT sie weg, weil
+        // compactFarmState() sie nicht kennt, und die Sperre in
+        // verplausibilisierePflanzen oben griffe nur bis zum nächsten Speichern.
+        if (isPlainObject(existing._kuerzlichGeerntet)) compact._kuerzlichGeerntet = existing._kuerzlichGeerntet;
         setFarmState(farmStates, userId, compact);
         scheduleFarmsSave(farmStates);
         // Andere in der Welt sehen den geänderten Acker

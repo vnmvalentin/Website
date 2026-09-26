@@ -61,6 +61,17 @@ const Connect4Page = lazy(() => import("./pages/Connect4/Connect4Page"));
 const Connect4Room = lazy(() => import("./pages/Connect4/Connect4Room"));
 const BlobbyPage = lazy(() => import("./pages/Blobby/BlobbyPage"));
 const BlobbyRoom = lazy(() => import("./pages/Blobby/BlobbyRoom"));
+const SeedRunnersPage = lazy(() => import("./pages/SeedRunners/SeedRunnersPage"));
+const SeedRunnersRoom = lazy(() => import("./pages/SeedRunners/SeedRunnersRoom"));
+const SeedRunnersTestPage = lazy(() => import("./pages/SeedRunners/SeedRunnersTestPage"));
+const SeedRunnersWorldLab = lazy(() => import("./pages/SeedRunners/SeedRunnersWorldLab"));
+const SeedRunnersDaily = lazy(() => import("./pages/SeedRunners/SeedRunnersDaily"));
+const SeedRunnersSandbox = lazy(() => import("./pages/SeedRunners/SeedRunnersSandbox"));
+const SeedRunnersEditor = lazy(() => import("./pages/SeedRunners/SeedRunnersEditor"));
+const SeedRunnersLevels = lazy(() => import("./pages/SeedRunners/SeedRunnersLevels"));
+const SeedRunnersLevel = lazy(() => import("./pages/SeedRunners/SeedRunnersLevel"));
+const SeedRunnersCreator = lazy(() => import("./pages/SeedRunners/SeedRunnersCreator"));
+const SeedRunnersShell = lazy(() => import("./pages/SeedRunners/ui/GameShell"));
 const DleHubPage = lazy(() => import("./pages/Dle/DleHubPage"));
 const TempdlePage = lazy(() => import("./pages/Dle/Tempdle/TempdlePage"));
 const VelocidlePage = lazy(() => import("./pages/Dle/Velocidle/VelocidlePage"));
@@ -69,7 +80,6 @@ const DuratidlePage = lazy(() => import("./pages/Dle/Duratidle/DuratidlePage"));
 const InventiondlePage = lazy(() => import("./pages/Dle/Inventiondle/InventiondlePage"));
 const PricedlePage = lazy(() => import("./pages/Dle/Pricedle/PricedlePage"));
 const BalancdlePage = lazy(() => import("./pages/Dle/Balancdle/BalancdlePage"));
-const CrColorMatchPage = lazy(() => import("./pages/Dle/CrColorMatch/CrColorMatchPage"));
 
 // Der Marker data-page-fallback ist die Schnittstelle zu prerender.js — nicht umbenennen.
 function PageFallback() {
@@ -138,6 +148,23 @@ export default function App() {
           <Route path="/clash-royale/win-tracker/overlay/:overlayKey" element={<WinTrackerOverlayPage />} />
           <Route path="/twitch-tools/overlay/:overlayKey" element={<PollsPredictionsOverlay />} />
 
+          {/* Seed Runners als eigenes Spiel: eigene Hülle statt Website-Layout (ui/GameShell.jsx) */}
+          <Route path="/seed-runners" element={<SeedRunnersShell />}>
+            <Route index element={<SeedRunnersPage/>} />
+            <Route path="daily" element={<SeedRunnersDaily/>} />
+            {/* Sandbox: Entwürfe verwalten und der Level-Editor */}
+            <Route path="sandbox" element={<SeedRunnersSandbox/>} />
+            <Route path="editor" element={<Navigate to="/seed-runners/sandbox" replace />} />
+            <Route path="editor/:draftId" element={<SeedRunnersEditor/>} />
+            {/* Veröffentlichte Level: Browser, Ersteller-Profil, Detailseite (Share-Code in der Adresse) */}
+            <Route path="levels" element={<SeedRunnersLevels/>} />
+            <Route path="levels/creator/:id" element={<SeedRunnersCreator/>} />
+            <Route path="levels/:code" element={<SeedRunnersLevel/>} />
+            {/* Nach dem Beitreten steht der Code nicht mehr in der Adresse (Streamer-Schutz, room/raumCode.js) */}
+            <Route path="raum" element={<SeedRunnersRoom/>} />
+            <Route path=":code" element={<SeedRunnersRoom/>} />
+          </Route>
+
           {/* Alle “normalen” Seiten unter Layout */}
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
@@ -168,6 +195,10 @@ export default function App() {
             <Route path="connect4/:code" element={<Connect4Room/>} />
             <Route path="blobby" element={<BlobbyPage/>} />
             <Route path="blobby/:code" element={<BlobbyRoom/>} />
+            {/* Seed Runners: Übungsbereich und Welten-Werkbank sind Entwickler-Werkzeuge und bleiben im Website-Look; der Rest
+                des Spiels hat eine eigene Hülle (unten). Feste Routen gewinnen gegen ":code". */}
+            <Route path="seed-runners/test" element={<SeedRunnersTestPage/>} />
+            <Route path="seed-runners/welten" element={<SeedRunnersWorldLab/>} />
             <Route path="garden" element={<GameContainer />} />
             <Route path="daily" element={<DleHubPage/>} />
             <Route path="daily/tempdle" element={<TempdlePage/>} />
@@ -177,7 +208,6 @@ export default function App() {
             <Route path="daily/inventiondle" element={<InventiondlePage/>} />
             <Route path="daily/pricedle" element={<PricedlePage/>} />
             <Route path="daily/balancdle" element={<BalancdlePage/>} />
-            <Route path="daily/cr-color-match" element={<CrColorMatchPage/>} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="tutorial/ytm-bot" element={<YTMBotPage />} />
             <Route path="tutorial/ytm-songrequest" element={<Navigate to="/tutorial/ytm-bot" replace />} />

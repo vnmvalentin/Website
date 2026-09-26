@@ -2,10 +2,9 @@
 import React, { useEffect, useRef, useState, useContext } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import GameEngine from "./AdventureEngine";
-import ArenaMode from "./ArenaMode";
 import CoinIcon from "../../components/CoinIcon";
 import SEO from "../../components/SEO";
-import { Swords, Play, Trophy, Palette, Zap, BookOpen, MessageSquare, ScrollText, X, Send, CheckCircle2, Sword, Shield, Magnet, Heart, Gauge, Clover, Layers, Droplets, ChevronsRight, Skull, Save, Coins, Store, Flag, Globe } from "lucide-react";
+import { Swords, Play, Trophy, Palette, Zap, BookOpen, MessageSquare, ScrollText, X, Send, CheckCircle2, Sword, Shield, Magnet, Heart, Gauge, Clover, Layers, Droplets, ChevronsRight, Skull, Save, Coins, Store, Flag } from "lucide-react";
 
 function TwitchGlyph({ className }) {
   return (
@@ -711,14 +710,6 @@ export default function AdventureGame() {
             </div>
         )}
 
-        {/* PVPVE ARENA */}
-        {menuView === 'ARENA' && (
-            <ArenaMode
-                skinFile={userData?.skinDefs?.[userData?.activeSkin]?.file || "skins/player.png"}
-                onExit={() => setMenuView('MAIN')}
-            />
-        )}
-
         {/* HAUPTMENÜ */}
         {menuView === 'MAIN' && (
             <div className="page-fade absolute inset-0 flex flex-col items-center justify-center z-20 p-6 md:p-10 overflow-y-auto custom-scrollbar">
@@ -779,15 +770,6 @@ export default function AdventureGame() {
                         >
                             <Play size={20} fill="currentColor" />
                             {activeRunData ? "Spiel fortsetzen" : "Neues Abenteuer starten"}
-                        </button>
-
-                        <button
-                            onClick={() => setMenuView('ARENA')}
-                            className="w-full panel hover:border-violet-400/40 hover:bg-white/[0.05] text-white font-bold py-4 rounded-2xl text-base md:text-lg transition-colors flex items-center justify-center gap-3"
-                        >
-                            <Globe size={19} className="text-violet-300" />
-                            PvPvE Arena
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 bg-amber-500/10 border border-amber-400/20 px-2 py-0.5 rounded-md">Beta</span>
                         </button>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

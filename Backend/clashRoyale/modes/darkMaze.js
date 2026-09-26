@@ -8,7 +8,7 @@
 const { getCardPool } = require('../core/cards');
 const { lobbies, shuffle } = require('../core/lobbies');
 const { clearTurnTimer } = require('../core/timers');
-const { notifyDraftComplete, updateDeckFeeds } = require('../core/streamerFeed');
+const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
 const { emitClashError } = require('../core/errors');
 const MAZE_DECK_SIZE         = 8;
@@ -471,7 +471,6 @@ registerMode({
         return emitClashError(socket, 'championLimit');
       g.items = g.items.filter(it2 => it2.id !== item.id);
       player.deck = [...(player.deck || []), item.card];
-      updateDeckFeeds(lobby, io);
       io.to(code).emit('clash:maze:state', buildMazeState(lobby));
       checkMazeEnd(lobby, io);
     },
@@ -491,7 +490,6 @@ registerMode({
       delete g.drafts[socket.id];
       if ((player.deck || []).length < MAZE_DECK_SIZE) {
         player.deck = [...(player.deck || []), card];
-        updateDeckFeeds(lobby, io);
       }
       io.to(code).emit('clash:maze:state', buildMazeState(lobby));
       checkMazeEnd(lobby, io);
@@ -524,7 +522,6 @@ registerMode({
       delete g.drafts[socket.id];
       if ((player.deck || []).length < MAZE_DECK_SIZE) {
         player.deck = [...(player.deck || []), { id: card.id, name: card.name, rarity: card.rarity, isChampion: card.isChampion }];
-        updateDeckFeeds(lobby, io);
       }
       io.to(code).emit('clash:maze:state', buildMazeState(lobby));
       checkMazeEnd(lobby, io);

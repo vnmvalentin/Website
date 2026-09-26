@@ -7,6 +7,9 @@
     "start": "node index.js",
     "blobby": "node blobbyServer.js",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:seedrunners": "node --test \"seedRunners/**/*.test.js\"",
+    "seedrunners:spiegel": "node seedRunners/tools/simSpiegel.js",
+    "seedrunners:spiegel:pruefen": "node seedRunners/tools/simSpiegel.js --pruefen",
     "garden:spiegel": "node garden/tools/katalogSpiegel.js",
     "garden:spiegel:pruefen": "node garden/tools/katalogSpiegel.js --pruefen",
     "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js"
@@ -29,5 +32,8 @@
     "socket.io": "^4.8.3",
     "tmi.js": "^1.8.5",
     "uuid": "^14.0.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.10.0": true
   }
 }

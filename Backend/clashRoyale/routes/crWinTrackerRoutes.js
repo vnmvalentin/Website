@@ -75,17 +75,17 @@ const getActiveAccountByUser = db.prepare("SELECT * FROM cr_wintracker_accounts 
 // Nutzer hinweg — nur die aktiven, weil nur die tatsächlich ein Overlay speisen.
 const getAllActiveAccounts = db.prepare("SELECT * FROM cr_wintracker_accounts WHERE is_active = 1");
 const insertAccount = db.prepare(`INSERT INTO cr_wintracker_accounts
-  (account_id, user_id, twitch_login, player_tag, player_name, trophies, best_trophies, season_medals, league_number, pol_rank, is_active, last_fetched, created_at, track_mode)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  (account_id, user_id, twitch_login, player_tag, player_name, trophies, best_trophies, season_medals, league_number, pol_rank, is_active, last_fetched, created_at, track_mode, clan_name, clan_badge_id)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 const updateAccountTrackMode = db.prepare("UPDATE cr_wintracker_accounts SET track_mode = ? WHERE account_id = ?");
-const updateAutoSwitchStmt = db.prepare("UPDATE cr_wintracker_accounts SET auto_switch_mode = ? WHERE account_id = ?");
 const deleteAccountStmt = db.prepare("DELETE FROM cr_wintracker_accounts WHERE account_id = ?");
 const deleteBattlesForAccount = db.prepare("DELETE FROM cr_wintracker_battles WHERE account_id = ?");
 const updatePlayerData = db.prepare(`UPDATE cr_wintracker_accounts
-  SET player_name = ?, trophies = ?, best_trophies = ?, season_medals = ?, league_number = ?, pol_rank = ?, last_fetched = ?
+  SET player_name = ?, trophies = ?, best_trophies = ?, season_medals = ?, league_number = ?, pol_rank = ?, clan_name = ?, clan_badge_id = ?, last_fetched = ?
   WHERE account_id = ?`);
 // 2v2 Ranked: eigene Spalten, unabhängig vom 1v1-Block oben (siehe Migration in winTrackerStore.js).
 const updateLeague2v2Stmt = db.prepare("UPDATE cr_wintracker_accounts SET league2v2_trophies = ?, league2v2_best_trophies = ? WHERE account_id = ?");
+const setLeague2v2TrophiesAtStmt = db.prepare("UPDATE cr_wintracker_accounts SET league2v2_trophies_at = ? WHERE account_id = ?");
 const deactivateAll = db.prepare("UPDATE cr_wintracker_accounts SET is_active = 0 WHERE user_id = ?");
 const activateOne = db.prepare("UPDATE cr_wintracker_accounts SET is_active = 1 WHERE account_id = ?");
 const setSessionResetStmt = db.prepare("UPDATE cr_wintracker_accounts SET session_reset_at = ? WHERE account_id = ?");
@@ -149,9 +149,15 @@ const upsertDiscoveredModeStmt = db.prepare(`
   VALUES (?, ?, ?, ?, ?, 1)
   ON CONFLICT(prefix) DO UPDATE SET last_seen_at = excluded.last_seen_at, arena_name = excluded.arena_name, sample_count = sample_count + 1
 `);
-// Bereits bekannte/bewusst uninteressante Modi — "2v2league" ist schon als eigener trackMode
-// gebaut, "seasonal-trophy-road" dupliziert nur den ohnehin schon getrackten trophies-Wert.
-const KNOWN_SEASONAL_PREFIXES = new Set(["2v2league", "seasonal-trophy-road"]);
+// Saisonale Ranked-Modi, die als eigener trackMode gebaut sind: normalisierter progress-Präfix
+// (siehe normalizeSeasonalPrefix) -> trackMode. Solche Modi gibt es nur, solange Supercell den
+// progress-Eintrag liefert — fehlt er, verschwindet der Modus aus der Übersicht (siehe
+// availableTrackModes). Live geprüft am 25.09.2026: nach dem Ende von 2v2 Ranked fehlt
+// "2v2League_<season>" komplett in progress. Ein künftiger neuer Modus braucht hier nur eine Zeile.
+const SEASONAL_TRACK_MODES = { "2v2league": "2v2" };
+// Bereits bekannte/bewusst uninteressante Modi — die gebauten aus SEASONAL_TRACK_MODES, dazu
+// "seasonal-trophy-road", das nur den ohnehin schon getrackten trophies-Wert dupliziert.
+const KNOWN_SEASONAL_PREFIXES = new Set([...Object.keys(SEASONAL_TRACK_MODES), "seasonal-trophy-road"]);
 // NUR die abschließende Saison-/Datums-Ziffernfolge vom Schlüsselende entfernen
 // ("2v2League_202609" -> "2v2league", "seasonal-trophy-road-202609" -> "seasonal-trophy-road")
 // — bewusst NICHT jede Ziffer im String (ein früherer Versuch tat das und zerstörte dabei
@@ -172,6 +178,25 @@ function recordDiscoveredModes(seasonalProgress) {
   }
 }
 
+const setSeasonalPrefixesStmt = db.prepare("UPDATE cr_wintracker_accounts SET seasonal_prefixes = ? WHERE account_id = ?");
+// Nur nach einem ERFOLGREICHEN Profil-Abruf aufrufen — ein API-Fehler darf einen laufenden Modus
+// nicht als "vorbei" markieren.
+function recordSeasonalPrefixes(accountId, seasonalProgress) {
+  const prefixes = [...new Set((seasonalProgress || []).map((p) => normalizeSeasonalPrefix(p.key)).filter(Boolean))];
+  setSeasonalPrefixesStmt.run(JSON.stringify(prefixes), accountId);
+}
+
+// Welche trackModes für diesen Account gerade existieren: medals/trophies immer, saisonale
+// Modi (SEASONAL_TRACK_MODES) nur, solange ihr progress-Eintrag beim letzten Abruf da war.
+function availableTrackModes(row) {
+  let prefixes = null;
+  try { prefixes = JSON.parse(row?.seasonal_prefixes || "null"); } catch { prefixes = null; }
+  const seasonal = Object.entries(SEASONAL_TRACK_MODES)
+    .filter(([prefix]) => !Array.isArray(prefixes) || prefixes.includes(prefix))
+    .map(([, mode]) => mode);
+  return ["medals", "trophies", ...seasonal];
+}
+
 // 2v2-Ranked-Matches liefern in der API kein trophyChange (das Feld fehlt schlicht) — anders als
 // bei Ranked1v1 zählen hier stattdessen aufeinanderfolgende startingTrophies-Werte ein echtes,
 // variables Elo-artiges Auf/Ab (empirisch bestätigt: ~+10 bis +30 bei Sieg, ~-25 bis -50 bei
@@ -179,14 +204,27 @@ function recordDiscoveredModes(seasonalProgress) {
 // newest-first von fetchBattlelog): der aktuelle Kontostand (frisch vom Spielerprofil) ist der
 // "Nach-Wert" des neuesten Matches, jedes ältere Match erbt als "Nach-Wert" den startingTrophies-
 // Wert seines direkten Nachfolgers.
+//
+// startingTrophies fehlt aber nicht nur bei der bekannten Profil-Race (siehe UPSERT-Kommentar
+// oben) — die API liefert es strukturell NUR für team[0] eines 2v2-Matches, nie für team[1]
+// (empirisch an zwei echten, gerade verbündeten Accounts bestätigt: dieselbe Begegnung liefert
+// bei BEIDEN Spielern team[1] ohne startingTrophies, unabhängig davon wer abfragt — es gibt also
+// keinen alternativen Query-Winkel, der den Wert doch noch liefert). Landet der getrackte Spieler
+// bei einem Match auf team[1], ist sein Kontostand VOR diesem Match für uns permanent unbekannbar
+// — und damit auch der "Nach-Wert" (= Kontostand VOR dem direkten Vorgänger-Match) kaputt. Ohne
+// afterValid würde der Code hier stur mit dem alten (zu weit in der Zukunft liegenden) `after`
+// weiterrechnen und für das Vorgänger-Match einen erfundenen, falschen Sprung ausgeben statt
+// ehrlich 0 zu zeigen. Sobald ein Match wieder ein echtes startingTrophies liefert, ist das ein
+// frischer, gültiger Anker — die Kette erholt sich ab dort korrekt von selbst.
 function applyLeague2v2Deltas(battles, currentTrophies) {
   let after = currentTrophies || 0;
+  let afterValid = true;
   for (const b of battles) {
     if (b.gameMode !== "TeamVsTeam" || !isLeague2v2Arena(b.arenaRawName)) continue;
     const start = typeof b.startingTrophies === "number" ? b.startingTrophies : null;
-    if (start === null) { b.trophyChange = 0; continue; }
-    b.trophyChange = after - start;
-    after = start;
+    b.trophyChange = afterValid && start !== null ? after - start : 0;
+    afterValid = start !== null;
+    if (start !== null) after = start;
   }
 }
 // Ein einzelnes echtes Ranked-Match bewegt nie annähernd so viele Medaillen wie eine
@@ -297,8 +335,9 @@ const insertSettings = db.prepare(`INSERT INTO cr_wintracker_settings
 // die Spalte bleibt auf ihrem Tabellen-Default stehen (siehe resolveTrackMode/insertAccount).
 const updateSettingsStmt = db.prepare(`UPDATE cr_wintracker_settings
   SET show_daily_profit = ?, show_win_loss_numbers = ?, show_win_loss_percent = ?, show_last5 = ?, bg_color = ?, bg_opacity = ?, last5_style = ?,
-      show_deck = ?, show_profile = ?, deck_placement = ?, show_ladder_bar = ?, last5_direction = ?, last5_new_badge = ?, language = ?,
-      chat_channel = ?, chat_enabled = ?, bg_gradient = ?, bg_color_2 = ?, border_color = ?, updated_at = ? WHERE user_id = ?`);
+      show_deck = ?, show_profile = ?, deck_placement = ?, last5_direction = ?, last5_new_badge = ?, language = ?,
+      chat_channel = ?, chat_enabled = ?, bg_gradient = ?, bg_color_2 = ?, border_color = ?, paginate_overlay = ?, paginate_interval_s = ?,
+      show_clan = ?, updated_at = ? WHERE user_id = ?`);
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 function normalizeBgColor(raw) {
@@ -348,6 +387,12 @@ function normalizeLanguage(raw) {
 function normalizeChatChannel(raw) {
   return String(raw || "").trim().toLowerCase().replace(/^#/, "").slice(0, 30);
 }
+// 2-30s: schneller als 2s ist kaum noch lesbar, länger als 30s widerspricht dem Zweck (die Karte
+// SOLL ja gerade kompakt bleiben statt den ganzen Inhalt lang stehen zu lassen).
+function normalizePaginateIntervalS(raw) {
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.max(2, Math.min(30, Math.round(n))) : 6;
+}
 
 function getOrCreateSettings(userId) {
   let row = getSettingsByUser.get(userId);
@@ -375,6 +420,7 @@ const ladderBattlesStmt = db.prepare(`SELECT result, battle_time_ms FROM cr_wint
 const newestBattleMsStmt = db.prepare("SELECT COALESCE(MAX(battle_time_ms), 0) AS ms FROM cr_wintracker_battles WHERE account_id = ?");
 const setLadderAnchorStmt = db.prepare("UPDATE cr_wintracker_accounts SET ladder_step = ?, ladder_league = ?, ladder_anchor_ms = ?, ladder_bonus_start = ? WHERE account_id = ?");
 const setSessionClimbStmt = db.prepare("UPDATE cr_wintracker_accounts SET session_climb = ?, session_climb_anchor_ms = ? WHERE account_id = ?");
+const setLeague2v2SessionAnchorStmt = db.prepare("UPDATE cr_wintracker_accounts SET league2v2_session_anchor_trophies = ?, league2v2_session_anchor_ms = ? WHERE account_id = ?");
 
 // Anker auf das neueste bekannte Match legen: alles was danach gespielt wird, zählt weiter.
 // bonusStart ist der Season-Reset-Bonus, der ab hier verbraucht wird (siehe computeLadder) — 0
@@ -414,6 +460,31 @@ function updateSessionClimb(row) {
   if (newestMs !== (row.session_climb_anchor_ms || 0) || climb !== (row.session_climb || 0)) {
     setSessionClimbStmt.run(climb, newestMs, row.account_id);
   }
+}
+
+// 2v2-Tagesprofit als reiner Kontostand-Anker statt eines aus einzelnen Matches aufsummierten
+// Zählers — anders als bei Ranked1v1 oben (wo jedes Match zuverlässig sein eigenes +1/-1 liefert)
+// kann 2v2 pro Match KEIN verlässliches trophyChange herleiten (battlelog liefert
+// startingTrophies strukturell nur für team[0], siehe applyLeague2v2Deltas). Profit/letzte-5
+// hängen deshalb bewusst NICHT von einzelnen Matches ab: league2v2_session_anchor_trophies ist
+// der Kontostand VOR dem ersten Match der laufenden Session, Profit = aktueller Kontostand minus
+// dieser Anker. row.league2v2_trophies ist hier bewusst der VOR diesem Sync gültige, bereits
+// BESTÄTIGTE Kontostand (league2v2_trophies wird nie geschrieben, solange battlelog das
+// jeweilige Match noch nicht kennt, siehe battlelogStale in syncAccount) — genau der Wert, der
+// galt, BEVOR das erste Match der neuen Session gespielt wurde (angenommen, kontinuierliches
+// Syncen fängt jedes Match einzeln ein — reale Match-Abstände liegen bei 113-392s, komfortabel
+// über dem 90s-Sync-Intervall, siehe SYNC_LOOP_INTERVAL_MS).
+function updateLeague2v2SessionAnchor(row) {
+  const sessionStartMs = compute2v2SessionStartMs(row.account_id);
+  if ((row.league2v2_session_anchor_ms || 0) < sessionStartMs) {
+    setLeague2v2SessionAnchorStmt.run(row.league2v2_trophies || 0, sessionStartMs, row.account_id);
+  }
+}
+
+/** Reiner Lesezugriff, wie sessionClimbFor — null (Profit noch unbekannt) statt eines veralteten
+ *  Werts der vorigen Session, solange noch kein Sync für die aktuelle Session gelaufen ist. */
+function league2v2SessionAnchorFor(row, sessionStartMs) {
+  return (row.league2v2_session_anchor_ms || 0) < sessionStartMs ? null : (row.league2v2_session_anchor_trophies || 0);
 }
 
 // Reiner Lesezugriff für computeLadder — schreibt NICHT (das macht ausschließlich
@@ -655,8 +726,8 @@ function accountSummary(row) {
     isActive: !!row.is_active,
     lastFetched: row.last_fetched,
     trackMode: resolveTrackMode(row),
-    // Checkbox "Automatisch umschalten" — siehe autoSwitchTrackMode() weiter unten.
-    autoSwitchMode: !!row.auto_switch_mode,
+    // Modi, die es gerade gibt — beendete saisonale Ranked-Modi fehlen (siehe availableTrackModes).
+    availableModes: availableTrackModes(row),
     // In den Ligen 1-6 gibt es Stufen statt Medaillen — null ab Ultimate Champion
     ladder: computeLadder(row),
     // Deck des getrackten Modus (Ranked-, Trophy-Road- oder 2v2-Ranked-Deck) — null, solange noch
@@ -667,6 +738,9 @@ function accountSummary(row) {
     // extractLeague2v2Progress in crApi.js).
     league2v2Trophies: row.league2v2_trophies || 0,
     league2v2BestTrophies: row.league2v2_best_trophies || 0,
+    // Clan-Header-Zusatz (siehe show_clan in settings) — clanName leer heißt "kein Clan".
+    clanName: row.clan_name || "",
+    clanBadgeId: row.clan_badge_id ?? null,
   };
 }
 
@@ -683,24 +757,29 @@ function battleRowToPublic(row) {
 }
 
 /**
- * Autoswitch (Checkbox pro Account): schaltet track_mode automatisch auf den Modus des zuletzt
- * gespielten Matches um. Braucht dafür KEINE eigene "zuletzt gespielter Modus"-Spalte — die drei
- * Deck-Zeitstempel (ranked_deck_at/trophy_deck_at/league2v2_deck_at, siehe applyDeckUpdates) SIND
- * bereits genau das: Zeitstempel des neuesten bekannten Matches je Gruppe, monoton wachsend über
- * jeden Sync hinweg. Deren Maximum ist also "zuletzt gespielter Modus" — läuft idempotent bei
- * jedem Sync mit, kein Sonderfall für "gerade nichts Neues gespielt" nötig (dann bleibt das
- * Maximum unverändert, kein Schreibzugriff). Account frisch aus der DB übergeben (NACH
- * applyDeckUpdates), sonst würden die soeben aktualisierten Zeitstempel noch fehlen.
+ * Schaltet track_mode IMMER automatisch auf den Modus des zuletzt gespielten Matches um (kein
+ * Opt-in mehr — der Nutzer wählt nichts, das Overlay zeigt einfach, was zuletzt gespielt wurde).
+ * Braucht dafür KEINE eigene "zuletzt gespielter Modus"-Spalte — die drei Deck-Zeitstempel
+ * (ranked_deck_at/trophy_deck_at/league2v2_deck_at, siehe applyDeckUpdates) SIND bereits genau
+ * das: Zeitstempel des neuesten bekannten Matches je Gruppe, monoton wachsend über jeden Sync
+ * hinweg. Deren Maximum ist also "zuletzt gespielter Modus" — läuft idempotent bei jedem Sync mit,
+ * kein Sonderfall für "gerade nichts Neues gespielt" nötig (dann bleibt das Maximum unverändert,
+ * kein Schreibzugriff). Account frisch aus der DB übergeben (NACH applyDeckUpdates), sonst würden
+ * die soeben aktualisierten Zeitstempel noch fehlen.
  */
 function autoSwitchTrackMode(row) {
-  if (!row.auto_switch_mode) return;
   const at = { medals: row.ranked_deck_at || 0, trophies: row.trophy_deck_at || 0, "2v2": row.league2v2_deck_at || 0 };
+  // Beendete saisonale Modi (siehe availableTrackModes) scheiden aus — sonst bliebe ein Account nach
+  // dem Ende von 2v2 Ranked ewig auf "2v2" stehen, weil das zuletzt gespielte Match eines war.
+  const available = availableTrackModes(row);
   let newestMode = null, newestAt = 0;
-  for (const mode of ["medals", "trophies", "2v2"]) {
-    if (at[mode] > newestAt) { newestAt = at[mode]; newestMode = mode; }
+  for (const mode of available) {
+    if ((at[mode] || 0) > newestAt) { newestAt = at[mode]; newestMode = mode; }
   }
-  if (newestMode && newestMode !== resolveTrackMode(row)) {
-    updateAccountTrackMode.run(newestMode, row.account_id);
+  const current = resolveTrackMode(row);
+  const target = newestMode || (available.includes(current) ? current : "medals");
+  if (target !== current) {
+    updateAccountTrackMode.run(target, row.account_id);
   }
 }
 
@@ -712,16 +791,113 @@ async function syncAccount(row) {
     ? player.league2v2.trophies
     : row.league2v2_trophies || 0;
   applyLeague2v2Deltas(battles, currentLeague2v2Trophies);
+
+  // Direkter Profil-Diff statt battlelog-startingTrophies für neue 2v2-Matches seit dem letzten
+  // Sync, überall dort wo sich die fehlenden Randwerte auf DIESE Weise bestimmen lassen —
+  // battlelog liefert startingTrophies strukturell NUR für team[0] (siehe Kommentar an
+  // applyLeague2v2Deltas), landet der getrackte Spieler auf team[1], bleibt trophyChange dort
+  // sonst dauerhaft 0, obwohl wir den echten Wert oft trotzdem kennen.
+  //
+  // Mathematisch: newLeague2v2Battles ist neueste-zuerst, M Einträge lang. Zwischen/um sie herum
+  // gibt es M+1 "Randwerte" (bounds[0..M]) — der Kontostand an den jeweiligen Match-Grenzen:
+  //   bounds[0]     = aktueller Kontostand NACH dem neuesten Match (player.league2v2.trophies)
+  //   bounds[1..M]  = Kontostand VOR newLeague2v2Battles[k-1] — das IST exakt dessen eigenes
+  //                   startingTrophies, wenn battlelog es kennt (team[0]). Fehlt es UND es ist
+  //                   der ÄLTESTE Randwert (k===M, vor dem ältesten neuen Match), springt
+  //                   row.league2v2_trophies vom letzten Sync ein — derselbe Kontostand, den wir
+  //                   dort ohnehin schon kennen, unabhängig von battlelog.
+  // newLeague2v2Battles[i].trophyChange = bounds[i] - bounds[i+1], für i=0..M-1 — berechenbar
+  // GENAU dann, wenn BEIDE seiner eigenen Randwerte bekannt sind. Fehlt irgendwo ein Randwert
+  // (ein Match auf team[1], dessen startingTrophies NICHT der äußerste Rand ist), bleiben nur die
+  // zwei direkt angrenzenden Matches unberechenbar (ehrlich 0) — alle weiter entfernten, durch
+  // einen ANDEREN echten startingTrophies-Wert wieder verankerten Matches bleiben korrekt. Bei
+  // einem einzigen neuen Match (M=1) reduziert sich das exakt auf den alten Spezialfall (bounds[0]
+  // und bounds[1]=bounds[M], sonst nichts dazwischen).
+  // bounds[0] zählt nur, wenn sich player.league2v2.trophies gegenüber dem letzten Sync auch
+  // WIRKLICH verändert hat — sonst nicht von "hat /players das Match noch nicht eingeholt"
+  // unterscheidbar (dieselbe Unschärfe wie bei league2v2Stale weiter unten): sonst würde hier
+  // fälschlich eine 0 bestätigt statt ehrlich unbekannt zu bleiben.
+  const newLeague2v2Battles = (battles || []).filter(
+    (b) => gameModeGroup(b) === "2v2" && b.battleTimeMs > (row.league2v2_deck_at || 0)
+  );
+  if (newLeague2v2Battles.length >= 1 && player && !player.notFound && player.league2v2) {
+    const M = newLeague2v2Battles.length;
+    const profileMoved = player.league2v2.trophies !== (row.league2v2_trophies || 0);
+    const bounds = new Array(M + 1).fill(null);
+    bounds[0] = profileMoved ? player.league2v2.trophies : null;
+    for (let k = 1; k <= M; k++) {
+      const ownStart = newLeague2v2Battles[k - 1].startingTrophies;
+      if (typeof ownStart === "number") bounds[k] = ownStart;
+      else if (k === M) bounds[k] = row.league2v2_trophies || 0;
+    }
+    for (let i = 0; i < M; i++) {
+      if (typeof bounds[i] === "number" && typeof bounds[i + 1] === "number") {
+        newLeague2v2Battles[i].trophyChange = bounds[i] - bounds[i + 1];
+      }
+    }
+  }
+
   // Erst die Matches wegschreiben: der Anker unten soll das Aufstiegsspiel schon kennen.
   if (battles.length) insertBattles(row.account_id, battles);
   // Deck pro Modus aus denselben frisch geholten Battles ableiten (die DB-Zeilen tragen die
   // Karten nicht mit) — unabhängig davon, ob der Spieler-Request unten klappt.
   applyDeckUpdates(row.account_id, row, battles);
+
+  // 2v2 STALE erkannt: ein neues 2v2-Match kam gerade rein (battleTimeMs > der bisher bekannte
+  // league2v2_deck_at-Stand), aber player.league2v2.trophies ist noch EXAKT derselbe Wert wie
+  // beim letzten Sync — Supercells /players-Endpunkt hat das Match offenbar noch nicht
+  // eingeholt, obwohl /battlelog es schon zeigt (derselbe Wettlauf wie im Kommentar an
+  // applyLeague2v2Deltas). trophy_change für dieses Match bleibt dann vorübergehend falsch, bis
+  // ein SPÄTERER Sync die echten Werte liefert (dank UPSERT in insertBattles selbstkorrigierend,
+  // siehe dort) — das lässt sich nicht vermeiden, wir kennen den richtigen Wert schlicht noch
+  // nicht. Was sich vermeiden lässt: unnötig lang auf die Korrektur warten. Deshalb hier
+  // last_fetched NICHT auf "jetzt" vorrücken, sondern auf dem alten (bereits abgelaufenen) Stand
+  // belassen — der nächste Overlay-Poll (alle 15s) löst dann sofort einen neuen Sync-Versuch aus,
+  // statt die volle MIN_SYNC_INTERVAL_MS-Bremse (30s) abzuwarten.
+  const newest2v2 = findLatestDeckBattles(battles)["2v2"];
+  const league2v2Stale = !!(player && !player.notFound && player.league2v2 && newest2v2
+    && newest2v2.battleTimeMs > (row.league2v2_deck_at || 0)
+    && player.league2v2.trophies === (row.league2v2_trophies || 0));
+
+  // Spiegelbild von league2v2Stale: player.league2v2.trophies hat sich GEGENÜBER dem letzten Sync
+  // bereits geändert (das Match ist bei Supercells /players-Endpunkt also längst angekommen), aber
+  // /battlelog zeigt dafür noch KEIN passendes neues Match (newest2v2 fehlt oder ist nicht neuer
+  // als der bisher bekannte Stand) — /players lief diesmal VOR /battlelog durch. Genau dieses
+  // Bild meldete ein Nutzer live: Liga-Trophäen im Overlay sprangen sofort, Win/Loss+Tagesprofit
+  // (aus SUM(trophy_change) über die noch fehlenden battlelog-Einträge, siehe applyLeague2v2Deltas)
+  // erst viele Sekunden später. Ohne diesen Zweig würde last_fetched trotzdem auf "jetzt" gesetzt
+  // und der nächste Sync-Versuch erst nach der vollen MIN_SYNC_INTERVAL_MS-Bremse (30s) folgen,
+  // statt schon beim nächsten Overlay-Poll (15s) erneut nachzusehen.
+  // Bezugspunkt ist league2v2_trophies_at (Match-Stand beim letzten Schreiben der Trophäen), NICHT
+  // league2v2_deck_at: applyDeckUpdates oben hat deck_at schon auf das neueste Match vorgerückt.
+  // Hinkte das Profil beim ersten Sync noch hinterher (league2v2Stale), hätte ein deck_at-Vergleich
+  // beim nächsten Sync — Profil jetzt aufgeholt — "kein neueres Match als bekannt" ergeben, die
+  // Trophäen wären für immer zurückgehalten worden (live: 2336 statt 2305, kein Sync änderte das).
+  const battlelogStale = !!(player && !player.notFound && player.league2v2
+    && player.league2v2.trophies !== (row.league2v2_trophies || 0)
+    && !(newest2v2 && newest2v2.battleTimeMs > (row.league2v2_trophies_at || 0)));
+
   if (player && !player.notFound) {
-    updatePlayerData.run(player.name || row.player_name, player.trophies, player.bestTrophies, player.seasonMedals, player.leagueNumber, player.polRank, Date.now(), row.account_id);
+    const fetchedAt = (league2v2Stale || battlelogStale) ? (row.last_fetched || 0) : Date.now();
+    updatePlayerData.run(player.name || row.player_name, player.trophies, player.bestTrophies, player.seasonMedals, player.leagueNumber, player.polRank, player.clan?.name || "", player.clan?.badgeId ?? null, fetchedAt, row.account_id);
     recordDiscoveredModes(player.seasonalProgress);
-    if (player.league2v2) {
+    recordSeasonalPrefixes(row.account_id, player.seasonalProgress);
+    // battlelogStale zurückhalten statt schreiben: der Overlay-Trophäenwert (league2v2_trophies)
+    // soll erst zusammen mit dem passenden Match sichtbar werden, nie einzeln vorauseilen — genau
+    // das Bild, das gemeldet wurde (Trophäen springen, Win/Loss+Profit hinken hinterher). Bleibt
+    // hier ungeschrieben, vergleicht der nächste Sync player.league2v2.trophies weiterhin gegen
+    // denselben alten row.league2v2_trophies-Stand, bis /battlelog nachzieht — dann werden Trophäen
+    // UND das Match im selben Sync-Durchlauf übernommen. Betrifft bewusst nur die 2v2-Liga-Spalten,
+    // nicht updatePlayerData oben (Name/Leiter-Trophäen/Medaillen/Liga) — die haben keine
+    // battlelog-Gegenstelle und laufen unabhängig weiter.
+    if (player.league2v2 && !battlelogStale) {
       updateLeague2v2Stmt.run(player.league2v2.trophies, player.league2v2.bestTrophies, row.account_id);
+      // Anker nur mitziehen, wenn sich der Kontostand wirklich bewegt hat — ein Match, dessen
+      // Trophäen das Profil noch nicht zeigt (league2v2Stale), bleibt so "noch nicht eingerechnet",
+      // bis sie ankommen.
+      if (newest2v2 && player.league2v2.trophies !== (row.league2v2_trophies || 0)) {
+        setLeague2v2TrophiesAtStmt.run(newest2v2.battleTimeMs, row.account_id);
+      }
     }
     // Liga gewechselt (Aufstieg, Season-Reset): in der neuen Liga geht es auf Stufe 1 los,
     // gezählt wird ab dem neuesten bekannten Match.
@@ -749,6 +925,12 @@ async function syncAccount(row) {
     // bei jedem Overlay-Poll erneut gegen die API laufen (Rate-Limit-Schutz).
     db.prepare("UPDATE cr_wintracker_accounts SET last_fetched = ? WHERE account_id = ?").run(Date.now(), row.account_id);
   }
+  // WICHTIG: bewusst der URSPRÜNGLICHE row-Parameter, NICHT freshRow unten — row.league2v2_trophies
+  // muss der Kontostand VOR diesem Sync sein (siehe ausführlicher Kommentar an
+  // updateLeague2v2SessionAnchor). freshRow.league2v2_trophies könnte durch updateLeague2v2Stmt
+  // oben bereits den NEUEN Wert tragen — als Anker damit einen Schritt zu spät (nach statt vor dem
+  // ersten Match der neuen Session).
+  updateLeague2v2SessionAnchor(row);
   // Kumulativer Stufenzähler — unabhängig vom Liga-Anker oben, damit er beim Aufstieg nicht auf
   // 0 zurückfällt (siehe updateSessionClimb). Frische Zeile laden: league_number kann sich im
   // Block oben gerade erst geändert haben (und für autoSwitchTrackMode unten die soeben von
@@ -770,7 +952,7 @@ async function addAccountForUser(userId, twitchLogin, rawTag) {
   if (getAccountByTag.get(userId, tag)) return { ok: false, status: 400, error: "Dieser Account ist bereits verknüpft" };
 
   let playerName = tag, trophies = 0, bestTrophies = 0, seasonMedals = 0, leagueNumber = 0, polRank = null, lastFetched = 0;
-  let league2v2Trophies = 0, league2v2BestTrophies = 0;
+  let league2v2Trophies = 0, league2v2BestTrophies = 0, clanName = "", clanBadgeId = null, seasonalProgress = null;
   if (CR_API_TOKEN) {
     try {
       const p = await fetchPlayer(tag);
@@ -779,7 +961,9 @@ async function addAccountForUser(userId, twitchLogin, rawTag) {
         playerName = p.name || tag; trophies = p.trophies; bestTrophies = p.bestTrophies;
         seasonMedals = p.seasonMedals; leagueNumber = p.leagueNumber; polRank = p.polRank; lastFetched = Date.now();
         if (p.league2v2) { league2v2Trophies = p.league2v2.trophies; league2v2BestTrophies = p.league2v2.bestTrophies; }
+        if (p.clan) { clanName = p.clan.name || ""; clanBadgeId = p.clan.badgeId ?? null; }
         recordDiscoveredModes(p.seasonalProgress);
+        seasonalProgress = p.seasonalProgress;
       }
     } catch {
       return { ok: false, status: 502, error: "Royale API nicht erreichbar — versuche es später erneut" };
@@ -790,12 +974,14 @@ async function addAccountForUser(userId, twitchLogin, rawTag) {
   const accountId = nanoid(12);
   // Stellt sicher, dass der Nutzer eine Settings-Zeile (u.a. overlay_key) hat.
   getOrCreateSettings(userId);
-  // Neue Accounts starten immer mit Ranked/Medaillen — wer etwas anderes will, stellt es am
-  // Account selbst um (Tab "Accounts" bzw. "!tracker mode").
-  insertAccount.run(accountId, userId, String(twitchLogin || ""), tag, playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, isFirst ? 1 : 0, lastFetched, Date.now(), "medals");
+  // Startwert "medals" ist nur eine Platzhalter-Voreinstellung, bevor wir wissen, was zuletzt
+  // gespielt wurde — autoSwitchTrackMode() unten korrigiert das sofort anhand der frisch geholten
+  // Battles, falls die zuletzt gespielte Partie tatsächlich ein anderer Modus war.
+  insertAccount.run(accountId, userId, String(twitchLogin || ""), tag, playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, isFirst ? 1 : 0, lastFetched, Date.now(), "medals", clanName, clanBadgeId);
   if (league2v2Trophies || league2v2BestTrophies) {
     updateLeague2v2Stmt.run(league2v2Trophies, league2v2BestTrophies, accountId);
   }
+  if (seasonalProgress) recordSeasonalPrefixes(accountId, seasonalProgress);
 
   if (CR_API_TOKEN) {
     try {
@@ -804,6 +990,14 @@ async function addAccountForUser(userId, twitchLogin, rawTag) {
       if (battles.length) insertBattles(accountId, battles);
       // Deck-Erstbefüllung — sonst bliebe das Deck-Modul bis zum nächsten Sync leer.
       applyDeckUpdates(accountId, { ranked_deck_at: 0, trophy_deck_at: 0, league2v2_deck_at: 0 }, battles);
+      // Die 2v2-Trophäen oben kommen frisch vom Profil und gehören zu diesem Match-Stand — Anker
+      // setzen, damit die Zurückhaltung in syncAccount (battlelogStale) von Anfang an greift.
+      const newest2v2 = findLatestDeckBattles(battles)["2v2"];
+      if (newest2v2) setLeague2v2TrophiesAtStmt.run(newest2v2.battleTimeMs, accountId);
+      // track_mode direkt auf den zuletzt gespielten Modus stellen, statt bis zum ersten
+      // regulären Sync bei "medals" hängenzubleiben — frische Zeile laden, sonst fehlen die
+      // gerade von applyDeckUpdates geschriebenen Zeitstempel.
+      autoSwitchTrackMode(getAccountById.get(accountId));
     } catch { /* Erst-Sync der Matches ist best-effort */ }
   }
   // Stufen-Anker auf das neueste Match legen: die bereits gespielten Matches gehören zu
@@ -821,16 +1015,24 @@ async function addAccountForUser(userId, twitchLogin, rawTag) {
 // ein späterer Sync das noch nachholen könnte — die Spiele sind bei Supercell schlicht nicht mehr
 // abrufbar. Deshalb synct dieser Loop serverseitig alle aktiven Accounts regelmäßig, unabhängig
 // davon, ob gerade ein Overlay/die Seite offen ist.
-const SYNC_LOOP_INTERVAL_MS = 5 * 60 * 1000; // 5 Minuten — Ranked-Matches dauern mehrere Minuten,
-// selbst im denkbar schnellsten Tempo kämen in 5 Minuten keine 25 Spiele zusammen.
+// 90s statt ursprünglich 5 Minuten — empirisch geprüfte Cache-Control-Header der offiziellen API
+// (/players: max-age=60, /battlelog: max-age=33) setzen ohnehin eine harte Untergrenze, unterhalb
+// derer ein erneuter Request für denselben Account nur dieselbe gecachte Antwort zurückbekommt;
+// schneller als ~60s zu pollen bringt also nichts. 90s bleibt knapp darüber und trotzdem weit
+// unter der Dauer eines einzelnen Matches (auch 2v2 nicht unter ~1-2 Minuten), das
+// battlelog-Fenster (~25 Spiele) kann dabei nicht vollaufen, bevor der nächste Durchlauf greift.
+// Kein offiziell dokumentiertes Requests/Sekunde-Limit gefunden (die Response trägt keine
+// x-ratelimit-*-Header, anders als beim RoyaleAPI-Proxy) — SYNC_LOOP_CONCURRENCY/-BATCH_SPACING
+// unten bleiben als Vorsichtsmaßnahme bestehen, unabhängig von diesem Intervall.
+const SYNC_LOOP_INTERVAL_MS = 90 * 1000;
 const SYNC_LOOP_FIRST_DELAY_MS = 60 * 1000; // nicht direkt beim Serverstart
 // Nicht mehr streng nacheinander (das wären bei 50 aktiven Accounts allein schon 10s reine
 // Wartezeit, plus die tatsächliche Netzwerkzeit jedes Requests obendrauf) — stattdessen ein
 // kleiner Pool gleichzeitiger Syncs, dazwischen eine kurze Pause. Bei 50 Accounts sind das nur
 // noch 10 Wellen à SYNC_LOOP_BATCH_SPACING_MS statt 50 Einzel-Pausen — bleibt aber weiterhin
 // weit entfernt von "alle auf einen Schlag", was das Rate-Limit der offiziellen API sprengen
-// könnte. Beides zusammen (5 Minuten Zyklus, harmlose Sekunden pro Welle) macht das für jede
-// bei einem einzelnen Streamer realistische Account-Zahl unproblematisch.
+// könnte. Beides zusammen (90s-Zyklus, harmlose Sekunden pro Welle) macht das für jede bei einem
+// einzelnen Streamer realistische Account-Zahl unproblematisch.
 const SYNC_LOOP_CONCURRENCY = 5;
 const SYNC_LOOP_BATCH_SPACING_MS = 200;
 
@@ -898,12 +1100,14 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
         showDeck: settings.show_deck === null || settings.show_deck === undefined ? true : !!settings.show_deck,
         showProfile: settings.show_profile === null || settings.show_profile === undefined ? true : !!settings.show_profile,
         deckPlacement: normalizeDeckPlacement(settings.deck_placement),
-        showLadderBar: settings.show_ladder_bar === null || settings.show_ladder_bar === undefined ? true : !!settings.show_ladder_bar,
         last5Direction: normalizeLast5Direction(settings.last5_direction),
         last5NewBadge: settings.last5_new_badge === null || settings.last5_new_badge === undefined ? true : !!settings.last5_new_badge,
         language: normalizeLanguage(settings.language),
+        showClan: !!settings.show_clan,
         chatChannel: settings.chat_channel || "",
         chatEnabled: !!settings.chat_enabled,
+        paginateOverlay: !!settings.paginate_overlay,
+        paginateIntervalS: normalizePaginateIntervalS(settings.paginate_interval_s),
       },
     });
   });
@@ -938,7 +1142,6 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       s.showDeck ? 1 : 0,
       s.showProfile ? 1 : 0,
       normalizeDeckPlacement(s.deckPlacement),
-      s.showLadderBar ? 1 : 0,
       normalizeLast5Direction(s.last5Direction),
       s.last5NewBadge ? 1 : 0,
       normalizeLanguage(s.language),
@@ -949,6 +1152,9 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       s.bgGradient ? 1 : 0,
       normalizeBgColor2(s.bgColor2),
       normalizeBorderColor(s.borderColor),
+      s.paginateOverlay ? 1 : 0,
+      normalizePaginateIntervalS(s.paginateIntervalS),
+      s.showClan ? 1 : 0,
       Date.now(),
       userId
     );
@@ -1002,25 +1208,10 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     }
   });
 
-  // Getrackter Wert dieses einen Accounts (Medaillen oder Trophäen) — das Overlay zeigt
-  // immer den Wert des aktiven Accounts, jeder Account darf einen anderen tracken.
-  router.put("/accounts/:accountId/track-mode", requireAuth, (req, res) => {
-    const row = ownAccount(req, res);
-    if (!row) return;
-    const mode = normalizeTrackMode(req.body?.trackMode);
-    updateAccountTrackMode.run(mode, row.account_id);
-    res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id)) });
-  });
-
-  // Autoswitch-Checkbox: schaltet track_mode ab sofort bei jedem Sync automatisch auf den Modus
-  // des zuletzt gespielten Matches um (siehe autoSwitchTrackMode oben) — eine manuelle Wahl über
-  // /track-mode oder "!tracker mode" bleibt danach nur bis zum nächsten Sync bestehen.
-  router.put("/accounts/:accountId/auto-switch", requireAuth, (req, res) => {
-    const row = ownAccount(req, res);
-    if (!row) return;
-    updateAutoSwitchStmt.run(req.body?.enabled ? 1 : 0, row.account_id);
-    res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id)) });
-  });
+  // Kein manueller Modus-Endpoint mehr: track_mode wird IMMER von autoSwitchTrackMode() bei jedem
+  // Sync gesetzt (siehe dort) — ein manueller PUT wäre spätestens beim nächsten Sync ohnehin
+  // wieder überschrieben, also nur scheinbar funktional. Ersatzlos entfernt (mitsamt "!tracker
+  // mode" in winTrackerChat.js und der Auswahl im Editor).
 
   // Aktuelle Stufe der Ranked-Leiter korrigieren. Die API liefert sie nicht mit, deshalb
   // setzt der Nutzer sie einmalig — danach zählt jedes Ranked-Match automatisch weiter.
@@ -1087,13 +1278,39 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     // dailyTrophyStmt/last5TrophyStmt oben) — medals bleibt bei den ursprünglichen Ranked1v1-
     // Statements. trophies lief früher fälschlich MIT über dieselben Ranked1v1-Abfragen wie
     // medals (zwei unabhängige Fortschritte teilten sich eine Statistik).
+    //
+    // medals-Sonderfall Liga 6 -> Ultimate Champion MITTEN in einer laufenden Session: unterhalb
+    // von UC zeigt das Overlay Stufen (ladder.sessionDelta), dailyStatsStmt/last5Stmt laufen zwar
+    // im Hintergrund schon mit, werden aber nicht angezeigt. Die einzelnen Ranked-Matches tragen
+    // aber von Anfang an ihr echtes trophyChange (Supercell führt intern offenbar durchgehend
+    // Medaillen, auch unterhalb UC — nur die Stufenanzeige blendet das aus). Sobald computeLadder
+    // ab UC null liefert, schwenkt das Overlay auf dailyStatsStmt/last5Stmt um — ohne Anpassung
+    // hier zählte das dann rückwirkend ALLE Stufen-Siege dieser Session mit ihrem echten
+    // trophyChange (Bug: 7 Stufen-Siege vor dem Aufstieg erschienen instant als "+210", jedes
+    // davon in "letzte 5" plötzlich als "+30" statt der bis dahin gezeigten Stufe). ladder_anchor_ms
+    // wird bei JEDEM Liga-Wechsel neu gesetzt (siehe reanchorLadder in syncAccount) — ist die
+    // aktuelle Liga schon UC, ist das exakt der Aufstiegszeitpunkt; Math.max mit dem normalen
+    // Sessionbeginn verschiebt profit/last5 dann auf "ab dem Aufstieg", ohne Stufen-1-6- oder
+    // trophies/2v2-Sessions anzufassen (dort bleibt sessionStart unverändert).
     const sessionStart = is2v2 ? compute2v2SessionStartMs(active.account_id)
       : isTrophyMode ? computeTrophySessionStartMs(active.account_id)
-      : computeSessionStartMs(active.account_id);
+      : (() => {
+          const base = computeSessionStartMs(active.account_id);
+          const inUC = ladderStepCount(active.league_number) === 0;
+          return inUC ? Math.max(base, active.ladder_anchor_ms || 0) : base;
+        })();
     const daily = is2v2 ? daily2v2Stmt.get(active.account_id, sessionStart)
       : isTrophyMode ? dailyTrophyStmt.get(active.account_id, sessionStart)
       : dailyStatsStmt.get(active.account_id, sessionStart);
     const wins = daily.wins || 0, losses = daily.losses || 0;
+    // 2v2-Profit kommt NICHT aus SUM(trophy_change) wie bei den anderen Modi (daily.profit oben),
+    // sondern direkt aus dem Kontostand-Anker (siehe updateLeague2v2SessionAnchor) — unabhängig
+    // davon, ob battlelog für einzelne Matches ein trophyChange kennt. wins/losses bleiben aus
+    // daily2v2Stmt (crowns-basiert, nie vom team[0]/team[1]-Problem betroffen, siehe
+    // applyLeague2v2Deltas). null, solange seit dem aktuellen Sessionbeginn noch kein Sync
+    // gelaufen ist — dann zeigt das Overlay vorübergehend 0, bis der nächste Sync den Anker setzt.
+    const league2v2Anchor = is2v2 ? league2v2SessionAnchorFor(active, sessionStart) : null;
+    const league2v2Profit = league2v2Anchor === null ? 0 : (active.league2v2_trophies || 0) - league2v2Anchor;
 
     res.json({
       hasAccount: true,
@@ -1104,6 +1321,9 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       seasonMedals: active.season_medals,
       leagueNumber: active.league_number,
       polRank: active.pol_rank,
+      // Clan-Header-Zusatz (siehe show_clan in settings) — clanName leer heißt "kein Clan".
+      clanName: active.clan_name || "",
+      clanBadgeId: active.clan_badge_id ?? null,
       // 2v2 Ranked: eigener Medaillen-Stand, unabhängig von trophies/seasonMedals oben.
       league2v2Trophies: active.league2v2_trophies || 0,
       league2v2BestTrophies: active.league2v2_best_trophies || 0,
@@ -1113,7 +1333,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       // (medals ist der einzige, bei dem sessionStart oben bereits der Ranked1v1-Wert ist).
       ladder: computeLadder(active, trackMode === "medals" ? sessionStart : computeSessionStartMs(active.account_id)),
       daily: {
-        profit: daily.profit || 0,
+        profit: is2v2 ? league2v2Profit : (daily.profit || 0),
         wins,
         losses,
         winPct: wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0,
@@ -1147,10 +1367,12 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
         showDeck: settings.show_deck === null || settings.show_deck === undefined ? true : !!settings.show_deck,
         showProfile: settings.show_profile === null || settings.show_profile === undefined ? true : !!settings.show_profile,
         deckPlacement: normalizeDeckPlacement(settings.deck_placement),
-        showLadderBar: settings.show_ladder_bar === null || settings.show_ladder_bar === undefined ? true : !!settings.show_ladder_bar,
         last5Direction: normalizeLast5Direction(settings.last5_direction),
         last5NewBadge: settings.last5_new_badge === null || settings.last5_new_badge === undefined ? true : !!settings.last5_new_badge,
         language: normalizeLanguage(settings.language),
+        showClan: !!settings.show_clan,
+        paginateOverlay: !!settings.paginate_overlay,
+        paginateIntervalS: normalizePaginateIntervalS(settings.paginate_interval_s),
       },
     });
   });
@@ -1166,3 +1388,7 @@ module.exports.runBackgroundSyncOnce = runBackgroundSyncOnce;
 // Erstbefüllungs-Logik wie POST /accounts, kein zweites Mal ausgeschrieben.
 module.exports.addAccountForUser = addAccountForUser;
 module.exports.accountSummary = accountSummary;
+// Für die Startup-Logzeile in index.js — als Zahl statt eines zweiten, von Hand gepflegten
+// Textbausteins ("alle X min/s"), sonst genau das Problem, das schon einmal auftrat: der Wert
+// wurde geändert, aber eine ANDERE Stelle sagte im Log weiter den alten.
+module.exports.SYNC_LOOP_INTERVAL_MS = SYNC_LOOP_INTERVAL_MS;

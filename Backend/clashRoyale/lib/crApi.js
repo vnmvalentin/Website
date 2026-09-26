@@ -101,8 +101,18 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
   const get = safe ? crApiGetSafe : crApiGet;
   const data = await get(`/players/%23${tag}/battlelog`, { token });
   if (!Array.isArray(data)) return [];
+  const selfTag = normalizeTag(tag);
   return data.map((b) => {
-    const team = b.team?.[0] || {};
+    // b.team[0] ist NICHT garantiert "wir selbst" — bei 2v2 legt Supercell die Reihenfolge der
+    // beiden Team-Mitglieder pro Match fest (empirisch bestätigt: dieselbe Begegnung liefert bei
+    // BEIDEN Spielern, unabhängig davon wer die Battlelog-Abfrage macht, identisch team[0]/team[1]).
+    // Wer im Team an Index 0 landet ist also keine Funktion des abfragenden Spielers. Deshalb hier
+    // explizit per Tag matchen statt blind zu indizieren — sonst trackt der 2v2-Modus manchmal das
+    // Deck/die Trophäen des Partners statt der eigenen.
+    const team =
+      (Array.isArray(b.team) && b.team.find((t) => normalizeTag(t?.tag) === selfTag)) ||
+      b.team?.[0] ||
+      {};
     const opponent = b.opponent?.[0] || {};
     return {
       battleTime: b.battleTime,
@@ -163,6 +173,10 @@ async function fetchPlayerSummary(tag, token) {
     leagueNumber: pol?.leagueNumber || 0,
     polRank: typeof pol?.rank === 'number' ? pol.rank : null,
     league2v2: extractLeague2v2Progress(data),
+    // Clan-Header-Zusatz (Überschrift-Modul im Win-Tracker-Overlay) — steckt schon in derselben
+    // /players-Antwort, kein zweiter Request nötig. clan ist null, solange kein Clan (data.clan
+    // fehlt dann komplett statt ein leeres Objekt zu sein — empirisch geprüft).
+    clan: data.clan ? { name: data.clan.name || '', badgeId: data.clan.badgeId ?? null } : null,
     // Generische Liste ALLER progress-Einträge (siehe Kommentar an extractLeague2v2Progress) —
     // nicht nur der 2v2-Sonderfall. Dient winTrackerRoutes.recordDiscoveredModes(), um KÜNFTIGE
     // Ranked-artige Event-Leiterboards automatisch zu bemerken, sobald Supercell sie einführt

@@ -11,9 +11,8 @@ const duratidle = require('./duratidle');
 const inventiondle = require('./inventiondle');
 const pricedle = require('./pricedle');
 const balancdle = require('./balancdle');
-const crColorMatch = require('./cr-color-match');
 
-const GAMES = { tempdle, velocidle, probabildle, duratidle, inventiondle, pricedle, balancdle, 'cr-color-match': crColorMatch };
+const GAMES = { tempdle, velocidle, probabildle, duratidle, inventiondle, pricedle, balancdle };
 
 function getGame(gameId) {
   return GAMES[gameId] || null;

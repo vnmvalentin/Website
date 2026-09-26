@@ -147,7 +147,7 @@ const DEFAULT_STYLE = {
   opacity: 0.6,
   borderRadius: 0,
   scale: 1,
-  boxWidth: 520,
+  boxWidth: 320,
   titleAlign: "left",
   titleColor: "#ffffff",
   headerBg: "#0B0F1A",
@@ -164,7 +164,21 @@ const DEFAULT_STYLE = {
   // Wert an dieser Stelle würde beim Zusammenführen gewinnen und Bestandsdaten
   // überschreiben.
   counterOpacity: 0.06,
+  // Darstellung: Layout, Zähler als reine Zahl oder Box, Gesamtfortschritt im
+  // Header ("off" | "count" | "box") und ob erledigte Challenges ans Ende sortiert
+  // werden. timerFontSize steht bewusst NICHT hier: ohne eigenen Wert gilt die
+  // Challenge-Größe (siehe normalizeStyle), ein fester Wert würde Bestandsdaten
+  // überschreiben.
+  layout: "list",
+  counterStyle: "plain",
+  headerProgress: "off",
+  doneToBottom: false,
 };
+
+// Erlaubte Werte der Darstellungs-Optionen (Gegenstück: overlayUtils.js im Frontend)
+const OVERLAY_LAYOUTS = ["list", "cards", "compact"];
+const COUNTER_STYLES = ["plain", "box"];
+const HEADER_PROGRESS_MODES = ["off", "count", "box"];
 
 const DEFAULT_TIMER = {
   running: false,
@@ -238,8 +252,14 @@ function normalizeStyle(style) {
   s.borderRadius = Math.max(0, parseInt(s.borderRadius ?? 0, 10));
   s.scale = Number(s.scale ?? 1);
   // Muss zum Frontend-Slider passen (max 1000), sonst springt der Regler zurück
-  s.boxWidth = Math.min(1600, Math.max(280, parseInt(s.boxWidth ?? 520, 10)));
+  s.boxWidth = Math.min(1600, Math.max(280, parseInt(s.boxWidth ?? 320, 10)));
   s.titleAlign = s.titleAlign === "center" ? "center" : "left";
+  s.layout = OVERLAY_LAYOUTS.includes(s.layout) ? s.layout : "list";
+  s.counterStyle = COUNTER_STYLES.includes(s.counterStyle) ? s.counterStyle : "plain";
+  s.headerProgress = HEADER_PROGRESS_MODES.includes(s.headerProgress)
+    ? s.headerProgress
+    : "off";
+  s.doneToBottom = s.doneToBottom === true;
 
   s.titleFontSize = Math.max(
     10,
@@ -248,6 +268,12 @@ function normalizeStyle(style) {
   s.itemFontSize = Math.max(
     8,
     Math.min(36, parseInt(s.itemFontSize ?? 16, 10))
+  );
+  // Eigene Timer-Größe; Rückfall ist die Challenge-Größe. Geprüft wird der Rohwert,
+  // nicht der mit DEFAULT_STYLE zusammengeführte (analog zu itemOpacity oben).
+  s.timerFontSize = Math.max(
+    8,
+    Math.min(48, parseInt(style?.timerFontSize ?? s.itemFontSize, 10))
   );
   return s;
 }

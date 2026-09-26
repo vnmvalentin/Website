@@ -34,6 +34,12 @@ try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN season_medals INTEG
 // aus cr_wintracker_settings.track_mode (so verhalten sich Accounts von vor dieser Spalte weiter wie bisher).
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN track_mode TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 
+// Clan-Header-Zusatz im Overlay (siehe show_clan in cr_wintracker_settings unten) — kommt aus
+// derselben /players-Antwort wie alles andere, wird bei jedem Sync mitgeschrieben (siehe
+// syncAccount in crWinTrackerRoutes.js). badge_id ist null ohne Clan.
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN clan_name TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN clan_badge_id INTEGER"); } catch { /* Spalte existiert bereits */ }
+
 // Ankerpunkt der Ranked-Leiter (Ligen 1-6): unterhalb von Ultimate Champion gibt es keine
 // Medaillen, sondern Stufen. Die API liefert die aktuelle Stufe nicht mit, deshalb zählen wir
 // sie selbst aus dem Battlelog — ab ladder_anchor_ms, beginnend bei ladder_step in ladder_league.
@@ -69,6 +75,24 @@ try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN league2v2_trophies 
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN league2v2_best_trophies INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN league2v2_deck TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN league2v2_deck_at INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+// battle_time_ms des neuesten 2v2-Matches, das beim letzten SCHREIBEN von league2v2_trophies schon im
+// Battlelog stand — Bezugspunkt für battlelogStale in syncAccount (crWinTrackerRoutes.js). Bewusst
+// NICHT league2v2_deck_at: der rückt schon beim Einlesen des Matches vor, auch wenn das Profil noch
+// hinterherhinkt und die Trophäen deshalb (noch) nicht mitgezogen haben — die Trophäen sahen danach
+// beim nächsten Sync wie "Profil voraus, Battlelog hinkt" aus und blieben dauerhaft auf dem alten
+// Stand hängen. Default 0 = "noch nie mitgezogen": die erste Kontostand-Änderung wird sofort
+// übernommen (löst auch bereits festgefahrene Bestandsaccounts auf, deshalb KEIN Backfill).
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN league2v2_trophies_at INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+
+// Session-Anker für den 2v2-Tagesprofit — wie session_climb oben, aber als reiner Kontostand-
+// Anfangswert statt eines aus einzelnen Matches aufsummierten Zählers: 2v2 kann pro Match kein
+// verlässliches trophyChange herleiten (battlelog liefert startingTrophies strukturell nur für
+// team[0], siehe applyLeague2v2Deltas in crWinTrackerRoutes.js), Profit/letzte-5 sollen davon
+// aber unabhängig sein. league2v2_session_anchor_trophies ist der Kontostand VOR dem ersten Match
+// der laufenden Session — Profit = aktueller Kontostand minus dieser Anker, ganz ohne einzelne
+// Matches zu summieren. Siehe updateLeague2v2SessionAnchor in crWinTrackerRoutes.js.
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN league2v2_session_anchor_trophies INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN league2v2_session_anchor_ms INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
 
 // Gesammelter Verlauf einzelner Spiele — wird bei jedem Sync um neue Battlelog-Einträge
 // ergänzt (INSERT OR IGNORE via UNIQUE(account_id, battle_time)). Die offizielle API liefert
@@ -144,8 +168,10 @@ try {
   db.exec("UPDATE cr_wintracker_settings SET last5_style = CASE WHEN last5_as_result = 1 THEN 'result' ELSE 'delta' END");
 } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN deck_placement TEXT NOT NULL DEFAULT 'top'"); } catch { /* Spalte existiert bereits */ }
-// Stufenleiste (die gefüllten Balken unter Name/Liga in Liga 1-6) einzeln ausblendbar — spart
-// vertikale Höhe im Overlay, die Stufenzahl selbst ("7/11 Stufe · Liga 3") bleibt davon unberührt.
+// Stufenleiste (die gefüllten Balken unter Name/Liga in Liga 1-6) — ENTFERNTES Feature (redundant
+// zur ohnehin gezeigten Stufenzahl "7/11 · Liga 3", und der dafür reservierte Platz blieb in
+// Ultimate Champion einfach leer, siehe show_clan unten für den Ersatz). Spalte bleibt stehen
+// (unbenutzt) statt einer Migration, die bestehende Werte löscht — wird nirgends mehr gelesen.
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN show_ladder_bar INTEGER NOT NULL DEFAULT 1"); } catch { /* Spalte existiert bereits */ }
 // Richtung der letzte-5-Spiele-Reihe: 'newestLeft' (Standard, neuestes ganz links, wie vor der
 // Session-Scoping-Umstellung) oder 'newestRight' (neuestes rutscht rechts rein, chronologisch).
@@ -167,6 +193,17 @@ try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN bg_gradient INTEGER
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN bg_color_2 TEXT NOT NULL DEFAULT '#1a1a2e'"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN border_color TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 
+// Paginiertes Overlay: statt Profilkopf/Deck/Session dauerhaft übereinander zu stapeln (macht die
+// Karte hoch), zeigt das Overlay dann nur EINEN Teil zur Zeit und wechselt automatisch durch —
+// siehe WinTrackerOverlayPage.jsx. paginate_interval_s ist die Anzeigedauer je Seite in Sekunden.
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN paginate_overlay INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN paginate_interval_s INTEGER NOT NULL DEFAULT 6"); } catch { /* Spalte existiert bereits */ }
+
+// Clan-Name + -Abzeichen unter dem Spielernamen — Ersatz für die entfernte Stufenleiste
+// (show_ladder_bar oben): der dafür reservierte Platz kam bisher nur Liga 1-6 zugute, Clan
+// nützt dagegen JEDEM Modus gleichermaßen (auch Ultimate Champion, 2v2, Trophäenmodus).
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN show_clan INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+
 // Manueller Session-Reset (Button im Editor, siehe /accounts/:id/reset-session in
 // crWinTrackerRoutes.js): hebt den Sessionbeginn auf "jetzt" an, ohne auf die automatische
 // 4h-Lücken-Regel warten zu müssen — für wer vor Stream-Start schon ein paar Spiele gespielt hat
@@ -184,6 +221,11 @@ try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN session_reset_troph
 // gespielter Modus", das steckt schon implizit im Maximum aus ranked_deck_at/trophy_deck_at/
 // league2v2_deck_at (jeweils der Zeitstempel des neuesten bekannten Matches dieser Gruppe).
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN auto_switch_mode INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+
+// Welche saisonalen Ranked-Modi beim letzten erfolgreichen Profil-Abruf in player.progress standen
+// (JSON-Liste normalisierter Präfixe, z.B. ["2v2league","autochess"]) — siehe availableTrackModes
+// in crWinTrackerRoutes.js. NULL = noch nie abgefragt (dann werden alle gebauten Modi gezeigt).
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN seasonal_prefixes TEXT"); } catch { /* Spalte existiert bereits */ }
 
 // Beobachtungsliste für künftige Ranked-artige Event-Leiterboards (siehe recordDiscoveredModes
 // in crWinTrackerRoutes.js): jeder progress-Eintrag, den ein Sync sieht und der noch keinem

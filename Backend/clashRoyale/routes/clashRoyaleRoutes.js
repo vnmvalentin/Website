@@ -15,7 +15,7 @@ const {
 const {
   applyModePreset, applySuggestedPreset, reapplyActivePreset, clearActivePreset,
 } = require('../core/modePresets');
-const { emitStreamerEvent, updateDeckFeeds, buildDeckFeedPayload } = require('../core/streamerFeed');
+const { emitStreamerEvent, updateDeckFeeds, lastDeckFeedPayload } = require('../core/streamerFeed');
 const { clearTurnTimer } = require('../core/timers');
 const { emitClashError } = require('../core/errors');
 const { teamPlayers } = require('../core/teams');
@@ -590,7 +590,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     const lobby = findLobbyByOverlayKey(String(overlayKey || ''));
     if (!lobby) return socket.emit('cr:lobbydeck:error', { message: 'Overlay nicht gefunden' });
     socket.join(`crlobbydeck:${lobby.overlayKey}`);
-    socket.emit('cr:lobbydeck:state', buildDeckFeedPayload(lobby));
+    socket.emit('cr:lobbydeck:state', lastDeckFeedPayload(lobby));
   });
 
 
@@ -886,7 +886,7 @@ function createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID } = {}) {
   router.get('/lobby-overlay/:overlayKey', (req, res) => {
     const lobby = findLobbyByOverlayKey(req.params.overlayKey);
     if (!lobby) return res.status(404).json({ error: 'Overlay nicht gefunden' });
-    res.json(buildDeckFeedPayload(lobby));
+    res.json(lastDeckFeedPayload(lobby));
   });
 
   if (requireAuth) {

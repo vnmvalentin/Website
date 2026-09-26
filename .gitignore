@@ -30,3 +30,8 @@ Backend/data/stream_tool.db
 Backend/data/stream_tool.db-shm
 Backend/data/stream_tool.db-wal
 Backend/data/stream_tool.key
+# Seed Runners: Tagesrangliste samt Input-Logs der geprüften Läufe. Wächst mit jedem Tag und gehört
+# der laufenden Instanz — lokal nur Testdaten, deploy.sh lässt data/ ohnehin aus.
+Backend/data/seedrunners.db
+Backend/data/seedrunners.db-shm
+Backend/data/seedrunners.db-wal

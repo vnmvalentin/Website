@@ -6,7 +6,8 @@
 //   !tracker #TAG / !tracker set #TAG   — aktiven Account umschalten (nur bereits verknüpfte;
 //                                          "#TAG" bare bleibt als Alias erhalten, war der
 //                                          einzige Befehl vor dieser Erweiterung)
-//   !tracker mode <ranked|trophy|2v2>   — getrackten Wert des AKTIVEN Accounts umschalten
+//   (kein "!tracker mode" mehr — track_mode wird IMMER automatisch auf den zuletzt gespielten
+//    Modus gestellt, siehe autoSwitchTrackMode in crWinTrackerRoutes.js)
 //   !tracker reset                      — Session (Profit/Win-Loss/letzte 5) des AKTIVEN
 //                                          Accounts im GERADE getrackten Modus zurücksetzen, ohne
 //                                          auf die automatische 4h-Pausen-Regel zu warten (siehe
@@ -30,7 +31,6 @@ const getAccountsByUser = db.prepare(
 );
 const deactivateAll = db.prepare("UPDATE cr_wintracker_accounts SET is_active = 0 WHERE user_id = ?");
 const activateOne = db.prepare("UPDATE cr_wintracker_accounts SET is_active = 1 WHERE account_id = ?");
-const updateTrackModeStmt = db.prepare("UPDATE cr_wintracker_accounts SET track_mode = ? WHERE account_id = ?");
 // Manueller Session-Reset für "!tracker reset" — dieselben drei Spalten wie der Reset-Button im
 // Editor (siehe POST /accounts/:id/reset-session in crWinTrackerRoutes.js): session_reset_at für
 // Ranked1v1/medals, session_reset_trophy_at für den Trophäenmodus (eigene Session seit dem
@@ -71,14 +71,10 @@ function isAllowedSender(tags) {
 // mitgenutzt, statt eine dritte, unabhängige Sprachwahl einzuführen.
 const T = {
   de: {
-    help: "Befehle: !tracker set #TAG, !tracker mode <ranked|trophy|2v2>, !tracker reset, !tracker add #TAG, !tracker list",
+    help: "Befehle: !tracker set #TAG, !tracker reset, !tracker add #TAG, !tracker list",
     noTag: (arg) => `Kein Spieler-Kürzel angegeben. Beispiel: !tracker set #${arg || "2PP0V9YLL"}`,
     setOk: (name, tag) => `Tracker zeigt jetzt ${name} (#${tag}).`,
     setNotFound: (tag) => `Kein verknüpfter Account mit #${tag} gefunden.`,
-    modeMissing: () => `Bitte einen Modus angeben: !tracker mode <ranked|trophy|2v2>`,
-    modeInvalid: (arg) => `Unbekannter Modus "${arg}". Verfügbar: ranked, trophy, 2v2`,
-    modeNoActive: () => `Kein aktiver Account — erst mit !tracker set #TAG einen auswählen.`,
-    modeOk: (name, label) => `${name} trackt jetzt: ${label}`,
     resetNoActive: () => `Kein aktiver Account — erst mit !tracker set #TAG einen auswählen.`,
     resetOk: (name, label) => `${name}: ${label}-Session zurückgesetzt.`,
     addNoTag: () => `Bitte ein Spieler-Kürzel angeben: !tracker add #TAG`,
@@ -89,14 +85,10 @@ const T = {
     modeLabels: { medals: "Ranked (Medaillen)", trophies: "Trophäenstraße", "2v2": "2v2 Ranked" },
   },
   en: {
-    help: "Commands: !tracker set #TAG, !tracker mode <ranked|trophy|2v2>, !tracker reset, !tracker add #TAG, !tracker list",
+    help: "Commands: !tracker set #TAG, !tracker reset, !tracker add #TAG, !tracker list",
     noTag: (arg) => `No player tag given. Example: !tracker set #${arg || "2PP0V9YLL"}`,
     setOk: (name, tag) => `Tracker now shows ${name} (#${tag}).`,
     setNotFound: (tag) => `No linked account with #${tag} found.`,
-    modeMissing: () => `Please give a mode: !tracker mode <ranked|trophy|2v2>`,
-    modeInvalid: (arg) => `Unknown mode "${arg}". Available: ranked, trophy, 2v2`,
-    modeNoActive: () => `No active account — pick one first with !tracker set #TAG.`,
-    modeOk: (name, label) => `${name} now tracks: ${label}`,
     resetNoActive: () => `No active account — pick one first with !tracker set #TAG.`,
     resetOk: (name, label) => `${name}: ${label} session reset.`,
     addNoTag: () => `Please give a player tag: !tracker add #TAG`,
@@ -109,14 +101,6 @@ const T = {
 };
 const dict = (row) => (row?.language === "en" ? T.en : T.de);
 
-// Modus-Schlüsselwörter im Chat -> gespeicherter track_mode-Wert. "ranked"/"medals" sind Aliase
-// für dasselbe (Ranked1v1/Path-of-Legend-Medaillen), ebenso "trophy"/"trophies"/"ladder".
-const MODE_KEYWORDS = {
-  ranked: "medals", medals: "medals", medal: "medals",
-  trophy: "trophies", trophies: "trophies", ladder: "trophies",
-  "2v2": "2v2", "2v2ranked": "2v2",
-};
-
 /** Zeigt den angegebenen (bereits verknüpften) Account im Overlay an. */
 function cmdSet(row, t, rawTag) {
   const tag = normalizeTag(rawTag);
@@ -126,19 +110,6 @@ function cmdSet(row, t, rawTag) {
   deactivateAll.run(row.user_id);
   activateOne.run(match.account_id);
   return t.setOk(match.player_name || "#" + tag, tag);
-}
-
-/** Wechselt den getrackten Wert (Medaillen/Trophäen/2v2 Ranked) des AKTIVEN Accounts. */
-function cmdMode(row, t, rawArg) {
-  const keyword = String(rawArg || "").trim().toLowerCase();
-  if (!keyword) return t.modeMissing();
-  const mode = MODE_KEYWORDS[keyword];
-  if (!mode) return t.modeInvalid(rawArg);
-  const accounts = getAccountsByUser.all(row.user_id);
-  const active = accounts.find((a) => a.is_active);
-  if (!active) return t.modeNoActive();
-  updateTrackModeStmt.run(mode, active.account_id);
-  return t.modeOk(active.player_name || "#" + active.player_tag, t.modeLabels[mode]);
 }
 
 /**
@@ -204,7 +175,6 @@ async function applyTrackerChatLine(channel, tags, message) {
 
   if (!sub) return { reply: t.help };
   if (sub === "list") return { reply: cmdList(row, t) };
-  if (sub === "mode") return { reply: cmdMode(row, t, parts[1]) };
   if (sub === "reset") return { reply: cmdReset(row, t) };
   if (sub === "add") return { reply: await cmdAdd(row, t, parts[1]) };
   if (sub === "set") return { reply: cmdSet(row, t, parts[1]) };

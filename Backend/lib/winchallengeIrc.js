@@ -748,6 +748,38 @@ function stopIrc() {
   }
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Pause zwischen zwei JOIN-Befehlen: viele Kanäle direkt hintereinander (v.a. beim allerersten
+// Connect nach einem Neustart — dann sind IMMER alle Kanäle "neu") lasten den frisch aufgebauten
+// Socket UND den Event-Loop stark aus, bevor tmi.js überhaupt eine verlässliche eigene
+// Latenzmessung hat — sein interner Timeout für "wartet auf Antwort" ist mit min. 600ms knapp
+// bemessen (siehe _getPromiseDelay in node_modules/tmi.js/lib/client.js), genau DAS reißt dann
+// als "No response from Twitch." im Log auf (wächst mit der Kanalliste — je mehr Overlays/
+// Win-Tracker-Konten den Chatbefehl aktiviert haben, desto mehr Kanäle auf einmal). Twitchs
+// eigenes IRC-JOIN-Ratenlimit liegt bei 20 Joins / 10s für unverifizierte Bots — 500ms träfe das
+// genau auf der Kante (2/s = 20/10s), ohne Puffer für die Wiederholungsversuche unten. 600ms
+// (~16,7/10s) lässt echten Spielraum und macht aus z.B. 40 Kanälen ~24s statt spürbar länger.
+const JOIN_DELAY_MS = 600;
+// Reißt ein JOIN trotzdem (einzelner Ausreißer statt eines echten Problems), EIN zweiter Versuch
+// nach kurzer Pause, bevor wirklich aufgegeben und geloggt wird — endgültig fehlgeschlagene Kanäle
+// holt der reguläre 30s-Sync (refreshTimer unten) ohnehin automatisch nach (derselbe
+// want/current-Vergleich läuft dort erneut), das hier verkürzt nur die Wartezeit auf den ersten
+// Versuch.
+const JOIN_RETRY_DELAY_MS = 1500;
+
+async function joinChannelResilient(c) {
+  try {
+    await client.join("#" + c);
+  } catch (e) {
+    await sleep(JOIN_RETRY_DELAY_MS);
+    try {
+      await client.join("#" + c);
+    } catch (e2) {
+      console.warn("[winchallenge irc] join failed (2x)", c, e2.message);
+    }
+  }
+}
+
 async function syncChannels() {
   if (!client) return;
   const want = new Set(getChannelList());
@@ -755,13 +787,12 @@ async function syncChannels() {
   const current = new Set(
     (raw || []).map((c) => normalizeChannel(String(c)))
   );
+  let joinedAny = false;
   for (const c of want) {
     if (!current.has(c)) {
-      try {
-        await client.join("#" + c);
-      } catch (e) {
-        console.warn("[winchallenge irc] join failed", c, e.message);
-      }
+      if (joinedAny) await sleep(JOIN_DELAY_MS);
+      joinedAny = true;
+      await joinChannelResilient(c);
     }
   }
   for (const c of current) {
@@ -800,12 +831,18 @@ async function initWinchallengeIrc() {
     return { status: "warn", detail: "kein Token konfiguriert" };
   }
 
-  const channels = getChannelList().map((c) => "#" + c);
+  // Kanäle bewusst NICHT hier übergeben: tmi.js joint sie sonst selbst über eine
+  // eigene interne Warteschlange (Standard 2000ms/Kanal, node_modules/tmi.js/lib/client.js
+  // ~Zeile 203), parallel und unkoordiniert zu unserem eigenen syncChannels() gleich nach
+  // connect() — zwei getrennte Join-Läufe für dieselben Kanäle gleichzeitig haben Twitchs
+  // JOIN-Ratenlimit (20 / 10s für unverifizierte Bots) gerissen und dadurch den Schwall an
+  // "No response from Twitch." beim Start erzeugt. Mit leerer Liste übernimmt ausschließlich
+  // syncChannels() das Beitreten — ein einziger, kontrollierter Pfad statt zwei parallelen.
   client = new tmi.Client({
     options: { skipUpdatingEmotesets: true },
     connection: { reconnect: true, secure: true },
     identity: { username: user, password: pass },
-    channels,
+    channels: [],
   });
 
   client.on("message", onChatMessage);
@@ -900,13 +937,46 @@ async function initWinchallengeIrc() {
     return { status: false, detail: e.message };
   }
 
+  // Nach einer Kontoumbenennung bleibt TWITCH_IRC_USERNAME in .env leicht veraltet stehen — der
+  // Token selbst bleibt gültig (an die User-ID gebunden, nicht an den Login-Namen), Twitch nimmt
+  // die Verbindung also trotzdem an ("verbunden als <alter Name>" oben stimmt dann aber nicht
+  // mehr — die Zeile echot nur den konfigurierten Wert, prüft ihn nicht). Einzelne Befehle danach
+  // (v. a. JOIN) können dann genau die "No response from Twitch."-Zeitüberschreitungen zeigen, die
+  // das eigentlich auslöst — ohne aktiv nachzufragen, WEM der Token laut Twitch gerade wirklich
+  // gehört, ist das schwer von einem echten Netzwerkproblem zu unterscheiden. /helix/users OHNE
+  // Parameter liefert genau das: den Account des mitgeschickten Bearer-Tokens selbst.
+  let identityDetail = `verbunden als ${user}`;
+  let identityMismatch = false;
+  const clientId = helixClientIdFromEnv();
+  const bearer = bearerTokenFromEnv();
+  if (clientId && bearer) {
+    try {
+      const fetchFn = await getFetch();
+      const idRes = await fetchFn("https://api.twitch.tv/helix/users", {
+        headers: { "Client-Id": clientId, Authorization: `Bearer ${bearer}` },
+      });
+      const idJson = await idRes.json().catch(() => ({}));
+      const realLogin = (idRes.ok && idJson.data?.[0]?.login || "").toLowerCase();
+      if (realLogin && realLogin !== user) {
+        identityMismatch = true;
+        identityDetail = `verbunden als ${user}, aber Token gehört zu "${realLogin}" — TWITCH_IRC_USERNAME vermutlich veraltet (Kontoumbenennung?)`;
+        console.error(
+          `[winchallenge irc] TWITCH_IRC_USERNAME ("${user}") stimmt nicht mit dem tatsächlichen Login des Tokens ("${realLogin}") überein. ` +
+          `Bitte TWITCH_IRC_USERNAME=${realLogin} in .env setzen und neu starten.`
+        );
+      }
+    } catch {
+      /* Prüfung ist ein Bonus, kein Abbruchgrund — ohne sie läuft es wie bisher weiter */
+    }
+  }
+
   refreshTimer = setInterval(() => {
     syncChannels().catch((e) =>
       console.warn("[winchallenge irc] sync:", e.message)
     );
   }, 30_000);
 
-  return { status: true, detail: `verbunden als ${user}` };
+  return { status: identityMismatch ? "warn" : true, detail: identityDetail };
 }
 
 /** Nach Speichern der Win-Challenge-Chat-Einstellungen: Kanal-Joins aktualisieren */

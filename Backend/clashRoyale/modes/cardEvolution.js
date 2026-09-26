@@ -7,7 +7,7 @@
 
 const { getCardPool } = require('../core/cards');
 const { lobbies, shuffle } = require('../core/lobbies');
-const { clearTurnTimer } = require('../core/timers');
+const { clearTurnTimer, emitTimerTick } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
 const { emitClashError } = require('../core/errors');
@@ -172,6 +172,7 @@ function startEvolutionPhaseTimer(lobby, io) {
   clearTurnTimer(lobby);
   const g = lobby.game;
   g.timerRemaining = evolutionPhaseDuration(lobby, g.phase);
+  emitTimerTick(lobby, io);
   g.timerInterval = setInterval(() => {
     g.timerRemaining--;
     io.to(lobby.code).emit('clash:timerTick', { remaining: g.timerRemaining });

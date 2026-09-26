@@ -5,6 +5,8 @@
 #   ./deploy.sh             (beides)
 #   ./deploy.sh frontend
 #   ./deploy.sh backend
+#   ./deploy.sh level                      (listet die lokal veröffentlichten Seed-Runners-Level)
+#   ./deploy.sh level SR-ABC-DEF SR-…      (bringt diese Level auf den Server; braucht dort den aktuellen Backend-Stand)
 set -euo pipefail
 
 SERVER="${SERVER:-root@213.199.51.205}"
@@ -17,8 +19,19 @@ BACKEND_SERVICE="${BACKEND_SERVICE:-admin-api}"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 TARGET="${1:-all}"
 
+# Seed Runners: Der Server spielt Läufe mit einer GESPIEGELTEN Kopie der Sim nach (Backend/seedRunners/engine,
+# erzeugt aus Frontend/src/pages/SeedRunners/sim, gen und level). Ist sie veraltet, stimmt der Fingerprint nicht mehr
+# zu dem, was der Browser mitschickt, und alle Läufe blieben ungeprüft. Deshalb nie mit altem Spiegel ausliefern.
+check_sim_mirror() {
+  if ! (cd "$ROOT/Backend" && node seedRunners/tools/simSpiegel.js --pruefen); then
+    echo "Abbruch: Sim-Spiegel veraltet. Im Ordner Backend:  npm run seedrunners:spiegel" >&2
+    exit 1
+  fi
+}
+
 deploy_frontend() {
   echo "=== Frontend ==="
+  check_sim_mirror
   cd "$ROOT/Frontend"
 
   npm run build
@@ -42,6 +55,7 @@ deploy_frontend() {
 
 deploy_backend() {
   echo "=== Backend ==="
+  check_sim_mirror
   cd "$ROOT/Backend"
 
   # Anders als beim Frontend kein tar+atomarer mv-Swap: der laufende Node-Prozess
@@ -72,7 +86,7 @@ deploy_backend() {
   #                                                an, muss er hier einzeln ergänzt werden.
   #   clashRoyale/data/cardIconUrls.json           einzige Nicht-Datenbank-Datei in einem sonst
   #                                                ausgeschlossenen Ordner — statischer Inhalt,
-  #                                                muss trotzdem mit (siehe cr-color-match.js).
+  #                                                muss trotzdem mit (siehe cardIconSpiegel.js).
   #   node_modules/   nativ kompiliert (better-sqlite3), zieht sich der Server per npm selbst
   #   sessions.json   eingeloggte Nutzer — sonst wirft jeder Deploy alle raus
   #   .env / .env.*   Server-Zugangsdaten, dürfen nie vom lokalen Dev-.env überschrieben werden
@@ -103,12 +117,39 @@ deploy_backend() {
   echo "gibt es hierfür bewusst kein .old (data/ hängt sonst am falschen Stand)."
 }
 
+# Seed Runners: veröffentlichte Level aus der LOKALEN Datenbank (Backend/data/seedrunners.db) auf den Server bringen.
+# Export hier, Import dort — beides über Backend/seedRunners/tools/levelTransfer.js. Auf dem Server läuft der Import als
+# www-data (wie der Dienst): Als root angelegte -wal/-shm-Dateien könnte der Dienst sonst nicht mehr beschreiben.
+# Nie überschreibend: Ist der Code dort vergeben oder der Inhalt schon vorhanden, wird das Level übersprungen.
+deploy_levels() {
+  echo "=== Seed-Runners-Level ==="
+  cd "$ROOT/Backend"
+  if [ "$#" -eq 0 ]; then
+    echo "Welche Level? Lokal veröffentlicht sind:"
+    node seedRunners/tools/levelTransfer.js liste
+    echo
+    echo "Aufruf:  ./deploy.sh level SR-ABC-DEF [SR-… …]"
+    exit 1
+  fi
+  local json
+  json="$(node seedRunners/tools/levelTransfer.js export "$@")"
+  printf '%s' "$json" | ssh "$SERVER" "set -e
+    cd '$BACKEND_DEST'
+    if [ ! -f seedRunners/tools/levelTransfer.js ]; then
+      echo 'Auf dem Server fehlt seedRunners/tools/levelTransfer.js — zuerst ./deploy.sh backend' >&2
+      exit 1
+    fi
+    runuser -u www-data -- node seedRunners/tools/levelTransfer.js import"
+  echo "Level-Übertragung fertig (kein Neustart nötig — der Server liest die Level direkt aus der Datenbank)."
+}
+
 case "$TARGET" in
   frontend) deploy_frontend ;;
   backend)  deploy_backend ;;
   all)      deploy_frontend; deploy_backend ;;
+  level)    shift; deploy_levels "$@" ;;
   *)
-    echo "Unbekanntes Ziel: $TARGET (erwartet: frontend | backend | keins = beides)" >&2
+    echo "Unbekanntes Ziel: $TARGET (erwartet: frontend | backend | level | keins = beides)" >&2
     exit 1
     ;;
 esac

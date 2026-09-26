@@ -33,6 +33,47 @@ const GOLD_MAX = 9_000_000_000_000_000;
 const SUB_BONUS = 1.5;
 
 /**
+ * Wie lange eine geerntete instanceId als „gerade erst weg" gilt (siehe
+ * merkeGeerntet unten). Muss deutlich über jeder realistischen Verzögerung
+ * eines nachlaufenden PUT liegen (Speichern ist alle paar Sekunden, plus
+ * Netzlaufzeit) — 5 Minuten sind reichlich Puffer, ohne die Karte unbegrenzt
+ * wachsen zu lassen.
+ */
+const GEERNTET_TOMBSTONE_MS = 5 * 60 * 1000;
+
+/**
+ * Merkt sich, dass diese instanceId gerade geerntet (bzw. beim Gärtner-Nachwuchs
+ * ersetzt) wurde — verplausibilisierePflanzen (gardenGameRoutes.js) verweigert
+ * ihr danach eine Wiederauferstehung als „neu gepflanzt".
+ *
+ * GEFUNDEN 14.09.: ein PUT, der eine LÄNGST geerntete Pflanze (dieselbe
+ * instanceId, alte Zeiten) erneut an ihrem Schlüssel einreicht, fand in
+ * verplausibilisierePflanzen keinen Treffer mehr (die Zelle ist ja leer) und
+ * landete im „neu gesetzt"-Zweig — der würfelt anstandslos frische Wachstums-
+ * zeiten, ohne zu prüfen, ob überhaupt je ein Same dafür bezahlt wurde. Ausgelöst
+ * hat das ein Browser-Wettlauf (Schnellzug + nachlaufender Einzelklick treffen
+ * dieselbe Zelle, siehe handleHarvest in GameContainer.jsx), der jetzt eigenständig
+ * behoben ist — diese Sperre bleibt trotzdem als zweite Absicherung stehen: der
+ * eingangs dokumentierte Vorbehalt oben ("es entsteht kein Gold aus dem Nichts")
+ * galt nur PRO ERNTE, nicht für eine BELIEBIG OFT wiederholbare kostenlose
+ * Neubepflanzung derselben Zelle.
+ */
+function merkeGeerntet(state, instanceId, now = Date.now()) {
+    if (!instanceId) return;
+    const karte = isPlainObjectLocal(state._kuerzlichGeerntet) ? state._kuerzlichGeerntet : {};
+    karte[instanceId] = now;
+    // Aufräumen statt unbegrenzt wachsen: alles älter als die Tombstone-Zeit fliegt raus.
+    for (const [id, zeit] of Object.entries(karte)) {
+        if (now - (Number(zeit) || 0) > GEERNTET_TOMBSTONE_MS) delete karte[id];
+    }
+    state._kuerzlichGeerntet = karte;
+}
+
+function isPlainObjectLocal(o) {
+    return Boolean(o) && typeof o === "object" && !Array.isArray(o);
+}
+
+/**
  * Gold gutschreiben UND den Lebenszeit-Zähler mitführen (v2, Feedback 29.08.:
  * "Gesamt gesammeltes Gold" in der Profil-Bubble).
  *
@@ -376,6 +417,10 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
             plant.stage = "harvested";
             delete plants[key];
         }
+        // In JEDEM Fall: die instanceId, die hier gerade geerntet wurde, ist weg —
+        // beim Gärtner-Nachwuchs bekommt die Zelle eine ANDERE, neu gewürfelte
+        // instanceId (siehe neuePflanzeAus), diese alte darf nie wieder aufleben.
+        merkeGeerntet(state, plant.instanceId, now);
     } else {
         // Die am längsten reife Frucht zuerst
         let idx = -1; let aeltester = Infinity;

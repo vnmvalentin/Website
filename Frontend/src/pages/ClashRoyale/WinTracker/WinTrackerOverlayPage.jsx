@@ -23,8 +23,10 @@ import { Trophy, TrendingUp, TrendingDown, ChevronsUp } from "lucide-react";
 import { leagueIconUrl, leagueName, MEDAL_ICON_URL } from "../data/leagueIcons";
 import { trophyArenaIcon, trophyArenaName } from "../data/trophyArenas";
 import { cardImageUrl } from "../data/cards";
+import { useClanBadgeUrl } from "../data/clanBadges";
 import { useStableState } from "../../../utils/useStableState";
 import { getOverlayData } from "./winTrackerApi";
+import { usePagedTransition, SLIDE_MS } from "./usePagedTransition";
 import { dictForWt } from "./wtI18n";
 import trophyIcon from "../../../assets/clashRoyale/ui/trophy.png";
 import trophy2v2Icon from "../../../assets/clashRoyale/ui/trophy2v2.webp";
@@ -32,7 +34,12 @@ import league2v2Badge from "../../../assets/clashRoyale/ui/league2v2.png";
 
 const POLL_MS = 15000;
 const CARD_MIN_WIDTH = 260;
-const CARD_MAX_WIDTH = 480;
+// Kein Deckel mehr (siehe useMeasuredWidth): eine echte Messung kennt die WAHRE Wunschbreite —
+// ein künstliches Maximum bedeutete nur, dass ein normal langer Name ans Limit lief und per
+// Ellipsis abgeschnitten wurde, obwohl noch reichlich Platz da gewesen wäre (Nutzer-Feedback:
+// "the width variable with the widest thing" statt einer festen Obergrenze). Die tatsächliche
+// Grenze setzt ohnehin die in OBS eingestellte Browserquellen-Größe selbst, nicht wir.
+const CARD_MAX_WIDTH = Infinity;
 // Zahlenformat folgt der Overlay-Sprache (settings.language) — Tausendertrennzeichen
 // unterscheiden sich zwischen de-DE (Punkt) und en-US (Komma).
 const fmt = (n, lang) => (n || 0).toLocaleString(lang === "en" ? "en-US" : "de-DE");
@@ -81,6 +88,53 @@ function useMeasuredWidth(min, max, fallback) {
   return [headerRef, dailyRef, width];
 }
 
+// Misst die Höhe jedes einzelnen Stapel-Teils (Profil/Deck/Session) über unsichtbare Messkopien —
+// dieselbe Technik wie useMeasuredWidth oben, nur für die Höhe statt die Breite. Gebraucht für die
+// Paginierung (settings.paginateOverlay, siehe unten): jede Seite bekommt exakt die Höhe der
+// GRÖSSTEN aktuell sichtbaren Seite, fest — sonst würde die OBS-Browserquellen-Größe bei jedem
+// Seitenwechsel springen. Immer alle drei gemessen (unabhängig davon, welche gerade Seite ist),
+// dieselbe "unsichtbare Kopie statt sichtbares Element" -Regel wie bei useMeasuredWidth: das
+// sichtbare Element zeigt ja gerade nur EINE Seite, könnte sich also nie selbst als "die größte"
+// messen.
+function useBlockHeights() {
+  const profileRef = useRef(null);
+  const deckRef = useRef(null);
+  const sessionRef = useRef(null);
+  const raw = useRef({ profile: 0, deck: 0, session: 0 });
+  const [heights, setHeights] = useState({ profile: 0, deck: 0, session: 0 });
+
+  useLayoutEffect(() => {
+    // WICHTIG: setHeights({ ...raw.current }) baut IMMER ein neues Objekt, selbst wenn sich kein
+    // einziger Wert geändert hat — anders als useMeasuredWidth oben (setWidth(<Zahl>), wo React
+    // bei gleichem Primitivwert von selbst abbricht). Ohne den Vergleich hier läuft der Effekt
+    // (bewusst ohne Dependency-Array, jeden Render) jedes Mal auf ein "neues" Objekt hinaus,
+    // triggert einen weiteren Render, der den Effekt erneut auslöst — "Maximum update depth
+    // exceeded" (empirisch als React-Fehler in der Praxis aufgetreten). Der funktionale Updater
+    // gibt bei UNVERÄNDERTEN Werten dieselbe prev-Referenz zurück, React bricht dann korrekt ab.
+    const recompute = () => setHeights((prev) => {
+      const next = raw.current;
+      if (prev.profile === next.profile && prev.deck === next.deck && prev.session === next.session) return prev;
+      return { ...next };
+    });
+    const observers = [];
+    const attach = (ref, key) => {
+      if (!ref.current) return;
+      const measure = () => { raw.current[key] = ref.current.getBoundingClientRect().height; recompute(); };
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(ref.current);
+      observers.push(ro);
+    };
+    attach(profileRef, "profile");
+    attach(deckRef, "deck");
+    attach(sessionRef, "session");
+    recompute();
+    return () => observers.forEach((ro) => ro.disconnect());
+  });
+
+  return [{ profile: profileRef, deck: deckRef, session: sessionRef }, heights];
+}
+
 function hexToRgba(hex, opacityPct) {
   const h = String(hex || "#0c0c12").replace("#", "");
   const r = parseInt(h.slice(0, 2), 16) || 0;
@@ -89,11 +143,42 @@ function hexToRgba(hex, opacityPct) {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(100, opacityPct ?? 88)) / 100})`;
 }
 
+// Reine Funktion statt Inline-Logik in der Komponente: wird ZWEIMAL gebraucht — einmal VOR dem
+// early return (siehe useMeasuredWidth-Aufrufstelle, dort nur data?.settings verfügbar, kann noch
+// undefined sein) für usePagedTransition (braucht die Seitenzahl schon, bevor "data" feststeht,
+// weil React-Hooks nicht übersprungen werden dürfen), und einmal NACH dem early return mit dem
+// echten, garantiert vorhandenen settings-Objekt. Dieselbe Funktion an beiden Stellen verhindert,
+// dass beide Versionen auseinanderlaufen — settings === undefined liefert einfach einen leeren
+// Stapel (0 Seiten), bis die echten Daten da sind.
+function computeStack(settings) {
+  if (!settings) return { stack: [], sidebarSide: null };
+  const showDaily = settings.showDailyProfit || settings.showWinLossNumbers || settings.showWinLossPercent;
+  const showLast5 = !!settings.showLast5;
+  const showSession = showDaily || showLast5;
+  const showDeck = settings.showDeck !== false;
+  const showProfile = settings.showProfile !== false;
+  const deckPlacement = settings.deckPlacement || "top";
+
+  const stack = [];
+  if (showProfile) stack.push("profile");
+  if (showDeck && deckPlacement === "top") stack.push("deck");
+  if (showSession) stack.push("session");
+  if (showDeck && deckPlacement === "bottom") stack.push("deck");
+
+  let sidebarSide = null;
+  if (showDeck && (deckPlacement === "left" || deckPlacement === "right")) {
+    if (stack.length > 0) sidebarSide = deckPlacement;
+    else stack.push("deck");
+  }
+  return { stack, sidebarSide };
+}
+
 export default function WinTrackerOverlayPage() {
   const { overlayKey } = useParams();
   // Läuft in OBS dauerhaft: nur neu rendern, wenn sich wirklich etwas geändert hat
   const [data, setData] = useStableState(null);
   const [headerRef, dailyRef, cardWidth] = useMeasuredWidth(CARD_MIN_WIDTH, CARD_MAX_WIDTH, CARD_MIN_WIDTH);
+  const [heightRefs, blockHeights] = useBlockHeights();
 
   useEffect(() => {
     let alive = true;
@@ -107,12 +192,27 @@ export default function WinTrackerOverlayPage() {
     return () => { alive = false; clearInterval(t); };
   }, [overlayKey, setData]);
 
+  // Seitenwechsel-Animation der Paginierung — braucht die Seitenzahl schon HIER (vor dem early
+  // return), deshalb computeStack(data?.settings) statt des echten stack unten (siehe
+  // ausführlicher Kommentar an computeStack). paginate/paginateIntervalMs greifen aus demselben
+  // Grund sicher auf data?. zurück: vor dem ersten Laden (data noch null) ist paginate einfach
+  // false, der Hook selbst muss trotzdem JEDES Mal in derselben Reihenfolge laufen (React-Regel).
+  const paginate = !!data?.settings?.paginateOverlay;
+  const paginateIntervalMs = Math.max(2, Number(data?.settings?.paginateIntervalS) || 6) * 1000;
+  const provisionalPageCount = computeStack(data?.settings).stack.length;
+  const { index: pageIndex, offsetPct, transitionOn } =
+    usePagedTransition(provisionalPageCount, paginateIntervalMs, paginate && provisionalPageCount > 1);
+
+  // Wie paginate oben: sicher auf data?. zurückgreifen, damit der Hook (React-Regel) auch vor dem
+  // ersten Laden JEDES Mal gleich oft läuft.
+  const clanBadgeImgUrl = useClanBadgeUrl(data?.clanBadgeId ?? null);
+
   // OBS-Browserquelle — gehört nicht in die Google-Suche (zusätzlich per robots.txt gesperrt)
   const noIndex = <meta name="robots" content="noindex, nofollow" />;
   if (!data || !data.hasAccount) return noIndex;
 
   const {
-    playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank,
+    playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, clanName,
     league2v2Trophies, league2v2BestTrophies, ladder, daily, last5, deck, settings,
   } = data;
   const lang = settings.language === "en" ? "en" : "de";
@@ -152,10 +252,6 @@ export default function WinTrackerOverlayPage() {
   // quellen-Größe. Fehlende Einträge werden stattdessen als leere Platzhalter gerendert (siehe
   // last5Row/deckGridEl unten) — das Modul behält seine Größe, nur der Inhalt füllt sich auf.
   const showLast5 = !!settings.showLast5;
-  const showSession = showDaily || showLast5;
-  const showDeck = settings.showDeck !== false;
-  const showProfile = settings.showProfile !== false;
-  const deckPlacement = settings.deckPlacement || "top";
   const opacityFrac = Math.max(0, Math.min(100, settings.bgOpacity ?? 88)) / 100;
   // Interne Trennlinien bleiben IMMER die dezente automatische Linie — siehe ausführliche
   // Begründung an derselben Stelle in OverlayPreview.jsx (1:1 übernommen für Pixel-Parität).
@@ -170,20 +266,9 @@ export default function WinTrackerOverlayPage() {
     : hexToRgba(settings.bgColor, settings.bgOpacity);
 
   // Vertikaler Stapel unterhalb/oberhalb des Profilkopfs — deck landet hier nur, wenn es NICHT
-  // seitlich angedockt ist (siehe sidebarSide unten).
-  const stack = [];
-  if (showProfile) stack.push("profile");
-  if (showDeck && deckPlacement === "top") stack.push("deck");
-  if (showSession) stack.push("session");
-  if (showDeck && deckPlacement === "bottom") stack.push("deck");
-
-  // Seitlich andocken ergibt nur Sinn, wenn daneben auch wirklich etwas steht — sonst (z.B. nur
-  // das Deck sichtbar) fällt es zurück in den normalen Stapel statt eine leere Spalte danebenzustellen.
-  let sidebarSide = null;
-  if (showDeck && (deckPlacement === "left" || deckPlacement === "right")) {
-    if (stack.length > 0) sidebarSide = deckPlacement;
-    else stack.push("deck");
-  }
+  // seitlich angedockt ist. Dieselbe Funktion wie oben vor dem early return (siehe computeStack),
+  // jetzt mit dem echten settings-Objekt statt data?.settings.
+  const { stack, sidebarSide } = computeStack(settings);
 
   // Inhalt von headerText — einmal definiert, ZWEIMAL verwendet: sichtbar im echten Kopf UND
   // (unverändert, gleiche Styles) in der unsichtbaren Messkopie weiter unten. Kein manuelles
@@ -194,6 +279,20 @@ export default function WinTrackerOverlayPage() {
       <div style={styles.nameRow}>
         <span style={styles.name}>{playerName}</span>
       </div>
+      {/* Feste Höhe, SOLANGE showClan an ist (derselbe Grund wie bestRowSlot unten: der aktive
+          Account/Modus kann jederzeit wechseln, ohne festen Platz würde der Kopf dabei mal höher,
+          mal niedriger). Ist showClan dagegen aus, fällt der Platz komplett weg — Ersatz für die
+          entfernte Stufenleiste, die denselben Platz vorher nur in Liga 1-6 sinnvoll füllte. */}
+      {settings.showClan && (
+        <div style={styles.clanRowSlot}>
+          {clanName && (
+            <div style={styles.clanRow}>
+              {clanBadgeImgUrl && <img src={clanBadgeImgUrl} alt="" style={styles.clanBadgeImg} />}
+              <span style={styles.clanName}>{clanName}</span>
+            </div>
+          )}
+        </div>
+      )}
       {isLadderMode ? (
         <div style={styles.trophyRow}>
           <ChevronsUp size={18} color="#fbbf24" />
@@ -242,23 +341,6 @@ export default function WinTrackerOverlayPage() {
         </div>
         <div style={styles.headerText}>{headerTextInner}</div>
       </div>
-
-      {/* Feste Höhe für die Stufenleiste, SOLANGE showLadderBar an ist: nur Ranked-Liga 1-6 zeigt
-          tatsächlich Pips, aber der Platz bleibt bei jedem Modus reserviert (siehe bestRowSlot
-          oben) — sonst würde ein Moduswechsel per Chat (!tracker set/mode) die Höhe ändern. Ist
-          showLadderBar dagegen bewusst ausgeschaltet, fällt der Platz komplett weg (dokumentiertes
-          Verhalten des Schalters: "macht das Overlay etwas niedriger") statt ihn nur leer zu zeigen. */}
-      {settings.showLadderBar !== false && (
-        <div style={styles.pipRowSlot}>
-          {isLadderMode && (
-            <div style={styles.pipRow}>
-              {Array.from({ length: ladder.maxSteps }, (_, i) => (
-                <div key={i} style={i < ladder.step ? styles.pipFilled : styles.pipEmpty} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </>
   );
 
@@ -291,12 +373,24 @@ export default function WinTrackerOverlayPage() {
   );
 
   // Session: Profit/Win-Loss + letzte 5 Spiele als EIN Block, eng beieinander statt getrennt
-  // durch eine Linie — kein "Session"-Label, kein "Letzte 5 Spiele"-Titel mehr.
+  // durch eine Linie — kein "Session"-Label, kein "Letzte 5 Spiele"-Titel mehr. Beide Teile
+  // stecken jetzt zusätzlich in einer eigenen dezenten "Pille" (Rahmen+leichter Hintergrund, per
+  // boxShadow statt border — boxShadow verändert NICHT die Layout-Größe, siehe dailyPill/
+  // last5Pill unten): sonst wirkt besonders last5Style "delta" (Profit + W/L + % + 5 eigene
+  // +/--Zahlen gleichzeitig) wie eine Zahlenwand ohne jede Gliederung (Nutzer-Feedback). Die
+  // Pillen-Innenabstände sind exakt gegen sessionBlock.gap/last5BadgeRow.marginTop aufgerechnet
+  // (siehe dortige Werte) — die Karte wird dadurch KEINEN Pixel höher als vorher, wichtig für
+  // bereits in OBS eingerichtete Zuschnitte.
   const sessionBlock = (
     <div style={styles.sessionBlock}>
-      {showDaily && <div style={styles.dailyRow}>{dailyRowInner}</div>}
+      {showDaily && (
+        <div style={styles.dailyPill}>
+          <div style={styles.dailyRow}>{dailyRowInner}</div>
+        </div>
+      )}
       {showLast5 && (
-        last5Style === "dot" ? (
+        <div style={styles.last5Pill}>
+        {last5Style === "dot" ? (
           <div>
             {/* Immer 5 Punkte (wie last5Row unten) statt nur so viele wie es Spiele gibt — sonst
                 schrumpft die zentrierte Gruppe mit einer jungen Session (wenige/keine Spiele
@@ -345,7 +439,14 @@ export default function WinTrackerOverlayPage() {
                 if (!b) return <div key={i} style={styles.matchPillEmpty}>{" "}</div>;
                 return (
                   <div key={i} style={styles.matchPill(b.result)}>
-                    {last5Style === "result"
+                    {/* 2v2 zeigt IMMER Win/Lose, unabhängig vom gewählten last5Style — battlelog
+                        liefert startingTrophies strukturell nur für team[0] (siehe Kommentar an
+                        applyLeague2v2Deltas in crWinTrackerRoutes.js), eine einzelne +/--Zahl
+                        wäre also für viele Matches gar nicht verlässlich bekannt. Der
+                        Session-Profit kommt für 2v2 stattdessen aus einem Kontostand-Anker
+                        (siehe updateLeague2v2SessionAnchor), der diese Einschränkung nicht hat —
+                        hier in "letzte 5" bleibt sie aber bestehen, deshalb der Zwang auf Win/Lose. */}
+                    {last5Style === "result" || isLeague2v2
                       ? (RESULT_LABEL[b.result] || RESULT_LABEL.draw)
                       // In den Stufen-Ligen ist trophy_change je Match immer 0 (dort zählt der
                       // Tracker eigene Stufen statt echter Medaillen) — die Zahl kommt dort aus
@@ -376,7 +477,8 @@ export default function WinTrackerOverlayPage() {
               </div>
             )}
           </div>
-        )
+        )}
+        </div>
       )}
     </div>
   );
@@ -408,14 +510,39 @@ export default function WinTrackerOverlayPage() {
     </div>
   );
 
-  const stackContent = stack.map((key, i) => (
-    <React.Fragment key={key}>
-      {i > 0 && <div style={dividerStyle} />}
-      {key === "profile" && profileBlock}
-      {key === "deck" && deckGridEl(styles.deckGrid)}
-      {key === "session" && sessionBlock}
-    </React.Fragment>
-  ));
+  const renderStackBlock = (key) =>
+    key === "profile" ? profileBlock : key === "deck" ? deckGridEl(styles.deckGrid) : key === "session" ? sessionBlock : null;
+
+  // Paginierung: nur sinnvoll ab 2 Seiten (bei genau einer wäre "durchwechseln" ein Wechsel
+  // zwischen genau demselben Inhalt). pageIndex kommt direkt aus usePagedTransition — dessen
+  // eigener provisionalPageCount (vor dem early return berechnet) und stack.length hier sind
+  // IMMER gleich, weil beide aus computeStack(settings) mit denselben Daten stammen (siehe
+  // Kommentar an computeStack), also nie ein ungültiger Index.
+  const pagesActive = paginate && stack.length > 1;
+  const pageHeight = pagesActive ? Math.max(...stack.map((k) => blockHeights[k] || 0)) : 0;
+
+  const stackContent = pagesActive ? (
+    // Äußerer Rahmen schneidet die gleitende Seite auf die Kartenbreite zu (sonst sichtbar über
+    // den Kartenrand hinaus, solange sie unterwegs ist) — justifyContent:center im INNEREN Teil,
+    // weil das die eigentliche Seite ist: verschieden hohe Seiten (z.B. Kopf allein ist niedriger
+    // als das Deck) sollen mittig in der fest reservierten pageHeight sitzen statt oben zu kleben.
+    <div style={{ ...styles.pageSlideOuter, height: pageHeight }}>
+      <div style={{
+        ...styles.pageSlideInner,
+        transform: `translateX(${offsetPct}%)`,
+        transition: transitionOn ? `transform ${SLIDE_MS}ms ease` : "none",
+      }}>
+        {renderStackBlock(stack[pageIndex])}
+      </div>
+    </div>
+  ) : (
+    stack.map((key, i) => (
+      <React.Fragment key={key}>
+        {i > 0 && <div style={dividerStyle} />}
+        {renderStackBlock(key)}
+      </React.Fragment>
+    ))
+  );
 
   // Unsichtbare Messkopien für useMeasuredWidth (siehe ausführlichen Kommentar dort und an
   // styles.headerMeasure/dailyMeasure). Bewusst IMMER gerendert (headerProbe unabhängig von
@@ -429,18 +556,40 @@ export default function WinTrackerOverlayPage() {
   );
   const dailyProbe = showDaily ? <div ref={dailyRef} style={styles.dailyMeasure}>{dailyRowInner}</div> : null;
 
+  // Unsichtbare Messkopien für useBlockHeights — nur nötig, solange pagesActive ist. width:
+  // cardWidth minus der Karten-Innenabstände (styles.card.padding: "16px 18px", 18px links+rechts),
+  // sonst würde bei knappen Breiten (z.B. dailyRow.flexWrap) etwas anderes umbrechen als im
+  // echten, gepolsterten Kartenrahmen — dieselbe "exakte Parität statt Annäherung"-Regel wie
+  // überall sonst in dieser Datei.
+  const heightProbes = pagesActive ? (
+    <>
+      {stack.includes("profile") && (
+        <div ref={heightRefs.profile} style={{ ...styles.pageProbe, width: Math.max(0, cardWidth - 36) }}>{profileBlock}</div>
+      )}
+      {stack.includes("deck") && (
+        <div ref={heightRefs.deck} style={{ ...styles.pageProbe, width: Math.max(0, cardWidth - 36) }}>{deckGridEl(styles.deckGrid)}</div>
+      )}
+      {stack.includes("session") && (
+        <div ref={heightRefs.session} style={{ ...styles.pageProbe, width: Math.max(0, cardWidth - 36) }}>{sessionBlock}</div>
+      )}
+    </>
+  ) : null;
+
   if (sidebarSide) {
     const deckPane = <div style={styles.deckPane}>{deckGridEl(styles.deckGridSidebar)}</div>;
     const cardStyle = { ...styles.card, ...styles.cardRow, width: "auto", background: cardBackground, border: `1px solid ${cardBorderColor}` };
     // Steht neben dem Deck nur EIN Teil (Kopf ODER Session, nicht beide), mittig statt oben
     // ausrichten — sonst hängt es oben an der (durch das Deck vorgegebenen) Spaltenhöhe fest,
-    // mit ungenutztem Platz darunter. Bei beiden Teilen bleibt es der normale Stapel von oben.
-    const mainPaneStyle = { ...styles.mainPane, width: cardWidth, justifyContent: stack.length === 1 ? "center" : "flex-start" };
+    // mit ungenutztem Platz darunter. Bei beiden Teilen bleibt es der normale Stapel von oben —
+    // AUSSER bei aktiver Paginierung: dann steht ja ohnehin immer nur EIN (fest hohes) Teil im
+    // sichtbaren Bereich, genau derselbe Grund wie bei stack.length===1.
+    const mainPaneStyle = { ...styles.mainPane, width: cardWidth, justifyContent: (pagesActive || stack.length === 1) ? "center" : "flex-start" };
     return (
       <div style={styles.page}>
         {noIndex}
         {headerProbe}
         {dailyProbe}
+        {heightProbes}
         <div style={cardStyle}>
           {sidebarSide === "left" && deckPane}
           {sidebarSide === "left" && <div style={vDividerStyle} />}
@@ -458,6 +607,7 @@ export default function WinTrackerOverlayPage() {
       {noIndex}
       {headerProbe}
       {dailyProbe}
+      {heightProbes}
       <div style={cardStyle}>{stackContent}</div>
     </div>
   );
@@ -520,11 +670,40 @@ const styles = {
   // (position:absolute) und unsichtbar (visibility:hidden) — nimmt keinen Platz weg und
   // beeinflusst nichts Sichtbares, whiteSpace:nowrap verhindert, dass sich der Name (oder die
   // Liga-Zeile) selbst kleinrechnet, indem er innerlich umbricht.
+  // padding: "0 18px" — dieselben 18px links/rechts wie styles.card.padding ("16px 18px").
+  // useMeasuredWidth setzt die gemessene Breite 1:1 als ÄUSSERE Kartenbreite (styles.card.width)
+  // — die Karte frisst davon aber selbst 36px Innenabstand auf, bevor der Kopf überhaupt
+  // anfängt. Ohne dieses Padding HIER wurde genau diese Differenz nie mitgemessen: der Name
+  // bekam am Ende 36px WENIGER Platz als gemessen und lief trotzdem in die Ellipsis (per
+  // Screenshot-Test gefunden — unabhängig vom CARD_MAX_WIDTH-Deckel, ein eigener, zweiter Bug).
+  // border: "1px solid transparent" aus demselben Grund — globales box-sizing:border-box
+  // (Tailwind-Preflight, per Test bestätigt) zieht auch den 1px-Kartenrahmen von der
+  // angegebenen width ab, nicht nur das Padding. Farbe egal (unsichtbares Element), nur die
+  // BREITE (1px) muss stimmen, damit sie in die Messung eingeht.
   headerMeasure: {
-    display: "inline-flex", alignItems: "center", gap: 14,
+    display: "inline-flex", alignItems: "center", gap: 14, padding: "0 18px", border: "1px solid transparent",
     position: "absolute", visibility: "hidden", pointerEvents: "none", whiteSpace: "nowrap",
     left: 0, top: 0,
   },
+  // Messkopie für useBlockHeights (Paginierung) — width kommt per Inline-Style von der
+  // Aufrufstelle (cardWidth minus Innenabstand), boxSizing:border-box nur der Vollständigkeit
+  // halber (die Blöcke selbst setzen kein eigenes Padding, das die Breite verändern würde).
+  // left/top statt 0 weit im Negativen (nicht bloß visibility:hidden wie headerMeasure/
+  // dailyMeasure oben): sessionBlock enthält die NEUESTE-Badge, deren <span> im ECHTEN Render
+  // ganz bewusst sein eigenes visibility:"visible" setzt (siehe Verwendungsstelle) — das
+  // überschreibt das GEERBTE hidden dieses Wrappers, sonst blitzt "NEWEST" oben links im Bild
+  // auf (per Screenshot-Test gefunden). Weit außerhalb des Viewports positioniert bleibt es
+  // unsichtbar, ganz unabhängig davon, was ein Kind an eigenem visibility setzt.
+  pageProbe: {
+    position: "absolute", visibility: "hidden", pointerEvents: "none",
+    left: -99999, top: -99999, boxSizing: "border-box",
+  },
+  // Rahmen für die Seitenwechsel-Animation (usePagedTransition): overflow:hidden schneidet die
+  // Seite auf die Kartenbreite zu, während sie seitlich unterwegs ist — ohne das würde sie kurz
+  // über den Kartenrand hinausragen. willChange als Performance-Hinweis für den Browser (weiß im
+  // Voraus, dass sich transform gleich ändert).
+  pageSlideOuter: { overflow: "hidden", width: "100%" },
+  pageSlideInner: { display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", willChange: "transform" },
   badgeWrap: { width: 54, height: 54, flexShrink: 0 },
   badgeImg: { width: "100%", height: "100%", objectFit: "contain" },
   badgeFallback: {
@@ -558,13 +737,16 @@ const styles = {
   },
   leagueLabel: { fontSize: 12, color: "rgba(255,255,255,0.5)", marginLeft: 2 },
   stepMax: { fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.45)", marginLeft: -5, fontVariantNumeric: "tabular-nums" },
-  // Feste Höhe (6px, wie pipFilled/pipEmpty) + der frühere marginTop der Pip-Reihe selbst — jetzt
-  // am WRAPPER statt an pipRow, damit der Abstand auch ohne Inhalt (nicht im Ladder-Modus) steht.
-  // Siehe Kommentar an der Verwendungsstelle (profileBlock) für das "Warum" der festen Höhe.
-  pipRowSlot: { marginTop: 12, height: 6 },
-  pipRow: { display: "flex", gap: 3, height: "100%" },
-  pipFilled: { flex: 1, height: 6, borderRadius: 2, background: "#fbbf24" },
-  pipEmpty: { flex: 1, height: 6, borderRadius: 2, background: "rgba(255,255,255,0.12)" },
+  // Feste Höhe, solange showClan an ist (Ersatz für die entfernte Stufenleiste, siehe Kommentar
+  // an der Verwendungsstelle) — bleibt leer, wenn der Account gerade keinem Clan angehört, statt
+  // komplett zu verschwinden (sonst würde ausgerechnet DAS die Höhe ändern).
+  clanRowSlot: { marginTop: 4, height: 18 },
+  clanRow: { display: "flex", alignItems: "center", gap: 5, height: "100%" },
+  clanBadgeImg: { width: 16, height: 16, objectFit: "contain", flexShrink: 0 },
+  clanName: {
+    fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)",
+    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+  },
   profitUnit: { fontSize: 12, fontWeight: 700, opacity: 0.75, marginLeft: 1 },
   // Feste Höhe (Zeilenhöhe bei fontSize 10) statt content-abhängig — steht immer im Layout, nur
   // Trophäen-/2v2-Ranked-Accounts füllen sie mit Text (siehe profileBlock).
@@ -587,8 +769,24 @@ const styles = {
   },
   deckCardImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
   // Session: Profit-Zeile und letzte-5-Zeile eng beieinander (ein kleiner Abstand statt einer
-  // Trennlinie zwischen den beiden) — sie gehören jetzt zu genau einem Modul.
-  sessionBlock: { display: "flex", flexDirection: "column", gap: 8 },
+  // Trennlinie zwischen den beiden) — sie gehören jetzt zu genau einem Modul. gap von 8 auf 4
+  // reduziert, um die neuen Pillen (dailyPill/last5Pill) exakt auszugleichen — siehe deren
+  // Kommentar: die Karte soll dadurch keinen Pixel höher werden.
+  sessionBlock: { display: "flex", flexDirection: "column", gap: 4 },
+  // "Pillen" um Profit-Zeile bzw. letzte-5-Bereich (siehe Verwendungsstelle an sessionBlock) —
+  // boxShadow statt border: zeichnet einen 1px-Ring AUSSERHALB der Box, OHNE deren Layout-Größe
+  // zu beeinflussen (anders als eine echte border, die zusätzlichen Platz braucht) — dasselbe für
+  // den Hintergrund (füllt nur, verändert nichts an Breite/Höhe). Das Padding hier IST der einzige
+  // Teil, der tatsächlich Höhe kostet, ausgeglichen durch die reduzierten gap/marginTop-Werte an
+  // sessionBlock und last5BadgeRow.
+  dailyPill: {
+    boxShadow: "0 0 0 1px rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.035)",
+    borderRadius: 10, padding: "2px 10px",
+  },
+  last5Pill: {
+    boxShadow: "0 0 0 1px rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.022)",
+    borderRadius: 10, padding: "2px 8px 1px",
+  },
   // space-between hält Win-Rate % weiterhin rechtsbündig (wie gewünscht) — gap setzt dabei
   // nur den MINDESTABSTAND zwischen Profit und Win/Loss-Zahlen; die Lücke selbst schrumpft mit,
   // weil die Karte jetzt insgesamt schmaler ist (Breite kommt vom Profilkopf, nicht mehr fix 340).
@@ -596,8 +794,16 @@ const styles = {
   // Messkopie von dailyRow: derselbe Aufbau (display/gap/alignItems), aber flexWrap:"nowrap"
   // statt "wrap" — kann sich also nicht durch Umbrechen kleinrechnen — plus dieselbe unsichtbare/
   // aus-dem-Fluss-genommene Behandlung wie headerMeasure oben.
+  // padding: "0 28px" = 18px Kartenpadding (wie headerMeasure) PLUS 10px dailyPill-Padding links/
+  // rechts (siehe dailyPill oben) — das echte dailyRow steckt jetzt IN dailyPill, diese Messkopie
+  // aber wickelt dailyRowInner direkt ohne diese Zwischenschicht (siehe dailyProbe unten). Ohne
+  // die 10px extra maß sich die Karte 20px zu schmal — bei einer langen Session mit zweistelligen
+  // Sieg/Niederlage-Zahlen (z.B. "15W – 10L") reichte das dann nicht mehr, dailyRow.flexWrap
+  // brach in eine zweite Zeile um (Nutzer-Feedback). border:"1px solid transparent" nur für den
+  // Kartenrahmen nötig — boxShadow (dailyPill) kostet layoutmäßig ohnehin keinen Platz.
   dailyMeasure: {
     display: "flex", alignItems: "center", gap: 16, flexWrap: "nowrap", justifyContent: "flex-start",
+    padding: "0 28px", border: "1px solid transparent",
     position: "absolute", visibility: "hidden", pointerEvents: "none", whiteSpace: "nowrap",
     left: 0, top: 0,
   },
@@ -616,7 +822,7 @@ const styles = {
   // Dieselben 5 Spalten wie last5Row (nicht als eigenes Layout, sondern exakt spiegelbildlich),
   // damit gridColumnStart am Badge-Span wirklich unter der richtigen Blase landet. marginTop
   // statt marginBottom: sitzt jetzt UNTER der Reihe statt darüber.
-  last5BadgeRow: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", marginTop: 3 },
+  last5BadgeRow: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", marginTop: 0 },
   last5Badge: {
     justifySelf: "center", fontSize: 8, fontWeight: 800, letterSpacing: "0.05em",
     color: "#fbbf24", whiteSpace: "nowrap",
@@ -624,7 +830,7 @@ const styles = {
   // Richtungshinweis unter den Punkten (kein festes Raster dort, siehe dotRow) — grob an die
   // richtige Seite ausgerichtet statt exakt unter einem Punkt.
   last5Caption: {
-    display: "flex", marginTop: 3, fontSize: 8, fontWeight: 800, letterSpacing: "0.05em",
+    display: "flex", marginTop: 0, fontSize: 8, fontWeight: 800, letterSpacing: "0.05em",
     color: "#fbbf24",
   },
   matchPill: (result) => ({

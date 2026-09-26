@@ -5,7 +5,7 @@
 // stehen in Backend/dle/core/games/index.js. Hier kommen zusätzlich die Spiele dazu, die
 // im Hub schon als Kachel sichtbar sind, aber noch "Bald verfügbar" zeigen — deren `status`
 // unten muss beim Fertigstellen auf 'live' wechseln UND ein Backend-Spielmodul bekommen.
-import { Thermometer, Gauge, Percent, Timer, History, Tag, Scale, Palette } from 'lucide-react';
+import { Thermometer, Gauge, Percent, Timer, History, Tag, Scale } from 'lucide-react';
 
 export const DLE_GAMES = [
   {
@@ -63,17 +63,6 @@ export const DLE_GAMES = [
     icon: Scale,
     description: 'Schätze das exakte Gewicht eines Gegenstands — von der Büroklammer bis zum Konzertflügel.',
     status: 'live',
-  },
-  {
-    id: 'cr-color-match',
-    name: 'CR Color Match',
-    subtitle: 'Clash Royale',
-    icon: Palette,
-    description: 'Färbe eine markante Stelle einer Clash-Royale-Karte so ein, wie du sie in Erinnerung hast.',
-    // Absichtlich gesperrt: die Flächen-Kalibrierung (siehe Backend/dle/tools/admin-lasso.html)
-    // ist noch nicht für alle Karten sauber nachgezogen — zurück auf 'live' stellen, sobald das
-    // fertig ist. CrColorMatchPage.jsx sperrt direkte Links zusätzlich zur Hub-Kachel.
-    status: 'coming-soon',
   },
 ];
 

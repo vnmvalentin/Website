@@ -17,6 +17,104 @@ import {
 } from "lucide-react";
 
 const STREAMER_ID = "160224748";
+const LANG_STORAGE_KEY = "site_lang";
+
+// Nur DE/EN — WinTracker-Login läuft über diese Seite, englischsprachige Zuschauer müssen
+// hier Account wechseln/Discord verknüpfen/ausloggen können. Kein globales i18n-System für
+// die restliche Seite (siehe wtI18n.js-Kommentar zum selben Muster beim Win-Tracker).
+const STRINGS = {
+  de: {
+    metaTitle: "Profil",
+    metaDescription: "Dein Profil auf vnmvalentin.de",
+    loggedOutTitle: "Dein Profil",
+    loggedOutHint: "Melde dich mit Twitch an, um dein Profil, Verknüpfungen und Codes zu verwalten.",
+    loginBtn: "Mit Twitch anmelden",
+    linksTitle: "Verknüpfungen",
+    linksHint: "Twitch ist dein Standard-Login. Optional kannst du deinen Discord-Account verbinden.",
+    twitch: "Twitch",
+    connected: "Verbunden",
+    discord: "Discord",
+    checkingStatus: "Prüfe Status...",
+    linked: "Verknüpft",
+    notLinked: "Nicht verknüpft",
+    unlinkBtn: "Trennen",
+    linkBtn: "Verknüpfen",
+    discordLinkError: "Discord-Verknüpfung fehlgeschlagen. Versuch es später erneut.",
+    redeemTitle: "Code einlösen",
+    redeemHint: "Hast du einen Promo-Code aus dem Stream? Hier kannst du ihn aktivieren.",
+    redeemPlaceholder: "Code eingeben",
+    redeemBusy: "...",
+    redeemBtn: "Einlösen",
+    redeemGenericError: "Fehler beim Einlösen",
+    accountTitle: "Konto",
+    switchAccount: "Account wechseln",
+    switchAccountHint: "Mit anderem Twitch-Konto anmelden",
+    adminPanel: "Admin Panel",
+    adminPanelHint: "Dashboard & Verwaltung",
+    logout: "Logout",
+    logoutHint: "Von diesem Gerät abmelden",
+    promo: {
+      missing_code: "Kein Code",
+      invalid: "Code ungültig",
+      expired: "Code abgelaufen",
+      exhausted: "Code aufgebraucht",
+      already_used: "Du hast diesen Code schon benutzt",
+      credits: (v) => `${v} Credits erhalten!`,
+      skin_unlocked: (v) => `Skin '${v}' freigeschaltet!`,
+      skin_already_owned: (v) => `Skin '${v}' hattest du schon (Code trotzdem verbraucht).`,
+    },
+  },
+  en: {
+    metaTitle: "Profile",
+    metaDescription: "Your profile on vnmvalentin.de",
+    loggedOutTitle: "Your Profile",
+    loggedOutHint: "Sign in with Twitch to manage your profile, links and codes.",
+    loginBtn: "Sign in with Twitch",
+    linksTitle: "Links",
+    linksHint: "Twitch is your default login. You can optionally connect your Discord account.",
+    twitch: "Twitch",
+    connected: "Connected",
+    discord: "Discord",
+    checkingStatus: "Checking status...",
+    linked: "Linked",
+    notLinked: "Not linked",
+    unlinkBtn: "Unlink",
+    linkBtn: "Link",
+    discordLinkError: "Discord link failed. Please try again later.",
+    redeemTitle: "Redeem Code",
+    redeemHint: "Got a promo code from the stream? Activate it here.",
+    redeemPlaceholder: "Enter code",
+    redeemBusy: "...",
+    redeemBtn: "Redeem",
+    redeemGenericError: "Error redeeming code",
+    accountTitle: "Account",
+    switchAccount: "Switch account",
+    switchAccountHint: "Sign in with a different Twitch account",
+    adminPanel: "Admin Panel",
+    adminPanelHint: "Dashboard & management",
+    logout: "Logout",
+    logoutHint: "Sign out on this device",
+    promo: {
+      missing_code: "No code entered",
+      invalid: "Invalid code",
+      expired: "Code expired",
+      exhausted: "Code already used up",
+      already_used: "You've already used this code",
+      credits: (v) => `Received ${v} credits!`,
+      skin_unlocked: (v) => `Unlocked skin '${v}'!`,
+      skin_already_owned: (v) => `You already had skin '${v}' (code still used).`,
+    },
+  },
+};
+
+function readLang() {
+  try {
+    const stored = localStorage.getItem(LANG_STORAGE_KEY);
+    return stored === "en" ? "en" : "de";
+  } catch {
+    return "de";
+  }
+}
 
 function TwitchGlyph({ className }) {
   return (
@@ -39,6 +137,13 @@ export default function Profile() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isAdmin = !!user && String(user.id) === STREAMER_ID;
+
+  const [lang, setLang] = useState(readLang);
+  const t = STRINGS[lang];
+  const changeLang = (next) => {
+    setLang(next);
+    try { localStorage.setItem(LANG_STORAGE_KEY, next); } catch { /* Speicher optional */ }
+  };
 
   const [discordStatus, setDiscordStatus] = useState({ loading: true, linked: false, user: null });
   const [discordBusy, setDiscordBusy] = useState(false);
@@ -109,10 +214,14 @@ export default function Profile() {
         body: JSON.stringify({ code: promoCode }),
       });
       const data = await res.json();
-      setPromoMsg({ ok: !!data.success, text: data.success ? data.message : (data.error || "Code ungültig") });
+      const entry = t.promo[data.code];
+      const text = entry
+        ? (typeof entry === "function" ? entry(data.value) : entry)
+        : (data.success ? data.message : (data.error || t.promo.invalid));
+      setPromoMsg({ ok: !!data.success, text });
       if (data.success) setPromoCode("");
     } catch {
-      setPromoMsg({ ok: false, text: "Fehler beim Einlösen" });
+      setPromoMsg({ ok: false, text: t.redeemGenericError });
     }
     setPromoBusy(false);
   };
@@ -122,23 +231,41 @@ export default function Profile() {
     navigate("/");
   };
 
+  const langToggle = (
+    <div className="flex items-center rounded-lg bg-black/25 border border-white/10 p-0.5 shrink-0">
+      {["de", "en"].map((l) => (
+        <button
+          key={l}
+          onClick={() => changeLang(l)}
+          aria-pressed={lang === l}
+          className={`px-2.5 py-1 rounded-md text-xs font-semibold uppercase transition-colors ${
+            lang === l ? "bg-violet-600 text-white" : "text-white/40 hover:text-white/70"
+          }`}
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+
   if (!user) {
     return (
       <div className="page-fade flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4">
-        <SEO title="Profil" description="Dein Profil auf vnmvalentin.de" path="/profile" />
-        <div className="panel p-10 max-w-md w-full flex flex-col items-center gap-5">
+        <SEO title={t.metaTitle} description={t.metaDescription} path="/profile" lang={lang} />
+        <div className="panel p-10 max-w-md w-full flex flex-col items-center gap-5 relative">
+          <div className="absolute top-4 right-4">{langToggle}</div>
           <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
             <ShieldCheck size={26} />
           </span>
           <div>
-            <h1 className="font-display text-2xl font-bold text-white mb-2">Dein Profil</h1>
-            <p className="text-sm text-white/50">Melde dich mit Twitch an, um dein Profil, Verknüpfungen und Codes zu verwalten.</p>
+            <h1 className="font-display text-2xl font-bold text-white mb-2">{t.loggedOutTitle}</h1>
+            <p className="text-sm text-white/50">{t.loggedOutHint}</p>
           </div>
           <button
             onClick={() => login(false)}
             className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
           >
-            <TwitchGlyph className="w-4 h-4" /> Mit Twitch anmelden
+            <TwitchGlyph className="w-4 h-4" /> {t.loginBtn}
           </button>
         </div>
       </div>
@@ -147,17 +274,18 @@ export default function Profile() {
 
   return (
     <div className="page-fade w-full max-w-5xl mx-auto px-2 md:px-4 py-8 md:py-12">
-      <SEO title="Profil" description="Dein Profil auf vnmvalentin.de" path="/profile" />
+      <SEO title={t.metaTitle} description={t.metaDescription} path="/profile" lang={lang} />
 
       {/* Kopf */}
       <div className="flex items-center gap-5 mb-10">
         <img src={user.profileImageUrl} alt="" className="w-20 h-20 rounded-2xl object-cover border border-white/10" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight truncate">{user.displayName}</h1>
           <p className="text-sm text-white/40 mt-1 flex items-center gap-1.5">
             <TwitchGlyph className="w-3.5 h-3.5 text-[#9146FF]" /> @{user.login}
           </p>
         </div>
+        {langToggle}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -165,9 +293,9 @@ export default function Profile() {
         {/* ===== Verknüpfungen ===== */}
         <section className="panel p-6">
           <h2 className="font-display text-lg font-bold text-white mb-1 flex items-center gap-2">
-            <Link2 size={18} className="text-violet-300" /> Verknüpfungen
+            <Link2 size={18} className="text-violet-300" /> {t.linksTitle}
           </h2>
-          <p className="text-xs text-white/40 mb-5">Twitch ist dein Standard-Login. Optional kannst du deinen Discord-Account verbinden.</p>
+          <p className="text-xs text-white/40 mb-5">{t.linksHint}</p>
 
           <div className="space-y-3">
             {/* Twitch */}
@@ -176,11 +304,11 @@ export default function Profile() {
                 <TwitchGlyph className="w-5 h-5" />
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">Twitch</p>
+                <p className="text-sm font-semibold text-white truncate">{t.twitch}</p>
                 <p className="text-xs text-white/40 truncate">{user.displayName}</p>
               </div>
               <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg shrink-0">
-                <Check size={12} /> Verbunden
+                <Check size={12} /> {t.connected}
               </span>
             </div>
 
@@ -194,13 +322,13 @@ export default function Profile() {
                 )}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">Discord</p>
+                <p className="text-sm font-semibold text-white truncate">{t.discord}</p>
                 <p className="text-xs text-white/40 truncate">
                   {discordStatus.loading
-                    ? "Prüfe Status..."
+                    ? t.checkingStatus
                     : discordStatus.linked
-                      ? (discordStatus.user?.username || "Verknüpft")
-                      : "Nicht verknüpft"}
+                      ? (discordStatus.user?.username || t.linked)
+                      : t.notLinked}
                 </p>
               </div>
               {!discordStatus.loading && (
@@ -210,7 +338,7 @@ export default function Profile() {
                     disabled={discordBusy}
                     className="flex items-center gap-1.5 text-xs font-semibold text-white/60 hover:text-red-300 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 px-2.5 py-1 rounded-lg transition-colors shrink-0 disabled:opacity-50"
                   >
-                    <Unlink size={12} /> Trennen
+                    <Unlink size={12} /> {t.unlinkBtn}
                   </button>
                 ) : (
                   <button
@@ -218,7 +346,7 @@ export default function Profile() {
                     disabled={discordBusy}
                     className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#5865F2] hover:bg-[#4752c4] px-3 py-1.5 rounded-lg transition-colors shrink-0 disabled:opacity-50"
                   >
-                    <Link2 size={12} /> Verknüpfen
+                    <Link2 size={12} /> {t.linkBtn}
                   </button>
                 )
               )}
@@ -226,7 +354,7 @@ export default function Profile() {
 
             {linkError && (
               <p className="flex items-center gap-2 text-xs text-red-400 px-1">
-                <AlertTriangle size={13} /> Discord-Verknüpfung fehlgeschlagen. Versuch es später erneut.
+                <AlertTriangle size={13} /> {t.discordLinkError}
               </p>
             )}
           </div>
@@ -235,9 +363,9 @@ export default function Profile() {
         {/* ===== Code einlösen ===== */}
         <section className="panel p-6">
           <h2 className="font-display text-lg font-bold text-white mb-1 flex items-center gap-2">
-            <Ticket size={18} className="text-violet-300" /> Code einlösen
+            <Ticket size={18} className="text-violet-300" /> {t.redeemTitle}
           </h2>
-          <p className="text-xs text-white/40 mb-5">Hast du einen Promo-Code aus dem Stream? Hier kannst du ihn aktivieren.</p>
+          <p className="text-xs text-white/40 mb-5">{t.redeemHint}</p>
 
           <div className="flex gap-2">
             <input
@@ -245,7 +373,7 @@ export default function Profile() {
               value={promoCode}
               onChange={(e) => { setPromoCode(e.target.value); setPromoMsg(null); }}
               onKeyDown={(e) => { if (e.key === "Enter") handleRedeem(); }}
-              placeholder="Code eingeben"
+              placeholder={t.redeemPlaceholder}
               className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:border-violet-500 outline-none transition-colors"
             />
             <button
@@ -253,7 +381,7 @@ export default function Profile() {
               disabled={!promoCode.trim() || promoBusy}
               className="px-5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-colors"
             >
-              {promoBusy ? "..." : "Einlösen"}
+              {promoBusy ? t.redeemBusy : t.redeemBtn}
             </button>
           </div>
           {promoMsg && (
@@ -263,7 +391,7 @@ export default function Profile() {
 
         {/* ===== Konto ===== */}
         <section className="panel p-6 lg:col-span-2">
-          <h2 className="font-display text-lg font-bold text-white mb-5">Konto</h2>
+          <h2 className="font-display text-lg font-bold text-white mb-5">{t.accountTitle}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <button
               onClick={() => login(true)}
@@ -271,8 +399,8 @@ export default function Profile() {
             >
               <RefreshCw size={18} className="text-white/40 group-hover:text-violet-300 transition-colors shrink-0" />
               <span>
-                <span className="block text-sm font-semibold text-white">Account wechseln</span>
-                <span className="block text-xs text-white/40 mt-0.5">Mit anderem Twitch-Konto anmelden</span>
+                <span className="block text-sm font-semibold text-white">{t.switchAccount}</span>
+                <span className="block text-xs text-white/40 mt-0.5">{t.switchAccountHint}</span>
               </span>
             </button>
 
@@ -283,8 +411,8 @@ export default function Profile() {
               >
                 <ShieldCheck size={18} className="text-red-400 shrink-0" />
                 <span className="flex-1">
-                  <span className="block text-sm font-semibold text-red-200">Admin Panel</span>
-                  <span className="block text-xs text-red-300/50 mt-0.5">Dashboard & Verwaltung</span>
+                  <span className="block text-sm font-semibold text-red-200">{t.adminPanel}</span>
+                  <span className="block text-xs text-red-300/50 mt-0.5">{t.adminPanelHint}</span>
                 </span>
                 <ArrowRight size={15} className="text-red-400/40 group-hover:text-red-300 group-hover:translate-x-1 transition-all shrink-0" />
               </Link>
@@ -296,8 +424,8 @@ export default function Profile() {
             >
               <LogOut size={18} className="text-white/40 group-hover:text-white transition-colors shrink-0" />
               <span>
-                <span className="block text-sm font-semibold text-white">Logout</span>
-                <span className="block text-xs text-white/40 mt-0.5">Von diesem Gerät abmelden</span>
+                <span className="block text-sm font-semibold text-white">{t.logout}</span>
+                <span className="block text-xs text-white/40 mt-0.5">{t.logoutHint}</span>
               </span>
             </button>
           </div>

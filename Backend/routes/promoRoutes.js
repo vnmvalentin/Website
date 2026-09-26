@@ -53,32 +53,37 @@ module.exports = function createPromoRouter({ requireAuth, STREAMER_TWITCH_ID })
   });
 
   // --- USER: Code einlösen ---
+  // `code`/`value` sind maschinenlesbare Zusätze zu `error`/`message`, damit das Frontend
+  // (Profile.jsx, DE/EN) die Meldung selbst übersetzen kann, ohne den deutschen String zu
+  // parsen. `error`/`message` bleiben unverändert als deutscher Fallback.
   router.post("/redeem", requireAuth, (req, res) => {
       const { code } = req.body;
-      if (!code) return res.status(400).json({ error: "Kein Code" });
-      
+      if (!code) return res.status(400).json({ error: "Kein Code", code: "missing_code" });
+
       const cleanCode = code.trim().toUpperCase();
       const promoDb = loadJson(PROMO_PATH);
       const promo = promoDb[cleanCode];
 
       // Validierung
-      if (!promo) return res.status(404).json({ error: "Code ungültig" });
-      if (promo.expiresAt && Date.now() > promo.expiresAt) return res.status(400).json({ error: "Code abgelaufen" });
+      if (!promo) return res.status(404).json({ error: "Code ungültig", code: "invalid" });
+      if (promo.expiresAt && Date.now() > promo.expiresAt) return res.status(400).json({ error: "Code abgelaufen", code: "expired" });
       if (promo.maxUses !== -1 && promo.usedBy.length >= promo.maxUses) {
-            return res.status(400).json({ error: "Code aufgebraucht" });
+            return res.status(400).json({ error: "Code aufgebraucht", code: "exhausted" });
         }
-      if (promo.usedBy.includes(req.twitchId)) return res.status(400).json({ error: "Du hast diesen Code schon benutzt" });
+      if (promo.usedBy.includes(req.twitchId)) return res.status(400).json({ error: "Du hast diesen Code schon benutzt", code: "already_used" });
 
       // Belohnung vergeben
       let message = "";
-      
+      let resultCode = "";
+
       if (promo.type === "credits") {
           const casinoDb = loadJson(CASINO_PATH);
           if (!casinoDb[req.twitchId]) casinoDb[req.twitchId] = { credits: 0 };
           casinoDb[req.twitchId].credits += parseInt(promo.value);
           saveJson(CASINO_PATH, casinoDb);
           message = `${promo.value} Credits erhalten!`;
-      } 
+          resultCode = "credits";
+      }
       else if (promo.type === "skin") {
           const advDb = loadJson(ADVENTURE_PATH);
           if (!advDb[req.twitchId]) advDb[req.twitchId] = { skins: ["default"], powerups: [] };
@@ -86,8 +91,10 @@ module.exports = function createPromoRouter({ requireAuth, STREAMER_TWITCH_ID })
               advDb[req.twitchId].skins.push(promo.value);
               saveJson(ADVENTURE_PATH, advDb);
               message = `Skin '${promo.value}' freigeschaltet!`;
+              resultCode = "skin_unlocked";
           } else {
               message = `Skin '${promo.value}' hattest du schon (Code trotzdem verbraucht).`;
+              resultCode = "skin_already_owned";
           }
       }
 
@@ -95,7 +102,7 @@ module.exports = function createPromoRouter({ requireAuth, STREAMER_TWITCH_ID })
       promo.usedBy.push(req.twitchId);
       saveJson(PROMO_PATH, promoDb);
 
-      res.json({ success: true, message });
+      res.json({ success: true, message, code: resultCode, value: promo.value });
   });
 
   return router;

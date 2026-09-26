@@ -18,7 +18,9 @@ import { Trophy, TrendingUp, TrendingDown, ChevronsUp, Eye, EyeOff } from "lucid
 import { leagueIconUrl, leagueName, MEDAL_ICON_URL } from "../data/leagueIcons";
 import { trophyArenaIcon, trophyArenaName } from "../data/trophyArenas";
 import { cardImageUrl } from "../data/cards";
+import { useClanBadgeUrl } from "../data/clanBadges";
 import { getOverlayData } from "./winTrackerApi";
+import { usePagedTransition, SLIDE_MS } from "./usePagedTransition";
 import { dictForWt } from "./wtI18n";
 import trophyIcon from "../../../assets/clashRoyale/ui/trophy.png";
 import trophy2v2Icon from "../../../assets/clashRoyale/ui/trophy2v2.webp";
@@ -67,6 +69,42 @@ function useMeasuredWidth(min, max, fallback) {
   return [headerRef, dailyRef, width];
 }
 
+// Misst die Höhe jedes einzelnen Stapel-Teils — 1:1 aus WinTrackerOverlayPage.jsx übernommen
+// (siehe dort für die ausführliche Begründung), für dieselbe Paginierungs-Vorschau hier: sonst
+// zeigte die Vorschau die Paginierung gar nicht erst an, obwohl sie in den Einstellungen bereits
+// aktiv war (Nutzer-Feedback).
+function useBlockHeights() {
+  const profileRef = useRef(null);
+  const deckRef = useRef(null);
+  const sessionRef = useRef(null);
+  const raw = useRef({ profile: 0, deck: 0, session: 0 });
+  const [heights, setHeights] = useState({ profile: 0, deck: 0, session: 0 });
+
+  useLayoutEffect(() => {
+    const recompute = () => setHeights((prev) => {
+      const next = raw.current;
+      if (prev.profile === next.profile && prev.deck === next.deck && prev.session === next.session) return prev;
+      return { ...next };
+    });
+    const observers = [];
+    const attach = (ref, key) => {
+      if (!ref.current) return;
+      const measure = () => { raw.current[key] = ref.current.getBoundingClientRect().height; recompute(); };
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(ref.current);
+      observers.push(ro);
+    };
+    attach(profileRef, "profile");
+    attach(deckRef, "deck");
+    attach(sessionRef, "session");
+    recompute();
+    return () => observers.forEach((ro) => ro.disconnect());
+  });
+
+  return [{ profile: profileRef, deck: deckRef, session: sessionRef }, heights];
+}
+
 function hexToRgba(hex, opacityPct) {
   const h = String(hex || "#0c0c12").replace("#", "");
   const r = parseInt(h.slice(0, 2), 16) || 0;
@@ -84,6 +122,7 @@ const DEMO_DATA = {
   // Demo spiegelt das.
   trackMode: "medals",
   trophies: 6821, bestTrophies: 7104, seasonMedals: 1180, leagueNumber: 7, polRank: 214,
+  clanName: "Deine Crew", clanBadgeId: 16000170,
   ladder: null,
   daily: { profit: 42, wins: 9, losses: 4, winPct: 69 },
   last5: [
@@ -139,6 +178,27 @@ function VisibilityButton({ visible, onClick, t }) {
   );
 }
 
+// Reine Funktion statt Inline-Logik in der Komponente — hängt nur von Props (settings,
+// moduleVisibility) ab, ist also (anders als bei WinTrackerOverlayPage.jsx, wo echte Account-
+// Daten erst asynchron laden) schon beim allerersten Render vollständig berechenbar, kein
+// data?.-Sicherheitsnetz nötig. stackKeys/sidebarSide: IMMER alle drei Teile (fürs Entwerfen,
+// abgedunkelt statt versteckt, siehe Toggleable). activeStackKeys: NUR die echt sichtbaren —
+// genau das, was das echte Overlay auch zeigen würde, für die Paginierungs-Vorschau gebraucht.
+function computeStacks(settings, moduleVisibility) {
+  const deckPlacement = settings.deckPlacement || "top";
+  const stack = [];
+  stack.push("profile");
+  if (deckPlacement === "top") stack.push("deck");
+  stack.push("session");
+  if (deckPlacement === "bottom") stack.push("deck");
+  const sidebarSide = (deckPlacement === "left" || deckPlacement === "right") ? deckPlacement : null;
+  const stackKeys = sidebarSide ? stack.filter((k) => k !== "deck") : stack;
+  const showProfile = settings.showProfile !== false;
+  const activeStackKeys = stackKeys.filter((k) =>
+    k === "profile" ? showProfile : k === "deck" ? moduleVisibility.deck : moduleVisibility.session);
+  return { stackKeys, sidebarSide, activeStackKeys };
+}
+
 // ── Hülle um ein Teil: abgedunkelt wenn ausgeblendet, eigene Kopfzeile mit dem Auge-Knopf
 // rechtsbündig darüber. Nicht mehr ziehbar (siehe Datei-Kommentar oben) — nur noch Sichtbarkeit.
 function Toggleable({ visible, onToggleVisible, t, children }) {
@@ -155,6 +215,14 @@ function Toggleable({ visible, onToggleVisible, t, children }) {
 export default function OverlayPreview({ settings, overlayKey, moduleVisibility, onToggleModule, onToggleProfile, refreshSignal }) {
   const [data, setData] = useState(null); // null = lädt noch
   const [headerRef, dailyRef, cardWidth] = useMeasuredWidth(CARD_MIN_WIDTH, CARD_MAX_WIDTH, CARD_MIN_WIDTH);
+  const [heightRefs, blockHeights] = useBlockHeights();
+  const paginate = !!settings.paginateOverlay;
+  const paginateIntervalMs = Math.max(2, Number(settings.paginateIntervalS) || 6) * 1000;
+  // Anders als bei WinTrackerOverlayPage.jsx: settings/moduleVisibility sind Props, also schon
+  // beim ersten Render vollständig da — computeStacks braucht hier kein data?.-Sicherheitsnetz.
+  const { stackKeys, sidebarSide, activeStackKeys } = computeStacks(settings, moduleVisibility);
+  const { index: pageIndex, offsetPct, transitionOn } =
+    usePagedTransition(activeStackKeys.length, paginateIntervalMs, paginate && activeStackKeys.length > 1);
   // Sprache kommt aus den (noch ungespeicherten) Editor-Einstellungen, nicht aus data.settings —
   // so wechselt die Vorschau sofort mit, sobald der Nutzer die Sprache umschaltet, statt erst
   // nach dem nächsten Speichern/Poll.
@@ -176,13 +244,17 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
     return () => { alive = false; };
   }, [overlayKey, refreshSignal]);
 
+  // Wie oben: sicher auf data?. zurückgreifen, damit der Hook (React-Regel) auch vor dem ersten
+  // Laden JEDES Mal gleich oft läuft.
+  const clanBadgeImgUrl = useClanBadgeUrl(data?.clanBadgeId ?? null);
+
   if (!data) {
     return <div className="rounded-lg border border-white/10 bg-[#08080b] p-10 text-center text-gray-600 text-xs">{t.loadingPreview}</div>;
   }
 
   const isDemo = data === DEMO_DATA;
   const {
-    playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank,
+    playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, clanName,
     league2v2Trophies, league2v2BestTrophies, ladder, daily, last5, deck,
   } = data;
   // trackMode kommt vom aktiven Account selbst (data.settings, genau wie beim echten Overlay) —
@@ -207,7 +279,6 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   const showLast5NewBadge = settings.last5NewBadge !== false;
   const directionLabel = "NEWEST";
   const showProfile = settings.showProfile !== false;
-  const deckPlacement = settings.deckPlacement || "top";
   const opacityFrac = Math.max(0, Math.min(100, settings.bgOpacity ?? 88)) / 100;
   // Interne Trennlinien (zwischen Profilkopf/Session/Deck) bleiben IMMER die dezente, von
   // bgOpacity abgeleitete weiße Linie — die Rahmenfarbe unten gilt bewusst nur für den
@@ -242,16 +313,11 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   // — hier nur noch merken, an welchem ARRAY-INDEX das neueste Spiel steht.
   const newestIndex = games.length ? (last5Direction === "newestRight" ? games.length - 1 : 0) : -1;
 
-  // Immer im Stapel/an der Seite anzeigen (auch wenn gerade ausgeblendet — Toggleable dimmt es
-  // dann nur ab), damit man beim Entwerfen sieht, WAS man da ein-/ausschaltet, statt dass es
-  // einfach verschwindet.
-  const stack = [];
-  stack.push("profile");
-  if (deckPlacement === "top") stack.push("deck");
-  stack.push("session");
-  if (deckPlacement === "bottom") stack.push("deck");
-  const sidebarSide = (deckPlacement === "left" || deckPlacement === "right") ? deckPlacement : null;
-  const stackKeys = sidebarSide ? stack.filter((k) => k !== "deck") : stack;
+  // stackKeys/sidebarSide/activeStackKeys kommen bereits von computeStacks() oben (vor dem ersten
+  // Render berechnet, siehe dortiger Kommentar) — Auge-Knöpfe bleiben auf der gerade gezeigten
+  // Seite trotzdem bedienbar (siehe stackContent weiter unten).
+  const pagesActive = paginate && activeStackKeys.length > 1;
+  const pageHeight = pagesActive ? Math.max(...activeStackKeys.map((k) => blockHeights[k] || 0)) : 0;
 
   // Inhalt von headerText — einmal definiert, ZWEIMAL verwendet: sichtbar im echten Kopf UND
   // (unverändert, gleiche Styles) in der unsichtbaren Messkopie weiter unten. Siehe ausführlichen
@@ -259,6 +325,18 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   const headerTextInner = (
     <>
       <div style={styles.nameRow}><span style={styles.name}>{playerName}</span></div>
+      {/* Feste Höhe, siehe ausführlicher Kommentar in WinTrackerOverlayPage.jsx (dieselbe
+          Technik, für Pixel-Parität zwischen Vorschau und echtem Overlay). */}
+      {settings.showClan && (
+        <div style={styles.clanRowSlot}>
+          {clanName && (
+            <div style={styles.clanRow}>
+              {clanBadgeImgUrl && <img src={clanBadgeImgUrl} alt="" style={styles.clanBadgeImg} />}
+              <span style={styles.clanName}>{clanName}</span>
+            </div>
+          )}
+        </div>
+      )}
       {isLadderMode ? (
         <div style={styles.trophyRow}>
           <ChevronsUp size={18} color="#fbbf24" />
@@ -302,17 +380,6 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
         </div>
         <div style={styles.headerText}>{headerTextInner}</div>
       </div>
-      {settings.showLadderBar !== false && (
-        <div style={styles.pipRowSlot}>
-          {isLadderMode && (
-            <div style={styles.pipRow}>
-              {Array.from({ length: ladder.maxSteps }, (_, i) => (
-                <div key={i} style={i < ladder.step ? styles.pipFilled : styles.pipEmpty} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </Toggleable>
   );
 
@@ -342,14 +409,19 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
     </>
   );
 
+  // Pillen um Profit-Zeile/letzte-5-Bereich — 1:1 aus WinTrackerOverlayPage.jsx (siehe dortiger
+  // Kommentar, Pixel-Parität).
   const sessionBlock = (
     <Toggleable visible={moduleVisibility.session} onToggleVisible={() => onToggleModule("session")} t={t}>
       <div style={styles.sessionBlock}>
         {(sessionFlags.profit || sessionFlags.numbers || sessionFlags.percent) && (
-          <div style={styles.dailyRow}>{dailyRowInner}</div>
+          <div style={styles.dailyPill}>
+            <div style={styles.dailyRow}>{dailyRowInner}</div>
+          </div>
         )}
         {sessionFlags.last5 && (
-          last5Style === "dot" ? (
+          <div style={styles.last5Pill}>
+          {last5Style === "dot" ? (
             <div>
               {/* Immer 5 Punkte, fehlende Spiele als gedimmter Platzhalter — siehe
                   WinTrackerOverlayPage.jsx für die ausführliche Begründung (Pixel-Parität). */}
@@ -379,7 +451,9 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
                   if (!b) return <div key={i} style={styles.matchPillEmpty}>{" "}</div>;
                   return (
                     <div key={i} style={styles.matchPill(b.result)}>
-                      {last5Style === "result"
+                      {/* 2v2 zeigt IMMER Win/Lose, unabhängig vom gewählten last5Style — siehe
+                          ausführlicher Kommentar an derselben Stelle in WinTrackerOverlayPage.jsx. */}
+                      {last5Style === "result" || isLeague2v2
                         ? (RESULT_LABEL[b.result] || RESULT_LABEL.draw)
                         // In den Stufen-Ligen ist trophy_change je Match immer 0 — die Zahl kommt
                         // dort aus dem Ergebnis selbst (Sieg = +1 Stufe, Niederlage = -1).
@@ -404,7 +478,8 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
                 </div>
               )}
             </div>
-          )
+          )}
+          </div>
         )}
       </div>
     </Toggleable>
@@ -435,22 +510,55 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
     </Toggleable>
   );
 
-  const stackContent = stackKeys.map((key, i) => (
-    <React.Fragment key={key}>
-      {i > 0 && <div style={dividerStyle} />}
-      {key === "profile" && profileBlock}
-      {key === "deck" && deckBlock(styles.deckGrid)}
-      {key === "session" && sessionBlock}
-    </React.Fragment>
-  ));
+  const renderStackBlock = (key) =>
+    key === "profile" ? profileBlock : key === "deck" ? deckBlock(styles.deckGrid) : key === "session" ? sessionBlock : null;
+
+  const stackContent = pagesActive ? (
+    // Wie im echten Overlay: nur die aktive Seite, mittig in der fest reservierten pageHeight
+    // (die größte aller sichtbaren Seiten) — kein Höhensprung beim Wechsel, plus dieselbe
+    // Gleit-Animation (siehe usePagedTransition).
+    <div style={{ ...styles.pageSlideOuter, height: pageHeight }}>
+      <div style={{
+        ...styles.pageSlideInner,
+        transform: `translateX(${offsetPct}%)`,
+        transition: transitionOn ? `transform ${SLIDE_MS}ms ease` : "none",
+      }}>
+        {renderStackBlock(activeStackKeys[pageIndex])}
+      </div>
+    </div>
+  ) : (
+    stackKeys.map((key, i) => (
+      <React.Fragment key={key}>
+        {i > 0 && <div style={dividerStyle} />}
+        {renderStackBlock(key)}
+      </React.Fragment>
+    ))
+  );
+
+  // Unsichtbare Messkopien für useBlockHeights — nur nötig, solange pagesActive ist. width wie
+  // beim echten Overlay: cardWidth minus Karten-Innenabstand (siehe pageProbe-Kommentar dort).
+  const heightProbes = pagesActive ? (
+    <>
+      {activeStackKeys.includes("profile") && (
+        <div ref={heightRefs.profile} style={{ ...styles.pageProbe, width: Math.max(0, cardWidth - 36) }}>{profileBlock}</div>
+      )}
+      {activeStackKeys.includes("deck") && (
+        <div ref={heightRefs.deck} style={{ ...styles.pageProbe, width: Math.max(0, cardWidth - 36) }}>{deckBlock(styles.deckGrid)}</div>
+      )}
+      {activeStackKeys.includes("session") && (
+        <div ref={heightRefs.session} style={{ ...styles.pageProbe, width: Math.max(0, cardWidth - 36) }}>{sessionBlock}</div>
+      )}
+    </>
+  ) : null;
 
   const cardBase = { ...styles.card, background: cardBackground, border: `1px solid ${cardBorderColor}` };
   // Steht neben dem Deck nur EIN Teil (Kopf ODER Session, nicht beide), mittig statt oben
   // ausrichten — nach der ECHTEN Sichtbarkeit, nicht danach, ob es hier (abgedunkelt) noch im
   // DOM steht: beide Teile bleiben in der Vorschau immer sichtbar, damit man sie zurückschalten
-  // kann (siehe Toggleable), auch wenn nur eins davon wirklich "an" ist.
+  // kann (siehe Toggleable), auch wenn nur eins davon wirklich "an" ist. Bei aktiver Paginierung
+  // gilt dieselbe Logik wie "nur ein Teil sichtbar" — es steht ja ohnehin nur eine Seite da.
   const visibleMainCount = (showProfile ? 1 : 0) + (moduleVisibility.session ? 1 : 0);
-  const mainPaneStyle = { ...styles.mainPane, width: cardWidth, justifyContent: visibleMainCount === 1 ? "center" : "flex-start" };
+  const mainPaneStyle = { ...styles.mainPane, width: cardWidth, justifyContent: (pagesActive || visibleMainCount === 1) ? "center" : "flex-start" };
 
   // Unsichtbare Messkopien für useMeasuredWidth — siehe ausführlichen Kommentar an
   // useMeasuredWidth und styles.headerMeasure/dailyMeasure (1:1 aus WinTrackerOverlayPage.jsx).
@@ -474,6 +582,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
       <div className="relative rounded-lg border border-white/10 bg-[#08080b] p-5 flex justify-center overflow-x-auto">
         {headerProbe}
         {dailyProbe}
+        {heightProbes}
         {sidebarSide ? (
           <div style={{ ...cardBase, ...styles.cardRow, width: "auto" }}>
             {sidebarSide === "left" && <div style={styles.deckPane}>{deckBlock(styles.deckGridSidebar)}</div>}
@@ -512,11 +621,26 @@ const styles = {
   // nicht mehr hier ab, sondern an headerMeasure unten (siehe ausführlicher Kommentar an
   // useMeasuredWidth und an derselben Stelle in WinTrackerOverlayPage.jsx).
   headerRow: { display: "inline-flex", alignItems: "center", gap: 14, maxWidth: "100%" },
+  // padding: "0 18px" + border: "1px solid transparent" — dieselben 18px links/rechts wie
+  // styles.card.padding ("16px 18px") PLUS der 1px-Kartenrahmen, siehe ausführlicher Kommentar an
+  // derselben Stelle in WinTrackerOverlayPage.jsx: ohne beides bekam der Kopf am Ende 38px
+  // weniger Platz als gemessen (globales box-sizing:border-box zieht beides von der width ab),
+  // unabhängig von CARD_MAX_WIDTH.
   headerMeasure: {
-    display: "inline-flex", alignItems: "center", gap: 14,
+    display: "inline-flex", alignItems: "center", gap: 14, padding: "0 18px", border: "1px solid transparent",
     position: "absolute", visibility: "hidden", pointerEvents: "none", whiteSpace: "nowrap",
     left: 0, top: 0,
   },
+  // Messkopie für useBlockHeights (Paginierungs-Vorschau) — 1:1 aus WinTrackerOverlayPage.jsx
+  // (siehe dortiger Kommentar zum weit-negativen left/top statt bloßem visibility:hidden).
+  pageProbe: {
+    position: "absolute", visibility: "hidden", pointerEvents: "none",
+    left: -99999, top: -99999, boxSizing: "border-box",
+  },
+  // 1:1 aus WinTrackerOverlayPage.jsx (siehe dortiger Kommentar) — Rahmen für die
+  // Seitenwechsel-Animation.
+  pageSlideOuter: { overflow: "hidden", width: "100%" },
+  pageSlideInner: { display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", willChange: "transform" },
   badgeWrap: { width: 54, height: 54, flexShrink: 0 },
   badgeImg: { width: "100%", height: "100%", objectFit: "contain" },
   badgeFallback: {
@@ -543,10 +667,13 @@ const styles = {
   leagueLabel: { fontSize: 12, color: "rgba(255,255,255,0.5)", marginLeft: 2 },
   stepMax: { fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.45)", marginLeft: -5, fontVariantNumeric: "tabular-nums" },
   // Feste Höhe statt content-abhängig, siehe WinTrackerOverlayPage.jsx (dieselbe Technik).
-  pipRowSlot: { marginTop: 12, height: 6 },
-  pipRow: { display: "flex", gap: 3, height: "100%" },
-  pipFilled: { flex: 1, height: 6, borderRadius: 2, background: "#fbbf24" },
-  pipEmpty: { flex: 1, height: 6, borderRadius: 2, background: "rgba(255,255,255,0.12)" },
+  clanRowSlot: { marginTop: 4, height: 18 },
+  clanRow: { display: "flex", alignItems: "center", gap: 5, height: "100%" },
+  clanBadgeImg: { width: 16, height: 16, objectFit: "contain", flexShrink: 0 },
+  clanName: {
+    fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)",
+    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+  },
   profitUnit: { fontSize: 12, fontWeight: 700, opacity: 0.75, marginLeft: 1 },
   bestRowSlot: { fontSize: 13, lineHeight: "15px", height: 15, color: "rgba(255,255,255,0.4)", marginTop: 2 },
   divider: { height: 1, margin: "12px 0" },
@@ -559,12 +686,25 @@ const styles = {
   deckGridSidebar: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, width: 288 },
   deckCard: { position: "relative", aspectRatio: "150 / 172", borderRadius: 7, overflow: "hidden", background: "rgba(0,0,0,0.35)", lineHeight: 0 },
   deckCardImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-  sessionBlock: { display: "flex", flexDirection: "column", gap: 8 },
+  sessionBlock: { display: "flex", flexDirection: "column", gap: 4 },
+  // 1:1 aus WinTrackerOverlayPage.jsx (siehe dortiger Kommentar für die genaue Pixel-Rechnung,
+  // Pixel-Parität) — boxShadow statt border: kein Einfluss auf die Layout-Größe.
+  dailyPill: {
+    boxShadow: "0 0 0 1px rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.035)",
+    borderRadius: 10, padding: "2px 10px",
+  },
+  last5Pill: {
+    boxShadow: "0 0 0 1px rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.022)",
+    borderRadius: 10, padding: "2px 8px 1px",
+  },
   // space-between hält Win-Rate % rechtsbündig; gap setzt nur den Mindestabstand — die Lücke
   // selbst schrumpft mit der jetzt vom Profilkopf (nicht mehr fix 340) bestimmten Kartenbreite.
   dailyRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" },
+  // padding: "0 28px" = 18px Kartenpadding PLUS 10px dailyPill-Padding — siehe ausführlicher
+  // Kommentar an derselben Stelle in WinTrackerOverlayPage.jsx (Pixel-Parität).
   dailyMeasure: {
     display: "flex", alignItems: "center", gap: 16, flexWrap: "nowrap", justifyContent: "flex-start",
+    padding: "0 28px", border: "1px solid transparent",
     position: "absolute", visibility: "hidden", pointerEvents: "none", whiteSpace: "nowrap",
     left: 0, top: 0,
   },
@@ -578,10 +718,10 @@ const styles = {
   last5Row: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 },
   // Dieselben 5 Spalten wie last5Row, damit gridColumnStart am Badge exakt unter der richtigen
   // Blase landet. marginTop statt marginBottom: sitzt UNTER der Reihe.
-  last5BadgeRow: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", marginTop: 3 },
+  last5BadgeRow: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", marginTop: 0 },
   last5Badge: { justifySelf: "center", fontSize: 8, fontWeight: 800, letterSpacing: "0.05em", color: "#fbbf24", whiteSpace: "nowrap" },
   // Richtungshinweis unter den Punkten (kein festes Raster dort, siehe dotRow).
-  last5Caption: { display: "flex", marginTop: 3, fontSize: 8, fontWeight: 800, letterSpacing: "0.05em", color: "#fbbf24" },
+  last5Caption: { display: "flex", marginTop: 0, fontSize: 8, fontWeight: 800, letterSpacing: "0.05em", color: "#fbbf24" },
   matchPill: (result) => ({
     textAlign: "center", padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 800,
     fontVariantNumeric: "tabular-nums",

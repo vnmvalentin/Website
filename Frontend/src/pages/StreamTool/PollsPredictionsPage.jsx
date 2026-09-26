@@ -727,10 +727,10 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
 
 /* ── Twitch-Verbindung ────────────────────────────────────────────────────── */
 
-function ConnectCard({ connected, twitchLogin, onConnect, onDisconnect, busy }) {
+function ConnectSection({ connected, twitchLogin, onConnect, onDisconnect, busy }) {
   if (connected) {
     return (
-      <div className="panel p-4 flex items-center gap-3">
+      <div className="p-4 flex items-center gap-3">
         <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-bold text-white truncate">Twitch verbunden</p>
@@ -744,7 +744,7 @@ function ConnectCard({ connected, twitchLogin, onConnect, onDisconnect, busy }) 
     );
   }
   return (
-    <div className="panel p-4 space-y-3">
+    <div className="p-4 space-y-3">
       <div>
         <p className="text-[13px] font-bold text-white">Twitch verbinden</p>
         <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
@@ -762,7 +762,7 @@ function ConnectCard({ connected, twitchLogin, onConnect, onDisconnect, busy }) 
 
 /* ── OBS-Link ─────────────────────────────────────────────────────────────── */
 
-function ObsLinkCard({ overlayKey, onRegenerate }) {
+function ObsLinkSection({ overlayKey, onRegenerate }) {
   const [copied, setCopied] = useState(false);
   const [hidden, setHidden] = useState(true);
   const link = overlayKey ? `${window.location.origin}/twitch-tools/overlay/${overlayKey}` : '';
@@ -776,7 +776,7 @@ function ObsLinkCard({ overlayKey, onRegenerate }) {
   };
 
   return (
-    <div className="panel p-4 space-y-3">
+    <div className="p-4 space-y-3">
       <div>
         <p className="text-[13px] font-bold text-white">OBS-Browserquelle</p>
         <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
@@ -1058,7 +1058,7 @@ export default function PollsPredictionsPage() {
         const around =
           (toolbarRef.current?.offsetHeight || 0) +
           (hintRef.current?.offsetHeight || 0) +
-          36; // drei Abstände der Spalte (gap-3)
+          45; // gap-3 zwischen Bühne und Hinweis (12) + p-4 oben/unten (32) + Trennlinie (1)
         // Anteil der Höhe, aber nie so viel, dass von den Einstellungen nichts
         // mehr übrig bleibt — und nie kleiner als STAGE_MIN_H.
         const room = Math.max(0, colH - around - SETTINGS_MIN_H);
@@ -1318,11 +1318,15 @@ export default function PollsPredictionsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 items-start lg:items-stretch lg:flex-1 lg:min-h-0">
+      {/* Der ganze Editor liegt auf EINER Fläche: Seitenleiste und Arbeitsfläche
+          teilen sich denselben Hintergrund und werden nur durch Linien
+          getrennt. Einzelne schwebende Karten gab es vorher — das wirkte
+          zerstückelt. Hover- und Auswahlfarben bleiben flache Tönungen. */}
+      <div className="panel overflow-hidden grid grid-cols-1 lg:grid-cols-[360px_1fr] lg:grid-rows-[minmax(0,1fr)] lg:flex-1 lg:min-h-0">
 
-        {/* ══════════ Module ══════════ */}
-        <div className="space-y-4 min-w-0 lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pr-1">
-          <ConnectCard
+        {/* ══════════ Seitenleiste ══════════ */}
+        <aside className="min-w-0 lg:min-h-0 lg:overflow-y-auto custom-scrollbar divide-y divide-white/[0.08] border-b border-white/[0.08] lg:border-b-0 lg:border-r">
+          <ConnectSection
             connected={connected}
             twitchLogin={twitchLogin}
             onConnect={connect}
@@ -1333,8 +1337,8 @@ export default function PollsPredictionsPage() {
           {/* Reine Auswahl-Liste. Die Einstellungen des gewählten Moduls stehen
               unter der Leinwand — dort ist Platz für mehrere Spalten, und man
               muss nicht zwischen Formular und Vorschau hin und her scrollen. */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 px-1">Module</p>
+          <section className="divide-y divide-white/5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 px-4 py-2.5">Module</p>
 
             {MODULES.map((meta) => {
               const module = config.modules[meta.id];
@@ -1343,10 +1347,8 @@ export default function PollsPredictionsPage() {
               const hint = moduleWarning(meta.id);
               return (
                 <div key={meta.id}
-                  className={`panel relative overflow-hidden flex items-center transition-colors ${
-                    isActive
-                      ? 'border-violet-400/50 bg-violet-500/[0.10]'
-                      : 'hover:bg-white/[0.05] hover:border-white/25'
+                  className={`relative flex items-center transition-colors ${
+                    isActive ? 'bg-violet-500/[0.10]' : 'hover:bg-white/[0.04]'
                   }`}>
                   {/* Akzentbalken links — macht das gewählte Modul auf einen Blick klar */}
                   <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-[3px] transition-colors ${
@@ -1358,7 +1360,7 @@ export default function PollsPredictionsPage() {
                     onClick={() => setSelected(meta.id)}
                     aria-pressed={isActive}
                     title={`Einstellungen für ${meta.label} anzeigen`}
-                    className="group flex items-center gap-3 flex-1 min-w-0 text-left p-3 pl-3.5"
+                    className="group flex items-center gap-3 flex-1 min-w-0 text-left p-3 pl-4"
                   >
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                       isActive
@@ -1390,7 +1392,7 @@ export default function PollsPredictionsPage() {
                     />
                   </button>
 
-                  <label className="relative shrink-0 cursor-pointer pr-3 py-3" title={module.enabled ? 'Ausblenden' : 'Einblenden'}>
+                  <label className="relative shrink-0 cursor-pointer pr-4 py-3" title={module.enabled ? 'Ausblenden' : 'Einblenden'}>
                     <input type="checkbox" checked={module.enabled} className="peer sr-only"
                       onChange={(e) => patchModule(meta.id, { enabled: e.target.checked })} />
                     <span className="block w-9 h-5 rounded-full bg-white/10 peer-checked:bg-violet-500/40 transition-colors" />
@@ -1399,16 +1401,16 @@ export default function PollsPredictionsPage() {
                 </div>
               );
             })}
-          </div>
+          </section>
 
-          <ObsLinkCard overlayKey={overlayKey} onRegenerate={async () => {
+          <ObsLinkSection overlayKey={overlayKey} onRegenerate={async () => {
             try { setOverlayKey((await api.regenerateOverlayKey()).overlayKey); } catch (e) { flash(e.message); }
           }} />
-        </div>
+        </aside>
 
-        {/* ══════════ Leinwand ══════════ */}
-        <div ref={colRef} className="min-w-0 flex flex-col gap-3 lg:min-h-0">
-          <div ref={toolbarRef} className="flex items-center gap-2 flex-wrap shrink-0">
+        {/* ══════════ Arbeitsfläche: Leinwand oben, Einstellungen darunter ══════════ */}
+        <div ref={colRef} className="min-w-0 flex flex-col lg:min-h-0">
+          <div ref={toolbarRef} className="flex items-center gap-2 flex-wrap shrink-0 px-4 py-2.5 border-b border-white/[0.08]">
             <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Leinwand</span>
             <span className="text-[11px] text-gray-600 font-mono">1920 × 1080 · {Math.round(scale * 100)} %</span>
 
@@ -1443,46 +1445,48 @@ export default function PollsPredictionsPage() {
             </div>
           </div>
 
-          {/* Bühne: 16:9, so groß wie Breite UND Höhe es zulassen */}
-          <div ref={hostRef} className="shrink-0">
-            <div ref={wrapRef} className="relative mx-auto rounded-xl overflow-hidden border border-white/10 stw-checker"
-              style={{ width: Math.round(STAGE_W * scale), height: Math.round(STAGE_H * scale) }}>
-              {/* zoom statt transform: scale — nur so startet der Raid-Clip in
-                  der Vorschau von allein (siehe WidgetFrame) */}
-              <div className="stw-stage" style={{ zoom: scale }}>
-                {gridOn && <div className="stw-thirds" />}
-                {guides.v && <div className="stw-guide v" style={{ left: STAGE_W / 2 }} />}
-                {guides.h && <div className="stw-guide h" style={{ top: STAGE_H / 2 }} />}
+          <div className="p-4 flex flex-col gap-3 shrink-0">
+            {/* Bühne: 16:9, so groß wie Breite UND Höhe es zulassen */}
+            <div ref={hostRef} className="shrink-0">
+              <div ref={wrapRef} className="relative mx-auto rounded-xl overflow-hidden border border-white/10 stw-checker"
+                style={{ width: Math.round(STAGE_W * scale), height: Math.round(STAGE_H * scale) }}>
+                {/* zoom statt transform: scale — nur so startet der Raid-Clip in
+                    der Vorschau von allein (siehe WidgetFrame) */}
+                <div className="stw-stage" style={{ zoom: scale }}>
+                  {gridOn && <div className="stw-thirds" />}
+                  {guides.v && <div className="stw-guide v" style={{ left: STAGE_W / 2 }} />}
+                  {guides.h && <div className="stw-guide h" style={{ top: STAGE_H / 2 }} />}
 
-                {MODULES.map((meta) => (
-                  <WidgetFrame
-                    key={meta.id}
-                    id={meta.id}
-                    module={m[meta.id]}
-                    visible={hasData[meta.id] && m[meta.id].enabled}
-                    editable
-                    selected={selected === meta.id}
-                    onPointerDown={startDrag(meta.id)}
-                  >
-                    {rendered[meta.id]}
-                  </WidgetFrame>
-                ))}
+                  {MODULES.map((meta) => (
+                    <WidgetFrame
+                      key={meta.id}
+                      id={meta.id}
+                      module={m[meta.id]}
+                      visible={hasData[meta.id] && m[meta.id].enabled}
+                      editable
+                      selected={selected === meta.id}
+                      onPointerDown={startDrag(meta.id)}
+                    >
+                      {rendered[meta.id]}
+                    </WidgetFrame>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <p ref={hintRef} className="text-[11px] text-gray-500 leading-relaxed shrink-0">
-            Widgets mit der Maus verschieben — ausgeblendete lassen sich nicht greifen.
-            Das Karomuster zeigt, was im Stream transparent bleibt.
-            {connected
-              ? ' Läuft gerade etwas in deinem Kanal, ersetzt es automatisch die Demo-Daten.'
-              : ' Verbinde deinen Kanal, damit hier deine echten Abstimmungen erscheinen.'}
-          </p>
+            <p ref={hintRef} className="text-[11px] text-gray-500 leading-relaxed shrink-0">
+              Widgets mit der Maus verschieben — ausgeblendete lassen sich nicht greifen.
+              Das Karomuster zeigt, was im Stream transparent bleibt.
+              {connected
+                ? ' Läuft gerade etwas in deinem Kanal, ersetzt es automatisch die Demo-Daten.'
+                : ' Verbinde deinen Kanal, damit hier deine echten Abstimmungen erscheinen.'}
+            </p>
+          </div>
 
           {/* Einstellungen des gewählten Moduls — direkt unter der Vorschau,
               mit eigenem Bildlauf, damit die Seite selbst nicht wandert */}
           {activeMeta && (
-            <div className="panel lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scrollbar">
+            <div className="border-t border-white/[0.08] lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scrollbar">
               <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
                 <span className="w-8 h-8 rounded-lg bg-violet-500/15 text-violet-300 flex items-center justify-center shrink-0">
                   <activeMeta.icon size={15} />

@@ -30,7 +30,7 @@
 const { ALL_CARDS, getCardPool, getElixirCost } = require('../core/cards');
 const { getBingoCardAttrs } = require('../core/bingoAttributes');
 const { lobbies, shuffle, sanitizeLobby } = require('../core/lobbies');
-const { clearTurnTimer, startTurnTimer } = require('../core/timers');
+const { clearTurnTimer, startTurnTimer, emitTimerTick } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
 const { teamPlayers, isDuoTeamsReady } = require('../core/teams');
@@ -181,6 +181,7 @@ function startHintTimer(lobby, io) {
   clearTurnTimer(lobby);
   const g = lobby.game;
   g.timerRemaining = g.hintSeconds;
+  emitTimerTick(lobby, io);
   g.timerInterval = setInterval(() => {
     // lobby.game === g: läuft die Lobby inzwischen in einem ANDEREN Spiel (Neustart +
     // sofortiger Moduswechsel/Start, während dieses Intervall noch tickt), sofort abbrechen —

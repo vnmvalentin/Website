@@ -3924,7 +3924,23 @@ export default function GameContainer() {
                     return;   // finally raeumt ernteLaeuftRef auf
                 }
             }
-            setPlotPlants((prev) => ({ ...prev, [key]: vorherigerStand }));
+            // Nur zurückstellen, wenn die Pflanze wirklich noch da ist. Bei
+            // "geradeGeerntet" stammt das Nein von einem KONKURRIERENDEN Vorgang, der
+            // dieselbe Zelle eben erst erfolgreich geerntet hat — Schnellzug
+            // (handleHarvestMany) und der nachlaufende Browser-Klick nach mouseup
+            // treffen leicht dieselbe Zelle doppelt (der Shift-Zustand im click-Event
+            // kann schon "false" sein, wenn Shift knapp vor/mit der Maustaste
+            // losgelassen wird — die Sperre in onCanvasClick greift dann nicht). Die
+            // Pflanze ist auf dem Server in diesem Fall bereits weg; stellte man sie
+            // hier trotzdem zurück, schickte der nächste Speichervorgang sie als "neu
+            // gepflanzt" an den Server (verplausibilisierePflanzen kennt den Schlüssel
+            // nicht mehr, findet auch die instanceId nicht mehr und würfelt frische
+            // Zeiten) — ein kostenloser Nachschub, ohne Samen zu bezahlen und ohne
+            // Rucksackplatz. GEFUNDEN 14.09. ("gieße, dann kann ich ganz oft
+            // einsammeln, Saat kommt wieder, bekomme random Frucht").
+            if (!geradeGeerntet) {
+                setPlotPlants((prev) => ({ ...prev, [key]: vorherigerStand }));
+            }
             // Ein Nein gilt für die ganze Warteschlange: sonst hämmert jeder
             // angestellte Klick auf dieselbe Absage.
             ernteWarteschlangeRef.current.delete(key);
@@ -4392,7 +4408,21 @@ export default function GameContainer() {
         // dann sofort pflücken" ist genau die Reihenfolge, die diese 500 ms
         // regelmäßig unterbietet: die Ernte kam beim Server an, bevor er vom Guss
         // wusste, und lehnte die (dort noch nicht reife) Frucht ab.
-        await flushSave();
+        //
+        // BUG gefunden 14.09. ("gegossen und geerntet — Saat kam wieder"): genau
+        // dieses "SOFORT" schickte trotzdem den ALTEN, ungegossenen Stand. Ohne
+        // explizite Übergabe liest flushSave() die Nutzlast über
+        // flushFarmStateToServerRef — der zeigt erst NACH dem naechsten Rendern
+        // auf eine Fassung mit dem `np` von eben (setPlotPlants wirkt asynchron,
+        // siehe Kommentar bei der Ernte-Wiederherstellung weiter oben). Zwischen
+        // dem setPlotPlants oben und diesem await liegt kein einziges await —
+        // der PUT ging also praktisch IMMER mit der Zeit von VOR dem Guss raus.
+        // Der Server sah die Verkürzung nie, lehnte die folgende Ernte mit „Noch
+        // nicht reif." ab, und deren Fehlerpfad stellt die Pflanze sichtbar
+        // zurück auf den Acker — genau das sah aus wie „Saat kam wieder". Fix:
+        // denselben expliziten Übergabe-Weg wie bei der Ernte-Wiederherstellung
+        // nehmen, statt auf den naechsten Render zu warten.
+        await flushSave({ plotPlants: { ...plotPlants, [key]: np } });
     }, [plotPlants, toolInventory.wateringCans, notify, flushSave, skillStufe, verbraucheWerkzeug]);
 
     const handleMovePlantWithPot = useCallback(async (targetX, targetY) => {
@@ -4806,7 +4836,17 @@ export default function GameContainer() {
             // Mit Shift gehört der Klick zur Schnellernte — die hat beim Drücken
             // schon zugegriffen. Ohne diese Sperre ginge für die letzte Kachel eine
             // zweite Anfrage raus, die der Server nur noch ablehnen kann.
-            if (e.shiftKey && isDragHarvestingRef.current) return;
+            //
+            // OHNE e.shiftKey hier zu verlangen (Bug gefunden 14.09., derselbe Fund
+            // wie "gieße, dann kann ich ganz oft einsammeln, Saat kommt wieder"):
+            // wer Shift knapp vor oder gleichzeitig mit der Maustaste loslässt, dessen
+            // click-Event traegt shiftKey schon als false — genau der Fall, fuer den
+            // diese Sperre gedacht ist, griff dann NIE. `isDragHarvestingRef` allein
+            // reicht als Signal: es wird nur waehrend eines echten Schnellzugs gesetzt
+            // (onCanvasMouseDown, mit Shift geprueft) und erst nach dem Klick wieder
+            // zurückgesetzt (stopShovelHold, siehe Kommentar dort) — ob DIESES eine
+            // click-Event selbst noch Shift meldet, ist dafuer irrelevant.
+            if (isDragHarvestingRef.current) return;
 
             // Bodenbelag wurde schon bei mousedown gelegt (siehe dort) — dieser
             // Klick ist nur der automatische Nachlauf des Browsers und wird hier

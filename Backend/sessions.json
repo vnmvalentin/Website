@@ -1,21 +1,4 @@
 {
-  "O8zUMZ-Un_G6VX4FDn9eYXiJ": {
-    "twitchId": "160224748",
-    "twitchLogin": "vnmvalentin",
-    "expiresAt": 1789412325722
-  },
-  "kBjz8h3juiQFS7hNSG4N-4dE": {
-    "twitchId": "160224748",
-    "twitchLogin": "vnmvalentin",
-    "expiresAt": 1790091769865,
-    "discord": {
-      "accessToken": "MTIxNDE4OTg1NzM4ODM2MzgzNg.saQInyaA4nbc4W5uxwB5tVoWXyCChW",
-      "refreshToken": "oukjZh88YZx6lHGpf2IHBwJPk97Ikw",
-      "userId": "363665434240876555",
-      "username": "Valentin",
-      "avatar": "https://cdn.discordapp.com/avatars/363665434240876555/5436925572ac2c17826446406e75762b.png?size=128"
-    }
-  },
   "LCJHFN--HdEJvVhy5Ez_LTRr": {
     "twitchId": "160224748",
     "twitchLogin": "vnmvalentin",
@@ -50,5 +33,20 @@
     "twitchId": "160224748",
     "twitchLogin": "vnmvalentin",
     "expiresAt": 1791904452624
+  },
+  "K-WaNpnfDbTwvzF6WgTg29Xa": {
+    "twitchId": "160224748",
+    "twitchLogin": "vnmvalentin",
+    "expiresAt": 1792094427450
+  },
+  "2_kR7Es43KAuUJpoK9yCO3JZ": {
+    "twitchId": "160224748",
+    "twitchLogin": "vnmvalentin",
+    "expiresAt": 1792475060780
+  },
+  "PX27sB7qfq-wYYNCq3jq2KyU": {
+    "twitchId": "160224748",
+    "twitchLogin": "vnmvalentin",
+    "expiresAt": 1792870853515
   }
 }

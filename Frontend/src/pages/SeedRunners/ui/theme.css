@@ -1,0 +1,213 @@
+/*
+ * Seed Runners — eigener Look ("Biom-Welt"), getrennt von der übrigen Website.
+ *
+ * Die Farben kommen direkt aus den Biomen des Spiels (gen/biomes.js): Hintergrund, Kachel, Grasnarbe (tileTop) und Akzent.
+ * `data-biom` auf der Hülle schaltet die ganze Oberfläche um — im Menü je Tag ein anderes Biom, auf einer Level-Seite das
+ * Biom des Levels. Flächen sehen aus wie Spielblöcke: kantig, oben eine farbige Kante wie die Grasnarbe einer Kachel,
+ * Knöpfe mit einer dunklen Unterkante statt Schatten oder Leuchten.
+ *
+ * Schriften: Bungee (Logo und große Überschriften), Barlow (Text), Barlow Condensed (Beschriftungen, Knöpfe, Zahlen). Geladen
+ * werden sie von der Hülle (GameShell.jsx) per <link> — ein @import hier landete im Build mitten in der zusammengefassten
+ * CSS-Datei, wo Browser ihn ignorieren.
+ */
+
+.sr-game {
+  --sr-bg: #0d1620;
+  --sr-far: #14202b;
+  --sr-tile: #2c3a2f;
+  --sr-top: #5f8f58;
+  --sr-accent: #8fd17a;
+  --sr-on-accent: #0b1410;
+  --sr-ink: #eef2ea;
+  --sr-dim: rgb(238 242 234 / 0.66);
+  --sr-faint: rgb(238 242 234 / 0.42);
+  --sr-line: rgb(238 242 234 / 0.11);
+  --sr-line-strong: rgb(238 242 234 / 0.22);
+  --sr-panel: color-mix(in srgb, var(--sr-tile) 42%, var(--sr-bg));
+  --sr-raised: color-mix(in srgb, var(--sr-tile) 62%, var(--sr-bg));
+  --sr-sunk: color-mix(in srgb, var(--sr-bg) 78%, #000);
+  --sr-good: #7fd99a;
+  --sr-warn: #f0c060;
+  --sr-bad: #f08a7a;
+  --sr-star: #f3c54b;
+  --sr-font: "Barlow", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sr-font-cond: "Barlow Condensed", "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --sr-font-display: "Bungee", "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: dark;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--sr-bg);
+  color: var(--sr-ink);
+  font-family: var(--sr-font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.sr-game[data-biom="ice"] { --sr-bg: #0b1420; --sr-far: #122234; --sr-tile: #243a4e; --sr-top: #8ccbe8; --sr-accent: #bfe8f7; --sr-on-accent: #0a1622; }
+.sr-game[data-biom="factory"] { --sr-bg: #121118; --sr-far: #1b1922; --sr-tile: #33303a; --sr-top: #d19a3b; --sr-accent: #f0b94a; --sr-on-accent: #1a1206; }
+.sr-game[data-biom="cave"] { --sr-bg: #0a0a10; --sr-far: #12101a; --sr-tile: #2a2431; --sr-top: #7a5d9c; --sr-accent: #b592e0; --sr-on-accent: #140d1f; }
+.sr-game[data-biom="sky"] { --sr-bg: #0d1226; --sr-far: #151c3a; --sr-tile: #2a3357; --sr-top: #7f9be8; --sr-accent: #a9c0ff; --sr-on-accent: #0b1128; }
+
+.sr-game ::selection { background: var(--sr-top); color: var(--sr-on-accent); }
+.sr-game :focus-visible { outline: 2px solid var(--sr-accent); outline-offset: 2px; }
+
+/* ── Schrift ─────────────────────────────────────────────────────────────── */
+.sr-display { font-family: var(--sr-font-display); font-weight: 400; letter-spacing: 0.02em; line-height: 1.05; text-wrap: balance; }
+.sr-cond { font-family: var(--sr-font-cond); }
+.sr-label { font-family: var(--sr-font-cond); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--sr-faint); }
+.sr-num { font-family: var(--sr-font-cond); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sr-ink { color: var(--sr-ink); }
+.sr-dim { color: var(--sr-dim); }
+.sr-faint { color: var(--sr-faint); }
+.sr-accent-text { color: var(--sr-accent); }
+.sr-good { color: var(--sr-good); }
+.sr-warn { color: var(--sr-warn); }
+.sr-bad { color: var(--sr-bad); }
+.sr-link { color: var(--sr-accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--sr-accent) 40%, transparent); text-underline-offset: 3px; }
+.sr-link:hover { text-decoration-color: var(--sr-accent); }
+
+/* ── Flächen (Blöcke) ────────────────────────────────────────────────────── */
+.sr-panel {
+  background: var(--sr-panel);
+  border: 1px solid var(--sr-line);
+  border-top: 3px solid var(--sr-top);
+  border-radius: 2px;
+}
+.sr-panel-flat { background: var(--sr-panel); border: 1px solid var(--sr-line); border-radius: 2px; }
+.sr-panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; border-bottom: 1px solid var(--sr-line);
+}
+.sr-panel-title { font-family: var(--sr-font-cond); font-weight: 700; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--sr-ink); }
+.sr-sunk { background: var(--sr-sunk); border: 1px solid var(--sr-line); border-radius: 2px; }
+.sr-rows > * + * { border-top: 1px solid var(--sr-line); }
+.sr-divider { border-top: 1px solid var(--sr-line); }
+
+/* ── Knöpfe ──────────────────────────────────────────────────────────────── */
+.sr-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 9px 18px 11px; border-radius: 2px;
+  font-family: var(--sr-font-cond); font-weight: 700; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--sr-accent); color: var(--sr-on-accent);
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.28);
+  transition: filter 120ms, transform 60ms, box-shadow 60ms;
+  cursor: pointer; white-space: nowrap;
+}
+.sr-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.sr-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.28); }
+.sr-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.sr-btn-lg { padding: 13px 24px 15px; font-size: 18px; }
+.sr-btn-sm { padding: 5px 11px 7px; font-size: 13px; gap: 6px; }
+.sr-btn-ghost {
+  background: transparent; color: var(--sr-ink); box-shadow: inset 0 0 0 1px var(--sr-line-strong);
+}
+.sr-btn-ghost:hover:not(:disabled) { filter: none; background: rgb(255 255 255 / 0.05); }
+.sr-btn-ghost:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 0 0 1px var(--sr-line-strong); }
+.sr-btn-quiet { background: transparent; color: var(--sr-dim); box-shadow: none; padding-left: 8px; padding-right: 8px; }
+.sr-btn-quiet:hover:not(:disabled) { filter: none; color: var(--sr-ink); background: rgb(255 255 255 / 0.05); }
+.sr-btn-quiet:active:not(:disabled) { box-shadow: none; }
+.sr-btn-danger { background: var(--sr-bad); color: #1d0a07; }
+.sr-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 2px;
+  color: var(--sr-dim); box-shadow: inset 0 0 0 1px var(--sr-line); transition: color 120ms, background 120ms;
+}
+.sr-icon-btn:hover { color: var(--sr-ink); background: rgb(255 255 255 / 0.05); }
+
+/* ── Eingaben ────────────────────────────────────────────────────────────── */
+.sr-input {
+  width: 100%; background: var(--sr-sunk); color: var(--sr-ink);
+  border: 1px solid var(--sr-line-strong); border-radius: 2px; padding: 9px 12px; font-size: 15px;
+  transition: border-color 120ms;
+}
+.sr-input::placeholder { color: var(--sr-faint); }
+.sr-input:focus { outline: none; border-color: var(--sr-accent); }
+.sr-input:disabled { opacity: 0.5; cursor: not-allowed; }
+select.sr-input { appearance: auto; padding-right: 8px; }
+.sr-check { accent-color: var(--sr-accent); width: 16px; height: 16px; }
+
+/* ── Reiter ──────────────────────────────────────────────────────────────── */
+.sr-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--sr-line); overflow-x: auto; }
+.sr-tab {
+  padding: 9px 14px 8px; font-family: var(--sr-font-cond); font-weight: 700; font-size: 14px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--sr-faint); border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap;
+  transition: color 120ms;
+}
+.sr-tab:hover { color: var(--sr-ink); }
+.sr-tab[aria-selected="true"], .sr-tab[aria-current="page"] { color: var(--sr-ink); border-bottom-color: var(--sr-accent); }
+
+/* ── Kleinteile ──────────────────────────────────────────────────────────── */
+.sr-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 2px;
+  font-family: var(--sr-font-cond); font-weight: 600; font-size: 12px; letter-spacing: 0.04em;
+  color: var(--sr-dim); box-shadow: inset 0 0 0 1px var(--sr-line-strong);
+}
+.sr-chip-accent { color: var(--sr-on-accent); background: var(--sr-top); box-shadow: none; }
+.sr-kbd {
+  display: inline-block; min-width: 26px; padding: 1px 7px 3px; text-align: center; border-radius: 2px;
+  font-family: var(--sr-font-cond); font-weight: 700; font-size: 13px; color: var(--sr-ink);
+  background: var(--sr-raised); box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.35), inset 0 0 0 1px var(--sr-line);
+}
+.sr-toast {
+  position: fixed; left: 50%; top: 72px; transform: translateX(-50%); z-index: 60;
+  background: var(--sr-raised); border: 1px solid var(--sr-line-strong); border-top: 3px solid var(--sr-accent);
+  border-radius: 2px; padding: 10px 16px; font-size: 14px; max-width: calc(100vw - 32px);
+}
+.sr-banner { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: 2px; font-size: 13px; }
+.sr-banner-warn { color: var(--sr-warn); background: color-mix(in srgb, var(--sr-warn) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sr-warn) 30%, transparent); }
+
+/* ── Fenster (Dialog) ────────────────────────────────────────────────────── */
+.sr-modal-back { position: fixed; inset: 0; z-index: 70; background: rgb(0 0 0 / 0.62); display: flex; align-items: flex-start; justify-content: center; padding: max(48px, env(safe-area-inset-top)) 16px 16px; overflow-y: auto; }
+.sr-modal { width: 100%; max-width: 640px; }
+
+/* ── Kopfleiste der Hülle ────────────────────────────────────────────────── */
+.sr-topbar {
+  position: sticky; top: 0; z-index: 40;
+  background: color-mix(in srgb, var(--sr-bg) 92%, transparent);
+  border-bottom: 1px solid var(--sr-line);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.sr-logo { font-family: var(--sr-font-display); font-size: 17px; letter-spacing: 0.03em; color: var(--sr-ink); white-space: nowrap; }
+.sr-logo b { color: var(--sr-accent); font-weight: 400; }
+
+/* ── Hauptmenü ───────────────────────────────────────────────────────────── */
+.sr-menu-item {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 14px 16px; border-radius: 2px; background: var(--sr-panel);
+  border: 1px solid var(--sr-line); border-left: 4px solid var(--sr-top);
+  transition: background 120ms, border-color 120ms;
+}
+.sr-menu-item:hover { background: var(--sr-raised); border-left-color: var(--sr-accent); }
+.sr-menu-item[aria-expanded="true"] { background: var(--sr-raised); border-left-color: var(--sr-accent); }
+
+/* Sterne */
+.sr-stars { display: inline-flex; align-items: center; gap: 1px; }
+.sr-star-btn { padding: 2px; border-radius: 2px; color: var(--sr-line-strong); transition: color 80ms; }
+.sr-star-btn[data-on="true"] { color: var(--sr-star); }
+.sr-star-btn:disabled { cursor: default; }
+
+/* ── Brücke für ältere Bausteine (Editor, Moderation, Formulare) ────────────
+ * Diese Teile wurden für den Website-Look gebaut (violett, weiße Transparenzen, #0d0d14-Flächen). Innerhalb der Spiel-Hülle
+ * übersetzen die Regeln hier deren Farben und Formen in die Biom-Farben — so sehen auch die großen Editor-Dateien aus wie der
+ * Rest, ohne jede Klasse einzeln umzuschreiben. Neue Oberflächen benutzen die sr-Klassen oben, nicht diese Brücke.
+ * Ganze Klassenwörter (~=) bzw. Wortanfänge (Leerzeichen/Anfang) — sonst träfe z. B. „bg-violet-500“ auch „hover:bg-violet-500“. */
+.sr-game .rounded-md, .sr-game .rounded-lg, .sr-game .rounded-xl { border-radius: 2px; }
+.sr-game .font-display { font-family: var(--sr-font-display); font-weight: 400; letter-spacing: 0.02em; }
+.sr-game [class~="bg-[#0d0d14]"] { background-color: var(--sr-panel); }
+.sr-game [class~="bg-[#0b0b14]"], .sr-game [class~="bg-[#07070c]"] { background-color: var(--sr-sunk); }
+/* (nur Eingabefelder — ein halbdurchsichtiges bg-black/35 über dem Spielfeld muss durchsichtig bleiben) */
+.sr-game :is(input, textarea, select, code)[class*="bg-black/"] { background-color: var(--sr-sunk); }
+.sr-game [class~="bg-violet-600"], .sr-game [class~="bg-violet-500"], .sr-game [class~="bg-violet-400"] {
+  background-color: var(--sr-accent); color: var(--sr-on-accent); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.28);
+}
+.sr-game [class~="bg-violet-600"] svg, .sr-game [class~="bg-violet-500"] svg { color: var(--sr-on-accent); }
+.sr-game [class~="hover:bg-violet-500"]:hover:not(:disabled), .sr-game [class~="hover:bg-violet-400"]:hover:not(:disabled) { background-color: var(--sr-accent); filter: brightness(1.08); }
+.sr-game [class~="disabled:bg-violet-600/40"]:disabled { background-color: var(--sr-accent); opacity: 0.45; }
+.sr-game [class*=" bg-violet-500/"], .sr-game [class^="bg-violet-500/"],
+.sr-game [class*=" bg-violet-600/"], .sr-game [class^="bg-violet-600/"] { background-color: color-mix(in srgb, var(--sr-accent) 14%, transparent); }
+.sr-game [class*="hover:bg-violet-500/"]:hover { background-color: color-mix(in srgb, var(--sr-accent) 12%, transparent); }
+.sr-game [class*=" text-violet-"], .sr-game [class^="text-violet-"] { color: var(--sr-accent); }
+.sr-game [class*="hover:text-violet-"]:hover { color: var(--sr-accent); }
+.sr-game [class*=" border-violet-"], .sr-game [class^="border-violet-"] { border-color: color-mix(in srgb, var(--sr-accent) 45%, transparent); }
+.sr-game [class*="focus:border-violet-"]:focus { border-color: var(--sr-accent); }
+.sr-game [class*="accent-violet-"] { accent-color: var(--sr-accent); }
+.sr-game [class*="fill-violet-"] { fill: var(--sr-accent); }

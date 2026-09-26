@@ -55,9 +55,20 @@ function buildDeckFeedPayload(lobby) {
   };
 }
 
+// Was ein Overlay beim Verbinden und beim Polling bekommt: die zuletzt FERTIGEN Decks
+// (siehe updateDeckFeeds), nie den laufenden Spielstand — sonst zeigte ein neu geladenes
+// Overlay mitten im Draft halbe Decks, obwohl es live erst am Spielende aktualisiert wird.
+function lastDeckFeedPayload(lobby) {
+  return lobby.lastDeckFeed
+    || { at: Date.now(), lobbyCode: lobby.code, mode: lobby.mode, players: [] };
+}
+
+// Nur am Spielende aufrufen (notifyDraftComplete, Admin-Kartentausch im Endscreen) — die
+// Overlays sollen fertige Decks zeigen, keine Zwischenstände.
 function updateDeckFeeds(lobby, io) {
   const payload = buildDeckFeedPayload(lobby);
   if (!payload.players.length) return;
+  lobby.lastDeckFeed = payload;
 
   // Lobbyeigenes Deck-Overlay (siehe lobbies.js: findLobbyByOverlayKey) — unabhängig vom
   // Twitch-Login einzelner Spieler, ein Schlüssel pro Lobby statt pro Account. Läuft
@@ -86,6 +97,7 @@ module.exports = {
   lobbyStreamerIds,
   emitStreamerEvent,
   buildDeckFeedPayload,
+  lastDeckFeedPayload,
   updateDeckFeeds,
   notifyDraftComplete,
 };

@@ -118,6 +118,18 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://vnmvalentin.de/seed-runners</loc>
+    <lastmod>2026-09-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://vnmvalentin.de/seed-runners/daily</loc>
+    <lastmod>2026-09-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://vnmvalentin.de/adventures</loc>
     <lastmod>2026-07-28</lastmod>
     <changefreq>monthly</changefreq>

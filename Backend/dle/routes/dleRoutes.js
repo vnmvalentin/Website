@@ -15,7 +15,6 @@
 const express = require('express');
 const { getGame } = require('../core/games');
 const { scoreGuess } = require('../core/scoring');
-const { scoreColor, isValidColor } = require('../core/colorScoring');
 const { scoreYearGuess } = require('../core/yearScoring');
 const { todayDateKey } = require('../core/dailySeed');
 const store = require('../store/dleStore');
@@ -73,19 +72,12 @@ module.exports = function createDleRouter() {
     const { rounds } = game.dailyRounds(dateKey);
     const rawGuesses = req.body?.guesses;
 
-    // Drei grundverschiedene Antwortarten: eine Zahl auf einer Skala (Tempdle & Co., siehe
-    // core/scoring.js), ein Kalenderjahr (Inventiondle, siehe core/yearScoring.js — braucht
-    // eine eigene Formel, weil Jahr 0 kein echter Nullpunkt ist) oder eine Farbe (CR Color
-    // Match, siehe core/colorScoring.js) — welche gilt, sagt `game.answerType` (Standard:
-    // 'number', siehe core/games/*.js).
+    // Zwei grundverschiedene Antwortarten: eine Zahl auf einer Skala (Tempdle & Co., siehe
+    // core/scoring.js) oder ein Kalenderjahr (Inventiondle, siehe core/yearScoring.js — braucht
+    // eine eigene Formel, weil Jahr 0 kein echter Nullpunkt ist) — welche gilt, sagt
+    // `game.answerType` (Standard: 'number', siehe core/games/*.js).
     let scoredRounds;
-    if (game.answerType === 'color') {
-      const guesses = Array.isArray(rawGuesses) ? rawGuesses : null;
-      if (!guesses || guesses.length !== rounds.length || guesses.some((g) => !isValidColor(g))) {
-        return res.status(400).json({ error: 'Ungültige Antworten' });
-      }
-      scoredRounds = rounds.map((r, i) => ({ ...r, guess: guesses[i], score: scoreColor(guesses[i], r.value) }));
-    } else if (game.answerType === 'year') {
+    if (game.answerType === 'year') {
       const guesses = Array.isArray(rawGuesses) ? rawGuesses.map(Number) : null;
       if (!guesses || guesses.length !== rounds.length || guesses.some((g) => !Number.isFinite(g))) {
         return res.status(400).json({ error: 'Ungültige Antworten' });
