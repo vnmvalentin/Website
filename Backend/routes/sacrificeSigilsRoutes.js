@@ -14,15 +14,19 @@
 //     ss:action   { action }                        Spielzug (Engine-Aktion ohne `player`)
 //     ss:rematch  {}                                Revanche mit neuem Seed
 //     ss:leave    {}                                Raum verlassen (im laufenden Match = Aufgeben)
+//     mw:create / mw:join / mw:settings / mw:ready / mw:action / mw:rematch / mw:leave
+//                 dasselbe für die Moorwanderung (Run-Modus, 2–6 Plätze, sacrificeSigils/runRoomManager.js)
 //   Server → Client
 //     ss:room     Lobby-Zustand (Plätze, Bereit, Einstellungen, Zuschauerzahl)
 //     ss:state    { view, events, timers, serverNow, you }   gefilterte Sicht + Ereignisse für die Animations-Queue
 //     ss:notice   { text }
 //     ss:kicked   { reason }                        Platz wurde von einem anderen Fenster übernommen
+//     mw:room / mw:state / mw:notice / mw:kicked   dasselbe für die Moorwanderung
 
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { createRoomManager } = require('../sacrificeSigils/roomManager');
+const { createRunRoomManager } = require('../sacrificeSigils/runRoomManager');
 
 const TICK_MS = 500;
 const MAX_EVENTS_PER_SECOND = 30;
@@ -35,19 +39,19 @@ function getManager(io) {
     managerPromise = (async () => {
       const engine = await import(pathToFileURL(path.join(SHARED, 'engine', 'index.js')).href);
       const { ENGINE_FINGERPRINT } = await import(pathToFileURL(path.join(SHARED, 'version.js')).href);
-      const manager = createRoomManager({
-        engine,
-        fingerprint: ENGINE_FINGERPRINT,
-        send: (socketId, event, payload) => io.to(socketId).emit(event, payload),
-      });
+      const send = (socketId, event, payload) => io.to(socketId).emit(event, payload);
+      const manager = createRoomManager({ engine, fingerprint: ENGINE_FINGERPRINT, send });
+      const runs = createRunRoomManager({ engine, fingerprint: ENGINE_FINGERPRINT, send });
       setInterval(() => {
-        try {
-          manager.tick();
-        } catch (e) {
-          console.error('[sacrifice-sigils] Tick-Fehler:', e);
+        for (const m of [manager, runs]) {
+          try {
+            m.tick();
+          } catch (e) {
+            console.error('[sacrifice-sigils] Tick-Fehler:', e);
+          }
         }
       }, TICK_MS).unref();
-      return manager;
+      return { duel: manager, run: runs };
     })().catch((e) => {
       console.error('[sacrifice-sigils] Engine konnte nicht geladen werden:', e);
       managerPromise = null;
@@ -67,27 +71,24 @@ function registerSacrificeSigilsSocket(socket, io) {
     return count > MAX_EVENTS_PER_SECOND;
   };
 
-  const handle = (event, method) => {
+  const handle = (event, kind, method) => {
     socket.on(event, (payload, ack) => {
       const reply = typeof ack === 'function' ? ack : () => {};
       if (limited()) return reply({ ok: false, error: 'rateLimited' });
       getManager(io)
-        .then((m) => reply(m[method](socket.id, payload && typeof payload === 'object' ? payload : {})))
+        .then((m) => reply(m[kind][method](socket.id, payload && typeof payload === 'object' ? payload : {})))
         .catch(() => reply({ ok: false, error: 'serverError' }));
     });
   };
 
-  handle('ss:create', 'create');
-  handle('ss:join', 'join');
-  handle('ss:settings', 'settings');
-  handle('ss:ready', 'ready');
-  handle('ss:action', 'action');
-  handle('ss:rematch', 'rematch');
-  handle('ss:leave', 'leave');
+  for (const method of ['create', 'join', 'settings', 'ready', 'action', 'rematch', 'leave']) {
+    handle(`ss:${method}`, 'duel', method);
+    handle(`mw:${method}`, 'run', method);
+  }
 
   socket.on('disconnect', () => {
     if (!managerPromise) return;
-    managerPromise.then((m) => m.detach(socket.id)).catch(() => {});
+    managerPromise.then((m) => { m.duel.detach(socket.id); m.run.detach(socket.id); }).catch(() => {});
   });
 }
 

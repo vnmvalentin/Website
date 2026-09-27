@@ -12,9 +12,10 @@ import { ENGINE_FINGERPRINT } from "../version.js";
 let batchSeq = 0;
 
 /**
- * @param {{ code: string|null, name: string, create?: { settings: any, seed: string } | null, onCreated?: (code: string) => void }} opts
+ * @param {{ code: string|null, name: string, create?: { settings: any, seed: string } | null, onCreated?: (code: string) => void,
+ *   prefix?: "ss"|"mw" }} opts  prefix: Ereignis-Präfix (ss = Duell, mw = Moorwanderung)
  */
-export function useOnlineGame({ code, name, create, onCreated }) {
+export function useOnlineGame({ code, name, create, onCreated, prefix = "ss" }) {
   const socketRef = useRef(/** @type {import("socket.io-client").Socket|null} */ (null));
   const [room, setRoom] = useState(/** @type {any} */ (null));
   const [you, setYou] = useState(/** @type {0|1|null} */ (null));
@@ -43,7 +44,7 @@ export function useOnlineGame({ code, name, create, onCreated }) {
       setConnection("connected");
       const c = codeRef.current;
       if (c) {
-        socket.emit("ss:join", { code: c, name: nameRef.current, token, fingerprint: ENGINE_FINGERPRINT }, (res) => {
+        socket.emit(`${prefix}:join`, { code: c, name: nameRef.current, token, fingerprint: ENGINE_FINGERPRINT }, (res) => {
           if (!res?.ok) {
             setError(res?.error || "joinFailed");
             return;
@@ -56,7 +57,7 @@ export function useOnlineGame({ code, name, create, onCreated }) {
       } else if (createRef.current) {
         const cr = createRef.current;
         createRef.current = null;
-        socket.emit("ss:create", { name: nameRef.current, token, settings: cr.settings, seed: cr.seed }, (res) => {
+        socket.emit(`${prefix}:create`, { name: nameRef.current, token, settings: cr.settings, seed: cr.seed }, (res) => {
           if (!res?.ok) {
             setError(res?.error || "createFailed");
             return;
@@ -72,8 +73,8 @@ export function useOnlineGame({ code, name, create, onCreated }) {
     socket.on("connect", enter);
     socket.on("disconnect", () => setConnection("lost"));
     socket.io.on("reconnect_attempt", () => setConnection("reconnecting"));
-    socket.on("ss:room", (r) => setRoom(r));
-    socket.on("ss:state", (msg) => {
+    socket.on(`${prefix}:room`, (r) => setRoom(r));
+    socket.on(`${prefix}:state`, (msg) => {
       setView(msg.view);
       setYou(msg.you);
       setTimers(msg.timers || {});
@@ -82,16 +83,16 @@ export function useOnlineGame({ code, name, create, onCreated }) {
       const batch = { id: batchSeq, view: msg.view, events: msg.events || [] };
       setBatches((b) => [...b.slice(-40), batch]);
     });
-    socket.on("ss:notice", (n) => {
+    socket.on(`${prefix}:notice`, (n) => {
       setNotice(n.text);
       setTimeout(() => setNotice((cur) => (cur === n.text ? null : cur)), 4000);
     });
-    socket.on("ss:kicked", () => setKicked(true));
+    socket.on(`${prefix}:kicked`, () => setKicked(true));
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, []);
+  }, [prefix]);
 
   const call = useCallback((event, payload) => new Promise((resolve) => {
     const s = socketRef.current;
@@ -102,13 +103,13 @@ export function useOnlineGame({ code, name, create, onCreated }) {
     s.timeout(8000).emit(event, payload, (err, res) => resolve(err ? { ok: false, error: "timeout" } : res));
   }), []);
 
-  const send = useCallback((action) => call("ss:action", { action }), [call]);
+  const send = useCallback((action) => call(`${prefix}:action`, { action }), [call, prefix]);
 
   const lobby = {
-    setSettings: (settings, seed) => call("ss:settings", { settings, seed }),
-    setReady: (ready) => call("ss:ready", { ready }),
-    rematch: () => call("ss:rematch", {}),
-    leave: () => call("ss:leave", {}),
+    setSettings: (settings, seed) => call(`${prefix}:settings`, { settings, seed }),
+    setReady: (ready) => call(`${prefix}:ready`, { ready }),
+    rematch: () => call(`${prefix}:rematch`, {}),
+    leave: () => call(`${prefix}:leave`, {}),
   };
 
   return { mode: "online", room, you, view, batches, timers, clockOffset, connection, notice, error, kicked, staleClient, send, lobby };

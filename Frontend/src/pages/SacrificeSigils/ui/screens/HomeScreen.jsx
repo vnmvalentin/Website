@@ -1,7 +1,7 @@
 // ui/screens/HomeScreen.jsx — Titel-Szene mit Kerzen: Spiel erstellen / beitreten / Übung / Kartenbuch / Anleitung / Tutorial.
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Swords, DoorOpen, Bot, BookOpen, ScrollText, GraduationCap } from "lucide-react";
+import { Swords, DoorOpen, Bot, BookOpen, ScrollText, GraduationCap, Footprints } from "lucide-react";
 import SEO from "../../../../components/SEO";
 import Card from "../card/Card.jsx";
 import { COLLECTIBLE, resolveCard } from "../../engine/cards.js";
@@ -45,8 +45,14 @@ export default function HomeScreen() {
     e.preventDefault();
     if (!needName()) return;
     const c = code.trim().toUpperCase();
+    // Tische der Moorwanderung haben sechs Zeichen und beginnen mit W
+    if (/^W[A-Z0-9]{5}$/.test(c)) {
+      sound.play("seal");
+      navigate(`/sacrifice-and-sigils/moorwanderung/${c}`);
+      return;
+    }
     if (!/^[A-Z0-9]{5}$/.test(c)) {
-      setErr("Der Code hat fünf Zeichen.");
+      setErr("Der Code hat fünf Zeichen (Moorwanderung: sechs, beginnt mit W).");
       return;
     }
     sound.play("seal");
@@ -56,6 +62,7 @@ export default function HomeScreen() {
   const items = [
     { key: "create", icon: Swords, label: de.ui.create, sub: "Raum öffnen und Link teilen", onClick: () => setMode("create") },
     { key: "join", icon: DoorOpen, label: de.ui.join, sub: "Mit einem Code an einen Tisch setzen", onClick: () => setMode("join") },
+    { key: "run", icon: Footprints, label: de.run.title, sub: "Run-Modus für 2–6 Zeichner: Pfade, NPCs, Lebenssiegel", onClick: () => navigate("/sacrifice-and-sigils/moorwanderung") },
     { key: "practice", icon: Bot, label: de.ui.practice, sub: "Drei Stufen, oder Hotseat zu zweit", onClick: () => navigate("/sacrifice-and-sigils/uebung") },
     { key: "tutorial", icon: GraduationCap, label: de.ui.tutorial, sub: "Geführter Übungskampf", onClick: () => navigate("/sacrifice-and-sigils/tutorial") },
     { key: "codex", icon: BookOpen, label: de.ui.codex, sub: "Alle Karten und Sigils", onClick: () => navigate("/sacrifice-and-sigils/kartenbuch") },
@@ -115,7 +122,7 @@ export default function HomeScreen() {
             <form className="space-y-4 ss-fade-in" onSubmit={join}>
               <label className="block">
                 <span className="ss-title !text-[var(--ink)] text-sm">{de.ui.code}</span>
-                <input className="ss-input mt-1 uppercase tracking-[0.3em] ss-num" value={code} maxLength={5} onChange={(e) => { setCode(e.target.value.toUpperCase()); setErr(""); }} placeholder="ABCDE" autoFocus />
+                <input className="ss-input mt-1 uppercase tracking-[0.3em] ss-num" value={code} maxLength={6} onChange={(e) => { setCode(e.target.value.toUpperCase()); setErr(""); }} placeholder="ABCDE" autoFocus />
               </label>
               <div className="flex flex-wrap gap-3">
                 <button type="submit" className="ss-seal">{de.ui.join}</button>

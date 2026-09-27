@@ -302,7 +302,7 @@ function simulateOpponentAttack(b, q) {
 }
 
 /** @param {any} b @param {0|1} p @param {AiLevel} level @param {{rng:number}} rng */
-function battleChoice(b, p, level, rng) {
+export function battleChoice(b, p, level, rng) {
   const P = b.players[p];
   const pend = b.pending[0];
   if (pend?.kind === "discard") {
@@ -370,10 +370,10 @@ function battleChoice(b, p, level, rng) {
 
 // ───────────────────────── Pfad ─────────────────────────
 
-const NODE_PRIORITY = { cardChoice: 8, campfire: 7, fuse: 6, transfer: 5, merchant: 4, shrine: 4, copyist: 5, remove: 2, event: 3 };
+export const NODE_PRIORITY = { cardChoice: 8, campfire: 7, fuse: 6, transfer: 5, merchant: 4, shrine: 4, copyist: 5, remove: 2, event: 3 };
 
 /** @param {any} match @param {0|1} p @param {AiLevel} level @param {{rng:number}} rng */
-function pathChoice(match, p, level, rng) {
+export function pathChoice(match, p, level, rng) {
   const pp = match.path.players[p];
   const player = match.players[p];
   if (!pp.scene) {
@@ -407,12 +407,12 @@ function hasPair(deck) {
 }
 
 /** @param {any[]} deck @param {boolean} [allowUnique] */
-function rankDeck(deck, allowUnique = true) {
+export function rankDeck(deck, allowUnique = true) {
   return [...deck].filter((c) => allowUnique || !CARDS[c.baseId].unique).sort((a, b) => deckCardScore(b) - deckCardScore(a));
 }
 
 /** @param {any} match @param {0|1} p @param {any} scene @param {AiLevel} level @param {{rng:number}} rng */
-function sceneChoice(match, p, scene, level, rng) {
+export function sceneChoice(match, p, scene, level, rng) {
   const player = match.players[p];
   const act = (/** @type {any} */ x) => ({ type: "nodeAction", player: p, ...x });
   const ranked = rankDeck(player.deck);

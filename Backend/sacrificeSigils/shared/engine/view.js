@@ -54,33 +54,7 @@ export function viewFor(state, viewer) {
   }
 
   // Kampf
-  if (v.battle) {
-    const b = v.battle;
-    delete b.rng;
-    b.players = b.players.map((/** @type {any} */ P, /** @type {number} */ q) => {
-      const own = q === viewer;
-      const peeking = viewer !== null && viewer !== q && b.players[viewer]?.peek;
-      const out = { ...P, deckSize: P.deck.length, handSize: P.hand.length };
-      if (own) {
-        out.deckList = [...P.deck].sort((/** @type {any} */ a, /** @type {any} */ c) => a.name.localeCompare(c.name));
-      }
-      delete out.deck;
-      if (!own && !peeking) delete out.hand;
-      if (!own) {
-        out.itemCount = P.items.length;
-        delete out.items;
-        out.bloodBonus = 0;
-      }
-      return out;
-    });
-    const pend = state.battle.pending[0];
-    b.pending = pend && pend.player === viewer ? [pend] : [];
-    if (pend && pend.player === viewer && pend.kind === "seer") {
-      const deck = state.battle.players[viewer].deck;
-      b.pending[0] = { ...pend, cards: deck.slice(-pend.count).reverse() };
-    }
-    b.opponentPending = !!pend && pend.player !== viewer;
-  }
+  if (v.battle) v.battle = filterBattle(state.battle, viewer);
 
   // Pfad: eigene Szene sichtbar (verdeckte Kartenwahl ohne Karten), vom Gegner nur Fortschritt
   if (v.path) {
@@ -96,6 +70,40 @@ export function viewFor(state, viewer) {
     });
   }
   return v;
+}
+
+/**
+ * Kampfzustand für einen Sitz filtern (auch vom Run-Modus genutzt): gegnerische Hand und beide Decks verborgen,
+ * eigenes Deck nur als sortierte Liste, kein Kampf-RNG. Seher-Wahl nur für den Wählenden.
+ * @param {any} battle Original-Kampfzustand (wird nicht verändert) @param {0|1|null} viewer Sitz im Kampf
+ */
+export function filterBattle(battle, viewer) {
+  const b = deepClone(battle);
+  delete b.rng;
+  b.players = b.players.map((/** @type {any} */ P, /** @type {number} */ q) => {
+    const own = q === viewer;
+    const peeking = viewer !== null && viewer !== q && b.players[viewer]?.peek;
+    const out = { ...P, deckSize: P.deck.length, handSize: P.hand.length };
+    if (own) {
+      out.deckList = [...P.deck].sort((/** @type {any} */ a, /** @type {any} */ c) => a.name.localeCompare(c.name));
+    }
+    delete out.deck;
+    if (!own && !peeking) delete out.hand;
+    if (!own) {
+      out.itemCount = P.items.length;
+      delete out.items;
+      out.bloodBonus = 0;
+    }
+    return out;
+  });
+  const pend = battle.pending[0];
+  b.pending = pend && pend.player === viewer ? [pend] : [];
+  if (pend && pend.player === viewer && pend.kind === "seer") {
+    const deck = battle.players[viewer].deck;
+    b.pending[0] = { ...pend, cards: deck.slice(-pend.count).reverse() };
+  }
+  b.opponentPending = !!pend && pend.player !== viewer;
+  return b;
 }
 
 const CARD_FIELDS = ["card", "cards", "victimCard"];

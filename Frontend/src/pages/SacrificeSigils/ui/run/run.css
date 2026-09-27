@@ -1,0 +1,69 @@
+/* ui/run/run.css — Moorwanderung: Fortschrittsleiste, Zuschauer-Brett, Siegel. Präfix ss-run-/ss-peek-. */
+
+.ss-run-bar {
+  position: relative;
+  z-index: 5;
+  max-width: 1760px;
+  margin: 0 auto;
+  padding: 6px 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 16px;
+  align-items: center;
+  border-bottom: 1px solid rgb(176 141 87 / 0.25);
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.15));
+}
+.ss-run-bar-head { display: flex; align-items: center; gap: 12px; font-size: 0.9rem; }
+.ss-run-bar-toggle { display: none; }
+.ss-run-bar-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 2px 14px;
+  font-size: 0.85rem;
+}
+.ss-run-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name seals" "status deck";
+  column-gap: 8px;
+  padding: 2px 6px;
+  border-left: 2px solid rgb(176 141 87 / 0.35);
+}
+.ss-run-row.ss-me { border-left-color: var(--candle); }
+.ss-run-row.ss-out { opacity: 0.45; }
+.ss-run-name { grid-area: name; text-align: left; font-family: var(--font-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-run-name:hover { text-decoration: underline; }
+.ss-run-row .inline-flex { grid-area: seals; justify-self: end; }
+.ss-run-status { grid-area: status; color: rgb(232 223 204 / 0.65); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8rem; }
+.ss-run-deck { grid-area: deck; justify-self: end; font-family: var(--font-num); color: rgb(232 223 204 / 0.65); font-size: 0.8rem; }
+.ss-run-deck::after { content: " Karten"; }
+
+/* Schmal: eingeklappt, ein Tipp öffnet die Liste */
+@media (max-width: 760px) {
+  .ss-run-bar { grid-template-columns: 1fr; }
+  .ss-run-bar-toggle { display: inline-flex; margin-left: auto; }
+  .ss-run-bar-list { display: none; grid-template-columns: 1fr; }
+  .ss-run-bar.ss-open .ss-run-bar-list { display: grid; }
+}
+
+/* Zuschauer-Brett */
+.ss-peek-grid {
+  display: grid;
+  grid-template-columns: repeat(4, var(--peek-w));
+  gap: 6px;
+  justify-content: center;
+}
+.ss-peek-slot {
+  min-height: calc(var(--peek-w) * 1.4);
+  border: 1px dashed rgb(176 141 87 / 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ss-peek-slot.ss-back { border-style: dotted; background: rgb(0 0 0 / 0.15); }
+.ss-peek-grid .ss-peek-slot:nth-child(8) { margin-bottom: 10px; }
+
+/* Siegel zerbricht (Phase 5 baut die große Animation) */
+@keyframes ss-seal-crack { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-6deg); } 100% { transform: scale(1) rotate(0); } }
+.ss-seal-break { animation: ss-seal-crack 0.7s ease-out; }
+@media (prefers-reduced-motion: reduce) { .ss-seal-break { animation: none; } }

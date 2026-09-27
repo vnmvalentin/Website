@@ -80,6 +80,8 @@ const SigilsPractice = lazy(() => import("./pages/SacrificeSigils/ui/pages/Pract
 const SigilsCodex = lazy(() => import("./pages/SacrificeSigils/ui/pages/CodexPage.jsx"));
 const SigilsGuide = lazy(() => import("./pages/SacrificeSigils/ui/pages/GuidePage.jsx"));
 const SigilsTutorial = lazy(() => import("./pages/SacrificeSigils/ui/pages/TutorialPage.jsx"));
+const SigilsRun = lazy(() => import("./pages/SacrificeSigils/ui/pages/MoorwanderungPage.jsx"));
+const SigilsRunRoom = lazy(() => import("./pages/SacrificeSigils/ui/pages/RunRoomPage.jsx"));
 const TempdlePage = lazy(() => import("./pages/Dle/Tempdle/TempdlePage"));
 const VelocidlePage = lazy(() => import("./pages/Dle/Velocidle/VelocidlePage"));
 const ProbabildlePage = lazy(() => import("./pages/Dle/Probabildle/ProbabildlePage"));
@@ -180,6 +182,8 @@ export default function App() {
             <Route path="kartenbuch" element={<SigilsCodex/>} />
             <Route path="anleitung" element={<SigilsGuide/>} />
             <Route path="tutorial" element={<SigilsTutorial/>} />
+            <Route path="moorwanderung" element={<SigilsRun/>} />
+            <Route path="moorwanderung/:code" element={<SigilsRunRoom/>} />
           </Route>
 
           {/* Alle “normalen” Seiten unter Layout */}

@@ -17,9 +17,10 @@ import InterludeScreen from "./screens/InterludeScreen.jsx";
 import ResultScreen from "./screens/ResultScreen.jsx";
 
 /**
- * @param {{ game: any, extra?: any, onBattleAction?: (a: any) => void, onExit?: () => void }} props
+ * @param {{ game: any, extra?: any, onBattleAction?: (a: any) => void, onExit?: () => void, bar?: React.ReactNode }} props
+ *   bar: eigene Kopfzeile statt Siege/Splitter/Aufgeben (Moorwanderung nutzt den Kampfbildschirm für NPC-Kämpfe und Duelle)
  */
-export default function GameScreen({ game, extra, onBattleAction, onExit }) {
+export default function GameScreen({ game, extra, onBattleAction, onExit, bar }) {
   const prefs = usePrefs();
   const { shake, setTension } = useShell();
   const you = game.you;
@@ -164,7 +165,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         if (q.busy && !(e.target instanceof Element && e.target.closest("button, input, select, a"))) q.skip();
       }}
     >
-      <div className="ss-gamebar max-w-[1760px] mx-auto px-3 flex flex-nowrap items-center gap-x-4 text-sm">
+      {bar !== undefined ? bar : <div className="ss-gamebar max-w-[1760px] mx-auto px-3 flex flex-nowrap items-center gap-x-4 text-sm">
         <span className="ss-title text-[var(--candle)]">{de.phases[phase]}{phase === "battle" && view.battle ? ` ${view.battleNo}` : ""}</span>
         <span className="ss-dim">
           {names[0]} <b className="ss-num text-[var(--bone)]">{view.wins[0]}</b> : <b className="ss-num text-[var(--bone)]">{view.wins[1]}</b> {names[1]}
@@ -187,7 +188,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
             )
           )}
         </div>
-      </div>
+      </div>}
       {game.notice && <div className="ss-toast ss-paper" role="status">{game.notice}</div>}
 
       {phase === "draft" && <DraftScreen {...common} timers={game.timers} clockOffset={game.clockOffset} />}

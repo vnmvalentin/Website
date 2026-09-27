@@ -45,9 +45,11 @@ function nodePos(level, strand, levels) {
 }
 
 /**
- * @param {{ view: any, you: 0|1|null, send: (a: any) => Promise<any>, names: string[], busy: boolean, timers: any, clockOffset: number, events: any[] }} props
+ * @param {{ view: any, you: 0|1|null, send: (a: any) => Promise<any>, names: string[], busy: boolean, timers: any, clockOffset: number, events: any[],
+ *   hideOpponent?: boolean, extraScenes?: Record<string, any> }} props
+ *   hideOpponent/extraScenes: Moorwanderung (Fortschritt der Mitspieler steht in der eigenen Leiste; eigene Szenen)
  */
-export default function PathScreen({ view, you, send, names, timers, clockOffset, events }) {
+export default function PathScreen({ view, you, send, names, timers, clockOffset, events, hideOpponent = false, extraScenes }) {
   const path = view.path;
   const map = path.map;
   const me = you ?? 0;
@@ -112,13 +114,13 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
     return out;
   }, [map.levels]);
 
-  const Scene = pp?.scene ? SCENES[pp.scene.kind] : null;
+  const Scene = pp?.scene ? (extraScenes?.[pp.scene.kind] || SCENES[pp.scene.kind]) : null;
 
   return (
     <div className="max-w-[1300px] mx-auto px-3 py-4 grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
       <section className="space-y-4">
         {Scene ? (
-          <Scene scene={pp.scene} deck={deck} player={player} act={act} zirkel={view.settings.zirkel} />
+          <Scene scene={pp.scene} deck={deck} player={player} act={act} zirkel={view.settings.zirkel} others={view.others} />
         ) : (
           <div className="ss-paper p-3 md:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -172,13 +174,13 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
         {err && <p className="text-center text-[var(--wax-red-light)]" role="alert">{err}</p>}
       </section>
       <aside className="space-y-4 lg:max-h-[calc(100dvh-140px)] lg:overflow-y-auto lg:pr-1">
-        <div className="ss-panel p-4">
+        {!hideOpponent && <div className="ss-panel p-4">
           <p className="ss-title">{names[opp]}</p>
           <p className="ss-dim text-sm">
             {opPath.done ? "Hat den Pfad beendet." : opPath.chosen?.[opPath.level] ? de.ui.opponentChose : de.ui.opponentThinking}
             {" "}· Ebene {Math.min(opPath.level + 1, map.levels)}/{map.levels}
           </p>
-        </div>
+        </div>}
         {you !== null && (
           <div className="ss-paper p-4">
             <DeckSummary cards={deck.map((d) => d.card)} title="Dein Deck" />

@@ -11,6 +11,11 @@ const P = {
   shrine: "M12 3l6 4v2H6V7zM8 9v9M16 9v9M6 20h12M10 12h4",
   copyist: "M5 5h9v11H5zM10 9h9v11h-9",
   event: "M12 4l2 5h5l-4 3 2 5-5-3-5 3 2-5-4-3h5z",
+  // Moorwanderung
+  npc: "M5 19L17 7M14 4l6 6M4 14l6 6M7 17l-3 3",
+  elite: "M5 19L17 7M14 4l6 6M4 14l6 6M7 17l-3 3M17 17l3-3M19 19l-2-2",
+  boss: "M4 18h16M5 18l-1-9 5 4 3-7 3 7 5-4-1 9M9 15h.1M15 15h.1",
+  scout: "M9 21l2-15h2l2 15M8 21h8M10 6l2-3 2 3M7 10h10M4 8l3 2M20 8l-3 2",
 };
 
 /** @param {{ type: string, size?: number, color?: string }} props */
