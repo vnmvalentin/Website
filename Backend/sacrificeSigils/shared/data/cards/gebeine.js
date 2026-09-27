@@ -5,7 +5,7 @@ export default defineCards("gebeine", [
   ["knochenknecht", "Knochenknecht", "k1", 0, 1, ["aschenspende"], "common", "Er dient. Er hat vergessen, wem."],
   ["knochenhaufen", "Knochenhaufen", "k2", 0, 2, ["nachgeburt"], "common", "Stoß ihn um, und er steht auf allen Vieren wieder auf.", { evolvesTo: "knochenhund" }],
   ["knochensammler", "Knochensammler", "k2", 1, 1, ["knochenmark"], "common", "In seinem Sack klappert die Ernte eines Winters."],
-  ["knochenwall", "Knochenwall", "k3", 0, 4, [], "common", "Aus Rippen gebaut, von Rippen gehalten."],
+  ["knochenwall", "Knochenwall", "k3", 0, 5, [], "common", "Aus Rippen gebaut, von Rippen gehalten."],
   ["grabhund", "Grabhund", "k4", 2, 2, [], "common", "Er bewacht ein Grab, das längst leer ist."],
   ["gerippe", "Wandelndes Gerippe", "k5", 1, 1, ["wiedergaenger"], "common", "Einmal gestorben ist keinmal gestorben."],
   ["grabdachs", "Grabdachs", "k5", 2, 3, ["grabwuehler"], "common", "Er gräbt nach unten, wo die anderen schlafen."],

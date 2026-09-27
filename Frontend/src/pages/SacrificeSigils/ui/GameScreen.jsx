@@ -64,6 +64,13 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         if (c) particles.burst("ink", c.x, c.y);
         break;
       }
+      case "overflow": {
+        // Tusche spritzt weiter: zur Hinterreihe-Karte oder zur Waage
+        const lane = centerOf(`[data-slot="${ev.player}:${ev.fromZone}:${ev.lane}"]`);
+        const to = ev.to ? at(ev.to) : centerOf('[data-anchor="scale"]');
+        if (lane && to) particles.fly("blood", lane, to, 520);
+        break;
+      }
       case "transform":
       case "revive": {
         const c = at(ev.uid);

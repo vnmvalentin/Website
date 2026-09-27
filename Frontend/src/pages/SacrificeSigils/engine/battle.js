@@ -37,14 +37,14 @@ export function candleWeight(turn) {
 export const NO_ATTACK_TURNS = 2;
 
 /**
- * Ausgleich zwischen Start- und Zweitspieler. Als Objekt, damit Varianten gemessen werden können.
- * Gemessen nach A1 (KI normal, ~9700 Kämpfe; schwer ~2200):
- *   ohne Ausgleich, Startspieler zieht im ersten Zug nicht: 48,2 % (schwer 46,9 %) · Startspieler zieht: 60,4 %
- *   · Startspieler zieht + Zweiter +1 Wachs: 55,1 % · Startspieler +1 Knochen: 54,0 % · Zweiter +1 Wachs: 41,7 %.
- * Gewählt: kein zusätzlicher Ausgleich – der Startspieler zieht im ersten Zug nicht, sonst gilt für beide dasselbe.
- * (Vor A1 war es „Startspieler zieht + Zweiter +1 Wachs“.)
+ * Ausgleich zwischen Start- und Zweitspieler. Als Objekt, damit Varianten gemessen werden können
+ * (wax/bones/side: Bonus für den Zweiten; starterDraws: Startspieler zieht im ersten Zug; starterBones/starterWax).
+ * Gemessen mit erstem Zug ohne Angriff (A1) und Überlaufschaden (A2), Balancing-Tool, KI normal, 5000 Matches:
+ *   kein Ausgleich, Startspieler zieht nicht: 46,8 % · Startspieler +1 Wachs: 54,9 % · Startspieler +1 Knochen: ~55 %
+ *   · Startspieler zieht + Zweiter +1 Wachs: ~55 % · Startspieler zieht nur aus dem Nebendeck: ~73 %
+ *   · Startspieler zieht + Zweiter +1 Wachs +1 Knochen: 51,3 % (schwer, 2000 Matches: 50,5 %)  ← gewählt
  */
-export const SECOND_PLAYER_BONUS = { wax: 0, side: 0, starterDraws: false, starterBones: 0 };
+export const SECOND_PLAYER_BONUS = { wax: 1, bones: 1, side: 0, starterDraws: true, starterBones: 0, starterWax: 0 };
 
 export const SIDE_TYPES = {
   moorling: "side_moorling",
@@ -118,8 +118,10 @@ export function createBattle(opts) {
     if (p !== state.starter) {
       for (let i = 0; i < SECOND_PLAYER_BONUS.side; i++) r.addToHand(p, r.newSideCard(p), "start", true);
       if (SECOND_PLAYER_BONUS.wax) r.gainWax(p, SECOND_PLAYER_BONUS.wax, null);
-    } else if (SECOND_PLAYER_BONUS.starterBones) {
-      state.players[p].bones += SECOND_PLAYER_BONUS.starterBones;
+      if (SECOND_PLAYER_BONUS.bones) state.players[p].bones += SECOND_PLAYER_BONUS.bones;
+    } else {
+      if (SECOND_PLAYER_BONUS.starterBones) state.players[p].bones += SECOND_PLAYER_BONUS.starterBones;
+      if (SECOND_PLAYER_BONUS.starterWax) r.gainWax(p, SECOND_PLAYER_BONUS.starterWax, null);
     }
   }
   r.startTurn(state.starter, !SECOND_PLAYER_BONUS.starterDraws);
@@ -332,7 +334,7 @@ export class Resolver {
   addScale(p, n, reason, sourceUid) {
     if (n <= 0 || this.over) return;
     this.state.scale += p === 0 ? n : -n;
-    if (reason === "attack" || reason === "pierce") this.state.players[p].stats.direct += n;
+    if (reason === "attack" || reason === "overflow") this.state.players[p].stats.direct += n;
     this.emit({ type: "scale", player: p, amount: n, scale: this.state.scale, reason, source: sourceUid });
     this.checkWin();
   }
@@ -797,7 +799,7 @@ export class Resolver {
     if (flying) {
       if (def && !def.submerged && this.level(def, "hochwuchs") > 0) {
         this.emit({ type: "attack", uid: att.uid, lane: tl, target: def.uid, flying: true, blocked: true });
-        this.hitUnit(att, def, dmg);
+        this.overflow(att, q, tl, this.hitUnit(att, def, dmg), def.uid);
         return;
       }
       this.emit({ type: "attack", uid: att.uid, lane: tl, direct: true, flying: true });
@@ -805,16 +807,42 @@ export class Resolver {
       return;
     }
     if (!def) def = this.guardJump(q, tl);
-    if (!def || def.submerged) {
-      this.emit({ type: "attack", uid: att.uid, lane: tl, direct: true, submerged: !!def });
+    if (!def) {
+      this.emit({ type: "attack", uid: att.uid, lane: tl, direct: true });
       this.addScale(att.owner, dmg, "attack", att.uid);
       return;
     }
+    if (def.submerged) {
+      // Tauchgang: der Schaden geht unter der abgetauchten Karte hindurch – auf die Hinterreihe bzw. die Waage
+      this.emit({ type: "attack", uid: att.uid, lane: tl, submerged: true, target: def.uid });
+      this.overflow(att, q, tl, dmg, def.uid);
+      return;
+    }
     this.emit({ type: "attack", uid: att.uid, lane: tl, target: def.uid });
-    this.hitUnit(att, def, dmg);
+    this.overflow(att, q, tl, this.hitUnit(att, def, dmg), def.uid);
   }
 
-  /** Hinterhalt: zusätzlich die Hinterreihe derselben Lane. @param {Unit} att @param {number} lane */
+  /**
+   * Überlaufschaden (Grundregel): Rest nach der Frontkarte trifft die Hinterreihe derselben Lane, was dann noch übrig
+   * ist, die Waage. Durchbohren überspringt die Hinterreihe.
+   * @param {Unit} att @param {number} q Verteidiger @param {number} lane @param {number} rest @param {string} from
+   */
+  overflow(att, q, lane, rest, from) {
+    if (rest <= 0 || this.over) return;
+    const back = this.level(att, "durchbohren") > 0 ? null : this.row(q, "back")[lane];
+    let fromZone = "front";
+    if (back) {
+      this.emit({ type: "overflow", uid: att.uid, player: q, lane, from, fromZone, to: back.uid, amount: rest });
+      rest = this.hitUnit(att, back, rest, true);
+      if (rest <= 0 || this.over) return;
+      from = back.uid;
+      fromZone = "back";
+    }
+    this.emit({ type: "overflow", uid: att.uid, player: q, lane, from, fromZone, to: null, amount: rest });
+    this.addScale(att.owner, rest, "overflow", att.uid);
+  }
+
+  /** Hinterhalt: zusätzlich die Hinterreihe derselben Lane (voller Angriff, ohne Überlauf auf die Waage). @param {Unit} att @param {number} lane */
   strikeBack(att, lane) {
     const def = this.row(1 - att.owner, "back")[lane];
     if (!def) return;
@@ -841,37 +869,41 @@ export class Resolver {
     return null;
   }
 
-  /** @param {Unit} att @param {Unit} def @param {number} dmg */
-  hitUnit(att, def, dmg) {
+  /**
+   * Treffer auf eine Karte. Schildrinde und Panzer gelten pro getroffener Karte.
+   * @param {Unit} att @param {Unit} def @param {number} dmg
+   * @param {boolean} [spill] Überlauf-Treffer: Todesstachel wirkt nur auf die erste getroffene Karte
+   * @returns {number} Überschuss, der weiterwandert (nur wenn die Karte am Schaden stirbt)
+   */
+  hitUnit(att, def, dmg, spill = false) {
     const breaker = this.level(att, "ruestungsbrecher") > 0;
     if (!breaker && this.level(def, "schildrinde") > 0 && !def.shieldUsed) {
       def.shieldUsed = true;
       this.emit({ type: "shield", uid: def.uid, source: att.uid });
       this.runHook(def, "onStruck", att);
-      return;
+      return 0;
     }
     if (!breaker) dmg = this.reduceHook(def, "modifyDamage", dmg);
     const before = def.health;
     def.health -= dmg;
     this.emit({ type: "damage", uid: def.uid, amount: dmg, health: def.health, source: att.uid, cause: "attack" });
     this.trackDamage(att, Math.min(dmg, Math.max(0, before)));
-    if (dmg > 0 && def.health > 0 && this.level(att, "todesstachel") > 0) {
+    if (!spill && dmg > 0 && def.health > 0 && this.level(att, "todesstachel") > 0) {
       def.health = 0;
       this.emit({ type: "deathtouch", uid: def.uid, source: att.uid });
     }
-    const overflow = this.level(att, "durchbohren") > 0 ? Math.max(0, dmg - Math.max(0, before)) : 0;
+    const excess = Math.max(0, dmg - Math.max(0, before));
     this.runHook(att, "onHit", def);
-    if (this.over) return;
+    if (this.over) return 0;
     this.runHook(def, "onStruck", att);
-    if (this.over) return;
-    if (overflow > 0) this.addScale(att.owner, overflow, "pierce", att.uid);
-    if (this.over) return;
+    if (this.over) return 0;
     if (this.onBoard(def) && def.health <= 0) {
       if (this.level(def, "haeutung") > 0) this.shed(def);
       else this.kill(def, "combat", att);
-    } else if (this.onBoard(def)) {
-      this.runHook(def, "onSurvivedHit", att);
+      return this.over ? 0 : excess;
     }
+    if (this.onBoard(def)) this.runHook(def, "onSurvivedHit", att);
+    return 0;
   }
 
   // ═════════════ Aktionen ═════════════

@@ -317,7 +317,8 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
       const opposing = c.players[top].front[lane];
       const flying = rr.level(u, "schwinge") > 0;
       const direct = !opposing || (flying && rr.level(opposing, "hochwuchs") === 0);
-      return { lane, atk, direct };
+      const spill = direct || !opposing ? 0 : Math.max(0, atk - Math.max(0, opposing.health));
+      return { lane, atk, direct, spill };
     } catch {
       return null;
     }
@@ -457,6 +458,7 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
                       key={key}
                       className={`ss-slot ${row.zone === "back" ? "ss-back" : ""} ${targetable ? "ss-target" : ""} ${chosen ? "ss-chosen" : ""} ${dragOver === `${row.p}${key}` ? "ss-dragover" : ""} ${laneGlow ? "ss-lane-glow" : ""}`}
                       style={{ left: `calc(var(--slot-w) * ${lane})`, top: rowTop(ri) }}
+                      data-slot={`${row.p}:${row.zone}:${lane}`}
                       onDragOver={own && canAct ? (e) => { e.preventDefault(); setDragOver(`${row.p}${key}`); } : undefined}
                       onDragLeave={() => setDragOver(null)}
                       onDrop={own && canAct ? (e) => onDrop(e, row.zone, lane) : undefined}
@@ -467,7 +469,7 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
                         <button type="button" onClick={() => onSlot(row.p, row.zone, lane)} aria-label={`${own ? "Eigener" : "Gegnerischer"} Slot ${row.label} ${lane + 1}`} tabIndex={targetable ? 0 : -1} />
                       )}
                       {preview && own && row.zone === "front" && preview.lane === lane && (
-                        <span className="ss-badge absolute bottom-[6%] z-10">⚔ {preview.atk}{preview.direct ? " → Waage" : ""}</span>
+                        <span className="ss-badge absolute bottom-[6%] z-10">⚔ {preview.atk}{preview.direct ? " → Waage" : preview.spill > 0 ? ` · Überlauf ${preview.spill}` : ""}</span>
                       )}
                     </div>
                   );
@@ -529,8 +531,11 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
             {floats.map((f) => {
               const ri = rows.findIndex((row) => row.p === f.p && row.zone === f.zone);
               if (ri < 0) return null;
+              // Überlauf: Weg bis zur Zielreihe (Hinterreihe) oder aus dem Feld hinaus Richtung Waage
+              const ti = f.toZone ? rows.findIndex((row) => row.p === f.p && row.zone === f.toZone) : -1;
+              const dy = f.kind !== "spill" ? null : ti >= 0 ? `calc(${rowTop(ti)} - ${rowTop(ri)})` : `calc(var(--slot-h) * ${f.p === bottom ? 0.9 : -0.9})`;
               return (
-                <span key={f.id} className={`ss-float ss-float-${f.kind}`} style={{ left: `calc(var(--slot-w) * ${f.lane + 0.5})`, top: `calc(${rowTop(ri)} + var(--slot-h) * 0.35)` }}>{f.text}</span>
+                <span key={f.id} className={`ss-float ss-float-${f.kind}`} style={{ left: `calc(var(--slot-w) * ${f.lane + 0.5})`, top: `calc(${rowTop(ri)} + var(--slot-h) * 0.35)`, ...(dy ? { "--dy": dy } : {}) }}>{f.text}</span>
               );
             })}
           </div>
@@ -748,7 +753,7 @@ function useViewport() {
   return v;
 }
 
-const FLOAT_KIND = { damage: "dmg", heal: "heal", buff: "buff", debuff: "debuff" };
+const FLOAT_KIND = { damage: "dmg", heal: "heal", buff: "buff", debuff: "debuff", overflow: "spill" };
 
 /** Schwebende Zahlen (Schaden als Tusche-Klecks, Heilung, Buffs) aus dem laufenden Ereignis. */
 function useFloats(anim, b) {
@@ -757,10 +762,15 @@ function useFloats(anim, b) {
     const ev = anim?.ev;
     if (!ev || !FLOAT_KIND[ev.type] || !b) return undefined;
     let pos = null;
-    for (const P of b.players) for (const zone of ["front", "back"]) P[zone].forEach((u, lane) => { if (u && u.uid === ev.uid) pos = { p: u.owner, zone, lane }; });
+    if (ev.type === "overflow") {
+      // Überlauf: die Restzahl löst sich von der getroffenen Karte und wandert zur Hinterreihe bzw. zur Waage
+      pos = { p: ev.player, zone: ev.fromZone, lane: ev.lane, toZone: ev.to ? "back" : null };
+    } else {
+      for (const P of b.players) for (const zone of ["front", "back"]) P[zone].forEach((u, lane) => { if (u && u.uid === ev.uid) pos = { p: u.owner, zone, lane }; });
+    }
     if (!pos) return undefined;
-    const amount = ev.type === "damage" ? ev.amount : ev.type === "heal" ? ev.amount : (ev.attack || 0) + (ev.health || 0);
-    const text = ev.type === "damage" ? String(amount) : ev.type === "heal" ? `+${amount}` : `${ev.attack ? `${ev.attack > 0 ? "+" : ""}${ev.attack}⚔` : ""}${ev.health ? ` ${ev.health > 0 ? "+" : ""}${ev.health}♥` : ""}`;
+    const amount = ev.type === "damage" || ev.type === "overflow" ? ev.amount : ev.type === "heal" ? ev.amount : (ev.attack || 0) + (ev.health || 0);
+    const text = ev.type === "damage" || ev.type === "overflow" ? String(amount) : ev.type === "heal" ? `+${amount}` : `${ev.attack ? `${ev.attack > 0 ? "+" : ""}${ev.attack}⚔` : ""}${ev.health ? ` ${ev.health > 0 ? "+" : ""}${ev.health}♥` : ""}`;
     const f = { id: anim.key, kind: FLOAT_KIND[ev.type], text, ...pos };
     setList((l) => [...l.slice(-8), f]);
     // Kein Aufräumen beim nächsten Ereignis: die Zahl soll ihre Animation zu Ende spielen

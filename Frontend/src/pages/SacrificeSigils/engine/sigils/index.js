@@ -138,8 +138,9 @@ export const SIGILS = {
     },
   },
   durchbohren: {
-    category: "angriff", power: 1.5, aura: true,
-    flags: { pierce: true },
+    // Überlauf ist seit Runde 2 Grundregel – Durchbohren lässt ihn nur an der Hinterreihe vorbei auf die Waage
+    category: "angriff", power: 0.75, aura: true,
+    flags: { skipBack: true },
     hooks: {},
   },
   hinterhalt: {

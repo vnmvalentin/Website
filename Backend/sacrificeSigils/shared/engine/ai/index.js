@@ -140,6 +140,12 @@ export function evaluateBattle(b, p) {
       const blocker = b.players[other].front[l];
       const flying = r.level(u, "schwinge") > 0;
       if (!blocker || (flying && r.level(blocker, "hochwuchs") === 0)) score += sign * r.attackOf(u) * 2.2;
+      else if (!blocker.submerged) {
+        // Überlauf: was nach Front- (und Hinter-)karte übrig bleibt, landet auf der Waage
+        const back = r.level(u, "durchbohren") > 0 ? null : b.players[other].back[l];
+        const excess = r.attackOf(u) - Math.max(0, blocker.health) - (back ? Math.max(0, back.health) : 0);
+        if (excess > 0) score += sign * excess * 1.6;
+      }
     }
   }
   const P = b.players[p];

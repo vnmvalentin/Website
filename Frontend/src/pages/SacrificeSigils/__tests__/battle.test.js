@@ -13,7 +13,7 @@ testCard("T_blood1", { attack: 1, health: 1, cost: { type: "blood", amount: 1 } 
 testCard("T_bones3", { attack: 1, health: 1, cost: { type: "bones", amount: 3 } });
 testCard("T_wax2", { attack: 1, health: 1, cost: { type: "wax", amount: 2 } });
 
-test("Kampfstart: Starthand 3+1, Startspieler zieht im ersten Zug nicht, sonst kein Ausgleich (siehe SECOND_PLAYER_BONUS)", () => {
+test("Kampfstart: Starthand 3+1, zweiter Spieler +1 Wachs +1 Knochen (Ausgleich siehe SECOND_PLAYER_BONUS), Startspieler zieht", () => {
   const deck = Array.from({ length: 10 }, () => dc("T_a2h2"));
   const { state } = createBattle({ battleNo: 1, starter: 0, rng: 7, players: [
     { deck, sideType: "moorling", items: [], totems: {} },
@@ -22,8 +22,10 @@ test("Kampfstart: Starthand 3+1, Startspieler zieht im ersten Zug nicht, sonst k
   assert.equal(state.players[0].hand.length, 4);
   assert.equal(state.players[1].hand.length, 4);
   assert.equal(state.players[0].wax, 1); // eigener Zugbeginn
-  assert.equal(state.players[1].wax, 0);
-  assert.equal(state.players[0].drew, true); // Zug 1: kein Ziehen
+  assert.equal(state.players[1].wax, 1); // Ausgleich
+  assert.equal(state.players[1].bones, 1);
+  assert.equal(state.players[0].bones, 0);
+  assert.equal(state.players[0].drew, false);
   assert.equal(state.players[1].hand.filter((c) => c.baseId === "side_wachsling").length, 1);
 });
 
@@ -73,13 +75,82 @@ test("Knochen und Wachs werden bezahlt, fehlende Ressourcen blocken", () => {
   assert.equal(s.players[0].bones, 0);
 });
 
-test("Angriff: leerer Slot → Waage, Blocker nimmt Schaden, Überschuss verfällt", () => {
-  const s = setupBattle({ p0: { front: ["T_a2h2", "T_a2h2", "T_a5h1"] }, p1: { front: [null, "T_a0h3", "T_a0h1"] } });
+test("Angriff: leerer Slot → Waage, Blocker nimmt Schaden, Überschuss wandert weiter", () => {
+  const s = setupBattle({ p0: { front: ["T_a2h2", "T_a2h2", "T_a2h2"] }, p1: { front: [null, "T_a0h3", "T_a0h1"] } });
   endTurn(s);
-  assert.equal(s.scale, 2);
+  assert.equal(s.scale, 3); // 2 direkt + 1 Überlauf aus Lane 3
   assert.equal(unitAt(s, 1, "front", 1).health, 1);
   assert.equal(unitAt(s, 1, "front", 2), null);
   assert.equal(s.players[1].bones, 1);
+});
+
+testCard("T_a6h1", { attack: 6, health: 1 });
+testCard("T_a5h1", { attack: 5, health: 1 });
+testCard("T_a0h2", { attack: 0, health: 2 });
+testCard("T_bark3", { attack: 0, health: 3, sigils: ["schildrinde"] });
+testCard("T_plate5", { attack: 0, health: 5, sigils: ["panzer"] });
+testCard("T_pierce5", { attack: 5, health: 1, sigils: ["durchbohren"] });
+testCard("T_sting4", { attack: 4, health: 1, sigils: ["todesstachel"] });
+
+test("Überlauf: Front → Hinterreihe → Waage", () => {
+  const s = setupBattle({ p0: { front: ["T_a6h1"] }, p1: { front: ["T_a0h2"], back: ["T_a0h3"] } });
+  const res = endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0), null);
+  assert.equal(unitAt(s, 1, "back", 0), null);
+  assert.equal(s.scale, 1); // 6 − 2 − 3
+  const spills = res.events.filter((e) => e.type === "overflow");
+  assert.deepEqual(spills.map((e) => [e.amount, e.to === null]), [[4, false], [1, true]]);
+});
+
+test("Überlauf: Überlebt die Frontkarte, wandert nichts weiter", () => {
+  const s = setupBattle({ p0: { front: ["T_a2h2"] }, p1: { front: ["T_a0h3"], back: ["T_a0h1"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0).health, 1);
+  assert.equal(unitAt(s, 1, "back", 0).health, 1);
+  assert.equal(s.scale, 0);
+});
+
+test("Überlauf: Schildrinde und Panzer gelten pro getroffener Karte", () => {
+  const a = setupBattle({ p0: { front: ["T_a5h1"] }, p1: { front: ["T_a0h2"], back: ["T_bark3"] } });
+  endTurn(a);
+  assert.equal(unitAt(a, 1, "back", 0).health, 3); // Schild fängt den Überlauf ab
+  assert.equal(a.scale, 0);
+  const b = setupBattle({ p0: { front: ["T_a5h1"] }, p1: { front: ["T_bark3"], back: ["T_a0h1"] } });
+  endTurn(b);
+  assert.equal(unitAt(b, 1, "front", 0).health, 3); // Schild vorn: gar kein Schaden, nichts wandert weiter
+  assert.equal(unitAt(b, 1, "back", 0).health, 1);
+  const c = setupBattle({ p0: { front: ["T_a6h1"] }, p1: { front: ["T_a0h2"], back: ["T_plate5"] } });
+  endTurn(c);
+  assert.equal(unitAt(c, 1, "back", 0).health, 2); // 4 Überlauf − 1 Panzer
+  assert.equal(c.scale, 0);
+});
+
+test("Überlauf: Tauchgang lässt den Schaden auf die Hinterreihe bzw. Waage durch", () => {
+  const s = setupBattle({ p0: { front: ["T_a5h1", "T_a2h2"] }, p1: { front: ["T_a0h3", "T_a0h3"], back: ["T_a0h3"] } });
+  unitAt(s, 1, "front", 0).submerged = true;
+  unitAt(s, 1, "front", 1).submerged = true;
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0).health, 3);
+  assert.equal(unitAt(s, 1, "back", 0), null);
+  assert.equal(s.scale, 2 + 2); // Lane 1: 5 − 3; Lane 2: ohne Hinterreihe direkt 2
+});
+
+test("Überlauf: Durchbohren überspringt die Hinterreihe", () => {
+  const s = setupBattle({ p0: { front: ["T_pierce5"] }, p1: { front: ["T_a0h2"], back: ["T_a0h3"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0), null);
+  assert.equal(unitAt(s, 1, "back", 0).health, 3);
+  assert.equal(s.scale, 3);
+});
+
+test("Überlauf: Todesstachel tötet nur die erste Karte, der Rest wird normal verrechnet", () => {
+  const s = setupBattle({ p0: { front: ["T_sting4", "T_sting4"] }, p1: { front: ["T_a0h2", "T_plate5"], back: ["T_plate5", "T_a0h1"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0), null);
+  assert.equal(unitAt(s, 1, "back", 0).health, 4); // 2 Überlauf − 1 Panzer, kein Todesstachel
+  assert.equal(unitAt(s, 1, "front", 1), null); // Todesstachel: 3 Schaden reichen
+  assert.equal(unitAt(s, 1, "back", 1).health, 1); // kein Überschuss
+  assert.equal(s.scale, 0);
 });
 
 test("Waage: 5 im Vorteil gewinnt, Überschuss zählt als Overkill", () => {

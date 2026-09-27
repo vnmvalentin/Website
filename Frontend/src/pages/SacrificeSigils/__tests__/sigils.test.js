@@ -141,10 +141,11 @@ sigilTest("aderlass", "stiehlt 1 Angriff pro Treffer", () => {
   assert.equal(unitAt(s, 1, "front", 0).attack, 1);
 });
 
-sigilTest("durchbohren", "überschüssiger Schaden geht auf die Waage", () => {
+sigilTest("durchbohren", "überschüssiger Schaden überspringt die Hinterreihe", () => {
   T("pierce", { attack: 4, health: 1, sigils: ["durchbohren"] });
-  const s = setupBattle({ p0: { front: ["S_pierce"] }, p1: { front: ["S_wall1"] } });
+  const s = setupBattle({ p0: { front: ["S_pierce"] }, p1: { front: ["S_wall1"], back: ["S_wall"] } });
   endTurn(s);
+  assert.equal(unitAt(s, 1, "back", 0).health, 5);
   assert.equal(s.scale, 3);
 });
 

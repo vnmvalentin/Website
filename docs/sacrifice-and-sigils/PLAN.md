@@ -35,8 +35,9 @@ und wo bewusst abgewichen wird.
    zieht im ersten Zug nicht, Zweiter +1 Wachs und +1 Nebendeck-Karte) gewann der Startspieler nur 17 % der Kämpfe
    (5000 Matches). Gemessen wurden vier Varianten; gewählt ist „Startspieler zieht normal, Zweiter +1 Wachs“ mit 52–54 %.
    Umschaltbar über `SECOND_PLAYER_BONUS` in `engine/battle.js`.
-   **Runde 2 (A1):** Im jeweils ersten eigenen Zug greift niemand an (`NO_ATTACK_TURNS = 2`). Danach neu gemessen;
-   gewählt ist „kein Zusatzausgleich, Startspieler zieht im ersten Zug nicht“ (Startspieler 48,2 % normal, 46,9 % schwer).
+   **Runde 2 (A1/A2):** Im jeweils ersten eigenen Zug greift niemand an (`NO_ATTACK_TURNS = 2`), Überlaufschaden ist
+   Grundregel. Danach neu gemessen; gewählt ist „Startspieler zieht, Zweiter +1 Wachs +1 Knochen“
+   (Startspieler 51,3 % normal / 5000 Matches, 50,5 % schwer / 2000 Matches). Alle Varianten stehen an `SECOND_PLAYER_BONUS`.
 7. **Patt-Brecher eskaliert:** ab Zug 30 zunächst 1 Gewicht pro Zugende, alle 6 Züge eines mehr. Mit konstant 1 Gewicht
    pendelte die Waage bei festgefahrenen Brettern endlos zwischen beiden Seiten (vom Fuzz-Test gefunden).
 8. **Opfer und Todeseffekte:** Opfern zählt als Tod (Knochen, Nesthüter, Rachsucht …), Wiedergänger und Nachgeburt greifen

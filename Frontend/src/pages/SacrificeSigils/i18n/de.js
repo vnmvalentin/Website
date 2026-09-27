@@ -56,7 +56,7 @@ export const de = {
     todesstachel: { name: "Todesstachel", desc: "Jede getroffene Kreatur stirbt." },
     wucht: { name: "Wucht", desc: "Die getroffene Karte wird in die gegnerische Hinterreihe gestoßen, wenn der Slot frei ist." },
     aderlass: { name: "Aderlass", desc: "Stiehlt bei jedem Treffer dauerhaft 1 Angriff vom Ziel." },
-    durchbohren: { name: "Durchbohren", desc: "Überschüssiger Schaden geht auf die Waage." },
+    durchbohren: { name: "Durchbohren", desc: "Überschüssiger Schaden überspringt die Hinterreihe und geht direkt auf die Waage." },
     hinterhalt: { name: "Hinterhalt", desc: "Greift zusätzlich die Karte in der gegnerischen Hinterreihe derselben Lane an." },
     rudelruf: { name: "Rudelruf", desc: "+1 Angriff für jede weitere eigene Karte desselben Stamms auf dem Feld." },
     rachsucht: { name: "Rachsucht", desc: "Stirbt eine benachbarte eigene Karte, bekommt diese Karte dauerhaft +1 Angriff." },

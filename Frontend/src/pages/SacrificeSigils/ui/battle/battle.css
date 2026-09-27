@@ -118,6 +118,25 @@
   justify-content: center;
   background: radial-gradient(circle at 45% 40%, #2a221a 0 48%, transparent 52%), radial-gradient(circle at 70% 60%, #1a1612 0 22%, transparent 26%), radial-gradient(circle at 25% 70%, #1a1612 0 16%, transparent 20%);
 }
+.ss-float.ss-float-spill {
+  color: #f7e6d0;
+  text-shadow: none;
+  font-size: 24px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, #5a1a14 0 50%, transparent 54%);
+  animation: ss-spill 0.9s cubic-bezier(0.5, 0, 0.3, 1) forwards;
+}
+@keyframes ss-spill {
+  0% { opacity: 0; transform: translate(-10%, 0) scale(0.5); }
+  20% { opacity: 1; transform: translate(10%, -6px) scale(1.1); }
+  85% { opacity: 1; transform: translate(-50%, var(--dy, 0px)) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, var(--dy, 0px)) scale(0.7); }
+}
 .ss-float.ss-float-heal { color: #445a2a; }
 .ss-float.ss-float-buff { color: #6f6a14; }
 .ss-float.ss-float-debuff { color: var(--debuff); }

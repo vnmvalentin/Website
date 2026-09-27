@@ -26,6 +26,7 @@ export const EVENT_TIMING = {
   attack: { ms: 430, sound: "attack" },
   lured: { ms: 200 },
   damage: { ms: 330, sound: "hit" },
+  overflow: { ms: 620, sound: "hit" },
   deathtouch: { ms: 250 },
   shield: { ms: 320, sound: "creak" },
   death: { ms: 520, when: "pre", sound: "death" },

@@ -40,11 +40,11 @@ export default function GuidePage() {
           <li><b>Zugbeginn:</b> +1 Wachs.</li>
           <li><b>Ziehen (Pflicht):</b> eine Karte aus dem Hauptdeck <i>oder</i> dem unendlichen Nebendeck. Handlimit {HAND_LIMIT}: Wer darüber zieht, wirft ab.</li>
           <li><b>Aktionen:</b> Karten ausspielen (auch in die Hinterreihe), Items benutzen, einmal den Hammer (eigene Karte zerstören: Knochen, aber kein Blut).</li>
-          <li><b>Angriff:</b> Beim Zugende greift jede eigene Frontkarte von links nach rechts an. Steht gegenüber eine Karte, bekommt sie Schaden, sonst geht er auf die Waage. Überschüssiger Schaden verfällt.</li>
+          <li><b>Angriff:</b> Beim Zugende greift jede eigene Frontkarte von links nach rechts an. Steht gegenüber eine Karte, bekommt sie Schaden, sonst geht er auf die Waage. <b>Überlauf:</b> Stirbt die Frontkarte, trifft der Rest die Karte der Hinterreihe dahinter, was dann noch übrig ist, landet auf der Waage. Schild und Panzer gelten für jede getroffene Karte; ist die Frontkarte abgetaucht, geht der Schaden direkt nach hinten.</li>
           <li><b>Zugende:</b> Effekte (Wandern, Heilung, Kerzendocht …), dann rücken Karten der Hinterreihe vor, wenn vor ihnen frei ist.</li>
         </ol>
         <p>Die Hinterreihe greift nicht an und wird nicht angegriffen – außer durch <i>Hinterhalt</i>. Aus einem leeren Hauptdeck zu ziehen kostet Verwesung: 1 Gewicht, dann 2, dann 3 …</p>
-        <p>Jeder beginnt mit 3 Karten aus dem Hauptdeck und 1 Nebendeck-Karte. Den Startspieler des nächsten Kampfs bestimmt der Verlierer des vorigen. Im jeweils <b>ersten eigenen Zug</b> greift bei beiden Spielern noch niemand an, und der Startspieler zieht in seinem ersten Zug keine Karte.</p>
+        <p>Jeder beginnt mit 3 Karten aus dem Hauptdeck und 1 Nebendeck-Karte. Den Startspieler des nächsten Kampfs bestimmt der Verlierer des vorigen. Im jeweils <b>ersten eigenen Zug</b> greift bei beiden Spielern noch niemand an. Wer als Zweiter beginnt, bekommt +1 Wachs und +1 Knochen.</p>
       </Section>
 
       <Section title="Sigils und Totems">

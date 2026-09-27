@@ -21,7 +21,8 @@ const GLYPHS = {
   todesstachel: () => (<><path d="M5 5c6 1 10 5 12 12" /><path d="M17 17l2 4-4-2" /><path d="M8 10l2-1M11 13l2-1" /><circle cx="19.5" cy="21" r="0.1" /><path d="M20 20c1 1 1 2 0 2.5" stroke={RED} /></>),
   wucht: () => (<><path d="M3 12h8" /><path d="M11 8l5 4-5 4z" /><path d="M18 6l3-2M18 18l3 2M19 12h3" /></>),
   aderlass: () => (<><path d="M12 3c-3 5-5 7-5 10a5 5 0 0010 0c0-3-2-5-5-10z" stroke={RED} /><path d="M4 20l5-5M4 20h4M4 20v-4" /></>),
-  durchbohren: () => (<><circle cx="12" cy="12" r="5" /><path d="M2 12h20M18 8l4 4-4 4" /></>),
+  // Durchbohren (Runde 2): der Stoß geht durch die Frontkarte und springt in hohem Bogen über die Hinterreihe
+  durchbohren: () => (<><path d="M3 19h4M10 19h4" /><path d="M5 19V9" /><path d="M5 9c2-6 12-6 13 3" /><path d="M15.5 10.5L18 13l2-3" /><path d="M18 16v4" stroke={RED} /><path d="M12 19v-4" strokeDasharray="1.5 1.5" /></>),
   hinterhalt: () => (<><path d="M4 16c2-4 4-6 8-6s6 2 8 6" /><circle cx="12" cy="15" r="1.6" /><path d="M5 20c2-2 4-2 6 0M13 20c2-2 4-2 6 0" /><path d="M12 3v4M9 5l3 2 3-2" /></>),
   rudelruf: () => (<><path d="M5 15l2-5 2 3M10 12l2-6 2 6M15 13l2-3 2 5" /><path d="M4 19h16" /></>),
   rachsucht: () => (<><path d="M12 21c-4 0-6-3-6-6 0-4 4-5 4-10 3 2 3 5 2 7 2-1 3-3 3-5 2 3 3 5 3 8 0 3-2 6-6 6z" /><path d="M10 16h4" stroke={RED} /></>),
