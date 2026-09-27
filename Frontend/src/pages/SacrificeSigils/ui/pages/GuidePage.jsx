@@ -44,7 +44,7 @@ export default function GuidePage() {
           <li><b>Zugende:</b> Effekte (Wandern, Heilung, Kerzendocht …), dann rücken Karten der Hinterreihe vor, wenn vor ihnen frei ist.</li>
         </ol>
         <p>Die Hinterreihe greift nicht an und wird nicht angegriffen – außer durch <i>Hinterhalt</i>. Aus einem leeren Hauptdeck zu ziehen kostet Verwesung: 1 Gewicht, dann 2, dann 3 …</p>
-        <p>Jeder beginnt mit 3 Karten aus dem Hauptdeck und 1 Nebendeck-Karte. Den Startspieler des nächsten Kampfs bestimmt der Verlierer des vorigen; wer als Zweiter beginnt, bekommt +1 Wachs.</p>
+        <p>Jeder beginnt mit 3 Karten aus dem Hauptdeck und 1 Nebendeck-Karte. Den Startspieler des nächsten Kampfs bestimmt der Verlierer des vorigen. Im jeweils <b>ersten eigenen Zug</b> greift bei beiden Spielern noch niemand an, und der Startspieler zieht in seinem ersten Zug keine Karte.</p>
       </Section>
 
       <Section title="Sigils und Totems">

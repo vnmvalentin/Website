@@ -253,6 +253,7 @@ export const de = {
     defeat: "Niederlage",
     matchWon: "Das Match gehört dir.",
     matchLost: "Die Waage hat gegen dich entschieden.",
+    firstTurnNoAttack: "Erster Zug – noch kein Angriff",
     candleWarn: (/** @type {number} */ n) => `Die Kerze brennt nieder: in ${n} ${n === 1 ? "Zug" : "Zügen"} kostet jedes Zugende 1 Gewicht.`,
     candleBurning: (/** @type {number} */ n) => `Die Kerze brennt nieder: jedes Zugende kostet den aktiven Zeichner ${n} Gewicht${n === 1 ? "" : "e"} – alle 6 Züge eines mehr.`,
     chooseStarter: "Du hast verloren – wer beginnt den nächsten Kampf?",

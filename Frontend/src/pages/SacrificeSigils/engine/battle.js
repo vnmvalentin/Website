@@ -31,15 +31,20 @@ export function candleWeight(turn) {
 }
 
 /**
- * Ausgleich zwischen Start- und Zweitspieler.
- * Der Auftrag (3.3/3.4) sah vor: Startspieler zieht im ersten Zug nicht, der Zweite bekommt +1 Wachs und +1 Nebendeck-Karte.
- * Das Balancing-Tool (5000 Matches) ergab damit nur 17 % Siege für den Startspieler — zwei Nebendeck-Karten erlauben
- * dem Zweiten schon im ersten Zug eine Blut-2-Karte. Gemessen (je ~900 Kämpfe, KI normal/schwer):
- *   wie im Auftrag 24 % · ohne Ausgleich 46 % · nur +1 Wachs 39 % · Startspieler zieht + Zweiter +1 Wachs 52 %.
- * Gewählt ist die letzte Variante. Als Objekt, damit Varianten gemessen (und bei Bedarf zurückgestellt) werden können:
- * { wax: 1, side: 1, starterDraws: false } entspricht wieder dem ursprünglichen Auftrag.
+ * Erster Zug ohne Angriff (Runde 2, A1): In den ersten beiden Zügen – dem jeweils ersten eigenen Zug beider Spieler –
+ * greift niemand an. Vorher konnte der Startspieler sofort auf das leere Brett des Gegners schlagen.
  */
-export const SECOND_PLAYER_BONUS = { wax: 1, side: 0, starterDraws: true };
+export const NO_ATTACK_TURNS = 2;
+
+/**
+ * Ausgleich zwischen Start- und Zweitspieler. Als Objekt, damit Varianten gemessen werden können.
+ * Gemessen nach A1 (KI normal, ~9700 Kämpfe; schwer ~2200):
+ *   ohne Ausgleich, Startspieler zieht im ersten Zug nicht: 48,2 % (schwer 46,9 %) · Startspieler zieht: 60,4 %
+ *   · Startspieler zieht + Zweiter +1 Wachs: 55,1 % · Startspieler +1 Knochen: 54,0 % · Zweiter +1 Wachs: 41,7 %.
+ * Gewählt: kein zusätzlicher Ausgleich – der Startspieler zieht im ersten Zug nicht, sonst gilt für beide dasselbe.
+ * (Vor A1 war es „Startspieler zieht + Zweiter +1 Wachs“.)
+ */
+export const SECOND_PLAYER_BONUS = { wax: 0, side: 0, starterDraws: false, starterBones: 0 };
 
 export const SIDE_TYPES = {
   moorling: "side_moorling",
@@ -113,6 +118,8 @@ export function createBattle(opts) {
     if (p !== state.starter) {
       for (let i = 0; i < SECOND_PLAYER_BONUS.side; i++) r.addToHand(p, r.newSideCard(p), "start", true);
       if (SECOND_PLAYER_BONUS.wax) r.gainWax(p, SECOND_PLAYER_BONUS.wax, null);
+    } else if (SECOND_PLAYER_BONUS.starterBones) {
+      state.players[p].bones += SECOND_PLAYER_BONUS.starterBones;
     }
   }
   r.startTurn(state.starter, !SECOND_PLAYER_BONUS.starterDraws);
@@ -702,9 +709,14 @@ export class Resolver {
   /** @param {0|1} p */
   endTurn(p) {
     const s = this.state;
-    this.emit({ type: "attackPhase", player: p });
-    this.attackPhase(p);
-    if (this.over) return;
+    if (s.turn <= NO_ATTACK_TURNS) {
+      // Erster eigener Zug (beider Spieler): kein Angriff – sonst trifft der Startspieler ein leeres Brett
+      this.emit({ type: "firstTurnNoAttack", player: p });
+    } else {
+      this.emit({ type: "attackPhase", player: p });
+      this.attackPhase(p);
+      if (this.over) return;
+    }
     this.emit({ type: "turnEnd", player: p });
     for (const u of this.units(p)) {
       if (this.over) return;

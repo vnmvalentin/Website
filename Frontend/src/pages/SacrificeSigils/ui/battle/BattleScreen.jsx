@@ -10,7 +10,7 @@ import Scale from "./Scale.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
 import { BloodDrop, Bone, CandleStub, Hammer, Shard } from "../icons/GameIcons.jsx";
-import { Resolver, LANES, WAX_MAX, STALEMATE_TURN, CANDLE_WARNING_TURN, candleWeight, HAND_LIMIT } from "../../engine/battle.js";
+import { Resolver, LANES, WAX_MAX, STALEMATE_TURN, CANDLE_WARNING_TURN, candleWeight, HAND_LIMIT, NO_ATTACK_TURNS } from "../../engine/battle.js";
 import { deepClone } from "../../engine/match.js";
 import { parseSigil } from "../../engine/sigils/index.js";
 import { ITEM_BY_ID } from "../../data/items.js";
@@ -335,6 +335,7 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
   else if (selCard && selCard.cost.type === "blood" && needBlood > 0) hint = `Opfer wählen: ${sacSum}/${needBlood} Blut${target ? " – dann bestätigen" : bloodReady ? " – jetzt Zielslot antippen" : ""}.`;
   else if (selCard) hint = "Zielslot antippen (Front oder Hinterreihe).";
   else hint = "Karte antippen oder ziehen, dann einen freien Slot wählen. Zug beenden, wenn du fertig bist.";
+  if (hint && live.phase !== "over" && b.turn <= NO_ATTACK_TURNS) hint = `${de.ui.firstTurnNoAttack}. ${hint}`;
 
   const scaleView = bottom === 0 ? b.scale : -b.scale;
   const turnTimer = timers?.[live.active];
@@ -719,6 +720,11 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
         <div className="ss-banner ss-paper">
           <p className="ss-title !text-[var(--ink)] text-4xl">{you === null ? `${names[anim.ev.winner]} gewinnt` : anim.ev.winner === you ? de.ui.victory : de.ui.defeat}</p>
           <p className="text-[var(--ink)] opacity-75">Kampf {b.battleNo}</p>
+        </div>
+      )}
+      {anim?.ev?.type === "firstTurnNoAttack" && (
+        <div className="ss-banner ss-banner-soft" style={{ animationDuration: "1.2s" }}>
+          <p className="ss-title text-xl text-[var(--parchment)] opacity-85">{de.ui.firstTurnNoAttack}</p>
         </div>
       )}
       {anim?.ev?.type === "turnStart" && you !== null && anim.ev.player === you && (

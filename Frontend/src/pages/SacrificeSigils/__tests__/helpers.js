@@ -17,8 +17,9 @@ export function dc(baseId, mods = []) {
  * Kampf mit vorgegebenem Feld aufbauen.
  * Spec pro Spieler: { deck?: string[], hand?: string[], front?: (string|null)[], back?: (string|null)[], bones?, wax?,
  *   items?: string[], totems?: any, sideType? }
- * Aktiver Spieler ist `active` (Standard 0), hat bereits gezogen.
- * @param {{ p0?: any, p1?: any, active?: 0|1 }} spec
+ * Aktiver Spieler ist `active` (Standard 0), hat bereits gezogen. `turn` (Standard 3) liegt hinter den
+ * angriffslosen Eröffnungszügen.
+ * @param {{ p0?: any, p1?: any, active?: 0|1, turn?: number, scale?: number }} spec
  */
 export function setupBattle(spec = {}) {
   const pl = [spec.p0 || {}, spec.p1 || {}];
@@ -52,6 +53,7 @@ export function setupBattle(spec = {}) {
     }
   }
   state.scale = spec.scale ?? 0;
+  state.turn = spec.turn ?? 3;
   state.players[state.active].drew = true;
   state.pending = [];
   return state;

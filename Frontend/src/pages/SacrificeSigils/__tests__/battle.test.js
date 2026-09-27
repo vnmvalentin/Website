@@ -13,7 +13,7 @@ testCard("T_blood1", { attack: 1, health: 1, cost: { type: "blood", amount: 1 } 
 testCard("T_bones3", { attack: 1, health: 1, cost: { type: "bones", amount: 3 } });
 testCard("T_wax2", { attack: 1, health: 1, cost: { type: "wax", amount: 2 } });
 
-test("Kampfstart: Starthand 3+1, zweiter Spieler +1 Wachs (Ausgleich siehe SECOND_PLAYER_BONUS), Startspieler zieht normal", () => {
+test("Kampfstart: Starthand 3+1, Startspieler zieht im ersten Zug nicht, sonst kein Ausgleich (siehe SECOND_PLAYER_BONUS)", () => {
   const deck = Array.from({ length: 10 }, () => dc("T_a2h2"));
   const { state } = createBattle({ battleNo: 1, starter: 0, rng: 7, players: [
     { deck, sideType: "moorling", items: [], totems: {} },
@@ -22,9 +22,22 @@ test("Kampfstart: Starthand 3+1, zweiter Spieler +1 Wachs (Ausgleich siehe SECON
   assert.equal(state.players[0].hand.length, 4);
   assert.equal(state.players[1].hand.length, 4);
   assert.equal(state.players[0].wax, 1); // eigener Zugbeginn
-  assert.equal(state.players[1].wax, 1); // Ausgleich
-  assert.equal(state.players[0].drew, false);
+  assert.equal(state.players[1].wax, 0);
+  assert.equal(state.players[0].drew, true); // Zug 1: kein Ziehen
   assert.equal(state.players[1].hand.filter((c) => c.baseId === "side_wachsling").length, 1);
+});
+
+test("Erster Zug: in den jeweils ersten eigenen Zügen beider Spieler greift niemand an", () => {
+  const s = setupBattle({ turn: 1, p0: { front: ["T_a2h2"] }, p1: { front: [null, "T_a2h2"] } });
+  const r1 = endTurn(s); // Zug 1: Startspieler
+  assert.equal(s.scale, 0);
+  assert.ok(r1.events.some((e) => e.type === "firstTurnNoAttack" && e.player === 0));
+  assert.ok(!r1.events.some((e) => e.type === "attackPhase"));
+  const r2 = endTurn(s); // Zug 2: zweiter Spieler
+  assert.equal(s.scale, 0);
+  assert.ok(r2.events.some((e) => e.type === "firstTurnNoAttack" && e.player === 1));
+  endTurn(s); // Zug 3: jetzt wird angegriffen
+  assert.equal(s.scale, 2);
 });
 
 test("Wachs: +1 pro eigenem Zug, Maximum 6", () => {

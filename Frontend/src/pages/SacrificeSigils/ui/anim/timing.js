@@ -22,6 +22,7 @@ export const EVENT_TIMING = {
   sacrifice: { ms: 620, when: "pre", sound: "sacrifice" },
   undying: { ms: 300 },
   attackPhase: { ms: 150 },
+  firstTurnNoAttack: { ms: 900 },
   attack: { ms: 430, sound: "attack" },
   lured: { ms: 200 },
   damage: { ms: 330, sound: "hit" },
