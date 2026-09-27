@@ -39,6 +39,8 @@ export const START_SHARDS = 3;
 export const DUEL_REWARD = { win: 3, catchup: 4 };
 /** Splitter nach Kämpfen gegen NPCs (Sieg bzw. Trostpreis bei Niederlage). */
 export const FIGHT_REWARD = { npc: 2, elite: 3, boss: 4, loss: 1 };
+/** KI-Stufe der Gegner ohne Menschen (Balancing: NPCs sollen ~30 %, Bosse ~45 % gewinnen – `npm run balance:run`). */
+export const NPC_AI = { npc: "easy", elite: "normal", boss: "easy" };
 /** Seltenheits-Gewichte der Belohnungen. */
 const REWARD_WEIGHTS = {
   npc: { common: 55, uncommon: 30, rare: 12, legendary: 3 },
@@ -50,7 +52,7 @@ const PATH_FLAW = { moor: "kerzendocht:3", gezeiten: "treibgut" };
 
 export const RUN_DEFAULTS = {
   players: 4,
-  seals: 3,
+  seals: /** @type {"auto"|2|3|4} */ ("auto"),
   pathsPerRound: /** @type {"auto"|1|2|3} */ ("auto"),
   pathLength: "normal",
   oddMode: "mirror",
@@ -67,7 +69,7 @@ export function normalizeRunSettings(s = {}) {
   const players = Number.isInteger(s.players) ? Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, s.players)) : RUN_DEFAULTS.players;
   return {
     players,
-    seals: [2, 3, 4].includes(s.seals) ? s.seals : RUN_DEFAULTS.seals,
+    seals: [2, 3, 4].includes(s.seals) ? s.seals : "auto",
     pathsPerRound: [1, 2, 3].includes(s.pathsPerRound) ? s.pathsPerRound : "auto",
     pathLength: s.pathLength in PATH_LEVELS ? s.pathLength : RUN_DEFAULTS.pathLength,
     oddMode: s.oddMode === "lord" ? "lord" : "mirror",
@@ -78,9 +80,17 @@ export function normalizeRunSettings(s = {}) {
   };
 }
 
-/** Pfade pro Duellrunde („auto“: 2, bei 5–6 Spielern 1). @param {any} settings */
+/**
+ * Pfade pro Duellrunde. „auto“ = 1: Die Kämpfe bestimmen die Dauer eines Pfads (2–3 NPCs + Boss), mit 2 Pfaden pro
+ * Runde dauert ein Run mit 4 Spielern laut `balance:run` rund 110 statt 45 Minuten. @param {any} settings
+ */
 export function pathsPerRound(settings) {
-  return settings.pathsPerRound === "auto" ? (settings.players >= 5 ? 1 : 2) : settings.pathsPerRound;
+  return settings.pathsPerRound === "auto" ? 1 : settings.pathsPerRound;
+}
+
+/** Lebenssiegel. „auto“: 3 bei 2–3 Spielern, 2 ab 4 Spielern (Ziel: 4 Spieler 35–50 min, 6 Spieler ≤ 60 min). @param {any} settings */
+export function sealsFor(settings) {
+  return settings.seals === "auto" ? (settings.players >= 4 ? 2 : 3) : settings.seals;
 }
 
 /** Budget-Werte der Einstellung. @param {any} state */
@@ -130,7 +140,9 @@ function newRunPlayer(/** @type {string} */ name, /** @type {any} */ settings) {
 export function createRun(opts) {
   const names = opts.names.slice(0, MAX_PLAYERS);
   if (names.length < MIN_PLAYERS) throw new Error("Moorwanderung braucht mindestens 2 Spieler");
-  const settings = { ...normalizeRunSettings(opts.settings), players: names.length };
+  const base = { ...normalizeRunSettings(opts.settings), players: names.length };
+  // Im laufenden Run ist die Siegelzahl immer eine Zahl (Anzeige, Siegel-Reihen, Späherturm)
+  const settings = { ...base, seals: sealsFor(base) };
   const seed = normalizeSeed(opts.seed) || "MOOR";
   const salt = opts.salt || "";
   return {
@@ -434,7 +446,7 @@ function battleCtx(s, p) {
   if (s.phase === "path") {
     const f = s.path.players[p].fight;
     if (!f) return null;
-    return { kind: "fight", key: `f${p}`, battle: f.battle, seats: [p, null], seat: 0, aiSeats: s.players[p].auto ? [0, 1] : [1], aiLevel: f.aiLevel || "normal" };
+    return { kind: "fight", key: `f${p}`, battle: f.battle, seats: [p, null], seat: 0, aiSeats: s.players[p].auto ? [0, 1] : [1], aiLevel: f.aiLevel || "normal", seatLevels: ["normal", f.npcAi || "normal"] };
   }
   if (s.phase === "duels") {
     const pair = s.duels.pairs.find((/** @type {any} */ x) => !x.done && x.seats.includes(p));
@@ -488,7 +500,7 @@ function driveAi(/** @type {any} */ s, /** @type {any} */ ctx, /** @type {any[]}
     const rng = { rng: s.aiRng };
     let a = null;
     try {
-      a = battleChoice(ctx.battle, seat, ctx.aiLevel, rng);
+      a = battleChoice(ctx.battle, seat, ctx.seatLevels?.[seat] || ctx.aiLevel, rng);
     } catch {
       a = null;
     }
@@ -526,14 +538,16 @@ function startFight(s, p, node, level, events) {
   let rules = [];
   let boss = null;
   if (kind === "boss") {
-    deck = buildNpcDeck({ zirkel: s.settings.zirkel, tribes: def.tribes, size: Math.min(16, 10 + tier), tier: tier + 1, stream, elite: true });
-    const phases = def.phases.map((/** @type {any} */ ph) => ({ rule: ph.rule, tribe: def.tribes[0], spawn: ph.spawn || [] }));
+    deck = buildNpcDeck({ zirkel: s.settings.zirkel, tribes: def.tribes, size: Math.min(14, 8 + tier), tier, stream, buffs: 0 });
+    // Beschwörungen der zweiten Phase: Stufe 0–1 eine, danach zwei (die dritte der Liste nie – zu stark)
+    const spawnCount = tier < 2 ? 1 : 2;
+    const phases = def.phases.map((/** @type {any} */ ph) => ({ rule: ph.rule, tribe: def.tribes[0], spawn: (ph.spawn || []).slice(0, spawnCount) }));
     rules = [{ id: phases[0].rule, seat: 1, tribe: def.tribes[0] }];
     boss = { seat: 1, phase: 1, phases };
   } else {
     const delta = RULES[def.rule]?.deckDelta || 0;
-    const size = Math.min(14, 8 + tier) + (kind === "elite" ? 2 : 0) + delta;
-    deck = buildNpcDeck({ zirkel: s.settings.zirkel, tribes: def.tribes, size, tier: tier + (kind === "elite" ? 1 : 0), stream, elite: kind === "elite" });
+    const size = Math.min(15, 9 + tier) + (kind === "elite" ? 2 : 0) + delta;
+    deck = buildNpcDeck({ zirkel: s.settings.zirkel, tribes: def.tribes, size, tier: tier + 1, stream, elite: kind === "elite" });
     rules = [{ id: def.rule, seat: 1, tribe: def.tribes[0] }];
   }
   const { state, events: ev } = createBattle({
@@ -549,7 +563,7 @@ function startFight(s, p, node, level, events) {
     boss,
   });
   pp.scene = { kind: "fight", fightKind: kind, npcId: id };
-  pp.fight = { kind, npcId: kind === "boss" ? null : id, bossId: kind === "boss" ? id : null, battle: state, aiLevel: "normal" };
+  pp.fight = { kind, npcId: kind === "boss" ? null : id, bossId: kind === "boss" ? id : null, battle: state, aiLevel: "normal", npcAi: NPC_AI[kind] };
   events.push({ type: "fightStart", player: p, kind, npcId: id, audience: [p] });
   const ctx = battleCtx(s, p);
   tagBattle(s, ctx, ev, events);

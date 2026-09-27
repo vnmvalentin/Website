@@ -255,7 +255,7 @@ export const de = {
       giftzahn: "Seine Karten mit genau 1 Angriff haben Todesstachel.",
       zaehesfleisch: "Seine Karten haben +1 Leben.",
       raserei: "Seine Karten haben +1 Angriff und −1 Leben (mindestens 1).",
-      knochenhort: "Er beginnt mit 5 Knochen.",
+      knochenhort: "Er beginnt mit 3 Knochen.",
       vorsprung: "Die Waage beginnt 1 zu seinen Gunsten, dafür hat er 2 Karten weniger.",
       bluternte: "Seine erste Blutkarte kostet 2 Blut weniger.",
       flutzeit: "Der Kampf beginnt bei Flut.",

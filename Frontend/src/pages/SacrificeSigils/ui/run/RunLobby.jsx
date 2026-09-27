@@ -8,8 +8,8 @@ import { SealPortrait } from "../screens/LobbyScreen.jsx";
 
 const OPTIONS = {
   players: [2, 3, 4, 5, 6].map((n) => [n, `${n} Zeichner`]),
-  seals: [[2, "2"], [3, "3"], [4, "4"]],
-  pathsPerRound: [["auto", "automatisch (2, ab 5 Spielern 1)"], [1, "1"], [2, "2"], [3, "3"]],
+  seals: [["auto", "automatisch (3, ab 4 Spielern 2)"], [2, "2"], [3, "3"], [4, "4"]],
+  pathsPerRound: [["auto", "automatisch (1)"], [1, "1"], [2, "2"], [3, "3"]],
   pathLength: [["short", "kurz (4 Knoten)"], ["normal", "normal (6)"], ["long", "lang (8)"]],
   oddMode: [["mirror", "Spiegelgeist (Kopie eines Mitspieler-Decks)"], ["lord", "Moorfürst (starker NPC)"]],
   hardBoss: [[false, "aus"], [true, "an („Hart“)"]],

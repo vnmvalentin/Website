@@ -426,7 +426,7 @@ export class Resolver {
 
   /**
    * Boss: Phase 1 verloren → Phase 2. Bossseite wird geräumt (ohne Todeseffekte) und neu aufgebaut, die Waage steht
-   * wieder auf 0, die Hausregel wechselt, der Boss zieht zwei Karten.
+   * wieder auf 0, die Hausregel wechselt; Boss und Herausforderer ziehen je eine Karte.
    */
   bossNextPhase() {
     const s = this.state;
@@ -453,7 +453,8 @@ export class Resolver {
     (ph.spawn || []).slice(0, LANES * 2).forEach((/** @type {string} */ id, /** @type {number} */ i) => {
       this.spawn(b.seat, i < LANES ? "front" : "back", i % LANES, id, "phase");
     });
-    this.drawMain(b.seat, 2, "phase");
+    this.drawMain(b.seat, 1, "phase");
+    this.drawMain(1 - b.seat, 1, "phase");
   }
 
   checkWin() {

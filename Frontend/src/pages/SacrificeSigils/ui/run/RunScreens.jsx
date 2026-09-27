@@ -39,7 +39,7 @@ export function RunPath({ game }) {
       send={game.send}
       names={[rv.players[you].name, ""]}
       busy={false}
-      timers={rv.phase === "path" && game.timers?.path ? { 0: game.timers.path } : {}}
+      timers={{}} // Pfad-Budget steht als Kerze in der Fortschrittsleiste
       clockOffset={game.clockOffset}
       events={events}
       hideOpponent

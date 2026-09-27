@@ -10,9 +10,9 @@ Dieser Plan baut auf dem aktuellen Stand auf (Runde 3 + 4), nicht auf dem älter
 
 | Aufgabenbeschreibung | Heute | Umsetzung |
 |---|---|---|
-| Startdeck mit eigenem Nebendeck-Typ (Moorling / Knochenkäfer / Wachsling) | Nebendeck ist fest (Moorling bzw. Strandkrabbe), verändert wird es über den **Nebendeck-Totem**; Knochenkäfer und Wachsling sind normale Karten | Jedes Startdeck bringt einen Nebendeck-Totem mit (Rudel: Doppelblut, Knochenmarsch: Leichtes Mark, Kerzenlicht: Wachsgabe). Knochenkäfer/Wachsling liegen als Karten im Deck. |
+| Startdeck mit eigenem Nebendeck-Typ (Moorling / Knochenkäfer / Wachsling) | Nebendeck ist fest (Moorling bzw. Strandkrabbe), verändert wird es über den **Nebendeck-Totem**; Knochenkäfer und Wachsling sind normale Karten | Jedes Startdeck bringt einen Nebendeck-Totem mit (Rudel: Schildrinde, Knochenmarsch: Knochenmark, Kerzenlicht: Wachsgabe; nach dem Balancing, siehe Abschnitt 8). Knochenkäfer/Wachsling liegen als Karten im Deck. |
 | „Kein Totem“ im Startdeck | Nebendeck-Totem ist ein eigener Platz | Stamm- und Lanenplatz bleiben leer, nur der Nebendeck-Platz ist belegt. |
-| Zirkel „vorerst nur Moor“ | Gezeiten-Zirkel existiert | Beide Zirkel spielbar. Pro Zirkel: 3 Startdecks, 6 Biome, 16 NPCs, 6 Bosse. Alle Spieler eines Raums spielen denselben Zirkel. |
+| Zirkel „vorerst nur Moor“ | Gezeiten-Zirkel existiert | Beide Zirkel spielbar. Pro Zirkel: 3 Startdecks, 6 Biome, 18 NPCs, 6 Bosse. Alle Spieler eines Raums spielen denselben Zirkel. |
 | Regeln | Tauchgang/Leibwächter wie in Inscryption, Überlauf, erster Zug ohne Angriff | Alle Kämpfe (NPC, Boss, Duell) nutzen unverändert die Kampf-Engine. |
 
 ## 1. Wiederverwendung
@@ -38,9 +38,10 @@ engine/modes/moorwanderung/
   view.js       viewForRun / eventsForRun (versteckte Information)
   ai.js         Run-KI (alle Entscheidungen, für Übung und Simulation)
 data/modes/moorwanderung/
-  starterDecks.js  biomes.js  npcs.js  bosses.js  budgets.js
+  starterDecks.js  biomes.js  npcs.js (NPCs und Bosse)  budgets.js
 tools/balanceRun.js                          npm run balance:run -- --players 6 --runs 1000
-ui/run/*                                      Screens des Modus, README.md im Modus-Ordner
+ui/run/*                                      Screens des Modus
+engine/modes/moorwanderung/README.md         Ablauf, Einstellungen, Inhalte ergänzen, Simulation
 Backend/sacrificeSigils/runRoomManager.js    Räume (Ereignisse mw:*)
 ```
 
@@ -100,3 +101,29 @@ Getrennte Spieler: Budget läuft weiter, Wiedereinstieg an der aktuellen Stelle 
 5. Look & Feel: Siegel-Animation, Duell-Ankündigung, Podest, Biom-Ambient, Porträts.
 6. Balancing & Tests: `balance:run`, Zielwerte (NPC 25–35 %, Boss 40–50 %, Startdecks 45–55 %, Dauer), Paarungs-,
    Sichtbarkeits- und Timeout-Tests, Online-Durchlauf mit mehreren Browsern, Screenshots.
+
+## 8. Balancing-Ergebnis (27.09.2026, je 1000 Runs, KI normal)
+
+| Spieler | NPC gewinnt | Elite | Boss gewinnt | Dauer Median (10–90 %) |
+|---|---|---|---|---|
+| 2 | 26,4 % | 43,7 % | 44,5 % | 42 min (29–56) |
+| 4 | 26,1 % | 41,2 % | 42,8 % | 47 min (38–59) |
+| 6 | 25,5 % | 40,4 % | 43,3 % | 59 min (47–70) |
+
+Startdecks, Run-Siege mit 2 Spielern (Ziel 45–55 %): Brandungsrudel 47,8 %, Mannschaft 47,0 %, Kerzenlicht 51,1 %,
+Salzwacht 55,7 %, Rudel des Aschwolfs 57,3 %, Knochenmarsch 41,2 %. Knochenmarsch bleibt das schwächste Deck
+(bei 4–6 Spielern Anteil 0,65–0,68 zum fairen 1/n), Salzwacht/Kerzenlicht die stärksten (1,2–1,27).
+
+Änderungen, die dafür nötig waren:
+- NPCs und Bosse spielen mit KI „leicht“ (`NPC_AI` in run.js), Elite mit „normal“; mit „normal“ gewannen NPCs 42 %, Bosse 85 %.
+- Bosse: keine Lagerfeuer-Verstärkung, Beschwörungen der 2. Phase nach Stufe (eine/zwei), der Spieler zieht beim
+  Phasenwechsel eine Karte; einzelne Phasenregeln getauscht; „Knochenhort“ gibt 3 statt 5 Knochen.
+- NPC-Decks: eine Seltenheitsstufe höher und eine Karte mehr (Ausgleich zur leichten KI); Ausreißer-Regeln getauscht.
+- Standards: Pfade pro Runde „auto“ = 1 (mit 2 dauerte ein 4er-Run ~110 min), Lebenssiegel „auto“ = 3 bei 2–3,
+  2 ab 4 Spielern (6 Spieler mit 3 Siegeln: ~81 min).
+- Startdecks: Nebendeck-Totems Schildrinde (Blut-Decks, vorher Doppelblut) und Knochenmark (Knochen-Decks, vorher
+  Leichtes Mark); einzelne Karten getauscht.
+- Run-KI lässt Belohnungen ab 16 Karten liegen, wenn sie schwächer als das obere Drittel des Decks sind.
+
+Online-Durchlauf im Browser mit 3, 4 und 6 Spielern (je eigener Browser-Kontext): Lobby, Bereit, Startdeck, Pfad, erster
+Kampf ohne Seitenfehler. Kompletter Online-Run bis zum Ende: Socket-Test in `runRoomManager.test.js`.

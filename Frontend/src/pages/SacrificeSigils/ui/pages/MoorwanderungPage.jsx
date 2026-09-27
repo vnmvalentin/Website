@@ -149,7 +149,8 @@ export default function MoorwanderungPage() {
                   </select>
                 </label>
                 <label className="block"><span className="text-sm opacity-75">{de.run.settings.seals}</span>
-                  <select className="ss-select w-full mt-1" value={settings.seals} onChange={(e) => set("seals", Number(e.target.value))}>
+                  <select className="ss-select w-full mt-1" value={String(settings.seals)} onChange={(e) => set("seals", e.target.value === "auto" ? "auto" : Number(e.target.value))}>
+                    <option value="auto">automatisch</option>
                     {[2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </label>

@@ -39,7 +39,8 @@
 .ss-run-deck::after { content: " Karten"; }
 
 /* Schmal: eingeklappt, ein Tipp öffnet die Liste */
-@media (max-width: 760px) {
+/* Schmal oder flach (Handy quer): Mitspieler einklappen */
+@media (max-width: 760px), (max-height: 520px) {
   .ss-run-bar { grid-template-columns: 1fr; }
   .ss-run-bar-toggle { display: inline-flex; margin-left: auto; }
   .ss-run-bar-list { display: none; grid-template-columns: 1fr; }

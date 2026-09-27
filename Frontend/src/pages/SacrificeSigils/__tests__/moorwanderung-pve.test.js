@@ -65,7 +65,7 @@ test("Hausregeln: Auren, Werte, Start- und Zug-Effekte", () => {
   // Start: Knochenhort
   const k = withRule("knochenhort");
   new Resolver(k).ruleHook("start");
-  assert.equal(k.players[1].bones, 5);
+  assert.equal(k.players[1].bones, 3);
   // Zugbeginn: Vorrat zieht eine zusätzliche Karte
   const v = withRule("vorrat", { p1: { deck: ["R_wall", "R_wall", "R_wall"] } });
   endTurn(v);

@@ -5,7 +5,7 @@ import { CARDS } from "../engine/cards.js";
 import { getZirkel } from "../engine/zirkel/index.js";
 import { streamFrom } from "../engine/rng.js";
 import {
-  createRun, applyRunAction, awaitingRun, normalizeRunSettings, pathsPerRound, PATH_LEVELS,
+  createRun, applyRunAction, awaitingRun, normalizeRunSettings, pathsPerRound, sealsFor, PATH_LEVELS,
 } from "../engine/modes/moorwanderung/run.js";
 import { viewForRun, eventsForRun } from "../engine/modes/moorwanderung/view.js";
 import { runAiAction } from "../engine/modes/moorwanderung/ai.js";
@@ -52,19 +52,26 @@ test("Startdecks: je Zirkel drei, 8 gültige Karten des Zirkels, Nebendeck-Totem
   assert.equal(new Set(STARTER_DECKS.map((d) => d.id)).size, STARTER_DECKS.length);
 });
 
-test("Einstellungen: Grenzen, Standardwerte, Pfade pro Runde automatisch (5–6 Spieler: 1)", () => {
+test("Einstellungen: Grenzen, Standardwerte, automatische Siegel und Pfade pro Runde", () => {
   const d = normalizeRunSettings({});
-  assert.equal(d.seals, 3);
+  assert.equal(d.seals, "auto");
   assert.equal(d.pathLength, "normal");
   assert.equal(d.oddMode, "mirror");
   assert.equal(d.hardBoss, false);
   const bad = normalizeRunSettings({ players: 9, seals: 7, pathsPerRound: 5, pathLength: "x", oddMode: "?", pace: "turbo", zirkel: "nichts" });
   assert.equal(bad.players, 6);
-  assert.equal(bad.seals, 3);
+  assert.equal(bad.seals, "auto");
   assert.equal(bad.pathsPerRound, "auto");
   assert.equal(bad.zirkel, "moor");
-  assert.equal(pathsPerRound({ players: 4, pathsPerRound: "auto" }), 2);
-  assert.equal(pathsPerRound({ players: 5, pathsPerRound: "auto" }), 1);
+  assert.equal(pathsPerRound({ players: 4, pathsPerRound: "auto" }), 1);
+  assert.equal(pathsPerRound({ players: 2, pathsPerRound: 2 }), 2);
+  // Siegel „auto“: 3 bei 2–3 Spielern, 2 ab 4; im laufenden Run steht immer die Zahl in den Einstellungen
+  assert.equal(sealsFor({ players: 3, seals: "auto" }), 3);
+  assert.equal(sealsFor({ players: 4, seals: "auto" }), 2);
+  assert.equal(sealsFor({ players: 6, seals: 4 }), 4);
+  const run4 = createRun({ seed: "SIEGEL", names: names(4), salt: "s" });
+  assert.equal(run4.settings.seals, 2);
+  assert.ok(run4.players.every((P) => P.seals === 2));
   assert.equal(pathsPerRound({ players: 6, pathsPerRound: 3 }), 3);
 });
 
@@ -162,7 +169,7 @@ test("Komplette Runs mit 2–6 KI-Spielern: enden, Plätze 1..n eindeutig, genau
 });
 
 test("Duelle: Verlierer verliert ein Siegel und bekommt den Aufholbonus (zusätzliche Kartenwahl zu Beginn des Pfads)", () => {
-  const { s, events } = play(createRun({ seed: "BONUS", names: names(4), salt: "b" }), (x) => x.round >= 1 && x.phase === "path");
+  const { s, events } = play(createRun({ seed: "BONUS", names: names(4), salt: "b", settings: { seals: 3 } }), (x) => x.round >= 1 && x.phase === "path");
   const ends = events.filter((e) => e.type === "duelEnd");
   assert.equal(ends.length, 2);
   for (const e of ends) {

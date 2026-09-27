@@ -46,7 +46,7 @@ export const RULES = {
 
   // ───── Start ─────
   knochenhort: {
-    start(r, seat) { r.gainBones(seat, 5, null); },
+    start(r, seat) { r.gainBones(seat, 3, null); },
   },
   vorsprung: {
     deckDelta: -2,

@@ -10,7 +10,7 @@ export { generateMap, reachable } from "./path.js";
 export { hashParts, streamFrom, rand, randInt, normalizeSeed } from "./rng.js";
 // Moorwanderung (Run-Modus für 2–6 Spieler)
 export {
-  createRun, applyRunAction, awaitingRun, normalizeRunSettings, pathsPerRound, pathBudgetSeconds, runBudget, runDecisionKey,
+  createRun, applyRunAction, awaitingRun, normalizeRunSettings, pathsPerRound, sealsFor, pathBudgetSeconds, runBudget, runDecisionKey,
   statusOf, RUN_MODE, RUN_DEFAULTS, MIN_PLAYERS, MAX_PLAYERS, PATH_LEVELS,
 } from "./modes/moorwanderung/run.js";
 export { viewForRun, eventsForRun } from "./modes/moorwanderung/view.js";

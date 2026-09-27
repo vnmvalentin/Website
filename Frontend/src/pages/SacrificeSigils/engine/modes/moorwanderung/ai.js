@@ -11,6 +11,15 @@ import { awaitingRun } from "./run.js";
 
 /** Knoten-Vorlieben der Run-KI zusätzlich zu denen des Duellmodus. */
 const RUN_NODE_PRIORITY = { scout: 0.5, elite: 6.5 };
+/** Ab dieser Deckgröße nimmt die KI nur noch Karten, die mindestens so gut sind wie das obere Drittel ihres Decks. */
+const LEAN_DECK = 16;
+
+/** Lohnt sich die Karte für dieses Deck? Hält KI-Decks schlank (sonst 40–60 Karten auf langen Runs). */
+function worthTaking(/** @type {any[]} */ deck, /** @type {string} */ id) {
+  if (deck.length < LEAN_DECK || !CARDS[id]) return true;
+  const scores = deck.map((/** @type {any} */ dc) => cardScore(CARDS[dc.baseId])).sort((a, b) => b - a);
+  return cardScore(CARDS[id]) >= scores[Math.floor(scores.length / 3)];
+}
 
 /**
  * Nächste Aktion für Spieler p (oder null).
@@ -84,7 +93,7 @@ function sceneDecision(/** @type {any} */ s, /** @type {number} */ p, /** @type 
       const sc = cardScore(CARDS[id]) + rand(rng) * 0.2;
       if (sc > bs) { bs = sc; best = i; }
     });
-    return act({ op: "pick", index: best });
+    return worthTaking(s.players[p].deck, scene.offers[best]) ? act({ op: "pick", index: best }) : act({ op: "skip" });
   }
   const a = sceneChoice(s, p, scene, level, rng);
   // Parallel laufende Pfade: eine angebotene Legendäre kann inzwischen vergeben sein – dann eine andere Karte nehmen
