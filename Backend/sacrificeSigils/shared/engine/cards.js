@@ -11,9 +11,19 @@ import { mergeSigils, parseSigil, sigilPower } from "./sigils/index.js";
 /** @type {Record<string, CardDef>} */
 export const CARDS = Object.fromEntries(ALL_CARDS.map((c) => [c.id, c]));
 
-/** Karten, die im Draft/auf dem Pfad angeboten werden dürfen. */
+/** Karten, die im Draft/auf dem Pfad angeboten werden dürfen (alle Zirkel; zirkelbewusst: collectibleOf). */
 export const COLLECTIBLE = ALL_CARDS.filter((c) => !c.token && !c.cursed);
 export const CURSED = ALL_CARDS.filter((c) => c.cursed);
+
+/** Sammelbare Karten eines Zirkels. @param {string} zirkel */
+export function collectibleOf(zirkel) {
+  return COLLECTIBLE.filter((c) => c.zirkel === zirkel);
+}
+
+/** Verfluchte Karten eines Zirkels. @param {string} zirkel */
+export function cursedOf(zirkel) {
+  return CURSED.filter((c) => c.zirkel === zirkel);
+}
 export const RARITIES = /** @type {const} */ (["common", "uncommon", "rare", "legendary"]);
 
 /** @param {string} id */
@@ -39,6 +49,7 @@ export function resolveCard(baseId, mods = [], uid = "") {
   let costAmount = def.cost.amount;
   let cursed = !!def.cursed;
   let dread = 0;
+  let tide = def.tide || null;
   for (const m of mods) {
     switch (m.kind) {
       case "campfire":
@@ -69,6 +80,10 @@ export function resolveCard(baseId, mods = [], uid = "") {
       case "mark":
         if (m.mark === "cursed") cursed = true;
         break;
+      case "tide":
+        // Gezeitentümpel: Karte an einen Wasserstand binden (oder lösen)
+        tide = m.tide || null;
+        break;
       default:
         break;
     }
@@ -79,6 +94,8 @@ export function resolveCard(baseId, mods = [], uid = "") {
     baseId,
     name: def.name,
     tribe: def.tribe,
+    zirkel: def.zirkel,
+    tide,
     cost: { type: def.cost.type, amount: Math.max(minCost, costAmount) },
     attack: Math.max(0, attack),
     special,
@@ -101,12 +118,16 @@ export function resolveDeckCard(dc) {
 // ───────────────────────── Balancing-Formel (Auftrag 8.3) ─────────────────────────
 
 const BLOOD_BUDGET = [2, 4, 7, 10, 13];
-const SPECIAL_VALUE = { schwarmzahl: 3, knochenlast: 3, flammenmass: 3, handschwere: 3.5 };
+const SPECIAL_VALUE = { schwarmzahl: 3, knochenlast: 3, flammenmass: 3, handschwere: 3.5, salzmass: 3, riffzahl: 3 };
+/** Gezeiten-Bindung: nur die Hälfte der Züge spielbar → Rabatt im Budget. */
+const TIDE_BONUS = 1.5;
 
 /** @param {{ type: string, amount: number }} cost */
 export function costBudget(cost) {
   if (cost.type === "blood") return BLOOD_BUDGET[Math.min(4, cost.amount)] ?? 13;
   if (cost.type === "bones") return 1 + 0.9 * cost.amount;
+  // Salz kommt nur aus der Uferreihe und ist damit schwerer zu sammeln als Wachs
+  if (cost.type === "salt") return 1.6 * cost.amount;
   return 1.4 * cost.amount;
 }
 
@@ -119,7 +140,7 @@ export function cardValue(def) {
 /** Budget inklusive Seltenheitsbonus (rare +1, legendary +2). @param {CardDef} def */
 export function cardBudget(def) {
   const bonus = def.rarity === "rare" ? 1 : def.rarity === "legendary" ? 2 : 0;
-  return costBudget(def.cost) + bonus;
+  return costBudget(def.cost) + bonus + (def.tide ? TIDE_BONUS : 0);
 }
 
 /** Abweichung Wert − Budget. @param {CardDef} def */

@@ -11,6 +11,8 @@
 // Stufen: "id:n" (z. B. "dornenkleid:2"). Beim Verschmelzen werden doppelte Sigils nach `merge` zusammengelegt
 // ("sum" = Stufen addieren bis maxLevel, "max" = größerer Parameter). Ohne maxLevel > 1 bleibt ein Duplikat Stufe 1.
 
+import { GEZEITEN_SIGILS } from "./gezeiten.js";
+
 /** @typedef {import("../types.js").Unit} Unit */
 
 /**
@@ -47,8 +49,9 @@ export const SIGILS = {
     hooks: {},
   },
   tauchgang: {
+    // Taucht am Ende jedes eigenen Zugs ab (battle.js → endTurn); Angriffe gehen dann direkt auf die Waage
     category: "bewegung", power: 1.5,
-    flags: { submergeAfterAttack: true },
+    flags: { submergeAtTurnEnd: true },
     hooks: {},
   },
   wanderer: {
@@ -121,7 +124,7 @@ export const SIGILS = {
     category: "angriff", power: 1, aura: true,
     hooks: {
       onHit(ctx, u, target) {
-        if (!ctx.alive(target) || target.zone !== "front" || target.glued > 0) return;
+        if (!ctx.alive(target) || target.zone !== "front" || target.glued > 0 || ctx.level(target, "anker") > 0) return;
         if (!ctx.row(target.owner, "back")[target.lane]) ctx.moveUnit(target, "back", target.lane, "knockback");
       },
     },
@@ -208,7 +211,7 @@ export const SIGILS = {
   },
   leibwaechter: {
     category: "verteidigung", power: 1.5, aura: true,
-    flags: { guard: true },
+    flags: { guardOnEnemyPlay: true },
     hooks: {},
   },
   moosheilung: {
@@ -236,7 +239,7 @@ export const SIGILS = {
     },
   },
   markleicht: {
-    category: "ressourcen", power: 0.5, hidden: true,
+    category: "ressourcen", power: 0.5,
     hooks: {
       bonesOnDeath(_ctx, _u, v) { return Math.max(v, 2); },
     },
@@ -245,6 +248,13 @@ export const SIGILS = {
     category: "ressourcen", power: 3,
     hooks: {
       bloodValue(_ctx, _u, v) { return Math.max(v, 3); },
+    },
+  },
+  doppelblut: {
+    // Nur als Nebendeck-Totem (data/totems.js): Dreifachblut auf jedem Moorling gewann 56 % der Kämpfe
+    category: "ressourcen", power: 1.5,
+    hooks: {
+      bloodValue(_ctx, _u, v) { return Math.max(v, 2); },
     },
   },
   ewigesopfer: {
@@ -259,13 +269,13 @@ export const SIGILS = {
     },
   },
   wachsgabe: {
-    category: "ressourcen", power: 0.5, hidden: true,
+    category: "ressourcen", power: 0.5, zirkel: "moor",
     hooks: {
       onSacrificed(ctx, u) { ctx.gainWax(u.owner, 1, u); },
     },
   },
   wachsquelle: {
-    category: "ressourcen", power: 1.5, maxLevel: 2, merge: "sum", aura: true,
+    category: "ressourcen", power: 1.5, maxLevel: 2, merge: "sum", aura: true, zirkel: "moor",
     hooks: {
       onTurnStart(ctx, u, n) { ctx.gainWax(u.owner, n, u); },
     },
@@ -327,7 +337,8 @@ export const SIGILS = {
       onTurnEnd(ctx, u, n) {
         if (u.zone !== "front") return;
         const target = ctx.row(1 - u.owner, "front")[u.lane];
-        if (target) ctx.damageUnit(target, n, u, "rot");
+        // Abgetauchte Karten sind nicht in der Lane (Tauchgang) – auch Fäulnis erreicht sie nicht
+        if (target && !target.submerged) ctx.damageUnit(target, n, u, "rot");
       },
     },
   },
@@ -351,7 +362,7 @@ export const SIGILS = {
     },
   },
   kerzendocht: {
-    category: "feld", power: -2, param: true, maxLevel: 9, merge: "max",
+    category: "feld", power: -2, param: true, maxLevel: 9, merge: "max", zirkel: "moor",
     // Leistungswert hängt vom Parameter ab (kürzerer Docht = teurer), siehe cards.js → sigilPower
     hooks: {},
   },
@@ -382,8 +393,13 @@ export const SIGILS = {
   },
 };
 
+// Gezeiten-Zirkel: eigene Sigils im selben Register (Karten beider Zirkel teilen die Grund-Sigils)
+Object.assign(SIGILS, GEZEITEN_SIGILS);
+
 for (const [id, def] of Object.entries(SIGILS)) {
   def.id = id;
+  // zirkel: nur an zirkeleigenen Sigils (Wachs, Salz, Gezeiten); ohne Angabe gehört es zu den Grund-Sigils aller Zirkel
+  def.zirkel = def.zirkel || null;
   def.iconId = def.iconId || id;
   def.maxLevel = def.maxLevel || 1;
   def.merge = def.merge || "none";

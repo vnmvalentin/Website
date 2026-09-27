@@ -1,4 +1,5 @@
 // data/events.js — seltene Ereignisse der Pfad-Phase. Texte in i18n/de.js (events.<id>), Logik in engine/path.js.
+/** Moor-Zirkel */
 export const EVENTS = [
   "faehrmann",
   "tintenwitwe",
@@ -8,6 +9,19 @@ export const EVENTS = [
   "mondfinsternis",
   "gluecksspieler",
   "stammestreue",
+];
+
+/** Gezeiten-Zirkel: ohne Wachszieher und Mondfinsternis (Wachs/Kerzendocht), dafür Wrack, Gezeitentümpel, Salzsieder. */
+export const GEZEITEN_EVENTS = [
+  "faehrmann",
+  "tintenwitwe",
+  "knochenorakel",
+  "spiegelbrunnen",
+  "gluecksspieler",
+  "stammestreue",
+  "wrack",
+  "gezeitentuempel",
+  "salzsieder",
 ];
 
 /** Knotentypen der Pfad-Phase und ihre Grundgewichte. */

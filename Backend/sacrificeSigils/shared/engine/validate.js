@@ -3,10 +3,21 @@ import { ALL_CARDS } from "../data/cards/index.js";
 import { TRIBE_BY_ID } from "../data/tribes.js";
 import { SIGILS, parseSigil, PUBLIC_SIGILS } from "./sigils/index.js";
 import { budgetDelta, CARDS } from "./cards.js";
+import { SIDE_ONLY_SIGILS } from "../data/totems.js";
 
-const SILHOUETTES = new Set(["quadruped", "bird", "fish", "insect", "serpent", "rodent", "fungus", "root", "skeleton", "candle", "horned", "moth", "construct"]);
+const SILHOUETTES = new Set(["quadruped", "bird", "fish", "insect", "serpent", "rodent", "fungus", "root", "skeleton", "candle", "horned", "moth", "construct", "shell", "seal", "coral"]);
 const RARITIES = new Set(["common", "uncommon", "rare", "legendary"]);
 const BUDGET_TOLERANCE = 1.5;
+/**
+ * Runde 3: Sigils, die nur wirken, wenn die Karte getroffen oder angegriffen werden kann. Mit Tauchgang ist die Karte im
+ * gegnerischen Zug nie in der Lane – die Kombination wäre totes Gewicht (z. B. Tiefenmutter mit Köder und Schildrinde).
+ */
+const NEEDS_TO_BE_HIT = ["koeder", "schildrinde", "dornenkleid", "panzer", "fluchtreflex", "leibwaechter", "grabwuehler", "hochwuchs", "haeutung",
+  "tintenwolke", "gezeitenschild", "salzkruste"];
+/** Mindestumfang je Zirkel. */
+const MIN_COLLECTIBLE = 160;
+const MIN_LEGENDARY = 8;
+const MIN_CURSED = 8;
 
 /**
  * @returns {{ errors: string[], warnings: string[], stats: any }}
@@ -26,7 +37,8 @@ export function validateCards() {
     if (!c.name) errors.push(`${where}: kein Name`);
     if (!c.flavor || c.flavor.length > 90) errors.push(`${where}: Flavor fehlt oder länger als 90 Zeichen (${c.flavor?.length})`);
     const { type, amount } = c.cost;
-    const ok = (type === "blood" && amount >= 0 && amount <= 4) || (type === "bones" && amount >= 1 && amount <= 10) || (type === "wax" && amount >= 1 && amount <= 6);
+    const ok = (type === "blood" && amount >= 0 && amount <= 4) || (type === "bones" && amount >= 1 && amount <= 10) || (type === "wax" && amount >= 1 && amount <= 6)
+      || (type === "salt" && amount >= 1 && amount <= 8);
     if (!ok) errors.push(`${where}: ungültige Kosten ${type} ${amount}`);
     if (c.sigils.length > 4) errors.push(`${where}: mehr als 4 Sigils`);
     for (const ref of c.sigils) {
@@ -34,6 +46,17 @@ export function validateCards() {
       if (!SIGILS[id]) errors.push(`${where}: unbekanntes Sigil ${ref}`);
       else if (SIGILS[id].cursedOnly && !c.cursed) errors.push(`${where}: ${id} nur auf verfluchten Karten`);
       if (!c.token && !c.cursed) sigilUse.set(id, (sigilUse.get(id) || 0) + 1);
+    }
+    const sigIds = c.sigils.map((s) => parseSigil(s).id);
+    if (!c.zirkel) errors.push(`${where}: kein Zirkel (Stamm ohne zirkel)`);
+    if ((type === "wax" && c.zirkel !== "moor") || (type === "salt" && c.zirkel !== "gezeiten")) errors.push(`${where}: Kostenart ${type} gibt es in ${c.zirkel} nicht`);
+    if (c.tide && (c.zirkel !== "gezeiten" || !["high", "low"].includes(c.tide))) errors.push(`${where}: ungültige Gezeiten-Bindung ${c.tide}`);
+    for (const id of sigIds) {
+      const z = SIGILS[id]?.zirkel;
+      if (z && z !== c.zirkel) errors.push(`${where}: Sigil ${id} gehört zum Zirkel ${z}`);
+    }
+    if (sigIds.includes("tauchgang")) {
+      for (const id of sigIds) if (NEEDS_TO_BE_HIT.includes(id)) errors.push(`${where}: ${id} wirkt nie zusammen mit Tauchgang`);
     }
     const needsNext = c.sigils.some((s) => ["metamorphose", "nachgeburt"].includes(parseSigil(s).id));
     if (needsNext && !c.evolvesTo) errors.push(`${where}: Metamorphose/Nachgeburt ohne evolvesTo`);
@@ -46,15 +69,28 @@ export function validateCards() {
   }
   for (const id of PUBLIC_SIGILS) {
     const n = sigilUse.get(id) || 0;
-    if (id !== "fluchmal" && n < 2) errors.push(`Sigil ${id}: nur auf ${n} sammelbaren Karten (mind. 2)`);
+    // Opfer-Sigils des Nebendeck-Totems kommen über den Totem ins Spiel und brauchen keine Karte
+    if (id !== "fluchmal" && n < (SIDE_ONLY_SIGILS.includes(id) ? 0 : 2)) errors.push(`Sigil ${id}: nur auf ${n} sammelbaren Karten (mind. 2)`);
   }
   const collectible = ALL_CARDS.filter((c) => !c.token && !c.cursed);
   const byTribe = {};
   for (const c of collectible) byTribe[c.tribe] = (byTribe[c.tribe] || 0) + 1;
+  /** @type {Record<string, { collectible: number, legendary: number, cursed: number }>} */
+  const byZirkel = {};
+  for (const c of ALL_CARDS) {
+    const z = byZirkel[c.zirkel] || (byZirkel[c.zirkel] = { collectible: 0, legendary: 0, cursed: 0 });
+    if (c.cursed) z.cursed += 1;
+    else if (!c.token) {
+      z.collectible += 1;
+      if (c.rarity === "legendary") z.legendary += 1;
+    }
+  }
+  for (const [id, z] of Object.entries(byZirkel)) {
+    if (z.collectible < MIN_COLLECTIBLE) errors.push(`Zirkel ${id}: nur ${z.collectible} sammelbare Karten (mind. ${MIN_COLLECTIBLE})`);
+    if (z.legendary < MIN_LEGENDARY) errors.push(`Zirkel ${id}: nur ${z.legendary} legendäre Karten (mind. ${MIN_LEGENDARY})`);
+    if (z.cursed < MIN_CURSED) errors.push(`Zirkel ${id}: nur ${z.cursed} verfluchte Karten (mind. ${MIN_CURSED})`);
+  }
   const legendary = collectible.filter((c) => c.rarity === "legendary").length;
   const cursed = ALL_CARDS.filter((c) => c.cursed).length;
-  if (collectible.length < 160) errors.push(`nur ${collectible.length} sammelbare Karten (mind. 160)`);
-  if (legendary < 8) errors.push(`nur ${legendary} legendäre Karten (mind. 8)`);
-  if (cursed < 8) errors.push(`nur ${cursed} verfluchte Karten (mind. 8)`);
-  return { errors, warnings, stats: { total: ALL_CARDS.length, collectible: collectible.length, legendary, cursed, byTribe } };
+  return { errors, warnings, stats: { total: ALL_CARDS.length, collectible: collectible.length, legendary, cursed, byTribe, byZirkel } };
 }

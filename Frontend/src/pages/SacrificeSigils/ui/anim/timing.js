@@ -10,6 +10,12 @@ export const EVENT_TIMING = {
   turnStart: { ms: 670, sound: "turn" },
   candleWarning: { ms: 400 },
   wax: { ms: 220 },
+  salt: { ms: 260 },
+  // Gezeiten-Zirkel: Wasserstand wechselt (Brandung), Schlick, Tintenwolke, Heimkehr vorgemerkt
+  tide: { ms: 1100, sound: "splash" },
+  glued: { ms: 380 },
+  inked: { ms: 420, sound: "splash" },
+  returnQueued: { ms: 300 },
   bones: { ms: 420, sound: "bones" },
   spend: { ms: 190 },
   draw: { ms: 540, sound: "draw" },

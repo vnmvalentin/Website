@@ -2,11 +2,11 @@
 // Das Projekt ist reines JavaScript; diese Typen sind die verbindliche Beschreibung der Datenstrukturen.
 
 /**
- * @typedef {"blood"|"bones"|"wax"} CostType
+ * @typedef {"blood"|"bones"|"wax"|"salt"} CostType
  * @typedef {"common"|"uncommon"|"rare"|"legendary"} Rarity
- * @typedef {"schwarmzahl"|"knochenlast"|"flammenmass"|"handschwere"} SpecialStat
- * @typedef {"bestien"|"nachtvoegel"|"aasfresser"|"schwaerme"|"tiefe"|"kriecher"|"nager"|"myzel"|"wurzelvolk"|"gebeine"|"kerzenwesen"|"gehoernte"|"flatterer"|"stammlose"} Tribe
- * @typedef {"quadruped"|"bird"|"fish"|"insect"|"serpent"|"rodent"|"fungus"|"root"|"skeleton"|"candle"|"horned"|"moth"|"construct"} Silhouette
+ * @typedef {"schwarmzahl"|"knochenlast"|"flammenmass"|"handschwere"|"salzmass"|"riffzahl"} SpecialStat
+ * @typedef {string} Tribe  Stamm-ID eines beliebigen Zirkels (data/tribes.js → ALL_TRIBES)
+ * @typedef {"quadruped"|"bird"|"fish"|"insect"|"serpent"|"rodent"|"fungus"|"root"|"skeleton"|"candle"|"horned"|"moth"|"construct"|"shell"|"seal"|"coral"} Silhouette
  */
 
 /**
@@ -25,6 +25,8 @@
  * @property {boolean} [cursed]
  * @property {boolean} [token]          nie im Draft/Pfad-Angebot (Brutlinge, Hüllen, Folgeformen, Nebendeck)
  * @property {string} flavor
+ * @property {string} zirkel             aus dem Stamm abgeleitet ("moor", "gezeiten")
+ * @property {"high"|"low"} [tide]      Gezeiten: nur bei Hoch- bzw. Niedrigwasser spielbar
  * @property {{ silhouette: Silhouette, seed: number, palette: string }} art
  */
 
@@ -37,7 +39,8 @@
  *   | { kind: "stat", attack?: number, health?: number, source?: string }
  *   | { kind: "cost", delta: number }
  *   | { kind: "dread" }
- *   | { kind: "mark", mark: "copied" | "mirrored" | "cursed" }} Mod
+ *   | { kind: "mark", mark: "copied" | "mirrored" | "cursed" }
+ *   | { kind: "tide", tide: "high" | "low" | null }} Mod
  */
 
 /**

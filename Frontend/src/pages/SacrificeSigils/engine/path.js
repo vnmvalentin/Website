@@ -5,11 +5,11 @@
 // eigenen Operationen (`nodeAction { op, … }`) und endet mit einem Abschluss-Op (pick/skip/leave …).
 // Alle Würfe (Angebote, Lagerfeuer, Glücksspiel) kommen aus seed-abgeleiteten Strömen des Knotens.
 
-import { COLLECTIBLE, CURSED, CARDS, RARITIES, resolveCard } from "./cards.js";
+import { COLLECTIBLE, CARDS, RARITIES, resolveCard } from "./cards.js";
 import { pickWeighted, rand, randInt, shuffle, streamFrom } from "./rng.js";
 import { MIN_DECK, CAMPFIRE_RISK } from "../data/events.js";
 import { ITEMS, MAX_ITEMS } from "../data/items.js";
-import { allHeads, allBases, sameHead, sameBase } from "../data/totems.js";
+import { allHeads, allBases, sameHead, sameBase, totemSlot, combineError } from "../data/totems.js";
 import { parseSigil } from "./sigils/index.js";
 import { getZirkel, zirkelOf } from "./zirkel/index.js";
 
@@ -39,7 +39,7 @@ export function generateMap(seed, pathNo, levels, zirkelId) {
       if (type === "cardChoice") {
         const v = rand(s);
         node.variant = v < 0.6 ? "normal" : v < 0.82 ? "costType" : "hidden";
-        if (node.variant === "costType") node.costType = ["blood", "bones", "wax"][randInt(s, 3)];
+        if (node.variant === "costType") node.costType = z.resources.map((r) => r.id)[randInt(s, z.resources.length)];
       }
       if (type === "event") {
         const free = z.events.filter((e) => !usedEvents.has(e));
@@ -114,8 +114,8 @@ export function createScene(match, p, node, level, strand) {
     }
     case "shrine": {
       const player = match.players[p];
-      const heads = allHeads().filter((h) => !player.heads.some((x) => sameHead(x, h)));
-      const bases = allBases().filter((b) => !player.bases.some((x) => sameBase(x, b)));
+      const heads = allHeads(zirkelOf(match)).filter((h) => !player.heads.some((x) => sameHead(x, h)));
+      const bases = allBases(zirkelOf(match)).filter((b) => !player.bases.some((x) => sameBase(x, b)));
       const hs = shuffle(s, heads).slice(0, 1).map((head) => ({ head }));
       const bs = shuffle(s, bases).slice(0, 2).map((base) => ({ base }));
       return { kind: "shrine", offers: [...hs, ...bs], taken: false };
@@ -263,8 +263,9 @@ export function sceneAction(match, p, a, io) {
         const head = player.heads[a.head];
         const base = player.bases[a.base];
         if (!head || !base) return { error: "badIndex" };
-        if (head.kind === "tribe" && base.kind !== "sigil") return { error: "propNeedsLane" };
-        const slot = head.kind === "tribe" ? "tribe" : "lane";
+        const bad = combineError(head, base, zirkelOf(match));
+        if (bad) return { error: bad };
+        const slot = totemSlot(head);
         player.totems[slot] = { head, base };
         emit({ type: "totemBuilt", slot, totem: player.totems[slot] });
         return {};
@@ -278,7 +279,7 @@ export function sceneAction(match, p, a, io) {
       if (i < 0) return { error: "badTarget" };
       const src = player.deck[i];
       if (CARDS[src.baseId].unique) return { error: "uniqueCard" };
-      const flaw = scene.flaw === "health" ? { kind: "stat", health: -1, source: "copyist" } : { kind: "sigilAdd", sigil: "kerzendocht:4" };
+      const flaw = scene.flaw === "health" ? { kind: "stat", health: -1, source: "copyist" } : { kind: "sigilAdd", sigil: zirkelOf(match).copyFlaw };
       const dc = io.newCard(p, src.baseId, [...src.mods.map((/** @type {any} */ m) => ({ ...m })), flaw, { kind: "mark", mark: "copied" }]);
       emit({ type: "copied", from: src.uid, uid: dc.uid, card: resolved(dc), flaw: scene.flaw });
       return fin();
@@ -318,7 +319,8 @@ function eventAction(match, p, a, io, scene, emit) {
     }
     case "tintenwitwe": {
       if (op !== "accept") return { error: "badOp" };
-      const c = CURSED[randInt(s, CURSED.length)];
+      const cursed = zirkelOf(match).cursed;
+      const c = cursed[randInt(s, cursed.length)];
       const dc = io.newCard(p, c.id, [{ kind: "dread" }]);
       emit({ type: "gainCard", card: resolved(dc), cursed: true });
       return fin();
@@ -383,6 +385,46 @@ function eventAction(match, p, a, io, scene, emit) {
       const win = rand(s) < 0.5;
       player.shards += win ? amount : -amount;
       emit({ type: "gamble", amount, win, shards: player.shards });
+      return fin();
+    }
+    case "wrack": {
+      // Gezeiten: Wrack durchsuchen – zur Hälfte ein Item (oder 3 Splitter, wenn die Taschen voll sind), sonst ein Fluch
+      if (op !== "search") return { error: "badOp" };
+      if (rand(s) < 0.5) {
+        if (player.items.length < MAX_ITEMS) {
+          const item = ITEMS[randInt(s, ITEMS.length)].id;
+          player.items.push(item);
+          emit({ type: "wreck", item });
+        } else {
+          player.shards += 3;
+          emit({ type: "wreck", shards: 3 });
+        }
+      } else {
+        const cursed = zirkelOf(match).cursed;
+        const dc = io.newCard(p, cursed[randInt(s, cursed.length)].id, [{ kind: "dread" }]);
+        emit({ type: "wreck", card: resolved(dc) });
+      }
+      return fin();
+    }
+    case "gezeitentuempel": {
+      // Eine Karte an einen Wasserstand binden: nur noch bei Hoch- bzw. Niedrigwasser spielbar, dafür +1/+1
+      if (op !== "bind") return { error: "badOp" };
+      if (a.tide !== "high" && a.tide !== "low") return { error: "badTide" };
+      const i = deckIndex(player, a.uid);
+      if (i < 0) return { error: "badTarget" };
+      if (resolved(player.deck[i]).tide) return { error: "alreadyBound" };
+      player.deck[i].mods.push({ kind: "tide", tide: a.tide }, { kind: "stat", attack: 1, health: 1, source: "tuempel" });
+      emit({ type: "tideBound", uid: player.deck[i].uid, tide: a.tide, card: resolved(player.deck[i]) });
+      return fin();
+    }
+    case "salzsieder": {
+      if (op !== "accept") return { error: "badOp" };
+      for (const dc of player.deck) {
+        const def = CARDS[dc.baseId];
+        if (def.cost.type === "salt") dc.mods.push({ kind: "cost", delta: -1 });
+        if (def.cost.type === "blood") dc.mods.push({ kind: "stat", health: -1, source: "salzsieder" });
+      }
+      emit({ type: "deckChanged", reason: "salzsieder" });
       return fin();
     }
     case "stammestreue": {

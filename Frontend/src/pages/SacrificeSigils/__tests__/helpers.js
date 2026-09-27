@@ -1,5 +1,5 @@
 // Test-Helfer: Kampfzustände gezielt aufbauen, ohne Draft und Zufall.
-import { createBattle, battleAction, Resolver } from "../engine/battle.js";
+import { createBattle, battleAction, Resolver, tideAt } from "../engine/battle.js";
 import { resolveCard, CARDS } from "../engine/cards.js";
 
 let seq = 0;
@@ -19,7 +19,9 @@ export function dc(baseId, mods = []) {
  *   items?: string[], totems?: any, sideType? }
  * Aktiver Spieler ist `active` (Standard 0), hat bereits gezogen. `turn` (Standard 3) liegt hinter den
  * angriffslosen Eröffnungszügen.
- * @param {{ p0?: any, p1?: any, active?: 0|1, turn?: number, scale?: number }} spec
+ * Gezeiten: `zirkel: "gezeiten"` und optional `tide` (0 Ebbe, 1 steigend, 2 Flut, 3 fallend) – die Verschiebung wird so
+ * gesetzt, dass der nächste Zugbeginn konsistent weiterzählt. Spec pro Spieler zusätzlich `salt`.
+ * @param {{ p0?: any, p1?: any, active?: 0|1, turn?: number, scale?: number, zirkel?: string, tide?: number }} spec
  */
 export function setupBattle(spec = {}) {
   const pl = [spec.p0 || {}, spec.p1 || {}];
@@ -27,9 +29,10 @@ export function setupBattle(spec = {}) {
     battleNo: 1,
     starter: spec.active ?? 0,
     rng: 12345,
+    zirkel: spec.zirkel,
     players: pl.map((p) => ({
       deck: (p.deck || []).map((id) => dc(id)),
-      sideType: p.sideType || "moorling",
+      sideType: p.sideType || (spec.zirkel === "gezeiten" ? "strandkrabbe" : "moorling"),
       items: p.items || [],
       totems: p.totems || { tribe: null, lane: null },
     })),
@@ -43,6 +46,7 @@ export function setupBattle(spec = {}) {
     if (p.deck) P.deck = p.deck.map((id) => resolveCard(id, [], "")).reverse(); // deck[0] im Spec = oberste Karte
     P.bones = p.bones ?? 0;
     P.wax = p.wax ?? 0;
+    P.salt = p.salt ?? 0;
     for (const zone of ["front", "back"]) {
       (p[zone] || []).forEach((id, lane) => {
         if (!id) return;
@@ -54,6 +58,11 @@ export function setupBattle(spec = {}) {
   }
   state.scale = spec.scale ?? 0;
   state.turn = spec.turn ?? 3;
+  if (state.tide !== null) {
+    const tide = spec.tide ?? tideAt(state.turn);
+    state.tide = tide;
+    state.tideShift = (tide - tideAt(state.turn) + 4) % 4;
+  }
   state.players[state.active].drew = true;
   state.pending = [];
   return state;

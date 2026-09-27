@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // tools/balance.js — Balancing-Tool: KI gegen KI mit zufälligen Draft-Decks aus Seeds.
 //
-//   npm run balance -- --games 5000 [--level normal] [--workers 8] [--out pfad.json]
+//   npm run balance -- --games 5000 [--level normal] [--zirkel moor|gezeiten] [--workers 8] [--out pfad.json]
 //
 // Gespielt werden komplette Matches (Draft, Kämpfe, Pfad) mit derselben Engine und KI wie im Spiel. Gezählt wird pro
 // Kampf: Siegquote je Karte (im Deck / gespielt), je Sigil (auf gespielten Karten), je Stamm (Deck mit ≥ 3 Karten des
-// Stamms), je Kostentyp (gespielte Karten), dazu der Vorteil des Startspielers und die durchschnittliche Kampfdauer.
+// Stamms), je Kostentyp (gespielte Karten), je Nebendeck-Totem (Sigil der Moorlinge), dazu der Vorteil des Startspielers und die durchschnittliche Kampfdauer.
 // Ausreißer: Siegquote < 44 % oder > 56 % bei mindestens 200 Stichproben.
 import os from "node:os";
 import fs from "node:fs";
@@ -28,7 +28,7 @@ function arg(name, def) {
 
 /** Leere Statistik. */
 function emptyStats() {
-  return { games: 0, battles: 0, starterWins: 0, turns: 0, errors: 0, deck: {}, played: {}, sigil: {}, tribe: {}, cost: {} };
+  return { games: 0, battles: 0, starterWins: 0, turns: 0, errors: 0, deck: {}, played: {}, sigil: {}, tribe: {}, cost: {}, side: {} };
 }
 
 /** @param {Record<string, number[]>} table @param {string} key @param {boolean} win */
@@ -39,10 +39,11 @@ function add(table, key, win) {
 }
 
 /** Ein komplettes Match spielen und in `st` eintragen. */
-function playMatch(seed, level, st) {
-  let s = createMatch({ seed, settings: { draftMode: seed.charCodeAt(seed.length - 1) % 2 ? "separate" : "shared", pathLength: 3 }, salt: `bal-${seed}` });
+function playMatch(seed, level, st, zirkel) {
+  let s = createMatch({ seed, settings: { zirkel, draftMode: seed.charCodeAt(seed.length - 1) % 2 ? "separate" : "shared", pathLength: 3 }, salt: `bal-${seed}` });
   const rng = { rng: [...seed].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0 };
   let decks = null;
+  let sides = ["none", "none"];
   let played = [new Set(), new Set()];
   let guard = 0;
   let lastBattle = 0;
@@ -50,6 +51,7 @@ function playMatch(seed, level, st) {
     if (s.phase === "battle" && s.battleNo !== lastBattle) {
       lastBattle = s.battleNo;
       decks = s.players.map((P) => P.deck.map((dc) => resolveCard(dc.baseId, dc.mods)));
+      sides = s.players.map((P) => P.totems?.side?.base?.sigil || "none");
       played = [new Set(), new Set()];
     }
     const p = awaiting(s)[0];
@@ -73,6 +75,7 @@ function playMatch(seed, level, st) {
           for (const c of new Set(decks[q].map((c) => c.baseId))) add(st.deck, c, win);
           for (const c of decks[q]) tribes.set(c.tribe, (tribes.get(c.tribe) || 0) + 1);
           for (const [t, n] of tribes) if (n >= 3) add(st.tribe, t, win);
+          add(st.side, sides[q], win);
           for (const id of played[q]) {
             add(st.played, id, win);
             add(st.cost, CARDS[id].cost.type, win);
@@ -89,7 +92,7 @@ function playMatch(seed, level, st) {
 /** @param {any} a @param {any} b */
 function merge(a, b) {
   for (const k of ["games", "battles", "starterWins", "turns", "errors"]) a[k] += b[k];
-  for (const t of ["deck", "played", "sigil", "tribe", "cost"]) {
+  for (const t of ["deck", "played", "sigil", "tribe", "cost", "side"]) {
     for (const [key, [w, n]] of Object.entries(b[t])) {
       const e = a[t][key] || (a[t][key] = [0, 0]);
       e[0] += w;
@@ -118,14 +121,16 @@ function printTable(title, list, limit = 12) {
 if (isMainThread) {
   const games = Number(arg("games", "5000"));
   const level = arg("level", "normal");
+  const zirkel = arg("zirkel", "moor");
   const workers = Math.max(1, Math.min(Number(arg("workers", String(os.cpus().length))), games));
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const out = path.resolve(arg("out", path.join(here, "..", "..", "..", "..", "..", "docs", "sacrifice-and-sigils", "balance-report.json")));
+  const defaultName = zirkel === "moor" ? "balance-report.json" : `balance-report-${zirkel}.json`;
+  const out = path.resolve(arg("out", path.join(here, "..", "..", "..", "..", "..", "docs", "sacrifice-and-sigils", defaultName)));
   const t0 = Date.now();
-  console.log(`Balancing: ${games} Matches, KI „${level}“, ${workers} Worker …`);
+  console.log(`Balancing: ${games} Matches, Zirkel „${zirkel}“, KI „${level}“, ${workers} Worker …`);
   const per = Math.ceil(games / workers);
   const jobs = Array.from({ length: workers }, (_, i) => new Promise((resolve, reject) => {
-    const w = new Worker(fileURLToPath(import.meta.url), { workerData: { from: i * per, to: Math.min(games, (i + 1) * per), level } });
+    const w = new Worker(fileURLToPath(import.meta.url), { workerData: { from: i * per, to: Math.min(games, (i + 1) * per), level, zirkel } });
     w.on("message", resolve);
     w.on("error", reject);
   }));
@@ -137,6 +142,7 @@ if (isMainThread) {
     games: st.games,
     battles: st.battles,
     level,
+    zirkel,
     errors: st.errors,
     firstPlayerWinRate: st.starterWins / Math.max(1, st.battles),
     avgBattleTurns: st.turns / Math.max(1, st.battles),
@@ -146,6 +152,7 @@ if (isMainThread) {
     sigils: rows(st.sigil, (k) => k),
     tribes: rows(st.tribe, (k) => k),
     costTypes: rows(st.cost, (k) => k),
+    sideTotems: rows(st.side, (k) => k),
   };
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, `${JSON.stringify(report, null, 1)}\n`);
@@ -156,12 +163,13 @@ if (isMainThread) {
   printTable("Sigils (gespielt)", report.sigils, 8);
   printTable("Stämme (≥ 3 Karten im Deck)", report.tribes, 14);
   printTable("Kostentypen (gespielt)", report.costTypes, 3);
+  printTable("Nebendeck-Totems (Sigil der Moorlinge)", report.sideTotems, 12);
   const outliers = report.cardsInDeck.filter((r) => r.outlier);
   console.log(`\nAusreißer (Karten im Deck): ${outliers.length}${outliers.length ? ` – ${outliers.map((r) => `${r.name} ${(r.rate * 100).toFixed(0)} %`).join(", ")}` : ""}`);
   console.log(`Bericht: ${path.relative(process.cwd(), out)}`);
 } else {
-  const { from, to, level } = workerData;
+  const { from, to, level, zirkel } = workerData;
   const st = emptyStats();
-  for (let g = from; g < to; g++) playMatch(`BAL${g}`, level, st);
+  for (let g = from; g < to; g++) playMatch(`BAL${g}`, level, st, zirkel);
   parentPort.postMessage(st);
 }

@@ -33,6 +33,8 @@ const RESULT_TEXT = {
   deckChanged: () => "Dein Deck hat sich verändert",
   totemBuilt: () => "Totem geschnitzt",
   totemPart: () => "Neues Totem-Teil",
+  wreck: (e) => (e.item ? `Im Wrack gefunden: ${de.items[e.item].name}` : e.shards ? `Taschen voll – ${e.shards} Splitter statt eines Items` : "Aus dem Wrack kam etwas mit. Eine verfluchte Zeichnung ist in deinem Deck."),
+  tideBound: (e) => `Die Karte gehört jetzt den Gezeiten (${e.tide === "high" ? de.tide.highShort : de.tide.lowShort}) und ist stärker`,
 };
 
 /** Kartengeometrie: Ebenen von unten nach oben, 3 Stränge nebeneinander. */
@@ -116,11 +118,11 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
     <div className="max-w-[1300px] mx-auto px-3 py-4 grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
       <section className="space-y-4">
         {Scene ? (
-          <Scene scene={pp.scene} deck={deck} player={player} act={act} />
+          <Scene scene={pp.scene} deck={deck} player={player} act={act} zirkel={view.settings.zirkel} />
         ) : (
           <div className="ss-paper p-3 md:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-              <p className="ss-title !text-[var(--ink)] text-2xl">Die Moorkarte · Pfad {map.pathNo}</p>
+              <p className="ss-title !text-[var(--ink)] text-2xl">{view.settings.zirkel === "gezeiten" ? "Die Küstenkarte" : "Die Moorkarte"} · Pfad {map.pathNo}</p>
               {you !== null && timers?.[you] && <TurnTimer timer={timers[you]} clockOffset={clockOffset} />}
             </div>
             <p className="opacity-75 mb-2">{pp?.done ? "Dein Weg ist gegangen. Warte auf den anderen Zeichner …" : you === null ? "Die Zeichner wandern." : "Wähle einen erreichbaren Knoten."}</p>

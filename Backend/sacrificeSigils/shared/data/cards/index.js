@@ -1,4 +1,4 @@
-// data/cards/index.js — alle Karten gesammelt. Neue Stammdatei hier eintragen.
+// data/cards/index.js — alle Karten gesammelt (Moor-Zirkel hier, Gezeiten aus data/gezeiten/cards). Neue Stammdatei hier eintragen.
 import bestien from "./bestien.js";
 import nachtvoegel from "./nachtvoegel.js";
 import aasfresser from "./aasfresser.js";
@@ -15,9 +15,11 @@ import flatterer from "./flatterer.js";
 import stammlose from "./stammlose.js";
 import verflucht from "./verflucht.js";
 import tokens from "./tokens.js";
+import { GEZEITEN_CARDS } from "../gezeiten/cards/index.js";
 
 /** @type {import("../../engine/types.js").CardDef[]} */
 export const ALL_CARDS = [
   ...bestien, ...nachtvoegel, ...aasfresser, ...schwaerme, ...tiefe, ...kriecher, ...nager, ...myzel,
   ...wurzelvolk, ...gebeine, ...kerzenwesen, ...gehoernte, ...flatterer, ...stammlose, ...verflucht, ...tokens,
+  ...GEZEITEN_CARDS,
 ];

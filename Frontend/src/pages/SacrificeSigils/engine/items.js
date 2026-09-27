@@ -43,8 +43,9 @@ export function applyItemEffect(r, p, item, t) {
       r.addScale(p, 1, "item");
       return null;
     case "kerzenstumpf":
+      // Dritte Ressource des Zirkels: Wachs im Moor, Salz in den Gezeiten
       r.emit({ type: "item", player: p, item });
-      r.gainWax(p, 3, null);
+      r.gainRes(p, r.z.bonusResource || "wax", 3, null);
       return null;
     case "rabenfeder":
       r.emit({ type: "item", player: p, item });

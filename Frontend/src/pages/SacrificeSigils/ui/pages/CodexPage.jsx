@@ -7,15 +7,20 @@ import SigilIcon from "../icons/SigilIcon.jsx";
 import { ALL_CARDS } from "../../data/cards/index.js";
 import { resolveCard } from "../../engine/cards.js";
 import { SIGILS, parseSigil } from "../../engine/sigils/index.js";
-import { TRIBE_IDS } from "../../data/tribes.js";
+import { tribeIdsOf } from "../../data/tribes.js";
 import { ITEMS } from "../../data/items.js";
-import { EVENTS } from "../../data/events.js";
-import { LANE_PROPS, TOTEM_BASE_SIGILS } from "../../data/totems.js";
+import { LANE_PROPS } from "../../data/totems.js";
+import { ZIRKEL, getZirkel } from "../../engine/zirkel/index.js";
 import { de } from "../../i18n/de.js";
 
 const CATEGORIES = ["bewegung", "angriff", "verteidigung", "ressourcen", "feld"];
 
 export default function CodexPage() {
+  const [zirkelId, setZirkelId] = useState("moor");
+  const z = getZirkel(zirkelId);
+  const TRIBE_IDS = tribeIdsOf(zirkelId);
+  const EVENTS = z.events;
+  const TOTEM_BASE_SIGILS = z.totemBaseSigils;
   const [tab, setTab] = useState("cards");
   const [tribe, setTribe] = useState("");
   const [cost, setCost] = useState("");
@@ -26,6 +31,7 @@ export default function CodexPage() {
   const [detail, setDetail] = useState(null);
 
   const cards = useMemo(() => ALL_CARDS.filter((c) => {
+    if (c.zirkel !== zirkelId) return false;
     if (!showTokens && (c.token || c.cursed)) return false;
     if (tribe && c.tribe !== tribe) return false;
     if (cost && c.cost.type !== cost) return false;
@@ -33,15 +39,29 @@ export default function CodexPage() {
     if (sigil && !c.sigils.some((s) => parseSigil(s).id === sigil)) return false;
     if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }).sort((a, b) => a.tribe.localeCompare(b.tribe) || a.cost.type.localeCompare(b.cost.type) || a.cost.amount - b.cost.amount), [tribe, cost, rarity, sigil, q, showTokens]);
+  }).sort((a, b) => a.tribe.localeCompare(b.tribe) || a.cost.type.localeCompare(b.cost.type) || a.cost.amount - b.cost.amount), [zirkelId, tribe, cost, rarity, sigil, q, showTokens]);
 
-  const publicSigils = Object.values(SIGILS).filter((s) => !s.hidden);
+  // Grund-Sigils gelten in allen Zirkeln, zirkeleigene (Wachs, Salz, Gezeiten) nur in ihrem
+  const publicSigils = Object.values(SIGILS).filter((s) => !s.hidden && (!s.zirkel || s.zirkel === zirkelId));
+  const switchZirkel = (/** @type {string} */ id) => {
+    setZirkelId(id);
+    setTribe("");
+    setCost("");
+    setSigil("");
+  };
 
   return (
     <div className="max-w-[1350px] mx-auto px-4 py-6 space-y-5">
       <SEO title="Sacrifice & Sigils – Kartenbuch" description="Alle Karten, Sigils, Items und Ereignisse von Sacrifice & Sigils: filterbar nach Stamm, Kosten, Seltenheit und Sigil." path="/sacrifice-and-sigils/kartenbuch" />
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="ss-title text-3xl">{de.ui.codex}</h1>
+        <div className="space-y-2">
+          <h1 className="ss-title text-3xl">{de.ui.codex}</h1>
+          <div className="flex gap-2" role="tablist" aria-label="Zirkel">
+            {Object.values(ZIRKEL).map((x) => (
+              <button key={x.id} type="button" role="tab" aria-selected={zirkelId === x.id} className={`ss-btn ss-btn-sm ${zirkelId === x.id ? "!text-[var(--candle)] !border-[var(--candle)]" : ""}`} onClick={() => switchZirkel(x.id)}>{x.name}</button>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2" role="tablist">
           {[["cards", "Karten"], ["sigils", "Sigil-Lexikon"], ["more", "Items, Totems & Ereignisse"]].map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={`ss-btn ss-btn-sm ${tab === id ? "!text-[var(--candle)] !border-[var(--candle)]" : ""}`} onClick={() => setTab(id)}>{label}</button>
@@ -60,7 +80,7 @@ export default function CodexPage() {
             </label>
             <label><span className="text-xs opacity-70">Kosten</span>
               <select className="ss-select w-full mt-0.5" value={cost} onChange={(e) => setCost(e.target.value)}>
-                <option value="">alle</option>{["blood", "bones", "wax"].map((t) => <option key={t} value={t}>{de.costs[t].name}</option>)}
+                <option value="">alle</option>{z.resources.map((r) => r.id).map((t) => <option key={t} value={t}>{de.costs[t].name}</option>)}
               </select>
             </label>
             <label><span className="text-xs opacity-70">Seltenheit</span>
@@ -115,6 +135,14 @@ export default function CodexPage() {
 
       {tab === "more" && (
         <div className="grid md:grid-cols-2 gap-5">
+          {z.tide && (
+            <section className="ss-paper p-4 md:col-span-2">
+              <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Gezeiten</h2>
+              <p className="mb-2">Beide Zeichner teilen einen Wasserstand: Ebbe → steigendes Wasser → Flut → fallendes Wasser, je eine Runde. Der Kampf beginnt bei Ebbe.</p>
+              <ul className="space-y-1.5">{de.tide.effects.map((t) => <li key={t}>{t}</li>)}</ul>
+              <p className="mt-2">{de.costs.salt.desc}</p>
+            </section>
+          )}
           <section className="ss-paper p-4">
             <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Items ({ITEMS.length})</h2>
             <ul className="space-y-1.5">{ITEMS.map((i) => <li key={i.id}><b>{de.items[i.id].name}</b> <span className="opacity-60">({i.price} Splitter)</span>: {de.items[i.id].desc}</li>)}</ul>

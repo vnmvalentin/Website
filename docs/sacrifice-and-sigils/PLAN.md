@@ -145,3 +145,46 @@ gleichzeitig und frei.
 
 **Abweichung 11 (Runde 2):** Der Überlauf aus einem *Hinterhalt*-Treffer (Zusatzangriff auf die Hinterreihe) geht nicht
 auf die Waage; sonst würde Hinterhalt denselben Schaden doppelt verwerten.
+
+## 7. Runde 3 (Regeln näher an Inscryption, Multiplayer)
+
+Grundlage: die Akt-1-Regeln von Inscryption (Waage mit 5, Starthand 3 + 1 Nebendeck-Karte, Ziehen aus Haupt- *oder*
+Nebendeck, Blut = Opfer beim Ausspielen und nie gespeichert, Knochen aus eigenen Toden, Totems = Kopf + Sigil-Basis,
+Eichhörnchen als festes Nebendeck samt Eichhörnchen-Kopf). Übernommen wurden die Regeln, nicht Namen, Karten oder Bilder.
+
+| Teil | Umsetzung | Wo |
+|---|---|---|
+| Festes Nebendeck | Beide ziehen Moorlinge (0/1). Knochenkäfer und Wachsling sind jetzt normale Draft-Karten ihres Stamms | `data/sides.js`, `data/cards/*` |
+| Nebendeck-Totem | Neuer Kopf `{ kind: "side" }`: jeder gezogene Moorling trägt das Basis-Sigil. Nach dem Draft statt der Nebendeck-Wahl: 3 Sigils aus dem Seed, genau eines davon ein Opfer-Sigil (Doppelblut, Wachsgabe, Leichtes Mark); Opfer-Sigils nur auf diesem Kopf. Im Totem-Schrein tauschbar | `data/totems.js`, `engine/draft.js`, `engine/match.js`, `engine/battle.js → newSideCard` |
+| Tauchgang wie Waterborne | Taucht am Ende *jedes* eigenen Zugs ab (auch ohne Angriff, auch nach dem Nachrücken). Eine abgetauchte Karte besetzt die Lane nicht: voller Angriff direkt auf die Waage, an der Hinterreihe vorbei; auch Fäulnis erreicht sie nicht | `engine/battle.js`, `sigils/index.js` |
+| Leibwächter wie Guardian | Springt, sobald eine gegnerische Karte gegenüber einer leeren eigenen Lane gelegt wird oder aus der Hinterreihe nachrückt (nicht mehr beim Angriff). Grabwühler bleibt wie Burrower | `engine/battle.js → guardCheck` |
+| Überlauf | Unverändert Grundregel; Test mit dem Beispiel 7 Angriff gegen 2 + 3 Leben (beide sterben, 2 auf die Waage) | `__tests__/battle.test.js` |
+| Keine Blutanzeige | Blutschale und Blut-Flug beim Opfern entfernt (Opfer geben nur Knochen). Die Blutphiole zeigt sich als kleines Abzeichen, solange sie wirkt | `ui/battle/BattleScreen.jsx`, `ui/GameScreen.jsx` |
+| Sinnvolle Sigils | Prüfregel: Tauchgang nie mit Sigils, die nur beim Getroffenwerden wirken (Köder, Schildrinde, Dornenkleid …). Einziger Treffer: Tiefenmutter → Tauchgang, Brut, Leittier | `engine/validate.js`, `data/cards/tiefe.js` |
+
+**Abweichung 12 (Runde 3):** Dreifachblut auf jedem Moorling gewann 56,0 % der Kämpfe (5000 Matches) – in Inscryption
+wurde das Eichhörnchen-Totem aus demselben Grund aus Kaycee's Mod gestrichen. Der Nebendeck-Kopf bekommt deshalb
+**Doppelblut** (2 Blut, 54,5–54,7 %). Hochwuchs, Fluchtreflex und Leibwächter fehlen in der Nebendeck-Liste, weil ein
+0/1 keinen Treffer überlebt (41–43 %); Ewiges Opfer fehlt, weil ein unsterblicher Moorling jede 1-Blut-Karte bezahlt.
+
+**Abweichung 13 (Runde 3):** Weiter bewusst anders als Inscryption: Wachs (dritte Ressource), Hinterreihe mit Überlauf
+auf die Waage, Metamorphose nach 2 statt 1 Zug (die Moor-Brutlinge kosten 0 statt 1 Blut), erster Zug ohne Angriff.
+
+**Messung (Runde 3):** Startspieler 52,8 % normal / 51,9 % schwer. Ausgleichsvarianten: +1 Wachs +2 Knochen 47,5 %,
++2 Wachs +1 Knochen 46,6 %, zusätzlicher Moorling 27,8 % – der bisherige Ausgleich bleibt. Schwer zeigt drei knappe
+Ausreißer (Sporenknirps 57 %, Hirschkalb 56 %, Grauwelpe 56 %), normal keine.
+
+## 8. Runde 4 (Gezeiten-Zirkel)
+
+Zweiter Zirkel nach Konzept B aus `ZIRKEL.md`; Einzelheiten, Zahlen und bewusste Abweichungen stehen dort in Abschnitt 3a.
+
+| Teil | Umsetzung | Wo |
+|---|---|---|
+| Register | Karten, Stämme und Sigils sind global; jede Karte kennt ihren Zirkel (aus dem Stamm), zirkeleigene Sigils tragen `zirkel` | `data/tribes.js`, `data/cards/_define.js`, `engine/sigils/*` |
+| Ressourcen | Salz (`kind: "shore"`), generische Kosten/Abzüge, `bonusResource`, `secondPlayerBonus` pro Zirkel | `engine/battle.js`, `engine/zirkel/*` |
+| Gezeiten | `tide`/`tideShift` im Kampfzustand, Flut/Ebbe-Wirkungen, Gezeiten-Bindung (`wrongTide`) | `engine/battle.js` |
+| Inhalt | 14 Stämme, 172 sammelbare + 9 verfluchte Karten, 19 Sigils, 3 Ereignisse, Strandkrabbe | `data/gezeiten/*`, `engine/sigils/gezeiten.js`, `engine/path.js` |
+| Validator | Pro Zirkel ≥ 160 Karten / 8 legendär / 8 verflucht, Kostenart und Sigils passend zum Zirkel, Tauchgang-Konflikte inkl. Tintenwolke/Gezeitenschild/Salzkruste | `engine/validate.js` |
+| UI | Salz, Gezeitenanzeige, Uferreihe, Flut-Tönung, Gezeiten-Marke, Theme, Kartenbuch/Übung mit Zirkel-Wahl, neue Ereignis-Szenen, 19 Icons, 3 Silhouetten | `ui/*`, `art/procedural.js` |
+| Tests | 19 Sigil-Tests, Regeltests (Flut, Ebbe, Salz, Bindung), 300 KI-Matches + Determinismus im Gezeiten-Zirkel | `__tests__/gezeiten.test.js`, `__tests__/sigils.test.js` |
+| Balancing | `npm run balance -- --zirkel gezeiten`; Moor unverändert (52,8 %) | `tools/balance.js` |

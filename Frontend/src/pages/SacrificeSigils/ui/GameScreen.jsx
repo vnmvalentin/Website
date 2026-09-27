@@ -45,8 +45,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         if (c) {
           particles.burst("ash", c.x, c.y);
           particles.burst("wax", c.x, c.y);
-          const bowl = centerOf(`[data-anchor="blood-${ev.player}"]`);
-          if (bowl) particles.fly("blood", c, bowl, 650);
+          // Kein Flug zu einer Blutanzeige: Blut wird nicht gespeichert, das Opfer gibt nur Knochen (death-Ereignis)
         }
         break;
       }
@@ -144,6 +143,14 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
 
   const [confirmSurrender, setConfirmSurrender] = useState(false);
   const view = q.view;
+  // Farbthema des Zirkels am äußeren Spielrahmen (Tisch, Holz, Messing): Gezeiten = nasses Treibholz im Sturmlicht
+  const zirkelTheme = view?.settings?.zirkel || "moor";
+  useEffect(() => {
+    const el = document.querySelector(".ss-game");
+    if (!el) return undefined;
+    el.setAttribute("data-zirkel", zirkelTheme);
+    return () => el.removeAttribute("data-zirkel");
+  }, [zirkelTheme]);
   if (!view) return <p className="text-center ss-dim py-20">Der Tisch wird gedeckt …</p>;
   const names = view.players.map((p) => p.name);
   const phase = view.phase;

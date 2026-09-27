@@ -46,9 +46,10 @@ einen Hinweis zum Neuladen (Fingerprint in `version.js`).
 
 ## Zirkel (Deck-Welten)
 
-Ein Zirkel ist ein Datenpaket in `engine/zirkel/` (`moor` ist der heutige Inhalt). Kampf, Draft und Pfad holen Sigils,
-Nebendecks, Ressourcen und Pfadknoten über `getZirkel(settings.zirkel)`. Konzepte für neue Zirkel:
-`docs/sacrifice-and-sigils/ZIRKEL.md`.
+Ein Zirkel ist ein Datenpaket in `engine/zirkel/`: `moor` (Blut, Knochen, Wachs) und `gezeiten` (Blut, Knochen, Salz,
+gemeinsamer Wasserstand; Daten unter `data/gezeiten/`). Kampf, Draft und Pfad holen Sigils, Nebendecks, Ressourcen,
+Totem-Listen und Pfadknoten über `getZirkel(settings.zirkel)`. Aufbau und Konzepte: `docs/sacrifice-and-sigils/ZIRKEL.md`.
+Balancing je Zirkel: `npm run balance -- --zirkel gezeiten`.
 
 ## Karten hinzufügen
 
@@ -56,8 +57,10 @@ Nebendecks, Ressourcen und Pfadknoten über `getZirkel(settings.zirkel)`. Konzep
    ```js
    ["glutwolf", "Glutwolf", "b2", 3, 2, ["rudelruf", "durchbohren"], "uncommon", "Kurzer, poetischer Flavor (max. 90 Zeichen)."],
    ```
-   Kosten: `b0`–`b4` Blut, `k1`–`k10` Knochen, `w1`–`w6` Wachs. Angriff darf `"schwarmzahl" | "knochenlast" | "flammenmass" | "handschwere"` sein.
-   Optional als 9. Eintrag: `{ evolvesTo: "key", token: true, cursed: true, silhouette: "bird", balanceNote: "…" }`.
+   Kosten: `b0`–`b4` Blut, `k1`–`k10` Knochen, `w1`–`w6` Wachs (nur Moor), `s1`–`s8` Salz (nur Gezeiten).
+   Angriff darf `"schwarmzahl" | "knochenlast" | "flammenmass" | "handschwere" | "salzmass" | "riffzahl"` sein.
+   Optional als 9. Eintrag: `{ evolvesTo: "key", token: true, cursed: true, silhouette: "bird", balanceNote: "…", tide: "high" | "low" }`.
+   Gezeiten-Karten liegen in `data/gezeiten/cards/<stamm>.js`; der Zirkel ergibt sich aus dem Stamm.
 2. `npm run sigils:check` — prüft Sigils, Folgeformen und das Kostenbudget (Formel aus dem Auftrag, Toleranz ±1,5).
 3. `npm run test:sigils`, dann `npm run balance -- --games 2000` und Ausreißer (< 44 % / > 56 %) nachjustieren.
 4. `cd ../Backend && npm run sigils:spiegel`.

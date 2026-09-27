@@ -2,7 +2,7 @@
 // Pick wechselt je Runde) oder getrennte Pools (gleichzeitig 2 aus 4).
 import { CARDS } from "./cards.js";
 import { pickWeighted, randInt, shuffle, streamFrom } from "./rng.js";
-import { TOTEM_BASE_SIGILS, LANE_PROPS } from "../data/totems.js";
+import { LANE_PROPS, SIDE_ONLY_SIGILS } from "../data/totems.js";
 import { getZirkel } from "./zirkel/index.js";
 
 export const POOL_RARITY = { common: 14, uncommon: 6, rare: 3, legendary: 1 };
@@ -17,7 +17,7 @@ export const DUPLICATES_MAX = 5;
 
 /**
  * Pool aus dem Seed: 24 Karten in 6 Runden à 4 (Runde r = pool[4r … 4r+3]) + 4 Totem-Köpfe (mit Start-Basis)
- * + die 3 Nebendeck-Typen. 3–5 gewöhnliche/ungewöhnliche Karten kommen doppelt vor, nie in derselben Runde;
+ * + 3 Sigils für den Nebendeck-Totem (Runde 3: das Nebendeck selbst ist fest; eines davon ist immer ein Opfer-Sigil). 3–5 gewöhnliche/ungewöhnliche Karten kommen doppelt vor, nie in derselben Runde;
  * Legendäre bleiben einzigartig.
  * @param {string} seed @param {string} [zirkelId]
  */
@@ -65,20 +65,23 @@ export function generatePool(seed, zirkelId) {
   const tribeCounts = new Map();
   for (const c of cards) {
     const t = CARDS[c.baseId].tribe;
-    if (t !== "stammlose") tribeCounts.set(t, (tribeCounts.get(t) || 0) + 1);
+    if (!z.tribes.find((x) => x.id === t)?.neutral) tribeCounts.set(t, (tribeCounts.get(t) || 0) + 1);
   }
   const tribes = [];
-  const weighted = z.tribes.map((t) => t.id).filter((t) => t !== "stammlose").map((t) => [t, 1 + (tribeCounts.get(t) || 0) * 3]);
+  const weighted = z.tribes.filter((t) => !t.neutral).map((t) => [t.id, 1 + (tribeCounts.get(t.id) || 0) * 3]);
   while (tribes.length < 3) {
     const t = pickWeighted(s, /** @type {any} */ (weighted.filter(([id]) => !tribes.includes(id))));
     tribes.push(t);
   }
-  const sigilPool = shuffle(s, [...TOTEM_BASE_SIGILS]);
+  const sigilPool = shuffle(s, [...z.totemBaseSigils]);
   const heads = tribes.map((tribe, i) => ({ head: { kind: "tribe", tribe }, base: { kind: "sigil", sigil: sigilPool[i] } }));
   const lane = randInt(s, 4);
   heads.push({ head: { kind: "lane", lane }, base: { kind: "prop", prop: LANE_PROPS[randInt(s, LANE_PROPS.length)] } });
   shuffle(s, heads);
-  return { cards, heads, sides: Object.keys(z.sideDeckTypes) };
+  const sacrificeOptions = z.sideTotemSigils.filter((x) => SIDE_ONLY_SIGILS.includes(x));
+  const sacrificeSigil = sacrificeOptions[randInt(s, sacrificeOptions.length)];
+  const others = shuffle(s, z.sideTotemSigils.filter((x) => !SIDE_ONLY_SIGILS.includes(x))).slice(0, 2);
+  return { cards, heads, sides: shuffle(s, [sacrificeSigil, ...others]) };
 }
 
 /** Wer wählt in Runde `r` zuerst? Wechselt jede Runde. @param {0|1} first @param {number} r @returns {0|1} */
@@ -130,13 +133,14 @@ export function createDraft(seed, mode, round = 0, zirkelId) {
   const pool = generatePool(seed, zirkelId);
   const s = streamFrom("firstPick", seed);
   const first = /** @type {0|1} */ ((randInt(s, 2) + round) % 2);
-  // Nach 6 Runden geht der Wechsel weiter: Kopf wählt zuerst, wer Runde 1 begonnen hat, Nebendeck der andere
+  // Nach 6 Runden geht der Wechsel weiter: Kopf wählt zuerst, wer Runde 1 begonnen hat, Nebendeck-Totem der andere
   const second = /** @type {0|1} */ (1 - first);
   const draft = {
     mode,
     first,
     pool: pool.cards,
     heads: pool.heads,
+    /** Sigil-Angebot für den Nebendeck-Totem */
     sides: pool.sides,
     picks: /** @type {string[][]} */ ([[], []]),
     order: mode === "shared" ? roundOrder(first) : [],
@@ -144,7 +148,7 @@ export function createDraft(seed, mode, round = 0, zirkelId) {
     taken: /** @type {Record<string, number>} */ ({}),
     offers: /** @type {string[][]} */ ([[], []]),
     extras: [{ head: /** @type {number|null} */ (null), side: /** @type {string|null} */ (null) }, { head: null, side: null }],
-    /** Gemeinsamer Pool: Kopf und Nebendeck nacheinander, exklusiv. */
+    /** Gemeinsamer Pool: Kopf und Nebendeck-Totem nacheinander, exklusiv. */
     extraOrder: mode === "shared" ? [[first, "head"], [second, "head"], [second, "side"], [first, "side"]] : [],
     extraIndex: 0,
   };
@@ -234,7 +238,7 @@ export function pickable(draft, p, legends) {
   });
 }
 
-/** Gemeinsamer Pool: wer wählt gerade Kopf bzw. Nebendeck? @param {any} draft @returns {null|[0|1, "head"|"side"]} */
+/** Gemeinsamer Pool: wer wählt gerade Kopf bzw. Nebendeck-Totem? @param {any} draft @returns {null|[0|1, "head"|"side"]} */
 export function extrasTurn(draft) {
   if (draft.mode !== "shared") return null;
   return draft.extraOrder[draft.extraIndex] || null;

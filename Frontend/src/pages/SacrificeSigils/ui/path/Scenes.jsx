@@ -8,11 +8,14 @@ import { resolveCard, CARDS } from "../../engine/cards.js";
 import { parseSigil } from "../../engine/sigils/index.js";
 import { CAMPFIRE_RISK, MIN_DECK } from "../../data/events.js";
 import { MAX_ITEMS } from "../../data/items.js";
-import { TRIBE_IDS } from "../../data/tribes.js";
-import { de } from "../../i18n/de.js";
+import { tribeIdsOf } from "../../data/tribes.js";
+import { getZirkel } from "../../engine/zirkel/index.js";
+import { TideMark } from "../icons/GameIcons.jsx";
+import { de, errorText } from "../../i18n/de.js";
+import { combineError, SIDE_ONLY_SIGILS } from "../../data/totems.js";
 import { particles } from "../anim/particles.js";
 import { sound } from "../../audio/sound.js";
-import { totemText } from "../common/totemText.js";
+import { totemText, headLabel, slotLabel } from "../common/totemText.js";
 
 function SceneFrame({ title, intro, children, actions }) {
   return (
@@ -211,13 +214,14 @@ export function MerchantScene({ scene, player, act }) {
   );
 }
 
-export function ShrineScene({ scene, player, act }) {
+export function ShrineScene({ scene, player, act, zirkel }) {
   const [head, setHead] = useState(/** @type {number|null} */ (null));
   const [base, setBase] = useState(/** @type {number|null} */ (null));
   const offerLabel = (o) => (o.head
-    ? (o.head.kind === "tribe" ? `${de.totems.tribeHead}: ${de.tribes[o.head.tribe].name}` : `${de.totems.laneHead}: ${de.totems.lane(o.head.lane)}`)
+    ? headLabel(o.head)
     : (o.base.kind === "sigil" ? `${de.totems.base}: ${de.sigils[o.base.sigil].name}` : `${de.totems.base}: ${de.totems.props[o.base.prop].name}`));
-  const validPair = head !== null && base !== null && !(player.heads[head].kind === "tribe" && player.bases[base].kind !== "sigil");
+  const pairError = head !== null && base !== null ? combineError(player.heads[head], player.bases[base], getZirkel(zirkel)) : null;
+  const validPair = head !== null && base !== null && !pairError;
   return (
     <SceneFrame
       title={de.nodes.shrine.name}
@@ -239,7 +243,7 @@ export function ShrineScene({ scene, player, act }) {
           <p className="ss-title !text-[var(--ink)]">Köpfe</p>
           {player.heads.map((h, i) => (
             <button key={i} type="button" className={`block w-full text-left px-2 py-1 border-b border-dashed border-black/20 ${head === i ? "bg-[#8e1b1b]/15" : ""}`} onClick={() => setHead(i)}>
-              {h.kind === "tribe" ? `${de.totems.tribeHead}: ${de.tribes[h.tribe].name}` : `${de.totems.laneHead}: ${de.totems.lane(h.lane)}`}
+              {headLabel(h)}
             </button>
           ))}
         </div>
@@ -248,19 +252,21 @@ export function ShrineScene({ scene, player, act }) {
           {player.bases.map((b, i) => (
             <button key={i} type="button" className={`flex items-center gap-2 w-full text-left px-2 py-1 border-b border-dashed border-black/20 ${base === i ? "bg-[#8e1b1b]/15" : ""}`} onClick={() => setBase(i)}>
               {b.kind === "sigil" && <SigilIcon sigil={b.sigil} size={18} />}
-              {b.kind === "sigil" ? de.sigils[b.sigil].name : `${de.totems.props[b.prop].name} (nur Lane)`}
+              {b.kind === "sigil"
+                ? `${de.sigils[b.sigil].name}${SIDE_ONLY_SIGILS.includes(b.sigil) ? " (nur Nebendeck)" : ""}`
+                : `${de.totems.props[b.prop].name} (nur Lane)`}
             </button>
           ))}
         </div>
       </div>
       <div className="mt-3 text-center">
         <button type="button" className="ss-seal" disabled={!validPair} onClick={() => { sound.play("creak"); act("assemble", { head, base }); }}>Totem zusammensetzen</button>
-        {head !== null && base !== null && !validPair && <p className="text-sm text-[var(--wax-red)] mt-1">Lanen-Eigenschaften brauchen einen Lanenkopf.</p>}
+        {pairError && <p className="text-sm text-[var(--wax-red)] mt-1">{errorText(pairError)}</p>}
       </div>
       <div className="mt-4 text-sm">
         <p className="ss-title !text-[var(--ink)]">Aktive Totems</p>
-        {["tribe", "lane"].map((slot) => (
-          <p key={slot}>{slot === "tribe" ? de.totems.tribeSlot : de.totems.laneSlot}: {player.totems[slot] ? totemText(player.totems[slot].head, player.totems[slot].base) : "–"}</p>
+        {["tribe", "lane", "side"].map((slot) => (
+          <p key={slot}>{slotLabel(slot)}: {player.totems[slot] ? totemText(player.totems[slot].head, player.totems[slot].base, zirkel) : "–"}</p>
         ))}
       </div>
     </SceneFrame>
@@ -283,12 +289,14 @@ export function CopyistScene({ scene, deck, act }) {
   );
 }
 
-export function EventScene({ scene, deck, player, act }) {
+export function EventScene({ scene, deck, player, act, zirkel }) {
   const e = de.events[scene.event];
+  const TRIBE_IDS = tribeIdsOf(zirkel || "moor");
   const [sel, setSel] = useState(/** @type {string[]} */ ([]));
   const [pick, setPick] = useState(0);
   const [bet, setBet] = useState(Math.max(1, Math.floor(player.shards / 2)));
   const [tribe, setTribe] = useState(TRIBE_IDS[0]);
+  const [tide, setTide] = useState(/** @type {"high"|"low"} */ ("high"));
   const one = (uid) => setSel([uid]);
   const skip = <button type="button" className="ss-btn" onClick={() => act("skip")}>{de.ui.skip}</button>;
   switch (scene.event) {
@@ -331,6 +339,27 @@ export function EventScene({ scene, deck, player, act }) {
           {player.shards > 0 && <input type="range" min={1} max={player.shards} value={Math.min(bet, player.shards)} onChange={(ev) => setBet(Number(ev.target.value))} className="w-full accent-[#8e1b1b]" aria-label="Einsatz" />}
         </SceneFrame>
       );
+    case "wrack":
+      return (
+        <SceneFrame title={e.name} intro={e.intro} actions={<><button type="button" className="ss-seal" onClick={() => { sound.play("creak"); act("search"); }}>{e.action}</button><button type="button" className="ss-btn" onClick={() => act("skip")}>{de.ui.leave}</button></>}>
+          {player.items.length >= MAX_ITEMS && <p className="text-center text-sm opacity-75">Deine Taschen sind voll – ein Fund wird zu 3 Splittern.</p>}
+        </SceneFrame>
+      );
+    case "gezeitentuempel":
+      return (
+        <SceneFrame title={e.name} intro={e.intro} actions={<><button type="button" className="ss-seal" disabled={!sel.length} onClick={() => { sound.play("draw"); act("bind", { uid: sel[0], tide }); }}>{e.action}</button>{skip}</>}>
+          <div className="flex gap-2 justify-center mb-3" role="radiogroup" aria-label="Wasserstand">
+            {/** @type {const} */ (["high", "low"]).map((t) => (
+              <button key={t} type="button" role="radio" aria-checked={tide === t} className={`ss-btn ss-btn-sm ${tide === t ? "!border-[var(--wax-red-light)] !text-[var(--candle)]" : ""}`} onClick={() => setTide(t)}>
+                <TideMark tide={t} size={16} /> {t === "high" ? de.tide.highShort : de.tide.lowShort}
+              </button>
+            ))}
+          </div>
+          <DeckPicker deck={deck} selected={sel} onToggle={one} isEnabled={(dc) => !dc.card.tide} />
+        </SceneFrame>
+      );
+    case "salzsieder":
+      return <SceneFrame title={e.name} intro={e.intro} actions={<><button type="button" className="ss-seal" onClick={() => act("accept")}>{e.action}</button><button type="button" className="ss-btn" onClick={() => act("decline")}>Ablehnen</button></>} />;
     case "stammestreue":
       return (
         <SceneFrame title={e.name} intro={e.intro} actions={<><button type="button" className="ss-seal" onClick={() => act("choose", { tribe })}>{e.action}</button>{skip}</>}>

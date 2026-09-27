@@ -1,0 +1,3475 @@
+{
+ "generatedAt": "2026-09-27T10:43:23.423Z",
+ "games": 2000,
+ "battles": 4927,
+ "level": "hard",
+ "zirkel": "gezeiten",
+ "errors": 0,
+ "firstPlayerWinRate": 0.4867059062309722,
+ "avgBattleTurns": 7.00548000811853,
+ "thresholds": {
+  "low": 0.44,
+  "high": 0.56,
+  "minSamples": 200
+ },
+ "cardsInDeck": [
+  {
+   "key": "gz_salzhexe",
+   "name": "Salzhexe",
+   "wins": 1,
+   "samples": 1,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "gz_kraken",
+   "name": "Der Kraken",
+   "wins": 1,
+   "samples": 1,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "moewen_moewenkueken",
+   "name": "Möwenküken",
+   "wins": 141,
+   "samples": 254,
+   "rate": 0.5551181102362205,
+   "outlier": false
+  },
+  {
+   "key": "wracks_buddelschiff",
+   "name": "Buddelschiff",
+   "wins": 167,
+   "samples": 304,
+   "rate": 0.5493421052631579,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_treibholz",
+   "name": "Treibholz",
+   "wins": 181,
+   "samples": 333,
+   "rate": 0.5435435435435435,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_weisserhai",
+   "name": "Weißer Hai",
+   "wins": 1095,
+   "samples": 2018,
+   "rate": 0.5426164519326065,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_spiegelpfuetze",
+   "name": "Spiegelpfütze",
+   "wins": 291,
+   "samples": 539,
+   "rate": 0.5398886827458256,
+   "outlier": false
+  },
+  {
+   "key": "wracks_kompass",
+   "name": "Zerbrochener Kompass",
+   "wins": 240,
+   "samples": 450,
+   "rate": 0.5333333333333333,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_katzenhai",
+   "name": "Katzenhai",
+   "wins": 267,
+   "samples": 502,
+   "rate": 0.5318725099601593,
+   "outlier": false
+  },
+  {
+   "key": "korallen_korallenpolyp",
+   "name": "Korallenpolyp",
+   "wins": 186,
+   "samples": 350,
+   "rate": 0.5314285714285715,
+   "outlier": false
+  },
+  {
+   "key": "wracks_planke",
+   "name": "Treibende Planke",
+   "wins": 178,
+   "samples": 335,
+   "rate": 0.5313432835820896,
+   "outlier": false
+  },
+  {
+   "key": "robben_bartrobbe",
+   "name": "Bartrobbe",
+   "wins": 556,
+   "samples": 1047,
+   "rate": 0.5310410697230181,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_muraene",
+   "name": "Muräne",
+   "wins": 222,
+   "samples": 419,
+   "rate": 0.5298329355608592,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_schneckenlaich",
+   "name": "Schneckenlaich",
+   "wins": 152,
+   "samples": 287,
+   "rate": 0.5296167247386759,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_seegras",
+   "name": "Seegras",
+   "wins": 194,
+   "samples": 367,
+   "rate": 0.5286103542234333,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_bonitoschwarm",
+   "name": "Bonitoschwarm",
+   "wins": 464,
+   "samples": 878,
+   "rate": 0.5284738041002278,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_schuldschein",
+   "name": "Nasser Schuldschein",
+   "wins": 273,
+   "samples": 518,
+   "rate": 0.527027027027027,
+   "outlier": false
+  },
+  {
+   "key": "quallen_quallenpolyp",
+   "name": "Quallenpolyp",
+   "wins": 166,
+   "samples": 315,
+   "rate": 0.526984126984127,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_strandvogt",
+   "name": "Der Strandvogt",
+   "wins": 270,
+   "samples": 513,
+   "rate": 0.5263157894736842,
+   "outlier": false
+  },
+  {
+   "key": "quallen_segelqualle",
+   "name": "Segelqualle",
+   "wins": 172,
+   "samples": 327,
+   "rate": 0.5259938837920489,
+   "outlier": false
+  },
+  {
+   "key": "quallen_wurzelmundqualle",
+   "name": "Wurzelmundqualle",
+   "wins": 472,
+   "samples": 898,
+   "rate": 0.5256124721603563,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_seepocke",
+   "name": "Seepocke",
+   "wins": 188,
+   "samples": 359,
+   "rate": 0.5236768802228412,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_taschenkrebs",
+   "name": "Taschenkrebs",
+   "wins": 263,
+   "samples": 503,
+   "rate": 0.5228628230616302,
+   "outlier": false
+  },
+  {
+   "key": "quallen_feuerqualle",
+   "name": "Feuerqualle",
+   "wins": 237,
+   "samples": 455,
+   "rate": 0.5208791208791209,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_schwimmkrabbe",
+   "name": "Schwimmkrabbe",
+   "wins": 405,
+   "samples": 778,
+   "rate": 0.5205655526992288,
+   "outlier": false
+  },
+  {
+   "key": "waerter_laternentraeger",
+   "name": "Laternenträger",
+   "wins": 179,
+   "samples": 344,
+   "rate": 0.5203488372093024,
+   "outlier": false
+  },
+  {
+   "key": "moewen_albatros",
+   "name": "Der Albatros",
+   "wins": 310,
+   "samples": 596,
+   "rate": 0.5201342281879194,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_herzmuschel",
+   "name": "Herzmuschel",
+   "wins": 197,
+   "samples": 379,
+   "rate": 0.5197889182058048,
+   "outlier": false
+  },
+  {
+   "key": "korallen_weichkoralle",
+   "name": "Weichkoralle",
+   "wins": 163,
+   "samples": 314,
+   "rate": 0.5191082802547771,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_ertrunkenerfischer",
+   "name": "Ertrunkener Fischer",
+   "wins": 263,
+   "samples": 507,
+   "rate": 0.5187376725838264,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_kokosraeuber",
+   "name": "Kokosräuber",
+   "wins": 1096,
+   "samples": 2113,
+   "rate": 0.5186938002839565,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_megalodon",
+   "name": "Der Megalodon",
+   "wins": 324,
+   "samples": 626,
+   "rate": 0.5175718849840255,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_gezeitenuhr",
+   "name": "Gezeitenuhr",
+   "wins": 178,
+   "samples": 344,
+   "rate": 0.5174418604651163,
+   "outlier": false
+  },
+  {
+   "key": "robben_seeelefant",
+   "name": "See-Elefant",
+   "wins": 676,
+   "samples": 1307,
+   "rate": 0.5172149961744453,
+   "outlier": false
+  },
+  {
+   "key": "moewen_diebesmoewe",
+   "name": "Diebesmöwe",
+   "wins": 338,
+   "samples": 654,
+   "rate": 0.5168195718654435,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_tangfaden",
+   "name": "Tangfaden",
+   "wins": 266,
+   "samples": 516,
+   "rate": 0.5155038759689923,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_blauhai",
+   "name": "Blauhai",
+   "wins": 371,
+   "samples": 720,
+   "rate": 0.5152777777777777,
+   "outlier": false
+  },
+  {
+   "key": "robben_kegelrobbe",
+   "name": "Kegelrobbe",
+   "wins": 338,
+   "samples": 656,
+   "rate": 0.5152439024390244,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_muschelritter",
+   "name": "Muschelritter",
+   "wins": 495,
+   "samples": 962,
+   "rate": 0.5145530145530145,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_hornhecht",
+   "name": "Hornhecht",
+   "wins": 182,
+   "samples": 354,
+   "rate": 0.5141242937853108,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_hammerhai",
+   "name": "Hammerhai",
+   "wins": 517,
+   "samples": 1007,
+   "rate": 0.5134061569016882,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_tanghexe",
+   "name": "Tanghexe",
+   "wins": 575,
+   "samples": 1122,
+   "rate": 0.5124777183600713,
+   "outlier": false
+  },
+  {
+   "key": "korallen_riffbauer",
+   "name": "Riffbauer",
+   "wins": 434,
+   "samples": 847,
+   "rate": 0.512396694214876,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_seetangriese",
+   "name": "Seetangriese",
+   "wins": 543,
+   "samples": 1060,
+   "rate": 0.5122641509433963,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_winkerkrabbe",
+   "name": "Winkerkrabbe",
+   "wins": 303,
+   "samples": 592,
+   "rate": 0.5118243243243243,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_kelpwaechter",
+   "name": "Kelpwächter",
+   "wins": 413,
+   "samples": 807,
+   "rate": 0.5117719950433705,
+   "outlier": false
+  },
+  {
+   "key": "korallen_schwammriff",
+   "name": "Schwammriff",
+   "wins": 1005,
+   "samples": 1967,
+   "rate": 0.5109303507880021,
+   "outlier": false
+  },
+  {
+   "key": "robben_walross",
+   "name": "Walross",
+   "wins": 635,
+   "samples": 1243,
+   "rate": 0.5108608205953339,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_pistolenkrebs",
+   "name": "Pistolenkrebs",
+   "wins": 396,
+   "samples": 776,
+   "rate": 0.5103092783505154,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_flaschenhals",
+   "name": "Flaschenhals",
+   "wins": 174,
+   "samples": 341,
+   "rate": 0.5102639296187683,
+   "outlier": false
+  },
+  {
+   "key": "quallen_leuchtqualle",
+   "name": "Leuchtqualle",
+   "wins": 318,
+   "samples": 624,
+   "rate": 0.5096153846153846,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_schwertfisch",
+   "name": "Schwertfisch",
+   "wins": 507,
+   "samples": 995,
+   "rate": 0.5095477386934674,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_sandmann",
+   "name": "Sandmann",
+   "wins": 241,
+   "samples": 473,
+   "rate": 0.5095137420718816,
+   "outlier": false
+  },
+  {
+   "key": "moewen_strandlaeufer",
+   "name": "Strandläufer",
+   "wins": 134,
+   "samples": 263,
+   "rate": 0.5095057034220533,
+   "outlier": false
+  },
+  {
+   "key": "korallen_feuerkoralle",
+   "name": "Feuerkoralle",
+   "wins": 269,
+   "samples": 528,
+   "rate": 0.509469696969697,
+   "outlier": false
+  },
+  {
+   "key": "moewen_sturmvogel",
+   "name": "Sturmvogel",
+   "wins": 461,
+   "samples": 905,
+   "rate": 0.5093922651933702,
+   "outlier": false
+  },
+  {
+   "key": "quallen_glasqualle",
+   "name": "Glasqualle",
+   "wins": 192,
+   "samples": 377,
+   "rate": 0.5092838196286472,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_flaschengeist",
+   "name": "Flaschengeist",
+   "wins": 280,
+   "samples": 550,
+   "rate": 0.509090909090909,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_auster",
+   "name": "Auster",
+   "wins": 174,
+   "samples": 342,
+   "rate": 0.5087719298245614,
+   "outlier": false
+  },
+  {
+   "key": "moewen_sturmmoewe",
+   "name": "Sturmmöwe",
+   "wins": 696,
+   "samples": 1370,
+   "rate": 0.5080291970802919,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_riesenkrabbe",
+   "name": "Die Riesenkrabbe",
+   "wins": 304,
+   "samples": 599,
+   "rate": 0.5075125208681135,
+   "outlier": false
+  },
+  {
+   "key": "wracks_wrackgolem",
+   "name": "Wrackgolem",
+   "wins": 644,
+   "samples": 1269,
+   "rate": 0.5074862096138691,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_dornhai",
+   "name": "Dornhai",
+   "wins": 487,
+   "samples": 960,
+   "rate": 0.5072916666666667,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_hummer",
+   "name": "Hummer",
+   "wins": 528,
+   "samples": 1041,
+   "rate": 0.5072046109510087,
+   "outlier": false
+  },
+  {
+   "key": "waerter_funkenwaerter",
+   "name": "Funkenwärter",
+   "wins": 317,
+   "samples": 625,
+   "rate": 0.5072,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_anglerfisch",
+   "name": "Anglerfisch",
+   "wins": 495,
+   "samples": 978,
+   "rate": 0.5061349693251533,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_tigerhai",
+   "name": "Tigerhai",
+   "wins": 630,
+   "samples": 1245,
+   "rate": 0.5060240963855421,
+   "outlier": false
+  },
+  {
+   "key": "wracks_schiffbrecher",
+   "name": "Der Schiffbrecher",
+   "wins": 257,
+   "samples": 508,
+   "rate": 0.5059055118110236,
+   "outlier": false
+  },
+  {
+   "key": "robben_seeloewe",
+   "name": "Seelöwe",
+   "wins": 1123,
+   "samples": 2224,
+   "rate": 0.5049460431654677,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_lotsengeist",
+   "name": "Lotsengeist",
+   "wins": 322,
+   "samples": 638,
+   "rate": 0.5047021943573667,
+   "outlier": false
+  },
+  {
+   "key": "quallen_kompassqualle",
+   "name": "Kompassqualle",
+   "wins": 251,
+   "samples": 498,
+   "rate": 0.5040160642570282,
+   "outlier": false
+  },
+  {
+   "key": "waerter_signalgaenger",
+   "name": "Signalgänger",
+   "wins": 446,
+   "samples": 886,
+   "rate": 0.5033860045146726,
+   "outlier": false
+  },
+  {
+   "key": "moewen_basstoelpel",
+   "name": "Basstölpel",
+   "wins": 625,
+   "samples": 1242,
+   "rate": 0.5032206119162641,
+   "outlier": false
+  },
+  {
+   "key": "robben_seeleopard",
+   "name": "Seeleopard",
+   "wins": 559,
+   "samples": 1112,
+   "rate": 0.5026978417266187,
+   "outlier": false
+  },
+  {
+   "key": "quallen_lungenqualle",
+   "name": "Lungenqualle",
+   "wins": 365,
+   "samples": 727,
+   "rate": 0.5020632737276479,
+   "outlier": false
+  },
+  {
+   "key": "moewen_lachmoewe",
+   "name": "Lachmöwe",
+   "wins": 266,
+   "samples": 530,
+   "rate": 0.5018867924528302,
+   "outlier": false
+  },
+  {
+   "key": "robben_heuler",
+   "name": "Heuler",
+   "wins": 141,
+   "samples": 281,
+   "rate": 0.501779359430605,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_beilfisch",
+   "name": "Beilfisch",
+   "wins": 286,
+   "samples": 570,
+   "rate": 0.5017543859649123,
+   "outlier": false
+  },
+  {
+   "key": "robben_robbenmutter",
+   "name": "Robbenmutter",
+   "wins": 609,
+   "samples": 1214,
+   "rate": 0.5016474464579901,
+   "outlier": false
+  },
+  {
+   "key": "wracks_rostanker",
+   "name": "Rostanker",
+   "wins": 307,
+   "samples": 612,
+   "rate": 0.5016339869281046,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_laternenlarve",
+   "name": "Laternenlarve",
+   "wins": 154,
+   "samples": 307,
+   "rate": 0.501628664495114,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_zottelalge",
+   "name": "Zottelalge",
+   "wins": 352,
+   "samples": 702,
+   "rate": 0.5014245014245015,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_springkrebs",
+   "name": "Springkrebs",
+   "wins": 229,
+   "samples": 457,
+   "rate": 0.5010940919037199,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_sandgolem",
+   "name": "Sandgolem",
+   "wins": 240,
+   "samples": 479,
+   "rate": 0.5010438413361169,
+   "outlier": false
+  },
+  {
+   "key": "waerter_lotsin",
+   "name": "Die Lotsin",
+   "wins": 966,
+   "samples": 1928,
+   "rate": 0.5010373443983402,
+   "outlier": false
+  },
+  {
+   "key": "korallen_orgelkoralle",
+   "name": "Orgelkoralle",
+   "wins": 274,
+   "samples": 547,
+   "rate": 0.5009140767824497,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_scherenkoenigin",
+   "name": "Scherenkönigin",
+   "wins": 550,
+   "samples": 1098,
+   "rate": 0.5009107468123861,
+   "outlier": false
+  },
+  {
+   "key": "wracks_schatztruhe",
+   "name": "Schatztruhe",
+   "wins": 477,
+   "samples": 953,
+   "rate": 0.5005246589716684,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_strandkorb",
+   "name": "Strandkorb",
+   "wins": 182,
+   "samples": 364,
+   "rate": 0.5,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_blasenkobold",
+   "name": "Blasenkobold",
+   "wins": 269,
+   "samples": 538,
+   "rate": 0.5,
+   "outlier": false
+  },
+  {
+   "key": "robben_moenchsrobbe",
+   "name": "Mönchsrobbe",
+   "wins": 523,
+   "samples": 1046,
+   "rate": 0.5,
+   "outlier": false
+  },
+  {
+   "key": "gz_totenglocke",
+   "name": "Totenglocke",
+   "wins": 1,
+   "samples": 2,
+   "rate": 0.5,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_tiefseekalmar",
+   "name": "Tiefseekalmar",
+   "wins": 545,
+   "samples": 1092,
+   "rate": 0.4990842490842491,
+   "outlier": false
+  },
+  {
+   "key": "korallen_hornkoralle",
+   "name": "Hornkoralle",
+   "wins": 513,
+   "samples": 1028,
+   "rate": 0.4990272373540856,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_napfschnecke",
+   "name": "Napfschnecke",
+   "wins": 215,
+   "samples": 431,
+   "rate": 0.4988399071925754,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_netzflicker",
+   "name": "Netzflicker",
+   "wins": 193,
+   "samples": 387,
+   "rate": 0.49870801033591733,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_glimmfisch",
+   "name": "Glimmfisch",
+   "wins": 183,
+   "samples": 367,
+   "rate": 0.4986376021798365,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_ertrunkenebraut",
+   "name": "Ertrunkene Braut",
+   "wins": 586,
+   "samples": 1176,
+   "rate": 0.49829931972789115,
+   "outlier": false
+  },
+  {
+   "key": "waerter_gezeitenschreiber",
+   "name": "Gezeitenschreiber",
+   "wins": 291,
+   "samples": 584,
+   "rate": 0.4982876712328767,
+   "outlier": false
+  },
+  {
+   "key": "wracks_taucherhelm",
+   "name": "Leerer Taucherhelm",
+   "wins": 428,
+   "samples": 859,
+   "rate": 0.49825378346915017,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_krebslarve",
+   "name": "Krebslarve",
+   "wins": 137,
+   "samples": 275,
+   "rate": 0.49818181818181817,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_fischbrut",
+   "name": "Raubfischbrut",
+   "wins": 130,
+   "samples": 261,
+   "rate": 0.49808429118773945,
+   "outlier": false
+  },
+  {
+   "key": "wracks_kanone",
+   "name": "Rostige Kanone",
+   "wins": 345,
+   "samples": 693,
+   "rate": 0.49783549783549785,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_glockentaucher",
+   "name": "Glockentaucher",
+   "wins": 548,
+   "samples": 1101,
+   "rate": 0.4977293369663942,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_kielholer",
+   "name": "Kielholer",
+   "wins": 504,
+   "samples": 1013,
+   "rate": 0.49753208292201384,
+   "outlier": false
+  },
+  {
+   "key": "moewen_raubmoewe",
+   "name": "Raubmöwe",
+   "wins": 1084,
+   "samples": 2180,
+   "rate": 0.4972477064220184,
+   "outlier": false
+  },
+  {
+   "key": "korallen_seeanemone",
+   "name": "Seeanemone",
+   "wins": 349,
+   "samples": 702,
+   "rate": 0.49715099715099714,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_perlkoenig",
+   "name": "Perlkönig",
+   "wins": 1024,
+   "samples": 2060,
+   "rate": 0.4970873786407767,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_kegelschnecke",
+   "name": "Kegelschnecke",
+   "wins": 484,
+   "samples": 974,
+   "rate": 0.49691991786447637,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_languste",
+   "name": "Languste",
+   "wins": 379,
+   "samples": 763,
+   "rate": 0.4967234600262123,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_nebelmatrose",
+   "name": "Nebelmatrose",
+   "wins": 401,
+   "samples": 810,
+   "rate": 0.49506172839506174,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_riesenmuschel",
+   "name": "Riesenmuschel",
+   "wins": 540,
+   "samples": 1091,
+   "rate": 0.49495875343721357,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_porzellanschnecke",
+   "name": "Porzellanschnecke",
+   "wins": 1055,
+   "samples": 2132,
+   "rate": 0.4948405253283302,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_boje",
+   "name": "Boje",
+   "wins": 209,
+   "samples": 423,
+   "rate": 0.4940898345153664,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_tritonshorn",
+   "name": "Tritonshorn",
+   "wins": 657,
+   "samples": 1330,
+   "rate": 0.493984962406015,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_perlboot",
+   "name": "Perlboot",
+   "wins": 628,
+   "samples": 1272,
+   "rate": 0.4937106918238994,
+   "outlier": false
+  },
+  {
+   "key": "moewen_moewenschwarm",
+   "name": "Möwenschwarm",
+   "wins": 470,
+   "samples": 952,
+   "rate": 0.49369747899159666,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_salzgolem",
+   "name": "Salzgolem",
+   "wins": 581,
+   "samples": 1177,
+   "rate": 0.49362786745964315,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_viperfisch",
+   "name": "Viperfisch",
+   "wins": 343,
+   "samples": 696,
+   "rate": 0.492816091954023,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_purpurschnecke",
+   "name": "Purpurschnecke",
+   "wins": 339,
+   "samples": 688,
+   "rate": 0.49273255813953487,
+   "outlier": false
+  },
+  {
+   "key": "waerter_leuchtturmwaerter",
+   "name": "Leuchtturmwärter",
+   "wins": 491,
+   "samples": 998,
+   "rate": 0.49198396793587174,
+   "outlier": false
+  },
+  {
+   "key": "korallen_hirnkoralle",
+   "name": "Hirnkoralle",
+   "wins": 368,
+   "samples": 748,
+   "rate": 0.4919786096256685,
+   "outlier": false
+  },
+  {
+   "key": "moewen_kormoran",
+   "name": "Kormoran",
+   "wins": 330,
+   "samples": 671,
+   "rate": 0.4918032786885246,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_einsiedlerkrebs",
+   "name": "Einsiedlerkrebs",
+   "wins": 254,
+   "samples": 517,
+   "rate": 0.4912959381044487,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_kapitaenderflut",
+   "name": "Kapitän der Flut",
+   "wins": 1059,
+   "samples": 2156,
+   "rate": 0.4911873840445269,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_sturmflut",
+   "name": "Die Sturmflut",
+   "wins": 222,
+   "samples": 452,
+   "rate": 0.4911504424778761,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_tangleiche",
+   "name": "Tangleiche",
+   "wins": 330,
+   "samples": 673,
+   "rate": 0.4903417533432392,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_klappmuschel",
+   "name": "Klappmuschel",
+   "wins": 202,
+   "samples": 412,
+   "rate": 0.49029126213592233,
+   "outlier": false
+  },
+  {
+   "key": "robben_sandbankrobbe",
+   "name": "Sandbankrobbe",
+   "wins": 221,
+   "samples": 451,
+   "rate": 0.49002217294900224,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_perlenmutter",
+   "name": "Perlenmutter",
+   "wins": 428,
+   "samples": 874,
+   "rate": 0.4897025171624714,
+   "outlier": false
+  },
+  {
+   "key": "moewen_seeschwalbe",
+   "name": "Seeschwalbe",
+   "wins": 179,
+   "samples": 366,
+   "rate": 0.4890710382513661,
+   "outlier": false
+  },
+  {
+   "key": "waerter_kuestenwacht",
+   "name": "Küstenwacht",
+   "wins": 351,
+   "samples": 718,
+   "rate": 0.48885793871866295,
+   "outlier": false
+  },
+  {
+   "key": "korallen_riffwaechter",
+   "name": "Riffwächter",
+   "wins": 532,
+   "samples": 1090,
+   "rate": 0.48807339449541287,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_seehase",
+   "name": "Seehase",
+   "wins": 306,
+   "samples": 627,
+   "rate": 0.4880382775119617,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_tangspross",
+   "name": "Tangspross",
+   "wins": 196,
+   "samples": 402,
+   "rate": 0.48756218905472637,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_netztang",
+   "name": "Netztang",
+   "wins": 564,
+   "samples": 1158,
+   "rate": 0.48704663212435234,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_drachenfisch",
+   "name": "Drachenfisch",
+   "wins": 992,
+   "samples": 2041,
+   "rate": 0.48603625673689366,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_salzhueter",
+   "name": "Salzhüter",
+   "wins": 326,
+   "samples": 671,
+   "rate": 0.4858420268256334,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_knochenkahn",
+   "name": "Knochenkahn",
+   "wins": 930,
+   "samples": 1915,
+   "rate": 0.4856396866840731,
+   "outlier": false
+  },
+  {
+   "key": "quallen_staatsqualle",
+   "name": "Staatsqualle",
+   "wins": 503,
+   "samples": 1037,
+   "rate": 0.485053037608486,
+   "outlier": false
+  },
+  {
+   "key": "quallen_loewenmaehne",
+   "name": "Löwenmähnenqualle",
+   "wins": 944,
+   "samples": 1948,
+   "rate": 0.48459958932238195,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_fischernetz",
+   "name": "Fischernetz",
+   "wins": 199,
+   "samples": 411,
+   "rate": 0.48418491484184917,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_glasauge",
+   "name": "Glasauge",
+   "wins": 228,
+   "samples": 471,
+   "rate": 0.4840764331210191,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_sargassum",
+   "name": "Sargassum",
+   "wins": 1006,
+   "samples": 2079,
+   "rate": 0.48388648388648386,
+   "outlier": false
+  },
+  {
+   "key": "robben_ringelrobbe",
+   "name": "Ringelrobbe",
+   "wins": 269,
+   "samples": 556,
+   "rate": 0.48381294964028776,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_tangkrone",
+   "name": "Die Tangkrone",
+   "wins": 249,
+   "samples": 515,
+   "rate": 0.48349514563106794,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_schwarzangler",
+   "name": "Schwarzangler",
+   "wins": 559,
+   "samples": 1157,
+   "rate": 0.48314606741573035,
+   "outlier": false
+  },
+  {
+   "key": "wracks_geisterschiff",
+   "name": "Das Geisterschiff",
+   "wins": 989,
+   "samples": 2051,
+   "rate": 0.48220380302291566,
+   "outlier": false
+  },
+  {
+   "key": "wracks_galionsfigur",
+   "name": "Galionsfigur",
+   "wins": 338,
+   "samples": 701,
+   "rate": 0.48216833095577744,
+   "outlier": false
+  },
+  {
+   "key": "waerter_blinkfeuer",
+   "name": "Blinkfeuer",
+   "wins": 554,
+   "samples": 1149,
+   "rate": 0.4821583986074848,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_strandschnecke",
+   "name": "Strandschnecke",
+   "wins": 231,
+   "samples": 481,
+   "rate": 0.4802494802494803,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_leuchtende",
+   "name": "Die Leuchtende",
+   "wins": 260,
+   "samples": 543,
+   "rate": 0.47882136279926335,
+   "outlier": false
+  },
+  {
+   "key": "quallen_seewespe",
+   "name": "Seewespe",
+   "wins": 366,
+   "samples": 766,
+   "rate": 0.47780678851174935,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_wetterfahne",
+   "name": "Wetterfahne",
+   "wins": 180,
+   "samples": 377,
+   "rate": 0.47745358090185674,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_meeresnacktschnecke",
+   "name": "Meeresnacktschnecke",
+   "wins": 262,
+   "samples": 549,
+   "rate": 0.4772313296903461,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_alteschale",
+   "name": "Die Alte Schale",
+   "wins": 242,
+   "samples": 508,
+   "rate": 0.4763779527559055,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_kreiselschnecke",
+   "name": "Kreiselschnecke",
+   "wins": 232,
+   "samples": 488,
+   "rate": 0.47540983606557374,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_strudeltang",
+   "name": "Strudeltang",
+   "wins": 214,
+   "samples": 451,
+   "rate": 0.4745011086474501,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_tiefseeassel",
+   "name": "Tiefseeassel",
+   "wins": 365,
+   "samples": 772,
+   "rate": 0.4727979274611399,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_wasserleiche",
+   "name": "Wasserleiche",
+   "wins": 159,
+   "samples": 337,
+   "rate": 0.47181008902077154,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_schiffsjunge",
+   "name": "Bleicher Schiffsjunge",
+   "wins": 190,
+   "samples": 403,
+   "rate": 0.47146401985111663,
+   "outlier": false
+  },
+  {
+   "key": "robben_alterbulle",
+   "name": "Der Alte Bulle",
+   "wins": 290,
+   "samples": 616,
+   "rate": 0.4707792207792208,
+   "outlier": false
+  },
+  {
+   "key": "korallen_steinkoralle",
+   "name": "Steinkoralle",
+   "wins": 190,
+   "samples": 404,
+   "rate": 0.47029702970297027,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_meermutter",
+   "name": "Die Meermutter",
+   "wins": 244,
+   "samples": 520,
+   "rate": 0.46923076923076923,
+   "outlier": false
+  },
+  {
+   "key": "waerter_nebelhorn",
+   "name": "Nebelhorn",
+   "wins": 168,
+   "samples": 359,
+   "rate": 0.467966573816156,
+   "outlier": false
+  },
+  {
+   "key": "waerter_lampenputzer",
+   "name": "Lampenputzer",
+   "wins": 148,
+   "samples": 319,
+   "rate": 0.46394984326018807,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_muschelbrut",
+   "name": "Muschelbrut",
+   "wins": 117,
+   "samples": 253,
+   "rate": 0.4624505928853755,
+   "outlier": false
+  },
+  {
+   "key": "wracks_schiffsglocke",
+   "name": "Schiffsglocke",
+   "wins": 178,
+   "samples": 386,
+   "rate": 0.46113989637305697,
+   "outlier": false
+  },
+  {
+   "key": "korallen_grossesriff",
+   "name": "Das Große Riff",
+   "wins": 268,
+   "samples": 582,
+   "rate": 0.46048109965635736,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_ammonit",
+   "name": "Der Ammonit",
+   "wins": 292,
+   "samples": 636,
+   "rate": 0.4591194968553459,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_schalenwall",
+   "name": "Schalenwall",
+   "wins": 150,
+   "samples": 327,
+   "rate": 0.45871559633027525,
+   "outlier": false
+  },
+  {
+   "key": "quallen_quallenkoenigin",
+   "name": "Die Quallenkönigin",
+   "wins": 257,
+   "samples": 562,
+   "rate": 0.45729537366548045,
+   "outlier": false
+  },
+  {
+   "key": "waerter_sturmlaterne",
+   "name": "Sturmlaterne",
+   "wins": 165,
+   "samples": 361,
+   "rate": 0.45706371191135736,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_pelikanaal",
+   "name": "Pelikanaal",
+   "wins": 189,
+   "samples": 423,
+   "rate": 0.44680851063829785,
+   "outlier": false
+  },
+  {
+   "key": "waerter_letzterwaerter",
+   "name": "Der Letzte Wärter",
+   "wins": 251,
+   "samples": 567,
+   "rate": 0.4426807760141093,
+   "outlier": false
+  }
+ ],
+ "cardsPlayed": [
+  {
+   "key": "gz_salzhexe",
+   "name": "Salzhexe",
+   "wins": 1,
+   "samples": 1,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_meermutter",
+   "name": "Die Meermutter",
+   "wins": 5,
+   "samples": 5,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "quallen_quallenkoenigin",
+   "name": "Die Quallenkönigin",
+   "wins": 5,
+   "samples": 5,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_leuchtende",
+   "name": "Die Leuchtende",
+   "wins": 5,
+   "samples": 5,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "korallen_grossesriff",
+   "name": "Das Große Riff",
+   "wins": 4,
+   "samples": 4,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "wracks_wrackgolem",
+   "name": "Wrackgolem",
+   "wins": 11,
+   "samples": 11,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "wracks_schiffbrecher",
+   "name": "Der Schiffbrecher",
+   "wins": 8,
+   "samples": 8,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "gz_kraken",
+   "name": "Der Kraken",
+   "wins": 1,
+   "samples": 1,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "gz_totenglocke",
+   "name": "Totenglocke",
+   "wins": 1,
+   "samples": 1,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_riesenkrabbe",
+   "name": "Die Riesenkrabbe",
+   "wins": 64,
+   "samples": 65,
+   "rate": 0.9846153846153847,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_strandvogt",
+   "name": "Der Strandvogt",
+   "wins": 76,
+   "samples": 81,
+   "rate": 0.9382716049382716,
+   "outlier": false
+  },
+  {
+   "key": "waerter_letzterwaerter",
+   "name": "Der Letzte Wärter",
+   "wins": 28,
+   "samples": 30,
+   "rate": 0.9333333333333333,
+   "outlier": false
+  },
+  {
+   "key": "robben_alterbulle",
+   "name": "Der Alte Bulle",
+   "wins": 41,
+   "samples": 44,
+   "rate": 0.9318181818181818,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_weisserhai",
+   "name": "Weißer Hai",
+   "wins": 463,
+   "samples": 500,
+   "rate": 0.926,
+   "outlier": true
+  },
+  {
+   "key": "ertrunkene_kapitaenderflut",
+   "name": "Kapitän der Flut",
+   "wins": 54,
+   "samples": 59,
+   "rate": 0.9152542372881356,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_drachenfisch",
+   "name": "Drachenfisch",
+   "wins": 102,
+   "samples": 113,
+   "rate": 0.9026548672566371,
+   "outlier": false
+  },
+  {
+   "key": "waerter_lotsin",
+   "name": "Die Lotsin",
+   "wins": 83,
+   "samples": 93,
+   "rate": 0.8924731182795699,
+   "outlier": false
+  },
+  {
+   "key": "moewen_albatros",
+   "name": "Der Albatros",
+   "wins": 47,
+   "samples": 53,
+   "rate": 0.8867924528301887,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_megalodon",
+   "name": "Der Megalodon",
+   "wins": 46,
+   "samples": 52,
+   "rate": 0.8846153846153846,
+   "outlier": false
+  },
+  {
+   "key": "wracks_geisterschiff",
+   "name": "Das Geisterschiff",
+   "wins": 47,
+   "samples": 54,
+   "rate": 0.8703703703703703,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_scherenkoenigin",
+   "name": "Scherenkönigin",
+   "wins": 173,
+   "samples": 199,
+   "rate": 0.8693467336683417,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_kokosraeuber",
+   "name": "Kokosräuber",
+   "wins": 335,
+   "samples": 397,
+   "rate": 0.8438287153652393,
+   "outlier": true
+  },
+  {
+   "key": "treibgut_salzgolem",
+   "name": "Salzgolem",
+   "wins": 59,
+   "samples": 70,
+   "rate": 0.8428571428571429,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_hammerhai",
+   "name": "Hammerhai",
+   "wins": 168,
+   "samples": 201,
+   "rate": 0.835820895522388,
+   "outlier": true
+  },
+  {
+   "key": "treibgut_flaschengeist",
+   "name": "Flaschengeist",
+   "wins": 76,
+   "samples": 92,
+   "rate": 0.8260869565217391,
+   "outlier": false
+  },
+  {
+   "key": "korallen_riffwaechter",
+   "name": "Riffwächter",
+   "wins": 19,
+   "samples": 23,
+   "rate": 0.8260869565217391,
+   "outlier": false
+  },
+  {
+   "key": "waerter_blinkfeuer",
+   "name": "Blinkfeuer",
+   "wins": 52,
+   "samples": 63,
+   "rate": 0.8253968253968254,
+   "outlier": false
+  },
+  {
+   "key": "robben_bartrobbe",
+   "name": "Bartrobbe",
+   "wins": 309,
+   "samples": 376,
+   "rate": 0.8218085106382979,
+   "outlier": true
+  },
+  {
+   "key": "korallen_hornkoralle",
+   "name": "Hornkoralle",
+   "wins": 41,
+   "samples": 50,
+   "rate": 0.82,
+   "outlier": false
+  },
+  {
+   "key": "robben_seeelefant",
+   "name": "See-Elefant",
+   "wins": 206,
+   "samples": 252,
+   "rate": 0.8174603174603174,
+   "outlier": true
+  },
+  {
+   "key": "waerter_signalgaenger",
+   "name": "Signalgänger",
+   "wins": 119,
+   "samples": 147,
+   "rate": 0.8095238095238095,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_kielholer",
+   "name": "Kielholer",
+   "wins": 87,
+   "samples": 108,
+   "rate": 0.8055555555555556,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_knochenkahn",
+   "name": "Knochenkahn",
+   "wins": 102,
+   "samples": 127,
+   "rate": 0.8031496062992126,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_tiefseekalmar",
+   "name": "Tiefseekalmar",
+   "wins": 50,
+   "samples": 64,
+   "rate": 0.78125,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_perlboot",
+   "name": "Perlboot",
+   "wins": 42,
+   "samples": 54,
+   "rate": 0.7777777777777778,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_glockentaucher",
+   "name": "Glockentaucher",
+   "wins": 98,
+   "samples": 126,
+   "rate": 0.7777777777777778,
+   "outlier": false
+  },
+  {
+   "key": "robben_seeloewe",
+   "name": "Seelöwe",
+   "wins": 301,
+   "samples": 389,
+   "rate": 0.7737789203084833,
+   "outlier": true
+  },
+  {
+   "key": "tangwesen_tangkrone",
+   "name": "Die Tangkrone",
+   "wins": 17,
+   "samples": 22,
+   "rate": 0.7727272727272727,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_tanghexe",
+   "name": "Tanghexe",
+   "wins": 91,
+   "samples": 118,
+   "rate": 0.7711864406779662,
+   "outlier": false
+  },
+  {
+   "key": "wracks_kanone",
+   "name": "Rostige Kanone",
+   "wins": 91,
+   "samples": 118,
+   "rate": 0.7711864406779662,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_tigerhai",
+   "name": "Tigerhai",
+   "wins": 170,
+   "samples": 223,
+   "rate": 0.7623318385650224,
+   "outlier": true
+  },
+  {
+   "key": "tiefseeleuchter_schwarzangler",
+   "name": "Schwarzangler",
+   "wins": 32,
+   "samples": 42,
+   "rate": 0.7619047619047619,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_salzhueter",
+   "name": "Salzhüter",
+   "wins": 75,
+   "samples": 99,
+   "rate": 0.7575757575757576,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_perlkoenig",
+   "name": "Perlkönig",
+   "wins": 40,
+   "samples": 53,
+   "rate": 0.7547169811320755,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_tritonshorn",
+   "name": "Tritonshorn",
+   "wins": 76,
+   "samples": 101,
+   "rate": 0.7524752475247525,
+   "outlier": false
+  },
+  {
+   "key": "waerter_leuchtturmwaerter",
+   "name": "Leuchtturmwärter",
+   "wins": 78,
+   "samples": 104,
+   "rate": 0.75,
+   "outlier": false
+  },
+  {
+   "key": "moewen_sturmmoewe",
+   "name": "Sturmmöwe",
+   "wins": 272,
+   "samples": 363,
+   "rate": 0.7493112947658402,
+   "outlier": true
+  },
+  {
+   "key": "ertrunkene_nebelmatrose",
+   "name": "Nebelmatrose",
+   "wins": 92,
+   "samples": 123,
+   "rate": 0.7479674796747967,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_strandschnecke",
+   "name": "Strandschnecke",
+   "wins": 77,
+   "samples": 104,
+   "rate": 0.7403846153846154,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_netztang",
+   "name": "Netztang",
+   "wins": 34,
+   "samples": 46,
+   "rate": 0.7391304347826086,
+   "outlier": false
+  },
+  {
+   "key": "moewen_basstoelpel",
+   "name": "Basstölpel",
+   "wins": 168,
+   "samples": 228,
+   "rate": 0.7368421052631579,
+   "outlier": true
+  },
+  {
+   "key": "treibgut_sturmflut",
+   "name": "Die Sturmflut",
+   "wins": 14,
+   "samples": 19,
+   "rate": 0.7368421052631579,
+   "outlier": false
+  },
+  {
+   "key": "wracks_planke",
+   "name": "Treibende Planke",
+   "wins": 81,
+   "samples": 110,
+   "rate": 0.7363636363636363,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_seehase",
+   "name": "Seehase",
+   "wins": 49,
+   "samples": 67,
+   "rate": 0.7313432835820896,
+   "outlier": false
+  },
+  {
+   "key": "quallen_wurzelmundqualle",
+   "name": "Wurzelmundqualle",
+   "wins": 158,
+   "samples": 218,
+   "rate": 0.7247706422018348,
+   "outlier": true
+  },
+  {
+   "key": "treibgut_netzflicker",
+   "name": "Netzflicker",
+   "wins": 65,
+   "samples": 90,
+   "rate": 0.7222222222222222,
+   "outlier": false
+  },
+  {
+   "key": "wracks_galionsfigur",
+   "name": "Galionsfigur",
+   "wins": 78,
+   "samples": 108,
+   "rate": 0.7222222222222222,
+   "outlier": false
+  },
+  {
+   "key": "quallen_lungenqualle",
+   "name": "Lungenqualle",
+   "wins": 96,
+   "samples": 133,
+   "rate": 0.7218045112781954,
+   "outlier": false
+  },
+  {
+   "key": "quallen_loewenmaehne",
+   "name": "Löwenmähnenqualle",
+   "wins": 31,
+   "samples": 43,
+   "rate": 0.7209302325581395,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_anglerfisch",
+   "name": "Anglerfisch",
+   "wins": 121,
+   "samples": 170,
+   "rate": 0.711764705882353,
+   "outlier": false
+  },
+  {
+   "key": "moewen_raubmoewe",
+   "name": "Raubmöwe",
+   "wins": 261,
+   "samples": 367,
+   "rate": 0.7111716621253406,
+   "outlier": true
+  },
+  {
+   "key": "tiefseeleuchter_pelikanaal",
+   "name": "Pelikanaal",
+   "wins": 50,
+   "samples": 71,
+   "rate": 0.704225352112676,
+   "outlier": false
+  },
+  {
+   "key": "korallen_schwammriff",
+   "name": "Schwammriff",
+   "wins": 50,
+   "samples": 71,
+   "rate": 0.704225352112676,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_bonitoschwarm",
+   "name": "Bonitoschwarm",
+   "wins": 214,
+   "samples": 305,
+   "rate": 0.7016393442622951,
+   "outlier": true
+  },
+  {
+   "key": "tangwesen_strudeltang",
+   "name": "Strudeltang",
+   "wins": 47,
+   "samples": 67,
+   "rate": 0.7014925373134329,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_riesenmuschel",
+   "name": "Riesenmuschel",
+   "wins": 21,
+   "samples": 30,
+   "rate": 0.7,
+   "outlier": false
+  },
+  {
+   "key": "korallen_korallenpolyp",
+   "name": "Korallenpolyp",
+   "wins": 86,
+   "samples": 124,
+   "rate": 0.6935483870967742,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_seetangriese",
+   "name": "Seetangriese",
+   "wins": 120,
+   "samples": 174,
+   "rate": 0.6896551724137931,
+   "outlier": false
+  },
+  {
+   "key": "wracks_rostanker",
+   "name": "Rostanker",
+   "wins": 101,
+   "samples": 147,
+   "rate": 0.6870748299319728,
+   "outlier": false
+  },
+  {
+   "key": "korallen_seeanemone",
+   "name": "Seeanemone",
+   "wins": 48,
+   "samples": 70,
+   "rate": 0.6857142857142857,
+   "outlier": false
+  },
+  {
+   "key": "wracks_kompass",
+   "name": "Zerbrochener Kompass",
+   "wins": 99,
+   "samples": 145,
+   "rate": 0.6827586206896552,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_ertrunkenerfischer",
+   "name": "Ertrunkener Fischer",
+   "wins": 114,
+   "samples": 167,
+   "rate": 0.6826347305389222,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_kelpwaechter",
+   "name": "Kelpwächter",
+   "wins": 94,
+   "samples": 138,
+   "rate": 0.6811594202898551,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_schwimmkrabbe",
+   "name": "Schwimmkrabbe",
+   "wins": 205,
+   "samples": 301,
+   "rate": 0.6810631229235881,
+   "outlier": true
+  },
+  {
+   "key": "moewen_moewenkueken",
+   "name": "Möwenküken",
+   "wins": 61,
+   "samples": 90,
+   "rate": 0.6777777777777778,
+   "outlier": false
+  },
+  {
+   "key": "robben_walross",
+   "name": "Walross",
+   "wins": 143,
+   "samples": 211,
+   "rate": 0.6777251184834123,
+   "outlier": true
+  },
+  {
+   "key": "treibgut_schuldschein",
+   "name": "Nasser Schuldschein",
+   "wins": 85,
+   "samples": 126,
+   "rate": 0.6746031746031746,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_sargassum",
+   "name": "Sargassum",
+   "wins": 45,
+   "samples": 67,
+   "rate": 0.6716417910447762,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_alteschale",
+   "name": "Die Alte Schale",
+   "wins": 4,
+   "samples": 6,
+   "rate": 0.6666666666666666,
+   "outlier": false
+  },
+  {
+   "key": "quallen_staatsqualle",
+   "name": "Staatsqualle",
+   "wins": 65,
+   "samples": 98,
+   "rate": 0.6632653061224489,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_perlenmutter",
+   "name": "Perlenmutter",
+   "wins": 47,
+   "samples": 71,
+   "rate": 0.6619718309859155,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_dornhai",
+   "name": "Dornhai",
+   "wins": 225,
+   "samples": 340,
+   "rate": 0.6617647058823529,
+   "outlier": true
+  },
+  {
+   "key": "wracks_buddelschiff",
+   "name": "Buddelschiff",
+   "wins": 66,
+   "samples": 100,
+   "rate": 0.66,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_ertrunkenebraut",
+   "name": "Ertrunkene Braut",
+   "wins": 52,
+   "samples": 79,
+   "rate": 0.6582278481012658,
+   "outlier": false
+  },
+  {
+   "key": "korallen_hirnkoralle",
+   "name": "Hirnkoralle",
+   "wins": 73,
+   "samples": 111,
+   "rate": 0.6576576576576577,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_tangfaden",
+   "name": "Tangfaden",
+   "wins": 96,
+   "samples": 146,
+   "rate": 0.6575342465753424,
+   "outlier": false
+  },
+  {
+   "key": "quallen_seewespe",
+   "name": "Seewespe",
+   "wins": 44,
+   "samples": 67,
+   "rate": 0.6567164179104478,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_herzmuschel",
+   "name": "Herzmuschel",
+   "wins": 65,
+   "samples": 99,
+   "rate": 0.6565656565656566,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_seegras",
+   "name": "Seegras",
+   "wins": 87,
+   "samples": 133,
+   "rate": 0.6541353383458647,
+   "outlier": false
+  },
+  {
+   "key": "wracks_taucherhelm",
+   "name": "Leerer Taucherhelm",
+   "wins": 68,
+   "samples": 104,
+   "rate": 0.6538461538461539,
+   "outlier": false
+  },
+  {
+   "key": "quallen_feuerqualle",
+   "name": "Feuerqualle",
+   "wins": 68,
+   "samples": 104,
+   "rate": 0.6538461538461539,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_meeresnacktschnecke",
+   "name": "Meeresnacktschnecke",
+   "wins": 86,
+   "samples": 132,
+   "rate": 0.6515151515151515,
+   "outlier": false
+  },
+  {
+   "key": "moewen_kormoran",
+   "name": "Kormoran",
+   "wins": 122,
+   "samples": 188,
+   "rate": 0.648936170212766,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_schalenwall",
+   "name": "Schalenwall",
+   "wins": 35,
+   "samples": 54,
+   "rate": 0.6481481481481481,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_blauhai",
+   "name": "Blauhai",
+   "wins": 154,
+   "samples": 238,
+   "rate": 0.6470588235294118,
+   "outlier": true
+  },
+  {
+   "key": "waerter_gezeitenschreiber",
+   "name": "Gezeitenschreiber",
+   "wins": 49,
+   "samples": 76,
+   "rate": 0.6447368421052632,
+   "outlier": false
+  },
+  {
+   "key": "korallen_feuerkoralle",
+   "name": "Feuerkoralle",
+   "wins": 96,
+   "samples": 149,
+   "rate": 0.6442953020134228,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_muraene",
+   "name": "Muräne",
+   "wins": 84,
+   "samples": 131,
+   "rate": 0.6412213740458015,
+   "outlier": false
+  },
+  {
+   "key": "korallen_weichkoralle",
+   "name": "Weichkoralle",
+   "wins": 68,
+   "samples": 107,
+   "rate": 0.6355140186915887,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_springkrebs",
+   "name": "Springkrebs",
+   "wins": 106,
+   "samples": 168,
+   "rate": 0.6309523809523809,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_kreiselschnecke",
+   "name": "Kreiselschnecke",
+   "wins": 75,
+   "samples": 119,
+   "rate": 0.6302521008403361,
+   "outlier": false
+  },
+  {
+   "key": "quallen_leuchtqualle",
+   "name": "Leuchtqualle",
+   "wins": 107,
+   "samples": 170,
+   "rate": 0.6294117647058823,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_muschelritter",
+   "name": "Muschelritter",
+   "wins": 215,
+   "samples": 342,
+   "rate": 0.6286549707602339,
+   "outlier": true
+  },
+  {
+   "key": "robben_kegelrobbe",
+   "name": "Kegelrobbe",
+   "wins": 152,
+   "samples": 242,
+   "rate": 0.628099173553719,
+   "outlier": true
+  },
+  {
+   "key": "scherenvolk_pistolenkrebs",
+   "name": "Pistolenkrebs",
+   "wins": 169,
+   "samples": 271,
+   "rate": 0.6236162361623616,
+   "outlier": true
+  },
+  {
+   "key": "raubfische_schwertfisch",
+   "name": "Schwertfisch",
+   "wins": 221,
+   "samples": 355,
+   "rate": 0.6225352112676056,
+   "outlier": true
+  },
+  {
+   "key": "schnecken_porzellanschnecke",
+   "name": "Porzellanschnecke",
+   "wins": 72,
+   "samples": 116,
+   "rate": 0.6206896551724138,
+   "outlier": false
+  },
+  {
+   "key": "robben_seeleopard",
+   "name": "Seeleopard",
+   "wins": 264,
+   "samples": 426,
+   "rate": 0.6197183098591549,
+   "outlier": true
+  },
+  {
+   "key": "tiefseeleuchter_beilfisch",
+   "name": "Beilfisch",
+   "wins": 96,
+   "samples": 155,
+   "rate": 0.6193548387096774,
+   "outlier": false
+  },
+  {
+   "key": "waerter_funkenwaerter",
+   "name": "Funkenwärter",
+   "wins": 109,
+   "samples": 176,
+   "rate": 0.6193181818181818,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_hornhecht",
+   "name": "Hornhecht",
+   "wins": 89,
+   "samples": 144,
+   "rate": 0.6180555555555556,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_kegelschnecke",
+   "name": "Kegelschnecke",
+   "wins": 87,
+   "samples": 141,
+   "rate": 0.6170212765957447,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_glimmfisch",
+   "name": "Glimmfisch",
+   "wins": 75,
+   "samples": 122,
+   "rate": 0.6147540983606558,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_taschenkrebs",
+   "name": "Taschenkrebs",
+   "wins": 124,
+   "samples": 202,
+   "rate": 0.6138613861386139,
+   "outlier": true
+  },
+  {
+   "key": "schnecken_schneckenlaich",
+   "name": "Schneckenlaich",
+   "wins": 49,
+   "samples": 80,
+   "rate": 0.6125,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_treibholz",
+   "name": "Treibholz",
+   "wins": 82,
+   "samples": 134,
+   "rate": 0.6119402985074627,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_boje",
+   "name": "Boje",
+   "wins": 77,
+   "samples": 126,
+   "rate": 0.6111111111111112,
+   "outlier": false
+  },
+  {
+   "key": "korallen_riffbauer",
+   "name": "Riffbauer",
+   "wins": 77,
+   "samples": 126,
+   "rate": 0.6111111111111112,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_purpurschnecke",
+   "name": "Purpurschnecke",
+   "wins": 83,
+   "samples": 136,
+   "rate": 0.6102941176470589,
+   "outlier": false
+  },
+  {
+   "key": "korallen_orgelkoralle",
+   "name": "Orgelkoralle",
+   "wins": 129,
+   "samples": 212,
+   "rate": 0.6084905660377359,
+   "outlier": true
+  },
+  {
+   "key": "robben_moenchsrobbe",
+   "name": "Mönchsrobbe",
+   "wins": 206,
+   "samples": 339,
+   "rate": 0.6076696165191741,
+   "outlier": true
+  },
+  {
+   "key": "quallen_segelqualle",
+   "name": "Segelqualle",
+   "wins": 57,
+   "samples": 94,
+   "rate": 0.6063829787234043,
+   "outlier": false
+  },
+  {
+   "key": "quallen_quallenpolyp",
+   "name": "Quallenpolyp",
+   "wins": 71,
+   "samples": 119,
+   "rate": 0.5966386554621849,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_napfschnecke",
+   "name": "Napfschnecke",
+   "wins": 97,
+   "samples": 163,
+   "rate": 0.5950920245398773,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_katzenhai",
+   "name": "Katzenhai",
+   "wins": 118,
+   "samples": 199,
+   "rate": 0.592964824120603,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_fischernetz",
+   "name": "Fischernetz",
+   "wins": 68,
+   "samples": 115,
+   "rate": 0.591304347826087,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_winkerkrabbe",
+   "name": "Winkerkrabbe",
+   "wins": 133,
+   "samples": 225,
+   "rate": 0.5911111111111111,
+   "outlier": true
+  },
+  {
+   "key": "treibgut_spiegelpfuetze",
+   "name": "Spiegelpfütze",
+   "wins": 128,
+   "samples": 219,
+   "rate": 0.5844748858447488,
+   "outlier": true
+  },
+  {
+   "key": "muschelvolk_auster",
+   "name": "Auster",
+   "wins": 21,
+   "samples": 36,
+   "rate": 0.5833333333333334,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_strandkorb",
+   "name": "Strandkorb",
+   "wins": 71,
+   "samples": 122,
+   "rate": 0.5819672131147541,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_tiefseeassel",
+   "name": "Tiefseeassel",
+   "wins": 83,
+   "samples": 143,
+   "rate": 0.5804195804195804,
+   "outlier": false
+  },
+  {
+   "key": "wracks_schatztruhe",
+   "name": "Schatztruhe",
+   "wins": 94,
+   "samples": 162,
+   "rate": 0.5802469135802469,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_hummer",
+   "name": "Hummer",
+   "wins": 218,
+   "samples": 377,
+   "rate": 0.5782493368700266,
+   "outlier": true
+  },
+  {
+   "key": "treibgut_gezeitenuhr",
+   "name": "Gezeitenuhr",
+   "wins": 26,
+   "samples": 45,
+   "rate": 0.5777777777777777,
+   "outlier": false
+  },
+  {
+   "key": "moewen_diebesmoewe",
+   "name": "Diebesmöwe",
+   "wins": 112,
+   "samples": 194,
+   "rate": 0.5773195876288659,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_tangspross",
+   "name": "Tangspross",
+   "wins": 83,
+   "samples": 144,
+   "rate": 0.5763888888888888,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_flaschenhals",
+   "name": "Flaschenhals",
+   "wins": 87,
+   "samples": 151,
+   "rate": 0.5761589403973509,
+   "outlier": false
+  },
+  {
+   "key": "korallen_steinkoralle",
+   "name": "Steinkoralle",
+   "wins": 69,
+   "samples": 120,
+   "rate": 0.575,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_klappmuschel",
+   "name": "Klappmuschel",
+   "wins": 96,
+   "samples": 167,
+   "rate": 0.5748502994011976,
+   "outlier": false
+  },
+  {
+   "key": "moewen_seeschwalbe",
+   "name": "Seeschwalbe",
+   "wins": 85,
+   "samples": 148,
+   "rate": 0.5743243243243243,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_languste",
+   "name": "Languste",
+   "wins": 138,
+   "samples": 241,
+   "rate": 0.5726141078838174,
+   "outlier": true
+  },
+  {
+   "key": "quallen_glasqualle",
+   "name": "Glasqualle",
+   "wins": 75,
+   "samples": 131,
+   "rate": 0.5725190839694656,
+   "outlier": false
+  },
+  {
+   "key": "quallen_kompassqualle",
+   "name": "Kompassqualle",
+   "wins": 80,
+   "samples": 140,
+   "rate": 0.5714285714285714,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_schiffsjunge",
+   "name": "Bleicher Schiffsjunge",
+   "wins": 60,
+   "samples": 105,
+   "rate": 0.5714285714285714,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_blasenkobold",
+   "name": "Blasenkobold",
+   "wins": 113,
+   "samples": 198,
+   "rate": 0.5707070707070707,
+   "outlier": false
+  },
+  {
+   "key": "moewen_lachmoewe",
+   "name": "Lachmöwe",
+   "wins": 103,
+   "samples": 181,
+   "rate": 0.569060773480663,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_lotsengeist",
+   "name": "Lotsengeist",
+   "wins": 132,
+   "samples": 232,
+   "rate": 0.5689655172413793,
+   "outlier": true
+  },
+  {
+   "key": "tiefseeleuchter_laternenlarve",
+   "name": "Laternenlarve",
+   "wins": 52,
+   "samples": 93,
+   "rate": 0.5591397849462365,
+   "outlier": false
+  },
+  {
+   "key": "robben_heuler",
+   "name": "Heuler",
+   "wins": 67,
+   "samples": 120,
+   "rate": 0.5583333333333333,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_seepocke",
+   "name": "Seepocke",
+   "wins": 85,
+   "samples": 153,
+   "rate": 0.5555555555555556,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_tangleiche",
+   "name": "Tangleiche",
+   "wins": 90,
+   "samples": 163,
+   "rate": 0.5521472392638037,
+   "outlier": false
+  },
+  {
+   "key": "moewen_sturmvogel",
+   "name": "Sturmvogel",
+   "wins": 139,
+   "samples": 252,
+   "rate": 0.5515873015873016,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen_zottelalge",
+   "name": "Zottelalge",
+   "wins": 105,
+   "samples": 191,
+   "rate": 0.5497382198952879,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene_wasserleiche",
+   "name": "Wasserleiche",
+   "wins": 63,
+   "samples": 115,
+   "rate": 0.5478260869565217,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_wetterfahne",
+   "name": "Wetterfahne",
+   "wins": 76,
+   "samples": 139,
+   "rate": 0.5467625899280576,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_viperfisch",
+   "name": "Viperfisch",
+   "wins": 73,
+   "samples": 135,
+   "rate": 0.5407407407407407,
+   "outlier": false
+  },
+  {
+   "key": "robben_sandbankrobbe",
+   "name": "Sandbankrobbe",
+   "wins": 108,
+   "samples": 202,
+   "rate": 0.5346534653465347,
+   "outlier": false
+  },
+  {
+   "key": "wracks_schiffsglocke",
+   "name": "Schiffsglocke",
+   "wins": 74,
+   "samples": 139,
+   "rate": 0.5323741007194245,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_sandmann",
+   "name": "Sandmann",
+   "wins": 102,
+   "samples": 192,
+   "rate": 0.53125,
+   "outlier": false
+  },
+  {
+   "key": "raubfische_fischbrut",
+   "name": "Raubfischbrut",
+   "wins": 60,
+   "samples": 113,
+   "rate": 0.5309734513274337,
+   "outlier": false
+  },
+  {
+   "key": "waerter_kuestenwacht",
+   "name": "Küstenwacht",
+   "wins": 116,
+   "samples": 219,
+   "rate": 0.5296803652968036,
+   "outlier": false
+  },
+  {
+   "key": "robben_robbenmutter",
+   "name": "Robbenmutter",
+   "wins": 202,
+   "samples": 384,
+   "rate": 0.5260416666666666,
+   "outlier": false
+  },
+  {
+   "key": "robben_ringelrobbe",
+   "name": "Ringelrobbe",
+   "wins": 106,
+   "samples": 202,
+   "rate": 0.5247524752475248,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_krebslarve",
+   "name": "Krebslarve",
+   "wins": 59,
+   "samples": 113,
+   "rate": 0.5221238938053098,
+   "outlier": false
+  },
+  {
+   "key": "scherenvolk_einsiedlerkrebs",
+   "name": "Einsiedlerkrebs",
+   "wins": 97,
+   "samples": 186,
+   "rate": 0.521505376344086,
+   "outlier": false
+  },
+  {
+   "key": "waerter_laternentraeger",
+   "name": "Laternenträger",
+   "wins": 59,
+   "samples": 115,
+   "rate": 0.5130434782608696,
+   "outlier": false
+  },
+  {
+   "key": "waerter_lampenputzer",
+   "name": "Lampenputzer",
+   "wins": 43,
+   "samples": 84,
+   "rate": 0.5119047619047619,
+   "outlier": false
+  },
+  {
+   "key": "waerter_sturmlaterne",
+   "name": "Sturmlaterne",
+   "wins": 46,
+   "samples": 90,
+   "rate": 0.5111111111111111,
+   "outlier": false
+  },
+  {
+   "key": "treibgut_sandgolem",
+   "name": "Sandgolem",
+   "wins": 93,
+   "samples": 182,
+   "rate": 0.510989010989011,
+   "outlier": false
+  },
+  {
+   "key": "side_strandkrabbe",
+   "name": "Strandkrabbe",
+   "wins": 4927,
+   "samples": 9676,
+   "rate": 0.5091980157089706,
+   "outlier": false
+  },
+  {
+   "key": "schnecken_ammonit",
+   "name": "Der Ammonit",
+   "wins": 1,
+   "samples": 2,
+   "rate": 0.5,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter_glasauge",
+   "name": "Glasauge",
+   "wins": 49,
+   "samples": 99,
+   "rate": 0.494949494949495,
+   "outlier": false
+  },
+  {
+   "key": "moewen_moewenschwarm",
+   "name": "Möwenschwarm",
+   "wins": 120,
+   "samples": 257,
+   "rate": 0.4669260700389105,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk_muschelbrut",
+   "name": "Muschelbrut",
+   "wins": 38,
+   "samples": 82,
+   "rate": 0.4634146341463415,
+   "outlier": false
+  },
+  {
+   "key": "moewen_strandlaeufer",
+   "name": "Strandläufer",
+   "wins": 44,
+   "samples": 96,
+   "rate": 0.4583333333333333,
+   "outlier": false
+  },
+  {
+   "key": "waerter_nebelhorn",
+   "name": "Nebelhorn",
+   "wins": 54,
+   "samples": 125,
+   "rate": 0.432,
+   "outlier": false
+  }
+ ],
+ "sigils": [
+  {
+   "key": "fluchmal",
+   "name": "fluchmal",
+   "wins": 3,
+   "samples": 3,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "rammbock",
+   "name": "rammbock",
+   "wins": 8,
+   "samples": 8,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "dreizack",
+   "name": "dreizack",
+   "wins": 65,
+   "samples": 66,
+   "rate": 0.9848484848484849,
+   "outlier": false
+  },
+  {
+   "key": "zwillingsbiss",
+   "name": "zwillingsbiss",
+   "wins": 565,
+   "samples": 613,
+   "rate": 0.9216965742251223,
+   "outlier": true
+  },
+  {
+   "key": "wiedergaenger",
+   "name": "wiedergaenger",
+   "wins": 11,
+   "samples": 12,
+   "rate": 0.9166666666666666,
+   "outlier": false
+  },
+  {
+   "key": "kundschafter",
+   "name": "kundschafter",
+   "wins": 399,
+   "samples": 485,
+   "rate": 0.822680412371134,
+   "outlier": true
+  },
+  {
+   "key": "leittier",
+   "name": "leittier",
+   "wins": 816,
+   "samples": 1003,
+   "rate": 0.8135593220338984,
+   "outlier": true
+  },
+  {
+   "key": "flutwelle",
+   "name": "flutwelle",
+   "wins": 220,
+   "samples": 271,
+   "rate": 0.8118081180811808,
+   "outlier": true
+  },
+  {
+   "key": "brandung",
+   "name": "brandung",
+   "wins": 809,
+   "samples": 1063,
+   "rate": 0.7610536218250236,
+   "outlier": true
+  },
+  {
+   "key": "gabelstoss",
+   "name": "gabelstoss",
+   "wins": 474,
+   "samples": 625,
+   "rate": 0.7584,
+   "outlier": true
+  },
+  {
+   "key": "flaschenpost",
+   "name": "flaschenpost",
+   "wins": 388,
+   "samples": 514,
+   "rate": 0.754863813229572,
+   "outlier": true
+  },
+  {
+   "key": "ruestungsbrecher",
+   "name": "ruestungsbrecher",
+   "wins": 504,
+   "samples": 668,
+   "rate": 0.7544910179640718,
+   "outlier": true
+  },
+  {
+   "key": "brut",
+   "name": "brut",
+   "wins": 312,
+   "samples": 421,
+   "rate": 0.7410926365795725,
+   "outlier": true
+  },
+  {
+   "key": "koeder",
+   "name": "koeder",
+   "wins": 158,
+   "samples": 217,
+   "rate": 0.728110599078341,
+   "outlier": true
+  },
+  {
+   "key": "wucht",
+   "name": "wucht",
+   "wins": 238,
+   "samples": 327,
+   "rate": 0.72782874617737,
+   "outlier": true
+  },
+  {
+   "key": "faeulnis",
+   "name": "faeulnis",
+   "wins": 304,
+   "samples": 426,
+   "rate": 0.7136150234741784,
+   "outlier": true
+  },
+  {
+   "key": "aderlass",
+   "name": "aderlass",
+   "wins": 514,
+   "samples": 726,
+   "rate": 0.7079889807162535,
+   "outlier": true
+  },
+  {
+   "key": "hunger",
+   "name": "hunger",
+   "wins": 50,
+   "samples": 71,
+   "rate": 0.704225352112676,
+   "outlier": false
+  },
+  {
+   "key": "moosheilung",
+   "name": "moosheilung",
+   "wins": 50,
+   "samples": 71,
+   "rate": 0.704225352112676,
+   "outlier": false
+  },
+  {
+   "key": "heimkehr",
+   "name": "heimkehr",
+   "wins": 495,
+   "samples": 706,
+   "rate": 0.7011331444759207,
+   "outlier": true
+  },
+  {
+   "key": "salzkruste",
+   "name": "salzkruste",
+   "wins": 218,
+   "samples": 312,
+   "rate": 0.6987179487179487,
+   "outlier": true
+  },
+  {
+   "key": "tintenwolke",
+   "name": "tintenwolke",
+   "wins": 407,
+   "samples": 592,
+   "rate": 0.6875,
+   "outlier": true
+  },
+  {
+   "key": "durchbohren",
+   "name": "durchbohren",
+   "wins": 358,
+   "samples": 525,
+   "rate": 0.6819047619047619,
+   "outlier": true
+  },
+  {
+   "key": "strandgut",
+   "name": "strandgut",
+   "wins": 311,
+   "samples": 458,
+   "rate": 0.6790393013100436,
+   "outlier": true
+  },
+  {
+   "key": "blutschuld",
+   "name": "blutschuld",
+   "wins": 85,
+   "samples": 126,
+   "rate": 0.6746031746031746,
+   "outlier": false
+  },
+  {
+   "key": "perle",
+   "name": "perle",
+   "wins": 365,
+   "samples": 543,
+   "rate": 0.6721915285451197,
+   "outlier": true
+  },
+  {
+   "key": "leuchtfeuer",
+   "name": "leuchtfeuer",
+   "wins": 535,
+   "samples": 811,
+   "rate": 0.6596794081381011,
+   "outlier": true
+  },
+  {
+   "key": "rachsucht",
+   "name": "rachsucht",
+   "wins": 52,
+   "samples": 79,
+   "rate": 0.6582278481012658,
+   "outlier": false
+  },
+  {
+   "key": "panzer",
+   "name": "panzer",
+   "wins": 647,
+   "samples": 983,
+   "rate": 0.6581892166836215,
+   "outlier": true
+  },
+  {
+   "key": "stinkdruese",
+   "name": "stinkdruese",
+   "wins": 86,
+   "samples": 132,
+   "rate": 0.6515151515151515,
+   "outlier": false
+  },
+  {
+   "key": "tauchgang",
+   "name": "tauchgang",
+   "wins": 984,
+   "samples": 1513,
+   "rate": 0.650363516192994,
+   "outlier": true
+  },
+  {
+   "key": "schwinge",
+   "name": "schwinge",
+   "wins": 1222,
+   "samples": 1895,
+   "rate": 0.6448548812664908,
+   "outlier": true
+  },
+  {
+   "key": "schlick",
+   "name": "schlick",
+   "wins": 512,
+   "samples": 799,
+   "rate": 0.6408010012515645,
+   "outlier": true
+  },
+  {
+   "key": "dornenkleid",
+   "name": "dornenkleid",
+   "wins": 623,
+   "samples": 975,
+   "rate": 0.638974358974359,
+   "outlier": true
+  },
+  {
+   "key": "rudelruf",
+   "name": "rudelruf",
+   "wins": 1189,
+   "samples": 1870,
+   "rate": 0.6358288770053476,
+   "outlier": true
+  },
+  {
+   "key": "salzader",
+   "name": "salzader",
+   "wins": 320,
+   "samples": 506,
+   "rate": 0.6324110671936759,
+   "outlier": true
+  },
+  {
+   "key": "sog",
+   "name": "sog",
+   "wins": 248,
+   "samples": 393,
+   "rate": 0.6310432569974554,
+   "outlier": true
+  },
+  {
+   "key": "fluchtreflex",
+   "name": "fluchtreflex",
+   "wins": 106,
+   "samples": 168,
+   "rate": 0.6309523809523809,
+   "outlier": false
+  },
+  {
+   "key": "hinterhalt",
+   "name": "hinterhalt",
+   "wins": 348,
+   "samples": 557,
+   "rate": 0.6247755834829444,
+   "outlier": true
+  },
+  {
+   "key": "gezeitenschild",
+   "name": "gezeitenschild",
+   "wins": 339,
+   "samples": 544,
+   "rate": 0.6231617647058824,
+   "outlier": true
+  },
+  {
+   "key": "seher",
+   "name": "seher",
+   "wins": 570,
+   "samples": 916,
+   "rate": 0.6222707423580786,
+   "outlier": true
+  },
+  {
+   "key": "anker",
+   "name": "anker",
+   "wins": 413,
+   "samples": 664,
+   "rate": 0.6219879518072289,
+   "outlier": true
+  },
+  {
+   "key": "mondzug",
+   "name": "mondzug",
+   "wins": 75,
+   "samples": 121,
+   "rate": 0.6198347107438017,
+   "outlier": false
+  },
+  {
+   "key": "todesstachel",
+   "name": "todesstachel",
+   "wins": 258,
+   "samples": 419,
+   "rate": 0.6157517899761337,
+   "outlier": true
+  },
+  {
+   "key": "hochwuchs",
+   "name": "hochwuchs",
+   "wins": 328,
+   "samples": 533,
+   "rate": 0.6153846153846154,
+   "outlier": true
+  },
+  {
+   "key": "salzgabe",
+   "name": "salzgabe",
+   "wins": 82,
+   "samples": 134,
+   "rate": 0.6119402985074627,
+   "outlier": false
+  },
+  {
+   "key": "vorpreschen",
+   "name": "vorpreschen",
+   "wins": 306,
+   "samples": 503,
+   "rate": 0.6083499005964215,
+   "outlier": true
+  },
+  {
+   "key": "muschelgrab",
+   "name": "muschelgrab",
+   "wins": 131,
+   "samples": 221,
+   "rate": 0.5927601809954751,
+   "outlier": true
+  },
+  {
+   "key": "wanderer",
+   "name": "wanderer",
+   "wins": 151,
+   "samples": 258,
+   "rate": 0.5852713178294574,
+   "outlier": true
+  },
+  {
+   "key": "spiegelbild",
+   "name": "spiegelbild",
+   "wins": 128,
+   "samples": 219,
+   "rate": 0.5844748858447488,
+   "outlier": true
+  },
+  {
+   "key": "leibwaechter",
+   "name": "leibwaechter",
+   "wins": 186,
+   "samples": 319,
+   "rate": 0.5830721003134797,
+   "outlier": true
+  },
+  {
+   "key": "metamorphose",
+   "name": "metamorphose",
+   "wins": 540,
+   "samples": 954,
+   "rate": 0.5660377358490566,
+   "outlier": true
+  },
+  {
+   "key": "glockenschlag",
+   "name": "glockenschlag",
+   "wins": 204,
+   "samples": 365,
+   "rate": 0.5589041095890411,
+   "outlier": false
+  },
+  {
+   "key": "wattlaeufer",
+   "name": "wattlaeufer",
+   "wins": 214,
+   "samples": 388,
+   "rate": 0.5515463917525774,
+   "outlier": false
+  },
+  {
+   "key": "treibgut",
+   "name": "treibgut",
+   "wins": 384,
+   "samples": 702,
+   "rate": 0.5470085470085471,
+   "outlier": false
+  },
+  {
+   "key": "nesthueter",
+   "name": "nesthueter",
+   "wins": 202,
+   "samples": 384,
+   "rate": 0.5260416666666666,
+   "outlier": false
+  }
+ ],
+ "tribes": [
+  {
+   "key": "scherenvolk",
+   "name": "scherenvolk",
+   "wins": 482,
+   "samples": 927,
+   "rate": 0.5199568500539374,
+   "outlier": false
+  },
+  {
+   "key": "raubfische",
+   "name": "raubfische",
+   "wins": 627,
+   "samples": 1210,
+   "rate": 0.5181818181818182,
+   "outlier": false
+  },
+  {
+   "key": "treibgut",
+   "name": "treibgut",
+   "wins": 353,
+   "samples": 697,
+   "rate": 0.5064562410329986,
+   "outlier": false
+  },
+  {
+   "key": "muschelvolk",
+   "name": "muschelvolk",
+   "wins": 399,
+   "samples": 793,
+   "rate": 0.5031525851197982,
+   "outlier": false
+  },
+  {
+   "key": "tangwesen",
+   "name": "tangwesen",
+   "wins": 531,
+   "samples": 1057,
+   "rate": 0.5023651844843898,
+   "outlier": false
+  },
+  {
+   "key": "korallen",
+   "name": "korallen",
+   "wins": 452,
+   "samples": 903,
+   "rate": 0.5005537098560354,
+   "outlier": false
+  },
+  {
+   "key": "robben",
+   "name": "robben",
+   "wins": 794,
+   "samples": 1589,
+   "rate": 0.49968533668974197,
+   "outlier": false
+  },
+  {
+   "key": "moewen",
+   "name": "moewen",
+   "wins": 560,
+   "samples": 1124,
+   "rate": 0.498220640569395,
+   "outlier": false
+  },
+  {
+   "key": "wracks",
+   "name": "wracks",
+   "wins": 475,
+   "samples": 958,
+   "rate": 0.49582463465553234,
+   "outlier": false
+  },
+  {
+   "key": "schnecken",
+   "name": "schnecken",
+   "wins": 538,
+   "samples": 1124,
+   "rate": 0.4786476868327402,
+   "outlier": false
+  },
+  {
+   "key": "tiefseeleuchter",
+   "name": "tiefseeleuchter",
+   "wins": 446,
+   "samples": 939,
+   "rate": 0.4749733759318424,
+   "outlier": false
+  },
+  {
+   "key": "ertrunkene",
+   "name": "ertrunkene",
+   "wins": 604,
+   "samples": 1278,
+   "rate": 0.4726134585289515,
+   "outlier": false
+  },
+  {
+   "key": "waerter",
+   "name": "waerter",
+   "wins": 364,
+   "samples": 772,
+   "rate": 0.47150259067357514,
+   "outlier": false
+  },
+  {
+   "key": "quallen",
+   "name": "quallen",
+   "wins": 347,
+   "samples": 744,
+   "rate": 0.46639784946236557,
+   "outlier": false
+  }
+ ],
+ "costTypes": [
+  {
+   "key": "bones",
+   "name": "bones",
+   "wins": 3475,
+   "samples": 5222,
+   "rate": 0.6654538490999617,
+   "outlier": true
+  },
+  {
+   "key": "salt",
+   "name": "salt",
+   "wins": 3241,
+   "samples": 4905,
+   "rate": 0.6607543323139653,
+   "outlier": true
+  },
+  {
+   "key": "blood",
+   "name": "blood",
+   "wins": 14347,
+   "samples": 24094,
+   "rate": 0.5954594504855981,
+   "outlier": true
+  }
+ ],
+ "sideTotems": [
+  {
+   "key": "perle",
+   "name": "perle",
+   "wins": 659,
+   "samples": 1229,
+   "rate": 0.5362082994304312,
+   "outlier": false
+  },
+  {
+   "key": "doppelblut",
+   "name": "doppelblut",
+   "wins": 1131,
+   "samples": 2152,
+   "rate": 0.5255576208178439,
+   "outlier": false
+  },
+  {
+   "key": "knochenmark",
+   "name": "knochenmark",
+   "wins": 817,
+   "samples": 1609,
+   "rate": 0.5077688004972032,
+   "outlier": false
+  },
+  {
+   "key": "schildrinde",
+   "name": "schildrinde",
+   "wins": 607,
+   "samples": 1268,
+   "rate": 0.47870662460567825,
+   "outlier": false
+  },
+  {
+   "key": "salzgabe",
+   "name": "salzgabe",
+   "wins": 836,
+   "samples": 1751,
+   "rate": 0.4774414620217019,
+   "outlier": false
+  },
+  {
+   "key": "aschenspende",
+   "name": "aschenspende",
+   "wins": 786,
+   "samples": 1649,
+   "rate": 0.47665251667677383,
+   "outlier": false
+  },
+  {
+   "key": "markleicht",
+   "name": "markleicht",
+   "wins": 91,
+   "samples": 196,
+   "rate": 0.4642857142857143,
+   "outlier": false
+  }
+ ]
+}

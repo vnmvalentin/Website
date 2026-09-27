@@ -115,7 +115,7 @@
 .ss-lay-portrait .ss-b-res { flex-direction: row; align-self: center; padding: 2px 4px; gap: 0; }
 .ss-lay-portrait .ss-res { padding: 2px 4px; gap: 4px; }
 .ss-lay-portrait .ss-res-label, .ss-lay-landscape-s .ss-res-label { display: none; }
-.ss-lay-portrait .ss-bowl, .ss-lay-portrait .ss-pile { width: 22px; height: 18px; }
+.ss-lay-portrait .ss-pile { width: 22px; height: 18px; }
 .ss-lay-portrait .ss-res-num { font-size: 1.2rem; }
 .ss-lay-portrait .ss-b-actions { flex-direction: row; align-items: center; justify-content: flex-end; padding: 0; }
 .ss-lay-portrait .ss-endturn { width: auto; min-height: 48px !important; padding: 0 18px !important; font-size: 1.05rem !important; }
@@ -132,7 +132,7 @@
 .ss-lay-landscape-s .ss-b-opp { display: none; }
 .ss-lay-landscape-s .ss-b-res { flex-direction: row; flex-wrap: wrap; padding: 2px; align-self: start; }
 .ss-lay-landscape-s .ss-res { padding: 2px 3px; gap: 3px; }
-.ss-lay-landscape-s .ss-bowl, .ss-lay-landscape-s .ss-pile { width: 26px; height: 20px; }
+.ss-lay-landscape-s .ss-pile { width: 26px; height: 20px; }
 .ss-lay-landscape-s .ss-res-num { font-size: 1.1rem; }
 .ss-lay-landscape-s .ss-endturn { min-height: 48px !important; font-size: 1rem !important; }
 .ss-lay-landscape-s .ss-b-hint .ss-hint { font-size: 0.75rem; padding: 2px 10px; background: rgb(23 15 10 / 0.9); }
@@ -194,6 +194,16 @@
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ss-slot.ss-back::before { border-style: dotted; background: rgb(0 0 0 / 0.2); }
+/* Gezeiten: bei Flut stehen die Uferreihen unter Wasser */
+.ss-slot.ss-flooded::before { background: linear-gradient(180deg, rgb(62 122 147 / 0.18), rgb(62 122 147 / 0.42)); border-color: rgb(120 170 190 / 0.5); }
+
+.ss-tide { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgb(176 141 87 / 0.25); }
+.ss-tide-glass { position: relative; width: 14px; height: 34px; border: 1px solid rgb(176 141 87 / 0.6); background: rgb(0 0 0 / 0.25); overflow: hidden; flex-shrink: 0; }
+.ss-tide-water { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, #6fa3b8, #2e5566); transition: height 0.9s ease; }
+.ss-lay-portrait .ss-tide, .ss-lay-landscape-s .ss-tide { margin-top: 4px; padding-top: 4px; }
+/* Das Status-Panel skaliert seine Waage-SVG; das Wellen-Zeichen der Gezeitenanzeige bleibt klein */
+.ss-b-status .ss-tide svg { width: 14px; height: 14px; flex-shrink: 0; }
+.ss-lay-portrait .ss-tide { border-top: 0; padding-top: 0; margin-top: 0; }
 .ss-slot.ss-target::before { border-color: var(--candle); background: rgb(242 181 74 / 0.12); box-shadow: 0 0 14px rgb(242 181 74 / 0.35); cursor: pointer; }
 .ss-slot.ss-target:hover::before, .ss-slot.ss-dragover::before { background: rgb(242 181 74 / 0.26); }
 .ss-slot.ss-chosen::before { border: 2px solid var(--wax-red-light); box-shadow: 0 0 16px rgb(179 48 42 / 0.6); }
@@ -409,23 +419,6 @@
 /* ───── Seiten-Panels ───── */
 .ss-res { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
 .ss-res-num { font-family: var(--font-num); font-size: 1.5rem; line-height: 1; min-width: 1.4em; }
-.ss-bowl {
-  position: relative;
-  width: 58px;
-  height: 30px;
-  border-radius: 0 0 30px 30px;
-  background: linear-gradient(180deg, #6b5230, #3a2d20);
-  border: 1.5px solid var(--brass);
-  overflow: hidden;
-}
-.ss-bowl-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(ellipse at 50% 0%, #b3302a, #5c0f0f);
-  transition: height 0.4s ease;
-}
 .ss-pile { position: relative; width: 58px; height: 34px; }
 .ss-deck-stack {
   position: relative;

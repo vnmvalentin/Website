@@ -1,11 +1,15 @@
 # Zirkel – Deck-Welten für Sacrifice & Sigils
 
 Ein **Zirkel** ist eine in sich geschlossene Deck-Welt: eigene Ressourcen, eigene Stämme bzw. Klassen, eigene Sigils,
-eigene Nebendecks, eigene Pfadknoten und ein eigener Look. Heute gibt es genau einen Zirkel, den **Moor-Zirkel**
-(`moor`: Blut, Knochen, Wachs, Tiere aus dem Aschemoor). Dieses Dokument beschreibt die technische Grundlage und drei
-Konzepte für neue Zirkel. Karten für neue Zirkel werden erst gebaut, wenn die Konzepte abgenommen sind.
+eigene Nebendecks, eigene Pfadknoten und ein eigener Look. Es gibt zwei Zirkel: den **Moor-Zirkel** (`moor`: Blut,
+Knochen, Wachs, Tiere aus dem Aschemoor) und seit Runde 4 den **Gezeiten-Zirkel** (`gezeiten`, Konzept B, umgesetzt –
+siehe Abschnitt 3a). Dieses Dokument beschreibt die technische Grundlage und die Konzepte; Uhrwerk (A) und
+Sternwarte (C) sind weiterhin nur Entwürfe.
 
-Alle Konzepte sind eigenständig erfunden. Sie übernehmen keine Namen, Figuren, Karten oder Regeln aus Inscryption.
+Alle Konzepte sind eigenständig erfunden und übernehmen keine Namen, Figuren oder Karten aus Inscryption. Seit Runde 3
+folgen die **Grundregeln** des Moor-Zirkels bewusst Inscryption Akt 1 (festes Nebendeck mit Nebendeck-Totem, Tauchgang
+und Leibwächter wie Waterborne und Guardian, siehe PLAN.md Abschnitt 7); ein neuer Zirkel sollte dieselben Grundregeln
+(Waage, Ziehen, Opfern, Überlauf, Nebendeck-Totem) teilen und nur Ressourcen, Karten und Sigils austauschen.
 
 ---
 
@@ -40,7 +44,7 @@ Ein Zirkel ist ein reines Datenpaket (`engine/zirkel/<id>.js`, registriert in `e
 |---|---|---|
 | Ressourcen | ja | Moor-Ressourcen haben feste Namen in der Engine (`blood/bones/wax`). Neue Ressourcen brauchen einen eigenen Ressourcen-Hook (Zugbeginn, Kosten, Anzeige), siehe Konzepte. |
 | Karten + Sigils | ja | gleiche Kartenstruktur (`defineCards`), Sigils mit denselben Hooks wie heute. |
-| Nebendecks | ja | mindestens 1, ideal 3. |
+| Nebendeck | ja | genau 1 festes Wesen für beide Spieler (wie der Moorling), dazu eine eigene Liste an Nebendeck-Totem-Sigils. |
 | Pfadknoten | ja | eigene Knoten ergänzen die gemeinsamen (Kartenwahl, Händler, Lagerfeuer …). |
 | Theme | ja | Palette, Material, Schrift, Kartenrücken, Sound-Set. |
 | KI-Bewertung | später | `cardScore` liest heute nur Werte + Sigil-Power, das reicht für den Start. |
@@ -106,7 +110,37 @@ einrasten, Glockenschläge bei Treffern, ein tiefes Brummen alter Transformatore
 
 ---
 
-## 3. Konzept B: Gezeiten-Zirkel
+## 3a. Gezeiten-Zirkel – so ist er gebaut (Runde 4)
+
+Umgesetzt nach Konzept B, an die gemeinsamen Grundregeln angepasst (Blut und Knochen wie im Moor, Salz statt Wachs).
+Daten: `data/gezeiten/` (Stämme, Karten, Nebendeck), Sigils: `engine/sigils/gezeiten.js`, Paket: `engine/zirkel/gezeiten.js`.
+
+| Teil | Umsetzung |
+|---|---|
+| Gezeitenstand | `battle.state.tide`: 0 Ebbe, 1 steigend, 2 Flut, 3 fallend; je eine Runde, Start bei Ebbe (`tideAt`). Hochwasser = steigend/Flut, Niedrigwasser = fallend/Ebbe. Mondzug verschiebt für beide (`tideShift`). |
+| Flut | Uferreihen (Hinterreihen) unter Wasser: kein Nachrücken/Vorpreschen/Aufmarsch (außer Anker), Überlauf und Hinterhalt gehen an ihnen vorbei. Treibgut stirbt, Heimkehrer kommen auf die Hand. |
+| Ebbe | Wer eine ganz leere Lane hat, bekommt zu Zugbeginn eine Nebendeck-Karte. |
+| Salz | Ressource `kind: "shore"`: zu Zugbeginn +1 je eigener Karte in der Uferreihe, höchstens 8. Kosten `s1`–`s8`, Budget 1,6 je Salz. |
+| Gezeiten-Bindung | Karte `tide: "high" | "low"` nur bei Hoch- bzw. Niedrigwasser spielbar (Fehler `wrongTide`), dafür +1,5 Budget. Statt „nur bei Ebbe/Flut“ (je 1 von 4 eigenen Zügen) die halben Zyklen – sonst wären die Karten fast nie spielbar. |
+| Stämme | 13 + stammloses Treibgut: Muschelvolk, Ertrunkene, Tangwesen, Möwenschwärme, Leuchtturmwärter, Scherenvolk, Quallen, Robben, Raubfische, Tiefseeleuchter, Wattschnecken, Korallen, Wrackgeister. |
+| Karten | 172 sammelbar, 15 legendär, 9 verflucht, dazu Folgeformen, Brutlinge, leere Muschel. Alle im Kostenbudget (±1,5), zwei bewusste Abweichungen mit `balanceNote`. |
+| Sigils | 19 neue (Watt-Läufer, Anker, Sog, Brandung, Flutwelle, Schlick, Gezeitenschild, Salzkruste, Tintenwolke, Heimkehr, Muschelgrab, Salzader, Salzgabe, Perle, Strandgut, Leuchtfeuer, Treibgut, Flaschenpost, Mondzug) plus die Grund-Sigils. Wachs-Sigils (Kerzendocht, Wachsquelle, Wachsgabe) sind Moor-only (`zirkel` am Sigil, Validator prüft). |
+| Nebendeck | Strandkrabbe (0/1) für beide; Nebendeck-Totem aus eigener Liste (Doppelblut, Salzgabe, Leichtes Mark, Perle, Aschenspende, Knochenmark, Schildrinde). |
+| Pfad | Gemeinsame Knoten; Ereignisse Wrack, Gezeitentümpel, Salzsieder statt Wachszieher/Mondfinsternis; Kopisten-Makel Treibgut statt Kerzendocht. |
+| Look | Schiefer/Treibholz-Thema (`[data-zirkel="gezeiten"]`), Uferreihe blau bei Flut, Gezeitenanzeige unter der Waage, Salzkristall, Wellen-/Rippel-Marke auf gebundenen Karten, neue Silhouetten Muschel/Robbe/Koralle. |
+| KI | Salz und Uferreihe in der Bewertung, Gezeiten-Bindung bei den Kandidaten, Ereignisse Wrack/Tümpel/Salzsieder. |
+
+Nicht umgesetzt aus dem Konzept: der Knoten „Leuchtturm“ (Vorschau zwei Ebenen) und eigene Sounds (die Moor-Sounds
+laufen weiter, der Gezeitenwechsel nutzt das Platschen). „Gemischt“ (jeder seinen eigenen Zirkel) bleibt aus: der
+gemeinsame Pool und der gemeinsame Wasserstand passen nicht zu zwei verschiedenen Zirkeln an einem Tisch.
+
+**Balancing (5000 Matches normal, 2000 schwer):** Startspieler 48,9 % bzw. 48,7 % mit Zweitspieler-Ausgleich
++2 Salz +2 Knochen (gemessen: +1/+1 57,6 %, +2/+1 52,7 %, +1/+2 54,0 %, Startspieler zieht nicht 47,5 %). Stämme 47–53 %,
+keine Karten-Ausreißer. Angepasst: Letzter Wärter und Tangkrone billiger, Sturmflut 5 Salz, Möwenküken 1 Knochen,
+Silbermöwe 1/1, Schneckenlaich 2 Knochen, Dornenkleid/Stinkdrüse aus der Nebendeck-Liste. Berichte:
+`balance-report-gezeiten.json`, `balance-report-gezeiten-hard.json` (`npm run balance -- --zirkel gezeiten`).
+
+## 3. Konzept B: Gezeiten-Zirkel (ursprünglicher Entwurf)
 
 **Welt.** Eine versunkene Küstenstadt, zweimal am Tag trocken, zweimal überflutet. Zwischen Kirchtürmen, die aus
 dem Watt ragen, leben Muschelvolk, Ertrunkene, Tangwesen und Möwenschwärme. Wer hier kämpft, kämpft mit dem Wasser.
@@ -193,9 +227,12 @@ tiefe Gongs bei Finsternis, ein Uhrwerk des Teleskops, das sich dreht, wenn die 
 
 ---
 
-## 5. Nächste Schritte (nach Abnahme)
+## 5. Nächste Schritte
 
-1. Ressourcen-Hooks verallgemeinern (Zugbeginn-Gewinn, Kostenprüfung, Anzeige) und Moor darüber abbilden.
-2. Pro Zirkel: 40–60 Karten, 16–24 Sigils, 3 Nebendecks, 3–4 eigene Pfadknoten, Theme.
-3. KI: `cardScore`/`evaluateBattle` pro Zirkel ergänzen (Muster, Gezeiten, Spannung).
-4. Balancing-Tool: Zirkel als Parameter, Vergleich Zirkel gegen Zirkel erst mit „gemischt“.
+1. ~~Ressourcen-Hooks verallgemeinern~~ – erledigt: `resources` mit `kind` (`sacrifice`, `stock`, `perTurn`, `shore`),
+   `bonusResource`, `secondPlayerBonus` pro Zirkel; Kosten/Anzeige generisch.
+2. ~~Gezeiten~~ – erledigt (Abschnitt 3a). Für Uhrwerk (A) fehlen aktivierbare Fähigkeiten und Zahnrad-Sockel, für die
+   Sternwarte (C) eine Muster-Erkennung am Zugbeginn – beides neue Engine-Bausteine.
+3. Eigene Sounds pro Zirkel (Brandung, Möwen, Glocken unter Wasser).
+4. „Gemischt“ erst, wenn es einen Modus gibt, in dem beide Zirkel sinnvoll gegeneinander antreten (getrennte Pools,
+   Gezeiten nur auf der Gezeiten-Seite).

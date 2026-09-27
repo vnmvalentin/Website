@@ -11,6 +11,7 @@ import { createBattle, battleAction } from "./battle.js";
 import { ZIRKEL, DEFAULT_ZIRKEL, zirkelOf } from "./zirkel/index.js";
 import { createDraft, applyPick, pickable, poolCard, draftDone, extrasTurn, PICKS_PER_PLAYER } from "./draft.js";
 import { generateMap, createPlayerPath, reachable, createScene, sceneAction, defaultOp } from "./path.js";
+import { totemSlot } from "../data/totems.js";
 
 export const DEFAULT_SETTINGS = {
   draftMode: "shared",
@@ -67,7 +68,7 @@ function newMatchPlayer(/** @type {string} */ name) {
     sideType: "moorling",
     heads: /** @type {any[]} */ ([]),
     bases: /** @type {any[]} */ ([]),
-    totems: { tribe: /** @type {any} */ (null), lane: /** @type {any} */ (null) },
+    totems: { tribe: /** @type {any} */ (null), lane: /** @type {any} */ (null), side: /** @type {any} */ (null) },
     items: /** @type {string[]} */ ([]),
     shards: 0,
     cardSeq: 0,
@@ -170,14 +171,14 @@ function extrasPhase(s, p, a, events) {
   if (ex.head !== null && ex.side !== null) return "alreadyChosen";
   const step = extrasTurn(d);
   if (step) {
-    // Gemeinsamer Pool: Kopf und Nebendeck nacheinander mit wechselndem Erstzugriff, Gewähltes ist weg
+    // Gemeinsamer Pool: Kopf und Nebendeck-Totem nacheinander mit wechselndem Erstzugriff, Gewähltes ist weg
     if (step[0] !== p) return "notYourPick";
     const kind = step[1];
     const other = d.extras[1 - p];
     if (a.type === "timeout") {
       a = kind === "head"
         ? { type: "draftExtras", head: d.heads.findIndex((/** @type {any} */ _, /** @type {number} */ i) => i !== other.head) }
-        : { type: "draftExtras", side: Object.keys(zirkelOf(s).sideDeckTypes).find((k) => k !== other.side) };
+        : { type: "draftExtras", side: d.sides.find((/** @type {string} */ k) => k !== other.side) };
     }
     if (a.type !== "draftExtras") return "wrongPhase";
     if (kind === "head") {
@@ -185,17 +186,17 @@ function extrasPhase(s, p, a, events) {
       if (other.head === a.head) return "headTaken";
       ex.head = a.head;
     } else {
-      if (!(a.side in zirkelOf(s).sideDeckTypes)) return "badSide";
+      if (!d.sides.includes(a.side)) return "badSide";
       if (other.side === a.side) return "sideTaken";
       ex.side = a.side;
     }
     d.extraIndex += 1;
     events.push({ type: "extrasChosen", player: p, kind, head: kind === "head" ? a.head : undefined, side: kind === "side" ? a.side : undefined });
   } else {
-    if (a.type === "timeout") a = { type: "draftExtras", head: 0, side: "moorling" };
+    if (a.type === "timeout") a = { type: "draftExtras", head: 0, side: d.sides[0] };
     if (a.type !== "draftExtras") return "wrongPhase";
     if (!Number.isInteger(a.head) || !d.heads[a.head]) return "badHead";
-    if (!(a.side in zirkelOf(s).sideDeckTypes)) return "badSide";
+    if (!d.sides.includes(a.side)) return "badSide";
     ex.head = a.head;
     ex.side = a.side;
     events.push({ type: "extrasChosen", player: p });
@@ -206,11 +207,14 @@ function extrasPhase(s, p, a, events) {
       P.deck = [];
       for (const pid of d.picks[q]) newDeckCard(s, q, poolCard(d, pid).baseId);
       const bundle = d.heads[d.extras[q].head];
-      P.heads = [bundle.head];
-      P.bases = [bundle.base];
-      P.totems = { tribe: null, lane: null };
-      P.totems[bundle.head.kind === "tribe" ? "tribe" : "lane"] = { head: bundle.head, base: bundle.base };
-      P.sideType = d.extras[q].side;
+      // Runde 3: festes Nebendeck (Moorling) für beide, dazu der Nebendeck-Kopf mit dem gewählten Sigil
+      const sideHead = { kind: "side" };
+      const sideBase = { kind: "sigil", sigil: d.extras[q].side };
+      P.heads = [bundle.head, sideHead];
+      P.bases = [bundle.base, sideBase];
+      P.totems = { tribe: null, lane: null, side: { head: sideHead, base: sideBase } };
+      P.totems[totemSlot(bundle.head)] = { head: bundle.head, base: bundle.base };
+      P.sideType = Object.keys(zirkelOf(s).sideDeckTypes)[0];
     }
     // Runde 2 (B1): direkt nach dem Draft geht es auf den Pfad – beide mit 3 Start-Splittern
     for (const P of s.players) P.shards += START_SHARDS;
@@ -440,14 +444,14 @@ export function createBattleMatch(opts) {
   const s = createMatch({ seed: opts.seed, names: opts.names, salt: `direkt-${opts.seed}` });
   s.settings.winsNeeded = opts.winsNeeded || 1;
   s.draft.picks = [[], []];
-  s.draft.extras = [{ head: 0, side: "moorling" }, { head: 0, side: "moorling" }];
+  s.draft.extras = [{ head: 0, side: s.draft.sides[0] }, { head: 0, side: s.draft.sides[0] }];
   s.draft.extraIndex = s.draft.extraOrder.length;
   for (const q of /** @type {const} */ ([0, 1])) {
     const P = s.players[q];
     P.deck = [];
     for (const id of opts.decks[q]) newDeckCard(s, q, id);
     P.sideType = opts.sideTypes?.[q] || "moorling";
-    P.totems = opts.totems?.[q] || { tribe: null, lane: null };
+    P.totems = opts.totems?.[q] || { tribe: null, lane: null, side: null };
   }
   /** @type {any[]} */
   const events = [];

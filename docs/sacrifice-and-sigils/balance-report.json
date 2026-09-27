@@ -1,11 +1,12 @@
 {
- "generatedAt": "2026-09-27T07:17:20.505Z",
+ "generatedAt": "2026-09-27T10:52:35.360Z",
  "games": 5000,
- "battles": 12402,
+ "battles": 12412,
  "level": "normal",
+ "zirkel": "moor",
  "errors": 0,
- "firstPlayerWinRate": 0.5024189646831156,
- "avgBattleTurns": 9.16295758748589,
+ "firstPlayerWinRate": 0.5277151144054141,
+ "avgBattleTurns": 8.667902030293265,
  "thresholds": {
   "low": 0.44,
   "high": 0.56,
@@ -13,347 +14,267 @@
  },
  "cardsInDeck": [
   {
-   "key": "bestien_grauwelpe",
-   "name": "Grauwelpe",
-   "wins": 448,
-   "samples": 817,
-   "rate": 0.5483476132190942,
-   "outlier": false
-  },
-  {
-   "key": "nager_aschmaus",
-   "name": "Aschmaus",
-   "wins": 522,
-   "samples": 954,
-   "rate": 0.5471698113207547,
-   "outlier": false
-  },
-  {
-   "key": "nager_opferratte",
-   "name": "Opferratte",
-   "wins": 571,
-   "samples": 1058,
-   "rate": 0.5396975425330813,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_aaskraehe",
-   "name": "Aaskrähe",
-   "wins": 402,
-   "samples": 747,
-   "rate": 0.5381526104417671,
-   "outlier": false
-  },
-  {
-   "key": "nager_rattenkoenig",
-   "name": "Rattenkönig",
-   "wins": 1930,
-   "samples": 3590,
-   "rate": 0.5376044568245125,
-   "outlier": false
-  },
-  {
-   "key": "nager_moorratte",
-   "name": "Moorratte",
-   "wins": 360,
-   "samples": 675,
-   "rate": 0.5333333333333333,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_schuldner",
-   "name": "Der Schuldner",
-   "wins": 847,
-   "samples": 1596,
-   "rate": 0.5307017543859649,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_irrlicht",
-   "name": "Irrlicht",
-   "wins": 622,
-   "samples": 1175,
-   "rate": 0.5293617021276595,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_stoffpuppe",
-   "name": "Stoffpuppe",
-   "wins": 880,
-   "samples": 1665,
-   "rate": 0.5285285285285285,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_gabelbock",
-   "name": "Gabelbock",
-   "wins": 1376,
-   "samples": 2610,
-   "rate": 0.5272030651340996,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_moorunke",
-   "name": "Moorunke",
-   "wins": 681,
-   "samples": 1292,
-   "rate": 0.5270897832817337,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_wachsameise",
-   "name": "Wachsameise",
-   "wins": 601,
-   "samples": 1141,
-   "rate": 0.5267309377738826,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_spiegelscherbe",
-   "name": "Spiegelscherbe",
-   "wins": 967,
-   "samples": 1836,
-   "rate": 0.5266884531590414,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_schattenmotte",
-   "name": "Schattenmotte",
-   "wins": 1387,
-   "samples": 2635,
-   "rate": 0.5263757115749526,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_dochtmotte",
-   "name": "Dochtmotte",
-   "wins": 488,
-   "samples": 930,
-   "rate": 0.524731182795699,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_kerzengeist",
-   "name": "Kerzengeist",
-   "wins": 511,
-   "samples": 974,
-   "rate": 0.5246406570841889,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_blutfink",
-   "name": "Blutfink",
-   "wins": 573,
-   "samples": 1093,
-   "rate": 0.5242451967063129,
-   "outlier": false
-  },
-  {
-   "key": "nager_wuehlmaus",
-   "name": "Wühlmaus",
-   "wins": 617,
-   "samples": 1177,
-   "rate": 0.524214103653356,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_larvenknaeuel",
-   "name": "Larvenknäuel",
-   "wins": 644,
-   "samples": 1230,
-   "rate": 0.5235772357723577,
-   "outlier": false
-  },
-  {
-   "key": "bestien_bachenmutter",
-   "name": "Bachenmutter",
-   "wins": 678,
-   "samples": 1297,
-   "rate": 0.5227447956823439,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_zwergfledermaus",
-   "name": "Zwergfledermaus",
-   "wins": 391,
-   "samples": 751,
-   "rate": 0.5206391478029294,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_talgschemen",
-   "name": "Talgschemen",
-   "wins": 481,
-   "samples": 924,
-   "rate": 0.5205627705627706,
-   "outlier": false
-  },
-  {
-   "key": "myzel_sporenknirps",
-   "name": "Sporenknirps",
-   "wins": 354,
-   "samples": 681,
-   "rate": 0.5198237885462555,
+   "key": "gehoernte_hirschkalb",
+   "name": "Hirschkalb",
+   "wins": 430,
+   "samples": 780,
+   "rate": 0.5512820512820513,
    "outlier": false
   },
   {
    "key": "stammlose_tintenkleks",
    "name": "Tintenklecks",
-   "wins": 551,
-   "samples": 1062,
-   "rate": 0.5188323917137476,
+   "wins": 545,
+   "samples": 1007,
+   "rate": 0.5412115193644489,
    "outlier": false
   },
   {
-   "key": "flatterer_blendfalter",
-   "name": "Blendfalter",
-   "wins": 896,
-   "samples": 1727,
-   "rate": 0.5188187608569774,
+   "key": "bestien_bachenmutter",
+   "name": "Bachenmutter",
+   "wins": 665,
+   "samples": 1231,
+   "rate": 0.5402112103980503,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_kauzkueken",
+   "name": "Kauzküken",
+   "wins": 436,
+   "samples": 808,
+   "rate": 0.5396039603960396,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_spiegelscherbe",
+   "name": "Spiegelscherbe",
+   "wins": 906,
+   "samples": 1689,
+   "rate": 0.5364120781527532,
+   "outlier": false
+  },
+  {
+   "key": "bestien_grauwelpe",
+   "name": "Grauwelpe",
+   "wins": 430,
+   "samples": 804,
+   "rate": 0.5348258706467661,
+   "outlier": false
+  },
+  {
+   "key": "nager_rattenkoenig",
+   "name": "Rattenkönig",
+   "wins": 1907,
+   "samples": 3576,
+   "rate": 0.5332774049217002,
+   "outlier": false
+  },
+  {
+   "key": "nager_wuehlmaus",
+   "name": "Wühlmaus",
+   "wins": 579,
+   "samples": 1087,
+   "rate": 0.5326586936522539,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_kerzengeist",
+   "name": "Kerzengeist",
+   "wins": 456,
+   "samples": 858,
+   "rate": 0.5314685314685315,
    "outlier": false
   },
   {
    "key": "stammlose_aufziehkaefer",
    "name": "Aufziehkäfer",
-   "wins": 1162,
-   "samples": 2241,
-   "rate": 0.5185185185185185,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_hirschkalb",
-   "name": "Hirschkalb",
-   "wins": 405,
-   "samples": 782,
-   "rate": 0.5179028132992327,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_ewigeflamme",
-   "name": "Ewige Flamme",
-   "wins": 1104,
-   "samples": 2133,
-   "rate": 0.5175808720112518,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_schlammgrundel",
-   "name": "Schlammgrundel",
-   "wins": 484,
-   "samples": 936,
-   "rate": 0.5170940170940171,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_kristallkugel",
-   "name": "Kristallkugel",
-   "wins": 850,
-   "samples": 1645,
-   "rate": 0.5167173252279635,
-   "outlier": false
-  },
-  {
-   "key": "bestien_hungerwolf",
-   "name": "Hungerwolf",
-   "wins": 1094,
-   "samples": 2118,
-   "rate": 0.5165250236071766,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_mistkaefer",
-   "name": "Mistkäfer",
-   "wins": 946,
-   "samples": 1832,
-   "rate": 0.5163755458515283,
-   "outlier": false
-  },
-  {
-   "key": "myzel_stinkmorchel",
-   "name": "Stinkmorchel",
-   "wins": 520,
-   "samples": 1008,
-   "rate": 0.5158730158730159,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_flackerwicht",
-   "name": "Flackerwicht",
-   "wins": 508,
-   "samples": 985,
-   "rate": 0.515736040609137,
+   "wins": 1084,
+   "samples": 2051,
+   "rate": 0.5285226718673818,
    "outlier": false
   },
   {
    "key": "tiefe_aalbrut",
    "name": "Aalbrut",
-   "wins": 377,
-   "samples": 731,
-   "rate": 0.5157318741450069,
+   "wins": 370,
+   "samples": 702,
+   "rate": 0.5270655270655271,
    "outlier": false
   },
   {
-   "key": "nachtvoegel_sturmsegler",
-   "name": "Sturmsegler",
-   "wins": 810,
-   "samples": 1573,
-   "rate": 0.5149396058486968,
+   "key": "tiefe_schlammgrundel",
+   "name": "Schlammgrundel",
+   "wins": 470,
+   "samples": 892,
+   "rate": 0.5269058295964125,
    "outlier": false
   },
   {
-   "key": "gehoernte_sturmwidder",
-   "name": "Sturmwidder",
-   "wins": 1022,
-   "samples": 1986,
-   "rate": 0.5146022155085599,
+   "key": "kerzenwesen_wachsling",
+   "name": "Wachsling",
+   "wins": 496,
+   "samples": 944,
+   "rate": 0.5254237288135594,
    "outlier": false
   },
   {
-   "key": "bestien_hetzwolf",
-   "name": "Hetzwolf",
-   "wins": 1172,
-   "samples": 2278,
-   "rate": 0.514486391571554,
+   "key": "nachtvoegel_blutfink",
+   "name": "Blutfink",
+   "wins": 567,
+   "samples": 1080,
+   "rate": 0.525,
    "outlier": false
   },
   {
-   "key": "nachtvoegel_nachtreiher",
-   "name": "Nachtreiher",
-   "wins": 1436,
-   "samples": 2793,
-   "rate": 0.5141424991049052,
+   "key": "stammlose_kartograph",
+   "name": "Der Kartograph",
+   "wins": 1296,
+   "samples": 2478,
+   "rate": 0.5230024213075061,
    "outlier": false
   },
   {
-   "key": "flatterer_flughund",
-   "name": "Flughund",
-   "wins": 1096,
-   "samples": 2132,
-   "rate": 0.5140712945590994,
+   "key": "schwaerme_knochenkaefer",
+   "name": "Knochenkäfer",
+   "wins": 478,
+   "samples": 919,
+   "rate": 0.5201305767138193,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_scherenkrebs",
+   "name": "Scherenkrebs",
+   "wins": 1062,
+   "samples": 2042,
+   "rate": 0.5200783545543585,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_moorunke",
+   "name": "Moorunke",
+   "wins": 719,
+   "samples": 1383,
+   "rate": 0.519884309472162,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_heerameise",
+   "name": "Heerameise",
+   "wins": 559,
+   "samples": 1076,
+   "rate": 0.5195167286245354,
+   "outlier": false
+  },
+  {
+   "key": "nager_opferratte",
+   "name": "Opferratte",
+   "wins": 551,
+   "samples": 1063,
+   "rate": 0.5183443085606774,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_aaskraehe",
+   "name": "Aaskrähe",
+   "wins": 403,
+   "samples": 778,
+   "rate": 0.5179948586118251,
+   "outlier": false
+  },
+  {
+   "key": "nager_aschmaus",
+   "name": "Aschmaus",
+   "wins": 533,
+   "samples": 1029,
+   "rate": 0.5179786200194364,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_kristallkugel",
+   "name": "Kristallkugel",
+   "wins": 696,
+   "samples": 1346,
+   "rate": 0.5170876671619614,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_stoffpuppe",
+   "name": "Stoffpuppe",
+   "wins": 919,
+   "samples": 1779,
+   "rate": 0.5165823496346262,
+   "outlier": false
+  },
+  {
+   "key": "bestien_grauerfuerst",
+   "name": "Der Graue Fürst",
+   "wins": 1126,
+   "samples": 2180,
+   "rate": 0.5165137614678899,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_talgschemen",
+   "name": "Talgschemen",
+   "wins": 480,
+   "samples": 931,
+   "rate": 0.5155746509129968,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_mistkaefer",
+   "name": "Mistkäfer",
+   "wins": 876,
+   "samples": 1700,
+   "rate": 0.5152941176470588,
+   "outlier": false
+  },
+  {
+   "key": "nager_schuldratte",
+   "name": "Schuldratte",
+   "wins": 477,
+   "samples": 926,
+   "rate": 0.5151187904967602,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_lachhyaene",
+   "name": "Lachhyäne",
+   "wins": 1110,
+   "samples": 2158,
+   "rate": 0.5143651529193698,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_saebelkaefer",
+   "name": "Säbelkäfer",
+   "wins": 675,
+   "samples": 1314,
+   "rate": 0.5136986301369864,
    "outlier": false
   },
   {
    "key": "kriecher_grauechse",
    "name": "Grauechse",
-   "wins": 1154,
-   "samples": 2246,
-   "rate": 0.5138023152270703,
+   "wins": 1077,
+   "samples": 2100,
+   "rate": 0.5128571428571429,
    "outlier": false
   },
   {
-   "key": "stammlose_standuhr",
-   "name": "Standuhr",
-   "wins": 929,
-   "samples": 1809,
-   "rate": 0.5135433941404091,
+   "key": "gehoernte_gabelbock",
+   "name": "Gabelbock",
+   "wins": 1157,
+   "samples": 2256,
+   "rate": 0.512854609929078,
    "outlier": false
   },
   {
-   "key": "gebeine_knochenhaufen",
-   "name": "Knochenhaufen",
-   "wins": 589,
-   "samples": 1147,
-   "rate": 0.5135135135135135,
+   "key": "nager_pestratte",
+   "name": "Pestratte",
+   "wins": 1044,
+   "samples": 2036,
+   "rate": 0.5127701375245579,
    "outlier": false
   },
   {
@@ -365,2349 +286,2453 @@
    "outlier": false
   },
   {
-   "key": "wurzelvolk_dornspross",
-   "name": "Dornspross",
-   "wins": 569,
-   "samples": 1112,
-   "rate": 0.5116906474820144,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_lachhyaene",
-   "name": "Lachhyäne",
-   "wins": 1164,
-   "samples": 2276,
-   "rate": 0.5114235500878734,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_kartograph",
-   "name": "Der Kartograph",
-   "wins": 1271,
-   "samples": 2488,
-   "rate": 0.5108520900321544,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_scherenkrebs",
-   "name": "Scherenkrebs",
-   "wins": 1018,
-   "samples": 1993,
-   "rate": 0.5107877571500251,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_wurzelwacht",
-   "name": "Wurzelwacht",
-   "wins": 916,
-   "samples": 1795,
-   "rate": 0.5103064066852367,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_grabschakal",
-   "name": "Grabschakal",
-   "wins": 768,
-   "samples": 1507,
-   "rate": 0.5096217650962177,
-   "outlier": false
-  },
-  {
    "key": "wurzelvolk_samenkapsel",
    "name": "Samenkapsel",
-   "wins": 427,
-   "samples": 838,
-   "rate": 0.5095465393794749,
+   "wins": 433,
+   "samples": 845,
+   "rate": 0.5124260355029586,
    "outlier": false
   },
   {
-   "key": "gehoernte_kronenhirsch",
-   "name": "Kronenhirsch",
-   "wins": 1522,
-   "samples": 2990,
-   "rate": 0.5090301003344482,
+   "key": "bestien_hetzwolf",
+   "name": "Hetzwolf",
+   "wins": 1229,
+   "samples": 2399,
+   "rate": 0.5122967903293039,
    "outlier": false
   },
   {
-   "key": "schwaerme_schwarmkoenigin",
-   "name": "Schwarmkönigin",
-   "wins": 1815,
-   "samples": 3569,
-   "rate": 0.508545811151583,
+   "key": "bestien_hungerwolf",
+   "name": "Hungerwolf",
+   "wins": 1124,
+   "samples": 2195,
+   "rate": 0.5120728929384966,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_larvenknaeuel",
+   "name": "Larvenknäuel",
+   "wins": 613,
+   "samples": 1198,
+   "rate": 0.511686143572621,
    "outlier": false
   },
   {
    "key": "bestien_aschwolf",
    "name": "Aschwolf",
-   "wins": 1315,
-   "samples": 2588,
-   "rate": 0.5081143740340031,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_pestdoktor",
-   "name": "Pestdoktor",
-   "wins": 1213,
-   "samples": 2389,
-   "rate": 0.5077438258685643,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_knochenwuerfel",
-   "name": "Knochenwürfel",
-   "wins": 601,
-   "samples": 1184,
-   "rate": 0.5076013513513513,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_sturmkauz",
-   "name": "Sturmkauz",
-   "wins": 1937,
-   "samples": 3816,
-   "rate": 0.5075995807127882,
-   "outlier": false
-  },
-  {
-   "key": "bestien_mondluchs",
-   "name": "Mondluchs",
-   "wins": 1891,
-   "samples": 3729,
-   "rate": 0.5071064628586752,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_stummelkerze",
-   "name": "Stummelkerze",
-   "wins": 428,
-   "samples": 845,
-   "rate": 0.506508875739645,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_termitenhuegel",
-   "name": "Termitenhügel",
-   "wins": 1273,
-   "samples": 2520,
-   "rate": 0.5051587301587301,
-   "outlier": false
-  },
-  {
-   "key": "myzel_moderhut",
-   "name": "Moderhut",
-   "wins": 1090,
-   "samples": 2158,
-   "rate": 0.505097312326228,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_tintenkrake",
-   "name": "Tintenkrake",
-   "wins": 1372,
-   "samples": 2719,
-   "rate": 0.5045972784111806,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_hechtschatten",
-   "name": "Hechtschatten",
-   "wins": 1380,
-   "samples": 2737,
-   "rate": 0.5042016806722689,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_knorrstumpf",
-   "name": "Knorrstumpf",
-   "wins": 842,
-   "samples": 1670,
-   "rate": 0.5041916167664671,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_wachsklotz",
-   "name": "Wachsklotz",
-   "wins": 1192,
-   "samples": 2366,
-   "rate": 0.503803888419273,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_froschlaich",
-   "name": "Froschlaich",
-   "wins": 407,
-   "samples": 808,
-   "rate": 0.5037128712871287,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_schlingaal",
-   "name": "Schlingaal",
-   "wins": 1845,
-   "samples": 3664,
-   "rate": 0.5035480349344978,
-   "outlier": false
-  },
-  {
-   "key": "nager_nestratte",
-   "name": "Nestratte",
-   "wins": 449,
-   "samples": 892,
-   "rate": 0.5033632286995515,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_tintengolem",
-   "name": "Tintengolem",
-   "wins": 1112,
-   "samples": 2211,
-   "rate": 0.5029398462234284,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_koederpuppe",
-   "name": "Köderpuppe",
-   "wins": 1341,
-   "samples": 2668,
-   "rate": 0.5026236881559221,
-   "outlier": false
-  },
-  {
-   "key": "bestien_moorkeiler",
-   "name": "Moorkeiler",
-   "wins": 804,
-   "samples": 1600,
-   "rate": 0.5025,
-   "outlier": false
-  },
-  {
-   "key": "nager_siebenschlaefer",
-   "name": "Siebenschläfer",
-   "wins": 407,
-   "samples": 810,
-   "rate": 0.5024691358024691,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_rindenhueter",
-   "name": "Rindenhüter",
-   "wins": 1394,
-   "samples": 2776,
-   "rate": 0.5021613832853026,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_braut",
-   "name": "Die Brennende Braut",
-   "wins": 1989,
-   "samples": 3962,
-   "rate": 0.5020191822311963,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_knochenwall",
-   "name": "Knochenwall",
-   "wins": 1104,
-   "samples": 2202,
-   "rate": 0.5013623978201635,
-   "outlier": false
-  },
-  {
-   "key": "nager_pestratte",
-   "name": "Pestratte",
-   "wins": 1147,
-   "samples": 2288,
-   "rate": 0.5013111888111889,
-   "outlier": false
-  },
-  {
-   "key": "bestien_aschbaer",
-   "name": "Aschbär",
-   "wins": 1420,
-   "samples": 2834,
-   "rate": 0.5010585744530699,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_donnerwidder",
-   "name": "Donnerwidder",
-   "wins": 1828,
-   "samples": 3650,
-   "rate": 0.5008219178082192,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_blutsauger",
-   "name": "Blutsauger",
-   "wins": 1538,
-   "samples": 3072,
-   "rate": 0.5006510416666666,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_nebelsalamander",
-   "name": "Nebelsalamander",
-   "wins": 1313,
-   "samples": 2623,
-   "rate": 0.5005718642775447,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_flinkechse",
-   "name": "Flinkechse",
-   "wins": 533,
-   "samples": 1065,
-   "rate": 0.5004694835680751,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_dornbusch",
-   "name": "Dornbusch",
-   "wins": 556,
-   "samples": 1111,
-   "rate": 0.5004500450045004,
-   "outlier": false
-  },
-  {
-   "key": "nager_blindmaulwurf",
-   "name": "Blindmaulwurf",
-   "wins": 1299,
-   "samples": 2596,
-   "rate": 0.5003852080123267,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_schlingnatter",
-   "name": "Schlingnatter",
-   "wins": 1259,
-   "samples": 2517,
-   "rate": 0.5001986491855384,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_knochensammler",
-   "name": "Knochensammler",
-   "wins": 570,
-   "samples": 1140,
-   "rate": 0.5,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_nesselqualle",
-   "name": "Nesselqualle",
-   "wins": 953,
-   "samples": 1907,
-   "rate": 0.49973780807551127,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_panzerkaefer",
-   "name": "Panzerkäfer",
-   "wins": 913,
-   "samples": 1829,
-   "rate": 0.4991798797156916,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_totentaenzer",
-   "name": "Totentänzer",
-   "wins": 1828,
-   "samples": 3664,
-   "rate": 0.49890829694323147,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_mottenmutter",
-   "name": "Die Mottenmutter",
-   "wins": 1922,
-   "samples": 3854,
-   "rate": 0.4987026466009341,
+   "wins": 1354,
+   "samples": 2648,
+   "rate": 0.5113293051359517,
    "outlier": false
   },
   {
    "key": "aasfresser_sammlerkraehe",
    "name": "Sammlerkrähe",
-   "wins": 775,
+   "wins": 795,
    "samples": 1555,
-   "rate": 0.4983922829581994,
+   "rate": 0.5112540192926045,
    "outlier": false
   },
   {
-   "key": "flatterer_staubmotte",
-   "name": "Staubmotte",
-   "wins": 925,
-   "samples": 1858,
-   "rate": 0.49784714747039827,
+   "key": "kerzenwesen_ewigeflamme",
+   "name": "Ewige Flamme",
+   "wins": 1107,
+   "samples": 2168,
+   "rate": 0.5106088560885609,
    "outlier": false
   },
   {
-   "key": "wurzelvolk_dornvater",
-   "name": "Dornvater",
-   "wins": 1298,
-   "samples": 2608,
-   "rate": 0.4976993865030675,
+   "key": "myzel_sporenknirps",
+   "name": "Sporenknirps",
+   "wins": 319,
+   "samples": 626,
+   "rate": 0.5095846645367412,
    "outlier": false
   },
   {
-   "key": "gebeine_grabdachs",
-   "name": "Grabdachs",
-   "wins": 1419,
-   "samples": 2852,
-   "rate": 0.49754558204768584,
+   "key": "myzel_stinkmorchel",
+   "name": "Stinkmorchel",
+   "wins": 547,
+   "samples": 1074,
+   "rate": 0.5093109869646183,
    "outlier": false
   },
   {
-   "key": "stammlose_messingautomat",
-   "name": "Messingautomat",
-   "wins": 1915,
-   "samples": 3850,
-   "rate": 0.4974025974025974,
+   "key": "nachtvoegel_sturmsegler",
+   "name": "Sturmsegler",
+   "wins": 771,
+   "samples": 1514,
+   "rate": 0.5092470277410832,
    "outlier": false
   },
   {
-   "key": "gehoernte_aschhirsch",
-   "name": "Aschhirsch",
-   "wins": 1003,
-   "samples": 2017,
-   "rate": 0.49727317798710957,
+   "key": "flatterer_schattenmotte",
+   "name": "Schattenmotte",
+   "wins": 1158,
+   "samples": 2275,
+   "rate": 0.509010989010989,
    "outlier": false
   },
   {
-   "key": "wurzelvolk_weidenmutter",
-   "name": "Weidenmutter",
-   "wins": 2074,
-   "samples": 4172,
-   "rate": 0.4971236816874401,
+   "key": "kerzenwesen_flackerwicht",
+   "name": "Flackerwicht",
+   "wins": 521,
+   "samples": 1024,
+   "rate": 0.5087890625,
    "outlier": false
   },
   {
-   "key": "tiefe_moraal",
-   "name": "Moraal",
-   "wins": 1016,
-   "samples": 2045,
-   "rate": 0.4968215158924205,
+   "key": "nachtvoegel_sturmkauz",
+   "name": "Sturmkauz",
+   "wins": 1988,
+   "samples": 3912,
+   "rate": 0.5081799591002045,
    "outlier": false
   },
   {
-   "key": "flatterer_mondspanner",
-   "name": "Mondspanner",
-   "wins": 1280,
-   "samples": 2577,
-   "rate": 0.49670159099728367,
+   "key": "bestien_mondluchs",
+   "name": "Mondluchs",
+   "wins": 1898,
+   "samples": 3736,
+   "rate": 0.5080299785867237,
    "outlier": false
   },
   {
-   "key": "bestien_borstenkeiler",
-   "name": "Borstenkeiler",
-   "wins": 1129,
-   "samples": 2274,
-   "rate": 0.49648197009674583,
+   "key": "tiefe_nesselqualle",
+   "name": "Nesselqualle",
+   "wins": 1005,
+   "samples": 1979,
+   "rate": 0.5078322385042952,
    "outlier": false
   },
   {
-   "key": "kerzenwesen_leuchterseele",
-   "name": "Leuchterseele",
-   "wins": 1943,
-   "samples": 3914,
-   "rate": 0.49642309657639244,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_glasgolem",
-   "name": "Glasgolem",
-   "wins": 1779,
-   "samples": 3585,
-   "rate": 0.49623430962343096,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_wurzelbrecher",
-   "name": "Wurzelbrecher",
-   "wins": 1764,
-   "samples": 3556,
-   "rate": 0.49606299212598426,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_schaedeltraeger",
-   "name": "Schädelträger",
-   "wins": 749,
-   "samples": 1510,
-   "rate": 0.4960264900662252,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_fleddergeier",
-   "name": "Fleddergeier",
-   "wins": 1523,
-   "samples": 3071,
-   "rate": 0.4959296646043634,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_vielhaeutige",
-   "name": "Die Vielhäutige",
-   "wins": 1951,
-   "samples": 3935,
-   "rate": 0.49580686149936465,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_nestmutter",
-   "name": "Nestmutter",
-   "wins": 1403,
-   "samples": 2834,
-   "rate": 0.49505998588567396,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_moorbock",
-   "name": "Moorbock",
-   "wins": 677,
-   "samples": 1369,
-   "rate": 0.49452154857560265,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_knochenpicker",
-   "name": "Knochenpicker",
-   "wins": 1300,
-   "samples": 2631,
-   "rate": 0.4941087039148613,
-   "outlier": false
-  },
-  {
-   "key": "myzel_sporenmutter",
-   "name": "Sporenmutter",
-   "wins": 1413,
-   "samples": 2861,
-   "rate": 0.493883257602237,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_knochenhyaene",
-   "name": "Knochenhyäne",
-   "wins": 1456,
-   "samples": 2950,
-   "rate": 0.4935593220338983,
-   "outlier": false
-  },
-  {
-   "key": "myzel_myzelkrone",
-   "name": "Die Myzelkrone",
-   "wins": 1393,
-   "samples": 2827,
-   "rate": 0.49274849663954723,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_glockenrabe",
-   "name": "Glockenrabe",
-   "wins": 1399,
-   "samples": 2840,
-   "rate": 0.4926056338028169,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_uhu",
-   "name": "Moor-Uhu",
-   "wins": 1362,
-   "samples": 2766,
-   "rate": 0.4924078091106291,
-   "outlier": false
-  },
-  {
-   "key": "myzel_faulbauch",
-   "name": "Faulbauch",
-   "wins": 1814,
-   "samples": 3684,
-   "rate": 0.49239956568946797,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_echofledermaus",
-   "name": "Echofledermaus",
-   "wins": 1326,
-   "samples": 2694,
-   "rate": 0.4922048997772829,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_leereruestung",
-   "name": "Leere Rüstung",
-   "wins": 1219,
-   "samples": 2481,
-   "rate": 0.4913341394598952,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_rammwidder",
-   "name": "Rammwidder",
-   "wins": 1240,
-   "samples": 2525,
-   "rate": 0.4910891089108911,
+   "key": "gebeine_knochensammler",
+   "name": "Knochensammler",
+   "wins": 524,
+   "samples": 1032,
+   "rate": 0.5077519379844961,
    "outlier": false
   },
   {
    "key": "kerzenwesen_wachsmaske",
    "name": "Wachsmaske",
-   "wins": 862,
-   "samples": 1756,
-   "rate": 0.4908883826879271,
+   "wins": 886,
+   "samples": 1745,
+   "rate": 0.5077363896848137,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_knorrstumpf",
+   "name": "Knorrstumpf",
+   "wins": 927,
+   "samples": 1826,
+   "rate": 0.5076670317634173,
+   "outlier": false
+  },
+  {
+   "key": "nager_siebenschlaefer",
+   "name": "Siebenschläfer",
+   "wins": 403,
+   "samples": 794,
+   "rate": 0.5075566750629723,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_nachtreiher",
+   "name": "Nachtreiher",
+   "wins": 1395,
+   "samples": 2755,
+   "rate": 0.5063520871143375,
    "outlier": false
   },
   {
    "key": "aasfresser_moorgeier",
    "name": "Moorgeier",
-   "wins": 1369,
-   "samples": 2790,
-   "rate": 0.4906810035842294,
+   "wins": 1378,
+   "samples": 2723,
+   "rate": 0.5060594932060227,
    "outlier": false
   },
   {
-   "key": "nachtvoegel_kauzkueken",
-   "name": "Kauzküken",
-   "wins": 389,
-   "samples": 793,
-   "rate": 0.4905422446406053,
+   "key": "schwaerme_schwarmkoenigin",
+   "name": "Schwarmkönigin",
+   "wins": 1740,
+   "samples": 3440,
+   "rate": 0.5058139534883721,
    "outlier": false
   },
   {
-   "key": "tiefe_moorwels",
-   "name": "Moorwels",
-   "wins": 989,
-   "samples": 2017,
-   "rate": 0.4903321764997521,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_sargwaechter",
-   "name": "Sargwächter",
-   "wins": 1940,
-   "samples": 3957,
-   "rate": 0.49027040687389434,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_giftschleicher",
-   "name": "Giftschleicher",
-   "wins": 1097,
-   "samples": 2238,
-   "rate": 0.49016979445933867,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_kreuzotter",
-   "name": "Kreuzotter",
-   "wins": 1430,
-   "samples": 2918,
-   "rate": 0.4900616860863605,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_kadaverbrut",
-   "name": "Kadaverbrut",
-   "wins": 455,
-   "samples": 929,
-   "rate": 0.4897739504843918,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_schleiereule",
-   "name": "Schleiereule",
-   "wins": 1188,
-   "samples": 2426,
-   "rate": 0.4896949711459192,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_vogelscheuche",
-   "name": "Vogelscheuche",
-   "wins": 606,
-   "samples": 1238,
-   "rate": 0.4894991922455573,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_knochenknecht",
-   "name": "Knochenknecht",
-   "wins": 419,
-   "samples": 856,
-   "rate": 0.4894859813084112,
-   "outlier": false
-  },
-  {
-   "key": "myzel_fliegenpilz",
-   "name": "Fliegenpilz",
-   "wins": 1190,
-   "samples": 2432,
-   "rate": 0.48930921052631576,
-   "outlier": false
-  },
-  {
-   "key": "bestien_rudelmutter",
-   "name": "Rudelmutter",
-   "wins": 759,
-   "samples": 1552,
-   "rate": 0.4890463917525773,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_geisterbock",
-   "name": "Geisterbock",
-   "wins": 1025,
-   "samples": 2097,
-   "rate": 0.4887935145445875,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_hyaenenfuerstin",
-   "name": "Hyänenfürstin",
-   "wins": 1919,
-   "samples": 3927,
-   "rate": 0.4886681945505475,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_grabhund",
-   "name": "Grabhund",
-   "wins": 806,
-   "samples": 1650,
-   "rate": 0.48848484848484847,
-   "outlier": false
-  },
-  {
-   "key": "nager_spitzmaus",
-   "name": "Unsterbliche Spitzmaus",
-   "wins": 902,
-   "samples": 1850,
-   "rate": 0.4875675675675676,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_grundkrake",
-   "name": "Grundkrake",
-   "wins": 1604,
-   "samples": 3290,
-   "rate": 0.48753799392097263,
-   "outlier": false
-  },
-  {
-   "key": "nager_schermaus",
-   "name": "Schermaus",
-   "wins": 671,
-   "samples": 1377,
-   "rate": 0.48729121278140886,
-   "outlier": false
-  },
-  {
-   "key": "bestien_luchsschatten",
-   "name": "Luchsschatten",
-   "wins": 1232,
-   "samples": 2529,
-   "rate": 0.487149070778964,
-   "outlier": false
-  },
-  {
-   "key": "myzel_leuchtkappe",
-   "name": "Leuchtkappe",
-   "wins": 926,
-   "samples": 1901,
-   "rate": 0.48711204629142557,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_saebelkaefer",
-   "name": "Säbelkäfer",
-   "wins": 641,
-   "samples": 1318,
-   "rate": 0.48634294385432475,
-   "outlier": false
-  },
-  {
-   "key": "myzel_hexenring",
-   "name": "Hexenring",
-   "wins": 389,
-   "samples": 800,
-   "rate": 0.48625,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_aschnatter",
-   "name": "Aschnatter",
-   "wins": 1213,
-   "samples": 2497,
-   "rate": 0.4857829395274329,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_lichterfresser",
-   "name": "Lichterfresser",
-   "wins": 1067,
-   "samples": 2197,
-   "rate": 0.48566226672735546,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_moorelch",
-   "name": "Moorelch",
-   "wins": 1232,
-   "samples": 2538,
-   "rate": 0.4854215918045705,
-   "outlier": false
-  },
-  {
-   "key": "myzel_hallimasch",
-   "name": "Hallimasch",
-   "wins": 776,
-   "samples": 1599,
-   "rate": 0.48530331457160725,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_moosschrat",
-   "name": "Moosschrat",
-   "wins": 935,
-   "samples": 1927,
-   "rate": 0.4852101712506487,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_leichenkraehe",
-   "name": "Leichenkrähe",
-   "wins": 658,
-   "samples": 1360,
-   "rate": 0.4838235294117647,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_seidenraupe",
-   "name": "Seidenraupe",
-   "wins": 319,
-   "samples": 660,
-   "rate": 0.48333333333333334,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_warzenkroete",
-   "name": "Warzenkröte",
-   "wins": 726,
-   "samples": 1505,
-   "rate": 0.48239202657807306,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_holzgolem",
-   "name": "Holzgolem",
-   "wins": 709,
-   "samples": 1472,
-   "rate": 0.48165760869565216,
-   "outlier": false
-  },
-  {
-   "key": "nager_schuldratte",
-   "name": "Schuldratte",
-   "wins": 450,
-   "samples": 936,
-   "rate": 0.4807692307692308,
-   "outlier": false
-  },
-  {
-   "key": "myzel_schleimpilz",
-   "name": "Schleimpilz",
-   "wins": 513,
-   "samples": 1068,
-   "rate": 0.4803370786516854,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_brutkoenigin",
-   "name": "Brutkönigin",
-   "wins": 438,
-   "samples": 913,
-   "rate": 0.47973713033953996,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_wespenschwarm",
-   "name": "Wespenschwarm",
-   "wins": 1150,
-   "samples": 2404,
-   "rate": 0.478369384359401,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_ziegenmelker",
-   "name": "Ziegenmelker",
-   "wins": 937,
-   "samples": 1962,
-   "rate": 0.47757390417940876,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_heerameise",
-   "name": "Heerameise",
-   "wins": 537,
-   "samples": 1127,
-   "rate": 0.4764862466725821,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_abt",
-   "name": "Der Beinerne Abt",
-   "wins": 1295,
-   "samples": 2721,
-   "rate": 0.4759279676589489,
-   "outlier": false
-  },
-  {
-   "key": "bestien_grauerfuerst",
-   "name": "Der Graue Fürst",
-   "wins": 1047,
-   "samples": 2202,
-   "rate": 0.47547683923705725,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_lichtvater",
-   "name": "Der Lichtvater",
-   "wins": 1275,
-   "samples": 2684,
-   "rate": 0.4750372578241431,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_mitternachtseule",
-   "name": "Die Mitternachtseule",
-   "wins": 1187,
-   "samples": 2499,
-   "rate": 0.47498999599839936,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_weisserhirsch",
-   "name": "Der Weiße Hirsch",
-   "wins": 1211,
-   "samples": 2556,
-   "rate": 0.4737871674491393,
+   "key": "gehoernte_kronenhirsch",
+   "name": "Kronenhirsch",
+   "wins": 1510,
+   "samples": 2988,
+   "rate": 0.5053547523427041,
    "outlier": false
   },
   {
    "key": "wurzelvolk_efeuwuerger",
    "name": "Efeuwürger",
-   "wins": 636,
-   "samples": 1348,
-   "rate": 0.47181008902077154,
+   "wins": 664,
+   "samples": 1314,
+   "rate": 0.5053272450532724,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_wurzelwacht",
+   "name": "Wurzelwacht",
+   "wins": 965,
+   "samples": 1912,
+   "rate": 0.5047071129707112,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_grabschakal",
+   "name": "Grabschakal",
+   "wins": 862,
+   "samples": 1708,
+   "rate": 0.5046838407494145,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_moraal",
+   "name": "Moraal",
+   "wins": 986,
+   "samples": 1955,
+   "rate": 0.5043478260869565,
+   "outlier": false
+  },
+  {
+   "key": "myzel_fliegenpilz",
+   "name": "Fliegenpilz",
+   "wins": 1303,
+   "samples": 2585,
+   "rate": 0.5040618955512572,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_sturmwidder",
+   "name": "Sturmwidder",
+   "wins": 959,
+   "samples": 1903,
+   "rate": 0.5039411455596426,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_wurzelbrecher",
+   "name": "Wurzelbrecher",
+   "wins": 1830,
+   "samples": 3633,
+   "rate": 0.5037159372419489,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_tintenkrake",
+   "name": "Tintenkrake",
+   "wins": 1382,
+   "samples": 2744,
+   "rate": 0.5036443148688047,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_stummelkerze",
+   "name": "Stummelkerze",
+   "wins": 450,
+   "samples": 894,
+   "rate": 0.5033557046979866,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_moorbock",
+   "name": "Moorbock",
+   "wins": 687,
+   "samples": 1366,
+   "rate": 0.5029282576866764,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_blendfalter",
+   "name": "Blendfalter",
+   "wins": 807,
+   "samples": 1605,
+   "rate": 0.502803738317757,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_termitenhuegel",
+   "name": "Termitenhügel",
+   "wins": 1272,
+   "samples": 2530,
+   "rate": 0.5027667984189723,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_leuchterseele",
+   "name": "Leuchterseele",
+   "wins": 1948,
+   "samples": 3875,
+   "rate": 0.5027096774193548,
+   "outlier": false
+  },
+  {
+   "key": "myzel_moderhut",
+   "name": "Moderhut",
+   "wins": 1051,
+   "samples": 2091,
+   "rate": 0.5026303204208513,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_knochenknecht",
+   "name": "Knochenknecht",
+   "wins": 390,
+   "samples": 776,
+   "rate": 0.5025773195876289,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_gerippe",
+   "name": "Wandelndes Gerippe",
+   "wins": 678,
+   "samples": 1350,
+   "rate": 0.5022222222222222,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_seidenraupe",
+   "name": "Seidenraupe",
+   "wins": 343,
+   "samples": 683,
+   "rate": 0.5021961932650073,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_schlingaal",
+   "name": "Schlingaal",
+   "wins": 1903,
+   "samples": 3790,
+   "rate": 0.5021108179419526,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_geisterbock",
+   "name": "Geisterbock",
+   "wins": 1062,
+   "samples": 2116,
+   "rate": 0.501890359168242,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_knochenwall",
+   "name": "Knochenwall",
+   "wins": 1081,
+   "samples": 2154,
+   "rate": 0.5018570102135562,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_pestdoktor",
+   "name": "Pestdoktor",
+   "wins": 1221,
+   "samples": 2433,
+   "rate": 0.5018495684340321,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_hechtschatten",
+   "name": "Hechtschatten",
+   "wins": 1364,
+   "samples": 2718,
+   "rate": 0.5018395879323032,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_tiefenmutter",
+   "name": "Die Tiefenmutter",
+   "wins": 1337,
+   "samples": 2665,
+   "rate": 0.5016885553470919,
+   "outlier": false
+  },
+  {
+   "key": "myzel_sporenmutter",
+   "name": "Sporenmutter",
+   "wins": 1439,
+   "samples": 2870,
+   "rate": 0.5013937282229965,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_donnerwidder",
+   "name": "Donnerwidder",
+   "wins": 1857,
+   "samples": 3705,
+   "rate": 0.5012145748987854,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_schlingnatter",
+   "name": "Schlingnatter",
+   "wins": 1245,
+   "samples": 2484,
+   "rate": 0.501207729468599,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_weidenmutter",
+   "name": "Weidenmutter",
+   "wins": 1974,
+   "samples": 3943,
+   "rate": 0.5006340349987319,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_standuhr",
+   "name": "Standuhr",
+   "wins": 957,
+   "samples": 1912,
+   "rate": 0.5005230125523012,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_vielhaeutige",
+   "name": "Die Vielhäutige",
+   "wins": 2005,
+   "samples": 4011,
+   "rate": 0.49987534280727997,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_moorwels",
+   "name": "Moorwels",
+   "wins": 983,
+   "samples": 1967,
+   "rate": 0.4997458057956279,
+   "outlier": false
+  },
+  {
+   "key": "bestien_luchsschatten",
+   "name": "Luchsschatten",
+   "wins": 1255,
+   "samples": 2512,
+   "rate": 0.49960191082802546,
+   "outlier": false
+  },
+  {
+   "key": "nager_schermaus",
+   "name": "Schermaus",
+   "wins": 608,
+   "samples": 1217,
+   "rate": 0.49958915365653245,
+   "outlier": false
+  },
+  {
+   "key": "nager_blindmaulwurf",
+   "name": "Blindmaulwurf",
+   "wins": 1324,
+   "samples": 2651,
+   "rate": 0.4994341757827235,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_aschhirsch",
+   "name": "Aschhirsch",
+   "wins": 905,
+   "samples": 1813,
+   "rate": 0.4991726420297849,
+   "outlier": false
+  },
+  {
+   "key": "myzel_schleimpilz",
+   "name": "Schleimpilz",
+   "wins": 550,
+   "samples": 1102,
+   "rate": 0.49909255898366606,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_braut",
+   "name": "Die Brennende Braut",
+   "wins": 1804,
+   "samples": 3615,
+   "rate": 0.49903181189488244,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_rindenhueter",
+   "name": "Rindenhüter",
+   "wins": 1336,
+   "samples": 2681,
+   "rate": 0.49832152182021633,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_kreuzotter",
+   "name": "Kreuzotter",
+   "wins": 1477,
+   "samples": 2965,
+   "rate": 0.4981450252951096,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_lichterfresser",
+   "name": "Lichterfresser",
+   "wins": 1070,
+   "samples": 2148,
+   "rate": 0.49813780260707635,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_schleiereule",
+   "name": "Schleiereule",
+   "wins": 1013,
+   "samples": 2034,
+   "rate": 0.49803343166175024,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_nebelsalamander",
+   "name": "Nebelsalamander",
+   "wins": 1416,
+   "samples": 2844,
+   "rate": 0.4978902953586498,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_sargwaechter",
+   "name": "Sargwächter",
+   "wins": 1906,
+   "samples": 3829,
+   "rate": 0.4977800992426221,
+   "outlier": false
+  },
+  {
+   "key": "bestien_aschbaer",
+   "name": "Aschbär",
+   "wins": 1416,
+   "samples": 2845,
+   "rate": 0.4977152899824253,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_nestmutter",
+   "name": "Nestmutter",
+   "wins": 1415,
+   "samples": 2843,
+   "rate": 0.49771368272951105,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_grabhund",
+   "name": "Grabhund",
+   "wins": 677,
+   "samples": 1361,
+   "rate": 0.49742836149889785,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_staubmotte",
+   "name": "Staubmotte",
+   "wins": 932,
+   "samples": 1874,
+   "rate": 0.4973319103521878,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_uhu",
+   "name": "Moor-Uhu",
+   "wins": 1385,
+   "samples": 2787,
+   "rate": 0.49695012558306423,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_grabdachs",
+   "name": "Grabdachs",
+   "wins": 1440,
+   "samples": 2900,
+   "rate": 0.496551724137931,
+   "outlier": false
+  },
+  {
+   "key": "nager_moorratte",
+   "name": "Moorratte",
+   "wins": 357,
+   "samples": 719,
+   "rate": 0.4965229485396384,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_dochtmotte",
+   "name": "Dochtmotte",
+   "wins": 422,
+   "samples": 850,
+   "rate": 0.4964705882352941,
+   "outlier": false
+  },
+  {
+   "key": "myzel_faulbauch",
+   "name": "Faulbauch",
+   "wins": 1924,
+   "samples": 3876,
+   "rate": 0.49638802889576883,
+   "outlier": false
+  },
+  {
+   "key": "myzel_hallimasch",
+   "name": "Hallimasch",
+   "wins": 744,
+   "samples": 1499,
+   "rate": 0.4963308872581721,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_hyaenenfuerstin",
+   "name": "Hyänenfürstin",
+   "wins": 1892,
+   "samples": 3812,
+   "rate": 0.4963273871983211,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_totentaenzer",
+   "name": "Totentänzer",
+   "wins": 1934,
+   "samples": 3897,
+   "rate": 0.49627918911983576,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_rammwidder",
+   "name": "Rammwidder",
+   "wins": 1262,
+   "samples": 2543,
+   "rate": 0.4962642548171451,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_wachsameise",
+   "name": "Wachsameise",
+   "wins": 582,
+   "samples": 1173,
+   "rate": 0.4961636828644501,
+   "outlier": false
+  },
+  {
+   "key": "bestien_rudelmutter",
+   "name": "Rudelmutter",
+   "wins": 740,
+   "samples": 1492,
+   "rate": 0.4959785522788204,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_wespenschwarm",
+   "name": "Wespenschwarm",
+   "wins": 1139,
+   "samples": 2297,
+   "rate": 0.4958641706573792,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_moorelch",
+   "name": "Moorelch",
+   "wins": 1314,
+   "samples": 2650,
+   "rate": 0.4958490566037736,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_blutsauger",
+   "name": "Blutsauger",
+   "wins": 1645,
+   "samples": 3320,
+   "rate": 0.4954819277108434,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_zwergfledermaus",
+   "name": "Zwergfledermaus",
+   "wins": 365,
+   "samples": 737,
+   "rate": 0.49525101763907736,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_knochenhyaene",
+   "name": "Knochenhyäne",
+   "wins": 1443,
+   "samples": 2915,
+   "rate": 0.49502572898799313,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_irrlicht",
+   "name": "Irrlicht",
+   "wins": 590,
+   "samples": 1192,
+   "rate": 0.4949664429530201,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_messingautomat",
+   "name": "Messingautomat",
+   "wins": 1959,
+   "samples": 3961,
+   "rate": 0.4945720777581419,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_tintengolem",
+   "name": "Tintengolem",
+   "wins": 1153,
+   "samples": 2332,
+   "rate": 0.4944253859348199,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_wachsklotz",
+   "name": "Wachsklotz",
+   "wins": 1168,
+   "samples": 2364,
+   "rate": 0.494077834179357,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_vogelscheuche",
+   "name": "Vogelscheuche",
+   "wins": 610,
+   "samples": 1236,
+   "rate": 0.4935275080906149,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_schuldner",
+   "name": "Der Schuldner",
+   "wins": 815,
+   "samples": 1652,
+   "rate": 0.4933414043583535,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_kadaverbrut",
+   "name": "Kadaverbrut",
+   "wins": 431,
+   "samples": 874,
+   "rate": 0.4931350114416476,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_dornvater",
+   "name": "Dornvater",
+   "wins": 1290,
+   "samples": 2617,
+   "rate": 0.49293083683607186,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_grundkrake",
+   "name": "Grundkrake",
+   "wins": 1570,
+   "samples": 3188,
+   "rate": 0.49247176913425345,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_echofledermaus",
+   "name": "Echofledermaus",
+   "wins": 1405,
+   "samples": 2853,
+   "rate": 0.49246407290571326,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_flughund",
+   "name": "Flughund",
+   "wins": 1017,
+   "samples": 2067,
+   "rate": 0.49201741654571846,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_knochenhaufen",
+   "name": "Knochenhaufen",
+   "wins": 541,
+   "samples": 1100,
+   "rate": 0.4918181818181818,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_glasgolem",
+   "name": "Glasgolem",
+   "wins": 1814,
+   "samples": 3689,
+   "rate": 0.4917321767416644,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_knochenwuerfel",
+   "name": "Knochenwürfel",
+   "wins": 630,
+   "samples": 1282,
+   "rate": 0.4914196567862715,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_glockenrabe",
+   "name": "Glockenrabe",
+   "wins": 1394,
+   "samples": 2837,
+   "rate": 0.4913641170250264,
    "outlier": false
   },
   {
    "key": "flatterer_nachtfalter",
    "name": "Nachtfalter",
    "wins": 424,
-   "samples": 900,
-   "rate": 0.4711111111111111,
+   "samples": 863,
+   "rate": 0.49130938586326767,
    "outlier": false
   },
   {
-   "key": "tiefe_tiefenmutter",
-   "name": "Die Tiefenmutter",
-   "wins": 1200,
-   "samples": 2549,
-   "rate": 0.4707728520988623,
+   "key": "stammlose_leereruestung",
+   "name": "Leere Rüstung",
+   "wins": 1182,
+   "samples": 2407,
+   "rate": 0.49106771915247194,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_brutkoenigin",
+   "name": "Brutkönigin",
+   "wins": 491,
+   "samples": 1000,
+   "rate": 0.491,
    "outlier": false
   },
   {
    "key": "stammlose_kapellenglocke",
    "name": "Kapellenglocke",
-   "wins": 410,
-   "samples": 880,
-   "rate": 0.4659090909090909,
+   "wins": 409,
+   "samples": 833,
+   "rate": 0.4909963985594238,
    "outlier": false
   },
   {
-   "key": "stammlose_tintenherz",
-   "name": "Das Tintenherz",
-   "wins": 978,
-   "samples": 2101,
-   "rate": 0.4654926225606854,
+   "key": "aasfresser_leichenkraehe",
+   "name": "Leichenkrähe",
+   "wins": 710,
+   "samples": 1447,
+   "rate": 0.4906703524533518,
    "outlier": false
   },
   {
-   "key": "gebeine_gerippe",
-   "name": "Wandelndes Gerippe",
-   "wins": 638,
-   "samples": 1378,
-   "rate": 0.4629898403483309,
+   "key": "aasfresser_fleddergeier",
+   "name": "Fleddergeier",
+   "wins": 1459,
+   "samples": 2984,
+   "rate": 0.48894101876675605,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_mondspanner",
+   "name": "Mondspanner",
+   "wins": 1236,
+   "samples": 2529,
+   "rate": 0.4887307236061684,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_panzerkaefer",
+   "name": "Panzerkäfer",
+   "wins": 898,
+   "samples": 1839,
+   "rate": 0.4883088635127787,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_mottenmutter",
+   "name": "Die Mottenmutter",
+   "wins": 1933,
+   "samples": 3959,
+   "rate": 0.48825460974993684,
+   "outlier": false
+  },
+  {
+   "key": "bestien_borstenkeiler",
+   "name": "Borstenkeiler",
+   "wins": 1173,
+   "samples": 2405,
+   "rate": 0.48773388773388776,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_ziegenmelker",
+   "name": "Ziegenmelker",
+   "wins": 973,
+   "samples": 1995,
+   "rate": 0.48771929824561405,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_giftschleicher",
+   "name": "Giftschleicher",
+   "wins": 1175,
+   "samples": 2416,
+   "rate": 0.486341059602649,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_abt",
+   "name": "Der Beinerne Abt",
+   "wins": 1309,
+   "samples": 2692,
+   "rate": 0.4862555720653789,
+   "outlier": false
+  },
+  {
+   "key": "nager_spitzmaus",
+   "name": "Unsterbliche Spitzmaus",
+   "wins": 916,
+   "samples": 1884,
+   "rate": 0.4861995753715499,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_knochenpicker",
+   "name": "Knochenpicker",
+   "wins": 1402,
+   "samples": 2884,
+   "rate": 0.48613037447988905,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_dornspross",
+   "name": "Dornspross",
+   "wins": 540,
+   "samples": 1112,
+   "rate": 0.4856115107913669,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_koederpuppe",
+   "name": "Köderpuppe",
+   "wins": 1286,
+   "samples": 2650,
+   "rate": 0.4852830188679245,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_flinkechse",
+   "name": "Flinkechse",
+   "wins": 525,
+   "samples": 1082,
+   "rate": 0.4852125693160813,
+   "outlier": false
+  },
+  {
+   "key": "myzel_leuchtkappe",
+   "name": "Leuchtkappe",
+   "wins": 922,
+   "samples": 1903,
+   "rate": 0.4844981607987388,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_aschnatter",
+   "name": "Aschnatter",
+   "wins": 1133,
+   "samples": 2339,
+   "rate": 0.4843950406156477,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_weisserhirsch",
+   "name": "Der Weiße Hirsch",
+   "wins": 1287,
+   "samples": 2666,
+   "rate": 0.4827456864216054,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_moosschrat",
+   "name": "Moosschrat",
+   "wins": 960,
+   "samples": 1990,
+   "rate": 0.4824120603015075,
    "outlier": false
   },
   {
    "key": "nachtvoegel_wachkauz",
    "name": "Wachkauz",
-   "wins": 605,
-   "samples": 1316,
-   "rate": 0.45972644376899696,
+   "wins": 639,
+   "samples": 1331,
+   "rate": 0.4800901577761082,
+   "outlier": false
+  },
+  {
+   "key": "bestien_moorkeiler",
+   "name": "Moorkeiler",
+   "wins": 695,
+   "samples": 1451,
+   "rate": 0.4789800137835975,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_froschlaich",
+   "name": "Froschlaich",
+   "wins": 387,
+   "samples": 809,
+   "rate": 0.4783683559950556,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_dornbusch",
+   "name": "Dornbusch",
+   "wins": 517,
+   "samples": 1081,
+   "rate": 0.4782608695652174,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_mitternachtseule",
+   "name": "Die Mitternachtseule",
+   "wins": 1173,
+   "samples": 2461,
+   "rate": 0.4766355140186916,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_warzenkroete",
+   "name": "Warzenkröte",
+   "wins": 760,
+   "samples": 1604,
+   "rate": 0.47381546134663344,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_holzgolem",
+   "name": "Holzgolem",
+   "wins": 621,
+   "samples": 1311,
+   "rate": 0.47368421052631576,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_lichtvater",
+   "name": "Der Lichtvater",
+   "wins": 1330,
+   "samples": 2827,
+   "rate": 0.4704633887513265,
+   "outlier": false
+  },
+  {
+   "key": "nager_nestratte",
+   "name": "Nestratte",
+   "wins": 406,
+   "samples": 864,
+   "rate": 0.4699074074074074,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_schaedeltraeger",
+   "name": "Schädelträger",
+   "wins": 670,
+   "samples": 1432,
+   "rate": 0.46787709497206703,
+   "outlier": false
+  },
+  {
+   "key": "myzel_hexenring",
+   "name": "Hexenring",
+   "wins": 384,
+   "samples": 821,
+   "rate": 0.46772228989037756,
+   "outlier": false
+  },
+  {
+   "key": "myzel_myzelkrone",
+   "name": "Die Myzelkrone",
+   "wins": 1292,
+   "samples": 2763,
+   "rate": 0.4676076728193992,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_tintenherz",
+   "name": "Das Tintenherz",
+   "wins": 919,
+   "samples": 2009,
+   "rate": 0.45744151319064214,
    "outlier": false
   }
  ],
  "cardsPlayed": [
   {
-   "key": "myzel_myzelkrone",
-   "name": "Die Myzelkrone",
-   "wins": 2,
-   "samples": 2,
+   "key": "gebeine_abt",
+   "name": "Der Beinerne Abt",
+   "wins": 6,
+   "samples": 6,
+   "rate": 1,
+   "outlier": false
+  },
+  {
+   "key": "myzel_faulbauch",
+   "name": "Faulbauch",
+   "wins": 6,
+   "samples": 6,
    "rate": 1,
    "outlier": false
   },
   {
    "key": "kerzenwesen_braut",
    "name": "Die Brennende Braut",
-   "wins": 339,
-   "samples": 340,
-   "rate": 0.9970588235294118,
+   "wins": 251,
+   "samples": 253,
+   "rate": 0.9920948616600791,
    "outlier": true
   },
   {
    "key": "gehoernte_kronenhirsch",
    "name": "Kronenhirsch",
-   "wins": 440,
-   "samples": 445,
-   "rate": 0.9887640449438202,
+   "wins": 496,
+   "samples": 503,
+   "rate": 0.9860834990059643,
    "outlier": true
   },
   {
    "key": "bestien_mondluchs",
    "name": "Mondluchs",
-   "wins": 660,
-   "samples": 670,
-   "rate": 0.9850746268656716,
-   "outlier": true
-  },
-  {
-   "key": "nachtvoegel_mitternachtseule",
-   "name": "Die Mitternachtseule",
-   "wins": 97,
-   "samples": 101,
-   "rate": 0.9603960396039604,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_weisserhirsch",
-   "name": "Der Weiße Hirsch",
-   "wins": 87,
-   "samples": 91,
-   "rate": 0.9560439560439561,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_tintenherz",
-   "name": "Das Tintenherz",
-   "wins": 64,
-   "samples": 71,
-   "rate": 0.9014084507042254,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_vielhaeutige",
-   "name": "Die Vielhäutige",
-   "wins": 9,
-   "samples": 10,
-   "rate": 0.9,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_kartograph",
-   "name": "Der Kartograph",
-   "wins": 237,
-   "samples": 264,
-   "rate": 0.8977272727272727,
-   "outlier": true
-  },
-  {
-   "key": "gebeine_abt",
-   "name": "Der Beinerne Abt",
-   "wins": 8,
-   "samples": 9,
-   "rate": 0.8888888888888888,
-   "outlier": false
-  },
-  {
-   "key": "nager_rattenkoenig",
-   "name": "Rattenkönig",
-   "wins": 1091,
-   "samples": 1243,
-   "rate": 0.8777152051488335,
-   "outlier": true
-  },
-  {
-   "key": "schwaerme_schwarmkoenigin",
-   "name": "Schwarmkönigin",
-   "wins": 340,
-   "samples": 388,
-   "rate": 0.8762886597938144,
-   "outlier": true
-  },
-  {
-   "key": "nachtvoegel_sturmkauz",
-   "name": "Sturmkauz",
-   "wins": 531,
-   "samples": 610,
-   "rate": 0.8704918032786885,
+   "wins": 665,
+   "samples": 681,
+   "rate": 0.9765051395007343,
    "outlier": true
   },
   {
    "key": "tiefe_tiefenmutter",
    "name": "Die Tiefenmutter",
-   "wins": 80,
-   "samples": 92,
-   "rate": 0.8695652173913043,
+   "wins": 125,
+   "samples": 130,
+   "rate": 0.9615384615384616,
    "outlier": false
   },
   {
-   "key": "aasfresser_fleddergeier",
-   "name": "Fleddergeier",
-   "wins": 23,
-   "samples": 27,
-   "rate": 0.8518518518518519,
+   "key": "nachtvoegel_mitternachtseule",
+   "name": "Die Mitternachtseule",
+   "wins": 98,
+   "samples": 105,
+   "rate": 0.9333333333333333,
    "outlier": false
   },
   {
-   "key": "gebeine_totentaenzer",
-   "name": "Totentänzer",
-   "wins": 140,
-   "samples": 165,
-   "rate": 0.8484848484848485,
+   "key": "gehoernte_weisserhirsch",
+   "name": "Der Weiße Hirsch",
+   "wins": 118,
+   "samples": 127,
+   "rate": 0.9291338582677166,
    "outlier": false
   },
   {
    "key": "bestien_grauerfuerst",
    "name": "Der Graue Fürst",
-   "wins": 234,
-   "samples": 283,
-   "rate": 0.8268551236749117,
+   "wins": 316,
+   "samples": 354,
+   "rate": 0.8926553672316384,
    "outlier": true
   },
   {
-   "key": "bestien_aschbaer",
-   "name": "Aschbär",
-   "wins": 268,
-   "samples": 325,
-   "rate": 0.8246153846153846,
+   "key": "stammlose_kartograph",
+   "name": "Der Kartograph",
+   "wins": 273,
+   "samples": 306,
+   "rate": 0.8921568627450981,
+   "outlier": true
+  },
+  {
+   "key": "nachtvoegel_sturmkauz",
+   "name": "Sturmkauz",
+   "wins": 616,
+   "samples": 691,
+   "rate": 0.8914616497829233,
+   "outlier": true
+  },
+  {
+   "key": "gebeine_totentaenzer",
+   "name": "Totentänzer",
+   "wins": 210,
+   "samples": 238,
+   "rate": 0.8823529411764706,
+   "outlier": true
+  },
+  {
+   "key": "myzel_myzelkrone",
+   "name": "Die Myzelkrone",
+   "wins": 7,
+   "samples": 8,
+   "rate": 0.875,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_schwarmkoenigin",
+   "name": "Schwarmkönigin",
+   "wins": 406,
+   "samples": 465,
+   "rate": 0.8731182795698925,
+   "outlier": true
+  },
+  {
+   "key": "nager_rattenkoenig",
+   "name": "Rattenkönig",
+   "wins": 1065,
+   "samples": 1245,
+   "rate": 0.8554216867469879,
    "outlier": true
   },
   {
    "key": "flatterer_mottenmutter",
    "name": "Die Mottenmutter",
-   "wins": 227,
-   "samples": 277,
-   "rate": 0.8194945848375451,
+   "wins": 202,
+   "samples": 241,
+   "rate": 0.8381742738589212,
    "outlier": true
   },
   {
-   "key": "gehoernte_donnerwidder",
-   "name": "Donnerwidder",
-   "wins": 346,
-   "samples": 423,
-   "rate": 0.817966903073286,
+   "key": "aasfresser_hyaenenfuerstin",
+   "name": "Hyänenfürstin",
+   "wins": 19,
+   "samples": 23,
+   "rate": 0.8260869565217391,
+   "outlier": false
+  },
+  {
+   "key": "bestien_aschbaer",
+   "name": "Aschbär",
+   "wins": 324,
+   "samples": 394,
+   "rate": 0.8223350253807107,
    "outlier": true
   },
   {
    "key": "kerzenwesen_leuchterseele",
    "name": "Leuchterseele",
-   "wins": 243,
-   "samples": 302,
-   "rate": 0.804635761589404,
+   "wins": 207,
+   "samples": 252,
+   "rate": 0.8214285714285714,
    "outlier": true
   },
   {
-   "key": "schwaerme_termitenhuegel",
-   "name": "Termitenhügel",
-   "wins": 504,
-   "samples": 631,
-   "rate": 0.7987321711568938,
-   "outlier": true
-  },
-  {
-   "key": "kriecher_schlingnatter",
-   "name": "Schlingnatter",
-   "wins": 191,
-   "samples": 242,
-   "rate": 0.7892561983471075,
-   "outlier": true
-  },
-  {
-   "key": "wurzelvolk_wurzelbrecher",
-   "name": "Wurzelbrecher",
-   "wins": 185,
-   "samples": 236,
-   "rate": 0.7838983050847458,
-   "outlier": true
-  },
-  {
-   "key": "myzel_sporenknirps",
-   "name": "Sporenknirps",
-   "wins": 116,
-   "samples": 149,
-   "rate": 0.7785234899328859,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_hyaenenfuerstin",
-   "name": "Hyänenfürstin",
-   "wins": 7,
-   "samples": 9,
-   "rate": 0.7777777777777778,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_gabelbock",
-   "name": "Gabelbock",
-   "wins": 670,
-   "samples": 867,
-   "rate": 0.7727797001153403,
+   "key": "gehoernte_donnerwidder",
+   "name": "Donnerwidder",
+   "wins": 328,
+   "samples": 407,
+   "rate": 0.8058968058968059,
    "outlier": true
   },
   {
    "key": "bestien_bachenmutter",
    "name": "Bachenmutter",
-   "wins": 310,
-   "samples": 409,
-   "rate": 0.7579462102689487,
+   "wins": 286,
+   "samples": 355,
+   "rate": 0.8056338028169014,
    "outlier": true
   },
   {
-   "key": "myzel_hallimasch",
-   "name": "Hallimasch",
-   "wins": 194,
-   "samples": 258,
-   "rate": 0.751937984496124,
+   "key": "kriecher_schlingnatter",
+   "name": "Schlingnatter",
+   "wins": 267,
+   "samples": 333,
+   "rate": 0.8018018018018018,
    "outlier": true
   },
   {
-   "key": "myzel_sporenmutter",
-   "name": "Sporenmutter",
-   "wins": 36,
-   "samples": 48,
+   "key": "wurzelvolk_wurzelbrecher",
+   "name": "Wurzelbrecher",
+   "wins": 178,
+   "samples": 223,
+   "rate": 0.7982062780269058,
+   "outlier": true
+  },
+  {
+   "key": "stammlose_tintenherz",
+   "name": "Das Tintenherz",
+   "wins": 45,
+   "samples": 57,
+   "rate": 0.7894736842105263,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_fleddergeier",
+   "name": "Fleddergeier",
+   "wins": 43,
+   "samples": 56,
+   "rate": 0.7678571428571429,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_termitenhuegel",
+   "name": "Termitenhügel",
+   "wins": 447,
+   "samples": 587,
+   "rate": 0.7614991482112436,
+   "outlier": true
+  },
+  {
+   "key": "kriecher_vielhaeutige",
+   "name": "Die Vielhäutige",
+   "wins": 21,
+   "samples": 28,
    "rate": 0.75,
    "outlier": false
   },
   {
-   "key": "tiefe_grundkrake",
-   "name": "Grundkrake",
-   "wins": 203,
-   "samples": 273,
-   "rate": 0.7435897435897436,
+   "key": "stammlose_messingautomat",
+   "name": "Messingautomat",
+   "wins": 148,
+   "samples": 198,
+   "rate": 0.7474747474747475,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_gabelbock",
+   "name": "Gabelbock",
+   "wins": 549,
+   "samples": 737,
+   "rate": 0.7449118046132972,
    "outlier": true
   },
   {
-   "key": "gebeine_grabdachs",
-   "name": "Grabdachs",
-   "wins": 194,
-   "samples": 263,
-   "rate": 0.7376425855513308,
-   "outlier": true
-  },
-  {
-   "key": "wurzelvolk_weidenmutter",
-   "name": "Weidenmutter",
-   "wins": 201,
-   "samples": 275,
-   "rate": 0.730909090909091,
-   "outlier": true
-  },
-  {
-   "key": "nachtvoegel_uhu",
-   "name": "Moor-Uhu",
-   "wins": 170,
-   "samples": 235,
-   "rate": 0.723404255319149,
-   "outlier": true
-  },
-  {
-   "key": "aasfresser_lachhyaene",
-   "name": "Lachhyäne",
-   "wins": 444,
-   "samples": 614,
-   "rate": 0.7231270358306189,
-   "outlier": true
+   "key": "myzel_sporenknirps",
+   "name": "Sporenknirps",
+   "wins": 103,
+   "samples": 139,
+   "rate": 0.7410071942446043,
+   "outlier": false
   },
   {
    "key": "gebeine_grabhund",
    "name": "Grabhund",
-   "wins": 199,
-   "samples": 277,
-   "rate": 0.7184115523465704,
-   "outlier": true
-  },
-  {
-   "key": "kerzenwesen_lichtvater",
-   "name": "Der Lichtvater",
-   "wins": 91,
-   "samples": 128,
-   "rate": 0.7109375,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_schuldner",
-   "name": "Der Schuldner",
-   "wins": 330,
-   "samples": 469,
-   "rate": 0.7036247334754797,
-   "outlier": true
-  },
-  {
-   "key": "kriecher_nebelsalamander",
-   "name": "Nebelsalamander",
-   "wins": 168,
-   "samples": 239,
-   "rate": 0.702928870292887,
-   "outlier": true
-  },
-  {
-   "key": "nager_opferratte",
-   "name": "Opferratte",
-   "wins": 248,
-   "samples": 353,
-   "rate": 0.7025495750708215,
-   "outlier": true
-  },
-  {
-   "key": "gehoernte_sturmwidder",
-   "name": "Sturmwidder",
-   "wins": 451,
-   "samples": 646,
-   "rate": 0.6981424148606811,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_tintengolem",
-   "name": "Tintengolem",
-   "wins": 151,
-   "samples": 217,
-   "rate": 0.695852534562212,
-   "outlier": true
-  },
-  {
-   "key": "tiefe_hechtschatten",
-   "name": "Hechtschatten",
-   "wins": 626,
-   "samples": 902,
-   "rate": 0.6940133037694013,
-   "outlier": true
-  },
-  {
-   "key": "schwaerme_brutkoenigin",
-   "name": "Brutkönigin",
-   "wins": 128,
-   "samples": 185,
-   "rate": 0.6918918918918919,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_kerzengeist",
-   "name": "Kerzengeist",
-   "wins": 262,
-   "samples": 382,
-   "rate": 0.6858638743455497,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_messingautomat",
-   "name": "Messingautomat",
-   "wins": 158,
-   "samples": 231,
-   "rate": 0.683982683982684,
-   "outlier": true
-  },
-  {
-   "key": "kriecher_giftschleicher",
-   "name": "Giftschleicher",
-   "wins": 43,
-   "samples": 63,
-   "rate": 0.6825396825396826,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_sammlerkraehe",
-   "name": "Sammlerkrähe",
-   "wins": 280,
-   "samples": 412,
-   "rate": 0.6796116504854369,
-   "outlier": true
-  },
-  {
-   "key": "bestien_aschwolf",
-   "name": "Aschwolf",
-   "wins": 566,
-   "samples": 835,
-   "rate": 0.6778443113772455,
-   "outlier": true
-  },
-  {
-   "key": "flatterer_flughund",
-   "name": "Flughund",
-   "wins": 449,
-   "samples": 663,
-   "rate": 0.6772247360482655,
-   "outlier": true
-  },
-  {
-   "key": "gebeine_knochensammler",
-   "name": "Knochensammler",
-   "wins": 270,
-   "samples": 399,
-   "rate": 0.6766917293233082,
+   "wins": 179,
+   "samples": 242,
+   "rate": 0.7396694214876033,
    "outlier": true
   },
   {
    "key": "aasfresser_moorgeier",
    "name": "Moorgeier",
-   "wins": 79,
-   "samples": 117,
-   "rate": 0.6752136752136753,
+   "wins": 123,
+   "samples": 169,
+   "rate": 0.727810650887574,
    "outlier": false
   },
   {
-   "key": "nachtvoegel_blutfink",
-   "name": "Blutfink",
-   "wins": 241,
-   "samples": 358,
-   "rate": 0.6731843575418994,
+   "key": "kerzenwesen_lichtvater",
+   "name": "Der Lichtvater",
+   "wins": 89,
+   "samples": 123,
+   "rate": 0.7235772357723578,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_lachhyaene",
+   "name": "Lachhyäne",
+   "wins": 428,
+   "samples": 594,
+   "rate": 0.7205387205387206,
    "outlier": true
   },
   {
-   "key": "myzel_fliegenpilz",
-   "name": "Fliegenpilz",
+   "key": "wurzelvolk_weidenmutter",
+   "name": "Weidenmutter",
+   "wins": 171,
+   "samples": 238,
+   "rate": 0.7184873949579832,
+   "outlier": true
+  },
+  {
+   "key": "stammlose_tintengolem",
+   "name": "Tintengolem",
+   "wins": 181,
+   "samples": 253,
+   "rate": 0.7154150197628458,
+   "outlier": true
+  },
+  {
+   "key": "tiefe_grundkrake",
+   "name": "Grundkrake",
+   "wins": 218,
+   "samples": 307,
+   "rate": 0.7100977198697068,
+   "outlier": true
+  },
+  {
+   "key": "nachtvoegel_uhu",
+   "name": "Moor-Uhu",
+   "wins": 214,
+   "samples": 302,
+   "rate": 0.7086092715231788,
+   "outlier": true
+  },
+  {
+   "key": "myzel_hallimasch",
+   "name": "Hallimasch",
+   "wins": 189,
+   "samples": 267,
+   "rate": 0.7078651685393258,
+   "outlier": true
+  },
+  {
+   "key": "schwaerme_brutkoenigin",
+   "name": "Brutkönigin",
    "wins": 144,
-   "samples": 215,
-   "rate": 0.6697674418604651,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_stoffpuppe",
-   "name": "Stoffpuppe",
-   "wins": 409,
-   "samples": 611,
-   "rate": 0.6693944353518821,
-   "outlier": true
-  },
-  {
-   "key": "schwaerme_saebelkaefer",
-   "name": "Säbelkäfer",
-   "wins": 284,
-   "samples": 426,
-   "rate": 0.6666666666666666,
+   "samples": 204,
+   "rate": 0.7058823529411765,
    "outlier": true
   },
   {
    "key": "kriecher_kreuzotter",
    "name": "Kreuzotter",
-   "wins": 14,
-   "samples": 21,
-   "rate": 0.6666666666666666,
+   "wins": 26,
+   "samples": 37,
+   "rate": 0.7027027027027027,
    "outlier": false
   },
   {
-   "key": "kriecher_aschnatter",
-   "name": "Aschnatter",
-   "wins": 139,
-   "samples": 209,
-   "rate": 0.6650717703349283,
+   "key": "myzel_fliegenpilz",
+   "name": "Fliegenpilz",
+   "wins": 179,
+   "samples": 255,
+   "rate": 0.7019607843137254,
    "outlier": true
   },
   {
-   "key": "gehoernte_moorelch",
-   "name": "Moorelch",
-   "wins": 117,
-   "samples": 176,
-   "rate": 0.6647727272727273,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_schattenmotte",
-   "name": "Schattenmotte",
-   "wins": 700,
-   "samples": 1058,
-   "rate": 0.6616257088846881,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_aufziehkaefer",
-   "name": "Aufziehkäfer",
-   "wins": 692,
-   "samples": 1061,
-   "rate": 0.6522148916116871,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_pestdoktor",
-   "name": "Pestdoktor",
-   "wins": 360,
-   "samples": 553,
-   "rate": 0.650994575045208,
-   "outlier": true
-  },
-  {
-   "key": "flatterer_mondspanner",
-   "name": "Mondspanner",
-   "wins": 295,
-   "samples": 455,
-   "rate": 0.6483516483516484,
-   "outlier": true
-  },
-  {
-   "key": "gebeine_sargwaechter",
-   "name": "Sargwächter",
-   "wins": 11,
-   "samples": 17,
-   "rate": 0.6470588235294118,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_zwergfledermaus",
-   "name": "Zwergfledermaus",
-   "wins": 167,
-   "samples": 259,
-   "rate": 0.6447876447876448,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_knochenwuerfel",
-   "name": "Knochenwürfel",
-   "wins": 279,
-   "samples": 439,
-   "rate": 0.6355353075170843,
-   "outlier": true
-  },
-  {
-   "key": "wurzelvolk_dornvater",
-   "name": "Dornvater",
-   "wins": 284,
-   "samples": 451,
-   "rate": 0.6297117516629712,
-   "outlier": true
-  },
-  {
-   "key": "myzel_stinkmorchel",
-   "name": "Stinkmorchel",
-   "wins": 236,
-   "samples": 375,
-   "rate": 0.6293333333333333,
-   "outlier": true
-  },
-  {
-   "key": "nachtvoegel_sturmsegler",
-   "name": "Sturmsegler",
-   "wins": 457,
-   "samples": 728,
-   "rate": 0.6277472527472527,
+   "key": "gebeine_grabdachs",
+   "name": "Grabdachs",
+   "wins": 251,
+   "samples": 359,
+   "rate": 0.6991643454038997,
    "outlier": true
   },
   {
    "key": "nager_schuldratte",
    "name": "Schuldratte",
-   "wins": 155,
-   "samples": 247,
-   "rate": 0.6275303643724697,
+   "wins": 167,
+   "samples": 240,
+   "rate": 0.6958333333333333,
    "outlier": true
   },
   {
-   "key": "aasfresser_grabschakal",
-   "name": "Grabschakal",
-   "wins": 243,
-   "samples": 389,
-   "rate": 0.6246786632390745,
+   "key": "myzel_sporenmutter",
+   "name": "Sporenmutter",
+   "wins": 61,
+   "samples": 88,
+   "rate": 0.6931818181818182,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_dornvater",
+   "name": "Dornvater",
+   "wins": 288,
+   "samples": 418,
+   "rate": 0.6889952153110048,
    "outlier": true
   },
   {
-   "key": "myzel_moderhut",
-   "name": "Moderhut",
-   "wins": 364,
-   "samples": 583,
-   "rate": 0.6243567753001715,
+   "key": "kriecher_nebelsalamander",
+   "name": "Nebelsalamander",
+   "wins": 201,
+   "samples": 292,
+   "rate": 0.6883561643835616,
    "outlier": true
   },
   {
-   "key": "bestien_rudelmutter",
-   "name": "Rudelmutter",
-   "wins": 184,
-   "samples": 296,
-   "rate": 0.6216216216216216,
-   "outlier": true
-  },
-  {
-   "key": "nager_aschmaus",
-   "name": "Aschmaus",
-   "wins": 290,
-   "samples": 467,
-   "rate": 0.6209850107066381,
-   "outlier": true
-  },
-  {
-   "key": "kriecher_grauechse",
-   "name": "Grauechse",
-   "wins": 376,
-   "samples": 608,
-   "rate": 0.618421052631579,
-   "outlier": true
-  },
-  {
-   "key": "bestien_grauwelpe",
-   "name": "Grauwelpe",
-   "wins": 251,
-   "samples": 406,
-   "rate": 0.6182266009852216,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_irrlicht",
-   "name": "Irrlicht",
-   "wins": 352,
-   "samples": 574,
-   "rate": 0.6132404181184669,
-   "outlier": true
-  },
-  {
-   "key": "bestien_hetzwolf",
-   "name": "Hetzwolf",
-   "wins": 647,
-   "samples": 1063,
-   "rate": 0.6086547507055503,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_spiegelscherbe",
-   "name": "Spiegelscherbe",
-   "wins": 560,
+   "key": "bestien_aschwolf",
+   "name": "Aschwolf",
+   "wins": 635,
    "samples": 923,
-   "rate": 0.6067172264355363,
+   "rate": 0.6879739978331527,
    "outlier": true
   },
   {
-   "key": "nager_wuehlmaus",
-   "name": "Wühlmaus",
-   "wins": 351,
-   "samples": 581,
-   "rate": 0.6041308089500861,
+   "key": "schwaerme_saebelkaefer",
+   "name": "Säbelkäfer",
+   "wins": 279,
+   "samples": 409,
+   "rate": 0.6821515892420538,
    "outlier": true
   },
   {
-   "key": "stammlose_kristallkugel",
-   "name": "Kristallkugel",
-   "wins": 457,
-   "samples": 757,
-   "rate": 0.6036988110964333,
+   "key": "gehoernte_sturmwidder",
+   "name": "Sturmwidder",
+   "wins": 417,
+   "samples": 613,
+   "rate": 0.6802610114192496,
    "outlier": true
   },
   {
-   "key": "kriecher_flinkechse",
-   "name": "Flinkechse",
-   "wins": 228,
-   "samples": 378,
-   "rate": 0.6031746031746031,
+   "key": "aasfresser_sammlerkraehe",
+   "name": "Sammlerkrähe",
+   "wins": 287,
+   "samples": 427,
+   "rate": 0.6721311475409836,
    "outlier": true
   },
   {
-   "key": "tiefe_schlingaal",
-   "name": "Schlingaal",
-   "wins": 627,
-   "samples": 1040,
-   "rate": 0.6028846153846154,
+   "key": "kerzenwesen_kerzengeist",
+   "name": "Kerzengeist",
+   "wins": 218,
+   "samples": 325,
+   "rate": 0.6707692307692308,
    "outlier": true
   },
   {
-   "key": "schwaerme_larvenknaeuel",
-   "name": "Larvenknäuel",
-   "wins": 314,
-   "samples": 523,
-   "rate": 0.6003824091778203,
+   "key": "stammlose_schuldner",
+   "name": "Der Schuldner",
+   "wins": 281,
+   "samples": 420,
+   "rate": 0.669047619047619,
    "outlier": true
   },
   {
-   "key": "kerzenwesen_dochtmotte",
-   "name": "Dochtmotte",
-   "wins": 250,
-   "samples": 417,
-   "rate": 0.5995203836930456,
+   "key": "tiefe_hechtschatten",
+   "name": "Hechtschatten",
+   "wins": 634,
+   "samples": 950,
+   "rate": 0.6673684210526316,
    "outlier": true
   },
   {
-   "key": "nager_blindmaulwurf",
-   "name": "Blindmaulwurf",
-   "wins": 399,
-   "samples": 666,
-   "rate": 0.5990990990990991,
+   "key": "myzel_stinkmorchel",
+   "name": "Stinkmorchel",
+   "wins": 233,
+   "samples": 352,
+   "rate": 0.6619318181818182,
    "outlier": true
   },
   {
-   "key": "aasfresser_aaskraehe",
-   "name": "Aaskrähe",
-   "wins": 222,
-   "samples": 371,
-   "rate": 0.5983827493261455,
-   "outlier": true
-  },
-  {
-   "key": "schwaerme_wachsameise",
-   "name": "Wachsameise",
-   "wins": 335,
-   "samples": 560,
-   "rate": 0.5982142857142857,
-   "outlier": true
-  },
-  {
-   "key": "wurzelvolk_rindenhueter",
-   "name": "Rindenhüter",
-   "wins": 257,
-   "samples": 430,
-   "rate": 0.5976744186046512,
-   "outlier": true
-  },
-  {
-   "key": "gebeine_knochenhaufen",
-   "name": "Knochenhaufen",
-   "wins": 239,
-   "samples": 400,
-   "rate": 0.5975,
-   "outlier": true
-  },
-  {
-   "key": "gehoernte_aschhirsch",
-   "name": "Aschhirsch",
-   "wins": 299,
-   "samples": 503,
-   "rate": 0.5944333996023857,
-   "outlier": true
-  },
-  {
-   "key": "gehoernte_hirschkalb",
-   "name": "Hirschkalb",
-   "wins": 216,
-   "samples": 365,
-   "rate": 0.5917808219178082,
-   "outlier": true
-  },
-  {
-   "key": "kerzenwesen_talgschemen",
-   "name": "Talgschemen",
-   "wins": 259,
-   "samples": 440,
-   "rate": 0.5886363636363636,
-   "outlier": true
-  },
-  {
-   "key": "nager_moorratte",
-   "name": "Moorratte",
-   "wins": 161,
-   "samples": 274,
-   "rate": 0.5875912408759124,
-   "outlier": true
-  },
-  {
-   "key": "aasfresser_kadaverbrut",
-   "name": "Kadaverbrut",
-   "wins": 229,
-   "samples": 390,
-   "rate": 0.5871794871794872,
-   "outlier": true
-  },
-  {
-   "key": "gehoernte_rammwidder",
-   "name": "Rammwidder",
-   "wins": 340,
-   "samples": 580,
-   "rate": 0.5862068965517241,
-   "outlier": true
-  },
-  {
-   "key": "tiefe_tintenkrake",
-   "name": "Tintenkrake",
-   "wins": 428,
-   "samples": 735,
-   "rate": 0.582312925170068,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_tintenkleks",
-   "name": "Tintenklecks",
-   "wins": 299,
-   "samples": 514,
-   "rate": 0.5817120622568094,
-   "outlier": true
-  },
-  {
-   "key": "bestien_hungerwolf",
-   "name": "Hungerwolf",
-   "wins": 614,
-   "samples": 1058,
-   "rate": 0.5803402646502835,
-   "outlier": true
-  },
-  {
-   "key": "kriecher_moorunke",
-   "name": "Moorunke",
-   "wins": 315,
-   "samples": 545,
-   "rate": 0.5779816513761468,
-   "outlier": true
-  },
-  {
-   "key": "bestien_luchsschatten",
-   "name": "Luchsschatten",
-   "wins": 310,
-   "samples": 537,
-   "rate": 0.5772811918063314,
-   "outlier": true
-  },
-  {
-   "key": "bestien_borstenkeiler",
-   "name": "Borstenkeiler",
-   "wins": 311,
-   "samples": 540,
-   "rate": 0.575925925925926,
-   "outlier": true
-  },
-  {
-   "key": "schwaerme_stachelwespe",
-   "name": "Stachelwespe",
-   "wins": 700,
-   "samples": 1216,
-   "rate": 0.5756578947368421,
-   "outlier": true
-  },
-  {
-   "key": "tiefe_scherenkrebs",
-   "name": "Scherenkrebs",
-   "wins": 532,
-   "samples": 926,
-   "rate": 0.5745140388768899,
+   "key": "stammlose_stoffpuppe",
+   "name": "Stoffpuppe",
+   "wins": 381,
+   "samples": 578,
+   "rate": 0.6591695501730104,
    "outlier": true
   },
   {
    "key": "gebeine_gerippe",
    "name": "Wandelndes Gerippe",
-   "wins": 63,
-   "samples": 110,
-   "rate": 0.5727272727272728,
+   "wins": 84,
+   "samples": 129,
+   "rate": 0.6511627906976745,
    "outlier": false
   },
   {
-   "key": "schwaerme_mistkaefer",
-   "name": "Mistkäfer",
-   "wins": 471,
-   "samples": 823,
-   "rate": 0.5722964763061968,
+   "key": "gehoernte_aschhirsch",
+   "name": "Aschhirsch",
+   "wins": 294,
+   "samples": 458,
+   "rate": 0.6419213973799127,
    "outlier": true
   },
   {
-   "key": "kriecher_froschlaich",
-   "name": "Froschlaich",
-   "wins": 176,
-   "samples": 308,
-   "rate": 0.5714285714285714,
+   "key": "flatterer_flughund",
+   "name": "Flughund",
+   "wins": 362,
+   "samples": 565,
+   "rate": 0.6407079646017699,
+   "outlier": true
+  },
+  {
+   "key": "flatterer_schattenmotte",
+   "name": "Schattenmotte",
+   "wins": 538,
+   "samples": 844,
+   "rate": 0.6374407582938388,
+   "outlier": true
+  },
+  {
+   "key": "gehoernte_hirschkalb",
+   "name": "Hirschkalb",
+   "wins": 232,
+   "samples": 366,
+   "rate": 0.6338797814207651,
+   "outlier": true
+  },
+  {
+   "key": "flatterer_mondspanner",
+   "name": "Mondspanner",
+   "wins": 269,
+   "samples": 425,
+   "rate": 0.6329411764705882,
+   "outlier": true
+  },
+  {
+   "key": "kriecher_giftschleicher",
+   "name": "Giftschleicher",
+   "wins": 60,
+   "samples": 95,
+   "rate": 0.631578947368421,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_blutfink",
+   "name": "Blutfink",
+   "wins": 209,
+   "samples": 331,
+   "rate": 0.6314199395770392,
+   "outlier": true
+  },
+  {
+   "key": "kriecher_aschnatter",
+   "name": "Aschnatter",
+   "wins": 125,
+   "samples": 198,
+   "rate": 0.6313131313131313,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_grabschakal",
+   "name": "Grabschakal",
+   "wins": 280,
+   "samples": 444,
+   "rate": 0.6306306306306306,
+   "outlier": true
+  },
+  {
+   "key": "tiefe_schlingaal",
+   "name": "Schlingaal",
+   "wins": 681,
+   "samples": 1081,
+   "rate": 0.6299722479185939,
+   "outlier": true
+  },
+  {
+   "key": "nager_opferratte",
+   "name": "Opferratte",
+   "wins": 204,
+   "samples": 324,
+   "rate": 0.6296296296296297,
+   "outlier": true
+  },
+  {
+   "key": "gebeine_sargwaechter",
+   "name": "Sargwächter",
+   "wins": 17,
+   "samples": 27,
+   "rate": 0.6296296296296297,
+   "outlier": false
+  },
+  {
+   "key": "myzel_moderhut",
+   "name": "Moderhut",
+   "wins": 352,
+   "samples": 561,
+   "rate": 0.6274509803921569,
+   "outlier": true
+  },
+  {
+   "key": "stammlose_tintenkleks",
+   "name": "Tintenklecks",
+   "wins": 306,
+   "samples": 488,
+   "rate": 0.6270491803278688,
+   "outlier": true
+  },
+  {
+   "key": "stammlose_spiegelscherbe",
+   "name": "Spiegelscherbe",
+   "wins": 492,
+   "samples": 785,
+   "rate": 0.6267515923566879,
+   "outlier": true
+  },
+  {
+   "key": "stammlose_pestdoktor",
+   "name": "Pestdoktor",
+   "wins": 375,
+   "samples": 603,
+   "rate": 0.6218905472636815,
+   "outlier": true
+  },
+  {
+   "key": "stammlose_aufziehkaefer",
+   "name": "Aufziehkäfer",
+   "wins": 557,
+   "samples": 897,
+   "rate": 0.620958751393534,
+   "outlier": true
+  },
+  {
+   "key": "nachtvoegel_kauzkueken",
+   "name": "Kauzküken",
+   "wins": 224,
+   "samples": 363,
+   "rate": 0.6170798898071626,
+   "outlier": true
+  },
+  {
+   "key": "gebeine_knochenknecht",
+   "name": "Knochenknecht",
+   "wins": 180,
+   "samples": 294,
+   "rate": 0.6122448979591837,
    "outlier": true
   },
   {
    "key": "gehoernte_geisterbock",
    "name": "Geisterbock",
-   "wins": 261,
-   "samples": 457,
-   "rate": 0.5711159737417943,
+   "wins": 300,
+   "samples": 490,
+   "rate": 0.6122448979591837,
    "outlier": true
   },
   {
-   "key": "kerzenwesen_ewigeflamme",
-   "name": "Ewige Flamme",
-   "wins": 558,
-   "samples": 980,
-   "rate": 0.5693877551020409,
+   "key": "kriecher_grauechse",
+   "name": "Grauechse",
+   "wins": 333,
+   "samples": 546,
+   "rate": 0.6098901098901099,
+   "outlier": true
+  },
+  {
+   "key": "gehoernte_rammwidder",
+   "name": "Rammwidder",
+   "wins": 384,
+   "samples": 632,
+   "rate": 0.6075949367088608,
+   "outlier": true
+  },
+  {
+   "key": "tiefe_tintenkrake",
+   "name": "Tintenkrake",
+   "wins": 424,
+   "samples": 702,
+   "rate": 0.603988603988604,
+   "outlier": true
+  },
+  {
+   "key": "bestien_rudelmutter",
+   "name": "Rudelmutter",
+   "wins": 175,
+   "samples": 290,
+   "rate": 0.603448275862069,
+   "outlier": true
+  },
+  {
+   "key": "gehoernte_moorelch",
+   "name": "Moorelch",
+   "wins": 111,
+   "samples": 184,
+   "rate": 0.6032608695652174,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_rindenhueter",
+   "name": "Rindenhüter",
+   "wins": 241,
+   "samples": 402,
+   "rate": 0.599502487562189,
+   "outlier": true
+  },
+  {
+   "key": "kerzenwesen_wachsling",
+   "name": "Wachsling",
+   "wins": 266,
+   "samples": 444,
+   "rate": 0.5990990990990991,
+   "outlier": true
+  },
+  {
+   "key": "schwaerme_mistkaefer",
+   "name": "Mistkäfer",
+   "wins": 463,
+   "samples": 774,
+   "rate": 0.5981912144702842,
+   "outlier": true
+  },
+  {
+   "key": "kriecher_moorunke",
+   "name": "Moorunke",
+   "wins": 355,
+   "samples": 594,
+   "rate": 0.5976430976430976,
+   "outlier": true
+  },
+  {
+   "key": "nachtvoegel_sturmsegler",
+   "name": "Sturmsegler",
+   "wins": 387,
+   "samples": 651,
+   "rate": 0.5944700460829493,
+   "outlier": true
+  },
+  {
+   "key": "gebeine_knochensammler",
+   "name": "Knochensammler",
+   "wins": 189,
+   "samples": 318,
+   "rate": 0.5943396226415094,
+   "outlier": true
+  },
+  {
+   "key": "nager_moorratte",
+   "name": "Moorratte",
+   "wins": 160,
+   "samples": 270,
+   "rate": 0.5925925925925926,
+   "outlier": true
+  },
+  {
+   "key": "flatterer_zwergfledermaus",
+   "name": "Zwergfledermaus",
+   "wins": 141,
+   "samples": 238,
+   "rate": 0.592436974789916,
+   "outlier": true
+  },
+  {
+   "key": "gebeine_knochenhaufen",
+   "name": "Knochenhaufen",
+   "wins": 203,
+   "samples": 343,
+   "rate": 0.5918367346938775,
+   "outlier": true
+  },
+  {
+   "key": "tiefe_scherenkrebs",
+   "name": "Scherenkrebs",
+   "wins": 508,
+   "samples": 860,
+   "rate": 0.5906976744186047,
+   "outlier": true
+  },
+  {
+   "key": "schwaerme_knochenkaefer",
+   "name": "Knochenkäfer",
+   "wins": 250,
+   "samples": 425,
+   "rate": 0.5882352941176471,
+   "outlier": true
+  },
+  {
+   "key": "nager_wuehlmaus",
+   "name": "Wühlmaus",
+   "wins": 301,
+   "samples": 512,
+   "rate": 0.587890625,
+   "outlier": true
+  },
+  {
+   "key": "bestien_grauwelpe",
+   "name": "Grauwelpe",
+   "wins": 215,
+   "samples": 366,
+   "rate": 0.587431693989071,
+   "outlier": true
+  },
+  {
+   "key": "nager_blindmaulwurf",
+   "name": "Blindmaulwurf",
+   "wins": 456,
+   "samples": 777,
+   "rate": 0.5868725868725869,
+   "outlier": true
+  },
+  {
+   "key": "bestien_luchsschatten",
+   "name": "Luchsschatten",
+   "wins": 374,
+   "samples": 640,
+   "rate": 0.584375,
+   "outlier": true
+  },
+  {
+   "key": "nager_aschmaus",
+   "name": "Aschmaus",
+   "wins": 286,
+   "samples": 490,
+   "rate": 0.5836734693877551,
+   "outlier": true
+  },
+  {
+   "key": "stammlose_knochenwuerfel",
+   "name": "Knochenwürfel",
+   "wins": 255,
+   "samples": 438,
+   "rate": 0.5821917808219178,
+   "outlier": true
+  },
+  {
+   "key": "bestien_hetzwolf",
+   "name": "Hetzwolf",
+   "wins": 613,
+   "samples": 1059,
+   "rate": 0.5788479697828139,
+   "outlier": true
+  },
+  {
+   "key": "tiefe_schlammgrundel",
+   "name": "Schlammgrundel",
+   "wins": 242,
+   "samples": 419,
+   "rate": 0.5775656324582339,
+   "outlier": true
+  },
+  {
+   "key": "kerzenwesen_talgschemen",
+   "name": "Talgschemen",
+   "wins": 245,
+   "samples": 425,
+   "rate": 0.5764705882352941,
+   "outlier": true
+  },
+  {
+   "key": "bestien_borstenkeiler",
+   "name": "Borstenkeiler",
+   "wins": 363,
+   "samples": 631,
+   "rate": 0.5752773375594294,
    "outlier": true
   },
   {
    "key": "nager_pestratte",
    "name": "Pestratte",
-   "wins": 556,
-   "samples": 978,
-   "rate": 0.5685071574642127,
+   "wins": 474,
+   "samples": 825,
+   "rate": 0.5745454545454546,
    "outlier": true
   },
   {
-   "key": "tiefe_moorwels",
-   "name": "Moorwels",
-   "wins": 304,
-   "samples": 535,
-   "rate": 0.5682242990654206,
-   "outlier": true
-  },
-  {
-   "key": "stammlose_holzgolem",
-   "name": "Holzgolem",
-   "wins": 177,
-   "samples": 312,
-   "rate": 0.5673076923076923,
+   "key": "kerzenwesen_wachsmaske",
+   "name": "Wachsmaske",
+   "wins": 369,
+   "samples": 643,
+   "rate": 0.5738724727838258,
    "outlier": true
   },
   {
    "key": "wurzelvolk_efeuwuerger",
    "name": "Efeuwürger",
-   "wins": 187,
-   "samples": 331,
-   "rate": 0.5649546827794562,
+   "wins": 191,
+   "samples": 333,
+   "rate": 0.5735735735735735,
    "outlier": true
   },
   {
-   "key": "nager_siebenschlaefer",
-   "name": "Siebenschläfer",
-   "wins": 229,
-   "samples": 406,
-   "rate": 0.5640394088669951,
+   "key": "tiefe_moorwels",
+   "name": "Moorwels",
+   "wins": 306,
+   "samples": 534,
+   "rate": 0.5730337078651685,
+   "outlier": true
+  },
+  {
+   "key": "kriecher_flinkechse",
+   "name": "Flinkechse",
+   "wins": 218,
+   "samples": 381,
+   "rate": 0.5721784776902887,
+   "outlier": true
+  },
+  {
+   "key": "myzel_schleimpilz",
+   "name": "Schleimpilz",
+   "wins": 203,
+   "samples": 356,
+   "rate": 0.5702247191011236,
+   "outlier": true
+  },
+  {
+   "key": "aasfresser_aaskraehe",
+   "name": "Aaskrähe",
+   "wins": 203,
+   "samples": 356,
+   "rate": 0.5702247191011236,
+   "outlier": true
+  },
+  {
+   "key": "stammlose_holzgolem",
+   "name": "Holzgolem",
+   "wins": 161,
+   "samples": 283,
+   "rate": 0.568904593639576,
    "outlier": true
   },
   {
    "key": "tiefe_aalbrut",
    "name": "Aalbrut",
-   "wins": 196,
-   "samples": 349,
-   "rate": 0.5616045845272206,
+   "wins": 208,
+   "samples": 366,
+   "rate": 0.5683060109289617,
    "outlier": true
   },
   {
-   "key": "wurzelvolk_dornspross",
-   "name": "Dornspross",
-   "wins": 292,
-   "samples": 521,
-   "rate": 0.5604606525911708,
+   "key": "schwaerme_larvenknaeuel",
+   "name": "Larvenknäuel",
+   "wins": 269,
+   "samples": 474,
+   "rate": 0.5675105485232067,
    "outlier": true
   },
   {
-   "key": "flatterer_blendfalter",
-   "name": "Blendfalter",
-   "wins": 410,
-   "samples": 733,
-   "rate": 0.5593451568894953,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_wachsklotz",
-   "name": "Wachsklotz",
-   "wins": 537,
-   "samples": 961,
-   "rate": 0.558792924037461,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_knochenknecht",
-   "name": "Knochenknecht",
-   "wins": 181,
-   "samples": 325,
-   "rate": 0.556923076923077,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_schlammgrundel",
-   "name": "Schlammgrundel",
-   "wins": 247,
-   "samples": 444,
-   "rate": 0.5563063063063063,
-   "outlier": false
-  },
-  {
-   "key": "myzel_hexenring",
-   "name": "Hexenring",
-   "wins": 96,
-   "samples": 173,
-   "rate": 0.5549132947976878,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_flackerwicht",
-   "name": "Flackerwicht",
-   "wins": 251,
-   "samples": 453,
-   "rate": 0.5540838852097131,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_moosschrat",
-   "name": "Moosschrat",
-   "wins": 297,
-   "samples": 538,
-   "rate": 0.5520446096654275,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_nachtreiher",
-   "name": "Nachtreiher",
-   "wins": 719,
-   "samples": 1309,
-   "rate": 0.5492742551566081,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_samenkapsel",
-   "name": "Samenkapsel",
-   "wins": 205,
-   "samples": 374,
-   "rate": 0.5481283422459893,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_standuhr",
-   "name": "Standuhr",
-   "wins": 457,
-   "samples": 834,
-   "rate": 0.5479616306954437,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_kauzkueken",
-   "name": "Kauzküken",
-   "wins": 205,
-   "samples": 376,
-   "rate": 0.5452127659574468,
-   "outlier": false
+   "key": "nager_siebenschlaefer",
+   "name": "Siebenschläfer",
+   "wins": 208,
+   "samples": 367,
+   "rate": 0.5667574931880109,
+   "outlier": true
   },
   {
    "key": "aasfresser_leichenkraehe",
    "name": "Leichenkrähe",
-   "wins": 127,
-   "samples": 233,
-   "rate": 0.5450643776824035,
-   "outlier": false
+   "wins": 158,
+   "samples": 280,
+   "rate": 0.5642857142857143,
+   "outlier": true
   },
   {
-   "key": "kerzenwesen_wachsmaske",
-   "name": "Wachsmaske",
-   "wins": 374,
-   "samples": 688,
-   "rate": 0.5436046511627907,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_stummelkerze",
-   "name": "Stummelkerze",
-   "wins": 191,
-   "samples": 352,
-   "rate": 0.5426136363636364,
-   "outlier": false
-  },
-  {
-   "key": "nager_nestratte",
-   "name": "Nestratte",
-   "wins": 203,
-   "samples": 377,
-   "rate": 0.5384615384615384,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_blutsauger",
-   "name": "Blutsauger",
-   "wins": 265,
-   "samples": 495,
-   "rate": 0.5353535353535354,
-   "outlier": false
-  },
-  {
-   "key": "bestien_moorkeiler",
-   "name": "Moorkeiler",
-   "wins": 384,
-   "samples": 722,
-   "rate": 0.5318559556786704,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_glockenrabe",
-   "name": "Glockenrabe",
-   "wins": 425,
-   "samples": 803,
-   "rate": 0.5292652552926526,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_nesselqualle",
-   "name": "Nesselqualle",
-   "wins": 363,
-   "samples": 686,
-   "rate": 0.5291545189504373,
-   "outlier": false
-  },
-  {
-   "key": "tiefe_moraal",
-   "name": "Moraal",
-   "wins": 451,
-   "samples": 856,
-   "rate": 0.5268691588785047,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_knochenhyaene",
-   "name": "Knochenhyäne",
-   "wins": 102,
-   "samples": 194,
-   "rate": 0.5257731958762887,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_koederpuppe",
-   "name": "Köderpuppe",
-   "wins": 184,
-   "samples": 350,
-   "rate": 0.5257142857142857,
-   "outlier": false
-  },
-  {
-   "key": "side_wachsling",
-   "name": "Wachsling",
-   "wins": 2736,
-   "samples": 5218,
-   "rate": 0.524338827136834,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_knorrstumpf",
-   "name": "Knorrstumpf",
-   "wins": 416,
-   "samples": 794,
-   "rate": 0.5239294710327456,
-   "outlier": false
-  },
-  {
-   "key": "wurzelvolk_wurzelwacht",
-   "name": "Wurzelwacht",
-   "wins": 362,
-   "samples": 694,
-   "rate": 0.521613832853026,
-   "outlier": false
-  },
-  {
-   "key": "gebeine_knochenwall",
-   "name": "Knochenwall",
-   "wins": 275,
-   "samples": 529,
-   "rate": 0.5198487712665406,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_staubmotte",
-   "name": "Staubmotte",
-   "wins": 366,
-   "samples": 708,
-   "rate": 0.5169491525423728,
-   "outlier": false
-  },
-  {
-   "key": "myzel_schleimpilz",
-   "name": "Schleimpilz",
-   "wins": 195,
-   "samples": 378,
-   "rate": 0.5158730158730159,
-   "outlier": false
+   "key": "wurzelvolk_samenkapsel",
+   "name": "Samenkapsel",
+   "wins": 225,
+   "samples": 399,
+   "rate": 0.5639097744360902,
+   "outlier": true
   },
   {
    "key": "flatterer_echofledermaus",
    "name": "Echofledermaus",
-   "wins": 198,
-   "samples": 385,
-   "rate": 0.5142857142857142,
-   "outlier": false
+   "wins": 226,
+   "samples": 403,
+   "rate": 0.5607940446650124,
+   "outlier": true
   },
   {
-   "key": "myzel_leuchtkappe",
-   "name": "Leuchtkappe",
-   "wins": 126,
-   "samples": 245,
-   "rate": 0.5142857142857142,
-   "outlier": false
+   "key": "stammlose_kristallkugel",
+   "name": "Kristallkugel",
+   "wins": 328,
+   "samples": 585,
+   "rate": 0.5606837606837607,
+   "outlier": true
   },
   {
-   "key": "gebeine_schaedeltraeger",
-   "name": "Schädelträger",
-   "wins": 19,
-   "samples": 37,
-   "rate": 0.5135135135135135,
+   "key": "bestien_hungerwolf",
+   "name": "Hungerwolf",
+   "wins": 569,
+   "samples": 1020,
+   "rate": 0.557843137254902,
    "outlier": false
   },
   {
    "key": "schwaerme_heerameise",
    "name": "Heerameise",
-   "wins": 227,
-   "samples": 444,
-   "rate": 0.5112612612612613,
+   "wins": 232,
+   "samples": 417,
+   "rate": 0.5563549160671463,
    "outlier": false
   },
   {
-   "key": "wurzelvolk_dornbusch",
-   "name": "Dornbusch",
-   "wins": 235,
-   "samples": 461,
-   "rate": 0.5097613882863341,
+   "key": "flatterer_blutsauger",
+   "name": "Blutsauger",
+   "wins": 246,
+   "samples": 446,
+   "rate": 0.5515695067264574,
    "outlier": false
   },
   {
-   "key": "stammlose_glasgolem",
-   "name": "Glasgolem",
+   "key": "schwaerme_wachsameise",
+   "name": "Wachsameise",
+   "wins": 303,
+   "samples": 551,
+   "rate": 0.5499092558983666,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_staubmotte",
+   "name": "Staubmotte",
+   "wins": 395,
+   "samples": 720,
+   "rate": 0.5486111111111112,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_wachsklotz",
+   "name": "Wachsklotz",
+   "wins": 513,
+   "samples": 936,
+   "rate": 0.5480769230769231,
+   "outlier": false
+  },
+  {
+   "key": "myzel_hexenring",
+   "name": "Hexenring",
+   "wins": 92,
+   "samples": 168,
+   "rate": 0.5476190476190477,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_ewigeflamme",
+   "name": "Ewige Flamme",
+   "wins": 516,
+   "samples": 949,
+   "rate": 0.5437302423603794,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_irrlicht",
+   "name": "Irrlicht",
+   "wins": 304,
+   "samples": 562,
+   "rate": 0.5409252669039146,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_schaedeltraeger",
+   "name": "Schädelträger",
+   "wins": 27,
+   "samples": 50,
+   "rate": 0.54,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_stachelwespe",
+   "name": "Stachelwespe",
+   "wins": 578,
+   "samples": 1072,
+   "rate": 0.539179104477612,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_froschlaich",
+   "name": "Froschlaich",
+   "wins": 186,
+   "samples": 346,
+   "rate": 0.5375722543352601,
+   "outlier": false
+  },
+  {
+   "key": "gebeine_knochenwall",
+   "name": "Knochenwall",
+   "wins": 253,
+   "samples": 476,
+   "rate": 0.5315126050420168,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_blendfalter",
+   "name": "Blendfalter",
+   "wins": 364,
+   "samples": 685,
+   "rate": 0.5313868613138686,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_flackerwicht",
+   "name": "Flackerwicht",
+   "wins": 238,
+   "samples": 448,
+   "rate": 0.53125,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_nesselqualle",
+   "name": "Nesselqualle",
+   "wins": 376,
+   "samples": 708,
+   "rate": 0.5310734463276836,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_moosschrat",
+   "name": "Moosschrat",
    "wins": 244,
-   "samples": 483,
-   "rate": 0.505175983436853,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_vogelscheuche",
-   "name": "Vogelscheuche",
-   "wins": 267,
-   "samples": 531,
-   "rate": 0.5028248587570622,
-   "outlier": false
-  },
-  {
-   "key": "schwaerme_panzerkaefer",
-   "name": "Panzerkäfer",
-   "wins": 327,
-   "samples": 652,
-   "rate": 0.5015337423312883,
-   "outlier": false
-  },
-  {
-   "key": "side_knochenkaefer",
-   "name": "Knochenkäfer",
-   "wins": 2871,
-   "samples": 5726,
-   "rate": 0.5013971358714635,
-   "outlier": false
-  },
-  {
-   "key": "gehoernte_moorbock",
-   "name": "Moorbock",
-   "wins": 301,
-   "samples": 602,
-   "rate": 0.5,
-   "outlier": false
-  },
-  {
-   "key": "kriecher_warzenkroete",
-   "name": "Warzenkröte",
-   "wins": 187,
-   "samples": 376,
-   "rate": 0.4973404255319149,
-   "outlier": false
-  },
-  {
-   "key": "flatterer_seidenraupe",
-   "name": "Seidenraupe",
-   "wins": 136,
-   "samples": 276,
-   "rate": 0.4927536231884058,
-   "outlier": false
-  },
-  {
-   "key": "side_moorling",
-   "name": "Moorling",
-   "wins": 6779,
-   "samples": 13843,
-   "rate": 0.4897059885862891,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_kapellenglocke",
-   "name": "Kapellenglocke",
-   "wins": 184,
-   "samples": 376,
-   "rate": 0.48936170212765956,
-   "outlier": false
-  },
-  {
-   "key": "nager_spitzmaus",
-   "name": "Unsterbliche Spitzmaus",
-   "wins": 272,
-   "samples": 573,
-   "rate": 0.47469458987783597,
-   "outlier": false
-  },
-  {
-   "key": "nachtvoegel_schleiereule",
-   "name": "Schleiereule",
-   "wins": 309,
-   "samples": 653,
-   "rate": 0.47320061255742724,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen_lichterfresser",
-   "name": "Lichterfresser",
-   "wins": 281,
-   "samples": 602,
-   "rate": 0.46677740863787376,
-   "outlier": false
-  },
-  {
-   "key": "stammlose_leereruestung",
-   "name": "Leere Rüstung",
-   "wins": 169,
-   "samples": 364,
-   "rate": 0.4642857142857143,
+   "samples": 460,
+   "rate": 0.5304347826086957,
    "outlier": false
   },
   {
    "key": "nager_schermaus",
    "name": "Schermaus",
+   "wins": 245,
+   "samples": 462,
+   "rate": 0.5303030303030303,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_schleiereule",
+   "name": "Schleiereule",
+   "wins": 298,
+   "samples": 566,
+   "rate": 0.5265017667844523,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_glockenrabe",
+   "name": "Glockenrabe",
+   "wins": 434,
+   "samples": 825,
+   "rate": 0.526060606060606,
+   "outlier": false
+  },
+  {
+   "key": "nachtvoegel_nachtreiher",
+   "name": "Nachtreiher",
+   "wins": 607,
+   "samples": 1159,
+   "rate": 0.5237273511647972,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_standuhr",
+   "name": "Standuhr",
+   "wins": 447,
+   "samples": 861,
+   "rate": 0.519163763066202,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_kadaverbrut",
+   "name": "Kadaverbrut",
+   "wins": 185,
+   "samples": 357,
+   "rate": 0.5182072829131653,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_dochtmotte",
+   "name": "Dochtmotte",
+   "wins": 203,
+   "samples": 392,
+   "rate": 0.5178571428571429,
+   "outlier": false
+  },
+  {
+   "key": "tiefe_moraal",
+   "name": "Moraal",
+   "wins": 428,
+   "samples": 831,
+   "rate": 0.5150421179302046,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_knorrstumpf",
+   "name": "Knorrstumpf",
+   "wins": 430,
+   "samples": 839,
+   "rate": 0.5125148986889154,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_stummelkerze",
+   "name": "Stummelkerze",
+   "wins": 187,
+   "samples": 365,
+   "rate": 0.5123287671232877,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_koederpuppe",
+   "name": "Köderpuppe",
+   "wins": 205,
+   "samples": 401,
+   "rate": 0.5112219451371571,
+   "outlier": false
+  },
+  {
+   "key": "gehoernte_moorbock",
+   "name": "Moorbock",
+   "wins": 276,
+   "samples": 540,
+   "rate": 0.5111111111111111,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_kapellenglocke",
+   "name": "Kapellenglocke",
+   "wins": 169,
+   "samples": 331,
+   "rate": 0.5105740181268882,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_dornspross",
+   "name": "Dornspross",
+   "wins": 254,
+   "samples": 498,
+   "rate": 0.5100401606425703,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_seidenraupe",
+   "name": "Seidenraupe",
+   "wins": 147,
+   "samples": 289,
+   "rate": 0.5086505190311419,
+   "outlier": false
+  },
+  {
+   "key": "nager_nestratte",
+   "name": "Nestratte",
+   "wins": 177,
+   "samples": 353,
+   "rate": 0.5014164305949008,
+   "outlier": false
+  },
+  {
+   "key": "kriecher_warzenkroete",
+   "name": "Warzenkröte",
+   "wins": 172,
+   "samples": 344,
+   "rate": 0.5,
+   "outlier": false
+  },
+  {
+   "key": "side_moorling",
+   "name": "Moorling",
+   "wins": 12407,
+   "samples": 24818,
+   "rate": 0.4999194133290354,
+   "outlier": false
+  },
+  {
+   "key": "schwaerme_panzerkaefer",
+   "name": "Panzerkäfer",
+   "wins": 328,
+   "samples": 663,
+   "rate": 0.4947209653092006,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_wurzelwacht",
+   "name": "Wurzelwacht",
+   "wins": 324,
+   "samples": 657,
+   "rate": 0.4931506849315068,
+   "outlier": false
+  },
+  {
+   "key": "myzel_leuchtkappe",
+   "name": "Leuchtkappe",
+   "wins": 134,
+   "samples": 272,
+   "rate": 0.49264705882352944,
+   "outlier": false
+  },
+  {
+   "key": "kerzenwesen_lichterfresser",
+   "name": "Lichterfresser",
+   "wins": 246,
+   "samples": 503,
+   "rate": 0.48906560636182905,
+   "outlier": false
+  },
+  {
+   "key": "bestien_moorkeiler",
+   "name": "Moorkeiler",
    "wins": 277,
-   "samples": 597,
-   "rate": 0.4639865996649916,
+   "samples": 569,
+   "rate": 0.4868189806678383,
    "outlier": false
   },
   {
-   "key": "nachtvoegel_wachkauz",
-   "name": "Wachkauz",
-   "wins": 232,
-   "samples": 501,
-   "rate": 0.4630738522954092,
+   "key": "stammlose_vogelscheuche",
+   "name": "Vogelscheuche",
+   "wins": 258,
+   "samples": 533,
+   "rate": 0.48405253283302063,
    "outlier": false
   },
   {
-   "key": "flatterer_nachtfalter",
-   "name": "Nachtfalter",
-   "wins": 184,
-   "samples": 404,
-   "rate": 0.45544554455445546,
+   "key": "aasfresser_knochenhyaene",
+   "name": "Knochenhyäne",
+   "wins": 100,
+   "samples": 209,
+   "rate": 0.4784688995215311,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_leereruestung",
+   "name": "Leere Rüstung",
+   "wins": 190,
+   "samples": 400,
+   "rate": 0.475,
+   "outlier": false
+  },
+  {
+   "key": "nager_spitzmaus",
+   "name": "Unsterbliche Spitzmaus",
+   "wins": 244,
+   "samples": 525,
+   "rate": 0.46476190476190476,
+   "outlier": false
+  },
+  {
+   "key": "wurzelvolk_dornbusch",
+   "name": "Dornbusch",
+   "wins": 210,
+   "samples": 452,
+   "rate": 0.4646017699115044,
    "outlier": false
   },
   {
    "key": "nachtvoegel_nestmutter",
    "name": "Nestmutter",
-   "wins": 252,
-   "samples": 559,
-   "rate": 0.45080500894454384,
+   "wins": 276,
+   "samples": 600,
+   "rate": 0.46,
+   "outlier": false
+  },
+  {
+   "key": "flatterer_nachtfalter",
+   "name": "Nachtfalter",
+   "wins": 172,
+   "samples": 374,
+   "rate": 0.45989304812834225,
+   "outlier": false
+  },
+  {
+   "key": "stammlose_glasgolem",
+   "name": "Glasgolem",
+   "wins": 273,
+   "samples": 604,
+   "rate": 0.4519867549668874,
    "outlier": false
   },
   {
    "key": "nachtvoegel_ziegenmelker",
    "name": "Ziegenmelker",
-   "wins": 409,
-   "samples": 908,
-   "rate": 0.45044052863436124,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser_knochenpicker",
-   "name": "Knochenpicker",
-   "wins": 35,
-   "samples": 78,
-   "rate": 0.44871794871794873,
+   "wins": 372,
+   "samples": 827,
+   "rate": 0.4498186215235792,
    "outlier": false
   },
   {
    "key": "schwaerme_wespenschwarm",
    "name": "Wespenschwarm",
-   "wins": 184,
-   "samples": 414,
-   "rate": 0.4444444444444444,
+   "wins": 189,
+   "samples": 427,
+   "rate": 0.4426229508196721,
    "outlier": false
   },
   {
-   "key": "myzel_faulbauch",
-   "name": "Faulbauch",
-   "wins": 2,
-   "samples": 5,
-   "rate": 0.4,
+   "key": "nachtvoegel_wachkauz",
+   "name": "Wachkauz",
+   "wins": 206,
+   "samples": 466,
+   "rate": 0.44206008583690987,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser_knochenpicker",
+   "name": "Knochenpicker",
+   "wins": 45,
+   "samples": 107,
+   "rate": 0.4205607476635514,
+   "outlier": false
+  },
+  {
+   "key": "token_laterne",
+   "name": "Moorlaterne",
+   "wins": 0,
+   "samples": 1,
+   "rate": 0,
    "outlier": false
   }
  ],
@@ -2715,385 +2740,385 @@
   {
    "key": "dreizack",
    "name": "dreizack",
-   "wins": 779,
-   "samples": 785,
-   "rate": 0.9923566878980892,
+   "wins": 747,
+   "samples": 756,
+   "rate": 0.9880952380952381,
    "outlier": true
   },
   {
    "key": "zwillingsbiss",
    "name": "zwillingsbiss",
-   "wins": 1331,
-   "samples": 1445,
-   "rate": 0.9211072664359862,
-   "outlier": true
-  },
-  {
-   "key": "durchbohren",
-   "name": "durchbohren",
-   "wins": 353,
-   "samples": 432,
-   "rate": 0.8171296296296297,
+   "wins": 1491,
+   "samples": 1610,
+   "rate": 0.9260869565217391,
    "outlier": true
   },
   {
    "key": "leittier",
    "name": "leittier",
-   "wins": 1382,
-   "samples": 1734,
-   "rate": 0.7970011534025375,
+   "wins": 1679,
+   "samples": 2039,
+   "rate": 0.8234428641490927,
+   "outlier": true
+  },
+  {
+   "key": "durchbohren",
+   "name": "durchbohren",
+   "wins": 347,
+   "samples": 430,
+   "rate": 0.8069767441860465,
    "outlier": true
   },
   {
    "key": "brut",
    "name": "brut",
-   "wins": 1663,
-   "samples": 2089,
-   "rate": 0.7960746768788894,
-   "outlier": true
-  },
-  {
-   "key": "kundschafter",
-   "name": "kundschafter",
-   "wins": 3190,
-   "samples": 4368,
-   "rate": 0.7303113553113553,
+   "wins": 1781,
+   "samples": 2217,
+   "rate": 0.8033378439332431,
    "outlier": true
   },
   {
    "key": "rachsucht",
    "name": "rachsucht",
-   "wins": 451,
-   "samples": 623,
-   "rate": 0.723916532905297,
+   "wins": 447,
+   "samples": 617,
+   "rate": 0.7244732576985413,
    "outlier": true
   },
   {
-   "key": "kerzendocht",
-   "name": "kerzendocht",
-   "wins": 1353,
-   "samples": 1881,
-   "rate": 0.7192982456140351,
+   "key": "kundschafter",
+   "name": "kundschafter",
+   "wins": 2890,
+   "samples": 4020,
+   "rate": 0.7189054726368159,
    "outlier": true
   },
   {
    "key": "wiedergaenger",
    "name": "wiedergaenger",
-   "wins": 146,
-   "samples": 207,
-   "rate": 0.7053140096618358,
+   "wins": 152,
+   "samples": 219,
+   "rate": 0.6940639269406392,
    "outlier": true
   },
   {
-   "key": "dreifachblut",
-   "name": "dreifachblut",
-   "wins": 489,
-   "samples": 711,
-   "rate": 0.6877637130801688,
+   "key": "kerzendocht",
+   "name": "kerzendocht",
+   "wins": 1124,
+   "samples": 1647,
+   "rate": 0.6824529447480268,
    "outlier": true
   },
   {
    "key": "blutschuld",
    "name": "blutschuld",
-   "wins": 485,
-   "samples": 716,
-   "rate": 0.6773743016759777,
-   "outlier": true
-  },
-  {
-   "key": "gabelstoss",
-   "name": "gabelstoss",
-   "wins": 1202,
-   "samples": 1793,
-   "rate": 0.6703848298940324,
+   "wins": 448,
+   "samples": 660,
+   "rate": 0.6787878787878788,
    "outlier": true
   },
   {
    "key": "rudelruf",
    "name": "rudelruf",
-   "wins": 1447,
-   "samples": 2181,
-   "rate": 0.6634571297569922,
+   "wins": 1564,
+   "samples": 2336,
+   "rate": 0.6695205479452054,
    "outlier": true
   },
   {
-   "key": "vorpreschen",
-   "name": "vorpreschen",
-   "wins": 908,
-   "samples": 1374,
-   "rate": 0.660844250363901,
-   "outlier": true
-  },
-  {
-   "key": "knochenmark",
-   "name": "knochenmark",
-   "wins": 513,
-   "samples": 788,
-   "rate": 0.6510152284263959,
-   "outlier": true
-  },
-  {
-   "key": "hinterhalt",
-   "name": "hinterhalt",
-   "wins": 936,
-   "samples": 1439,
-   "rate": 0.65045170257123,
-   "outlier": true
-  },
-  {
-   "key": "schildrinde",
-   "name": "schildrinde",
-   "wins": 765,
-   "samples": 1197,
-   "rate": 0.6390977443609023,
-   "outlier": true
-  },
-  {
-   "key": "wanderer",
-   "name": "wanderer",
-   "wins": 1044,
-   "samples": 1635,
-   "rate": 0.6385321100917432,
+   "key": "gabelstoss",
+   "name": "gabelstoss",
+   "wins": 1057,
+   "samples": 1597,
+   "rate": 0.6618659987476518,
    "outlier": true
   },
   {
    "key": "rammbock",
    "name": "rammbock",
-   "wins": 1157,
-   "samples": 1826,
-   "rate": 0.6336254107338445,
+   "wins": 1175,
+   "samples": 1813,
+   "rate": 0.6480970766685052,
    "outlier": true
   },
   {
-   "key": "fluchtreflex",
-   "name": "fluchtreflex",
-   "wins": 1238,
-   "samples": 1973,
-   "rate": 0.6274708565636087,
+   "key": "vorpreschen",
+   "name": "vorpreschen",
+   "wins": 804,
+   "samples": 1264,
+   "rate": 0.6360759493670886,
    "outlier": true
   },
   {
-   "key": "haeutung",
-   "name": "haeutung",
-   "wins": 385,
-   "samples": 618,
-   "rate": 0.6229773462783171,
+   "key": "hinterhalt",
+   "name": "hinterhalt",
+   "wins": 1008,
+   "samples": 1590,
+   "rate": 0.6339622641509434,
    "outlier": true
   },
   {
-   "key": "moosheilung",
-   "name": "moosheilung",
-   "wins": 500,
-   "samples": 815,
-   "rate": 0.6134969325153374,
-   "outlier": true
-  },
-  {
-   "key": "koeder",
-   "name": "koeder",
-   "wins": 877,
-   "samples": 1448,
-   "rate": 0.6056629834254144,
+   "key": "dreifachblut",
+   "name": "dreifachblut",
+   "wins": 413,
+   "samples": 655,
+   "rate": 0.6305343511450382,
    "outlier": true
   },
   {
    "key": "stinkdruese",
    "name": "stinkdruese",
-   "wins": 707,
-   "samples": 1173,
-   "rate": 0.6027280477408354,
+   "wins": 717,
+   "samples": 1149,
+   "rate": 0.6240208877284595,
    "outlier": true
   },
   {
-   "key": "todesstachel",
-   "name": "todesstachel",
-   "wins": 1489,
-   "samples": 2496,
-   "rate": 0.5965544871794872,
+   "key": "haeutung",
+   "name": "haeutung",
+   "wins": 354,
+   "samples": 574,
+   "rate": 0.6167247386759582,
    "outlier": true
   },
   {
-   "key": "seher",
-   "name": "seher",
-   "wins": 1076,
-   "samples": 1810,
-   "rate": 0.594475138121547,
+   "key": "knochenmark",
+   "name": "knochenmark",
+   "wins": 469,
+   "samples": 762,
+   "rate": 0.615485564304462,
    "outlier": true
   },
   {
-   "key": "faeulnis",
-   "name": "faeulnis",
-   "wins": 1726,
-   "samples": 2918,
-   "rate": 0.5915010281014393,
-   "outlier": true
-  },
-  {
-   "key": "nachgeburt",
-   "name": "nachgeburt",
-   "wins": 564,
-   "samples": 963,
-   "rate": 0.5856697819314641,
+   "key": "fluchtreflex",
+   "name": "fluchtreflex",
+   "wins": 1130,
+   "samples": 1865,
+   "rate": 0.6058981233243967,
    "outlier": true
   },
   {
    "key": "tauchgang",
    "name": "tauchgang",
-   "wins": 1586,
-   "samples": 2723,
-   "rate": 0.5824458318031582,
-   "outlier": true
-  },
-  {
-   "key": "grabwuehler",
-   "name": "grabwuehler",
-   "wins": 1221,
-   "samples": 2107,
-   "rate": 0.5794969150450878,
-   "outlier": true
-  },
-  {
-   "key": "hunger",
-   "name": "hunger",
-   "wins": 616,
-   "samples": 1063,
-   "rate": 0.5794920037629351,
-   "outlier": true
-  },
-  {
-   "key": "aschenspende",
-   "name": "aschenspende",
-   "wins": 403,
-   "samples": 696,
-   "rate": 0.5790229885057471,
-   "outlier": true
-  },
-  {
-   "key": "nesthueter",
-   "name": "nesthueter",
-   "wins": 1032,
-   "samples": 1786,
-   "rate": 0.5778275475923852,
-   "outlier": true
-  },
-  {
-   "key": "schwinge",
-   "name": "schwinge",
-   "wins": 4212,
-   "samples": 7333,
-   "rate": 0.5743897449884086,
-   "outlier": true
-  },
-  {
-   "key": "spiegelbild",
-   "name": "spiegelbild",
-   "wins": 804,
-   "samples": 1406,
-   "rate": 0.5718349928876245,
+   "wins": 1658,
+   "samples": 2744,
+   "rate": 0.6042274052478134,
    "outlier": true
   },
   {
    "key": "wucht",
    "name": "wucht",
-   "wins": 989,
-   "samples": 1730,
-   "rate": 0.5716763005780346,
+   "wins": 1078,
+   "samples": 1789,
+   "rate": 0.6025712688652879,
    "outlier": true
   },
   {
-   "key": "metamorphose",
-   "name": "metamorphose",
-   "wins": 2119,
-   "samples": 3735,
-   "rate": 0.5673360107095047,
+   "key": "wachsgabe",
+   "name": "wachsgabe",
+   "wins": 266,
+   "samples": 444,
+   "rate": 0.5990990990990991,
    "outlier": true
   },
   {
-   "key": "dornenkleid",
-   "name": "dornenkleid",
-   "wins": 1588,
-   "samples": 2800,
-   "rate": 0.5671428571428572,
+   "key": "seher",
+   "name": "seher",
+   "wins": 999,
+   "samples": 1668,
+   "rate": 0.5989208633093526,
    "outlier": true
   },
   {
-   "key": "panzer",
-   "name": "panzer",
-   "wins": 839,
-   "samples": 1483,
-   "rate": 0.5657451112609575,
+   "key": "moosheilung",
+   "name": "moosheilung",
+   "wins": 422,
+   "samples": 706,
+   "rate": 0.5977337110481586,
+   "outlier": true
+  },
+  {
+   "key": "grabwuehler",
+   "name": "grabwuehler",
+   "wins": 1253,
+   "samples": 2110,
+   "rate": 0.5938388625592417,
+   "outlier": true
+  },
+  {
+   "key": "todesstachel",
+   "name": "todesstachel",
+   "wins": 1431,
+   "samples": 2416,
+   "rate": 0.5923013245033113,
+   "outlier": true
+  },
+  {
+   "key": "schwinge",
+   "name": "schwinge",
+   "wins": 4368,
+   "samples": 7386,
+   "rate": 0.5913891145410236,
+   "outlier": true
+  },
+  {
+   "key": "faeulnis",
+   "name": "faeulnis",
+   "wins": 1711,
+   "samples": 2894,
+   "rate": 0.5912232204561161,
+   "outlier": true
+  },
+  {
+   "key": "wanderer",
+   "name": "wanderer",
+   "wins": 861,
+   "samples": 1459,
+   "rate": 0.5901302261823167,
+   "outlier": true
+  },
+  {
+   "key": "schildrinde",
+   "name": "schildrinde",
+   "wins": 730,
+   "samples": 1238,
+   "rate": 0.5896607431340872,
+   "outlier": true
+  },
+  {
+   "key": "aschenspende",
+   "name": "aschenspende",
+   "wins": 383,
+   "samples": 650,
+   "rate": 0.5892307692307692,
+   "outlier": true
+  },
+  {
+   "key": "markleicht",
+   "name": "markleicht",
+   "wins": 250,
+   "samples": 425,
+   "rate": 0.5882352941176471,
+   "outlier": true
+  },
+  {
+   "key": "aderlass",
+   "name": "aderlass",
+   "wins": 480,
+   "samples": 835,
+   "rate": 0.5748502994011976,
    "outlier": true
   },
   {
    "key": "wachsquelle",
    "name": "wachsquelle",
-   "wins": 716,
-   "samples": 1269,
-   "rate": 0.5642237982663515,
+   "wins": 696,
+   "samples": 1214,
+   "rate": 0.5733113673805601,
    "outlier": true
   },
   {
    "key": "ruestungsbrecher",
    "name": "ruestungsbrecher",
-   "wins": 363,
-   "samples": 651,
-   "rate": 0.5576036866359447,
+   "wins": 400,
+   "samples": 699,
+   "rate": 0.5722460658082976,
+   "outlier": true
+  },
+  {
+   "key": "dornenkleid",
+   "name": "dornenkleid",
+   "wins": 1633,
+   "samples": 2865,
+   "rate": 0.5699825479930192,
+   "outlier": true
+  },
+  {
+   "key": "panzer",
+   "name": "panzer",
+   "wins": 844,
+   "samples": 1484,
+   "rate": 0.568733153638814,
+   "outlier": true
+  },
+  {
+   "key": "nesthueter",
+   "name": "nesthueter",
+   "wins": 1035,
+   "samples": 1823,
+   "rate": 0.5677454744925946,
+   "outlier": true
+  },
+  {
+   "key": "metamorphose",
+   "name": "metamorphose",
+   "wins": 2101,
+   "samples": 3701,
+   "rate": 0.5676844096190219,
+   "outlier": true
+  },
+  {
+   "key": "koeder",
+   "name": "koeder",
+   "wins": 787,
+   "samples": 1393,
+   "rate": 0.5649676956209619,
+   "outlier": true
+  },
+  {
+   "key": "hunger",
+   "name": "hunger",
+   "wins": 575,
+   "samples": 1026,
+   "rate": 0.5604288499025342,
+   "outlier": true
+  },
+  {
+   "key": "nachgeburt",
+   "name": "nachgeburt",
+   "wins": 480,
+   "samples": 868,
+   "rate": 0.5529953917050692,
    "outlier": false
   },
   {
-   "key": "aderlass",
-   "name": "aderlass",
-   "wins": 475,
-   "samples": 853,
-   "rate": 0.5568581477139508,
-   "outlier": false
-  },
-  {
-   "key": "hochwuchs",
-   "name": "hochwuchs",
-   "wins": 1642,
-   "samples": 3022,
-   "rate": 0.5433487756452681,
-   "outlier": false
-  },
-  {
-   "key": "ewigesopfer",
-   "name": "ewigesopfer",
-   "wins": 830,
-   "samples": 1553,
-   "rate": 0.5344494526722473,
-   "outlier": false
-  },
-  {
-   "key": "wachsgabe",
-   "name": "wachsgabe",
-   "wins": 2736,
-   "samples": 5218,
-   "rate": 0.524338827136834,
-   "outlier": false
-  },
-  {
-   "key": "leibwaechter",
-   "name": "leibwaechter",
-   "wins": 711,
-   "samples": 1371,
-   "rate": 0.5185995623632386,
+   "key": "spiegelbild",
+   "name": "spiegelbild",
+   "wins": 765,
+   "samples": 1389,
+   "rate": 0.550755939524838,
    "outlier": false
   },
   {
    "key": "glockenschlag",
    "name": "glockenschlag",
-   "wins": 609,
-   "samples": 1179,
-   "rate": 0.5165394402035624,
+   "wins": 603,
+   "samples": 1156,
+   "rate": 0.5216262975778547,
    "outlier": false
   },
   {
-   "key": "markleicht",
-   "name": "markleicht",
-   "wins": 2871,
-   "samples": 5726,
-   "rate": 0.5013971358714635,
+   "key": "hochwuchs",
+   "name": "hochwuchs",
+   "wins": 1461,
+   "samples": 2817,
+   "rate": 0.5186368477103301,
+   "outlier": false
+  },
+  {
+   "key": "ewigesopfer",
+   "name": "ewigesopfer",
+   "wins": 760,
+   "samples": 1474,
+   "rate": 0.5156037991858887,
+   "outlier": false
+  },
+  {
+   "key": "leibwaechter",
+   "name": "leibwaechter",
+   "wins": 641,
+   "samples": 1307,
+   "rate": 0.4904361132364193,
    "outlier": false
   }
  ],
@@ -3101,113 +3126,113 @@
   {
    "key": "nager",
    "name": "nager",
-   "wins": 635,
-   "samples": 1207,
-   "rate": 0.5260977630488816,
-   "outlier": false
-  },
-  {
-   "key": "bestien",
-   "name": "bestien",
-   "wins": 1533,
-   "samples": 2984,
-   "rate": 0.5137399463806971,
-   "outlier": false
-  },
-  {
-   "key": "stammlose",
-   "name": "stammlose",
-   "wins": 3132,
-   "samples": 6173,
-   "rate": 0.5073708083589826,
-   "outlier": false
-  },
-  {
-   "key": "flatterer",
-   "name": "flatterer",
-   "wins": 1104,
-   "samples": 2182,
-   "rate": 0.5059578368469294,
-   "outlier": false
-  },
-  {
-   "key": "kerzenwesen",
-   "name": "kerzenwesen",
-   "wins": 1090,
-   "samples": 2166,
-   "rate": 0.5032317636195752,
+   "wins": 616,
+   "samples": 1187,
+   "rate": 0.518955349620893,
    "outlier": false
   },
   {
    "key": "schwaerme",
    "name": "schwaerme",
-   "wins": 839,
-   "samples": 1671,
-   "rate": 0.5020945541591861,
+   "wins": 943,
+   "samples": 1841,
+   "rate": 0.512221618685497,
+   "outlier": false
+  },
+  {
+   "key": "stammlose",
+   "name": "stammlose",
+   "wins": 3021,
+   "samples": 6060,
+   "rate": 0.4985148514851485,
+   "outlier": false
+  },
+  {
+   "key": "bestien",
+   "name": "bestien",
+   "wins": 1464,
+   "samples": 2937,
+   "rate": 0.49846782431052095,
    "outlier": false
   },
   {
    "key": "nachtvoegel",
    "name": "nachtvoegel",
-   "wins": 1556,
-   "samples": 3138,
-   "rate": 0.4958572339069471,
+   "wins": 1569,
+   "samples": 3152,
+   "rate": 0.4977791878172589,
    "outlier": false
   },
   {
    "key": "gehoernte",
    "name": "gehoernte",
-   "wins": 1277,
-   "samples": 2586,
-   "rate": 0.4938128383604022,
-   "outlier": false
-  },
-  {
-   "key": "kriecher",
-   "name": "kriecher",
-   "wins": 1215,
-   "samples": 2466,
-   "rate": 0.4927007299270073,
+   "wins": 1219,
+   "samples": 2453,
+   "rate": 0.49694251936404404,
    "outlier": false
   },
   {
    "key": "tiefe",
    "name": "tiefe",
-   "wins": 1191,
-   "samples": 2427,
-   "rate": 0.4907292954264524,
-   "outlier": false
-  },
-  {
-   "key": "aasfresser",
-   "name": "aasfresser",
-   "wins": 1190,
-   "samples": 2437,
-   "rate": 0.48830529339351664,
+   "wins": 1233,
+   "samples": 2483,
+   "rate": 0.49657672170761175,
    "outlier": false
   },
   {
    "key": "wurzelvolk",
    "name": "wurzelvolk",
-   "wins": 995,
-   "samples": 2080,
-   "rate": 0.47836538461538464,
+   "wins": 1049,
+   "samples": 2125,
+   "rate": 0.49364705882352944,
    "outlier": false
   },
   {
-   "key": "gebeine",
-   "name": "gebeine",
-   "wins": 902,
-   "samples": 1893,
-   "rate": 0.47649234020073955,
+   "key": "kerzenwesen",
+   "name": "kerzenwesen",
+   "wins": 1093,
+   "samples": 2246,
+   "rate": 0.4866429207479964,
+   "outlier": false
+  },
+  {
+   "key": "aasfresser",
+   "name": "aasfresser",
+   "wins": 1201,
+   "samples": 2470,
+   "rate": 0.4862348178137652,
+   "outlier": false
+  },
+  {
+   "key": "flatterer",
+   "name": "flatterer",
+   "wins": 1133,
+   "samples": 2331,
+   "rate": 0.48605748605748605,
    "outlier": false
   },
   {
    "key": "myzel",
    "name": "myzel",
-   "wins": 759,
-   "samples": 1605,
-   "rate": 0.47289719626168225,
+   "wins": 861,
+   "samples": 1792,
+   "rate": 0.48046875,
+   "outlier": false
+  },
+  {
+   "key": "gebeine",
+   "name": "gebeine",
+   "wins": 924,
+   "samples": 1926,
+   "rate": 0.4797507788161994,
+   "outlier": false
+  },
+  {
+   "key": "kriecher",
+   "name": "kriecher",
+   "wins": 1208,
+   "samples": 2530,
+   "rate": 0.4774703557312253,
    "outlier": false
   }
  ],
@@ -3215,26 +3240,92 @@
   {
    "key": "bones",
    "name": "bones",
-   "wins": 7711,
-   "samples": 12347,
-   "rate": 0.6245241759131773,
-   "outlier": true
-  },
-  {
-   "key": "wax",
-   "name": "wax",
-   "wins": 13627,
-   "samples": 23106,
-   "rate": 0.5897602354366831,
+   "wins": 7900,
+   "samples": 12705,
+   "rate": 0.6218024399842582,
    "outlier": true
   },
   {
    "key": "blood",
    "name": "blood",
-   "wins": 38196,
-   "samples": 66228,
-   "rate": 0.5767349157456061,
+   "wins": 38323,
+   "samples": 66367,
+   "rate": 0.5774405954766676,
    "outlier": true
+  },
+  {
+   "key": "wax",
+   "name": "wax",
+   "wins": 12455,
+   "samples": 21678,
+   "rate": 0.5745456222898792,
+   "outlier": true
+  }
+ ],
+ "sideTotems": [
+  {
+   "key": "doppelblut",
+   "name": "doppelblut",
+   "wins": 3141,
+   "samples": 5740,
+   "rate": 0.547212543554007,
+   "outlier": false
+  },
+  {
+   "key": "wachsgabe",
+   "name": "wachsgabe",
+   "wins": 2141,
+   "samples": 4248,
+   "rate": 0.5040018832391714,
+   "outlier": false
+  },
+  {
+   "key": "aschenspende",
+   "name": "aschenspende",
+   "wins": 1793,
+   "samples": 3634,
+   "rate": 0.4933957072096863,
+   "outlier": false
+  },
+  {
+   "key": "knochenmark",
+   "name": "knochenmark",
+   "wins": 1847,
+   "samples": 3756,
+   "rate": 0.4917465388711395,
+   "outlier": false
+  },
+  {
+   "key": "markleicht",
+   "name": "markleicht",
+   "wins": 710,
+   "samples": 1466,
+   "rate": 0.4843110504774898,
+   "outlier": false
+  },
+  {
+   "key": "schildrinde",
+   "name": "schildrinde",
+   "wins": 1800,
+   "samples": 3816,
+   "rate": 0.4716981132075472,
+   "outlier": false
+  },
+  {
+   "key": "stinkdruese",
+   "name": "stinkdruese",
+   "wins": 180,
+   "samples": 384,
+   "rate": 0.46875,
+   "outlier": false
+  },
+  {
+   "key": "dornenkleid",
+   "name": "dornenkleid",
+   "wins": 800,
+   "samples": 1780,
+   "rate": 0.449438202247191,
+   "outlier": false
   }
  ]
 }

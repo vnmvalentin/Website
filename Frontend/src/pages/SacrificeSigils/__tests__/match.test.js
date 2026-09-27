@@ -13,7 +13,7 @@ import { SIGILS } from "../engine/sigils/index.js";
 import { ITEMS } from "../data/items.js";
 import { EVENTS } from "../data/events.js";
 import { AURA_SIGILS } from "../engine/sigils/index.js";
-import { TOTEM_BASE_SIGILS, LANE_PROPS } from "../data/totems.js";
+import { TOTEM_BASE_SIGILS, LANE_PROPS, SIDE_TOTEM_SIGILS, SIDE_ONLY_SIGILS, combineError } from "../data/totems.js";
 
 /** Match mit KI bis zu einer Phase vorspulen. */
 function playUntil(state, predicate, level = "normal", seed = 1) {
@@ -39,8 +39,9 @@ const act = (s, a) => {
 test("Kartendaten sind gültig (Sigils, Folgeformen, Kosten, Anzahl)", () => {
   const { errors, stats } = validateCards();
   assert.deepEqual(errors, []);
-  assert.ok(stats.collectible >= 160);
-  assert.equal(Object.keys(stats.byTribe).length, 14);
+  // Zwei Zirkel mit je 14 Stämmen und je mindestens 160 sammelbaren Karten
+  assert.equal(Object.keys(stats.byTribe).length, 28);
+  for (const z of ["moor", "gezeiten"]) assert.ok(stats.byZirkel[z].collectible >= 160, z);
 });
 
 test("Alle Sigils, Items, Ereignisse, Stämme und Lanen-Eigenschaften haben deutsche Texte", () => {
@@ -55,12 +56,33 @@ test("Alle Sigils, Items, Ereignisse, Stämme und Lanen-Eigenschaften haben deut
   for (const s of TOTEM_BASE_SIGILS) assert.ok(AURA_SIGILS.includes(s), `Totem-Basis ${s} ist keine Aura`);
 });
 
+test("Totems: Opfer-Sigils nur auf dem Nebendeck-Kopf, Eigenschaften nur auf Lanenköpfen", () => {
+  const side = { kind: "side" };
+  const tribe = { kind: "tribe", tribe: "bestien" };
+  const lane = { kind: "lane", lane: 1 };
+  assert.equal(combineError(side, { kind: "sigil", sigil: "doppelblut" }), null);
+  assert.equal(combineError(tribe, { kind: "sigil", sigil: "doppelblut" }), "sideOnlyBase");
+  assert.equal(combineError(side, { kind: "sigil", sigil: "dreifachblut" }), "notForSide");
+  assert.equal(combineError(side, { kind: "sigil", sigil: "schwinge" }), "notForSide");
+  assert.equal(combineError(side, { kind: "prop", prop: "wut" }), "propNeedsLane");
+  assert.equal(combineError(lane, { kind: "prop", prop: "wut" }), null);
+  assert.ok(!SIDE_TOTEM_SIGILS.includes("ewigesopfer"));
+  for (const s of SIDE_TOTEM_SIGILS) assert.ok(de.sigils[s]?.name, `Nebendeck-Sigil ${s} ohne Text`);
+});
+
 // ───────── Draft ─────────
 test("Pool: 24 Karten in 6 Runden à 4, feste Seltenheiten, 3–5 Duplikate nie in derselben Runde; deterministisch", () => {
   const a = generatePool("ASCHE");
   assert.deepEqual(a, generatePool("ASCHE"));
   assert.equal(a.heads.length, 4);
-  assert.deepEqual(a.sides, ["moorling", "knochenkaefer", "wachsling"]);
+  // Nebendeck-Totem: 3 verschiedene Sigils, immer genau ein Opfer-Sigil
+  assert.equal(a.sides.length, 3);
+  for (let i = 0; i < 100; i++) {
+    const { sides } = generatePool(`SIDE${i}`);
+    assert.equal(new Set(sides).size, 3);
+    assert.ok(sides.every((x) => SIDE_TOTEM_SIGILS.includes(x)));
+    assert.equal(sides.filter((x) => SIDE_ONLY_SIGILS.includes(x)).length, 1);
+  }
   for (let i = 0; i < 300; i++) {
     const { cards } = generatePool(`POOL${i}`);
     assert.equal(cards.length, DRAFT_ROUNDS * ROUND_SIZE);
@@ -130,7 +152,7 @@ test("Getrennte Pools: je Runde 4 Karten, 2 nehmen, gleichzeitig; Legendäre ist
   }
 });
 
-test("Nach dem Draft (gemeinsam): Kopf und Nebendeck abwechselnd und exklusiv, dann Pfad mit 3 Splittern, dann Kampf 1", () => {
+test("Nach dem Draft (gemeinsam): Kopf und Nebendeck-Totem abwechselnd und exklusiv, dann Pfad mit 3 Splittern, dann Kampf 1", () => {
   let s = playUntil(createMatch({ seed: "EXTRA" }), (x) => x.phase === "extras");
   assert.equal(s.phase, "extras");
   const A = s.draft.first;
@@ -140,14 +162,18 @@ test("Nach dem Draft (gemeinsam): Kopf und Nebendeck abwechselnd und exklusiv, d
   s = act(s, { type: "draftExtras", player: A, head: 1 });
   assert.equal(applyAction(s, { type: "draftExtras", player: B, head: 1 }).error, "headTaken");
   s = act(s, { type: "draftExtras", player: B, head: 0 });
-  assert.deepEqual(awaiting(s), [B]); // Nebendeck: jetzt wählt B zuerst
-  s = act(s, { type: "draftExtras", player: B, side: "knochenkaefer" });
-  assert.equal(applyAction(s, { type: "draftExtras", player: A, side: "knochenkaefer" }).error, "sideTaken");
-  s = act(s, { type: "draftExtras", player: A, side: "wachsling" });
+  assert.deepEqual(awaiting(s), [B]); // Nebendeck-Totem: jetzt wählt B zuerst
+  const [sideB, sideA] = s.draft.sides;
+  assert.equal(applyAction(s, { type: "draftExtras", player: B, side: "moorling" }).error, "badSide");
+  s = act(s, { type: "draftExtras", player: B, side: sideB });
+  assert.equal(applyAction(s, { type: "draftExtras", player: A, side: sideB }).error, "sideTaken");
+  s = act(s, { type: "draftExtras", player: A, side: sideA });
   assert.equal(s.phase, "path");
   assert.equal(s.battleNo, 0);
   assert.deepEqual(s.players.map((P) => P.shards), [START_SHARDS, START_SHARDS]);
-  assert.equal(s.players[A].sideType, "wachsling");
+  assert.equal(s.players[A].sideType, "moorling"); // festes Nebendeck für beide
+  assert.equal(s.players[B].sideType, "moorling");
+  assert.deepEqual(s.players[A].totems.side, { head: { kind: "side" }, base: { kind: "sigil", sigil: sideA } });
   assert.ok(s.players[A].totems.tribe || s.players[A].totems.lane);
   for (let i = 0; i < 20 && s.phase === "path"; i++) for (const p of awaiting(s)) s = act(s, { type: "timeout", player: p });
   assert.equal(s.phase, "battle"); // kein Zwischenspiel vor Kampf 1
@@ -155,11 +181,12 @@ test("Nach dem Draft (gemeinsam): Kopf und Nebendeck abwechselnd und exklusiv, d
   assert.ok(s.players[0].deck.length >= 8);
 });
 
-test("Nach dem Draft (getrennt): Kopf und Nebendeck gleichzeitig", () => {
+test("Nach dem Draft (getrennt): Kopf und Nebendeck-Totem gleichzeitig, dasselbe Sigil ist erlaubt", () => {
   let s = playUntil(createMatch({ seed: "EXTRA2", settings: { draftMode: "separate" } }), (x) => x.phase === "extras");
   assert.deepEqual(awaiting(s), [0, 1]);
-  s = act(s, { type: "draftExtras", player: 1, head: 2, side: "moorling" });
-  s = act(s, { type: "draftExtras", player: 0, head: 2, side: "moorling" });
+  const side = s.draft.sides[1];
+  s = act(s, { type: "draftExtras", player: 1, head: 2, side });
+  s = act(s, { type: "draftExtras", player: 0, head: 2, side });
   assert.equal(s.phase, "path");
 });
 

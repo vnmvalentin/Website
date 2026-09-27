@@ -4,7 +4,7 @@
 import React, { memo } from "react";
 import CardArt from "./CardArt.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
-import { Claw, WaxHeart, CostBadge, CandleStub, SpecialMark } from "../icons/GameIcons.jsx";
+import { Claw, WaxHeart, CostBadge, CandleStub, SpecialMark, TideMark } from "../icons/GameIcons.jsx";
 import { CARDS } from "../../engine/cards.js";
 import { de } from "../../i18n/de.js";
 import { parseSigil } from "../../engine/sigils/index.js";
@@ -45,6 +45,8 @@ function Card(props) {
   const cursed = card.cursed || def.cursed;
   const copied = mods.some((m) => m.kind === "mark" && (m.mark === "copied" || m.mark === "mirrored"));
   const cost = card.cost || def.cost;
+  // Gezeiten-Bindung: aufgelöste Karte (Gezeitentümpel) vor der Definition
+  const tide = card.tide !== undefined ? card.tide : def.tide || null;
   const rarity = def.rarity || "common";
   const name = def.name;
   const artDef = { ...def, cursed };
@@ -98,6 +100,11 @@ function Card(props) {
             <span className="ss-scar" title="Am Lagerfeuer verstärkt">+{fire.attack}/+{fire.health}</span>
           )}
           {copied && <span className="ss-stamp">Kopie</span>}
+          {tide && (
+            <span className={`ss-tide-mark ss-tide-${tide}`} title={tide === "high" ? de.tide.high : de.tide.low}>
+              <TideMark tide={tide} size={Math.max(10, width / 8)} />
+            </span>
+          )}
           {props.wick != null && (
             // Kerzendocht (Runde 2, C3): dauerhafte Kerze mit Zähler; bei 1 rot flackernd, bei 0 verlischt sie
             <span className={`ss-wick ${props.wick <= 1 ? "ss-wick-low" : ""} ${props.wick <= 0 ? "ss-wick-out" : ""}`} title="Kerzendocht: verbleibende Zugenden">

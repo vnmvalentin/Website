@@ -37,11 +37,14 @@ sigilTest("hochwuchs", "blockt Schwinge-Angriffe", () => {
   assert.equal(unitAt(s, 1, "front", 0).health, 2);
 });
 
-sigilTest("tauchgang", "taucht nach dem Angriff ab; gegnerische Angriffe gehen auf die Waage", () => {
-  T("diver", { attack: 1, health: 2, sigils: ["tauchgang"] });
-  const s = setupBattle({ p0: { front: ["S_diver"] }, p1: { front: ["S_hit2"] } });
+sigilTest("tauchgang", "taucht am Ende jedes eigenen Zugs ab (auch ohne Angriff); gegnerische Angriffe gehen auf die Waage", () => {
+  T("diver", { attack: 0, health: 2, sigils: ["tauchgang"] });
+  T("rot1", { attack: 0, health: 3, sigils: ["faeulnis"] });
+  const s = setupBattle({ p0: { front: ["S_diver"], back: [null, "S_diver"] }, p1: { front: ["S_hit2", "S_rot1"] } });
   endTurn(s);
   assert.equal(unitAt(s, 0, "front", 0).submerged, true);
+  assert.equal(unitAt(s, 0, "front", 1).submerged, true); // nachgerückt, taucht trotzdem ab
+  assert.equal(unitAt(s, 0, "front", 1).health, 2); // Fäulnis erreicht abgetauchte Karten nicht
   s.players[1].drew = true;
   endTurn(s);
   assert.equal(unitAt(s, 0, "front", 0).health, 2);
@@ -221,12 +224,16 @@ sigilTest("wiedergaenger", "kehrt beim ersten Tod mit vollen Werten zurück und 
   assert.deepEqual(u.sigils, []);
 });
 
-sigilTest("leibwaechter", "springt vor eine direkt angegriffene eigene Lane", () => {
+sigilTest("leibwaechter", "springt vor eine gegnerische Karte, die gegenüber einer leeren Lane gelegt wird oder nachrückt", () => {
   T("guard", { attack: 0, health: 4, sigils: ["leibwaechter"] });
-  const s = setupBattle({ p0: { front: [null, null, "S_hit2"] }, p1: { front: ["S_guard"] } });
-  endTurn(s);
-  assert.equal(s.scale, 0);
+  const s = setupBattle({ p0: { hand: ["S_hit2"], back: [null, "S_hit2"] }, p1: { front: ["S_guard", null, null, "S_wall"] } });
+  act(s, { type: "play", uid: s.players[0].hand[0].uid, zone: "front", lane: 2 });
   assert.equal(unitAt(s, 1, "front", 2).card.baseId, "S_guard");
+  assert.equal(unitAt(s, 1, "front", 0), null);
+  // Gegenüber einer besetzten Lane bleibt er stehen; ohne Platzierung greift der Angriff direkt
+  endTurn(s); // Angriff: Lane 2 trifft den Leibwächter, dann rückt Lane 1 aus der Hinterreihe nach
+  assert.equal(s.scale, 0);
+  assert.equal(unitAt(s, 1, "front", 1).card.baseId, "S_guard");
 });
 
 sigilTest("moosheilung", "+1 Leben am Zugende bis zum Maximum", () => {
@@ -262,7 +269,7 @@ sigilTest("knochenmark", "gibt beim Tod 3 Knochen", () => {
 });
 
 sigilTest("markleicht", "Knochenkäfer: gibt beim Tod 2 Knochen", () => {
-  const s = setupBattle({ p0: { front: ["side_knochenkaefer"] } });
+  const s = setupBattle({ p0: { front: ["schwaerme_knochenkaefer"] } });
   act(s, { type: "hammer", zone: "front", lane: 0 });
   assert.equal(s.players[0].bones, 2);
 });
@@ -274,6 +281,24 @@ sigilTest("dreifachblut", "zählt beim Opfern als 3 Blut", () => {
   const res = act(s, { type: "play", uid: s.players[0].hand[0].uid, zone: "front", lane: 0, sacrifices: [{ zone: "front", lane: 0 }] });
   assert.equal(res.error, undefined);
   assert.equal(unitAt(s, 0, "front", 0).card.baseId, "S_big");
+});
+
+sigilTest("doppelblut", "Nebendeck-Totem: gezogener Moorling trägt es und zählt beim Opfern als 2 Blut (nicht 3)", () => {
+  T("two", { attack: 2, health: 2, cost: { type: "blood", amount: 2 } });
+  T("three", { attack: 3, health: 3, cost: { type: "blood", amount: 3 } });
+  const totems = { side: { head: { kind: "side" }, base: { kind: "sigil", sigil: "doppelblut" } } };
+  const s = setupBattle({ p0: { hand: ["S_two", "S_three"], totems } });
+  s.players[0].drew = false;
+  act(s, { type: "draw", pile: "side" });
+  const moor = s.players[0].hand.find((c) => c.baseId === "side_moorling");
+  assert.deepEqual(moor.sigils, ["doppelblut"]);
+  act(s, { type: "play", uid: moor.uid, zone: "front", lane: 0 });
+  const three = s.players[0].hand.find((c) => c.baseId === "S_three");
+  assert.equal(act(s, { type: "play", uid: three.uid, zone: "front", lane: 0, sacrifices: [{ zone: "front", lane: 0 }] }).error, "notEnoughBlood");
+  const two = s.players[0].hand.find((c) => c.baseId === "S_two");
+  assert.equal(act(s, { type: "play", uid: two.uid, zone: "front", lane: 0, sacrifices: [{ zone: "front", lane: 0 }] }).error, undefined);
+  assert.equal(unitAt(s, 0, "front", 0).card.baseId, "S_two");
+  assert.equal(s.players[0].bones, 1); // Opfer gibt nur Knochen
 });
 
 sigilTest("ewigesopfer", "kann geopfert werden, ohne zu sterben", () => {
@@ -294,7 +319,7 @@ sigilTest("aschenspende", "beim Opfern +2 Knochen (zusätzlich zum Tod)", () => 
 });
 
 sigilTest("wachsgabe", "Wachsling: beim Opfern +1 Wachs", () => {
-  const s = setupBattle({ p0: { front: ["side_wachsling"], hand: ["S_one"], wax: 0 } });
+  const s = setupBattle({ p0: { front: ["kerzenwesen_wachsling"], hand: ["S_one"], wax: 0 } });
   act(s, { type: "play", uid: s.players[0].hand[0].uid, zone: "front", lane: 0, sacrifices: [{ zone: "front", lane: 0 }] });
   assert.equal(s.players[0].wax, 1);
 });
@@ -467,6 +492,190 @@ test("Ketten-Budget verhindert Endlosschleifen", () => {
   const s = setupBattle({ p0: { front: ["S_loop", "S_loop", "S_loop", "S_loop"] }, p1: { front: ["S_loop", "S_loop", "S_loop", "S_loop"] } });
   endTurn(s);
   assert.ok(true);
+});
+
+// ───────── Gezeiten-Zirkel ─────────
+// Wasserstand: 0 Ebbe, 1 steigend, 2 Flut, 3 fallend (Hochwasser = 1/2). `tide` gilt für den aktuellen Zug (3).
+const G = (/** @type {any} */ spec) => setupBattle({ zirkel: "gezeiten", ...spec });
+
+sigilTest("wattlaeufer", "läuft bei Niedrigwasser zu Zugbeginn vom Blocker weg in eine freie Lane ohne Gegner", () => {
+  T("walker", { attack: 0, health: 2, sigils: ["wattlaeufer"] });
+  const s = G({ tide: 3, p0: { front: [null, "S_walker"] }, p1: { front: [null, "S_wall", null, "S_wall"] } });
+  endTurn(s);
+  endTurn(s); // Zug 5: Ebbe, Zugbeginn von Spieler 0
+  assert.equal(unitAt(s, 0, "front", 0)?.card.baseId, "S_walker");
+  const hi = G({ tide: 1, p0: { front: [null, "S_walker"] }, p1: { front: [null, "S_wall"] } });
+  endTurn(hi);
+  endTurn(hi); // Zug 5: Flut – bleibt stehen
+  assert.equal(unitAt(hi, 0, "front", 1)?.card.baseId, "S_walker");
+});
+
+sigilTest("anker", "lässt sich nicht wegziehen und rückt auch bei Flut nach", () => {
+  T("sogger", { attack: 0, health: 3, sigils: ["sog"] });
+  T("anchor", { attack: 0, health: 3, sigils: ["anker"] });
+  const s = G({ tide: 2, p0: { front: ["S_sogger"] }, p1: { front: ["S_anchor"], back: [null, "S_anchor", "S_wall"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0)?.card.baseId, "S_anchor");
+  endTurn(s); // Spieler 1, noch Flut: der Anker rückt nach, die normale Karte nicht
+  assert.equal(unitAt(s, 1, "front", 1)?.card.baseId, "S_anchor");
+  assert.equal(unitAt(s, 1, "back", 2)?.card.baseId, "S_wall");
+});
+
+sigilTest("sog", "zieht die gegnerische Frontkarte gegenüber in ihre Uferreihe", () => {
+  T("sogger", { attack: 0, health: 3, sigils: ["sog"] });
+  const s = G({ p0: { front: ["S_sogger"] }, p1: { front: ["S_hit2"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0), null);
+  assert.equal(unitAt(s, 1, "back", 0)?.card.baseId, "S_hit2");
+});
+
+sigilTest("brandung", "+2 Angriff bei Hochwasser, sonst nicht", () => {
+  T("surf", { attack: 1, health: 2, sigils: ["brandung"] });
+  const hi = G({ tide: 1, p0: { front: ["S_surf"] } });
+  endTurn(hi);
+  assert.equal(hi.scale, 3);
+  const lo = G({ tide: 3, p0: { front: ["S_surf"] } });
+  endTurn(lo);
+  assert.equal(lo.scale, 1);
+});
+
+sigilTest("flutwelle", "beim Ausspielen bei Hochwasser 1 Schaden an allen gegnerischen Frontkarten (nicht an abgetauchten)", () => {
+  T("wave", { attack: 0, health: 1, sigils: ["flutwelle"] });
+  const s = G({ tide: 2, p0: { hand: ["S_wave"] }, p1: { front: ["S_wall", "S_wall"], back: ["S_wall"] } });
+  unitAt(s, 1, "front", 1).submerged = true;
+  act(s, { type: "play", uid: s.players[0].hand[0].uid, zone: "front", lane: 3 });
+  assert.equal(unitAt(s, 1, "front", 0).health, 4);
+  assert.equal(unitAt(s, 1, "front", 1).health, 5);
+  assert.equal(unitAt(s, 1, "back", 0).health, 5);
+});
+
+sigilTest("schlick", "getroffene Karte klebt fest und kann nicht abtauchen", () => {
+  T("mud", { attack: 1, health: 3, sigils: ["schlick"] });
+  T("diver5", { attack: 0, health: 5, sigils: ["tauchgang"] });
+  const s = G({ p0: { front: ["S_mud"] }, p1: { front: ["S_diver5"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0).glued, 2);
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0).submerged, false);
+});
+
+sigilTest("gezeitenschild", "hebt bei Hochwasser den ersten Treffer auf, bei Niedrigwasser nicht", () => {
+  T("tshield", { attack: 0, health: 3, sigils: ["gezeitenschild"] });
+  const hi = G({ tide: 1, p0: { front: ["S_hit2"] }, p1: { front: ["S_tshield"] } });
+  endTurn(hi);
+  assert.equal(unitAt(hi, 1, "front", 0).health, 3);
+  const lo = G({ tide: 0, p0: { front: ["S_hit2"] }, p1: { front: ["S_tshield"] } });
+  endTurn(lo);
+  assert.equal(unitAt(lo, 1, "front", 0).health, 1);
+});
+
+sigilTest("salzkruste", "nimmt höchstens 2 Schaden pro Treffer", () => {
+  T("big5", { attack: 5, health: 5 });
+  T("crust", { attack: 0, health: 4, sigils: ["salzkruste"] });
+  const s = G({ p0: { front: ["S_big5"] }, p1: { front: ["S_crust"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0).health, 2);
+  assert.equal(s.scale, 0);
+});
+
+sigilTest("tintenwolke", "der Angreifer greift im nächsten eigenen Zug nicht an", () => {
+  T("ink", { attack: 0, health: 9, sigils: ["tintenwolke"] });
+  const s = G({ p0: { front: ["S_hit2"] }, p1: { front: ["S_ink"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 0, "front", 0).stunned, true);
+  endTurn(s);
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0).health, 7); // nur der erste Treffer
+});
+
+sigilTest("heimkehr", "stirbt die Karte, kommt sie mit der nächsten Flut auf die Hand zurück", () => {
+  T("ghost", { attack: 0, health: 1, sigils: ["heimkehr"] });
+  const s = G({ tide: 1, p0: { front: ["S_hit3"] }, p1: { front: ["S_ghost"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0), null);
+  assert.equal(s.players[1].returning.length, 1);
+  endTurn(s); // Zug 5: die Flut kommt
+  assert.ok(s.players[1].hand.some((c) => c.baseId === "S_ghost"));
+  assert.equal(s.players[1].returning.length, 0);
+});
+
+sigilTest("muschelgrab", "hinterlässt eine leere Muschel an ihrem Platz", () => {
+  T("clam", { attack: 0, health: 1, sigils: ["muschelgrab"] });
+  const s = G({ p0: { front: ["S_hit3"] }, p1: { front: ["S_clam"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0)?.card.baseId, "token_muschel");
+});
+
+sigilTest("salzader", "+1 Salz zu Beginn jedes eigenen Zugs", () => {
+  T("vein", { attack: 0, health: 1, sigils: ["salzader"] });
+  const s = G({ p0: { front: ["S_vein"] } });
+  endTurn(s);
+  endTurn(s);
+  assert.equal(s.players[0].salt, 1);
+});
+
+sigilTest("salzgabe", "beim Opfern +1 Salz", () => {
+  T("drift", { attack: 0, health: 1, sigils: ["salzgabe"] });
+  T("one1", { attack: 1, health: 1, cost: { type: "blood", amount: 1 } });
+  const s = G({ p0: { front: ["S_drift"], hand: ["S_one1"] } });
+  act(s, { type: "play", uid: s.players[0].hand[0].uid, zone: "front", lane: 0, sacrifices: [{ zone: "front", lane: 0 }] });
+  assert.equal(s.players[0].salt, 1);
+});
+
+sigilTest("perle", "stirbt die Karte, gibt es 2 Salz", () => {
+  T("pearl", { attack: 0, health: 1, sigils: ["perle"] });
+  const s = G({ p0: { front: ["S_pearl"] } });
+  act(s, { type: "hammer", zone: "front", lane: 0 });
+  assert.equal(s.players[0].salt, 2);
+});
+
+sigilTest("strandgut", "stirbt die Karte, kommt eine Nebendeck-Karte auf die Hand", () => {
+  T("flot", { attack: 0, health: 1, sigils: ["strandgut"] });
+  const s = G({ p0: { front: ["S_flot"] } });
+  act(s, { type: "hammer", zone: "front", lane: 0 });
+  assert.ok(s.players[0].hand.some((c) => c.baseId === "side_strandkrabbe"));
+});
+
+sigilTest("leuchtfeuer", "gegnerische Karten können nicht abtauchen; beim Ausspielen tauchen sie auf", () => {
+  T("beacon", { attack: 0, health: 2, sigils: ["leuchtfeuer"] });
+  T("diver3", { attack: 0, health: 3, sigils: ["tauchgang"] });
+  const s = G({ p0: { front: ["S_diver3"] }, p1: { front: [null, "S_beacon"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 0, "front", 0).submerged, false);
+  const t = G({ p0: { hand: ["S_beacon"] }, p1: { front: ["S_diver3"] } });
+  unitAt(t, 1, "front", 0).submerged = true;
+  act(t, { type: "play", uid: t.players[0].hand[0].uid, zone: "front", lane: 2 });
+  assert.equal(unitAt(t, 1, "front", 0).submerged, false);
+});
+
+sigilTest("treibgut", "wird fortgespült, sobald die Flut kommt", () => {
+  T("driftwood", { attack: 0, health: 3, sigils: ["treibgut"] });
+  const s = G({ tide: 1, p0: { front: ["S_driftwood"] }, p1: { back: ["S_driftwood"] } });
+  endTurn(s);
+  assert.ok(unitAt(s, 0, "front", 0));
+  endTurn(s); // Zug 5: Flut
+  assert.equal(unitAt(s, 0, "front", 0), null);
+  assert.equal(unitAt(s, 1, "back", 0), null);
+});
+
+sigilTest("flaschenpost", "beim Ausspielen 1 Karte, bei Hochwasser 2", () => {
+  T("post", { attack: 0, health: 1, sigils: ["flaschenpost"] });
+  const lo = G({ tide: 0, p0: { hand: ["S_post"], deck: ["S_wall", "S_wall", "S_wall"] } });
+  act(lo, { type: "play", uid: lo.players[0].hand[0].uid, zone: "front", lane: 0 });
+  assert.equal(lo.players[0].hand.length, 1);
+  const hi = G({ tide: 2, p0: { hand: ["S_post"], deck: ["S_wall", "S_wall", "S_wall"] } });
+  act(hi, { type: "play", uid: hi.players[0].hand[0].uid, zone: "front", lane: 0 });
+  assert.equal(hi.players[0].hand.length, 2);
+});
+
+sigilTest("mondzug", "beim Ausspielen springen die Gezeiten eine Phase weiter", () => {
+  T("moon", { attack: 0, health: 1, sigils: ["mondzug"] });
+  const s = G({ tide: 1, p0: { hand: ["S_moon"] }, p1: { back: [null, "S_hit2"] } });
+  act(s, { type: "play", uid: s.players[0].hand[0].uid, zone: "front", lane: 0 });
+  assert.equal(s.tide, 2);
+  endTurn(s);
+  endTurn(s); // Spieler 1 rückt bei Flut nicht nach
+  assert.equal(unitAt(s, 1, "back", 1)?.card.baseId, "S_hit2");
 });
 
 test("Jedes öffentliche Sigil ist getestet", () => {

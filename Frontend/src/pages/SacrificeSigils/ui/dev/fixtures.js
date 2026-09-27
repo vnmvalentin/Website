@@ -8,9 +8,13 @@ import { EVENTS } from "../../data/events.js";
 const SCENES = ["cardChoice", "fuse", "transfer", "campfire", "remove", "merchant", "shrine", "copyist"];
 export const FIXTURES = ["draft", "extras", "path", "battle", "result", ...SCENES.map((k) => `scene:${k}`), ...EVENTS.map((e) => `event:${e}`)];
 
-/** @param {string} name */
+/**
+ * @param {string} name  Präfix „gz-“ = derselbe Stand im Gezeiten-Zirkel (z. B. gz-battle, gz-extras, gz-scene:shrine)
+ */
 export function buildFixture(name) {
-  let s = createMatch({ seed: "SHOTS", names: ["Zeichnerin", "KI (Normal)"], salt: "fixture", settings: { turnTimer: 0 } });
+  const zirkel = name.startsWith("gz-") ? "gezeiten" : "moor";
+  if (zirkel !== "moor") name = name.slice(3);
+  let s = createMatch({ seed: "SHOTS", names: ["Zeichnerin", "KI (Normal)"], salt: "fixture", settings: { turnTimer: 0, zirkel } });
   const rng = { rng: 7 };
   const run = (/** @type {(x: any) => boolean} */ done) => {
     for (let guard = 0; !done(s) && s.phase !== "over" && guard < 8000; guard++) {

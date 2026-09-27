@@ -1,9 +1,10 @@
 // data/cards/_define.js — kompakte Schreibweise für Kartendateien.
 //
 //   [key, name, cost, attack, health, sigils, rarity, flavor, extra?]
-//   cost:   "b2" = 2 Blut, "k5" = 5 Knochen, "w3" = 3 Wachs
+//   cost:   "b2" = 2 Blut, "k5" = 5 Knochen, "w3" = 3 Wachs, "s3" = 3 Salz (Gezeiten)
 //   attack: Zahl oder "schwarmzahl" | "knochenlast" | "flammenmass" | "handschwere"
-//   extra:  { evolvesTo?: key, silhouette?, palette?, token?, cursed?, tribe?, balanceNote? }
+//   extra:  { evolvesTo?: key, silhouette?, palette?, token?, cursed?, tribe?, balanceNote?, tide? }
+//           tide: "high" = nur bei Hochwasser (steigend, Flut) spielbar, "low" = nur bei Niedrigwasser (fallend, Ebbe)
 //           balanceNote begründet eine bewusste Abweichung vom Kostenbudget (Auftrag 8.3), z. B. aus dem Balancing-Lauf
 //
 // Die ID wird "<stamm>_<key>", evolvesTo ohne Unterstrich bekommt denselben Präfix. Der Artwork-Seed ist ein Hash der ID,
@@ -12,8 +13,8 @@
 import { hashParts } from "../../engine/rng.js";
 import { TRIBE_BY_ID } from "../tribes.js";
 
-const COST_TYPES = { b: "blood", k: "bones", w: "wax" };
-const SPECIALS = new Set(["schwarmzahl", "knochenlast", "flammenmass", "handschwere"]);
+const COST_TYPES = { b: "blood", k: "bones", w: "wax", s: "salt" };
+const SPECIALS = new Set(["schwarmzahl", "knochenlast", "flammenmass", "handschwere", "salzmass", "riffzahl"]);
 
 /**
  * @param {import("../../engine/types.js").Tribe} tribe
@@ -36,6 +37,7 @@ export function defineCards(tribe, rows) {
       id,
       name,
       tribe: cardTribe,
+      zirkel: TRIBE_BY_ID[cardTribe].zirkel,
       cost: { type, amount },
       attack: typeof attack === "string" && SPECIALS.has(attack) ? { special: attack } : attack,
       health,
@@ -53,6 +55,7 @@ export function defineCards(tribe, rows) {
     if (extra.token) card.token = true;
     if (extra.cursed) card.cursed = true;
     if (extra.balanceNote) card.balanceNote = extra.balanceNote;
+    if (extra.tide) card.tide = extra.tide;
     return card;
   });
 }

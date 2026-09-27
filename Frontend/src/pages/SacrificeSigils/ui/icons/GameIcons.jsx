@@ -32,6 +32,27 @@ export function CandleStub({ size = 18, className = "", lit = true }) {
   );
 }
 
+/** Salzkristall (Gezeiten-Zirkel). */
+export function SaltCrystal({ size = 18, className = "" }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden>
+      <path d="M12 2l6 5-2 13H8L6 7z" fill="#eef0ea" stroke="#1b2329" strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M12 2v18M6 7l6 3 6-3" fill="none" stroke="#9aa9b0" strokeWidth="0.9" />
+    </svg>
+  );
+}
+
+/** Welle (Hochwasser) bzw. Sandrippel (Niedrigwasser) – Gezeiten-Bindung einer Karte. */
+export function TideMark({ tide, size = 14, className = "" }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden>
+      {tide === "high"
+        ? <path d="M2 14c3-4 5-4 7 0s4 4 6 0 5-4 7 0M2 19c3-4 5-4 7 0s4 4 6 0 5-4 7 0" fill="none" stroke="#3e7a93" strokeWidth="2" strokeLinecap="round" />
+        : <path d="M3 18h18M5 14c2-2 4-2 6 0s4 2 6 0M9 9l3-5 3 5" fill="none" stroke="#a88a54" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+    </svg>
+  );
+}
+
 /** Klauen (Angriff). */
 export function Claw({ size = 18, className = "" }) {
   return (
@@ -97,6 +118,9 @@ export function CostBadge({ cost, size = 14 }) {
   if (cost.type === "bones") {
     return <span className="ss-cost ss-cost-bones" title={`${cost.amount} Knochen`}><Bone size={size + 2} /><b className="ss-num">{cost.amount}</b></span>;
   }
+  if (cost.type === "salt") {
+    return <span className="ss-cost ss-cost-salt" title={`${cost.amount} Salz`}><SaltCrystal size={size + 2} /><b className="ss-num">{cost.amount}</b></span>;
+  }
   return <span className="ss-cost ss-cost-wax" title={`${cost.amount} Wachs`}><CandleStub size={size + 2} /><b className="ss-num">{cost.amount}</b></span>;
 }
 
@@ -140,14 +164,16 @@ export function InkChevron({ dir, ...props }) {
  * @param {{ special: string, size?: number, className?: string }} props
  */
 export function SpecialMark({ special, size = 14, className = "" }) {
-  const title = { schwarmzahl: "Schwarmzahl", knochenlast: "Knochenlast", flammenmass: "Flammenmaß", handschwere: "Handschwere" }[special] || "Besonderer Angriff";
+  const title = { schwarmzahl: "Schwarmzahl", knochenlast: "Knochenlast", flammenmass: "Flammenmaß", handschwere: "Handschwere", salzmass: "Salzmaß", riffzahl: "Riffzahl" }[special] || "Besonderer Angriff";
   return (
     <InkIcon size={size} className={className} title={title}>
       {special === "schwarmzahl" && <><circle cx="7" cy="9" r="2" /><circle cx="15" cy="7" r="2" /><circle cx="11" cy="15" r="2" /><circle cx="18" cy="15" r="1.5" /></>}
       {special === "knochenlast" && <><path d="M7 17l10-10" /><path d="M5 15a2.3 2.3 0 102.6 4.3A2.3 2.3 0 1011.9 17M13 6.9A2.3 2.3 0 1017.3 5a2.3 2.3 0 104.3 2.6" /></>}
       {special === "flammenmass" && <><path d="M12 3c-4 5-5 8-2 12 1-2 2-3 2-5 2 2 3 4 2 7 4-2 5-7-2-14z" /><path d="M8 21h8" /></>}
       {special === "handschwere" && <><path d="M7 20l-1-8 3-1 1 5M10 16l1-10 2 0 0 9M13 15l1-8 2 .5-.5 8M15.5 15.5l1.5-6 2 .5-2 9c-1 2-3 3-6 3H9" /></>}
-      {!["schwarmzahl", "knochenlast", "flammenmass", "handschwere"].includes(special) && <path d="M12 5v14M5 12h14" />}
+      {special === "salzmass" && <><path d="M12 3l5 4-2 11H9L7 7z" /><path d="M8 21h8" /></>}
+      {special === "riffzahl" && <><path d="M12 21V11M12 15l-4-4V6M12 13l4-4V5" /><path d="M7 21h10" /></>}
+      {!["schwarmzahl", "knochenlast", "flammenmass", "handschwere", "salzmass", "riffzahl"].includes(special) && <path d="M12 5v14M5 12h14" />}
     </InkIcon>
   );
 }

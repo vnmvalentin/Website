@@ -151,6 +151,16 @@ const QUAD = {
 
 /** Art aus dem Kartennamen ableiten (damit „Keiler“ wie ein Keiler aussieht). */
 const SPECIES_RULES = [
+  // Gezeiten-Zirkel zuerst: die Stammnamen in den IDs (muschelvolk_, korallen_ …) sollen die Art bestimmen
+  [/ertrunkene_|ertrunkener|gz_ertrunken/, "standing"],
+  [/qualle|seewespe|löwenmähne|loewenmaehne/, "jelly"],
+  [/krebs|krabbe|hummer|languste|kokosräuber|kokosraeuber|einsiedler|scherenvolk/, "crab"],
+  [/anemone|polyp/, "anemone"], [/schwamm/, "sponge"], [/koralle|riff/, "branch"],
+  [/walross/, "walrus"], [/robbe|seehund|heuler|seeleopard|see-elefant|seeelefant|seelöwe|seeloewe|bulle/, "seal"],
+  [/seepocke|napf/, "barnacle"], [/schnecke|tritonshorn|seehase|ammonit|perlboot/, "snail"], [/muschel|auster|perl|schale/, "bivalve"],
+  [/muräne|muraene|pelikanaal/, "eel"], [/kalmar|kraken/, "squid"],
+  [/raubfisch|hai\b|haie|barrakuda|bonito|schwertfisch|anglerfisch|viperfisch|beilfisch|drachenfisch|glimmfisch|laternenfisch|fischbrut/, "fish"],
+  [/kormoran/, "heron"], [/möwe|moewe|albatros|sturmvogel|seeschwalbe|basstölpel|basstoelpel/, "crow"],
   [/keiler|bache|rotte|frischling/, "boar"], [/bär|baer|braer/, "bear"], [/luchs/, "lynx"], [/hyän|hyaen/, "hyena"], [/welpe/, "pup"],
   [/eule|kauz|uhu/, "owl"], [/reiher/, "heron"], [/geier/, "vulture"], [/krähe|kraehe|rabe/, "crow"], [/segler|ziegenmelker|schwalbe/, "swift"], [/fink|sperling/, "finch"],
   [/käfer|kaefer/, "beetle"], [/wespe|hornisse/, "wasp"], [/ameise|termite/, "ant"], [/larve|knäuel|kadaver/, "larva"],
@@ -826,7 +836,7 @@ const FAMILIES = {
 
   skeleton(s, k, g, v) {
     const cx = g.cx;
-    const kind = v === "dog" ? "dog" : v === "pile" ? "pile" : v === "skull" ? "skull" : pick(s, ["standing", "dog", "standing"]);
+    const kind = ["dog", "pile", "skull", "standing"].includes(v) ? v : pick(s, ["standing", "dog", "standing"]);
     const skull = (x, y, r) => {
       k.shape(`M${f(x - r)} ${f(y + r * 0.3)}C${f(x - r * 1.1)} ${f(y - r * 1.3)} ${f(x + r * 1.1)} ${f(y - r * 1.3)} ${f(x + r)} ${f(y + r * 0.3)}L${f(x + r * 0.6)} ${f(y + r * 0.9)}H${f(x - r * 0.6)}Z`);
       k.inkFill(`M${f(x - r * 0.42)} ${f(y)}a${f(r * 0.3)} ${f(r * 0.34)} 0 1 0 0.1 0zM${f(x + r * 0.42)} ${f(y)}a${f(r * 0.3)} ${f(r * 0.34)} 0 1 0 0.1 0z`);
@@ -1014,6 +1024,162 @@ const FAMILIES = {
     k.eye(cx + 1.4, cy - 4.8, 0.9);
   },
 
+  // ───────── Gezeiten-Zirkel ─────────
+
+  shell(s, k, g, v) {
+    const kind = ["snail", "bivalve", "barnacle"].includes(v) ? v : pick(s, ["snail", "bivalve", "bivalve", "barnacle"]);
+    // Nasser Sand mit Rippeln
+    let rip = "";
+    for (let i = 0; i < 5; i++) rip += `M${f(g.cx - 40 + i * 17 + rr(s, -2, 2))} ${f(g.ground + 2)}q4 -1.5 8 0`;
+    k.line(rip, 0.5, 0.5);
+    if (kind === "snail") {
+      const r = rr(s, 11, 15);
+      const sx = g.cx - rr(s, 2, 6);
+      const sy = g.ground - r - 3;
+      // Fuß mit Kopf und Fühlern
+      k.shape(`M${f(sx - r - 6)} ${f(g.ground)}Q${f(sx)} ${f(g.ground - 7)} ${f(sx + r + 8)} ${f(g.ground - 6)}Q${f(sx + r + 15)} ${f(g.ground - 6)} ${f(sx + r + 14)} ${f(g.ground)}Z`, { layer: "back" });
+      const hx = sx + r + 12;
+      k.line(`M${f(hx - 2)} ${f(g.ground - 6)}q-1 -6 -3 -10M${f(hx + 1)} ${f(g.ground - 6)}q1 -6 3 -9`, 0.9);
+      k.eye(hx - 5, g.ground - 16.5, 1.1);
+      k.eye(hx + 4, g.ground - 15.5, 1.1);
+      k.shape(blob(s, sx, sy, r, r * 0.95, 11, 0.05));
+      // Spirale
+      const pts = [];
+      for (let i = 0; i <= 26; i++) {
+        const a = i * 0.42;
+        const rad = r * 0.92 * (1 - i / 30);
+        pts.push([sx + Math.cos(a) * rad, sy + Math.sin(a) * rad * 0.95]);
+      }
+      k.line(smoothOpen(pts.reverse()), 0.8);
+    } else if (kind === "bivalve") {
+      const w = rr(s, 18, 24);
+      const h = rr(s, 9, 12);
+      const y = g.ground - 3;
+      const open = rr(s, 6, 12);
+      // untere Schale
+      k.shape(`M${f(g.cx - w)} ${f(y - h * 0.3)}Q${f(g.cx)} ${f(y + h * 0.6)} ${f(g.cx + w)} ${f(y - h * 0.3)}Q${f(g.cx)} ${f(y - h * 0.15)} ${f(g.cx - w)} ${f(y - h * 0.3)}Z`);
+      // obere Schale, aufgeklappt
+      const top = y - h * 0.3 - open;
+      k.shape(`M${f(g.cx - w)} ${f(y - h * 0.3)}Q${f(g.cx - w * 0.6)} ${f(top - h)} ${f(g.cx + w * 0.2)} ${f(top - h * 0.6)}Q${f(g.cx + w)} ${f(top - h * 0.1)} ${f(g.cx + w)} ${f(top + 2)}Q${f(g.cx)} ${f(top + 3)} ${f(g.cx - w)} ${f(y - h * 0.3)}Z`, { layer: "back" });
+      let ribs = "";
+      for (let i = 1; i < 7; i++) ribs += `M${f(g.cx - w)} ${f(y - h * 0.3)}L${f(g.cx - w + (i / 7) * w * 2)} ${f(top - h * 0.5 + Math.abs(i - 3.5) * 1.4)}`;
+      k.line(ribs, 0.4, 0.7);
+      // Mantelsaum mit vielen kleinen Augen (wie bei einer Kammmuschel)
+      const n = ri(s, 4, 6);
+      for (let i = 0; i < n; i++) k.eye(g.cx - w * 0.7 + (i / (n - 1)) * w * 1.4, y - h * 0.3 - open * 0.45, 0.9);
+      if (chance(s, 0.6)) k.eyes.push(`<circle cx="${f(g.cx + rr(s, -3, 3))}" cy="${f(y - h * 0.25)}" r="2.4" fill="#f4ecd8" stroke="${INK}" stroke-width="0.5"/>`);
+    } else {
+      // Seepocken auf einem Stein
+      k.shape(blob(s, g.cx, g.ground - 5, rr(s, 26, 32), rr(s, 7, 9), 10, 0.15), { dark: true, layer: "back" });
+      const n = ri(s, 3, 5);
+      for (let i = 0; i < n; i++) {
+        const x = g.cx - 20 + (i / Math.max(1, n - 1)) * 40 + rr(s, -3, 3);
+        const hh = i === Math.floor(n / 2) ? rr(s, 16, 20) : rr(s, 8, 13);
+        const bw = hh * 0.55;
+        const base = g.ground - 8;
+        k.shape(`M${f(x - bw)} ${f(base)}L${f(x - bw * 0.45)} ${f(base - hh)}L${f(x + bw * 0.45)} ${f(base - hh)}L${f(x + bw)} ${f(base)}Z`);
+        k.line(`M${f(x - bw * 0.7)} ${f(base - hh * 0.4)}l${f(bw * 1.4)} 0`, 0.4, 0.6);
+        if (hh > 14) {
+          let cirri = "";
+          for (let c = -2; c <= 2; c++) cirri += `M${f(x)} ${f(base - hh)}q${f(c * 2)} -5 ${f(c * 4.5)} -7`;
+          k.line(cirri, 0.5, 0.8);
+          k.eye(x, base - hh * 0.62, 1.2);
+        }
+      }
+    }
+  },
+
+  seal(s, k, g, v) {
+    const walrus = v === "walrus";
+    const L = walrus ? rr(s, 30, 34) : rr(s, 25, 31);
+    const H = walrus ? rr(s, 13, 16) : rr(s, 10, 13);
+    const x0 = g.cx - L * 0.55;
+    const y = g.ground;
+    // Wasserlinie hinter dem Tier
+    k.line(`M${f(g.cx - 44)} ${f(y - 2)}q6 -2 12 0t12 0t12 0M${f(g.cx + 20)} ${f(y - 1)}q5 -2 10 0t10 0`, 0.5, 0.45);
+    const hx = x0 + L + (walrus ? 3 : 5);
+    const hy = y - H - (walrus ? 3 : 7);
+    // Körper: liegender Tropfen, Kopf gehoben
+    k.shape(smoothClosed([
+      [x0 - 8, y - 2], [x0, y - H * 0.7], [x0 + L * 0.45, y - H], [x0 + L * 0.85, y - H * 1.05], [hx - 4, hy + 3],
+      [hx + 5, hy + 2], [hx + 6, hy + 8], [x0 + L * 0.9, y - 3], [x0 + L * 0.4, y], [x0 - 4, y + 0.5],
+    ]));
+    // Schwanzflossen
+    k.shape(`M${f(x0 - 7)} ${f(y - 2)}l-8 -5l2 5l-3 4z`, { layer: "back" });
+    // Vorderflosse
+    k.shape(`M${f(x0 + L * 0.62)} ${f(y - H * 0.35)}q3 5 -2 ${f(H * 0.4)}q-5 -1 -3 -3z`);
+    let fur = "";
+    for (let i = 0; i < 5; i++) fur += `M${f(x0 + 4 + i * L * 0.16)} ${f(y - H * 0.65 + rr(s, -1, 1))}q2 1.2 4 0`;
+    k.line(fur, 0.4, 0.5);
+    k.eye(hx + 0.5, hy + 1.5, walrus ? 1.2 : 1.6);
+    k.inkFill(`M${f(hx + 5)} ${f(hy + 5)}a1 0.8 0 1 0 0.1 0`);
+    let wh = "";
+    for (let i = -1; i <= 1; i++) wh += `M${f(hx + 5)} ${f(hy + 6)}l${f(rr(s, 5, 7))} ${f(i * 2)}`;
+    k.line(wh, 0.4, 0.8);
+    if (walrus) {
+      k.eyes.push(`<path d="M${f(hx + 3)} ${f(hy + 8)}q0.5 6 -1 10M${f(hx + 5.5)} ${f(hy + 8)}q0.5 6 -0.5 9.5" fill="none" stroke="#f4ecd8" stroke-width="1.6" stroke-linecap="round"/>`);
+      k.line(`M${f(hx + 3)} ${f(hy + 8)}q0.5 6 -1 10M${f(hx + 5.5)} ${f(hy + 8)}q0.5 6 -0.5 9.5`, 0.4);
+    }
+  },
+
+  coral(s, k, g, v) {
+    const kind = ["branch", "anemone", "sponge"].includes(v) ? v : pick(s, ["branch", "branch", "anemone", "sponge"]);
+    // Felsgrund
+    k.shape(blob(s, g.cx, g.ground - 1, rr(s, 24, 30), rr(s, 4, 6), 9, 0.2), { dark: true, layer: "back" });
+    if (kind === "branch") {
+      /** @type {Array<[number, number, number, number, number]>} */
+      const stack = [[g.cx, g.ground - 3, -Math.PI / 2, rr(s, 13, 17), 3.4]];
+      const tips = [];
+      let guard = 0;
+      while (stack.length && guard++ < 40) {
+        const [x, y, a, len, w] = /** @type {any} */ (stack.pop());
+        const x2 = x + Math.cos(a) * len;
+        const y2 = y + Math.sin(a) * len;
+        k.shape(taper(x, y, x2, y2, w, w * 0.7));
+        if (len > 6 && w > 1.2) {
+          stack.push([x2, y2, a - rr(s, 0.35, 0.7), len * rr(s, 0.62, 0.78), w * 0.72]);
+          stack.push([x2, y2, a + rr(s, 0.35, 0.7), len * rr(s, 0.62, 0.78), w * 0.72]);
+        } else tips.push([x2, y2]);
+      }
+      tips.sort((p, q) => p[1] - q[1]);
+      for (const [x, y] of tips.slice(0, 2)) k.eye(x, y, 1.1);
+      let pores = "";
+      for (let i = 0; i < 10; i++) pores += `M${f(g.cx + rr(s, -14, 14))} ${f(g.ground - rr(s, 6, 30))}a0.5 0.5 0 1 0 0.1 0`;
+      k.line(pores, 0.7, 0.6);
+    } else if (kind === "anemone") {
+      const w = rr(s, 8, 11);
+      const h = rr(s, 16, 22);
+      const top = g.ground - h;
+      k.shape(`M${f(g.cx - w)} ${f(g.ground - 2)}Q${f(g.cx - w * 1.1)} ${f(top + h * 0.5)} ${f(g.cx - w * 0.8)} ${f(top)}L${f(g.cx + w * 0.8)} ${f(top)}Q${f(g.cx + w * 1.1)} ${f(top + h * 0.5)} ${f(g.cx + w)} ${f(g.ground - 2)}Z`);
+      const n = ri(s, 9, 13);
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1);
+        const x = g.cx - w * 0.8 + t * w * 1.6;
+        const a = -Math.PI / 2 + (t - 0.5) * 2.4;
+        const len = rr(s, 10, 16);
+        const pts = [[x, top], [x + Math.cos(a) * len * 0.5 + rr(s, -2, 2), top + Math.sin(a) * len * 0.5], [x + Math.cos(a) * len, top + Math.sin(a) * len + rr(s, -2, 2)]];
+        k.back.push(`<path d="${smoothOpen(pts)}" fill="none" stroke="${INK}" stroke-width="${f(rr(s, 2, 2.8))}" stroke-linecap="round"/>`);
+        k.back.push(`<path d="${smoothOpen(pts)}" fill="none" stroke="${PAPER}" stroke-width="1" stroke-linecap="round"/>`);
+      }
+      k.eye(g.cx - 3, top + h * 0.4, 1.4);
+      k.eye(g.cx + 3.5, top + h * 0.42, 1.4);
+    } else {
+      const n = ri(s, 2, 3);
+      for (let i = 0; i < n; i++) {
+        const x = g.cx + (i - (n - 1) / 2) * rr(s, 11, 14);
+        const h = i === Math.floor(n / 2) ? rr(s, 26, 34) : rr(s, 14, 22);
+        const w = rr(s, 4.5, 6.5);
+        const top = g.ground - h;
+        k.shape(`M${f(x - w)} ${f(g.ground - 2)}Q${f(x - w * 1.3)} ${f(top + h * 0.5)} ${f(x - w)} ${f(top)}L${f(x + w)} ${f(top)}Q${f(x + w * 1.3)} ${f(top + h * 0.5)} ${f(x + w)} ${f(g.ground - 2)}Z`);
+        k.inkFill(`M${f(x - w * 0.8)} ${f(top + 0.5)}a${f(w * 0.8)} 1.6 0 1 0 ${f(w * 1.6)} 0a${f(w * 0.8)} 1.6 0 1 0 ${f(-w * 1.6)} 0z`, 0.85);
+        let holes = "";
+        for (let j = 0; j < 5; j++) holes += `M${f(x + rr(s, -w * 0.6, w * 0.6))} ${f(top + rr(s, 4, h - 4))}a0.7 0.9 0 1 0 0.1 0`;
+        k.line(holes, 0.8, 0.8);
+        if (i === Math.floor(n / 2)) k.eye(x, top + h * 0.3, 1.3);
+      }
+    }
+  },
+
   construct(s, k, g, v) {
     const kind = ["golem", "automaton", "scarecrow", "bell", "mirror", "doll", "blob"].includes(v) ? v : pick(s, ["golem", "automaton", "scarecrow", "bell", "mirror", "doll"]);
     const cx = g.cx;
@@ -1133,6 +1299,7 @@ const FAMILIES = {
 const FAMILY_SCALE = {
   quadruped: 1.32, horned: 1.18, bird: 1.2, fish: 1.2, insect: 1.35, serpent: 1.12, rodent: 1.45,
   fungus: 1.08, root: 1.08, skeleton: 1.05, candle: 1.12, moth: 1.2, construct: 1.1,
+  shell: 1.3, seal: 1.25, coral: 1.12,
 };
 
 /** Ornamente seltener Karten (Messinglinien in den Ecken) und Glyphenring. */

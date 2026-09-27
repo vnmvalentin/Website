@@ -1,21 +1,25 @@
-// ui/screens/ExtrasScreen.jsx — nach dem Draft: 1 Totem-Kopf (mit Start-Basis) und 1 Nebendeck-Typ wählen.
-// Gemeinsamer Pool: nacheinander und exklusiv, der Erstzugriff wechselt (Kopf: A zuerst, Nebendeck: B zuerst).
+// ui/screens/ExtrasScreen.jsx — nach dem Draft: 1 Totem-Kopf (mit Start-Basis) und 1 Nebendeck-Totem wählen.
+// Das Nebendeck selbst ist für beide gleich (Moorling); der Nebendeck-Totem gibt jedem Moorling ein Sigil.
+// Gemeinsamer Pool: nacheinander und exklusiv, der Erstzugriff wechselt (Kopf: A zuerst, Nebendeck-Totem: B zuerst).
 // Getrennte Pools: beide gleichzeitig.
 import React, { useState } from "react";
 import Card from "../card/Card.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
 import { resolveCard } from "../../engine/cards.js";
-import { SIDE_TYPES } from "../../engine/battle.js";
+import { getZirkel } from "../../engine/zirkel/index.js";
+import { SIDE_ONLY_SIGILS } from "../../data/totems.js";
 import { extrasTurn } from "../../engine/draft.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
-import { totemText } from "../common/totemText.js";
+import { totemText, headLabel } from "../common/totemText.js";
 import "./screens.css";
 
 /** @param {{ view: any, you: 0|1|null, send: (a: any) => Promise<any>, names: string[], timers?: any, clockOffset?: number }} props */
 export default function ExtrasScreen({ view, you, send, names, timers, clockOffset = 0 }) {
   const d = view.draft;
+  const sideTypes = getZirkel(view.settings?.zirkel).sideDeckTypes;
+  const sideKey = Object.keys(sideTypes)[0];
   const [head, setHead] = useState(/** @type {number|null} */ (null));
   const [side, setSide] = useState(/** @type {string|null} */ (null));
   const [err, setErr] = useState(/** @type {string|null} */ (null));
@@ -40,10 +44,10 @@ export default function ExtrasScreen({ view, you, send, names, timers, clockOffs
   };
 
   let status;
-  if (sequential && step) status = step[0] === you ? `Du wählst ${step[1] === "head" ? "deinen Totem-Kopf" : "dein Nebendeck"}` : `${names[step[0]]} wählt ${step[1] === "head" ? "einen Totem-Kopf" : "ein Nebendeck"} …`;
+  if (sequential && step) status = step[0] === you ? `Du wählst ${step[1] === "head" ? "deinen Totem-Kopf" : "deinen Nebendeck-Totem"}` : `${names[step[0]]} wählt ${step[1] === "head" ? "einen Totem-Kopf" : "einen Nebendeck-Totem"} …`;
   else if (you === null) status = "Die Zeichner wählen …";
   else if (done) status = opp?.chosen || opp?.head !== null ? "Gewählt." : `Gewählt – ${names[1 - you]} wählt noch …`;
-  else status = "Wähle Totem-Kopf und Nebendeck";
+  else status = "Wähle Totem-Kopf und Nebendeck-Totem";
   const timer = sequential ? (step ? timers?.[step[0]] : undefined) : (you !== null ? timers?.[you] : undefined);
   const ready = sequential ? (step?.[1] === "head" ? head !== null : !!side) : head !== null && !!side;
 
@@ -51,11 +55,11 @@ export default function ExtrasScreen({ view, you, send, names, timers, clockOffs
     <div className="max-w-[1100px] mx-auto px-4 py-6 space-y-5">
       <div className="ss-draft-head">
         <div className="min-w-0">
-          <p className="ss-title text-lg ss-dim">Totem-Kopf und Nebendeck</p>
+          <p className="ss-title text-lg ss-dim">Totem-Kopf und Nebendeck-Totem</p>
           <p className={`ss-title ss-draft-status ${myTurn ? "ss-mine" : ""}`} role="status">{status}</p>
           <p className="ss-dim text-sm">
             {sequential
-              ? <>Gewähltes ist für den anderen weg. Kopf wählt zuerst: <b>{who(d.extraOrder[0][0])}</b> · Nebendeck zuerst: <b>{who(d.extraOrder[2][0])}</b></>
+              ? <>Gewähltes ist für den anderen weg. Kopf wählt zuerst: <b>{who(d.extraOrder[0][0])}</b> · Nebendeck-Totem zuerst: <b>{who(d.extraOrder[2][0])}</b></>
               : <>Der Kopf kommt mit einer Start-Basis; im Totem-Schrein auf dem Pfad kannst du beides später umbauen.</>}
           </p>
         </div>
@@ -72,11 +76,11 @@ export default function ExtrasScreen({ view, you, send, names, timers, clockOffs
                 <div className="flex items-center gap-3">
                   <div className="ss-totem-figure" aria-hidden />
                   <div>
-                    <p className="ss-title !text-[var(--ink)]">{h.head.kind === "tribe" ? `${de.totems.tribeHead}: ${de.tribes[h.head.tribe].name}` : `${de.totems.laneHead}: ${de.totems.lane(h.head.lane)}`}</p>
+                    <p className="ss-title !text-[var(--ink)]">{headLabel(h.head)}</p>
                     <p className="text-sm flex items-center gap-1">{h.base.kind === "sigil" && <SigilIcon sigil={h.base.sigil} size={18} />}{h.base.kind === "sigil" ? de.sigils[h.base.sigil].name : de.totems.props[h.base.prop].name}</p>
                   </div>
                 </div>
-                <p className="text-sm mt-2 opacity-80">{totemText(h.head, h.base)}</p>
+                <p className="text-sm mt-2 opacity-80">{totemText(h.head, h.base, view.settings?.zirkel)}</p>
                 {owner !== undefined && <span className="ss-badge !absolute top-2 right-2">{who(owner)}</span>}
               </button>
             );
@@ -84,15 +88,17 @@ export default function ExtrasScreen({ view, you, send, names, timers, clockOffs
         </div>
       </section>
       <section>
-        <p className="ss-title mb-2">Nebendeck (unendlich)</p>
+        <p className="ss-title mb-1">Nebendeck-Totem</p>
+        <p className="ss-dim text-sm mb-2">Beide ziehen aus demselben unendlichen Nebendeck: {de.sides[sideKey].name} (0/1). Dein Totem gibt jeder dieser Karten ein Sigil. Opfer-Sigils gibt es nur hier.</p>
         <div className="flex flex-wrap gap-4">
-          {Object.entries(SIDE_TYPES).map(([key, id]) => {
+          {d.sides.map((/** @type {string} */ key) => {
             const owner = sideOwner(key);
             const enabled = canSide && owner === undefined;
             return (
               <button key={key} type="button" disabled={!enabled} onClick={() => setSide(key)} className={`relative flex flex-col items-center gap-2 p-2 rounded ${side === key && canSide ? "ring-2 ring-[var(--candle)] bg-white/5" : ""} ${owner !== undefined ? "opacity-45" : ""}`}>
-                <Card card={resolveCard(id, [], key)} width={120} />
-                <span className="text-sm ss-dim max-w-[140px] text-center">{de.sides[key].desc}</span>
+                <Card card={resolveCard(sideTypes[sideKey], [{ kind: "sigilAdd", sigil: key }], key)} width={120} />
+                <span className="text-sm flex items-center gap-1"><SigilIcon sigil={key} size={16} />{de.sigils[key].name}{SIDE_ONLY_SIGILS.includes(key) ? " · Opfer" : ""}</span>
+                <span className="text-sm ss-dim max-w-[150px] text-center">{de.sigils[key].desc}</span>
                 {owner !== undefined && <span className="ss-badge absolute top-3 right-3">{who(owner)}</span>}
               </button>
             );

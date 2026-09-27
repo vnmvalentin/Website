@@ -1,6 +1,7 @@
 // ui/battle/BattleScreen.jsx — der Kampf-Tisch.
 //   Oben: gegnerische Hinterreihe, gegnerische Frontreihe · Mitte: Trennlinie · Unten: eigene Front, eigene Hinterreihe, Hand.
-//   Links die Waage und Items, rechts Ressourcen (Blutschale, Knochenhaufen, Kerze), Hauptdeck und Nebendeck, Totems.
+//   Links die Waage und Items, rechts Ressourcen (Knochenhaufen, Kerze), Hauptdeck und Nebendeck, Totems.
+//   Blut hat keine Anzeige: es wird nie gespeichert, sondern beim Ausspielen geopfert (Zähler nur während der Opferwahl).
 // Bedienung: Tap statt Drag (Karte antippen, dann Slot), zum Opfern Karten nacheinander antippen und bestätigen.
 // Auf dem Desktop zusätzlich Drag & Drop aus der Hand auf einen Slot.
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -9,22 +10,48 @@ import CardDetail, { SigilTexts } from "../card/CardDetail.jsx";
 import Scale from "./Scale.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
-import { BloodDrop, Bone, CandleStub, Hammer, Shard, Claw, Hourglass, ShieldBark, RushArrow, InkChevron, WaxHeart } from "../icons/GameIcons.jsx";
-import { Resolver, LANES, WAX_MAX, STALEMATE_TURN, CANDLE_WARNING_TURN, candleWeight, HAND_LIMIT, NO_ATTACK_TURNS, SCALE_WIN } from "../../engine/battle.js";
+import { BloodDrop, Bone, CandleStub, Hammer, Shard, Claw, Hourglass, ShieldBark, RushArrow, InkChevron, WaxHeart, SaltCrystal, TideMark } from "../icons/GameIcons.jsx";
+import { Resolver, LANES, WAX_MAX, STALEMATE_TURN, CANDLE_WARNING_TURN, candleWeight, HAND_LIMIT, NO_ATTACK_TURNS, SCALE_WIN, TIDE_FLOOD, tideAt, isHighWater } from "../../engine/battle.js";
+import { getZirkel } from "../../engine/zirkel/index.js";
 import { deepClone } from "../../engine/match.js";
 import { parseSigil } from "../../engine/sigils/index.js";
 import { ITEM_BY_ID } from "../../data/items.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell, useTipHandlers } from "../shellContext.js";
+import { headLabel, headName } from "../common/totemText.js";
 import "./battle.css";
 
-const ROWS_FOR = (bottom) => [
-  { p: 1 - bottom, zone: "back", label: "Hinterreihe" },
+/** Reihen von oben nach unten. Im Gezeiten-Zirkel heißt die Hinterreihe Uferreihe (sie bringt Salz). */
+const ROWS_FOR = (bottom, shore = false) => [
+  { p: 1 - bottom, zone: "back", label: shore ? "Uferreihe" : "Hinterreihe" },
   { p: 1 - bottom, zone: "front", label: "Front" },
   { p: bottom, zone: "front", label: "Front" },
-  { p: bottom, zone: "back", label: "Hinterreihe" },
+  { p: bottom, zone: "back", label: shore ? "Uferreihe" : "Hinterreihe" },
 ];
+
+/**
+ * Gezeitenanzeige: Phase, Wirkung als Tooltip und wann sie wechselt.
+ * @param {{ tide: number, turn: number, shift: number }} props
+ */
+function TideGauge({ tide, turn, shift }) {
+  const tip = useTipHandlers(() => (
+    <><b>{de.tide.phases[tide]}</b><br /><span className="opacity-80">{de.tide.effects[tide === 0 ? 0 : tide === 2 ? 2 : isHighWater(tide) ? 1 : 3]}</span></>
+  ));
+  // Wie viele Züge bleibt die Phase noch? (ohne Mondzug)
+  let left = 1;
+  while (left < 3 && tideAt(turn + left, shift) === tide) left++;
+  const level = [15, 60, 92, 45][tide];
+  return (
+    <div className={`ss-tide ss-tide-p${tide}`} {...tip} tabIndex={0} aria-label={`${de.tide.phases[tide]}, ${de.tide.next(left)}`}>
+      <div className="ss-tide-glass" aria-hidden><div className="ss-tide-water" style={{ height: `${level}%` }} /></div>
+      <div className="leading-tight">
+        <p className="ss-title text-[13px] flex items-center gap-1"><TideMark tide={isHighWater(tide) ? "high" : "low"} size={14} />{de.tide.phases[tide]}</p>
+        <p className="text-xs ss-faint">{de.tide.next(left)}</p>
+      </div>
+    </div>
+  );
+}
 
 /** Aura-Sigils (Totems), die für eine Einheit gelten. */
 function aurasOf(b, u) {
@@ -35,11 +62,14 @@ function aurasOf(b, u) {
   return out;
 }
 
-/** Karte in der Hand spielbar? @returns {{ ok: boolean, need: number }} */
+/** Karte in der Hand spielbar? @returns {{ ok: boolean, need: number, tide?: boolean }} */
 function affordable(r, P, card, p) {
   const c = card.cost;
+  // Gezeiten-Bindung: nur bei passendem Wasserstand
+  if (card.tide && r.tide() !== null && (card.tide === "high") !== r.highWater()) return { ok: false, need: 0, tide: true };
   if (c.type === "bones") return { ok: P.bones >= c.amount, need: 0 };
   if (c.type === "wax") return { ok: P.wax >= c.amount, need: 0 };
+  if (c.type === "salt") return { ok: (P.salt || 0) >= c.amount, need: 0 };
   const need = Math.max(0, c.amount - (P.bloodBonus || 0));
   if (need === 0) return { ok: true, need };
   let sum = 0;
@@ -107,18 +137,18 @@ function ItemButton({ id, active, disabled, onClick }) {
   );
 }
 
-function TotemFigure({ totem, kind, owner, onHover }) {
+function TotemFigure({ totem, kind, owner, onHover, zirkel }) {
   const tip = useTipHandlers(() => {
     const base = totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].name : de.totems.props[totem.base.prop].name;
     const text = totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].desc : de.totems.props[totem.base.prop].desc;
-    const head = totem.head.kind === "tribe" ? `${de.totems.tribeHead}: ${de.tribes[totem.head.tribe].name}` : `${de.totems.laneHead}: ${de.totems.lane(totem.head.lane)}`;
+    const head = headLabel(totem.head);
     return <><b>{head}</b><br />{de.totems.base}: {base}<br /><span className="opacity-80">{text}</span></>;
   });
   return (
     <div className="ss-totem" {...tip} onMouseEnter={(e) => { tip.onMouseEnter(e); onHover(totem); }} onMouseLeave={() => { tip.onMouseLeave(); onHover(null); }} tabIndex={0}>
       <div className="ss-totem-figure" aria-hidden />
       <div className="text-xs leading-tight">
-        <div className="ss-title text-[13px]">{owner ? <span className="ss-faint">{owner}: </span> : null}{totem.head.kind === "tribe" ? de.tribes[totem.head.tribe].name : de.totems.lane(totem.head.lane)}</div>
+        <div className="ss-title text-[13px]">{owner ? <span className="ss-faint">{owner}: </span> : null}{headName(totem.head, zirkel)}</div>
         <div className="flex items-center gap-1">
           {totem.base.kind === "sigil" ? <SigilIcon sigil={totem.base.sigil} size={18} /> : null}
           <span className="ss-dim">{totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].name : de.totems.props[totem.base.prop].name}</span>
@@ -311,7 +341,8 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
     const aff = affordable(r, me, card, bottom);
     if (!aff.ok) {
       sound.play("error");
-      flash(card.cost.type === "blood" ? errorText("notEnoughBlood") : card.cost.type === "bones" ? errorText("notEnoughBones") : errorText("notEnoughWax"));
+      const key = aff.tide ? "wrongTide" : { blood: "notEnoughBlood", bones: "notEnoughBones", wax: "notEnoughWax", salt: "notEnoughSalt" }[card.cost.type];
+      flash(errorText(key));
       return;
     }
     setSel(card.uid);
@@ -322,7 +353,7 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
   const onDragStartCard = (e, card) => {
     if (!canAct || needDraw) { e.preventDefault(); return; }
     const aff = affordable(r, me, card, bottom);
-    if (!aff.ok) { e.preventDefault(); flash(errorText("notEnoughBlood")); return; }
+    if (!aff.ok) { e.preventDefault(); flash(errorText(aff.tide ? "wrongTide" : "notEnoughBlood")); return; }
     e.dataTransfer.setData("text/plain", card.uid);
     e.dataTransfer.effectAllowed = "move";
     setSel(card.uid);
@@ -363,7 +394,7 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
       const atk = rr.attackOf(u);
       const opposing = c.players[top].front[lane];
       const flying = rr.level(u, "schwinge") > 0;
-      const direct = !opposing || (flying && rr.level(opposing, "hochwuchs") === 0);
+      const direct = !opposing || opposing.submerged || (flying && rr.level(opposing, "hochwuchs") === 0);
       const spill = direct || !opposing ? 0 : Math.max(0, atk - Math.max(0, opposing.health));
       return { lane, atk, direct, spill };
     } catch {
@@ -437,10 +468,15 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
   const sacrificable = (u) => !!(canAct && selCard && selCard.cost.type === "blood" && needBlood > 0 && u.owner === bottom &&
     !sacs.some((x) => x.zone === u.zone && x.lane === u.lane) && r.laneProp(bottom, u.lane) !== "heilig");
 
-  const rows = ROWS_FOR(bottom);
+  const zirkel = getZirkel(live.zirkel);
+  const tideOn = b.tide !== null && b.tide !== undefined;
+  const flooded = tideOn && b.tide === TIDE_FLOOD;
+  const third = zirkel.bonusResource === "salt" ? "salt" : "wax";
+  const rows = ROWS_FOR(bottom, tideOn);
   const rowTop = (i) => `calc(var(--slot-h) * ${i} + ${i >= 2 ? 18 : 0}px)`;
   const totemLane = totemHover?.head?.kind === "lane" ? totemHover.head.lane : null;
   const totemTribe = totemHover?.head?.kind === "tribe" ? totemHover.head.tribe : null;
+  const totemSide = totemHover?.head?.kind === "side";
 
   // Einheiten flach sammeln (für die Ebene mit transform-Übergängen)
   const units = [];
@@ -480,6 +516,7 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
             <span className="text-xs ss-faint">{de.ui.turn} {b.turn}</span>
           </div>
         </div>
+        {tideOn && <TideGauge tide={b.tide} turn={b.turn} shift={b.tideShift || 0} />}
       </div>
 
       </div>
@@ -533,7 +570,7 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
                   return (
                     <div
                       key={key}
-                      className={`ss-slot ${row.zone === "back" ? "ss-back" : ""} ${targetable ? "ss-target" : ""} ${chosen ? "ss-chosen" : ""} ${dragOver === `${row.p}${key}` ? "ss-dragover" : ""} ${laneGlow ? "ss-lane-glow" : ""}`}
+                      className={`ss-slot ${row.zone === "back" ? "ss-back" : ""} ${flooded && row.zone === "back" ? "ss-flooded" : ""} ${targetable ? "ss-target" : ""} ${chosen ? "ss-chosen" : ""} ${dragOver === `${row.p}${key}` ? "ss-dragover" : ""} ${laneGlow ? "ss-lane-glow" : ""}`}
                       style={{ left: `calc(var(--slot-w) * ${lane})`, top: rowTop(ri) }}
                       data-slot={`${row.p}:${row.zone}:${lane}`}
                       onDragOver={own && canAct ? (e) => { e.preventDefault(); setDragOver(`${row.p}${key}`); } : undefined}
@@ -562,7 +599,7 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
               const marked = own && sacs.some((s) => s.zone === u.zone && s.lane === u.lane);
               const auras = aurasOf(b, u);
               const atk = r.attackOf(u);
-              const glow = totemTribe && u.card.tribe === totemTribe && own;
+              const glow = ((totemTribe && u.card.tribe === totemTribe) || (totemSide && u.card.baseId.startsWith("side_"))) && own;
               return (
                 <div key={u.uid} className={`ss-unit ${sacrificable(u) ? "ss-sacrificable" : ""}`} style={{ transform: `translate(calc(var(--slot-w) * ${lane}), ${rowTop(ri)})`, zIndex: anim?.ev?.uid === u.uid || hold?.uid === u.uid ? 20 : 5, ...(anim?.ev?.uid === u.uid && anim.ev.type === "move" ? { transitionDuration: `${Math.round(anim.dur)}ms` } : {}) }}>
                   <div
@@ -707,21 +744,32 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
       {/* ── Ressourcen ── */}
       {you !== null && (
         <div className="ss-b-res ss-panel">
-          <div className="ss-res" data-anchor={`blood-${bottom}`} title="Blutschale: Opfer beim Ausspielen (plus Blutphiole)">
-            <div className="ss-bowl"><div className="ss-bowl-fill" style={{ height: `${Math.min(100, ((sacSum + (me.bloodBonus || 0)) / 4) * 100)}%` }} /></div>
-            <span className="ss-res-num">{sacSum + (me.bloodBonus || 0)}</span>
-            <span className="ss-res-label">Blut</span>
-          </div>
           <div className="ss-res" data-anchor={`bones-${bottom}`} title="Knochen">
             <div className="ss-pile flex items-end justify-center"><Bone size={22} /><Bone size={18} className="-ml-3 rotate-45" /></div>
             <span className="ss-res-num">{me.bones}</span>
             <span className="ss-res-label">{de.costs.bones.name}</span>
           </div>
-          <div className="ss-res" data-anchor={`wax-${bottom}`} title={`Wachs (höchstens ${WAX_MAX})`}>
-            <div className="ss-pile flex items-end justify-center"><CandleStub size={30} /></div>
-            <span className="ss-res-num">{me.wax}</span>
-            <span className="ss-res-label">Wachs</span>
-          </div>
+          {third === "salt" ? (
+            <div className="ss-res" data-anchor={`salt-${bottom}`} title={de.costs.salt.desc}>
+              <div className="ss-pile flex items-end justify-center"><SaltCrystal size={24} /><SaltCrystal size={16} className="-ml-2" /></div>
+              <span className="ss-res-num">{me.salt || 0}</span>
+              <span className="ss-res-label">{de.costs.salt.name}</span>
+            </div>
+          ) : (
+            <div className="ss-res" data-anchor={`wax-${bottom}`} title={`Wachs (höchstens ${WAX_MAX})`}>
+              <div className="ss-pile flex items-end justify-center"><CandleStub size={30} /></div>
+              <span className="ss-res-num">{me.wax}</span>
+              <span className="ss-res-label">Wachs</span>
+            </div>
+          )}
+          {/* Blutphiole: der einzige gespeicherte Blut-Vorrat, deshalb nur sichtbar, solange sie wirkt */}
+          {(me.bloodBonus || 0) > 0 && (
+            <div className="ss-res" title={de.items.blutphiole.desc}>
+              <div className="ss-pile flex items-end justify-center"><BloodDrop size={20} /></div>
+              <span className="ss-res-num">+{me.bloodBonus}</span>
+              <span className="ss-res-label">{de.items.blutphiole.name}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -740,8 +788,8 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
           ))}
           {[bottom, top].map((p) => {
             const tot = view.players[p]?.totems;
-            const list = tot ? [tot.tribe, tot.lane].filter(Boolean) : [];
-            return list.map((t, i) => <TotemFigure key={`${p}${i}`} totem={t} kind={i ? "Lane" : "Stamm"} owner={p === bottom && you !== null ? de.ui.you : names[p]} onHover={p === bottom ? setTotemHover : () => {}} />);
+            const list = tot ? [tot.tribe, tot.lane, tot.side].filter(Boolean) : [];
+            return list.map((t, i) => <TotemFigure key={`${p}${i}`} zirkel={live.zirkel} totem={t} kind={headLabel(t.head)} owner={p === bottom && you !== null ? de.ui.you : names[p]} onHover={p === bottom ? setTotemHover : () => {}} />);
           })}
         </div>
       )}

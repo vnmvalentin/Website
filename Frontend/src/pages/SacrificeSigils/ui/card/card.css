@@ -129,6 +129,18 @@
   border-radius: 40% 60% 50% 50%;
   box-shadow: 0 0 4px rgb(242 140 40 / 0.8);
 }
+/* Gezeiten-Bindung: kleines Papierschild oben links (Welle = Hochwasser, Rippel = Niedrigwasser) */
+.ss-tide-mark {
+  position: absolute;
+  left: 4%;
+  top: 6%;
+  display: inline-flex;
+  padding: 0.08em;
+  background: #e6d8b6;
+  border: 1px solid #3a2d20;
+  border-radius: 2px;
+  line-height: 0;
+}
 .ss-stamp {
   position: absolute;
   right: 4%;

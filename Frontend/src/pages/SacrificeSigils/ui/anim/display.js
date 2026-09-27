@@ -64,9 +64,23 @@ export function applyDisplayEvent(b, e) {
       b.turn = e.turn;
       break;
     case "wax":
+    case "salt":
     case "bones":
       if (P) P[e.type] = e.total;
       break;
+    case "tide":
+      b.tide = e.tide;
+      break;
+    case "glued": {
+      const f = findUnit(b, e.uid);
+      if (f) f.unit.glued = e.turns;
+      break;
+    }
+    case "inked": {
+      const f = findUnit(b, e.uid);
+      if (f) f.unit.stunned = true;
+      break;
+    }
     case "spend":
       if (P && e.resource !== "vial") P[e.resource] = e.total;
       if (P && e.resource === "vial") P.bloodBonus = 0;

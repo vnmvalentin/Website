@@ -2,6 +2,7 @@
 import { defineCards } from "./_define.js";
 
 export default defineCards("kerzenwesen", [
+  ["wachsling", "Wachsling", "b0", 0, 1, ["wachsgabe"], "common", "Ein Tropfen Wachs, der gehen gelernt hat."],
   ["stummelkerze", "Stummelkerze", "w2", 0, 2, ["metamorphose"], "common", "Sie wartet auf eine Hand, die sie noch einmal entzündet.", { evolvesTo: "hoheflamme" }],
   ["flackerwicht", "Flackerwicht", "w1", 0, 1, ["wachsquelle"], "common", "Er tropft, und jeder Tropfen ist ein Geschenk."],
   ["dochtmotte", "Dochtmotte", "w2", 2, 1, ["kerzendocht:2"], "common", "Sie liebte die Flamme so sehr, dass sie eine wurde."],

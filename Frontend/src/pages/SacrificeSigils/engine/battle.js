@@ -38,6 +38,24 @@ export function candleWeight(turn) {
  */
 export const NO_ATTACK_TURNS = 2;
 
+/**
+ * Gezeiten (nur Zirkel mit `tide: true`): 0 Ebbe, 1 steigend, 2 Flut, 3 fallend. Jede Phase dauert eine Runde
+ * (beide Züge), der Kampf beginnt bei Ebbe. Hochwasser = steigend/Flut, Niedrigwasser = fallend/Ebbe.
+ */
+export const TIDE_PHASES = /** @type {const} */ (["ebbe", "steigend", "flut", "fallend"]);
+export const TIDE_EBB = 0;
+export const TIDE_FLOOD = 2;
+
+/** Gezeitenphase für Zug `turn` (mit Verschiebung durch Mondzug). @param {number} turn @param {number} [shift] */
+export function tideAt(turn, shift = 0) {
+  return (Math.floor((turn - 1) / 2) + shift) % 4;
+}
+
+/** @param {number|null} tide */
+export function isHighWater(tide) {
+  return tide === 1 || tide === 2;
+}
+
 /** Bewegungs-Sigils am Zugende (Wandern, Rammbock): laufen vor Kerzendocht und den übrigen Effekten. */
 const MOVE_SIGILS = new Set(["wanderer", "rammbock"]);
 
@@ -48,6 +66,9 @@ const MOVE_SIGILS = new Set(["wanderer", "rammbock"]);
  *   kein Ausgleich, Startspieler zieht nicht: 46,8 % · Startspieler +1 Wachs: 54,9 % · Startspieler +1 Knochen: ~55 %
  *   · Startspieler zieht + Zweiter +1 Wachs: ~55 % · Startspieler zieht nur aus dem Nebendeck: ~73 %
  *   · Startspieler zieht + Zweiter +1 Wachs +1 Knochen: 51,3 % (schwer, 2000 Matches: 50,5 %)  ← gewählt
+ * Runde 3 (Tauchgang/Leibwächter wie Inscryption, festes Nebendeck + Nebendeck-Totem), 5000 Matches, KI normal:
+ *   +1 Wachs +1 Knochen: 52,8 % (schwer: 52,2 %) ← bleibt · +1 Wachs +2 Knochen: 47,5 % · +2 Wachs +1 Knochen: 46,6 %
+ *   · +1 Wachs +1 Knochen +1 Moorling: 27,8 % (ein zusätzlicher Moorling mit Doppelblut ist viel zu stark)
  */
 export const SECOND_PLAYER_BONUS = { wax: 1, bones: 1, side: 0, starterDraws: true, starterBones: 0, starterWax: 0 };
 
@@ -56,10 +77,10 @@ export const SIDE_TYPES = getZirkel(DEFAULT_ZIRKEL).sideDeckTypes;
 
 /**
  * Totems eines Spielers → Auren für den Kampf.
- * @param {any} totems { tribe: {head, base}|null, lane: {head, base}|null }
+ * @param {any} totems { tribe: {head, base}|null, lane: {head, base}|null, side: {head, base}|null }
  */
 export function totemAuras(totems) {
-  const a = { tribe: null, tribeSigil: null, lane: null, laneSigil: null, laneProp: null };
+  const a = { tribe: null, tribeSigil: null, lane: null, laneSigil: null, laneProp: null, sideSigil: null };
   if (totems?.tribe?.head?.kind === "tribe" && totems.tribe.base?.kind === "sigil") {
     a.tribe = totems.tribe.head.tribe;
     a.tribeSigil = totems.tribe.base.sigil;
@@ -69,6 +90,8 @@ export function totemAuras(totems) {
     if (totems.lane.base.kind === "sigil") a.laneSigil = totems.lane.base.sigil;
     else a.laneProp = totems.lane.base.prop;
   }
+  // Nebendeck-Totem (Runde 3): jeder gezogene Moorling trägt das Sigil fest auf der Karte, siehe newSideCard
+  if (totems?.side?.head?.kind === "side" && totems.side.base?.kind === "sigil") a.sideSigil = totems.side.base.sigil;
   return a;
 }
 
@@ -79,8 +102,13 @@ export function totemAuras(totems) {
  */
 export function createBattle(opts) {
   const zirkel = getZirkel(opts.zirkel);
+  const bonusRes = zirkel.bonusResource || "wax";
+  // Ausgleich für den Zweitspieler: pro Zirkel einstellbar (Gezeiten misst anders als das Moor)
+  const bonus = { ...SECOND_PLAYER_BONUS, ...(zirkel.secondPlayerBonus || {}) };
   const state = {
     zirkel: zirkel.id,
+    tide: /** @type {number|null} */ (zirkel.tide ? TIDE_EBB : null),
+    tideShift: 0,
     battleNo: opts.battleNo,
     turn: 1,
     active: opts.starter,
@@ -100,7 +128,10 @@ export function createBattle(opts) {
       back: /** @type {(Unit|null)[]} */ ([null, null, null, null]),
       bones: 0,
       wax: 0,
+      salt: 0,
       bloodBonus: 0,
+      /** Heimkehr: Karten, die mit der nächsten Flut auf die Hand zurückkommen */
+      returning: /** @type {Card[]} */ ([]),
       drew: false,
       hammerUsed: false,
       items: [...p.items],
@@ -112,7 +143,7 @@ export function createBattle(opts) {
   };
   const r = new Resolver(state);
   for (const p of /** @type {const} */ ([0, 1])) shuffle(state, state.players[p].deck);
-  r.emit({ type: "battleStart", battleNo: state.battleNo, starter: state.starter });
+  r.emit({ type: "battleStart", battleNo: state.battleNo, starter: state.starter, tide: state.tide });
   for (const p of /** @type {const} */ ([0, 1])) {
     const P = state.players[p];
     const dread = P.deck.reduce((s, c) => s + (c.dread || 0), 0);
@@ -120,15 +151,16 @@ export function createBattle(opts) {
     for (let i = 0; i < 3; i++) r.drawCardFromDeck(p, "start");
     r.addToHand(p, r.newSideCard(p), "start", true);
     if (p !== state.starter) {
-      for (let i = 0; i < SECOND_PLAYER_BONUS.side; i++) r.addToHand(p, r.newSideCard(p), "start", true);
-      if (SECOND_PLAYER_BONUS.wax) r.gainWax(p, SECOND_PLAYER_BONUS.wax, null);
-      if (SECOND_PLAYER_BONUS.bones) state.players[p].bones += SECOND_PLAYER_BONUS.bones;
+      for (let i = 0; i < bonus.side; i++) r.addToHand(p, r.newSideCard(p), "start", true);
+      // Der Wachs-Bonus geht an die dritte Ressource des Zirkels (Moor: Wachs, Gezeiten: Salz)
+      if (bonus.wax) r.gainRes(p, bonusRes, bonus.wax, null);
+      if (bonus.bones) state.players[p].bones += bonus.bones;
     } else {
-      if (SECOND_PLAYER_BONUS.starterBones) state.players[p].bones += SECOND_PLAYER_BONUS.starterBones;
-      if (SECOND_PLAYER_BONUS.starterWax) r.gainWax(p, SECOND_PLAYER_BONUS.starterWax, null);
+      if (bonus.starterBones) state.players[p].bones += bonus.starterBones;
+      if (bonus.starterWax) r.gainRes(p, bonusRes, bonus.starterWax, null);
     }
   }
-  r.startTurn(state.starter, !SECOND_PLAYER_BONUS.starterDraws);
+  r.startTurn(state.starter, !bonus.starterDraws);
   r.checkWin();
   return { state, events: r.events };
 }
@@ -308,6 +340,10 @@ export class Resolver {
         return Math.floor(P.wax / 2);
       case "handschwere":
         return P.hand.length;
+      case "salzmass":
+        return Math.floor(P.salt / 2);
+      case "riffzahl":
+        return this.units(u.owner).filter((o) => o.card.tribe === "korallen").length;
       default:
         return 0;
     }
@@ -381,19 +417,101 @@ export class Resolver {
 
   /** @param {number} p @param {number} n @param {Unit|null} src */
   gainWax(p, n, src) {
+    this.gainRes(p, "wax", n, src);
+  }
+
+  /**
+   * Vorrats-Ressource (Wachs, Salz) gewinnen, gedeckelt auf das Maximum des Zirkels. Ereignis-Typ = Ressourcen-ID.
+   * @param {number} p @param {"wax"|"salt"} id @param {number} n @param {Unit|null} src
+   */
+  gainRes(p, id, n, src) {
+    if (n <= 0) return;
     const P = this.state.players[p];
-    const before = P.wax;
-    P.wax = Math.min(resourceOf(this.z, "wax")?.max ?? WAX_MAX, P.wax + n);
-    if (P.wax !== before) this.emit({ type: "wax", player: p, amount: P.wax - before, total: P.wax, source: src?.uid });
+    const before = P[id] || 0;
+    const max = resourceOf(this.z, id)?.max ?? (id === "wax" ? WAX_MAX : 8);
+    P[id] = Math.min(max, before + n);
+    if (P[id] !== before) this.emit({ type: id, player: p, amount: P[id] - before, total: P[id], source: src?.uid });
+  }
+
+  // ───────────── Gezeiten ─────────────
+
+  /** Aktuelle Gezeitenphase oder null (Zirkel ohne Gezeiten). */
+  tide() {
+    return this.state.tide ?? null;
+  }
+
+  highWater() {
+    return isHighWater(this.tide());
+  }
+
+  lowWater() {
+    const t = this.tide();
+    return t === 3 || t === 0;
+  }
+
+  flooded() {
+    return this.tide() === TIDE_FLOOD;
+  }
+
+  /**
+   * Gezeiten neu bestimmen (Zugbeginn bzw. Mondzug) und bei einem Wechsel die Phasenwirkungen auslösen.
+   * @param {string} reason
+   */
+  updateTide(reason) {
+    const s = this.state;
+    if (s.tide === null || s.tide === undefined) return;
+    const next = tideAt(s.turn, s.tideShift || 0);
+    if (next === s.tide) return;
+    s.tide = next;
+    this.emit({ type: "tide", tide: next, reason });
+    if (next === TIDE_FLOOD) this.floodArrives();
+  }
+
+  /** Mondzug: die Gezeiten springen eine Phase weiter. @param {number} n @param {string} reason */
+  shiftTide(n, reason) {
+    if (this.tide() === null) return;
+    this.state.tideShift = (this.state.tideShift || 0) + n;
+    this.updateTide(reason);
+  }
+
+  /** Die Flut kommt: Treibgut wird fortgespült, Heimkehrer kommen zurück (aktive Seite zuerst). */
+  floodArrives() {
+    const a = this.state.active;
+    for (const p of [a, 1 - a]) {
+      for (const u of this.units(p)) {
+        if (this.over) return;
+        if (this.onBoard(u) && this.level(u, "treibgut") > 0) this.kill(u, "tide", null);
+      }
+    }
+    for (const p of [a, 1 - a]) {
+      const P = this.state.players[p];
+      const back = P.returning || [];
+      P.returning = [];
+      for (const card of back) this.addToHand(p, { ...card, uid: this.newUid() }, "heimkehr");
+    }
+  }
+
+  /** Heimkehr: Kopie ohne Schaden merken, kommt mit der nächsten Flut zurück. @param {Unit} u */
+  queueReturn(u) {
+    const P = this.state.players[u.owner];
+    if (!P.returning) P.returning = [];
+    P.returning.push({ ...u.card, uid: "" });
+    this.emit({ type: "returnQueued", player: u.owner, uid: u.uid });
   }
 
   // ───────────── Karten & Hand ─────────────
 
-  /** @param {number} p */
+  /**
+   * Karte aus dem Nebendeck. Das Sigil des Nebendeck-Totems steht direkt auf der Karte, damit es in Hand, Feld und
+   * Tooltip gleich aussieht (Totems ändern sich nur zwischen den Kämpfen).
+   * @param {number} p
+   */
   newSideCard(p) {
     const sides = this.z.sideDeckTypes;
-    const id = sides[this.state.players[p].sideType] || Object.values(sides)[0];
-    return resolveCard(id, [], this.newUid());
+    const P = this.state.players[p];
+    const id = sides[P.sideType] || Object.values(sides)[0];
+    const sigil = P.auras?.sideSigil;
+    return resolveCard(id, sigil ? [{ kind: "sigilAdd", sigil }] : [], this.newUid());
   }
 
   /**
@@ -533,7 +651,28 @@ export class Resolver {
     u.lane = lane;
     this.row(u.owner, zone)[lane] = u;
     this.emit({ type: "move", player: u.owner, uid: u.uid, from, to: { zone, lane }, reason });
+    // Aus der Hinterreihe nach vorn = neu gegenüber einer Lane (wie eine ausgespielte Karte): Leibwächter reagieren
+    if (from.zone === "back" && zone === "front") this.guardCheck(u);
     return true;
+  }
+
+  /**
+   * Leibwächter (wie Guardian in Inscryption): Landet eine gegnerische Karte in der Front gegenüber einer leeren Lane,
+   * springt der erste eigene Leibwächter aus der Front dorthin.
+   * @param {Unit} enemy
+   */
+  guardCheck(enemy) {
+    if (!this.onBoard(enemy) || enemy.zone !== "front" || this.over) return;
+    const q = 1 - enemy.owner;
+    const row = this.row(q, "front");
+    if (row[enemy.lane]) return;
+    for (const g of row) {
+      if (g && g.glued <= 0 && !g.submerged && this.level(g, "leibwaechter") > 0) {
+        if (!this.spend()) return;
+        this.moveUnit(g, "front", enemy.lane, "guard");
+        return;
+      }
+    }
   }
 
   /**
@@ -693,8 +832,11 @@ export class Resolver {
   /** Nachrücken einer Seite. @param {number} p @param {string} reason */
   advanceRow(p, reason) {
     const P = this.state.players[p];
+    const flood = this.flooded();
     for (let l = 0; l < LANES; l++) {
       const u = P.back[l];
+      // Flut: die Uferreihe steht unter Wasser und rückt nicht nach (außer mit Anker)
+      if (u && flood && this.level(u, "anker") === 0) continue;
       if (u && !P.front[l] && u.glued <= 0) this.moveUnit(u, "front", l, reason);
     }
   }
@@ -716,10 +858,20 @@ export class Resolver {
     P.drew = first;
     P.hammerUsed = false;
     this.emit({ type: "turnStart", player: p, turn: s.turn });
+    this.updateTide("turn");
+    if (this.over) return;
     if (s.turn >= CANDLE_WARNING_TURN && s.turn < STALEMATE_TURN) {
       this.emit({ type: "candleWarning", turnsLeft: STALEMATE_TURN - s.turn });
     }
-    this.gainWax(p, 1, null);
+    for (const res of this.z.resources) {
+      if (res.kind === "perTurn") this.gainRes(p, res.id, res.gain ?? 1, null);
+      // Salz: +1 für jede eigene Karte in der Uferreihe (sie hat den gegnerischen Zug überstanden)
+      if (res.kind === "shore") this.gainRes(p, res.id, P.back.filter(Boolean).length, null);
+    }
+    // Ebbe legt den Strand frei: wer eine ganz leere Lane hat, findet eine Nebendeck-Karte
+    if (this.tide() === TIDE_EBB && P.front.some((u, l) => !u && !P.back[l])) {
+      this.addToHand(p, this.newSideCard(p), "ebbe");
+    }
     for (const u of this.units(p)) {
       u.rushed = false;
       if (u.submerged) {
@@ -734,7 +886,7 @@ export class Resolver {
       if (this.onBoard(u)) this.runHook(u, "onTurnStart");
     }
     const a = P.auras;
-    if (a.laneProp === "aufmarsch" && a.lane !== null) {
+    if (a.laneProp === "aufmarsch" && a.lane !== null && !this.flooded()) {
       const u = P.back[a.lane];
       if (u && !P.front[a.lane] && u.glued <= 0) this.moveUnit(u, "front", a.lane, "aufmarsch");
     }
@@ -777,6 +929,15 @@ export class Resolver {
     this.advanceRow(p, "advance");
     this.checkWin();
     if (this.over) return;
+    // Tauchgang (wie Waterborne in Inscryption): taucht am Ende jedes eigenen Zugs ab – auch ohne angegriffen zu haben –
+    // und ist den ganzen gegnerischen Zug über weg. Nur in der Front; die Hinterreihe steht ohnehin nicht in der Lane.
+    const beacon = this.units(1 - p).some((o) => this.level(o, "leuchtfeuer") > 0);
+    for (const u of this.state.players[p].front) {
+      if (!beacon && u && !u.submerged && u.glued <= 0 && this.level(u, "tauchgang") > 0) {
+        u.submerged = true;
+        this.emit({ type: "submerge", uid: u.uid });
+      }
+    }
     if (s.turn >= STALEMATE_TURN) {
       // Die Kerze brennt schneller, je länger es dauert: sonst pendelt die Waage bei festgefahrenen Brettern ewig
       const amount = candleWeight(s.turn);
@@ -810,10 +971,6 @@ export class Resolver {
           this.strike(u, tl);
         }
         if (this.alive(u) && !this.over && this.level(u, "hinterhalt") > 0) this.strikeBack(u, lane);
-      }
-      if (this.alive(u) && !this.over && this.level(u, "tauchgang") > 0 && u.glued <= 0) {
-        u.submerged = true;
-        this.emit({ type: "submerge", uid: u.uid });
       }
     }
   }
@@ -853,9 +1010,10 @@ export class Resolver {
       return;
     }
     if (def.submerged) {
-      // Tauchgang: der Schaden geht unter der abgetauchten Karte hindurch – auf die Hinterreihe bzw. die Waage
-      this.emit({ type: "attack", uid: att.uid, lane: tl, submerged: true, target: def.uid });
-      this.overflow(att, q, tl, dmg, def.uid);
+      // Tauchgang: die abgetauchte Karte besetzt die Lane nicht – der volle Angriff geht direkt auf die Waage,
+      // wie bei einer leeren Lane (auch an der Hinterreihe vorbei)
+      this.emit({ type: "attack", uid: att.uid, lane: tl, direct: true, submerged: true, target: def.uid });
+      this.addScale(att.owner, dmg, "attack", att.uid);
       return;
     }
     this.emit({ type: "attack", uid: att.uid, lane: tl, target: def.uid });
@@ -869,7 +1027,8 @@ export class Resolver {
    */
   overflow(att, q, lane, rest, from) {
     if (rest <= 0 || this.over) return;
-    const back = this.level(att, "durchbohren") > 0 ? null : this.row(q, "back")[lane];
+    // Durchbohren und Flut (Uferreihe unter Wasser) lassen den Überlauf an der Hinterreihe vorbei
+    const back = this.level(att, "durchbohren") > 0 || this.flooded() ? null : this.row(q, "back")[lane];
     let fromZone = "front";
     if (back) {
       this.emit({ type: "overflow", uid: att.uid, player: q, lane, from, fromZone, to: back.uid, amount: rest });
@@ -885,21 +1044,15 @@ export class Resolver {
   /** Hinterhalt: zusätzlich die Hinterreihe derselben Lane (voller Angriff, ohne Überlauf auf die Waage). @param {Unit} att @param {number} lane */
   strikeBack(att, lane) {
     const def = this.row(1 - att.owner, "back")[lane];
-    if (!def) return;
+    if (!def || this.flooded()) return;
     const dmg = this.attackOf(att);
     if (dmg <= 0) return;
     this.emit({ type: "attack", uid: att.uid, lane, target: def.uid, ambush: true });
     this.hitUnit(att, def, dmg);
   }
 
-  /** Leibwächter (aus der Front) oder Grabwühler (von überall) springt in eine direkt angegriffene Lane. */
+  /** Grabwühler (wie Burrower in Inscryption, von überall) springt in eine direkt angegriffene leere Lane. */
   guardJump(/** @type {number} */ q, /** @type {number} */ lane) {
-    for (const u of this.row(q, "front")) {
-      if (u && u.lane !== lane && u.glued <= 0 && !u.submerged && this.level(u, "leibwaechter") > 0) {
-        this.moveUnit(u, "front", lane, "guard");
-        return u;
-      }
-    }
     for (const u of this.units(q)) {
       if (u.glued <= 0 && !u.submerged && this.level(u, "grabwuehler") > 0 && !(u.zone === "front" && u.lane === lane)) {
         this.moveUnit(u, "front", lane, "burrow");
@@ -917,7 +1070,8 @@ export class Resolver {
    */
   hitUnit(att, def, dmg, spill = false) {
     const breaker = this.level(att, "ruestungsbrecher") > 0;
-    if (!breaker && this.level(def, "schildrinde") > 0 && !def.shieldUsed) {
+    const shielded = this.level(def, "schildrinde") > 0 || (this.highWater() && this.level(def, "gezeitenschild") > 0);
+    if (!breaker && shielded && !def.shieldUsed) {
       def.shieldUsed = true;
       this.emit({ type: "shield", uid: def.uid, source: att.uid });
       this.runHook(def, "onStruck", att);
@@ -1048,6 +1202,7 @@ export class Resolver {
       if (this.laneProp(p, u.lane) === "heilig") return "sacredLane";
       victims.push(u);
     }
+    if (card.tide && this.tide() !== null && (card.tide === "high") !== this.highWater()) return "wrongTide";
     const cost = card.cost;
     if (cost.type === "blood") {
       const need = Math.max(0, cost.amount - P.bloodBonus);
@@ -1063,6 +1218,7 @@ export class Resolver {
       if (victims.length) return "tooManySacrifices";
       if (cost.type === "bones" && P.bones < cost.amount) return "notEnoughBones";
       if (cost.type === "wax" && P.wax < cost.amount) return "notEnoughWax";
+      if (cost.type === "salt" && (P.salt || 0) < cost.amount) return "notEnoughSalt";
     }
     // Zielslot muss nach den Opfern frei sein (Ewiges Opfer bleibt stehen)
     const occupant = P[a.zone][a.lane];
@@ -1073,9 +1229,9 @@ export class Resolver {
     if (cost.type === "bones") {
       P.bones -= cost.amount;
       this.emit({ type: "spend", player: p, resource: "bones", amount: cost.amount, total: P.bones });
-    } else if (cost.type === "wax") {
-      P.wax -= cost.amount;
-      this.emit({ type: "spend", player: p, resource: "wax", amount: cost.amount, total: P.wax });
+    } else if (cost.type === "wax" || cost.type === "salt") {
+      P[cost.type] -= cost.amount;
+      this.emit({ type: "spend", player: p, resource: cost.type, amount: cost.amount, total: P[cost.type] });
     } else if (cost.amount > 0 && P.bloodBonus > 0) {
       this.emit({ type: "spend", player: p, resource: "vial", amount: Math.min(P.bloodBonus, cost.amount) });
       P.bloodBonus = 0;
@@ -1103,6 +1259,8 @@ export class Resolver {
     this.place(u);
     P.stats.played += 1;
     this.emit({ type: "play", player: p, uid: u.uid, zone: a.zone, lane: a.lane, card });
+    this.guardCheck(u);
+    if (this.over) return null;
     this.runHook(u, "onPlay");
     if (this.over) return null;
     for (const o of this.units(1 - p)) {
@@ -1132,6 +1290,7 @@ export class Resolver {
     if (!u || this.level(u, "vorpreschen") === 0) return "badTarget";
     if (u.rushed) return "alreadyRushed";
     if (P.front[lane] || u.glued > 0) return "slotOccupied";
+    if (this.flooded() && this.level(u, "anker") === 0) return "flooded";
     u.rushed = true;
     this.moveUnit(u, "front", lane, "rush");
     return null;

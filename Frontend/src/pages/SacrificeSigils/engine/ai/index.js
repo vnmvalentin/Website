@@ -16,6 +16,8 @@ import { parseSigil, sigilPower } from "../sigils/index.js";
 import { rand, randInt } from "../rng.js";
 import { MIN_DECK } from "../../data/events.js";
 import { MAX_ITEMS } from "../../data/items.js";
+import { combineError, totemSlot } from "../../data/totems.js";
+import { zirkelOf } from "../zirkel/index.js";
 
 /** @typedef {"easy"|"normal"|"hard"} AiLevel */
 
@@ -63,7 +65,7 @@ function draftChoice(match, p, level, rng) {
   if (level === "easy") return { type: "draftPick", player: p, pid: options[randInt(rng, options.length)] };
   const mine = d.picks[p].filter(Boolean).map((/** @type {string} */ pid) => CARDS[poolCard(d, pid).baseId]);
   const tribes = new Map();
-  const costs = { blood: 0, bones: 0, wax: 0 };
+  const costs = { blood: 0, bones: 0, wax: 0, salt: 0 };
   for (const c of mine) {
     tribes.set(c.tribe, (tribes.get(c.tribe) || 0) + 1);
     costs[c.cost.type] += 1;
@@ -80,6 +82,10 @@ function draftChoice(match, p, level, rng) {
       // Knochenkarten ohne Knochen-Motor sind schwächer
       if (def.cost.type === "bones" && def.cost.amount >= 6) score -= 0.4;
       if (def.cost.type === "wax" && def.cost.amount >= 5) score -= 0.3;
+      // Salz braucht eine besetzte Uferreihe; teure Salzkarten nur mit Salz-Motor (Salzader, Perle)
+      if (def.cost.type === "salt" && def.cost.amount >= 5) score -= 0.4;
+      // Gezeiten-Bindung: nur die Hälfte der Züge spielbar
+      if (def.tide) score -= 0.25;
     }
     if (score > bestScore) { bestScore = score; best = pid; }
   }
@@ -91,7 +97,7 @@ function extrasChoice(match, p) {
   const d = match.draft;
   const mine = d.picks[p].map((/** @type {string} */ pid) => CARDS[poolCard(d, pid).baseId]);
   const tribes = new Map();
-  const costs = { blood: 0, bones: 0, wax: 0 };
+  const costs = { blood: 0, bones: 0, wax: 0, salt: 0 };
   for (const c of mine) {
     tribes.set(c.tribe, (tribes.get(c.tribe) || 0) + 1);
     costs[c.cost.type] += 1;
@@ -106,11 +112,14 @@ function extrasChoice(match, p) {
     const score = h.head.kind === "tribe" ? (tribes.get(h.head.tribe) || 0) : 1.5;
     if (score > best) { best = score; head = i; }
   });
-  const byNeed = /** @type {string[]} */ ([]);
-  if (costs.bones >= costs.blood && costs.bones >= costs.wax) byNeed.push("knochenkaefer");
-  if (costs.wax > costs.blood) byNeed.push("wachsling");
-  byNeed.push("moorling", "wachsling", "knochenkaefer");
-  const side = byNeed.find((k) => !step || other.side !== k) || "moorling";
+  // Nebendeck-Totem: das Sigil, das am besten zu den Kosten im Deck passt
+  let side = d.sides[0];
+  let bestSide = -Infinity;
+  for (const sig of d.sides) {
+    if (step && other.side === sig) continue;
+    const score = sideSigilScore(sig, costs);
+    if (score > bestSide) { bestSide = score; side = sig; }
+  }
   if (step?.[1] === "head") return { type: "draftExtras", player: p, head };
   if (step?.[1] === "side") return { type: "draftExtras", player: p, side };
   return { type: "draftExtras", player: p, head, side };
@@ -138,7 +147,8 @@ export function evaluateBattle(b, p) {
       // Präsenz: jede Karte auf dem Feld ist auch Opfer-Futter für Blutkarten
       let v = 0.6 + atk * 1.6 + Math.max(0, u.health) * 0.9;
       for (const [id, n] of r.sigilList(u)) v += Math.max(-1, sigilPower(id + (n > 1 ? `:${n}` : ""))) * 0.5;
-      if (u.zone === "back") v *= 0.75;
+      // Hinterreihe zählt weniger – außer als Uferreihe im Gezeiten-Zirkel, dort bringt sie jeden Zug Salz
+      if (u.zone === "back") v = v * 0.75 + (b.tide !== null && b.tide !== undefined ? 0.9 : 0);
       if (u.wick !== null) v *= Math.min(1, 0.4 + u.wick * 0.2);
       score += sign * v;
     }
@@ -149,8 +159,9 @@ export function evaluateBattle(b, p) {
       if (!u) continue;
       const blocker = b.players[other].front[l];
       const flying = r.level(u, "schwinge") > 0;
-      if (!blocker || (flying && r.level(blocker, "hochwuchs") === 0)) score += sign * r.attackOf(u) * 2.2;
-      else if (!blocker.submerged) {
+      // Abgetauchte Karten blocken nicht (Tauchgang): der Angriff geht voll auf die Waage
+      if (!blocker || blocker.submerged || (flying && r.level(blocker, "hochwuchs") === 0)) score += sign * r.attackOf(u) * 2.2;
+      else {
         // Überlauf: was nach Front- (und Hinter-)karte übrig bleibt, landet auf der Waage
         const back = r.level(u, "durchbohren") > 0 ? null : b.players[other].back[l];
         const excess = r.attackOf(u) - Math.max(0, blocker.health) - (back ? Math.max(0, back.health) : 0);
@@ -159,9 +170,9 @@ export function evaluateBattle(b, p) {
     }
   }
   const P = b.players[p];
-  score += P.bones * 0.35 + P.wax * 0.45 + Math.min(P.hand.length, 6) * 0.6 + P.items.length * 0.8 + P.bloodBonus * 0.8;
+  score += P.bones * 0.35 + P.wax * 0.45 + (P.salt || 0) * 0.4 + Math.min(P.hand.length, 6) * 0.6 + P.items.length * 0.8 + P.bloodBonus * 0.8;
   const Q = b.players[q];
-  score -= Q.bones * 0.2 + Q.wax * 0.25 + Math.min(Q.hand.length, 6) * 0.6;
+  score -= Q.bones * 0.2 + Q.wax * 0.25 + (Q.salt || 0) * 0.2 + Math.min(Q.hand.length, 6) * 0.6;
   return score;
 }
 
@@ -179,6 +190,8 @@ export function candidateActions(b, p) {
     const cost = card.cost;
     if (cost.type === "bones" && P.bones < cost.amount) continue;
     if (cost.type === "wax" && P.wax < cost.amount) continue;
+    if (cost.type === "salt" && (P.salt || 0) < cost.amount) continue;
+    if (card.tide && r.tide() !== null && (card.tide === "high") !== r.highWater()) continue;
     /** @type {Array<any[]>} */
     let sacSets = [[]];
     if (cost.type === "blood") {
@@ -456,7 +469,7 @@ function sceneChoice(match, p, scene, level, rng) {
         const idx = scene.offers.findIndex((/** @type {any} */ o) => o.base);
         return act({ op: "take", index: idx >= 0 ? idx : 0 });
       }
-      const build = bestTotem(player);
+      const build = bestTotem(player, zirkelOf(match));
       if (build) return act({ op: "assemble", head: build.head, base: build.base });
       return act({ op: "leave" });
     }
@@ -471,21 +484,43 @@ function sceneChoice(match, p, scene, level, rng) {
   }
 }
 
-/** Beste noch nicht gebaute Totem-Kombination (oder null). @param {any} player */
-function bestTotem(player) {
+/**
+ * Wert eines Nebendeck-Totem-Sigils für ein Deck mit diesen Kostenarten.
+ * @param {string} sigil @param {{ blood: number, bones: number, wax: number, salt?: number }} costs
+ */
+function sideSigilScore(sigil, costs) {
+  const total = Math.max(1, costs.blood + costs.bones + costs.wax + (costs.salt || 0));
+  switch (sigil) {
+    case "dreifachblut": return 1 + (6 * costs.blood) / total;
+    case "doppelblut": return 1 + (5 * costs.blood) / total;
+    case "wachsgabe": return 1 + (5 * costs.wax) / total;
+    case "salzgabe": return 1 + (5 * (costs.salt || 0)) / total;
+    case "perle": return 0.8 + (4 * (costs.salt || 0)) / total;
+    case "markleicht": return 0.5 + (4 * costs.bones) / total;
+    case "aschenspende":
+    case "knochenmark": return 0.5 + (5 * costs.bones) / total;
+    default: return sigilPower(sigil);
+  }
+}
+
+/** Gewicht des Nebendeck-Kopfs im Totemschrein: Moorlinge liegen in fast jedem Zug auf dem Tisch. */
+const SIDE_HEAD_WEIGHT = 4;
+
+/** Beste noch nicht gebaute Totem-Kombination (oder null). @param {any} player @param {any} z Zirkel */
+function bestTotem(player, z) {
   const tribes = new Map();
   for (const c of player.deck) tribes.set(CARDS[c.baseId].tribe, (tribes.get(CARDS[c.baseId].tribe) || 0) + 1);
   let best = null;
   let bs = 0;
   player.heads.forEach((/** @type {any} */ h, /** @type {number} */ hi) => {
     player.bases.forEach((/** @type {any} */ b, /** @type {number} */ bi) => {
-      if (h.kind === "tribe" && b.kind !== "sigil") return;
-      const slot = h.kind === "tribe" ? "tribe" : "lane";
+      if (combineError(h, b, z)) return;
+      const slot = totemSlot(h);
       const cur = player.totems[slot];
-      const weight = h.kind === "tribe" ? (tribes.get(h.tribe) || 0) : 3;
+      const headWeight = (/** @type {any} */ x) => (x.kind === "tribe" ? (tribes.get(x.tribe) || 0) : x.kind === "side" ? SIDE_HEAD_WEIGHT : 3);
       const power = b.kind === "sigil" ? sigilPower(b.sigil) : 1.5;
-      const score = weight * power;
-      const curScore = cur ? (cur.head.kind === "tribe" ? (tribes.get(cur.head.tribe) || 0) : 3) * (cur.base.kind === "sigil" ? sigilPower(cur.base.sigil) : 1.5) : 0;
+      const score = headWeight(h) * power;
+      const curScore = cur ? headWeight(cur.head) * (cur.base.kind === "sigil" ? sigilPower(cur.base.sigil) : 1.5) : 0;
       if (score > curScore + 0.5 && score > bs) { bs = score; best = { head: hi, base: bi }; }
     });
   });
@@ -523,6 +558,25 @@ function eventChoice(match, p, scene, level, rng, ranked) {
     }
     case "mondfinsternis":
       return ranked[0] ? act({ op: "choose", uid: ranked[0].uid }) : act({ op: "skip" });
+    case "wrack":
+      // Halb Item, halb Fluch: nur mit Platz für ein Item und nicht auf „schwer“ (der Fluch kostet jeden Kampf 1 Gewicht)
+      return act({ op: player.items.length < MAX_ITEMS && (level === "easy" || rand(rng) < 0.35) ? "search" : "skip" });
+    case "gezeitentuempel": {
+      // Die beste noch ungebundene Karte binden: Blutkarten an Hochwasser (Angriff), der Rest an Niedrigwasser
+      const c = ranked.find((x) => !resolveCard(x.baseId, x.mods).tide);
+      if (!c || level === "easy") return act({ op: "skip" });
+      return act({ op: "bind", uid: c.uid, tide: CARDS[c.baseId].cost.type === "blood" ? "high" : "low" });
+    }
+    case "salzsieder": {
+      let salt = 0;
+      let blood = 0;
+      for (const c of player.deck) {
+        const t = CARDS[c.baseId].cost.type;
+        if (t === "salt") salt++;
+        if (t === "blood") blood++;
+      }
+      return act({ op: salt > blood ? "accept" : "decline" });
+    }
     case "gluecksspieler":
       if (player.shards >= 4 && (level === "easy" || rand(rng) < 0.3)) return act({ op: "bet", amount: Math.floor(player.shards / 2) });
       return act({ op: "leave" });

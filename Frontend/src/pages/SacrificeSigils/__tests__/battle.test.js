@@ -17,7 +17,7 @@ test("Kampfstart: Starthand 3+1, zweiter Spieler +1 Wachs +1 Knochen (Ausgleich 
   const deck = Array.from({ length: 10 }, () => dc("T_a2h2"));
   const { state } = createBattle({ battleNo: 1, starter: 0, rng: 7, players: [
     { deck, sideType: "moorling", items: [], totems: {} },
-    { deck: deck.map((c) => ({ ...c })), sideType: "wachsling", items: [], totems: {} },
+    { deck: deck.map((c) => ({ ...c })), sideType: "moorling", items: [], totems: { side: { head: { kind: "side" }, base: { kind: "sigil", sigil: "doppelblut" } } } },
   ] });
   assert.equal(state.players[0].hand.length, 4);
   assert.equal(state.players[1].hand.length, 4);
@@ -26,7 +26,12 @@ test("Kampfstart: Starthand 3+1, zweiter Spieler +1 Wachs +1 Knochen (Ausgleich 
   assert.equal(state.players[1].bones, 1);
   assert.equal(state.players[0].bones, 0);
   assert.equal(state.players[0].drew, false);
-  assert.equal(state.players[1].hand.filter((c) => c.baseId === "side_wachsling").length, 1);
+  // Festes Nebendeck; der Nebendeck-Totem schreibt sein Sigil direkt auf den Moorling
+  const side0 = state.players[0].hand.filter((c) => c.baseId === "side_moorling");
+  const side1 = state.players[1].hand.filter((c) => c.baseId === "side_moorling");
+  assert.equal(side0.length, 1);
+  assert.deepEqual(side0[0].sigils, []);
+  assert.deepEqual(side1[0].sigils, ["doppelblut"]);
 });
 
 test("Erster Zug: in den jeweils ersten eigenen Zügen beider Spieler greift niemand an", () => {
@@ -142,14 +147,23 @@ test("Überlauf: Schildrinde und Panzer gelten pro getroffener Karte", () => {
   assert.equal(c.scale, 0);
 });
 
-test("Überlauf: Tauchgang lässt den Schaden auf die Hinterreihe bzw. Waage durch", () => {
-  const s = setupBattle({ p0: { front: ["T_a5h1", "T_a2h2"] }, p1: { front: ["T_a0h3", "T_a0h3"], back: ["T_a0h3"] } });
+test("Überlauf: 7 Angriff gegen 2 Leben vorn und 3 Leben dahinter – beide sterben, 2 gehen auf die Waage", () => {
+  testCard("T_a7h1", { attack: 7, health: 1 });
+  const s = setupBattle({ p0: { front: ["T_a7h1"] }, p1: { front: ["T_a0h2"], back: ["T_a0h3"] } });
+  endTurn(s);
+  assert.equal(unitAt(s, 1, "front", 0), null);
+  assert.equal(unitAt(s, 1, "back", 0), null);
+  assert.equal(s.scale, 7 - 2 - 3);
+});
+
+test("Tauchgang: abgetauchte Karte besetzt die Lane nicht – der volle Angriff geht direkt auf die Waage, an der Hinterreihe vorbei", () => {
+  const s = setupBattle({ p0: { front: ["T_a2h2", "T_a2h2"] }, p1: { front: ["T_a0h3", "T_a0h3"], back: ["T_a0h3"] } });
   unitAt(s, 1, "front", 0).submerged = true;
   unitAt(s, 1, "front", 1).submerged = true;
   endTurn(s);
   assert.equal(unitAt(s, 1, "front", 0).health, 3);
-  assert.equal(unitAt(s, 1, "back", 0), null);
-  assert.equal(s.scale, 2 + 2); // Lane 1: 5 − 3; Lane 2: ohne Hinterreihe direkt 2
+  assert.equal(unitAt(s, 1, "back", 0).health, 3);
+  assert.equal(s.scale, 2 + 2);
 });
 
 test("Überlauf: Durchbohren überspringt die Hinterreihe", () => {

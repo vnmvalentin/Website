@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import SEO from "../../../../components/SEO";
 import { useLocalGame } from "../../net/useLocalGame.js";
 import { DEFAULT_SETTINGS, normalizeSettings } from "../../engine/match.js";
+import { ZIRKEL } from "../../engine/zirkel/index.js";
 import { getPrefs } from "../prefs.js";
 import GameScreen from "../GameScreen.jsx";
 import { de } from "../../i18n/de.js";
@@ -98,6 +99,11 @@ export default function PracticePage() {
           </label>
         )}
         <div className="grid sm:grid-cols-2 gap-4">
+          <label className="block sm:col-span-2"><span className="text-sm opacity-75">Zirkel</span>
+            <select className="ss-select w-full mt-1" value={settings.zirkel} onChange={(e) => setSettings({ ...settings, zirkel: e.target.value })}>
+              {Object.values(ZIRKEL).map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+            </select>
+          </label>
           <label className="block"><span className="text-sm opacity-75">Draft-Modus</span>
             <select className="ss-select w-full mt-1" value={settings.draftMode} onChange={(e) => setSettings({ ...settings, draftMode: e.target.value })}>
               <option value="shared">Gemeinsamer Pool</option><option value="separate">Getrennte Pools</option>
