@@ -9,6 +9,7 @@ import { opponentName, statusText } from "./names.js";
 import { resolveCard, CARDS } from "../../engine/cards.js";
 import { de } from "../../i18n/de.js";
 import { RUN_SCENES } from "./sceneRegistry.js";
+import TotemBench from "./TotemBench.jsx";
 
 // ───────── Pfad ─────────
 
@@ -58,7 +59,7 @@ function WatchList({ view }) {
       {entries.map(([key, w]) => {
         const names = w.seats.map((q, i) => (q !== null && q !== undefined ? view.players[q].name : opponentName(view, w, 1 - i)));
         return (
-          <div key={key} className="ss-panel p-3">
+          <div key={key} className="py-2 border-b border-[rgb(176_141_87/0.25)] last:border-b-0">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm"><b>{names[0]}</b> gegen <b>{names[1]}</b>{w.done ? " · vorbei" : ""}</span>
               <button type="button" className="ss-btn ss-btn-sm" onClick={() => setOpen(open === key ? null : key)}>{open === key ? de.run.stopWatch : de.run.watch}</button>
@@ -73,21 +74,23 @@ function WatchList({ view }) {
 
 // ───────── Lager ─────────
 
-/** @param {{ game: any, eliminated?: boolean }} props */
-export function CampScreen({ game, eliminated = false }) {
+/** @param {{ game: any, eliminated?: boolean, spectator?: boolean }} props */
+export function CampScreen({ game, eliminated = false, spectator = false }) {
   const rv = game.view;
   const me = game.you !== null ? rv.players[game.you] : null;
   return (
     <div className="max-w-[1300px] mx-auto px-3 py-5 grid lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
       <section className="space-y-4">
         <div className="ss-paper p-5">
-          <p className="ss-title !text-[var(--ink)] text-2xl">{eliminated ? de.run.eliminated : de.run.camp}</p>
-          <p className="mt-1">{eliminated ? de.run.eliminatedHint : de.run.campHint}</p>
+          <p className="ss-title !text-[var(--ink)] text-2xl">{spectator ? de.ui.spectator : eliminated ? de.run.eliminated : de.run.camp}</p>
+          <p className="mt-1">{spectator ? "Du schaust zu. Oben siehst du, wo alle stehen; unten kannst du in laufende Kämpfe schauen." : eliminated ? de.run.eliminatedHint : de.run.campHint}</p>
         </div>
         <div className="ss-panel p-4 space-y-3">
           <p className="ss-title">{de.run.watch}</p>
           <WatchList view={rv} />
         </div>
+        {!eliminated && rv.phase === "path" && me?.heads && <TotemBench player={me} zirkel={rv.settings.zirkel} send={game.send} />}
+        <p className="text-sm ss-dim">Das <a className="underline" href="/sacrifice-and-sigils/kartenbuch" target="_blank" rel="noreferrer">Kartenbuch</a> öffnet sich in einem neuen Tab – dein Platz am Tisch bleibt.</p>
       </section>
       {me?.deck && (
         <aside className="ss-paper p-4">
@@ -115,9 +118,9 @@ export function DuelBoard({ game }) {
             const b = x.seats[1];
             const bName = b !== null ? name(b) : x.ghost?.kind === "lord" ? de.run.lord : de.run.mirror(name(x.ghost?.of) || "?");
             return (
-              <div key={x.id} className="ss-panel p-3 text-[var(--bone)]">
-                <p className="ss-title">{name(a)} <span className="ss-faint">gegen</span> {bName}</p>
-                <p className="text-sm ss-dim">
+              <div key={x.id} className="py-2 border-b border-black/20">
+                <p className="ss-title !text-[var(--ink)]">{name(a)} <span className="opacity-60">gegen</span> {bName}</p>
+                <p className="text-sm opacity-75">
                   {x.done
                     ? `Sieger: ${x.winner !== null ? name(x.winner) : bName}`
                     : `Zug ${x.turn} · Waage ${x.scale > 0 ? `${name(a)} +${x.scale}` : x.scale < 0 ? `${bName} +${-x.scale}` : "ausgeglichen"}`}

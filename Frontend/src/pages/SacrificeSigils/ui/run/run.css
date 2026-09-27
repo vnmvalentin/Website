@@ -63,6 +63,8 @@
 .ss-peek-slot.ss-back { border-style: dotted; background: rgb(0 0 0 / 0.15); }
 .ss-peek-grid .ss-peek-slot:nth-child(8) { margin-bottom: 10px; }
 
+.ss-budget-warn { top: 18%; z-index: 80; max-width: 460px; }
+
 /* Siegel zerbricht (Phase 5 baut die große Animation) */
 @keyframes ss-seal-crack { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-6deg); } 100% { transform: scale(1) rotate(0); } }
 .ss-seal-break { animation: ss-seal-crack 0.7s ease-out; }

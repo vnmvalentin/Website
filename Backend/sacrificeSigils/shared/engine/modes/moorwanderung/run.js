@@ -22,6 +22,7 @@ import { ITEMS, MAX_ITEMS } from "../../../data/items.js";
 import { biomeFor } from "../../../data/modes/moorwanderung/biomes.js";
 import { NPC_BY_ID, npcsOf, bossOf } from "../../../data/modes/moorwanderung/npcs.js";
 import { RULES } from "../../rules.js";
+import { combineError, totemSlot } from "../../../data/totems.js";
 import { battleChoice } from "../../ai/index.js";
 import { startersOf, starterById } from "../../../data/modes/moorwanderung/starterDecks.js";
 import { budgetFor } from "../../../data/modes/moorwanderung/budgets.js";
@@ -267,6 +268,7 @@ function pathPhase(s, p, a, events) {
   const P = s.players[p];
   const pp = s.path.players[p];
   if (!P.alive) return "eliminated";
+  if (a.type === "campTotem") return campTotem(s, p, a, events);
   if (pp.done) return "pathDone";
   if (a.type === "budgetExpired") return autoFinishPath(s, p, events);
   if (pp.fight) {
@@ -278,6 +280,26 @@ function pathPhase(s, p, a, events) {
   if (a.type === "chooseNode") return chooseNode(s, p, a.strand, events);
   if (a.type === "nodeAction") return nodeAction(s, p, a, events);
   return "wrongPhase";
+}
+
+/**
+ * Lager: wer seinen Pfad beendet hat, darf seine Totems aus vorhandenen Köpfen und Basen umbauen (wie im Schrein,
+ * aber ohne neues Teil). Während eines Kampfs oder einer offenen Szene nicht möglich.
+ * @param {any} s @param {number} p @param {any} a @param {any[]} events
+ */
+function campTotem(s, p, a, events) {
+  const pp = s.path.players[p];
+  if (!pp.done) return "notInCamp";
+  const P = s.players[p];
+  const head = P.heads[a.head];
+  const base = P.bases[a.base];
+  if (!head || !base) return "badIndex";
+  const bad = combineError(head, base, getZirkel(s.settings.zirkel));
+  if (bad) return bad;
+  const slot = totemSlot(head);
+  P.totems[slot] = { head, base };
+  events.push({ type: "totemBuilt", player: p, slot, totem: P.totems[slot], audience: [p] });
+  return null;
 }
 
 /** Eine offene Entscheidung automatisch treffen (Timer). @param {any} s @param {number} p @param {any[]} events */

@@ -8,6 +8,7 @@ import RunProgressBar from "./RunProgressBar.jsx";
 import StarterScreen from "./StarterScreen.jsx";
 import RunBattle from "./RunBattle.jsx";
 import { RunPath, CampScreen, DuelBoard, RunResult, PublicCards } from "./RunScreens.jsx";
+import BudgetWarning from "./BudgetWarning.jsx";
 import { useShell } from "../shellContext.js";
 import "./run.css";
 
@@ -49,6 +50,8 @@ export default function RunGame({ game, onExit }) {
     content = <RunResult game={game} onExit={onExit} />;
   } else if (view.phase === "starter") {
     content = <StarterScreen view={view} you={you} send={game.send} timers={game.timers} clockOffset={game.clockOffset} />;
+  } else if (!me) {
+    content = view.phase === "duels" ? <DuelBoard game={game} /> : <CampScreen game={game} spectator />;
   } else if (me && !me.alive) {
     content = view.phase === "duels" ? <DuelBoard game={game} /> : <CampScreen game={game} eliminated />;
   } else if (view.phase === "path" && view.path?.me && !view.path.me.done) {
@@ -64,6 +67,9 @@ export default function RunGame({ game, onExit }) {
       {game.notice && <div className="ss-toast ss-paper" role="status">{game.notice}</div>}
       {!shownKey && <RunProgressBar view={view} you={you} timers={game.timers} clockOffset={game.clockOffset} onShowPlayer={setShowPlayer} />}
       {content}
+      {view.phase === "path" && (
+        <BudgetWarning timer={game.timers?.path} pathNo={view.pathNo} active={!!me?.alive && !!view.path?.me && !view.path.me.done} clockOffset={game.clockOffset} />
+      )}
       {showPlayer !== null && <PublicCards view={view} q={showPlayer} onClose={() => setShowPlayer(null)} />}
     </div>
   );
