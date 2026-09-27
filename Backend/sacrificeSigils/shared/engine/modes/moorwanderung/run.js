@@ -13,17 +13,21 @@
 // `onlyFor` (Spieler, der die Karte sehen darf). Gefiltert wird in view.js (eventsForRun).
 
 import { hashParts, normalizeSeed, randInt, streamFrom } from "../../rng.js";
-import { CARDS } from "../../cards.js";
+import { CARDS, resolveCard } from "../../cards.js";
 import { createBattle, battleAction } from "../../battle.js";
 import { deepClone } from "../../match.js";
 import { ZIRKEL, DEFAULT_ZIRKEL, getZirkel } from "../../zirkel/index.js";
-import { createPlayerPath, reachable, createScene, sceneAction, defaultOp } from "../../path.js";
+import { createPlayerPath, reachable, createScene, sceneAction, defaultOp, offerCards } from "../../path.js";
+import { ITEMS, MAX_ITEMS } from "../../../data/items.js";
+import { biomeFor } from "../../../data/modes/moorwanderung/biomes.js";
+import { NPC_BY_ID, npcsOf, bossOf } from "../../../data/modes/moorwanderung/npcs.js";
+import { RULES } from "../../rules.js";
 import { battleChoice } from "../../ai/index.js";
 import { startersOf, starterById } from "../../../data/modes/moorwanderung/starterDecks.js";
 import { budgetFor } from "../../../data/modes/moorwanderung/budgets.js";
 import { generateRunMap } from "./mapgen.js";
 import { makePairs } from "./pairing.js";
-import { mirrorOf, lordDeck } from "./npc.js";
+import { mirrorOf, lordDeck, buildNpcDeck } from "./npc.js";
 
 export const RUN_MODE = "moorwanderung";
 export const MIN_PLAYERS = 2;
@@ -32,6 +36,16 @@ export const PATH_LEVELS = { short: 4, normal: 6, long: 8 };
 export const START_SHARDS = 3;
 /** Splitter: Duellsieg, Aufholbonus für den Verlierer. */
 export const DUEL_REWARD = { win: 3, catchup: 4 };
+/** Splitter nach Kämpfen gegen NPCs (Sieg bzw. Trostpreis bei Niederlage). */
+export const FIGHT_REWARD = { npc: 2, elite: 3, boss: 4, loss: 1 };
+/** Seltenheits-Gewichte der Belohnungen. */
+const REWARD_WEIGHTS = {
+  npc: { common: 55, uncommon: 30, rare: 12, legendary: 3 },
+  elite: { common: 20, uncommon: 45, rare: 28, legendary: 7 },
+  boss: { common: 0, uncommon: 0, rare: 80, legendary: 20 },
+};
+/** Makel nach verlorenem NPC-Kampf, bis zum Ende des Pfads (Gezeiten kennen keinen Kerzendocht). */
+const PATH_FLAW = { moor: "kerzendocht:3", gezeiten: "treibgut" };
 
 export const RUN_DEFAULTS = {
   players: 4,
@@ -222,13 +236,21 @@ function startPath(s, events) {
   s.phase = "path";
   s.pathNo += 1;
   const levels = PATH_LEVELS[s.settings.pathLength];
-  const map = generateRunMap({ seed: s.seed, pathNo: s.pathNo, levels, zirkel: s.settings.zirkel, fights: false });
+  const tier = s.pathNo - 1;
+  const { biome, cycle } = biomeFor(s.settings.zirkel, tier);
+  const npcs = npcsOf(biome.id).map((n) => n.id);
+  const map = generateRunMap({
+    seed: s.seed, pathNo: s.pathNo, levels, zirkel: s.settings.zirkel, fights: true,
+    weights: biome.weights, npcs, elites: npcs, boss: bossOf(biome.id)?.id || null,
+  });
   s.path = {
     map,
-    tier: s.pathNo - 1,
+    tier,
+    biome: biome.id,
+    cycle,
     players: s.players.map((/** @type {any} */ P) => ({ ...createPlayerPath(), done: !P.alive, fight: null })),
   };
-  events.push({ type: "phase", phase: "path", pathNo: s.pathNo, round: s.round + 1, pathInRound: s.pathInRound + 1 });
+  events.push({ type: "phase", phase: "path", pathNo: s.pathNo, round: s.round + 1, pathInRound: s.pathInRound + 1, biome: biome.id, cycle });
   // Aufholbonus: zusätzliche Kartenwahl zu Beginn des Pfads
   s.players.forEach((/** @type {any} */ P, /** @type {number} */ q) => {
     if (!P.alive || !P.catchup) return;
@@ -278,6 +300,10 @@ function chooseNode(s, p, strand, events) {
   pp.chosen[pp.level] = true;
   events.push({ type: "nodeChosen", player: p, level: pp.level, strand, node, audience: [p] });
   events.push({ type: "progress", player: p, level: pp.level, levels: s.path.map.levels, node: node.type });
+  if (node.type === "npc" || node.type === "elite" || node.type === "boss") {
+    startFight(s, p, node, pp.level, events);
+    return null;
+  }
   pp.scene = createRunScene(s, p, node, pp.level, strand);
   if (pp.scene?.kind === "empty") closeRunScene(s, p, events);
   return null;
@@ -299,6 +325,8 @@ function nodeAction(s, p, a, events) {
   const pp = s.path.players[p];
   if (!pp.scene) return "noScene";
   const scene = pp.scene;
+  if (scene.kind === "fight") return "inFight";
+  if (scene.kind === "reward") return rewardAction(s, p, a, events);
   if (scene.kind === "scout") {
     if (a.op === "leave" || a.op === "skip") { closeRunScene(s, p, events); return null; }
     if (a.op !== "look") return "badOp";
@@ -330,6 +358,8 @@ function closeRunScene(s, p, events) {
   events.push({ type: "nodeDone", player: p, level: pp.level, audience: [p] });
   if (pp.level >= s.path.map.levels) {
     pp.done = true;
+    // Makel aus verlorenen NPC-Kämpfen gelten nur bis zum Ende des Pfads
+    for (const dc of s.players[p].deck) dc.mods = dc.mods.filter((/** @type {any} */ m) => m.source !== "pfad");
     events.push({ type: "pathDone", player: p });
     checkPathEnd(s, events);
   }
@@ -339,6 +369,9 @@ function closeRunScene(s, p, events) {
 function checkPathEnd(s, events) {
   if (s.phase !== "path") return;
   if (!s.path.players.every((/** @type {any} */ pp, /** @type {number} */ q) => pp.done || !s.players[q].alive)) return;
+  // „Hart“: wer auf dem Pfad sein letztes Siegel an einen Boss verloren hat, scheidet jetzt aus
+  const out = s.players.map((/** @type {any} */ P, /** @type {number} */ q) => (P.alive && P.seals <= 0 ? q : -1)).filter((/** @type {number} */ q) => q >= 0);
+  if (out.length) eliminate(s, out, events);
   s.pathInRound += 1;
   for (const P of s.players) P.auto = false;
   if (checkRunEnd(s, events)) return;
@@ -443,9 +476,147 @@ function driveAi(/** @type {any} */ s, /** @type {any} */ ctx, /** @type {any[]}
   }
 }
 
-/** Kampf zu Ende: Duell auswerten bzw. (Phase 2) NPC-Kampf. @param {any} s @param {any} ctx @param {any[]} events */
+/** Kampf zu Ende: Duell auswerten bzw. NPC-Kampf. @param {any} s @param {any} ctx @param {any[]} events */
 function finishBattle(s, ctx, events) {
   if (ctx.kind === "duel") finishDuel(s, ctx.pair, events);
+  else finishFight(s, ctx.seats[0], events);
+}
+
+// ───────────────────────── NPC-Kämpfe ─────────────────────────
+
+/**
+ * Kampf gegen einen NPC, Elite-Gegner oder Boss beginnen. Das NPC-Deck hängt nur von Seed, Pfad und Ebene ab – alle
+ * Spieler treffen auf dieselbe Herausforderung. Der Spieler beginnt.
+ * @param {any} s @param {number} p @param {any} node @param {number} level @param {any[]} events
+ */
+function startFight(s, p, node, level, events) {
+  const P = s.players[p];
+  const pp = s.path.players[p];
+  const kind = node.type;
+  const tier = s.path.tier;
+  const id = kind === "boss" ? node.bossId : node.npcId;
+  const def = NPC_BY_ID[id] || NPC_BY_ID[npcsOf(s.path.biome)[0]?.id];
+  const stream = streamFrom("npcdeck", s.seed, s.pathNo, level, kind, id || "");
+  const z = getZirkel(s.settings.zirkel);
+  let deck;
+  /** @type {any[]} */
+  let rules = [];
+  let boss = null;
+  if (kind === "boss") {
+    deck = buildNpcDeck({ zirkel: s.settings.zirkel, tribes: def.tribes, size: Math.min(16, 10 + tier), tier: tier + 1, stream, elite: true });
+    const phases = def.phases.map((/** @type {any} */ ph) => ({ rule: ph.rule, tribe: def.tribes[0], spawn: ph.spawn || [] }));
+    rules = [{ id: phases[0].rule, seat: 1, tribe: def.tribes[0] }];
+    boss = { seat: 1, phase: 1, phases };
+  } else {
+    const delta = RULES[def.rule]?.deckDelta || 0;
+    const size = Math.min(14, 8 + tier) + (kind === "elite" ? 2 : 0) + delta;
+    deck = buildNpcDeck({ zirkel: s.settings.zirkel, tribes: def.tribes, size, tier: tier + (kind === "elite" ? 1 : 0), stream, elite: kind === "elite" });
+    rules = [{ id: def.rule, seat: 1, tribe: def.tribes[0] }];
+  }
+  const { state, events: ev } = createBattle({
+    zirkel: s.settings.zirkel,
+    battleNo: s.pathNo * 100 + level,
+    starter: 0,
+    rng: hashParts("fight", s.seed, s.salt, s.pathNo, level, p),
+    players: [
+      { deck: P.deck, sideType: P.sideType, items: P.items, totems: P.totems },
+      { deck, sideType: Object.keys(z.sideDeckTypes)[0], items: [], totems: { tribe: null, lane: null, side: null } },
+    ],
+    rules,
+    boss,
+  });
+  pp.scene = { kind: "fight", fightKind: kind, npcId: id };
+  pp.fight = { kind, npcId: kind === "boss" ? null : id, bossId: kind === "boss" ? id : null, battle: state, aiLevel: "normal" };
+  events.push({ type: "fightStart", player: p, kind, npcId: id, audience: [p] });
+  const ctx = battleCtx(s, p);
+  tagBattle(s, ctx, ev, events);
+  driveAi(s, ctx, events);
+  if (state.phase === "over") finishBattle(s, ctx, events);
+}
+
+/** Kampf gegen NPC/Boss auswerten: Belohnung oder Niederlagen-Regel. @param {any} s @param {number} p @param {any[]} events */
+function finishFight(s, p, events) {
+  const P = s.players[p];
+  const pp = s.path.players[p];
+  const f = pp.fight;
+  if (!f) return;
+  const b = f.battle;
+  const won = b.winner === 0;
+  // Verbrauchte Items bleiben verbraucht, Schaden zählt für die Statistik
+  P.items = [...b.players[0].items];
+  for (const [id, dmg] of Object.entries(b.players[0].stats.damageByCard)) P.stats.damageByCard[id] = (P.stats.damageByCard[id] || 0) + /** @type {number} */ (dmg);
+  pp.fight = null;
+  const kind = f.kind;
+  const stream = streamFrom("reward", s.seed, s.pathNo, pp.level, p);
+  const z = getZirkel(s.settings.zirkel);
+  events.push({ type: "fightEnd", player: p, won, kind, npcId: f.npcId || f.bossId });
+  if (won) {
+    if (kind === "boss") P.stats.bossWins += 1;
+    else if (kind === "elite") P.stats.eliteWins += 1;
+    P.stats.npcWins += 1;
+    const shards = FIGHT_REWARD[kind];
+    P.shards += shards;
+    const legends = s.legends;
+    const offers = offerCards(stream, 3, () => true, REWARD_WEIGHTS[kind], legends, z.collectible);
+    /** @type {string|null} */
+    let item = null;
+    let extraShards = 0;
+    if (kind !== "npc") {
+      if (P.items.length < MAX_ITEMS) {
+        item = ITEMS[randInt(stream, ITEMS.length)].id;
+        P.items.push(item);
+      } else {
+        extraShards = 2;
+        P.shards += extraShards;
+      }
+    }
+    pp.scene = { kind: "reward", fightKind: kind, offers, item, shards: shards + extraShards, picked: false };
+    events.push({ type: "reward", player: p, kind, item, shards: shards + extraShards, audience: [p] });
+    return;
+  }
+  if (kind === "boss") {
+    P.stats.bossLosses += 1;
+    P.shards += FIGHT_REWARD.loss;
+    if (s.settings.hardBoss) {
+      P.seals = Math.max(0, P.seals - 1);
+      P.lastDuelScale = b.scale;
+      events.push({ type: "sealLost", player: p, seals: P.seals, reason: "boss" });
+    }
+    // Trost: eine normale Kartenwahl statt der seltenen Belohnung
+    const offers = offerCards(stream, 3, () => true, REWARD_WEIGHTS.npc, s.legends, z.collectible);
+    pp.scene = { kind: "reward", fightKind: "consolation", offers, item: null, shards: FIGHT_REWARD.loss, picked: false };
+    return;
+  }
+  // Normale NPC-/Elite-Niederlage: Trostsplitter, keine Karte, eine Karte bekommt bis Pfadende einen Makel
+  P.stats.npcLosses += 1;
+  P.shards += FIGHT_REWARD.loss;
+  const flaw = PATH_FLAW[s.settings.zirkel] || PATH_FLAW.moor;
+  const candidates = P.deck.filter((/** @type {any} */ dc) => !dc.mods.some((/** @type {any} */ m) => m.source === "pfad"));
+  if (candidates.length) {
+    const dc = candidates[randInt(stream, candidates.length)];
+    dc.mods.push({ kind: "sigilAdd", sigil: flaw, source: "pfad" });
+    events.push({ type: "pathFlaw", player: p, uid: dc.uid, sigil: flaw, audience: [p] });
+  }
+  pp.scene = { kind: "empty" };
+  closeRunScene(s, p, events);
+}
+
+/** Belohnung nach einem Kampf: 1 aus 3 Karten (Legendäre sind pro Match einzigartig) oder verzichten. */
+function rewardAction(/** @type {any} */ s, /** @type {number} */ p, /** @type {any} */ a, /** @type {any[]} */ events) {
+  const scene = s.path.players[p].scene;
+  if (a.op === "skip" || a.op === "leave") {
+    closeRunScene(s, p, events);
+    return null;
+  }
+  if (a.op !== "pick") return "badOp";
+  const baseId = scene.offers[a.index];
+  if (!baseId) return "badIndex";
+  const def = CARDS[baseId];
+  if (def.unique && s.legends[baseId] !== undefined && s.legends[baseId] !== p) return "legendTaken";
+  const dc = newDeckCard(s, p, baseId);
+  events.push({ type: "gainCard", player: p, card: resolveCard(dc.baseId, dc.mods, dc.uid), audience: [p] });
+  closeRunScene(s, p, events);
+  return null;
 }
 
 // ───────────────────────── Duelle ─────────────────────────
@@ -474,7 +645,7 @@ function startDuels(s, events) {
 }
 
 /**
- * Ein Duell anlegen. b === null ⇒ Gegner ohne Menschen (Spiegelgeist oder Moorfürst) auf Sitz 1.
+ * Ein Duell anlegen. b === null → Gegner ohne Menschen (Spiegelgeist oder Moorfürst) auf Sitz 1.
  * @param {any} s @param {number} id @param {number} a @param {number|null} b @param {{ rng: number }} stream @param {any[]} events
  */
 function createDuel(s, id, a, b, stream, events) {
@@ -541,6 +712,7 @@ function finishDuel(s, pair, events) {
   }
   for (const [seat, q] of pair.seats.entries()) {
     if (q === null) continue;
+    s.players[q].items = [...b.players[seat].items];
     const st = s.players[q].stats;
     for (const [id, dmg] of Object.entries(b.players[seat].stats.damageByCard)) st.damageByCard[id] = (st.damageByCard[id] || 0) + /** @type {number} */ (dmg);
   }

@@ -4,6 +4,7 @@ import Card from "../card/Card.jsx";
 import Seals from "./Seals.jsx";
 import { resolveCard, CARDS } from "../../engine/cards.js";
 import { de } from "../../i18n/de.js";
+import { sound } from "../../audio/sound.js";
 
 function Frame({ title, intro, children, actions }) {
   return (
@@ -13,6 +14,24 @@ function Frame({ title, intro, children, actions }) {
       {children}
       {actions && <div className="flex flex-wrap gap-3 justify-center">{actions}</div>}
     </div>
+  );
+}
+
+/** Belohnung nach einem Kampf: 1 aus 3 Karten, dazu Splitter (und bei Elite/Boss ein Item, schon eingesteckt). */
+export function RewardScene({ scene, act }) {
+  const kind = scene.fightKind;
+  return (
+    <Frame
+      title={de.run.rewardTitle[kind]}
+      intro={`${de.run.rewardHint[kind]} +${scene.shards} Splitter${scene.item ? ` · Item: ${de.items[scene.item].name}` : ""}.`}
+      actions={<button type="button" className="ss-btn" onClick={() => act("skip")}>{de.ui.skip}</button>}
+    >
+      <div className="flex flex-wrap gap-4 justify-center">
+        {scene.offers.map((id, i) => (
+          <Card key={`${id}${i}`} card={resolveCard(id, [], `rw${i}`)} width={150} onClick={() => { sound.play("draw"); act("pick", { index: i }); }} tabIndex={0} />
+        ))}
+      </div>
+    </Frame>
   );
 }
 

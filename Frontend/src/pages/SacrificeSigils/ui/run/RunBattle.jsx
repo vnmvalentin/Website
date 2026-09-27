@@ -82,11 +82,15 @@ export default function RunBattle({ game, battleKey, onBusy, onSurrender }) {
   const rv = game.view;
   const me = rv.players[you];
   const oppSeat = info.seats[1 - seat];
-  const title = info.kind === "duel" ? `${de.run.duels} ${rv.round}` : info.kind === "boss" ? "Pfad-Boss" : info.kind === "elite" ? "Elite-Kampf" : "Kampf";
+  const title = info.kind === "duel" ? `${de.run.duels} ${rv.round}` : de.run.fightKinds[info.kind] || "Kampf";
+  // Hausregel der NPC-Seite (bei Bossen die der aktuellen Phase)
+  const rule = (latest.battle.rules || []).find((r) => r.seat === 1 - seat);
+  const bossPhase = latest.battle.boss?.phase;
   const bar = (
     <div className="ss-gamebar max-w-[1760px] mx-auto px-3 flex flex-nowrap items-center gap-x-4 text-sm">
       <span className="ss-title text-[var(--candle)] whitespace-nowrap">{title}</span>
       <span className="ss-dim truncate">gegen <b className="text-[var(--bone)]">{latest.players[1 - seat].name}</b></span>
+      {rule && <span className="ss-dim truncate hidden md:inline" title={de.run.rules[rule.id]}>{bossPhase > 1 ? `${de.run.bossPhase2} · ` : ""}{de.run.houseRule}: {de.run.rules[rule.id]}</span>}
       <span className="hidden sm:inline-flex items-center gap-2"><Seals left={me.seals} total={rv.settings.seals} size={15} />{oppSeat !== null && oppSeat !== undefined && <><span className="ss-faint">·</span><Seals left={rv.players[oppSeat].seals} total={rv.settings.seals} size={15} /></>}</span>
       <div className="ml-auto flex items-center gap-2">
         {confirm ? (

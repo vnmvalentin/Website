@@ -1,5 +1,6 @@
 // ui/run/names.js — Anzeigenamen der Gegner ohne Menschen (NPC, Boss, Spiegelgeist, Moorfürst).
 import { de } from "../../i18n/de.js";
+import { NPC_BY_ID } from "../../data/modes/moorwanderung/npcs.js";
 
 /** Status eines Spielers als kurzer Text (Fortschrittsleiste, Späherturm). @param {any} view @param {any} st */
 export function statusText(view, st) {
@@ -20,9 +21,14 @@ export function statusText(view, st) {
   }
 }
 
-/** Name eines NPC oder Bosses (Phase 2 liefert die Daten). @param {string|null} id @param {any} _view */
+/** Name eines NPC oder Bosses. @param {string|null} id @param {any} [_view] */
 export function npcName(id, _view) {
-  return id || "einen Bewohner des Moors";
+  return (id && NPC_BY_ID[id]?.name) || "einen Bewohner des Moors";
+}
+
+/** NPC- oder Boss-Daten (Porträt, Zeilen, Regeln). @param {string|null} id */
+export function npcDef(id) {
+  return (id && NPC_BY_ID[id]) || null;
 }
 
 /**

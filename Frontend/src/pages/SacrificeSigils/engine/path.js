@@ -73,7 +73,7 @@ const HIDDEN_WEIGHTS = { common: 35, uncommon: 35, rare: 21, legendary: 9 };
  * @param {{rng:number}} s @param {number} n @param {(c: any) => boolean} filter @param {Record<string, number>} weights
  * @param {Record<string, number>} legends
  */
-function offerCards(s, n, filter, weights, legends, collectible = COLLECTIBLE) {
+export function offerCards(s, n, filter, weights, legends, collectible = COLLECTIBLE) {
   const out = [];
   for (let i = 0; i < n; i++) {
     const rarity = pickWeighted(s, /** @type {any} */ (RARITIES.map((r) => [r, weights[r]])));

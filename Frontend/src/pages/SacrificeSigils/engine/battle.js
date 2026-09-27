@@ -12,6 +12,7 @@ import { parseSigil } from "./sigils/index.js";
 import { getZirkel, resourceOf, DEFAULT_ZIRKEL } from "./zirkel/index.js";
 import { shuffle } from "./rng.js";
 import { applyItemEffect } from "./items.js";
+import { RULES } from "./rules.js";
 
 /** @typedef {import("./types.js").Unit} Unit */
 /** @typedef {import("./types.js").Card} Card */
@@ -98,7 +99,9 @@ export function totemAuras(totems) {
 /**
  * Neuen Kampf aufbauen.
  * @param {{ battleNo: number, starter: 0|1, rng: number, zirkel?: string,
- *   players: Array<{ deck: import("./types.js").DeckCard[], sideType: string, items: string[], totems: any }> }} opts
+ *   players: Array<{ deck: import("./types.js").DeckCard[], sideType: string, items: string[], totems: any }>,
+ *   rules?: Array<{ id: string, seat: 0|1, tribe?: string }>, boss?: any }} opts
+ *   rules: Hausregeln (engine/rules.js) · boss: { seat, phase: 1, phases: [{ rule, tribe, spawn? }, …] } (Moorwanderung)
  */
 export function createBattle(opts) {
   const zirkel = getZirkel(opts.zirkel);
@@ -109,6 +112,8 @@ export function createBattle(opts) {
     zirkel: zirkel.id,
     tide: /** @type {number|null} */ (zirkel.tide ? TIDE_EBB : null),
     tideShift: 0,
+    rules: (opts.rules || []).map((x) => ({ ...x })),
+    boss: opts.boss ? JSON.parse(JSON.stringify(opts.boss)) : null,
     battleNo: opts.battleNo,
     turn: 1,
     active: opts.starter,
@@ -160,6 +165,8 @@ export function createBattle(opts) {
       if (bonus.starterWax) r.gainRes(p, bonusRes, bonus.starterWax, null);
     }
   }
+  // Hausregeln: Start-Effekte nach dem Austeilen (z. B. Knochenhort, Vorsprung)
+  r.ruleHook("start");
   r.startTurn(state.starter, !bonus.starterDraws);
   r.checkWin();
   return { state, events: r.events };
@@ -246,6 +253,13 @@ export class Resolver {
       map.set(id, Math.max(map.get(id) || 0, n));
     };
     for (const ref of u.sigils) add(ref);
+    for (const rule of this.state.rules || []) {
+      if (rule.seat !== u.owner) continue;
+      const def = RULES[rule.id];
+      if (def?.aura) add(def.aura);
+      const extra = def?.auraIf?.(u);
+      if (extra) add(extra);
+    }
     const a = this.state.players[u.owner].auras;
     if (a.tribeSigil && a.tribe === u.card.tribe) add(a.tribeSigil);
     if (a.laneSigil && a.lane === u.lane) add(a.laneSigil);
@@ -396,10 +410,61 @@ export class Resolver {
     this.checkWin();
   }
 
+  /**
+   * Hausregeln eines Zeitpunkts auslösen ("start", "turnStart", "turnEnd"). Zählt gegen das Ketten-Budget.
+   * @param {string} name @param {...any} args
+   */
+  ruleHook(name, ...args) {
+    for (const rule of this.state.rules || []) {
+      const fn = RULES[rule.id]?.[name];
+      if (!fn) continue;
+      if (!this.spend()) return;
+      fn(this, rule.seat, ...args, rule);
+      if (this.over) return;
+    }
+  }
+
+  /**
+   * Boss: Phase 1 verloren → Phase 2. Bossseite wird geräumt (ohne Todeseffekte) und neu aufgebaut, die Waage steht
+   * wieder auf 0, die Hausregel wechselt, der Boss zieht zwei Karten.
+   */
+  bossNextPhase() {
+    const s = this.state;
+    const b = s.boss;
+    b.phase += 1;
+    const ph = b.phases[b.phase - 1] || {};
+    this.emit({ type: "bossPhase", phase: b.phase, seat: b.seat, rule: ph.rule || null });
+    for (const zone of /** @type {const} */ (["front", "back"])) {
+      for (let l = 0; l < LANES; l++) {
+        const u = this.row(b.seat, zone)[l];
+        if (!u) continue;
+        this.row(b.seat, zone)[l] = null;
+        this.emit({ type: "death", player: b.seat, uid: u.uid, zone, lane: l, cause: "phase" });
+      }
+    }
+    s.scale = 0;
+    this.emit({ type: "scale", player: b.seat, amount: 0, scale: 0, reason: "phase" });
+    s.rules = s.rules.filter((/** @type {any} */ x) => x.seat !== b.seat);
+    if (ph.rule) {
+      const rule = { id: ph.rule, seat: b.seat, tribe: ph.tribe };
+      s.rules.push(rule);
+      RULES[ph.rule]?.start?.(this, b.seat, rule);
+    }
+    (ph.spawn || []).slice(0, LANES * 2).forEach((/** @type {string} */ id, /** @type {number} */ i) => {
+      this.spawn(b.seat, i < LANES ? "front" : "back", i % LANES, id, "phase");
+    });
+    this.drawMain(b.seat, 2, "phase");
+  }
+
   checkWin() {
     const s = this.state;
     if (s.phase === "over") return;
     if (s.scale >= SCALE_WIN || s.scale <= -SCALE_WIN) {
+      const side = s.scale > 0 ? 0 : 1;
+      if (s.boss && side !== s.boss.seat && s.boss.phase < s.boss.phases.length) {
+        this.bossNextPhase();
+        return;
+      }
       s.phase = "over";
       s.winner = s.scale > 0 ? 0 : 1;
       s.overkill = Math.abs(s.scale) - SCALE_WIN;
@@ -618,6 +683,7 @@ export class Resolver {
     const prop = this.laneProp(owner, lane);
     if (prop === "heilig") { u.health += 2; u.maxHealth += 2; }
     if (prop === "wut") { u.health = Math.max(1, u.health - 1); u.maxHealth = Math.max(1, u.maxHealth - 1); }
+    for (const rule of this.state.rules || []) if (rule.seat === owner) RULES[rule.id]?.unitMade?.(this, owner, u, rule);
     return u;
   }
 
@@ -872,6 +938,8 @@ export class Resolver {
     if (this.tide() === TIDE_EBB && P.front.some((u, l) => !u && !P.back[l])) {
       this.addToHand(p, this.newSideCard(p), "ebbe");
     }
+    this.ruleHook("turnStart", p);
+    if (this.over) return;
     for (const u of this.units(p)) {
       u.rushed = false;
       if (u.submerged) {
@@ -938,6 +1006,8 @@ export class Resolver {
         this.emit({ type: "submerge", uid: u.uid });
       }
     }
+    this.ruleHook("turnEnd", p);
+    if (this.over) return;
     if (s.turn >= STALEMATE_TURN) {
       // Die Kerze brennt schneller, je länger es dauert: sonst pendelt die Waage bei festgefahrenen Brettern ewig
       const amount = candleWeight(s.turn);

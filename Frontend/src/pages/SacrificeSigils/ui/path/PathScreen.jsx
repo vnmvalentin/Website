@@ -33,6 +33,7 @@ const RESULT_TEXT = {
   deckChanged: () => "Dein Deck hat sich verändert",
   totemBuilt: () => "Totem geschnitzt",
   totemPart: () => "Neues Totem-Teil",
+  pathFlaw: (e) => `Niederlage: eine Karte bekommt bis zum Ende des Pfads ${e.sigil.startsWith("kerzendocht") ? "Kerzendocht 3" : "Treibgut"}`,
   wreck: (e) => (e.item ? `Im Wrack gefunden: ${de.items[e.item].name}` : e.shards ? `Taschen voll – ${e.shards} Splitter statt eines Items` : "Aus dem Wrack kam etwas mit. Eine verfluchte Zeichnung ist in deinem Deck."),
   tideBound: (e) => `Die Karte gehört jetzt den Gezeiten (${e.tide === "high" ? de.tide.highShort : de.tide.lowShort}) und ist stärker`,
 };

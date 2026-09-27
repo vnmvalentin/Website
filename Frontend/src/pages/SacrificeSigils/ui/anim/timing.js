@@ -16,6 +16,9 @@ export const EVENT_TIMING = {
   glued: { ms: 380 },
   inked: { ms: 420, sound: "splash" },
   returnQueued: { ms: 300 },
+  // Moorwanderung: Boss wechselt die Phase, Hausregel greift
+  bossPhase: { ms: 1600, sound: "transform" },
+  ruleFired: { ms: 520, sound: "creak" },
   bones: { ms: 420, sound: "bones" },
   spend: { ms: 190 },
   draw: { ms: 540, sound: "draw" },

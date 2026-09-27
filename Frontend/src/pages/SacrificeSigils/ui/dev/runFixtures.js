@@ -3,7 +3,7 @@
 import { createRun, applyRunAction, awaitingRun } from "../../engine/modes/moorwanderung/run.js";
 import { runAiAction } from "../../engine/modes/moorwanderung/ai.js";
 
-export const RUN_FIXTURES = ["starter", "path", "camp", "duel", "board", "fight", "over"];
+export const RUN_FIXTURES = ["starter", "path", "camp", "duel", "board", "fight", "reward", "boss", "over"];
 
 /**
  * @param {string} name @param {{ players?: number, zirkel?: string }} [o]
@@ -29,6 +29,8 @@ export function buildRunFixture(name, o = {}) {
     case "path": run((x) => x.phase === "path" && x.path.players[0].level >= 2 && !x.path.players[0].scene); break;
     case "camp": run((x) => x.phase === "path" && x.path.players[0].done && x.path.players.some((pp, q) => q && !pp.done)); break;
     case "fight": run((x) => x.phase === "path" && !!x.path.players[0].fight && x.path.players[0].fight.battle.turn >= 4); break;
+    case "reward": run((x) => x.phase === "path" && x.path.players[0].scene?.kind === "reward"); break;
+    case "boss": run((x) => x.phase === "path" && x.path.players[0].fight?.kind === "boss" && x.path.players[0].fight.battle.turn >= 3 && x.path.players[0].fight.battle.active === 0); break;
     case "duel": run((x) => x.phase === "duels" && x.duels.pairs.some((d) => !d.done && d.seats.includes(0) && d.battle.turn >= 5 && d.battle.active === d.seats.indexOf(0))); break;
     case "board": run((x) => x.phase === "duels" && x.duels.pairs.some((d) => d.done && d.seats.includes(0)) && x.duels.pairs.some((d) => !d.done)); break;
     case "over": run(() => false); break;

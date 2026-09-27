@@ -73,6 +73,13 @@ export default function GameScreen({ game, extra, onBattleAction, onExit, bar })
         if (lane && to) particles.fly("blood", lane, to, 520);
         break;
       }
+      case "bossPhase": {
+        // Moorwanderung: der Boss steht mit neuer Mannschaft wieder auf
+        shake();
+        const s = centerOf('[data-anchor="scale"]');
+        if (s) particles.burst("ember", s.x, s.y, { n: 40, spread: 2 });
+        break;
+      }
       case "transform":
       case "revive": {
         const c = at(ev.uid);
