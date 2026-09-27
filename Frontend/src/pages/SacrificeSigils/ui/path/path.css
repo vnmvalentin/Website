@@ -1,0 +1,149 @@
+/* ui/path/path.css — Pergamentkarte des Pfads, NPC-Porträts, Szenen-Übergänge. */
+
+/* ───────── Karte ───────── */
+.ss-map {
+  position: relative;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 15% 20%, rgb(255 255 255 / 0.28), transparent 45%),
+    radial-gradient(ellipse at 85% 85%, rgb(110 80 30 / 0.3), transparent 55%),
+    var(--parchment);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.45), inset 0 0 70px rgb(90 60 20 / 0.45);
+  overflow: hidden;
+  height: min(calc(100dvh - 190px), 820px);
+  min-height: 260px;
+}
+@media (max-height: 520px) { .ss-map { height: calc(100dvh - 120px); } }
+.ss-map-v { height: calc(100dvh - 170px); min-height: 460px; }
+.ss-map-scroll { position: absolute; inset: 0; overflow: auto; scrollbar-width: thin; }
+.ss-map-h .ss-map-svg { height: 100%; width: auto; min-width: 100%; display: block; }
+.ss-map-v .ss-map-svg { width: 100%; height: auto; display: block; }
+.ss-map-boss::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 35%, rgb(20 8 6 / 0.55));
+  animation: ss-fade-in 1.2s ease-out both;
+}
+
+.ss-weather { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+
+/* Kerzenlicht am Rand: warmes, leicht flackerndes Streiflicht */
+.ss-map-candle {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse at 100% 100%, rgb(255 180 90 / 0.22), transparent 45%);
+  animation: ss-candle 3.2s ease-in-out infinite;
+}
+@keyframes ss-candle {
+  0%, 100% { opacity: 0.85; }
+  18% { opacity: 1; }
+  34% { opacity: 0.7; }
+  52% { opacity: 0.95; }
+  71% { opacity: 0.78; }
+}
+
+.ss-cartouche {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  z-index: 3;
+  padding: 6px 16px;
+  background: var(--parchment-light);
+  border: 1.5px solid var(--ink);
+  outline: 1px solid var(--ink);
+  outline-offset: 3px;
+  pointer-events: none;
+}
+.ss-cartouche .ss-title { color: var(--ink); font-size: 1.15rem; }
+.ss-compass { position: absolute; right: 14px; top: 12px; width: 58px; height: 58px; z-index: 3; opacity: 0.8; pointer-events: none; }
+
+/* ───────── Knoten ───────── */
+.ss-node { transition: opacity 0.6s ease-out; }
+.ss-node-option { cursor: pointer; }
+.ss-node-option:focus { outline: none; }
+.ss-node-option:focus-visible > circle:nth-of-type(2) { stroke: var(--wax-red); stroke-width: 3.5; }
+.ss-node-ring {
+  fill: none;
+  stroke: var(--wax-red);
+  stroke-width: 1.6;
+  stroke-dasharray: 6 5;
+  animation: ss-node-ring 9s linear infinite, ss-node-pulse 2.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes ss-node-ring { to { transform: rotate(360deg); } }
+@keyframes ss-node-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.ss-node-reveal { animation: ss-fade-in 1.4s ease-out both; }
+
+.ss-piece { transition: none; }
+
+/* Vorschau des überfahrenen Knotens */
+.ss-map-preview {
+  position: absolute;
+  z-index: 4;
+  left: 14px;
+  bottom: 14px;
+  max-width: min(440px, calc(100% - 28px));
+  padding: 12px 14px;
+  background: var(--parchment-light);
+  border: 1.5px solid var(--ink);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.35);
+  animation: ss-fade-in 0.2s ease-out both;
+}
+.ss-node-preview { display: flex; gap: 12px; align-items: flex-start; color: var(--ink); }
+
+/* ───────── Porträts ───────── */
+.ss-portrait { margin: 0; width: var(--pw, 120px); flex: none; text-align: center; }
+.ss-portrait-frame {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 50% / 45%;
+  overflow: hidden;
+  border: 3px solid #3a2a18;
+  outline: 1.5px solid #8a6a3a;
+  outline-offset: -7px;
+  background: #1a1410;
+}
+.ss-portrait-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ss-portrait-boss .ss-portrait-frame { border-color: #5a1010; outline-color: #c49a4a; border-width: 4px; }
+.ss-portrait figcaption { margin-top: 4px; font-size: 0.95rem; }
+
+/* ───────── Übergänge ───────── */
+/* Szene gleitet herein, die Karte rollt sich zur Seite */
+.ss-scene-in { animation: ss-scene-in 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes ss-scene-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ss-map-in { animation: ss-map-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; transform-origin: left center; }
+@keyframes ss-map-in { from { transform: scaleX(0.3); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Boss-Auftritt: dunkler Vorhang, großes Porträt */
+.ss-boss-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px;
+  background: rgb(10 5 4 / 0.9);
+  animation: ss-boss-intro 3.4s ease-in-out both;
+  cursor: pointer;
+}
+.ss-boss-intro .ss-title { color: var(--parchment-light); }
+@keyframes ss-boss-intro {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (max-width: 640px) {
+  .ss-boss-intro { flex-direction: column; gap: 14px; text-align: center; }
+  .ss-cartouche { padding: 4px 10px; }
+  .ss-cartouche .ss-title { font-size: 1rem; }
+  .ss-compass { width: 44px; height: 44px; }
+}

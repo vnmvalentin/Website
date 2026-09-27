@@ -61,7 +61,16 @@ export function reachable(strand) {
 
 /** Pfad-Zustand eines Spielers. */
 export function createPlayerPath() {
-  return { level: 0, strand: /** @type {number|null} */ (null), visited: /** @type {string[]} */ ([]), scene: /** @type {any} */ (null), done: false, chosen: /** @type {boolean[]} */ ([]) };
+  return {
+    level: 0,
+    strand: /** @type {number|null} */ (null),
+    visited: /** @type {string[]} */ ([]),
+    /** Gewählte Stränge je Ebene (für die Fußspuren auf der Karte) */
+    route: /** @type {number[]} */ ([]),
+    scene: /** @type {any} */ (null),
+    done: false,
+    chosen: /** @type {boolean[]} */ ([]),
+  };
 }
 
 // ───────────────────────── Kartenangebote ─────────────────────────

@@ -1,13 +1,14 @@
-// ui/path/PathScreen.jsx — Pfad-Phase: Pergamentkarte, Wege werden mit Tusche gezeichnet, die Schachfigur rückt vor.
+// ui/path/PathScreen.jsx — Pfad-Phase: Pergamentkarte des Bioms (PathMap), die Holzfigur rückt vor.
 // Knoten wählen, dann die Szene des Knotens. Vom Gegner sieht man nur „denkt …“ bzw. „hat gewählt“.
-import React, { useEffect, useMemo, useState } from "react";
-import NodeIcon from "./NodeIcon.jsx";
+import React, { useEffect, useRef, useState } from "react";
+import PathMap from "./PathMap.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
 import Card from "../card/Card.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
 import DeckSummary from "../common/DeckSummary.jsx";
 import { CardChoiceScene, FuseScene, TransferScene, CampfireScene, RemoveScene, MerchantScene, ShrineScene, CopyistScene, EventScene } from "./Scenes.jsx";
-import { reachable, STRANDS } from "../../engine/path.js";
+import { BIOMES, biomeFor } from "../../data/modes/moorwanderung/biomes.js";
+import { usePrefs } from "../prefs.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { particles } from "../anim/particles.js";
@@ -38,13 +39,6 @@ const RESULT_TEXT = {
   tideBound: (e) => `Die Karte gehört jetzt den Gezeiten (${e.tide === "high" ? de.tide.highShort : de.tide.lowShort}) und ist stärker`,
 };
 
-/** Kartengeometrie: Ebenen von unten nach oben, 3 Stränge nebeneinander. */
-function nodePos(level, strand, levels) {
-  const x = 90 + strand * 110;
-  const y = 380 - (level + 1) * (300 / (levels + 1));
-  return { x, y };
-}
-
 /**
  * @param {{ view: any, you: 0|1|null, send: (a: any) => Promise<any>, names: string[], busy: boolean, timers: any, clockOffset: number, events: any[],
  *   hideOpponent?: boolean, extraScenes?: Record<string, any> }} props
@@ -61,7 +55,10 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
   const deck = player.deck || [];
   const [err, setErr] = useState(/** @type {string|null} */ (null));
   const [result, setResult] = useState(/** @type {any} */ (null));
-  const [inkKey] = useState(() => Math.random());
+  const prefs = usePrefs();
+  // Duellmodus: Biom nur als Optik (Pfad n → n-tes Biom des Zirkels); Moorwanderung: Biom kommt vom Server
+  const biome = (path.biome && BIOMES.find((x) => x.id === path.biome)) || biomeFor(view.settings.zirkel || "moor", map.pathNo - 1).biome;
+  const cycle = path.biome ? path.cycle || 0 : 0;
 
   // Ergebnisse eigener Szenen kurz zeigen (Karte, Verbrennen, Nähen …)
   const lastBatch = events[events.length - 1];
@@ -96,80 +93,28 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
     if (!res?.ok) setErr(errorText(res?.error));
   };
 
-  const options = pp && !pp.scene && !pp.done ? reachable(pp.strand) : [];
-  const piece = pp && pp.strand !== null ? nodePos(Math.max(0, pp.level - (pp.scene ? 0 : 1)), pp.strand, map.levels) : { x: 200, y: 372 };
-
-  const edges = useMemo(() => {
-    const out = [];
-    for (let lv = 0; lv < map.levels; lv++) {
-      for (let st = 0; st < STRANDS; st++) {
-        const a = lv === 0 ? { x: 200, y: 372 } : nodePos(lv - 1, st, map.levels);
-        const targets = lv === 0 ? [st] : reachable(st);
-        if (lv === 0 && st !== 1) continue;
-        for (const t of lv === 0 ? [0, 1, 2] : targets) {
-          const b = nodePos(lv, t, map.levels);
-          out.push({ key: `${lv}-${st}-${t}`, d: `M${a.x} ${a.y}C${a.x} ${(a.y + b.y) / 2} ${b.x} ${(a.y + b.y) / 2} ${b.x} ${b.y}`, lv });
-        }
-      }
-    }
-    return out;
-  }, [map.levels]);
+  // Karte rollt sich wieder auf, wenn eine Szene endet
+  const inScene = !!pp?.scene;
+  const wasInScene = useRef(inScene);
+  useEffect(() => {
+    if (wasInScene.current && !inScene) sound.play("unroll");
+    wasInScene.current = inScene;
+  }, [inScene]);
 
   const Scene = pp?.scene ? (extraScenes?.[pp.scene.kind] || SCENES[pp.scene.kind]) : null;
 
   return (
-    <div className="max-w-[1300px] mx-auto px-3 py-4 grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
+    <div className="max-w-[1600px] mx-auto px-3 py-4 grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
       <section className="space-y-4">
         {Scene ? (
-          <Scene scene={pp.scene} deck={deck} player={player} act={act} zirkel={view.settings.zirkel} others={view.others} />
+          <div className="ss-scene-in" key={`scene-${pp.level}-${pp.scene.kind}`}><Scene scene={pp.scene} deck={deck} player={player} act={act} zirkel={view.settings.zirkel} others={view.others} /></div>
         ) : (
-          <div className="ss-paper p-3 md:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-              <p className="ss-title !text-[var(--ink)] text-2xl">{view.settings.zirkel === "gezeiten" ? "Die Küstenkarte" : "Die Moorkarte"} · Pfad {map.pathNo}</p>
+          <div className="space-y-2 ss-map-in" key={`map-${map.pathNo}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="ss-dim">{pp?.done ? "Dein Weg ist gegangen. Warte auf die anderen Zeichner …" : you === null ? "Die Zeichner wandern." : "Wähle einen erreichbaren Ort – die Vorschau zeigt, was dort wartet."}</p>
               {you !== null && timers?.[you] && <TurnTimer timer={timers[you]} clockOffset={clockOffset} />}
             </div>
-            <p className="opacity-75 mb-2">{pp?.done ? "Dein Weg ist gegangen. Warte auf den anderen Zeichner …" : you === null ? "Die Zeichner wandern." : "Wähle einen erreichbaren Knoten."}</p>
-            <svg viewBox="0 0 400 400" className="w-full max-w-[560px] lg:max-h-[calc(100dvh-330px)] mx-auto block" role="img" aria-label="Moorkarte">
-              <defs>
-                <filter id="mapInk"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="5" /><feDisplacementMap in="SourceGraphic" scale="2.2" /></filter>
-              </defs>
-              {/* Moor-Kritzeleien */}
-              <g opacity="0.25" stroke="#1a1612" fill="none" strokeWidth="0.8">
-                <path d="M20 330q20 -8 40 0t40 0M300 320q20 -8 40 0t40 0M30 120q15 -6 30 0t30 0M310 90q15 -6 30 0t30 0" />
-                <path d="M40 200l6 -14l6 14M52 200l5 -10l5 10M340 220l6 -14l6 14M352 220l5 -10l5 10" />
-              </g>
-              <g filter="url(#mapInk)" key={inkKey}>
-                {edges.map((e) => (
-                  <path key={e.key} d={e.d} fill="none" stroke="#1a1612" strokeWidth="1.6" strokeDasharray="5 4" className="ss-draw-ink" style={{ "--len": 420, animationDelay: `${e.lv * 0.35}s` }} />
-                ))}
-              </g>
-              <circle cx="200" cy="372" r="7" fill="#1a1612" />
-              {map.nodes.map((row, lv) => row.map((node, st) => {
-                const { x, y } = nodePos(lv, st, map.levels);
-                const isOption = pp && pp.level === lv && options.includes(st);
-                const visited = pp && pp.visited && lv < pp.level && pp.strand !== null;
-                return (
-                  <g key={`${lv}-${st}`} transform={`translate(${x} ${y})`} className={isOption ? "cursor-pointer" : ""} onClick={() => isOption && choose(st)} role={isOption ? "button" : undefined} tabIndex={isOption ? 0 : undefined} onKeyDown={(e) => isOption && (e.key === "Enter" || e.key === " ") && choose(st)} aria-label={`${de.nodes[node.type].name}${isOption ? " – wählbar" : ""}`}>
-                    <circle r="19" fill={isOption ? "#f2dca8" : "#e6d8b6"} stroke={isOption ? "#8e1b1b" : "#1a1612"} strokeWidth={isOption ? 2.4 : 1.3} opacity={pp && lv < pp.level && !visited ? 0.5 : 1}>
-                      {isOption && <animate attributeName="r" values="18;21;18" dur="1.6s" repeatCount="indefinite" />}
-                    </circle>
-                    <g transform="translate(-12 -12)"><NodeIcon type={node.type} size={24} /></g>
-                    <title>{de.nodes[node.type].name}{node.variant && de.nodes.cardChoice.variants[node.variant] ? ` – ${de.nodes.cardChoice.variants[node.variant]}` : ""}{node.costType ? ` (${de.costs[node.costType].name})` : ""}</title>
-                  </g>
-                );
-              }))}
-              {/* Schachfigur */}
-              {you !== null && (
-                <g style={{ transform: `translate(${piece.x}px, ${piece.y - 16}px)`, transition: "transform 0.6s cubic-bezier(0.3, 0.7, 0.3, 1)" }}>
-                  <path d="M-7 14h14l-2 -5h-10zM-4 9l1 -9h6l1 9zM0 0a4 4 0 100 -8a4 4 0 100 8z" fill="#8e1b1b" stroke="#1a1612" strokeWidth="1" />
-                </g>
-              )}
-            </svg>
-            <div className="flex flex-wrap gap-3 justify-center text-sm mt-2">
-              {Object.entries(de.nodes).map(([k, n]) => (
-                <span key={k} className="flex items-center gap-1 opacity-75"><NodeIcon type={k} size={16} /> {n.name}</span>
-              ))}
-            </div>
+            <PathMap map={map} pp={pp} onChoose={choose} biome={biome} cycle={cycle} subtitle={`Pfad ${map.pathNo} · Ebene ${Math.min((pp?.level ?? 0) + 1, map.levels)}/${map.levels}`} reduced={prefs.reduceMotion} />
           </div>
         )}
         {err && <p className="text-center text-[var(--wax-red-light)]" role="alert">{err}</p>}

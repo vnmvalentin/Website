@@ -319,6 +319,7 @@ function chooseNode(s, p, strand, events) {
   const node = s.path.map.nodes[pp.level][strand];
   pp.strand = strand;
   pp.visited.push(node.type === "event" ? "event" : node.type);
+  pp.route.push(strand);
   pp.chosen[pp.level] = true;
   events.push({ type: "nodeChosen", player: p, level: pp.level, strand, node, audience: [p] });
   events.push({ type: "progress", player: p, level: pp.level, levels: s.path.map.levels, node: node.type });

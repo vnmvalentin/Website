@@ -18,7 +18,7 @@ function pathView(rv, you) {
   const me = rv.players[you];
   return {
     ...rv,
-    path: { map: rv.path.map, players: [rv.path.me, { level: 0, done: false, chosen: [] }] },
+    path: { map: rv.path.map, biome: rv.path.biome, cycle: rv.path.cycle, players: [rv.path.me, { level: 0, done: false, chosen: [] }] },
     players: [me, { name: "" }],
     others: rv.players.map((P, q) => ({ q, name: P.name, alive: P.alive, seals: P.seals, deckSize: P.deckSize })).filter((x) => x.q !== you),
   };

@@ -80,8 +80,10 @@ export function viewForRun(state, viewer) {
     v.path = {
       map: deepClone(s.path.map),
       tier: s.path.tier,
+      biome: s.path.biome,
+      cycle: s.path.cycle,
       budgetSeconds: pathBudgetSeconds(s),
-      me: me ? { level: me.level, strand: me.strand, visited: [...me.visited], chosen: [...me.chosen], done: me.done, scene } : null,
+      me: me ? { level: me.level, strand: me.strand, visited: [...me.visited], route: [...(me.route || [])], chosen: [...me.chosen], done: me.done, scene } : null,
       progress: s.path.players.map((/** @type {any} */ pp) => ({ level: pp.level, done: pp.done })),
     };
   }

@@ -4,12 +4,35 @@
 // die Ereignisse jeder Charge werden auf diesen Kampf (ctx-Schlüssel) gefiltert. Endet der Kampf, liefert der Server
 // schon die nächste Sicht ohne Kampf – dann wird die letzte bekannte Sicht mit „vorbei“ fortgeschrieben, damit die
 // Schluss-Animation noch sauber abläuft, bevor RunGame auf den nächsten Bildschirm wechselt.
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Flag } from "lucide-react";
 import GameScreen from "../GameScreen.jsx";
 import Seals from "./Seals.jsx";
-import { opponentName } from "./names.js";
+import NpcPortrait from "../common/NpcPortrait.jsx";
+import { opponentName, npcDef } from "./names.js";
 import { de } from "../../i18n/de.js";
+import { sound } from "../../audio/sound.js";
+
+/** Boss-Auftritt: die Karte verdunkelt sich, großes Porträt, erste Worte und beide Hausregeln. */
+function BossIntro({ boss, onDone }) {
+  useEffect(() => {
+    sound.play("heartbeat");
+    const t = setTimeout(onDone, 3400);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <div className="ss-boss-intro" onClick={onDone} role="dialog" aria-label={boss.name}>
+      <NpcPortrait npc={boss} size={220} boss showName={false} />
+      <div className="max-w-md">
+        <p className="ss-title text-sm opacity-75">{de.run.fightKinds.boss}</p>
+        <p className="ss-title text-4xl">{boss.name}</p>
+        <p className="italic mt-2 text-[var(--bone)]">„{boss.enter}“</p>
+        <p className="text-sm mt-3 text-[var(--bone)]"><b>Phase 1:</b> {de.run.rules[boss.phases[0].rule]}</p>
+        <p className="text-sm text-[var(--bone)]"><b>Phase 2:</b> {de.run.rules[boss.phases[1].rule]}</p>
+      </div>
+    </div>
+  );
+}
 
 /**
  * @param {any} rv Run-Sicht mit battle/battleInfo @param {number} you Run-Spieler
@@ -38,6 +61,8 @@ function adaptView(rv, you) {
 export default function RunBattle({ game, battleKey, onBusy, onSurrender }) {
   const you = game.you;
   const [confirm, setConfirm] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
+  const endIntro = React.useCallback(() => setIntroDone(true), []);
   // Sitz im Kampf: aus der letzten Charge, die diesen Kampf enthielt
   const { batches, seat, info, latest } = useMemo(() => {
     const out = [];
@@ -105,5 +130,11 @@ export default function RunBattle({ game, battleKey, onBusy, onSurrender }) {
       </div>
     </div>
   );
-  return <GameScreen key={battleKey} game={adapted} bar={bar} />;
+  const boss = info.kind === "boss" ? npcDef(info.bossId) : null;
+  return (
+    <>
+      <GameScreen key={battleKey} game={adapted} bar={bar} />
+      {boss?.phases && !introDone && latest.battle.turn <= 1 && <BossIntro boss={boss} onDone={endIntro} />}
+    </>
+  );
 }

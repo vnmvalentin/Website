@@ -397,6 +397,15 @@ const SYNTHS = {
   error(m) {
     m.tone({ freq: 140, to: 110, dur: 0.15, gain: 0.12, type: "square" });
   },
+  // Pfad: gedämpfter Schritt auf feuchtem Boden
+  step(m) {
+    m.noise({ dur: 0.09, type: "lowpass", freq: 420, gain: 0.22 });
+    m.tone({ freq: 95, to: 60, dur: 0.1, gain: 0.12, type: "sine" });
+  },
+  // Pfad: die Karte wird aufgerollt bzw. zur Seite geschoben
+  unroll(m) {
+    m.noise({ dur: 0.5, type: "bandpass", freq: 2400, q: 0.7, gain: 0.12, sweepTo: 900, attack: 0.05 });
+  },
 };
 
 export const SOUND_KEYS = Object.keys(SYNTHS);

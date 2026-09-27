@@ -346,6 +346,7 @@ function pathPhase(s, p, a, events) {
     const node = s.path.map.nodes[pp.level][a.strand];
     pp.strand = a.strand;
     pp.visited.push(node.type === "event" ? "event" : node.type);
+    (pp.route || (pp.route = [])).push(a.strand);
     pp.chosen[pp.level] = true;
     pp.scene = createScene(s, p, node, pp.level, a.strand);
     events.push({ type: "nodeChosen", player: p, level: pp.level, strand: a.strand, node, private: p });
