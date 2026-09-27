@@ -8,7 +8,8 @@
 // ist es aufgebraucht, feuern keine weiteren Hooks mehr — Endlosschleifen sind damit ausgeschlossen.
 
 import { resolveCard } from "./cards.js";
-import { SIGILS, parseSigil } from "./sigils/index.js";
+import { parseSigil } from "./sigils/index.js";
+import { getZirkel, resourceOf, DEFAULT_ZIRKEL } from "./zirkel/index.js";
 import { shuffle } from "./rng.js";
 import { applyItemEffect } from "./items.js";
 
@@ -18,7 +19,8 @@ import { applyItemEffect } from "./items.js";
 
 export const LANES = 4;
 export const HAND_LIMIT = 8;
-export const WAX_MAX = 6;
+/** Wachs-Obergrenze des Moor-Zirkels (kommt aus dem Zirkel-Paket). */
+export const WAX_MAX = resourceOf(getZirkel(DEFAULT_ZIRKEL), "wax")?.max ?? 6;
 export const SCALE_WIN = 5;
 export const STALEMATE_TURN = 30;
 export const CANDLE_WARNING_TURN = 25;
@@ -49,11 +51,8 @@ const MOVE_SIGILS = new Set(["wanderer", "rammbock"]);
  */
 export const SECOND_PLAYER_BONUS = { wax: 1, bones: 1, side: 0, starterDraws: true, starterBones: 0, starterWax: 0 };
 
-export const SIDE_TYPES = {
-  moorling: "side_moorling",
-  knochenkaefer: "side_knochenkaefer",
-  wachsling: "side_wachsling",
-};
+/** Nebendecks des Standard-Zirkels (für UI und Altcode; die Engine nutzt `zirkel.sideDeckTypes`). */
+export const SIDE_TYPES = getZirkel(DEFAULT_ZIRKEL).sideDeckTypes;
 
 /**
  * Totems eines Spielers → Auren für den Kampf.
@@ -75,11 +74,13 @@ export function totemAuras(totems) {
 
 /**
  * Neuen Kampf aufbauen.
- * @param {{ battleNo: number, starter: 0|1, rng: number,
+ * @param {{ battleNo: number, starter: 0|1, rng: number, zirkel?: string,
  *   players: Array<{ deck: import("./types.js").DeckCard[], sideType: string, items: string[], totems: any }> }} opts
  */
 export function createBattle(opts) {
+  const zirkel = getZirkel(opts.zirkel);
   const state = {
+    zirkel: zirkel.id,
     battleNo: opts.battleNo,
     turn: 1,
     active: opts.starter,
@@ -94,7 +95,7 @@ export function createBattle(opts) {
     players: opts.players.map((p) => ({
       deck: p.deck.map((dc) => resolveCard(dc.baseId, dc.mods, "")),
       hand: /** @type {Card[]} */ ([]),
-      sideType: p.sideType in SIDE_TYPES ? p.sideType : "moorling",
+      sideType: p.sideType in zirkel.sideDeckTypes ? p.sideType : Object.keys(zirkel.sideDeckTypes)[0],
       front: /** @type {(Unit|null)[]} */ ([null, null, null, null]),
       back: /** @type {(Unit|null)[]} */ ([null, null, null, null]),
       bones: 0,
@@ -150,6 +151,8 @@ export class Resolver {
   /** @param {any} state */
   constructor(state) {
     this.state = state;
+    /** Zirkel des Kampfs: Sigils, Nebendecks und Ressourcen kommen aus dem Datenpaket */
+    this.z = getZirkel(state.zirkel);
     /** @type {GameEvent[]} */
     this.events = [];
     this.budget = CHAIN_LIMIT;
@@ -207,7 +210,7 @@ export class Resolver {
     const map = new Map();
     const add = (/** @type {string} */ ref) => {
       const { id, n } = parseSigil(ref);
-      if (!SIGILS[id]) return;
+      if (!this.z.sigils[id]) return;
       map.set(id, Math.max(map.get(id) || 0, n));
     };
     for (const ref of u.sigils) add(ref);
@@ -249,7 +252,7 @@ export class Resolver {
     }
     for (const [id, n] of this.sigilList(u)) {
       if ((only && !only.has(id)) || (except && except.has(id))) continue;
-      const fn = SIGILS[id].hooks[hook];
+      const fn = this.z.sigils[id].hooks[hook];
       if (!fn) continue;
       if (!this.spend()) return;
       fn(this, u, ...args, n);
@@ -266,7 +269,7 @@ export class Resolver {
   reduceHook(u, hook, value, ...args) {
     let v = value;
     for (const [id, n] of this.sigilList(u)) {
-      const fn = SIGILS[id].hooks[hook];
+      const fn = this.z.sigils[id].hooks[hook];
       if (!fn) continue;
       v = fn(this, u, v, ...args, n);
     }
@@ -380,7 +383,7 @@ export class Resolver {
   gainWax(p, n, src) {
     const P = this.state.players[p];
     const before = P.wax;
-    P.wax = Math.min(WAX_MAX, P.wax + n);
+    P.wax = Math.min(resourceOf(this.z, "wax")?.max ?? WAX_MAX, P.wax + n);
     if (P.wax !== before) this.emit({ type: "wax", player: p, amount: P.wax - before, total: P.wax, source: src?.uid });
   }
 
@@ -388,7 +391,8 @@ export class Resolver {
 
   /** @param {number} p */
   newSideCard(p) {
-    const id = SIDE_TYPES[this.state.players[p].sideType] || SIDE_TYPES.moorling;
+    const sides = this.z.sideDeckTypes;
+    const id = sides[this.state.players[p].sideType] || Object.values(sides)[0];
     return resolveCard(id, [], this.newUid());
   }
 

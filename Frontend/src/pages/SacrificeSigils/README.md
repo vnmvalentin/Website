@@ -28,6 +28,7 @@ Browserfenster (oder ein privates Fenster) öffnen: im ersten „Spiel erstellen
 | `npm run balance -- --games 5000` | KI gegen KI, Bericht nach `docs/sacrifice-and-sigils/balance-report.json` (Optionen: `--level easy\|normal\|hard`, `--workers n`, `--out pfad`) |
 | `npm run art:export` | alle prozeduralen Artworks als SVG nach `public/assets/cards/generated/` (+ `index.html` zum Durchblättern, nicht eingecheckt) |
 | `npm run art:prompts` | `art-prompts.md` mit einem Bildprompt pro Karte |
+| `node src/pages/SacrificeSigils/tools/screenshots.cjs` | alle Screens × 9 Auflösungen (vite dev auf :5199, Socket-Server auf :3001, Playwright), danach `tools/toWebp.cjs <ordner>`; Spielstände kommen aus den Dev-Fixtures `?fixture=…` (`ui/dev/fixtures.js`, nur im Dev-Build) |
 
 Im Ordner `Backend`: `npm run test:sigils` (Raum-Manager) und `npm run sigils:spiegel` (siehe unten).
 
@@ -42,6 +43,12 @@ cd Backend && npm run sigils:spiegel
 
 `deploy.sh` prüft das (`--pruefen`) und bricht mit veraltetem Spiegel ab. Browser mit altem Stand bekommen nach einem Deploy
 einen Hinweis zum Neuladen (Fingerprint in `version.js`).
+
+## Zirkel (Deck-Welten)
+
+Ein Zirkel ist ein Datenpaket in `engine/zirkel/` (`moor` ist der heutige Inhalt). Kampf, Draft und Pfad holen Sigils,
+Nebendecks, Ressourcen und Pfadknoten über `getZirkel(settings.zirkel)`. Konzepte für neue Zirkel:
+`docs/sacrifice-and-sigils/ZIRKEL.md`.
 
 ## Karten hinzufügen
 

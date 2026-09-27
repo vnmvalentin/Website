@@ -1,10 +1,9 @@
 // engine/draft.js — Pool-Erzeugung und Draft in 6 Runden à 4 Karten: gemeinsamer Pool (abwechselnd A-B-A-B, erster
 // Pick wechselt je Runde) oder getrennte Pools (gleichzeitig 2 aus 4).
-import { COLLECTIBLE, CARDS } from "./cards.js";
+import { CARDS } from "./cards.js";
 import { pickWeighted, randInt, shuffle, streamFrom } from "./rng.js";
 import { TOTEM_BASE_SIGILS, LANE_PROPS } from "../data/totems.js";
-import { TRIBE_IDS } from "../data/tribes.js";
-import { SIDE_TYPES } from "./battle.js";
+import { getZirkel } from "./zirkel/index.js";
 
 export const POOL_RARITY = { common: 14, uncommon: 6, rare: 3, legendary: 1 };
 export const PICKS_PER_PLAYER = 12;
@@ -20,9 +19,10 @@ export const DUPLICATES_MAX = 5;
  * Pool aus dem Seed: 24 Karten in 6 Runden à 4 (Runde r = pool[4r … 4r+3]) + 4 Totem-Köpfe (mit Start-Basis)
  * + die 3 Nebendeck-Typen. 3–5 gewöhnliche/ungewöhnliche Karten kommen doppelt vor, nie in derselben Runde;
  * Legendäre bleiben einzigartig.
- * @param {string} seed
+ * @param {string} seed @param {string} [zirkelId]
  */
-export function generatePool(seed) {
+export function generatePool(seed, zirkelId) {
+  const z = getZirkel(zirkelId);
   const s = streamFrom("pool", seed);
   const dupCount = DUPLICATES_MIN + randInt(s, DUPLICATES_MAX - DUPLICATES_MIN + 1);
   /** @type {Record<string, number>} */
@@ -39,7 +39,7 @@ export function generatePool(seed) {
   const singles = [];
   for (const [rarity, n] of Object.entries(POOL_RARITY)) {
     const d = dups[rarity] || 0;
-    const candidates = shuffle(s, COLLECTIBLE.filter((c) => c.rarity === rarity).map((c) => c.id));
+    const candidates = shuffle(s, z.collectible.filter((c) => c.rarity === rarity).map((c) => c.id));
     for (let i = 0; i < n - d; i++) (i < d ? pairs : singles).push(candidates[i % candidates.length]);
   }
   /** @type {string[][]} */
@@ -68,7 +68,7 @@ export function generatePool(seed) {
     if (t !== "stammlose") tribeCounts.set(t, (tribeCounts.get(t) || 0) + 1);
   }
   const tribes = [];
-  const weighted = TRIBE_IDS.filter((t) => t !== "stammlose").map((t) => [t, 1 + (tribeCounts.get(t) || 0) * 3]);
+  const weighted = z.tribes.map((t) => t.id).filter((t) => t !== "stammlose").map((t) => [t, 1 + (tribeCounts.get(t) || 0) * 3]);
   while (tribes.length < 3) {
     const t = pickWeighted(s, /** @type {any} */ (weighted.filter(([id]) => !tribes.includes(id))));
     tribes.push(t);
@@ -78,7 +78,7 @@ export function generatePool(seed) {
   const lane = randInt(s, 4);
   heads.push({ head: { kind: "lane", lane }, base: { kind: "prop", prop: LANE_PROPS[randInt(s, LANE_PROPS.length)] } });
   shuffle(s, heads);
-  return { cards, heads, sides: Object.keys(SIDE_TYPES) };
+  return { cards, heads, sides: Object.keys(z.sideDeckTypes) };
 }
 
 /** Wer wählt in Runde `r` zuerst? Wechselt jede Runde. @param {0|1} first @param {number} r @returns {0|1} */
@@ -124,9 +124,10 @@ function separateRoundIndex(/** @type {number} */ p, /** @type {number} */ r) {
 /**
  * Draft-Zustand anlegen.
  * @param {string} seed @param {"shared"|"separate"} mode @param {number} round Draft-Runde (Revanche tauscht den ersten Pick)
+ * @param {string} [zirkelId]
  */
-export function createDraft(seed, mode, round = 0) {
-  const pool = generatePool(seed);
+export function createDraft(seed, mode, round = 0, zirkelId) {
+  const pool = generatePool(seed, zirkelId);
   const s = streamFrom("firstPick", seed);
   const first = /** @type {0|1} */ ((randInt(s, 2) + round) % 2);
   // Nach 6 Runden geht der Wechsel weiter: Kopf wählt zuerst, wer Runde 1 begonnen hat, Nebendeck der andere

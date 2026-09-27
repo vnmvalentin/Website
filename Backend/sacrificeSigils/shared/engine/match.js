@@ -7,7 +7,8 @@
 
 import { hashParts, normalizeSeed } from "./rng.js";
 import { CARDS } from "./cards.js";
-import { createBattle, battleAction, SIDE_TYPES } from "./battle.js";
+import { createBattle, battleAction } from "./battle.js";
+import { ZIRKEL, DEFAULT_ZIRKEL, zirkelOf } from "./zirkel/index.js";
 import { createDraft, applyPick, pickable, poolCard, draftDone, extrasTurn, PICKS_PER_PLAYER } from "./draft.js";
 import { generateMap, createPlayerPath, reachable, createScene, sceneAction, defaultOp } from "./path.js";
 
@@ -17,6 +18,8 @@ export const DEFAULT_SETTINGS = {
   turnTimer: 60,
   pathLength: 3,
   spectators: true,
+  zirkel: DEFAULT_ZIRKEL,
+  zirkelMode: "same",
 };
 
 const TIMERS = [45, 60, 90, 0];
@@ -32,6 +35,9 @@ export function normalizeSettings(s = {}) {
     turnTimer: TIMERS.includes(s.turnTimer) ? s.turnTimer : DEFAULT_SETTINGS.turnTimer,
     pathLength: PATH_LENGTHS.includes(s.pathLength) ? s.pathLength : DEFAULT_SETTINGS.pathLength,
     spectators: s.spectators !== false,
+    // Beide spielen denselben Zirkel; „gemischt“ (jeder seinen eigenen) gibt es noch nicht
+    zirkel: typeof s.zirkel === "string" && ZIRKEL[s.zirkel] ? s.zirkel : DEFAULT_ZIRKEL,
+    zirkelMode: "same",
   };
 }
 
@@ -83,7 +89,7 @@ export function createMatch(opts) {
     settings,
     phase: "draft",
     players: [newMatchPlayer(opts.names?.[0] || "Zeichner I"), newMatchPlayer(opts.names?.[1] || "Zeichner II")],
-    draft: createDraft(seed, settings.draftMode, opts.draftRound || 0),
+    draft: createDraft(seed, settings.draftMode, opts.draftRound || 0, settings.zirkel),
     draftRound: opts.draftRound || 0,
     battle: /** @type {any} */ (null),
     battleNo: 0,
@@ -171,7 +177,7 @@ function extrasPhase(s, p, a, events) {
     if (a.type === "timeout") {
       a = kind === "head"
         ? { type: "draftExtras", head: d.heads.findIndex((/** @type {any} */ _, /** @type {number} */ i) => i !== other.head) }
-        : { type: "draftExtras", side: Object.keys(SIDE_TYPES).find((k) => k !== other.side) };
+        : { type: "draftExtras", side: Object.keys(zirkelOf(s).sideDeckTypes).find((k) => k !== other.side) };
     }
     if (a.type !== "draftExtras") return "wrongPhase";
     if (kind === "head") {
@@ -179,7 +185,7 @@ function extrasPhase(s, p, a, events) {
       if (other.head === a.head) return "headTaken";
       ex.head = a.head;
     } else {
-      if (!(a.side in SIDE_TYPES)) return "badSide";
+      if (!(a.side in zirkelOf(s).sideDeckTypes)) return "badSide";
       if (other.side === a.side) return "sideTaken";
       ex.side = a.side;
     }
@@ -189,7 +195,7 @@ function extrasPhase(s, p, a, events) {
     if (a.type === "timeout") a = { type: "draftExtras", head: 0, side: "moorling" };
     if (a.type !== "draftExtras") return "wrongPhase";
     if (!Number.isInteger(a.head) || !d.heads[a.head]) return "badHead";
-    if (!(a.side in SIDE_TYPES)) return "badSide";
+    if (!(a.side in zirkelOf(s).sideDeckTypes)) return "badSide";
     ex.head = a.head;
     ex.side = a.side;
     events.push({ type: "extrasChosen", player: p });
@@ -235,6 +241,7 @@ function startBattle(s, starter, events) {
   s.interlude = null;
   s.path = null;
   const { state, events: ev } = createBattle({
+    zirkel: s.settings.zirkel,
     battleNo: s.battleNo,
     starter,
     rng: hashParts("battle", s.seed, s.salt, s.battleNo),
@@ -290,7 +297,7 @@ function startPath(s, events) {
   s.pathNo += 1;
   s.phase = "path";
   s.path = {
-    map: generateMap(s.seed, s.pathNo, s.settings.pathLength),
+    map: generateMap(s.seed, s.pathNo, s.settings.pathLength, s.settings.zirkel),
     players: [createPlayerPath(), createPlayerPath()],
   };
   events.push({ type: "phase", phase: "path", pathNo: s.pathNo });

@@ -422,3 +422,18 @@ test("Pfad-Entscheidungen des Gegners bleiben verborgen", () => {
 test("Sammelbare Karten: jede Seltenheit vorhanden", () => {
   for (const r of ["common", "uncommon", "rare", "legendary"]) assert.ok(COLLECTIBLE.some((c) => c.rarity === r));
 });
+
+// ───────── Zirkel (Runde 2, F) ─────────
+test("Zirkel: Moor ist ein vollständiges Datenpaket, Match und Kampf tragen den Zirkel", async () => {
+  const { ZIRKEL, getZirkel, DEFAULT_ZIRKEL } = await import("../engine/zirkel/index.js");
+  const moor = ZIRKEL.moor;
+  for (const key of ["id", "name", "resources", "tribes", "cards", "sigils", "sideDeckTypes", "pathNodeTypes", "theme"]) assert.ok(moor[key], key);
+  assert.deepEqual(moor.resources.map((r) => r.id), ["blood", "bones", "wax"]);
+  assert.equal(getZirkel("gibtsnicht").id, DEFAULT_ZIRKEL);
+  for (const id of Object.values(moor.sideDeckTypes)) assert.ok(moor.cards[id], id);
+  assert.equal(normalizeSettings({ zirkel: "gibtsnicht" }).zirkel, "moor");
+  assert.equal(normalizeSettings({ zirkelMode: "mixed" }).zirkelMode, "same"); // „gemischt“ noch gesperrt
+  const s = playUntil(createMatch({ seed: "ZIRKEL", settings: { zirkel: "moor" } }), (x) => x.phase === "battle");
+  assert.equal(s.settings.zirkel, "moor");
+  assert.equal(s.battle.zirkel, "moor");
+});

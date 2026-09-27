@@ -7,11 +7,11 @@
 
 import { COLLECTIBLE, CURSED, CARDS, RARITIES, resolveCard } from "./cards.js";
 import { pickWeighted, rand, randInt, shuffle, streamFrom } from "./rng.js";
-import { EVENTS, NODE_TYPES, MIN_DECK, CAMPFIRE_RISK } from "../data/events.js";
+import { MIN_DECK, CAMPFIRE_RISK } from "../data/events.js";
 import { ITEMS, MAX_ITEMS } from "../data/items.js";
 import { allHeads, allBases, sameHead, sameBase } from "../data/totems.js";
-import { TRIBE_IDS } from "../data/tribes.js";
-import { parseSigil, SIGILS } from "./sigils/index.js";
+import { parseSigil } from "./sigils/index.js";
+import { getZirkel, zirkelOf } from "./zirkel/index.js";
 
 export const STRANDS = 3;
 const MAX_SIGILS = 4;
@@ -20,7 +20,8 @@ const MAX_SIGILS = 4;
  * Moorkarte erzeugen.
  * @param {string} seed @param {number} pathNo @param {number} levels
  */
-export function generateMap(seed, pathNo, levels) {
+export function generateMap(seed, pathNo, levels, zirkelId) {
+  const z = getZirkel(zirkelId);
   const s = streamFrom("map", seed, pathNo);
   const usedEvents = new Set();
   const nodes = [];
@@ -28,7 +29,7 @@ export function generateMap(seed, pathNo, levels) {
     const row = [];
     const used = new Set();
     for (let st = 0; st < STRANDS; st++) {
-      const options = NODE_TYPES.filter(([t]) => !used.has(t) || t === "cardChoice");
+      const options = z.pathNodeTypes.filter(([t]) => !used.has(t) || t === "cardChoice");
       // Kartenwahl höchstens zweimal pro Ebene
       const cc = row.filter((n) => n.type === "cardChoice").length;
       const type = pickWeighted(s, /** @type {any} */ (options.filter(([t]) => t !== "cardChoice" || cc < 2)));
@@ -41,8 +42,8 @@ export function generateMap(seed, pathNo, levels) {
         if (node.variant === "costType") node.costType = ["blood", "bones", "wax"][randInt(s, 3)];
       }
       if (type === "event") {
-        const free = EVENTS.filter((e) => !usedEvents.has(e));
-        node.event = free[randInt(s, free.length)] || EVENTS[0];
+        const free = z.events.filter((e) => !usedEvents.has(e));
+        node.event = free[randInt(s, free.length)] || z.events[0];
         usedEvents.add(node.event);
       }
       row.push(node);
@@ -72,12 +73,12 @@ const HIDDEN_WEIGHTS = { common: 35, uncommon: 35, rare: 21, legendary: 9 };
  * @param {{rng:number}} s @param {number} n @param {(c: any) => boolean} filter @param {Record<string, number>} weights
  * @param {Record<string, number>} legends
  */
-function offerCards(s, n, filter, weights, legends) {
+function offerCards(s, n, filter, weights, legends, collectible = COLLECTIBLE) {
   const out = [];
   for (let i = 0; i < n; i++) {
     const rarity = pickWeighted(s, /** @type {any} */ (RARITIES.map((r) => [r, weights[r]])));
-    let pool = COLLECTIBLE.filter((c) => filter(c) && c.rarity === rarity && !out.includes(c.id) && !(c.unique && legends[c.id] !== undefined));
-    if (!pool.length) pool = COLLECTIBLE.filter((c) => filter(c) && !out.includes(c.id) && !(c.unique && legends[c.id] !== undefined));
+    let pool = collectible.filter((c) => filter(c) && c.rarity === rarity && !out.includes(c.id) && !(c.unique && legends[c.id] !== undefined));
+    if (!pool.length) pool = collectible.filter((c) => filter(c) && !out.includes(c.id) && !(c.unique && legends[c.id] !== undefined));
     if (!pool.length) break;
     out.push(pool[randInt(s, pool.length)].id);
   }
@@ -98,7 +99,7 @@ export function createScene(match, p, node, level, strand) {
     case "cardChoice": {
       const filter = node.variant === "costType" ? (/** @type {any} */ c) => c.cost.type === node.costType : () => true;
       const weights = node.variant === "hidden" ? HIDDEN_WEIGHTS : RARITY_WEIGHTS;
-      return { kind: "cardChoice", variant: node.variant, costType: node.costType || null, offers: offerCards(s, 3, filter, weights, legends) };
+      return { kind: "cardChoice", variant: node.variant, costType: node.costType || null, offers: offerCards(s, 3, filter, weights, legends, zirkelOf(match).collectible) };
     }
     case "fuse": return { kind: "fuse" };
     case "transfer": return { kind: "transfer" };
@@ -123,7 +124,7 @@ export function createScene(match, p, node, level, strand) {
     case "event": {
       /** @type {any} */
       const scene = { kind: "event", event: node.event, key };
-      if (node.event === "knochenorakel") scene.offers = offerCards(s, 5, (c) => c.rarity === "uncommon", { common: 0, uncommon: 1, rare: 0, legendary: 0 }, legends);
+      if (node.event === "knochenorakel") scene.offers = offerCards(s, 5, (c) => c.rarity === "uncommon", { common: 0, uncommon: 1, rare: 0, legendary: 0 }, legends, zirkelOf(match).collectible);
       return scene;
     }
     default:
@@ -195,7 +196,7 @@ export function sceneAction(match, p, a, io) {
       const ref = donor.sigils.find((s) => s === a.sigil);
       if (!ref) return { error: "badSigil" };
       const sid = parseSigil(ref).id;
-      if (SIGILS[sid]?.cursedOnly) return { error: "cursedSigil" };
+      if (zirkelOf(match).sigils[sid]?.cursedOnly) return { error: "cursedSigil" };
       if (target.sigils.length >= MAX_SIGILS && !target.sigils.some((s) => parseSigil(s).id === sid)) return { error: "tooManySigils" };
       player.deck[it].mods.push({ kind: "sigilAdd", sigil: ref });
       const [removed] = player.deck.splice(id, 1);
@@ -308,7 +309,7 @@ function eventAction(match, p, a, io, scene, emit) {
       const ri = RARITIES.indexOf(def.rarity);
       if (ri >= RARITIES.length - 1) return { error: "noHigherRarity" };
       const target = RARITIES[ri + 1];
-      const pool = COLLECTIBLE.filter((c) => c.rarity === target && !(c.unique && match.legends[c.id] !== undefined));
+      const pool = zirkelOf(match).collectible.filter((c) => c.rarity === target && !(c.unique && match.legends[c.id] !== undefined));
       if (!pool.length) return { error: "noHigherRarity" };
       const [old] = player.deck.splice(i, 1);
       const dc = io.newCard(p, pool[randInt(s, pool.length)].id);
@@ -386,7 +387,7 @@ function eventAction(match, p, a, io, scene, emit) {
     }
     case "stammestreue": {
       if (op !== "choose") return { error: "badOp" };
-      if (!TRIBE_IDS.includes(a.tribe)) return { error: "badTribe" };
+      if (!zirkelOf(match).tribes.some((t) => t.id === a.tribe)) return { error: "badTribe" };
       for (const dc of player.deck) {
         const def = CARDS[dc.baseId];
         if (def.tribe === a.tribe) dc.mods.push({ kind: "stat", health: 1, source: "treue" });

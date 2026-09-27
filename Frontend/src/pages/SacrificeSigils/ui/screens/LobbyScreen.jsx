@@ -4,15 +4,19 @@ import { Copy, Check, Eye, Crown } from "lucide-react";
 import { de } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { CheckMark } from "../icons/GameIcons.jsx";
+import { ZIRKEL, MIXED_ZIRKEL_AVAILABLE } from "../../engine/zirkel/index.js";
 
 const OPTIONS = {
+  // Zirkel (Deck-Welt): beide spielen denselben; „gemischt“ folgt, sobald es mehrere Zirkel gibt
+  zirkel: Object.values(ZIRKEL).map((z) => [z.id, z.name]),
+  zirkelMode: [["same", "Beide denselben Zirkel"], ["mixed", "Gemischt – jeder seinen eigenen (bald)", !MIXED_ZIRKEL_AVAILABLE]],
   draftMode: [["shared", "Gemeinsamer Pool (abwechselnd, 4er-Runden)"], ["separate", "Getrennte Pools (gleichzeitig, 2 aus 4)"]],
   winsNeeded: [[1, "1 (Best-of-1)"], [2, "2 Siege (Best-of-3)"], [3, "3 Siege (Best-of-5)"]],
   turnTimer: [[45, "45 s"], [60, "60 s"], [90, "90 s"], [0, "aus"]],
   pathLength: [[2, "kurz (2 Knoten)"], [3, "normal (3)"], [4, "lang (4)"]],
   spectators: [[true, "ja"], [false, "nein"]],
 };
-const LABELS = { draftMode: "Draft-Modus", winsNeeded: "Siege nötig", turnTimer: "Zug-Timer", pathLength: "Pfad-Länge", spectators: "Zuschauer erlauben" };
+const LABELS = { zirkel: "Zirkel", zirkelMode: "Zirkel-Wahl", draftMode: "Draft-Modus", winsNeeded: "Siege nötig", turnTimer: "Zug-Timer", pathLength: "Pfad-Länge", spectators: "Zuschauer erlauben" };
 
 /** Wachssiegel-Porträt. */
 export function SealPortrait({ name, ready, connected, host, you, empty }) {
@@ -122,7 +126,7 @@ export default function LobbyScreen({ game, code }) {
                   change(key, val);
                 }}
               >
-                {opts.map(([v, l]) => <option key={String(v)} value={String(v)}>{l}</option>)}
+                {opts.map(([v, l, off]) => <option key={String(v)} value={String(v)} disabled={!!off}>{l}</option>)}
               </select>
             </label>
           ))}
