@@ -2,7 +2,7 @@
 import { defineCards } from "./_define.js";
 
 export default defineCards("schwaerme", [
-  ["larvenknaeuel", "Larvenknäuel", "k1", 0, 1, ["metamorphose"], "common", "Es zuckt, es wartet, es wird Flügel haben.", { evolvesTo: "goldwespe" }],
+  ["larvenknaeuel", "Larvenknäuel", "k1", 0, 2, ["metamorphose"], "common", "Es zuckt, es wartet, es wird Flügel haben.", { evolvesTo: "goldwespe" }],
   ["wachsameise", "Wachsameise", "w1", 1, 1, [], "common", "Sie trägt Tropfen von Kerzen, die niemand mehr anzündet."],
   ["heerameise", "Heerameise", "b1", "schwarmzahl", 1, [], "common", "Eine ist nichts. Hundert sind ein Fluss."],
   ["mistkaefer", "Mistkäfer", "w2", 1, 2, ["rammbock"], "common", "Er rollt die Welt vor sich her und fragt nicht, wohin."],

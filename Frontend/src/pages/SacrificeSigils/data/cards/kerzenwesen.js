@@ -6,7 +6,7 @@ export default defineCards("kerzenwesen", [
   ["flackerwicht", "Flackerwicht", "w1", 0, 1, ["wachsquelle"], "common", "Er tropft, und jeder Tropfen ist ein Geschenk."],
   ["dochtmotte", "Dochtmotte", "w2", 2, 1, ["kerzendocht:2"], "common", "Sie liebte die Flamme so sehr, dass sie eine wurde."],
   ["talgschemen", "Talgschemen", "w2", 2, 1, ["kerzendocht:3"], "common", "Ein Umriss aus Talg, der sich an Wärme erinnert."],
-  ["kerzengeist", "Kerzengeist", "w3", 3, 2, ["kerzendocht:2"], "common", "Hell, heiß und bald vorbei."],
+  ["kerzengeist", "Kerzengeist", "w3", 3, 1, ["kerzendocht:2"], "common", "Hell, heiß und bald vorbei."],
   ["wachsklotz", "Wachsklotz", "w3", 1, 4, [], "common", "Das Wachs von hundert Messen, zu einem Rücken erstarrt."],
   ["wachsmaske", "Wachsmaske", "w3", 1, 2, ["wachsquelle"], "common", "Hinter der Maske schmilzt ein Gesicht, das nie da war."],
   ["ewigeflamme", "Ewige Flamme", "w2", 0, 1, ["ewigesopfer"], "uncommon", "Man kann sie opfern. Man kann sie nicht löschen."],

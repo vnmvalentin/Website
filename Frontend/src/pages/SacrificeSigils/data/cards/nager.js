@@ -3,7 +3,7 @@ import { defineCards } from "./_define.js";
 
 export default defineCards("nager", [
   ["siebenschlaefer", "Siebenschläfer", "b0", 0, 1, ["metamorphose"], "common", "Er träumt von Kämpfen, die er verschläft.", { evolvesTo: "nachtbilch" }],
-  ["moorratte", "Moorratte", "w1", 0, 1, ["kundschafter"], "common", "Sie kennt jeden Gang unter der Kapelle."],
+  ["moorratte", "Moorratte", "w2", 0, 1, ["kundschafter"], "common", "Sie kennt jeden Gang unter der Kapelle."],
   ["aschmaus", "Aschmaus", "b1", 2, 1, [], "common", "Grau, klein, und immer schon da."],
   ["wuehlmaus", "Wühlmaus", "b0", 0, 2, ["grabwuehler"], "common", "Wo die Erde bebt, ist sie schon angekommen."],
   ["schermaus", "Schermaus", "b1", 1, 2, ["grabwuehler"], "common", "Sie nagt Wurzeln, Wände und Geduld."],
