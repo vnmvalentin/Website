@@ -1,4 +1,4 @@
-// engine/match.js — Match-Zustandsmaschine: Draft → Extras → [Kampf → Pfad → Zwischenspiel]×n → Ende.
+// engine/match.js — Match-Zustandsmaschine: Draft → Extras → Pfad → Kampf → [Pfad → Zwischenspiel → Kampf]×n → Ende.
 //
 //   applyAction(state, action) → { state, events, error? }
 //
@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS = {
 };
 
 const TIMERS = [45, 60, 90, 0];
+/** Splitter für beide vor dem ersten Pfad. */
+export const START_SHARDS = 3;
 const PATH_LENGTHS = [2, 3, 4];
 
 /** Einstellungen säubern (Lobby-Eingaben sind nicht vertrauenswürdig). @param {any} s */
@@ -179,8 +181,9 @@ function extrasPhase(s, p, a, events) {
       P.totems[bundle.head.kind === "tribe" ? "tribe" : "lane"] = { head: bundle.head, base: bundle.base };
       P.sideType = d.extras[q].side;
     }
-    // Der Spieler mit dem ersten Pick beginnt den ersten Kampf als Zweiter (Ausgleich)
-    startBattle(s, /** @type {0|1} */ (1 - d.first), events);
+    // Runde 2 (B1): direkt nach dem Draft geht es auf den Pfad – beide mit 3 Start-Splittern
+    for (const P of s.players) P.shards += START_SHARDS;
+    startPath(s, events);
   }
   return null;
 }
@@ -254,6 +257,11 @@ function finishBattle(s, events) {
     endMatch(s, w, "wins", events);
     return;
   }
+  startPath(s, events);
+}
+
+/** Pfad-Phase beginnen (nach dem Draft und nach jedem Kampf außer dem letzten). @param {any} s @param {any[]} events */
+function startPath(s, events) {
   s.pathNo += 1;
   s.phase = "path";
   s.path = {
@@ -333,6 +341,11 @@ function closeScene(s, p, events) {
     events.push({ type: "pathDone", player: p });
   }
   if (s.path.players.every((/** @type {any} */ x) => x.done)) {
+    if (s.battleNo === 0) {
+      // Erster Pfad (direkt nach dem Draft): kein Verlierer, der wählt – wer zuerst gepickt hat, beginnt als Zweiter
+      startBattle(s, /** @type {0|1} */ (1 - s.draft.first), events);
+      return;
+    }
     s.phase = "interlude";
     s.interlude = {
       revealed: s.path.players.map((/** @type {any} */ x) => [...x.visited]),

@@ -1,7 +1,7 @@
 // Match-Ebene: Draft, Extras, Pfad-Knoten, Modifikatoren, Best-of, Determinismus, Fuzz, versteckte Information, Daten.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createMatch, applyAction, awaiting, deepClone, normalizeSettings } from "../engine/match.js";
+import { createMatch, applyAction, awaiting, deepClone, normalizeSettings, START_SHARDS } from "../engine/match.js";
 import { aiAction } from "../engine/ai/index.js";
 import { snakeOrder, generatePool, PICKS_PER_PLAYER } from "../engine/draft.js";
 import { generateMap } from "../engine/path.js";
@@ -102,15 +102,21 @@ test("Getrennte Pools: 5 Karten liegen offen, Legendäre ist nach dem ersten Gri
   }
 });
 
-test("Nach dem Draft: Kopf mit Start-Basis und Nebendeck wählen, dann beginnt Kampf 1", () => {
+test("Nach dem Draft: Kopf mit Start-Basis und Nebendeck wählen, dann Pfad mit 3 Splittern, dann Kampf 1", () => {
   let s = playUntil(createMatch({ seed: "EXTRA" }), (x) => x.phase === "extras");
   assert.equal(s.phase, "extras");
   s = act(s, { type: "draftExtras", player: 0, head: 1, side: "wachsling" });
   s = act(s, { type: "draftExtras", player: 1, head: 0, side: "knochenkaefer" });
-  assert.equal(s.phase, "battle");
-  assert.equal(s.players[0].deck.length, 12);
+  assert.equal(s.phase, "path");
+  assert.equal(s.battleNo, 0);
+  assert.deepEqual(s.players.map((P) => P.shards), [START_SHARDS, START_SHARDS]);
   assert.equal(s.players[0].sideType, "wachsling");
   assert.ok(s.players[0].totems.tribe || s.players[0].totems.lane);
+  const first = s.draft.first;
+  for (let i = 0; i < 20 && s.phase === "path"; i++) for (const p of awaiting(s)) s = act(s, { type: "timeout", player: p });
+  assert.equal(s.phase, "battle"); // kein Zwischenspiel vor Kampf 1
+  assert.equal(s.battle.starter, 1 - first);
+  assert.ok(s.players[0].deck.length >= 8);
 });
 
 // ───────── Modifikatoren ─────────

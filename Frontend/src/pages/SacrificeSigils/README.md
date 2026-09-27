@@ -1,6 +1,6 @@
 # Sacrifice & Sigils
 
-1v1-Kartenspiel der Website: Draft → Kampf → Pfad → … → Ergebnis. Online über eine Lobby (Socket.io, serverautoritativ),
+1v1-Kartenspiel der Website: Draft → Pfad → Kampf → [Pfad → Kampf] … → Ergebnis. Online über eine Lobby (Socket.io, serverautoritativ),
 gegen die KI (drei Stufen), als Hotseat oder im Tutorial. Route: `/sacrifice-and-sigils`.
 
 Architektur, Datenmodell und bewusste Abweichungen vom Auftrag: [`docs/sacrifice-and-sigils/PLAN.md`](../../../../docs/sacrifice-and-sigils/PLAN.md).

@@ -20,7 +20,7 @@ export default function GuidePage() {
       <p className="ss-dim">Lieber ausprobieren? Das <Link className="underline" to="/sacrifice-and-sigils/tutorial">Tutorial</Link> führt durch einen Übungskampf.</p>
 
       <Section title="Das Match">
-        <p>Lobby → <b>Draft</b> → [<b>Kampf</b> → <b>Pfad</b>] × n → Ende. Wer zuerst die eingestellte Zahl an Kämpfen gewinnt (1, 2 oder 3), gewinnt das Match. Aufgeben kostet das ganze Match.</p>
+        <p>Lobby → <b>Draft</b> → <b>Pfad</b> → <b>Kampf</b> → [<b>Pfad</b> → <b>Kampf</b>] … → Ende. Wer zuerst die eingestellte Zahl an Kämpfen gewinnt (1, 2 oder 3), gewinnt das Match. Aufgeben kostet das ganze Match.</p>
         <p>Im Draft entsteht aus dem Seed ein Pool aus 24 Karten (14 gewöhnlich, 6 ungewöhnlich, 3 selten, 1 legendär). Beim <b>gemeinsamen Pool</b> wird im Snake-Draft 1-2-2-2… gewählt, bei <b>getrennten Pools</b> wählt jeder gleichzeitig 1 aus 5 aufgedeckten Karten. Danach wählst du einen Totem-Kopf und dein Nebendeck. Legendäre Karten gibt es nur einmal pro Match.</p>
       </Section>
 
@@ -53,8 +53,8 @@ export default function GuidePage() {
       </Section>
 
       <Section title="Der Pfad durchs Moor">
-        <p>Zwischen den Kämpfen wandern beide gleichzeitig über dieselbe Moorkarte und wählen pro Ebene einen erreichbaren Knoten: Kartenwahl, Verschmelzung, Sigil-Transfer, Lagerfeuer, Karte entfernen, Händler, Totem-Schrein, Kopist oder ein seltenes Ereignis. Was der andere gewählt hat, siehst du erst danach – und auch dann nur die Orte, nicht die Karten.</p>
-        <p><b>Splitter</b> gibt es für Überschuss auf der Waage (1 pro Punkt über 5), 3 für einen Sieg und 2 für eine Niederlage. Du trägst höchstens 3 Items.</p>
+        <p>Direkt nach dem Draft und zwischen den Kämpfen wandern beide gleichzeitig über dieselbe Moorkarte und wählen pro Ebene einen erreichbaren Knoten: Kartenwahl, Verschmelzung, Sigil-Transfer, Lagerfeuer, Karte entfernen, Händler, Totem-Schrein, Kopist oder ein seltenes Ereignis. Was der andere gewählt hat, siehst du erst danach – und auch dann nur die Orte, nicht die Karten.</p>
+        <p>Beide starten mit <b>3 Splittern</b>. Weitere gibt es für Überschuss auf der Waage (1 pro Punkt über 5), 3 für einen Sieg und 2 für eine Niederlage. Du trägst höchstens 3 Items.</p>
       </Section>
 
       <Section title="Bedienung">
