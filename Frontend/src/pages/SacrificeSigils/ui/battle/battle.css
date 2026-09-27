@@ -1,25 +1,165 @@
 /* Kampf-Tisch: leicht geneigte 3D-Perspektive, Slots, Einheiten-Ebene, Hand-Fächer, Animationen. */
 
+/* ───── Kampf-Layout (Runde 2, D1/D2): Grid füllt den Rest des Fensters (Höhe per JS in dvh), nichts scrollt ───── */
 .ss-battle {
   --slot-w: 120px;
   --slot-h: 144px;
+  --hand-w: 110px;
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr) 230px;
-  gap: 18px;
-  max-width: 1400px;
+  gap: 8px 14px;
+  max-width: 1760px;
   margin: 0 auto;
-  padding: 10px 14px 0;
-  min-height: calc(100dvh - 56px);
+  padding: 6px 14px 8px;
+  /* clip statt hidden: fokussierte, halb verdeckte Handkarten dürfen den Bereich nicht verschieben (kein Scrollen) */
+  overflow: clip;
+  min-height: 0;
 }
-.ss-side { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
-.ss-center { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.ss-battle > * { min-width: 0; min-height: 0; }
 
-@media (max-width: 1080px) {
-  .ss-battle { grid-template-columns: 1fr; gap: 8px; padding: 6px 8px 0; }
-  .ss-side { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 8px; padding-top: 0; }
-  .ss-side-left { order: -1; }
-  .ss-side-right { order: 2; }
+/* Desktop quer / Tablet: drei Spalten. Links Waage (oben) und Ressourcen/Items (unten), Mitte Gegner/Tisch/Hinweis/Hand,
+   rechts Zug-Knopf (oben) und Zieh-Stapel (unten rechts). */
+.ss-lay-desktop, .ss-lay-tablet {
+  grid-template-columns: minmax(200px, 17vw) minmax(0, 1fr) minmax(200px, 17vw);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "left  center right"
+    "left2 center right";
 }
+.ss-lay-tablet { grid-template-columns: minmax(150px, 19vw) minmax(0, 1fr) minmax(150px, 18vw); gap: 6px 10px; padding: 4px 8px 6px; }
+.ss-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+.ss-col-left { grid-area: left; }
+.ss-col-left2 { grid-area: left2; }
+.ss-col-center { grid-area: center; }
+.ss-col-center > .ss-b-board { flex: 1 1 0; }
+.ss-col-right { grid-area: right; }
+.ss-col-right > .ss-b-actions { order: 1; }
+.ss-col-right > .ss-b-decks { order: 2; margin-top: auto; }
+/* Hochkant und quer auf dem Handy: Spalten lösen sich auf, die Bereiche liegen direkt im Grid */
+.ss-lay-portrait .ss-col, .ss-lay-landscape-s .ss-col { display: contents; }
+
+/* Handy hochkant: Waage oben, Feld in der Mitte, Hand unten, Stapel unten rechts, Aktionsleiste ganz unten */
+.ss-lay-portrait {
+  /* drei Spalten: die Stapel bestimmen nur die letzte, der Zug-Knopf darf sich über zwei legen */
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  grid-template-areas:
+    "status status  status"
+    "opp    opp     opp"
+    "board  board   board"
+    "hint   hint    hint"
+    "hand   hand    decks"
+    "res    actions actions";
+  gap: 4px 6px;
+  padding: 4px 6px calc(4px + env(safe-area-inset-bottom));
+}
+
+/* Handy quer: schmale Leisten links (Waage-Zahl, Ressourcen) und rechts (Zug, Stapel), Hinweis liegt über dem Tisch,
+   die Hand lugt unten hervor */
+.ss-lay-landscape-s {
+  grid-template-columns: minmax(118px, 18vw) minmax(0, 1fr) minmax(118px, 19vw);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "status board actions"
+    "res    board decks"
+    "res    hand  decks";
+  gap: 2px 8px;
+  padding: 2px 8px;
+}
+.ss-lay-landscape-s .ss-b-hint { grid-area: board; align-self: start; z-index: 25; pointer-events: none; min-height: 0; }
+.ss-lay-landscape-s .ss-b-hint > * { pointer-events: auto; }
+.ss-lay-landscape-s .ss-b-status .ss-scale { display: none; }
+
+.ss-b-status { grid-area: status; display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
+.ss-b-opp { grid-area: opp; display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 40px; }
+.ss-b-board { grid-area: board; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible; min-height: 0; height: 100%; }
+.ss-b-hint { grid-area: hint; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+.ss-b-hand { grid-area: hand; display: flex; justify-content: center; align-items: flex-end; }
+.ss-b-res { grid-area: res; display: flex; flex-direction: column; gap: 2px; padding: 6px; }
+.ss-b-extras { grid-area: extras; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; }
+.ss-b-decks { grid-area: decks; display: flex; align-items: flex-end; justify-content: center; gap: 14px; padding-bottom: 6px; }
+.ss-b-actions { grid-area: actions; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 10px; padding-top: 4px; }
+
+.ss-b-statusinfo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ss-scale-num { font-family: var(--font-num); font-size: clamp(1.8rem, 2.6vw, 2.8rem); line-height: 1; color: var(--bone); }
+.ss-scale-num.ss-pos { color: #9fd08a; }
+.ss-scale-num.ss-neg { color: #ff8a7a; }
+.ss-scale-num-of { font-size: 0.45em; opacity: 0.6; margin-left: 4px; }
+.ss-turn-who { font-family: var(--font-title, inherit); font-size: clamp(1.05rem, 1.5vw, 1.45rem); line-height: 1.15; color: var(--parchment-light); }
+.ss-turn-who.ss-mine { color: var(--candle); text-shadow: 0 0 14px rgb(242 181 74 / 0.4); }
+
+.ss-endturn { width: 100%; min-height: 64px !important; font-size: 1.25rem !important; }
+.ss-hammer { min-height: 44px; justify-content: center; }
+.ss-res-label { font-size: 0.85rem; color: rgb(232 223 204 / 0.7); }
+.ss-candle-hint { position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 12; white-space: nowrap; border-color: var(--wax-red) !important; }
+
+/* Sacrifice-Zähler: groß und deutlich */
+.ss-blood-count {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-num); font-size: clamp(1.3rem, 2vw, 1.8rem);
+  padding: 4px 14px; border-radius: 999px;
+  background: rgb(60 10 10 / 0.8); border: 1.5px solid var(--wax-red-light); color: #ffd9cf;
+}
+.ss-blood-count.ss-ready { border-color: var(--candle); box-shadow: 0 0 16px rgb(242 181 74 / 0.45); }
+
+/* Tablet: etwas kompakter */
+.ss-lay-tablet .ss-b-status { flex-direction: column; align-items: stretch; }
+.ss-lay-tablet .ss-endturn { min-height: 54px !important; font-size: 1.1rem !important; }
+
+/* Hochkant */
+.ss-lay-portrait .ss-b-status { padding: 4px 8px; justify-content: space-between; }
+.ss-lay-portrait .ss-b-status svg { width: 96px; height: auto; }
+.ss-lay-portrait .ss-b-hint { min-height: 0; gap: 4px; }
+.ss-lay-portrait .ss-b-hint .ss-hint { font-size: 0.78rem; line-height: 1.25; padding: 3px 10px; border-radius: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ss-lay-portrait .ss-scale-num { font-size: 1.7rem; }
+.ss-lay-portrait .ss-b-opp { min-height: 30px; gap: 8px; }
+.ss-lay-portrait .ss-b-res { flex-direction: row; align-self: center; padding: 2px 4px; gap: 0; }
+.ss-lay-portrait .ss-res { padding: 2px 4px; gap: 4px; }
+.ss-lay-portrait .ss-res-label, .ss-lay-landscape-s .ss-res-label { display: none; }
+.ss-lay-portrait .ss-bowl, .ss-lay-portrait .ss-pile { width: 22px; height: 18px; }
+.ss-lay-portrait .ss-res-num { font-size: 1.2rem; }
+.ss-lay-portrait .ss-b-actions { flex-direction: row; align-items: center; justify-content: flex-end; padding: 0; }
+.ss-lay-portrait .ss-endturn { width: auto; min-height: 48px !important; padding: 0 18px !important; font-size: 1.05rem !important; }
+.ss-lay-portrait .ss-hammer-label, .ss-lay-landscape-s .ss-hammer-label { display: none; }
+.ss-lay-portrait .ss-b-actions > span, .ss-lay-landscape-s .ss-b-actions > span { display: none; }
+.ss-lay-portrait .ss-b-extras { display: none; }
+.ss-lay-portrait .ss-b-decks { gap: 8px; padding: 0; }
+.ss-lay-portrait .ss-opp-hand { height: 30px; }
+
+/* Handy quer */
+.ss-lay-landscape-s .ss-b-status { flex-direction: column; align-items: stretch; padding: 10px 6px 4px; gap: 2px; }
+.ss-lay-landscape-s .ss-turn-who { font-size: 0.95rem; }
+.ss-lay-landscape-s .ss-scale-num { font-size: 1.5rem; }
+.ss-lay-landscape-s .ss-b-opp { display: none; }
+.ss-lay-landscape-s .ss-b-res { flex-direction: row; flex-wrap: wrap; padding: 2px; align-self: start; }
+.ss-lay-landscape-s .ss-res { padding: 2px 3px; gap: 3px; }
+.ss-lay-landscape-s .ss-bowl, .ss-lay-landscape-s .ss-pile { width: 26px; height: 20px; }
+.ss-lay-landscape-s .ss-res-num { font-size: 1.1rem; }
+.ss-lay-landscape-s .ss-endturn { min-height: 48px !important; font-size: 1rem !important; }
+.ss-lay-landscape-s .ss-b-hint .ss-hint { font-size: 0.75rem; padding: 2px 10px; background: rgb(23 15 10 / 0.9); }
+.ss-lay-landscape-s .ss-b-extras { display: none; }
+.ss-b-hand.ss-peek { height: calc(var(--hand-w) * 0.8); overflow: visible; }
+
+/* Gegnerseite leicht abgedunkelt, eigene Seite heller; eigene Frontreihe klar umrahmt */
+.ss-side-shade { position: absolute; left: -6px; right: -6px; pointer-events: none; border-radius: 8px; }
+.ss-side-shade.ss-opp { top: -6px; height: calc(var(--slot-h) * 2 + 4px); background: rgb(0 0 0 / 0.22); }
+.ss-side-shade.ss-own { top: calc(var(--slot-h) * 2 + 16px); height: calc(var(--slot-h) * 2 + 6px); background: radial-gradient(ellipse at 50% 30%, rgb(255 230 180 / 0.07), transparent 70%); }
+.ss-own-front {
+  position: absolute; left: -4px; right: -4px;
+  top: calc(var(--slot-h) * 2 + 18px - 3px); height: calc(var(--slot-h) + 6px);
+  border: 2px solid rgb(242 181 74 / 0.45); border-radius: 10px; pointer-events: none;
+  box-shadow: inset 0 0 18px rgb(242 181 74 / 0.08);
+}
+.ss-my-turn .ss-own-front { border-color: rgb(242 181 74 / 0.75); }
+/* Opferbare Karten hervorheben, solange eine Blutkarte gewählt ist */
+.ss-sacrificable .ss-card { box-shadow: 0 0 0 2px #d0463a, 0 0 18px rgb(208 70 58 / 0.7); }
+
+/* Zieh-Stapel */
+.ss-stack-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; width: calc(var(--stack-w, 72px) + 16px); }
+.ss-stack-label { display: flex; align-items: baseline; gap: 6px; font-size: 0.8rem; color: rgb(232 223 204 / 0.8); white-space: nowrap; }
+.ss-stack-count { font-size: 1.35rem; color: var(--bone); }
+.ss-lay-portrait .ss-stack-name, .ss-lay-landscape-s .ss-stack-name { display: none; }
+@media (max-width: 1000px) { .ss-lay-tablet .ss-stack-name { display: none; } .ss-lay-tablet .ss-b-decks { gap: 8px; } }
+.ss-lay-tablet .ss-endturn { white-space: nowrap; font-size: 1rem !important; padding-left: 8px !important; padding-right: 8px !important; }
 
 /* Tisch mit Perspektive */
 .ss-table-wrap { perspective: 1400px; perspective-origin: 50% 20%; padding: 6px 0 4px; }
@@ -222,13 +362,17 @@
 /* ───── Hand ───── */
 .ss-hand {
   position: relative;
-  width: min(100%, 760px);
-  height: calc(var(--hand-w, 118px) * 1.45);
-  margin-top: 6px;
+  width: min(100%, 900px);
+  height: calc(var(--hand-w, 118px) * 1.5 + 8px);
 }
+.ss-peek .ss-hand { height: calc(var(--hand-w) * 0.8); }
+.ss-peek .ss-hand-card { bottom: calc(var(--hand-w) * -0.62); transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1), bottom 0.2s ease; }
+.ss-peek-lite .ss-hand { height: calc(var(--hand-w) * 1.05); }
+.ss-peek-lite .ss-hand-card { bottom: calc(var(--hand-w) * -0.36); }
+.ss-peek .ss-hand-card:hover, .ss-peek .ss-hand-card:focus-within, .ss-peek .ss-hand-card.ss-sel { bottom: 0; }
 .ss-hand-card {
   position: absolute;
-  bottom: 0;
+  bottom: 8px;
   left: 50%;
   transform-origin: 50% 130%;
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1);
@@ -285,14 +429,18 @@
 .ss-pile { position: relative; width: 58px; height: 34px; }
 .ss-deck-stack {
   position: relative;
-  width: 64px;
-  height: 88px;
+  width: calc(var(--stack-w, 72px) + 12px);
+  min-width: 44px;
+  min-height: 44px;
+  aspect-ratio: 0.72;
   cursor: default;
 }
-.ss-deck-stack .ss-card { position: absolute; top: 0; left: 0; }
-.ss-deck-stack.ss-drawable { cursor: pointer; }
-.ss-deck-stack.ss-drawable .ss-card { box-shadow: 0 0 0 2px var(--candle), 0 0 18px rgb(242 181 74 / 0.6); border-radius: 4px; }
-.ss-deck-stack.ss-drawable:hover .ss-card:last-child { transform: translateY(-4px); }
+.ss-deck-stack .ss-card { position: absolute; bottom: 0; left: 0; }
+.ss-deck-stack.ss-side-stack .ss-card { filter: sepia(0.4) hue-rotate(-20deg); }
+.ss-deck-stack.ss-drawable { cursor: pointer; animation: ss-stack-pulse 1.6s ease-in-out infinite; }
+.ss-deck-stack.ss-drawable .ss-card:last-child { box-shadow: 0 0 0 2px var(--candle), 0 0 18px rgb(242 181 74 / 0.6); border-radius: 4px; }
+.ss-deck-stack.ss-drawable:hover .ss-card:last-child { transform: translateY(-6px) !important; }
+@keyframes ss-stack-pulse { 0%, 100% { filter: drop-shadow(0 0 0 rgb(242 181 74 / 0)); } 50% { filter: drop-shadow(0 0 10px rgb(242 181 74 / 0.65)); } }
 .ss-item-btn {
   display: flex;
   align-items: center;
@@ -379,7 +527,9 @@
 .ss-toast {
   position: fixed;
   left: 50%;
-  bottom: 22px;
+  top: 38%;
+  max-width: calc(100vw - 32px);
+  text-align: center;
   z-index: 86;
   transform: translateX(-50%);
   padding: 8px 18px;
@@ -399,30 +549,6 @@
 
 .ss-skip-hint { position: fixed; right: 16px; bottom: 16px; z-index: 50; }
 
-/* ───── Hochformat: Waage oben, Feld in der Mitte, Hand unten, feste Aktionsleiste ───── */
-.ss-mobilebar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 55;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgb(23 15 10 / 0.85), rgb(23 15 10 / 0.98));
-  border-top: 1px solid rgb(176 141 87 / 0.5);
-}
-@media (max-width: 1080px) {
-  .ss-battle { padding-bottom: 70px; }
-  .ss-side .ss-panel { padding: 6px 8px; }
-  .ss-side-left .ss-panel { min-width: 0 !important; }
-  .ss-side-right .ss-turnpanel { display: none; }
-  .ss-side-left { flex-wrap: nowrap; align-items: stretch; }
-  .ss-side-left > .ss-panel:first-child svg { width: 128px; height: auto; }
-}
-
 /* Sigil-Transfer: das Tuschesymbol löst sich und brennt sich in die Zielkarte ein */
 .ss-a-burnin { animation: ss-burnin 1.4s ease-in forwards; transform: translate(-50%, -50%); }
 @keyframes ss-burnin {
@@ -434,3 +560,9 @@
 
 /* Hover-Vorschau auf dem Tisch (Desktop) */
 .ss-hover-preview { position: fixed; z-index: 75; pointer-events: none; width: 290px; padding: 10px; animation: ss-fade-in 0.12s ease-out; }
+
+/* Status-Panel: in schmalen Seitenspalten Waage oben, Zahl und Zugwechsel darunter */
+.ss-lay-desktop .ss-b-status, .ss-lay-tablet .ss-b-status { flex-wrap: wrap; justify-content: center; }
+.ss-lay-desktop .ss-b-status .ss-scale, .ss-lay-tablet .ss-b-status .ss-scale { flex: 1 1 150px; max-width: 240px; }
+.ss-lay-desktop .ss-b-status .ss-scale svg, .ss-lay-tablet .ss-b-status .ss-scale svg { width: 100%; height: auto; }
+.ss-lay-desktop .ss-b-statusinfo, .ss-lay-tablet .ss-b-statusinfo { flex: 1 1 110px; }

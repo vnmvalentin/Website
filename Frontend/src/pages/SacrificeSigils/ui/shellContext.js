@@ -2,7 +2,7 @@
 import { createContext, useContext } from "react";
 
 export const ShellContext = createContext({
-  /** @param {{ x: number, y: number, content: any } | null} _tip */
+  /** @param {{ x: number, y: number, bottom?: number, content: any } | null} _tip x = Mitte, y = Oberkante, bottom = Unterkante des Ankers */
   showTip: (_tip) => {},
   /** @param {number} _level 0–5 */
   setTension: (_level) => {},
@@ -19,7 +19,7 @@ export function useTipHandlers(content) {
   const { showTip } = useShell();
   const at = (el) => {
     const r = el.getBoundingClientRect();
-    showTip({ x: r.left + r.width / 2, y: r.top, content: content() });
+    showTip({ x: r.left + r.width / 2, y: r.top, bottom: r.bottom, content: content() });
   };
   return {
     onMouseEnter: (e) => at(e.currentTarget),

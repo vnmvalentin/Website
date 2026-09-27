@@ -1,6 +1,6 @@
 // ui/Shell.jsx — Hülle aller Seiten von Sacrifice & Sigils: eigener Look statt Website-Layout.
 // Holztisch, flackerndes Kerzenlicht (folgt leicht der Maus), Partikel-Overlay, Tooltip, Ton- und Anzeige-Einstellungen.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { ArrowLeftToLine, Volume2, VolumeX, Settings2 } from "lucide-react";
 import { ShellContext } from "./shellContext.js";
@@ -18,6 +18,34 @@ const NAV = [
   { to: "/sacrifice-and-sigils/anleitung", label: de.ui.guide },
 ];
 
+/**
+ * Tooltip mit Kollisionserkennung (Runde 2, D2): bevorzugt über dem Anker, sonst darunter; immer ganz im Fenster.
+ * @param {{ tip: { x: number, y: number, bottom?: number, content: any } }} props
+ */
+function Tooltip({ tip }) {
+  const ref = useRef(/** @type {HTMLDivElement|null} */ (null));
+  const [pos, setPos] = useState(/** @type {{ left: number, top: number } | null} */ (null));
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const m = 8;
+    const left = Math.max(m, Math.min(vw - w - m, tip.x - w / 2));
+    const below = (tip.bottom ?? tip.y) + 10;
+    let top = tip.y - h - 10;
+    if (top < m) top = below + h <= vh - m ? below : Math.max(m, vh - h - m);
+    setPos({ left, top });
+  }, [tip]);
+  return (
+    <div ref={ref} className="ss-tip ss-paper" style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, maxWidth: "min(280px, calc(100vw - 16px))" }} role="tooltip">
+      {tip.content}
+    </div>
+  );
+}
+
 function SettingsPopover({ onClose }) {
   const prefs = usePrefs();
   const [s, setS] = useState(sound.settings);
@@ -29,7 +57,9 @@ function SettingsPopover({ onClose }) {
     </label>
   );
   return (
-    <div className="ss-paper absolute right-0 top-12 z-50 w-72 p-4 space-y-3 ss-fade-in" role="dialog" aria-label={de.ui.settings}>
+    // Zentrierter Dialog statt Popover (Runde 2, D2): passt in jedes Fenster, scrollt bei Bedarf innen
+    <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/55 ss-fade-in" onClick={onClose}>
+    <div className="ss-paper ss-modal-box w-[min(360px,calc(100vw-32px))] p-4 space-y-3" role="dialog" aria-modal="true" aria-label={de.ui.settings} onClick={(e) => e.stopPropagation()}>
       <p className="ss-title !text-[var(--ink)] text-lg">{de.ui.settings}</p>
       {slider("master", de.ui.master)}
       {slider("sfx", de.ui.effects)}
@@ -50,7 +80,8 @@ function SettingsPopover({ onClose }) {
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={prefs.tipsOff} onChange={(e) => setPrefs({ tipsOff: e.target.checked })} /> Tutorial-Hinweise ausblenden
       </label>
-      <div className="text-right"><button type="button" className="ss-btn ss-btn-sm" onClick={onClose}>OK</button></div>
+      <div className="text-right"><button type="button" className="ss-btn ss-btn-sm min-h-[44px] min-w-[64px]" onClick={onClose}>OK</button></div>
+    </div>
     </div>
   );
 }
@@ -190,11 +221,7 @@ export default function Shell() {
           </div>
         )}
         <canvas ref={canvasRef} className="fixed inset-0 w-full h-full pointer-events-none z-[70]" aria-hidden />
-        {tip && (
-          <div className="ss-tip ss-paper" style={{ left: Math.min(window.innerWidth - 290, Math.max(8, tip.x - 140)), top: Math.max(8, tip.y - 12), transform: "translateY(-100%)" }} role="tooltip">
-            {tip.content}
-          </div>
-        )}
+        {tip && <Tooltip tip={tip} />}
       </div>
     </ShellContext.Provider>
   );

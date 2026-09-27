@@ -1,5 +1,5 @@
 // ui/pages/PracticePage.jsx — Übung gegen die KI (leicht/normal/schwer) oder Hotseat zu zweit an einem Gerät.
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SEO from "../../../../components/SEO";
 import { useLocalGame } from "../../net/useLocalGame.js";
@@ -26,7 +26,7 @@ function LocalMatch({ config, onExit }) {
       <GameScreen game={game} onExit={onExit} />
       {game.handoff && (
         <div className="fixed inset-0 z-[95] flex items-center justify-center bg-[#0c0806]/95 p-4">
-          <div className="ss-paper p-6 text-center max-w-md space-y-4">
+          <div className="ss-paper ss-modal-box p-6 text-center max-w-md space-y-4">
             <p className="ss-title !text-[var(--ink)] text-2xl">Gerät weitergeben</p>
             <p>Jetzt ist <b>{config.names[1 - game.you]}</b> dran. Nicht auf die Hand des anderen schauen!</p>
             <button type="button" className="ss-seal" onClick={game.confirmHandoff}>Ich bin {config.names[1 - game.you]}</button>
@@ -37,8 +37,19 @@ function LocalMatch({ config, onExit }) {
   );
 }
 
+/** Nur Dev-Build: fester Spielstand für Screenshots (?fixture=…), KI steht still. */
+function FixtureMatch({ name }) {
+  const [state, setState] = useState(/** @type {any} */ (null));
+  useEffect(() => {
+    import("../dev/fixtures.js").then((m) => setState(m.buildFixture(name)));
+  }, [name]);
+  if (!state) return <p className="text-center ss-dim py-20">Fixture wird gebaut …</p>;
+  return <LocalMatch config={{ seed: state.seed, settings: state.settings, names: state.players.map((P) => P.name), initialState: state, aiEnabled: false }} onExit={() => {}} />;
+}
+
 export default function PracticePage() {
   const navigate = useNavigate();
+  const fixture = import.meta.env.DEV && typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("fixture") : null;
   const [config, setConfig] = useState(/** @type {any} */ (null));
   const [level, setLevel] = useState("normal");
   const [hotseat, setHotseat] = useState(false);
@@ -47,6 +58,7 @@ export default function PracticePage() {
   const [name2, setName2] = useState("Zweiter Zeichner");
   const myName = getPrefs().name || "Zeichner";
 
+  if (fixture) return <FixtureMatch name={fixture} />;
   if (config) return <LocalMatch key={config.seed} config={config} onExit={() => setConfig(null)} />;
 
   const start = () => {

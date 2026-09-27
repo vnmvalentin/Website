@@ -124,7 +124,7 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
               {you !== null && timers?.[you] && <TurnTimer timer={timers[you]} clockOffset={clockOffset} />}
             </div>
             <p className="opacity-75 mb-2">{pp?.done ? "Dein Weg ist gegangen. Warte auf den anderen Zeichner …" : you === null ? "Die Zeichner wandern." : "Wähle einen erreichbaren Knoten."}</p>
-            <svg viewBox="0 0 400 400" className="w-full max-w-[560px] mx-auto block" role="img" aria-label="Moorkarte">
+            <svg viewBox="0 0 400 400" className="w-full max-w-[560px] lg:max-h-[calc(100dvh-330px)] mx-auto block" role="img" aria-label="Moorkarte">
               <defs>
                 <filter id="mapInk"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="5" /><feDisplacementMap in="SourceGraphic" scale="2.2" /></filter>
               </defs>
@@ -169,7 +169,7 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
         )}
         {err && <p className="text-center text-[var(--wax-red-light)]" role="alert">{err}</p>}
       </section>
-      <aside className="space-y-4">
+      <aside className="space-y-4 lg:max-h-[calc(100dvh-140px)] lg:overflow-y-auto lg:pr-1">
         <div className="ss-panel p-4">
           <p className="ss-title">{names[opp]}</p>
           <p className="ss-dim text-sm">

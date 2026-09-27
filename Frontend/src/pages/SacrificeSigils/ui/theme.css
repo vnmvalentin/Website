@@ -357,3 +357,31 @@
   width: min(460px, calc(100vw - 32px));
   padding: 12px 14px;
 }
+
+/* Schmale Spielleiste über dem Spielfeld; auf niedrigen Bildschirmen noch flacher */
+.ss-gamebar { min-height: 44px; white-space: nowrap; }
+.ss-gamebar > span { overflow: hidden; text-overflow: ellipsis; }
+@media (max-height: 560px) {
+  .ss-topbar > div { height: 40px; }
+  .ss-gamebar { min-height: 36px; }
+}
+
+/* Alle Dialoge: zentriert, nie höher als das Fenster (dvh), innen scrollbar */
+.ss-modal-box { max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; }
+
+/* Touch-Ziele mindestens 44 px (Runde 2, D2) */
+@media (pointer: coarse), (max-width: 900px), (max-height: 500px) {
+  .ss-game .ss-btn, .ss-game .ss-seal { min-height: 44px; }
+  .ss-game .ss-topbar .ss-btn, .ss-game .ss-gamebar .ss-btn { min-width: 44px; min-height: 44px; justify-content: center; }
+  .ss-game .ss-topbar a.ss-title { display: inline-flex; align-items: center; min-height: 44px; }
+  .ss-game label:has(> input[type="checkbox"]) { min-height: 44px; }
+  .ss-game input[type="checkbox"] { width: 22px; height: 22px; }
+  .ss-game input[type="range"] { min-height: 44px; }
+  .ss-game .ss-deck-stack { min-width: 44px; min-height: 60px; }
+}
+@media (pointer: coarse), (max-width: 900px), (max-height: 500px) {
+  .ss-game button, .ss-game a[href], .ss-game input:not([type="checkbox"]):not([type="range"]), .ss-game select { min-height: 44px; }
+  .ss-game button:not(.ss-deck-stack) { min-width: 44px; }
+  .ss-game .ss-card button, .ss-game .ss-card a { min-height: 0; min-width: 0; }
+  .ss-game .ss-deck-row { min-height: 44px; }
+}

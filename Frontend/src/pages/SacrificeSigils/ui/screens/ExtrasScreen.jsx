@@ -77,7 +77,7 @@ export default function ExtrasScreen({ view, you, send, names, timers, clockOffs
                   </div>
                 </div>
                 <p className="text-sm mt-2 opacity-80">{totemText(h.head, h.base)}</p>
-                {owner !== undefined && <span className="ss-badge absolute top-2 right-2">{who(owner)}</span>}
+                {owner !== undefined && <span className="ss-badge !absolute top-2 right-2">{who(owner)}</span>}
               </button>
             );
           })}

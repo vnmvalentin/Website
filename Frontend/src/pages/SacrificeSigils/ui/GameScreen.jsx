@@ -1,7 +1,7 @@
 // ui/GameScreen.jsx — Rahmen eines laufenden Matches: Animations-Queue, Effekte (Sound, Partikel, Shake, Spannung)
 // und Umschaltung zwischen den Phasen (Draft, Extras, Kampf, Pfad, Rast, Ergebnis).
 import React, { useCallback, useEffect, useState } from "react";
-import { FastForward, Wifi, WifiOff } from "lucide-react";
+import { FastForward, Flag, Wifi, WifiOff } from "lucide-react";
 import { useAnimationQueue } from "./anim/useAnimationQueue.js";
 import { EVENT_TIMING } from "./anim/timing.js";
 import { particles, centerOf } from "./anim/particles.js";
@@ -157,17 +157,17 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         if (q.busy && !(e.target instanceof Element && e.target.closest("button, input, select, a"))) q.skip();
       }}
     >
-      <div className="max-w-[1400px] mx-auto px-3 pt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+      <div className="ss-gamebar max-w-[1760px] mx-auto px-3 flex flex-nowrap items-center gap-x-4 text-sm">
         <span className="ss-title text-[var(--candle)]">{de.phases[phase]}{phase === "battle" && view.battle ? ` ${view.battleNo}` : ""}</span>
         <span className="ss-dim">
           {names[0]} <b className="ss-num text-[var(--bone)]">{view.wins[0]}</b> : <b className="ss-num text-[var(--bone)]">{view.wins[1]}</b> {names[1]}
           <span className="ss-faint"> · {view.settings.winsNeeded} {view.settings.winsNeeded === 1 ? de.ui.win : de.ui.wins} nötig</span>
         </span>
-        {you !== null && <span className="ss-dim">{de.ui.shards}: <b className="ss-num">{view.players[you].shards}</b></span>}
-        <span className="ss-faint">Seed {view.seed}</span>
+        {you !== null && <span className="ss-dim hidden sm:inline">{de.ui.shards}: <b className="ss-num">{view.players[you].shards}</b></span>}
+        <span className="ss-faint hidden lg:inline">Seed {view.seed}</span>
         <div className="ml-auto flex items-center gap-2">
           {game.mode === "online" && (game.connection === "connected" ? <Wifi size={15} className="ss-faint" aria-label="Verbunden" /> : <span className="flex items-center gap-1 text-[var(--wax-red-light)]"><WifiOff size={15} /> {de.ui.reconnecting}</span>)}
-          {q.busy && <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost" onClick={q.skipAll} title="Alle Animationen überspringen"><FastForward size={14} /> Alle überspringen</button>}
+          {q.busy && <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost min-h-[40px]" aria-label="Alle Animationen überspringen" onClick={q.skipAll} title="Alle Animationen überspringen"><FastForward size={14} /> <span className="hidden sm:inline">Alle überspringen</span></button>}
           {you !== null && phase !== "over" && (
             confirmSurrender ? (
               <span className="flex items-center gap-2 ss-paper px-2 py-1 text-xs">
@@ -176,7 +176,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
                 <button type="button" className="ss-btn ss-btn-sm" onClick={() => setConfirmSurrender(false)}>{de.ui.cancel}</button>
               </span>
             ) : (
-              <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost" onClick={() => setConfirmSurrender(true)}>{de.ui.surrender}</button>
+              <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost min-h-[40px]" onClick={() => setConfirmSurrender(true)} aria-label={de.ui.surrender} title={de.ui.surrender}><Flag size={14} /><span className="hidden sm:inline">{de.ui.surrender}</span></button>
             )
           )}
         </div>

@@ -10,7 +10,7 @@ import Scale from "./Scale.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
 import { BloodDrop, Bone, CandleStub, Hammer, Shard, Claw, Hourglass, ShieldBark, RushArrow, InkChevron, WaxHeart } from "../icons/GameIcons.jsx";
-import { Resolver, LANES, WAX_MAX, STALEMATE_TURN, CANDLE_WARNING_TURN, candleWeight, HAND_LIMIT, NO_ATTACK_TURNS } from "../../engine/battle.js";
+import { Resolver, LANES, WAX_MAX, STALEMATE_TURN, CANDLE_WARNING_TURN, candleWeight, HAND_LIMIT, NO_ATTACK_TURNS, SCALE_WIN } from "../../engine/battle.js";
 import { deepClone } from "../../engine/match.js";
 import { parseSigil } from "../../engine/sigils/index.js";
 import { ITEM_BY_ID } from "../../data/items.js";
@@ -58,7 +58,7 @@ function SeerDialog({ cards, onConfirm }) {
   };
   return (
     <div className="fixed inset-0 z-[88] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-label="Seher">
-      <div className="ss-paper p-5 max-w-[640px] w-full">
+      <div className="ss-paper ss-modal-box p-5 max-w-[640px] w-full">
         <p className="ss-title !text-[var(--ink)] text-xl">Seher: Ordne die obersten Karten</p>
         <p className="text-sm opacity-70 mb-3">Links liegt oben – diese Karte ziehst du als nächstes.</p>
         <div className="flex flex-wrap gap-3 justify-center">
@@ -78,6 +78,25 @@ function SeerDialog({ cards, onConfirm }) {
   );
 }
 
+/**
+ * Zieh-Stapel (Runde 2, D1): Höhe zeigt die Menge, Zahl daneben, Klick zieht, pulsiert wenn gezogen werden muss.
+ * @param {{ label: string, count: number|null, side?: boolean, drawable: boolean, anchor?: string, onDraw: () => void, width: number }} props
+ */
+function DeckStack({ label, count, side = false, drawable, anchor, onDraw, width }) {
+  const layers = count === null ? 5 : Math.min(8, Math.ceil(count / 2));
+  return (
+    <div className="ss-stack-wrap">
+      <button type="button" className={`ss-deck-stack ${drawable ? "ss-drawable" : ""} ${side ? "ss-side-stack" : ""}`} data-anchor={anchor} disabled={!drawable} onClick={onDraw}
+        aria-label={`${label}${count === null ? " (unendlich)" : `: ${count} Karten`}${drawable ? " – ziehen" : ""}`}>
+        {Array.from({ length: Math.max(1, layers) }, (_, i) => (
+          <Card key={i} faceDown width={width} className="ss-stack-card" style={{ transform: `translate(${i * 1.2}px, ${-i * 2.4}px)`, opacity: count === 0 ? 0.3 : 1 }} />
+        ))}
+      </button>
+      <span className="ss-stack-label"><span className="ss-stack-count ss-num">{count === null ? "∞" : count}</span><span className="ss-stack-name">{label}</span></span>
+    </div>
+  );
+}
+
 /** Item-Knopf mit Tooltip. */
 function ItemButton({ id, active, disabled, onClick }) {
   const tip = useTipHandlers(() => <><b>{de.items[id].name}</b><br />{de.items[id].desc}</>);
@@ -88,7 +107,7 @@ function ItemButton({ id, active, disabled, onClick }) {
   );
 }
 
-function TotemFigure({ totem, kind, onHover }) {
+function TotemFigure({ totem, kind, owner, onHover }) {
   const tip = useTipHandlers(() => {
     const base = totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].name : de.totems.props[totem.base.prop].name;
     const text = totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].desc : de.totems.props[totem.base.prop].desc;
@@ -99,7 +118,7 @@ function TotemFigure({ totem, kind, onHover }) {
     <div className="ss-totem" {...tip} onMouseEnter={(e) => { tip.onMouseEnter(e); onHover(totem); }} onMouseLeave={() => { tip.onMouseLeave(); onHover(null); }} tabIndex={0}>
       <div className="ss-totem-figure" aria-hidden />
       <div className="text-xs leading-tight">
-        <div className="ss-title text-[13px]">{totem.head.kind === "tribe" ? de.tribes[totem.head.tribe].name : de.totems.lane(totem.head.lane)}</div>
+        <div className="ss-title text-[13px]">{owner ? <span className="ss-faint">{owner}: </span> : null}{totem.head.kind === "tribe" ? de.tribes[totem.head.tribe].name : de.totems.lane(totem.head.lane)}</div>
         <div className="flex items-center gap-1">
           {totem.base.kind === "sigil" ? <SigilIcon sigil={totem.base.sigil} size={18} /> : null}
           <span className="ss-dim">{totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].name : de.totems.props[totem.base.prop].name}</span>
@@ -145,12 +164,40 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
   const hoverTimer = useRef(/** @type {any} */ (null));
   const { w: vw, h: vh } = useViewport();
   const mobile = vw < 1080;
-  const handW = vw < 640 ? 78 : vh < 760 ? 92 : 108;
-  // Slotgröße aus Breite UND Höhe: Tisch (4 Reihen à 1,2 Slots) + Hand + Kopfzeilen sollen ins Fenster passen
-  const byWidth = vw < 1080 ? (vw - 28) / 4 : Math.min((vw - 2 * 230 - 90) / 4, 140);
-  // Kopfzeile 56 + Infozeile 45 + Gegnerhand 50 + Hinweis 50 + Hand (Kartenhöhe 1,4 + Anheben) + Luft
-  const byHeight = (vh - 56 - 45 - 50 - 50 - handW * 1.45 - 30) / (4 * 1.2 + 0.15);
-  const slotPx = Math.max(62, Math.min(byWidth, vw < 1080 ? byWidth : byHeight, 140));
+  // Layout (Runde 2, D2): Desktop quer · Tablet/kleiner Laptop · Handy hochkant · Handy quer (kompakt)
+  const layout = vw < 700 && vh >= vw ? "portrait" : vh < 560 && vw > vh ? "landscape-s" : vw < 1180 || vh < 720 ? "tablet" : "desktop";
+  // Der Kampf füllt genau den Rest des Fensters (dvh), nichts scrollt; die Kartengröße folgt dem Platz des Tischs
+  const rootRef = useRef(/** @type {HTMLDivElement|null} */ (null));
+  const boardRef = useRef(/** @type {HTMLDivElement|null} */ (null));
+  const [topOff, setTopOff] = useState(100);
+  const [boardBox, setBoardBox] = useState({ w: 520, h: 520 });
+  const handBoxRef = useRef(/** @type {HTMLDivElement|null} */ (null));
+  const [handBoxW, setHandBoxW] = useState(600);
+  useEffect(() => {
+    const measure = () => {
+      if (rootRef.current) setTopOff(Math.round(rootRef.current.getBoundingClientRect().top + window.scrollY));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    const el = boardRef.current;
+    const ro = typeof ResizeObserver !== "undefined" && el ? new ResizeObserver(([e]) => {
+      setBoardBox({ w: e.contentRect.width, h: e.contentRect.height });
+      measure();
+    }) : null;
+    if (ro && el) ro.observe(el);
+    const hel = handBoxRef.current;
+    const hro = typeof ResizeObserver !== "undefined" && hel ? new ResizeObserver(([e]) => setHandBoxW(e.contentRect.width)) : null;
+    if (hro && hel) hro.observe(hel);
+    return () => {
+      hro?.disconnect();
+      window.removeEventListener("resize", measure);
+      ro?.disconnect();
+    };
+  }, []);
+  // 4 Lanes nebeneinander (+ Reihenbeschriftung), 4 Reihen à 1,2 Slot-Höhen + Mittellinie untereinander
+  const labelSpace = layout === "desktop" || layout === "tablet" ? 34 : 6;
+  const slotPx = Math.floor(Math.max(40, Math.min(190, (boardBox.w - labelSpace) / 4, (boardBox.h - 22) / (4 * 1.2))));
+  const handW = Math.round(Math.max(56, Math.min(layout === "portrait" ? vw / 4.6 : 150, slotPx * (layout === "portrait" ? 0.95 : 0.84))));
   const floats = useFloats(anim, b);
 
   const reset = () => {
@@ -386,6 +433,10 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
     };
   };
 
+  // Beim Ausspielen einer Blutkarte: welche eigenen Karten dürfen geopfert werden (und sind noch nicht gewählt)?
+  const sacrificable = (u) => !!(canAct && selCard && selCard.cost.type === "blood" && needBlood > 0 && u.owner === bottom &&
+    !sacs.some((x) => x.zone === u.zone && x.lane === u.lane) && r.laneProp(bottom, u.lane) !== "heilig");
+
   const rows = ROWS_FOR(bottom);
   const rowTop = (i) => `calc(var(--slot-h) * ${i} + ${i >= 2 ? 18 : 0}px)`;
   const totemLane = totemHover?.head?.kind === "lane" ? totemHover.head.lane : null;
@@ -398,57 +449,65 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
   });
 
   const hand = me.hand;
-  const spread = Math.min(handW * 0.72, 520 / Math.max(1, hand.length));
+  const stackW = layout === "desktop" ? 84 : layout === "tablet" ? Math.round(Math.max(48, Math.min(68, vw * 0.07 - 4))) : layout === "portrait" ? 42 : 50;
+  // Fächerbreite: die Hand muss in ihren Bereich passen (hochkant teilt sie sich die Zeile mit den Stapeln)
+  // Randkarten sind gedreht und ragen etwas hinaus: dafür eine halbe Kartenbreite Luft lassen
+  const handAreaW = Math.max(120, handBoxW - 12 - handW * 0.6);
+  const spread = Math.max(8, Math.min(handW * 0.72, (handAreaW - handW) / Math.max(1, hand.length - 1)));
 
   const itemsList = me.items || [];
 
   return (
-    <div className="ss-battle ss-shake-target" style={{ "--slot-w": `${slotPx}px`, "--slot-h": `${slotPx * 1.2}px` }}>
-      {/* ── Links: Waage, Items ── */}
-      <aside className="ss-side ss-side-left">
-        <div className="ss-panel p-3 flex flex-col items-center">
-          <Scale value={scaleView} compact={mobile} labels={[you === null ? names[0] : de.ui.you, you === null ? names[1] : names[top] || de.ui.opponent]} />
-          <p className="text-xs ss-faint mt-1">{de.ui.turn} {b.turn}</p>
-        </div>
-        {you !== null && (
-          <div className="ss-panel p-3 space-y-2 min-w-[180px]">
-            <p className="ss-title text-sm">{de.ui.items}</p>
-            {itemsList.length === 0 && <p className="text-sm ss-faint">Keine Items.</p>}
-            {itemsList.map((id, i) => (
-              <ItemButton key={`${id}${i}`} id={id} active={mode === "item" && item === id} disabled={!canAct || needDraw || !!pending}
-                onClick={async () => {
-                  const t = ITEM_BY_ID[id].target;
-                  if (t === "none") { await act({ type: "item", item: id, target: {} }); reset(); return; }
-                  reset();
-                  setMode("item");
-                  setItem(id);
-                }} />
-            ))}
-            <p className="text-xs ss-faint">Gegner: {opp.itemCount ?? (opp.items || []).length} Items</p>
+    <div
+      ref={rootRef}
+      className={`ss-battle ss-lay-${layout} ss-shake-target ${myTurn ? "ss-my-turn" : ""}`}
+      style={{ "--slot-w": `${slotPx}px`, "--slot-h": `${slotPx * 1.2}px`, "--hand-w": `${handW}px`, height: `calc(100dvh - ${topOff}px)` }}
+    >
+      <div className="ss-col ss-col-left">
+      {/* ── Status: Waage mit Zahl, wer ist am Zug, Timer ── */}
+      <div className="ss-b-status ss-panel">
+        <Scale value={scaleView} compact={layout !== "desktop"} labels={[you === null ? names[0] : de.ui.you, you === null ? names[1] : names[top] || de.ui.opponent]} />
+        <div className="ss-b-statusinfo">
+          <p className={`ss-scale-num ${scaleView > 0 ? "ss-pos" : scaleView < 0 ? "ss-neg" : ""}`} title="Waage aus deiner Sicht: 5 im Vorteil gewinnt">
+            {scaleView > 0 ? `+${scaleView}` : scaleView}
+            <span className="ss-scale-num-of">/ {SCALE_WIN}</span>
+          </p>
+          <p className={`ss-turn-who ${myTurn ? "ss-mine" : ""}`} role="status">
+            {live.phase === "over" ? "Kampf vorbei" : you === null ? `${names[live.active]} ist am Zug` : myTurn ? "Dein Zug" : `${names[top]} ist am Zug`}
+          </p>
+          <div className="flex items-center gap-2">
+            <TurnTimer timer={turnTimer} clockOffset={clockOffset} />
+            <span className="text-xs ss-faint">{de.ui.turn} {b.turn}</span>
           </div>
-        )}
-      </aside>
-
-      {/* ── Mitte: Tisch und Hand ── */}
-      <section className="ss-center">
-        <div className="flex items-center gap-3 w-full justify-center min-h-[48px]">
-          <span className="ss-title text-lg">{names[top]}</span>
-          <div className="ss-opp-hand" aria-label={`${opp.handSize ?? opp.hand.length} Karten auf der Hand`}>
-            {Array.from({ length: Math.min(8, opp.hand.length) }, (_, i) => (
-              opp.hand[i] && !opp.hand[i].hidden
-                ? <Card key={opp.hand[i].uid} card={opp.hand[i]} width={34} />
-                : <Card key={i} faceDown width={34} style={{ transform: `rotate(${(i - opp.hand.length / 2) * 4}deg)` }} />
-            ))}
-          </div>
-          {live.active === top && <TurnTimer timer={turnTimer} clockOffset={clockOffset} />}
         </div>
+      </div>
 
+      </div>
+
+      <div className="ss-col ss-col-center">
+      {/* ── Gegner: Name, verdeckte Hand ── */}
+      <div className="ss-b-opp">
+        <span className="ss-title text-base md:text-lg truncate">{names[top]}</span>
+        <div className="ss-opp-hand" aria-label={`${opp.handSize ?? opp.hand.length} Karten auf der Hand`}>
+          {Array.from({ length: Math.min(8, opp.hand.length) }, (_, i) => (
+            opp.hand[i] && !opp.hand[i].hidden
+              ? <Card key={opp.hand[i].uid} card={opp.hand[i]} width={30} />
+              : <Card key={i} faceDown width={30} style={{ transform: `rotate(${(i - opp.hand.length / 2) * 4}deg)` }} />
+          ))}
+        </div>
+        <span className="text-xs ss-faint whitespace-nowrap">{opp.handSize ?? opp.hand.length} Karten · {opp.itemCount ?? (opp.items || []).length} Items</span>
+      </div>
+
+      {/* ── Tisch ── */}
+      <div className="ss-b-board" ref={boardRef}>
         {b.turn >= CANDLE_WARNING_TURN && b.phase !== "over" && (
-          <p className="ss-hint my-1 !border-[var(--wax-red)]">{candleTurns > 0 ? de.ui.candleWarn(candleTurns) : de.ui.candleBurning(candleWeight(b.turn))}</p>
+          <p className="ss-hint ss-candle-hint">{candleTurns > 0 ? de.ui.candleWarn(candleTurns) : de.ui.candleBurning(candleWeight(b.turn))}</p>
         )}
-
         <div className="ss-table-wrap">
           <div className="ss-table" role="grid" aria-label="Spielfeld">
+            <div className="ss-side-shade ss-opp" aria-hidden />
+            <div className="ss-side-shade ss-own" aria-hidden />
+            <div className="ss-own-front" aria-hidden />
             {rows.map((row, ri) => (
               <React.Fragment key={`${row.p}${row.zone}`}>
                 <span className="ss-row-label" style={{ top: rowTop(ri), height: "var(--slot-h)" }}>{you === null ? `${names[row.p]} · ` : row.p === bottom ? "Du · " : ""}{row.label}</span>
@@ -505,7 +564,7 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
               const atk = r.attackOf(u);
               const glow = totemTribe && u.card.tribe === totemTribe && own;
               return (
-                <div key={u.uid} className="ss-unit" style={{ transform: `translate(calc(var(--slot-w) * ${lane}), ${rowTop(ri)})`, zIndex: anim?.ev?.uid === u.uid || hold?.uid === u.uid ? 20 : 5, ...(anim?.ev?.uid === u.uid && anim.ev.type === "move" ? { transitionDuration: `${Math.round(anim.dur)}ms` } : {}) }}>
+                <div key={u.uid} className={`ss-unit ${sacrificable(u) ? "ss-sacrificable" : ""}`} style={{ transform: `translate(calc(var(--slot-w) * ${lane}), ${rowTop(ri)})`, zIndex: anim?.ev?.uid === u.uid || hold?.uid === u.uid ? 20 : 5, ...(anim?.ev?.uid === u.uid && anim.ev.type === "move" ? { transitionDuration: `${Math.round(anim.dur)}ms` } : {}) }}>
                   <div
                     className={animClassFor(u)}
                     style={strikeStyle(u, own)}
@@ -563,17 +622,22 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
             })}
           </div>
         </div>
+      </div>
 
-        {/* Hinweis + Aktionen */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mt-1 min-h-[44px]">
-          {hint && <p className="ss-hint">{hint}</p>}
-          {hintExtra}
-          {selCard && selCard.cost.type === "blood" && needBlood > 0 && (
-            <button type="button" className="ss-seal !min-h-[40px] !px-5" disabled={!bloodReady || !target} onClick={() => tryPlay(target)}>{de.ui.confirm}</button>
-          )}
-          {(selCard || mode !== "idle") && <button type="button" className="ss-btn ss-btn-sm" onClick={reset}>{de.ui.cancel}</button>}
-        </div>
-
+      {/* ── Hinweis, Opfer-Zähler, Bestätigen ── */}
+      <div className="ss-b-hint">
+        {selCard && selCard.cost.type === "blood" && needBlood > 0 && (
+          <span className={`ss-blood-count ${bloodReady ? "ss-ready" : ""}`} aria-live="polite">
+            <BloodDrop size={22} /> Blut {Math.min(sacSum, needBlood)} / {needBlood}
+          </span>
+        )}
+        {hint && <p className="ss-hint">{hint}</p>}
+        {hintExtra}
+        {selCard && selCard.cost.type === "blood" && needBlood > 0 && (
+          <button type="button" className="ss-seal !min-h-[44px] !px-5" disabled={!bloodReady || !target} onClick={() => tryPlay(target)}>{de.ui.confirm}</button>
+        )}
+        {(selCard || mode !== "idle") && <button type="button" className="ss-btn ss-btn-sm min-h-[44px]" onClick={reset}>{de.ui.cancel}</button>}
+      </div>
         {pinUnit && (
           <div className="ss-paper p-3 flex flex-wrap gap-2 items-center justify-center my-1">
             {pinUnit.unit.sigils.map((s) => (
@@ -584,7 +648,8 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
           </div>
         )}
 
-        {/* Hand als Fächer */}
+      {/* ── Hand ── */}
+      <div ref={handBoxRef} className={`ss-b-hand ${layout === "landscape-s" ? "ss-peek" : layout === "portrait" ? "ss-peek ss-peek-lite" : ""}`}>
         <div className="ss-hand" style={{ "--hand-w": `${handW}px` }} aria-label="Deine Hand">
           {you !== null && hand.map((card, i) => {
             if (card.hidden) return null;
@@ -595,8 +660,8 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
             return (
               <div
                 key={card.uid}
-                className={`ss-hand-card ${!aff.ok && canAct ? "ss-unplayable" : ""}`}
-                style={{ transform: `translateX(calc(-50% + ${off * spread}px)) translateY(${Math.abs(off) * 4}px) rotate(${off * Math.min(6, 40 / n)}deg)`, zIndex: 10 + i }}
+                className={`ss-hand-card ${!aff.ok && canAct ? "ss-unplayable" : ""} ${sel === card.uid ? "ss-sel" : ""}`}
+                style={{ transform: `translateX(calc(-50% + ${off * spread}px)) translateY(${Math.abs(off) * 4}px) rotate(${off * Math.min(6, 40 / n) * (layout === "portrait" ? 0.5 : 1)}deg)`, zIndex: 10 + i }}
                 onMouseMove={(e) => {
                   const el = e.currentTarget.querySelector(".ss-tilt");
                   if (!el) return;
@@ -634,98 +699,82 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
           })}
           {you === null && <p className="text-center ss-dim pt-6">Zuschauer sehen nur öffentliche Information.</p>}
         </div>
-      </section>
+      </div>
 
-      {/* ── Rechts: Ressourcen, Decks, Totems, Zug ── */}
-      <aside className="ss-side ss-side-right">
-        {you !== null && (
-          <div className="ss-panel p-2 space-y-1 min-w-[190px]">
-            <div className="ss-res" data-anchor={`blood-${bottom}`} title="Blutschale: Opfer beim Ausspielen (plus Blutphiole)">
-              <div className="ss-bowl"><div className="ss-bowl-fill" style={{ height: `${Math.min(100, ((sacSum + (me.bloodBonus || 0)) / 4) * 100)}%` }} /></div>
-              <span className="ss-res-num">{sacSum + (me.bloodBonus || 0)}</span>
-              <BloodDrop size={14} />
-            </div>
-            <div className="ss-res" data-anchor={`bones-${bottom}`} title="Knochen">
-              <div className="ss-pile flex items-end justify-center"><Bone size={22} /><Bone size={18} className="-ml-3 rotate-45" /></div>
-              <span className="ss-res-num">{me.bones}</span>
-              <span className="text-sm ss-dim">{de.costs.bones.name}</span>
-            </div>
-            <div className="ss-res" data-anchor={`wax-${bottom}`} title="Wachs (höchstens 6)">
-              <div className="ss-pile flex items-end justify-center"><CandleStub size={30} /></div>
-              <span className="ss-res-num">{me.wax}</span>
-              <span className="flex gap-[2px]" aria-hidden>{Array.from({ length: WAX_MAX }, (_, i) => <span key={i} className={`w-1.5 h-3 rounded-sm ${i < me.wax ? "bg-[var(--candle)]" : "bg-white/10"}`} />)}</span>
-            </div>
+      </div>
+
+      <div className="ss-col ss-col-left2">
+      {/* ── Ressourcen ── */}
+      {you !== null && (
+        <div className="ss-b-res ss-panel">
+          <div className="ss-res" data-anchor={`blood-${bottom}`} title="Blutschale: Opfer beim Ausspielen (plus Blutphiole)">
+            <div className="ss-bowl"><div className="ss-bowl-fill" style={{ height: `${Math.min(100, ((sacSum + (me.bloodBonus || 0)) / 4) * 100)}%` }} /></div>
+            <span className="ss-res-num">{sacSum + (me.bloodBonus || 0)}</span>
+            <span className="ss-res-label">Blut</span>
           </div>
-        )}
-
-        {you !== null && !mobile && (
-          <div className="ss-panel p-3 flex items-start gap-4 justify-center">
-            <div className="flex flex-col items-center gap-1">
-              <button type="button" className={`ss-deck-stack ${needDraw ? "ss-drawable" : ""}`} data-anchor={`deck-${bottom}`} disabled={!needDraw} onClick={() => act({ type: "draw", pile: "main" })} aria-label={`${de.ui.drawMain}: ${me.deckSize ?? 0} Karten`}>
-                {Array.from({ length: Math.min(4, Math.max(1, me.deckSize ?? 0)) }, (_, i) => <Card key={i} faceDown width={64} style={{ top: -i * 2, left: i * 1.5, opacity: me.deckSize ? 1 : 0.3 }} />)}
-              </button>
-              <span className="text-xs">{de.ui.drawMain} · <span className="ss-num">{me.deckSize ?? 0}</span></span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <button type="button" className={`ss-deck-stack ${needDraw ? "ss-drawable" : ""}`} disabled={!needDraw} onClick={() => act({ type: "draw", pile: "side" })} aria-label={`${de.ui.drawSide}: ${de.sides[me.sideType]?.name}`}>
-                {[0, 1, 2].map((i) => <Card key={i} faceDown width={64} style={{ top: -i * 2, left: i * 1.5, filter: "sepia(0.4) hue-rotate(-20deg)" }} />)}
-              </button>
-              <span className="text-xs">{de.sides[me.sideType]?.name} · ∞</span>
-            </div>
+          <div className="ss-res" data-anchor={`bones-${bottom}`} title="Knochen">
+            <div className="ss-pile flex items-end justify-center"><Bone size={22} /><Bone size={18} className="-ml-3 rotate-45" /></div>
+            <span className="ss-res-num">{me.bones}</span>
+            <span className="ss-res-label">{de.costs.bones.name}</span>
           </div>
-        )}
-
-        {(me.auras || opp.auras) && (
-          <div className="ss-panel p-3 space-y-2 min-w-[190px]">
-            <p className="ss-title text-sm">Totems</p>
-            {[bottom, top].map((p) => {
-              const tot = view.players[p]?.totems;
-              const list = tot ? [tot.tribe, tot.lane].filter(Boolean) : [];
-              return (
-                <div key={p} className="space-y-1">
-                  <p className="text-xs ss-faint">{p === bottom && you !== null ? de.ui.you : names[p]}</p>
-                  {list.length === 0 && <p className="text-xs ss-faint">–</p>}
-                  {list.map((t, i) => <TotemFigure key={i} totem={t} kind={i ? "Lane" : "Stamm"} onHover={p === bottom ? setTotemHover : () => {}} />)}
-                </div>
-              );
-            })}
+          <div className="ss-res" data-anchor={`wax-${bottom}`} title={`Wachs (höchstens ${WAX_MAX})`}>
+            <div className="ss-pile flex items-end justify-center"><CandleStub size={30} /></div>
+            <span className="ss-res-num">{me.wax}</span>
+            <span className="ss-res-label">Wachs</span>
           </div>
-        )}
-
-        <div className="ss-panel p-3 flex flex-col items-center gap-3 ss-turnpanel">
-          {live.active === bottom && you !== null && <TurnTimer timer={turnTimer} clockOffset={clockOffset} />}
-          {you !== null && (
-            <>
-              <button type="button" className="ss-seal w-full" disabled={!canAct || needDraw || !!pending} onClick={async () => { reset(); await act({ type: "endTurn" }); }}>
-                {de.ui.endTurn}
-              </button>
-              <button type="button" className={`ss-btn ss-btn-sm w-full ${mode === "hammer" ? "!border-[var(--wax-red-light)]" : ""}`} disabled={!canAct || needDraw || !!pending || liveMe?.hammerUsed} onClick={() => { reset(); setMode("hammer"); }} title="1× pro Zug eine eigene Karte zerstören">
-                <Hammer size={16} /> {de.ui.hammer}
-              </button>
-            </>
-          )}
-          {you !== null && <p className="text-xs ss-faint text-center">{de.ui.hand}: {me.hand.length}/{HAND_LIMIT}</p>}
-          {you === null && <p className="text-xs ss-faint text-center">{names[bottom]}: {me.handSize ?? me.hand.length} Karten · {names[top]}: {opp.handSize ?? opp.hand.length} Karten</p>}
-        </div>
-      </aside>
-
-      {mobile && you !== null && (
-        <div className="ss-mobilebar">
-          {needDraw ? (
-            <>
-              <button type="button" className="ss-btn ss-btn-sm !border-[var(--candle)]" onClick={() => act({ type: "draw", pile: "main" })}>{de.ui.drawMain} ({me.deckSize ?? 0})</button>
-              <button type="button" className="ss-btn ss-btn-sm !border-[var(--candle)]" onClick={() => act({ type: "draw", pile: "side" })}>{de.sides[me.sideType]?.name}</button>
-            </>
-          ) : (
-            <>
-              <button type="button" className={`ss-btn ss-btn-sm ${mode === "hammer" ? "!border-[var(--wax-red-light)]" : ""}`} disabled={!canAct || !!pending || liveMe?.hammerUsed} onClick={() => { reset(); setMode("hammer"); }} aria-label={de.ui.hammer}><Hammer size={16} /></button>
-              <span className="text-xs ss-dim flex items-center gap-2"><BloodDrop size={10} />{sacSum + (me.bloodBonus || 0)} <Bone size={14} />{me.bones} <CandleStub size={14} />{me.wax}</span>
-              <button type="button" className="ss-seal !min-h-[40px] !px-5" disabled={!canAct || !!pending} onClick={async () => { reset(); await act({ type: "endTurn" }); }}>{de.ui.endTurn}</button>
-            </>
-          )}
-          {live.active === bottom && <TurnTimer timer={turnTimer} clockOffset={clockOffset} />}
         </div>
       )}
+
+      {/* ── Items und Totems (klein, Details per Tooltip) ── */}
+      {you !== null && (
+        <div className="ss-b-extras">
+          {itemsList.map((id, i) => (
+            <ItemButton key={`${id}${i}`} id={id} active={mode === "item" && item === id} disabled={!canAct || needDraw || !!pending}
+              onClick={async () => {
+                const t = ITEM_BY_ID[id].target;
+                if (t === "none") { await act({ type: "item", item: id, target: {} }); reset(); return; }
+                reset();
+                setMode("item");
+                setItem(id);
+              }} />
+          ))}
+          {[bottom, top].map((p) => {
+            const tot = view.players[p]?.totems;
+            const list = tot ? [tot.tribe, tot.lane].filter(Boolean) : [];
+            return list.map((t, i) => <TotemFigure key={`${p}${i}`} totem={t} kind={i ? "Lane" : "Stamm"} owner={p === bottom && you !== null ? de.ui.you : names[p]} onHover={p === bottom ? setTotemHover : () => {}} />);
+          })}
+        </div>
+      )}
+
+      </div>
+
+      <div className="ss-col ss-col-right">
+      {/* ── Decks: Hauptdeck und Nebendeck als eigene Stapel ── */}
+      {you !== null && (
+        <div className="ss-b-decks" style={{ "--stack-w": `${stackW}px` }}>
+          <DeckStack width={stackW} label={de.ui.drawMain} count={me.deckSize ?? 0} drawable={needDraw} anchor={`deck-${bottom}`} onDraw={() => act({ type: "draw", pile: "main" })} />
+          <DeckStack width={stackW} label={de.sides[me.sideType]?.name || de.ui.drawSide} count={null} side drawable={needDraw} onDraw={() => act({ type: "draw", pile: "side" })} />
+        </div>
+      )}
+
+      {/* ── Aktionen: großer Zug-beenden-Knopf, Hammer ── */}
+      <div className="ss-b-actions">
+        {you !== null && (
+          <>
+            <button type="button" className="ss-seal ss-endturn" disabled={!canAct || needDraw || !!pending} onClick={async () => { reset(); await act({ type: "endTurn" }); }}>
+              {de.ui.endTurn}
+            </button>
+            <button type="button" className={`ss-btn ss-btn-sm ss-hammer ${mode === "hammer" ? "!border-[var(--wax-red-light)]" : ""}`} disabled={!canAct || needDraw || !!pending || liveMe?.hammerUsed} onClick={() => { reset(); setMode("hammer"); }} title="1× pro Zug eine eigene Karte zerstören" aria-label={de.ui.hammer}>
+              <Hammer size={16} /> <span className="ss-hammer-label">{de.ui.hammer}</span>
+            </button>
+            <span className="text-xs ss-faint text-center">{de.ui.hand}: {me.hand.length}/{HAND_LIMIT}</span>
+          </>
+        )}
+        {you === null && <p className="text-xs ss-faint text-center">{names[bottom]}: {me.handSize ?? me.hand.length} Karten · {names[top]}: {opp.handSize ?? opp.hand.length} Karten</p>}
+      </div>
+
+      </div>
+
       {pending?.kind === "seer" && canAct && pending.cards && (
         <SeerDialog cards={pending.cards} onConfirm={(order) => act({ type: "seer", order })} />
       )}

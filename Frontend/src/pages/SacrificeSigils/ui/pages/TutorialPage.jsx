@@ -67,12 +67,12 @@ function TutorialRun({ run, restart }) {
         extra={<button type="button" className="ss-btn ss-btn-sm ss-btn-ghost" onClick={() => { setPrefs({ seenTips: [], tipsOff: false }); restart(); }}>Tutorial neu starten</button>}
       />
       {tip && (
-        <div className="fixed left-3 bottom-3 z-[80] max-w-[360px] ss-paper p-4 ss-fade-in" role="dialog" aria-label={tip.title}>
+        <div className="!fixed left-3 right-3 top-[104px] sm:right-auto sm:top-auto sm:bottom-3 z-[80] sm:max-w-[360px] max-h-[45dvh] overflow-y-auto ss-paper p-4 ss-fade-in" role="dialog" aria-label={tip.title}>
           <p className="ss-title !text-[var(--ink)] text-lg">{tip.title}</p>
           <p className="text-[0.98rem] mt-1">{tip.text}</p>
           <div className="flex flex-wrap gap-2 mt-3">
-            <button type="button" className="ss-btn ss-btn-sm" onClick={dismiss} autoFocus>Verstanden</button>
-            <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost !text-[var(--ink)]" onClick={() => { setPrefs({ tipsOff: true }); setTip(null); }}>Keine Tipps mehr</button>
+            <button type="button" className="ss-btn ss-btn-sm min-h-[44px]" onClick={dismiss} autoFocus>Verstanden</button>
+            <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost min-h-[44px] !text-[var(--ink)]" onClick={() => { setPrefs({ tipsOff: true }); setTip(null); }}>Keine Tipps mehr</button>
           </div>
         </div>
       )}

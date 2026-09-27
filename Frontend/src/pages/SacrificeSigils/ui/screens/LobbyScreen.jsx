@@ -6,7 +6,7 @@ import { sound } from "../../audio/sound.js";
 import { CheckMark } from "../icons/GameIcons.jsx";
 
 const OPTIONS = {
-  draftMode: [["shared", "Gemeinsamer Pool (Snake-Draft)"], ["separate", "Getrennte Pools (gespiegelt)"]],
+  draftMode: [["shared", "Gemeinsamer Pool (abwechselnd, 4er-Runden)"], ["separate", "Getrennte Pools (gleichzeitig, 2 aus 4)"]],
   winsNeeded: [[1, "1 (Best-of-1)"], [2, "2 Siege (Best-of-3)"], [3, "3 Siege (Best-of-5)"]],
   turnTimer: [[45, "45 s"], [60, "60 s"], [90, "90 s"], [0, "aus"]],
   pathLength: [[2, "kurz (2 Knoten)"], [3, "normal (3)"], [4, "lang (4)"]],

@@ -125,3 +125,23 @@ Sigils mit Stufe/Parameter werden als `"id:n"` notiert (`kerzendocht:3`, verstä
 6. Polish — Performance, Barrierefreiheit, Bugfixes, Zusammenfassung.
 
 Nach jeder Phase: Tests, Commit, kurze Zusammenfassung.
+
+## 6. Runde 2 (Regeln, Ablauf, Animationen, Layout, Zirkel)
+
+| Teil | Umsetzung | Wo |
+|---|---|---|
+| A1 Erster Zug ohne Angriff | `NO_ATTACK_TURNS = 2`, Ereignis `firstTurnNoAttack`, Hinweis im Spiel | `engine/battle.js` |
+| A2 Überlaufschaden | `Resolver.overflow()`: Front → Hinterreihe → Waage; Schild/Panzer pro Karte, Todesstachel nur erste Karte, Tauchgang lässt durch; Durchbohren überspringt die Hinterreihe | `engine/battle.js`, `sigils/index.js` |
+| A3 Best-of-1 | `winsNeeded` 1/2/3 | `engine/match.js`, Lobby |
+| B1 Pfad nach dem Draft | Draft → Extras → Pfad (3 Start-Splitter) → Kampf; kein Zwischenspiel vor Kampf 1 | `engine/match.js` |
+| B2 Runden-Draft | 6 × 4 Karten, A-B-A-B mit wechselndem Erstzugriff, 3–5 Duplikate nie in derselben Runde, Kopf/Nebendeck nacheinander und exklusiv; getrennte Pools: 2 aus 4 gleichzeitig | `engine/draft.js` |
+| C Animationen | Grundtempo 1,6× langsamer (1/1,5/2×), Klick überspringt nur die laufende Animation, Angriffssequenz mit Halten und Rückweg (`attackReturn`), sichtbares Zugende in fester Reihenfolge | `ui/anim/*`, `battle.css` |
+| D Layout | Grid mit gemessener Slotgröße (ResizeObserver, dvh), 4 Layouts (Desktop, Tablet, hochkant, quer), Stapel unten rechts, Einstellungen als Dialog, Tooltips mit Kollisionserkennung, Touch-Ziele ≥ 44 px, keine Emojis (Test) | `ui/battle/*`, `ui/Shell.jsx` |
+| F Zirkel | Datenpaket `moor`, Lobby-Option „Zirkel“ | `engine/zirkel/*`, `ZIRKEL.md` |
+
+**Abweichung 10 (Runde 2):** Beim gemeinsamen Pool sind Totem-Kopf und Nebendeck *exklusiv* (was einer nimmt, ist für
+den anderen weg) – nur so hat der „abwechselnde Erstzugriff“ eine Wirkung. Bei getrennten Pools bleibt die Wahl
+gleichzeitig und frei.
+
+**Abweichung 11 (Runde 2):** Der Überlauf aus einem *Hinterhalt*-Treffer (Zusatzangriff auf die Hinterreihe) geht nicht
+auf die Waage; sonst würde Hinterhalt denselben Schaden doppelt verwerten.

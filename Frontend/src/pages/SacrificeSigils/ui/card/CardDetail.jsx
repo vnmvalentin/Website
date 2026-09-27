@@ -56,7 +56,7 @@ export default function CardDetail({ card, unit, auras = [], attack, onClose }) 
   const special = card.special ?? (typeof def.attack === "object" ? def.attack.special : null);
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 ss-fade-in" onClick={onClose} role="dialog" aria-modal="true" aria-label={def.name}>
-      <div className="ss-paper max-w-[640px] w-full p-5 md:p-6 grid sm:grid-cols-[auto_1fr] gap-5" onClick={(e) => e.stopPropagation()}>
+      <div className="ss-paper ss-modal-box max-w-[640px] w-full p-5 md:p-6 grid sm:grid-cols-[auto_1fr] gap-5" onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto">
           <Card card={card} width={220} attack={attack} health={unit?.health} maxHealth={unit?.maxHealth} auras={auras} wick={unit?.wick} />
         </div>
