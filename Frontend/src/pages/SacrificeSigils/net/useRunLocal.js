@@ -15,7 +15,7 @@ const BOT_NAMES = ["Die Schilfhexe", "Der Laternenmann", "Mutter Asche", "Der Aa
 
 /**
  * @param {{ seed: string, settings: any, name: string, bots: number, aiLevel?: "easy"|"normal"|"hard", initialState?: any,
- *   aiEnabled?: boolean }} opts  initialState/aiEnabled: Dev-Fixtures (fester Stand, KI steht still)
+ *   aiEnabled?: boolean, initialEvents?: any[] }} opts  initialState/aiEnabled/initialEvents: Dev-Fixtures (fester Stand, KI steht still)
  */
 export function useRunLocal(opts) {
   const { aiLevel = "normal" } = opts;
@@ -27,7 +27,7 @@ export function useRunLocal(opts) {
   }
   const aiRng = useRef(streamFrom("run-ki", opts.seed, Date.now() % 100000));
   const [view, setView] = useState(() => viewForRun(runRef.current, 0));
-  const [batches, setBatches] = useState(() => [{ id: ++batchSeq, view: viewForRun(runRef.current, 0), events: [{ type: "phase", phase: "starter" }] }]);
+  const [batches, setBatches] = useState(() => [{ id: ++batchSeq, view: viewForRun(runRef.current, 0), events: opts.initialEvents?.length ? opts.initialEvents : [{ type: "phase", phase: "starter" }] }]);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(0);
 

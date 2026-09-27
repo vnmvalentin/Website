@@ -3,7 +3,7 @@
 import { createRun, applyRunAction, awaitingRun } from "../../engine/modes/moorwanderung/run.js";
 import { runAiAction } from "../../engine/modes/moorwanderung/ai.js";
 
-export const RUN_FIXTURES = ["starter", "path", "camp", "duel", "board", "fight", "reward", "boss", "bossStart", "over"];
+export const RUN_FIXTURES = ["starter", "path", "camp", "duel", "board", "fight", "reward", "boss", "bossStart", "duelStart", "sealBreak", "over"];
 
 /**
  * @param {string} name @param {{ players?: number, zirkel?: string }} [o]
@@ -34,8 +34,20 @@ export function buildRunFixture(name, o = {}) {
     case "bossStart": run((x) => x.phase === "path" && x.path.players[0].fight?.kind === "boss" && x.path.players[0].fight.battle.turn === 1 && x.path.players[0].fight.battle.active === 0); break;
     case "duel": run((x) => x.phase === "duels" && x.duels.pairs.some((d) => !d.done && d.seats.includes(0) && d.battle.turn >= 5 && d.battle.active === d.seats.indexOf(0))); break;
     case "board": run((x) => x.phase === "duels" && x.duels.pairs.some((d) => d.done && d.seats.includes(0)) && x.duels.pairs.some((d) => !d.done)); break;
+    case "duelStart": run((x) => x.phase === "duels"); break;
+    case "sealBreak": run((x) => x.phase === "path" && x.round >= 1 && x.players[0].seals < x.settings.seals); break;
     case "over": run(() => false); break;
     default: break;
   }
   return s;
+}
+
+/**
+ * Ereignisse, mit denen die Fixture startet (für die großen Momente: Duell-Ankündigung, Siegelbruch).
+ * @param {string} name @param {any} s
+ */
+export function fixtureEvents(name, s) {
+  if (name === "duelStart" && s.duels) return [{ type: "duelsStart", round: s.round, pairs: s.duels.pairs.map((x) => ({ id: x.id, seats: x.seats, ghost: x.ghost })) }];
+  if (name === "sealBreak") return [{ type: "sealLost", player: 0, seals: s.players[0].seals, reason: "duel" }];
+  return [];
 }

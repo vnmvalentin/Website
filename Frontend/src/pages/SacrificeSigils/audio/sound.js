@@ -28,6 +28,8 @@ class SoundManager {
     this.ambientNodes = null;
     this.tension = 0;
     this.ambientWanted = false;
+    /** @type {string|null} Klangkulisse des Bioms (Moorwanderung), ergänzt die Grundstimmung */
+    this.biome = null;
     this.noiseBuf = null;
     this.reverb = null;
   }
@@ -259,10 +261,16 @@ class SoundManager {
     this.ambientNodes = null;
   }
 
+  /** Biom-Klangkulisse setzen (null = nur Grundstimmung). @param {string|null} key */
+  setBiome(key) {
+    this.biome = key && BIOME_AMBIENT[key] ? key : null;
+  }
+
   ambientTick() {
     if (!this.ctx || this.settings.muted) return;
     const r = Math.random();
     const dest = this.amb;
+    if (this.biome) BIOME_AMBIENT[this.biome](this, dest);
     if (r < 0.28) SYNTHS.crackle(this, { dest, soft: true });
     else if (r < 0.34) this.noise({ dur: 3.5, type: "bandpass", freq: 400, sweepTo: 900, q: 0.7, gain: 0.05, attack: 1.4, dest });
     else if (r < 0.4) this.tone({ freq: 1400 + Math.random() * 500, to: 700, dur: 0.18, gain: 0.05, dest, reverb: 0.6 });
@@ -283,6 +291,51 @@ class SoundManager {
     n.o2.frequency.setTargetAtTime(55.6 + Math.max(0, level - 2) * 1.4, t, 1.5);
   }
 }
+
+// ───────────────────────── Biom-Klangkulissen (je Ambient-Takt, ~0,7 s) ─────────────────────────
+
+/** @type {Record<string, (m: SoundManager, dest: AudioNode) => void>} */
+const BIOME_AMBIENT = {
+  // Wind über offenem Land: lange, sich überlappende Rauschbögen
+  wind(m, dest) {
+    if (Math.random() < 0.3) m.noise({ dur: 4.5, type: "bandpass", freq: 380 + Math.random() * 200, sweepTo: 900 + Math.random() * 500, q: 0.9, gain: 0.05, attack: 1.8, dest });
+  },
+  // Sturm: kräftigerer Wind und tiefes Grollen
+  sturm(m, dest) {
+    if (Math.random() < 0.45) m.noise({ dur: 3.5, type: "bandpass", freq: 500, sweepTo: 1400, q: 0.7, gain: 0.07, attack: 1.2, dest });
+    if (Math.random() < 0.08) m.noise({ dur: 3, type: "lowpass", freq: 140, q: 0.5, gain: 0.12, attack: 0.6, dest });
+  },
+  // Ferne Glocken
+  glocken(m, dest) {
+    if (Math.random() < 0.05) {
+      const f = [262, 311, 349][Math.floor(Math.random() * 3)];
+      m.tone({ type: "triangle", freq: f, dur: 4, gain: 0.05, attack: 0.01, dest, reverb: 0.8 });
+      m.tone({ type: "sine", freq: f * 2.76, dur: 2.2, gain: 0.02, attack: 0.01, dest, reverb: 0.8 });
+    }
+  },
+  // Höhle: Tropfen mit viel Hall
+  hoehle(m, dest) {
+    if (Math.random() < 0.18) m.tone({ freq: 1500 + Math.random() * 900, to: 700, dur: 0.09, gain: 0.05, dest, reverb: 0.9 });
+  },
+  // Krähen in der Ferne
+  kraehen(m, dest) {
+    if (Math.random() < 0.05) {
+      m.noise({ dur: 0.2, type: "bandpass", freq: 1100, sweepTo: 800, q: 5, gain: 0.07, dest, reverb: 0.4 });
+      m.noise({ t: 0.3, dur: 0.18, type: "bandpass", freq: 1050, sweepTo: 760, q: 5, gain: 0.06, dest, reverb: 0.4 });
+    }
+    BIOME_AMBIENT.wind(m, dest);
+  },
+  // Möwen und Brandung
+  moewen(m, dest) {
+    if (Math.random() < 0.04) m.tone({ type: "sawtooth", freq: 1500, to: 1050, dur: 0.35, gain: 0.02, dest, reverb: 0.5 });
+    if (Math.random() < 0.2) m.noise({ dur: 3.8, type: "lowpass", freq: 700, sweepTo: 300, q: 0.5, gain: 0.08, attack: 1.5, dest });
+  },
+  // Tiefe See: dunkles Brummen und aufsteigende Blasen
+  tief(m, dest) {
+    if (Math.random() < 0.1) m.tone({ freq: 46, dur: 5, gain: 0.08, attack: 2, dest });
+    if (Math.random() < 0.08) for (let i = 0; i < 3; i++) m.tone({ t: i * 0.09, freq: 500 + Math.random() * 300, to: 900, dur: 0.06, gain: 0.03, dest });
+  },
+};
 
 // ───────────────────────── Synth-Funktionen je Sound-Key ─────────────────────────
 

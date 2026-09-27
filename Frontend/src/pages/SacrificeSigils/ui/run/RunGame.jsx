@@ -3,12 +3,15 @@
 //   Startdecks → StarterScreen · eigener Kampf (NPC/Boss/Duell) → RunBattle · Pfad → RunPath · fertig → Lager
 //   · Duellrunde ohne eigenes Duell → DuelBoard · Ende → RunResult
 // Ein Kampf bleibt sichtbar, bis seine Schluss-Animation gelaufen ist, auch wenn der Server schon weiter ist.
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import RunProgressBar from "./RunProgressBar.jsx";
 import StarterScreen from "./StarterScreen.jsx";
 import RunBattle from "./RunBattle.jsx";
 import { RunPath, CampScreen, DuelBoard, RunResult, PublicCards } from "./RunScreens.jsx";
 import BudgetWarning from "./BudgetWarning.jsx";
+import { SealBreak, DuelAnnounce } from "./RunFx.jsx";
+import { BIOMES } from "../../data/modes/moorwanderung/biomes.js";
+import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
 import "./run.css";
 
@@ -36,6 +39,33 @@ export default function RunGame({ game, onExit }) {
     return () => el.removeAttribute("data-zirkel");
   }, [zirkel]);
   useEffect(() => () => setTension(0), [setTension]);
+
+  // Große Momente aus den Ereignissen: Duell-Ankündigung, eigener Siegelbruch
+  const [announce, setAnnounce] = useState(/** @type {any} */ (null));
+  const [sealFx, setSealFx] = useState(/** @type {any} */ (null));
+  const seenBatch = useRef(/** @type {any} */ (null));
+  const lastBatch = game.batches[game.batches.length - 1];
+  useEffect(() => {
+    if (!lastBatch || seenBatch.current === lastBatch.id) return;
+    const first = seenBatch.current === null;
+    seenBatch.current = lastBatch.id;
+    if (first && game.batches.length === 1 && !lastBatch.events.length) return;
+    for (const e of lastBatch.events) {
+      if (e.type === "duelsStart") setAnnounce({ pairs: e.pairs, round: e.round });
+      else if (e.type === "duelEnd" && you !== null && e.loser === you) setSealFx({ left: e.seals, reason: "duel" });
+      else if (e.type === "sealLost" && e.player === you) setSealFx({ left: e.seals, reason: e.reason });
+    }
+  }, [lastBatch, game.batches.length, you]);
+  const endAnnounce = useCallback(() => setAnnounce(null), []);
+  const endSealFx = useCallback(() => setSealFx(null), []);
+
+  // Klangkulisse des aktuellen Bioms (bleibt während der Duellrunde bestehen)
+  const biomeId = view?.path?.biome;
+  useEffect(() => {
+    const b = biomeId && BIOMES.find((x) => x.id === biomeId);
+    if (b) sound.setBiome(b.ambient);
+  }, [biomeId]);
+  useEffect(() => () => sound.setBiome(null), []);
 
   const onBusy = useCallback((b) => setBattleBusy(b), []);
   const surrender = useCallback(() => { game.send({ type: "surrender" }); }, [game]);
@@ -70,6 +100,8 @@ export default function RunGame({ game, onExit }) {
       {view.phase === "path" && (
         <BudgetWarning timer={game.timers?.path} pathNo={view.pathNo} active={!!me?.alive && !!view.path?.me && !view.path.me.done} clockOffset={game.clockOffset} />
       )}
+      {announce && <DuelAnnounce view={view} pairs={announce.pairs} round={announce.round} you={you} onDone={endAnnounce} />}
+      {sealFx && !shownKey && !announce && <SealBreak left={sealFx.left} total={view.settings.seals} reason={sealFx.reason} onDone={endSealFx} />}
       {showPlayer !== null && <PublicCards view={view} q={showPlayer} onClose={() => setShowPlayer(null)} />}
     </div>
   );

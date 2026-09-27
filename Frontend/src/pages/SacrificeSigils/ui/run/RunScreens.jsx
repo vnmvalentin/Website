@@ -10,6 +10,7 @@ import { resolveCard, CARDS } from "../../engine/cards.js";
 import { de } from "../../i18n/de.js";
 import { RUN_SCENES } from "./sceneRegistry.js";
 import TotemBench from "./TotemBench.jsx";
+import { Podium } from "./RunFx.jsx";
 
 // ───────── Pfad ─────────
 
@@ -178,6 +179,7 @@ export function RunResult({ game, onExit }) {
     <div className="max-w-[1200px] mx-auto px-4 py-6 space-y-5">
       <div className="ss-paper p-5 md:p-7">
         <p className="ss-title !text-[var(--ink)] text-3xl">{rv.winner !== null ? `${rv.players[rv.winner].name} gewinnt die Moorwanderung` : "Die Moorwanderung ist vorbei"}</p>
+        <Podium view={rv} you={game.you} />
         <ol className="mt-4 space-y-1.5">
           {ranked.map(({ P, q }) => (
             <li key={q} className="grid grid-cols-[3rem_1fr] sm:grid-cols-[3rem_12rem_1fr] gap-2 items-baseline">

@@ -111,8 +111,10 @@ export default function RunBattle({ game, battleKey, onBusy, onSurrender }) {
   // Hausregel der NPC-Seite (bei Bossen die der aktuellen Phase)
   const rule = (latest.battle.rules || []).find((r) => r.seat === 1 - seat);
   const bossPhase = latest.battle.boss?.phase;
+  const npc = info.kind === "duel" ? null : npcDef(info.bossId || info.npcId);
   const bar = (
     <div className="ss-gamebar max-w-[1760px] mx-auto px-3 flex flex-nowrap items-center gap-x-4 text-sm">
+      {npc && <NpcPortrait npc={npc} size={30} boss={info.kind === "boss"} showName={false} />}
       <span className="ss-title text-[var(--candle)] whitespace-nowrap">{title}</span>
       <span className="ss-dim truncate">gegen <b className="text-[var(--bone)]">{latest.players[1 - seat].name}</b></span>
       {rule && <span className="ss-dim truncate hidden md:inline" title={de.run.rules[rule.id]}>{bossPhase > 1 ? `${de.run.bossPhase2} · ` : ""}{de.run.houseRule}: {de.run.rules[rule.id]}</span>}
@@ -130,7 +132,7 @@ export default function RunBattle({ game, battleKey, onBusy, onSurrender }) {
       </div>
     </div>
   );
-  const boss = info.kind === "boss" ? npcDef(info.bossId) : null;
+  const boss = info.kind === "boss" ? npc : null;
   return (
     <>
       <GameScreen key={battleKey} game={adapted} bar={bar} />

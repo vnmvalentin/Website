@@ -21,10 +21,14 @@ function randomSeed() {
 function FixtureRun({ name, players, zirkel }) {
   const [state, setState] = useState(/** @type {any} */ (null));
   useEffect(() => {
-    import("../dev/runFixtures.js").then((m) => setState(m.buildRunFixture(name, { players, zirkel })));
+    import("../dev/runFixtures.js").then((m) => {
+      const s = m.buildRunFixture(name, { players, zirkel });
+      setState({ s, events: m.fixtureEvents(name, s) });
+    });
   }, [name, players, zirkel]);
   if (!state) return <p className="text-center ss-dim py-20">Fixture wird gebaut …</p>;
-  return <LocalRun config={{ seed: state.seed, settings: state.settings, name: state.players[0].name, bots: state.players.length - 1, initialState: state, aiEnabled: false }} onExit={() => {}} />;
+  const s = state.s;
+  return <LocalRun config={{ seed: s.seed, settings: s.settings, name: s.players[0].name, bots: s.players.length - 1, initialState: s, initialEvents: state.events, aiEnabled: false }} onExit={() => {}} />;
 }
 
 function LocalRun({ config, onExit }) {

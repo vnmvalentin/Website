@@ -1,5 +1,5 @@
 // ui/run/Seals.jsx — Lebenssiegel als kleine Wachssiegel (SVG, Tuschestil). Verlorene Siegel sind gesprungen und blass.
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 /** Ein Wachssiegel. @param {{ lost?: boolean, size?: number, breaking?: boolean }} props */
 export function WaxSeal({ lost = false, size = 18, breaking = false }) {
@@ -21,9 +21,22 @@ export function WaxSeal({ lost = false, size = 18, breaking = false }) {
 
 /** Reihe von Siegeln. @param {{ left: number, total: number, size?: number }} props */
 export default function Seals({ left, total, size = 16 }) {
+  // Gerade verlorenes Siegel springt kurz (nur wenn sich die Zahl während der Anzeige verringert)
+  const prev = useRef(left);
+  const [breaking, setBreaking] = useState(/** @type {number|null} */ (null));
+  useEffect(() => {
+    if (left < prev.current) {
+      setBreaking(left);
+      const t = setTimeout(() => setBreaking(null), 800);
+      prev.current = left;
+      return () => clearTimeout(t);
+    }
+    prev.current = left;
+    return undefined;
+  }, [left]);
   return (
     <span className="inline-flex items-center gap-0.5" aria-label={`${left} von ${total} Lebenssiegeln`} title={`${left} von ${total} Lebenssiegeln`}>
-      {Array.from({ length: total }, (_, i) => <WaxSeal key={i} lost={i >= left} size={size} />)}
+      {Array.from({ length: total }, (_, i) => <WaxSeal key={i} lost={i >= left} size={size} breaking={i === breaking} />)}
     </span>
   );
 }
