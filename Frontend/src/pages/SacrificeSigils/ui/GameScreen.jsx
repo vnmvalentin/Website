@@ -174,7 +174,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
       {game.notice && <div className="ss-toast ss-paper" role="status">{game.notice}</div>}
 
       {phase === "draft" && <DraftScreen {...common} timers={game.timers} clockOffset={game.clockOffset} />}
-      {phase === "extras" && <ExtrasScreen {...common} />}
+      {phase === "extras" && <ExtrasScreen {...common} timers={game.timers} clockOffset={game.clockOffset} />}
       {phase === "battle" && q.display && (
         <BattleScreen {...common} display={q.display} anim={q.anim} timers={game.timers} clockOffset={game.clockOffset} hintExtra={extra} onAction={onBattleAction} />
       )}

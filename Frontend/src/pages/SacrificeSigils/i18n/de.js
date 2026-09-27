@@ -186,6 +186,8 @@ export const de = {
     notYourPick: "Du bist nicht mit Wählen dran.",
     legendTaken: "Diese legendäre Karte hat schon der andere Zeichner.",
     alreadyTaken: "Schon vergeben.",
+    headTaken: "Diesen Totem-Kopf hat schon der andere Zeichner.",
+    sideTaken: "Dieses Nebendeck hat schon der andere Zeichner.",
     notOffered: "Diese Karte liegt nicht vor dir.",
     unreachable: "Dieser Knoten ist nicht erreichbar.",
     deckTooSmall: "Dein Deck darf nicht kleiner als 8 Karten werden.",

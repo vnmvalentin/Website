@@ -1,4 +1,5 @@
-// engine/draft.js — Pool-Erzeugung, Snake-Draft (gemeinsamer Pool) und gleichzeitiger Draft (getrennte Pools).
+// engine/draft.js — Pool-Erzeugung und Draft in 6 Runden à 4 Karten: gemeinsamer Pool (abwechselnd A-B-A-B, erster
+// Pick wechselt je Runde) oder getrennte Pools (gleichzeitig 2 aus 4).
 import { COLLECTIBLE, CARDS } from "./cards.js";
 import { pickWeighted, randInt, shuffle, streamFrom } from "./rng.js";
 import { TOTEM_BASE_SIGILS, LANE_PROPS } from "../data/totems.js";
@@ -7,22 +8,58 @@ import { SIDE_TYPES } from "./battle.js";
 
 export const POOL_RARITY = { common: 14, uncommon: 6, rare: 3, legendary: 1 };
 export const PICKS_PER_PLAYER = 12;
-export const SEPARATE_OFFER = 5;
+/** Runde 2 (B2): 6 Runden à 4 aufgedeckte Karten, je Runde 2 Picks pro Spieler. */
+export const DRAFT_ROUNDS = 6;
+export const ROUND_SIZE = 4;
+export const PICKS_PER_ROUND = 2;
+/** Doppelte (gewöhnliche/ungewöhnliche) Karten im Pool: mindestens 3, höchstens 5 Paare. */
+export const DUPLICATES_MIN = 3;
+export const DUPLICATES_MAX = 5;
 
 /**
- * Pool aus dem Seed: 24 Karten + 4 Totem-Köpfe (mit Start-Basis) + die 3 Nebendeck-Typen.
+ * Pool aus dem Seed: 24 Karten in 6 Runden à 4 (Runde r = pool[4r … 4r+3]) + 4 Totem-Köpfe (mit Start-Basis)
+ * + die 3 Nebendeck-Typen. 3–5 gewöhnliche/ungewöhnliche Karten kommen doppelt vor, nie in derselben Runde;
+ * Legendäre bleiben einzigartig.
  * @param {string} seed
  */
 export function generatePool(seed) {
   const s = streamFrom("pool", seed);
+  const dupCount = DUPLICATES_MIN + randInt(s, DUPLICATES_MAX - DUPLICATES_MIN + 1);
+  /** @type {Record<string, number>} */
+  const dups = { common: 0, uncommon: 0 };
+  for (let i = 0; i < dupCount; i++) {
+    // Gewichtet nach Plätzen; ungewöhnlich höchstens die Hälfte der eigenen Plätze
+    const uncommon = randInt(s, POOL_RARITY.common + POOL_RARITY.uncommon) >= POOL_RARITY.common;
+    if (uncommon && (dups.uncommon + 1) * 2 <= POOL_RARITY.uncommon) dups.uncommon += 1;
+    else dups.common += 1;
+  }
+  /** @type {string[]} */
+  const pairs = [];
+  /** @type {string[]} */
+  const singles = [];
+  for (const [rarity, n] of Object.entries(POOL_RARITY)) {
+    const d = dups[rarity] || 0;
+    const candidates = shuffle(s, COLLECTIBLE.filter((c) => c.rarity === rarity).map((c) => c.id));
+    for (let i = 0; i < n - d; i++) (i < d ? pairs : singles).push(candidates[i % candidates.length]);
+  }
+  /** @type {string[][]} */
+  const rounds = Array.from({ length: DRAFT_ROUNDS }, () => []);
+  const open = () => rounds.map((_, i) => i).filter((i) => rounds[i].length < ROUND_SIZE);
+  for (const id of pairs) {
+    const a = open();
+    const r1 = a[randInt(s, a.length)];
+    rounds[r1].push(id);
+    const b = open().filter((i) => i !== r1);
+    rounds[b[randInt(s, b.length)]].push(id);
+  }
+  shuffle(s, singles);
+  for (const id of singles) {
+    const a = open();
+    rounds[a[0]].push(id);
+  }
   /** @type {Array<{ pid: string, baseId: string }>} */
   const cards = [];
-  for (const [rarity, n] of Object.entries(POOL_RARITY)) {
-    const candidates = shuffle(s, COLLECTIBLE.filter((c) => c.rarity === rarity).map((c) => c.id));
-    for (let i = 0; i < n; i++) cards.push({ pid: `k${cards.length + 1}`, baseId: candidates[i % candidates.length] });
-  }
-  shuffle(s, cards);
-  cards.forEach((c, i) => (c.pid = `k${i + 1}`));
+  for (const r of rounds) for (const baseId of shuffle(s, r)) cards.push({ pid: `k${cards.length + 1}`, baseId });
 
   // Köpfe: bevorzugt Stämme, die im Pool vorkommen; einer davon ist ein Lanenkopf
   const tribeCounts = new Map();
@@ -44,27 +81,44 @@ export function generatePool(seed) {
   return { cards, heads, sides: Object.keys(SIDE_TYPES) };
 }
 
+/** Wer wählt in Runde `r` zuerst? Wechselt jede Runde. @param {0|1} first @param {number} r @returns {0|1} */
+export function roundFirst(first, r) {
+  return /** @type {0|1} */ (r % 2 === 0 ? first : 1 - first);
+}
+
 /**
- * Snake-Reihenfolge 1-2-2-2-…: erster Spieler 1 Pick, danach abwechselnd je 2, bis beide 12 haben.
+ * Pick-Reihenfolge im gemeinsamen Pool: pro Runde A, B, A, B; der erste Pick wechselt jede Runde.
  * @param {0|1} first
  * @returns {Array<0|1>}
  */
-export function snakeOrder(first) {
+export function roundOrder(first) {
   /** @type {Array<0|1>} */
-  const order = [first];
-  const counts = [0, 0];
-  counts[first] = 1;
-  let cur = /** @type {0|1} */ (1 - first);
-  while (counts[0] < PICKS_PER_PLAYER || counts[1] < PICKS_PER_PLAYER) {
-    for (let i = 0; i < 2; i++) {
-      if (counts[cur] < PICKS_PER_PLAYER) {
-        order.push(cur);
-        counts[cur] += 1;
-      }
-    }
-    cur = /** @type {0|1} */ (1 - cur);
+  const order = [];
+  for (let r = 0; r < DRAFT_ROUNDS; r++) {
+    const a = roundFirst(first, r);
+    const b = /** @type {0|1} */ (1 - a);
+    order.push(a, b, a, b);
   }
   return order;
+}
+
+/** Pool-IDs von Runde `r`. @param {any} draft @param {number} r @returns {string[]} */
+export function roundPids(draft, r) {
+  return draft.pool.slice(r * ROUND_SIZE, (r + 1) * ROUND_SIZE).map((/** @type {any} */ c) => c.pid);
+}
+
+/**
+ * Aktuelle Runde von `p` (gemeinsam: für beide gleich; getrennt: eigene Runde, Spieler 2 beginnt versetzt).
+ * @param {any} draft @param {0|1} p
+ */
+export function draftRound(draft, p) {
+  if (draft.mode === "shared") return Math.min(DRAFT_ROUNDS - 1, Math.floor(draft.index / ROUND_SIZE));
+  return Math.min(DRAFT_ROUNDS - 1, Math.floor(draft.picks[p].length / PICKS_PER_ROUND));
+}
+
+/** Getrennte Pools: Spieler 2 sieht die Runden versetzt, damit beide nicht dieselben Karten vor sich haben. */
+function separateRoundIndex(/** @type {number} */ p, /** @type {number} */ r) {
+  return p === 0 ? r : (r + DRAFT_ROUNDS / 2) % DRAFT_ROUNDS;
 }
 
 /**
@@ -75,6 +129,8 @@ export function createDraft(seed, mode, round = 0) {
   const pool = generatePool(seed);
   const s = streamFrom("firstPick", seed);
   const first = /** @type {0|1} */ ((randInt(s, 2) + round) % 2);
+  // Nach 6 Runden geht der Wechsel weiter: Kopf wählt zuerst, wer Runde 1 begonnen hat, Nebendeck der andere
+  const second = /** @type {0|1} */ (1 - first);
   const draft = {
     mode,
     first,
@@ -82,27 +138,38 @@ export function createDraft(seed, mode, round = 0) {
     heads: pool.heads,
     sides: pool.sides,
     picks: /** @type {string[][]} */ ([[], []]),
-    order: mode === "shared" ? snakeOrder(first) : [],
+    order: mode === "shared" ? roundOrder(first) : [],
     index: 0,
     taken: /** @type {Record<string, number>} */ ({}),
-    queues: /** @type {string[][]} */ ([[], []]),
     offers: /** @type {string[][]} */ ([[], []]),
     extras: [{ head: /** @type {number|null} */ (null), side: /** @type {string|null} */ (null) }, { head: null, side: null }],
+    /** Gemeinsamer Pool: Kopf und Nebendeck nacheinander, exklusiv. */
+    extraOrder: mode === "shared" ? [[first, "head"], [second, "head"], [second, "side"], [first, "side"]] : [],
+    extraIndex: 0,
   };
   if (mode === "separate") {
-    const order = shuffle(streamFrom("queue", seed), pool.cards.map((c) => c.pid));
-    draft.queues = [[...order], [...order]];
-    refillOffer(draft, 0);
-    refillOffer(draft, 1);
+    refillOffer(draft, 0, {});
+    refillOffer(draft, 1, {});
   }
   return draft;
 }
 
-/** @param {any} draft @param {number} p */
-function refillOffer(draft, p) {
-  while (draft.offers[p].length < SEPARATE_OFFER && draft.queues[p].length) {
-    draft.offers[p].push(draft.queues[p].shift());
+/**
+ * Getrennte Pools: Angebot = Karten der eigenen Runde, ohne eigene Picks dieser Runde und ohne gesperrte Legendäre.
+ * @param {any} draft @param {number} p @param {Record<string, number>} legends
+ */
+function refillOffer(draft, p, legends) {
+  if (draft.picks[p].length >= PICKS_PER_PLAYER) {
+    draft.offers[p] = [];
+    return;
   }
+  const r = Math.floor(draft.picks[p].length / PICKS_PER_ROUND);
+  const mine = new Set(draft.picks[p]);
+  draft.offers[p] = roundPids(draft, separateRoundIndex(p, r)).filter((pid) => {
+    if (mine.has(pid)) return false;
+    const def = CARDS[poolCard(draft, pid).baseId];
+    return !(def.unique && legends[def.id] !== undefined && legends[def.id] !== p);
+  });
 }
 
 /** @param {any} draft @param {string} pid */
@@ -134,32 +201,20 @@ export function applyPick(draft, p, pid, legends) {
   if (draft.mode === "shared") {
     if (sharedTurn(draft) !== p) return { error: "notYourPick" };
     if (draft.taken[pid] !== undefined) return { error: "alreadyTaken" };
+    if (!roundPids(draft, draftRound(draft, p)).includes(pid)) return { error: "notOffered" };
     draft.taken[pid] = p;
     draft.picks[p].push(pid);
     draft.index += 1;
-    // Übersprungene Plätze (falls der Pool durch Sperren leer wäre) gibt es hier nicht: 24 Karten = 2 × 12
   } else {
-    const i = draft.offers[p].indexOf(pid);
-    if (i < 0) return { error: "notOffered" };
-    draft.offers[p].splice(i, 1);
+    if (!draft.offers[p].includes(pid)) return { error: "notOffered" };
     draft.picks[p].push(pid);
-    // Nicht gewählte Karten wandern ans Ende der eigenen Warteschlange, dann 5 neue
-    draft.queues[p].push(...draft.offers[p]);
-    draft.offers[p] = [];
-    refillOffer(draft, p);
   }
-  if (def.unique) {
-    legends[def.id] = p;
-    // Für den anderen Spieler sperren (getrennte Pools: aus Angebot und Warteschlange entfernen)
-    if (draft.mode === "separate") {
-      const q = 1 - p;
-      const same = draft.pool.filter((/** @type {any} */ c) => c.baseId === def.id).map((/** @type {any} */ c) => c.pid);
-      draft.offers[q] = draft.offers[q].filter((/** @type {string} */ x) => !same.includes(x));
-      draft.queues[q] = draft.queues[q].filter((/** @type {string} */ x) => !same.includes(x));
-      refillOffer(draft, q);
-    }
+  if (def.unique) legends[def.id] = p;
+  if (draft.mode === "separate") {
+    refillOffer(draft, p, legends);
+    // Legendäre: beim anderen sofort aus dem Angebot nehmen
+    if (def.unique) draft.offers[1 - p] = draft.offers[1 - p].filter((/** @type {string} */ x) => poolCard(draft, x).baseId !== def.id);
   }
-  if (draftDone(draft, p)) draft.offers[p] = [];
   return { baseId: card.baseId };
 }
 
@@ -170,10 +225,16 @@ export function applyPick(draft, p, pid, legends) {
 export function pickable(draft, p, legends) {
   if (draftDone(draft, p)) return [];
   const ids = draft.mode === "shared"
-    ? (sharedTurn(draft) === p ? draft.pool.filter((/** @type {any} */ c) => draft.taken[c.pid] === undefined).map((/** @type {any} */ c) => c.pid) : [])
+    ? (sharedTurn(draft) === p ? roundPids(draft, draftRound(draft, p)).filter((pid) => draft.taken[pid] === undefined) : [])
     : [...draft.offers[p]];
   return ids.filter((pid) => {
     const def = CARDS[poolCard(draft, pid).baseId];
     return !(def.unique && legends[def.id] !== undefined && legends[def.id] !== p);
   });
+}
+
+/** Gemeinsamer Pool: wer wählt gerade Kopf bzw. Nebendeck? @param {any} draft @returns {null|[0|1, "head"|"side"]} */
+export function extrasTurn(draft) {
+  if (draft.mode !== "shared") return null;
+  return draft.extraOrder[draft.extraIndex] || null;
 }

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMatch, applyAction, awaiting, deepClone, normalizeSettings, START_SHARDS } from "../engine/match.js";
 import { aiAction } from "../engine/ai/index.js";
-import { snakeOrder, generatePool, PICKS_PER_PLAYER } from "../engine/draft.js";
+import { roundOrder, generatePool, pickable, PICKS_PER_PLAYER, DRAFT_ROUNDS, ROUND_SIZE } from "../engine/draft.js";
 import { generateMap } from "../engine/path.js";
 import { resolveCard, CARDS, COLLECTIBLE } from "../engine/cards.js";
 import { viewFor, eventsFor } from "../engine/view.js";
@@ -56,67 +56,111 @@ test("Alle Sigils, Items, Ereignisse, Stämme und Lanen-Eigenschaften haben deut
 });
 
 // ───────── Draft ─────────
-test("Pool: 24 Karten mit fester Seltenheitsverteilung, 4 Köpfe, 3 Nebendecks; deterministisch", () => {
+test("Pool: 24 Karten in 6 Runden à 4, feste Seltenheiten, 3–5 Duplikate nie in derselben Runde; deterministisch", () => {
   const a = generatePool("ASCHE");
-  const b = generatePool("ASCHE");
-  assert.deepEqual(a, b);
-  assert.equal(a.cards.length, 24);
-  const r = {};
-  for (const c of a.cards) r[CARDS[c.baseId].rarity] = (r[CARDS[c.baseId].rarity] || 0) + 1;
-  assert.deepEqual(r, { common: 14, uncommon: 6, rare: 3, legendary: 1 });
+  assert.deepEqual(a, generatePool("ASCHE"));
   assert.equal(a.heads.length, 4);
   assert.deepEqual(a.sides, ["moorling", "knochenkaefer", "wachsling"]);
+  for (let i = 0; i < 300; i++) {
+    const { cards } = generatePool(`POOL${i}`);
+    assert.equal(cards.length, DRAFT_ROUNDS * ROUND_SIZE);
+    const r = {};
+    for (const c of cards) r[CARDS[c.baseId].rarity] = (r[CARDS[c.baseId].rarity] || 0) + 1;
+    assert.deepEqual(r, { common: 14, uncommon: 6, rare: 3, legendary: 1 });
+    const count = new Map();
+    for (const c of cards) count.set(c.baseId, (count.get(c.baseId) || 0) + 1);
+    const dupes = [...count].filter(([, n]) => n > 1);
+    assert.ok(dupes.length >= 3 && dupes.length <= 5, `Seed POOL${i}: ${dupes.length} Duplikate`);
+    for (const [id, n] of dupes) {
+      assert.equal(n, 2);
+      assert.ok(["common", "uncommon"].includes(CARDS[id].rarity));
+    }
+    for (let round = 0; round < DRAFT_ROUNDS; round++) {
+      const ids = cards.slice(round * ROUND_SIZE, (round + 1) * ROUND_SIZE).map((c) => c.baseId);
+      assert.equal(new Set(ids).size, ROUND_SIZE, `Seed POOL${i}: Duplikat in Runde ${round + 1}`);
+    }
+  }
 });
 
-test("Snake-Draft 1-2-2-2…: beide bekommen 12 Karten", () => {
-  const o = snakeOrder(1);
+test("Runden-Draft: A-B-A-B, erster Pick wechselt jede Runde, beide bekommen 12 Karten", () => {
+  const o = roundOrder(1);
   assert.equal(o.length, 24);
-  assert.deepEqual(o.slice(0, 5), [1, 0, 0, 1, 1]);
+  assert.deepEqual(o.slice(0, 8), [1, 0, 1, 0, 0, 1, 0, 1]);
   assert.equal(o.filter((x) => x === 0).length, PICKS_PER_PLAYER);
 });
 
-test("Gemeinsamer Draft: falscher Spieler darf nicht wählen, genommene Karten sind weg", () => {
+test("Gemeinsamer Draft: falscher Spieler darf nicht wählen, genommene Karten sind weg, nur die aktuelle Runde liegt offen", () => {
   let s = createMatch({ seed: "DRAFT", settings: { draftMode: "shared" } });
   const first = s.draft.first;
-  const pid = s.draft.pool[0].pid;
-  assert.equal(applyAction(s, { type: "draftPick", player: 1 - first, pid }).error, "notYourPick");
-  s = act(s, { type: "draftPick", player: first, pid });
-  assert.equal(applyAction(s, { type: "draftPick", player: 1 - first, pid }).error, "alreadyTaken");
+  const [p1, p2, p3, p4] = s.draft.pool.slice(0, 4).sort((x, y) => Number(CARDS[x.baseId].unique) - Number(CARDS[y.baseId].unique)).map((c) => c.pid);
+  assert.equal(applyAction(s, { type: "draftPick", player: 1 - first, pid: p1 }).error, "notYourPick");
+  assert.equal(applyAction(s, { type: "draftPick", player: first, pid: s.draft.pool[4].pid }).error, "notOffered");
+  s = act(s, { type: "draftPick", player: first, pid: p1 });
+  assert.equal(applyAction(s, { type: "draftPick", player: 1 - first, pid: p1 }).error, "alreadyTaken");
+  s = act(s, { type: "draftPick", player: 1 - first, pid: p2 });
+  s = act(s, { type: "draftPick", player: first, pid: p3 });
+  s = act(s, { type: "draftPick", player: 1 - first, pid: p4 });
+  // Runde 2: der andere beginnt
+  assert.equal(awaiting(s)[0], 1 - first);
+  assert.deepEqual(pickable(s.draft, 1 - first, s.legends), s.draft.pool.slice(4, 8).map((c) => c.pid));
 });
 
-test("Getrennte Pools: 5 Karten liegen offen, Legendäre ist nach dem ersten Griff für den anderen gesperrt", () => {
+test("Getrennte Pools: je Runde 4 Karten, 2 nehmen, gleichzeitig; Legendäre ist nach dem ersten Griff gesperrt", () => {
   let s = createMatch({ seed: "SPLIT", settings: { draftMode: "separate" } });
-  assert.equal(s.draft.offers[0].length, 5);
-  assert.deepEqual(s.draft.offers[0], s.draft.offers[1]);
+  assert.equal(s.draft.offers[0].length, 4);
+  assert.equal(s.draft.offers[1].length, 4);
+  assert.notDeepEqual(s.draft.offers[0], s.draft.offers[1]);
+  assert.deepEqual(awaiting(s), [0, 1]);
+  const round1 = [...s.draft.offers[0]];
+  s = act(s, { type: "draftPick", player: 0, pid: round1[0] });
+  assert.deepEqual(s.draft.offers[0], round1.slice(1));
+  s = act(s, { type: "draftPick", player: 0, pid: round1[1] });
+  assert.equal(s.draft.offers[0].filter((pid) => round1.includes(pid)).length, 0); // neue Runde
   const legend = s.draft.pool.find((c) => CARDS[c.baseId].rarity === "legendary");
-  // Beide spulen, bis die Legendäre bei Spieler 0 im Angebot liegt
   let guard = 0;
-  while (!s.draft.offers[0].includes(legend.pid) && guard++ < 30) {
-    s = act(s, { type: "draftPick", player: 0, pid: s.draft.offers[0][0] });
-  }
+  while (!s.draft.offers[0].includes(legend.pid) && guard++ < 30) s = act(s, { type: "draftPick", player: 0, pid: s.draft.offers[0][0] });
   if (s.draft.offers[0].includes(legend.pid)) {
     s = act(s, { type: "draftPick", player: 0, pid: legend.pid });
     assert.equal(s.legends[legend.baseId], 0);
-    assert.ok(!s.draft.offers[1].includes(legend.pid));
-    assert.ok(!s.draft.queues[1].includes(legend.pid));
+    guard = 0;
+    while (s.draft.picks[1].length < PICKS_PER_PLAYER && guard++ < 30) {
+      assert.ok(!s.draft.offers[1].includes(legend.pid));
+      s = act(s, { type: "draftPick", player: 1, pid: s.draft.offers[1][0] });
+    }
   }
 });
 
-test("Nach dem Draft: Kopf mit Start-Basis und Nebendeck wählen, dann Pfad mit 3 Splittern, dann Kampf 1", () => {
+test("Nach dem Draft (gemeinsam): Kopf und Nebendeck abwechselnd und exklusiv, dann Pfad mit 3 Splittern, dann Kampf 1", () => {
   let s = playUntil(createMatch({ seed: "EXTRA" }), (x) => x.phase === "extras");
   assert.equal(s.phase, "extras");
-  s = act(s, { type: "draftExtras", player: 0, head: 1, side: "wachsling" });
-  s = act(s, { type: "draftExtras", player: 1, head: 0, side: "knochenkaefer" });
+  const A = s.draft.first;
+  const B = 1 - A;
+  assert.deepEqual(awaiting(s), [A]);
+  assert.equal(applyAction(s, { type: "draftExtras", player: B, head: 0 }).error, "notYourPick");
+  s = act(s, { type: "draftExtras", player: A, head: 1 });
+  assert.equal(applyAction(s, { type: "draftExtras", player: B, head: 1 }).error, "headTaken");
+  s = act(s, { type: "draftExtras", player: B, head: 0 });
+  assert.deepEqual(awaiting(s), [B]); // Nebendeck: jetzt wählt B zuerst
+  s = act(s, { type: "draftExtras", player: B, side: "knochenkaefer" });
+  assert.equal(applyAction(s, { type: "draftExtras", player: A, side: "knochenkaefer" }).error, "sideTaken");
+  s = act(s, { type: "draftExtras", player: A, side: "wachsling" });
   assert.equal(s.phase, "path");
   assert.equal(s.battleNo, 0);
   assert.deepEqual(s.players.map((P) => P.shards), [START_SHARDS, START_SHARDS]);
-  assert.equal(s.players[0].sideType, "wachsling");
-  assert.ok(s.players[0].totems.tribe || s.players[0].totems.lane);
-  const first = s.draft.first;
+  assert.equal(s.players[A].sideType, "wachsling");
+  assert.ok(s.players[A].totems.tribe || s.players[A].totems.lane);
   for (let i = 0; i < 20 && s.phase === "path"; i++) for (const p of awaiting(s)) s = act(s, { type: "timeout", player: p });
   assert.equal(s.phase, "battle"); // kein Zwischenspiel vor Kampf 1
-  assert.equal(s.battle.starter, 1 - first);
+  assert.equal(s.battle.starter, B);
   assert.ok(s.players[0].deck.length >= 8);
+});
+
+test("Nach dem Draft (getrennt): Kopf und Nebendeck gleichzeitig", () => {
+  let s = playUntil(createMatch({ seed: "EXTRA2", settings: { draftMode: "separate" } }), (x) => x.phase === "extras");
+  assert.deepEqual(awaiting(s), [0, 1]);
+  s = act(s, { type: "draftExtras", player: 1, head: 2, side: "moorling" });
+  s = act(s, { type: "draftExtras", player: 0, head: 2, side: "moorling" });
+  assert.equal(s.phase, "path");
 });
 
 // ───────── Modifikatoren ─────────

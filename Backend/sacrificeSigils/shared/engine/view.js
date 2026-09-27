@@ -45,14 +45,12 @@ export function viewFor(state, viewer) {
       if (d.mode === "separate" && !allDone) {
         d.picks[q] = d.picks[q].map(() => null);
       }
-      d.queues[q] = [];
       if (d.mode === "separate") d.offers[q] = [];
-      // Extras (Kopf/Nebendeck) des Gegners erst nach beiden Wahlen
-      if (!(d.extras[0].head !== null && d.extras[1].head !== null)) {
+      // Getrennte Pools: Extras (Kopf/Nebendeck) des Gegners erst nach beiden Wahlen; gemeinsam wird offen gewählt
+      if (d.mode === "separate" && !(d.extras[0].head !== null && d.extras[1].head !== null)) {
         d.extras[q] = { head: null, side: null, chosen: d.extras[q].head !== null };
       }
     }
-    d.queues = d.queues.map(() => []);
   }
 
   // Kampf

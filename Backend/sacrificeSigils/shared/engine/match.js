@@ -8,7 +8,7 @@
 import { hashParts, normalizeSeed } from "./rng.js";
 import { CARDS } from "./cards.js";
 import { createBattle, battleAction, SIDE_TYPES } from "./battle.js";
-import { createDraft, applyPick, pickable, poolCard, draftDone, PICKS_PER_PLAYER } from "./draft.js";
+import { createDraft, applyPick, pickable, poolCard, draftDone, extrasTurn, PICKS_PER_PLAYER } from "./draft.js";
 import { generateMap, createPlayerPath, reachable, createScene, sceneAction, defaultOp } from "./path.js";
 
 export const DEFAULT_SETTINGS = {
@@ -162,13 +162,38 @@ function extrasPhase(s, p, a, events) {
   const d = s.draft;
   const ex = d.extras[p];
   if (ex.head !== null && ex.side !== null) return "alreadyChosen";
-  if (a.type === "timeout") a = { type: "draftExtras", head: 0, side: "moorling" };
-  if (a.type !== "draftExtras") return "wrongPhase";
-  if (!Number.isInteger(a.head) || !d.heads[a.head]) return "badHead";
-  if (!(a.side in SIDE_TYPES)) return "badSide";
-  ex.head = a.head;
-  ex.side = a.side;
-  events.push({ type: "extrasChosen", player: p });
+  const step = extrasTurn(d);
+  if (step) {
+    // Gemeinsamer Pool: Kopf und Nebendeck nacheinander mit wechselndem Erstzugriff, Gewähltes ist weg
+    if (step[0] !== p) return "notYourPick";
+    const kind = step[1];
+    const other = d.extras[1 - p];
+    if (a.type === "timeout") {
+      a = kind === "head"
+        ? { type: "draftExtras", head: d.heads.findIndex((/** @type {any} */ _, /** @type {number} */ i) => i !== other.head) }
+        : { type: "draftExtras", side: Object.keys(SIDE_TYPES).find((k) => k !== other.side) };
+    }
+    if (a.type !== "draftExtras") return "wrongPhase";
+    if (kind === "head") {
+      if (!Number.isInteger(a.head) || !d.heads[a.head]) return "badHead";
+      if (other.head === a.head) return "headTaken";
+      ex.head = a.head;
+    } else {
+      if (!(a.side in SIDE_TYPES)) return "badSide";
+      if (other.side === a.side) return "sideTaken";
+      ex.side = a.side;
+    }
+    d.extraIndex += 1;
+    events.push({ type: "extrasChosen", player: p, kind, head: kind === "head" ? a.head : undefined, side: kind === "side" ? a.side : undefined });
+  } else {
+    if (a.type === "timeout") a = { type: "draftExtras", head: 0, side: "moorling" };
+    if (a.type !== "draftExtras") return "wrongPhase";
+    if (!Number.isInteger(a.head) || !d.heads[a.head]) return "badHead";
+    if (!(a.side in SIDE_TYPES)) return "badSide";
+    ex.head = a.head;
+    ex.side = a.side;
+    events.push({ type: "extrasChosen", player: p });
+  }
   if (d.extras.every((/** @type {any} */ e) => e.head !== null && e.side !== null)) {
     for (const q of /** @type {const} */ ([0, 1])) {
       const P = s.players[q];
@@ -382,8 +407,11 @@ export function awaiting(s) {
       if (d.mode === "shared") return d.index < d.order.length ? [d.order[d.index]] : [];
       return /** @type {Array<0|1>} */ ([0, 1].filter((p) => !draftDone(d, p)));
     }
-    case "extras":
+    case "extras": {
+      const step = extrasTurn(s.draft);
+      if (step) return [step[0]];
       return /** @type {Array<0|1>} */ ([0, 1].filter((p) => s.draft.extras[p].head === null));
+    }
     case "battle":
       return s.battle.phase === "over" ? [] : [s.battle.active];
     case "path":
@@ -406,6 +434,7 @@ export function createBattleMatch(opts) {
   s.settings.winsNeeded = opts.winsNeeded || 1;
   s.draft.picks = [[], []];
   s.draft.extras = [{ head: 0, side: "moorling" }, { head: 0, side: "moorling" }];
+  s.draft.extraIndex = s.draft.extraOrder.length;
   for (const q of /** @type {const} */ ([0, 1])) {
     const P = s.players[q];
     P.deck = [];

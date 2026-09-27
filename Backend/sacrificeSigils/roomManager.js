@@ -114,7 +114,7 @@ function createRoomManager(deps) {
     const m = room.match;
     switch (m.phase) {
       case 'draft': return `d${m.draft.picks[p].length}:${m.draft.index}`;
-      case 'extras': return 'x';
+      case 'extras': return `x${m.draft.extraIndex || 0}:${m.draft.extras[p].head}`;
       case 'battle': return `b${m.battleNo}:${m.battle.turn}`;
       case 'path': return `p${m.pathNo}:${m.path.players[p].level}`;
       case 'interlude': return `i${m.pathNo}`;

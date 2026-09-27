@@ -10,7 +10,7 @@
 import { battleAction, Resolver, LANES, HAND_LIMIT } from "../battle.js";
 import { deepClone, awaiting } from "../match.js";
 import { CARDS, cardValue, costBudget, resolveCard } from "../cards.js";
-import { pickable, poolCard } from "../draft.js";
+import { pickable, poolCard, extrasTurn } from "../draft.js";
 import { reachable } from "../path.js";
 import { parseSigil, sigilPower } from "../sigils/index.js";
 import { rand, randInt } from "../rng.js";
@@ -96,13 +96,23 @@ function extrasChoice(match, p) {
     tribes.set(c.tribe, (tribes.get(c.tribe) || 0) + 1);
     costs[c.cost.type] += 1;
   }
-  let head = 0;
+  // Gemeinsamer Pool: nur das, was gerade dran ist, und nichts, was der Gegner schon hat
+  const step = extrasTurn(d);
+  const other = d.extras[1 - p];
+  let head = -1;
   let best = -1;
   d.heads.forEach((/** @type {any} */ h, /** @type {number} */ i) => {
+    if (step && other.head === i) return;
     const score = h.head.kind === "tribe" ? (tribes.get(h.head.tribe) || 0) : 1.5;
     if (score > best) { best = score; head = i; }
   });
-  const side = costs.bones >= costs.blood && costs.bones >= costs.wax ? "knochenkaefer" : costs.wax > costs.blood ? "wachsling" : "moorling";
+  const byNeed = /** @type {string[]} */ ([]);
+  if (costs.bones >= costs.blood && costs.bones >= costs.wax) byNeed.push("knochenkaefer");
+  if (costs.wax > costs.blood) byNeed.push("wachsling");
+  byNeed.push("moorling", "wachsling", "knochenkaefer");
+  const side = byNeed.find((k) => !step || other.side !== k) || "moorling";
+  if (step?.[1] === "head") return { type: "draftExtras", player: p, head };
+  if (step?.[1] === "side") return { type: "draftExtras", player: p, side };
   return { type: "draftExtras", player: p, head, side };
 }
 

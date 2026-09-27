@@ -21,7 +21,7 @@ export default function GuidePage() {
 
       <Section title="Das Match">
         <p>Lobby → <b>Draft</b> → <b>Pfad</b> → <b>Kampf</b> → [<b>Pfad</b> → <b>Kampf</b>] … → Ende. Wer zuerst die eingestellte Zahl an Kämpfen gewinnt (1, 2 oder 3), gewinnt das Match. Aufgeben kostet das ganze Match.</p>
-        <p>Im Draft entsteht aus dem Seed ein Pool aus 24 Karten (14 gewöhnlich, 6 ungewöhnlich, 3 selten, 1 legendär). Beim <b>gemeinsamen Pool</b> wird im Snake-Draft 1-2-2-2… gewählt, bei <b>getrennten Pools</b> wählt jeder gleichzeitig 1 aus 5 aufgedeckten Karten. Danach wählst du einen Totem-Kopf und dein Nebendeck. Legendäre Karten gibt es nur einmal pro Match.</p>
+        <p>Im Draft entsteht aus dem Seed ein Pool aus 24 Karten (14 gewöhnlich, 6 ungewöhnlich, 3 selten, 1 legendär), aufgeteilt in <b>6 Runden à 4 Karten</b>. 3 bis 5 gewöhnliche oder ungewöhnliche Karten kommen doppelt vor – nie in derselben Runde; zwei gleiche lassen sich später verschmelzen. Beim <b>gemeinsamen Pool</b> wird pro Runde abwechselnd gewählt (A, B, A, B), der erste Zugriff wechselt jede Runde. Danach wählt ihr nacheinander Totem-Kopf und Nebendeck – was einer nimmt, ist für den anderen weg, und auch hier wechselt der Erstzugriff. Bei <b>getrennten Pools</b> sieht jeder eigene 4 Karten pro Runde, nimmt 2 davon, beide gleichzeitig. Legendäre Karten gibt es nur einmal pro Match.</p>
       </Section>
 
       <Section title="Die Waage">
