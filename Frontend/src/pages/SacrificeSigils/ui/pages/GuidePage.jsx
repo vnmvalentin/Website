@@ -20,7 +20,7 @@ export default function GuidePage() {
       <p className="ss-dim">Lieber ausprobieren? Das <Link className="underline" to="/sacrifice-and-sigils/tutorial">Tutorial</Link> führt durch einen Übungskampf.</p>
 
       <Section title="Das Match">
-        <p>Lobby → <b>Draft</b> → [<b>Kampf</b> → <b>Pfad</b>] × n → Ende. Wer zuerst die eingestellte Zahl an Kämpfen gewinnt (2 oder 3), gewinnt das Match. Aufgeben kostet das ganze Match.</p>
+        <p>Lobby → <b>Draft</b> → [<b>Kampf</b> → <b>Pfad</b>] × n → Ende. Wer zuerst die eingestellte Zahl an Kämpfen gewinnt (1, 2 oder 3), gewinnt das Match. Aufgeben kostet das ganze Match.</p>
         <p>Im Draft entsteht aus dem Seed ein Pool aus 24 Karten (14 gewöhnlich, 6 ungewöhnlich, 3 selten, 1 legendär). Beim <b>gemeinsamen Pool</b> wird im Snake-Draft 1-2-2-2… gewählt, bei <b>getrennten Pools</b> wählt jeder gleichzeitig 1 aus 5 aufgedeckten Karten. Danach wählst du einen Totem-Kopf und dein Nebendeck. Legendäre Karten gibt es nur einmal pro Match.</p>
       </Section>
 

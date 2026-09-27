@@ -151,7 +151,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         <span className="ss-title text-[var(--candle)]">{de.phases[phase]}{phase === "battle" && view.battle ? ` ${view.battleNo}` : ""}</span>
         <span className="ss-dim">
           {names[0]} <b className="ss-num text-[var(--bone)]">{view.wins[0]}</b> : <b className="ss-num text-[var(--bone)]">{view.wins[1]}</b> {names[1]}
-          <span className="ss-faint"> · {view.settings.winsNeeded} {de.ui.wins} nötig</span>
+          <span className="ss-faint"> · {view.settings.winsNeeded} {view.settings.winsNeeded === 1 ? de.ui.win : de.ui.wins} nötig</span>
         </span>
         {you !== null && <span className="ss-dim">{de.ui.shards}: <b className="ss-num">{view.players[you].shards}</b></span>}
         <span className="ss-faint">Seed {view.seed}</span>

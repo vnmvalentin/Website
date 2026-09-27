@@ -6,7 +6,7 @@ import { sound } from "../../audio/sound.js";
 
 const OPTIONS = {
   draftMode: [["shared", "Gemeinsamer Pool (Snake-Draft)"], ["separate", "Getrennte Pools (gespiegelt)"]],
-  winsNeeded: [[2, "2 Siege (Best-of-3)"], [3, "3 Siege (Best-of-5)"]],
+  winsNeeded: [[1, "1 (Best-of-1)"], [2, "2 Siege (Best-of-3)"], [3, "3 Siege (Best-of-5)"]],
   turnTimer: [[45, "45 s"], [60, "60 s"], [90, "90 s"], [0, "aus"]],
   pathLength: [[2, "kurz (2 Knoten)"], [3, "normal (3)"], [4, "lang (4)"]],
   spectators: [[true, "ja"], [false, "nein"]],

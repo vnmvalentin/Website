@@ -243,6 +243,7 @@ export const de = {
     randomSeed: "Zufällig",
     you: "Du",
     opponent: "Gegner",
+    win: "Sieg",
     wins: "Siege",
     shards: "Splitter",
     items: "Items",

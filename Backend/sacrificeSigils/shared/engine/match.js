@@ -26,7 +26,7 @@ const PATH_LENGTHS = [2, 3, 4];
 export function normalizeSettings(s = {}) {
   return {
     draftMode: s.draftMode === "separate" ? "separate" : "shared",
-    winsNeeded: s.winsNeeded === 3 ? 3 : 2,
+    winsNeeded: [1, 2, 3].includes(s.winsNeeded) ? s.winsNeeded : DEFAULT_SETTINGS.winsNeeded,
     turnTimer: TIMERS.includes(s.turnTimer) ? s.turnTimer : DEFAULT_SETTINGS.turnTimer,
     pathLength: PATH_LENGTHS.includes(s.pathLength) ? s.pathLength : DEFAULT_SETTINGS.pathLength,
     spectators: s.spectators !== false,

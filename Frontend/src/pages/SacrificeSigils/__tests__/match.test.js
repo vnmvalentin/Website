@@ -1,7 +1,7 @@
 // Match-Ebene: Draft, Extras, Pfad-Knoten, Modifikatoren, Best-of, Determinismus, Fuzz, versteckte Information, Daten.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createMatch, applyAction, awaiting, deepClone } from "../engine/match.js";
+import { createMatch, applyAction, awaiting, deepClone, normalizeSettings } from "../engine/match.js";
 import { aiAction } from "../engine/ai/index.js";
 import { snakeOrder, generatePool, PICKS_PER_PLAYER } from "../engine/draft.js";
 import { generateMap } from "../engine/path.js";
@@ -278,6 +278,24 @@ test("Best-of: Pfad nach jedem Kampf außer dem letzten, Verlierer wählt den Be
     assert.equal(s.phase, "battle");
     assert.equal(s.battle.active, 1 - loser);
   }
+});
+
+test("Best-of-1: ein Kampf entscheidet das Match; ungültige Werte fallen auf 2 zurück", () => {
+  assert.equal(normalizeSettings({ winsNeeded: 1 }).winsNeeded, 1);
+  assert.equal(normalizeSettings({ winsNeeded: 7 }).winsNeeded, 2);
+  let battles = 0;
+  let s = createMatch({ seed: "BO1", settings: { winsNeeded: 1 } });
+  const rng = { rng: 3 };
+  for (let guard = 0; s.phase !== "over" && guard < 5000; guard++) {
+    const p = awaiting(s)[0];
+    const r = applyAction(s, aiAction(s, p, "normal", rng));
+    const res = r.error ? applyAction(s, { type: "timeout", player: p }) : r;
+    battles += res.events.filter((e) => e.type === "battleEnd").length;
+    s = res.state;
+  }
+  assert.equal(s.phase, "over");
+  assert.equal(battles, 1);
+  assert.equal(s.wins[s.winner], 1);
 });
 
 test("Aufgeben beendet das ganze Match", () => {

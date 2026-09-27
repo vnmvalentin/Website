@@ -93,7 +93,7 @@ export default function PracticePage() {
           </label>
           <label className="block"><span className="text-sm opacity-75">Siege nötig</span>
             <select className="ss-select w-full mt-1" value={settings.winsNeeded} onChange={(e) => setSettings({ ...settings, winsNeeded: Number(e.target.value) })}>
-              <option value={2}>2 (Best-of-3)</option><option value={3}>3 (Best-of-5)</option>
+              <option value={1}>1 (Best-of-1)</option><option value={2}>2 (Best-of-3)</option><option value={3}>3 (Best-of-5)</option>
             </select>
           </label>
           <label className="block"><span className="text-sm opacity-75">Pfad-Länge</span>
