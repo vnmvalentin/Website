@@ -257,6 +257,8 @@ export const de = {
     matchWon: "Das Match gehört dir.",
     matchLost: "Die Waage hat gegen dich entschieden.",
     firstTurnNoAttack: "Erster Zug – noch kein Angriff",
+    motionHint: "Dein System wünscht weniger Bewegung. Die Animationen laufen trotzdem, weil sie zeigen, was im Kampf passiert – in den Einstellungen kannst du sie jederzeit reduzieren.",
+    motionHintReduce: "Jetzt reduzieren",
     candleWarn: (/** @type {number} */ n) => `Die Kerze brennt nieder: in ${n} ${n === 1 ? "Zug" : "Zügen"} kostet jedes Zugende 1 Gewicht.`,
     candleBurning: (/** @type {number} */ n) => `Die Kerze brennt nieder: jedes Zugende kostet den aktiven Zeichner ${n} Gewicht${n === 1 ? "" : "e"} – alle 6 Züge eines mehr.`,
     chooseStarter: "Du hast verloren – wer beginnt den nächsten Kampf?",

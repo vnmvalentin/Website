@@ -1,2 +1,2 @@
 // ERZEUGT von sacrificeSigils/tools/spiegel.js — nicht von Hand ändern.
-export const ENGINE_FINGERPRINT = "31f6a5b2111b4a54";
+export const ENGINE_FINGERPRINT = "4c272fda7f2a98f0";

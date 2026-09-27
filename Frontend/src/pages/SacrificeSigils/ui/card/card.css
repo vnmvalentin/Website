@@ -143,17 +143,28 @@
 }
 .ss-wick {
   position: absolute;
-  right: 5%;
-  bottom: 6%;
-  min-width: 1.4em;
-  padding: 0 0.2em;
-  text-align: center;
+  right: 4%;
+  bottom: 5%;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  padding: 1px 4px 1px 2px;
   font-family: var(--font-num);
+  font-size: 1.05em;
   color: #2a1a08;
-  background: var(--candle);
-  border-radius: 50% 50% 45% 45%;
+  background: rgb(242 181 74 / 0.92);
+  border-radius: 6px;
   box-shadow: 0 0 6px var(--candle);
 }
+.ss-wick.ss-wick-low { background: #b3302a; color: #fff2e0; box-shadow: 0 0 10px #e0462a; animation: ss-wick-flicker 0.7s ease-in-out infinite alternate; }
+.ss-wick.ss-wick-out { background: #3a3128; color: #bfb3a0; box-shadow: none; animation: none; }
+@keyframes ss-wick-flicker { 0% { opacity: 1; filter: brightness(1); } 45% { opacity: 0.82; filter: brightness(1.25); } 100% { opacity: 0.95; filter: brightness(0.9); } }
+.ss-wick-drop { position: absolute; left: 30%; top: 2px; width: 5px; height: 7px; border-radius: 50% 50% 50% 50% / 35% 35% 65% 65%; background: #e8dfcc; opacity: 0; pointer-events: none; }
+/* Wachstropfen fällt, wenn der Docht herunterbrennt (Klasse am Einheiten-Wrapper) */
+.ss-a-wick .ss-wick-drop { animation: ss-wax-drop var(--anim-dur, 420ms) ease-in both; }
+.ss-a-wick .ss-wick { animation: ss-wick-pulse var(--anim-dur, 420ms) ease-out; }
+@keyframes ss-wax-drop { 0% { opacity: 0; transform: translateY(0) scale(0.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(22px) scale(1); } }
+@keyframes ss-wick-pulse { 0% { transform: scale(1); } 30% { transform: scale(1.3); } 100% { transform: scale(1); } }
 
 .ss-card-foot {
   margin-top: auto;

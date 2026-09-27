@@ -6,7 +6,7 @@ import { ArrowLeftToLine, Volume2, VolumeX, Settings2 } from "lucide-react";
 import { ShellContext } from "./shellContext.js";
 import { sound } from "../audio/sound.js";
 import { particles } from "./anim/particles.js";
-import { usePrefs, setPrefs } from "./prefs.js";
+import { usePrefs, setPrefs, SPEED_OPTIONS, systemPrefersReducedMotion } from "./prefs.js";
 import { de } from "../i18n/de.js";
 import "./theme.css";
 
@@ -43,8 +43,8 @@ function SettingsPopover({ onClose }) {
       </label>
       <div className="flex items-center gap-2 text-sm">
         <span className="w-20">{de.ui.speed}</span>
-        {[1, 2].map((v) => (
-          <button key={v} type="button" onClick={() => setPrefs({ speed: v })} className={`px-3 py-1 border ${prefs.speed === v ? "bg-[#8e1b1b] text-[#f7e6d0] border-[#5c0f0f]" : "border-[#a8966c]"}`}>{v}×</button>
+        {SPEED_OPTIONS.map((v) => (
+          <button key={v} type="button" onClick={() => setPrefs({ speed: v })} aria-pressed={prefs.speed === v} className={`px-3 py-1 min-h-[44px] min-w-[44px] border ${prefs.speed === v ? "bg-[#8e1b1b] text-[#f7e6d0] border-[#5c0f0f]" : "border-[#a8966c]"}`}>{String(v).replace(".", ",")}×</button>
         ))}
       </div>
       <label className="flex items-center gap-2 text-sm">
@@ -180,6 +180,15 @@ export default function Shell() {
         <main className="ss-content">
           <Outlet />
         </main>
+        {systemPrefersReducedMotion && !prefs.motionHintSeen && !prefs.reduceMotion && (
+          <div className="ss-motion-hint ss-paper" role="status">
+            <p className="text-sm">{de.ui.motionHint}</p>
+            <div className="flex gap-2 justify-end mt-2">
+              <button type="button" className="ss-btn ss-btn-sm" onClick={() => setPrefs({ reduceMotion: true, motionHintSeen: true })}>{de.ui.motionHintReduce}</button>
+              <button type="button" className="ss-btn ss-btn-sm" onClick={() => setPrefs({ motionHintSeen: true })}>OK</button>
+            </div>
+          </div>
+        )}
         <canvas ref={canvasRef} className="fixed inset-0 w-full h-full pointer-events-none z-[70]" aria-hidden />
         {tip && (
           <div className="ss-tip ss-paper" style={{ left: Math.min(window.innerWidth - 290, Math.max(8, tip.x - 140)), top: Math.max(8, tip.y - 12), transform: "translateY(-100%)" }} role="tooltip">

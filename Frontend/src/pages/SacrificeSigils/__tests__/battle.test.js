@@ -42,6 +42,23 @@ test("Erster Zug: in den jeweils ersten eigenen Zügen beider Spieler greift nie
   assert.equal(s.scale, 2);
 });
 
+test("Zugende: feste Reihenfolge Wandern → Kerzendocht → Regeneration → Nachrücken; Blockade wird gemeldet", () => {
+  testCard("T_order", { attack: 0, health: 3, sigils: ["wanderer", "kerzendocht:3", "moosheilung"] });
+  const s = setupBattle({ p0: { front: ["T_order"], back: [null, null, "T_a0h1"] } });
+  unitAt(s, 0, "front", 0).health = 1;
+  const { events } = endTurn(s);
+  const idx = (t) => events.findIndex((e) => e.type === t);
+  assert.ok(idx("wanderStart") >= 0 && idx("wanderStart") < idx("move"));
+  assert.ok(idx("move") < idx("wick"), "Wandern vor Kerzendocht");
+  assert.ok(idx("wick") < idx("heal"), "Kerzendocht vor Regeneration");
+  const advance = events.findIndex((e) => e.type === "move" && e.reason === "advance");
+  assert.ok(advance > idx("heal"), "Nachrücken zuletzt");
+  const blocked = setupBattle({ p0: { front: ["T_order", "T_a0h1"] } });
+  const res = endTurn(blocked);
+  assert.ok(res.events.some((e) => e.type === "moveBlocked"));
+  assert.equal(unitAt(blocked, 0, "front", 0).card.baseId, "T_order");
+});
+
 test("Wachs: +1 pro eigenem Zug, Maximum 6", () => {
   const s = setupBattle({ p0: { wax: 5 }, p1: { wax: 6 } });
   endTurn(s); // p1 beginnt: 6 bleibt 6

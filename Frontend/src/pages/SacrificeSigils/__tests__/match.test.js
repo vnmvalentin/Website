@@ -356,7 +356,7 @@ test("Aufgeben beendet das ganze Match", () => {
   assert.equal(s.endReason, "surrender");
 });
 
-test("Determinismus: gleicher Seed + gleiche Aktionen ⇒ gleicher End-State", () => {
+test("Determinismus: gleicher Seed + gleiche Aktionen ergeben denselben End-State", () => {
   const run = () => playUntil(createMatch({ seed: "DET", salt: "salz" }), () => false, "normal", 99);
   const a = run();
   const b = run();

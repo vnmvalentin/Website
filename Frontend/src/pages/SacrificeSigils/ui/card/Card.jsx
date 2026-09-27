@@ -4,13 +4,12 @@
 import React, { memo } from "react";
 import CardArt from "./CardArt.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
-import { Claw, WaxHeart, CostBadge } from "../icons/GameIcons.jsx";
+import { Claw, WaxHeart, CostBadge, CandleStub, SpecialMark } from "../icons/GameIcons.jsx";
 import { CARDS } from "../../engine/cards.js";
 import { de } from "../../i18n/de.js";
 import { parseSigil } from "../../engine/sigils/index.js";
 import "./card.css";
 
-const SPECIAL_MARK = { schwarmzahl: "Σ", knochenlast: "⚲", flammenmass: "♨", handschwere: "✋" };
 
 /**
  * @param {{
@@ -99,12 +98,19 @@ function Card(props) {
             <span className="ss-scar" title="Am Lagerfeuer verstärkt">+{fire.attack}/+{fire.health}</span>
           )}
           {copied && <span className="ss-stamp">Kopie</span>}
-          {props.wick != null && <span className="ss-wick" title="Kerzendocht: verbleibende Zugenden">{props.wick}</span>}
+          {props.wick != null && (
+            // Kerzendocht (Runde 2, C3): dauerhafte Kerze mit Zähler; bei 1 rot flackernd, bei 0 verlischt sie
+            <span className={`ss-wick ${props.wick <= 1 ? "ss-wick-low" : ""} ${props.wick <= 0 ? "ss-wick-out" : ""}`} title="Kerzendocht: verbleibende Zugenden">
+              <CandleStub size={Math.max(12, width / 9)} lit={props.wick > 0} />
+              <b className="ss-num">{props.wick}</b>
+              <span className="ss-wick-drop" aria-hidden />
+            </span>
+          )}
         </div>
         <div className="ss-card-foot">
           <span className={`ss-stat ss-atk ${atkClass}`}>
             <Claw size={Math.max(10, width / 8.5)} />
-            <b className="ss-num">{special && props.attack == null ? SPECIAL_MARK[special] : atk}</b>
+            <b className="ss-num">{special && props.attack == null ? <SpecialMark special={special} size={Math.max(10, width / 9)} /> : atk}</b>
           </span>
           <span className="ss-sigils">
             {sigils.slice(0, 4).map((s, i) => (

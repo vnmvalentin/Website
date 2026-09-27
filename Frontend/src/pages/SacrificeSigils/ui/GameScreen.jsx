@@ -60,8 +60,10 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         break;
       }
       case "damage": {
+        // Einschlag: Tusche spritzt, der Tisch wackelt kurz
         const c = at(ev.uid);
-        if (c) particles.burst("ink", c.x, c.y);
+        if (c) particles.burst("ink", c.x, c.y, { n: 18 });
+        if (ev.cause === "attack") shake();
         break;
       }
       case "overflow": {
@@ -106,6 +108,14 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         setTension(0);
         const s = centerOf('[data-anchor="scale"]');
         if (s) particles.burst(won ? "ember" : "ash", s.x, s.y, { n: 50, spread: 2.5 });
+        break;
+      }
+      case "wick": {
+        // Kerzendocht erlischt: Rauch steigt auf, danach stirbt die Karte
+        if (ev.left <= 0) {
+          const c = at(ev.uid);
+          if (c) particles.burst("ash", c.x, c.y - 20, { n: 18 });
+        }
         break;
       }
       case "burn":
@@ -157,7 +167,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
         <span className="ss-faint">Seed {view.seed}</span>
         <div className="ml-auto flex items-center gap-2">
           {game.mode === "online" && (game.connection === "connected" ? <Wifi size={15} className="ss-faint" aria-label="Verbunden" /> : <span className="flex items-center gap-1 text-[var(--wax-red-light)]"><WifiOff size={15} /> {de.ui.reconnecting}</span>)}
-          {q.busy && <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost" onClick={q.skip} title="Animationen überspringen"><FastForward size={14} /> Überspringen</button>}
+          {q.busy && <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost" onClick={q.skipAll} title="Alle Animationen überspringen"><FastForward size={14} /> Alle überspringen</button>}
           {you !== null && phase !== "over" && (
             confirmSurrender ? (
               <span className="flex items-center gap-2 ss-paper px-2 py-1 text-xs">
@@ -176,7 +186,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit }) {
       {phase === "draft" && <DraftScreen {...common} timers={game.timers} clockOffset={game.clockOffset} />}
       {phase === "extras" && <ExtrasScreen {...common} timers={game.timers} clockOffset={game.clockOffset} />}
       {phase === "battle" && q.display && (
-        <BattleScreen {...common} display={q.display} anim={q.anim} timers={game.timers} clockOffset={game.clockOffset} hintExtra={extra} onAction={onBattleAction} />
+        <BattleScreen {...common} display={q.display} anim={q.anim} hold={q.hold} timers={game.timers} clockOffset={game.clockOffset} hintExtra={extra} onAction={onBattleAction} />
       )}
       {phase === "path" && <PathScreen {...common} timers={game.timers} clockOffset={game.clockOffset} events={game.batches} />}
       {phase === "interlude" && <InterludeScreen {...common} />}

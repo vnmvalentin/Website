@@ -1,5 +1,6 @@
 // ui/common/TurnTimer.jsx — Zug-Timer als abbrennende Kerze (Serverzeit + Uhrenabgleich).
 import React, { useEffect, useState } from "react";
+import { PauseIcon } from "../icons/GameIcons.jsx";
 
 /** @param {{ timer: { deadline?: number, remaining: number, total: number, paused?: boolean } | undefined, clockOffset: number }} props */
 export default function TurnTimer({ timer, clockOffset }) {
@@ -15,7 +16,7 @@ export default function TurnTimer({ timer, clockOffset }) {
   return (
     <div className={`ss-timer ${secs <= 10 ? "ss-low" : ""} ${timer.paused ? "ss-paused" : ""}`} title={timer.paused ? "Timer pausiert" : `${secs} s`} aria-label={`Zeit: ${secs} Sekunden`}>
       <div className="ss-timer-candle"><div className="ss-timer-wax" style={{ height: `${Math.max(6, frac * 100)}%` }} /></div>
-      <span className="ss-num text-lg">{timer.paused ? "⏸" : secs}</span>
+      <span className="ss-num text-lg">{timer.paused ? <PauseIcon size={16} title="Pausiert" /> : secs}</span>
     </div>
   );
 }

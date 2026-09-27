@@ -123,8 +123,9 @@ export default function DraftScreen({ view, you, send, names, timers, clockOffse
         </div>
         <div className="ss-panel p-4">
           <p className="ss-title mb-2">{names[opp]}</p>
-          {oppPicks.every((x) => x === null)
+          {!isShared && oppPicks.every((x) => x === null)
             ? <p className="text-sm ss-dim">{oppPicks.length} Karten gewählt – bei getrennten Pools erst nach dem Draft sichtbar.</p>
+            : oppPicks.length === 0 ? <p className="text-sm ss-dim">Noch keine Karte gewählt.</p>
             : (
               <div className="flex flex-wrap gap-1">
                 {oppPicks.map((pid) => byPid[pid] && (

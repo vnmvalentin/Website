@@ -9,7 +9,7 @@ import CardDetail, { SigilTexts } from "../card/CardDetail.jsx";
 import Scale from "./Scale.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
-import { BloodDrop, Bone, CandleStub, Hammer, Shard } from "../icons/GameIcons.jsx";
+import { BloodDrop, Bone, CandleStub, Hammer, Shard, Claw, Hourglass, ShieldBark, RushArrow, InkChevron, WaxHeart } from "../icons/GameIcons.jsx";
 import { Resolver, LANES, WAX_MAX, STALEMATE_TURN, CANDLE_WARNING_TURN, candleWeight, HAND_LIMIT, NO_ATTACK_TURNS } from "../../engine/battle.js";
 import { deepClone } from "../../engine/match.js";
 import { parseSigil } from "../../engine/sigils/index.js";
@@ -66,8 +66,8 @@ function SeerDialog({ cards, onConfirm }) {
             <div key={ci} className="flex flex-col items-center gap-2">
               <Card card={cards[ci]} width={120} />
               <div className="flex gap-1">
-                <button type="button" className="ss-btn ss-btn-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Nach vorn">◀</button>
-                <button type="button" className="ss-btn ss-btn-sm" onClick={() => move(i, 1)} disabled={i === order.length - 1} aria-label="Nach hinten">▶</button>
+                <button type="button" className="ss-btn ss-btn-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Nach vorn"><InkChevron dir={-1} size={16} /></button>
+                <button type="button" className="ss-btn ss-btn-sm" onClick={() => move(i, 1)} disabled={i === order.length - 1} aria-label="Nach hinten"><InkChevron dir={1} size={16} /></button>
               </div>
             </div>
           ))}
@@ -114,7 +114,7 @@ function TotemFigure({ totem, kind, onHover }) {
  * @param {{ view: any, display: any, anim: any, you: 0|1|null, send: (a: any) => Promise<any>, timers: any, clockOffset: number,
  *   busy: boolean, names: string[], hintExtra?: any, onAction?: (a: any) => void }} props
  */
-export default function BattleScreen({ view, display, anim, you, send, timers, clockOffset, busy, names, hintExtra, onAction }) {
+export default function BattleScreen({ view, display, anim, hold, you, send, timers, clockOffset, busy, names, hintExtra, onAction }) {
   const { shake } = useShell();
   const b = display;
   const bottom = you ?? 0;
@@ -346,17 +346,20 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
   const animClassFor = (u) => {
     if (!anim) return "";
     const ev = anim.ev;
-    const own = u.owner === bottom;
+    // Zwischen Stoß und Rückweg bleibt der Angreifer vorn (Einschlag, Überlauf, Tod des Ziels …)
+    if (hold && hold.uid === u.uid && !hold.returning && ev.type !== "attack") return "ss-a-hold";
     switch (ev.type) {
       case "play": case "spawn": case "revive": return ev.uid === u.uid ? "ss-a-land" : "";
       case "attack":
         if (ev.uid !== u.uid) return "";
-        if (ev.flying && ev.direct) return own ? "ss-a-fly-up" : "ss-a-fly-down";
-        return `${own ? "ss-a-lunge-up" : "ss-a-lunge-down"}${ev.direct ? " ss-far" : ""}`;
+        return ev.flying && ev.direct ? "ss-a-fly-strike" : "ss-a-strike";
+      case "attackReturn": return ev.uid === u.uid ? "ss-a-return" : "";
       case "damage": return ev.uid === u.uid ? "ss-a-hit" : "";
       case "death": case "shed": return ev.uid === u.uid ? "ss-a-tear" : "";
       case "sacrifice": return ev.uid === u.uid ? "ss-a-ash" : "";
       case "transform": return ev.uid === u.uid ? "ss-a-char" : "";
+      case "wick": return ev.uid === u.uid ? "ss-a-wick" : "";
+      case "moveBlocked": return ev.uid === u.uid ? "ss-a-bump" : "";
       case "buff": return ev.uid === u.uid ? "ss-a-buff" : "";
       case "debuff": return ev.uid === u.uid ? "ss-a-debuff" : "";
       case "heal": return ev.uid === u.uid ? "ss-a-heal" : "";
@@ -366,6 +369,21 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
       case "stunned": return ev.uid === u.uid ? "ss-a-stun" : "";
       default: return "";
     }
+  };
+
+  // Stoß-Richtung und -Weite (CSS-Variablen für ss-a-strike/-hold/-return), Dauer folgt dem Tempo
+  const strikeStyle = (u, own) => {
+    const ev = hold?.uid === u.uid ? hold : anim?.ev?.uid === u.uid ? anim.ev : null;
+    const style = anim?.ev?.uid === u.uid ? { animationDuration: `${Math.round(anim.dur)}ms`, "--anim-dur": `${Math.round(anim.dur)}ms`, "--dir": anim.ev.dir || 1 } : {};
+    if (!ev || (ev.type !== "attack" && !hold)) return style;
+    const reach = ev.flying && ev.direct ? 1.25 : ev.direct ? 0.95 : 0.55;
+    const dir = own ? -1 : 1;
+    return {
+      ...style,
+      "--tx": `calc(var(--slot-w) * ${((ev.lane ?? u.lane) - u.lane) * 0.85})`,
+      "--ty": `calc((var(--slot-h) + 18px) * ${dir * reach})`,
+      "--tilt": `${own ? -2 : 2}deg`,
+    };
   };
 
   const rows = ROWS_FOR(bottom);
@@ -469,7 +487,7 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
                         <button type="button" onClick={() => onSlot(row.p, row.zone, lane)} aria-label={`${own ? "Eigener" : "Gegnerischer"} Slot ${row.label} ${lane + 1}`} tabIndex={targetable ? 0 : -1} />
                       )}
                       {preview && own && row.zone === "front" && preview.lane === lane && (
-                        <span className="ss-badge absolute bottom-[6%] z-10">⚔ {preview.atk}{preview.direct ? " → Waage" : preview.spill > 0 ? ` · Überlauf ${preview.spill}` : ""}</span>
+                        <span className="ss-badge absolute bottom-[6%] z-10 inline-flex items-center gap-1"><Claw size={12} /> {preview.atk}{preview.direct ? " → Waage" : preview.spill > 0 ? ` · Überlauf ${preview.spill}` : ""}</span>
                       )}
                     </div>
                   );
@@ -487,9 +505,10 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
               const atk = r.attackOf(u);
               const glow = totemTribe && u.card.tribe === totemTribe && own;
               return (
-                <div key={u.uid} className="ss-unit" style={{ transform: `translate(calc(var(--slot-w) * ${lane}), ${rowTop(ri)})`, zIndex: anim?.ev?.uid === u.uid ? 20 : 5 }}>
+                <div key={u.uid} className="ss-unit" style={{ transform: `translate(calc(var(--slot-w) * ${lane}), ${rowTop(ri)})`, zIndex: anim?.ev?.uid === u.uid || hold?.uid === u.uid ? 20 : 5, ...(anim?.ev?.uid === u.uid && anim.ev.type === "move" ? { transitionDuration: `${Math.round(anim.dur)}ms` } : {}) }}>
                   <div
                     className={animClassFor(u)}
+                    style={strikeStyle(u, own)}
                     onMouseEnter={(e) => {
                       if (mobile) return;
                       const rect = e.currentTarget.getBoundingClientRect();
@@ -515,13 +534,17 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
                       tabIndex={0}
                     />
                   </div>
+                  {(anim?.ev?.type === "wanderStart" || anim?.ev?.type === "turnAround") && anim.ev.uid === u.uid && (
+                    <WanderArrow dir={anim.ev.dir} />
+                  )}
                   <div className="ss-unit-badges">
-                    {u.stunned && <span className="ss-badge" title="Greift im nächsten Zug nicht an">⧗</span>}
+                    {metamorphLeft(r, u) !== null && <span className="ss-badge ss-badge-meta" title="Metamorphose: verwandelt sich am Ende deines Zugs, wenn der Zähler 0 erreicht">Verwandlung {metamorphLeft(r, u)}</span>}
+                    {u.stunned && <span className="ss-badge" title="Greift im nächsten Zug nicht an"><Hourglass size={12} /></span>}
                     {u.glued > 0 && <span className="ss-badge" title="Festgeleimt">Leim {u.glued}</span>}
-                    {r.level(u, "schildrinde") > 0 && !u.shieldUsed && <span className="ss-badge" title="Schildrinde bereit">⛨</span>}
+                    {r.level(u, "schildrinde") > 0 && !u.shieldUsed && <span className="ss-badge" title="Schildrinde bereit"><ShieldBark size={12} /></span>}
                   </div>
                   {canAct && own && u.zone === "back" && !me.front[u.lane] && !u.rushed && r.level(u, "vorpreschen") > 0 && (
-                    <button type="button" className="ss-btn ss-btn-sm ss-rush" onClick={() => act({ type: "rush", lane: u.lane })} title="Vorpreschen">⇡</button>
+                    <button type="button" className="ss-btn ss-btn-sm ss-rush" onClick={() => act({ type: "rush", lane: u.lane })} title="Vorpreschen" aria-label="Vorpreschen"><RushArrow size={16} /></button>
                   )}
                   {u.submerged && <span className="ss-ripple" aria-hidden />}
                 </div>
@@ -741,6 +764,22 @@ export default function BattleScreen({ view, display, anim, you, send, timers, c
   );
 }
 
+/** Metamorphose-Countdown: wie viele eigene Zugenden noch bis zur Verwandlung (null = keine Metamorphose). */
+function metamorphLeft(r, u) {
+  if (!u.card.evolvesTo || r.level(u, "metamorphose") <= 0) return null;
+  return Math.max(0, 2 - (u.turns || 0));
+}
+
+/** Richtungspfeil beim Wandern (Tuschestrich statt Symbolzeichen). */
+function WanderArrow({ dir }) {
+  return (
+    <svg className="ss-wander-arrow" viewBox="0 0 40 20" style={{ transform: `translateX(-50%) scaleX(${dir < 0 ? -1 : 1})` }} aria-hidden>
+      <path d="M3 10c9-1 20-1 31 0" fill="none" stroke="#f2e6c8" strokeWidth="3" strokeLinecap="round" />
+      <path d="M26 4l9 6-9 6" fill="none" stroke="#f2e6c8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** Fenstergröße (für Karten- und Slotgrößen). */
 function useViewport() {
   const read = () => ({ w: typeof window !== "undefined" ? window.innerWidth : 1280, h: typeof window !== "undefined" ? window.innerHeight : 900 });
@@ -770,7 +809,13 @@ function useFloats(anim, b) {
     }
     if (!pos) return undefined;
     const amount = ev.type === "damage" || ev.type === "overflow" ? ev.amount : ev.type === "heal" ? ev.amount : (ev.attack || 0) + (ev.health || 0);
-    const text = ev.type === "damage" || ev.type === "overflow" ? String(amount) : ev.type === "heal" ? `+${amount}` : `${ev.attack ? `${ev.attack > 0 ? "+" : ""}${ev.attack}⚔` : ""}${ev.health ? ` ${ev.health > 0 ? "+" : ""}${ev.health}♥` : ""}`;
+    const signed = (/** @type {number} */ n) => `${n > 0 ? "+" : ""}${n}`;
+    const text = ev.type === "damage" || ev.type === "overflow" ? String(amount) : ev.type === "heal" ? `+${amount}` : (
+      <>
+        {ev.attack ? <span className="inline-flex items-center">{signed(ev.attack)}<Claw size={18} /></span> : null}
+        {ev.health ? <span className="inline-flex items-center ml-1">{signed(ev.health)}<WaxHeart size={16} /></span> : null}
+      </>
+    );
     const f = { id: anim.key, kind: FLOAT_KIND[ev.type], text, ...pos };
     setList((l) => [...l.slice(-8), f]);
     // Kein Aufräumen beim nächsten Ereignis: die Zahl soll ihre Animation zu Ende spielen

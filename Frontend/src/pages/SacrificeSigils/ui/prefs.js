@@ -2,8 +2,12 @@
 import { useSyncExternalStore } from "react";
 
 const KEY = "ss_prefs_v1";
-const systemReduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-const DEFAULTS = { reduceMotion: !!systemReduced, speed: 1, tipsOff: false, seenTips: /** @type {string[]} */ ([]), name: "" };
+/** Version der gespeicherten Einstellungen. 2 = Runde 2: „Animationen reduzieren“ standardmäßig aus, Tempo 1/1,5/2. */
+const SETTINGS_VERSION = 2;
+export const SPEED_OPTIONS = [1, 1.5, 2];
+/** Wünscht das Betriebssystem weniger Bewegung? Dann einmalig ein Hinweis – die Animationen bleiben aber an. */
+export const systemPrefersReducedMotion = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const DEFAULTS = { v: SETTINGS_VERSION, reduceMotion: false, motionHintSeen: false, speed: 1, tipsOff: false, seenTips: /** @type {string[]} */ ([]), name: "" };
 
 let state = load();
 const listeners = new Set();
@@ -11,7 +15,17 @@ const listeners = new Set();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
+    if (!raw) return { ...DEFAULTS };
+    const stored = JSON.parse(raw);
+    const next = { ...DEFAULTS, ...stored };
+    if ((stored.v || 1) < SETTINGS_VERSION) {
+      // Migration: ein früher (oft automatisch vom System übernommenes) „an“ wird einmalig zurückgesetzt
+      next.reduceMotion = false;
+      next.v = SETTINGS_VERSION;
+      try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* ignorieren */ }
+    }
+    if (!SPEED_OPTIONS.includes(next.speed)) next.speed = 1;
+    return next;
   } catch {
     return { ...DEFAULTS };
   }

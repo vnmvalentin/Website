@@ -7,6 +7,7 @@ import { CARDS } from "../../engine/cards.js";
 import { de } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { particles } from "../anim/particles.js";
+import { Crown } from "../icons/GameIcons.jsx";
 
 function strongest(stats) {
   const entries = Object.entries(stats?.damageByCard || {});
@@ -46,7 +47,7 @@ export default function ResultScreen({ view, you, names, onRematch, onExit, rema
           const best = strongest(P.stats);
           return (
             <div key={p} className="ss-panel p-5 space-y-3">
-              <p className="ss-title text-xl">{p === you ? `${de.ui.you} (${P.name})` : P.name}{view.winner === p ? " 👑" : ""}</p>
+              <p className="ss-title text-xl">{p === you ? `${de.ui.you} (${P.name})` : P.name}{view.winner === p ? <Crown size={22} className="ml-2 text-[var(--candle)]" title="Sieger" /> : null}</p>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                 <dt className="ss-dim">Schaden auf die Waage</dt><dd className="ss-num">{P.stats.direct}</dd>
                 <dt className="ss-dim">Opfer</dt><dd className="ss-num">{P.stats.sacrifices}</dd>

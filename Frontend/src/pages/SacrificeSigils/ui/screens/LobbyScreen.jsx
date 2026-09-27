@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Copy, Check, Eye, Crown } from "lucide-react";
 import { de } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
+import { CheckMark } from "../icons/GameIcons.jsx";
 
 const OPTIONS = {
   draftMode: [["shared", "Gemeinsamer Pool (Snake-Draft)"], ["separate", "Getrennte Pools (gespiegelt)"]],
@@ -39,7 +40,7 @@ export function SealPortrait({ name, ready, connected, host, you, empty }) {
         <p className="ss-title text-lg leading-tight">{empty ? de.ui.waitingOpponent : name}{you && <span className="ss-faint text-sm"> ({de.ui.you})</span>}</p>
         {!empty && (
           <p className={`text-sm ${ready ? "text-[var(--candle)]" : "ss-faint"}`}>
-            {connected === false ? de.ui.connectionLost : ready ? `✓ ${de.ui.ready}` : de.ui.notReady}
+            {connected === false ? de.ui.connectionLost : ready ? <span className="inline-flex items-center gap-1"><CheckMark size={14} />{de.ui.ready}</span> : de.ui.notReady}
           </p>
         )}
       </div>

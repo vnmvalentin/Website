@@ -99,3 +99,55 @@ export function CostBadge({ cost, size = 14 }) {
   }
   return <span className="ss-cost ss-cost-wax" title={`${cost.amount} Wachs`}><CandleStub size={size + 2} /><b className="ss-num">{cost.amount}</b></span>;
 }
+
+// ───────── Ersatz für Symbolzeichen (Runde 2, D3: keine Emojis im Modus) ─────────
+
+/** Kleines Tusche-Icon aus Pfaden (Linienstärke 1,6, currentColor). */
+function InkIcon({ size = 14, className = "", title, children, viewBox = "0 0 24 24" }) {
+  return (
+    <svg viewBox={viewBox} width={size} height={size} className={`inline-block align-[-0.15em] ${className}`} aria-hidden={title ? undefined : true} role={title ? "img" : undefined}>
+      {title && <title>{title}</title>}
+      <g {...ink}>{children}</g>
+    </svg>
+  );
+}
+
+export function PauseIcon(props) {
+  return <InkIcon {...props}><path d="M9 5v14M15 5v14" strokeWidth="2.6" /></InkIcon>;
+}
+export function Hourglass(props) {
+  return <InkIcon {...props}><path d="M6 3h12M6 21h12M7 3c0 5 10 6 10 9s-10 4-10 9M17 3c0 5-10 6-10 9s10 4 10 9" /></InkIcon>;
+}
+export function ShieldBark(props) {
+  return <InkIcon {...props}><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" /><path d="M9 9c1 2 1 5 0 7M13 8c1 3 1 6 0 9" /></InkIcon>;
+}
+export function RushArrow(props) {
+  return <InkIcon {...props}><path d="M12 20V5" /><path d="M6 11l6-6 6 6" /><path d="M8 20h8" /></InkIcon>;
+}
+export function Crown(props) {
+  return <InkIcon {...props}><path d="M3 18l2-10 5 5 2-7 2 7 5-5 2 10z" fill="#b08d57" /><path d="M4 21h16" /></InkIcon>;
+}
+export function CheckMark(props) {
+  return <InkIcon {...props}><path d="M4 13l5 5L20 6" strokeWidth="2.2" /></InkIcon>;
+}
+/** Pfeil nach links/rechts (Reihenfolge ändern). @param {{ dir: -1|1, size?: number }} props */
+export function InkChevron({ dir, ...props }) {
+  return <InkIcon {...props}><path d={dir < 0 ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7"} strokeWidth="2" /></InkIcon>;
+}
+
+/**
+ * Zeichen für besondere Angriffswerte (Schwarmzahl, Knochenlast, Flammenmaß, Handschwere).
+ * @param {{ special: string, size?: number, className?: string }} props
+ */
+export function SpecialMark({ special, size = 14, className = "" }) {
+  const title = { schwarmzahl: "Schwarmzahl", knochenlast: "Knochenlast", flammenmass: "Flammenmaß", handschwere: "Handschwere" }[special] || "Besonderer Angriff";
+  return (
+    <InkIcon size={size} className={className} title={title}>
+      {special === "schwarmzahl" && <><circle cx="7" cy="9" r="2" /><circle cx="15" cy="7" r="2" /><circle cx="11" cy="15" r="2" /><circle cx="18" cy="15" r="1.5" /></>}
+      {special === "knochenlast" && <><path d="M7 17l10-10" /><path d="M5 15a2.3 2.3 0 102.6 4.3A2.3 2.3 0 1011.9 17M13 6.9A2.3 2.3 0 1017.3 5a2.3 2.3 0 104.3 2.6" /></>}
+      {special === "flammenmass" && <><path d="M12 3c-4 5-5 8-2 12 1-2 2-3 2-5 2 2 3 4 2 7 4-2 5-7-2-14z" /><path d="M8 21h8" /></>}
+      {special === "handschwere" && <><path d="M7 20l-1-8 3-1 1 5M10 16l1-10 2 0 0 9M13 15l1-8 2 .5-.5 8M15.5 15.5l1.5-6 2 .5-2 9c-1 2-3 3-6 3H9" /></>}
+      {!["schwarmzahl", "knochenlast", "flammenmass", "handschwere"].includes(special) && <path d="M12 5v14M5 12h14" />}
+    </InkIcon>
+  );
+}

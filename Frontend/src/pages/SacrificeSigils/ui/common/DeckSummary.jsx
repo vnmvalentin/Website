@@ -2,7 +2,7 @@
 import React from "react";
 import { TRIBE_BY_ID } from "../../data/tribes.js";
 import { de } from "../../i18n/de.js";
-import { CostBadge } from "../icons/GameIcons.jsx";
+import { CostBadge, SpecialMark } from "../icons/GameIcons.jsx";
 
 const COST_COLOR = { blood: "#8e1b1b", bones: "#cfc3a8", wax: "#f2b54a" };
 
@@ -43,7 +43,7 @@ export default function DeckSummary({ cards, title, onCard, compact = false }) {
             <div key={c.uid} className="ss-deck-row">
               <span className="w-12 flex-shrink-0"><CostBadge cost={c.cost} size={11} /></span>
               <button type="button" className="text-left flex-1 hover:underline" onClick={() => onCard?.(c)}>{c.name}</button>
-              <span className="ss-num opacity-70">{c.special ? "✱" : c.attack}/{c.health}</span>
+              <span className="ss-num opacity-70">{c.special ? <SpecialMark special={c.special} size={12} /> : c.attack}/{c.health}</span>
             </div>
           ))}
         </div>

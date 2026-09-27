@@ -36,6 +36,9 @@ export function candleWeight(turn) {
  */
 export const NO_ATTACK_TURNS = 2;
 
+/** Bewegungs-Sigils am Zugende (Wandern, Rammbock): laufen vor Kerzendocht und den übrigen Effekten. */
+const MOVE_SIGILS = new Set(["wanderer", "rammbock"]);
+
 /**
  * Ausgleich zwischen Start- und Zweitspieler. Als Objekt, damit Varianten gemessen werden können
  * (wax/bones/side: Bonus für den Zweiten; starterDraws: Startspieler zieht im ersten Zug; starterBones/starterWax).
@@ -229,8 +232,23 @@ export class Resolver {
    * Hook aller Sigils einer Einheit auslösen.
    * @param {Unit} u @param {string} hook @param {...any} args
    */
+  /**
+   * Hook aller Sigils einer Einheit ausführen.
+   * Für onTurnEnd: `only`/`except` (Set von Sigil-IDs) teilen die Zugende-Effekte in feste Schritte.
+   * @param {Unit} u @param {string} hook @param {...any} args
+   */
   runHook(u, hook, ...args) {
+    /** @type {Set<string>|null} */
+    let only = null;
+    /** @type {Set<string>|null} */
+    let except = null;
+    if (hook === "onTurnEnd") {
+      only = args[0] || null;
+      except = args[1] || null;
+      args = [];
+    }
     for (const [id, n] of this.sigilList(u)) {
+      if ((only && !only.has(id)) || (except && except.has(id))) continue;
       const fn = SIGILS[id].hooks[hook];
       if (!fn) continue;
       if (!this.spend()) return;
@@ -521,6 +539,8 @@ export class Resolver {
   stepUnit(u, push) {
     if (!this.onBoard(u) || u.glued > 0) return;
     const row = this.row(u.owner, u.zone);
+    // Sichtbar machen (Runde 2, C3): erst die Richtung zeigen, dann gleiten oder anstoßen
+    this.emit({ type: "wanderStart", uid: u.uid, dir: u.dir });
     for (let attempt = 0; attempt < 2; attempt++) {
       const t = u.lane + u.dir;
       if (t < 0 || t >= LANES) {
@@ -532,7 +552,10 @@ export class Resolver {
         this.moveUnit(u, u.zone, t, push ? "ram" : "wander");
         return;
       }
-      if (!push) return;
+      if (!push) {
+        this.emit({ type: "moveBlocked", uid: u.uid, dir: u.dir });
+        return;
+      }
       let e = t;
       while (e >= 0 && e < LANES && row[e]) e += u.dir;
       if (e < 0 || e >= LANES) {
@@ -540,7 +563,12 @@ export class Resolver {
         this.emit({ type: "turnAround", uid: u.uid, dir: u.dir });
         continue;
       }
-      for (let i = t; i !== e; i += u.dir) if (row[i]?.glued) return;
+      for (let i = t; i !== e; i += u.dir) {
+        if (row[i]?.glued) {
+          this.emit({ type: "moveBlocked", uid: u.uid, dir: u.dir });
+          return;
+        }
+      }
       for (let i = e; i !== t; i -= u.dir) {
         const pushed = row[i - u.dir];
         if (pushed) this.moveUnit(pushed, u.zone, i, "pushed");
@@ -720,17 +748,25 @@ export class Resolver {
       if (this.over) return;
     }
     this.emit({ type: "turnEnd", player: p });
-    for (const u of this.units(p)) {
+    // Feste Reihenfolge (Runde 2, C3): Wandern → Kerzendocht → übrige Zugende-Effekte (Regeneration, Fäulnis,
+    // Metamorphose …) → Nachrücken. So ist jeder Schritt einzeln sichtbar und vorhersehbar.
+    const mine = this.units(p);
+    for (const u of mine) if (this.onBoard(u)) u.turns += 1;
+    for (const u of mine) {
       if (this.over) return;
-      if (!this.onBoard(u)) continue;
-      u.turns += 1;
-      this.runHook(u, "onTurnEnd");
+      if (this.onBoard(u)) this.runHook(u, "onTurnEnd", MOVE_SIGILS);
+    }
+    for (const u of this.units(p)) {
       if (this.over) return;
       if (this.onBoard(u) && u.wick !== null) {
         u.wick -= 1;
         this.emit({ type: "wick", uid: u.uid, left: u.wick });
         if (u.wick <= 0) this.kill(u, "wick", null);
       }
+    }
+    for (const u of this.units(p)) {
+      if (this.over) return;
+      if (this.onBoard(u)) this.runHook(u, "onTurnEnd", null, MOVE_SIGILS);
     }
     if (this.over) return;
     for (const u of this.units(p)) if (u.glued > 0) u.glued -= 1;

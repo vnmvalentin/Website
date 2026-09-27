@@ -154,18 +154,35 @@
   75% { transform: translateY(-2px) scale(1.02); }
   100% { transform: none; }
 }
-.ss-a-lunge-up { animation: ss-lunge-up 0.43s ease-in-out; }
-.ss-a-lunge-down { animation: ss-lunge-down 0.43s ease-in-out; }
-.ss-a-lunge-up.ss-far { animation-name: ss-lunge-up-far; }
-.ss-a-lunge-down.ss-far { animation-name: ss-lunge-down-far; }
-@keyframes ss-lunge-up { 0%, 100% { transform: none; } 45% { transform: translateY(-38%) scale(1.06); } }
-@keyframes ss-lunge-down { 0%, 100% { transform: none; } 45% { transform: translateY(38%) scale(1.06); } }
-@keyframes ss-lunge-up-far { 0%, 100% { transform: none; } 50% { transform: translateY(-115%) scale(1.08); } }
-@keyframes ss-lunge-down-far { 0%, 100% { transform: none; } 50% { transform: translateY(115%) scale(1.08); } }
-.ss-a-fly-up { animation: ss-fly-up 0.43s ease-in-out; }
-.ss-a-fly-down { animation: ss-fly-down 0.43s ease-in-out; }
-@keyframes ss-fly-up { 0%, 100% { transform: none; filter: none; } 50% { transform: translate(18%, -120%) rotate(8deg) scale(1.12); filter: drop-shadow(0 40px 10px rgb(0 0 0 / 0.5)); } }
-@keyframes ss-fly-down { 0%, 100% { transform: none; filter: none; } 50% { transform: translate(-18%, 120%) rotate(-8deg) scale(1.12); filter: drop-shadow(0 -30px 10px rgb(0 0 0 / 0.5)); } }
+/* Angriff (Runde 2, C2): Anheben → Ausholen → Stoß; vorn halten; Rückweg mit Landung. Richtung über --tx/--ty. */
+.ss-a-strike { animation: ss-atk 600ms linear both; }
+@keyframes ss-atk {
+  0% { transform: none; filter: none; animation-timing-function: ease-out; }
+  41% { transform: translateY(calc(var(--ty) * -0.06)) scale(1.08) rotate(var(--tilt)); filter: drop-shadow(0 16px 14px rgb(0 0 0 / 0.55)); animation-timing-function: ease-in-out; }
+  66% { transform: translate(calc(var(--tx) * -0.1), calc(var(--ty) * -0.16)) scale(1.08) rotate(calc(var(--tilt) * -0.6)); filter: drop-shadow(0 18px 16px rgb(0 0 0 / 0.55)); animation-timing-function: ease-in; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(1.06); filter: drop-shadow(0 8px 8px rgb(0 0 0 / 0.5)); }
+}
+.ss-a-fly-strike { animation: ss-atk-fly 600ms linear both; }
+@keyframes ss-atk-fly {
+  0% { transform: none; filter: none; animation-timing-function: ease-out; }
+  41% { transform: translateY(calc(var(--ty) * -0.08)) scale(1.1) rotate(var(--tilt)); filter: drop-shadow(0 22px 16px rgb(0 0 0 / 0.5)); animation-timing-function: ease-in-out; }
+  66% { transform: translate(calc(var(--tx) * 0.5 + 12%), calc(var(--ty) * 0.55)) scale(1.22) rotate(6deg); filter: drop-shadow(0 60px 14px rgb(0 0 0 / 0.35)); animation-timing-function: ease-in; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(1.1); filter: drop-shadow(0 30px 12px rgb(0 0 0 / 0.45)); }
+}
+.ss-a-hold { transform: translate(var(--tx), var(--ty)) scale(1.06); filter: drop-shadow(0 8px 8px rgb(0 0 0 / 0.5)); }
+.ss-a-return { animation: ss-atk-return 450ms both; }
+@keyframes ss-atk-return {
+  0% { transform: translate(var(--tx), var(--ty)) scale(1.06); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+  52% { transform: translateY(calc(var(--ty) * -0.03)) scale(1); animation-timing-function: ease-out; }
+  60% { transform: scale(1.02, 0.96); }
+  67%, 100% { transform: none; }
+}
+/* Zugende (Runde 2, C3) */
+.ss-wander-arrow { position: absolute; left: 50%; top: 40%; width: 46%; z-index: 25; pointer-events: none; filter: drop-shadow(0 0 4px rgb(0 0 0 / 0.9)); animation: ss-arrow-in var(--anim-dur, 350ms) ease-out both; }
+@keyframes ss-arrow-in { 0% { opacity: 0; clip-path: inset(0 100% 0 0); } 60% { opacity: 1; clip-path: inset(0 0 0 0); } 100% { opacity: 1; } }
+.ss-a-bump { animation: ss-bump 420ms ease-out; }
+@keyframes ss-bump { 0%, 100% { transform: none; } 35% { transform: translateX(calc(var(--dir, 1) * 14%)); } 55% { transform: translateX(calc(var(--dir, 1) * -3%)) rotate(calc(var(--dir, 1) * -1deg)); } 75% { transform: translateX(calc(var(--dir, 1) * 2%)); } }
+.ss-badge-meta { background: #2c3a1e; border-color: #7f9a55; }
 .ss-a-hit { animation: ss-hit 0.33s ease-out; }
 @keyframes ss-hit { 0%, 100% { transform: none; } 20% { transform: translateX(-6px) rotate(-2deg); } 45% { transform: translateX(5px) rotate(1.5deg); } 70% { transform: translateX(-2px); } }
 .ss-a-tear { animation: ss-tear 0.52s ease-in forwards; }

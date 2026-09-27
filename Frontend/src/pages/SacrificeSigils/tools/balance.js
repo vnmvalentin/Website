@@ -111,7 +111,7 @@ function printTable(title, list, limit = 12) {
   const show = [...list.slice(0, limit), ...(list.length > limit * 2 ? [{ key: "…" }] : []), ...list.slice(Math.max(limit, list.length - limit))];
   for (const r of show) {
     if (r.key === "…") { console.log("  …"); continue; }
-    console.log(`  ${pad(r.name, 28)} ${pad(`${(r.rate * 100).toFixed(1)} %`, 8)} n=${pad(r.samples, 6)}${r.outlier ? " ⚠ AUSREISSER" : ""}`);
+    console.log(`  ${pad(r.name, 28)} ${pad(`${(r.rate * 100).toFixed(1)} %`, 8)} n=${pad(r.samples, 6)}${r.outlier ? " !! AUSREISSER" : ""}`);
   }
 }
 
