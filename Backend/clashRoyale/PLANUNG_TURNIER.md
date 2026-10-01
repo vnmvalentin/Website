@@ -1,6 +1,6 @@
 # Planung: Turniere für die Clash-Royale-Minigames
 
-Stand: 01.10.2026 · Status: **Phase 1–3 fertig** (Anlegen/Anmelden; Start, Gruppen, Bracket; Match-Raum mit Chat, Pick & Ban und automatischer Draft-Lobby); als Nächstes Phase 4 (Ergebnis per CR-API).
+Stand: 01.10.2026 · Status: **Phase 1–4 fertig** (… Match-Raum; Sieger per CR-API mit Deck-Prüfung, Erscheinen- und Kampf-Frist); als Nächstes Phase 5 (Veranstalter-Werkzeuge + Zuschauen).
 
 ## 1. Grundentscheidungen (mit dem Nutzer geklärt)
 
@@ -144,3 +144,18 @@ Keine — alle geklärt (siehe Abschnitt 1).
 - Frontend: Reiter Übersicht · Gruppen · Bracket · Raum (URL `?tab=…&match=…`), `MatchRoom.jsx`, Auto-Beitritt
   über `/clash-royale?code=…&turnier=…`, Banner in der Lobby, "Zurück zum Turnier-Raum" im Endbildschirm.
 - Erscheinen-/Kampf-Fristen sind noch nicht aktiv (Phase 4).
+
+**Phase 4 (01.10.2026):**
+- `tournament/battleMatch.js` (rein, getestet): Kampfarten `friendly` UND `clanMate` zählen (Wunsch des Nutzers),
+  nur 1v1, nur genau gegen den Tag des Gegners, nur nach dem Draft-Ende, jeder Kampf nur für ein Spiel. Gesucht wird in
+  den Kampflisten BEIDER Spieler (die API aktualisiert sie nicht gleichzeitig). Sieger nach Kronen.
+- Deck-Prüfung als MENGE: Slot-Reihenfolge wechselt mit Evos/Helden, Evo-/Heldenstufe steht nur in `evolutionLevel`
+  (empirisch: Knight evolutionLevel 2), der Name bleibt gleich. Turmtruppe ignoriert. CR-eigener Draft im
+  Freundschaftskampf (gameMode "DraftMode") fällt dadurch in die Klärung.
+- Klärung (status `review`): Unentschieden, falsches Deck (mit fehlenden/zusätzlichen Karten je Spieler) oder Kampf-Frist
+  abgelaufen. Bei abgelaufener Frist wird weitergesucht — ein später gefundener Kampf zählt automatisch.
+- Erscheinen-Frist: Uhr startet, sobald EIN Spieler im Raum war; sie wird angehalten, solange der Abwesende ein Spiel in
+  einem anderen Match spielt (Gruppenphase). Ablauf → kampfloser Sieg (Serienstand z.B. 2:0). War keiner da: nichts.
+- Prüfschleife alle 20 s (nur wartende Spiele + laufende Turniere), Battlelog-Cache 15 s je Tag. Token:
+  `CLASH_ROYALE_API_TOKEN_TOURNAMENT`, sonst `…_WINTRACKER`, sonst der geteilte Token.
+- Systemnachrichten im Raum-Chat (Kampf gefunden, Klärung, kampflos).

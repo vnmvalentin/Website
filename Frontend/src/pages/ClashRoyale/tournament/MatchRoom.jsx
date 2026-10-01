@@ -1,6 +1,7 @@
 // Match-Raum (Reiter "Raum"): Serienstand, Bereit, Start, Pick & Ban, Weg in die Draft-Lobby, gedraftete
 // Decks + Freundschaftslinks für den Kampf in Clash Royale, Spielverlauf und Chat. Der Veranstalter
-// trägt hier Spielergebnisse ein, annulliert Spiele oder entscheidet das Match direkt.
+// trägt hier Spielergebnisse ein, annulliert Spiele oder entscheidet das Match direkt. Phase 4: Status der
+// automatischen Kampfsuche, Fristen (Erscheinen, Kampf) als Countdown, Klärungsfälle mit Begründung.
 // Zustand kommt live vom Server (Backend/clashRoyale/tournament/matchRoom.js → tmatch:state).
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +19,46 @@ import { tError } from './tI18n';
 import { getSecret } from './tournamentApi';
 import { ResultModal } from './TournamentStructure';
 import { matchLabel } from './matchLabels';
+
+// Sekundentakt für Countdowns
+function useNow(active = true) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return now;
+}
+const mmss = (ms) => {
+  const sec = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+};
+
+/** Klärungsfall (Unentschieden, falsches Deck, kein Kampf) mit Begründung. */
+function ReviewBox({ game, nameOf, t }) {
+  const r = game.review;
+  if (!r) return null;
+  const deckLines = [];
+  if (r.reason === 'deckMismatch' && game.battle?.deck) {
+    for (const side of ['a', 'b']) {
+      const d = game.battle.deck[side];
+      if (d?.missing?.length) deckLines.push(t.deckMissing(nameOf(side), d.missing.join(', ')));
+      if (d?.extra?.length) deckLines.push(t.deckExtra(nameOf(side), d.extra.join(', ')));
+    }
+  }
+  return (
+    <div className="rounded-xl border border-amber-300/40 bg-amber-400/[0.07] px-4 py-3 space-y-1.5">
+      <p className="font-cr text-[var(--cr-arcade-gold)] flex items-center gap-2"><CrClock size={18} />{t.reviewTitle}</p>
+      <p className="text-white/80 text-sm">
+        {r.reason === 'draw' ? t.reviewDraw(game.battle?.crownsA ?? 0, game.battle?.crownsB ?? 0)
+          : r.reason === 'deckMismatch' ? t.reviewDeck : t.reviewNoBattle}
+      </p>
+      {game.battle && r.reason !== 'draw' && <p className="text-white/60 text-xs">{t.battleFound(game.battle.crownsA, game.battle.crownsB)}</p>}
+      {deckLines.map((l, i) => <p key={i} className="text-red-300/90 text-xs">{l}</p>)}
+    </div>
+  );
+}
 
 const SIDE_STYLE = {
   a: { color: '#4d8dff', King: CrKingBlue },
@@ -112,7 +153,7 @@ function ChatPanel({ chat, onSend, myRole, players, t }) {
   const listRef = useRef(null);
   useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [chat.length]);
   const send = () => { if (text.trim()) { onSend(text); setText(''); } };
-  const roleColor = { a: SIDE_STYLE.a.color, b: SIDE_STYLE.b.color, owner: 'var(--cr-arcade-gold)' };
+  const roleColor = { a: SIDE_STYLE.a.color, b: SIDE_STYLE.b.color, owner: 'var(--cr-arcade-gold)', system: '#5eead4' };
   return (
     <div className="cr-arcade-panel overflow-hidden flex flex-col h-[28rem] lg:h-[36rem]">
       <div className="cr-section !py-3 shrink-0">
@@ -123,7 +164,7 @@ function ChatPanel({ chat, onSend, myRole, players, t }) {
         {chat.map(m => (
           <div key={m.id} className="text-sm leading-snug break-words">
             <span className="font-cr mr-1.5" style={{ color: roleColor[m.role] }}>
-              {m.role === 'owner' ? `${m.authorName} · ${t.roleOwner}` : (players[m.role]?.displayName || m.authorName)}
+              {m.role === 'owner' ? `${m.authorName} · ${t.roleOwner}` : m.role === 'system' ? t.roleSystem : (players[m.role]?.displayName || m.authorName)}
             </span>
             <span className="text-white/35 text-[10px] mr-1.5 tabular-nums">
               {new Date(m.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -146,6 +187,7 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
   const [state, setState] = useState(null);
   const [error, setError] = useState('');
   const [decideOpen, setDecideOpen] = useState(false);
+  const now = useNow(true);
   const secret = getSecret(tournament.id);
   const base = useMemo(() => ({ tournamentId: tournament.id, matchId, secret }), [tournament.id, matchId, secret]);
 
@@ -193,6 +235,10 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
   const matchStructure = structure?.matches?.find(m => m.id === state.matchId);
   const label = matchStructure ? matchLabel(matchStructure, structure.matches, t) : '';
   const nameOf = (side) => P[side]?.displayName || side.toUpperCase();
+  // Erscheinen-Frist: läuft, solange genau einer da war und noch kein Spiel begonnen hat
+  const pr = state.presence || {};
+  const showUpLeft = state.phase === 'lobby' && !state.games.some(g => g.status !== 'void') && pr.waitStart && (pr.a !== pr.b)
+    ? pr.waitStart + state.showUpMinutes * 60000 - now : null;
 
   // ── Hauptbereich je Phase ──
   let main;
@@ -203,7 +249,9 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
         <CrTourneyTrophy size={60} />
         <div>
           <p className="font-cr text-white text-2xl">{w ? t.matchWonBy(nameOf(w)) : '—'}</p>
-          <p className="text-white/55 text-sm">{state.match.scoreA} : {state.match.scoreB}</p>
+          <p className="text-white/55 text-sm">
+            {state.match.scoreA} : {state.match.scoreB}{state.presence?.forfeit ? ` · ${t.forfeitNote}` : ''}
+          </p>
         </div>
       </div>
     );
@@ -226,6 +274,11 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
           )}
         </div>
         {bothReady && mySide === 'b' && <p className="text-white/60 text-sm">{t.waitingForStart(nameOf('a'))}</p>}
+        {showUpLeft !== null && (
+          <p className="text-amber-200 text-sm flex items-center gap-2">
+            <CrClock size={18} />{t.waitingForShowUp(nameOf(state.presence.a ? 'b' : 'a'), mmss(showUpLeft))}
+          </p>
+        )}
       </div>
     );
   } else if (state.phase === 'banning' && active) {
@@ -267,6 +320,8 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
     const opp = mySide === 'a' ? 'b' : mySide === 'b' ? 'a' : null;
     main = (
       <div className="space-y-4">
+        {/* Klärungsfall zuerst — das ist es, worum sich der Veranstalter jetzt kümmern muss */}
+        <ReviewBox game={active} nameOf={nameOf} t={t} />
         <div>
           <p className="font-cr text-white text-xl">{t.battleTitle}</p>
           <ol className="mt-2 space-y-1">
@@ -285,7 +340,22 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
             <DeckBlock key={side} title={t.deckOf(nameOf(side))} deck={active.decks?.[side]} t={t} />
           ))}
         </div>
-        {!isOwner && <p className="text-white/50 text-xs">{t.waitingResult}</p>}
+        {active.status === 'battle' && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            {state.apiActive ? (
+              <span className="flex items-center gap-2 text-white/75">
+                <CrClock size={18} />{t.searching}
+                {active.checkedAt && <span className="text-white/40 text-xs">{t.lastChecked(Math.max(0, Math.round((now - active.checkedAt) / 1000)))}</span>}
+              </span>
+            ) : <span className="text-white/60">{t.apiOff}</span>}
+            {active.battleDeadline && (
+              <span className={`text-xs ${active.battleDeadline - now > 0 ? 'text-white/50' : 'text-amber-200'}`}>
+                {active.battleDeadline - now > 0 ? t.battleDeadlineIn(mmss(active.battleDeadline - now)) : t.battleDeadlineOver}
+              </span>
+            )}
+          </div>
+        )}
+        {state.apiActive && <p className="text-white/45 text-xs">{t.waitingResult}</p>}
       </div>
     );
   }
@@ -319,7 +389,7 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
           {isOwner && state.phase !== 'finished' && (
             <Section icon={CrCrown} title={t.ownerTools}>
               <div className="flex flex-wrap gap-2">
-                {active && (active.status === 'battle' || active.status === 'drafting') && (
+                {active && ['battle', 'drafting', 'review'].includes(active.status) && (
                   <>
                     <ChunkyButton variant="green" size="sm" onClick={() => send('tmatch:gameResult', { gameNo: active.gameNo, winner: 'a' })}>
                       {t.gameWonBy(nameOf('a'))}
@@ -350,8 +420,11 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
                   <div key={g.gameNo} className={`flex items-center gap-3 text-sm ${g.status === 'void' ? 'opacity-45' : ''}`}>
                     <span className="font-cr text-white/60 w-16 shrink-0">{t.gameN(g.gameNo)}</span>
                     <span className="text-white/85 flex-1 truncate">{g.mode ? modeNameFor(g.mode, lang) : '—'}</span>
-                    <span className={`font-semibold text-xs ${g.winner ? 'text-[var(--cr-arcade-gold)]' : 'text-white/45'}`}>
-                      {g.status === 'done' ? t.gameWonBy(nameOf(g.winner)) : g.status === 'void' ? t.gameVoid : t.gameRunning}
+                    {g.status === 'done' && (g.crownsA || g.crownsB) ? (
+                      <span className="font-cr text-white/70 text-xs tabular-nums">{g.crownsA} : {g.crownsB}</span>
+                    ) : null}
+                    <span className={`font-semibold text-xs ${g.winner ? 'text-[var(--cr-arcade-gold)]' : g.status === 'review' ? 'text-amber-200' : 'text-white/45'}`}>
+                      {g.status === 'done' ? t.gameWonBy(nameOf(g.winner)) : g.status === 'void' ? t.gameVoid : g.status === 'review' ? t.reviewTitle : t.gameRunning}
                     </span>
                   </div>
                 ))}

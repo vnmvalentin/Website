@@ -149,6 +149,12 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
       // cr_wintracker_battles, aber während des Syncs verfügbar, um das "aktuelle Deck" je
       // Modus abzuleiten (die API kennt keinen eigenen Endpoint dafür).
       cards: Array.isArray(team.cards) ? team.cards : [],
+      // Für die Turnier-Auswertung (tournament/battleMatch.js): Kampfart ("friendly", "clanMate",
+      // "PvP" …), Gegner-Tag und -Karten, Teamgröße (1 = 1v1)
+      type: b.type || '',
+      opponentTag: normalizeTag(opponent.tag) || '',
+      opponentCards: Array.isArray(opponent.cards) ? opponent.cards : [],
+      teamSize: Array.isArray(b.team) ? b.team.length : 0,
     };
   });
 }

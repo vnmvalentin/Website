@@ -109,6 +109,22 @@ db.exec(`CREATE TABLE IF NOT EXISTS tournament_chat (
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tchat_match ON tournament_chat(tournament_id, match_id, id)`);
 const CHAT_KEEP = 200;
 
+// Phase 4: gefundener Kampf + Prüf-Ergebnis am Spiel (status 'review' = Veranstalter entscheidet)
+const gameCols = new Set(db.prepare('PRAGMA table_info(tournament_games)').all().map(c => c.name));
+if (!gameCols.has('battle_json')) db.exec('ALTER TABLE tournament_games ADD COLUMN battle_json TEXT');
+if (!gameCols.has('review_json')) db.exec('ALTER TABLE tournament_games ADD COLUMN review_json TEXT');
+if (!gameCols.has('checked_at')) db.exec('ALTER TABLE tournament_games ADD COLUMN checked_at INTEGER');
+// Anwesenheit im Match-Raum + Erscheinen-Frist (wait_start) + kampfloser Sieg (forfeit = Sieger-Seite)
+db.exec(`CREATE TABLE IF NOT EXISTS tournament_match_meta (
+  tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  match_id TEXT NOT NULL,
+  present_a_at INTEGER,
+  present_b_at INTEGER,
+  wait_start INTEGER,
+  forfeit TEXT,
+  PRIMARY KEY (tournament_id, match_id)
+)`);
+
 const stmt = {
   insertT: db.prepare(`INSERT INTO tournaments (id, owner_id, owner_login, settings_json, status, created_at, updated_at)
     VALUES (@id, @owner_id, @owner_login, @settings_json, 'registration', @now, @now)`),
@@ -143,12 +159,22 @@ const stmt = {
   listG: db.prepare('SELECT * FROM tournament_games WHERE tournament_id = ? AND match_id = ? ORDER BY game_no'),
   listGAll: db.prepare('SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY match_id, game_no'),
   upsertG: db.prepare(`INSERT INTO tournament_games
-    (tournament_id, match_id, game_no, status, offer_json, bans_json, mode, lobby_code, decks_json, winner, crowns_a, crowns_b, created_at, draft_done_at, finished_at)
-    VALUES (@tournament_id, @match_id, @game_no, @status, @offer_json, @bans_json, @mode, @lobby_code, @decks_json, @winner, @crowns_a, @crowns_b, @created_at, @draft_done_at, @finished_at)
+    (tournament_id, match_id, game_no, status, offer_json, bans_json, mode, lobby_code, decks_json, winner, crowns_a, crowns_b,
+     created_at, draft_done_at, finished_at, battle_json, review_json, checked_at)
+    VALUES (@tournament_id, @match_id, @game_no, @status, @offer_json, @bans_json, @mode, @lobby_code, @decks_json, @winner, @crowns_a, @crowns_b,
+     @created_at, @draft_done_at, @finished_at, @battle_json, @review_json, @checked_at)
     ON CONFLICT(tournament_id, match_id, game_no) DO UPDATE SET
       status = excluded.status, offer_json = excluded.offer_json, bans_json = excluded.bans_json, mode = excluded.mode,
       lobby_code = excluded.lobby_code, decks_json = excluded.decks_json, winner = excluded.winner,
-      crowns_a = excluded.crowns_a, crowns_b = excluded.crowns_b, draft_done_at = excluded.draft_done_at, finished_at = excluded.finished_at`),
+      crowns_a = excluded.crowns_a, crowns_b = excluded.crowns_b, draft_done_at = excluded.draft_done_at, finished_at = excluded.finished_at,
+      battle_json = excluded.battle_json, review_json = excluded.review_json, checked_at = excluded.checked_at`),
+  listGWaiting: db.prepare(`SELECT * FROM tournament_games WHERE status IN ('battle', 'review')`),
+  getMeta: db.prepare('SELECT * FROM tournament_match_meta WHERE tournament_id = ? AND match_id = ?'),
+  upsertMeta: db.prepare(`INSERT INTO tournament_match_meta (tournament_id, match_id, present_a_at, present_b_at, wait_start, forfeit)
+    VALUES (@tournament_id, @match_id, @present_a_at, @present_b_at, @wait_start, @forfeit)
+    ON CONFLICT(tournament_id, match_id) DO UPDATE SET present_a_at = excluded.present_a_at, present_b_at = excluded.present_b_at,
+      wait_start = excluded.wait_start, forfeit = excluded.forfeit`),
+  listRunning: db.prepare(`SELECT * FROM tournaments WHERE status = 'running'`),
   insertChat: db.prepare(`INSERT INTO tournament_chat (tournament_id, match_id, author_id, author_name, role, text, at)
     VALUES (?, ?, ?, ?, ?, ?, ?)`),
   listChat: db.prepare(`SELECT * FROM (SELECT * FROM tournament_chat WHERE tournament_id = ? AND match_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id`),
@@ -161,6 +187,7 @@ const rowToGame = (r) => ({
   offer: parse(r.offer_json, []), bans: parse(r.bans_json, []), mode: r.mode, lobbyCode: r.lobby_code,
   decks: parse(r.decks_json, null), winner: r.winner, crownsA: r.crowns_a, crownsB: r.crowns_b,
   createdAt: r.created_at, draftDoneAt: r.draft_done_at, finishedAt: r.finished_at,
+  battle: parse(r.battle_json, null), review: parse(r.review_json, null), checkedAt: r.checked_at ?? null,
 });
 const gameToRow = (tournamentId, g) => ({
   tournament_id: tournamentId, match_id: g.matchId, game_no: g.gameNo, status: g.status,
@@ -168,6 +195,8 @@ const gameToRow = (tournamentId, g) => ({
   lobby_code: g.lobbyCode ?? null, decks_json: g.decks ? JSON.stringify(g.decks) : null, winner: g.winner ?? null,
   crowns_a: g.crownsA || 0, crowns_b: g.crownsB || 0, created_at: g.createdAt || Date.now(),
   draft_done_at: g.draftDoneAt ?? null, finished_at: g.finishedAt ?? null,
+  battle_json: g.battle ? JSON.stringify(g.battle) : null, review_json: g.review ? JSON.stringify(g.review) : null,
+  checked_at: g.checkedAt ?? null,
 });
 
 const STAGE_ORDER = { group: 0, upper: 1, lower: 2, grand: 3 };
@@ -277,6 +306,17 @@ module.exports = {
     const info = stmt.insertChat.run(tournamentId, matchId, authorId ?? null, authorName, role, text, at);
     stmt.trimChat.run(tournamentId, matchId, tournamentId, matchId, CHAT_KEEP);
     return { id: info.lastInsertRowid, authorId: authorId ?? null, authorName, role, text, at };
+  },
+  /** Spiele, die auf ihren Kampf warten (oder zur Klärung liegen) — für die Prüfschleife */
+  listWaitingGames: () => stmt.listGWaiting.all().map(r => ({ tournamentId: r.tournament_id, ...rowToGame(r) })),
+  listRunningTournaments: () => stmt.listRunning.all().map(rowToTournament),
+  getMatchMeta(tournamentId, matchId) {
+    const r = stmt.getMeta.get(tournamentId, matchId);
+    return { presentAAt: r?.present_a_at ?? null, presentBAt: r?.present_b_at ?? null, waitStart: r?.wait_start ?? null, forfeit: r?.forfeit ?? null };
+  },
+  saveMatchMeta(tournamentId, matchId, m) {
+    stmt.upsertMeta.run({ tournament_id: tournamentId, match_id: matchId, present_a_at: m.presentAAt ?? null,
+      present_b_at: m.presentBAt ?? null, wait_start: m.waitStart ?? null, forfeit: m.forfeit ?? null });
   },
   listChat: (tournamentId, matchId, limit = 100) => stmt.listChat.all(tournamentId, matchId, limit)
     .map(r => ({ id: r.id, authorId: r.author_id, authorName: r.author_name, role: r.role, text: r.text, at: r.at })),

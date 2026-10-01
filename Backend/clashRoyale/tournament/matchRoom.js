@@ -1,6 +1,7 @@
-// Match-Raum eines Turniers (Phase 3): Chat, Bereit, Start, Pick/Ban bzw. Zufallsmodus, automatische
-// Draft-Lobby nur für die beiden Spieler, Decks nach dem Draft, Spielergebnis durch den Veranstalter
-// (ab Phase 4 per CR-API) und Fortschreiben der Serie. Plan: ../PLANUNG_TURNIER.md.
+// Match-Raum eines Turniers: Chat, Bereit, Start, Pick/Ban bzw. Zufallsmodus, automatische Draft-Lobby
+// nur für die beiden Spieler, Decks nach dem Draft (Phase 3). Phase 4: Prüfschleife (runChecks) sucht den
+// Freundschafts-/Clankampf beider Tags über die CR-API, prüft das Deck und schreibt die Serie fort;
+// Erscheinen-Frist (kampfloser Sieg) und Kampf-Frist (→ Veranstalter). Plan: ../PLANUNG_TURNIER.md.
 //
 // Socket-Räume: tmatch:<turnier>:<match> (Raum-Zustand) und tournament:<turnier> (Seite neu laden).
 // Wer darf in den Raum? Die beiden Spieler des Matches und der Veranstalter. Spieler erkennt der
@@ -15,9 +16,29 @@ const store = require('./store');
 const lifecycle = require('./lifecycle');
 const S = require('./structure');
 const SR = require('./series');
+const BM = require('./battleMatch');
+const { cardIdByOfficialName } = require('../core/cards');
 
 const CHAT_MAX = 300;
 const CHAT_COOLDOWN_MS = 600;
+const CHECK_INTERVAL_MS = 20 * 1000;   // Prüfschleife
+const LOG_CACHE_MS = 15 * 1000;        // Battlelog je Tag höchstens so oft abfragen (kürzer als der Takt → jede Runde frisch)
+let checkTimer = null;
+
+// CR-API für die Kampfsuche. Lokal funktioniert nur der WinTracker-Token (siehe Memory/README) —
+// deshalb: eigener Turnier-Token, sonst WinTracker-Token, sonst der geteilte Standard-Token.
+const crToken = () => process.env.CLASH_ROYALE_API_TOKEN_TOURNAMENT || process.env.CLASH_ROYALE_API_TOKEN_WINTRACKER || undefined;
+const logCache = new Map(); // tag → { at, battles }
+let battleApi = {
+  configured: () => require('../lib/crApi').isConfigured(crToken()),
+  fetchLog: async (tag) => {
+    const hit = logCache.get(tag);
+    if (hit && Date.now() - hit.at < LOG_CACHE_MS) return hit.battles;
+    const battles = await require('../lib/crApi').fetchBattlelog(tag, { safe: true, token: crToken() });
+    logCache.set(tag, { at: Date.now(), battles });
+    return battles;
+  },
+};
 
 let ioRef = null;
 const readyState = new Map(); // "<tid>:<mid>" → { a, b }
@@ -100,7 +121,7 @@ function buildState(ctx) {
   const byId = new Map(ctx.participants.map(p => [p.id, p]));
   let phase = 'lobby';
   if (match.status !== 'pending') phase = 'finished';
-  else if (active) phase = active.status; // banning | drafting | battle
+  else if (active) phase = active.status === 'review' ? 'battle' : active.status; // banning | drafting | battle (+ Klärung)
   const firstBan = active ? SR.firstBanner(games.filter(g => g.gameNo !== active.gameNo)) : null;
   return {
     tournamentId: t.id,
@@ -111,6 +132,13 @@ function buildState(ctx) {
       playable: S.isPlayable(match),
     },
     players: { a: publicParticipant(byId.get(match.a)), b: publicParticipant(byId.get(match.b)) },
+    presence: (() => {
+      const meta = store.getMatchMeta(t.id, match.id);
+      return { a: !!meta.presentAAt, b: !!meta.presentBAt, waitStart: meta.waitStart, forfeit: meta.forfeit };
+    })(),
+    showUpMinutes: t.settings.showUpMinutes,
+    battleMinutes: t.settings.battleMinutes,
+    apiActive: battleApi.configured(),
     modeSelection: t.settings.modeSelection,
     deckCheck: !!t.settings.deckCheck,
     phase,
@@ -121,6 +149,8 @@ function buildState(ctx) {
       gameNo: g.gameNo, status: g.status, offer: g.offer, bans: g.bans, mode: g.mode,
       lobbyCode: g.status === 'drafting' ? g.lobbyCode : null, decks: g.decks, winner: g.winner,
       crownsA: g.crownsA, crownsB: g.crownsB, draftDoneAt: g.draftDoneAt, finishedAt: g.finishedAt,
+      battle: g.battle, review: g.review, checkedAt: g.checkedAt,
+      battleDeadline: g.draftDoneAt ? g.draftDoneAt + t.settings.battleMinutes * 60000 : null,
     })),
     chat: store.listChat(t.id, match.id),
   };
@@ -155,6 +185,150 @@ function openDraftLobby(ctx, game) {
     },
   });
   game.status = 'drafting';
+}
+
+/** Spiel als entschieden speichern; entscheidet es die Serie, wird das Match fortgeschrieben. */
+function finishGame(ctx, games, game, { winner, crownsA = 0, crownsB = 0, battle = null }) {
+  Object.assign(game, {
+    status: 'done', winner, finishedAt: Date.now(), review: null,
+    crownsA: Math.max(0, Math.min(3, Math.round(Number(crownsA) || 0))),
+    crownsB: Math.max(0, Math.min(3, Math.round(Number(crownsB) || 0))),
+    ...(battle ? { battle } : {}),
+  });
+  store.saveGame(ctx.t.id, game);
+  if (game.lobbyCode) lobbyApi.remove(game.lobbyCode);
+  const score = SR.seriesScore(games);
+  const seriesWinner = SR.seriesWinner(ctx.match.bestOf, score);
+  if (!seriesWinner) return { matchDecided: false };
+  lifecycle.reportResult(ctx.t, ctx.match.id, {
+    winner: seriesWinner, scoreA: score.a, scoreB: score.b, crownsA: score.crownsA, crownsB: score.crownsB,
+  });
+  return { matchDecided: true };
+}
+
+/** Systemnachricht in den Raum-Chat (Kampf gefunden, kampfloser Sieg …). */
+function systemChat(tid, mid, text) {
+  const msg = store.addChat(tid, mid, { authorId: null, authorName: 'System', role: 'system', text });
+  ioRef?.to(roomName(tid, mid)).emit('tmatch:chat', { matchId: mid, message: msg });
+}
+
+/** Spieler betritt den Raum: Anwesenheit merken; ist der Gegner noch nie da gewesen, startet die Erscheinen-Frist. */
+function markPresent(ctx) {
+  if (!ctx.side || !S.isPlayable(ctx.match)) return;
+  const meta = store.getMatchMeta(ctx.t.id, ctx.match.id);
+  const key = ctx.side === 'a' ? 'presentAAt' : 'presentBAt';
+  if (meta[key]) return;
+  meta[key] = Date.now();
+  const other = ctx.side === 'a' ? meta.presentBAt : meta.presentAAt;
+  meta.waitStart = other ? null : Date.now();
+  store.saveMatchMeta(ctx.t.id, ctx.match.id, meta);
+}
+
+// ── Prüfschleife (Phase 4) ──────────────────────────────────────────────
+
+/** Sucht für ein wartendes Spiel den Kampf und wertet ihn aus. Gibt true zurück, wenn sich etwas geändert hat. */
+async function checkGame(ctx, games, game, now) {
+  const byId = new Map(ctx.participants.map(p => [p.id, p]));
+  const A = byId.get(ctx.match.a), B = byId.get(ctx.match.b);
+  if (!A || !B || !game.draftDoneAt) return false;
+  const searching = game.status === 'battle' || game.review?.reason === 'noBattle';
+  if (!searching) return false;
+  let found = null;
+  if (battleApi.configured()) {
+    const [logA, logB] = await Promise.all([battleApi.fetchLog(A.crTag), battleApi.fetchLog(B.crTag)]);
+    const usedTimes = new Set(games.filter(g => g.gameNo !== game.gameNo && g.battle?.battleTime).map(g => g.battle.battleTime));
+    found = BM.findSeriesBattle({ logA, logB, tagA: A.crTag, tagB: B.crTag, after: game.draftDoneAt, usedTimes });
+  }
+  game.checkedAt = now;
+  if (found) {
+    const verdict = BM.evaluateBattle(found, game.decks, { deckCheck: !!ctx.t.settings.deckCheck, resolveId: cardIdByOfficialName });
+    const battle = { battleTime: found.battleTime, battleTimeMs: found.battleTimeMs, crownsA: found.crownsA, crownsB: found.crownsB,
+      gameMode: found.gameMode, type: found.type, deck: verdict.deck };
+    if (verdict.decided) {
+      const res = finishGame(ctx, games, game, { winner: verdict.winner, crownsA: found.crownsA, crownsB: found.crownsB, battle });
+      systemChat(ctx.t.id, ctx.match.id, `Kampf gefunden: ${A.displayName} ${found.crownsA} : ${found.crownsB} ${B.displayName} — Spiel ${game.gameNo} an ${verdict.winner === 'a' ? A.displayName : B.displayName}.`);
+      if (res.matchDecided) notifyTournament(ctx.t.id);
+      return true;
+    }
+    game.status = 'review';
+    game.battle = battle;
+    game.review = { reason: verdict.reason, at: now };
+    store.saveGame(ctx.t.id, game);
+    systemChat(ctx.t.id, ctx.match.id, verdict.reason === 'draw'
+      ? `Kampf gefunden, aber unentschieden (${found.crownsA} : ${found.crownsB}) — der Veranstalter entscheidet.`
+      : 'Kampf gefunden, aber das gespielte Deck weicht vom gedrafteten ab — der Veranstalter entscheidet.');
+    return true;
+  }
+  const deadline = game.draftDoneAt + (ctx.t.settings.battleMinutes || 20) * 60000;
+  if (game.status === 'battle' && now > deadline) {
+    game.status = 'review';
+    game.review = { reason: 'noBattle', at: now };
+    store.saveGame(ctx.t.id, game);
+    systemChat(ctx.t.id, ctx.match.id, 'Frist für den Kampf abgelaufen, kein Freundschaftskampf gefunden — der Veranstalter entscheidet (ein später gefundener Kampf zählt trotzdem).');
+    return true;
+  }
+  store.saveGame(ctx.t.id, game); // checkedAt
+  return false;
+}
+
+/** Erscheinen-Frist eines Matches prüfen (nur solange noch kein Spiel gestartet wurde). */
+function checkShowUp(t, match, matches, participants, now) {
+  if (!S.isPlayable(match)) return false;
+  const games = store.listGames(t.id, match.id);
+  if (games.some(g => g.status !== 'void')) return false;
+  const meta = store.getMatchMeta(t.id, match.id);
+  if (meta.forfeit || meta.waitStart == null) return false;
+  // Uhr anhalten, solange der Abwesende gerade ein Spiel in einem anderen Match spielt
+  const absentPid = meta.presentAAt ? match.b : match.a;
+  const busy = matches.some(m => m.id !== match.id && S.isPlayable(m) && (m.a === absentPid || m.b === absentPid)
+    && SR.activeGame(store.listGames(t.id, m.id)));
+  if (busy) {
+    meta.waitStart = now;
+    store.saveMatchMeta(t.id, match.id, meta);
+    return false;
+  }
+  const winner = BM.showUpForfeit({ presentA: !!meta.presentAAt, presentB: !!meta.presentBAt, waitStart: meta.waitStart, now, showUpMs: (t.settings.showUpMinutes || 10) * 60000 });
+  if (!winner) return false;
+  meta.forfeit = winner;
+  store.saveMatchMeta(t.id, match.id, meta);
+  const need = Math.ceil(match.bestOf / 2);
+  lifecycle.reportResult(t, match.id, { winner, scoreA: winner === 'a' ? need : 0, scoreB: winner === 'b' ? need : 0 });
+  const byId = new Map(participants.map(p => [p.id, p]));
+  const w = byId.get(winner === 'a' ? match.a : match.b), l = byId.get(winner === 'a' ? match.b : match.a);
+  systemChat(t.id, match.id, `${l?.displayName} ist nicht rechtzeitig erschienen — kampfloser Sieg für ${w?.displayName}.`);
+  return true;
+}
+
+/** Ein Durchlauf der Prüfschleife: Kampfsuche für wartende Spiele, Erscheinen-Fristen aller laufenden Turniere. */
+async function runChecks(now = Date.now()) {
+  const touched = new Set();
+  for (const g of store.listWaitingGames()) {
+    try {
+      const ctx = loadContext(g.tournamentId, g.matchId, {});
+      if (ctx.t.status !== 'running' || !S.isPlayable(ctx.match)) continue;
+      const games = store.listGames(ctx.t.id, ctx.match.id);
+      const game = games.find(x => x.gameNo === g.gameNo);
+      if (game && await checkGame(ctx, games, game, now)) touched.add(rkey(ctx.t.id, ctx.match.id));
+    } catch (e) {
+      console.error('[Turnier] Kampfsuche fehlgeschlagen:', e.message);
+    }
+  }
+  for (const t of store.listRunningTournaments()) {
+    try {
+      const matches = store.listMatches(t.id);
+      const participants = store.listParticipants(t.id);
+      for (const m of matches) {
+        if (checkShowUp(store.getTournament(t.id), m, matches, participants, now)) {
+          touched.add(rkey(t.id, m.id));
+          notifyTournament(t.id);
+        }
+      }
+    } catch (e) {
+      console.error('[Turnier] Fristprüfung fehlgeschlagen:', e.message);
+    }
+  }
+  for (const k of touched) { const [tid, mid] = k.split(':'); broadcastRoom(tid, mid); }
+  return touched.size;
 }
 
 // ── Aktionen (ohne Socket-Abhängigkeit — getestet in __tests__/matchRoom.test.js) ──
@@ -224,23 +398,14 @@ const actions = {
     if (winner !== 'a' && winner !== 'b') fail('tournamentInvalidResult');
     const games = loadGames(ctx.t, ctx.match.id);
     const game = games.find(g => g.gameNo === Number(gameNo));
-    if (!game || (game.status !== 'battle' && game.status !== 'drafting')) fail('tournamentNoGame');
-    Object.assign(game, {
-      status: 'done', winner, finishedAt: Date.now(),
-      crownsA: Math.max(0, Math.min(3, Math.round(Number(crownsA) || 0))),
-      crownsB: Math.max(0, Math.min(3, Math.round(Number(crownsB) || 0))),
+    if (!game || !['battle', 'drafting', 'review'].includes(game.status)) fail('tournamentNoGame');
+    // Bei einem gefundenen Kampf (Klärung) die echten Kronen übernehmen, sonst die angegebenen
+    const useBattle = game.battle && game.status === 'review';
+    return finishGame(ctx, games, game, {
+      winner,
+      crownsA: useBattle ? game.battle.crownsA : crownsA,
+      crownsB: useBattle ? game.battle.crownsB : crownsB,
     });
-    store.saveGame(ctx.t.id, game);
-    if (game.lobbyCode) lobbyApi.remove(game.lobbyCode);
-    const score = SR.seriesScore(games);
-    const seriesWinner = SR.seriesWinner(ctx.match.bestOf, score);
-    if (seriesWinner) {
-      lifecycle.reportResult(ctx.t, ctx.match.id, {
-        winner: seriesWinner, scoreA: score.a, scoreB: score.b, crownsA: score.crownsA, crownsB: score.crownsB,
-      });
-      return { matchDecided: true };
-    }
-    return { matchDecided: false };
   },
 
   /** Veranstalter annulliert das laufende Spiel (falscher Modus, Verbindungsabbruch …) — es wird neu gespielt. */
@@ -298,6 +463,10 @@ function onDraftComplete(lobby) {
 
 function registerTournamentSocket(socket, io, { twitchId = null } = {}) {
   ioRef = io;
+  if (!checkTimer) {
+    checkTimer = setInterval(() => { runChecks().catch(e => console.error('[Turnier] Prüfschleife:', e.message)); }, CHECK_INTERVAL_MS);
+    checkTimer.unref?.();
+  }
   const lastChat = { at: 0 };
 
   const handle = (event, fn) => socket.on(event, (payload, ack) => {
@@ -327,7 +496,11 @@ function registerTournamentSocket(socket, io, { twitchId = null } = {}) {
     const ctx = ctxFor(p);
     if (!ctx.canEnter) fail('tournamentNoAccess');
     socket.join(roomName(ctx.t.id, ctx.match.id));
-    socket.emit('tmatch:state', buildState(ctx));
+    const wasPresent = store.getMatchMeta(ctx.t.id, ctx.match.id);
+    markPresent(ctx);
+    // Erstes Erscheinen ändert die Anwesenheit für beide → allen schicken, sonst nur diesem Socket
+    if (ctx.side && !(ctx.side === 'a' ? wasPresent.presentAAt : wasPresent.presentBAt)) broadcastRoom(ctx.t.id, ctx.match.id);
+    else socket.emit('tmatch:state', buildState(ctx));
     return { side: ctx.side, isOwner: ctx.isOwner };
   });
   handle('tmatch:leave', (p) => { socket.leave(roomName(String(p.tournamentId || ''), String(p.matchId || ''))); });
@@ -352,6 +525,8 @@ function registerTournamentSocket(socket, io, { twitchId = null } = {}) {
 module.exports = {
   registerTournamentSocket, authorizeLobbyJoin, onDraftComplete, broadcastRoom, notifyTournament,
   // Tests
-  _actions: actions, _loadContext: loadContext, _buildState: buildState,
+  runChecks,
+  _actions: actions, _loadContext: loadContext, _buildState: buildState, _markPresent: markPresent,
   _setLobbyApi: (api) => { lobbyApi = api; }, _resetReady: () => readyState.clear(),
+  _setBattleApi: (api) => { battleApi = api; },
 };
