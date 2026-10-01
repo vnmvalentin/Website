@@ -4,19 +4,18 @@
 // unterscheiden — die meisten Modusnamen sind bereits englische Markennamen. Die
 // Modus-Kennungen müssen mit registry.modeIds() im Backend übereinstimmen.
 
+// Modus- und Preset-Symbole sind echte Clash-Royale-Grafiken statt lucide-Symbole —
+// siehe ui/CrIcons.jsx (gleiche size-Schnittstelle, überall austauschbar).
 import {
-  Worm, Hash, Repeat, Zap, Sparkles, FishingRod, Flashlight, Skull, Triangle,
-  Check, AlertTriangle, Users,
-} from 'lucide-react';
-// Der Elixiertropfen aus dem Spiel statt eines generischen Wassertropfens —
-// siehe ui/CrIcons.jsx.
-import { ElixirDrop } from './ui/CrIcons';
+  CrMegaDraft, CrElixir, CrClassicDecks, CrTrader, CrDoubleElixir, CrBoost, CrFisherman,
+  CrTelescope, CrSkull, CrTripleDraft, CrElixirPair, CrTwoVsTwo, CrCheck, CrRage, CrRandom,
+} from './ui/CrIcons';
 
 export const MODES = [
   {
     id: 'snake',
     name: 'Snake Royale',
-    icon: Worm,
+    icon: CrMegaDraft,
     desc: 'Wähle Karten aus einem 11×11-Raster – aber nur anliegend an die zuletzt gewählte Karte. Baue das beste Deck!',
     available: true,
     // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
@@ -27,7 +26,7 @@ export const MODES = [
   {
     id: 'auction',
     name: 'Elixir Auction',
-    icon: ElixirDrop,
+    icon: CrElixir,
     desc: 'Starte mit 100 Elixier und biete in jeder Runde auf angezeigte Karten. Der Höchstbietende gewinnt – Verlierer erhalten einen Trostpreis!',
     available: true,
     // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
@@ -38,7 +37,7 @@ export const MODES = [
   {
     id: 'bingo',
     name: 'Bingo Royale',
-    icon: Hash,
+    icon: CrClassicDecks,
     desc: 'Fülle deine Bingo-Karte mit Clash Royale Karten. Bingos geben dir PowerUps mit denen du dein Deck verbessern oder gegnerische sabotieren kannst.',
     available: true,
     // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
@@ -49,7 +48,7 @@ export const MODES = [
   {
     id: 'shadow-carousel',
     name: 'Blindes Karussell',
-    icon: Repeat,
+    icon: CrTrader,
     desc: 'Jeder Spieler hat einen Tisch voller verdeckter Karten. Decke pro Runde Karten auf und nimm eine — auch blind. Danach wandern die Tische im Karussell weiter.',
     available: true,
     // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
@@ -60,7 +59,7 @@ export const MODES = [
   {
     id: 'elixir-rush',
     name: 'Elixir Rush',
-    icon: Zap,
+    icon: CrDoubleElixir,
     desc: 'Dein Elixier lädt sich automatisch auf — auf dem Marktplatz erscheinen Karten mit echten Elixierkosten. Wer zuerst klickt, bekommt die Karte. 8 Käufe = fertiges Deck!',
     available: true,
     // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
@@ -71,7 +70,7 @@ export const MODES = [
   {
     id: 'card-evolution',
     name: 'Karten-Evolution',
-    icon: Sparkles,
+    icon: CrBoost,
     desc: '3 Runden: Karten mit progressiven Tokenkosten aufwerten und locken, dann Gegner sabotieren, dann weiter aufwerten. Karten kommen aus einem geteilten Pool — jede Karte gehört immer nur einem Spieler gleichzeitig.',
     available: true,
     // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
@@ -82,7 +81,7 @@ export const MODES = [
   {
     id: 'angel-royale',
     name: 'Angel Royale',
-    icon: FishingRod,
+    icon: CrFisherman,
     desc: 'Karten treiben in zufälligen Bahnen über den Fluss — manche schnell, manche in Wellenlinien, manche tauchen kurz ab und sind dann nicht fangbar. Klicke sie an, um sie zu angeln. Nach jedem Fang braucht deine Angel einen Moment — und wer zu lange gar nicht angelt, bekommt eine zufällige Karte zugelost.',
     available: true,
     // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
@@ -93,7 +92,7 @@ export const MODES = [
   {
     id: 'dark-maze',
     name: 'Dunkles Labyrinth',
-    icon: Flashlight,
+    icon: CrTelescope,
     desc: 'Ein bei jedem Start neu generiertes Labyrinth in völliger Dunkelheit — du siehst nur deinen eigenen Lichtkegel. Sammle Draft-Kisten (1 aus 2) und lose Bodenkarten, in der Mitte wartet ein Joker. Läuft die Zeit ab, werden leere Deck-Plätze zufällig aufgefüllt.',
     available: true,
     // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
@@ -104,7 +103,7 @@ export const MODES = [
   {
     id: 'trap-setter',
     name: 'Fallensteller',
-    icon: Skull,
+    icon: CrSkull,
     desc: 'Tarne eine deiner Trap-Karten als etwas Attraktives und lege sie zu echten Karten in ein gemeinsames Raster. Nach kurzem Countdown klicken alle so schnell wie möglich — der Langsamere bei einer Kollision wird zufällig umgeleitet und tappt vielleicht in eine fremde Falle.',
     available: true,
     isNew: true,
@@ -113,7 +112,7 @@ export const MODES = [
   {
     id: 'pyramid-draft',
     name: 'Pyramidendraft',
-    icon: Triangle,
+    icon: CrTripleDraft,
     desc: 'Nur die unterste Reihe der Kartenpyramide liegt offen — der Rest ist verdeckt. Eine Karte wird erst sichtbar, wenn beide Karten direkt darunter vergeben sind. Reihum draften, jede Runde in anderer Reihenfolge; am Rundenende wird zusätzlich eine offene Karte zufällig blockiert.',
     available: true,
     isNew: true,
@@ -122,7 +121,7 @@ export const MODES = [
   {
     id: 'elixir-auction-2v2',
     name: 'Elixir Auction 2v2',
-    icon: ElixirDrop,
+    icon: CrElixirPair,
     desc: 'Zwei Teams, ein gemeinsamer Elixier-Pool. Jede Runde siehst du eine Karte und schickst 2 Merkmale davon an deinen Partner — danach bietet ihr blind auf die Karte des jeweils anderen. Wer mehr bietet, bekommt sie fürs eigene Deck.',
     available: true,
     isNew: true,
@@ -131,7 +130,7 @@ export const MODES = [
   {
     id: 'elixir-rush-2v2',
     name: 'Elixir Rush 2v2',
-    icon: Users,
+    icon: CrTwoVsTwo,
     desc: 'Getrennte Marktplätze, eine gemeinsame Elixierleiste. Du und dein Partner kaufen unabhängig voneinander vom Team-Elixier — das lädt schneller auf und fasst mehr als im Solo-Modus.',
     available: true,
     isNew: true,
@@ -255,19 +254,19 @@ export const MODE_CHUNK_LOADERS = {
 // an der Zahlen gepflegt werden müssten.
 export const PRESET_META = {
   suggested: {
-    icon: Check,
+    icon: CrCheck,
     de: { label: 'Vorgeschlagen', desc: 'Ausbalancierte Werte, passend zur aktuellen Spielerzahl — guter Startpunkt für die erste Runde.' },
     en: { label: 'Suggested', desc: 'Balanced values, scaled to the current player count — a good starting point for a first round.' },
     es: { label: 'Sugerido', desc: 'Valores equilibrados, ajustados al número actual de jugadores — un buen punto de partida para la primera ronda.' },
   },
   fast: {
-    icon: Zap,
+    icon: CrRage,
     de: { label: 'Blitz', desc: 'Kurze Timer und schnellere Abläufe — für eine Runde zwischendurch.' },
     en: { label: 'Blitz', desc: 'Short timers and a faster pace — for a quick round.' },
     es: { label: 'Rápido', desc: 'Temporizadores cortos y un ritmo más rápido — para una ronda rápida.' },
   },
   chaos: {
-    icon: AlertTriangle,
+    icon: CrRandom,
     de: { label: 'Chaos', desc: 'Bewusst überdreht: maximaler Druck, mehr Karten, alles gleichzeitig.' },
     en: { label: 'Chaos', desc: 'Deliberately over the top: maximum pressure, more cards, everything at once.' },
     es: { label: 'Caos', desc: 'Deliberadamente exagerado: presión máxima, más cartas, todo a la vez.' },

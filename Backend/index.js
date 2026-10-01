@@ -47,6 +47,7 @@ const createBannedCardsRouter = require("./clashRoyale/routes/bannedCardsRoutes"
 const createNuzlockeRouter = require("./clashRoyale/routes/nuzlockeRoutes");
 const createCrWinTrackerRouter = require("./clashRoyale/routes/crWinTrackerRoutes");
 const createCrPresetRouter = require("./clashRoyale/routes/crPresetRoutes");
+const createTournamentRouter = require("./clashRoyale/tournament/routes");
 const createStreamToolRouter = require("./streamTool/routes/streamToolRoutes");
 const { registerLiveBadgesSocket } = require("./lib/liveBadges");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
@@ -305,6 +306,8 @@ app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, session
 app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
 app.use("/api/clash/profile", createCrProfileRouter({ requireAuth }));
 app.use("/api/clash/presets", createCrPresetRouter({ requireAuth }));
+// Turniere der CR-Minigames (Plan: clashRoyale/PLANUNG_TURNIER.md)
+app.use("/api/clash/tournaments", createTournamentRouter({ requireAuth, optionalAuth }));
 app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));

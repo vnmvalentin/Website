@@ -35,6 +35,8 @@ export function createClashActions(emitToLobby, setMyBid) {
       emitToLobby('clash:setTracking', { enabled }, resolve)),
     transferHost: (targetPlayerId) => emitToLobby('clash:transferHost', { targetPlayerId }),
     toggleSpectator: () => emitToLobby('clash:toggleSpectator'),
+    // Emote an alle in der Lobby (Server prüft ID + Abklingzeit)
+    sendEmote: (emoteId) => emitToLobby('clash:emote', { emoteId }),
     setPlayerSpectator: (targetPlayerId, isSpectator) =>
       emitToLobby('clash:setPlayerSpectator', { targetPlayerId, isSpectator }),
     setMode: (mode) => emitToLobby('clash:setMode', { mode }),

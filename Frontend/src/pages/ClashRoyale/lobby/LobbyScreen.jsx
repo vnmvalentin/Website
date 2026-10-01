@@ -10,6 +10,10 @@
 // Zusammenfassung + den Öffnen-Knopf, exakt wie CardPoolCard das für den Kartenpool tut.
 import React, { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
+import Section from '../ui/Section';
+import { CrBattle, CrSettings, CrLock, CrSocial } from '../ui/CrIcons';
+import { useCrPrefs } from '../ui/crPrefs';
+import EmoteLayer from '../ui/EmoteLayer';
 import SEO from '../../../components/SEO';
 import LanguageSelect from '../components/LanguageSelect';
 import LobbyCodeCard from './LobbyCodeCard';
@@ -31,12 +35,14 @@ export default function LobbyScreen({
   t, lang, changeLang, error,
   onLeave, onRequestHistory, onTransferHost,
   profile, switchActiveCr,
+  emotes = [],
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [excludeOpen, setExcludeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Für welchen Spieler ist der Account-Dialog offen (null = zu)
   const [crTarget, setCrTarget] = useState(null);
+  const { openSettings } = useCrPrefs();
 
   // Admin-Beobachter zählen nicht als Spieler
   const realPlayers = (lobbyData?.players || []).filter(p => !p.isAdmin);
@@ -123,79 +129,101 @@ export default function LobbyScreen({
         />
       )}
 
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-5">
+      <EmoteLayer emotes={emotes} players={lobbyData?.players || []} onSend={actions.sendEmote} lang={lang} />
 
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="font-arcade text-white text-xl sm:text-2xl">{t.waitingForPlayers}</h1>
+      <div className="cr-anim-rise max-w-6xl mx-auto px-3 md:px-6 py-4 md:py-6 space-y-4">
+
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="cr-arcade-title text-xl sm:text-3xl flex items-center gap-2 sm:gap-3 min-w-0">
+            <CrBattle size={32} className="shrink-0" />
+            {t.waitingForPlayers}
+          </h1>
           <div className="flex items-center gap-2 shrink-0">
             <LanguageSelect lang={lang} onChange={changeLang} />
+            <button onClick={openSettings} aria-label={t.settingsSection} title={t.settingsSection}
+              className="cr-arcade-icon-btn w-11 h-11">
+              <CrSettings size={24} />
+            </button>
             <button onClick={onLeave} aria-label={t.leaveLobbyBtn} title={t.leaveLobbyBtn}
               className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-11 h-11">
-              <LogOut size={16} />
+              <LogOut size={17} />
             </button>
           </div>
         </div>
 
-        {/* ── Band: Modus + Start + Verlauf — volle Breite, über den Spalten ────────── */}
-        <ModeStartBand
-          lobbyData={lobbyData}
-          actions={actions}
-          t={t} lang={lang}
-          canControlLobby={canControlLobby}
-          isClashAdmin={isClashAdmin}
-          effectiveIsHost={effectiveIsHost}
-          onStart={actions.startGame}
-          onShowHistory={openHistory}
-          poolSize={poolSize}
-          {...readiness}
-        />
+        {/* EINE gemeinsame Fläche statt sechs einzelner Kästen: oben quer der Modus mit
+            Start/Verlauf, darunter zwei Spalten — links alles zum EINSTELLEN, rechts alles zu
+            den MITSPIELERN. Abschnitte trennt eine eingeprägte Fuge (ui/Section.jsx). */}
+        <div className="cr-arcade-panel overflow-hidden">
+          <ModeStartBand
+            lobbyData={lobbyData}
+            actions={actions}
+            t={t} lang={lang}
+            canControlLobby={canControlLobby}
+            isClashAdmin={isClashAdmin}
+            effectiveIsHost={effectiveIsHost}
+            onStart={actions.startGame}
+            onShowHistory={openHistory}
+            poolSize={poolSize}
+            {...readiness}
+          />
 
-        {/* ── Zwei Spalten: links Einstellungen, rechts Mitspieler ─────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <div className="space-y-6">
-            <LobbyCodeCard
-              code={lobbyData?.code}
-              link={lobbyLink}
-              t={t}
-              locked={lobbyData?.locked}
-              canControlLobby={canControlLobby}
-              onToggleLock={actions.setLobbyLocked}
-              isPublic={lobbyData?.isPublic}
-              onTogglePublic={actions.setLobbyPublic}
-            />
-            {canControlLobby && (
-              <GameSettingsCard
-                lobbyData={lobbyData}
-                lang={lang} t={t}
-                onOpen={() => setSettingsOpen(true)}
-              />
-            )}
-            <CardPoolCard
-              excludedCount={excludedCards.length}
-              poolSize={poolSize}
-              canControlLobby={canControlLobby}
-              onOpen={() => setExcludeOpen(true)}
-              t={t}
-            />
-          </div>
+          <div className="cr-section--rule grid grid-cols-1 lg:grid-cols-2">
+            <div>
+              <Section icon={CrSettings} title={t.settingsSection}>
+                <div className="flex flex-col gap-3">
+                  {canControlLobby && (
+                    <GameSettingsCard lobbyData={lobbyData} lang={lang} t={t} onOpen={() => setSettingsOpen(true)} />
+                  )}
+                  <CardPoolCard
+                    excludedCount={excludedCards.length}
+                    poolSize={poolSize}
+                    canControlLobby={canControlLobby}
+                    onOpen={() => setExcludeOpen(true)}
+                    t={t}
+                  />
+                </div>
+              </Section>
+              <Section icon={CrLock} title={t.lobbySection}>
+                <LobbyCodeCard
+                  code={lobbyData?.code}
+                  link={lobbyLink}
+                  t={t}
+                  locked={lobbyData?.locked}
+                  canControlLobby={canControlLobby}
+                  onToggleLock={actions.setLobbyLocked}
+                  isPublic={lobbyData?.isPublic}
+                  onTogglePublic={actions.setLobbyPublic}
+                />
+              </Section>
+            </div>
 
-          <div className="space-y-6">
-            <PlayerList
-              lobbyData={lobbyData}
-              myId={myId}
-              canControlLobby={canControlLobby}
-              t={t}
-              activeCount={activePlayers.length}
-              spectatorCount={realPlayers.length - activePlayers.length}
-              onToggleOwnSpectator={actions.toggleSpectator}
-              onSetPlayerSpectator={actions.setPlayerSpectator}
-              onTransferHost={onTransferHost}
-              onKick={actions.kickPlayer}
-              onOpenCrAccount={(p) => setCrTarget(p.id)}
-              onSwitchTeam={actions.switchTeam}
-              onAddBot={actions.addBot}
-            />
-            {canControlLobby && <TrackingCard lobbyData={lobbyData} actions={actions} t={t} />}
+            {/* Senkrechte Fuge zwischen den Spalten ab lg, auf dem Handy eine waagerechte */}
+            <div className="cr-section--rule lg:!shadow-none lg:!border-t-0 lg:border-l lg:border-l-[rgba(2,8,20,0.55)]">
+              <Section icon={CrSocial}
+                title={t.playersOfMax(activePlayers.length, lobbyData?.maxPlayers || 8)}
+                aside={realPlayers.length - activePlayers.length > 0
+                  ? t.spectatorCount(realPlayers.length - activePlayers.length) : null}>
+                <PlayerList
+                  lobbyData={lobbyData}
+                  myId={myId}
+                  canControlLobby={canControlLobby}
+                  t={t}
+                  onToggleOwnSpectator={actions.toggleSpectator}
+                  onSetPlayerSpectator={actions.setPlayerSpectator}
+                  onTransferHost={onTransferHost}
+                  onKick={actions.kickPlayer}
+                  onOpenCrAccount={(p) => setCrTarget(p.id)}
+                  onSwitchTeam={actions.switchTeam}
+                  onAddBot={actions.addBot}
+                />
+              </Section>
+              {canControlLobby && (
+                <Section>
+                  <TrackingCard lobbyData={lobbyData} actions={actions} t={t} />
+                </Section>
+              )}
+            </div>
           </div>
         </div>
 

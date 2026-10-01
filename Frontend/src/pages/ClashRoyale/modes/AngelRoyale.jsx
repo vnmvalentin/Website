@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Check, FishingRod, Hourglass, Eye } from 'lucide-react';
+import CardFace from '../ui/CardFace';
+import { CrCheck, CrFisherman, CrStopwatch, CrTv } from '../ui/CrIcons';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import { RARITY_COLOR, cardImageUrl } from '../data/cards';
 import ModeShell from './ModeShell';
-import { CARD_CROP } from './cardCrop';
+import { drawCardFrame } from './cardCrop';
+import { useServerClock } from '../ui/serverClock';
 import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
+import { avatarUrl } from '../components/avatars';
 
 /** Akzentfarbe des Modus. */
 const ACCENT = '#38bdf8';
 
-const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
-const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 
 // Kartengröße im Fluss (Seitenverhältnis der CDN-Bilder ist 150×180).
 // Diese Werte gelten in REFERENZEINHEITEN, nicht in Bildschirmpixeln — der Fluss wird
@@ -157,9 +158,9 @@ function getCardImage(id) {
 }
 
 function AvatarCircle({ id, color, size = 28 }) {
-  const url = id ? AVATAR_MAP[id] : null;
+  const url = avatarUrl(id);
   return (
-    <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
+    <div className="rounded-full overflow-hidden shrink-0 border-2 cr-avatar-pick"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
       {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
@@ -172,8 +173,7 @@ function CardImg({ id, name }) {
     // ein neutrales Dunkelgrau verhindert nur, dass das Diamant-Karo der Spielfläche
     // durch transparente Bildränder scheint.
     <div className="relative w-full h-full bg-[#0d0d14]">
-      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover" draggable={false}
-        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
+      <CardFace id={id} alt={name} />
     </div>
   );
 }
@@ -199,7 +199,7 @@ const AngelSidebar = React.memo(function AngelSidebar({ state, myPlayerId, t }) 
                 <AvatarCircle id={p.avatar} color={p.color} size={28} />
                 <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
                 {done
-                  ? <Check size={13} className="text-green-400 shrink-0" title={t.done} />
+                  ? <CrCheck size={19} className="text-green-400 shrink-0" title={t.done} />
                   : <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/{state.deckSize}</span>}
               </div>
             }>
@@ -219,7 +219,7 @@ const AngelSidebar = React.memo(function AngelSidebar({ state, myPlayerId, t }) 
             <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
               <AvatarCircle id={p.avatar} color={p.color} size={20} />
               <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
-              <Eye size={11} className="text-white/40 shrink-0" />
+              <CrTv size={16} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
@@ -300,6 +300,9 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// Kartenpositionen sind eine Funktion der SERVER-Zeit (fishPos) — der Abgleich Client↔Server
+// steckt geglättet in ui/serverClock.js (vorher sprangen die Karten bei jeder Nachricht).
+
 // ── Der Fluss (Canvas) ──────────────────────────────────────────────────────
 function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
   const canvasRef = useRef(null);
@@ -313,6 +316,8 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
   stateRef.current = state;
   canInteractRef.current = canInteract;
 
+  const { serverTime: serverClock } = useServerClock(state);
+
   const handleClick = useCallback((e) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -325,7 +330,7 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
     if (!canInteractRef.current) return;
     const s = stateRef.current;
     if (!s) return;
-    const serverTime = Date.now() - (s.clientReceivedAt - s.serverNow);
+    const serverTime = serverClock();
     const Wr = rect.width / k, Hr = rect.height / k;
     // oberste (zuletzt gezeichnete) Karte unter dem Cursor finden
     for (let i = s.fish.length - 1; i >= 0; i--) {
@@ -339,7 +344,7 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
         return;
       }
     }
-  }, [onCatch]);
+  }, [onCatch, serverClock]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -408,7 +413,7 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
       ctx.restore();
 
       if (!s) return;
-      const serverTime = nowMs - (s.clientReceivedAt - s.serverNow);
+      const serverTime = serverClock();
       const { x: mx, y: my } = mouseRef.current;
       let hovered = null;
 
@@ -418,7 +423,7 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
 
         // Fang-Animation: Karte steigt auf, Ring in Spielerfarbe, blendet aus
         if (f.caughtBy) {
-          const e = Math.min(1, (nowMs - f.caughtAt + (s.clientReceivedAt - s.serverNow)) / CAUGHT_LINGER_MS);
+          const e = Math.min(1, (serverTime - f.caughtAt) / CAUGHT_LINGER_MS);
           const capped = Math.max(0, e);
           ctx.save();
           ctx.globalAlpha = 1 - capped;
@@ -427,7 +432,7 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
           ctx.save();
           ctx.clip();
           const img = getCardImage(f.card.id);
-          if (img.complete && img.naturalWidth) ctx.drawImage(img, x, cy, FISH_W, FISH_H);
+          drawCardFrame(ctx, img, f.card.rarity, x, cy, FISH_W, FISH_H);
           ctx.restore();
           ctx.strokeStyle = f.caughtColor || '#22c55e';
           ctx.lineWidth = 3;
@@ -499,7 +504,7 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
         roundRectPath(ctx, x, yDraw, FISH_W, FISH_H, 7);
         ctx.clip();
         const img = getCardImage(f.card.id);
-        if (img.complete && img.naturalWidth) ctx.drawImage(img, x, yDraw, FISH_W, FISH_H);
+        drawCardFrame(ctx, img, f.card.rarity, x, yDraw, FISH_W, FISH_H);
         // Beim Abtauchen: bläulicher Schleier über der Karte
         if (dv > 0) {
           ctx.fillStyle = `rgba(20, 60, 110, ${dv * 0.55})`;
@@ -607,7 +612,7 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
     };
     raf = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); };
-  }, [deniedRef]);
+  }, [deniedRef, serverClock]);
 
   // touch-action: none — ohne das kann ein Wisch übers Spielfeld die Seite scrollen/zoomen
   // statt nur den Fisch zu fangen (gleiches Muster wie DarkMaze.jsx).
@@ -697,19 +702,19 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
           badge={
             state.finished ? (
               <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
-                <Check size={14} /> {t.allDecksFull}
+                <CrCheck size={21} /> {t.allDecksFull}
               </span>
             ) : amSpectator ? (
               <span className="flex items-center gap-1.5 text-white/35 text-sm">
-                <Eye size={13} /> {t.spectatorLive}
+                <CrTv size={19} /> {t.spectatorLive}
               </span>
             ) : myDeckFull ? (
               <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
-                <Check size={14} /> {t.yourDeckFull}
+                <CrCheck size={21} /> {t.yourDeckFull}
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-sky-300 text-sm font-semibold">
-                <FishingRod size={14} /> {t.catchHint}
+                <CrFisherman size={21} /> {t.catchHint}
               </span>
             )
           }
@@ -761,10 +766,10 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
                     <span className={`flex items-center gap-1.5 text-[11px] font-bold tabular-nums ${
                       isCooling ? 'text-red-300' : idleUrgent ? 'text-amber-300' : idleActive ? 'text-amber-200/70' : 'text-sky-300'}`}>
                       {isCooling
-                        ? <><Hourglass size={11} className="shrink-0" /> {t.reelingIn((coolingMs / 1000).toFixed(1))}</>
+                        ? <><CrStopwatch size={16} className="shrink-0" /> {t.reelingIn((coolingMs / 1000).toFixed(1))}</>
                         : idleActive
-                          ? <><Hourglass size={11} className="shrink-0" /> {t.autoIn((idleRemainingMs / 1000).toFixed(1))}</>
-                          : <><FishingRod size={11} className="shrink-0" /> {t.rodReady}</>}
+                          ? <><CrStopwatch size={16} className="shrink-0" /> {t.autoIn((idleRemainingMs / 1000).toFixed(1))}</>
+                          : <><CrFisherman size={16} className="shrink-0" /> {t.rodReady}</>}
                     </span>
                   )}
                 </div>
@@ -773,7 +778,7 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
                     const card = myDeck[i];
                     return (
                       <div key={i} title={card?.name}
-                        className={`aspect-[5/6] rounded-md overflow-hidden ${card ? '' : 'bg-[#0d0d14]'}`}>
+                        className={`aspect-[4/5] rounded-md overflow-hidden ${card ? '' : 'bg-[#0d0d14]'}`}>
                         {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
                       </div>
                     );

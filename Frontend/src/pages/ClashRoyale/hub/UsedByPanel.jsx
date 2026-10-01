@@ -2,7 +2,7 @@
 // Profilbild + Live-Punkt (Twitch Helix, serverseitig gecached).
 
 import React, { useEffect, useState } from 'react';
-import { Users } from 'lucide-react';
+import { CrTv } from '../ui/CrIcons';
 
 // Sichtbar bleiben, auch wenn /api/used-by nicht antwortet: die Namen sind statisch
 // bekannt, nur Avatar und Live-Status kommen vom Server.
@@ -50,24 +50,23 @@ export default function UsedByPanel({ t, bare = false, maxListHeight }) {
 
   return (
     <div className={bare ? '' : 'cr-arcade-panel overflow-hidden'}>
-      <div className={`flex items-center gap-2 ${bare ? 'mb-1' : 'px-4 py-2.5 border-b border-white/10'}`}>
-        <Users size={14} className="text-violet-300" />
-        <h2 className="text-xs font-bold uppercase tracking-widest text-violet-300/80">{t.usedBy}</h2>
+      <div className={`${bare ? 'mb-1' : 'cr-section !py-3'}`}>
+        <h2 className="cr-section-title"><CrTv size={24} />{t.usedBy}</h2>
       </div>
-      <ul className={`flex flex-col ${bare ? '' : 'p-1.5'} ${maxListHeight ? 'overflow-y-auto custom-scrollbar' : ''}`}
+      <ul className={`flex flex-col ${bare ? '' : 'cr-section--rule p-1.5'} ${maxListHeight ? 'overflow-y-auto custom-scrollbar' : ''}`}
         style={maxListHeight ? { maxHeight: maxListHeight } : undefined}>
         {streamers.map(s => (
           <li key={s.login}>
             <a href={`https://twitch.tv/${s.login}`} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-white/[0.06] transition-colors">
               {s.avatar ? (
-                <img src={s.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+                <img src={s.avatar} alt="" className="cr-avatar w-8 h-8 rounded-full object-cover shrink-0" />
               ) : (
-                <span className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/30 text-xs font-bold shrink-0">
+                <span className="cr-avatar w-8 h-8 rounded-full flex items-center justify-center text-white/70 font-cr text-sm shrink-0">
                   {s.name.slice(0, 1).toUpperCase()}
                 </span>
               )}
-              <span className="text-sm font-semibold text-white/80 hover:text-white transition-colors truncate flex-1">
+              <span className="text-sm font-semibold text-white/85 hover:text-white transition-colors truncate flex-1">
                 {s.name}
               </span>
               {s.live ? (

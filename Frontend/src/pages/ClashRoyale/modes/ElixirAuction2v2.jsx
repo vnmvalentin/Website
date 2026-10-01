@@ -8,7 +8,7 @@
 // wer gewinnt). Decks bleiben persönlich, nur der Elixier-Pool ist geteilt.
 
 import React from 'react';
-import { Check } from 'lucide-react';
+import { CrCheck } from '../ui/CrIcons';
 import CardTile from '../ui/CardTile';
 import { useAuction2v2View } from './auction2v2/useAuction2v2View';
 import { hintTagLabel } from './auction2v2/hintLabels';
@@ -223,7 +223,7 @@ export default function ElixirAuction2v2(props) {
                 <CardTile card={card} ratio="card" selectable={!done} active={open} className="w-20" />
                 {done && (
                   <span className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
-                    <Check size={20} className="text-emerald-400" />
+                    <CrCheck size={29} className="text-emerald-400" />
                   </span>
                 )}
               </button>
@@ -270,7 +270,7 @@ export default function ElixirAuction2v2(props) {
                 <span className="text-white/50 text-xs uppercase tracking-wider">{t.cardLabel(i + 1)}</span>
                 {done && (
                   <span className="text-emerald-400 text-xs font-semibold flex items-center gap-1">
-                    <Check size={12} /> {v.myBids[i]}
+                    <CrCheck size={18} /> {v.myBids[i]}
                   </span>
                 )}
               </button>

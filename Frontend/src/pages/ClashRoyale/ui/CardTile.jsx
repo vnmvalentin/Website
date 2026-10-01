@@ -11,7 +11,7 @@
 // beim Auswählen nicht um 2px, was bei einem border unvermeidlich wäre.
 
 import React from 'react';
-import { cardImageUrl } from '../data/cards';
+import CardFace from './CardFace';
 
 /**
  * @param {object}   card         Kartenobjekt mit { id, name }; null = leerer Platz
@@ -39,9 +39,8 @@ export default function CardTile({
   title,
   overlay,
   className = '',
-  imgProps = {},
 }) {
-  const aspect = ratio === 'card' ? 'aspect-[5/6]' : 'aspect-square';
+  const aspect = ratio === 'card' ? 'aspect-[4/5]' : 'aspect-square';
   const classes = [
     'cr-card',
     aspect,
@@ -54,17 +53,9 @@ export default function CardTile({
   const content = (
     <>
       {card && (
-        <img
-          src={cardImageUrl(card.id)}
-          alt={card.name || ''}
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-          // Fehlt das Bild, blenden wir es aus statt ein kaputtes Icon zu zeigen —
-          // die dunkle Fläche der Kachel bleibt als Platzhalter stehen.
-          onError={e => { e.currentTarget.style.display = 'none'; }}
-          {...imgProps}
-        />
+        // Nur der sichtbare Kartenrahmen, ohne transparenten Rand (ui/CardFace.jsx). Fehlt das
+        // Bild, wird es ausgeblendet — die dunkle Fläche der Kachel bleibt als Platzhalter.
+        <CardFace id={card.id} alt={card.name || ''} rarity={card.rarity} />
       )}
       {overlay}
     </>

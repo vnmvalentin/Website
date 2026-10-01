@@ -18,13 +18,11 @@
 // Server kommentarlos verwirft — der Regler spränge für den Host sichtbar zurück.
 // Die Listen unten sind deshalb exakte Kopien der Backend-Konstanten.
 
+// Alle Einstellungs-Symbole sind echte Clash-Royale-Grafiken — siehe ui/CrIcons.jsx.
 import {
-  Clock, Worm, Hash, Zap, Repeat, Eye, Sparkles, FishingRod, Hourglass, Flashlight,
-  Skull, Grid3x3, Triangle, Lock,
-} from 'lucide-react';
-// Elixier und Kartenstapel als Clash-Royale-eigene Symbole statt als generischer
-// Wassertropfen bzw. Raute — siehe ui/CrIcons.jsx.
-import { ElixirDrop, CardStack } from '../ui/CrIcons';
+  CrClock, CrMegaDraft, CrClassicDecks, CrCards, CrElixir, CrTrader, CrEye, CrFisherman,
+  CrStopwatch, CrTelescope, CrBoost, CrSkull, CrLock, CrTripleDraft,
+} from '../ui/CrIcons';
 
 // Whitelists — müssen mit dem Backend übereinstimmen (Datei/Zeile als Fundstelle):
 const RUSH_MARKET_SIZES = [3, 4, 5, 6, 7, 8];          // modes/elixirRush.js
@@ -82,7 +80,7 @@ export const HOST_SETTINGS = [
     // eigene Einstellung fürs Verschleiern (trapDisguiseSeconds), nicht diese hier.
     modes: ['snake', 'auction', 'bingo', 'shadow-carousel', 'pyramid-draft'],
     control: 'slider',
-    icon: Clock, accent: 'neutral',
+    icon: CrClock, accent: 'neutral',
     label: ({ t, mode }) => (mode === 'auction' ? t.timePerRound : t.timePerPick),
     min: 5, max: 300, step: 5, format: secs,
     apply: (a, v) => a.setTimer(v),
@@ -93,7 +91,7 @@ export const HOST_SETTINGS = [
     key: 'gridSize',
     modes: ['snake'],
     control: 'slider',
-    icon: Worm, accent: 'violet',
+    icon: CrMegaDraft, accent: 'violet',
     label: ({ t }) => t.gridSize,
     min: 7,
     // Der Server lehnt jedes Raster ab, für das der Kartenpool nicht reicht
@@ -112,7 +110,7 @@ export const HOST_SETTINGS = [
     key: 'cardsPerRound',
     modes: ['auction', 'bingo'],
     control: 'slider',
-    icon: ({ mode }) => (mode === 'bingo' ? Hash : CardStack),
+    icon: ({ mode }) => (mode === 'bingo' ? CrClassicDecks : CrCards),
     accent: ({ mode }) => (mode === 'bingo' ? 'amber' : 'purple'),
     label: ({ t, activeCount }) => t.cardsPerRound(activeCount || 2),
     // Mindestens eine Karte pro Spieler, und der Pool muss für 8 Runden reichen
@@ -129,7 +127,7 @@ export const HOST_SETTINGS = [
     key: 'startElixir',
     modes: ['auction'],
     control: 'slider',
-    icon: ElixirDrop, accent: 'violet',
+    icon: CrElixir, accent: 'violet',
     label: ({ t }) => t.startingElixir,
     min: 10, max: 500, step: 10,
     apply: (a, v) => a.setStartElixir(v),
@@ -137,7 +135,7 @@ export const HOST_SETTINGS = [
   {
     key: 'showElixir',
     modes: ['auction'],
-    control: 'toggle', accent: 'violet',
+    control: 'toggle', icon: CrEye, accent: 'violet',
     label: ({ t }) => t.showOthersElixir,
     note: ({ t }) => t.showOthersElixirNoteAuction,
     apply: (a, v) => a.setShowElixir(v),
@@ -145,7 +143,7 @@ export const HOST_SETTINGS = [
   {
     key: 'motherWitchEnabled',
     modes: ['auction'],
-    control: 'toggle', accent: 'violet',
+    control: 'toggle', icon: CrBoost, accent: 'violet',
     label: ({ t }) => t.motherWitchVisits,
     note: ({ t }) => t.motherWitchNote,
     apply: (a, v) => a.setMotherWitch(v),
@@ -159,7 +157,7 @@ export const HOST_SETTINGS = [
     key: 'cardsPerRound',
     modes: ['elixir-auction-2v2'],
     control: 'segmented',
-    icon: CardStack, accent: 'purple',
+    icon: CrCards, accent: 'purple',
     label: ({ t }) => t.cardsPerSide,
     // Untergrenze 2 (nicht 1): das geteilte clash:setCardsPerRound klemmt ohnehin auf
     // Math.max(2, …) — siehe Backend/routes/clashRoyaleRoutes.js.
@@ -171,7 +169,7 @@ export const HOST_SETTINGS = [
     key: 'teamElixirPool',
     modes: ['elixir-auction-2v2'],
     control: 'slider',
-    icon: ElixirDrop, accent: 'violet',
+    icon: CrElixir, accent: 'violet',
     label: ({ t }) => t.teamElixirPool,
     note: ({ t }) => t.teamElixirPoolNote,
     min: 20, max: 2000, step: 10,
@@ -183,7 +181,7 @@ export const HOST_SETTINGS = [
     key: 'tokenShopTimerSeconds',
     modes: ['bingo'],
     control: 'slider',
-    icon: Clock, accent: 'amber',
+    icon: CrClock, accent: 'amber',
     label: ({ t }) => t.timePerToken,
     min: 10, max: 300, step: 5, format: secs,
     note: ({ t }) => t.tokenTimeoutNote,
@@ -195,7 +193,7 @@ export const HOST_SETTINGS = [
     key: 'carouselCardsPerTable',
     modes: ['shadow-carousel'],
     control: 'segmented',
-    icon: Repeat, accent: 'violet',
+    icon: CrTrader, accent: 'violet',
     label: ({ t }) => t.cardsPerTable,
     options: ({ t, poolSize }) => CAROUSEL_TABLE_SIZES.map(n => {
       const maxPlayers = Math.min(8, Math.floor(poolSize / n));
@@ -217,7 +215,7 @@ export const HOST_SETTINGS = [
     key: 'carouselRevealMode',
     modes: ['shadow-carousel'],
     control: 'segmented',
-    icon: Eye, accent: 'violet',
+    icon: CrEye, accent: 'violet',
     label: ({ t }) => t.revealsPerRound,
     options: ({ t }) => [
       { id: 'dynamic', label: t.revealDynamic },
@@ -234,7 +232,7 @@ export const HOST_SETTINGS = [
     key: 'rushMarketSize',
     modes: ['elixir-rush'],
     control: 'segmented',
-    icon: Zap, accent: 'fuchsia',
+    icon: CrCards, accent: 'fuchsia',
     label: ({ t }) => t.marketplaceCards,
     options: () => RUSH_MARKET_SIZES.map(n => ({ id: n, label: String(n) })),
     note: ({ t }) => t.marketplaceCardsNote,
@@ -244,7 +242,7 @@ export const HOST_SETTINGS = [
     key: 'rushCardLifetime',
     modes: ['elixir-rush'],
     control: 'segmented',
-    icon: Clock, accent: 'fuchsia',
+    icon: CrClock, accent: 'fuchsia',
     label: ({ t }) => t.marketplaceLifetime,
     options: () => RUSH_LIFETIMES.map(s => ({ id: s, label: secs(s) })),
     note: ({ t }) => t.marketplaceLifetimeNote,
@@ -253,7 +251,7 @@ export const HOST_SETTINGS = [
   {
     key: 'rushShowElixir',
     modes: ['elixir-rush'],
-    control: 'toggle', accent: 'fuchsia',
+    control: 'toggle', icon: CrEye, accent: 'fuchsia',
     label: ({ t }) => t.showOthersElixir,
     note: ({ t }) => t.showOthersElixirNoteRush,
     apply: (a, v) => a.setRushShowElixir(v),
@@ -261,7 +259,7 @@ export const HOST_SETTINGS = [
   {
     key: 'rushShowTimer',
     modes: ['elixir-rush'],
-    control: 'toggle', accent: 'fuchsia',
+    control: 'toggle', icon: CrStopwatch, accent: 'fuchsia',
     label: ({ t }) => t.rushShowTimer,
     note: ({ t }) => t.rushShowTimerNote,
     apply: (a, v) => a.setRushShowTimer(v),
@@ -275,7 +273,7 @@ export const HOST_SETTINGS = [
     key: 'rush2v2MarketSize',
     modes: ['elixir-rush-2v2'],
     control: 'segmented',
-    icon: Zap, accent: 'fuchsia',
+    icon: CrCards, accent: 'fuchsia',
     label: ({ t }) => t.marketplaceCards,
     options: () => RUSH_MARKET_SIZES.map(n => ({ id: n, label: String(n) })),
     note: ({ t }) => t.marketplaceCardsNote,
@@ -285,7 +283,7 @@ export const HOST_SETTINGS = [
     key: 'rush2v2CardLifetime',
     modes: ['elixir-rush-2v2'],
     control: 'segmented',
-    icon: Clock, accent: 'fuchsia',
+    icon: CrClock, accent: 'fuchsia',
     label: ({ t }) => t.marketplaceLifetime,
     options: () => RUSH_LIFETIMES.map(s => ({ id: s, label: secs(s) })),
     note: ({ t }) => t.marketplaceLifetimeNote,
@@ -295,7 +293,7 @@ export const HOST_SETTINGS = [
     key: 'rush2v2MaxElixir',
     modes: ['elixir-rush-2v2'],
     control: 'slider',
-    icon: ElixirDrop, accent: 'fuchsia',
+    icon: CrElixir, accent: 'fuchsia',
     label: ({ t }) => t.rush2v2MaxElixir,
     note: ({ t }) => t.rush2v2MaxElixirNote,
     min: 10, max: 40, step: 2,
@@ -307,7 +305,7 @@ export const HOST_SETTINGS = [
     key: 'fishSpawnRate',
     modes: ['angel-royale'],
     control: 'segmented',
-    icon: FishingRod, accent: 'sky',
+    icon: CrFisherman, accent: 'sky',
     label: ({ t }) => t.fishSpawnRate,
     options: () => FISH_SPAWN_RATES.map(r => ({ id: r, label: String(r) })),
     note: ({ t }) => t.fishSpawnRateNote,
@@ -317,7 +315,7 @@ export const HOST_SETTINGS = [
     key: 'fishCatchCooldown',
     modes: ['angel-royale'],
     control: 'segmented',
-    icon: Clock, accent: 'sky',
+    icon: CrClock, accent: 'sky',
     label: ({ t }) => t.fishCooldown,
     options: () => FISH_COOLDOWNS.map(s => ({ id: s, label: secs(s) })),
     note: ({ t }) => t.fishCooldownNote,
@@ -327,7 +325,7 @@ export const HOST_SETTINGS = [
     key: 'fishIdleSeconds',
     modes: ['angel-royale'],
     control: 'segmented',
-    icon: Hourglass, accent: 'sky',
+    icon: CrStopwatch, accent: 'sky',
     label: ({ t }) => t.fishIdle,
     options: ({ t }) => FISH_IDLE_SECONDS.map(s => ({ id: s, label: s === 0 ? t.fishIdleOff : secs(s) })),
     note: ({ t }) => t.fishIdleNote,
@@ -339,7 +337,7 @@ export const HOST_SETTINGS = [
     key: 'mazeTimeSeconds',
     modes: ['dark-maze'],
     control: 'slider',
-    icon: Flashlight, accent: 'violet',
+    icon: CrTelescope, accent: 'violet',
     label: ({ t }) => t.mazeTime,
     min: 30, max: 600, step: 10, format: secs,
     note: ({ t }) => t.mazeTimeNote,
@@ -351,7 +349,7 @@ export const HOST_SETTINGS = [
     key: 'evolutionPickSeconds',
     modes: ['card-evolution'],
     control: 'slider',
-    icon: Clock, accent: 'cyan',
+    icon: CrClock, accent: 'cyan',
     label: ({ t }) => t.evolutionPickTimer,
     min: 5, max: 120, step: 5, format: secs,
     note: ({ t }) => t.evolutionPickTimerNote,
@@ -361,7 +359,7 @@ export const HOST_SETTINGS = [
     key: 'evolutionSabotageSeconds',
     modes: ['card-evolution'],
     control: 'slider',
-    icon: Clock, accent: 'amber',
+    icon: CrClock, accent: 'amber',
     label: ({ t }) => t.evolutionSabotageTimer,
     min: 5, max: 60, step: 5, format: secs,
     note: ({ t }) => t.evolutionSabotageTimerNote,
@@ -371,7 +369,7 @@ export const HOST_SETTINGS = [
     key: 'evolutionTokensStart',
     modes: ['card-evolution'],
     control: 'slider',
-    icon: Sparkles, accent: 'cyan',
+    icon: CrBoost, accent: 'cyan',
     label: ({ t }) => t.evolutionTokens,
     min: 1, max: 99, step: 1,
     note: ({ t }) => t.evolutionTokensNote,
@@ -383,7 +381,7 @@ export const HOST_SETTINGS = [
     key: 'trapDisguiseSeconds',
     modes: ['trap-setter'],
     control: 'slider',
-    icon: Clock, accent: 'amber',
+    icon: CrClock, accent: 'amber',
     label: ({ t }) => t.trapDisguiseTime,
     min: 5, max: 90, step: 5, format: secs,
     note: ({ t }) => t.trapDisguiseTimeNote,
@@ -393,7 +391,7 @@ export const HOST_SETTINGS = [
     key: 'trapDisguiseCount',
     modes: ['trap-setter'],
     control: 'segmented',
-    icon: Skull, accent: 'amber',
+    icon: CrSkull, accent: 'amber',
     label: ({ t }) => t.trapCount,
     options: () => TRAP_DISGUISE_COUNTS.map(n => ({ id: n, label: String(n) })),
     note: ({ t }) => t.trapCountNote,
@@ -403,7 +401,7 @@ export const HOST_SETTINGS = [
     key: 'trapGridSize',
     modes: ['trap-setter'],
     control: 'segmented',
-    icon: Grid3x3, accent: 'amber',
+    icon: CrMegaDraft, accent: 'amber',
     label: ({ t }) => t.trapGridSizeLabel,
     // 9 = 3×3, 12 = 4×3, 16 = 4×4 — die Beschriftung zeigt die Spaltenform, keine Wurzel
     // (12 ist kein perfektes Quadrat).
@@ -427,7 +425,7 @@ export const HOST_SETTINGS = [
     key: 'pyramidBlocksPerRound',
     modes: ['pyramid-draft'],
     control: 'segmented',
-    icon: Lock, accent: 'sky',
+    icon: CrLock, accent: 'sky',
     label: ({ t }) => t.pyramidBlocks,
     options: () => PYRAMID_BLOCK_OPTIONS.map(n => ({ id: n, label: String(n) })),
     note: ({ t }) => t.pyramidBlocksNote,
@@ -437,7 +435,7 @@ export const HOST_SETTINGS = [
     key: 'pyramidRows',
     modes: ['pyramid-draft'],
     control: 'slider',
-    icon: Triangle, accent: 'sky',
+    icon: CrTripleDraft, accent: 'sky',
     label: ({ t }) => t.pyramidRowsLabel,
     // Minimum hängt von Spielerzahl UND der (eventuell schon geänderten) Blockrate ab —
     // beides schon in lobbyData bekannt, sobald der Host eins von beiden anfasst.

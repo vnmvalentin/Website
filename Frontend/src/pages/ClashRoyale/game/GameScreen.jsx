@@ -7,7 +7,10 @@
 // Fallback wird deshalb in aller Regel gar nicht sichtbar.
 
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { XCircle, LogOut, Shield, Maximize2, Minimize2 } from 'lucide-react';
+import { LogOut, Maximize2, Minimize2 } from 'lucide-react';
+import { CrCancel, CrShield, CrSettings } from '../ui/CrIcons';
+import { useCrPrefs } from '../ui/crPrefs';
+import EmoteLayer from '../ui/EmoteLayer';
 import SEO from '../../../components/SEO';
 import LanguageSelect from '../components/LanguageSelect';
 import ChunkyButton from '../ui/ChunkyButton';
@@ -158,6 +161,7 @@ export default function GameScreen({
   const ModeIcon = modeInfo(mode).icon;
 
   const view = MODE_VIEWS[mode] || MODE_VIEWS.snake;
+  const { openSettings } = useCrPrefs();
   const ModeComponent = view.Component;
   const modeReady = view.ready ? view.ready(socket) : true;
 
@@ -205,26 +209,32 @@ export default function GameScreen({
   );
 
   return (
-    <div ref={containerRef} className="h-full flex flex-col overflow-hidden bg-[#0a0a0d]">
+    <div ref={containerRef} className="h-full flex flex-col overflow-hidden bg-[#0b1a30]">
       <SEO title={gameModeName} description={t.gameSeoDesc} path="/clash-royale" lang={lang} noindex />
+      {/* Innerhalb des Vollbild-Containers, damit Emotes auch im Vollbild sichtbar bleiben */}
+      <EmoteLayer emotes={socket.emotes} players={lobbyData?.players || []} onSend={actions.sendEmote} lang={lang} />
 
-      <div className="shrink-0 h-12 bg-gradient-to-b from-[#1c3049] to-[#111d2c] border-b-2 border-black/40 flex items-center px-3 sm:px-4 gap-2 sm:gap-3">
-        <ModeIcon size={15} className="text-violet-400 shrink-0" />
+      <div className="cr-modal-head shrink-0 h-14 flex items-center px-3 sm:px-4 gap-2 sm:gap-3">
+        <ModeIcon size={30} className="shrink-0" />
         {/* Auf schmalen Geräten weicht der Modusname dem Platz für die Aktionen rechts */}
-        <span className="text-white font-arcade font-semibold text-sm truncate hidden xs:inline sm:inline">{gameModeName}</span>
+        <span className="font-cr text-white text-lg truncate hidden xs:inline sm:inline" style={{ textShadow: '0 2px 0 rgba(2,8,20,0.6)' }}>{gameModeName}</span>
         <div className="flex-1" />
         {error && <span className="text-red-400 text-xs animate-pulse truncate max-w-[40%]">{error}</span>}
         <LanguageSelect lang={lang} onChange={changeLang} />
+        <button onClick={openSettings} aria-label={t.settingsSection} title={t.settingsSection}
+          className="cr-arcade-icon-btn w-9 h-9">
+          <CrSettings size={20} />
+        </button>
         {isClashAdmin && (
           <button onClick={() => setShowAdminPanel(v => !v)} title={t.adminControlTitle}
             aria-label={t.adminControlTitle}
-            className="cr-arcade-icon-btn w-8 h-8"
+            className="cr-arcade-icon-btn w-9 h-9"
             style={showAdminPanel ? { '--cr-arcade-accent': '#8b5cf6', borderColor: '#8b5cf6', color: '#c4b5fd' } : undefined}>
-            <Shield size={14} />
+            <CrShield size={21} />
           </button>
         )}
         {canControlLobby && !gameOver && (
-          <ChunkyButton variant="red" size="sm" icon={XCircle} onClick={onCancelGame} title={t.cancelGameTitle}>
+          <ChunkyButton variant="red" size="sm" icon={CrCancel} onClick={onCancelGame} title={t.cancelGameTitle}>
             <span className="hidden sm:inline">{t.cancelGameBtn}</span>
           </ChunkyButton>
         )}
@@ -232,12 +242,12 @@ export default function GameScreen({
           <button onClick={toggleFullscreen}
             aria-label={isFullscreen ? t.exitFullscreenBtn : t.fullscreenBtn}
             title={isFullscreen ? t.exitFullscreenBtn : t.fullscreenBtn}
-            className="cr-arcade-icon-btn w-8 h-8">
+            className="cr-arcade-icon-btn w-9 h-9">
             {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
           </button>
         )}
         <button onClick={onLeave} aria-label={t.leaveLobbyBtn} title={t.leaveLobbyBtn}
-          className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-8 h-8">
+          className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-9 h-9">
           <LogOut size={15} />
         </button>
       </div>
@@ -253,7 +263,7 @@ export default function GameScreen({
         />
       )}
 
-      <div className="flex-1 overflow-hidden">
+      <div className="cr-anim-rise flex-1 overflow-hidden">
         {/* Fallback bewusst derselbe Platzhalter wie unten für "Spiel lädt" — dann sieht
             der Übergang gleich aus, egal ob auf den Chunk oder auf den Server gewartet wird. */}
         <Suspense fallback={loading}>

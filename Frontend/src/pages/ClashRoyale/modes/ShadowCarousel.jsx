@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Check, Hourglass, RefreshCw } from 'lucide-react';
+import CardFace from '../ui/CardFace';
+import { CrCheck, CrReplay, CrStopwatch, CrTv } from '../ui/CrIcons';
 import unknownCardImg from '../../../assets/clashRoyale/UnknownCard.png';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import telescopeIcon from '../../../assets/clashRoyale/ui/equip_icons_thrower_telescope.png';
@@ -7,13 +8,11 @@ import ModeShell from './ModeShell';
 import ChunkyButton from '../ui/ChunkyButton';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, ProgressHairline, GameSurface, GameFooter, PlayerPanel, DeckGrid } from './GameChrome';
-import { cardImageUrl } from '../data/cards';
+import { avatarUrl } from '../components/avatars';
 
 /** Akzentfarbe des Modus. */
 const ACCENT = '#22d3ee';
 
-const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
-const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 
 const CAROUSEL_I18N = {
   de: {
@@ -140,9 +139,9 @@ const CAROUSEL_STYLE = `
 `;
 
 function AvatarCircle({ id, color, size = 28 }) {
-  const url = id ? AVATAR_MAP[id] : null;
+  const url = avatarUrl(id);
   return (
-    <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
+    <div className="rounded-full overflow-hidden shrink-0 border-2 cr-avatar-pick"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
       {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
@@ -155,8 +154,7 @@ function CardImg({ id, name }) {
     // ein neutrales Dunkelgrau verhindert nur, dass das Diamant-Karo der Spielfläche
     // durch transparente Bildränder scheint.
     <div className="relative w-full h-full bg-[#0d0d14]">
-      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover"
-        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
+      <CardFace id={id} alt={name} />
     </div>
   );
 }
@@ -198,7 +196,7 @@ function CarouselSidebar({ state, myPlayerId }) {
             <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
               <AvatarCircle id={p.avatar} color={p.color} size={20} />
               <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
-              <Eye size={11} className="text-white/40 shrink-0" />
+              <CrTv size={16} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
@@ -219,22 +217,22 @@ function CarouselStatusBanner({ state, amSpectator, iPicked, waitingFor, selecte
   );
 
   if (finished) return wrap(<>
-    <Check size={15} className="text-green-400 shrink-0" />
+    <CrCheck size={22} className="text-green-400 shrink-0" />
     <p className="text-green-300 font-semibold text-sm">{t.draftDone}</p>
   </>);
 
   if (phase === 'transition') return wrap(<>
-    <RefreshCw size={14} className="text-amber-300 shrink-0 animate-spin" style={{ animationDuration: '3s' }} />
+    <CrReplay size={21} className="text-amber-300 shrink-0 animate-spin" style={{ animationDuration: '3s' }} />
     <p className="text-amber-200 font-semibold text-sm">{t.roundOver}</p>
   </>);
 
   if (amSpectator) return wrap(<>
-    <Eye size={14} className="text-white/30 shrink-0" />
+    <CrTv size={21} className="text-white/30 shrink-0" />
     <p className="text-white/40 text-sm">{t.spectatorOverview}</p>
   </>);
 
   if (iPicked) return wrap(<>
-    <Hourglass size={14} className="text-white/30 shrink-0" />
+    <CrStopwatch size={21} className="text-white/30 shrink-0" />
     <p className="text-white/40 text-sm">{t.choiceSaved(waitingFor.length)}</p>
   </>);
 
@@ -259,7 +257,7 @@ function SeatStatusChips({ seatPlayers, hasPicked }) {
           className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg ${
             hasPicked[p.id] ? 'bg-green-600/40 text-green-300' : 'bg-[#111d2c] text-white/45'
           }`}>
-          {hasPicked[p.id] ? <Check size={11} /> : <Hourglass size={11} />}
+          {hasPicked[p.id] ? <CrCheck size={16} /> : <CrStopwatch size={16} />}
           {p.name}
         </span>
       ))}
@@ -272,7 +270,7 @@ function TableSlot({ slot, flippedCard, isSelected, clickable, onClick, takerCol
   if (slot.taken) {
     return (
       <div title={takerName ? t.takenBy(takerName, slot.takenRound) : t.cardTaken}
-        className="aspect-square rounded-xl bg-[#0d0d14] flex items-center justify-center"
+        className="aspect-[4/5] rounded-xl bg-[#0d0d14] flex items-center justify-center"
         style={{ border: '1.5px solid rgba(0,0,0,0.5)' }}>
         <span className="w-2 h-2 rounded-full" style={{ background: (takerColor || '#3a3a42') + 'cc' }} />
       </div>
@@ -283,12 +281,13 @@ function TableSlot({ slot, flippedCard, isSelected, clickable, onClick, takerCol
     // lässt den ganzen Tisch beim Zeigen zucken.
     <button onClick={onClick} disabled={!clickable}
       title={flippedCard ? flippedCard.name : t.faceDownCard}
-      className={`group relative aspect-square rounded-xl overflow-hidden shadow-[0_8px_22px_rgba(0,0,0,0.45)] ${
-        clickable ? 'cursor-pointer' : 'cursor-default'
+      className={`group relative aspect-[4/5] rounded-xl overflow-hidden shadow-[0_8px_22px_rgba(0,0,0,0.45)] ${
+        clickable ? 'cursor-pointer cr-card-hover' : 'cursor-default'
       }`}>
       {flippedCard ? (
         <>
-          <CardImg id={flippedCard.id} name={flippedCard.name} />
+          {/* key an der Karte: beim Aufdecken wird die Karte neu eingehängt und dreht sich um */}
+          <div key={flippedCard.id} className="cr-flip-in w-full h-full"><CardImg id={flippedCard.id} name={flippedCard.name} /></div>
           {flippedCard.isChampion && (
             <span className="absolute top-1.5 right-1.5 bg-black/55 backdrop-blur-sm rounded-md p-1">
               <img src={crownIcon} alt="" width={14} height={12} />
@@ -300,7 +299,7 @@ function TableSlot({ slot, flippedCard, isSelected, clickable, onClick, takerCol
           </span>
         </>
       ) : (
-        <img src={unknownCardImg} alt={t.faceDownCard} className="w-full h-full object-cover" />
+        <img src={unknownCardImg} alt={t.faceDownCard} className="w-full h-full object-contain" />
       )}
 
       {(isSelected || clickable) && (
@@ -528,7 +527,7 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
               <>
                 <PicksReveal picks={picksThisRound} players={state.players} t={t} />
                 <p className="text-center text-gray-500 text-xs flex items-center justify-center gap-2">
-                  <RefreshCw size={12} className="animate-spin" style={{ animationDuration: '3s' }} />
+                  <CrReplay size={18} className="animate-spin" style={{ animationDuration: '3s' }} />
                   {t.tablesMovingOn}
                 </p>
               </>
@@ -578,7 +577,7 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
                   <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 shadow-[0_8px_22px_rgba(0,0,0,0.45)]">
                     {selectedCard
                       ? <CardImg id={selectedCard.id} name={selectedCard.name} />
-                      : <img src={unknownCardImg} alt={t.faceDownCard} className="w-full h-full object-cover" />}
+                      : <img src={unknownCardImg} alt={t.faceDownCard} className="w-full h-full object-contain" />}
                   </div>
                   <div className="flex-1 min-w-[140px]">
                     <p className="text-white text-base font-semibold">{selectedCard ? selectedCard.name : t.faceDownCard}</p>
@@ -597,7 +596,7 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
                       </ChunkyButton>
                     )}
                     {/* Nehmen bleibt gesperrt, bis die Pflicht-Aufdeckungen genutzt sind */}
-                    <ChunkyButton variant="green" size="sm" icon={Check}
+                    <ChunkyButton variant="green" size="sm" icon={CrCheck}
                       onClick={handleTake} disabled={!canPick}
                       title={canPick ? undefined : t.mustRevealHint(flipsStillRequired)}>
                       {canPick

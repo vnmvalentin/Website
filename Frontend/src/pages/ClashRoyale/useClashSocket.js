@@ -14,7 +14,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { STREAMER_ID } from './constants';
 import { MODE_CHUNK_LOADERS } from './modesConfig';
-import { AVATAR_IDS } from './components/avatars';
+import { DEFAULT_AVATAR_ID, isKnownAvatar } from './components/avatars';
+import { EMOTE_SHOW_MS } from './ui/emotes';
 
 const SESSION_KEY = 'clash_session';
 
@@ -41,7 +42,9 @@ export function useClashSocket(user) {
   const [phase, setPhase] = useState('hub');           // 'hub' | 'lobby' | 'game'
   const [playerName, setPlayerName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(
-    () => readSession()?.avatar || AVATAR_IDS[0] || ''
+    // Eine gespeicherte Sitzung kann einen inzwischen entfernten Avatar tragen (z.B. die alten
+    // Emotes) — dann lieber den Standard-Avatar, statt eine unbekannte ID an alle zu schicken.
+    () => (isKnownAvatar(readSession()?.avatar) ? readSession().avatar : DEFAULT_AVATAR_ID)
   );
   // Profil-Option "Twitch-Bild verwenden" — gesetzt von ClashRoyalePage, sobald das Profil
   // geladen ist und der Nutzer verbunden ist. null = normaler Avatar aus selectedAvatar.
@@ -69,6 +72,8 @@ export function useClashSocket(user) {
   const [rushState, setRushState] = useState(null);
   const [rushDenied, setRushDenied] = useState(null);
   const [evoState, setEvoState] = useState(null);
+  // Gerade sichtbare Emotes: [{ key, playerId, emoteId, ts }] — verschwinden nach EMOTE_SHOW_MS
+  const [emotes, setEmotes] = useState([]);
   const [fishState, setFishState] = useState(null);
   const [fishDenied, setFishDenied] = useState(null);
   const [fishAutoCatch, setFishAutoCatch] = useState(null);
@@ -177,6 +182,12 @@ export function useClashSocket(user) {
     });
 
     socket.on('clash:lobbyUpdate', setLobbyData);
+    socket.on('clash:emote', (e) => {
+      const key = `${e.playerId}-${e.ts}`;
+      // Pro Spieler nur das neueste Emote zeigen — ein neues ersetzt das alte
+      setEmotes(prev => [...prev.filter(x => x.playerId !== e.playerId), { ...e, key }]);
+      setTimeout(() => setEmotes(prev => prev.filter(x => x.key !== key)), EMOTE_SHOW_MS);
+    });
     socket.on('clash:historyData', setHistoryData);
     // Live-Update der Lobby-Browser-Liste — der Server schickt sie an ALLE verbundenen
     // Sockets, sobald sich irgendeine öffentliche Lobby ändert (siehe clashRoyaleRoutes.js).
@@ -419,6 +430,7 @@ export function useClashSocket(user) {
     myId: mySocketId, effectiveIsHost, isClashAdmin, canControlLobby,
     gameState, gameOver, auctionState, auctionReveal, myBid, motherWitchVisit,
     bingoState, carouselState, rushState, rushDenied, evoState,
+    emotes,
     fishState, fishDenied, fishAutoCatch, mazeState, trapState, pyramidState,
     auction2v2State, auction2v2Reveal, rush2v2State, rush2v2Denied,
 

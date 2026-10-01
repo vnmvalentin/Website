@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ArrowUp, ArrowDown, Check, Lock, Shuffle } from 'lucide-react';
-import { RARITY_COLOR, cardImageUrl } from '../data/cards';
+import CardFace from '../ui/CardFace';
+import { CrCheck, CrDowngrade, CrLock, CrRandom, CrStar, CrUpgrade } from '../ui/CrIcons';
+import { RARITY_COLOR } from '../data/cards';
 import ModeShell from './ModeShell';
 import { WILDCARD_IMG, TOKEN_IMG } from '../data/wildcardTokenAssets';
 import { CARD_CROP } from './cardCrop';
-import { GameFooter, PlayerPanel } from './GameChrome';
+import { GameHeader, GameFooter, PlayerPanel } from './GameChrome';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import { avatarUrl } from '../components/avatars';
 
-const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
-const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 const RARITY_ORDER = ['Common', 'Rare', 'Epic', 'Legendary', 'Champion'];
 const LOCK_COST = 3;
 const SABOTAGE_COST = 3;
@@ -103,9 +103,9 @@ function actionCost(slot) {
 }
 
 function AvatarCircle({ id, color, size = 28 }) {
-  const url = id ? AVATAR_MAP[id] : null;
+  const url = avatarUrl(id);
   return (
-    <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
+    <div className="rounded-full overflow-hidden shrink-0 border-2 cr-avatar-pick"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
       {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
@@ -117,8 +117,7 @@ function CardImg({ id, name }) {
     // bg-[#0d0d14]: blickdichter Untergrund für Ladezeit/Fehlerfall — die Karte sitzt jetzt
     // auf dem Diamant-Karo statt auf einer einfarbigen Fläche.
     <div className="relative w-full h-full bg-[#0d0d14]">
-      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover"
-        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
+      <CardFace id={id} alt={name} />
     </div>
   );
 }
@@ -204,12 +203,12 @@ function SpectatorPlayerRow({ player, flashing, t, interactive = false, canAct =
               )}
               {slot.locked && (
                 <span className="absolute bottom-1 left-1 bg-amber-400 text-black rounded-md p-1">
-                  <Lock size={9} />
+                  <CrLock size={14} />
                 </span>
               )}
               {showCostHint && (
                 <span className={`absolute bottom-1 right-1 flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${canAct ? 'bg-black/70 text-red-300' : 'bg-black/50 text-white/25'}`}>
-                  <Shuffle size={9} /> {SABOTAGE_COST}
+                  <CrRandom size={14} /> {SABOTAGE_COST}
                 </span>
               )}
             </div>
@@ -245,11 +244,11 @@ function EvoSidebar({ players, myPlayerId, flashSlots, t }) {
                 const isFlashing = flashing?.has(si);
                 return (
                   <div key={si} title={slot.card ? slot.card.name : t.wildcardOf(slot.rarity)}
-                    className="relative aspect-square rounded-md overflow-hidden bg-white/[0.03]">
+                    className="relative aspect-[4/5] rounded-md overflow-hidden bg-white/[0.03]">
                     <div className={`w-full h-full ${isFlashing ? 'evo-pop' : ''}`}><SlotArt slot={slot} /></div>
                     {slot.locked && (
                       <span className="absolute bottom-0 right-0 bg-amber-400 text-black rounded-tl-md p-[2px]">
-                        <Lock size={8} />
+                        <CrLock size={14} />
                       </span>
                     )}
                   </div>
@@ -310,7 +309,7 @@ function CardStageUnit({ me, slot, slotIdx, poolCounts, champCount, disabled, al
             ? 'bg-black/50 text-white/20 cursor-not-allowed'
             : 'bg-green-600/40 text-green-300 hover:bg-green-600/55 cursor-pointer'
         }`}>
-        <ArrowUp size={16} />
+        <CrUpgrade size={23} />
         <span className="text-xs font-bold">{up.cost || '—'}</span>
       </button>
 
@@ -318,7 +317,7 @@ function CardStageUnit({ me, slot, slotIdx, poolCounts, champCount, disabled, al
         title={isLocked ? t.locked : !allowLock ? undefined : (canLock ? `${t.lockCard} — ${LOCK_COST}` : t.notEnoughTokensLock)}
         // "Gesperrt" bleibt am Gold erkennbar, jetzt als innerer Ring statt als
         // Rahmen — zusammen mit dem Schloss-Abzeichen unten links.
-        className={`relative w-full aspect-square ${isLocked ? 'ring-[3px] ring-inset ring-amber-400/70' : ''} ${canLock ? 'cursor-pointer' : 'cursor-default'}`}>
+        className={`relative w-full aspect-[4/5] ${isLocked ? 'ring-[3px] ring-inset ring-amber-400/70' : ''} ${canLock ? 'cursor-pointer' : 'cursor-default'}`}>
         <div className={`w-full h-full ${isFlashing ? 'evo-pop' : ''}`}><SlotArt slot={slot} /></div>
         {slot.card?.isChampion && (
           <span className="absolute top-2 right-2 bg-black/55 backdrop-blur-sm rounded-lg p-1">
@@ -327,11 +326,11 @@ function CardStageUnit({ me, slot, slotIdx, poolCounts, champCount, disabled, al
         )}
         {isLocked ? (
           <span className="absolute bottom-2 left-2 flex items-center gap-1 bg-amber-400 text-black text-[10px] font-bold px-1.5 py-1 rounded-md evo-pop">
-            <Lock size={10} />
+            <CrLock size={15} />
           </span>
         ) : allowLock ? (
           <span className={`absolute bottom-2 left-2 flex items-center gap-1 text-[10px] font-bold px-1.5 py-1 rounded-md ${canLock ? 'bg-black/70 text-amber-300' : 'bg-black/50 text-white/25'}`}>
-            <Lock size={10} /> {LOCK_COST}
+            <CrLock size={15} /> {LOCK_COST}
           </span>
         ) : null}
       </button>
@@ -346,7 +345,7 @@ function CardStageUnit({ me, slot, slotIdx, poolCounts, champCount, disabled, al
             ? 'bg-black/50 text-white/20 cursor-not-allowed'
             : 'bg-red-600/40 text-red-300 hover:bg-red-600/55 cursor-pointer'
         }`}>
-        <ArrowDown size={16} />
+        <CrDowngrade size={23} />
         <span className="text-xs font-bold">{down.cost || '—'}</span>
       </button>
     </div>
@@ -486,29 +485,20 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
 
       {/* Kopfzeile: die Phase ist hier der Anker — sie bestimmt, was man tun darf.
           Der Kartenpool je Seltenheit steht als leise Zeile darunter. */}
-      <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-3 flex items-baseline gap-3 sm:gap-4 flex-wrap
-        bg-gradient-to-b from-[#17293f] to-[#0c1725] border-b-[3px]"
-        style={{ borderColor: 'var(--cr-arcade-ink)' }}>
-        <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none">
-          {evoState.finished ? t.finished : phaseLabel}
-        </h2>
-        {evoState.finished && <Check size={18} className="text-green-400 shrink-0" />}
-        <div className="flex-1" />
-        {evoState.timerSeconds > 0 && !evoState.finished && (
-          <span className={`font-display text-2xl font-bold tabular-nums ${
-            evoState.timerRemaining <= 10 ? 'text-red-400' : 'text-white/70'
-          }`}>
-            {Math.max(0, evoState.timerRemaining ?? evoState.timerSeconds)}s
-          </span>
-        )}
-      </div>
+      <GameHeader
+        label={evoState.finished ? t.finished : phaseLabel} value=""
+        badge={evoState.finished ? <CrCheck size={26} className="shrink-0" /> : undefined}
+        timerRemaining={evoState.timerSeconds > 0 && !evoState.finished
+          ? Math.max(0, evoState.timerRemaining ?? evoState.timerSeconds) : undefined}
+        timerUrgent={evoState.timerRemaining <= 10}
+      />
 
       {/* Kartenpool: Seltenheitsfarbe als Punkt statt als Rahmen um jeden Wert —
           acht umrandete Kästchen nebeneinander waren die unruhigste Stelle des Modus.
           Eigener blickdichter Untergrund: sitzt direkt unter der Kopfzeile auf dem
           Diamant-Karo der Spielfläche. */}
-      <div className="shrink-0 px-4 sm:px-10 py-2.5 flex items-center gap-4 flex-wrap bg-[#111d2c]">
-        <Sparkles size={13} className="text-cyan-400 shrink-0" />
+      <div className="shrink-0 px-4 sm:px-8 py-2.5 flex items-center gap-4 flex-wrap bg-[#10223c] border-b-2 border-[var(--cr-panel-edge)]">
+        <CrStar size={19} className="text-cyan-400 shrink-0" />
         {RARITY_ORDER.map(r => (
           <span key={r} className="flex items-center gap-1.5 text-[11px] text-white/40">
             <span className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -518,7 +508,6 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
           </span>
         ))}
       </div>
-      <div className="shrink-0 h-px bg-white/[0.06] mx-4 sm:mx-10" />
 
       {amSpectator ? (
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">

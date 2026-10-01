@@ -7,7 +7,9 @@
 // profile/updateProfile/linkCr/unlinkCr auf.
 
 import React, { useContext, useState } from 'react';
-import { User, Check, Link2, Loader2, LogOut, X } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
+import { CrUser, CrCheck, CrKingBlue, CrCancel } from '../ui/CrIcons';
+import ChunkyButton from '../ui/ChunkyButton';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
 import Modal from '../ui/Modal';
 import { SegmentedControl } from '../ui/SettingRow';
@@ -55,7 +57,7 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
 
   return (
     <Modal onClose={onClose} title={t.profileTitle}
-      icon={<User size={18} className="text-violet-400 shrink-0" />} size="xl">
+      icon={<CrUser size={24} />} size="xl">
       <div className="p-6 md:p-8 space-y-6">
         <SegmentedControl
           options={[
@@ -71,7 +73,7 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
             {/* ── Twitch ─────────────────────────────────────────────────────── */}
             <div>
               {user ? (
-                <div className="flex items-center justify-between gap-3 bg-black/30 border border-white/10 rounded-lg px-4 py-3">
+                <div className="cr-row flex items-center justify-between gap-3 px-4 py-3">
                   <div className="flex items-center gap-3 min-w-0">
                     {user.profileImageUrl && (
                       <img src={user.profileImageUrl} alt="" className="w-9 h-9 rounded-full shrink-0" />
@@ -99,7 +101,7 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
             {/* ── Name + Avatar ──────────────────────────────────────────────── */}
             <div className="space-y-3">
               <div>
-                <p className="text-white/40 text-xs mb-2">{t.profileNameLabel}</p>
+                <p className="cr-eyebrow mb-2">{t.profileNameLabel}</p>
                 <input
                   value={name}
                   onChange={e => setName(e.target.value)}
@@ -107,21 +109,21 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
                   onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
                   placeholder={t.namePlaceholder}
                   maxLength={20}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/25 focus:border-violet-500 outline-none text-sm transition-colors"
+                  className="cr-input px-4 py-2.5 text-sm font-semibold"
                 />
               </div>
 
               <div>
-                <p className="text-white/40 text-xs mb-2">{t.avatarLabel}</p>
+                <p className="cr-eyebrow mb-2">{t.avatarLabel}</p>
                 <div className="flex flex-wrap gap-2">
                   {user?.profileImageUrl && (
                     <button onClick={pickTwitchAvatar} title={t.profileUseTwitchAvatar}
-                      className={`rounded-full overflow-hidden border-2 transition-colors shrink-0 ${
+                      className={`cr-avatar-pick rounded-full overflow-hidden border-[3px] transition-colors shrink-0 ${
                         profile.useTwitchAvatar
-                          ? 'border-violet-400 ring-2 ring-violet-400/30'
-                          : 'border-white/15 hover:border-white/40'
+                          ? 'border-[var(--cr-arcade-gold)]'
+                          : 'border-[var(--cr-panel-edge)] hover:border-white/50'
                       }`}
-                      style={{ width: 42, height: 42 }}>
+                      style={{ width: 46, height: 46 }}>
                       <img src={user.profileImageUrl} alt="" width={42} height={42}
                         className="w-full h-full object-cover object-center" />
                     </button>
@@ -130,12 +132,12 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
                     <button key={id}
                       onClick={() => pickAvatar(id)}
                       title={id.replace(/\.[^.]+$/, '')}
-                      className={`rounded-full overflow-hidden border-2 transition-colors shrink-0 ${
+                      className={`cr-avatar-pick rounded-full overflow-hidden border-[3px] transition-colors shrink-0 ${
                         !profile.useTwitchAvatar && profile.avatarId === id
-                          ? 'border-violet-400 ring-2 ring-violet-400/30'
-                          : 'border-white/15 hover:border-white/40'
+                          ? 'border-[var(--cr-arcade-gold)]'
+                          : 'border-[var(--cr-panel-edge)] hover:border-white/50'
                       }`}
-                      style={{ width: 42, height: 42 }}>
+                      style={{ width: 46, height: 46 }}>
                       <img src={AVATAR_URL_MAP[id]} alt={id} width={42} height={42}
                         loading="lazy" decoding="async"
                         className="w-full h-full object-cover object-center" />
@@ -147,8 +149,8 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
 
             {/* ── Clash-Royale-Accounts ───────────────────────────────────────── */}
             <div className="space-y-3">
-              <p className="text-white/40 text-xs flex items-center gap-1.5">
-                <Link2 size={12} /> {t.profileCrHeading}
+              <p className="font-cr text-white text-base flex items-center gap-2">
+                <CrKingBlue size={24} /> {t.profileCrHeading}
               </p>
 
               {crAccounts.length === 0 ? (
@@ -157,15 +159,15 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
                 <div className="space-y-2">
                   {crAccounts.map(acc => (
                     <div key={acc.tag}
-                      className="flex items-center justify-between gap-2 bg-black/30 border border-white/10 rounded-lg px-3.5 py-2.5">
+                      className="cr-row flex items-center justify-between gap-2 px-3.5 py-2.5">
                       <div className="min-w-0">
                         <p className="text-white text-sm font-semibold truncate">{acc.name || acc.tag}</p>
-                        <p className="text-white/30 text-xs font-mono">#{acc.tag}</p>
+                        <p className="text-white/40 text-xs tabular-nums">#{acc.tag}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {profile.crTag === acc.tag ? (
                           <span className="text-[10px] font-bold uppercase tracking-wider text-green-400 border border-green-500/40 bg-green-500/10 px-2 py-1 rounded-lg flex items-center gap-1">
-                            <Check size={11} /> {t.profileCrActive}
+                            <CrCheck size={14} /> {t.profileCrActive}
                           </span>
                         ) : (
                           <button onClick={() => switchActiveCr(acc.tag)}
@@ -175,7 +177,7 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
                         )}
                         <button onClick={() => unlinkCr(acc.tag)} title={t.unlinkBtn}
                           className="text-white/30 hover:text-red-300 transition-colors p-1">
-                          <X size={14} />
+                          <CrCancel size={18} />
                         </button>
                       </div>
                     </div>
@@ -193,13 +195,13 @@ export default function ProfileModal({ lang, t, profile, updateProfile, linkCr, 
                   onKeyDown={e => e.key === 'Enter' && submitTag()}
                   placeholder={t.tagPlaceholder}
                   maxLength={13}
-                  className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/25 focus:border-violet-500 outline-none text-sm font-mono tracking-widest uppercase transition-colors"
+                  className="cr-input flex-1 min-w-0 px-4 py-2.5 text-sm font-cr tracking-widest uppercase"
                 />
-                <button onClick={submitTag} disabled={!tag.trim() || tagState === 'checking'}
-                  className="shrink-0 flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-white/30 text-white font-bold px-4 py-2.5 rounded-lg transition-colors text-sm disabled:cursor-not-allowed">
-                  {tagState === 'checking' ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+                <ChunkyButton variant="green" size="sm" onClick={submitTag} disabled={!tag.trim() || tagState === 'checking'}
+                  icon={tagState === 'checking' ? undefined : CrKingBlue} iconSize={20} className="shrink-0">
+                  {tagState === 'checking' && <Loader2 size={14} className="animate-spin" />}
                   {crAccounts.length > 0 ? t.profileCrAddAnother : t.linkBtn}
-                </button>
+                </ChunkyButton>
               </div>
               <p className="text-white/30 text-xs leading-relaxed">{t.tagHint}</p>
               {tagState === 'error' && tagError && <p className="text-red-400 text-xs">{tagError}</p>}

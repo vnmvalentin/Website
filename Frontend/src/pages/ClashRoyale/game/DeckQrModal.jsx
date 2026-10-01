@@ -6,7 +6,8 @@
 
 import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { QrCode, Copy, Check, ExternalLink } from 'lucide-react';
+import { QrCode, Copy, ExternalLink } from 'lucide-react';
+import { CrCheck } from '../ui/CrIcons';
 import Modal from '../ui/Modal';
 import { buildDeckLink } from '../data/cardDeckIds';
 
@@ -67,7 +68,7 @@ export default function DeckQrModal({ player, deckLink, onClose, t }) {
             <div className="flex items-center gap-2 w-full">
               <button onClick={copyLink}
                 className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border border-white/10 text-white/70 hover:text-white hover:border-white/30 transition-colors">
-                {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                {copied ? <CrCheck size={21} className="text-green-400" /> : <Copy size={14} />}
                 {copied ? t.deckQrCopied : t.deckQrCopy}
               </button>
               <a href={deckLink.url} target="_blank" rel="noopener noreferrer"

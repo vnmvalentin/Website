@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Check, Zap, Shuffle } from 'lucide-react';
+import CardFace from '../ui/CardFace';
+import { useServerClock } from '../ui/serverClock';
+import { CrCheck, CrRage, CrRandom, CrStar } from '../ui/CrIcons';
 import skullTokenIcon from '../../../assets/clashRoyale/ui/festival_token.png';
-import { RARITY_COLOR, cardImageUrl } from '../data/cards';
+import { RARITY_COLOR } from '../data/cards';
 import { CARD_CROP } from './cardCrop';
-import { ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';
+import { GameHeader, ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';
 import ModeShell from './ModeShell';
 
 /** Akzentfarbe des Modus. */
@@ -115,8 +117,7 @@ function CardImg({ id, name }) {
   return (
     // bg-[#0d0d14]: blickdichter Untergrund — die Kachel sitzt auf dem Diamant-Karo.
     <div className="relative w-full h-full bg-[#0d0d14]">
-      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover" draggable={false}
-        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
+      <CardFace id={id} alt={name} />
     </div>
   );
 }
@@ -135,7 +136,7 @@ const TrapSidebar = React.memo(function TrapSidebar({ state, myPlayerId, t }) {
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
                 {done
-                  ? <Check size={13} className="text-green-400 shrink-0" title={t.done} />
+                  ? <CrCheck size={19} className="text-green-400 shrink-0" title={t.done} />
                   : <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/{state.deckSize}</span>}
               </div>
             }>
@@ -168,11 +169,13 @@ function TrapCell({ cell, cellWidth, cellHeight, isRedirectTarget, onClick, clic
       } ${isClicked ? 'ring-2 ring-amber-400' : ''} ${isRedirectTarget ? 'trap-redirected' : ''}`}
       style={{
         width: cellWidth, height: cellHeight,
-        border: '2.5px solid var(--cr-arcade-ink)',
+        border: '2.5px solid var(--cr-panel-edge)',
         boxShadow: rarity ? `0 0 0 1.5px ${RARITY_COLOR[rarity]}55, 0 8px 20px rgba(0,0,0,0.45)` : undefined,
       }}>
       {shownCard
-        ? <div className={cell.revealed && cell.kind === 'trap' ? 'trap-flip-back' : 'trap-pop'}>
+        // w-full h-full ist Pflicht: CardFace füllt die Höhe seines Elternelements — ohne feste
+        // Höhe hatte dieser Animations-Container 0 px und die Karte war unsichtbar.
+        ? <div className={`w-full h-full ${cell.revealed && cell.kind === 'trap' ? 'trap-flip-back' : 'trap-pop'}`}>
             <CardImg id={shownCard.id} name={shownCard.name} />
           </div>
         : <div className="w-full h-full bg-[#0d0d14]" />}
@@ -201,17 +204,13 @@ function DisguisePhase({ state, onChooseBadCard, onChooseTarget, t }) {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-4 flex items-baseline gap-3 sm:gap-4 flex-wrap
-        bg-gradient-to-b from-[#17293f] to-[#0c1725] border-b-[3px]"
-        style={{ borderColor: 'var(--cr-arcade-ink)' }}>
-        <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none flex items-center gap-2">
-          <img src={skullTokenIcon} alt="" width={24} height={24} /> {t.disguiseTitle}
-        </h2>
-        <div className="flex-1" />
-        <span className={`font-display text-2xl font-bold tabular-nums ${timeUrgent ? 'text-red-400' : 'text-white/70'}`}>
-          {Math.max(0, state.timerRemaining ?? 0)}s
-        </span>
-      </div>
+      {/* Gemeinsame Kopfzeile (GameChrome) statt eigener Kopie — gleicher CR-Look wie die übrigen Modi */}
+      <GameHeader
+        label={<><img src={skullTokenIcon} alt="" width={28} height={28} className="inline-block align-middle mr-1.5 -mt-1" />{t.disguiseTitle}</>}
+        value=""
+        timerRemaining={Math.max(0, state.timerRemaining ?? 0)}
+        timerUrgent={timeUrgent}
+      />
       <ProgressHairline pct={pct} accent={ACCENT} urgent={timeUrgent} />
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-10 py-6 sm:py-8">
@@ -231,7 +230,7 @@ function DisguisePhase({ state, onChooseBadCard, onChooseTarget, t }) {
               <p className="text-white/70 text-sm">{t.pickTarget}</p>
               <div className="flex items-center gap-2 text-xs text-white/40">
                 <span>{state.myPendingTrap.badCard.name}</span>
-                <Shuffle size={12} />
+                <CrRandom size={18} />
                 <span className="text-amber-300">?</span>
               </div>
               {/* flex+wrap+justify-center statt eines festen Spaltenrasters: bei 4 Kandidaten
@@ -241,7 +240,7 @@ function DisguisePhase({ state, onChooseBadCard, onChooseTarget, t }) {
                 {state.myPendingTrap.targetOptions.map((card, i) => (
                   <button key={card.id} onClick={() => onChooseTarget(i)}
                     className="group w-28 sm:w-32 rounded-xl overflow-hidden border-2 border-white/10 hover:border-amber-400 transition-colors">
-                    <div className="aspect-[5/6]"><CardImg id={card.id} name={card.name} /></div>
+                    <div className="aspect-[4/5]"><CardImg id={card.id} name={card.name} /></div>
                     <div className="px-2 py-1.5 bg-black/40">
                       <span className="text-white text-xs font-semibold truncate block">{card.name}</span>
                     </div>
@@ -259,7 +258,7 @@ function DisguisePhase({ state, onChooseBadCard, onChooseTarget, t }) {
                     <button key={i} disabled={used} onClick={() => onChooseBadCard(i)}
                       className={`group w-28 sm:w-32 rounded-xl overflow-hidden border-2 transition-colors ${
                         used ? 'border-white/5 opacity-30 cursor-not-allowed' : 'border-white/10 hover:border-amber-400'}`}>
-                      <div className="aspect-[5/6]"><CardImg id={card.id} name={card.name} /></div>
+                      <div className="aspect-[4/5]"><CardImg id={card.id} name={card.name} /></div>
                       <div className="px-2 py-1.5 bg-black/40">
                         <span className="text-white text-xs font-semibold truncate block">{card.name}</span>
                       </div>
@@ -277,6 +276,8 @@ function DisguisePhase({ state, onChooseBadCard, onChooseTarget, t }) {
 
 // 9 = 3×3, 12 = 4×3, 16 = 4×4 — muss zu TRAP_GRID_SIZES im Backend passen.
 const TRAP_GRID_SHAPE = { 9: [3, 3], 12: [4, 3], 16: [4, 4] };
+// Dauer der Klickphase — Kopie von TRAP_RACE_TIMEOUT_MS in Backend/clashRoyale/modes/trapSetter.js
+const TRAP_RACE_TIMEOUT_MS = 20000;
 
 // ── Auflösung: EINE Zeile pro Spieler mit der Karte, die er bekommen hat ───────────────────
 // Ersetzt die frühere, nach umkämpften Feldern gruppierte Ansicht: die zeigte unbestrittene
@@ -293,7 +294,7 @@ function ResultsPanel({ state, myPlayerId, t }) {
           einzeln schwebenden Zeilen. */}
       <div className="max-w-xl mx-auto cr-arcade-panel p-4 sm:p-5">
         <p className="text-amber-300 text-sm font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5">
-          <Sparkles size={15} /> {t.revealTitle}
+          <CrStar size={22} /> {t.revealTitle}
         </p>
         {myRedirect && (
           <p className="text-amber-200 text-sm font-semibold mb-3">{t.youRedirected}</p>
@@ -307,7 +308,7 @@ function ResultsPanel({ state, myPlayerId, t }) {
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 ${isMe ? 'bg-white/[0.08]' : 'bg-white/[0.04]'}`}>
                 {/* aspect-[5/6] statt eines Quadrats — dasselbe native Kartenformat wie im
                     Raster darüber, sonst wäre hier derselbe Beschnitt am unteren Rand. */}
-                <div className="w-10 aspect-[5/6] rounded-md overflow-hidden shrink-0 bg-white/[0.04]">
+                <div className="w-10 aspect-[4/5] rounded-md overflow-hidden shrink-0 bg-white/[0.04]">
                   <CardImg id={r.card?.id} name={r.card?.name} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -357,7 +358,9 @@ function GridPhase({ state, now, myPlayerId, onClick, t }) {
   // des Bilds, beim Sockel legendärer Karten sichtbar. Jede andere Kartenkachel im Spiel
   // (Verschleiern-Auswahl weiter oben, Dark Maze, Angel Royale, …) nutzt deshalb schon
   // `aspect-[5/6]` statt eines Quadrats — hier jetzt genauso, macht den Schnitt zu 0%.
-  const RATIO_H_OVER_W = 6 / 5;
+  // Seit dem Wechsel auf Supercells CDN (api-assets.clashroyale.com) sind die Bilder 285×420 —
+  // mit dem alten 5:6-Wert schnitt object-cover wieder oben/unten ab.
+  const RATIO_H_OVER_W = 5 / 4; // Kachel im 4:5-Format der Kartenrahmen, siehe ui/CardFace.jsx
   // Breite ist eine harte Obergrenze (min(...) außen) — sie darf nie überschritten werden,
   // sonst läuft die Reihe seitlich aus dem Bild. Die Höhen-Bound wird zurück auf eine
   // Breite umgerechnet (÷ Seitenverhältnis), damit beide Bounds vergleichbar sind. Reicht
@@ -371,7 +374,9 @@ function GridPhase({ state, now, myPlayerId, onClick, t }) {
   const cellHeight = `calc(${cellWidth} * ${RATIO_H_OVER_W})`;
 
   return (
-    <div className="flex-1 relative overflow-hidden bg-[#0a0a0d] flex flex-col">
+    // Karo bzw. der persönliche Hintergrund wie in den anderen Modi — schwarz bleibt nur der
+    // Countdown darüber (der das Raster bis zum Start verbirgt).
+    <div className="flex-1 relative overflow-hidden cr-arcade-bg flex flex-col">
       {/* Während des Countdowns wird das Raster gar nicht erst gerendert (nicht nur
           verdeckt) — sonst sieht man durch eine halbtransparente Fläche schon vorher, was
           wo liegt, und der eigentliche "Start" verliert seine Überraschung. Echter
@@ -419,7 +424,7 @@ function GridPhase({ state, now, myPlayerId, onClick, t }) {
 
       {racing && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-1.5 rounded-lg border bg-amber-950/30 border-amber-500/30 backdrop-blur-md">
-          <Zap size={13} className="text-amber-400 animate-pulse" />
+          <CrRage size={19} className="text-amber-400 animate-pulse" />
           <span className="text-amber-200 text-xs font-bold">
             {myClickedCellIndex != null ? t.raceClicked : t.raceHint}
           </span>
@@ -441,6 +446,7 @@ export default function TrapSetter({ trapState, myPlayerId, onChooseBadCard, onC
   const t = TRAP_I18N[lang] || TRAP_I18N.de;
   const now = useNow(200);
   const state = trapState;
+  const clock = useServerClock(state);
 
   if (!state) return (
     <div className="h-full flex items-center justify-center">
@@ -450,8 +456,13 @@ export default function TrapSetter({ trapState, myPlayerId, onChooseBadCard, onC
 
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const doneCount = activePlayers.filter(p => (p.deck || []).length >= state.deckSize).length;
-  const raceRemaining = state.phase === 'racing' && state.raceTimeoutAt
-    ? Math.max(0, Math.ceil((state.raceTimeoutAt - now) / 1000)) : null;
+  // Fristen (raceTimeoutAt, countdownUntil) sind SERVER-Zeitpunkte — mit dem geglätteten
+  // Uhrenabgleich vergleichen statt mit der rohen Rechner-Uhr, sonst stimmt die Restzeit
+  // nicht, sobald die eigene Uhr ein paar Sekunden falsch geht.
+  const serverNowMs = now - clock.offset();
+  const raceMsLeft = state.phase === 'racing' && state.raceTimeoutAt
+    ? Math.max(0, state.raceTimeoutAt - serverNowMs) : null;
+  const raceRemaining = raceMsLeft != null ? Math.ceil(raceMsLeft / 1000) : null;
 
   const strip = (
     <div className="flex -space-x-1.5">
@@ -475,31 +486,21 @@ export default function TrapSetter({ trapState, myPlayerId, onChooseBadCard, onC
             <DisguisePhase state={state} onChooseBadCard={onChooseBadCard} onChooseTarget={onChooseTarget} t={t} />
           ) : (
             <>
-              <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-4 flex items-baseline gap-3 sm:gap-4 flex-wrap
-                bg-gradient-to-b from-[#17293f] to-[#0c1725] border-b-[3px]"
-                style={{ borderColor: 'var(--cr-arcade-ink)' }}>
-                <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none">
-                  {t.players} {doneCount}
-                  <span className="text-white/20 font-normal"> / {activePlayers.length} {t.done}</span>
-                </h2>
-                <div className="flex-1" />
-                <span className="text-white/35 text-sm hidden sm:block">
-                  {t.decksDone(doneCount, activePlayers.length)}
-                </span>
-                {/* Der Anti-AFK-Timer der Klickphase (raceTimeoutAt) lief bisher komplett
-                    unsichtbar mit — nach 20s löst der Server die Runde automatisch auf, ohne
-                    dass irgendwo eine Uhr das ankündigt. Gleiche Darstellung wie GameHeader
-                    (großer Countdown rechts, rot ab 5s), damit sie auch neben der Kopfzeile
-                    der anderen Modi vertraut wirkt. */}
-                {raceRemaining != null && (
-                  <span className={`font-display text-2xl font-bold tabular-nums ${
-                    raceRemaining <= 5 ? 'text-red-400' : 'text-white/70'}`}>
-                    {raceRemaining}s
-                  </span>
-                )}
-              </div>
-              <ProgressHairline pct={(doneCount / Math.max(1, activePlayers.length)) * 100} accent={ACCENT} />
-              <GridPhase state={state} now={now} myPlayerId={myPlayerId} onClick={onCellClick} t={t} />
+              {/* Gemeinsame Kopfzeile (GameChrome) statt eigener Kopie. Die Zeit ist der
+                  Anti-AFK-Timer der Klickphase (raceTimeoutAt) — nach seinem Ablauf löst der
+                  Server die Runde automatisch auf, deshalb muss er sichtbar sein. */}
+              <GameHeader
+                label={t.players} value={doneCount} total={`${activePlayers.length} ${t.done}`}
+                meta={t.decksDone(doneCount, activePlayers.length)}
+                timerRemaining={raceRemaining ?? undefined}
+                timerUrgent={raceRemaining != null && raceRemaining <= 5}
+              />
+              {/* Zeitbalken der Klickphase (vorher: Anteil fertiger Decks — der stand neben der
+                  laufenden Uhr still und wirkte wie ein hängender Timer). Die Deck-Zahl steht
+                  weiterhin in der Kopfzeile. */}
+              <ProgressHairline pct={raceMsLeft != null ? (raceMsLeft / TRAP_RACE_TIMEOUT_MS) * 100 : 0}
+                accent={ACCENT} urgent={raceRemaining != null && raceRemaining <= 5} />
+              <GridPhase state={state} now={serverNowMs} myPlayerId={myPlayerId} onClick={onCellClick} t={t} />
             </>
           )}
         </div>

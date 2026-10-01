@@ -16,7 +16,7 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { CrClose } from './CrIcons';
 import { useFocusTrap } from './useFocusTrap';
 
 /**
@@ -46,23 +46,23 @@ export default function Drawer({ open, onClose, title, icon, footer, children })
         aria-label={title}
         tabIndex={-1}
         className="cr-drawer-panel relative w-full sm:w-[26rem] max-h-[92vh] sm:max-h-none sm:h-full
-                   flex flex-col bg-gradient-to-b from-[#17293f] to-[#0c1725]
+                   flex flex-col bg-gradient-to-b from-[#15294a] to-[#0d1b31]
                    border-t-[3px] sm:border-t-0 sm:border-l-[3px]
                    rounded-t-2xl sm:rounded-none shadow-2xl shadow-black/60"
-        style={{ borderColor: 'var(--cr-arcade-ink)' }}>
+        style={{ borderColor: 'var(--cr-panel-edge)' }}>
         {/* Zieh-Griff: rein optisch, signalisiert auf dem Handy "das ist ein Blatt" */}
         <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
           <span className="w-10 h-1 rounded-full bg-white/20" />
         </div>
 
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b-2 border-black/30 shrink-0">
-          <span className="text-white font-arcade font-semibold flex items-center gap-2 min-w-0">
+        <div className="cr-modal-head flex items-center justify-between gap-3 px-5 py-3.5 shrink-0">
+          <span className="cr-section-title text-lg min-w-0">
             {icon}
             <span className="truncate">{title}</span>
           </span>
           <button onClick={onClose} aria-label="Close"
-            className="text-white/40 hover:text-white p-1.5 -mr-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0">
-            <X size={16} />
+            className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-9 h-9 -mr-1 shrink-0">
+            <CrClose size={16} />
           </button>
         </div>
 

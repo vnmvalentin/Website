@@ -1,21 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  Check, Flashlight, Search, Clock, Gift, Sparkles, X, Eye,
-  Users, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Hand,
-} from 'lucide-react';
+import CardFace from '../ui/CardFace';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Hand } from 'lucide-react';
+import { CrCheck, CrChest, CrClock, CrClose, CrSearch, CrSocial, CrStar, CrTelescope, CrTv } from '../ui/CrIcons';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import { RARITY_COLOR, ALL_CARDS, cardImageUrl } from '../data/cards';
 import ghostImgSrc from '../../../assets/clashRoyale/Royale_Ghost.png';
 import chestImgSrc from '../../../assets/clashRoyale/draft-chest.png';
 import jokerImgSrc from '../../../assets/clashRoyale/UnknownCard.png';
-import { CARD_CROP } from './cardCrop';
+import { drawCardFrame } from './cardCrop';
 import { ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';
+import { avatarUrl } from '../components/avatars';
 
 /** Akzentfarbe des Modus. */
 const ACCENT = '#a78bfa';
 
-const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
-const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 const CARD_BY_ID = Object.fromEntries(ALL_CARDS.map(c => [c.id, c]));
 
 // So viele Kacheln passen in die kürzere Bildschirmseite. Der Wert bestimmt den Zoom
@@ -153,9 +151,9 @@ function getCardImage(id) {
 }
 
 function AvatarCircle({ id, color, size = 28 }) {
-  const url = id ? AVATAR_MAP[id] : null;
+  const url = avatarUrl(id);
   return (
-    <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
+    <div className="rounded-full overflow-hidden shrink-0 border-2 cr-avatar-pick"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
       {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
@@ -167,8 +165,7 @@ function CardImg({ id, name }) {
     // Kein eingefärbter Hintergrund mehr: Bei Artworks mit transparentem Rand
     // schimmerte er durch und legte einen farbigen Schleier über jede Karte.
     <div className="relative w-full h-full">
-      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover" draggable={false}
-        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
+      <CardFace id={id} alt={name} />
     </div>
   );
 }
@@ -180,8 +177,8 @@ const MazeSidebar = React.memo(function MazeSidebar({ state, myPlayerId, t }) {
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const spectators = state.players.filter(p => p.isSpectator);
   return (
-    <div className="w-60 shrink-0 bg-gradient-to-b from-[#17293f] to-[#0c1725] border-r-[3px] overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3"
-      style={{ borderColor: 'var(--cr-arcade-ink)' }}>
+    <div className="w-60 shrink-0 bg-gradient-to-b from-[#15294a] to-[#0d1b31] border-r-[3px] overflow-y-auto custom-scrollbar py-3 px-2.5 flex flex-col gap-3"
+      style={{ borderColor: 'var(--cr-panel-edge)' }}>
       {activePlayers.map(p => {
         const isMe = p.id === myPlayerId;
         const done = (p.deck || []).length >= state.deckSize;
@@ -193,7 +190,7 @@ const MazeSidebar = React.memo(function MazeSidebar({ state, myPlayerId, t }) {
                 <AvatarCircle id={p.avatar} color={p.color} size={28} />
                 <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
                 {done
-                  ? <Check size={13} className="text-green-400 shrink-0" title={t.done} />
+                  ? <CrCheck size={19} className="text-green-400 shrink-0" title={t.done} />
                   : <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/{state.deckSize}</span>}
               </div>
             }>
@@ -213,7 +210,7 @@ const MazeSidebar = React.memo(function MazeSidebar({ state, myPlayerId, t }) {
             <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
               <AvatarCircle id={p.avatar} color={p.color} size={20} />
               <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
-              <Eye size={11} className="text-white/40 shrink-0" />
+              <CrTv size={16} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
@@ -465,14 +462,12 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
             ctx.restore();
           }
         } else if (it.kind === 'card' && it.card) {
-          const cw = ts * 0.56, ch = cw * 1.2;
+          const cw = ts * 0.56, ch = cw * 1.25;
           const img = getCardImage(it.card.id);
           ctx.save();
           ctx.shadowColor = (RARITY_COLOR[it.card.rarity] || '#ffffff') + 'cc';
           ctx.shadowBlur = ts * 0.3 + Math.sin(nowPerf / 350) * ts * 0.08;
-          if (img.complete && img.naturalWidth) {
-            ctx.drawImage(img, sx + (ts - cw) / 2, sy + (ts - ch) / 2 + bob, cw, ch);
-          }
+          drawCardFrame(ctx, img, it.card.rarity, sx + (ts - cw) / 2, sy + (ts - ch) / 2 + bob, cw, ch);
           ctx.shadowBlur = 0;
           ctx.strokeStyle = RARITY_COLOR[it.card.rarity] || '#888';
           ctx.lineWidth = 1.5;
@@ -682,7 +677,7 @@ function DraftModal({ draft, myChampCount, onPick, onClose, t }) {
           </div>
           <button onClick={onClose} title={t.closeTitle}
             className="text-white/40 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0">
-            <X size={16} />
+            <CrClose size={23} />
           </button>
         </div>
         <div className="grid grid-cols-2 gap-4 mt-4">
@@ -693,7 +688,7 @@ function DraftModal({ draft, myChampCount, onPick, onClose, t }) {
                 title={blocked ? t.championLimit : card.name}
                 className={`group rounded-lg border-2 overflow-hidden transition-colors text-left ${
                   blocked ? 'border-white/10 opacity-40 cursor-not-allowed' : 'border-white/15 hover:border-amber-400'}`}>
-                <div className="aspect-[5/6]">
+                <div className="aspect-[4/5]">
                   <CardImg id={card.id} name={card.name} rarity={card.rarity} />
                 </div>
                 <div className="px-2 py-1.5 bg-black/40 flex items-center gap-1.5">
@@ -724,7 +719,7 @@ function JokerModal({ availableIds, myChampCount, onPick, onClose, t }) {
       <div className="rounded-xl border border-violet-400/25 bg-[#131019]/90 backdrop-blur-md p-5 shadow-2xl shadow-black/60 w-full max-w-2xl max-h-[85%] flex flex-col">
         <div className="flex items-center gap-3 mb-3 shrink-0">
           <span className="w-10 h-10 rounded-lg bg-violet-500/15 border border-violet-400/30 flex items-center justify-center shrink-0">
-            <Sparkles size={18} className="text-violet-300" />
+            <CrStar size={26} className="text-violet-300" />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-violet-300 font-bold text-sm uppercase tracking-widest">{t.jokerTitle}</p>
@@ -732,11 +727,11 @@ function JokerModal({ availableIds, myChampCount, onPick, onClose, t }) {
           </div>
           <button onClick={onClose} title={t.closeTitle}
             className="text-white/40 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0">
-            <X size={16} />
+            <CrClose size={23} />
           </button>
         </div>
         <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-lg px-3 py-2 mb-3 shrink-0 focus-within:border-violet-500 transition-colors">
-          <Search size={13} className="text-white/30 shrink-0" />
+          <CrSearch size={19} className="text-white/30 shrink-0" />
           <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t.searchCard}
             className="bg-transparent text-white text-sm placeholder-gray-600 outline-none w-full" />
         </div>
@@ -748,7 +743,7 @@ function JokerModal({ availableIds, myChampCount, onPick, onClose, t }) {
               return (
                 <button key={card.id} onClick={() => !blocked && onPick(card.id)} disabled={blocked}
                   title={blocked ? t.championLimit : card.name}
-                  className={`relative rounded-md overflow-hidden border aspect-[5/6] transition-colors ${
+                  className={`relative rounded-md overflow-hidden border aspect-[4/5] transition-colors ${
                     blocked ? 'border-white/5 opacity-30 cursor-not-allowed'
                     : 'border-white/10 hover:border-violet-400'}`}>
                   <CardImg id={card.id} name={card.name} rarity={card.rarity} />
@@ -822,8 +817,8 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
     : null;
   const itemHint = itemHere && (
     itemHere.kind === 'chest' ? { text: t.chestHint, icon: <img src={chestImgSrc} alt="" className="w-4 h-4 object-contain shrink-0" /> }
-    : itemHere.kind === 'joker' ? { text: t.jokerHint, icon: <Sparkles size={13} className="text-violet-300 shrink-0" /> }
-    : { text: t.pickupHint, icon: <Gift size={13} className="text-amber-300 shrink-0" />, note: itemHere.card?.name }
+    : itemHere.kind === 'joker' ? { text: t.jokerHint, icon: <CrStar size={19} className="text-violet-300 shrink-0" /> }
+    : { text: t.pickupHint, icon: <CrChest size={19} className="text-amber-300 shrink-0" />, note: itemHere.card?.name }
   );
 
   return (
@@ -840,34 +835,34 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
 
         {/* Kopfzeile: der eigene Deckfortschritt ist das Ziel des Modus.
             Der Knopf für die Spielerleiste bleibt auf dem Handy davor stehen. */}
-        <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-4 flex items-baseline gap-3 sm:gap-4 flex-wrap">
+        <div className="cr-game-header shrink-0 px-4 sm:px-8 py-3.5 sm:py-4 flex items-center gap-3 sm:gap-4 flex-wrap">
           <button type="button" onClick={() => setSidebarOpen(o => !o)}
             aria-label={t.players}
             className="md:hidden shrink-0 flex items-center gap-1.5 text-white/60 hover:text-white px-2 py-1 -ml-1 rounded-lg hover:bg-white/5 transition-colors self-center">
-            <Users size={15} />
+            <CrSocial size={22} />
             <span className="text-xs font-semibold tabular-nums">{doneCount}/{activePlayers.length}</span>
           </button>
 
-          <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none">
+          <h2 className="cr-arcade-title text-2xl sm:text-[30px] leading-none whitespace-nowrap">
             {t.cardsLabel} {amSpectator ? '–' : myDeck.length}
-            {!amSpectator && <span className="text-white/20 font-normal"> / {state.deckSize}</span>}
+            {!amSpectator && <span className="text-white/45"> / {state.deckSize}</span>}
           </h2>
 
           {state.finished ? (
             <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
-              <Check size={14} /> {remainingMs <= 0 ? t.timeUp : t.allDecksFull}
+              <CrCheck size={21} /> {remainingMs <= 0 ? t.timeUp : t.allDecksFull}
             </span>
           ) : amSpectator ? (
             <span className="flex items-center gap-1.5 text-white/35 text-sm">
-              <Eye size={13} /> {t.spectatorLive}
+              <CrTv size={19} /> {t.spectatorLive}
             </span>
           ) : myDeckFull ? (
             <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
-              <Check size={14} /> {t.yourDeckFull}
+              <CrCheck size={21} /> {t.yourDeckFull}
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-violet-300 text-sm font-semibold">
-              <Flashlight size={14} /> {IS_COARSE_POINTER ? t.moveHintTouch : t.moveHint}
+              <CrTelescope size={21} /> {IS_COARSE_POINTER ? t.moveHintTouch : t.moveHint}
             </span>
           )}
 
@@ -894,7 +889,7 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
           {/* Timer-Chip (Glas) */}
           <div className={`absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-1.5 rounded-lg border backdrop-blur-md ${
             timeUrgent ? 'bg-red-950/40 border-red-500/40' : 'bg-white/[0.06] border-white/10'}`}>
-            <Clock size={13} className={timeUrgent ? 'text-red-400 animate-pulse' : 'text-white/50'} />
+            <CrClock size={19} className={timeUrgent ? 'text-red-400 animate-pulse' : 'text-white/50'} />
             <span className={`font-black tabular-nums text-base ${timeUrgent ? 'text-red-300' : 'text-white'}`}>
               {mm}:{String(ss).padStart(2, '0')}
             </span>

@@ -15,7 +15,8 @@
     "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js",
     "test:sigils": "node --test \"sacrificeSigils/**/*.test.js\"",
     "sigils:spiegel": "node sacrificeSigils/tools/spiegel.js",
-    "sigils:spiegel:pruefen": "node sacrificeSigils/tools/spiegel.js --pruefen"
+    "sigils:spiegel:pruefen": "node sacrificeSigils/tools/spiegel.js --pruefen",
+    "test:cr-turnier": "node --test \"clashRoyale/tournament/__tests__/*.test.js\""
   },
   "keywords": [],
   "author": "",

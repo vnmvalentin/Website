@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { CrClose } from './CrIcons';
 import { useFocusTrap } from './useFocusTrap';
 
 /**
@@ -40,14 +40,15 @@ export default function Modal({
         tabIndex={-1}
         onClick={e => e.stopPropagation()}
         className={`cr-modal-panel cr-arcade-panel w-full ${maxWidth} max-h-[92vh] sm:max-h-[85vh] flex flex-col rounded-b-none sm:rounded-b-[18px]`}>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b-2 border-white/5 shrink-0">
-          <span className="text-white font-arcade font-semibold text-base flex items-center gap-2.5 min-w-0">
+        {/* Kopfband wie bei den Fenstern im Spiel: etwas hellere Fläche, Titelschrift, dunkle Fuge darunter */}
+        <div className="cr-modal-head flex items-center justify-between gap-3 px-5 py-3.5 shrink-0">
+          <span className="cr-section-title text-lg min-w-0">
             {icon}
             <span className="truncate">{title}</span>
           </span>
           <button onClick={onClose} aria-label="Close"
-            className="text-white/40 hover:text-white p-1.5 -mr-1.5 rounded-lg hover:bg-white/5 transition-colors shrink-0">
-            <X size={16} />
+            className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-9 h-9 -mr-1 shrink-0">
+            <CrClose size={16} />
           </button>
         </div>
 
@@ -55,7 +56,7 @@ export default function Modal({
           {children}
         </div>
 
-        {footer && <div className="shrink-0 border-t border-white/5 px-5 py-4">{footer}</div>}
+        {footer && <div className="cr-section--rule shrink-0 px-5 py-4">{footer}</div>}
       </div>
     </div>,
     document.body

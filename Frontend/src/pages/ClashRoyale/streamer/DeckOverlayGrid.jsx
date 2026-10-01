@@ -6,9 +6,12 @@
 // bei DeckOverlayPage die OBS-Anbindung drumherum) unterscheidet sich, deshalb lag die
 // Layout-Logik vorher als Kopie an zwei Stellen.
 import React from "react";
-import { cardImageUrl } from "../data/cards";
+import CardFace from "../ui/CardFace";
+import { CARD_RATIO } from "../modes/cardCrop";
 
-const CARD_ASPECT = 150 / 172; // width / height der Kartenbilder
+// width / height einer Kartenkachel: der sichtbare Kartenrahmen (4:5), siehe ui/CardFace.jsx —
+// die alten 150/172 stammten von der früheren royaleapi-Bildquelle und schnitten mit cover ab.
+const CARD_ASPECT = CARD_RATIO;
 
 const RARITY_BORDER = {
   Common: "rgba(148, 163, 184, 0.55)",
@@ -68,8 +71,14 @@ export default function DeckOverlayGrid({ players, viewport }) {
         boxSizing: "border-box",
         padding: `${OUTER_PAD_Y}px ${OUTER_PAD_X}px`,
         display: "grid",
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gridTemplateRows: `repeat(${rows}, 1fr)`,
+        // Spalten/Zeilen so groß wie ihr Inhalt, das Raster als Ganzes mittig: vorher teilten
+        // "1fr"-Zeilen die volle Höhe auf und die Deck-Kästen saßen je mittig darin — bei 2×2
+        // auf 16:9 (Breite begrenzt die Kartengröße) entstand so eine große Lücke zwischen
+        // den oberen und unteren Decks. Jetzt ist der Abstand überall genau CELL_GAP.
+        gridTemplateColumns: `repeat(${cols}, auto)`,
+        gridTemplateRows: `repeat(${rows}, auto)`,
+        justifyContent: "center",
+        alignContent: "center",
         gap: CELL_GAP,
         textShadow: "0 2px 6px rgba(0,0,0,.6)",
       }}
@@ -134,12 +143,7 @@ export default function DeckOverlayGrid({ players, viewport }) {
                     lineHeight: 0,
                   }}
                 >
-                  <img
-                    src={cardImageUrl(c.id)}
-                    alt={c.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    onError={(e) => { e.target.style.visibility = "hidden"; }}
-                  />
+                  <CardFace id={c.id} alt={c.name} rarity={c.rarity} loading="eager" />
                 </div>
               ))}
             </div>

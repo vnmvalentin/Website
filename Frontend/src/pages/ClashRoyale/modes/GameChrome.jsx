@@ -22,6 +22,8 @@
 // Streifens über dem Diamant-Karo — Kopfzeile und Seitenleiste rahmen die Spielfläche
 // jetzt sichtbar als zusammengehöriges Paar aus zwei blickdichten Leisten.
 import React from 'react';
+import { CrStopwatch, CrBattle } from '../ui/CrIcons';
+import { avatarUrl } from '../components/avatars';
 
 /** Spielfläche: der Bereich, in dem die Karten liegen, trägt jetzt selbst das
  *  Diamant-Karo (.cr-arcade-bg, wie Hub/Lobby/Endscreen) statt einer einfarbigen
@@ -54,29 +56,31 @@ export function GameHeader({
   label, value, total, badge, meta, timerRemaining, timerUrgent, right,
 }) {
   return (
-    <div className="shrink-0 px-4 sm:px-10 pt-5 sm:pt-6 pb-4 flex items-baseline gap-3 sm:gap-4 flex-wrap
-      bg-gradient-to-b from-[#17293f] to-[#0c1725] border-b-[3px]"
-      style={{ borderColor: 'var(--cr-arcade-ink)' }}>
-      <h2 className="font-display text-2xl sm:text-[28px] font-bold text-white leading-none">
+    // Ab sm drei Spalten: Runde links, Hinweis (z.B. wer am Zug ist) MITTIG, Zeit rechts.
+    // 1fr | auto | 1fr hält die Mitte auch dann mittig, wenn links und rechts unterschiedlich
+    // viel steht. Auf dem Handy reicht der Platz dafür nicht — dort bricht die Zeile um.
+    <div className="cr-game-header shrink-0 px-4 sm:px-8 py-3.5 sm:py-4 flex flex-wrap items-center gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-4">
+      {/* Rundenzahl im Titel-Look (Kontur + Schlagschatten) wie die Überschriften im Spiel */}
+      <h2 className="cr-arcade-title text-2xl sm:text-[30px] leading-none whitespace-nowrap sm:justify-self-start">
         {label} {value}
-        {total != null && <span className="text-white/20 font-normal"> / {total}</span>}
+        {total != null && <span className="text-white/45"> / {total}</span>}
       </h2>
 
-      {badge}
+      <div className="min-w-0 sm:justify-self-center flex justify-center">{badge}</div>
 
-      <div className="flex-1" />
+      <div className="flex items-center gap-3 sm:gap-4 ml-auto sm:ml-0 sm:justify-self-end">
+        {meta && <span className="text-white/35 text-sm hidden sm:block">{meta}</span>}
 
-      {meta && <span className="text-white/35 text-sm hidden sm:block">{meta}</span>}
+        {right}
 
-      {right}
-
-      {typeof timerRemaining === 'number' && (
-        <span className={`font-display text-2xl font-bold tabular-nums ${
-          timerUrgent ? 'text-red-400' : 'text-white/70'
-        }`}>
-          {timerRemaining}s
-        </span>
-      )}
+        {/* Zeit als eigenes Abzeichen mit Stoppuhr — wird in den letzten Sekunden rot und pocht */}
+        {typeof timerRemaining === 'number' && (
+          <span className={`cr-timer ${timerUrgent ? 'cr-timer--urgent' : ''}`}>
+            <CrStopwatch size={24} />
+            <span className="tabular-nums">{timerRemaining}s</span>
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -99,11 +103,13 @@ export function GameHeader({
  */
 export function ProgressHairline({ pct, accent = '#a78bfa', urgent = false }) {
   return (
-    <div className="shrink-0 h-1.5 bg-[#0d1420]">
+    // Im CR-Look wie ein Ladebalken im Spiel: eingelassene Spur, glänzende Füllung mit
+    // Lichtkante oben. Die Farbe bleibt die des Modus (bzw. Rot, wenn die Zeit knapp wird).
+    <div className="shrink-0 h-2.5 bg-[#081426] shadow-[inset_0_2px_3px_rgba(0,0,0,0.5)] border-b-2 border-[var(--cr-panel-edge)]">
       <div className="h-full rounded-r-full"
         style={{
           width: `${Math.max(0, Math.min(100, pct))}%`,
-          backgroundColor: urgent ? '#f87171' : accent,
+          background: `linear-gradient(to bottom, rgba(255,255,255,0.45), rgba(255,255,255,0) 60%), ${urgent ? '#f87171' : accent}`,
           transition: 'width 1s linear',
         }} />
     </div>
@@ -128,8 +134,7 @@ export function GameBody({ children, center = false, className = '' }) {
  *  Untergrund wie alles andere. */
 export function GameFooter({ children, className = '' }) {
   return (
-    <div className={`shrink-0 px-4 sm:px-8 py-4 bg-gradient-to-b from-[#17293f] to-[#0c1725] border-t-[3px] ${className}`}
-      style={{ borderColor: 'var(--cr-arcade-ink)' }}>
+    <div className={`cr-game-footer shrink-0 px-4 sm:px-8 py-4 ${className}`}>
       {children}
     </div>
   );
@@ -142,12 +147,46 @@ export function GameFooter({ children, className = '' }) {
  * die Hervorhebungsfarbe (siehe ChunkyButton), das ersetzt das frühere, kaum
  * wahrnehmbare "etwas hellerer Hintergrund" für "das bin ich".
  */
-export function PlayerPanel({ isMe = false, header, children, className = '' }) {
+export function PlayerPanel({ isMe = false, active = false, activeLabel, header, children, className = '' }) {
   return (
-    <div className={`cr-game-card ${isMe ? 'cr-game-card--me' : ''} p-3 space-y-2.5 ${className}`}>
+    <div className={`cr-game-card ${isMe ? 'cr-game-card--me' : ''} ${active ? 'cr-game-card--turn' : ''} relative p-3 space-y-2.5 ${className}`}>
+      {/* Am Zug: goldenes Etikett oben rechts + pochender Rand (siehe .cr-game-card--turn) */}
+      {active && activeLabel && <span className="cr-turn-tag">{activeLabel}</span>}
       {header}
       {children}
     </div>
+  );
+}
+
+/**
+ * Deutliche Zug-Anzeige für die Kopfzeile rundenbasierter Modi (Snake, Pyramide).
+ * Eigener Zug: goldenes, pochendes "Du bist am Zug!"-Schild. Sonst: Avatar + Name in der
+ * Spielerfarbe, damit man ohne Suchen sieht, auf wen gewartet wird.
+ *
+ * @param {object}  player  aktueller Spieler ({ name, color, avatar })
+ * @param {boolean} mine    ist es der eigene Zug?
+ * @param {string}  text    fertiger Text ("Du bist am Zug!" bzw. "ist am Zug")
+ */
+export function TurnBanner({ player, mine, text }) {
+  if (mine) {
+    return (
+      <span className="cr-turn-banner cr-turn-banner--mine">
+        <CrBattle size={24} />
+        {text}
+      </span>
+    );
+  }
+  if (!player) return null;
+  const url = avatarUrl(player.avatar);
+  return (
+    <span className="cr-turn-banner" style={{ '--cr-banner': player.color || '#8b5cf6' }}>
+      <span className="cr-avatar-pick w-7 h-7 rounded-full overflow-hidden shrink-0 border-2"
+        style={{ borderColor: player.color || '#8b5cf6' }}>
+        {url && <img src={url} alt="" className="w-full h-full object-cover" />}
+      </span>
+      <span className="font-cr truncate max-w-[10rem]" style={{ color: player.color || '#fff' }}>{player.name}</span>
+      <span className="text-white/70">{text}</span>
+    </span>
   );
 }
 
@@ -164,9 +203,13 @@ export function DeckGrid({ deck = [], size = 8, renderCard }) {
         // Blickdichtes Grau statt eines nur 25% deckenden Schwarztons — die Zellen sitzen
         // jetzt auf dem Diamant-Karo (siehe GameSurface) und müssen als eigenes Modul
         // erkennbar bleiben, auch wenn sie noch leer sind.
-        <div key={i} className="aspect-square rounded-md overflow-hidden bg-[#0d0d14]"
-          style={{ border: '2px solid var(--cr-arcade-ink)' }}>
-          {deck[i] ? renderCard(deck[i], i) : null}
+        // Leerer Platz als eingelassene Mulde (wie die leeren Deck-Slots im Spiel)
+        <div key={i} className="aspect-[4/5] rounded-md overflow-hidden bg-[#081426] shadow-[inset_0_2px_4px_rgba(0,0,0,0.55)]"
+          style={{ border: '2px solid var(--cr-panel-edge)' }}>
+          {/* key an der Karte: wechselt der Inhalt eines Platzes, ploppt die neue Karte auf */}
+          {deck[i] ? (
+            <div key={deck[i].id ?? i} className="cr-card-pop w-full h-full">{renderCard(deck[i], i)}</div>
+          ) : null}
         </div>
       ))}
     </div>

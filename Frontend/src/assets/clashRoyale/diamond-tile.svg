@@ -11,11 +11,25 @@
        schräge Kanten hat. Jede ihrer vier Kanten ist zugleich exakt eine Kante der "Rauten
        zwischen den Kacheln" (die erst entsteht, wenn sich vier Kacheln an einer Ecke
        treffen) — ein Strich hier zeichnet also automatisch BEIDE Rauten-Sorten nach, ohne
-       dass die Eck-Dreiecke selbst je eine eigene Kontur brauchen. -->
+       dass die Eck-Dreiecke selbst je eine eigene Kontur brauchen.
+       VIERTER Anlauf (Schattierung): Licht von oben. Jede Raute bekommt innen an ihren
+       OBEREN Kanten eine helle, an ihren UNTEREN eine dunkle Linie — keine Verlaufsfläche
+       (die sah in Anlauf 1/2 wie Panzerglas aus), nur schmale Kantenlinien wie ein
+       leichter Prägerand. Für die Mittel-Raute liegen die Linien 3,5 px nach innen versetzt;
+       für die Rauten zwischen den Kacheln liegen sie in den Eck-Dreiecken (dort ist die
+       Kante der Mittel-Raute zugleich deren untere bzw. obere Kante, also umgekehrt
+       gefärbt). Jede Linie endet exakt am Kachelrand — die Nachbarkachel zeichnet das
+       fehlende Stück, beim Kacheln entsteht ein geschlossener Prägerand. -->
   <polygon points="0,0 70,0 0,70" fill="#154c82"/>
   <polygon points="140,0 140,70 70,0" fill="#154c82"/>
   <polygon points="140,140 70,140 140,70" fill="#154c82"/>
   <polygon points="0,140 0,70 70,140" fill="#154c82"/>
   <polygon points="70,0 140,70 70,140 0,70" fill="#1c5b96"
-    stroke="rgba(0,0,0,0.16)" stroke-width="1" stroke-linejoin="round"/>
+    stroke="rgba(0,0,0,0.2)" stroke-width="1" stroke-linejoin="round"/>
+  <polyline points="3.5,70 70,3.5 136.5,70" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="3"/>
+  <polyline points="136.5,70 70,136.5 3.5,70" fill="none" stroke="rgba(0,0,0,0.16)" stroke-width="3"/>
+  <line x1="0" y1="66.5" x2="66.5" y2="0" stroke="rgba(0,0,0,0.16)" stroke-width="3"/>
+  <line x1="73.5" y1="0" x2="140" y2="66.5" stroke="rgba(0,0,0,0.16)" stroke-width="3"/>
+  <line x1="140" y1="73.5" x2="73.5" y2="140" stroke="rgba(255,255,255,0.07)" stroke-width="3"/>
+  <line x1="0" y1="73.5" x2="66.5" y2="140" stroke="rgba(255,255,255,0.07)" stroke-width="3"/>
 </svg>

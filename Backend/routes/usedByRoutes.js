@@ -10,6 +10,7 @@ const USED_BY_STREAMERS = [
   { name: "Vinc", login: "vinc" },
   { name: "Tryaz", login: "tryaz" },
   { name: "mortenroyale", login: "mortenroyale" },
+  { name: "Zodiac_CR", login: "zodiac_cr"},
 ];
 
 let appToken = null;

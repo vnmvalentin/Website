@@ -8,9 +8,8 @@
 // Der Inhalt steht in modeTutorials.js, das Aussehen hier.
 
 import React from 'react';
-import { Target, Lightbulb, Sliders } from 'lucide-react';
 import Modal from '../ui/Modal';
-import { modeCover } from '../modesConfig';
+import { CrTarget, CrInfo, CrSettings } from '../ui/CrIcons';
 import { tutorialFor, TUTORIAL_I18N } from './modeTutorials';
 import scrollIcon from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
 
@@ -18,9 +17,9 @@ import scrollIcon from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_op
 function SectionTitle({ icon: Icon, children }) {
   return (
     <div className="flex items-center gap-2.5 mb-3">
-      <Icon size={14} className="text-violet-300 shrink-0" />
-      <h3 className="text-white/50 text-[11px] font-semibold uppercase tracking-wider">{children}</h3>
-      <div className="h-px flex-1 bg-white/[0.07]" />
+      <Icon size={22} className="shrink-0" />
+      <h3 className="cr-section-title text-base">{children}</h3>
+      <div className="h-px flex-1 bg-[rgba(2,8,20,0.55)] shadow-[0_1px_0_rgba(255,255,255,0.05)]" />
     </div>
   );
 }
@@ -40,24 +39,21 @@ export default function ModeTutorialModal({ mode, name, description, lang = 'de'
   return (
     <Modal
       title={name}
-      icon={<Icon size={16} className="text-violet-300 shrink-0" />}
+      icon={<Icon size={26} className="shrink-0" />}
       size="md"
       onClose={onClose}>
 
-      {/* Bild als Aufmacher. Fehlt es, entfällt es ersatzlos — der Text trägt allein. */}
-      <div className="relative aspect-[16/7] bg-[#0e0e1a] overflow-hidden">
-        <img src={modeCover(mode.id)} alt="" loading="lazy" decoding="async"
-          className="w-full h-full object-cover"
-          onError={e => { e.currentTarget.closest('div').style.display = 'none'; }} />
-        <div className="absolute inset-0"
-          style={{ background: 'linear-gradient(180deg, rgba(11,11,18,0) 45%, rgba(11,11,18,0.95) 100%)' }} />
+      {/* Aufmacher: großes Modus-Symbol auf dem Karo statt eines Screenshots — die Screenshots
+          veralteten mit jeder Design-Änderung der Modi. */}
+      <div className="cr-arcade-bg flex items-center justify-center py-6 border-b-2 border-[var(--cr-panel-edge)]">
+        <span className="cr-tile-icon w-24 h-24"><Icon size={68} /></span>
       </div>
 
       <div className="p-5 sm:p-6 space-y-6">
 
         {/* Ziel: der eine Satz, der alles Weitere einordnet */}
         <div>
-          <SectionTitle icon={Target}>{t.goal}</SectionTitle>
+          <SectionTitle icon={CrTarget}>{t.goal}</SectionTitle>
           <p className="text-white text-[15px] leading-relaxed">
             {guide?.goal || description}
           </p>
@@ -81,7 +77,7 @@ export default function ModeTutorialModal({ mode, name, description, lang = 'de'
 
         {guide?.tips?.length > 0 && (
           <div>
-            <SectionTitle icon={Lightbulb}>{t.tips}</SectionTitle>
+            <SectionTitle icon={CrInfo}>{t.tips}</SectionTitle>
             <ul className="space-y-2.5">
               {guide.tips.map((tip, i) => (
                 <li key={i} className="flex gap-3">
@@ -95,7 +91,7 @@ export default function ModeTutorialModal({ mode, name, description, lang = 'de'
 
         {guide?.host && (
           <div>
-            <SectionTitle icon={Sliders}>{t.host}</SectionTitle>
+            <SectionTitle icon={CrSettings}>{t.host}</SectionTitle>
             <p className="text-white/50 text-sm leading-relaxed">{guide.host}</p>
           </div>
         )}

@@ -2,7 +2,8 @@
 // Admins können hier einzelne Karten nachträglich austauschen.
 
 import React, { useState } from 'react';
-import { LayoutGrid, Rows, Repeat, LogOut, ArrowLeftRight, Monitor, Copy, Check } from 'lucide-react';
+import { LayoutGrid, Rows, LogOut, Copy } from 'lucide-react';
+import { CrCheck, CrReplay, CrSwap, CrTv } from '../ui/CrIcons';
 import CardTile from '../ui/CardTile';
 import ChunkyButton from '../ui/ChunkyButton';
 import PlayerAvatar from '../components/PlayerAvatar';
@@ -22,7 +23,7 @@ function DeckCardTile({ card, canSwap, onSwap, t }) {
       title={canSwap ? t.swapCardHint(card.name) : card.name}
       overlay={canSwap ? (
         <span className="absolute inset-0 hidden sm:flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
-          <ArrowLeftRight size={14} className="text-violet-300" />
+          <CrSwap size={21} className="text-violet-300" />
         </span>
       ) : null}
     />
@@ -141,7 +142,7 @@ export default function GameOverScreen({
                 <>
                   {/* "Erneut spielen" ist die Hauptaktion — es führt zurück in die Lobby.
                       Das Verlassen daneben ist bewusst zurückhaltend und fragt nach. */}
-                  <ChunkyButton variant="green" size="sm" icon={Repeat} onClick={onRestart}>
+                  <ChunkyButton variant="green" size="sm" icon={CrReplay} onClick={onRestart}>
                     {t.playAgain}
                   </ChunkyButton>
                   <ChunkyButton variant="red" size="sm" icon={LogOut} onClick={confirmLeave}>
@@ -175,13 +176,13 @@ export default function GameOverScreen({
         {overlayUrl && (
           <div className="cr-arcade-panel px-4 sm:px-5 py-4 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <Monitor size={22} className="text-white/60 shrink-0" />
+              <CrTv size={32} className="text-white/60 shrink-0" />
               <div className="min-w-0">
                 <h3 className="font-arcade text-sm font-bold text-white">{t.deckOverlayTitle}</h3>
                 <p className="text-white/40 text-xs">{t.deckOverlayHint}</p>
               </div>
             </div>
-            <ChunkyButton variant="blue" size="sm" icon={overlayCopied ? Check : Copy} onClick={copyOverlayUrl}>
+            <ChunkyButton variant="blue" size="sm" icon={overlayCopied ? CrCheck : Copy} onClick={copyOverlayUrl}>
               {overlayCopied ? t.deckOverlayCopied : t.deckOverlayBtn}
             </ChunkyButton>
           </div>

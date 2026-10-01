@@ -6,7 +6,7 @@
 //   • höchstens 2 Champions pro Deck
 
 import React, { useState } from 'react';
-import { Shield, Search } from 'lucide-react';
+import { CrSearch, CrShield } from '../ui/CrIcons';
 import Modal from '../ui/Modal';
 import CardGrid from '../modals/CardGrid';
 import CardTile from '../ui/CardTile';
@@ -22,7 +22,7 @@ export default function AdminCardSwapModal({ player, deckIndex, onPick, onClose,
   return (
     <Modal
       title={t.swapCardTitle(player.name)}
-      icon={<Shield size={15} className="text-violet-400 shrink-0" />}
+      icon={<CrShield size={22} className="text-violet-400 shrink-0" />}
       onClose={onClose}
       bodyScroll={false}>
 
@@ -34,7 +34,7 @@ export default function AdminCardSwapModal({ player, deckIndex, onPick, onClose,
           </div>
         )}
         <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 flex-1 min-w-[180px] focus-within:border-violet-500 transition-colors">
-          <Search size={13} className="text-white/30 shrink-0" />
+          <CrSearch size={19} className="text-white/30 shrink-0" />
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t.searchCardPlaceholder} autoFocus
             className="bg-transparent text-white text-sm placeholder-gray-600 outline-none w-full" />
         </div>

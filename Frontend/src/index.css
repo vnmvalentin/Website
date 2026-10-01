@@ -5,6 +5,9 @@
   --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
   /* Arcade-Schrift der Clash-Royale-Minigames — siehe Kommentar in index.html */
   --font-arcade: "Fredoka", "Nunito", ui-rounded, system-ui, sans-serif;
+  /* Titel-/Knopfschrift der CR-Minigames — Lilita One kommt der Supercell-Schrift am
+     nächsten (breit, schwer, runde Ecken). Geladen von ClashRoyale/ui/CrShell.jsx. */
+  --font-cr: "Lilita One", "Fredoka", ui-rounded, system-ui, sans-serif;
 }
 
 /* Tailwind v4 setzt Buttons bewusst auf `cursor: default` (in v3 war das noch der
@@ -235,7 +238,8 @@ button:not(:disabled),
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* contain statt cover: Karten sollen nie beschnitten werden (Format 285×420) */
+  object-fit: contain;
 }
 .cr-card--selectable:hover {
   transform: scale(1.05) rotate(2deg);
@@ -248,10 +252,6 @@ button:not(:disabled),
 }
 .cr-card--disabled > img { filter: grayscale(1); opacity: 0.3; }
 
-@media (prefers-reduced-motion: reduce) {
-  .cr-card { transition: none; }
-  .cr-card--selectable:hover { transform: none; }
-}
 
 /* ── Slider ────────────────────────────────────────────────────────────
    Nativer <input type="range">: Touch-, Tastatur- und Screenreader-Bedienung
@@ -280,17 +280,18 @@ button:not(:disabled),
 .cr-slider::-webkit-slider-runnable-track {
   height: 12px;
   border-radius: 999px;
-  border: 2px solid var(--cr-arcade-ink);
+  border: 2px solid var(--cr-panel-edge);
   background:
     linear-gradient(to right,
       var(--cr-slider-accent, var(--cr-accent)) 0 var(--cr-slider-fill, 0%),
-      #1a1424 var(--cr-slider-fill, 0%) 100%);
+      #081426 var(--cr-slider-fill, 0%) 100%);
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 .cr-slider::-moz-range-track {
   height: 12px;
   border-radius: 999px;
-  border: 2px solid var(--cr-arcade-ink);
-  background: #1a1424;
+  border: 2px solid var(--cr-panel-edge);
+  background: #081426;
 }
 .cr-slider::-moz-range-progress {
   height: 12px;
@@ -304,8 +305,8 @@ button:not(:disabled),
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #fff;
-  border: 3px solid var(--cr-arcade-ink);
+  background: linear-gradient(to bottom, #ffffff, #cfdcee);
+  border: 3px solid var(--cr-panel-edge);
   /* Thumb mittig zur 12px-Spur inkl. deren 2px-Rand: (26 - 16) / 2 = 5px nach oben */
   margin-top: -5px;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
@@ -315,8 +316,8 @@ button:not(:disabled),
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #fff;
-  border: 3px solid var(--cr-arcade-ink);
+  background: linear-gradient(to bottom, #ffffff, #cfdcee);
+  border: 3px solid var(--cr-panel-edge);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
 }
 .cr-slider:active::-webkit-slider-thumb { transform: scale(0.92); }
@@ -367,12 +368,6 @@ summary::-webkit-details-marker { display: none; }
   .cr-modal-panel { animation: crModalIn 0.18s ease both; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cr-drawer-backdrop,
-  .cr-drawer-panel,
-  .cr-modal-backdrop,
-  .cr-modal-panel { animation: none; }
-}
 
 /* ===================================================================
    CLASH ROYALE — ARCADE-SKIN (Hub + Lobby, Video-Spiel-Menü-Look)
@@ -408,6 +403,7 @@ summary::-webkit-details-marker { display: none; }
   --cr-arcade-red-dark: #c92325;
 
   --cr-arcade-ink: #2b1c10; /* dunkles Braun statt reinem Schwarz für Kartenrahmen */
+  --cr-panel-edge: #071225; /* Kante der blauen Flächen (Panels, Kacheln, Leisten) */
 }
 
 /* ── Buttons ───────────────────────────────────────────────────────────
@@ -421,8 +417,11 @@ summary::-webkit-details-marker { display: none; }
   align-items: center;
   justify-content: center;
   gap: 0.55em;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  /* Titelschrift statt Fredoka — schlägt die font-arcade-Klasse, weil Tailwind-Utilities
+     in einem Layer liegen und diese Regel nicht. Lilita One hat nur ein Gewicht. */
+  font-family: var(--font-cr);
+  font-weight: 400;
+  letter-spacing: 0.02em;
   color: #fff;
   /* Rahmen in der dunklen Variante der eigenen Knopffarbe (--cr-arcade-face-dark, dieselbe
      Farbe wie der Schatten darunter) statt eines für alle Farben gleichen Braun-Tons — vorher
@@ -432,18 +431,39 @@ summary::-webkit-details-marker { display: none; }
   border-radius: 14px;
   padding: 0.85em 1.5em;
   line-height: 1.1;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
   background: linear-gradient(to bottom, var(--cr-arcade-face-light), var(--cr-arcade-face));
+  /* Schattierung wie die Knöpfe im Spiel: heller Lichtrand oben innen, dunklere
+     Unterkante innen — dazu der harte 3D-Sockel und ein weicher Bodenschatten. */
   box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.14),
     0 var(--cr-arcade-shadow-depth) 0 var(--cr-arcade-face-dark),
-    0 calc(var(--cr-arcade-shadow-depth) + 2px) 10px rgba(0, 0, 0, 0.35);
+    0 calc(var(--cr-arcade-shadow-depth) + 3px) 12px rgba(2, 8, 20, 0.45);
   transform: translateY(0);
   transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+  isolation: isolate;
 }
-.cr-arcade-btn:hover:not(:disabled) { filter: brightness(1.05); }
+/* Glanzfläche auf der oberen Hälfte — die typische „Plastik"-Kuppe der CR-Knöpfe.
+   Liegt unter dem Inhalt (z-index -1 dank isolation), damit Text/Symbol nicht blasser werden. */
+.cr-arcade-btn::before {
+  content: "";
+  position: absolute;
+  inset: 2px 3px 48% 3px;
+  border-radius: inherit;
+  border-bottom-left-radius: 40% 30%;
+  border-bottom-right-radius: 40% 30%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.04));
+  pointer-events: none;
+  z-index: -1;
+}
+.cr-arcade-btn:hover:not(:disabled) { filter: brightness(1.06); }
 .cr-arcade-btn:active:not(:disabled) {
   transform: translateY(var(--cr-arcade-shadow-depth));
-  box-shadow: 0 0 0 var(--cr-arcade-face-dark);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+    0 0 0 var(--cr-arcade-face-dark);
   filter: brightness(0.97);
 }
 .cr-arcade-btn:disabled {
@@ -484,12 +504,221 @@ summary::-webkit-details-marker { display: none; }
    unruhigen Diamant-Hintergrund wirkte die alte halbtransparente Glas-Optik verwaschen.
    Kein rgba() mehr, ein fester dunkelblauer Verlauf plus dicker Rahmen wie bei den
    Draft-Karten. */
+/* Modernisiert (Sept. 2026): dunkles Marineblau statt Braun als Kante — auf dem blauen
+   Karo wirkte der braune Tintenrand schmutzig. Dazu eine feine helle Innenkante oben
+   (Lichtkante), ein ganz leichter Verlauf in der Fläche und ein zweistufiger Schatten
+   (harter Sockel + weicher Bodenschatten): die Fläche liegt sichtbar ÜBER dem Karo. */
 .cr-arcade-panel {
   position: relative;
-  background: linear-gradient(to bottom, #17293f, #0c1725);
-  border: 3px solid var(--cr-arcade-ink);
-  border-radius: 18px;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.35), 0 12px 26px rgba(0, 0, 0, 0.4);
+  background:
+    linear-gradient(to bottom, rgba(120, 175, 240, 0.07), rgba(120, 175, 240, 0) 120px),
+    linear-gradient(to bottom, #15294a, #0d1b31);
+  border: 3px solid var(--cr-panel-edge);
+  border-radius: 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(125, 175, 235, 0.08),
+    0 6px 0 rgba(2, 8, 20, 0.55),
+    0 20px 44px rgba(2, 8, 20, 0.45);
+}
+
+/* ── Abschnitte innerhalb EINER Fläche ────────────────────────────────────
+   Statt vieler einzelner Kästen (Lobby, Einstellungsfenster): eine gemeinsame Fläche,
+   darin Abschnitte, getrennt durch eine Doppel-Linie (dunkel + hell = eingeprägte Fuge).
+   Die Überschrift trägt ein CR-Symbol und die Titelschrift. */
+.cr-section { padding: 1.25rem; }
+.cr-section + .cr-section,
+.cr-section--rule {
+  border-top: 1px solid rgba(2, 8, 20, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.cr-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-cr);
+  font-weight: 400;
+  font-size: 1.05rem;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(2, 8, 20, 0.6);
+}
+
+/* ── Kachel-Knopf ──────────────────────────────────────────────────────────
+   Großer anklickbarer Block (Modus wählen, Spieleinstellungen, Kartenpool): hebt sich
+   wie ein Knopf von der Fläche ab (heller, eigener Sockel), ohne so laut zu sein wie die
+   ChunkyButtons. Beim Drücken rutscht er wie diese um die Sockeltiefe nach unten. */
+.cr-tile-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  text-align: left;
+  border-radius: 16px;
+  border: 2px solid var(--cr-panel-edge);
+  background: linear-gradient(to bottom, #2a5286, #1d3d68);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+    0 4px 0 #0a1a31,
+    0 8px 16px rgba(2, 8, 20, 0.35);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.cr-tile-btn:not(.cr-tile-btn--static):hover:not(:disabled) {
+  background: linear-gradient(to bottom, #3160a0, #22477a);
+  border-color: var(--cr-arcade-gold);
+}
+.cr-tile-btn:not(.cr-tile-btn--static):active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 #0a1a31;
+}
+.cr-tile-btn--static { background: linear-gradient(to bottom, #1f3f6a, #173257); }
+/* Mehrfachauswahl (Turnier-Minigames): gewählt = Goldkante, abgewählt tritt zurück */
+.cr-tile-btn[aria-pressed="true"] { border-color: var(--cr-arcade-gold); }
+.cr-tile-btn[aria-pressed="false"] { background: linear-gradient(to bottom, #1a3459, #132a4a); }
+.cr-tile-btn[aria-pressed="false"] > * { opacity: 0.5; }
+/* Quadratischer Symbol-Sockel links in der Kachel */
+.cr-tile-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 35%, #3b6fb0, #16325a 75%);
+  border: 2px solid var(--cr-panel-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -3px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Segment-Auswahl und Presets auf EINER Spur ───────────────────────────
+   Vorher standen die Optionen als lose Einzelpillen nebeneinander. Jetzt liegen sie in
+   einer gemeinsamen, eingelassenen Spur; nur das gewählte Segment hebt sich heraus. */
+.cr-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: #081426;
+  border: 1px solid rgba(2, 8, 20, 0.8);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.cr-seg > button {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 36px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.cr-seg > button:hover:not(:disabled):not([aria-pressed="true"]) { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.cr-seg > button:disabled { color: rgba(255, 255, 255, 0.2); cursor: not-allowed; }
+.cr-seg > button[aria-pressed="true"] {
+  color: #fff;
+  background: linear-gradient(to bottom, var(--cr-seg-light, #4d8dff), var(--cr-seg, #2f6fe0));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Eingabefeld im Arcade-Look — eingelassen wie die Segment-Spur */
+.cr-input {
+  width: 100%;
+  border-radius: 12px;
+  background: #081426;
+  border: 2px solid rgba(2, 8, 20, 0.85);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #fff;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.cr-input::placeholder { color: rgba(255, 255, 255, 0.28); }
+.cr-input:focus { border-color: var(--cr-arcade-gold); }
+
+/* Modus-Kachel (Hub „Minigames" und Modus-Wähler der Lobby) — hebt sich beim Überfahren
+   an, statt sich zu drehen und zu wachsen */
+.cr-mode-card {
+  background: linear-gradient(to bottom, #1c3860, #11243f);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 0 rgba(2, 8, 20, 0.55), 0 10px 20px rgba(2, 8, 20, 0.3);
+}
+.cr-mode-card:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 8px 0 rgba(2, 8, 20, 0.5), 0 18px 30px rgba(2, 8, 20, 0.4);
+}
+
+/* Avatar-Bühne: freigestellte Figuren auf beleuchtetem CR-Blau statt auf Schwarz */
+.cr-avatar,
+.cr-avatar-pick {
+  background: radial-gradient(circle at 50% 30%, #4f8fd6 0%, #25589a 45%, #102a4f 100%);
+}
+.cr-avatar {
+  border: 2px solid var(--cr-panel-edge);
+  box-shadow: inset 0 -3px 6px rgba(2, 8, 20, 0.35), 0 2px 0 rgba(2, 8, 20, 0.45);
+}
+
+/* Hauptmenü auf niedrigen Desktop-Fenstern (1080p abzüglich Browserleiste ≈ 945 px):
+   Karussell etwas kleiner, Menüknöpfe flacher — sonst schob das Menü die letzten Knöpfe
+   unter den Rand. Große und hohe Bildschirme behalten die volle Größe. */
+@media (min-width: 1024px) and (max-height: 1000px) {
+  .cr-hub-menu .cr-arcade-btn--lg { padding-top: 0.78em; padding-bottom: 0.78em; }
+}
+
+/* Kopfband der Dialoge (ui/Modal.jsx, ui/Drawer.jsx) */
+.cr-modal-head {
+  background: linear-gradient(to bottom, #25497c, #1a3860);
+  border-bottom: 2px solid var(--cr-panel-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Listenzeile (Spielerliste, Verlauf) — leicht eingelassen in die Fläche */
+.cr-row {
+  border-radius: 12px;
+  background: rgba(6, 16, 32, 0.5);
+  border: 1px solid rgba(2, 8, 20, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.cr-row--me { border-color: rgba(255, 201, 60, 0.55); background: rgba(255, 201, 60, 0.06); }
+/* Spieler-Banner (Lobby): Spielerfarbe als Streifen links + auslaufender Schimmer.
+   Die Farbe kommt als --cr-banner vom Element (PlayerList.jsx). */
+.cr-banner { position: relative; }
+.cr-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--cr-banner, transparent);
+  box-shadow: 0 0 0 0 transparent;
+}
+.cr-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cr-banner, transparent) 22%, transparent), transparent 55%);
+}
+.cr-banner > * { position: relative; z-index: 1; }
+.cr-row--admin { border-color: rgba(167, 139, 250, 0.45); background: rgba(139, 92, 246, 0.07); }
+
+/* Kleine Leisten-Chips (Website, Profil, Sprache) — kompakte Variante der Kachel */
+.cr-chip {
+  border: 2px solid var(--cr-panel-edge);
+  background: linear-gradient(to bottom, #22467a, #173257);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #0a1a31, 0 6px 12px rgba(2, 8, 20, 0.3);
+}
+.cr-chip:hover { background: linear-gradient(to bottom, #2a5591, #1c3d69); }
+
+/* Kleines Etikett über einem Abschnitt oder Wert */
+.cr-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(190, 215, 255, 0.55);
 }
 
 /* ── Kleine Icon-Buttons im Arcade-Look ───────────────────────────────────
@@ -504,10 +733,10 @@ summary::-webkit-details-marker { display: none; }
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  border: 2px solid var(--cr-arcade-ink);
-  background: linear-gradient(to bottom, #24405f, #17293f);
-  color: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  border: 2px solid var(--cr-panel-edge);
+  background: linear-gradient(to bottom, #2a5286, #1b3a63);
+  color: rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #0a1a31;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 .cr-arcade-icon-btn:hover {
@@ -540,8 +769,9 @@ summary::-webkit-details-marker { display: none; }
    der volle Panel-Schatten wäre da zu viel Gewicht. Nur Rand + Fläche, kein Bevel. */
 .cr-game-card {
   border-radius: 14px;
-  border: 2px solid var(--cr-arcade-ink);
-  background: linear-gradient(to bottom, #1c3049, #111d2c);
+  border: 2px solid var(--cr-panel-edge);
+  background: linear-gradient(to bottom, #1d3a62, #11243f);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 3px 0 rgba(2, 8, 20, 0.5);
 }
 .cr-game-card--me { border-color: var(--cr-arcade-gold); }
 
@@ -552,17 +782,19 @@ summary::-webkit-details-marker { display: none; }
    text-shadows hat dieses Problem nicht und funktioniert überall gleich, auch in
    Browsern ohne -webkit-text-stroke. */
 .cr-arcade-title {
-  font-weight: 700;
+  font-family: var(--font-cr);
+  font-weight: 400;
+  letter-spacing: 0.01em;
   color: #fff;
   text-shadow:
-    -2px -2px 0 var(--cr-arcade-ink),
-     2px -2px 0 var(--cr-arcade-ink),
-    -2px  2px 0 var(--cr-arcade-ink),
-     2px  2px 0 var(--cr-arcade-ink),
-    -2px  0    0 var(--cr-arcade-ink),
-     2px  0    0 var(--cr-arcade-ink),
-     0   -2px 0 var(--cr-arcade-ink),
-     0    2px 0 var(--cr-arcade-ink),
+    -2px -2px 0 var(--cr-panel-edge),
+     2px -2px 0 var(--cr-panel-edge),
+    -2px  2px 0 var(--cr-panel-edge),
+     2px  2px 0 var(--cr-panel-edge),
+    -2px  0    0 var(--cr-panel-edge),
+     2px  0    0 var(--cr-panel-edge),
+     0   -2px 0 var(--cr-panel-edge),
+     0    2px 0 var(--cr-panel-edge),
      4px  4px 0 rgba(0, 0, 0, 0.45);
 }
 
@@ -593,16 +825,325 @@ summary::-webkit-details-marker { display: none; }
    dort UND hier neu base64-kodieren (Buffer.from(svgOhneKommentar).toString('base64')). */
 .cr-arcade-bg {
   background-color: #154c82;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNDAiIGhlaWdodD0iMTQwIiB2aWV3Qm94PSIwIDAgMTQwIDE0MCI+PHBvbHlnb24gcG9pbnRzPSIwLDAgNzAsMCAwLDcwIiBmaWxsPSIjMTU0YzgyIi8+PHBvbHlnb24gcG9pbnRzPSIxNDAsMCAxNDAsNzAgNzAsMCIgZmlsbD0iIzE1NGM4MiIvPjxwb2x5Z29uIHBvaW50cz0iMTQwLDE0MCA3MCwxNDAgMTQwLDcwIiBmaWxsPSIjMTU0YzgyIi8+PHBvbHlnb24gcG9pbnRzPSIwLDE0MCAwLDcwIDcwLDE0MCIgZmlsbD0iIzE1NGM4MiIvPjxwb2x5Z29uIHBvaW50cz0iNzAsMCAxNDAsNzAgNzAsMTQwIDAsNzAiIGZpbGw9IiMxYzViOTYiIHN0cm9rZT0icmdiYSgwLDAsMCwwLjE2KSIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+");
-  background-repeat: repeat;
-  background-size: 140px 140px;
+  /* FÜNFTER Anlauf (Schattierung, Sept. 2026): die Kachel selbst trägt jetzt einen feinen
+     Prägerand (siehe diamond-tile.svg), darüber liegen drei großflächige Lichtschichten —
+     heller Schein von oben, Abdunklung nach unten und zu den Seiten. Erst dadurch wirkt
+     das Karo wie der beleuchtete Menü-Hintergrund im Spiel statt wie eine flache Tapete.
+     Die Schichten sitzen auf dem Element selbst (nicht local), bleiben beim Scrollen also
+     stehen, während der Inhalt darüber läuft. */
+  background-image:
+    radial-gradient(120% 65% at 50% -8%, rgba(140, 205, 255, 0.30) 0%, rgba(140, 205, 255, 0) 62%),
+    radial-gradient(150% 85% at 50% 118%, rgba(3, 12, 30, 0.82) 0%, rgba(3, 12, 30, 0) 64%),
+    linear-gradient(90deg, rgba(3, 12, 30, 0.5) 0%, rgba(3, 12, 30, 0) 16%, rgba(3, 12, 30, 0) 84%, rgba(3, 12, 30, 0.5) 100%),
+    url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNDAiIGhlaWdodD0iMTQwIiB2aWV3Qm94PSIwIDAgMTQwIDE0MCI+PHBvbHlnb24gcG9pbnRzPSIwLDAgNzAsMCAwLDcwIiBmaWxsPSIjMTU0YzgyIi8+PHBvbHlnb24gcG9pbnRzPSIxNDAsMCAxNDAsNzAgNzAsMCIgZmlsbD0iIzE1NGM4MiIvPjxwb2x5Z29uIHBvaW50cz0iMTQwLDE0MCA3MCwxNDAgMTQwLDcwIiBmaWxsPSIjMTU0YzgyIi8+PHBvbHlnb24gcG9pbnRzPSIwLDE0MCAwLDcwIDcwLDE0MCIgZmlsbD0iIzE1NGM4MiIvPjxwb2x5Z29uIHBvaW50cz0iNzAsMCAxNDAsNzAgNzAsMTQwIDAsNzAiIGZpbGw9IiMxYzViOTYiIHN0cm9rZT0icmdiYSgwLDAsMCwwLjIpIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cG9seWxpbmUgcG9pbnRzPSIzLjUsNzAgNzAsMy41IDEzNi41LDcwIiBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4xMCkiIHN0cm9rZS13aWR0aD0iMyIvPjxwb2x5bGluZSBwb2ludHM9IjEzNi41LDcwIDcwLDEzNi41IDMuNSw3MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDAsMCwwLDAuMTYpIiBzdHJva2Utd2lkdGg9IjMiLz48bGluZSB4MT0iMCIgeTE9IjY2LjUiIHgyPSI2Ni41IiB5Mj0iMCIgc3Ryb2tlPSJyZ2JhKDAsMCwwLDAuMTYpIiBzdHJva2Utd2lkdGg9IjMiLz48bGluZSB4MT0iNzMuNSIgeTE9IjAiIHgyPSIxNDAiIHkyPSI2Ni41IiBzdHJva2U9InJnYmEoMCwwLDAsMC4xNikiIHN0cm9rZS13aWR0aD0iMyIvPjxsaW5lIHgxPSIxNDAiIHkxPSI3My41IiB4Mj0iNzMuNSIgeTI9IjE0MCIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDcpIiBzdHJva2Utd2lkdGg9IjMiLz48bGluZSB4MT0iMCIgeTE9IjczLjUiIHgyPSI2Ni41IiB5Mj0iMTQwIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4wNykiIHN0cm9rZS13aWR0aD0iMyIvPjwvc3ZnPg==");
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 140px 140px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cr-arcade-btn,
-  .cr-arcade-card { transition: none; }
-  .cr-arcade-card--hoverable:hover { transform: none; }
+/* Persönlicher Hintergrund (ClashRoyale/ui/crPrefs.js): ersetzt das Karo auf allen
+   .cr-arcade-bg-Flächen innerhalb der Hülle. Dieselbe Lichtschicht von oben wie beim Karo,
+   darüber eine Abdunklung, damit Text und Karten auf den bunten Illustrationen lesbar
+   bleiben — die Bilder selbst sind schon leicht weichgezeichnet. Dialoge hängen per Portal
+   an <body> und behalten deshalb ihre eigene Fläche. */
+.cr-root[data-crbg="custom"] .cr-arcade-bg {
+  background-color: #0b1a30;
+  background-image:
+    radial-gradient(120% 65% at 50% -8%, rgba(140, 205, 255, 0.16) 0%, rgba(140, 205, 255, 0) 62%),
+    linear-gradient(to bottom, rgba(5, 12, 28, 0.42), rgba(5, 12, 28, 0.62)),
+    var(--cr-bg-image);
+  background-repeat: no-repeat;
+  background-size: 100% 100%, 100% 100%, cover;
+  background-position: center, center, center;
 }
+
+/* ── Animationen ─────────────────────────────────────────────────────────
+   Ansichtswechsel (Hub-Unteransichten, Lobby, Spiel) steigen kurz auf; die Hub-Ansichten
+   sind per `hidden` versteckt statt ausgehängt — eine CSS-Animation startet trotzdem neu,
+   sobald ein Element von display:none wieder sichtbar wird. */
+@keyframes crRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+/* Füllung nur `backwards` und Endwert `none`: nach der Animation bleibt KEIN transform am
+   Element hängen — sonst würden position:fixed-Overlays in den Spielmodi an diesen Container
+   statt ans Fenster gebunden. */
+.cr-anim-rise { animation: crRise 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+/* Gestaffelt: Kinder erscheinen nacheinander (Menüknöpfe, Lobby-Abschnitte) */
+.cr-stagger > * { animation: crRise 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.cr-stagger > *:nth-child(2) { animation-delay: 0.04s; }
+.cr-stagger > *:nth-child(3) { animation-delay: 0.08s; }
+.cr-stagger > *:nth-child(4) { animation-delay: 0.12s; }
+.cr-stagger > *:nth-child(5) { animation-delay: 0.16s; }
+.cr-stagger > *:nth-child(n+6) { animation-delay: 0.2s; }
+
+/* Karte landet im Deck: ploppt aus der Mitte auf */
+@keyframes crCardPop {
+  0% { opacity: 0; transform: scale(0.55) rotate(-6deg); }
+  70% { opacity: 1; transform: scale(1.08) rotate(1deg); }
+  100% { opacity: 1; transform: none; }
+}
+.cr-card-pop { animation: crCardPop 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards; }
+
+/* Wählbare Karte hebt sich unter dem Zeiger an */
+.cr-card-hover {
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+}
+.cr-card-hover:hover {
+  transform: translateY(-3px) scale(1.07);
+  box-shadow: 0 10px 18px rgba(2, 8, 20, 0.5);
+  filter: brightness(1.08);
+  z-index: 5;
+}
+
+/* ── Spielrahmen im CR-Look (modes/GameChrome.jsx) ─────────────────────── */
+.cr-game-header {
+  background: linear-gradient(to bottom, #1f3d68, #142a4a);
+  border-bottom: 3px solid var(--cr-panel-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 3px 0 rgba(2, 8, 20, 0.35);
+}
+.cr-game-footer {
+  background: linear-gradient(to bottom, #1a355c, #10223c);
+  border-top: 3px solid var(--cr-panel-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 -3px 0 rgba(2, 8, 20, 0.3);
+}
+/* Zeit-Abzeichen: dunkle Plakette mit Stoppuhr, wie die Uhr oben im Kampf */
+.cr-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem 0.25rem 0.4rem;
+  border-radius: 12px;
+  background: #081426;
+  border: 2px solid var(--cr-panel-edge);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-family: var(--font-cr);
+  font-size: 1.35rem;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(2, 8, 20, 0.7);
+}
+.cr-timer--urgent { color: #ff8384; border-color: #c92325; animation: crTimerPulse 1s ease-in-out infinite; }
+@keyframes crTimerPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+/* Am Zug: goldener, pochender Rand an der Spielerkachel + Etikett */
+.cr-game-card--turn {
+  border-color: var(--cr-arcade-gold) !important;
+  animation: crTurnGlow 1.4s ease-in-out infinite;
+}
+@keyframes crTurnGlow {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 0 0 rgba(255, 201, 60, 0.0); }
+  50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 0 4px rgba(255, 201, 60, 0.35); }
+}
+.cr-turn-tag {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  z-index: 2;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--cr-arcade-gold);
+  color: #4a2e00;
+  font-family: var(--font-cr);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 0 #b07a08;
+}
+/* Zug-Banner in der Kopfzeile */
+.cr-turn-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.3rem 0.8rem 0.3rem 0.35rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cr-banner, #8b5cf6) 28%, #0b1a30), #0b1a30);
+  border: 2px solid var(--cr-panel-edge);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.cr-turn-banner--mine {
+  padding: 0.35rem 1rem 0.35rem 0.5rem;
+  background: linear-gradient(to bottom, var(--cr-arcade-gold-light), var(--cr-arcade-gold));
+  border-color: var(--cr-arcade-gold-dark);
+  color: #4a2e00;
+  font-family: var(--font-cr);
+  font-size: 1.05rem;
+  font-weight: 400;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 3px 0 #b07a08;
+  animation: crTurnMine 1.2s ease-in-out infinite;
+}
+@keyframes crTurnMine { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+/* ── Elixier-Bausteine (Elixir Auction) ─────────────────────────────────── */
+/* Gebots-Regler im Elixierbalken-Look: violette, glänzende Füllung mit Segment-Strichen
+   (wie der Elixierbalken im Kampf), Griff ist der Elixiertropfen selbst. */
+.cr-elixir-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 48px;
+  background: transparent;
+  cursor: pointer;
+}
+.cr-elixir-slider:focus { outline: none; }
+.cr-elixir-slider::-webkit-slider-runnable-track {
+  height: 22px;
+  border-radius: 12px;
+  border: 3px solid var(--cr-panel-edge);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(2, 8, 20, 0.45) calc(10% - 2px) 10%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 55%) 0 0 / var(--cr-slider-fill, 0%) 100% no-repeat,
+    linear-gradient(to right, #b025d9, #e45cf5) 0 0 / var(--cr-slider-fill, 0%) 100% no-repeat,
+    #081426;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.cr-elixir-slider::-moz-range-track {
+  height: 22px;
+  border-radius: 12px;
+  border: 3px solid var(--cr-panel-edge);
+  background: #081426;
+}
+.cr-elixir-slider::-moz-range-progress {
+  height: 22px;
+  border-radius: 12px;
+  background: linear-gradient(to right, #b025d9, #e45cf5);
+}
+.cr-elixir-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 42px;
+  margin-top: -13px;
+  border: none;
+  background: url("./assets/clashRoyale/ui/elixir_1.png") center / contain no-repeat;
+  filter: drop-shadow(0 3px 2px rgba(2, 8, 20, 0.6));
+  transition: transform 0.1s ease;
+}
+.cr-elixir-slider::-moz-range-thumb {
+  width: 36px;
+  height: 42px;
+  border: none;
+  background: url("./assets/clashRoyale/ui/elixir_1.png") center / contain no-repeat;
+}
+.cr-elixir-slider:active::-webkit-slider-thumb { transform: scale(1.12); }
+.cr-elixir-slider:focus-visible::-webkit-slider-thumb { filter: drop-shadow(0 0 0 3px rgba(255, 201, 60, 0.8)); }
+
+/* Elixier-Menge als Plakette (Gebote in der Auflösung, aktuelles Gebot) */
+.cr-elixir-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.5rem 0.1rem 0.25rem;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, #7c1aa0, #53106e);
+  border: 2px solid #2e0842;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  font-family: var(--font-cr);
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* "DU"-Band über einer Karte, die man selbst gewonnen hat */
+.cr-you-ribbon {
+  position: absolute;
+  top: 8px;
+  left: -30px;
+  z-index: 3;
+  width: 110px;
+  transform: rotate(-35deg);
+  text-align: center;
+  padding: 2px 0;
+  background: linear-gradient(to bottom, var(--cr-arcade-gold-light), var(--cr-arcade-gold));
+  color: #4a2e00;
+  font-family: var(--font-cr);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  box-shadow: 0 2px 0 #b07a08, 0 4px 8px rgba(2, 8, 20, 0.4);
+}
+
+/* Auflösung: Karten drehen sich nacheinander um, Gewinner-Kopf fällt herein, Gebote folgen */
+@keyframes crFlipIn {
+  0% { opacity: 0; transform: perspective(700px) rotateY(90deg) scale(0.9); }
+  60% { opacity: 1; transform: perspective(700px) rotateY(-8deg) scale(1.03); }
+  100% { opacity: 1; transform: none; }
+}
+.cr-flip-in { animation: crFlipIn 0.55s cubic-bezier(0.2, 0.8, 0.3, 1.1) backwards; }
+@keyframes crDropIn {
+  0% { opacity: 0; transform: translateY(-14px); }
+  100% { opacity: 1; transform: none; }
+}
+.cr-drop-in { animation: crDropIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+@keyframes crWinPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.cr-win-pop { animation: crWinPop 0.45s ease backwards; }
+
+/* ── Emotes (ui/EmoteLayer.jsx) ─────────────────────────────────────────
+   Die Emotes sind animierte WebPs (ui/emotes.js) — von hier kommt nur das Erscheinen:
+   von rechts hereinploppen und nach ~2,8 s nach oben wegschweben. Gesamtdauer passt zu EMOTE_SHOW_MS (3,2 s). */
+@keyframes crEmoteLife {
+  0% { opacity: 0; transform: translateX(40px) scale(0.3); }
+  10% { opacity: 1; transform: translateX(-4px) scale(1.12); }
+  16% { transform: translateX(0) scale(0.96); }
+  22% { transform: scale(1); }
+  85% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-36px) scale(0.9); }
+}
+.cr-emote-pop { animation: crEmoteLife 3.2s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes crPickerIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+.cr-emote-picker { animation: crPickerIn 0.16s ease-out backwards; transform-origin: 100% 100%; }
+
+/* Spielstart-Einblendung (ClashRoyalePage → BattleSplash) */
+@keyframes crSplashIn {
+  0% { opacity: 0; transform: scale(1.6) rotate(-4deg); }
+  18% { opacity: 1; transform: scale(0.95) rotate(0); }
+  28% { transform: scale(1.02); }
+  75% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+@keyframes crSplashBg {
+  0%, 100% { opacity: 0; }
+  15%, 75% { opacity: 1; }
+}
+.cr-splash-bg { animation: crSplashBg 1.4s ease both; }
+.cr-splash { animation: crSplashIn 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+
+/* Animationen AUS — persönliche Einstellung im CR-Einstellungsfenster (ui/crPrefs.js,
+   Standard: an), bewusst NICHT an die System-Einstellung "Bewegung reduzieren" gekoppelt.
+   CrShell setzt data-cr-anim auf <html>, damit auch die per Portal an <body> hängenden
+   Dialoge erfasst sind. Der Knopfdruck-Effekt der 3D-Knöpfe bleibt als Rückmeldung. */
+html[data-cr-anim="off"] .cr-anim-rise,
+html[data-cr-anim="off"] .cr-stagger > *,
+html[data-cr-anim="off"] .cr-card-pop,
+html[data-cr-anim="off"] .cr-drawer-backdrop,
+html[data-cr-anim="off"] .cr-drawer-panel,
+html[data-cr-anim="off"] .cr-modal-backdrop,
+html[data-cr-anim="off"] .cr-modal-panel,
+html[data-cr-anim="off"] .cr-flip-in,
+html[data-cr-anim="off"] .cr-drop-in,
+html[data-cr-anim="off"] .cr-win-pop,
+html[data-cr-anim="off"] .cr-timer--urgent,
+html[data-cr-anim="off"] .cr-game-card--turn,
+html[data-cr-anim="off"] .cr-turn-banner--mine,
+html[data-cr-anim="off"] .cr-emote-picker { animation: none; }
+/* Emotes ohne Animation: trotzdem nach Ablauf verschwinden (Element wird ohnehin entfernt) — nur ohne Bewegung */
+html[data-cr-anim="off"] .cr-emote-pop { animation: none; }
+html[data-cr-anim="off"] .cr-card,
+html[data-cr-anim="off"] .cr-card-hover,
+html[data-cr-anim="off"] .cr-mode-card,
+html[data-cr-anim="off"] .cr-arcade-card { transition: none; }
+html[data-cr-anim="off"] .cr-card--selectable:hover,
+html[data-cr-anim="off"] .cr-card-hover:hover,
+html[data-cr-anim="off"] .cr-mode-card:hover,
+html[data-cr-anim="off"] .cr-arcade-card--hoverable:hover { transform: none; }
 
 /* ===================================================================
    SCROLLBARS (wird seitenweit als .custom-scrollbar benutzt)

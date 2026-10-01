@@ -35,3 +35,8 @@ Backend/data/stream_tool.key
 Backend/data/seedrunners.db
 Backend/data/seedrunners.db-shm
 Backend/data/seedrunners.db-wal
+
+# Turniere der CR-Minigames — enthält Twitch-IDs und Anmelde-Geheimnisse
+Backend/clashRoyale/data/cr_tournaments.db
+Backend/clashRoyale/data/cr_tournaments.db-shm
+Backend/clashRoyale/data/cr_tournaments.db-wal

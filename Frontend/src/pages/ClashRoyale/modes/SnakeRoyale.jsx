@@ -1,21 +1,20 @@
 import React, { useMemo } from 'react';
-import { Eye } from 'lucide-react';
+import { CrTv } from '../ui/CrIcons';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import ModeShell from './ModeShell';
-import { CARD_CROP } from './cardCrop';
-import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
-import { cardImageUrl } from '../data/cards';
+import { CARD_RATIO } from './cardCrop';
+import CardFace from '../ui/CardFace';
+import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid, TurnBanner } from './GameChrome';
+import { avatarUrl } from '../components/avatars';
 
 /** Akzentfarbe des Modus — Kopfzeile, Fortschritt, gültige Felder. */
 const ACCENT = '#22d3ee';
 
-const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
-const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 
 function AvatarCircle({ id, color, size = 28 }) {
-  const url = id ? AVATAR_MAP[id] : null;
+  const url = avatarUrl(id);
   return (
-    <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
+    <div className="rounded-full overflow-hidden shrink-0 border-2 cr-avatar-pick"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
       {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover object-center" />}
     </div>
@@ -29,8 +28,9 @@ const SNAKE_I18N = {
     gameOver: 'Spiel beendet',
     newSnake: 'Neue Schlange — freie Auswahl!',
     noMoveTimer: 'Kein Zug möglich – Timer läuft ab…',
-    yourTurn: 'Dein Zug',
-    turnOfPrefix: 'Zug von',
+    yourTurn: 'Du bist am Zug!',
+    isTurn: 'ist am Zug',
+    turnTag: 'Am Zug',
     round: (n) => `Runde ${n}/8`,
     championLimitSuffix: ' (Champion-Limit)',
   },
@@ -40,8 +40,9 @@ const SNAKE_I18N = {
     gameOver: 'Game over',
     newSnake: 'New snake — pick anywhere!',
     noMoveTimer: 'No move possible – timer running out…',
-    yourTurn: 'Your turn',
-    turnOfPrefix: 'Turn:',
+    yourTurn: 'Your turn!',
+    isTurn: 'is up',
+    turnTag: 'Turn',
     round: (n) => `Round ${n}/8`,
     championLimitSuffix: ' (champion limit)',
   },
@@ -51,8 +52,9 @@ const SNAKE_I18N = {
     gameOver: 'Partida terminada',
     newSnake: 'Nueva serpiente — ¡elección libre!',
     noMoveTimer: 'No hay movimiento posible – se acaba el tiempo…',
-    yourTurn: 'Tu turno',
-    turnOfPrefix: 'Turno de',
+    yourTurn: '¡Es tu turno!',
+    isTurn: 'está jugando',
+    turnTag: 'Turno',
     round: (n) => `Ronda ${n}/8`,
     championLimitSuffix: ' (límite de campeones)',
   },
@@ -75,15 +77,13 @@ function getAdjacentIndices(idx, cols, totalCells) {
 // (unbunten) Untergrund.
 function CardImg({ id, name }) {
   return (
-    <div className="relative w-full h-full bg-[#0d0d14]">
-      <img
-        src={cardImageUrl(id)}
+    <div data-card-cell className="relative w-full h-full bg-[#0d0d14]">
+      <CardFace
+        id={id}
         alt={name}
-        className="w-full h-full object-cover"
-        style={CARD_CROP}
         onError={e => {
           e.target.style.display = 'none';
-          const fb = e.target.parentElement?.querySelector('.fb');
+          const fb = e.target.closest('[data-card-cell]')?.querySelector('.fb');
           if (fb) fb.classList.remove('hidden');
         }}
       />
@@ -143,7 +143,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
           const champCount = (player.deck || []).filter(c => c.isChampion).length;
           return (
             <PlayerPanel key={player.id} isMe={player.id === myPlayerId}
-              className={isCurrent ? 'ring-1 ring-inset ring-cyan-400/40' : ''}
+              active={isCurrent && !finished} activeLabel={t.turnTag}
               header={
                 <div className="flex items-center gap-2.5 min-w-0">
                   <AvatarCircle id={player.avatar} color={player.color} size={28} />
@@ -169,7 +169,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
               <div key={player.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
                 <AvatarCircle id={player.avatar} color={player.color} size={20} />
                 <span className="text-white/60 text-[11px] truncate flex-1">{player.name}</span>
-                <Eye size={11} className="text-white/40 shrink-0" />
+                <CrTv size={16} className="text-white/40 shrink-0" />
               </div>
             ))}
           </>
@@ -205,15 +205,8 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
               <span className="text-amber-300 text-sm font-semibold">{t.newSnake}</span>
             ) : isMyTurn && validSet.size === 0 ? (
               <span className="text-orange-300 text-sm font-semibold">{t.noMoveTimer}</span>
-            ) : isMyTurn ? (
-              <span className="text-cyan-300 text-sm font-bold">{t.yourTurn}</span>
             ) : (
-              <span className="text-white/35 text-sm">
-                {t.turnOfPrefix}{' '}
-                <span className="font-semibold" style={{ color: currentPlayer?.color }}>
-                  {currentPlayer?.name || '…'}
-                </span>
-              </span>
+              <TurnBanner player={currentPlayer} mine={isMyTurn} text={isMyTurn ? t.yourTurn : t.isTurn} />
             )
           }
           timerRemaining={finished ? undefined : timerRemaining}
@@ -246,10 +239,12 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
             className="grid gap-0.5 sm:gap-1"
             style={{
               gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-              aspectRatio: `${gridCols} / ${gridRows}`,
+              // Kacheln im echten Kartenformat (285×420, siehe cardCrop.js) statt quadratisch —
+              // quadratische Kacheln schnitten Kopf und Sockel der Karten ab.
+              aspectRatio: `${gridCols * CARD_RATIO} / ${gridRows}`,
               // 86px statt 62px pro Feld: Auf einem 1440p-Schirm blieb das Raster
               // sonst in der Mitte stehen und ließ links und rechts große Leerflächen.
-              width: `min(100%, ${gridCols * 86}px, ${(gridCols / gridRows).toFixed(4)} * 100cqh)`,
+              width: `min(100%, ${gridCols * 86}px, ${(gridCols * CARD_RATIO / gridRows).toFixed(4)} * 100cqh)`,
               maxWidth: '100%',
             }}
           >
@@ -272,8 +267,8 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
                   // Deckkraft im Diamant-Karo fast unsichtbar, obwohl gerade niemand
                   // überhaupt etwas wählen darf. Jetzt nur während des eigenen Zugs dunkler.
                   className={`
-                    group relative aspect-square rounded-md overflow-hidden
-                    ${isValid && isMyTurn && !finished ? 'cursor-pointer' : 'cursor-default'}
+                    group relative aspect-[4/5] rounded-md overflow-hidden
+                    ${isValid && isMyTurn && !finished ? 'cursor-pointer cr-card-hover' : 'cursor-default'}
                     ${isPicked ? 'opacity-70' : ''}
                     ${!isPicked && isMyTurn && !isValid && !isBlocked ? 'opacity-25' : ''}
                     ${isBlocked ? 'opacity-15 grayscale' : ''}
@@ -291,7 +286,10 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
                           : 'none',
                   }}
                 >
-                  <CardImg id={cell.card.id} name={cell.card.name} />
+                  {/* Zuletzt gewählte Karte springt kurz auf (key wechselt mit dem Zug) */}
+                  <div key={isLast ? `last-${currentTurn}` : 'c'} className={`w-full h-full ${isLast ? 'cr-card-pop' : ''}`}>
+                    <CardImg id={cell.card.id} name={cell.card.name} />
+                  </div>
 
                   {/* Genommen: in der Farbe des Spielers eingefärbt */}
                   {isPicked && picker && (

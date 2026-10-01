@@ -10,7 +10,8 @@
 // nächste Mal (onPickSaved → useProfile.switchActiveCr).
 
 import React, { useState } from 'react';
-import { Link2, Check, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { CrCheck, CrKingBlue } from '../ui/CrIcons';
 import Modal from '../ui/Modal';
 import PlayerAvatar from '../components/PlayerAvatar';
 import { resolveError } from '../i18n';
@@ -41,7 +42,7 @@ export default function CrAccountModal({
   return (
     <Modal
       title={isSelf ? t.linkAccountOwn : t.linkAccountFor(player.name)}
-      icon={<Link2 size={15} className="text-violet-400 shrink-0" />}
+      icon={<CrKingBlue size={22} className="text-violet-400 shrink-0" />}
       onClose={onClose}
       size="sm">
       <div className="p-5 space-y-4">
@@ -51,7 +52,7 @@ export default function CrAccountModal({
             <p className="text-white font-semibold text-sm truncate">{player.name}</p>
             {player.crName && (
               <p className="text-green-400 text-xs flex items-center gap-1 mt-0.5">
-                <Check size={11} /> {t.linkedAs(player.crName)}
+                <CrCheck size={16} /> {t.linkedAs(player.crName)}
               </p>
             )}
           </div>
@@ -98,7 +99,7 @@ export default function CrAccountModal({
             className="flex-1 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-white/30 text-white font-bold py-2.5 rounded-lg transition-colors disabled:cursor-not-allowed text-sm">
             {state === 'checking'
               ? <><Loader2 size={14} className="animate-spin" /> {t.linkChecking}</>
-              : <><Link2 size={14} /> {t.linkBtn}</>}
+              : <><CrKingBlue size={21} /> {t.linkBtn}</>}
           </button>
           {player.crTag && (
             <button onClick={() => { onUnlink(); onClose(); }}

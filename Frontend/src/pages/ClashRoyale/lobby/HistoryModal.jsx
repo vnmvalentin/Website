@@ -5,7 +5,7 @@
 // steht deshalb oben.
 
 import React from 'react';
-import { Trophy } from 'lucide-react';
+import { CrTrophy } from '../ui/CrIcons';
 import Modal from '../ui/Modal';
 import CardTile from '../ui/CardTile';
 import PlayerAvatar from '../components/PlayerAvatar';
@@ -18,7 +18,7 @@ export default function HistoryModal({ historyData, onClose, t, lang }) {
   return (
     <Modal
       title={t.historyTitle}
-      icon={<Trophy size={15} className="text-amber-400 shrink-0" />}
+      icon={<CrTrophy size={22} className="text-amber-400 shrink-0" />}
       onClose={onClose}>
       <div className="p-5 space-y-8">
         {games.length === 0 ? (

@@ -19,9 +19,14 @@ import { resolveError } from './i18n';
 import { useClashSocket } from './useClashSocket';
 import { useProfile } from './useProfile';
 import { createClashActions } from './clashActions';
+import { isKnownAvatar } from './components/avatars';
 import HubScreen from './hub/HubScreen';
 import LobbyScreen from './lobby/LobbyScreen';
 import GameScreen from './game/GameScreen';
+import BattleSplash from './ui/BattleSplash';
+import { playSound } from './ui/sound';
+import { modeNameFor } from './modesConfig';
+import { useCrPrefs } from './ui/crPrefs';
 
 export default function ClashRoyalePage() {
   const { user } = useContext(TwitchAuthContext);
@@ -61,7 +66,9 @@ export default function ClashRoyalePage() {
 
   const lastSyncedAvatarRef = useRef(null);
   useEffect(() => {
-    if (profileLoading || profile.useTwitchAvatar || !profile.avatarId) return;
+    // Unbekannte ID (entfernter Avatar im gespeicherten Profil) nicht übernehmen — dann bleibt
+    // der Standard-Avatar stehen, bis im Profil ein neuer gewählt wird.
+    if (profileLoading || profile.useTwitchAvatar || !isKnownAvatar(profile.avatarId)) return;
     const untouched = lastSyncedAvatarRef.current === null
       ? true // erster Lauf: der bisherige Wert war nur der Hook-Default, darf übernommen werden
       : socket.selectedAvatar === lastSyncedAvatarRef.current;
@@ -83,6 +90,44 @@ export default function ClashRoyalePage() {
     actions.linkCrAccount(socket.myId, profile.crTag);
   }, [socket.phase, socket.lobbyData, socket.myId, profile.crTag, actions]);
 
+  // ── Sounds + Einblendung an den großen Übergängen ────────────────────────────────
+  // Klicks klingen schon über CrShell (ein Listener für alle Knöpfe); hier nur die Ereignisse,
+  // die vom Server kommen und keinen eigenen Klick haben: Spielstart, Spielende, Beitritte.
+  const [splash, setSplash] = useState(null);
+  const { prefs } = useCrPrefs();
+  const prevPhaseRef = useRef(socket.phase);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = socket.phase;
+    if (prev === 'lobby' && socket.phase === 'game') {
+      playSound('start');
+      // Einblendung nur mit Animationen — ohne wäre sie 1,4 s ein stehendes Bild über dem Spiel
+      if (prefs.animations) setSplash(modeNameFor(socket.lobbyData?.mode, lang));
+    }
+  }, [socket.phase, socket.lobbyData?.mode, lang, prefs.animations]);
+  // Eigener Effekt für das Ausblenden: hinge der Timer am Effekt oben, bräche z.B. ein
+  // Sprachwechsel während der Einblendung ihn ab — und die Einblendung bliebe stehen.
+  useEffect(() => {
+    if (!splash) return undefined;
+    const id = setTimeout(() => setSplash(null), 1400);
+    return () => clearTimeout(id);
+  }, [splash]);
+
+  const hadGameOverRef = useRef(false);
+  useEffect(() => {
+    const has = !!socket.gameOver;
+    if (has && !hadGameOverRef.current) playSound('win');
+    hadGameOverRef.current = has;
+  }, [socket.gameOver]);
+
+  // Mehr Spieler als beim letzten Stand → jemand ist dazugekommen (nur in der Lobby hörbar)
+  const playerCount = (socket.lobbyData?.players || []).filter(p => !p.isAdmin).length;
+  const prevCountRef = useRef(playerCount);
+  useEffect(() => {
+    if (socket.phase === 'lobby' && playerCount > prevCountRef.current && prevCountRef.current > 0) playSound('join');
+    prevCountRef.current = playerCount;
+  }, [playerCount, socket.phase]);
+
   // Fehler tragen einen Schlüssel plus Platzhalter — erst hier werden sie in die
   // aktuelle Sprache übersetzt. Kennt diese Version den Schlüssel nicht, greift die
   // deutsche Meldung, die der Server mitgeschickt hat.
@@ -100,6 +145,8 @@ export default function ClashRoyalePage() {
       actions.transferHost(targetId);
     }
   };
+
+  const splashEl = splash ? <BattleSplash title={splash} /> : null;
 
   if (socket.phase === 'hub') {
     return (
@@ -139,11 +186,14 @@ export default function ClashRoyalePage() {
         onTransferHost={confirmTransferHost}
         profile={profile}
         switchActiveCr={profileState.switchActiveCr}
+        emotes={socket.emotes}
       />
     );
   }
 
   return (
+    <>
+    {splashEl}
     <GameScreen
       socket={socket}
       actions={actions}
@@ -157,5 +207,6 @@ export default function ClashRoyalePage() {
       onCancelGame={confirmCancelGame}
       onTransferHost={confirmTransferHost}
     />
+    </>
   );
 }

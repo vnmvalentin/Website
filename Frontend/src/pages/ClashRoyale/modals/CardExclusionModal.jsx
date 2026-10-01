@@ -4,7 +4,8 @@
 // dieser Lobby.
 
 import React, { useContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Search, LayoutGrid, Sparkles, Check, Save, Trash2, UserCheck, Loader2 } from 'lucide-react';
+import { Save, Trash2, Loader2 } from 'lucide-react';
+import { CrCancel, CrCards, CrCheck, CrKingBlue, CrSearch, CrStar } from '../ui/CrIcons';
 import Modal from '../ui/Modal';
 import CardGrid from './CardGrid';
 import { ALL_CARDS, cardImageUrl } from '../data/cards';
@@ -262,7 +263,7 @@ function PresetsTab({ excluded, canEdit, onApplyPreset, L }) {
         <div className="flex flex-wrap gap-1">
           {known.slice(0, 14).map((id) => (
             <img key={id} src={cardImageUrl(id)} alt="" loading="lazy" decoding="async"
-              className="w-6 h-7 object-cover rounded-[3px]"
+              className="w-6 h-7 object-contain rounded-[3px]"
               onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           ))}
           {known.length > 14 && <span className="text-white/30 text-[10px] self-center ml-1">+{known.length - 14}</span>}
@@ -270,7 +271,7 @@ function PresetsTab({ excluded, canEdit, onApplyPreset, L }) {
 
         {active ? (
           <span className="flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-lg border border-violet-500/40 bg-violet-500/10 text-violet-300">
-            <Check size={13} /> {L.presetActive}
+            <CrCheck size={19} /> {L.presetActive}
           </span>
         ) : (
           <button onClick={() => onApplyPreset(known)} disabled={!canEdit || known.length === 0}
@@ -299,7 +300,7 @@ function PresetsTab({ excluded, canEdit, onApplyPreset, L }) {
       <div className="border-t border-white/5 pt-4">
         <div className="flex items-center justify-between gap-3 mb-3">
           <p className="text-white font-semibold text-sm flex items-center gap-2">
-            <Sparkles size={13} className="text-violet-300" />
+            <CrStar size={19} className="text-violet-300" />
             {L.presetMyPresets}
           </p>
           {user && canEdit && !saveOpen && (
@@ -372,14 +373,14 @@ export default function CardExclusionModal({
   return (
     <Modal
       title={L.title}
-      icon={<Ban size={15} className="text-red-400 shrink-0" />}
+      icon={<CrCancel size={22} className="text-red-400 shrink-0" />}
       onClose={onClose}
       bodyScroll={false}>
 
       <div className="flex border-b border-white/5 shrink-0">
         {[
-          { id: 'cards', label: L.tabCards, icon: LayoutGrid },
-          { id: 'presets', label: L.tabPresets, icon: Sparkles },
+          { id: 'cards', label: L.tabCards, icon: CrCards },
+          { id: 'presets', label: L.tabPresets, icon: CrStar },
         ].map(item => {
           const TabIcon = item.icon;
           return (
@@ -402,7 +403,7 @@ export default function CardExclusionModal({
         <>
           <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 shrink-0 flex-wrap">
             <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 flex-1 min-w-[180px] focus-within:border-violet-500 transition-colors">
-              <Search size={13} className="text-white/30 shrink-0" />
+              <CrSearch size={19} className="text-white/30 shrink-0" />
               <input value={query} onChange={e => setQuery(e.target.value)} placeholder={L.searchPlaceholder}
                 className="bg-transparent text-white text-sm placeholder-gray-600 outline-none w-full" />
             </div>
@@ -412,7 +413,7 @@ export default function CardExclusionModal({
             {canEdit && onTrimToUnlocked && (
               <button onClick={runTrim} disabled={trimState === 'checking'} title={L.trimToUnlockedTitle}
                 className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
-                {trimState === 'checking' ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />}
+                {trimState === 'checking' ? <Loader2 size={12} className="animate-spin" /> : <CrKingBlue size={18} />}
                 {trimState === 'checking' ? L.trimChecking : L.trimToUnlocked}
               </button>
             )}
@@ -448,7 +449,7 @@ export default function CardExclusionModal({
                   // eindeutig, dass das Absicht ist und nicht ein fehlendes Bild.
                   overlay: isExcluded ? (
                     <span className="absolute inset-0 flex items-center justify-center bg-red-500/5">
-                      <Ban size={16} className="text-red-400" />
+                      <CrCancel size={23} className="text-red-400" />
                     </span>
                   ) : null,
                 };

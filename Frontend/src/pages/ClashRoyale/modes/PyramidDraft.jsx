@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Lock, Check } from 'lucide-react';
-import { RARITY_COLOR, cardImageUrl } from '../data/cards';
+import CardFace from '../ui/CardFace';
+import { CrCheck, CrLock } from '../ui/CrIcons';
+import { RARITY_COLOR } from '../data/cards';
 import { CARD_CROP } from './cardCrop';
 import unknownCardSrc from '../../../assets/clashRoyale/UnknownCard.png';
-import tripleDraftIcon from '../../../assets/clashRoyale/ui/icon_triple_draft.png';
-import { GameHeader, ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';
+import { GameHeader, ProgressHairline, PlayerPanel, DeckGrid, TurnBanner } from './GameChrome';
 import ModeShell from './ModeShell';
 
 /** Akzentfarbe des Modus. */
@@ -23,6 +23,8 @@ const PYRAMID_I18N = {
     done: 'Fertig',
     yourTurn: 'Du bist dran!',
     playersTurn: (name) => `${name} ist dran`,
+    isTurn: 'ist dran',
+    turnTag: 'Am Zug',
     blocking: 'Eine Karte wird blockiert…',
     pickHint: 'Wähle eine offene Karte.',
     waitingHint: 'Warte, bis du an der Reihe bist…',
@@ -37,6 +39,8 @@ const PYRAMID_I18N = {
     done: 'Done',
     yourTurn: 'Your turn!',
     playersTurn: (name) => `${name}'s turn`,
+    isTurn: 'is up',
+    turnTag: 'Turn',
     blocking: 'A card is being blocked…',
     pickHint: 'Pick a face-up card.',
     waitingHint: 'Waiting for your turn…',
@@ -51,6 +55,8 @@ const PYRAMID_I18N = {
     done: 'Listo',
     yourTurn: '¡Es tu turno!',
     playersTurn: (name) => `Turno de ${name}`,
+    isTurn: 'está jugando',
+    turnTag: 'Turno',
     blocking: 'Se está bloqueando una carta…',
     pickHint: 'Elige una carta boca arriba.',
     waitingHint: 'Esperando tu turno…',
@@ -78,8 +84,7 @@ const PYRAMID_STYLE = `
 
 function CardImg({ id, name }) {
   return (
-    <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover" draggable={false}
-      style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
+    <CardFace id={id} alt={name} />
   );
 }
 
@@ -93,12 +98,13 @@ const PyramidSidebar = React.memo(function PyramidSidebar({ state, myPlayerId, t
         const done = (p.deck || []).length >= state.deckSize;
         return (
           <PlayerPanel key={p.id} isMe={isMe}
+            active={!state.finished && state.phase !== 'blocking' && state.currentPlayerId === p.id} activeLabel={t.turnTag}
             header={
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color || '#888' }} />
                 <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
                 {done
-                  ? <Check size={13} className="text-green-400 shrink-0" title={t.done} />
+                  ? <CrCheck size={19} className="text-green-400 shrink-0" title={t.done} />
                   : <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/{state.deckSize}</span>}
               </div>
             }>
@@ -117,12 +123,13 @@ const PyramidSidebar = React.memo(function PyramidSidebar({ state, myPlayerId, t
 // lief die Basisreihe einer großen Pyramide auf dem Handy seitlich aus dem Bild: eine feste
 // Tailwind-Größe kennt die tatsächliche Spaltenzahl nicht.
 function PyramidCell({ cell, cellSize, clickable, ownerColor, ownerName, t, onClick, justRevealed, justBlocked, justPicked }) {
-  const style = { width: cellSize, height: cellSize };
+  // Kachel im Kartenformat 4:5 (ui/CardFace.jsx) statt quadratisch — die Karte füllt sie aus
+  const style = { width: cellSize, height: `calc(${cellSize} * 1.25)` };
 
   if (!cell.revealed) {
     return (
       <div className="rounded-lg overflow-hidden bg-[#0d0d14] shrink-0" style={style} title={t.unknownCard}>
-        <img src={unknownCardSrc} alt="" className="w-full h-full object-cover opacity-80" draggable={false} />
+        <img src={unknownCardSrc} alt="" className="w-full h-full object-contain opacity-80" draggable={false} />
       </div>
     );
   }
@@ -154,7 +161,7 @@ function PyramidCell({ cell, cellSize, clickable, ownerColor, ownerName, t, onCl
       <CardImg id={cell.cardId} name={cell.name} />
       {cell.blocked && (
         <span className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <Lock size={14} className="text-white/70" />
+          <CrLock size={21} className="text-white/70" />
         </span>
       )}
     </button>
@@ -214,20 +221,24 @@ export default function PyramidDraft({ pyramidState, myPlayerId, onPick, lang = 
         <div className="flex-1 flex flex-col overflow-hidden cr-arcade-bg">
           <GameHeader
             label={t.round} value={state.round} total={state.maxRounds}
-            badge={
-              <span className={`flex items-center gap-1.5 text-sm font-semibold ${
-                blocking ? 'text-amber-300' : isMyTurn ? 'text-sky-300' : 'text-white/40'
-              }`}>
-                {blocking
-                  ? <Lock size={13} className="text-amber-400" />
-                  : <img src={tripleDraftIcon} alt="" width={16} height={13} className={isMyTurn ? '' : 'opacity-30 grayscale'} />}
-                {blocking ? t.blocking : isMyTurn ? t.yourTurn : (currentPlayer ? t.playersTurn(currentPlayer.name) : '')}
+            badge={blocking ? (
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-amber-300">
+                <CrLock size={19} />{t.blocking}
               </span>
-            }
+            ) : !state.finished ? (
+              <TurnBanner player={currentPlayer} mine={isMyTurn} text={isMyTurn ? t.yourTurn : t.isTurn} />
+            ) : null}
             timerRemaining={blocking ? null : state.timerRemaining}
             timerUrgent={timeUrgent}
           />
-          <ProgressHairline pct={(state.round / Math.max(1, state.maxRounds)) * 100} accent={ACCENT} />
+          {/* Zeitbalken des aktuellen Zugs (vorher: Rundenfortschritt round/maxRounds — der
+              bewegte sich nur einmal pro Runde und wirkte neben der laufenden Uhr wie ein
+              hängender Timer). Die Runde steht ohnehin groß in der Kopfzeile. Während der
+              Blockade-Phase gibt es keinen Zugtimer → leerer Balken. */}
+          <ProgressHairline
+            pct={!blocking && state.timerSeconds > 0 && typeof state.timerRemaining === 'number'
+              ? (state.timerRemaining / state.timerSeconds) * 100 : 0}
+            accent={ACCENT} urgent={!blocking && timeUrgent} />
 
           {/* container-type:size macht die eigene Breite UND Höhe als cqw/cqh messbar (siehe
               MyBingoCard in BingoRoyale.jsx für dieselbe Technik). min-h-0 ist nötig, weil ein
@@ -251,10 +262,14 @@ export default function PyramidDraft({ pyramidState, myPlayerId, onPick, lang = 
             <div className="relative min-w-full min-h-full flex flex-col items-center justify-center">
               {(() => {
                 const GAP_PX = 6;
+                const STEP_PAD_X = 12; // Stein steht seitlich so weit über die Karten einer Reihe
+                const STEP_PAD_Y = 5;  // … und oben/unten
                 const bottomWidth = state.rows[0]?.length || 1;
                 const rowCount = state.rows.length;
-                const widthBound = `calc((100cqw - ${(bottomWidth - 1) * GAP_PX}px) / ${bottomWidth})`;
-                const heightBound = `calc((100cqh - ${(rowCount - 1) * GAP_PX}px) / ${rowCount})`;
+                const widthBound = `calc((100cqw - ${(bottomWidth - 1) * GAP_PX + STEP_PAD_X * 2}px) / ${bottomWidth})`;
+                // Höhe je Reihe = Kachelhöhe (1,25 × Breite, 4:5) + senkrechter Stufen-Rand oben/unten
+                // + 3 px je Reihe: der Steinrand (3 px oben/unten, Stufen überlappen um 3 px) + 6 px Rest
+                const heightBound = `calc((100cqh - ${rowCount * (STEP_PAD_Y * 2 + 3) + 6}px) / ${rowCount} / 1.25)`;
                 // Die Breite ist eine harte Obergrenze (min(...) außen) — sie darf NIE
                 // überschritten werden, sonst läuft die breiteste Reihe seitlich aus dem Bild
                 // (bei z.B. 8 Spielern/12 Spalten auf einem Handy wäre die Untergrenze unten
@@ -264,23 +279,31 @@ export default function PyramidDraft({ pyramidState, myPlayerId, onPick, lang = 
                 // die Höhe nicht, wird stattdessen senkrecht gescrollt — das ist normal.
                 const cellSize = `min(${widthBound}, clamp(2.25rem, ${heightBound}, 6.5rem))`;
                 return (
-                  <div className="relative flex flex-col items-center" style={{ gap: GAP_PX }}>
-                    {/* Sandstein-Sockel exakt in Dreiecksform hinter dem Kartenraster — die
-                        Karten wirken dadurch wie in eine echte Steinpyramide eingelassen statt
-                        lose auf dem Diamant-Karo zu liegen. Der negative inset lässt den Stein
-                        an jeder Kante ein Stück überstehen (auch über die einzelne Spitzenkarte
-                        oben hinaus), wie einen Rahmen um die Karten. */}
-                    <div className="absolute pointer-events-none" aria-hidden="true"
-                      style={{
-                        inset: '-18px -26px -14px',
-                        clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)',
-                        background: 'linear-gradient(180deg, #eccb8a 0%, #d9ac5e 30%, #bd8640 65%, #9c6a2e 100%)',
-                        border: '4px solid #6e4a1f',
-                      }} />
+                  // STUFENPYRAMIDE: Vorher lag ein exaktes Dreieck (clip-path) hinter dem Raster.
+                  // Die Kartenreihen bilden aber eine Treppe aus ganzen Karten — je weiter oben,
+                  // desto weiter ragten die Karten seitlich aus dem Dreieck, die Spitze war viel
+                  // dünner als die oberste Karte. Jetzt trägt jede Reihe ihren eigenen Sandstein-
+                  // Block (etwas breiter als die Reihe), die Blöcke liegen lückenlos aufeinander:
+                  // eine Stufenpyramide, die jede Karte bis zur Spitze umschließt.
+                  <div className="relative flex flex-col items-center drop-shadow-[0_10px_18px_rgba(2,8,20,0.45)]">
                     {[...state.rows].reverse().map((row, ri) => {
                       const r = state.rows.length - 1 - ri; // Original-Reihenindex (0 = unten) für den Pick
+                      // Oben heller Sandstein, nach unten dunkler (wie zuvor der Verlauf des Dreiecks)
+                      const depth = rowCount > 1 ? ri / (rowCount - 1) : 0;
+                      const tone = (a, b) => Math.round(a + (b - a) * depth);
+                      const stone = `rgb(${tone(236, 156)}, ${tone(203, 106)}, ${tone(138, 46)})`;
+                      const stoneDark = `rgb(${tone(217, 128)}, ${tone(172, 86)}, ${tone(94, 36)})`;
                       return (
-                        <div key={r} className="flex items-center" style={{ gap: GAP_PX }}>
+                        <div key={r} className="flex items-center rounded-md"
+                          style={{
+                            gap: GAP_PX,
+                            padding: `${STEP_PAD_Y}px ${STEP_PAD_X}px`,
+                            background: `linear-gradient(180deg, ${stone}, ${stoneDark})`,
+                            border: '3px solid #6e4a1f',
+                            // Stufen überlappen um die Randbreite, damit keine doppelte Linie entsteht
+                            marginTop: ri === 0 ? 0 : -3,
+                            boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.12)',
+                          }}>
                           {row.map((cell, c) => {
                             const key = `${r},${c}`;
                             return (

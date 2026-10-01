@@ -134,6 +134,9 @@ function sanitizeLobby(lobby) {
       // und wird zum Zuschauen weitergegeben), enthält also nichts Schützenswertes.
       crTag: p.crTag || null,
       crName: p.crName || null,
+      // Path-of-Legend-Liga (1–7, 0 = keine Ranked-Liga) und Trophäen — für das Spieler-Banner
+      crLeague: p.crLeague || 0,
+      crTrophies: p.crTrophies || 0,
       crScore: trackingScoreFor(lobby, p.id),
     })),
     started: lobby.started,

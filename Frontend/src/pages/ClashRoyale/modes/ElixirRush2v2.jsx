@@ -4,31 +4,30 @@
 // (MarketSlot) und ihre Kauf-/Wechsel-Animationen stammen unverändert aus ElixirRush.jsx.
 
 import React, { useState, useEffect } from 'react';
-import { Check, Eye, Hourglass } from 'lucide-react';
+import CardFace from '../ui/CardFace';
+import { useServerClock } from '../ui/serverClock';
+import { CrCheck, CrStopwatch, CrTv } from '../ui/CrIcons';
 import ModeShell from './ModeShell';
 import { GameHeader, ProgressHairline, GameSurface, GameFooter, PlayerPanel, DeckGrid } from './GameChrome';
 import ElixirBar from '../ui/ElixirBar';
 import { MarketSlot, RUSH_STYLE } from './ElixirRush';
-import { cardImageUrl } from '../data/cards';
+import { avatarUrl } from '../components/avatars';
 
 const ACCENT = '#e879f9';
 
-const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
-const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 
 function CardImg({ id, name }) {
   return (
     <div className="relative w-full h-full">
-      <img src={cardImageUrl(id)} alt={name} className="w-full h-full object-cover" draggable={false}
-        onError={e => { e.target.style.display = 'none'; }} />
+      <CardFace id={id} alt={name} />
     </div>
   );
 }
 
 function AvatarCircle({ id, color, size = 28 }) {
-  const url = id ? AVATAR_MAP[id] : null;
+  const url = avatarUrl(id);
   return (
-    <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
+    <div className="rounded-full overflow-hidden shrink-0 border-2 cr-avatar-pick"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
       {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
@@ -147,12 +146,15 @@ export default function ElixirRush2v2({ rushState, myPlayerId, onBuy, denied, la
   const t = I18N[lang] || I18N.de;
   const now = useNow(100);
   const state = rushState;
+  const clock = useServerClock(state);
 
   if (!state) {
     return <div className="h-full flex items-center justify-center"><p className="text-gray-500 text-sm">{t.loading}</p></div>;
   }
 
-  const clientOffset = state.clientReceivedAt - state.serverNow;
+  // Geglätteter Uhrenabgleich (ui/serverClock.js) statt Versatz je Nachricht — sonst zuckten
+  // Elixier, Ablaufbalken und Countdown bei jeder Nachricht um die Laufzeit-Schwankung.
+  const clientOffset = clock.offset();
   const players = state.players || [];
   const me = players.find(p => p.id === myPlayerId);
   const amSpectator = !me || (me.isSpectator ?? false);
@@ -160,7 +162,7 @@ export default function ElixirRush2v2({ rushState, myPlayerId, onBuy, denied, la
   const partner = myTeam ? players.find(p => p.teamId === myTeam && p.id !== myPlayerId) : null;
 
   const teamElixirOf = (letter) => (letter
-    ? Math.min(state.maxElixir, (state.teamElixir?.[letter] ?? 0) + Math.max(0, now - state.clientReceivedAt) / state.regenMs)
+    ? Math.min(state.maxElixir, (state.teamElixir?.[letter] ?? 0) + Math.max(0, (now - clientOffset) - state.serverNow) / state.regenMs)
     : 0);
   const myElixir = !amSpectator && myTeam ? teamElixirOf(myTeam) : 0;
 
@@ -204,7 +206,7 @@ export default function ElixirRush2v2({ rushState, myPlayerId, onBuy, denied, la
                       <AvatarCircle id={p.avatar} color={p.color} size={26} />
                       <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
                       {done
-                        ? <Check size={13} className="text-green-400 shrink-0" title={t.done} />
+                        ? <CrCheck size={19} className="text-green-400 shrink-0" title={t.done} />
                         : <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/{state.deckSize}</span>}
                     </div>
                   }>
@@ -230,19 +232,19 @@ export default function ElixirRush2v2({ rushState, myPlayerId, onBuy, denied, la
           badge={
             state.finished ? (
               <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
-                <Check size={14} /> {t.allDecksFull}
+                <CrCheck size={21} /> {t.allDecksFull}
               </span>
             ) : inCountdown ? (
               <span className="flex items-center gap-1.5 text-fuchsia-300 text-sm font-semibold">
-                <Hourglass size={13} /> {t.startingSoon(countdownRemaining)}
+                <CrStopwatch size={19} /> {t.startingSoon(countdownRemaining)}
               </span>
             ) : amSpectator ? (
               <span className="flex items-center gap-1.5 text-white/35 text-sm">
-                <Eye size={13} /> {t.spectatorLive}
+                <CrTv size={19} /> {t.spectatorLive}
               </span>
             ) : myDeckFull ? (
               <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
-                <Check size={14} /> {t.yourDeckFull}
+                <CrCheck size={21} /> {t.yourDeckFull}
               </span>
             ) : (
               <span className="text-fuchsia-300 text-sm font-semibold">{t.grabCards}</span>

@@ -25,6 +25,17 @@ const registry = require('../core/registry');
 // Ausgelagerte Modi melden sich beim Laden selbst an der Registry an
 require('../modes');
 
+// Erlaubte Emote-IDs = Dateinamen in Frontend/src/assets/clashRoyale/emotes/still/ (ui/emotes.js
+// liest sie von dort) — bei neuen Emotes hier mitpflegen
+const EMOTE_IDS = new Set([
+  '67', 'absolute_cinema', 'barb_pickingnose', 'barb_stare', 'bowler_sus', 'gg',
+  'goblin_flames', 'goblin_shakinghead', 'golem_pointing', 'golem_rock', 'grrrr', 'healer',
+  'hog_thinking', 'king_angry', 'king_scream', 'knight_phew', 'paper', 'pig_tired',
+  'princess_mad', 'questionmarks', 'redcard', 'rock', 'scissors', 'waiting_goblin',
+  'whiteflag',
+]);
+const EMOTE_COOLDOWN_MS = 1200;
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 // Mindestgröße des Kartenpools für den aktuellen Modus mit den aktuellen Einstellungen.
 // Die Modi liefern ihre Formel selbst; ohne Angabe gilt kein Mindestpool.
@@ -351,6 +362,10 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
 
     target.crTag = clean;
     target.crName = profile.name;
+    // Für das Spieler-Banner in der Lobby (Liga-Emblem bzw. Trophäen) — steckt schon in
+    // derselben Profil-Antwort, kein zusätzlicher API-Aufruf.
+    target.crLeague = Number(profile.leagueNumber) || 0;
+    target.crTrophies = Number(profile.trophies) || 0;
     // Läuft das Tracking schon, bekommt der Spieler sofort einen eigenen Startpunkt
     await onPlayerLinked(lobby, target);
     broadcastLobby(lobby);
@@ -366,6 +381,8 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     if (!target) return;
     target.crTag = null;
     target.crName = null;
+    target.crLeague = 0;
+    target.crTrophies = 0;
     if (lobby.tracking?.scores) delete lobby.tracking.scores[target.id];
     broadcastLobby(lobby);
   });
@@ -660,6 +677,20 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     if (!player) return;
     player.isSpectator = !player.isSpectator;
     broadcastLobby(lobby);
+  });
+
+  // Emotes (Lobby + Spiel): reine Anzeige, ändert keinen Spielzustand. Nur IDs aus der festen
+  // Liste (deckt sich mit Frontend/src/pages/ClashRoyale/ui/emotes.js) und höchstens ein
+  // Emote pro EMOTE_COOLDOWN_MS je Spieler — sonst könnte jemand die Lobby fluten.
+  socket.on('clash:emote', ({ code, emoteId } = {}) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !EMOTE_IDS.has(emoteId)) return;
+    const player = lobby.players.find(p => p.id === socket.id);
+    if (!player) return;
+    const now = Date.now();
+    if (now - (player.lastEmoteAt || 0) < EMOTE_COOLDOWN_MS) return;
+    player.lastEmoteAt = now;
+    io.to(lobby.code).emit('clash:emote', { playerId: player.id, emoteId, ts: now });
   });
 
 

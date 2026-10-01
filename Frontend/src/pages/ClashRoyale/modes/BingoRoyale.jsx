@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Clock, Shuffle, Gift, Search, X, Check, ArrowRight, Ban, Eye } from 'lucide-react';
-import { RARITY_COLOR, cardImageUrl } from '../data/cards';
+import CardFace from '../ui/CardFace';
+import { ArrowRight } from 'lucide-react';
+import { CrCancel, CrCheck, CrChest, CrClock, CrClose, CrEye, CrRandom, CrSearch } from '../ui/CrIcons';
+import { RARITY_COLOR } from '../data/cards';
 import { BINGO_ATTR_COLOR, getCardAttrs, bingoAttrLabel } from '../data/bingoAttributes';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import tradeIcon from '../../../assets/clashRoyale/ui/icon_trader.png';
@@ -8,9 +10,8 @@ import wildcardIcon from '../../../assets/clashRoyale/ui/wildcard.png';
 import ModeShell from './ModeShell';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
+import { avatarUrl } from '../components/avatars';
 
-const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
-const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 /** Akzentfarbe des Modus — Bingo ist golden. */
 const ACCENT = '#fbbf24';
 
@@ -23,6 +24,7 @@ const BINGO_I18N = {
     actingNow: 'am Zug',
     draftDone: 'Draft abgeschlossen!',
     yourTurn: 'Du bist dran',
+    turnTag: 'Am Zug',
     turnHintChoose: 'Wähle eine der verfügbaren Karten aus.',
     turnHintFreePlace: (name) => `„${name}" passt auf kein freies Feld — Feld wählen und Blockieren bestätigen.`,
     turnHintMatching: (name) => `„${name}" gewählt — lege sie auf ein blau markiertes Feld.`,
@@ -84,6 +86,7 @@ const BINGO_I18N = {
     actingNow: 'acting now',
     draftDone: 'Draft complete!',
     yourTurn: "You're up",
+    turnTag: 'Turn',
     turnHintChoose: 'Choose one of the available cards.',
     turnHintFreePlace: (name) => `"${name}" doesn't fit any free cell — pick a cell and confirm the block.`,
     turnHintMatching: (name) => `"${name}" selected — place it on a blue-marked cell.`,
@@ -145,6 +148,7 @@ const BINGO_I18N = {
     actingNow: 'en su turno',
     draftDone: '¡Draft completado!',
     yourTurn: 'Es tu turno',
+    turnTag: 'Turno',
     turnHintChoose: 'Elige una de las cartas disponibles.',
     turnHintFreePlace: (name) => `"${name}" no encaja en ninguna casilla libre — elige una casilla y confirma el bloqueo.`,
     turnHintMatching: (name) => `"${name}" seleccionada — colócala en una casilla marcada en azul.`,
@@ -221,7 +225,7 @@ function imgIcon(src) {
 // "Der Dieb" tauscht Karten — der echte Umtausch-Pfeil aus dem Spiel statt eines
 // generischen Blitzes; "Der Joker" ersetzt eine Karte zufällig — die Wildcard-Grafik
 // trifft die Bedeutung genauer als ein Geschenk-Symbol.
-const POWERUP_ICONS = { swap: imgIcon(tradeIcon), reroll: Shuffle, joker: imgIcon(wildcardIcon) };
+const POWERUP_ICONS = { swap: imgIcon(tradeIcon), reroll: CrRandom, joker: imgIcon(wildcardIcon) };
 
 const POWERUP_META_I18N = {
   de: {
@@ -285,24 +289,22 @@ function findStateCard(state, cardId) {
 }
 
 function AvatarCircle({ id, color, size = 28 }) {
-  const url = id ? AVATAR_MAP[id] : null;
+  const url = avatarUrl(id);
   return (
-    <div className="rounded-full overflow-hidden shrink-0 border-2 bg-[#1a1a20]"
+    <div className="rounded-full overflow-hidden shrink-0 border-2 cr-avatar-pick"
       style={{ width: size, height: size, borderColor: (color || '#888') + '99' }}>
       {url && <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
     </div>
   );
 }
 
-function CardImg({ id, name, contain = false }) {
+function CardImg({ id, name }) {
   return (
     // Kein FARBIGER Hintergrund (siehe entsprechenden Kommentar in SnakeRoyale.jsx) —
     // ein neutrales Dunkelgrau verhindert nur, dass das Diamant-Karo der Spielfläche
     // durch transparente Bildränder scheint.
     <div className="relative w-full h-full bg-[#0d0d14]">
-      <img src={cardImageUrl(id)} alt={name}
-        className={`w-full h-full ${contain ? 'object-contain' : 'object-cover'}`}
-        style={CARD_CROP} onError={e => { e.target.style.display = 'none'; }} />
+      <CardFace id={id} alt={name} />
     </div>
   );
 }
@@ -310,10 +312,11 @@ function CardImg({ id, name, contain = false }) {
 function TimerChip({ remaining, size = 'md' }) {
   const urgent = remaining <= 10;
   return (
-    <div className={`flex items-center gap-1.5 border rounded-sm px-2.5 py-1 shrink-0 ${urgent ? 'border-red-500/40 bg-red-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
-      <Clock size={12} className={urgent ? 'text-red-400' : 'text-gray-500'} />
-      <span className={`font-mono font-bold tabular-nums ${size === 'lg' ? 'text-base' : 'text-sm'} ${urgent ? 'text-red-400' : 'text-white'}`}>{remaining}s</span>
-    </div>
+    // Dasselbe Zeit-Abzeichen wie in der Kopfzeile der übrigen Modi (.cr-timer, index.css)
+    <span className={`cr-timer shrink-0 ${urgent ? 'cr-timer--urgent' : ''} ${size === 'lg' ? '' : '!text-base'}`}>
+      <CrClock size={size === 'lg' ? 22 : 18} />
+      <span className="tabular-nums">{remaining}s</span>
+    </span>
   );
 }
 
@@ -334,6 +337,7 @@ function BingoSidebar({ state, myPlayerId, t, amSpectator = false, watchPlayerId
         const tokens     = p.bingoTokensLeft ?? p.bingoTokens ?? 0;
         return (
           <PlayerPanel key={p.id} isMe={isMe || isWatched}
+            active={!state.finished && !inTokenShop && state.currentPlayerId === p.id} activeLabel={t.turnTag}
             className={`${amSpectator ? 'cursor-pointer' : ''} ${
               isActing ? 'ring-1 ring-inset ring-amber-400/50' : ''
             }`}
@@ -342,7 +346,7 @@ function BingoSidebar({ state, myPlayerId, t, amSpectator = false, watchPlayerId
                 className="flex items-center gap-2.5 min-w-0">
                 <AvatarCircle id={p.avatar} color={p.color} size={28} />
                 <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
-                {isWatched && <Eye size={12} className="text-cyan-400 shrink-0" />}
+                {isWatched && <CrEye size={18} className="text-cyan-400 shrink-0" />}
                 <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/8</span>
               </div>
             }>
@@ -373,7 +377,7 @@ function BingoSidebar({ state, myPlayerId, t, amSpectator = false, watchPlayerId
             <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
               <AvatarCircle id={p.avatar} color={p.color} size={20} />
               <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
-              <Eye size={11} className="text-white/40 shrink-0" />
+              <CrEye size={16} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
@@ -391,17 +395,17 @@ function TurnBanner({ state, myPlayerId, selectedCard, freePlace, amSpectator, t
   // Diamant-Karo der Spielfläche (siehe GameSurface) statt auf einer einfarbigen Fläche,
   // bei 2% Deckkraft war der Text darauf kaum noch zu lesen.
   const wrap = (children) => (
-    <div className="shrink-0 px-4 sm:px-10 py-2.5 bg-[#111d2c] border-b-2 border-black/40 flex items-center gap-3">{children}</div>
+    <div className="cr-game-header shrink-0 px-4 sm:px-8 py-2.5 flex items-center gap-3">{children}</div>
   );
 
   if (state.finished) return wrap(<>
-    <Check size={15} className="text-green-400 shrink-0" />
+    <CrCheck size={22} className="text-green-400 shrink-0" />
     <p className="text-green-300 font-semibold text-sm">{t.draftDone}</p>
   </>);
 
   if (isMyTurn) return wrap(<>
     <AvatarCircle id={currentPlayer?.avatar} color={currentPlayer?.color} size={32} />
-    <p className="text-cyan-300 text-sm font-semibold shrink-0">{t.yourTurn}</p>
+    <span className="cr-turn-banner cr-turn-banner--mine shrink-0">{t.yourTurn}</span>
     <p className="text-white/40 text-sm truncate">
       {!selectedCard ? t.turnHintChoose
         : freePlace ? t.turnHintFreePlace(selectedCard.name)
@@ -411,7 +415,7 @@ function TurnBanner({ state, myPlayerId, selectedCard, freePlace, amSpectator, t
 
   return wrap(<>
     <AvatarCircle id={currentPlayer?.avatar} color={currentPlayer?.color} size={32} />
-    <p className="text-sm font-semibold truncate shrink-0" style={{ color: currentPlayer?.color || '#9ca3af' }}>
+    <p className="font-cr text-base truncate shrink-0" style={{ color: currentPlayer?.color || '#9ca3af' }}>
       {t.turnOf(currentPlayer?.name || '…')}
     </p>
     <p className="text-white/35 text-sm truncate">{amSpectator ? t.spectatorWatching : t.waitYourTurn}</p>
@@ -495,7 +499,7 @@ function MyBingoCard({ grid, completedLines = [], validCells, matchingCells, fre
                 {/* Blockierte Felder klar kennzeichnen */}
                 {isBlocking && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none bg-black/40">
-                    <Ban size={26} className="text-red-400" strokeWidth={2.5} />
+                    <CrCancel size={37} className="text-red-400" strokeWidth={2.5} />
                     <span className="text-[10px] font-black text-red-400 uppercase tracking-wide">{t.blocked}</span>
                   </div>
                 )}
@@ -656,7 +660,7 @@ function TokenShopLive({ state, t, lang = 'de' }) {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Gift size={15} className="text-gray-600" />
+                <CrChest size={22} className="text-gray-600" />
                 <span className="text-gray-500 font-semibold text-sm">{t.noPowerupChosen}</span>
               </div>
             )}
@@ -797,14 +801,14 @@ function TokenShop({ state, myPlayerId, onPowerup, onTokenAction, t, lang = 'de'
             <BackBtn onClick={() => goto('joker_mine', { ability: 'joker', cardId: null })}
               label={<>{t.replacePrefix} <span className="text-cyan-400">{me?.deck[myDeckIdx]?.name}</span> {t.replaceSuffix}</>} />
             <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <CrSearch size={19} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
               <input value={jokerSearch} onChange={e => setJokerSearch(e.target.value)} placeholder={t.searchCardPlaceholder}
                 className="w-full bg-[#1a1a20] border border-white/10 rounded-sm pl-8 pr-4 py-2 text-white text-sm placeholder-gray-600 focus:border-cyan-500 outline-none" />
             </div>
             <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-64 overflow-y-auto custom-scrollbar pr-1">
               {unpickedCards.map(card => (
                 <button key={card.id} onClick={() => doJoker(card.id)} title={card.name}
-                  className="aspect-square rounded-sm overflow-hidden border border-white/10 hover:border-cyan-400/60 transition-colors">
+                  className="cr-card-hover aspect-[4/5] rounded-sm overflow-hidden border border-white/10 hover:border-cyan-400/60">
                   <CardImg id={card.id} name={card.name} rarity={card.rarity} />
                 </button>
               ))}
@@ -820,7 +824,7 @@ function TokenShop({ state, myPlayerId, onPowerup, onTokenAction, t, lang = 'de'
 function BackBtn({ onClick, label }) {
   return (
     <div className="flex items-center gap-2">
-      <button onClick={onClick} className="text-gray-500 hover:text-white transition-colors shrink-0"><X size={15} /></button>
+      <button onClick={onClick} className="text-gray-500 hover:text-white transition-colors shrink-0"><CrClose size={22} /></button>
       <p className="text-white font-semibold text-sm">{label}</p>
     </div>
   );
@@ -838,7 +842,7 @@ function DeckPicker({ deck, onSelect, t }) {
           {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
           {card?.protected && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <Check size={13} className="text-green-400" />
+              <CrCheck size={19} className="text-green-400" />
             </div>
           )}
         </button>
@@ -1094,7 +1098,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
                 {selectedCard && isMyTurn && placement.freePlace && (
                   <div className="flex flex-col gap-2 bg-red-950/80 rounded-xl px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <Ban size={16} className="text-red-400 shrink-0" />
+                      <CrCancel size={23} className="text-red-400 shrink-0" />
                       <p className="text-red-300 text-sm font-bold leading-snug">{t.blockWarningTitle(selectedCard.name)}</p>
                     </div>
                     <p className="text-red-200/80 text-xs leading-relaxed">
@@ -1108,7 +1112,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
                 {selectedCard && isMyTurn && !placement.freePlace && (
                   <div className="flex flex-col gap-2 bg-cyan-950/80 rounded-xl px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <Check size={15} className="text-cyan-400 shrink-0" />
+                      <CrCheck size={22} className="text-cyan-400 shrink-0" />
                       <p className="text-cyan-300 text-xs font-bold uppercase tracking-wider">{t.yourTurn}</p>
                     </div>
                     <p className="text-cyan-300/90 text-xs leading-relaxed">
@@ -1124,7 +1128,7 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-3">
                   <div className="shrink-0 flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg bg-[#111d2c]">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Eye size={13} className="text-cyan-400 shrink-0" />
+                      <CrEye size={19} className="text-cyan-400 shrink-0" />
                       <p className="text-white/60 text-xs font-semibold uppercase tracking-wider truncate">{t.watchingBoardOf(watchedPlayer.name)}</p>
                     </div>
                     <span className="text-[11px] text-white/40 shrink-0">{t.rowsOf10((watchedPlayer.completedLines || []).length)}</span>

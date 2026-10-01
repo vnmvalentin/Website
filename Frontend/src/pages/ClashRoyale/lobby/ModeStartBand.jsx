@@ -1,15 +1,17 @@
-// Mittleres Band der Lobby: Spielmodus mit Coverbild (Klick öffnet den Modus-Umschalter),
-// der große Start-Knopf und — genauso auffällig daneben — der Spielverlauf. Bewusst über
-// der ganzen Breite und ÜBER den beiden Spalten (Einstellungen links, Spielerliste rechts):
-// das ist die eine Aktion, für die man nicht erst scrollen soll, egal wie weit man in den
-// Einstellungen war.
+// Oberster Abschnitt der Lobby-Fläche: Spielmodus (Klick öffnet den Modus-Umschalter), der
+// große Start-Knopf und — genauso auffällig daneben — der Spielverlauf. Bewusst über der
+// ganzen Breite und ÜBER den beiden Spalten (Einstellungen links, Spieler rechts): das ist
+// die eine Aktion, für die man nicht erst scrollen soll.
+//
+// Sept. 2026: Statt des Coverbilds mit kleinem "Bearbeiten"-Etikett ist der Modus jetzt ein
+// großer Kachel-Knopf mit Modus-Symbol und einem deutlichen "Modus ändern" — auf dem Bild
+// war nicht zu erkennen, dass man dort klicken muss, um den Modus zu wechseln.
 import React, { useState } from 'react';
-import { ChevronDown, Shield } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import ChunkyButton from '../ui/ChunkyButton';
 import ModePickerModal from './ModePickerModal';
-import { modeNameFor, modeDescFor, modeInfo, modeCover } from '../modesConfig';
-import battleIcon from '../../../assets/clashRoyale/ui/battle.png';
-import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
+import { CrBattle, CrTrophy, CrShield } from '../ui/CrIcons';
+import { modeNameFor, modeDescFor, modeInfo } from '../modesConfig';
 
 export default function ModeStartBand({
   lobbyData, actions, t, lang,
@@ -18,11 +20,9 @@ export default function ModeStartBand({
   canStart, poolSize, requiredPool, poolTooSmall, carouselMaxPlayers, carouselTooMany, teamsNotReady,
 }) {
   const [modePickerOpen, setModePickerOpen] = useState(false);
-  const [hasImage, setHasImage] = useState(true);
 
   const mode = lobbyData?.mode || 'snake';
-  const current = modeInfo(mode);
-  const CurrentIcon = current.icon;
+  const CurrentIcon = modeInfo(mode).icon;
   const historyCount = lobbyData?.historyCount || 0;
 
   const blockedReason = carouselTooMany
@@ -33,52 +33,59 @@ export default function ModeStartBand({
         ? t.startBlockedTeams
         : t.startBlockedPlayers;
 
-  const cover = (
-    <div className="relative w-full sm:w-48 aspect-[16/10] sm:aspect-square shrink-0 rounded-xl overflow-hidden bg-violet-500/10 border border-violet-400/20">
-      {hasImage ? (
-        <img src={modeCover(mode)} alt="" onError={() => setHasImage(false)}
-          className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <CurrentIcon size={36} className="text-violet-300" />
-        </div>
-      )}
+  const tileContent = (
+    <>
+      <span className="cr-tile-icon w-16 h-16 sm:w-[76px] sm:h-[76px]">
+        <CurrentIcon size={50} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="cr-eyebrow block">{t.gameMode}</span>
+        <span className="block font-cr text-2xl sm:text-[28px] text-white leading-tight truncate"
+          style={{ textShadow: '0 2px 0 rgba(2,8,20,0.6)' }}>
+          {modeNameFor(mode, lang)}
+        </span>
+      </span>
+      {/* Deutlich als Aktion erkennbar: goldenes Etikett mit Pfeil, auf dem Handy nur der Pfeil */}
       {canControlLobby && (
-        <span className="absolute bottom-1.5 right-1.5 flex items-center gap-1 bg-black/70 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md">
-          {t.edit} <ChevronDown size={10} className="-rotate-90" />
+        <span className="shrink-0 flex items-center gap-1 rounded-lg bg-[var(--cr-arcade-gold)] text-[#4a2e00] font-cr text-[15px] pl-3 pr-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_3px_0_#b07a08]">
+          <span className="hidden sm:inline">{t.changeMode}</span>
+          <ChevronRight size={18} strokeWidth={3} />
         </span>
       )}
-    </div>
+    </>
   );
 
   return (
-    <div className="cr-arcade-panel p-5 md:p-6">
+    <div className="cr-section">
       {isClashAdmin && !effectiveIsHost && (
-        <p className="text-violet-400 text-xs flex items-center gap-1.5 mb-3">
-          <Shield size={12} /> {t.adminAccessNote}
+        <p className="text-violet-300 text-xs flex items-center gap-1.5 mb-3">
+          <CrShield size={16} /> {t.adminAccessNote}
         </p>
       )}
-      <div className="flex flex-col sm:flex-row gap-5">
-        {canControlLobby ? (
-          <button onClick={() => setModePickerOpen(true)} className="text-left shrink-0">{cover}</button>
-        ) : cover}
-
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
-          <p className="text-white/40 text-xs uppercase tracking-wider">{t.gameMode}</p>
-          <p className="text-white font-bold text-lg flex items-center gap-2">{modeNameFor(mode, lang)}</p>
-          <p className="text-white/40 text-xs leading-relaxed">{modeDescFor(mode, lang)}</p>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+          {canControlLobby ? (
+            <button type="button" onClick={() => setModePickerOpen(true)} aria-label={t.changeMode}
+              className="cr-tile-btn p-3 sm:p-4">
+              {tileContent}
+            </button>
+          ) : (
+            <div className="cr-tile-btn cr-tile-btn--static p-3 sm:p-4">{tileContent}</div>
+          )}
+          <p className="text-white/55 text-xs leading-relaxed px-1">{modeDescFor(mode, lang)}</p>
         </div>
 
-        <div className="flex sm:flex-col gap-2.5 sm:w-56 shrink-0">
+        <div className="flex md:flex-col gap-3 md:w-64 shrink-0">
           {canControlLobby ? (
-            <ChunkyButton variant="green" size="lg" block iconSrc={battleIcon} onClick={onStart} disabled={!canStart}>
+            <ChunkyButton variant="green" size="lg" block icon={CrBattle} iconSize={30} onClick={onStart} disabled={!canStart}
+              className="md:flex-1">
               {canStart ? t.startGame : blockedReason}
             </ChunkyButton>
           ) : (
-            <p className="flex-1 self-center text-white/30 text-sm text-center">{t.waitingForHost}</p>
+            <p className="flex-1 self-center text-white/45 text-sm text-center">{t.waitingForHost}</p>
           )}
           {historyCount > 0 && (
-            <ChunkyButton variant="gold" size="md" iconSrc={trophyIcon} block onClick={onShowHistory}>
+            <ChunkyButton variant="gold" size="md" icon={CrTrophy} iconSize={24} block onClick={onShowHistory}>
               {t.history}
             </ChunkyButton>
           )}

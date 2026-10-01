@@ -17,12 +17,14 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 
-export default function FaqAccordion({ items = [], heading }) {
+// headingClassName: optionaler Überschriften-Stil der einbettenden Seite (z.B. die Titelschrift
+// der CR-Minigames) — ohne Angabe bleibt der bisherige schlichte Stil.
+export default function FaqAccordion({ items = [], heading, headingClassName = 'text-white font-semibold text-sm mb-3' }) {
   if (items.length === 0) return null;
 
   return (
     <section>
-      <h2 className="text-white font-semibold text-sm mb-3">{heading}</h2>
+      <h2 className={headingClassName}>{heading}</h2>
       <div className="divide-y divide-white/5 rounded-xl border border-white/5 bg-black/20 overflow-hidden">
         {items.map((item, i) => (
           <details key={i} className="group">

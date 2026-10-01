@@ -35,6 +35,10 @@ export const PAGE_I18N = {
     // Menü-Bildschirm (Hub als Videospiel-Hauptmenü): fünf gestapelte Buttons + Zurück
     menuMinigames: 'Minigames',
     menuBack: 'Zurück',
+    backToWebsite: 'Website',
+    changeMode: 'Modus ändern',
+    lobbySection: 'Lobby',
+    settingsSection: 'Einstellungen',
 
     // ── Profil ───────────────────────────────────────────────────────────────
     profileBtn: 'Profil',
@@ -403,6 +407,10 @@ export const PAGE_I18N = {
     // Menu screen (hub as a video-game main menu): five stacked buttons + back
     menuMinigames: 'Minigames',
     menuBack: 'Back',
+    backToWebsite: 'Website',
+    changeMode: 'Change mode',
+    lobbySection: 'Lobby',
+    settingsSection: 'Settings',
 
     // ── Profile ──────────────────────────────────────────────────────────────
     profileBtn: 'Profile',
@@ -765,6 +773,10 @@ export const PAGE_I18N = {
     // Pantalla de menú (el hub como menú principal de videojuego): cinco botones apilados + volver
     menuMinigames: 'Minijuegos',
     menuBack: 'Atrás',
+    backToWebsite: 'Web',
+    changeMode: 'Cambiar modo',
+    lobbySection: 'Sala',
+    settingsSection: 'Ajustes',
 
     // ── Perfil ───────────────────────────────────────────────────────────────
     profileBtn: 'Perfil',

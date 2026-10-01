@@ -1,21 +1,25 @@
 // Profilbild eines Spielers — in Lobby, Spielerliste, Verlauf und Endscreen.
 //
 // Die Bilder liegen in src/assets/avatars/ (siehe avatars.js) und werden zur Bauzeit
-// eingelesen; die Lobby kennt nur den Dateinamen ("Golem.jpg") und schickt genau den
-// über den Socket. `avatarUrl` (Prop) ist der Ausnahmefall: die Profil-Option "Twitch-Bild
+// eingelesen; die Lobby kennt nur den Dateinamen ("Knight_Evolution.webp") und schickt genau
+// den über den Socket. `avatarUrl` (Prop) ist der Ausnahmefall: die Profil-Option "Twitch-Bild
 // verwenden" schickt eine echte Bild-URL statt eines Dateinamens — die hat dann Vorrang.
+//
+// Die Avatare sind freigestellte Figuren (transparenter Hintergrund). Der Kreis trägt deshalb
+// selbst eine Bühne: ein von oben beleuchtetes CR-Blau (.cr-avatar in index.css) — auf einer
+// schwarzen Fläche wirkten die Figuren wie ausgeschnitten.
 
 import React from 'react';
-import { Shield } from 'lucide-react';
 import { avatarUrl as resolveAvatarUrl } from './avatars';
+import { CrShield } from '../ui/CrIcons';
 
 export default function PlayerAvatar({ avatarId, avatarUrl, size = 28, className = '', isAdmin = false }) {
   if (isAdmin) {
     return (
       <div
-        className={`rounded-full shrink-0 bg-violet-500/20 border-2 border-violet-400 flex items-center justify-center ${className}`}
+        className={`cr-avatar rounded-full shrink-0 flex items-center justify-center ${className}`}
         style={{ width: size, height: size }}>
-        <Shield size={Math.round(size * 0.55)} className="text-violet-300" />
+        <CrShield size={Math.round(size * 0.62)} />
       </div>
     );
   }
@@ -23,16 +27,13 @@ export default function PlayerAvatar({ avatarId, avatarUrl, size = 28, className
   const url = avatarUrl || resolveAvatarUrl(avatarId);
   if (!url) {
     return (
-      <div
-        className={`rounded-full shrink-0 bg-black/40 border border-white/20 ${className}`}
-        style={{ width: size, height: size }}
-      />
+      <div className={`cr-avatar rounded-full shrink-0 ${className}`} style={{ width: size, height: size }} />
     );
   }
 
   return (
     <div
-      className={`rounded-full overflow-hidden shrink-0 border border-white/20 bg-black/40 ${className}`}
+      className={`cr-avatar rounded-full overflow-hidden shrink-0 ${className}`}
       style={{ width: size, height: size }}>
       <img
         src={url} alt="" width={size} height={size}

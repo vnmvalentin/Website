@@ -25,9 +25,14 @@ import TwitchAuthProvider from "./components/TwitchAuthProvider";
 // wenn er es doch ins HTML schafft — das gilt unabhängig davon, welche der
 // Routen hier lazy sind, trotzdem beim Umbenennen/Verschieben einer der oben
 // gelisteten Routen an prerender.js denken.
+const GardenShell = lazy(() => import("./pages/GardenGame/ui/menu/GardenShell.jsx"));
 const GameContainer = lazy(() => import("./pages/GardenGame/GameContainer"));
+const AdventureShell = lazy(() => import("./pages/Adventure/ui/Shell.jsx"));
 const AdventureGame = lazy(() => import("./pages/Adventure/AdventureGame"));
+const CrShell = lazy(() => import("./pages/ClashRoyale/ui/CrShell.jsx"));
 const ClashRoyalePage = lazy(() => import("./pages/ClashRoyale/ClashRoyalePage"));
+const TournamentPage = lazy(() => import("./pages/ClashRoyale/tournament/TournamentPage"));
+const TournamentForm = lazy(() => import("./pages/ClashRoyale/tournament/TournamentForm"));
 const DiscordBotDashboard = lazy(() => import("./pages/Discord/DiscordBotDashboard"));
 
 const Abstimmung = lazy(() => import("./pages/Abstimmung/Abstimmung"));
@@ -59,6 +64,7 @@ const CategoryPage = lazy(() => import("./pages/CategoryPage"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Connect4Page = lazy(() => import("./pages/Connect4/Connect4Page"));
 const Connect4Room = lazy(() => import("./pages/Connect4/Connect4Room"));
+const BlobbyShell = lazy(() => import("./pages/Blobby/ui/Shell.jsx"));
 const BlobbyPage = lazy(() => import("./pages/Blobby/BlobbyPage"));
 const BlobbyRoom = lazy(() => import("./pages/Blobby/BlobbyRoom"));
 const SeedRunnersPage = lazy(() => import("./pages/SeedRunners/SeedRunnersPage"));
@@ -66,12 +72,14 @@ const SeedRunnersRoom = lazy(() => import("./pages/SeedRunners/SeedRunnersRoom")
 const SeedRunnersTestPage = lazy(() => import("./pages/SeedRunners/SeedRunnersTestPage"));
 const SeedRunnersWorldLab = lazy(() => import("./pages/SeedRunners/SeedRunnersWorldLab"));
 const SeedRunnersDaily = lazy(() => import("./pages/SeedRunners/SeedRunnersDaily"));
+const SeedRunnersVerlauf = lazy(() => import("./pages/SeedRunners/SeedRunnersVerlauf"));
 const SeedRunnersSandbox = lazy(() => import("./pages/SeedRunners/SeedRunnersSandbox"));
 const SeedRunnersEditor = lazy(() => import("./pages/SeedRunners/SeedRunnersEditor"));
 const SeedRunnersLevels = lazy(() => import("./pages/SeedRunners/SeedRunnersLevels"));
 const SeedRunnersLevel = lazy(() => import("./pages/SeedRunners/SeedRunnersLevel"));
 const SeedRunnersCreator = lazy(() => import("./pages/SeedRunners/SeedRunnersCreator"));
 const SeedRunnersShell = lazy(() => import("./pages/SeedRunners/ui/GameShell"));
+const DleShell = lazy(() => import("./pages/Dle/ui/Shell.jsx"));
 const DleHubPage = lazy(() => import("./pages/Dle/DleHubPage"));
 const SigilsShell = lazy(() => import("./pages/SacrificeSigils/ui/Shell.jsx"));
 const SigilsHome = lazy(() => import("./pages/SacrificeSigils/ui/screens/HomeScreen.jsx"));
@@ -161,6 +169,9 @@ export default function App() {
           <Route path="/seed-runners" element={<SeedRunnersShell />}>
             <Route index element={<SeedRunnersPage/>} />
             <Route path="daily" element={<SeedRunnersDaily/>} />
+            {/* Tagesarchiv: ein vergangener Tag (JJJJ-MM-TT); die Liste steht im Verlauf */}
+            <Route path="daily/:dateKey" element={<SeedRunnersDaily/>} />
+            <Route path="verlauf" element={<SeedRunnersVerlauf/>} />
             {/* Sandbox: Entwürfe verwalten und der Level-Editor */}
             <Route path="sandbox" element={<SeedRunnersSandbox/>} />
             <Route path="editor" element={<Navigate to="/seed-runners/sandbox" replace />} />
@@ -184,6 +195,44 @@ export default function App() {
             <Route path="tutorial" element={<SigilsTutorial/>} />
             <Route path="moorwanderung" element={<SigilsRun/>} />
             <Route path="moorwanderung/:code" element={<SigilsRunRoom/>} />
+          </Route>
+
+          {/* Blobby Volley: eigene Strand-Hülle (Blobby/ui/Shell.jsx) */}
+          <Route path="/blobby" element={<BlobbyShell />}>
+            <Route index element={<BlobbyPage/>} />
+            <Route path=":code" element={<BlobbyRoom/>} />
+          </Route>
+
+          {/* Clash-Royale-Minigames: volle Fensterhöhe ohne Website-Kopfzeile (ClashRoyale/ui/CrShell.jsx).
+              Nur die Minigame-Seite selbst — WinTracker und Nuzlocke bleiben unter Layout. */}
+          <Route path="/clash-royale" element={<CrShell />}>
+            <Route index element={<ClashRoyalePage />} />
+            {/* Turniere (Backend/clashRoyale/PLANUNG_TURNIER.md) */}
+            <Route path="turnier/neu" element={<TournamentForm />} />
+            <Route path="turnier/:id" element={<TournamentPage />} />
+            <Route path="turnier/:id/bearbeiten" element={<TournamentForm />} />
+          </Route>
+
+          {/* Virtual Farm: eigene Hülle, volle Fensterhöhe (GardenGame/ui/menu/GardenShell.jsx) */}
+          <Route path="/garden" element={<GardenShell />}>
+            <Route index element={<GameContainer />} />
+          </Route>
+
+          {/* adVentures: eigene Pixel-Dungeon-Hülle (Adventure/ui/Shell.jsx) */}
+          <Route path="/adventures" element={<AdventureShell />}>
+            <Route index element={<AdventureGame/>} />
+          </Route>
+
+          {/* Daily Games: eigene Hülle „Messlabor" (Dle/ui/Shell.jsx) */}
+          <Route path="/daily" element={<DleShell />}>
+            <Route index element={<DleHubPage/>} />
+            <Route path="tempdle" element={<TempdlePage/>} />
+            <Route path="velocidle" element={<VelocidlePage/>} />
+            <Route path="probabildle" element={<ProbabildlePage/>} />
+            <Route path="duratidle" element={<DuratidlePage/>} />
+            <Route path="inventiondle" element={<InventiondlePage/>} />
+            <Route path="pricedle" element={<PricedlePage/>} />
+            <Route path="balancdle" element={<BalancdlePage/>} />
           </Route>
 
           {/* Alle “normalen” Seiten unter Layout */}
@@ -211,24 +260,12 @@ export default function App() {
             <Route path="Bingo" element={<BingoPage/>} />
             <Route path="Bingo/:sessionId" element={<BingoEditorPage/>} />
             <Route path="Bingo/join/:joinKey" element={<BingoJoinPage/>} />
-            <Route path="adventures" element={<AdventureGame/>} />
             <Route path="connect4" element={<Connect4Page/>} />
             <Route path="connect4/:code" element={<Connect4Room/>} />
-            <Route path="blobby" element={<BlobbyPage/>} />
-            <Route path="blobby/:code" element={<BlobbyRoom/>} />
             {/* Seed Runners: Übungsbereich und Welten-Werkbank sind Entwickler-Werkzeuge und bleiben im Website-Look; der Rest
                 des Spiels hat eine eigene Hülle (unten). Feste Routen gewinnen gegen ":code". */}
             <Route path="seed-runners/test" element={<SeedRunnersTestPage/>} />
             <Route path="seed-runners/welten" element={<SeedRunnersWorldLab/>} />
-            <Route path="garden" element={<GameContainer />} />
-            <Route path="daily" element={<DleHubPage/>} />
-            <Route path="daily/tempdle" element={<TempdlePage/>} />
-            <Route path="daily/velocidle" element={<VelocidlePage/>} />
-            <Route path="daily/probabildle" element={<ProbabildlePage/>} />
-            <Route path="daily/duratidle" element={<DuratidlePage/>} />
-            <Route path="daily/inventiondle" element={<InventiondlePage/>} />
-            <Route path="daily/pricedle" element={<PricedlePage/>} />
-            <Route path="daily/balancdle" element={<BalancdlePage/>} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="tutorial/ytm-bot" element={<YTMBotPage />} />
             <Route path="tutorial/ytm-songrequest" element={<Navigate to="/tutorial/ytm-bot" replace />} />
@@ -237,7 +274,6 @@ export default function App() {
             <Route path="/discord-bot" element={<DiscordBotDashboard />} />
             <Route path="/discord-bot/privacy" element={<DiscordBotPrivacyPage />} />
             <Route path="/discord-bot/terms" element={<DiscordBotTermsPage />} />
-            <Route path="/clash-royale" element={<ClashRoyalePage />} />
             <Route path="/nuzlocke" element={<NuzlockePage />} />
             <Route path="/clash-royale/win-tracker" element={<WinTrackerPage />} />
             <Route path="/twitch-tools" element={<PollsPredictionsPage />} />

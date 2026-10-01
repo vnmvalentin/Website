@@ -1,7 +1,8 @@
 // Sprachauswahl als Flaggen-Dropdown — deutlich schneller zu finden als ein DE/EN-Kürzel.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import { CrCheck } from '../ui/CrIcons';
 
 // Flaggen als Inline-SVG statt Emoji: Windows besitzt keine Glyphen für Flaggen-Emojis
 // (🇩🇪 würde dort nur als Buchstabenkasten "DE" erscheinen).
@@ -73,8 +74,7 @@ export default function LanguageSelect({ lang, onChange, className = '' }) {
         aria-expanded={open}
         aria-label={label}
         title={label}
-        className="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl bg-[#17293f] hover:bg-[#1d3348] border-2 transition-colors font-arcade font-semibold text-sm text-white"
-        style={{ borderColor: 'var(--cr-arcade-ink)', boxShadow: '0 3px 0 rgba(0,0,0,0.35)' }}>
+        className="cr-chip flex items-center gap-2 h-11 pl-2.5 pr-3 rounded-xl transition-colors font-cr text-[15px] text-white">
         <CurrentFlag size={20} />
         <span className="uppercase">{current.id}</span>
         <ChevronDown size={13} className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
@@ -97,7 +97,7 @@ export default function LanguageSelect({ lang, onChange, className = '' }) {
                 }`}>
                 <Flag />
                 <span className="flex-1 text-left">{l.label}</span>
-                {active && <Check size={14} className="text-violet-400 shrink-0" />}
+                {active && <CrCheck size={16} />}
               </button>
             );
           })}

@@ -4,10 +4,10 @@
 // ein eigenes Fenster (derselbe Modal-Rahmen wie Kartenpool/Verlauf/Account, jetzt
 // blickdicht statt halbtransparent — siehe .cr-arcade-panel in index.css).
 import React from 'react';
-import { Sliders } from 'lucide-react';
+import { CrSettings } from '../ui/CrIcons';
 import Modal from '../ui/Modal';
 import HostSettings from './HostSettings';
-import { modeNameFor } from '../modesConfig';
+import { modeNameFor, modeInfo } from '../modesConfig';
 
 export default function GameSettingsModal({
   onClose,
@@ -16,15 +16,24 @@ export default function GameSettingsModal({
   poolSize, activeCount, carouselMaxPlayers, carouselTooMany,
 }) {
   const mode = lobbyData?.mode || 'snake';
+  const ModeIcon = modeInfo(mode).icon;
 
   return (
     <Modal
       onClose={onClose}
       title={t.hostPanelTitle}
-      icon={<Sliders size={15} className="text-violet-400 shrink-0" />}
+      icon={<CrSettings size={24} />}
       size="md">
-      <div className="px-5 py-5 space-y-5">
-        <p className="text-white/40 text-xs uppercase tracking-wider">{modeNameFor(mode, lang)}</p>
+      {/* Eine Fläche, darin Abschnitte: oben für welchen Modus, darunter Presets und je
+          Einstellung ein eigener Abschnitt (HostSettings.jsx / ui/SettingRow.jsx). */}
+      <div>
+        <div className="cr-section flex items-center gap-3 !py-3.5 bg-[rgba(6,16,32,0.35)]">
+          <span className="cr-tile-icon w-11 h-11"><ModeIcon size={30} /></span>
+          <span className="min-w-0">
+            <span className="cr-eyebrow block">{t.gameMode}</span>
+            <span className="block font-cr text-white text-lg leading-tight truncate">{modeNameFor(mode, lang)}</span>
+          </span>
+        </div>
         <HostSettings
           lobbyData={lobbyData}
           actions={actions}

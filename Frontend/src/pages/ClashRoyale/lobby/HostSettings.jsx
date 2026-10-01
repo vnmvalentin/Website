@@ -11,7 +11,7 @@
 // Einstellungen gescrollt hat.
 
 import React from 'react';
-import { Sparkles, Shield } from 'lucide-react';
+import { CrStar, CrShield } from '../ui/CrIcons';
 import Slider from '../ui/Slider';
 import Toggle from '../ui/Toggle';
 import SettingRow, { SegmentedControl } from '../ui/SettingRow';
@@ -48,23 +48,25 @@ export default function HostSettings({
   const visibleSettings = HOST_SETTINGS.filter(s => s.modes.includes(mode));
 
   return (
-    <div className="space-y-5">
+    // Kein eigener Rahmen: jede Einstellung ist ein Abschnitt (.cr-section) der gemeinsamen
+    // Fläche des Fensters (GameSettingsModal.jsx), getrennt durch eine eingeprägte Fuge.
+    <div>
       {isClashAdmin && !effectiveIsHost && (
-        <p className="text-violet-400 text-xs flex items-center gap-1.5">
-          <Shield size={12} /> {t.adminAccessNote}
+        <p className="cr-section text-violet-300 text-xs flex items-center gap-1.5">
+          <CrShield size={16} /> {t.adminAccessNote}
         </p>
       )}
 
-      {/* ── Voreinstellungen — ein Klick setzt alle Regler dieses Modus ──────── */}
+      {/* ── Voreinstellungen — ein Klick setzt alle Regler dieses Modus ────────
+          Alle Presets auf EINER eingelassenen Spur (.cr-seg) statt als lose Einzelpillen;
+          nur das aktive hebt sich heraus. */}
       {modePresets.length > 0 && (
-        <div>
-          <p className="text-white text-sm font-semibold flex items-center gap-2 mb-3">
-            <Sparkles size={13} className="text-white/40" />
+        <div className="cr-section">
+          <p className="font-cr text-white text-base leading-tight flex items-center gap-2.5 mb-3">
+            <CrStar size={24} className="shrink-0" />
             {t.presets}
           </p>
-          {/* flex statt fester Spaltenzahl: Modi mit nur einer Einstellung bringen
-              auch nur ein Preset mit (siehe Backend/clashRoyale/core/modePresets.js) */}
-          <div className="flex gap-2">
+          <div className="cr-seg" role="group">
             {modePresets.map(p => {
               const meta = PRESET_META[p.id];
               if (!meta) return null;
@@ -72,19 +74,15 @@ export default function HostSettings({
               const active = activePresetId === p.id;
               const copy = meta[lang] || meta.de;
               return (
-                <button key={p.id} onClick={() => actions.applyPreset(p.id)} title={copy.desc}
-                  className={`flex-1 flex flex-col items-center gap-1.5 px-2 py-2.5 rounded-lg border text-xs font-semibold transition-colors ${
-                    active
-                      ? 'bg-violet-500 text-white border-violet-500'
-                      : 'bg-black/30 text-white/50 border-white/5 hover:border-white/20 hover:text-white'
-                  }`}>
-                  <PresetIcon size={14} className={active ? 'text-white' : 'text-white/40'} />
+                <button key={p.id} type="button" onClick={() => actions.applyPreset(p.id)} title={copy.desc}
+                  aria-pressed={active} className="!min-h-[44px]">
+                  <PresetIcon size={20} />
                   {copy.label}
                 </button>
               );
             })}
           </div>
-          <p className="text-white/30 text-xs mt-2">
+          <p className="text-white/50 text-xs mt-2">
             {activePresetId
               ? (PRESET_META[activePresetId][lang] || PRESET_META[activePresetId].de).desc
               : `${t.presetCustom} — ${t.presetsNote}`}

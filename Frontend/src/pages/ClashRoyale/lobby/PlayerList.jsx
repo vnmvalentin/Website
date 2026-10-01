@@ -15,17 +15,43 @@
 // (PlayerRow) bleibt für beide Ansichten identisch, nur die Anordnung drumherum ändert sich.
 
 import React from 'react';
-import { Users, Eye, EyeOff, ArrowLeftRight, UserX, WifiOff, Link2, UserPlus, Bot } from 'lucide-react';
 import PlayerAvatar from '../components/PlayerAvatar';
 import CrScoreBadge from './CrScoreBadge';
-import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import { leagueIconUrl, leagueName } from '../data/leagueIcons';
+// Alle Symbole echte CR-Grafiken: Zuschauen = Royale-TV, Mitspielen = Kampf-Schwerter,
+// Host übergeben = Krone, Account = König, Bot = Goblin — siehe ui/CrIcons.jsx.
+import {
+  CrTv, CrBattle, CrCrown, CrUserRemove, CrDisconnected, CrKingBlue, CrUserAdd, CrGoblin,
+  CrCrownBlue, CrCrownRed, CrTrophy,
+} from '../ui/CrIcons';
+
+/** Rang des verknüpften CR-Accounts rechts im Banner: Ranked-Liga-Emblem, sonst die Trophäen.
+ *  crLeague/crTrophies setzt der Server beim Verknüpfen (clashRoyaleRoutes → linkCrAccount). */
+export function RankBadge({ p }) {
+  const icon = p.crLeague >= 1 ? leagueIconUrl(p.crLeague) : null;
+  if (icon) {
+    return (
+      <span className="shrink-0 flex flex-col items-center -my-1" title={leagueName(p.crLeague)}>
+        <img src={icon} alt={leagueName(p.crLeague)} width={38} height={38} className="w-[38px] h-[38px] object-contain drop-shadow-[0_2px_2px_rgba(2,8,20,0.6)]" />
+      </span>
+    );
+  }
+  if (p.crTrophies > 0) {
+    return (
+      <span className="shrink-0 flex items-center gap-1 font-cr text-sm text-[var(--cr-arcade-gold)] tabular-nums" title="Trophäen">
+        <CrTrophy size={20} />{p.crTrophies.toLocaleString()}
+      </span>
+    );
+  }
+  return null;
+}
 
 /** Kleiner Zustands-Aufkleber neben dem Namen. */
 function Badge({ icon: Icon, label, className, title }) {
   return (
     <span title={title}
       className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md shrink-0 ${className}`}>
-      {Icon && <Icon size={9} />}
+      {Icon && <Icon size={12} />}
       {label}
     </span>
   );
@@ -39,7 +65,7 @@ function IconAction({ icon: Icon, title, onClick, tone = 'neutral' }) {
   return (
     <button onClick={onClick} title={title} aria-label={title}
       className={`cr-arcade-icon-btn w-[34px] h-[34px] shrink-0 ${toneClass[tone] || ''}`}>
-      <Icon size={15} />
+      <Icon size={20} />
     </button>
   );
 }
@@ -64,17 +90,16 @@ function PlayerRow({
 
   return (
     <div
-      className={`rounded-lg overflow-hidden ${
-        p.isAdmin ? 'bg-violet-500/5 border border-violet-500/20'
-          : isMe ? 'bg-violet-500/[0.07]'
-            : 'bg-black/30'
-      }`}>
-      <div className="flex items-center gap-2.5 pl-3 pr-2 py-2">
+      className={`cr-row cr-banner overflow-hidden ${p.isAdmin ? 'cr-row--admin' : isMe ? 'cr-row--me' : ''}`}
+      // Spieler-Banner: die Spielerfarbe (dieselbe wie im Spiel) als Streifen links und
+      // auslaufender Schimmer — so erkennt man die eigene Farbe schon vor dem Start.
+      style={!p.isAdmin && p.color ? { '--cr-banner': p.color } : undefined}>
+      <div className="flex items-center gap-3 pl-3.5 pr-2 py-2">
 
         <PlayerAvatar
           avatarId={p.avatar}
           avatarUrl={p.avatarUrl}
-          size={34}
+          size={44}
           isAdmin={p.isAdmin}
           // Zuschauer und Getrennte treten optisch zurück, ohne zu verschwinden
           className={p.isSpectator || p.disconnected ? 'opacity-40' : ''}
@@ -82,12 +107,12 @@ function PlayerRow({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className={`font-semibold truncate text-sm ${
+            <span className={`font-cr text-base leading-tight truncate ${
               p.isAdmin ? 'text-violet-300' : p.isSpectator || p.disconnected ? 'text-white/40' : 'text-white'
             }`}>
               {p.name}
             </span>
-            {isHost && <img src={crownIcon} alt="" width={16} height={14} className="shrink-0" />}
+            {isHost && <CrCrown size={18} />}
           </div>
 
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -96,49 +121,51 @@ function PlayerRow({
                 zwischen den Aktionsknöpfen. */}
             {p.crScore && <CrScoreBadge score={p.crScore} t={t} />}
             {p.crName && !p.crScore && (
-              <Badge icon={Link2} label={p.crName} className="text-white/40 border border-white/10" />
+              <Badge icon={CrKingBlue} label={p.crName} className="text-white/55 border border-white/10" />
             )}
             {p.isAdmin && (
               <Badge label={t.admin} className="text-violet-300 bg-violet-500/10 border border-violet-500/30" />
             )}
             {p.isBot && (
-              <Badge icon={Bot} label={t.botBadge} className="text-cyan-300 bg-cyan-500/10 border border-cyan-500/30" />
+              <Badge icon={CrGoblin} label={t.botBadge} className="text-cyan-300 bg-cyan-500/10 border border-cyan-500/30" />
             )}
             {p.disconnected && (
-              <Badge icon={WifiOff} label={t.disconnected} title={t.disconnectedTitle}
+              <Badge icon={CrDisconnected} label={t.disconnected} title={t.disconnectedTitle}
                 className="text-amber-300 bg-amber-400/10 border border-amber-400/30" />
             )}
             {!p.isAdmin && p.isSpectator && (
-              <Badge icon={Eye} label={t.spectator} className="text-white/40 border border-white/10" />
+              <Badge icon={CrTv} label={t.spectator} className="text-white/55 border border-white/10" />
             )}
           </div>
         </div>
 
+        {!p.isAdmin && !p.isBot && <RankBadge p={p} />}
+
         {/* Aktionen rechts, dauerhaft sichtbar — auf Touch gibt es kein Hover,
             und der Host soll nicht erst suchen müssen. */}
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {showOwnToggle && (
             <button onClick={onToggleOwnSpectator}
               className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2.5 h-[34px] w-auto">
-              {p.isSpectator ? <Eye size={14} /> : <EyeOff size={14} />}
+              {p.isSpectator ? <CrBattle size={18} /> : <CrTv size={18} />}
               <span className="hidden sm:inline">{p.isSpectator ? t.play : t.spectate}</span>
             </button>
           )}
 
           {showHostTools && (
             <IconAction
-              icon={p.isSpectator ? Eye : EyeOff}
+              icon={p.isSpectator ? CrBattle : CrTv}
               tone={p.isSpectator ? 'violet' : 'neutral'}
               title={p.isSpectator ? t.reactivateTitle : t.setSpectatorTitle}
               onClick={() => onSetPlayerSpectator(p.id, !p.isSpectator)}
             />
           )}
           {showHostTools && !isHost && !p.isBot && (
-            <IconAction icon={ArrowLeftRight} tone="amber"
+            <IconAction icon={CrCrown} tone="amber"
               title={t.transferHostTitle} onClick={() => onTransferHost(p.id)} />
           )}
           {showHostTools && !isHost && (
-            <IconAction icon={UserX} tone="red"
+            <IconAction icon={CrUserRemove} tone="red"
               title={t.kickTitle} onClick={confirmKick} />
           )}
         </div>
@@ -152,14 +179,14 @@ function PlayerRow({
         <button onClick={() => onOpenCrAccount(p)}
           className={`w-full flex items-center gap-2 px-3 py-2 border-t transition-colors text-left ${
             p.crTag
-              ? 'border-white/5 text-white/60 hover:bg-white/5'
-              : 'border-white/5 text-white/30 hover:bg-white/5 hover:text-white/60'
+              ? 'border-[rgba(2,8,20,0.5)] text-white/70 hover:bg-white/5'
+              : 'border-[rgba(2,8,20,0.5)] text-white/45 hover:bg-white/5 hover:text-white/75'
           }`}>
-          <Link2 size={12} className={p.crTag ? 'text-violet-400 shrink-0' : 'shrink-0'} />
+          <CrKingBlue size={18} className={p.crTag ? '' : 'opacity-60 grayscale'} />
           <span className="text-xs truncate flex-1">
             {p.crTag ? p.crName || p.crTag : t.linkAccount}
           </span>
-          {p.crTag && <span className="text-white/25 text-[10px] font-mono shrink-0">#{p.crTag}</span>}
+          {p.crTag && <span className="text-white/35 text-[10px] tabular-nums shrink-0">#{p.crTag}</span>}
         </button>
       )}
     </div>
@@ -169,12 +196,12 @@ function PlayerRow({
 /** Leerer Team-Slot: eigener "Beitreten"-Knopf für den Betrachter, sonst nur "Frei". */
 function EmptySlot({ letter, canJoin, onJoin, t }) {
   return (
-    <div className="rounded-lg border border-dashed border-white/10 bg-black/10 px-3 py-2.5 flex items-center justify-between gap-2">
-      <span className="text-white/25 text-xs">{t.emptyTeamSlot}</span>
+    <div className="rounded-xl border-2 border-dashed border-white/10 bg-[rgba(6,16,32,0.35)] px-3 py-2.5 flex items-center justify-between gap-2">
+      <span className="text-white/40 text-xs">{t.emptyTeamSlot}</span>
       {canJoin && (
         <button onClick={onJoin}
           className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2.5 h-[30px] w-auto">
-          <UserPlus size={13} />
+          <CrUserAdd size={18} />
           {t.joinTeamLabel(letter)}
         </button>
       )}
@@ -184,13 +211,11 @@ function EmptySlot({ letter, canJoin, onJoin, t }) {
 
 export default function PlayerList({
   lobbyData, myId, canControlLobby, t,
-  activeCount, spectatorCount,
   onToggleOwnSpectator, onSetPlayerSpectator, onTransferHost, onKick,
   onOpenCrAccount, onSwitchTeam, onAddBot,
 }) {
   const players = lobbyData?.players || [];
   const hostId = lobbyData?.host;
-  const maxPlayers = lobbyData?.maxPlayers || 8;
   const duo = lobbyData?.partyMode === 'duo';
 
   const rowProps = { myId, hostId, canControlLobby, t, onToggleOwnSpectator, onSetPlayerSpectator, onTransferHost, onKick, onOpenCrAccount };
@@ -204,16 +229,7 @@ export default function PlayerList({
   const myTeam = players.find(p => p.id === myId)?.teamId || null;
 
   return (
-    <div className="cr-arcade-panel p-5">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <span className="text-white font-semibold text-sm flex items-center gap-2">
-          <Users size={14} className="text-white/40" />
-          {t.playersOfMax(activeCount, maxPlayers)}
-        </span>
-        {spectatorCount > 0 && (
-          <span className="text-white/30 text-xs">{t.spectatorCount(spectatorCount)}</span>
-        )}
-      </div>
+    <div>
 
       {duo ? (
         <div className="space-y-4">
@@ -223,7 +239,7 @@ export default function PlayerList({
           {canControlLobby && !lobbyData?.started && (
             <button onClick={onAddBot}
               className="cr-arcade-icon-btn w-full flex items-center justify-center gap-1.5 text-xs font-semibold h-[34px]">
-              <Bot size={14} />
+              <CrGoblin size={20} />
               {t.addBot}
             </button>
           )}
@@ -238,9 +254,10 @@ export default function PlayerList({
                 ? 'bg-blue-500/10 border-blue-500/25'
                 : 'bg-red-500/10 border-red-500/25';
               const teamLabelTint = letter === 'A' ? 'text-blue-300' : 'text-red-300';
+              const TeamCrown = letter === 'A' ? CrCrownBlue : CrCrownRed;
               return (
                 <div key={letter} className={`rounded-lg border p-2.5 space-y-1.5 ${teamTint}`}>
-                  <p className={`text-xs uppercase tracking-wider font-semibold ${teamLabelTint}`}>{t.teamLabel(letter)}</p>
+                  <p className={`flex items-center gap-1.5 font-cr text-sm ${teamLabelTint}`}><TeamCrown size={22} />{t.teamLabel(letter)}</p>
                   {[0, 1].map(i => (
                     slots[i]
                       ? (
@@ -284,7 +301,7 @@ export default function PlayerList({
                         {['A', 'B'].map(letter => (
                           <button key={letter} onClick={() => onSwitchTeam(letter, isMe ? undefined : p.id)}
                             className="cr-arcade-icon-btn flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-2.5 h-[30px]">
-                            <UserPlus size={13} />
+                            <CrUserAdd size={18} />
                             {isMe ? t.joinTeamLabel(letter) : t.assignToTeamLabel(letter)}
                           </button>
                         ))}

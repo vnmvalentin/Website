@@ -458,7 +458,7 @@ function ModuleControlRow({ t, moduleKey, label, description, visible, onToggle,
           <span className={`text-[11px] font-semibold ${visible ? 'text-gray-400' : 'text-violet-300'}`}>
             {visible ? t.visible : t.hidden}
           </span>
-          <Toggle checked={visible} onChange={onToggle} aria-label={visible ? t.ariaHideModule : t.ariaShowModule} />
+          <Toggle variant="flat" checked={visible} onChange={onToggle} aria-label={visible ? t.ariaHideModule : t.ariaShowModule} />
         </div>
       </div>
       {open && children && (
@@ -666,6 +666,7 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
                   </div>
                   <PillGroup label={t.orderGroupLabel}>
                     <SegmentedControl
+                      variant="flat"
                       options={[
                         { id: 'newestLeft', label: t.newestLeftLabel, title: t.newestLeftTitle },
                         { id: 'newestRight', label: t.newestRightLabel, title: t.newestRightTitle },
@@ -949,6 +950,7 @@ export default function WinTrackerPage() {
         <div className="shrink-0">
           <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5 text-right">{t.languageLabel}</p>
           <SegmentedControl
+            variant="flat"
             options={[{ id: 'de', label: 'DE' }, { id: 'en', label: 'EN' }]}
             value={lang} onChange={changeLanguage} />
         </div>

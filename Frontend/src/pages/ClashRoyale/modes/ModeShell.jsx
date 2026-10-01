@@ -27,7 +27,8 @@
 // dem Endscreen, wo er zwischen echten Lücken (Seitenränder, Kartenraster) sichtbar wird.
 
 import React, { useState } from 'react';
-import { Users, ChevronUp } from 'lucide-react';
+import { ChevronUp } from 'lucide-react';
+import { CrSocial } from '../ui/CrIcons';
 import Drawer from '../ui/Drawer';
 
 const SHELL_I18N = {
@@ -56,8 +57,8 @@ export default function ModeShell({
       {/* Desktop: dauerhaft sichtbare Leiste. data-mode-sidebar dient der Messung. */}
       <aside
         data-mode-sidebar="true"
-        className={`hidden lg:flex ${width} shrink-0 bg-gradient-to-b from-[#17293f] to-[#0c1725] border-r-[3px] overflow-y-auto custom-scrollbar py-3 px-2.5 flex-col gap-3`}
-        style={{ borderColor: 'var(--cr-arcade-ink)' }}>
+        className={`hidden lg:flex ${width} shrink-0 bg-gradient-to-b from-[#15294a] to-[#0d1b31] border-r-[3px] overflow-y-auto custom-scrollbar py-3 px-2.5 flex-col gap-3`}
+        style={{ borderColor: 'var(--cr-panel-edge)' }}>
         {sidebar}
       </aside>
 
@@ -67,8 +68,8 @@ export default function ModeShell({
         <button
           onClick={() => setSheetOpen(true)}
           aria-label={t.open}
-          className="lg:hidden shrink-0 flex items-center gap-2 px-3 h-10 bg-gradient-to-b from-[#1c3049] to-[#111d2c] border-b-2 border-black/40 text-left">
-          <Users size={14} className="text-white/40 shrink-0" />
+          className="lg:hidden shrink-0 flex items-center gap-2 px-3 h-10 cr-modal-head text-left">
+          <CrSocial size={22} className="shrink-0" />
           <span className="text-white/70 text-xs font-semibold shrink-0">
             {t.players}{typeof playerCount === 'number' ? ` (${playerCount})` : ''}
           </span>
@@ -86,7 +87,7 @@ export default function ModeShell({
           open
           onClose={() => setSheetOpen(false)}
           title={t.players}
-          icon={<Users size={15} className="text-violet-400 shrink-0" />}>
+          icon={<CrSocial size={24} className="shrink-0" />}>
           <div className="flex flex-col gap-3">{sidebar}</div>
         </Drawer>
       )}

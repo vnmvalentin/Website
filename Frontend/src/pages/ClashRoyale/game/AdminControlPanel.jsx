@@ -2,7 +2,7 @@
 // Host-Status übergeben, ohne das Spiel zu unterbrechen.
 
 import React from 'react';
-import { Shield, X, ArrowLeftRight } from 'lucide-react';
+import { CrClose, CrCrown, CrShield } from '../ui/CrIcons';
 import PlayerAvatar from '../components/PlayerAvatar';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 
@@ -11,11 +11,11 @@ export default function AdminControlPanel({ players, hostId, onTransferHost, onS
     <div className="shrink-0 bg-black/25 border-b border-violet-500/20 px-4 py-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-violet-300 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-          <Shield size={12} /> {t.adminControlTitle}
+          <CrShield size={18} /> {t.adminControlTitle}
         </span>
         <button onClick={onClose} aria-label={t.closeLabel}
           className="text-white/40 hover:text-white p-1">
-          <X size={14} />
+          <CrClose size={21} />
         </button>
       </div>
 
@@ -41,7 +41,7 @@ export default function AdminControlPanel({ players, hostId, onTransferHost, onS
               <button onClick={() => onTransferHost(p.id)} title={t.transferHostTitle}
                 aria-label={t.transferHostTitle}
                 className="text-white/40 hover:text-amber-400 transition-colors p-0.5 shrink-0">
-                <ArrowLeftRight size={11} />
+                <CrCrown size={16} />
               </button>
             )}
           </div>

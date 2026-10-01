@@ -15,7 +15,8 @@
 // auction/useAuctionView.js, die Auflösung einer Karte aus auction/AuctionRevealCard.jsx.
 
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, Sparkles, Eye } from 'lucide-react';
+import CardFace from '../ui/CardFace';
+import { CrCheck, CrStar, CrTv } from '../ui/CrIcons';
 import ModeShell from './ModeShell';
 import MotherWitchVisit from './MotherWitchVisit';
 import { GameHeader, ProgressHairline, GameFooter, PlayerPanel } from './GameChrome';
@@ -27,7 +28,7 @@ import chestIcon from '../../../assets/clashRoyale/ui/icon_menu_shop.png';
 import elixirIcon from '../../../assets/clashRoyale/ui/elixir_1.png';
 import { useAuctionView } from './auction/useAuctionView';
 import AuctionRevealCard from './auction/AuctionRevealCard';
-import { cardImageUrl } from '../data/cards';
+import { avatarUrl } from '../components/avatars';
 
 // Echter Elixier-Tropfen aus dem Spiel statt der handgezeichneten <ElixirDrop>-Kontur
 // (ui/CrIcons.jsx) — hier steht er als eigenständiges kleines Icon neben Zahlen, nicht als
@@ -42,8 +43,6 @@ const Elixir = ({ size = 14, className = '' }) => (
     className={`inline-block align-middle shrink-0 ${className}`} />
 );
 
-const _ag = import.meta.glob('/src/assets/avatars/*.{png,jpg,jpeg,gif,webp,PNG,JPG,JPEG,GIF,WEBP}', { eager: true });
-const AVATAR_MAP = Object.fromEntries(Object.entries(_ag).map(([p, m]) => [p.split('/').pop(), m.default]));
 
 // Während des Bietens sieht nur der Auslöser den Badge — die betroffenen Gegner merken den
 // Effekt ja ohnehin (Schweine, vertauschte Karten), sollen aber nicht wissen, woher er kommt.
@@ -104,6 +103,7 @@ const AUCTION_I18N = {
     finalRoundTitle: 'Letzte Runde — alles oder nichts',
     finalRoundHint: 'Übriges Elixier ist danach wertlos: Dein Gebot ist automatisch dein gesamtes Guthaben. Wähle einfach eine Karte.',
     spectatorsHeading: 'Zuschauer',
+    you: 'DU',
   },
   en: {
     loading: 'Loading auction…',
@@ -124,6 +124,7 @@ const AUCTION_I18N = {
     finalRoundTitle: 'Final round — all or nothing',
     finalRoundHint: 'Leftover elixir is worthless afterwards: your bid is automatically your entire balance. Just pick a card.',
     spectatorsHeading: 'Spectators',
+    you: 'YOU',
   },
   es: {
     loading: 'Cargando subasta…',
@@ -144,13 +145,14 @@ const AUCTION_I18N = {
     finalRoundTitle: 'Última ronda — todo o nada',
     finalRoundHint: 'El elixir sobrante no valdrá nada después: tu puja es automáticamente todo tu saldo. Solo elige una carta.',
     spectatorsHeading: 'Espectadores',
+    you: 'TÚ',
   },
 };
 
 function Avatar({ id, color, size = 28 }) {
-  const url = id ? AVATAR_MAP[id] : null;
+  const url = avatarUrl(id);
   return (
-    <div className="rounded-full overflow-hidden shrink-0 bg-[#1a1a20]"
+    <div className="rounded-full overflow-hidden shrink-0 cr-avatar-pick"
       style={{ width: size, height: size, boxShadow: `0 0 0 2px ${(color || '#888')}66` }}>
       {url && <img src={url} alt="" className="w-full h-full object-cover" />}
     </div>
@@ -167,7 +169,9 @@ const CardArt = ({ card, className = '', style }) => (
   // bg-[#0d0d14]: blickdichter Untergrund, solange das Bild noch lädt (oder falls es
   // fehlschlägt) — die Karte sitzt jetzt auf dem Diamant-Karo (siehe GameSurface) statt
   // auf einer einfarbigen Fläche, ohne eigenen Untergrund würde das Muster durchscheinen.
-  <div className={`relative overflow-hidden bg-[#0d0d14] ${className}`} style={style}>
+  // Kein eigener Untergrund mehr: CardFace zeigt nur den sichtbaren Kartenrahmen, ein
+  // dunkler Kasten dahinter wirkte bei Legendären/Champions (schmaler) wie ein Rahmen im Rahmen.
+  <div className={`relative overflow-hidden ${className}`} style={style}>
     {card.isPig ? (
       <div className="w-full h-full bg-white/5 flex items-center justify-center">
         {PIG_IMG
@@ -175,9 +179,7 @@ const CardArt = ({ card, className = '', style }) => (
           : <span className="text-white/25 text-3xl font-black">?</span>}
       </div>
     ) : (
-      <img src={cardImageUrl(card.id)} alt={card.name}
-        className="w-full h-full object-cover" style={CARD_CROP} draggable={false}
-        onError={e => { e.currentTarget.style.visibility = 'hidden'; }} />
+      <CardFace id={card.id} alt={card.name} />
     )}
   </div>
 );
@@ -245,7 +247,7 @@ export default function ElixirAuction(props) {
             {Array.from({ length: 8 }, (_, ci) => {
               const c = p.deck?.[ci];
               return (
-                <div key={ci} className="aspect-square rounded-md overflow-hidden bg-black/25"
+                <div key={ci} className="aspect-[4/5] rounded-md overflow-hidden bg-black/25"
                   style={{ border: '1.5px solid rgba(0,0,0,0.5)' }}>
                   {c && <CardArt card={c} className="w-full h-full" />}
                 </div>
@@ -263,7 +265,7 @@ export default function ElixirAuction(props) {
             <div key={p.id} className="flex items-center gap-2 px-1 py-1 opacity-45">
               <Avatar id={p.avatar} color={p.color} size={20} />
               <span className="text-white/60 text-[11px] truncate flex-1">{p.name}</span>
-              <Eye size={11} className="text-white/40 shrink-0" />
+              <CrTv size={16} className="text-white/40 shrink-0" />
             </div>
           ))}
         </>
@@ -281,7 +283,7 @@ export default function ElixirAuction(props) {
           label={t.roundLabel} value={v.round} total={v.maxRounds}
           badge={mwBadgeText && (
             <span className="flex items-center gap-1.5 text-fuchsia-300 text-[11px] font-semibold">
-              <Sparkles size={12} className="shrink-0" />
+              <CrStar size={18} className="shrink-0" />
               <span className="truncate max-w-[15rem] sm:max-w-none">{mwBadgeText}</span>
             </span>
           )}
@@ -312,7 +314,8 @@ export default function ElixirAuction(props) {
                     bids={r.bids}
                     players={v.players} accent="#e879f9" radius="rounded-2xl"
                     width={200} fake={showFakeCards}
-                    labels={{ notAwarded: t.notAwarded, revealing: t.revealing }} />
+                    myPlayerId={myPlayerId} index={idx}
+                    labels={{ notAwarded: t.notAwarded, revealing: t.revealing, you: t.you }} />
                 );
               }
 
@@ -326,15 +329,20 @@ export default function ElixirAuction(props) {
                 // Name-Plakette, Gebots-Hinweis) — Bild oben, Name+Gebot als ein
                 // gemeinsames Namensschild unten, wie bei einer echten Sammelkarte.
                 <button
-                  key={idx}
+                  // key mit Runde: neue Karten = neues Element → die Aufdreh-Animation läuft jede Runde
+                  key={`${v.round}-${idx}`}
                   onClick={() => clickable && v.placeBid(idx)}
                   disabled={!clickable}
-                  className={`group rounded-2xl overflow-hidden text-left transition-shadow duration-200 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
-                    clickable ? 'cursor-pointer group-hover:shadow-[0_16px_44px_rgba(0,0,0,0.65)]' : 'cursor-default'
+                  className={`cr-flip-in group rounded-2xl overflow-hidden text-left shadow-[0_10px_30px_rgba(2,8,20,0.5)] ${
+                    clickable ? 'cursor-pointer cr-card-hover' : 'cursor-default'
                   }`}
-                  style={{ width: 200, maxWidth: '42vw', border: '3px solid var(--cr-arcade-ink)' }}>
+                  style={{
+                    width: 200, maxWidth: '42vw', animationDelay: `${idx * 0.12}s`,
+                    border: `3px solid ${mine ? '#c026d3' : 'var(--cr-panel-edge)'}`,
+                    background: 'linear-gradient(to bottom, #1c3860, #10223c)',
+                  }}>
 
-                  <div className="relative w-full">
+                  <div className="relative w-full px-2 pt-2">
                     <CardArt card={card}
                       className={locked ? 'opacity-35' : ''}
                       style={{ aspectRatio: '4/5' }} />
@@ -365,20 +373,20 @@ export default function ElixirAuction(props) {
 
                   {/* Namensschild: Name UND Gebots-Hinweis in derselben Fläche statt zwei
                       getrennter Plaketten. */}
-                  <div className="bg-[#111d2c] px-2.5 py-2 flex flex-col items-center gap-1">
-                    <p className="text-white text-[15px] font-semibold truncate w-full text-center">
+                  <div className="px-2.5 py-2 flex flex-col items-center gap-1">
+                    <p className="text-white text-base font-cr truncate w-full text-center" style={{ textShadow: '0 2px 0 rgba(2,8,20,0.6)' }}>
                       {card.name}
                     </p>
                     <div className="h-5 flex items-center justify-center w-full">
                       {mine ? (
-                        <span className="flex items-center gap-1.5 text-fuchsia-300 text-xs font-semibold">
-                          <CheckCircle size={13} /> {myBid.amount}
+                        <span className="cr-elixir-pill text-sm cr-win-pop">
+                          <CrCheck size={16} /> <Elixir size={15} /> {myBid.amount}
                         </span>
                       ) : locked ? (
                         <span className="text-white/40 text-xs">{t.championLimit}</span>
                       ) : clickable ? (
-                        <span className="flex items-center gap-1 text-white/45 text-xs group-hover:text-fuchsia-300 transition-colors">
-                          {t.bidFor(v.bidAmount)} <Elixir size={11} />
+                        <span className="flex items-center gap-1 text-white/60 text-xs font-semibold group-hover:text-fuchsia-200 transition-colors">
+                          {t.bidFor(v.bidAmount)} <Elixir size={15} />
                         </span>
                       ) : null}
                     </div>
@@ -409,7 +417,7 @@ export default function ElixirAuction(props) {
                         <span className="text-amber-200 text-xs font-bold truncate flex-1">{bp?.name}</span>
                         <img src={chestIcon} alt="" width={16} height={16} className="shrink-0" />
                       </div>
-                      <div className="aspect-square overflow-hidden">
+                      <div className="aspect-[4/5] overflow-hidden">
                         <CardArt card={r.got} className="w-full h-full" />
                       </div>
                       <div className="px-3 py-2">
@@ -427,7 +435,7 @@ export default function ElixirAuction(props) {
         {/* ── Fußzeile: Zuschauer / bereits geboten / Gebot festlegen ───────── */}
         {!v.isReveal && v.amSpectator && (
           <GameFooter className="flex items-center justify-center gap-2">
-            <Eye size={14} className="text-white/30" />
+            <CrTv size={21} className="text-white/30" />
             <span className="text-white/35 text-sm">{t.spectator}</span>
           </GameFooter>
         )}
@@ -436,7 +444,7 @@ export default function ElixirAuction(props) {
           <GameFooter>
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
               <span className="flex items-center gap-2 text-fuchsia-300 text-sm font-semibold min-w-0">
-                <CheckCircle size={14} className="shrink-0" />
+                <CrCheck size={21} className="shrink-0" />
                 <span className="truncate">
                   {t.bidPlaced(v.currentCards[myBid.cardIndex]?.name || '?', myBid.amount)}
                 </span>
@@ -467,9 +475,10 @@ export default function ElixirAuction(props) {
                  kennt). */
               <div className="max-w-4xl mx-auto space-y-3">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-white/35 text-xs">{t.setBidHint}</span>
-                  <span className="font-display text-3xl font-bold text-fuchsia-300 tabular-nums leading-none">
-                    {v.bidAmount}
+                  <span className="text-white/55 text-xs">{t.setBidHint}</span>
+                  <span className="cr-elixir-pill text-2xl !px-3 !py-1">
+                    <Elixir size={26} />
+                    <span className="tabular-nums">{v.bidAmount}</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -486,8 +495,9 @@ export default function ElixirAuction(props) {
                   </button>
                   <input type="range" min={0} max={v.myElixir} value={v.bidAmount}
                     onChange={e => v.setBidAmount(Number(e.target.value))}
-                    className="cr-slider flex-1"
-                    style={{ '--cr-slider-fill': `${v.myElixir ? (v.bidAmount / v.myElixir) * 100 : 0}%`, '--cr-slider-accent': '#e879f9' }} />
+                    className="cr-elixir-slider flex-1"
+                    aria-label={t.setBidHint}
+                    style={{ '--cr-slider-fill': `${v.myElixir ? (v.bidAmount / v.myElixir) * 100 : 0}%` }} />
                   <button type="button" onClick={() => v.setBidAmount(x => Math.min(v.myElixir, x + 5))}
                     className="cr-arcade-btn cr-arcade-btn--blue w-11 h-11 !p-0 shrink-0 text-lg font-black">
                     +
