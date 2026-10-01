@@ -48,6 +48,7 @@ const createNuzlockeRouter = require("./clashRoyale/routes/nuzlockeRoutes");
 const createCrWinTrackerRouter = require("./clashRoyale/routes/crWinTrackerRoutes");
 const createCrPresetRouter = require("./clashRoyale/routes/crPresetRoutes");
 const createTournamentRouter = require("./clashRoyale/tournament/routes");
+const { registerTournamentSocket } = require("./clashRoyale/tournament/matchRoom");
 const createStreamToolRouter = require("./streamTool/routes/streamToolRoutes");
 const { registerLiveBadgesSocket } = require("./lib/liveBadges");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
@@ -347,6 +348,8 @@ io.on("connection", (socket) => {
     const isClashAdmin = !!clashSocketTwitchId && String(clashSocketTwitchId) === String(STREAMER_TWITCH_ID);
     const clashSocketTwitchLogin = getSessionFromSocket(socket)?.twitchLogin || null;
     registerClashRoyaleSocket(socket, io, { isAdmin: isClashAdmin, twitchId: clashSocketTwitchId, twitchLogin: clashSocketTwitchLogin });
+    // Turnier-Match-Räume (Chat, Bereit, Pick/Ban, Draft-Lobby) — clashRoyale/tournament/matchRoom.js
+    registerTournamentSocket(socket, io, { twitchId: clashSocketTwitchId });
 
     // Virtual Farm: dauerhafte 8-Plot-Welt (Slots, Anwesenheit, Positionen)
     registerGardenSocket(socket, io, getSessionFromSocket, farmStates);

@@ -18,6 +18,7 @@ const MESSAGES = {
   nameRequired: () => 'Bitte Namen eingeben',
   gameInProgress: () => 'Spiel läuft bereits',
   lobbyLocked: () => 'Lobby ist gesperrt',
+  tournamentLobbyOnly: () => 'Diese Lobby gehört zu einem Turnier-Match — nur die beiden Spieler und der Veranstalter kommen hinein',
   lobbyFull: ({ max }) => `Lobby voll (max. ${max})`,
   noPermission: () => 'Keine Berechtigung',
 

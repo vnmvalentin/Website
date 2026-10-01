@@ -77,7 +77,7 @@ function PlayerRow({
 }) {
   const isMe = p.id === myId;
   const isHost = p.id === hostId;
-  const showOwnToggle = isMe && !p.isAdmin;
+  const showOwnToggle = isMe && !p.isAdmin && !!onToggleOwnSpectator;
   const showHostTools = canControlLobby && !isMe && !p.isAdmin;
   const canLink = !p.isAdmin && !p.isBot && (isMe || canControlLobby);
 
@@ -218,7 +218,11 @@ export default function PlayerList({
   const hostId = lobbyData?.host;
   const duo = lobbyData?.partyMode === 'duo';
 
-  const rowProps = { myId, hostId, canControlLobby, t, onToggleOwnSpectator, onSetPlayerSpectator, onTransferHost, onKick, onOpenCrAccount };
+  // Turnier-Lobby: niemand schaltet sich selbst auf Zuschauen (sonst startet sie nie von selbst)
+  const rowProps = {
+    myId, hostId, canControlLobby, t, onSetPlayerSpectator, onTransferHost, onKick, onOpenCrAccount,
+    onToggleOwnSpectator: lobbyData?.tournament ? null : onToggleOwnSpectator,
+  };
 
   // Für die Team-Slots: pro Team nach teamSlot sortiert (Slot 1 zuerst), egal in welcher
   // Reihenfolge die Spieler beigetreten sind.

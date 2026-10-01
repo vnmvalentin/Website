@@ -76,6 +76,39 @@ db.exec(`CREATE TABLE IF NOT EXISTS tournament_matches (
   PRIMARY KEY (tournament_id, id)
 )`);
 
+// Phase 3: einzelne Spiele einer Serie (Modus-Wahl, Draft-Lobby, Decks, Sieger) und der Chat
+// des Match-Raums. status: banning → drafting → battle → done | void (annulliert)
+db.exec(`CREATE TABLE IF NOT EXISTS tournament_games (
+  tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  match_id TEXT NOT NULL,
+  game_no INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  offer_json TEXT NOT NULL DEFAULT '[]',
+  bans_json TEXT NOT NULL DEFAULT '[]',
+  mode TEXT,
+  lobby_code TEXT,
+  decks_json TEXT,
+  winner TEXT,
+  crowns_a INTEGER NOT NULL DEFAULT 0,
+  crowns_b INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  draft_done_at INTEGER,
+  finished_at INTEGER,
+  PRIMARY KEY (tournament_id, match_id, game_no)
+)`);
+db.exec(`CREATE TABLE IF NOT EXISTS tournament_chat (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  match_id TEXT NOT NULL,
+  author_id TEXT,
+  author_name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  text TEXT NOT NULL,
+  at INTEGER NOT NULL
+)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_tchat_match ON tournament_chat(tournament_id, match_id, id)`);
+const CHAT_KEEP = 200;
+
 const stmt = {
   insertT: db.prepare(`INSERT INTO tournaments (id, owner_id, owner_login, settings_json, status, created_at, updated_at)
     VALUES (@id, @owner_id, @owner_login, @settings_json, 'registration', @now, @now)`),
@@ -107,7 +140,35 @@ const stmt = {
       player_a = excluded.player_a, player_b = excluded.player_b, best_of = excluded.best_of,
       score_a = excluded.score_a, score_b = excluded.score_b, crowns_a = excluded.crowns_a, crowns_b = excluded.crowns_b,
       winner = excluded.winner, status = excluded.status, finished_at = excluded.finished_at`),
+  listG: db.prepare('SELECT * FROM tournament_games WHERE tournament_id = ? AND match_id = ? ORDER BY game_no'),
+  listGAll: db.prepare('SELECT * FROM tournament_games WHERE tournament_id = ? ORDER BY match_id, game_no'),
+  upsertG: db.prepare(`INSERT INTO tournament_games
+    (tournament_id, match_id, game_no, status, offer_json, bans_json, mode, lobby_code, decks_json, winner, crowns_a, crowns_b, created_at, draft_done_at, finished_at)
+    VALUES (@tournament_id, @match_id, @game_no, @status, @offer_json, @bans_json, @mode, @lobby_code, @decks_json, @winner, @crowns_a, @crowns_b, @created_at, @draft_done_at, @finished_at)
+    ON CONFLICT(tournament_id, match_id, game_no) DO UPDATE SET
+      status = excluded.status, offer_json = excluded.offer_json, bans_json = excluded.bans_json, mode = excluded.mode,
+      lobby_code = excluded.lobby_code, decks_json = excluded.decks_json, winner = excluded.winner,
+      crowns_a = excluded.crowns_a, crowns_b = excluded.crowns_b, draft_done_at = excluded.draft_done_at, finished_at = excluded.finished_at`),
+  insertChat: db.prepare(`INSERT INTO tournament_chat (tournament_id, match_id, author_id, author_name, role, text, at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`),
+  listChat: db.prepare(`SELECT * FROM (SELECT * FROM tournament_chat WHERE tournament_id = ? AND match_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id`),
+  trimChat: db.prepare(`DELETE FROM tournament_chat WHERE tournament_id = ? AND match_id = ? AND id NOT IN
+    (SELECT id FROM tournament_chat WHERE tournament_id = ? AND match_id = ? ORDER BY id DESC LIMIT ?)`),
 };
+
+const rowToGame = (r) => ({
+  matchId: r.match_id, gameNo: r.game_no, status: r.status,
+  offer: parse(r.offer_json, []), bans: parse(r.bans_json, []), mode: r.mode, lobbyCode: r.lobby_code,
+  decks: parse(r.decks_json, null), winner: r.winner, crownsA: r.crowns_a, crownsB: r.crowns_b,
+  createdAt: r.created_at, draftDoneAt: r.draft_done_at, finishedAt: r.finished_at,
+});
+const gameToRow = (tournamentId, g) => ({
+  tournament_id: tournamentId, match_id: g.matchId, game_no: g.gameNo, status: g.status,
+  offer_json: JSON.stringify(g.offer || []), bans_json: JSON.stringify(g.bans || []), mode: g.mode ?? null,
+  lobby_code: g.lobbyCode ?? null, decks_json: g.decks ? JSON.stringify(g.decks) : null, winner: g.winner ?? null,
+  crowns_a: g.crownsA || 0, crowns_b: g.crownsB || 0, created_at: g.createdAt || Date.now(),
+  draft_done_at: g.draftDoneAt ?? null, finished_at: g.finishedAt ?? null,
+});
 
 const STAGE_ORDER = { group: 0, upper: 1, lower: 2, grand: 3 };
 const rowToMatch = (r) => ({
@@ -206,6 +267,19 @@ module.exports = {
     if (finished) { const now = Date.now(); stmt.setFinished.run(now, now, tournamentId); }
   }),
   listRegistrationTournaments: () => stmt.listAutoStart.all().map(rowToTournament),
+
+  // ── Phase 3: Spiele + Chat ──
+  listGames: (tournamentId, matchId) => stmt.listG.all(tournamentId, matchId).map(rowToGame),
+  listAllGames: (tournamentId) => stmt.listGAll.all(tournamentId).map(rowToGame),
+  saveGame(tournamentId, game) { stmt.upsertG.run(gameToRow(tournamentId, game)); },
+  addChat(tournamentId, matchId, { authorId, authorName, role, text }) {
+    const at = Date.now();
+    const info = stmt.insertChat.run(tournamentId, matchId, authorId ?? null, authorName, role, text, at);
+    stmt.trimChat.run(tournamentId, matchId, tournamentId, matchId, CHAT_KEEP);
+    return { id: info.lastInsertRowid, authorId: authorId ?? null, authorName, role, text, at };
+  },
+  listChat: (tournamentId, matchId, limit = 100) => stmt.listChat.all(tournamentId, matchId, limit)
+    .map(r => ({ id: r.id, authorId: r.author_id, authorName: r.author_name, role: r.role, text: r.text, at: r.at })),
 
   /** Nur für Tests: Verbindung schließen */
   _close: () => db.close(),

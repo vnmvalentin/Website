@@ -138,8 +138,14 @@ function sanitizeLobby(lobby) {
       crLeague: p.crLeague || 0,
       crTrophies: p.crTrophies || 0,
       crScore: trackingScoreFor(lobby, p.id),
+      tournamentSide: p.tournamentSide || null,
     })),
     started: lobby.started,
+    // Turnier-Lobby (tournament/matchRoom.js): nur Verweis + Name fürs Banner und den Rückweg in
+    // den Match-Raum — die erlaubten Identitäten (Twitch-IDs, Geheimschlüssel) bleiben auf dem Server
+    tournament: lobby.tournament
+      ? { id: lobby.tournament.id, matchId: lobby.tournament.matchId, gameNo: lobby.tournament.gameNo, name: lobby.tournament.name }
+      : null,
   };
 }
 

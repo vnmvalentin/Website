@@ -81,7 +81,7 @@ export default function ModeStartBand({
               className="md:flex-1">
               {canStart ? t.startGame : blockedReason}
             </ChunkyButton>
-          ) : (
+          ) : lobbyData?.tournament ? null : (
             <p className="flex-1 self-center text-white/45 text-sm text-center">{t.waitingForHost}</p>
           )}
           {historyCount > 0 && (

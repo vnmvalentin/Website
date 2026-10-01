@@ -1,8 +1,10 @@
-// Turnierseite (/clash-royale/turnier/:id) — Infos, Regeln, Minigames,
-// Teilnehmer, Anmeldung, Veranstalter-Werkzeuge; nach dem Start zusätzlich Gruppen + Bracket
-// (TournamentStructure.jsx). Match-Räume folgen in Phase 3 (Backend/clashRoyale/PLANUNG_TURNIER.md).
+// Turnierseite (/clash-royale/turnier/:id). Vor dem Start: Infos, Regeln, Minigames, Teilnehmer,
+// Anmeldung, Veranstalter-Werkzeuge. Nach dem Start Reiter: Übersicht · Gruppen · Bracket · Raum
+// (TournamentStructure.jsx, MatchRoom.jsx). Reiter und Match stehen in der URL (?tab=…&match=…),
+// damit "Zurück zum Turnier-Raum" aus der Draft-Lobby direkt im richtigen Raum landet.
+// Plan: Backend/clashRoyale/PLANUNG_TURNIER.md
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
 import { useLanguage } from '../useLanguage';
 import { useProfile } from '../useProfile';
@@ -13,9 +15,12 @@ import Section from '../ui/Section';
 import { RankBadge } from '../lobby/PlayerList';
 import {
   CrTourneyTrophy, CrCards, CrBook, CrInfo, CrUser, CrUserAdd, CrUserRemove, CrClock, CrCrown,
-  CrKingBlue, CrSettings, CrCancel, CrCheck, CrSocial, CrBattle,
+  CrKingBlue, CrSettings, CrCancel, CrCheck, CrSocial, CrBattle, CrChat,
 } from '../ui/CrIcons';
-import TournamentStructure from './TournamentStructure';
+import { NextMatchCard, GroupsPanel, BracketPanel } from './TournamentStructure';
+import MatchRoom, { NoRoom } from './MatchRoom';
+import { useTournamentSocket } from './useTournamentSocket';
+import { hasPlayer } from './matchLabels';
 import TournamentFrame from './TournamentFrame';
 import { tDict, tError } from './tI18n';
 import { tournamentApi, withLang } from './tournamentApi';
@@ -27,6 +32,32 @@ const STATUS_STYLE = {
   cancelled: 'text-red-300 border-red-400/40 bg-red-500/10',
 };
 const STATUS_LABEL = { registration: 'statusRegistration', running: 'statusRunning', finished: 'statusFinished', cancelled: 'statusCancelled' };
+
+// Reiter: URL-Name → Symbol + Text-Schlüssel
+const TABS = {
+  uebersicht: { icon: CrInfo, label: 'tabOverview' },
+  gruppen: { icon: CrSocial, label: 'tabGroups' },
+  bracket: { icon: CrTourneyTrophy, label: 'tabBracket' },
+  raum: { icon: CrChat, label: 'tabRoom' },
+};
+
+/** Reiterleiste im CR-Look (.cr-tabs in index.css). dot = Hinweis (z.B. eigenes Match offen). */
+function TabBar({ tabs, active, onSelect, t }) {
+  return (
+    <div className="cr-tabs" role="tablist">
+      {tabs.map(({ id, dot }) => {
+        const { icon: Icon, label } = TABS[id];
+        return (
+          <button key={id} type="button" role="tab" aria-selected={active === id} onClick={() => onSelect(id)}>
+            <Icon size={24} />
+            <span>{t[label]}</span>
+            {dot && <span className="cr-tab-dot" aria-hidden="true" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const formatDate = (ms, lang) => new Date(ms).toLocaleString(lang === 'de' ? 'de-DE' : lang === 'es' ? 'es-ES' : 'en-GB', {
   weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -187,6 +218,7 @@ export default function TournamentPage() {
   const [actionError, setActionError] = useState('');
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const reload = useCallback(async () => {
     try {
@@ -197,13 +229,23 @@ export default function TournamentPage() {
     }
   }, [id]);
 
-  // Erstes Laden + leises Nachladen, damit neue Anmeldungen ohne Neuladen erscheinen.
-  // Der Login-Zustand gehört dazu: nach dem Twitch-Login kennt der Server "me" erst neu.
+  // Live: der Server meldet Änderungen (Start, Ergebnisse) über tournament:changed. Das seltene
+  // Nachladen bleibt als Rückfallebene, falls der Socket gerade nicht verbunden ist.
+  const { socket, connected } = useTournamentSocket(id, reload);
   useEffect(() => {
     reload();
-    const timer = setInterval(() => { if (document.visibilityState === 'visible') reload(); }, 15000);
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') reload(); }, 30000);
     return () => clearInterval(timer);
   }, [reload, user?.login]);
+
+  // Reiter wechseln, ohne ?lang zu verlieren (setSearchParams ersetzt alle Parameter)
+  const selectTab = useCallback((tab, matchId) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab);
+    if (matchId) next.set('match', matchId);
+    else if (tab !== 'raum') next.delete('match');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const frame = (content) => (
     <TournamentFrame lang={lang} changeLang={changeLang} backTo="/clash-royale" backLabel={t.toHub} width="max-w-6xl">
@@ -249,6 +291,25 @@ export default function TournamentPage() {
     try { await tournamentApi.removeParticipant(tournament.id, p.id); reload(); }
     catch (e) { setActionError(tError(t, e)); }
   };
+
+  // ── Reiter (nur nach dem Start) ──
+  const structure = data.structure;
+  const myPlayable = structure && me ? structure.matches.find(m => m.playable && hasPlayer(m, me.id)) : null;
+  const hasBracket = !!structure?.matches.some(m => m.stage !== 'group');
+  const tabs = structure ? [
+    { id: 'uebersicht' },
+    structure.groups.length ? { id: 'gruppen' } : null,
+    hasBracket ? { id: 'bracket' } : null,
+    (me || isOwner) ? { id: 'raum', dot: !!myPlayable } : null,
+  ].filter(Boolean) : [];
+  const requested = searchParams.get('tab');
+  const fallbackTab = !structure ? 'uebersicht'
+    : myPlayable ? 'raum' : structure.phase === 'groups' ? 'gruppen' : hasBracket ? 'bracket' : 'uebersicht';
+  const tab = tabs.some(x => x.id === requested) ? requested : fallbackTab;
+  const roomMatchId = searchParams.get('match') || myPlayable?.id || null;
+  const canOpen = (m) => m.playable && (isOwner || hasPlayer(m, me?.id));
+  const byId = new Map(participants.map(p => [p.id, p]));
+  const structureProps = { structure, byId, me, canOpen, onOpen: (mid) => selectTab('raum', mid), t };
 
   const rules = [
     s.groupStage.enabled ? t.ruleGroups(s.groupStage.groupSize, s.groupStage.advancePerGroup) : t.ruleNoGroups,
@@ -297,12 +358,24 @@ export default function TournamentPage() {
         </div>
       </div>
 
-      {/* ── Nach dem Start: nächstes Match, Gruppen, Bracket — volle Breite ── */}
-      {data.structure && (
-        <TournamentStructure tournament={tournament} structure={data.structure} participants={participants}
-          me={me} isOwner={isOwner} onChanged={reload} t={t} />
+      {/* ── Nach dem Start: Reiter + (außerhalb des Raums) "Dein nächstes Match" ── */}
+      {structure && (
+        <>
+          <TabBar tabs={tabs} active={tab} onSelect={(id) => selectTab(id)} t={t} />
+          {tab !== 'raum' && <NextMatchCard structure={structure} me={me} byId={byId} t={t} onOpenRoom={(mid) => selectTab('raum', mid)} />}
+          {tab === 'raum' && structure.phase === 'finished' && !roomMatchId && (
+            <NextMatchCard structure={structure} me={me} byId={byId} t={t} onOpenRoom={() => {}} />
+          )}
+        </>
       )}
+      {structure && tab === 'gruppen' && <GroupsPanel {...structureProps} />}
+      {structure && tab === 'bracket' && <BracketPanel {...structureProps} />}
+      {structure && tab === 'raum' && (roomMatchId
+        ? <MatchRoom key={roomMatchId} tournament={tournament} matchId={roomMatchId} socket={socket} connected={connected}
+            me={me} isOwner={isOwner} structure={structure} participants={participants} onChanged={reload} t={t} lang={lang} />
+        : <NoRoom isOwner={isOwner} t={t} />)}
 
+      {tab === 'uebersicht' && (
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] gap-4 items-start">
         {/* ── Links: Infos ────────────────────────────────────────────── */}
         <div className="cr-arcade-panel overflow-hidden">
@@ -392,6 +465,7 @@ export default function TournamentPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

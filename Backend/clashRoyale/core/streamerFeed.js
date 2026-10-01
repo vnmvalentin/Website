@@ -91,6 +91,8 @@ function updateDeckFeeds(lobby, io) {
 function notifyDraftComplete(lobby, io) {
   emitStreamerEvent(lobby, io, 'draftEnd');
   updateDeckFeeds(lobby, io);
+  // Turnier-Spiel: Decks in den Match-Raum übernehmen (lazy require gegen Zirkelbezug)
+  if (lobby.tournament) require('../tournament/matchRoom').onDraftComplete(lobby);
 }
 
 module.exports = {

@@ -23,6 +23,7 @@ import CardPoolCard from './CardPoolCard';
 import PlayerList from './PlayerList';
 import TrackingCard from './TrackingCard';
 import ModeStartBand from './ModeStartBand';
+import { TournamentLobbyBanner } from '../tournament/TournamentLobbyBits';
 import HistoryModal from './HistoryModal';
 import CrAccountModal from './CrAccountModal';
 import CardExclusionModal from '../modals/CardExclusionModal';
@@ -154,6 +155,8 @@ export default function LobbyScreen({
         {/* EINE gemeinsame Fläche statt sechs einzelner Kästen: oben quer der Modus mit
             Start/Verlauf, darunter zwei Spalten — links alles zum EINSTELLEN, rechts alles zu
             den MITSPIELERN. Abschnitte trennt eine eingeprägte Fuge (ui/Section.jsx). */}
+        {lobbyData?.tournament && <TournamentLobbyBanner tournament={lobbyData.tournament} players={lobbyData.players} lang={lang} />}
+
         <div className="cr-arcade-panel overflow-hidden">
           <ModeStartBand
             lobbyData={lobbyData}

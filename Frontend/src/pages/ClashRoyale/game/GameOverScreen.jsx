@@ -10,6 +10,7 @@ import PlayerAvatar from '../components/PlayerAvatar';
 import AdminCardSwapModal from './AdminCardSwapModal';
 import DeckQrModal, { DeckQrButton } from './DeckQrModal';
 import Leaderboard from './Leaderboard';
+import { BackToTournamentButton } from '../tournament/TournamentLobbyBits';
 import { SIZE_COLS } from '../constants';
 import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
 
@@ -31,7 +32,7 @@ function DeckCardTile({ card, canSwap, onSwap, t }) {
 }
 
 export default function GameOverScreen({
-  gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, onRestart, lang = 'de', t,
+  gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, onRestart, lang = 'de', t, tournament = null,
   lobbyPlayers, trackingEnabled, overlayKey,
 }) {
   const [size, setSize] = useState('m');
@@ -138,7 +139,10 @@ export default function GameOverScreen({
             )}
 
             <div className="flex items-center gap-2">
-              {isHost ? (
+              {tournament ? (
+                // Turnier-Spiel: kein "Erneut spielen" — weiter geht es im Match-Raum (Freundschaftskampf)
+                <BackToTournamentButton tournament={tournament} lang={lang} onLeave={onLeave} />
+              ) : isHost ? (
                 <>
                   {/* "Erneut spielen" ist die Hauptaktion — es führt zurück in die Lobby.
                       Das Verlassen daneben ist bewusst zurückhaltend und fragt nach. */}

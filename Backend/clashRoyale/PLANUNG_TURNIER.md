@@ -1,6 +1,6 @@
 # Planung: Turniere für die Clash-Royale-Minigames
 
-Stand: 01.10.2026 · Status: **Phase 1 + 2 fertig** (Anlegen/Anmelden; Start von Hand + Autostart, Gruppen, Bracket, Ergebnis durch den Veranstalter); als Nächstes Phase 3 (Match-Raum).
+Stand: 01.10.2026 · Status: **Phase 1–3 fertig** (Anlegen/Anmelden; Start, Gruppen, Bracket; Match-Raum mit Chat, Pick & Ban und automatischer Draft-Lobby); als Nächstes Phase 4 (Ergebnis per CR-API).
 
 ## 1. Grundentscheidungen (mit dem Nutzer geklärt)
 
@@ -127,3 +127,20 @@ Keine — alle geklärt (siehe Abschnitt 1).
   Turniere vor Phase 4 überhaupt fortschreiten. Korrigieren entschiedener Matches fehlt noch (Phase 5).
 - Frontend: `TournamentStructure.jsx` (nächstes Match mit noch deaktiviertem „Raum beitreten", Gruppen-Tabellen +
   Spielplan, Bracket-Baum, Ergebnis-Dialog, Siegerbanner).
+
+**Phase 3 (01.10.2026):**
+- `tournament/series.js` — reine Serienlogik: Stand, Sieger, Bann-Reihenfolge (Spiel 1 bannt B zuerst, danach
+  abwechselnd nach entschiedenen Spielen), Pick/Ban-Angebot und Zufallsmodus bevorzugen in der Serie noch nicht
+  gespielte Modi.
+- `tournament/matchRoom.js` — Socket-Räume `tmatch:<turnier>:<match>` (Zustand, Chat) und `tournament:<turnier>`
+  (Seite neu laden). Zugang nur Spieler des Matches + Veranstalter (Twitch-Session bzw. Geheimschlüssel bei jeder
+  Aktion). "Bereit" nur im Speicher; Spiele (`tournament_games`) und Chat (`tournament_chat`, letzte 200) in der DB.
+- Draft-Lobby: `createTournamentLobby` in clashRoyaleRoutes.js — normale Lobby mit `lobby.tournament`, Preset
+  "Vorgeschlagen", niemand steuert sie von Hand (canControl), nur die zwei Spieler + Veranstalter (Zuschauer) kommen
+  hinein, Start 3 s nachdem beide verbunden sind. Draft-Ende über `notifyDraftComplete` → Decks ins Spiel, Raum
+  wechselt auf "Kampf". Lobby, die einen Neustart nicht überlebt, annulliert das Spiel beim nächsten Zugriff.
+- Ergebnis eines Spiels setzt (bis Phase 4) der Veranstalter im Raum; entscheidet es die Serie, wird das Match über
+  `lifecycle.reportResult` fortgeschrieben. Außerdem: Spiel annullieren, Match direkt entscheiden.
+- Frontend: Reiter Übersicht · Gruppen · Bracket · Raum (URL `?tab=…&match=…`), `MatchRoom.jsx`, Auto-Beitritt
+  über `/clash-royale?code=…&turnier=…`, Banner in der Lobby, "Zurück zum Turnier-Raum" im Endbildschirm.
+- Erscheinen-/Kampf-Fristen sind noch nicht aktiv (Phase 4).

@@ -269,6 +269,7 @@ export default function GameScreen({
         <Suspense fallback={loading}>
           {gameOver ? (
             <GameOverScreen
+              tournament={socket.lobbyData?.tournament || null}
               gameOver={gameOver}
               myId={myId}
               isHost={canControlLobby}

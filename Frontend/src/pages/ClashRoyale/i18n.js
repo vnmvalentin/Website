@@ -82,6 +82,7 @@ export const PAGE_I18N = {
       codeRequired: 'Bitte Lobby-Code eingeben',
       gameInProgress: 'Spiel läuft bereits',
       lobbyLocked: 'Die Lobby ist gesperrt — der Host lässt gerade niemanden mehr rein.',
+      tournamentLobbyOnly: 'Diese Lobby gehört zu einem Turnier-Match — nur die beiden Spieler und der Veranstalter kommen hinein.',
       lobbyFull: ({ max }) => `Lobby voll (max. ${max})`,
       noPermission: 'Keine Berechtigung',
 
@@ -453,6 +454,7 @@ export const PAGE_I18N = {
       codeRequired: 'Please enter a lobby code',
       gameInProgress: 'The game is already running',
       lobbyLocked: 'This lobby is locked — the host is not letting anyone else in right now.',
+      tournamentLobbyOnly: 'This lobby belongs to a tournament match — only its two players and the organizer can join.',
       lobbyFull: ({ max }) => `Lobby full (max. ${max})`,
       noPermission: 'No permission',
 
@@ -819,6 +821,7 @@ export const PAGE_I18N = {
       codeRequired: 'Por favor, introduce el código de la sala',
       gameInProgress: 'La partida ya está en curso',
       lobbyLocked: 'Esta sala está bloqueada — el host no deja entrar a nadie más por ahora.',
+      tournamentLobbyOnly: 'Esta sala pertenece a un partido de torneo — solo pueden entrar sus dos jugadores y el organizador.',
       lobbyFull: ({ max }) => `Sala llena (máx. ${max})`,
       noPermission: 'Sin permiso',
 

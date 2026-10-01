@@ -1,37 +1,23 @@
-// Turnierseite nach dem Start: "Dein nächstes Match", Gruppen-Tabellen mit Spielplan und der
-// Bracket-Baum (Upper/Lower/Grand Final). Daten kommen fertig berechnet vom Server
+// Bausteine der Turnierseite nach dem Start: "Dein nächstes Match" / Siegerbanner, Gruppen-Tabellen
+// mit Spielplan, Bracket-Baum und der Ergebnis-Dialog des Veranstalters. Die Reiter setzt
+// TournamentPage.jsx daraus zusammen. Daten kommen fertig berechnet vom Server
 // (Backend/clashRoyale/tournament/lifecycle.js → structureView).
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import ChunkyButton from '../ui/ChunkyButton';
 import Modal from '../ui/Modal';
 import Section from '../ui/Section';
 import { SegmentedControl } from '../ui/SettingRow';
 import { RankBadge } from '../lobby/PlayerList';
-import { CrBattle, CrTourneyTrophy, CrCrown, CrKingBlue, CrClock, CrSocial, CrSwap } from '../ui/CrIcons';
+import { CrBattle, CrTourneyTrophy, CrKingBlue, CrClock, CrSocial, CrSwap } from '../ui/CrIcons';
 import { tError } from './tI18n';
 import { tournamentApi } from './tournamentApi';
+import { matchLabel, hasPlayer as has } from './matchLabels';
 
-const has = (m, pid) => !!pid && (m.a === pid || m.b === pid);
 const sideOf = (m, pid) => (m.a === pid ? 'a' : 'b');
-
-/** Bezeichnung eines Bracket-Matches (Runde/Finale), für Karten und Dialog. */
-function matchLabel(m, matches, t) {
-  if (m.stage === 'group') return `${t.groupName(m.group)} · ${t.roundN(m.round)}`;
-  if (m.stage === 'grand') return m.round === 1 ? t.grandFinal : t.bracketReset;
-  const sameStage = matches.filter(x => x.stage === m.stage);
-  const last = Math.max(...sameStage.map(x => x.round));
-  const double = matches.some(x => x.stage === 'lower' || x.stage === 'grand');
-  if (m.stage === 'lower') return m.round === last ? t.lowerFinal : t.lowerRound(m.round);
-  if (double) return m.round === last ? t.upperFinal : t.roundN(m.round);
-  if (m.round === last) return t.final;
-  if (m.round === last - 1) return t.semiFinal;
-  if (m.round === last - 2) return t.quarterFinal;
-  return t.roundN(m.round);
-}
 
 // ── Nächstes Match / Sieger ─────────────────────────────────────────────
 
-function NextMatchCard({ structure, me, byId, t }) {
+export function NextMatchCard({ structure, me, byId, onOpenRoom, t }) {
   const { matches, phase, champion } = structure;
   if (phase === 'finished') {
     const p = byId.get(champion);
@@ -56,27 +42,23 @@ function NextMatchCard({ structure, me, byId, t }) {
     const m = playable[0];
     const opp = byId.get(sideOf(m, me.id) === 'a' ? m.b : m.a);
     body = (
-      <>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-white/55 text-xs">
-              {matchLabel(m, matches, t)} · {t.bestOfShort(m.bestOf)}
-              {playable.length > 1 && <> · {t.openGroupMatches(playable.length)}</>}
-            </p>
-            <p className="font-cr text-white text-xl flex items-center gap-2 mt-0.5 min-w-0">
-              <span className="text-white/50 text-base">{t.vs}</span>
-              <span className="truncate">{opp?.displayName}</span>
-              {opp && <RankBadge p={opp} />}
-            </p>
-            {opp && <p className="text-white/45 text-xs flex items-center gap-1"><CrKingBlue size={12} />{opp.crName} #{opp.crTag}</p>}
-          </div>
-          {/* Match-Räume kommen in Phase 3 — der Knopf steht schon an seinem Platz */}
-          <ChunkyButton variant="green" size="lg" icon={CrBattle} iconSize={26} disabled title={t.roomComingSoon}>
-            {t.joinRoom}
-          </ChunkyButton>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-white/55 text-xs">
+            {matchLabel(m, matches, t)} · {t.bestOfShort(m.bestOf)}
+            {playable.length > 1 && <> · {t.openGroupMatches(playable.length)}</>}
+          </p>
+          <p className="font-cr text-white text-xl flex items-center gap-2 mt-0.5 min-w-0">
+            <span className="text-white/50 text-base">{t.vs}</span>
+            <span className="truncate">{opp?.displayName}</span>
+            {opp && <RankBadge p={opp} />}
+          </p>
+          {opp && <p className="text-white/45 text-xs flex items-center gap-1"><CrKingBlue size={12} />{opp.crName} #{opp.crTag}</p>}
         </div>
-        <p className="text-white/45 text-xs mt-3">{t.roomComingSoon}</p>
-      </>
+        <ChunkyButton variant="green" size="lg" icon={CrBattle} iconSize={26} onClick={() => onOpenRoom(m.id)}>
+          {t.joinRoom}
+        </ChunkyButton>
+      </div>
     );
   } else if (waiting) {
     body = <p className="text-white/70 flex items-center gap-2"><CrClock size={20} />{t.waitingForOpponent} · {matchLabel(waiting, matches, t)}</p>;
@@ -94,7 +76,7 @@ function NextMatchCard({ structure, me, byId, t }) {
 
 // ── Gruppen ─────────────────────────────────────────────────────────────
 
-function GroupTable({ group, matches, byId, me, canEdit, onEdit, t }) {
+function GroupTable({ group, matches, byId, me, canOpen, onOpen, t }) {
   const groupMatches = matches.filter(m => m.stage === 'group' && m.group === group.index);
   return (
     <div className="cr-row p-0 overflow-hidden">
@@ -129,7 +111,7 @@ function GroupTable({ group, matches, byId, me, canEdit, onEdit, t }) {
         <p className="cr-eyebrow mb-1.5">{t.schedule}</p>
         <div className="flex flex-col gap-1">
           {groupMatches.map(m => {
-            const clickable = canEdit && m.playable;
+            const clickable = canOpen(m);
             const A = byId.get(m.a), B = byId.get(m.b);
             const done = m.status === 'done';
             const row = (
@@ -143,7 +125,8 @@ function GroupTable({ group, matches, byId, me, canEdit, onEdit, t }) {
             );
             const cls = `flex items-center gap-2 text-xs rounded-md px-1.5 py-1 ${has(m, me?.id) ? 'bg-amber-300/[0.07]' : ''}`;
             return clickable
-              ? <button key={m.id} type="button" onClick={() => onEdit(m)} className={`${cls} w-full hover:bg-white/[0.08] ring-1 ring-inset ring-white/10 text-left`}>{row}</button>
+              ? <button key={m.id} type="button" onClick={() => onOpen(m.id)} title={t.openRoom}
+                  className={`${cls} w-full hover:bg-white/[0.08] ring-1 ring-inset ring-white/10 text-left`}>{row}</button>
               : <div key={m.id} className={cls}>{row}</div>;
           })}
         </div>
@@ -152,10 +135,22 @@ function GroupTable({ group, matches, byId, me, canEdit, onEdit, t }) {
   );
 }
 
+export function GroupsPanel({ structure, ...rest }) {
+  return (
+    <div className="cr-arcade-panel overflow-hidden">
+      <Section icon={CrSocial} title={rest.t.groups} aside={rest.t.advancesNote}>
+        <div className="grid md:grid-cols-2 gap-3">
+          {structure.groups.map(g => <GroupTable key={g.index} group={g} matches={structure.matches} {...rest} />)}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
 // ── Bracket ─────────────────────────────────────────────────────────────
 
-function MatchBox({ m, matches, byId, me, canEdit, onEdit, t }) {
-  const clickable = canEdit && m.playable;
+function MatchBox({ m, matches, byId, me, canOpen, onOpen, t }) {
+  const clickable = canOpen(m);
   const skipped = m.status === 'skipped';
   const line = (side) => {
     const pid = side === 'a' ? m.a : m.b;
@@ -189,7 +184,7 @@ function MatchBox({ m, matches, byId, me, canEdit, onEdit, t }) {
     </div>
   );
   return clickable
-    ? <button type="button" onClick={() => onEdit(m)} className="block text-left rounded-xl hover:ring-2 hover:ring-[var(--cr-arcade-gold)]">{box}</button>
+    ? <button type="button" onClick={() => onOpen(m.id)} title={t.openRoom} className="block text-left rounded-xl hover:ring-2 hover:ring-[var(--cr-arcade-gold)]">{box}</button>
     : box;
 }
 
@@ -214,9 +209,28 @@ function BracketPart({ title, list, ...rest }) {
   );
 }
 
-// ── Ergebnis-Dialog (Veranstalter) ──────────────────────────────────────
+export function BracketPanel({ structure, ...rest }) {
+  const { matches } = structure;
+  const upper = matches.filter(m => m.stage === 'upper');
+  const lower = matches.filter(m => m.stage === 'lower');
+  const grand = matches.filter(m => m.stage === 'grand');
+  const shared = { matches, ...rest };
+  return (
+    <div className="cr-arcade-panel overflow-hidden">
+      <Section icon={CrTourneyTrophy} title={rest.t.bracket}>
+        <div className="space-y-5">
+          <BracketPart title={lower.length ? rest.t.upperBracket : rest.t.koBracket} list={upper} {...shared} />
+          <BracketPart title={rest.t.lowerBracket} list={lower} {...shared} />
+          <BracketPart title={rest.t.grandFinal} list={grand} {...shared} />
+        </div>
+      </Section>
+    </div>
+  );
+}
 
-function ResultModal({ tournamentId, match, matches, byId, onClose, onSaved, t }) {
+// ── Ergebnis-Dialog (Veranstalter: Match direkt entscheiden) ─────────────
+
+export function ResultModal({ tournamentId, match, matches, byId, onClose, onSaved, t }) {
   const need = Math.ceil(match.bestOf / 2);
   const [winner, setWinner] = useState('a');
   const [loserScore, setLoserScore] = useState(0);
@@ -258,55 +272,5 @@ function ResultModal({ tournamentId, match, matches, byId, onClose, onSaved, t }
         </div>
       )}
     </Modal>
-  );
-}
-
-// ── Gesamtansicht ───────────────────────────────────────────────────────
-
-export default function TournamentStructure({ tournament, structure, participants, me, isOwner, onChanged, t }) {
-  const [editing, setEditing] = useState(null);
-  const byId = useMemo(() => new Map(participants.map(p => [p.id, p])), [participants]);
-  const { matches, groups } = structure;
-  const canEdit = isOwner && tournament.status === 'running';
-  const shared = { matches, byId, me, canEdit, onEdit: setEditing, t };
-
-  const upper = matches.filter(m => m.stage === 'upper');
-  const lower = matches.filter(m => m.stage === 'lower');
-  const grand = matches.filter(m => m.stage === 'grand');
-
-  return (
-    <div className="space-y-4">
-      <NextMatchCard structure={structure} me={me} byId={byId} t={t} />
-
-      {canEdit && <p className="text-white/50 text-xs flex items-center gap-1.5"><CrCrown size={16} />{t.ownerResultHint}</p>}
-
-      {groups.length > 0 && (
-        <div className="cr-arcade-panel overflow-hidden">
-          <Section icon={CrSocial} title={t.groups} aside={t.advancesNote}>
-            <div className="grid md:grid-cols-2 gap-3">
-              {groups.map(g => <GroupTable key={g.index} group={g} {...shared} />)}
-            </div>
-          </Section>
-        </div>
-      )}
-
-      {upper.length > 0 && (
-        <div className="cr-arcade-panel overflow-hidden">
-          <Section icon={CrTourneyTrophy} title={t.bracket}>
-            <div className="space-y-5">
-              <BracketPart title={lower.length ? t.upperBracket : t.koBracket} list={upper} {...shared} />
-              <BracketPart title={t.lowerBracket} list={lower} {...shared} />
-              <BracketPart title={t.grandFinal} list={grand} {...shared} />
-            </div>
-          </Section>
-        </div>
-      )}
-
-      {editing && (
-        <ResultModal tournamentId={tournament.id} match={editing} matches={matches} byId={byId} t={t}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); onChanged(); }} />
-      )}
-    </div>
   );
 }

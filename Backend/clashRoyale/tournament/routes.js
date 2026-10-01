@@ -16,6 +16,7 @@ const { nanoid } = require('nanoid');
 const store = require('./store');
 const { sanitizeSettings, defaultSettings, LIMITS } = require('./settings');
 const lifecycle = require('./lifecycle');
+const matchRoom = require('./matchRoom');
 const registry = require('../core/registry');
 require('../modes'); // registriert alle Modi in der Registry
 const { isConfigured: crApiConfigured, normalizeTag, fetchPlayerSummary } = require('../lib/crApi');
@@ -79,6 +80,7 @@ function runAutoStart(now = Date.now()) {
     if (!t.settings.autoStart || !t.settings.startsAt || t.settings.startsAt > now) continue;
     try {
       lifecycle.startTournament(t);
+      matchRoom.notifyTournament(t.id);
     } catch (e) {
       console.warn(`[Turnier] Autostart ${t.id} fehlgeschlagen: ${e.message}`);
       store.updateSettings(t.id, { ...t.settings, autoStart: false });
@@ -176,6 +178,7 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, au
     const t = loadOr404(req, res); if (!t) return;
     if (!isOwner(t, req)) return res.status(403).json({ error: 'noPermission' });
     try { lifecycle.startTournament(t); } catch (e) { return sendKnown(res, e); }
+    matchRoom.notifyTournament(t.id);
     res.json({ ok: true });
   });
 
@@ -189,6 +192,8 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, au
         winner: b.winner, scoreA: Number(b.scoreA), scoreB: Number(b.scoreB), crownsA: b.crownsA, crownsB: b.crownsB,
       });
     } catch (e) { return sendKnown(res, e); }
+    matchRoom.broadcastRoom(t.id, String(req.params.mid));
+    matchRoom.notifyTournament(t.id);
     res.json({ ok: true, status: store.getTournament(t.id).status });
   });
 

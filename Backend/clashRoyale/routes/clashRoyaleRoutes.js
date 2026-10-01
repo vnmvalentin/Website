@@ -22,6 +22,11 @@ const { teamPlayers } = require('../core/teams');
 const { isConfigured: crApiConfigured, normalizeTag, fetchPlayerSummary, fetchPlayerCards } = require('../lib/crApi');
 const { initCrTracking, startTracking, stopTracking, onPlayerLinked } = require('../core/crTracking');
 const registry = require('../core/registry');
+// Turnier-Match-Räume (lazy, weil tournament/matchRoom selbst createTournamentLobby von hier braucht)
+const tournamentRoom = () => require('../tournament/matchRoom');
+
+// Turnier-Lobby: kurze Pause, wenn beide Spieler da sind, damit der zweite die Lobby noch sieht
+const TOURNAMENT_AUTOSTART_MS = 3000;
 // Ausgelagerte Modi melden sich beim Laden selbst an der Registry an
 require('../modes');
 
@@ -74,7 +79,27 @@ function emitGameStateTo(socket, lobby, opts = {}) {
 // ── Socket ─────────────────────────────────────────────────────────────────
 function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = null, twitchLogin = null } = {}) {
   // Host-Aktionen dürfen genauso vom (server-seitig verifizierten) Admin ausgeführt werden
-  const canControl = (lobby) => lobby.host === socket.id || isAdmin;
+  // Turnier-Lobbys steuert niemand von Hand (Einstellungen kommen vom Turnier) — außer dem Admin
+  const canControl = (lobby) => (lobby.host === socket.id && !lobby.tournament) || isAdmin;
+
+  // Turnier-Lobby startet von selbst, sobald beide Spieler verbunden sind
+  const maybeStartTournamentLobby = (lobby) => {
+    if (!lobby.tournament || lobby.started || lobby.tournamentStartTimer) return;
+    const bothThere = () => {
+      const sides = new Set(lobby.players.filter(pl => !pl.left && !pl.disconnected && pl.tournamentSide).map(pl => pl.tournamentSide));
+      return sides.has('a') && sides.has('b');
+    };
+    if (!bothThere()) return;
+    lobby.tournamentStartTimer = setTimeout(() => {
+      lobby.tournamentStartTimer = null;
+      if (lobby.started || !lobbies.has(lobby.code) || !bothThere()) return;
+      const mode = registry.modeForLobby(lobby);
+      if (!mode) return;
+      lobby.started = true;
+      mode.start(lobby, io);
+      emitStreamerEvent(lobby, io, 'gameStart');
+    }, TOURNAMENT_AUTOSTART_MS);
+  };
 
   // Einziger Weg, den Lobby-Zustand zu verteilen. Davor zieht das gesetzte Preset seine
   // Werte an der aktuellen Spielerzahl nach — z.B. "Karten pro Runde" bei Auction/Bingo,
@@ -170,7 +195,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     broadcastLobby(lobby);
   });
 
-  socket.on('clash:joinLobby', ({ code, playerName, avatar = 'knight', avatarUrl, auto = false }) => {
+  socket.on('clash:joinLobby', ({ code, playerName, avatar = 'knight', avatarUrl, auto = false, tournamentSecret }) => {
     const uCode = (code || '').toUpperCase();
     const lobby = lobbies.get(uCode);
     // auto = stiller Auto-Rejoin aus localStorage: bei ungültiger Sitzung keinen Fehler zeigen,
@@ -179,8 +204,18 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       if (auto) return socket.emit('clash:sessionExpired');
       return emitClashError(socket, 'lobbyNotFound');
     }
-    if (!playerName?.trim())  return emitClashError(socket, 'nameRequired');
-    const trimmedName = playerName.trim();
+    // Turnier-Lobby: nur die beiden Spieler des Matches (Name kommt aus der Anmeldung) und der
+    // Veranstalter als Zuschauer — siehe tournament/matchRoom.js
+    let tAuth = null;
+    if (lobby.tournament) {
+      tAuth = tournamentRoom().authorizeLobbyJoin(lobby, { twitchId, secret: tournamentSecret ? String(tournamentSecret) : '' });
+      if (!tAuth) {
+        if (auto) return socket.emit('clash:sessionExpired');
+        return emitClashError(socket, 'tournamentLobbyOnly');
+      }
+    }
+    const trimmedName = tAuth ? tAuth.name : String(playerName || '').trim();
+    if (!trimmedName) return emitClashError(socket, 'nameRequired');
 
     // Reconnect/Übernahme: Spieler mit gleichem Namen während eines laufenden Spiels.
     // Auch bei noch aktiver alter Verbindung (z.B. zweiter Tab) wird die Sitzung übernommen,
@@ -251,15 +286,19 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
           color: PLAYER_COLORS[lobby.players.length % PLAYER_COLORS.length],
           avatar: avatar || 'knight', avatarUrl: cleanAvatarUrl(avatarUrl),
           deck: [], elixir: lobby.startElixir ?? 100,
-          isSpectator: false, twitchId: twitchId || null,
+          // Turnier: Veranstalter schaut nur zu; Spieler A ist der (nicht steuernde) Host
+          isSpectator: !!tAuth && !tAuth.side, twitchId: twitchId || null,
           teamId: null, teamSlot: null,
+          tournamentSide: tAuth?.side || null,
         });
+        if (tAuth?.side === 'a') lobby.host = socket.id;
       }
     }
     socket.join(uCode);
     socket.emit('clash:lobbyJoined', { code: uCode, isHost: lobby.host === socket.id });
     broadcastLobby(lobby);
     emitGameStateTo(socket, lobby);
+    maybeStartTournamentLobby(lobby);
   });
 
   // Test-Bot hinzufügen — verhält sich in der Lobby wie ein normaler Spieler (Host weist ihn
@@ -672,7 +711,8 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
 
   socket.on('clash:toggleSpectator', ({ code }) => {
     const lobby = lobbies.get(code);
-    if (!lobby || lobby.started) return;
+    // Turnier-Lobby: die Rollen stehen fest (zwei Spieler, Veranstalter schaut zu)
+    if (!lobby || lobby.started || lobby.tournament) return;
     const player = lobby.players.find(p => p.id === socket.id);
     if (!player) return;
     player.isSpectator = !player.isSpectator;
@@ -902,6 +942,27 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
 }
 
 // ── HTTP ───────────────────────────────────────────────────────────────────
+/**
+ * Lobby für ein Turnier-Spiel (tournament/matchRoom.js → openDraftLobby). Ohne Spieler — die beiden
+ * treten über den Link aus dem Match-Raum bei und werden an ihrer Identität erkannt; Einstellungen
+ * sind das Preset "Vorgeschlagen" des Modus. Liefert den Lobby-Code.
+ */
+function createTournamentLobby({ mode, tournament }) {
+  if (!registry.getMode(mode)) throw new Error('unknownMode');
+  const code = generateCode();
+  const lobby = {
+    code, overlayKey: generateOverlayKey(), mode, host: null, partyMode: 'solo',
+    timerSeconds: 60, cardsPerRound: 4,
+    ...registry.defaultSettings(),
+    excludedCards: [], locked: false, isPublic: false, createdAt: Date.now(),
+    players: [], started: false, game: null, history: [],
+    tournament,
+  };
+  applySuggestedPreset(lobby);
+  lobbies.set(code, lobby);
+  return code;
+}
+
 function createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID } = {}) {
   const router = express.Router();
 
@@ -932,4 +993,4 @@ function createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID } = {}) {
   return router;
 }
 
-module.exports = { createClashRoyaleRouter, registerClashRoyaleSocket, ALL_CARDS };
+module.exports = { createClashRoyaleRouter, registerClashRoyaleSocket, createTournamentLobby, ALL_CARDS };

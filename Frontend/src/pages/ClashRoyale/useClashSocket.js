@@ -16,6 +16,7 @@ import { STREAMER_ID } from './constants';
 import { MODE_CHUNK_LOADERS } from './modesConfig';
 import { DEFAULT_AVATAR_ID, isKnownAvatar } from './components/avatars';
 import { EMOTE_SHOW_MS } from './ui/emotes';
+import { getSecret } from './tournament/tournamentApi';
 
 const SESSION_KEY = 'clash_session';
 
@@ -123,9 +124,19 @@ export function useClashSocket(user) {
   // Auto-Rejoin in die alte Lobby mehr) — Name und Avatar bleiben als Vorbelegung.
   const [initialJoinCode, setInitialJoinCode] = useState('');
   useEffect(() => {
-    const c = new URLSearchParams(window.location.search).get('code');
+    const params = new URLSearchParams(window.location.search);
+    const c = params.get('code');
     if (!c) return;
     const urlCode = c.toUpperCase();
+    // Turnier-Draft (Link aus dem Match-Raum): Name und Zugang kommen aus der Turnier-Anmeldung,
+    // deshalb ohne Namensfeld direkt beitreten — der Server erkennt Twitch-Session bzw. Schlüssel
+    const tournamentId = params.get('turnier');
+    if (tournamentId) {
+      const saved = readSession();
+      writeSession({ code: urlCode, playerName: saved?.playerName || 'Turnier', avatar: saved?.avatar || avatarRef.current, tournamentId });
+      window.history.replaceState({}, '', '/clash-royale');
+      return;
+    }
     setInitialJoinCode(urlCode);
     const saved = readSession();
     if (saved?.code && saved.code !== urlCode) {
@@ -158,6 +169,7 @@ export function useClashSocket(user) {
         // auto: true → bei ungültiger Sitzung räumt der Server still auf, statt einen Fehler zu zeigen
         socket.emit('clash:joinLobby', {
           code: saved.code, playerName: saved.playerName, avatar: saved.avatar || '', auto: true,
+          ...(saved.tournamentId ? { tournamentSecret: getSecret(saved.tournamentId) } : {}),
         });
       }
       // Erstaufbau des Lobby-Browsers — danach hält clash:publicLobbiesUpdate ihn aktuell
@@ -177,7 +189,12 @@ export function useClashSocket(user) {
       setPhase('lobby');
       // Admin-Beobachter-Sitzungen nicht persistieren (kein Auto-Rejoin als Admin)
       if (code && !isAdminModeRef.current) {
-        writeSession({ code, playerName: playerNameRef.current, avatar: avatarRef.current });
+        // Turnier-Sitzung behält ihre Turnier-ID (für den Schlüssel beim Wiedereinstieg)
+        const prev = readSession();
+        writeSession({
+          code, playerName: playerNameRef.current, avatar: avatarRef.current,
+          ...(prev?.code === code && prev?.tournamentId ? { tournamentId: prev.tournamentId } : {}),
+        });
       }
     });
 
@@ -343,7 +360,9 @@ export function useClashSocket(user) {
   const mySocketId = myId || socketRef.current?.id;
   // Host-Status aus lobbyData ableiten, damit eine Host-Übergabe nach Disconnect
   // sofort greift und nicht erst beim nächsten lobbyJoined
-  const effectiveIsHost = lobbyData ? lobbyData.host === mySocketId : isHost;
+  // Turnier-Lobbys steuert niemand von Hand — Einstellungen und Start kommen vom Turnier
+  const isTournamentLobby = !!lobbyData?.tournament;
+  const effectiveIsHost = isTournamentLobby ? false : lobbyData ? lobbyData.host === mySocketId : isHost;
   const myPlayerEntry = lobbyData?.players?.find(p => p.id === mySocketId);
   const isClashAdmin = !!myPlayerEntry?.isAdmin;
   // Host-Aktionen (Einstellungen, Kick, Spiel abbrechen …) darf auch der Admin ausführen
