@@ -1,6 +1,6 @@
 # Planung: Turniere für die Clash-Royale-Minigames
 
-Stand: 01.10.2026 · Status: **Phase 1–4 fertig** (… Match-Raum; Sieger per CR-API mit Deck-Prüfung, Erscheinen- und Kampf-Frist); als Nächstes Phase 5 (Veranstalter-Werkzeuge + Zuschauen).
+Stand: 01.10.2026 · Status: **Phase 1–5 fertig** (… Sieger per CR-API; Veranstalter-Werkzeuge: korrigieren, neu spielen, disqualifizieren, pausieren, abbrechen, Übersicht); als Nächstes Phase 6 (Feinschliff).
 
 ## 1. Grundentscheidungen (mit dem Nutzer geklärt)
 
@@ -159,3 +159,19 @@ Keine — alle geklärt (siehe Abschnitt 1).
 - Prüfschleife alle 20 s (nur wartende Spiele + laufende Turniere), Battlelog-Cache 15 s je Tag. Token:
   `CLASH_ROYALE_API_TOKEN_TOURNAMENT`, sonst `…_WINTRACKER`, sonst der geteilte Token.
 - Systemnachrichten im Raum-Chat (Kampf gefunden, Klärung, kampflos).
+
+**Phase 5 (01.10.2026):**
+- `structure.resetMatch` (rein, getestet): entschiedenes Match wieder öffnen, nur solange die Folge-Matches offen sind;
+  Grand Final öffnet einen angesetzten/übersprungenen Bracket-Reset wieder. Gruppenspiel nach Bracket-Bau: erlaubt,
+  solange im Bracket nichts gespielt wurde — das Bracket wird verworfen und neu gebaut.
+- `lifecycle.settle` zieht nach jeder Änderung alles Automatische nach (Bracket nach Gruppen, kampflose Siege gegen
+  Disqualifizierte, auch kettenweise). Korrigieren = Zurücksetzen + neues Ergebnis in EINER Transaktion; beendete
+  Turniere laufen danach wieder.
+- Disqualifizieren (`dropped_at` am Teilnehmer): offene und künftige Matches gehen kampflos an den Gegner; laufende
+  Spiele werden annulliert. Pausieren (`settings.paused`): kein Spielstart, Erscheinen-Fristen stehen still, Kampfsuche
+  läuft weiter. Abbrechen jetzt auch nach dem Start.
+- Reiter "Veranstalter": Übersicht (Klärung zuerst, dann am längsten wartende Spiele, Anwesenheit), Steuerung,
+  Teilnehmer mit Disqualifizieren. Entschiedene Matches öffnet der Veranstalter aus Gruppen/Bracket → "Ergebnis
+  korrigieren" / "Neu spielen lassen".
+- Zuschauen: Veranstalter sieht jeden Match-Raum und kommt als Zuschauer in jede Draft-Lobby (seit Phase 3).
+- Bewusst nicht umgesetzt: Nachrücken (Spieler nach dem Start ersetzen).

@@ -98,7 +98,7 @@ function GroupTable({ group, matches, byId, me, canOpen, onOpen, t }) {
             return (
               <tr key={r.id} className={`border-t border-[rgba(2,8,20,0.55)] ${r.advancing ? 'bg-emerald-400/[0.07]' : ''}`}>
                 <td className={`pl-3.5 pr-2 py-1.5 font-cr ${r.advancing ? 'text-emerald-300' : 'text-white/45'}`}>{r.place}</td>
-                <td className={`py-1.5 truncate max-w-0 w-full pr-2 ${isMe ? 'text-[var(--cr-arcade-gold)] font-semibold' : 'text-white'}`}>{p?.displayName || '—'}</td>
+                <td className={`py-1.5 truncate max-w-0 w-full pr-2 ${isMe ? 'text-[var(--cr-arcade-gold)] font-semibold' : 'text-white'} ${p?.dropped ? 'line-through opacity-60' : ''}`}>{p?.displayName || '—'}</td>
                 <td className="text-right px-2 text-white/80">{r.wins}–{r.losses}</td>
                 <td className="text-right px-2 text-white/60">{r.gameDiff > 0 ? '+' : ''}{r.gameDiff}</td>
                 <td className="text-right pl-2 pr-3.5 text-white/60 hidden sm:table-cell">{r.crownDiff > 0 ? '+' : ''}{r.crownDiff}</td>
@@ -162,7 +162,7 @@ function MatchBox({ m, matches, byId, me, canOpen, onOpen, t }) {
       <div className={`flex items-center gap-2 px-2.5 h-8 ${side === 'b' ? 'border-t border-[rgba(2,8,20,0.55)]' : ''}`}>
         <span className={`flex-1 min-w-0 truncate text-[13px] ${
           isBye ? 'text-white/30 italic' : !p ? 'text-white/30' : lost ? 'text-white/40' : won ? 'text-white font-semibold' : 'text-white/85'
-        } ${p && me?.id === pid ? '!text-[var(--cr-arcade-gold)]' : ''}`}>
+        } ${p && me?.id === pid ? '!text-[var(--cr-arcade-gold)]' : ''} ${p?.dropped ? 'line-through' : ''}`}>
           {isBye ? t.bye : p ? p.displayName : t.tbd}
         </span>
         {m.status === 'done' && (
@@ -230,7 +230,7 @@ export function BracketPanel({ structure, ...rest }) {
 
 // ── Ergebnis-Dialog (Veranstalter: Match direkt entscheiden) ─────────────
 
-export function ResultModal({ tournamentId, match, matches, byId, onClose, onSaved, t }) {
+export function ResultModal({ tournamentId, match, matches, byId, onClose, onSaved, t, correct = false }) {
   const need = Math.ceil(match.bestOf / 2);
   const [winner, setWinner] = useState('a');
   const [loserScore, setLoserScore] = useState(0);
@@ -241,9 +241,8 @@ export function ResultModal({ tournamentId, match, matches, byId, onClose, onSav
   const save = async () => {
     setBusy(true); setError('');
     try {
-      await tournamentApi.setResult(tournamentId, match.id, {
-        winner, scoreA: winner === 'a' ? need : loserScore, scoreB: winner === 'b' ? need : loserScore,
-      });
+      const result = { winner, scoreA: winner === 'a' ? need : loserScore, scoreB: winner === 'b' ? need : loserScore };
+      await (correct ? tournamentApi.correctMatch(tournamentId, match.id, result) : tournamentApi.setResult(tournamentId, match.id, result));
       onSaved();
     } catch (e) {
       setError(tError(t, e));
@@ -252,7 +251,7 @@ export function ResultModal({ tournamentId, match, matches, byId, onClose, onSav
   };
 
   return (
-    <Modal size="sm" title={`${t.setResult} · ${matchLabel(match, matches, t)}`} icon={<CrSwap size={22} />} onClose={onClose}
+    <Modal size="sm" title={`${correct ? t.correctResult : t.setResult} · ${matchLabel(match, matches, t)}`} icon={<CrSwap size={22} />} onClose={onClose}
       footer={
         <div className="space-y-2">
           {error && <p className="text-red-400 text-sm">{error}</p>}

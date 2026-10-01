@@ -191,3 +191,46 @@ test('Auslosung ohne Gruppen mischt die Spieler', () => {
   const b = S.drawTournament(ids(8), s, S.makeRng(2)).drawOrder.join();
   assert.notEqual(a, b);
 });
+
+test('Zurücksetzen: nur solange das Folge-Match offen ist; danach wieder normal spielbar', () => {
+  let br = S.buildBracket(ids(4), { bestOfNormal: 1, bestOfFinals: 1 });
+  br = S.applyResult(br, 'u1-1', { winner: 'a', scoreA: 1, scoreB: 0 });
+  assert.equal(br.find(m => m.id === 'u2-1').a, 'p1');
+  let r = S.resetMatch(br, 'u1-1');
+  assert.equal(r.find(m => m.id === 'u1-1').status, 'pending');
+  assert.equal(r.find(m => m.id === 'u2-1').a, null, 'Platz im Folge-Match wieder frei');
+  r = S.applyResult(r, 'u1-1', { winner: 'b', scoreA: 0, scoreB: 1 });
+  assert.equal(r.find(m => m.id === 'u2-1').a, 'p4');
+  // Folge-Match schon entschieden → gesperrt
+  r = S.applyResult(r, 'u1-2', { winner: 'a', scoreA: 1, scoreB: 0 });
+  r = S.applyResult(r, 'u2-1', { winner: 'a', scoreA: 1, scoreB: 0 });
+  assert.throws(() => S.resetMatch(r, 'u1-1'), /tournamentResetBlocked/);
+  assert.equal(S.resetMatch(r, 'u2-1').find(m => m.id === 'u2-1').status, 'pending', 'Finale ohne Folge-Match geht');
+  assert.throws(() => S.resetMatch(r, 'u1-1x'), /tournamentMatchNotFound/);
+});
+
+test('Zurücksetzen im Double Elimination: Verlierer verschwindet auch aus dem Lower Bracket; Grand Final öffnet den Reset wieder', () => {
+  let br = S.buildBracket(ids(4), { double: true, bestOfNormal: 1, bestOfFinals: 1 });
+  br = S.applyResult(br, 'u1-1', { winner: 'a', scoreA: 1, scoreB: 0 });
+  assert.ok(br.find(m => m.id === 'l1-1').a);
+  const r = S.resetMatch(br, 'u1-1');
+  assert.equal(r.find(m => m.id === 'l1-1').a, null);
+  // Bis zum Grand Final spielen, Upper-Sieger gewinnt GF1 → Reset übersprungen; Zurücksetzen öffnet gf2 wieder
+  const play = (list, pick) => {
+    for (let i = 0; i < 50; i++) {
+      const m = list.find(S.isPlayable);
+      if (!m) return list;
+      list = S.applyResult(list, m.id, { winner: pick(m), scoreA: pick(m) === 'a' ? 1 : 0, scoreB: pick(m) === 'b' ? 1 : 0 });
+    }
+    return list;
+  };
+  let end = play(br, () => 'a');
+  assert.equal(end.find(m => m.id === 'gf2').status, 'skipped');
+  end = S.resetMatch(end, 'gf1');
+  assert.equal(end.find(m => m.id === 'gf2').status, 'pending');
+  assert.equal(end.find(m => m.id === 'gf1').status, 'pending');
+  assert.ok(S.isPlayable(end.find(m => m.id === 'gf1')));
+  assert.equal(S.championOf(end), null);
+  end = S.applyResult(end, 'gf1', { winner: 'b', scoreA: 0, scoreB: 1 });
+  assert.ok(S.isPlayable(end.find(m => m.id === 'gf2')), 'jetzt mit Bracket-Reset');
+});

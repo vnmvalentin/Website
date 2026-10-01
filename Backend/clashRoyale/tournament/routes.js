@@ -49,6 +49,7 @@ const publicParticipant = (p, ownerId) => ({
   crTrophies: p.crTrophies,
   isOwner: !!p.twitchId && String(p.twitchId) === String(ownerId),
   joinedAt: p.joinedAt,
+  dropped: !!p.droppedAt,
 });
 
 const summary = (t, count) => ({
@@ -64,7 +65,7 @@ const summary = (t, count) => ({
 /** Fehlerschlüssel aus lifecycle/structure (Error.message) — alles andere ist ein echter Fehler. */
 const KNOWN_ERRORS = new Set([
   'tournamentAlreadyStarted', 'tournamentTooFewPlayers', 'tournamentNotRunning', 'tournamentMatchNotFound',
-  'tournamentMatchNotPlayable', 'tournamentInvalidResult',
+  'tournamentMatchNotPlayable', 'tournamentInvalidResult', 'tournamentResetBlocked', 'tournamentNotJoined',
 ]);
 const sendKnown = (res, e) => {
   if (KNOWN_ERRORS.has(e?.message)) return res.status(400).json({ error: e.message });
@@ -138,6 +139,8 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, au
       me: me ? { ...publicParticipant(me, t.ownerId), friendLink: me.friendLink } : null,
       loggedIn: !!req.twitchId,
       structure: lifecycle.structureView(t, participants),
+      // Nur für den Veranstalter: was gerade Aufmerksamkeit braucht (Phase 5)
+      ownerOverview: isOwner(t, req) ? matchRoom.ownerOverview(t) : null,
     });
   });
 
@@ -164,14 +167,35 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, au
     res.json({ tournament: store.updateSettings(t.id, settings) });
   });
 
-  // Turnier absagen (vor dem Start) — bleibt als "abgesagt" sichtbar
+  // Turnier absagen bzw. abbrechen (vor oder nach dem Start) — bleibt als "abgesagt" sichtbar
   router.post('/:id/cancel', requireAuth, (req, res) => {
     const t = loadOr404(req, res); if (!t) return;
     if (!isOwner(t, req)) return res.status(403).json({ error: 'noPermission' });
-    if (t.status !== 'registration') return res.status(400).json({ error: 'tournamentAlreadyStarted' });
+    if (t.status !== 'registration' && t.status !== 'running') return res.status(400).json({ error: 'tournamentNotRunning' });
     store.setStatus(t.id, 'cancelled');
+    matchRoom.notifyTournament(t.id);
     res.json({ ok: true });
   });
+
+  // ── Phase 5: Werkzeuge des Veranstalters ──
+  const ownerAction = (path, fn) => router.post(path, requireAuth, (req, res) => {
+    const t = loadOr404(req, res); if (!t) return;
+    if (!isOwner(t, req)) return res.status(403).json({ error: 'noPermission' });
+    let touchedMatch;
+    try { touchedMatch = fn(t, req); } catch (e) { return sendKnown(res, e); }
+    if (touchedMatch) matchRoom.broadcastRoom(t.id, touchedMatch);
+    matchRoom.notifyTournament(t.id);
+    res.json({ ok: true, status: store.getTournament(t.id).status });
+  });
+  const resultFrom = (b = {}) => ({ winner: b.winner, scoreA: Number(b.scoreA), scoreB: Number(b.scoreB), crownsA: b.crownsA, crownsB: b.crownsB });
+
+  // Entschiedenes Match neu spielen lassen bzw. Ergebnis korrigieren
+  ownerAction('/:id/matches/:mid/reset', (t, req) => { lifecycle.resetMatch(t, String(req.params.mid)); return String(req.params.mid); });
+  ownerAction('/:id/matches/:mid/correct', (t, req) => { lifecycle.correctMatch(t, String(req.params.mid), resultFrom(req.body)); return String(req.params.mid); });
+  // Spieler disqualifizieren (offene und künftige Matches kampflos verloren)
+  ownerAction('/:id/participants/:pid/disqualify', (t, req) => { lifecycle.disqualify(t, String(req.params.pid)); return null; });
+  // Pausieren / fortsetzen
+  ownerAction('/:id/pause', (t, req) => { lifecycle.setPaused(t, !!req.body?.paused); return null; });
 
   // Turnier starten — Auslosung von Gruppen bzw. Bracket
   router.post('/:id/start', requireAuth, (req, res) => {

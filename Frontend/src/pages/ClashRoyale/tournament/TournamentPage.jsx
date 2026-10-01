@@ -19,6 +19,7 @@ import {
 } from '../ui/CrIcons';
 import { NextMatchCard, GroupsPanel, BracketPanel } from './TournamentStructure';
 import MatchRoom, { NoRoom } from './MatchRoom';
+import OwnerPanel from './OwnerPanel';
 import { useTournamentSocket } from './useTournamentSocket';
 import { hasPlayer } from './matchLabels';
 import TournamentFrame from './TournamentFrame';
@@ -39,6 +40,7 @@ const TABS = {
   gruppen: { icon: CrSocial, label: 'tabGroups' },
   bracket: { icon: CrTourneyTrophy, label: 'tabBracket' },
   raum: { icon: CrChat, label: 'tabRoom' },
+  veranstalter: { icon: CrCrown, label: 'tabOwner' },
 };
 
 /** Reiterleiste im CR-Look (.cr-tabs in index.css). dot = Hinweis (z.B. eigenes Match offen). */
@@ -301,13 +303,14 @@ export default function TournamentPage() {
     structure.groups.length ? { id: 'gruppen' } : null,
     hasBracket ? { id: 'bracket' } : null,
     (me || isOwner) ? { id: 'raum', dot: !!myPlayable } : null,
+    isOwner ? { id: 'veranstalter', dot: !!data.ownerOverview?.some(x => x.phase === 'review') } : null,
   ].filter(Boolean) : [];
   const requested = searchParams.get('tab');
   const fallbackTab = !structure ? 'uebersicht'
     : myPlayable ? 'raum' : structure.phase === 'groups' ? 'gruppen' : hasBracket ? 'bracket' : 'uebersicht';
   const tab = tabs.some(x => x.id === requested) ? requested : fallbackTab;
   const roomMatchId = searchParams.get('match') || myPlayable?.id || null;
-  const canOpen = (m) => m.playable && (isOwner || hasPlayer(m, me?.id));
+  const canOpen = (m) => (m.playable && (isOwner || hasPlayer(m, me?.id))) || (isOwner && m.status === 'done');
   const byId = new Map(participants.map(p => [p.id, p]));
   const structureProps = { structure, byId, me, canOpen, onOpen: (mid) => selectTab('raum', mid), t };
 
@@ -361,6 +364,12 @@ export default function TournamentPage() {
       {/* ── Nach dem Start: Reiter + (außerhalb des Raums) "Dein nächstes Match" ── */}
       {structure && (
         <>
+          {s.paused && tournament.status === 'running' && (
+            <div className="cr-arcade-panel px-4 py-3 flex items-center gap-3 border-amber-300/50">
+              <CrClock size={26} className="shrink-0" />
+              <p className="text-amber-100 text-sm">{t.pausedBanner}</p>
+            </div>
+          )}
           <TabBar tabs={tabs} active={tab} onSelect={(id) => selectTab(id)} t={t} />
           {tab !== 'raum' && <NextMatchCard structure={structure} me={me} byId={byId} t={t} onOpenRoom={(mid) => selectTab('raum', mid)} />}
           {tab === 'raum' && structure.phase === 'finished' && !roomMatchId && (
@@ -370,6 +379,10 @@ export default function TournamentPage() {
       )}
       {structure && tab === 'gruppen' && <GroupsPanel {...structureProps} />}
       {structure && tab === 'bracket' && <BracketPanel {...structureProps} />}
+      {structure && tab === 'veranstalter' && (
+        <OwnerPanel tournament={tournament} overview={data.ownerOverview || []} structure={structure} participants={participants}
+          onOpenRoom={(mid) => selectTab('raum', mid)} onChanged={reload} t={t} />
+      )}
       {structure && tab === 'raum' && (roomMatchId
         ? <MatchRoom key={roomMatchId} tournament={tournament} matchId={roomMatchId} socket={socket} connected={connected}
             me={me} isOwner={isOwner} structure={structure} participants={participants} onChanged={reload} t={t} lang={lang} />

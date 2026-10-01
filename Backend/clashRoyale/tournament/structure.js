@@ -324,6 +324,35 @@ function applyResult(matches, matchId, { winner, scoreA, scoreB, crownsA = 0, cr
   return resolveByes(list);
 }
 
+/**
+ * Setzt ein entschiedenes Match zurück (Phase 5: Veranstalter korrigiert/lässt neu spielen). Nur möglich,
+ * solange die Folge-Matches noch nicht entschieden sind — sonst widerspräche sich das Bracket. Beim Grand
+ * Final wird ein schon angesetzter oder übersprungener Bracket-Reset wieder geöffnet.
+ * Gibt die neue Match-Liste zurück; wirft einen Fehlerschlüssel.
+ */
+function resetMatch(matches, matchId) {
+  const list = matches.map(m => ({ ...m }));
+  const byId = new Map(list.map(m => [m.id, m]));
+  const m = byId.get(matchId);
+  if (!m) throw new Error('tournamentMatchNotFound');
+  if (m.status !== 'done') throw new Error('tournamentResetBlocked');
+  if (m.id === 'gf1') {
+    const reset = byId.get('gf2');
+    if (reset && reset.status === 'done') throw new Error('tournamentResetBlocked');
+    if (reset) Object.assign(reset, { a: null, b: null, status: 'pending', winner: null, scoreA: 0, scoreB: 0, crownsA: 0, crownsB: 0, finishedAt: null });
+  } else {
+    for (const [to, side] of [[m.winTo, m.winSide], [m.loseTo, m.loseSide]]) {
+      if (!to) continue;
+      const target = byId.get(to);
+      if (!target) continue;
+      if (target.status !== 'pending') throw new Error('tournamentResetBlocked');
+      if (side === 'a') target.a = null; else target.b = null;
+    }
+  }
+  Object.assign(m, { status: 'pending', winner: null, scoreA: 0, scoreB: 0, crownsA: 0, crownsB: 0, finishedAt: null });
+  return list;
+}
+
 const groupStageDone = (matches) => matches.filter(m => m.stage === 'group').every(m => m.status !== 'pending');
 const bracketMatches = (matches) => matches.filter(m => m.stage !== 'group');
 const allDone = (matches) => matches.length > 0 && matches.every(m => m.status !== 'pending');
@@ -378,6 +407,6 @@ function bracketAfterGroups(groups, matches, settings, drawOrder) {
 module.exports = {
   BYE, makeRng, shuffle, groupCountFor, splitIntoGroups, advancersFor, roundRobin, buildGroupMatches,
   computeStandings, seedsFromGroups, seedPositions, nextPow2, buildBracket, resolveByes, applyResult,
-  validSeriesScore, isPlayable, isPlayer, groupStageDone, allDone, championOf, planStart, drawTournament,
+  validSeriesScore, isPlayable, isPlayer, groupStageDone, allDone, championOf, planStart, drawTournament, resetMatch,
   bracketAfterGroups,
 };

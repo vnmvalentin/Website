@@ -52,6 +52,8 @@ db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_tparts_tag ON tournament_participa
 const partCols = new Set(db.prepare('PRAGMA table_info(tournament_participants)').all().map(c => c.name));
 if (!partCols.has('draw_index')) db.exec('ALTER TABLE tournament_participants ADD COLUMN draw_index INTEGER');
 if (!partCols.has('group_index')) db.exec('ALTER TABLE tournament_participants ADD COLUMN group_index INTEGER');
+// Phase 5: vom Veranstalter disqualifiziert / aufgegeben — offene und künftige Matches gehen kampflos verloren
+if (!partCols.has('dropped_at')) db.exec('ALTER TABLE tournament_participants ADD COLUMN dropped_at INTEGER');
 
 // Matches (Gruppe und Bracket) — Aufbau siehe structure.js. a/b: Teilnehmer-ID, NULL (offen) oder
 // structure.BYE. Ganze Liste wird nach jeder Änderung in einer Transaktion zurückgeschrieben.
@@ -175,6 +177,12 @@ const stmt = {
     ON CONFLICT(tournament_id, match_id) DO UPDATE SET present_a_at = excluded.present_a_at, present_b_at = excluded.present_b_at,
       wait_start = excluded.wait_start, forfeit = excluded.forfeit`),
   listRunning: db.prepare(`SELECT * FROM tournaments WHERE status = 'running'`),
+  setDropped: db.prepare('UPDATE tournament_participants SET dropped_at = ? WHERE id = ? AND tournament_id = ?'),
+  deleteM: db.prepare('DELETE FROM tournament_matches WHERE tournament_id = ? AND id = ?'),
+  deleteGamesOf: db.prepare('DELETE FROM tournament_games WHERE tournament_id = ? AND match_id = ?'),
+  voidGamesOf: db.prepare(`UPDATE tournament_games SET status = 'void', finished_at = COALESCE(finished_at, ?) WHERE tournament_id = ? AND match_id = ? AND status <> 'void'`),
+  deleteMeta: db.prepare('DELETE FROM tournament_match_meta WHERE tournament_id = ? AND match_id = ?'),
+  setRunning: db.prepare(`UPDATE tournaments SET status = 'running', finished_at = NULL, updated_at = ? WHERE id = ?`),
   insertChat: db.prepare(`INSERT INTO tournament_chat (tournament_id, match_id, author_id, author_name, role, text, at)
     VALUES (?, ?, ?, ?, ?, ?, ?)`),
   listChat: db.prepare(`SELECT * FROM (SELECT * FROM tournament_chat WHERE tournament_id = ? AND match_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id`),
@@ -243,6 +251,7 @@ const rowToParticipant = (r) => r && ({
   friendLink: r.friend_link,
   secret: r.secret,
   joinedAt: r.joined_at,
+  droppedAt: r.dropped_at ?? null,
   drawIndex: r.draw_index,
   group: r.group_index,
 });
@@ -294,6 +303,21 @@ module.exports = {
   commitMatches: db.transaction((tournamentId, matches, { finished = false } = {}) => {
     for (const m of matches) stmt.upsertM.run(matchToRow(tournamentId, m));
     if (finished) { const now = Date.now(); stmt.setFinished.run(now, now, tournamentId); }
+  }),
+  setDropped: (tournamentId, pid, at) => stmt.setDropped.run(at, pid, tournamentId).changes > 0,
+  /**
+   * Matches nach einer Korrektur neu schreiben (Phase 5) — in EINER Transaktion: entfernte Matches samt
+   * Spielen/Meta löschen, Spiele der zurückgesetzten Matches annullieren, Liste speichern, Turnierstatus setzen.
+   */
+  rewriteMatches: db.transaction((tournamentId, matches, { removeIds = [], resetIds = [], finished = false } = {}) => {
+    const now = Date.now();
+    for (const id of removeIds) {
+      stmt.deleteM.run(tournamentId, id); stmt.deleteGamesOf.run(tournamentId, id); stmt.deleteMeta.run(tournamentId, id);
+    }
+    for (const id of resetIds) { stmt.voidGamesOf.run(now, tournamentId, id); stmt.deleteMeta.run(tournamentId, id); }
+    for (const m of matches) stmt.upsertM.run(matchToRow(tournamentId, m));
+    if (finished) stmt.setFinished.run(now, now, tournamentId);
+    else stmt.setRunning.run(now, tournamentId);
   }),
   listRegistrationTournaments: () => stmt.listAutoStart.all().map(rowToTournament),
 

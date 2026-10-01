@@ -16,7 +16,7 @@ import {
   CrCrown, CrTourneyTrophy, CrSocial, CrBook, CrTv,
 } from '../ui/CrIcons';
 import { tError } from './tI18n';
-import { getSecret } from './tournamentApi';
+import { getSecret, tournamentApi } from './tournamentApi';
 import { ResultModal } from './TournamentStructure';
 import { matchLabel } from './matchLabels';
 
@@ -72,7 +72,7 @@ function PlayerBanner({ side, player, ready, showReady, isMe, t }) {
       <div className={`flex items-center gap-3 px-3.5 py-2.5 ${side === 'b' ? 'flex-row-reverse text-right' : ''}`}>
         <King size={34} className="shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="font-cr text-white text-lg leading-tight truncate">{player?.displayName || '—'}</p>
+          <p className={`font-cr text-white text-lg leading-tight truncate ${player?.dropped ? 'line-through opacity-60' : ''}`}>{player?.displayName || '—'}</p>
           <p className="text-white/45 text-[11px] truncate">{player ? `${player.crName} #${player.crTag}` : ''}</p>
         </div>
         {player && <RankBadge p={player} />}
@@ -187,6 +187,7 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
   const [state, setState] = useState(null);
   const [error, setError] = useState('');
   const [decideOpen, setDecideOpen] = useState(false);
+  const [correctOpen, setCorrectOpen] = useState(false);
   const now = useNow(true);
   const secret = getSecret(tournament.id);
   const base = useMemo(() => ({ tournamentId: tournament.id, matchId, secret }), [tournament.id, matchId, secret]);
@@ -259,6 +260,7 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
     main = (
       <div className="space-y-4">
         <p className="text-white/65 text-sm">{t.readyHint(nameOf('a'))}</p>
+        {state.paused && <p className="text-amber-200 text-sm">{t.pausedBanner}</p>}
         <div className="flex flex-wrap gap-3">
           {mySide && (
             <ChunkyButton variant={state.ready[mySide] ? 'blue' : 'green'} size="lg" icon={CrCheck} iconSize={24}
@@ -267,7 +269,7 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
             </ChunkyButton>
           )}
           {(mySide === 'a' || isOwner) && (
-            <ChunkyButton variant="gold" size="lg" icon={CrBattle} iconSize={26} disabled={!bothReady}
+            <ChunkyButton variant="gold" size="lg" icon={CrBattle} iconSize={26} disabled={!bothReady || state.paused}
               onClick={() => send('tmatch:start')}>
               {t.startGame(nextNo)}
             </ChunkyButton>
@@ -370,7 +372,10 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
             <div className="text-center px-1">
               <p className="cr-eyebrow whitespace-nowrap">{label} · {t.bestOfShort(state.match.bestOf)}</p>
               <p className="font-cr text-white text-4xl md:text-5xl leading-none tabular-nums mt-1" style={{ textShadow: '0 3px 0 rgba(2,8,20,0.6)' }}>
-                {state.score.a}<span className="text-white/35 mx-1.5">:</span>{state.score.b}
+                {/* Entschiedenes Match: offizieller Endstand (auch bei direkter Entscheidung/kampflos), sonst Serienstand */}
+                {state.phase === 'finished' ? state.match.scoreA : state.score.a}
+                <span className="text-white/35 mx-1.5">:</span>
+                {state.phase === 'finished' ? state.match.scoreB : state.score.b}
               </p>
             </div>
             <PlayerBanner side="b" player={P.b} ready={state.ready.b} showReady={state.phase === 'lobby'} isMe={mySide === 'b'} t={t} />
@@ -386,6 +391,19 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
           </Section>
 
           {/* Veranstalter: Ergebnis des laufenden Spiels, annullieren, Match direkt entscheiden */}
+          {isOwner && state.phase === 'finished' && matchStructure && matchStructure.status === 'done' && (
+            <Section icon={CrCrown} title={t.ownerTools}>
+              <div className="flex flex-wrap gap-2">
+                <ChunkyButton variant="blue" size="sm" icon={CrSwap} onClick={() => setCorrectOpen(true)}>{t.correctResult}</ChunkyButton>
+                <ChunkyButton variant="red" size="sm" icon={CrCancel} onClick={async () => {
+                  if (!window.confirm(t.replayConfirm)) return;
+                  try { await tournamentApi.resetMatch(tournament.id, state.matchId); onChanged(); }
+                  catch (e) { setError(tError(t, e)); }
+                }}>{t.replayMatch}</ChunkyButton>
+              </div>
+              {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+            </Section>
+          )}
           {isOwner && state.phase !== 'finished' && (
             <Section icon={CrCrown} title={t.ownerTools}>
               <div className="flex flex-wrap gap-2">
@@ -436,6 +454,12 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
 
       <ChatPanel chat={state.chat} myRole={myRole} players={P} t={t} onSend={(text) => send('tmatch:chat', { text })} />
 
+      {correctOpen && matchStructure && (
+        <ResultModal correct tournamentId={tournament.id} match={matchStructure} matches={structure.matches}
+          byId={new Map(participants.map(p => [p.id, p]))} t={t}
+          onClose={() => setCorrectOpen(false)}
+          onSaved={() => { setCorrectOpen(false); onChanged(); }} />
+      )}
       {decideOpen && matchStructure && (
         <ResultModal tournamentId={tournament.id} match={matchStructure} matches={structure.matches}
           byId={new Map(participants.map(p => [p.id, p]))} t={t}

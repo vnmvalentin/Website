@@ -58,7 +58,7 @@ const KNOWN_ERRORS = new Set([
   'tournamentNotFound', 'tournamentNotRunning', 'tournamentMatchNotFound', 'tournamentNoAccess',
   'tournamentMatchNotPlayable', 'tournamentNotReady', 'tournamentGameRunning', 'tournamentNoGame',
   'tournamentNotYourTurn', 'tournamentInvalidBan', 'tournamentOnlyStarter', 'tournamentInvalidResult',
-  'tournamentPickBanNeedsThree', 'tournamentNoModes', 'noPermission', 'tournamentChatTooFast',
+  'tournamentPickBanNeedsThree', 'tournamentNoModes', 'noPermission', 'tournamentChatTooFast', 'tournamentPaused',
 ]);
 const fail = (key) => { throw new Error(key); };
 const roomName = (tid, mid) => `tmatch:${tid}:${mid}`;
@@ -108,7 +108,7 @@ function loadGames(t, matchId) {
 
 const publicParticipant = (p) => p && ({
   id: p.id, displayName: p.displayName, crTag: p.crTag, crName: p.crName,
-  crLeague: p.crLeague, crTrophies: p.crTrophies, friendLink: p.friendLink || '',
+  crLeague: p.crLeague, crTrophies: p.crTrophies, friendLink: p.friendLink || '', dropped: !!p.droppedAt,
 });
 
 /** Der vollständige Raum-Zustand — derselbe für alle im Raum (nur Spieler + Veranstalter). */
@@ -137,6 +137,7 @@ function buildState(ctx) {
       return { a: !!meta.presentAAt, b: !!meta.presentBAt, waitStart: meta.waitStart, forfeit: meta.forfeit };
     })(),
     showUpMinutes: t.settings.showUpMinutes,
+    paused: !!t.settings.paused,
     battleMinutes: t.settings.battleMinutes,
     apiActive: battleApi.configured(),
     modeSelection: t.settings.modeSelection,
@@ -278,6 +279,12 @@ function checkShowUp(t, match, matches, participants, now) {
   if (games.some(g => g.status !== 'void')) return false;
   const meta = store.getMatchMeta(t.id, match.id);
   if (meta.forfeit || meta.waitStart == null) return false;
+  if (t.settings.paused) {
+    // Pausiert: Uhr anhalten (Startzeit mitschieben), kein kampfloser Sieg
+    meta.waitStart = now;
+    store.saveMatchMeta(t.id, match.id, meta);
+    return false;
+  }
   // Uhr anhalten, solange der Abwesende gerade ein Spiel in einem anderen Match spielt
   const absentPid = meta.presentAAt ? match.b : match.a;
   const busy = matches.some(m => m.id !== match.id && S.isPlayable(m) && (m.a === absentPid || m.b === absentPid)
@@ -331,6 +338,33 @@ async function runChecks(now = Date.now()) {
   return touched.size;
 }
 
+/**
+ * Übersicht für den Veranstalter (Phase 5): alle offenen Matches mit Zustand — Klärungsfälle zuerst,
+ * dann laufende Spiele (am längsten wartende oben), dann Matches im Raum/ohne Aktivität.
+ */
+function ownerOverview(t) {
+  if (t.status !== 'running') return [];
+  const matches = store.listMatches(t.id);
+  const items = [];
+  for (const m of matches) {
+    if (!S.isPlayable(m)) continue;
+    const games = loadGames(t, m.id);
+    const active = SR.activeGame(games);
+    const meta = store.getMatchMeta(t.id, m.id);
+    const score = SR.seriesScore(games);
+    items.push({
+      matchId: m.id, a: m.a, b: m.b, bestOf: m.bestOf, scoreA: score.a, scoreB: score.b,
+      phase: active ? active.status : 'lobby', // lobby | banning | drafting | battle | review
+      gameNo: active?.gameNo || null,
+      reviewReason: active?.review?.reason || null,
+      since: active ? (active.status === 'battle' || active.status === 'review' ? active.draftDoneAt : active.createdAt) : meta.waitStart,
+      presentA: !!meta.presentAAt, presentB: !!meta.presentBAt,
+    });
+  }
+  const rank = { review: 0, battle: 1, drafting: 2, banning: 3, lobby: 4 };
+  return items.sort((x, y) => rank[x.phase] - rank[y.phase] || (x.since || Infinity) - (y.since || Infinity));
+}
+
 // ── Aktionen (ohne Socket-Abhängigkeit — getestet in __tests__/matchRoom.test.js) ──
 
 function requirePlayable(ctx) {
@@ -351,6 +385,7 @@ const actions = {
   start(ctx, _payload, rng = Math.random) {
     if (ctx.side !== 'a' && !ctx.isOwner) fail('tournamentOnlyStarter');
     requirePlayable(ctx);
+    if (ctx.t.settings.paused) fail('tournamentPaused');
     const games = loadGames(ctx.t, ctx.match.id);
     if (SR.activeGame(games)) fail('tournamentGameRunning');
     const ready = readyState.get(rkey(ctx.t.id, ctx.match.id)) || {};
@@ -525,7 +560,7 @@ function registerTournamentSocket(socket, io, { twitchId = null } = {}) {
 module.exports = {
   registerTournamentSocket, authorizeLobbyJoin, onDraftComplete, broadcastRoom, notifyTournament,
   // Tests
-  runChecks,
+  runChecks, ownerOverview,
   _actions: actions, _loadContext: loadContext, _buildState: buildState, _markPresent: markPresent,
   _setLobbyApi: (api) => { lobbyApi = api; }, _resetReady: () => readyState.clear(),
   _setBattleApi: (api) => { battleApi = api; },
