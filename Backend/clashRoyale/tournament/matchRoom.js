@@ -25,9 +25,8 @@ const CHECK_INTERVAL_MS = 20 * 1000;   // Prüfschleife
 const LOG_CACHE_MS = 15 * 1000;        // Battlelog je Tag höchstens so oft abfragen (kürzer als der Takt → jede Runde frisch)
 let checkTimer = null;
 
-// CR-API für die Kampfsuche. Lokal funktioniert nur der WinTracker-Token (siehe Memory/README) —
-// deshalb: eigener Turnier-Token, sonst WinTracker-Token, sonst der geteilte Standard-Token.
-const crToken = () => process.env.CLASH_ROYALE_API_TOKEN_TOURNAMENT || process.env.CLASH_ROYALE_API_TOKEN_WINTRACKER || undefined;
+// CR-API für die Kampfsuche — derselbe Schlüssel wie bei der Anmeldung (crToken.js)
+const { crToken } = require('./crToken');
 const logCache = new Map(); // tag → { at, battles }
 let battleApi = {
   configured: () => require('../lib/crApi').isConfigured(crToken()),

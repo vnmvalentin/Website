@@ -185,3 +185,7 @@ Keine — alle geklärt (siehe Abschnitt 1).
   Spiel gewonnen/verloren; Siegerton bei eigener Podestplatzierung.
 - Spanisch vollständig (Texte + Fehlermeldungen); tote Schlüssel aus früheren Phasen entfernt.
 - Handy: Reiter zeigen inaktiv nur das Symbol, Podest ohne Liga/CR-Namen, Veranstalter-Übersicht zweizeilig.
+
+**Nachtrag 02.10.2026 — API-Schlüssel:** Alle Turnier-Abfragen (Kürzel-Prüfung bei der Anmeldung UND Kampfsuche)
+laufen über `tournament/crToken.js`: `CLASH_ROYALE_API_TOKEN_TOURNAMENT`, sonst `…_WINTRACKER`, sonst der geteilte
+Schlüssel. Der Turnier-Schlüssel muss im Supercell-Portal an die IP des VPS gebunden sein.

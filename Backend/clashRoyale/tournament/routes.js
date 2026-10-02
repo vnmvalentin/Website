@@ -20,6 +20,7 @@ const matchRoom = require('./matchRoom');
 const registry = require('../core/registry');
 require('../modes'); // registriert alle Modi in der Registry
 const { isConfigured: crApiConfigured, normalizeTag, fetchPlayerSummary } = require('../lib/crApi');
+const { crToken } = require('./crToken');
 
 const MAX_ACTIVE_PER_OWNER = 5;
 const AUTO_START_INTERVAL_MS = 30 * 1000;
@@ -237,9 +238,10 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, au
     const tag = normalizeTag(req.body?.crTag);
     if (!tag) return res.status(400).json({ error: 'invalidTag' });
     if (store.listParticipants(t.id).some(p => p.crTag === tag)) return res.status(400).json({ error: 'tournamentTagTaken' });
-    if (!crApiConfigured()) return res.status(503).json({ error: 'apiNotConfigured' });
+    // Derselbe Schlüssel wie die Kampfsuche (crToken.js)
+    if (!crApiConfigured(crToken())) return res.status(503).json({ error: 'apiNotConfigured' });
     let cr;
-    try { cr = await fetchPlayerSummary(tag); } catch { return res.status(502).json({ error: 'tagLookupFailed' }); }
+    try { cr = await fetchPlayerSummary(tag, crToken()); } catch { return res.status(502).json({ error: 'tagLookupFailed' }); }
     if (!cr || cr.notFound) return res.status(400).json({ error: 'tagNotFound' });
 
     // Während der API-Abfrage kann sich jemand anderes angemeldet haben — erneut prüfen

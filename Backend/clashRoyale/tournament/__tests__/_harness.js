@@ -14,12 +14,17 @@ for (const s of ['bannedCardsStore', 'crPresetStore', 'crProfileStore', 'crStrea
   require.cache[p] = { id: p, filename: p, loaded: true, exports: stub };
 }
 // CR-API: echte Tag-Normalisierung (nur Zeichen 0289PYLQGRJCUV sind gültig), gefälschte Profilabfrage
+const apiCalls = [];
 const crApiPath = require.resolve('../../lib/crApi');
 const realCrApi = require(crApiPath);
 require.cache[crApiPath].exports = {
   ...realCrApi,
   isConfigured: () => true,
-  fetchPlayerSummary: async (tag) => (tag === 'Q0Q0Q0' ? { notFound: true } : { name: `Spieler ${tag}`, leagueNumber: 4, trophies: 9000 }),
+  // merkt sich, mit welchem Schlüssel abgefragt wurde (siehe token.test.js)
+  fetchPlayerSummary: async (tag, token) => {
+    apiCalls.push({ tag, token });
+    return tag === 'Q0Q0Q0' ? { notFound: true } : { name: `Spieler ${tag}`, leagueNumber: 4, trophies: 9000 };
+  },
 };
 
 const express = require('express');
@@ -57,4 +62,4 @@ function setup(test) {
 // Gültige CR-Kürzel (nur Zeichen 0289PYLQGRJCUV) für Testspieler
 const TAGS = ['2PPQ0', '8LQGR', '9YJCU', '2V8Y9', 'GRJ2P', 'UVC0Q', 'QQ2PP', 'LLRR8', 'C0C0C', 'JJYY2', 'PG9PG', 'RVRV0', '820QL', 'YLYL9', 'GCGC2', 'UUQQ8'];
 
-module.exports = { setup, store, createTournamentRouter, TAGS };
+module.exports = { setup, store, createTournamentRouter, TAGS, apiCalls };
