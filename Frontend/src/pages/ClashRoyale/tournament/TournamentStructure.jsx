@@ -12,6 +12,7 @@ import { CrBattle, CrTourneyTrophy, CrKingBlue, CrClock, CrSocial, CrSwap } from
 import { tError } from './tI18n';
 import { tournamentApi } from './tournamentApi';
 import { matchLabel, hasPlayer as has } from './matchLabels';
+import Podium from './Podium';
 
 const sideOf = (m, pid) => (m.a === pid ? 'a' : 'b');
 
@@ -19,6 +20,7 @@ const sideOf = (m, pid) => (m.a === pid ? 'a' : 'b');
 
 export function NextMatchCard({ structure, me, byId, onOpenRoom, t }) {
   const { matches, phase, champion } = structure;
+  if (phase === 'finished' && structure.podium) return <Podium podium={structure.podium} byId={byId} me={me} t={t} />;
   if (phase === 'finished') {
     const p = byId.get(champion);
     return (
@@ -67,8 +69,10 @@ export function NextMatchCard({ structure, me, byId, onOpenRoom, t }) {
   } else {
     body = <p className="text-white/70">{t.eliminated}</p>;
   }
+  const readyNow = playable.length > 0;
   return (
-    <div className="cr-arcade-panel overflow-hidden">
+    <div key={readyNow ? playable[0].id : 'idle'} className={`cr-arcade-panel overflow-hidden ${readyNow ? 'cr-anim-rise' : ''}`}
+      style={readyNow ? { borderColor: 'var(--cr-arcade-gold)' } : undefined}>
       <Section icon={CrBattle} title={t.nextMatch}>{body}</Section>
     </div>
   );

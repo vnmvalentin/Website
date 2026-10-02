@@ -370,6 +370,35 @@ function championOf(matches) {
 }
 
 /**
+ * Siegerpodest (Phase 6) aus dem fertigen Bracket: 1. = Turniersieger, 2. = Verlierer des (letzten)
+ * Finales, 3. = Single Elimination: beide Halbfinal-Verlierer (geteilter 3. Platz, kein Spiel um Platz 3),
+ * Double Elimination: Verlierer des Lower-Finales. null, solange das Turnier nicht entschieden ist.
+ */
+function podiumOf(matches) {
+  const first = championOf(matches);
+  if (!first) return null;
+  const br = bracketMatches(matches);
+  const loserOf = (m) => (m && m.status === 'done' ? (m.winner === 'a' ? m.b : m.a) : null);
+  const real = (x) => (isPlayer(x) ? x : null);
+  const gf1 = br.find(m => m.id === 'gf1'), gf2 = br.find(m => m.id === 'gf2');
+  let second, third = [];
+  if (gf1) {
+    second = real(gf2?.status === 'done' ? loserOf(gf2) : loserOf(gf1));
+    const lower = br.filter(m => m.stage === 'lower');
+    if (lower.length) {
+      const lastRound = Math.max(...lower.map(m => m.round));
+      third = [real(loserOf(lower.find(m => m.round === lastRound)))];
+    }
+  } else {
+    const ups = br.filter(m => m.stage === 'upper');
+    const R = Math.max(...ups.map(m => m.round));
+    second = real(loserOf(ups.find(m => m.round === R)));
+    third = ups.filter(m => m.round === R - 1).map(m => real(loserOf(m)));
+  }
+  return { first, second, third: third.filter(Boolean) };
+}
+
+/**
  * Prüft vor dem Start, ob mit n Anmeldungen ein Turnier möglich ist, und liefert den Plan.
  * Fehlerschlüssel: tournamentTooFewPlayers.
  */
@@ -407,6 +436,6 @@ function bracketAfterGroups(groups, matches, settings, drawOrder) {
 module.exports = {
   BYE, makeRng, shuffle, groupCountFor, splitIntoGroups, advancersFor, roundRobin, buildGroupMatches,
   computeStandings, seedsFromGroups, seedPositions, nextPow2, buildBracket, resolveByes, applyResult,
-  validSeriesScore, isPlayable, isPlayer, groupStageDone, allDone, championOf, planStart, drawTournament, resetMatch,
+  validSeriesScore, isPlayable, isPlayer, groupStageDone, allDone, championOf, planStart, drawTournament, resetMatch, podiumOf,
   bracketAfterGroups,
 };

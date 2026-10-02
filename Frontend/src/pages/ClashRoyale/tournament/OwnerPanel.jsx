@@ -52,7 +52,8 @@ export default function OwnerPanel({ tournament, overview = [], structure, parti
                 const minutes = item.since ? Math.max(0, Math.floor((now - item.since) / 60000)) : null;
                 return (
                   <div key={item.matchId} className={`cr-row px-3.5 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2 ${item.phase === 'review' ? 'cr-row--me' : ''}`}>
-                    <div className="min-w-0 flex-1">
+                    {/* Handy: Infos über die volle Breite, Status + Knopf darunter */}
+                    <div className="min-w-0 basis-full sm:basis-0 flex-1">
                       <p className="text-white/50 text-[11px]">
                         {m ? matchLabel(m, structure.matches, t) : item.matchId} · {t.bestOfShort(item.bestOf)}
                         {item.gameNo ? ` · ${t.gameN(item.gameNo)}` : ''}
@@ -66,7 +67,7 @@ export default function OwnerPanel({ tournament, overview = [], structure, parti
                         <Presence here={item.presentB} /> {B?.displayName}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 flex-1 sm:flex-none">
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${PHASE_STYLE[item.phase]}`}>
                         {item.phase === 'review' && item.reviewReason ? t.reviewReason[item.reviewReason] : t.phaseLabel[item.phase]}
                       </span>

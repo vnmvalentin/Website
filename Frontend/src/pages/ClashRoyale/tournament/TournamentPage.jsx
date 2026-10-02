@@ -3,7 +3,7 @@
 // (TournamentStructure.jsx, MatchRoom.jsx). Reiter und Match stehen in der URL (?tab=…&match=…),
 // damit "Zurück zum Turnier-Raum" aus der Draft-Lobby direkt im richtigen Raum landet.
 // Plan: Backend/clashRoyale/PLANUNG_TURNIER.md
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
 import { useLanguage } from '../useLanguage';
@@ -22,6 +22,8 @@ import MatchRoom, { NoRoom } from './MatchRoom';
 import OwnerPanel from './OwnerPanel';
 import { useTournamentSocket } from './useTournamentSocket';
 import { hasPlayer } from './matchLabels';
+import { useTitleAlert } from './useTitleAlert';
+import { playSound } from '../ui/sound';
 import TournamentFrame from './TournamentFrame';
 import { tDict, tError } from './tI18n';
 import { tournamentApi, withLang } from './tournamentApi';
@@ -50,9 +52,9 @@ function TabBar({ tabs, active, onSelect, t }) {
       {tabs.map(({ id, dot }) => {
         const { icon: Icon, label } = TABS[id];
         return (
-          <button key={id} type="button" role="tab" aria-selected={active === id} onClick={() => onSelect(id)}>
+          <button key={id} type="button" role="tab" aria-selected={active === id} aria-label={t[TABS[id].label]} onClick={() => onSelect(id)}>
             <Icon size={24} />
-            <span>{t[label]}</span>
+            <span className="cr-tab-label">{t[label]}</span>
             {dot && <span className="cr-tab-dot" aria-hidden="true" />}
           </button>
         );
@@ -239,6 +241,32 @@ export default function TournamentPage() {
     const timer = setInterval(() => { if (document.visibilityState === 'visible') reload(); }, 30000);
     return () => clearInterval(timer);
   }, [reload, user?.login]);
+
+  // Benachrichtigung (Phase 6): eigenes Match wird spielbar → Ton + blinkender Tab-Titel; Turnierende mit
+  // eigener Platzierung → Siegerton. Nicht beim ersten Laden (prevRef noch undefined).
+  const myPlayableId = useMemo(() => {
+    const st = data?.structure, mine = data?.me;
+    return st && mine ? (st.matches.find(m => m.playable && hasPlayer(m, mine.id))?.id || null) : null;
+  }, [data]);
+  const finishedNow = data?.structure?.phase === 'finished';
+  const prevPlayableRef = useRef(undefined);
+  const prevFinishedRef = useRef(undefined);
+  const [titleAlert, setTitleAlert] = useState(null);
+  useEffect(() => {
+    if (!data) return;
+    if (prevPlayableRef.current !== undefined && myPlayableId && myPlayableId !== prevPlayableRef.current) {
+      playSound('start');
+      setTitleAlert(t.matchReadyTitle);
+    }
+    prevPlayableRef.current = myPlayableId;
+    const podium = data.structure?.podium;
+    if (prevFinishedRef.current === false && finishedNow && podium && data.me
+      && [podium.first, podium.second, ...(podium.third || [])].includes(data.me.id)) playSound('win');
+    prevFinishedRef.current = finishedNow;
+    // t wechselt nur mit der Sprache
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, myPlayableId, finishedNow]);
+  useTitleAlert(titleAlert, () => setTitleAlert(null));
 
   // Reiter wechseln, ohne ?lang zu verlieren (setSearchParams ersetzt alle Parameter)
   const selectTab = useCallback((tab, matchId) => {

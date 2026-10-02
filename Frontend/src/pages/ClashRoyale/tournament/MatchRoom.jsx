@@ -4,6 +4,8 @@
 // automatischen Kampfsuche, Fristen (Erscheinen, Kampf) als Countdown, Klärungsfälle mit Begründung.
 // Zustand kommt live vom Server (Backend/clashRoyale/tournament/matchRoom.js → tmatch:state).
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { playSound } from '../ui/sound';
+import { useTitleAlert } from './useTitleAlert';
 import { useNavigate } from 'react-router-dom';
 import ChunkyButton from '../ui/ChunkyButton';
 import Section from '../ui/Section';
@@ -189,6 +191,26 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
   const [decideOpen, setDecideOpen] = useState(false);
   const [correctOpen, setCorrectOpen] = useState(false);
   const now = useNow(true);
+
+  // Töne für die wichtigen Momente (Phase 6) — immer aus Sicht des eigenen Spielers
+  const prevStateRef = useRef(null);
+  useEffect(() => {
+    const prev = prevStateRef.current;
+    prevStateRef.current = state;
+    if (!prev || !state || prev.matchId !== state.matchId || !me) return;
+    const side = state.players.a?.id === me.id ? 'a' : state.players.b?.id === me.id ? 'b' : null;
+    if (!side) return;
+    const opp = side === 'a' ? 'b' : 'a';
+    if (!prev.ready[opp] && state.ready[opp]) playSound('join');
+    if (state.banTurn === side && prev.banTurn !== side) playSound('pick');
+    else if (prev.phase !== state.phase && (state.phase === 'banning' || state.phase === 'drafting')) playSound('start');
+    const doneBefore = prev.games.filter(g => g.status === 'done').length;
+    const doneNow = state.games.filter(g => g.status === 'done');
+    if (doneNow.length > doneBefore) playSound(doneNow[doneNow.length - 1].winner === side ? 'win' : 'tap');
+  }, [state, me]);
+  // Tab-Titel blinkt, wenn ich beim Bannen dran bin und der Tab im Hintergrund ist
+  const myBanTurn = !!(state && me && state.banTurn && state.players[state.banTurn]?.id === me.id);
+  useTitleAlert(myBanTurn ? t.yourTurnTitle : null);
   const secret = getSecret(tournament.id);
   const base = useMemo(() => ({ tournamentId: tournament.id, matchId, secret }), [tournament.id, matchId, secret]);
 

@@ -234,3 +234,39 @@ test('Zurücksetzen im Double Elimination: Verlierer verschwindet auch aus dem L
   end = S.applyResult(end, 'gf1', { winner: 'b', scoreA: 0, scoreB: 1 });
   assert.ok(S.isPlayable(end.find(m => m.id === 'gf2')), 'jetzt mit Bracket-Reset');
 });
+
+test('Siegerpodest: Single (geteilter 3. Platz) und Double Elimination (Lower-Finale), mit und ohne Reset', () => {
+  const playAll = (list, winnerFor) => {
+    for (let i = 0; i < 200; i++) {
+      const m = list.find(S.isPlayable);
+      if (!m) return list;
+      const w = winnerFor(m);
+      const need = Math.ceil(m.bestOf / 2);
+      list = S.applyResult(list, m.id, { winner: w, scoreA: w === 'a' ? need : 0, scoreB: w === 'b' ? need : 0 });
+    }
+    return list;
+  };
+  // Single: bessere Setzung gewinnt immer → p1 vor p2, p3+p4 Dritte
+  let end = playAll(S.buildBracket(ids(8)), () => 'a');
+  assert.equal(S.podiumOf(S.buildBracket(ids(8))), null);
+  let pod = S.podiumOf(end);
+  assert.equal(pod.first, 'p1');
+  assert.equal(pod.second, 'p2');
+  assert.deepEqual(pod.third.sort(), ['p3', 'p4']);
+  // Freilose zählen nicht als Platzierte
+  pod = S.podiumOf(playAll(S.buildBracket(ids(3)), () => 'a'));
+  assert.ok(pod.third.every(x => x.startsWith('p')));
+  // Double ohne Reset: Upper-Sieger gewinnt GF1
+  end = playAll(S.buildBracket(ids(4), { double: true }), () => 'a');
+  pod = S.podiumOf(end);
+  const gf1 = end.find(m => m.id === 'gf1');
+  assert.equal(pod.first, gf1.a);
+  assert.equal(pod.second, gf1.b);
+  assert.equal(pod.third.length, 1);
+  assert.ok(![pod.first, pod.second].includes(pod.third[0]));
+  // Double mit Reset: Lower-Sieger gewinnt beide Grand Finals
+  end = playAll(S.buildBracket(ids(4), { double: true }), (m) => (m.stage === 'grand' ? 'b' : 'a'));
+  pod = S.podiumOf(end);
+  assert.equal(pod.first, end.find(m => m.id === 'gf2').b);
+  assert.equal(pod.second, end.find(m => m.id === 'gf2').a);
+});

@@ -1,6 +1,6 @@
 # Planung: Turniere für die Clash-Royale-Minigames
 
-Stand: 01.10.2026 · Status: **Phase 1–5 fertig** (… Sieger per CR-API; Veranstalter-Werkzeuge: korrigieren, neu spielen, disqualifizieren, pausieren, abbrechen, Übersicht); als Nächstes Phase 6 (Feinschliff).
+Stand: 02.10.2026 · Status: **alle 6 Phasen fertig** — Turniere komplett (Anmeldung, Gruppen/Bracket, Match-Raum mit Draft, Sieger per CR-API, Veranstalter-Werkzeuge, Feinschliff). Offen nur auf Wunsch: Nachrücken.
 
 ## 1. Grundentscheidungen (mit dem Nutzer geklärt)
 
@@ -175,3 +175,13 @@ Keine — alle geklärt (siehe Abschnitt 1).
   korrigieren" / "Neu spielen lassen".
 - Zuschauen: Veranstalter sieht jeden Match-Raum und kommt als Zuschauer in jede Draft-Lobby (seit Phase 3).
 - Bewusst nicht umgesetzt: Nachrücken (Spieler nach dem Start ersetzen).
+
+**Phase 6 (02.10.2026):**
+- Siegerehrung: `structure.podiumOf` (rein, getestet) — 1. Sieger, 2. Verlierer des letzten Finales, 3. bei Single
+  Elimination beide Halbfinal-Verlierer (kein Spiel um Platz 3), bei Double Elimination Verlierer des Lower-Finales.
+  `Podium.jsx` mit Gold/Silber/Bronze-Sockeln; eigene Platzierung wird hervorgehoben.
+- Benachrichtigungen: eigenes Match wird spielbar → Ton "start" + blinkender Tab-Titel (`useTitleAlert`, nur wenn der
+  Tab im Hintergrund ist) + "Dein nächstes Match" mit Goldkante; im Raum Töne für Gegner bereit, eigener Bann, Spielstart,
+  Spiel gewonnen/verloren; Siegerton bei eigener Podestplatzierung.
+- Spanisch vollständig (Texte + Fehlermeldungen); tote Schlüssel aus früheren Phasen entfernt.
+- Handy: Reiter zeigen inaktiv nur das Symbol, Podest ohne Liga/CR-Namen, Veranstalter-Übersicht zweizeilig.

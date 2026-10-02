@@ -147,6 +147,8 @@ function structureView(t, participants) {
     groups: groupViews,
     matches: matches.map(publicMatch),
     champion,
+    // Siegerehrung (Phase 6): 1., 2. und 3. Platz(e), sobald das Turnier entschieden ist
+    podium: S.podiumOf(matches),
   };
 }
 
