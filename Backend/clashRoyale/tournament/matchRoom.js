@@ -306,9 +306,47 @@ function checkShowUp(t, match, matches, participants, now) {
 }
 
 /** Ein Durchlauf der Prüfschleife: Kampfsuche für wartende Spiele, Erscheinen-Fristen aller laufenden Turniere. */
+let checkRunning = false;
+const FETCH_PARALLEL = 6; // gleichzeitige Battlelog-Abfragen (schont das Limit des API-Schlüssels)
+
+/** Battlelogs aller Spieler, deren Spiele auf den Kampf warten, vorab parallel (gedrosselt) in den Cache holen. */
+async function prefetchLogs(waiting) {
+  if (!battleApi.configured()) return;
+  const tags = new Set();
+  for (const g of waiting) {
+    const m = store.listMatches(g.tournamentId).find(x => x.id === g.matchId);
+    if (!m || !S.isPlayable(m)) continue;
+    for (const pid of [m.a, m.b]) {
+      const p = store.getParticipant(g.tournamentId, pid);
+      if (p) tags.add(p.crTag);
+    }
+  }
+  const queue = [...tags];
+  const worker = async () => {
+    while (queue.length) {
+      const tag = queue.shift();
+      try { await battleApi.fetchLog(tag); } catch { /* einzelner Fehler: Spiel wird beim nächsten Durchlauf geprüft */ }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(FETCH_PARALLEL, queue.length) }, worker));
+}
+
 async function runChecks(now = Date.now()) {
+  // Nie zwei Durchläufe gleichzeitig (bei vielen wartenden Spielen könnte einer länger als der Takt dauern)
+  if (checkRunning) return 0;
+  checkRunning = true;
+  try {
+    return await runChecksOnce(now);
+  } finally {
+    checkRunning = false;
+  }
+}
+
+async function runChecksOnce(now) {
   const touched = new Set();
-  for (const g of store.listWaitingGames()) {
+  const waiting = store.listWaitingGames();
+  await prefetchLogs(waiting);
+  for (const g of waiting) {
     try {
       const ctx = loadContext(g.tournamentId, g.matchId, {});
       if (ctx.t.status !== 'running' || !S.isPlayable(ctx.match)) continue;

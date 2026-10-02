@@ -189,3 +189,12 @@ Keine — alle geklärt (siehe Abschnitt 1).
 **Nachtrag 02.10.2026 — API-Schlüssel:** Alle Turnier-Abfragen (Kürzel-Prüfung bei der Anmeldung UND Kampfsuche)
 laufen über `tournament/crToken.js`: `CLASH_ROYALE_API_TOKEN_TOURNAMENT`, sonst `…_WINTRACKER`, sonst der geteilte
 Schlüssel. Der Turnier-Schlüssel muss im Supercell-Portal an die IP des VPS gebunden sein.
+
+**Nachtrag 02.10.2026 — 128 Spieler + Animationen:**
+- Höchstzahl 128 (vorher 64). Gemessen gegen eine Scratch-DB: Seitendaten 0,2–0,4 ms, Ergebnis eintragen 0,8–1,6 ms,
+  ganzes Turnier (318 Ergebnisse, Gruppen + Double) unter 0,5 s. Live-Modi ticken mit 1/4/10 Hz — 64 gleichzeitige
+  Draft-Lobbys sind unkritisch. Prüfschleife: Sperre gegen Überlappung + Battlelogs vorab parallel (max. 6 gleichzeitig).
+  Das tatsächliche Limit des CR-API-Schlüssels ist nicht veröffentlicht (bei 64 wartenden Matches ≈ 6–7 Abfragen/s).
+- Animationen (alle abschaltbar über "Animationen" in den CR-Einstellungen): Modus-Walze bei Zufall (`ModeSpin.jsx`,
+  rAF mit Zeit-Fallback, Tick-Ton je Kachel), Enthüllung nach Pick & Ban, Bann-Stempel, Punkte-Pop beim Serienstand,
+  Auslosungs-Show beim Start (`DrawReveal.jsx`, automatisch live, sonst "Auslosung ansehen" in der Übersicht).

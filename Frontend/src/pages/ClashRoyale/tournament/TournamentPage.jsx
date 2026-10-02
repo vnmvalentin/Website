@@ -20,6 +20,8 @@ import {
 import { NextMatchCard, GroupsPanel, BracketPanel } from './TournamentStructure';
 import MatchRoom, { NoRoom } from './MatchRoom';
 import OwnerPanel from './OwnerPanel';
+import DrawReveal from './DrawReveal';
+import { useCrPrefs } from '../ui/crPrefs';
 import { useTournamentSocket } from './useTournamentSocket';
 import { hasPlayer } from './matchLabels';
 import { useTitleAlert } from './useTitleAlert';
@@ -252,6 +254,16 @@ export default function TournamentPage() {
   const prevPlayableRef = useRef(undefined);
   const prevFinishedRef = useRef(undefined);
   const [titleAlert, setTitleAlert] = useState(null);
+  // Auslosungs-Show: automatisch, wenn man den Start live erlebt (und Animationen an sind); sonst per Knopf
+  const { prefs } = useCrPrefs();
+  const [drawOpen, setDrawOpen] = useState(false);
+  const prevStatusRef = useRef(undefined);
+  useEffect(() => {
+    const status = data?.tournament?.status;
+    if (!status) return;
+    if (prevStatusRef.current === 'registration' && status === 'running' && prefs.animations) setDrawOpen(true);
+    prevStatusRef.current = status;
+  }, [data?.tournament?.status, prefs.animations]);
   useEffect(() => {
     if (!data) return;
     if (prevPlayableRef.current !== undefined && myPlayableId && myPlayableId !== prevPlayableRef.current) {
@@ -416,6 +428,12 @@ export default function TournamentPage() {
             me={me} isOwner={isOwner} structure={structure} participants={participants} onChanged={reload} t={t} lang={lang} />
         : <NoRoom isOwner={isOwner} t={t} />)}
 
+      {drawOpen && structure && <DrawReveal structure={structure} byId={byId} t={t} onClose={() => setDrawOpen(false)} />}
+      {tab === 'uebersicht' && structure && (
+        <div className="flex justify-end">
+          <ChunkyButton variant="blue" size="sm" icon={CrCards} onClick={() => setDrawOpen(true)}>{t.replayDraw}</ChunkyButton>
+        </div>
+      )}
       {tab === 'uebersicht' && (
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] gap-4 items-start">
         {/* ── Links: Infos ────────────────────────────────────────────── */}

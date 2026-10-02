@@ -1132,6 +1132,31 @@ summary::-webkit-details-marker { display: none; }
 }
 .cr-win-pop { animation: crWinPop 0.45s ease backwards; }
 
+/* ── Turnier-Animationen (tournament/ModeSpin.jsx, DrawReveal.jsx, MatchRoom.jsx) ────────── */
+/* Vollbild-Bühne für Modus-Auslosung und Turnier-Auslosung */
+@keyframes crStageIn { from { opacity: 0; } to { opacity: 1; } }
+.cr-stage { animation: crStageIn 0.25s ease backwards; }
+/* Bann-Stempel: knallt groß und schräg auf die Modus-Kachel */
+@keyframes crBanStamp {
+  0% { opacity: 0; transform: scale(2.4) rotate(-18deg); }
+  60% { opacity: 1; transform: scale(0.92) rotate(3deg); }
+  100% { opacity: 1; transform: none; }
+}
+.cr-ban-stamp { animation: crBanStamp 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards; }
+/* Gelandeter Modus: einmal kräftig aufploppen */
+@keyframes crSpinLand {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.16); }
+  100% { transform: scale(1.06); }
+}
+.cr-spin-land { animation: crSpinLand 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3) forwards; }
+/* Auslosung: Namen werden wie Karten in ihre Gruppe "ausgeteilt" */
+@keyframes crDealIn {
+  0% { opacity: 0; transform: translateY(-18px) scale(0.85) rotate(-4deg); }
+  100% { opacity: 1; transform: none; }
+}
+.cr-deal-in { animation: crDealIn 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.15) backwards; }
+
 /* ── Emotes (ui/EmoteLayer.jsx) ─────────────────────────────────────────
    Die Emotes sind animierte WebPs (ui/emotes.js) — von hier kommt nur das Erscheinen:
    von rechts hereinploppen und nach ~2,8 s nach oben wegschweben. Gesamtdauer passt zu EMOTE_SHOW_MS (3,2 s). */
@@ -1180,6 +1205,10 @@ html[data-cr-anim="off"] .cr-modal-panel,
 html[data-cr-anim="off"] .cr-flip-in,
 html[data-cr-anim="off"] .cr-drop-in,
 html[data-cr-anim="off"] .cr-win-pop,
+html[data-cr-anim="off"] .cr-stage,
+html[data-cr-anim="off"] .cr-ban-stamp,
+html[data-cr-anim="off"] .cr-spin-land,
+html[data-cr-anim="off"] .cr-deal-in,
 html[data-cr-anim="off"] .cr-timer--urgent,
 html[data-cr-anim="off"] .cr-game-card--turn,
 html[data-cr-anim="off"] .cr-turn-banner--mine,

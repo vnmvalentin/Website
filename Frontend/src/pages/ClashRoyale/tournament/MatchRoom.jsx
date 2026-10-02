@@ -6,6 +6,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { playSound } from '../ui/sound';
 import { useTitleAlert } from './useTitleAlert';
+import ModeSpin from './ModeSpin';
 import { useNavigate } from 'react-router-dom';
 import ChunkyButton from '../ui/ChunkyButton';
 import Section from '../ui/Section';
@@ -101,7 +102,7 @@ function ModeTile({ modeId, lang, banned, bannedLabel, onClick, highlight }) {
       <span className="cr-tile-icon w-14 h-14"><Icon size={38} /></span>
       <span className="font-cr text-white text-base text-center leading-tight">{modeNameFor(modeId, lang)}</span>
       {banned && (
-        <span className="absolute inset-0 rounded-[14px] bg-[rgba(6,16,32,0.72)] flex flex-col items-center justify-center gap-1">
+        <span className="cr-ban-stamp absolute inset-0 rounded-[14px] bg-[rgba(6,16,32,0.72)] flex flex-col items-center justify-center gap-1">
           <CrCancel size={34} />
           <span className="text-red-300 text-[11px] font-semibold">{bannedLabel}</span>
         </span>
@@ -203,11 +204,23 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
     const opp = side === 'a' ? 'b' : 'a';
     if (!prev.ready[opp] && state.ready[opp]) playSound('join');
     if (state.banTurn === side && prev.banTurn !== side) playSound('pick');
-    else if (prev.phase !== state.phase && (state.phase === 'banning' || state.phase === 'drafting')) playSound('start');
+    else if (prev.phase !== state.phase && state.phase === 'banning') playSound('start');
     const doneBefore = prev.games.filter(g => g.status === 'done').length;
     const doneNow = state.games.filter(g => g.status === 'done');
     if (doneNow.length > doneBefore) playSound(doneNow[doneNow.length - 1].winner === side ? 'win' : 'tap');
   }, [state, me]);
+  // Modus-Walze (Zufall) bzw. Enthüllung (nach Pick & Ban), sobald der Draft live beginnt — für alle im Raum
+  const [spin, setSpin] = useState(null);
+  const prevPhaseRef = useRef(null);
+  useEffect(() => {
+    if (!state) return;
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = { phase: state.phase, matchId: state.matchId };
+    if (!prev || prev.matchId !== state.matchId || prev.phase === state.phase || state.phase !== 'drafting') return;
+    const g = state.games.find(x => x.status === 'drafting');
+    if (g?.mode) setSpin({ key: `${state.matchId}-${g.gameNo}`, mode: g.mode, kind: prev.phase === 'banning' ? 'reveal' : 'spin' });
+  }, [state]);
+
   // Tab-Titel blinkt, wenn ich beim Bannen dran bin und der Tab im Hintergrund ist
   const myBanTurn = !!(state && me && state.banTurn && state.players[state.banTurn]?.id === me.id);
   useTitleAlert(myBanTurn ? t.yourTurnTitle : null);
@@ -395,9 +408,17 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
               <p className="cr-eyebrow whitespace-nowrap">{label} · {t.bestOfShort(state.match.bestOf)}</p>
               <p className="font-cr text-white text-4xl md:text-5xl leading-none tabular-nums mt-1" style={{ textShadow: '0 3px 0 rgba(2,8,20,0.6)' }}>
                 {/* Entschiedenes Match: offizieller Endstand (auch bei direkter Entscheidung/kampflos), sonst Serienstand */}
-                {state.phase === 'finished' ? state.match.scoreA : state.score.a}
-                <span className="text-white/35 mx-1.5">:</span>
-                {state.phase === 'finished' ? state.match.scoreB : state.score.b}
+                {(() => {
+                  const a = state.phase === 'finished' ? state.match.scoreA : state.score.a;
+                  const b = state.phase === 'finished' ? state.match.scoreB : state.score.b;
+                  return (
+                    <>
+                      <span key={`a${a}`} className="inline-block cr-win-pop">{a}</span>
+                      <span className="text-white/35 mx-1.5">:</span>
+                      <span key={`b${b}`} className="inline-block cr-win-pop">{b}</span>
+                    </>
+                  );
+                })()}
               </p>
             </div>
             <PlayerBanner side="b" player={P.b} ready={state.ready.b} showReady={state.phase === 'lobby'} isMe={mySide === 'b'} t={t} />
@@ -476,6 +497,10 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
 
       <ChatPanel chat={state.chat} myRole={myRole} players={P} t={t} onSend={(text) => send('tmatch:chat', { text })} />
 
+      {spin && (
+        <ModeSpin key={spin.key} pool={tournament.settings.modes} target={spin.mode} kind={spin.kind}
+          lang={lang} t={t} onDone={() => setSpin(null)} />
+      )}
       {correctOpen && matchStructure && (
         <ResultModal correct tournamentId={tournament.id} match={matchStructure} matches={structure.matches}
           byId={new Map(participants.map(p => [p.id, p]))} t={t}

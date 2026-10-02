@@ -139,3 +139,14 @@ test('Erscheinen-Frist steht still, solange der Abwesende in einem anderen Match
   await room.runChecks(Date.now() + 99 * 60000);
   assert.equal(store.listMatches(tid).find(mm => mm.id === z.id).status, 'pending');
 });
+
+test('Prüfschleife läuft nie doppelt: ein zweiter Aufruf während eines laufenden kehrt sofort zurück', async () => {
+  const tid = await tournament({ maxPlayers: 2, bestOf: { normal: 1, finals: 3 } }, 2);
+  playDraft(tid, store.listMatches(tid)[0].id); // ein Spiel wartet auf den Kampf
+  let calls = 0;
+  room._setBattleApi({ configured: () => true, fetchLog: async () => { calls++; await new Promise(r => setTimeout(r, 50)); return []; } });
+  const [first, second] = await Promise.all([room.runChecks(), room.runChecks()]);
+  assert.equal(second, 0);
+  assert.ok(calls > 0 && first >= 0);
+  room._setBattleApi({ configured: () => true, fetchLog: async (tag) => logs[tag] || [] });
+});

@@ -9,7 +9,7 @@ const LIMITS = {
   nameMax: 60,
   descriptionMax: 600,
   minPlayers: 2,
-  maxPlayers: 64,
+  maxPlayers: 128,
   groupSizeMin: 3,
   groupSizeMax: 8,
   showUpMinutes: [3, 30],

@@ -18,9 +18,9 @@ test('Name wird gekürzt und Leerraum zusammengefasst', () => {
   assert.equal(settings.name.length, 60);
 });
 
-test('Spielerzahl wird auf 2..64 begrenzt', () => {
+test('Spielerzahl wird auf 2..128 begrenzt', () => {
   assert.equal(sanitizeSettings({ name: 'a', maxPlayers: 1 }, SOLO).settings.maxPlayers, 2);
-  assert.equal(sanitizeSettings({ name: 'a', maxPlayers: 500 }, SOLO).settings.maxPlayers, 64);
+  assert.equal(sanitizeSettings({ name: 'a', maxPlayers: 500 }, SOLO).settings.maxPlayers, 128);
   assert.equal(sanitizeSettings({ name: 'a', maxPlayers: 'abc' }, SOLO).settings.maxPlayers, 16);
 });
 
