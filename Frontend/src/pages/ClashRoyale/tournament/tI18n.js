@@ -55,6 +55,7 @@ const DE = {
   listed: 'Öffentlich gelistet',
   listedNote: 'Erscheint im Hub. Sonst nur über den Link erreichbar.',
   loginToCreate: 'Zum Erstellen eines Turniers bitte mit Twitch anmelden.',
+  createLocked: 'Turniere erstellen können freigeschaltete Content Creator. Frag beim Betreiber der Seite nach einer Freigabe.',
   login: 'Mit Twitch anmelden',
   // Turnierseite
   statusRegistration: 'Anmeldung offen',
@@ -301,6 +302,8 @@ const DE = {
     tournamentError: 'Etwas ist schiefgelaufen.',
     tournamentResetBlocked: 'Geht nicht mehr — das Folge-Match ist schon gespielt (bzw. im Bracket wurde schon gespielt).',
     tournamentPaused: 'Das Turnier ist pausiert.',
+    tournamentCreateNotAllowed: 'Dein Account ist nicht zum Erstellen von Turnieren freigeschaltet.',
+    tournamentCreatorInvalid: 'Das ist kein gültiger Twitch-Name.',
   },
 };
 
@@ -323,6 +326,7 @@ const EN = {
   startsAt: 'Planned start', startsAtNone: 'No fixed date', autoStart: 'Start automatically', autoStartNote: 'Starts by itself at the planned time.',
   listed: 'Publicly listed', listedNote: 'Shown in the hub. Otherwise only reachable via link.',
   loginToCreate: 'Please log in with Twitch to create a tournament.', login: 'Log in with Twitch',
+  createLocked: 'Creating tournaments is available to approved content creators. Ask the site owner for access.',
   statusRegistration: 'Sign-up open', statusRunning: 'Running', statusFinished: 'Finished', statusCancelled: 'Cancelled',
   organizer: (n) => `Organizer: ${n}`, startsOn: (d) => `Start: ${d}`, startManual: 'Started by the organizer',
   players: (n, max) => `${n}/${max} players`, noPlayers: 'Nobody has signed up yet.', rules: 'Rules',
@@ -430,6 +434,8 @@ const EN = {
     tournamentChatTooFast: 'Slow down.', tournamentError: 'Something went wrong.',
     tournamentResetBlocked: 'Not possible anymore — the follow-up match (or a bracket match) has already been played.',
     tournamentPaused: 'The tournament is paused.',
+    tournamentCreateNotAllowed: 'Your account is not approved to create tournaments.',
+    tournamentCreatorInvalid: 'That is not a valid Twitch name.',
   },
 };
 
@@ -453,6 +459,7 @@ const ES = {
   minutes: (n) => `${n} min`, startsAt: 'Inicio previsto', startsAtNone: 'Sin fecha fija', autoStart: 'Iniciar automáticamente',
   autoStartNote: 'Empieza solo a la hora prevista.', listed: 'Listado públicamente', listedNote: 'Aparece en el menú. Si no, solo se accede con el enlace.',
   loginToCreate: 'Inicia sesión con Twitch para crear un torneo.', login: 'Iniciar sesión con Twitch',
+  createLocked: 'Crear torneos está disponible para creadores de contenido aprobados. Pide acceso al responsable de la web.',
   statusRegistration: 'Inscripción abierta', statusRunning: 'En curso', statusFinished: 'Terminado', statusCancelled: 'Cancelado',
   organizer: (n) => `Organizador: ${n}`, startsOn: (d) => `Inicio: ${d}`, startManual: 'Lo inicia el organizador',
   players: (n, max) => `${n}/${max} jugadores`, noPlayers: 'Aún no hay nadie inscrito.', rules: 'Reglas',
@@ -561,6 +568,8 @@ const ES = {
     tournamentError: 'Algo ha salido mal.',
     tournamentResetBlocked: 'Ya no es posible — el partido siguiente (o uno del cuadro) ya se ha jugado.',
     tournamentPaused: 'El torneo está en pausa.',
+    tournamentCreateNotAllowed: 'Tu cuenta no está aprobada para crear torneos.',
+    tournamentCreatorInvalid: 'Ese no es un nombre de Twitch válido.',
   },
 };
 

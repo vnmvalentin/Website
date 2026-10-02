@@ -130,6 +130,14 @@ export default function TournamentForm() {
   if (!s || !meta) {
     return frame(<p className="text-center text-white/60 py-16">{t.loading}</p>);
   }
+  if (!editing && !meta.canCreate) {
+    return frame(
+      <div className="cr-arcade-panel cr-anim-rise p-6 max-w-md mx-auto text-center space-y-4">
+        <CrTourneyTrophy size={64} className="mx-auto opacity-60" />
+        <p className="text-white/80">{t.createLocked}</p>
+      </div>
+    );
+  }
 
   const { limits } = meta;
 

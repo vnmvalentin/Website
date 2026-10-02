@@ -675,6 +675,10 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     // aber der Spieler wird sofort als "gegangen" markiert: unsichtbar in der Lobby-Liste,
     // Zuschauer fürs Spiel, kein Reconnect-Fenster. Endgültig entfernt beim Lobby-Neustart.
     if (lobby.started && lobby.game && !lobby.game.finished) {
+      // Turnier-Lobby: "Verlassen" ist kein Aufgeben — der Spieler soll über den Match-Raum zurück ins
+      // laufende Spiel können. Deshalb NICHT als gegangen markieren; die anschließende Trennung des Sockets
+      // (Client trennt nach dem Ack) behandelt ihn wie einen Verbindungsabbruch mit 5-Minuten-Platz.
+      if (lobby.tournament && leavingPlayer.tournamentSide) return done();
       leavingPlayer.left = true;
       leavingPlayer.disconnected = true;
       leavingPlayer.disconnectedAt = Date.now();

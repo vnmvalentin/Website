@@ -10,6 +10,7 @@ import { io } from "socket.io-client";
 import SEO from "../components/SEO";
 import GardenAdminPanel from "./GardenGame/GardenAdminPanel";
 import ModerationPanel from "./SeedRunners/mod/ModerationPanel.jsx";
+import TournamentCreatorsPanel from "./ClashRoyale/tournament/TournamentCreatorsPanel.jsx";
 
 // DEINE ID
 const STREAMER_ID = "160224748";
@@ -938,6 +939,8 @@ export default function AdminDashboard() {
               : clashLobbies;
           return (
               <div>
+                  {/* Wer darf Turniere erstellen (Content-Creator-Freigabe) */}
+                  <TournamentCreatorsPanel />
                   <div className="flex gap-3 mb-5 flex-wrap items-center">
                       <div className="panel px-4 py-2.5 flex items-center gap-2">
                           <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Aktive Lobbys</span>

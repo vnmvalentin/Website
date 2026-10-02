@@ -13,6 +13,7 @@
 //   modes/              die acht Spielmodi (unverändert, lazy geladen)
 
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 import { useLanguage } from './useLanguage';
 import { resolveError } from './i18n';
@@ -134,6 +135,17 @@ export default function ClashRoyalePage() {
   const errorText = resolveError(t, socket.error);
 
   // Ein Spielabbruch wirft alle Spieler zurück in die Lobby — einmal nachfragen.
+  // Turnier-Lobby verlassen → zurück in den Match-Raum (dort "Zurück in den Draft"), nicht ins Hauptmenü
+  const navigate = useNavigate();
+  const leaveLobby = () => {
+    const tour = socket.lobbyData?.tournament;
+    socket.leaveLobby();
+    if (tour) {
+      const lang = new URLSearchParams(window.location.search).get('lang');
+      navigate(`/clash-royale/turnier/${tour.id}?${lang ? `lang=${lang}&` : ''}tab=raum&match=${encodeURIComponent(tour.matchId)}`);
+    }
+  };
+
   const confirmCancelGame = () => {
     if (window.confirm(t.cancelGameConfirm)) actions.restartLobby();
   };
@@ -181,7 +193,7 @@ export default function ClashRoyalePage() {
         isClashAdmin={socket.isClashAdmin}
         t={t} lang={lang} changeLang={changeLang}
         error={errorText}
-        onLeave={socket.leaveLobby}
+        onLeave={leaveLobby}
         onRequestHistory={socket.requestHistory}
         onTransferHost={confirmTransferHost}
         profile={profile}
@@ -203,7 +215,7 @@ export default function ClashRoyalePage() {
       isClashAdmin={socket.isClashAdmin}
       showAdminPanel={showAdminPanel}
       setShowAdminPanel={setShowAdminPanel}
-      onLeave={socket.leaveLobby}
+      onLeave={leaveLobby}
       onCancelGame={confirmCancelGame}
       onTransferHost={confirmTransferHost}
     />

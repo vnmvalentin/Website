@@ -90,9 +90,12 @@ function runAutoStart(now = Date.now()) {
   }
 }
 
-module.exports = function createTournamentRouter({ requireAuth, optionalAuth, autoStartIntervalMs = AUTO_START_INTERVAL_MS } = {}) {
+module.exports = function createTournamentRouter({ requireAuth, optionalAuth, isAdmin = () => false, autoStartIntervalMs = AUTO_START_INTERVAL_MS } = {}) {
   const router = express.Router();
   if (!requireAuth || !optionalAuth) return router;
+  // Turniere erstellen ist ein Content-Creator-Feature: nur der Admin und von ihm freigegebene Twitch-Accounts
+  const canCreate = (req) => !!req.twitchId && (isAdmin(req) || store.isCreator(req.twitchId, req.twitchLogin));
+  const TWITCH_LOGIN = /^[a-z0-9_]{3,25}$/;
   if (autoStartIntervalMs > 0) setInterval(() => runAutoStart(), autoStartIntervalMs).unref();
 
   const loadOr404 = (req, res) => {
@@ -110,9 +113,27 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, au
   };
 
   // Grundlagen für das Formular: erlaubte Modi, Standardwerte, Grenzen
-  router.get('/meta', (req, res) => {
+  router.get('/meta', optionalAuth, (req, res) => {
     const modes = soloModeIds();
-    res.json({ soloModes: modes, defaults: defaultSettings(modes), limits: LIMITS });
+    res.json({ soloModes: modes, defaults: defaultSettings(modes), limits: LIMITS, canCreate: canCreate(req), isAdmin: isAdmin(req) });
+  });
+
+  // ── Admin: Freigaben für Turnier-Ersteller ──
+  router.get('/creators', requireAuth, (req, res) => {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'noPermission' });
+    res.json({ creators: store.listCreators() });
+  });
+  router.post('/creators', requireAuth, (req, res) => {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'noPermission' });
+    const login = String(req.body?.login || '').trim().replace(/^@/, '').toLowerCase();
+    if (!TWITCH_LOGIN.test(login)) return res.status(400).json({ error: 'tournamentCreatorInvalid' });
+    store.addCreator(login, req.twitchLogin);
+    res.json({ creators: store.listCreators() });
+  });
+  router.delete('/creators/:login', requireAuth, (req, res) => {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'noPermission' });
+    store.removeCreator(req.params.login);
+    res.json({ creators: store.listCreators() });
   });
 
   // Offene (gelistete) Turniere für den Hub
@@ -146,6 +167,7 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, au
   });
 
   router.post('/', requireAuth, (req, res) => {
+    if (!canCreate(req)) return res.status(403).json({ error: 'tournamentCreateNotAllowed' });
     if (store.countActiveByOwner(req.twitchId) >= MAX_ACTIVE_PER_OWNER) {
       return res.status(400).json({ error: 'tournamentTooMany', params: { max: MAX_ACTIVE_PER_OWNER } });
     }

@@ -44,7 +44,8 @@ function setup(test) {
   test.before(async () => {
     const app = express();
     app.use(express.json());
-    app.use('/t', createTournamentRouter({ requireAuth, optionalAuth, autoStartIntervalMs: 0 }));
+    // Veranstalter '100' ist im Prüfstand der Admin (darf Turniere erstellen und Ersteller freigeben)
+    app.use('/t', createTournamentRouter({ requireAuth, optionalAuth, isAdmin: (req) => req.twitchId === '100', autoStartIntervalMs: 0 }));
     await new Promise(r => { server = app.listen(0, r); });
     base = `http://127.0.0.1:${server.address().port}/t`;
   });

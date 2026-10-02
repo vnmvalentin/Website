@@ -308,7 +308,11 @@ app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
 app.use("/api/clash/profile", createCrProfileRouter({ requireAuth }));
 app.use("/api/clash/presets", createCrPresetRouter({ requireAuth }));
 // Turniere der CR-Minigames (Plan: clashRoyale/PLANUNG_TURNIER.md)
-app.use("/api/clash/tournaments", createTournamentRouter({ requireAuth, optionalAuth }));
+app.use("/api/clash/tournaments", createTournamentRouter({
+  requireAuth, optionalAuth,
+  // Turniere erstellen: nur der Streamer-Admin und von ihm freigegebene Content Creator
+  isAdmin: (req) => !!STREAMER_TWITCH_ID && String(req.twitchId) === String(STREAMER_TWITCH_ID),
+}));
 app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));

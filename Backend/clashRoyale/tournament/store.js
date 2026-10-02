@@ -111,6 +111,16 @@ db.exec(`CREATE TABLE IF NOT EXISTS tournament_chat (
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tchat_match ON tournament_chat(tournament_id, match_id, id)`);
 const CHAT_KEEP = 200;
 
+// Wer darf Turniere erstellen? Vom Admin freigegebene Twitch-Accounts (Content Creator). Gespeichert wird der
+// Login (kleingeschrieben); die Twitch-ID wird beim ersten Login nachgetragen, damit eine Umbenennung nicht
+// die Freigabe kostet.
+db.exec(`CREATE TABLE IF NOT EXISTS tournament_creators (
+  login TEXT PRIMARY KEY,
+  twitch_id TEXT,
+  added_at INTEGER NOT NULL,
+  added_by TEXT
+)`);
+
 // Phase 4: gefundener Kampf + Prüf-Ergebnis am Spiel (status 'review' = Veranstalter entscheidet)
 const gameCols = new Set(db.prepare('PRAGMA table_info(tournament_games)').all().map(c => c.name));
 if (!gameCols.has('battle_json')) db.exec('ALTER TABLE tournament_games ADD COLUMN battle_json TEXT');
@@ -185,6 +195,12 @@ const stmt = {
       wait_start = excluded.wait_start, forfeit = excluded.forfeit, ready_a_at = excluded.ready_a_at,
       ready_b_at = excluded.ready_b_at, start_at = excluded.start_at`),
   listRunning: db.prepare(`SELECT * FROM tournaments WHERE status = 'running'`),
+  listCreators: db.prepare('SELECT * FROM tournament_creators ORDER BY added_at DESC'),
+  addCreator: db.prepare('INSERT OR IGNORE INTO tournament_creators (login, twitch_id, added_at, added_by) VALUES (?, NULL, ?, ?)'),
+  removeCreator: db.prepare('DELETE FROM tournament_creators WHERE login = ?'),
+  creatorById: db.prepare('SELECT * FROM tournament_creators WHERE twitch_id = ?'),
+  creatorByLogin: db.prepare('SELECT * FROM tournament_creators WHERE login = ?'),
+  setCreatorId: db.prepare('UPDATE tournament_creators SET twitch_id = ?, login = ? WHERE login = ?'),
   setDropped: db.prepare('UPDATE tournament_participants SET dropped_at = ? WHERE id = ? AND tournament_id = ?'),
   deleteM: db.prepare('DELETE FROM tournament_matches WHERE tournament_id = ? AND id = ?'),
   deleteGamesOf: db.prepare('DELETE FROM tournament_games WHERE tournament_id = ? AND match_id = ?'),
@@ -312,6 +328,18 @@ module.exports = {
     for (const m of matches) stmt.upsertM.run(matchToRow(tournamentId, m));
     if (finished) { const now = Date.now(); stmt.setFinished.run(now, now, tournamentId); }
   }),
+  // ── Turnier-Ersteller (Freigabe durch den Admin) ──
+  listCreators: () => stmt.listCreators.all().map(r => ({ login: r.login, twitchId: r.twitch_id, addedAt: r.added_at, addedBy: r.added_by })),
+  addCreator: (login, addedBy) => stmt.addCreator.run(String(login).toLowerCase(), Date.now(), addedBy || null).changes > 0,
+  removeCreator: (login) => stmt.removeCreator.run(String(login).toLowerCase()).changes > 0,
+  /** Freigegeben? Treffer über die Twitch-ID oder (erster Login) über den Login — dann wird die ID nachgetragen. */
+  isCreator(twitchId, login) {
+    if (twitchId && stmt.creatorById.get(String(twitchId))) return true;
+    const byLogin = login ? stmt.creatorByLogin.get(String(login).toLowerCase()) : null;
+    if (!byLogin) return false;
+    if (twitchId && !byLogin.twitch_id) stmt.setCreatorId.run(String(twitchId), byLogin.login, byLogin.login);
+    return !byLogin.twitch_id || String(byLogin.twitch_id) === String(twitchId);
+  },
   setDropped: (tournamentId, pid, at) => stmt.setDropped.run(at, pid, tournamentId).changes > 0,
   /**
    * Matches nach einer Korrektur neu schreiben (Phase 5) — in EINER Transaktion: entfernte Matches samt

@@ -210,3 +210,12 @@ Schlüssel. Der Turnier-Schlüssel muss im Supercell-Portal an die IP des VPS ge
 - Wiedereinstieg nach Verbindungsabbruch: die Draft-Lobby erkennt den Spieler an seiner Turnier-Identität (Name aus der
   Anmeldung) und setzt ihn ins laufende Spiel zurück — geprüft im Browser.
 - Live-Stand für alle (auch ohne Login): Bracket und Gruppen-Spielplan zeigen Serienstand und Phase laufender Matches.
+
+**Nachtrag 02.10.2026 — Ersteller-Freigabe + Verlassen-Fix:**
+- Turniere erstellen nur noch für den Admin (STREAMER_TWITCH_ID) und vom Admin freigegebene Twitch-Accounts
+  (Tabelle `tournament_creators`, Pflege im Admin-Dashboard → Clash Royale → "Turnier-Ersteller"). Freigabe per
+  Login, die Twitch-ID wird beim ersten Login nachgetragen (übersteht Umbenennen; ein fremder Account mit dem alten
+  Namen bekommt keine Freigabe). Hub zeigt den Knopf nur Freigegebenen; bestehende Turniere bleiben beim Entfernen.
+- "Lobby verlassen" mitten im Turnier-Draft markiert den Spieler nicht mehr als gegangen (das blockierte den
+  Wiedereinstieg), sondern wird wie ein Verbindungsabbruch behandelt (5 Minuten Platz); danach landet man im
+  Match-Raum mit "Zurück in den Draft".

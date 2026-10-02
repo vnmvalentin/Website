@@ -35,12 +35,15 @@ export default function TournamentHubView({ active, lang }) {
   const navigate = useNavigate();
   const { user } = useContext(TwitchAuthContext);
   const [open, setOpen] = useState(null);
+  const [canCreate, setCanCreate] = useState(false);
   const [mine, setMine] = useState([]);
 
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
     tournamentApi.list().then(d => { if (!cancelled) setOpen(d.tournaments); }).catch(() => { if (!cancelled) setOpen([]); });
+    // Erstellen ist ein Content-Creator-Feature (Freigabe im Admin-Dashboard)
+    tournamentApi.meta().then(m => { if (!cancelled) setCanCreate(!!m.canCreate); }).catch(() => {});
     if (user) tournamentApi.mine().then(d => { if (!cancelled) setMine(d.tournaments); }).catch(() => {});
     else setMine([]);
     return () => { cancelled = true; };
@@ -54,9 +57,13 @@ export default function TournamentHubView({ active, lang }) {
     <div className="cr-arcade-panel overflow-hidden">
       <div className="cr-section space-y-4">
         <h2 className="cr-section-title text-xl"><CrTourneyTrophy size={30} />{t.menuTournaments}</h2>
-        <ChunkyButton variant="gold" size="lg" block icon={CrPlus} iconSize={26} onClick={() => go('/clash-royale/turnier/neu')}>
-          {t.createTitle}
-        </ChunkyButton>
+        {canCreate ? (
+          <ChunkyButton variant="gold" size="lg" block icon={CrPlus} iconSize={26} onClick={() => go('/clash-royale/turnier/neu')}>
+            {t.createTitle}
+          </ChunkyButton>
+        ) : (
+          <p className="text-white/55 text-sm">{t.createLocked}</p>
+        )}
       </div>
       {mine.length > 0 && (
         <div className="cr-section space-y-3">
