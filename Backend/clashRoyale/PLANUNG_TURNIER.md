@@ -219,3 +219,15 @@ Schlüssel. Der Turnier-Schlüssel muss im Supercell-Portal an die IP des VPS ge
 - "Lobby verlassen" mitten im Turnier-Draft markiert den Spieler nicht mehr als gegangen (das blockierte den
   Wiedereinstieg), sondern wird wie ein Verbindungsabbruch behandelt (5 Minuten Platz); danach landet man im
   Match-Raum mit "Zurück in den Draft".
+
+**Nachtrag 02.10.2026 — Phase "ausgelost", Löschen, Aufbewahrung:**
+- Neuer Status `drawn` zwischen Anmeldung und Start: "Auslosen" verteilt Gruppen/Bracket (alles sichtbar, Spieler
+  sehen ihr erstes Match), aber nichts ist spielbar, Match-Räume bleiben zu — Zeit für Clans je Gruppe usw.
+  Der Veranstalter kann neu auslosen, die Auslosung zurücknehmen (zurück in die Anmeldung) oder "Turnier starten".
+  Endpunkte: POST /:id/draw, /:id/undraw; POST /:id/start gibt ein ausgelostes Turnier frei (aus der Anmeldung
+  heraus lost es weiterhin in einem Schritt aus und startet — so arbeitet auch der Autostart).
+  Zurücknehmen nach dem Starttermin schaltet den Autostart ab (er würde sonst sofort erneut starten).
+- Löschen: DELETE /:id (Veranstalter oder Admin) für Anmeldung/beendet/abgesagt; ausgelost oder laufend erst absagen.
+  Alles Abhängige geht per ON DELETE CASCADE mit.
+- Aufbewahrung (routes.js, alle 6 h): beendete/abgesagte Turniere 90 Tage nach dem Ende gelöscht, nie gestartete
+  (Anmeldung/ausgelost) nach 60 Tagen ohne Änderung, sofern der Termin nicht noch bevorsteht. Laufende nie.

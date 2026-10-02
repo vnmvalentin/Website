@@ -18,14 +18,40 @@ function drawFromParticipants(participants) {
   return { drawOrder, groups: groups.filter(Boolean) };
 }
 
-/** Startet ein Turnier (Status 'registration' → 'running'). Wirft einen Fehlerschlüssel. */
-function startTournament(t, rng = Math.random) {
-  if (t.status !== 'registration') throw new Error('tournamentAlreadyStarted');
+function freshDraw(t, rng) {
   const participants = store.listParticipants(t.id);
   const plan = S.planStart(participants.length, t.settings);
   if (plan.error) throw new Error(plan.error);
-  const draw = S.drawTournament(participants.map(p => p.id), t.settings, rng);
-  store.startTournament(t.id, draw);
+  return S.drawTournament(participants.map(p => p.id), t.settings, rng);
+}
+
+/**
+ * Nur auslosen ('registration' → 'drawn', aus 'drawn' heraus = neu auslosen): Gruppen und Bracket stehen
+ * fest und sind sichtbar, gespielt wird aber erst nach startTournament — Zeit für Clans, Absprachen usw.
+ */
+function drawTournament(t, rng = Math.random) {
+  if (t.status !== 'registration' && t.status !== 'drawn') throw new Error('tournamentAlreadyStarted');
+  store.saveDraw(t.id, freshDraw(t, rng));
+}
+
+/** Auslosung zurücknehmen ('drawn' → 'registration'), z.B. um Teilnehmer oder Einstellungen zu ändern. */
+function undoDraw(t) {
+  if (t.status !== 'drawn') throw new Error('tournamentNotDrawn');
+  store.clearDraw(t.id);
+  // Termin schon vorbei: der Autostart würde sofort wieder auslosen und starten
+  if (t.settings.autoStart && t.settings.startsAt && t.settings.startsAt <= Date.now()) {
+    store.updateSettings(t.id, { ...t.settings, autoStart: false });
+  }
+}
+
+/**
+ * Startet ein Turnier ('drawn' → 'running'; aus der Anmeldung heraus wird in einem Schritt ausgelost
+ * und gestartet). Wirft einen Fehlerschlüssel.
+ */
+function startTournament(t, rng = Math.random) {
+  if (t.status === 'drawn') return store.goLive(t.id);
+  if (t.status !== 'registration') throw new Error('tournamentAlreadyStarted');
+  store.saveDraw(t.id, freshDraw(t, rng), { live: true });
 }
 
 /**
@@ -118,13 +144,14 @@ function setPaused(t, paused) {
   store.updateSettings(t.id, { ...t.settings, paused: !!paused });
 }
 
-// Öffentliche Match-Felder: Freilos als eigenes Flag statt des internen Platzhalters
-const publicMatch = (m) => ({
+// Öffentliche Match-Felder: Freilos als eigenes Flag statt des internen Platzhalters.
+// live = Turnier läuft; ausgelost, aber noch nicht gestartet ist nichts spielbar.
+const publicMatch = (m, live = true) => ({
   id: m.id, stage: m.stage, group: m.group, round: m.round, slot: m.slot,
   a: S.isPlayer(m.a) ? m.a : null, b: S.isPlayer(m.b) ? m.b : null,
   aBye: m.a === S.BYE, bBye: m.b === S.BYE,
   bestOf: m.bestOf, scoreA: m.scoreA, scoreB: m.scoreB, crownsA: m.crownsA, crownsB: m.crownsB,
-  winner: m.winner, status: m.status, playable: S.isPlayable(m), finishedAt: m.finishedAt,
+  winner: m.winner, status: m.status, playable: live && S.isPlayable(m), finishedAt: m.finishedAt,
 });
 
 /**
@@ -159,10 +186,13 @@ function structureView(t, participants) {
   });
   const hasBracket = matches.some(m => m.stage !== 'group');
   const champion = S.championOf(matches);
+  const drawnOnly = t.status === 'drawn';
   return {
     phase: champion ? 'finished' : hasBracket ? 'bracket' : 'groups',
+    // Ausgelost, aber noch nicht gestartet: alles sichtbar, nichts spielbar
+    drawnOnly,
     groups: groupViews,
-    matches: matches.map(m => ({ ...publicMatch(m), live: liveOf(t, m) })),
+    matches: matches.map(m => ({ ...publicMatch(m, !drawnOnly), live: drawnOnly ? null : liveOf(t, m) })),
     champion,
     // Siegerehrung (Phase 6): 1., 2. und 3. Platz(e), sobald das Turnier entschieden ist
     podium: S.podiumOf(matches),
@@ -170,6 +200,6 @@ function structureView(t, participants) {
 }
 
 module.exports = {
-  startTournament, reportResult, structureView, drawFromParticipants, settle,
+  startTournament, drawTournament, undoDraw, reportResult, structureView, drawFromParticipants, settle,
   resetMatch, correctMatch, disqualify, setPaused,
 };

@@ -24,6 +24,11 @@ const { crToken } = require('./crToken');
 
 const MAX_ACTIVE_PER_OWNER = 5;
 const AUTO_START_INTERVAL_MS = 30 * 1000;
+// Aufbewahrung: beendete/abgesagte Turniere 90 Tage nach dem Ende, nie gestartete nach 60 Tagen ohne Änderung
+const DAY_MS = 24 * 60 * 60 * 1000;
+const KEEP_ENDED_DAYS = 90;
+const KEEP_STALE_DAYS = 60;
+const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const FRIEND_LINK_PREFIX = 'https://link.clashroyale.com/';
 
 const soloModeIds = () => registry.allModes().filter(m => registry.modeAllowsParty(m, 'solo')).map(m => m.id);
@@ -67,14 +72,22 @@ const summary = (t, count) => ({
 const KNOWN_ERRORS = new Set([
   'tournamentAlreadyStarted', 'tournamentTooFewPlayers', 'tournamentNotRunning', 'tournamentMatchNotFound',
   'tournamentMatchNotPlayable', 'tournamentInvalidResult', 'tournamentResetBlocked', 'tournamentNotJoined',
+  'tournamentNotDrawn',
 ]);
 const sendKnown = (res, e) => {
   if (KNOWN_ERRORS.has(e?.message)) return res.status(400).json({ error: e.message });
   throw e;
 };
 
+/** Alte Turniere löschen (siehe KEEP_*_DAYS). Gibt die Zahl der gelöschten zurück. */
+function runCleanup(now = Date.now()) {
+  const ids = store.purgeOld({ endedBefore: now - KEEP_ENDED_DAYS * DAY_MS, staleBefore: now - KEEP_STALE_DAYS * DAY_MS, now });
+  if (ids.length) console.log(`[Turnier] ${ids.length} alte Turniere gelöscht`);
+  return ids.length;
+}
+
 /**
- * Startet fällige Turniere mit autoStart. Klappt der Start nicht (zu wenige Anmeldungen), wird
+ * Startet fällige Turniere mit autoStart (auch bereits ausgeloste — die werden nur noch freigegeben). Klappt der Start nicht (zu wenige Anmeldungen), wird
  * autoStart abgeschaltet — sonst würde es alle 30 s erneut versucht; der Veranstalter startet dann von Hand.
  */
 function runAutoStart(now = Date.now()) {
@@ -90,13 +103,21 @@ function runAutoStart(now = Date.now()) {
   }
 }
 
-module.exports = function createTournamentRouter({ requireAuth, optionalAuth, isAdmin = () => false, autoStartIntervalMs = AUTO_START_INTERVAL_MS } = {}) {
+module.exports = function createTournamentRouter({
+  requireAuth, optionalAuth, isAdmin = () => false, autoStartIntervalMs = AUTO_START_INTERVAL_MS,
+  cleanupIntervalMs = autoStartIntervalMs > 0 ? CLEANUP_INTERVAL_MS : 0,
+} = {}) {
   const router = express.Router();
   if (!requireAuth || !optionalAuth) return router;
   // Turniere erstellen ist ein Content-Creator-Feature: nur der Admin und von ihm freigegebene Twitch-Accounts
   const canCreate = (req) => !!req.twitchId && (isAdmin(req) || store.isCreator(req.twitchId, req.twitchLogin));
   const TWITCH_LOGIN = /^[a-z0-9_]{3,25}$/;
   if (autoStartIntervalMs > 0) setInterval(() => runAutoStart(), autoStartIntervalMs).unref();
+  if (cleanupIntervalMs > 0) {
+    const cleanup = () => { try { runCleanup(); } catch (e) { console.error('[Turnier] Aufräumen fehlgeschlagen:', e.message); } };
+    setTimeout(cleanup, 60 * 1000).unref();
+    setInterval(cleanup, cleanupIntervalMs).unref();
+  }
 
   const loadOr404 = (req, res) => {
     const t = store.getTournament(req.params.id);
@@ -194,8 +215,19 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, is
   router.post('/:id/cancel', requireAuth, (req, res) => {
     const t = loadOr404(req, res); if (!t) return;
     if (!isOwner(t, req)) return res.status(403).json({ error: 'noPermission' });
-    if (t.status !== 'registration' && t.status !== 'running') return res.status(400).json({ error: 'tournamentNotRunning' });
+    if (!['registration', 'drawn', 'running'].includes(t.status)) return res.status(400).json({ error: 'tournamentNotRunning' });
     store.setStatus(t.id, 'cancelled');
+    matchRoom.notifyTournament(t.id);
+    res.json({ ok: true });
+  });
+
+  // Turnier endgültig löschen (Veranstalter oder Admin). Ausgeloste/laufende erst absagen — sonst stünden
+  // Spieler mitten im Match plötzlich ohne Turnier da.
+  router.delete('/:id', requireAuth, (req, res) => {
+    const t = loadOr404(req, res); if (!t) return;
+    if (!isOwner(t, req) && !isAdmin(req)) return res.status(403).json({ error: 'noPermission' });
+    if (t.status === 'drawn' || t.status === 'running') return res.status(400).json({ error: 'tournamentDeleteActive' });
+    store.deleteTournament(t.id);
     matchRoom.notifyTournament(t.id);
     res.json({ ok: true });
   });
@@ -220,7 +252,11 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, is
   // Pausieren / fortsetzen
   ownerAction('/:id/pause', (t, req) => { lifecycle.setPaused(t, !!req.body?.paused); return null; });
 
-  // Turnier starten — Auslosung von Gruppen bzw. Bracket
+  // Auslosen bzw. neu auslosen, ohne zu starten ('drawn') — und die Auslosung zurücknehmen
+  ownerAction('/:id/draw', (t) => { lifecycle.drawTournament(t); return null; });
+  ownerAction('/:id/undraw', (t) => { lifecycle.undoDraw(t); return null; });
+
+  // Turnier starten — Matches freigeben (aus der Anmeldung heraus: auslosen und starten in einem Schritt)
   router.post('/:id/start', requireAuth, (req, res) => {
     const t = loadOr404(req, res); if (!t) return;
     if (!isOwner(t, req)) return res.status(403).json({ error: 'noPermission' });
@@ -316,3 +352,4 @@ module.exports = function createTournamentRouter({ requireAuth, optionalAuth, is
   return router;
 };
 module.exports.runAutoStart = runAutoStart;
+module.exports.runCleanup = runCleanup;

@@ -8,7 +8,7 @@ import { CrTourneyTrophy, CrPlus, CrRegion, CrCrown, CrUser, CrClock } from '../
 import { tDict } from './tI18n';
 import { tournamentApi, withLang } from './tournamentApi';
 
-const STATUS_LABEL = { registration: 'statusRegistration', running: 'statusRunning', finished: 'statusFinished', cancelled: 'statusCancelled' };
+const STATUS_LABEL = { registration: 'statusRegistration', drawn: 'statusDrawn', running: 'statusRunning', finished: 'statusFinished', cancelled: 'statusCancelled' };
 
 function TournamentRow({ tr, t, lang, onOpen }) {
   return (

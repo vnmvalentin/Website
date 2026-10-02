@@ -15,7 +15,7 @@ import Section from '../ui/Section';
 import { RankBadge } from '../lobby/PlayerList';
 import {
   CrTourneyTrophy, CrCards, CrBook, CrInfo, CrUser, CrUserAdd, CrUserRemove, CrClock, CrCrown,
-  CrKingBlue, CrSettings, CrCancel, CrCheck, CrSocial, CrBattle, CrChat,
+  CrKingBlue, CrSettings, CrCancel, CrCheck, CrSocial, CrBattle, CrChat, CrRandom, CrReplay, CrClose,
 } from '../ui/CrIcons';
 import { NextMatchCard, GroupsPanel, BracketPanel } from './TournamentStructure';
 import MatchRoom, { NoRoom } from './MatchRoom';
@@ -32,11 +32,12 @@ import { tournamentApi, withLang } from './tournamentApi';
 
 const STATUS_STYLE = {
   registration: 'text-emerald-300 border-emerald-400/40 bg-emerald-500/10',
+  drawn: 'text-sky-200 border-sky-300/40 bg-sky-400/10',
   running: 'text-[var(--cr-arcade-gold)] border-amber-300/40 bg-amber-400/10',
   finished: 'text-white/60 border-white/15 bg-white/5',
   cancelled: 'text-red-300 border-red-400/40 bg-red-500/10',
 };
-const STATUS_LABEL = { registration: 'statusRegistration', running: 'statusRunning', finished: 'statusFinished', cancelled: 'statusCancelled' };
+const STATUS_LABEL = { registration: 'statusRegistration', drawn: 'statusDrawn', running: 'statusRunning', finished: 'statusFinished', cancelled: 'statusCancelled' };
 
 // Reiter: URL-Name → Symbol + Text-Schlüssel
 const TABS = {
@@ -254,14 +255,15 @@ export default function TournamentPage() {
   const prevPlayableRef = useRef(undefined);
   const prevFinishedRef = useRef(undefined);
   const [titleAlert, setTitleAlert] = useState(null);
-  // Auslosungs-Show: automatisch, wenn man den Start live erlebt (und Animationen an sind); sonst per Knopf
+  // Auslosungs-Show: automatisch, wenn man die Auslosung live erlebt (und Animationen an sind); sonst per Knopf.
+  // Ausgelost wird beim Schritt aus der Anmeldung heraus — ins 'drawn' oder (Autostart) direkt ins 'running'.
   const { prefs } = useCrPrefs();
   const [drawOpen, setDrawOpen] = useState(false);
   const prevStatusRef = useRef(undefined);
   useEffect(() => {
     const status = data?.tournament?.status;
     if (!status) return;
-    if (prevStatusRef.current === 'registration' && status === 'running' && prefs.animations) setDrawOpen(true);
+    if (prevStatusRef.current === 'registration' && (status === 'drawn' || status === 'running') && prefs.animations) setDrawOpen(true);
     prevStatusRef.current = status;
   }, [data?.tournament?.status, prefs.animations]);
   useEffect(() => {
@@ -309,6 +311,8 @@ export default function TournamentPage() {
   const { tournament, participants, isOwner, me } = data;
   const s = tournament.settings;
   const registration = tournament.status === 'registration';
+  const drawn = tournament.status === 'drawn';
+  const deletable = ['registration', 'finished', 'cancelled'].includes(tournament.status);
   const full = participants.length >= s.maxPlayers;
   const inviteUrl = `${window.location.origin}/clash-royale/turnier/${tournament.id}`;
 
@@ -316,12 +320,18 @@ export default function TournamentPage() {
     try { await navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); }
     catch { window.prompt(t.inviteLink, inviteUrl); }
   };
-  const startTournament = async () => {
-    if (!window.confirm(t.startConfirm(participants.length))) return;
+  // Schritte des Veranstalters: auslosen → (neu auslosen / zurücknehmen) → starten
+  const ownerStep = async (confirmText, fn) => {
+    if (!window.confirm(confirmText)) return;
     setStarting(true); setActionError('');
-    try { await tournamentApi.start(tournament.id); await reload(); }
+    try { await fn(); await reload(); }
     catch (e) { setActionError(tError(t, e)); }
     finally { setStarting(false); }
+  };
+  const deleteTournament = async () => {
+    if (!window.confirm(t.deleteConfirm)) return;
+    try { await tournamentApi.remove(tournament.id); navigate(withLang('/clash-royale', lang)); }
+    catch (e) { setActionError(tError(t, e)); }
   };
   const cancelTournament = async () => {
     if (!window.confirm(t.cancelConfirm)) return;
@@ -342,7 +352,7 @@ export default function TournamentPage() {
     { id: 'uebersicht' },
     structure.groups.length ? { id: 'gruppen' } : null,
     hasBracket ? { id: 'bracket' } : null,
-    (me || isOwner) ? { id: 'raum', dot: !!myPlayable } : null,
+    (me || isOwner) && !drawn ? { id: 'raum', dot: !!myPlayable } : null,
     isOwner ? { id: 'veranstalter', dot: !!data.ownerOverview?.some(x => x.phase === 'review') } : null,
   ].filter(Boolean) : [];
   const requested = searchParams.get('tab');
@@ -408,6 +418,12 @@ export default function TournamentPage() {
             <div className="cr-arcade-panel px-4 py-3 flex items-center gap-3 border-amber-300/50">
               <CrClock size={26} className="shrink-0" />
               <p className="text-amber-100 text-sm">{t.pausedBanner}</p>
+            </div>
+          )}
+          {drawn && (
+            <div className="cr-arcade-panel px-4 py-3 flex items-center gap-3 border-sky-300/50">
+              <CrClock size={26} className="shrink-0" />
+              <p className="text-sky-100 text-sm">{isOwner ? t.drawnBannerOwner : t.drawnBanner}</p>
             </div>
           )}
           <TabBar tabs={tabs} active={tab} onSelect={(id) => selectTab(id)} t={t} />
@@ -485,18 +501,45 @@ export default function TournamentPage() {
                   <ChunkyButton variant="blue" size="sm" onClick={copyInvite}>{copied ? t.copied : t.copy}</ChunkyButton>
                 </div>
                 {registration && (
-                  <ChunkyButton variant="green" size="lg" block icon={CrBattle} iconSize={26} className="mt-4"
-                    disabled={starting || participants.length < 2} onClick={startTournament}>
+                  <ChunkyButton variant="green" size="lg" block icon={CrRandom} iconSize={26} className="mt-4"
+                    disabled={starting || participants.length < 2}
+                    onClick={() => ownerStep(t.drawConfirm(participants.length), () => tournamentApi.draw(tournament.id))}>
+                    {t.drawTournament}
+                  </ChunkyButton>
+                )}
+                {drawn && (
+                  <ChunkyButton variant="green" size="lg" block icon={CrBattle} iconSize={26} className="mt-4" disabled={starting}
+                    onClick={() => ownerStep(t.goLiveConfirm, () => tournamentApi.start(tournament.id))}>
                     {t.startTournament}
                   </ChunkyButton>
                 )}
-                {registration && (
+                {(registration || drawn) && (
                   <div className="flex flex-wrap gap-2 mt-4">
-                    <ChunkyButton variant="gold" size="sm" icon={CrSettings}
-                      onClick={() => navigate(withLang(`/clash-royale/turnier/${tournament.id}/bearbeiten`, lang))}>
-                      {t.edit}
-                    </ChunkyButton>
+                    {registration && (
+                      <ChunkyButton variant="gold" size="sm" icon={CrSettings}
+                        onClick={() => navigate(withLang(`/clash-royale/turnier/${tournament.id}/bearbeiten`, lang))}>
+                        {t.edit}
+                      </ChunkyButton>
+                    )}
+                    {drawn && (
+                      <>
+                        <ChunkyButton variant="blue" size="sm" icon={CrReplay} disabled={starting}
+                          onClick={() => ownerStep(t.redrawConfirm, () => tournamentApi.draw(tournament.id))}>
+                          {t.redraw}
+                        </ChunkyButton>
+                        <ChunkyButton variant="gold" size="sm" disabled={starting}
+                          onClick={() => ownerStep(t.undoDrawConfirm, () => tournamentApi.undraw(tournament.id))}>
+                          {t.undoDraw}
+                        </ChunkyButton>
+                      </>
+                    )}
                     <ChunkyButton variant="red" size="sm" icon={CrCancel} onClick={cancelTournament}>{t.cancelTournament}</ChunkyButton>
+                  </div>
+                )}
+                {deletable && (
+                  <div className={registration ? 'mt-2' : 'mt-4'}>
+                    <ChunkyButton variant="red" size="sm" icon={CrClose} onClick={deleteTournament}>{t.deleteTournament}</ChunkyButton>
+                    {!registration && <p className="text-white/45 text-xs mt-2">{t.keepNote}</p>}
                   </div>
                 )}
                 {actionError && <p className="text-red-400 text-sm mt-3">{actionError}</p>}

@@ -149,8 +149,8 @@ const stmt = {
   getT: db.prepare('SELECT * FROM tournaments WHERE id = ?'),
   updateSettings: db.prepare('UPDATE tournaments SET settings_json = ?, updated_at = ? WHERE id = ?'),
   setStatus: db.prepare('UPDATE tournaments SET status = ?, updated_at = ? WHERE id = ?'),
-  listListed: db.prepare(`SELECT * FROM tournaments WHERE status IN ('registration', 'running') ORDER BY created_at DESC LIMIT 50`),
-  countActiveByOwner: db.prepare(`SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND status IN ('registration', 'running')`),
+  listListed: db.prepare(`SELECT * FROM tournaments WHERE status IN ('registration', 'drawn', 'running') ORDER BY created_at DESC LIMIT 50`),
+  countActiveByOwner: db.prepare(`SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND status IN ('registration', 'drawn', 'running')`),
   listByOwner: db.prepare(`SELECT * FROM tournaments WHERE owner_id = ? ORDER BY created_at DESC LIMIT 30`),
   insertP: db.prepare(`INSERT INTO tournament_participants
     (id, tournament_id, twitch_id, twitch_login, display_name, cr_tag, cr_name, cr_league, cr_trophies, friend_link, secret, joined_at)
@@ -162,8 +162,17 @@ const stmt = {
   updateFriendLink: db.prepare('UPDATE tournament_participants SET friend_link = ? WHERE id = ? AND tournament_id = ?'),
   setDraw: db.prepare('UPDATE tournament_participants SET draw_index = ?, group_index = ? WHERE id = ? AND tournament_id = ?'),
   setStarted: db.prepare(`UPDATE tournaments SET status = 'running', started_at = ?, updated_at = ? WHERE id = ?`),
+  setDrawn: db.prepare(`UPDATE tournaments SET status = 'drawn', updated_at = ? WHERE id = ?`),
+  clearDrawOf: db.prepare('UPDATE tournament_participants SET draw_index = NULL, group_index = NULL WHERE tournament_id = ?'),
+  deleteMatchesOf: db.prepare('DELETE FROM tournament_matches WHERE tournament_id = ?'),
+  deleteAllGamesOf: db.prepare('DELETE FROM tournament_games WHERE tournament_id = ?'),
+  deleteAllMetaOf: db.prepare('DELETE FROM tournament_match_meta WHERE tournament_id = ?'),
+  deleteAllChatOf: db.prepare('DELETE FROM tournament_chat WHERE tournament_id = ?'),
+  deleteT: db.prepare('DELETE FROM tournaments WHERE id = ?'),
+  listEndedBefore: db.prepare(`SELECT id FROM tournaments WHERE status IN ('finished', 'cancelled') AND COALESCE(finished_at, updated_at) < ?`),
+  listStaleBefore: db.prepare(`SELECT * FROM tournaments WHERE status IN ('registration', 'drawn') AND updated_at < ?`),
   setFinished: db.prepare(`UPDATE tournaments SET status = 'finished', finished_at = ?, updated_at = ? WHERE id = ?`),
-  listAutoStart: db.prepare(`SELECT * FROM tournaments WHERE status = 'registration'`),
+  listAutoStart: db.prepare(`SELECT * FROM tournaments WHERE status IN ('registration', 'drawn')`),
   listM: db.prepare('SELECT * FROM tournament_matches WHERE tournament_id = ?'),
   upsertM: db.prepare(`INSERT INTO tournament_matches
     (tournament_id, id, stage, group_index, round, slot, player_a, player_b, best_of, score_a, score_b, crowns_a, crowns_b,
@@ -248,6 +257,15 @@ const matchToRow = (tournamentId, m) => ({
   finished_at: m.finishedAt ?? null,
 });
 
+/** Auslosung, Matches und alles daran Hängende eines Turniers verwerfen (ohne Status). */
+function clearDrawRows(tournamentId) {
+  stmt.clearDrawOf.run(tournamentId);
+  stmt.deleteAllGamesOf.run(tournamentId);
+  stmt.deleteAllMetaOf.run(tournamentId);
+  stmt.deleteAllChatOf.run(tournamentId);
+  stmt.deleteMatchesOf.run(tournamentId);
+}
+
 const parse = (raw, fallback) => { try { return JSON.parse(raw) ?? fallback; } catch { return fallback; } };
 
 const rowToTournament = (r) => r && ({
@@ -314,14 +332,43 @@ module.exports = {
   listMatches: (tournamentId) => stmt.listM.all(tournamentId).map(rowToMatch)
     .sort((x, y) => STAGE_ORDER[x.stage] - STAGE_ORDER[y.stage] || (x.group ?? 0) - (y.group ?? 0) || x.round - y.round || x.slot - y.slot),
   saveMatches(tournamentId, matches) { for (const m of matches) stmt.upsertM.run(matchToRow(tournamentId, m)); },
-  /** Start in EINER Transaktion: Auslosung an den Teilnehmern, Matches, Status. */
-  startTournament: db.transaction((tournamentId, { drawOrder, groups, matches }) => {
+/**
+   * Auslosung speichern in EINER Transaktion: alte Auslosung (beim Neu-Auslosen) samt Matches verwerfen,
+   * Losnummern/Gruppen an die Teilnehmer, Matches, Status — 'drawn' (Matches noch gesperrt) oder mit
+   * live: true gleich 'running'.
+   */
+  saveDraw: db.transaction((tournamentId, { drawOrder, groups, matches }, { live = false } = {}) => {
+    clearDrawRows(tournamentId);
     const groupOf = new Map();
     groups.forEach((ids, g) => ids.forEach(id => groupOf.set(id, g)));
     drawOrder.forEach((pid, i) => stmt.setDraw.run(i, groupOf.has(pid) ? groupOf.get(pid) : null, pid, tournamentId));
     for (const m of matches) stmt.upsertM.run(matchToRow(tournamentId, m));
     const now = Date.now();
-    stmt.setStarted.run(now, now, tournamentId);
+    if (live) stmt.setStarted.run(now, now, tournamentId);
+    else stmt.setDrawn.run(now, tournamentId);
+  }),
+  /** Ausgelostes Turnier freigeben: 'drawn' → 'running' */
+  goLive(tournamentId) { const now = Date.now(); stmt.setStarted.run(now, now, tournamentId); },
+  /** Auslosung zurücknehmen: zurück in die Anmeldung */
+  clearDraw: db.transaction((tournamentId) => {
+    clearDrawRows(tournamentId);
+    stmt.setStatus.run('registration', Date.now(), tournamentId);
+  }),
+  /** Turnier endgültig löschen — Teilnehmer, Matches, Spiele, Chat und Meta gehen per ON DELETE CASCADE mit. */
+  deleteTournament: (id) => stmt.deleteT.run(id).changes > 0,
+  /**
+   * Aufräumen: beendete/abgesagte Turniere, die vor endedBefore endeten, und nie gestartete (Anmeldung oder
+   * ausgelost), die seit staleBefore niemand angefasst hat und deren Termin nicht mehr bevorsteht.
+   * Gibt die gelöschten IDs zurück.
+   */
+  purgeOld: db.transaction(({ endedBefore, staleBefore, now = Date.now() }) => {
+    const ids = stmt.listEndedBefore.all(endedBefore).map(r => r.id);
+    for (const r of stmt.listStaleBefore.all(staleBefore)) {
+      const startsAt = parse(r.settings_json, {}).startsAt;
+      if (!startsAt || startsAt < now) ids.push(r.id);
+    }
+    for (const id of ids) stmt.deleteT.run(id);
+    return ids;
   }),
   /** Ergebnis speichern (+ ggf. neue Bracket-Matches, + ggf. Turnierende) in einer Transaktion. */
   commitMatches: db.transaction((tournamentId, matches, { finished = false } = {}) => {

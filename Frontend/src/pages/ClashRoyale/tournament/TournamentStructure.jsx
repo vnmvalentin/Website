@@ -49,7 +49,29 @@ export function NextMatchCard({ structure, me, byId, onOpenRoom, t }) {
   const mine = matches.filter(m => has(m, me.id));
   const playable = mine.filter(m => m.playable);
   const waiting = mine.find(m => m.status === 'pending' && !m.playable);
+  // Ausgelost, aber noch nicht gestartet: ersten Gegner zeigen (fürs Absprechen), ohne Raum-Knopf
+  const upcoming = structure.drawnOnly ? mine.find(m => m.status === 'pending' && m.a && m.b) : null;
   let body;
+  if (upcoming) {
+    const opp = byId.get(sideOf(upcoming, me.id) === 'a' ? upcoming.b : upcoming.a);
+    body = (
+      <div className="min-w-0">
+        <p className="text-white/55 text-xs">{matchLabel(upcoming, matches, t)} · {t.bestOfShort(upcoming.bestOf)}</p>
+        <p className="font-cr text-white text-xl flex items-center gap-2 mt-0.5 min-w-0">
+          <span className="text-white/50 text-base">{t.vs}</span>
+          <span className="truncate">{opp?.displayName}</span>
+          {opp && <RankBadge p={opp} />}
+        </p>
+        {opp && <p className="text-white/45 text-xs flex items-center gap-1"><CrKingBlue size={12} />{opp.crName} #{opp.crTag}</p>}
+        <p className="text-white/70 text-sm flex items-center gap-2 mt-2"><CrClock size={18} />{t.startsWhenLive}</p>
+      </div>
+    );
+    return (
+      <div className="cr-arcade-panel overflow-hidden">
+        <Section icon={CrBattle} title={t.firstMatch}>{body}</Section>
+      </div>
+    );
+  }
   if (playable.length) {
     const m = playable[0];
     const opp = byId.get(sideOf(m, me.id) === 'a' ? m.b : m.a);

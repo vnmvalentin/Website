@@ -57,6 +57,9 @@ export const tournamentApi = {
   },
   setFriendLink: (id, friendLink) => call('PATCH', `/${encodeURIComponent(id)}/me`, { body: { friendLink }, tournamentId: id }),
   start: (id) => call('POST', `/${encodeURIComponent(id)}/start`),
+  draw: (id) => call('POST', `/${encodeURIComponent(id)}/draw`),
+  undraw: (id) => call('POST', `/${encodeURIComponent(id)}/undraw`),
+  remove: (id) => call('DELETE', `/${encodeURIComponent(id)}`),
   setResult: (id, mid, result) => call('POST', `/${encodeURIComponent(id)}/matches/${encodeURIComponent(mid)}/result`, { body: result }),
   // Phase 5: Werkzeuge des Veranstalters
   resetMatch: (id, mid) => call('POST', `/${encodeURIComponent(id)}/matches/${encodeURIComponent(mid)}/reset`),
