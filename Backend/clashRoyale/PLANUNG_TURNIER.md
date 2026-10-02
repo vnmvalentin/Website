@@ -198,3 +198,15 @@ Schlüssel. Der Turnier-Schlüssel muss im Supercell-Portal an die IP des VPS ge
 - Animationen (alle abschaltbar über "Animationen" in den CR-Einstellungen): Modus-Walze bei Zufall (`ModeSpin.jsx`,
   rAF mit Zeit-Fallback, Tick-Ton je Kachel), Enthüllung nach Pick & Ban, Bann-Stempel, Punkte-Pop beim Serienstand,
   Auslosungs-Show beim Start (`DrawReveal.jsx`, automatisch live, sonst "Auslosung ansehen" in der Übersicht).
+
+**Nachtrag 02.10.2026 — Ablauf ohne Extra-Klicks (Wunsch des Nutzers):**
+- Beide "Bereit" → 3-s-Countdown (Server-Timer, `startAt` in tournament_match_meta) → Spiel startet von selbst
+  (VS-Bildschirm, Pick & Ban bzw. Walze) → Spieler landen automatisch in der Draft-Lobby → deren Countdown startet das
+  Minigame. Knöpfe "Spiel N starten" entfallen; "Zum Draft" bleibt nur als Rückfall (bzw. "Zurück in den Draft").
+- **Bereit-Frist statt Erscheinen-Frist:** Ist genau einer bereit, hat der andere `showUpMinutes` Zeit, sonst gewinnt der
+  Bereite kampflos — vor JEDEM Spiel der Serie (bisherige Spiele bleiben gezählt). Pausiert, solange der Nicht-Bereite
+  ein anderes Match spielt oder das Turnier pausiert ist. Bereit-Status liegt in der DB (übersteht Neustart; der
+  Countdown wird ggf. von der Prüfschleife nachgeholt).
+- Wiedereinstieg nach Verbindungsabbruch: die Draft-Lobby erkennt den Spieler an seiner Turnier-Identität (Name aus der
+  Anmeldung) und setzt ihn ins laufende Spiel zurück — geprüft im Browser.
+- Live-Stand für alle (auch ohne Login): Bracket und Gruppen-Spielplan zeigen Serienstand und Phase laufender Matches.

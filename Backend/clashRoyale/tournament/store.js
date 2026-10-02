@@ -126,6 +126,12 @@ db.exec(`CREATE TABLE IF NOT EXISTS tournament_match_meta (
   forfeit TEXT,
   PRIMARY KEY (tournament_id, match_id)
 )`);
+// Bereit-Status je Seite + Start-Countdown (start_at) — in der DB, weil die Bereit-Frist daran hängt
+// und einen Neustart überstehen muss. wait_start = Beginn der Bereit-Frist (genau einer bereit).
+const metaCols = new Set(db.prepare('PRAGMA table_info(tournament_match_meta)').all().map(c => c.name));
+for (const col of ['ready_a_at', 'ready_b_at', 'start_at']) {
+  if (!metaCols.has(col)) db.exec(`ALTER TABLE tournament_match_meta ADD COLUMN ${col} INTEGER`);
+}
 
 const stmt = {
   insertT: db.prepare(`INSERT INTO tournaments (id, owner_id, owner_login, settings_json, status, created_at, updated_at)
@@ -172,10 +178,12 @@ const stmt = {
       battle_json = excluded.battle_json, review_json = excluded.review_json, checked_at = excluded.checked_at`),
   listGWaiting: db.prepare(`SELECT * FROM tournament_games WHERE status IN ('battle', 'review')`),
   getMeta: db.prepare('SELECT * FROM tournament_match_meta WHERE tournament_id = ? AND match_id = ?'),
-  upsertMeta: db.prepare(`INSERT INTO tournament_match_meta (tournament_id, match_id, present_a_at, present_b_at, wait_start, forfeit)
-    VALUES (@tournament_id, @match_id, @present_a_at, @present_b_at, @wait_start, @forfeit)
+  upsertMeta: db.prepare(`INSERT INTO tournament_match_meta
+    (tournament_id, match_id, present_a_at, present_b_at, wait_start, forfeit, ready_a_at, ready_b_at, start_at)
+    VALUES (@tournament_id, @match_id, @present_a_at, @present_b_at, @wait_start, @forfeit, @ready_a_at, @ready_b_at, @start_at)
     ON CONFLICT(tournament_id, match_id) DO UPDATE SET present_a_at = excluded.present_a_at, present_b_at = excluded.present_b_at,
-      wait_start = excluded.wait_start, forfeit = excluded.forfeit`),
+      wait_start = excluded.wait_start, forfeit = excluded.forfeit, ready_a_at = excluded.ready_a_at,
+      ready_b_at = excluded.ready_b_at, start_at = excluded.start_at`),
   listRunning: db.prepare(`SELECT * FROM tournaments WHERE status = 'running'`),
   setDropped: db.prepare('UPDATE tournament_participants SET dropped_at = ? WHERE id = ? AND tournament_id = ?'),
   deleteM: db.prepare('DELETE FROM tournament_matches WHERE tournament_id = ? AND id = ?'),
@@ -336,11 +344,15 @@ module.exports = {
   listRunningTournaments: () => stmt.listRunning.all().map(rowToTournament),
   getMatchMeta(tournamentId, matchId) {
     const r = stmt.getMeta.get(tournamentId, matchId);
-    return { presentAAt: r?.present_a_at ?? null, presentBAt: r?.present_b_at ?? null, waitStart: r?.wait_start ?? null, forfeit: r?.forfeit ?? null };
+    return {
+      presentAAt: r?.present_a_at ?? null, presentBAt: r?.present_b_at ?? null, waitStart: r?.wait_start ?? null, forfeit: r?.forfeit ?? null,
+      readyAAt: r?.ready_a_at ?? null, readyBAt: r?.ready_b_at ?? null, startAt: r?.start_at ?? null,
+    };
   },
   saveMatchMeta(tournamentId, matchId, m) {
     stmt.upsertMeta.run({ tournament_id: tournamentId, match_id: matchId, present_a_at: m.presentAAt ?? null,
-      present_b_at: m.presentBAt ?? null, wait_start: m.waitStart ?? null, forfeit: m.forfeit ?? null });
+      present_b_at: m.presentBAt ?? null, wait_start: m.waitStart ?? null, forfeit: m.forfeit ?? null,
+      ready_a_at: m.readyAAt ?? null, ready_b_at: m.readyBAt ?? null, start_at: m.startAt ?? null });
   },
   listChat: (tournamentId, matchId, limit = 100) => stmt.listChat.all(tournamentId, matchId, limit)
     .map(r => ({ id: r.id, authorId: r.author_id, authorName: r.author_name, role: r.role, text: r.text, at: r.at })),

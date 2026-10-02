@@ -8,8 +8,10 @@
 // Server an der Twitch-Session des Sockets bzw. (Anmeldung ohne Login) am Geheimschlüssel, den der
 // Client bei jeder Aktion mitschickt.
 //
-// "Bereit" lebt nur im Speicher (nach einem Neustart klickt man eben erneut); Spiele und Chat liegen
-// in der Datenbank. Eine Draft-Lobby, die einen Neustart nicht überlebt hat, wird beim nächsten
+// Ablauf je Spiel: beide drücken "Bereit" → 3 s Countdown (Server-Timer) → Spiel startet von selbst
+// (Pick & Ban bzw. Zufallsmodus → Draft-Lobby). Ist nur einer bereit, läuft die Bereit-Frist
+// (settings.showUpMinutes); danach gewinnt der Bereite kampflos. Bereit-Status, Frist und Countdown liegen
+// in der Datenbank (tournament_match_meta) und überstehen damit einen Neustart; Spiele und Chat ebenso. Eine Draft-Lobby, die einen Neustart nicht überlebt hat, wird beim nächsten
 // Zugriff annulliert — das Spiel beginnt dann neu.
 const crypto = require('crypto');
 const store = require('./store');
@@ -40,12 +42,14 @@ let battleApi = {
 };
 
 let ioRef = null;
-const readyState = new Map(); // "<tid>:<mid>" → { a, b }
+const START_COUNTDOWN_MS = 3000; // beide bereit → so lange bis zum Spielstart
 
 // Austauschbar für Tests (dort gibt es keine echte Lobby-Engine)
 let lobbyApi = {
   create: (opts) => require('../routes/clashRoyaleRoutes').createTournamentLobby(opts),
   exists: (code) => require('../core/lobbies').lobbies.has(code),
+  // Läuft das Minigame in der Lobby schon? (Raum zeigt dann "Zurück in den Draft")
+  started: (code) => !!require('../core/lobbies').lobbies.get(code)?.started,
   remove: (code) => {
     const { lobbies } = require('../core/lobbies');
     const l = lobbies.get(code);
@@ -116,7 +120,8 @@ function buildState(ctx) {
   const games = loadGames(t, match.id);
   const score = SR.seriesScore(games);
   const active = SR.activeGame(games);
-  const ready = readyState.get(rkey(t.id, match.id)) || { a: false, b: false };
+  const meta = store.getMatchMeta(t.id, match.id);
+  const ready = { a: !!meta.readyAAt, b: !!meta.readyBAt };
   const byId = new Map(ctx.participants.map(p => [p.id, p]));
   let phase = 'lobby';
   if (match.status !== 'pending') phase = 'finished';
@@ -131,10 +136,11 @@ function buildState(ctx) {
       playable: S.isPlayable(match),
     },
     players: { a: publicParticipant(byId.get(match.a)), b: publicParticipant(byId.get(match.b)) },
-    presence: (() => {
-      const meta = store.getMatchMeta(t.id, match.id);
-      return { a: !!meta.presentAAt, b: !!meta.presentBAt, waitStart: meta.waitStart, forfeit: meta.forfeit };
-    })(),
+    presence: { a: !!meta.presentAAt, b: !!meta.presentBAt, forfeit: meta.forfeit },
+    // Countdown bis zum automatischen Start (beide bereit) bzw. Ende der Bereit-Frist (genau einer bereit)
+    startAt: !active && ready.a && ready.b ? meta.startAt : null,
+    readyDeadline: !active && ready.a !== ready.b && meta.waitStart ? meta.waitStart + t.settings.showUpMinutes * 60000 : null,
+    serverNow: Date.now(),
     showUpMinutes: t.settings.showUpMinutes,
     paused: !!t.settings.paused,
     battleMinutes: t.settings.battleMinutes,
@@ -148,6 +154,7 @@ function buildState(ctx) {
     games: games.map(g => ({
       gameNo: g.gameNo, status: g.status, offer: g.offer, bans: g.bans, mode: g.mode,
       lobbyCode: g.status === 'drafting' ? g.lobbyCode : null, decks: g.decks, winner: g.winner,
+      lobbyStarted: g.status === 'drafting' && g.lobbyCode ? !!lobbyApi.started?.(g.lobbyCode) : false,
       crownsA: g.crownsA, crownsB: g.crownsB, draftDoneAt: g.draftDoneAt, finishedAt: g.finishedAt,
       battle: g.battle, review: g.review, checkedAt: g.checkedAt,
       battleDeadline: g.draftDoneAt ? g.draftDoneAt + t.settings.battleMinutes * 60000 : null,
@@ -212,16 +219,65 @@ function systemChat(tid, mid, text) {
   ioRef?.to(roomName(tid, mid)).emit('tmatch:chat', { matchId: mid, message: msg });
 }
 
-/** Spieler betritt den Raum: Anwesenheit merken; ist der Gegner noch nie da gewesen, startet die Erscheinen-Frist. */
+/** Spieler betritt den Raum: Anwesenheit merken (nur fürs Bild des Veranstalters; die Frist hängt am Bereit). */
 function markPresent(ctx) {
   if (!ctx.side || !S.isPlayable(ctx.match)) return;
   const meta = store.getMatchMeta(ctx.t.id, ctx.match.id);
   const key = ctx.side === 'a' ? 'presentAAt' : 'presentBAt';
   if (meta[key]) return;
   meta[key] = Date.now();
-  const other = ctx.side === 'a' ? meta.presentBAt : meta.presentAAt;
-  meta.waitStart = other ? null : Date.now();
   store.saveMatchMeta(ctx.t.id, ctx.match.id, meta);
+}
+
+/** Nächstes Spiel anlegen: Pick & Ban (3 Modi) oder Zufallsmodus mit sofortiger Draft-Lobby. */
+function startGame(ctx, rng = Math.random) {
+  const games = loadGames(ctx.t, ctx.match.id);
+  const pool = ctx.t.settings.modes || [];
+  const game = { matchId: ctx.match.id, gameNo: SR.nextGameNo(games), offer: [], bans: [], mode: null, createdAt: Date.now() };
+  if (ctx.t.settings.modeSelection === 'pickban') {
+    game.status = 'banning';
+    game.offer = SR.drawOffer(pool, games, rng);
+  } else {
+    game.mode = SR.randomMode(pool, games, rng);
+    openDraftLobby(ctx, game);
+  }
+  store.saveGame(ctx.t.id, game);
+  return game;
+}
+
+/** Bereit-Status zurücksetzen (nach Spielstart, Annullieren, Zurücksetzen). */
+function clearReady(tid, mid) {
+  const meta = store.getMatchMeta(tid, mid);
+  Object.assign(meta, { readyAAt: null, readyBAt: null, startAt: null, waitStart: null });
+  store.saveMatchMeta(tid, mid, meta);
+}
+
+/**
+ * Startet das Spiel, wenn der Countdown abgelaufen ist und weiterhin beide bereit sind (und nichts
+ * dagegen spricht). Aufgerufen vom Timer nach dem zweiten "Bereit" und als Rückfall aus der Prüfschleife.
+ */
+function autoStart(tid, mid, now = Date.now()) {
+  const ctx = loadContext(tid, mid, {});
+  const meta = store.getMatchMeta(tid, mid);
+  if (!meta.startAt || now < meta.startAt - 50) return false;
+  const blocked = !meta.readyAAt || !meta.readyBAt || ctx.t.settings.paused || !S.isPlayable(ctx.match)
+    || SR.activeGame(loadGames(ctx.t, ctx.match.id));
+  if (blocked) {
+    meta.startAt = null;
+    store.saveMatchMeta(tid, mid, meta);
+    return false;
+  }
+  startGame(ctx);
+  clearReady(tid, mid);
+  return true;
+}
+
+function scheduleAutoStart(tid, mid) {
+  const timer = setTimeout(() => {
+    try { if (autoStart(tid, mid)) { broadcastRoom(tid, mid); notifyTournament(tid); } }
+    catch (e) { console.error('[Turnier] Automatischer Spielstart fehlgeschlagen:', e.message); }
+  }, START_COUNTDOWN_MS + 30);
+  timer.unref?.();
 }
 
 // ── Prüfschleife (Phase 4) ──────────────────────────────────────────────
@@ -271,21 +327,36 @@ async function checkGame(ctx, games, game, now) {
   return false;
 }
 
-/** Erscheinen-Frist eines Matches prüfen (nur solange noch kein Spiel gestartet wurde). */
+/**
+ * Bereit-Frist eines Matches (vor jedem Spiel der Serie): Ist nur einer bereit, hat der andere
+ * settings.showUpMinutes Zeit — sonst gewinnt der Bereite das Match kampflos. Sind beide bereit, aber der
+ * Start-Timer ist (Neustart/Pause) verloren gegangen, wird hier gestartet.
+ */
 function checkShowUp(t, match, matches, participants, now) {
   if (!S.isPlayable(match)) return false;
   const games = store.listGames(t.id, match.id);
-  if (games.some(g => g.status !== 'void')) return false;
+  if (SR.activeGame(games)) return false;
   const meta = store.getMatchMeta(t.id, match.id);
-  if (meta.forfeit || meta.waitStart == null) return false;
+  if (meta.forfeit) return false;
+  if (meta.readyAAt && meta.readyBAt) {
+    if (t.settings.paused) return false;
+    if (!meta.startAt) {
+      meta.startAt = now + START_COUNTDOWN_MS;
+      store.saveMatchMeta(t.id, match.id, meta);
+      scheduleAutoStart(t.id, match.id);
+      return true;
+    }
+    return autoStart(t.id, match.id, now);
+  }
+  if (meta.waitStart == null || !meta.readyAAt === !meta.readyBAt) return false;
   if (t.settings.paused) {
     // Pausiert: Uhr anhalten (Startzeit mitschieben), kein kampfloser Sieg
     meta.waitStart = now;
     store.saveMatchMeta(t.id, match.id, meta);
     return false;
   }
-  // Uhr anhalten, solange der Abwesende gerade ein Spiel in einem anderen Match spielt
-  const absentPid = meta.presentAAt ? match.b : match.a;
+  // Uhr anhalten, solange der Nicht-Bereite gerade ein Spiel in einem anderen Match spielt
+  const absentPid = meta.readyAAt ? match.b : match.a;
   const busy = matches.some(m => m.id !== match.id && S.isPlayable(m) && (m.a === absentPid || m.b === absentPid)
     && SR.activeGame(store.listGames(t.id, m.id)));
   if (busy) {
@@ -293,15 +364,20 @@ function checkShowUp(t, match, matches, participants, now) {
     store.saveMatchMeta(t.id, match.id, meta);
     return false;
   }
-  const winner = BM.showUpForfeit({ presentA: !!meta.presentAAt, presentB: !!meta.presentBAt, waitStart: meta.waitStart, now, showUpMs: (t.settings.showUpMinutes || 10) * 60000 });
+  const winner = BM.showUpForfeit({ presentA: !!meta.readyAAt, presentB: !!meta.readyBAt, waitStart: meta.waitStart, now, showUpMs: (t.settings.showUpMinutes || 10) * 60000 });
   if (!winner) return false;
   meta.forfeit = winner;
   store.saveMatchMeta(t.id, match.id, meta);
+  // Der Bereite bekommt die noch fehlenden Siege der Serie; bisherige Spiele bleiben gezählt
   const need = Math.ceil(match.bestOf / 2);
-  lifecycle.reportResult(t, match.id, { winner, scoreA: winner === 'a' ? need : 0, scoreB: winner === 'b' ? need : 0 });
+  const score = SR.seriesScore(games);
+  lifecycle.reportResult(t, match.id, {
+    winner, scoreA: winner === 'a' ? need : score.a, scoreB: winner === 'b' ? need : score.b,
+    crownsA: score.crownsA, crownsB: score.crownsB,
+  });
   const byId = new Map(participants.map(p => [p.id, p]));
   const w = byId.get(winner === 'a' ? match.a : match.b), l = byId.get(winner === 'a' ? match.b : match.a);
-  systemChat(t.id, match.id, `${l?.displayName} ist nicht rechtzeitig erschienen — kampfloser Sieg für ${w?.displayName}.`);
+  systemChat(t.id, match.id, `${l?.displayName} war nicht rechtzeitig bereit — kampfloser Sieg für ${w?.displayName}.`);
   return true;
 }
 
@@ -396,6 +472,7 @@ function ownerOverview(t) {
       reviewReason: active?.review?.reason || null,
       since: active ? (active.status === 'battle' || active.status === 'review' ? active.draftDoneAt : active.createdAt) : meta.waitStart,
       presentA: !!meta.presentAAt, presentB: !!meta.presentBAt,
+      readyA: !!meta.readyAAt, readyB: !!meta.readyBAt,
     });
   }
   const rank = { review: 0, battle: 1, drafting: 2, banning: 3, lobby: 4 };
@@ -409,35 +486,24 @@ function requirePlayable(ctx) {
 }
 
 const actions = {
-  ready(ctx, { ready }) {
+  /**
+   * Bereit an/aus. Beide bereit → Countdown (startAt) + Server-Timer, danach startet das Spiel von selbst.
+   * Genau einer bereit → Bereit-Frist läuft (waitStart). Rückgabe { autoStartAt } für Tests/Client.
+   */
+  ready(ctx, { ready }, now = Date.now()) {
     if (!ctx.side) fail('tournamentNoAccess');
     requirePlayable(ctx);
     if (SR.activeGame(loadGames(ctx.t, ctx.match.id))) fail('tournamentGameRunning');
-    const k = rkey(ctx.t.id, ctx.match.id);
-    const cur = readyState.get(k) || { a: false, b: false };
-    readyState.set(k, { ...cur, [ctx.side]: !!ready });
-  },
-
-  /** Spieler A (oder der Veranstalter) startet das nächste Spiel, wenn beide bereit sind. */
-  start(ctx, _payload, rng = Math.random) {
-    if (ctx.side !== 'a' && !ctx.isOwner) fail('tournamentOnlyStarter');
-    requirePlayable(ctx);
-    if (ctx.t.settings.paused) fail('tournamentPaused');
-    const games = loadGames(ctx.t, ctx.match.id);
-    if (SR.activeGame(games)) fail('tournamentGameRunning');
-    const ready = readyState.get(rkey(ctx.t.id, ctx.match.id)) || {};
-    if (!ready.a || !ready.b) fail('tournamentNotReady');
-    const pool = ctx.t.settings.modes || [];
-    const game = { matchId: ctx.match.id, gameNo: SR.nextGameNo(games), offer: [], bans: [], mode: null, createdAt: Date.now() };
-    if (ctx.t.settings.modeSelection === 'pickban') {
-      game.status = 'banning';
-      game.offer = SR.drawOffer(pool, games, rng);
-    } else {
-      game.mode = SR.randomMode(pool, games, rng);
-      openDraftLobby(ctx, game);
-    }
-    store.saveGame(ctx.t.id, game);
-    readyState.delete(rkey(ctx.t.id, ctx.match.id));
+    const meta = store.getMatchMeta(ctx.t.id, ctx.match.id);
+    const key = ctx.side === 'a' ? 'readyAAt' : 'readyBAt';
+    meta[key] = ready ? (meta[key] || now) : null;
+    const both = !!(meta.readyAAt && meta.readyBAt);
+    const one = !!meta.readyAAt !== !!meta.readyBAt;
+    meta.waitStart = one ? (meta.waitStart ?? now) : null;
+    meta.startAt = both && !ctx.t.settings.paused ? now + START_COUNTDOWN_MS : null;
+    store.saveMatchMeta(ctx.t.id, ctx.match.id, meta);
+    if (meta.startAt) scheduleAutoStart(ctx.t.id, ctx.match.id);
+    return { autoStartAt: meta.startAt };
   },
 
   ban(ctx, { mode }) {
@@ -490,7 +556,7 @@ const actions = {
     game.finishedAt = Date.now();
     store.saveGame(ctx.t.id, game);
     if (game.lobbyCode) lobbyApi.remove(game.lobbyCode);
-    readyState.delete(rkey(ctx.t.id, ctx.match.id));
+    clearReady(ctx.t.id, ctx.match.id);
   },
 };
 
@@ -577,7 +643,6 @@ function registerTournamentSocket(socket, io, { twitchId = null } = {}) {
   });
   handle('tmatch:leave', (p) => { socket.leave(roomName(String(p.tournamentId || ''), String(p.matchId || ''))); });
   handle('tmatch:ready', (p) => { act('ready', p); });
-  handle('tmatch:start', (p) => { act('start', p); });
   handle('tmatch:ban', (p) => { act('ban', p); });
   handle('tmatch:chat', (p) => {
     const ctx = ctxFor(p);
@@ -599,6 +664,6 @@ module.exports = {
   // Tests
   runChecks, ownerOverview,
   _actions: actions, _loadContext: loadContext, _buildState: buildState, _markPresent: markPresent,
-  _setLobbyApi: (api) => { lobbyApi = api; }, _resetReady: () => readyState.clear(),
+  _setLobbyApi: (api) => { lobbyApi = api; }, _autoStart: autoStart, _startGame: startGame, clearReady,
   _setBattleApi: (api) => { battleApi = api; },
 };

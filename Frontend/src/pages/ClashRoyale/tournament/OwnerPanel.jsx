@@ -62,9 +62,9 @@ export default function OwnerPanel({ tournament, overview = [], structure, parti
                         {A?.displayName} <span className="text-white/45 font-sans text-sm mx-1">{item.scoreA}:{item.scoreB}</span> {B?.displayName}
                       </p>
                       <p className="text-white/45 text-[11px] flex items-center gap-1.5">
-                        <Presence here={item.presentA} /> {A?.displayName}
+                        <Presence here={item.readyA} /> {A?.displayName}
                         <span className="mx-1">·</span>
-                        <Presence here={item.presentB} /> {B?.displayName}
+                        <Presence here={item.readyB} /> {B?.displayName}
                       </p>
                     </div>
                     <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 flex-1 sm:flex-none">

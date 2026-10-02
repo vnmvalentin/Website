@@ -49,6 +49,31 @@ function SideBanner({ player, side }) {
   );
 }
 
+/**
+ * Großer Countdown über der Seite (Raum: beide bereit → Spielstart). endsAt in Client-Zeit; zeigt die
+ * verbleibenden Sekunden, tickt hörbar und verschwindet bei 0. Ohne Animationen bleibt die Zahl, nur ohne Bewegung.
+ */
+export function BigCountdown({ endsAt, label }) {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 100);
+    return () => clearInterval(id);
+  }, []);
+  const left = Math.ceil((endsAt - now) / 1000);
+  const lastRef = useRef(null);
+  useEffect(() => {
+    if (left > 0 && left !== lastRef.current) { lastRef.current = left; playSound('tap'); }
+  }, [left]);
+  if (left <= 0) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/55 pointer-events-none" role="status" aria-label={label}>
+      <span key={left} className="cr-count-in font-cr text-[9rem] md:text-[12rem] leading-none text-[var(--cr-arcade-gold)]"
+        style={{ textShadow: '0 8px 0 rgba(2,8,20,0.7)' }}>{left}</span>
+      <span className="font-cr text-white text-xl mt-2" style={{ textShadow: '0 2px 0 rgba(2,8,20,0.7)' }}>{label}</span>
+    </div>
+  );
+}
+
 /** VS-Bildschirm beim Start eines Spiels. */
 export function MatchIntro({ players, gameNo, bestOf, t, onDone }) {
   return (

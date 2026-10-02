@@ -7,7 +7,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { playSound } from '../ui/sound';
 import { useTitleAlert } from './useTitleAlert';
 import ModeSpin from './ModeSpin';
-import { MatchIntro, MatchWin } from './MatchShows';
+import { MatchIntro, MatchWin, BigCountdown } from './MatchShows';
 import { useNavigate } from 'react-router-dom';
 import ChunkyButton from '../ui/ChunkyButton';
 import Section from '../ui/Section';
@@ -191,6 +191,7 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
   const [state, setState] = useState(null);
   const [error, setError] = useState('');
   const [decideOpen, setDecideOpen] = useState(false);
+  const clockOffsetRef = useRef(0); // Serverzeit − Clientzeit
   const [correctOpen, setCorrectOpen] = useState(false);
   const now = useNow(true);
 
@@ -243,7 +244,11 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
   useEffect(() => {
     if (!socket || !connected || !matchId) return undefined;
     setError('');
-    const onState = (s) => { if (s.matchId === matchId) setState(s); };
+    const onState = (s) => {
+      if (s.matchId !== matchId) return;
+      clockOffsetRef.current = (s.serverNow || Date.now()) - Date.now();
+      setState(s);
+    };
     const onChat = ({ matchId: mid, message }) => {
       if (mid !== matchId) return;
       setState(prev => (prev && !prev.chat.some(c => c.id === message.id) ? { ...prev, chat: [...prev.chat, message] } : prev));
@@ -283,10 +288,11 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
   const matchStructure = structure?.matches?.find(m => m.id === state.matchId);
   const label = matchStructure ? matchLabel(matchStructure, structure.matches, t) : '';
   const nameOf = (side) => P[side]?.displayName || side.toUpperCase();
-  // Erscheinen-Frist: läuft, solange genau einer da war und noch kein Spiel begonnen hat
-  const pr = state.presence || {};
-  const showUpLeft = state.phase === 'lobby' && !state.games.some(g => g.status !== 'void') && pr.waitStart && (pr.a !== pr.b)
-    ? pr.waitStart + state.showUpMinutes * 60000 - now : null;
+  // Bereit-Frist (genau einer bereit) und Start-Countdown (beide bereit) kommen in Serverzeit
+  const serverNow = now + clockOffsetRef.current;
+  const readyLeft = state.readyDeadline ? state.readyDeadline - serverNow : null;
+  const startEndsAt = state.startAt ? state.startAt - clockOffsetRef.current : null; // in Client-Zeit
+  const waitingSide = state.ready.a && !state.ready.b ? 'b' : state.ready.b && !state.ready.a ? 'a' : null;
 
   // ── Hauptbereich je Phase ──
   let main;
@@ -306,26 +312,21 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
   } else if (state.phase === 'lobby') {
     main = (
       <div className="space-y-4">
-        <p className="text-white/65 text-sm">{t.readyHint(nameOf('a'))}</p>
+        <p className="text-white/65 text-sm">{t.readyHintAuto(nextNo)}</p>
         {state.paused && <p className="text-amber-200 text-sm">{t.pausedBanner}</p>}
-        <div className="flex flex-wrap gap-3">
-          {mySide && (
-            <ChunkyButton variant={state.ready[mySide] ? 'blue' : 'green'} size="lg" icon={CrCheck} iconSize={24}
-              onClick={() => send('tmatch:ready', { ready: !state.ready[mySide] })}>
-              {state.ready[mySide] ? t.unsetReady : t.setReady}
-            </ChunkyButton>
-          )}
-          {(mySide === 'a' || isOwner) && (
-            <ChunkyButton variant="gold" size="lg" icon={CrBattle} iconSize={26} disabled={!bothReady || state.paused}
-              onClick={() => send('tmatch:start')}>
-              {t.startGame(nextNo)}
-            </ChunkyButton>
-          )}
-        </div>
-        {bothReady && mySide === 'b' && <p className="text-white/60 text-sm">{t.waitingForStart(nameOf('a'))}</p>}
-        {showUpLeft !== null && (
+        {mySide && (
+          <ChunkyButton variant={state.ready[mySide] ? 'blue' : 'green'} size="lg" icon={CrCheck} iconSize={24}
+            onClick={() => send('tmatch:ready', { ready: !state.ready[mySide] })}>
+            {state.ready[mySide] ? t.unsetReady : t.setReady}
+          </ChunkyButton>
+        )}
+        {bothReady && !state.paused && <p className="text-[var(--cr-arcade-gold)] font-cr">{t.startingSoon}</p>}
+        {readyLeft !== null && waitingSide && (
           <p className="text-amber-200 text-sm flex items-center gap-2">
-            <CrClock size={18} />{t.waitingForShowUp(nameOf(state.presence.a ? 'b' : 'a'), mmss(showUpLeft))}
+            <CrClock size={18} />
+            {waitingSide === mySide ? t.readyDeadlineMe(mmss(readyLeft), nameOf(waitingSide === 'a' ? 'b' : 'a'))
+              : mySide ? t.readyDeadlineOther(nameOf(waitingSide), mmss(readyLeft))
+              : t.readyDeadlineSpectator(nameOf(waitingSide), mmss(readyLeft))}
           </p>
         )}
       </div>
@@ -359,7 +360,7 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
           <p className="text-white/55 text-sm">{t.draftHint}</p>
           {(mySide || isOwner) && (
             <ChunkyButton variant="green" size="lg" icon={mySide ? CrCards : CrTv} iconSize={26} onClick={() => navigate(draftUrl)}>
-              {mySide ? t.toDraft : t.watchDraft}
+              {mySide ? (active.lobbyStarted ? t.backToDraft : t.toDraft) : t.watchDraft}
             </ChunkyButton>
           )}
         </div>
@@ -509,6 +510,9 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
 
       <ChatPanel chat={state.chat} myRole={myRole} players={P} t={t} onSend={(text) => send('tmatch:chat', { text })} />
 
+      {startEndsAt && state.phase === 'lobby' && !state.paused && (
+        <BigCountdown key={state.startAt} endsAt={startEndsAt} label={t.gameN(nextNo)} />
+      )}
       {intro && (
         <MatchIntro key={intro.key} players={P} gameNo={intro.gameNo} bestOf={state.match.bestOf} t={t} onDone={() => setIntro(null)} />
       )}
@@ -517,7 +521,12 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
       )}
       {spin && !intro && (
         <ModeSpin key={spin.key} pool={tournament.settings.modes} target={spin.mode} kind={spin.kind}
-          lang={lang} t={t} onDone={() => setSpin(null)} />
+          lang={lang} t={t} onDone={() => {
+            setSpin(null);
+            // Spieler direkt in die Draft-Lobby — dort startet der Countdown, sobald beide drin sind
+            const g = state.games.find(x => x.status === 'drafting');
+            if (mySide && g?.lobbyCode) navigate(`/clash-royale?code=${encodeURIComponent(g.lobbyCode)}&turnier=${encodeURIComponent(tournament.id)}`);
+          }} />
       )}
       {correctOpen && matchStructure && (
         <ResultModal correct tournamentId={tournament.id} match={matchStructure} matches={structure.matches}

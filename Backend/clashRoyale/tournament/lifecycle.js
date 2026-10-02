@@ -3,6 +3,7 @@
 // steckt in structure.js; hier wird nur geladen, verbunden und in Transaktionen gespeichert.
 const store = require('./store');
 const S = require('./structure');
+const SR = require('./series');
 
 /** Gruppen und Losreihenfolge aus den gespeicherten Teilnehmern zurückgewinnen. */
 function drawFromParticipants(participants) {
@@ -126,6 +127,22 @@ const publicMatch = (m) => ({
   winner: m.winner, status: m.status, playable: S.isPlayable(m), finishedAt: m.finishedAt,
 });
 
+/**
+ * Live-Stand eines laufenden Matches für Bracket und Gruppen-Spielplan (für alle sichtbar):
+ * Serienstand und Phase — 'ready' (mind. einer bereit), 'banning', 'drafting', 'battle', 'review'.
+ * null, wenn das Match nicht läuft oder sich noch nichts getan hat.
+ */
+function liveOf(t, m) {
+  if (!S.isPlayable(m)) return null;
+  const games = store.listGames(t.id, m.id);
+  const active = SR.activeGame(games);
+  const meta = store.getMatchMeta(t.id, m.id);
+  const score = SR.seriesScore(games);
+  const phase = active ? active.status : (meta.readyAAt || meta.readyBAt) ? 'ready' : null;
+  if (!phase && !score.a && !score.b) return null;
+  return { scoreA: score.a, scoreB: score.b, phase, gameNo: active?.gameNo || null };
+}
+
 /** Gruppen-Tabellen, Matches, Phase und Sieger für die Turnierseite. */
 function structureView(t, participants) {
   if (t.status === 'registration' || t.status === 'cancelled') return null;
@@ -145,7 +162,7 @@ function structureView(t, participants) {
   return {
     phase: champion ? 'finished' : hasBracket ? 'bracket' : 'groups',
     groups: groupViews,
-    matches: matches.map(publicMatch),
+    matches: matches.map(m => ({ ...publicMatch(m), live: liveOf(t, m) })),
     champion,
     // Siegerehrung (Phase 6): 1., 2. und 3. Platz(e), sobald das Turnier entschieden ist
     podium: S.podiumOf(matches),

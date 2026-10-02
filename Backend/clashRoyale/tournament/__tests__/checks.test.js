@@ -39,8 +39,8 @@ function playDraft(tid, mid) {
   const m = store.listMatches(tid).find(x => x.id === mid);
   const A = idOf(tid, m.a), B = idOf(tid, m.b);
   room._actions.ready(ctx(tid, mid, A), { ready: true });
-  room._actions.ready(ctx(tid, mid, B), { ready: true });
-  room._actions.start(ctx(tid, mid, A), {});
+  const { autoStartAt } = room._actions.ready(ctx(tid, mid, B), { ready: true });
+  room._autoStart(tid, mid, autoStartAt);
   const lobby = created[created.length - 1];
   room.onDraftComplete({ tournament: lobby.tournament, players: [{ tournamentSide: 'a', deck: DECK_A }, { tournamentSide: 'b', deck: DECK_B }] });
   return store.listGames(tid, mid).find(g => g.gameNo === lobby.tournament.gameNo);
@@ -107,12 +107,12 @@ test('Unentschieden geht an den Veranstalter', async () => {
   assert.equal(store.listGames(tid, m.id)[0].review.reason, 'draw');
 });
 
-test('Erscheinen-Frist: wer allein im Raum wartet, gewinnt nach Ablauf kampflos', async () => {
+test('Bereit-Frist: wer allein bereit ist, gewinnt nach Ablauf kampflos', async () => {
   const tid = await tournament({ maxPlayers: 2, showUpMinutes: 5, bestOf: { normal: 1, finals: 3 } }, 2);
   const m = store.listMatches(tid)[0];
-  room._markPresent(ctx(tid, m.id, idOf(tid, m.b)));
+  room._actions.ready(ctx(tid, m.id, idOf(tid, m.b)), { ready: true });
   const meta = store.getMatchMeta(tid, m.id);
-  assert.ok(meta.presentBAt && meta.waitStart);
+  assert.ok(meta.readyBAt && meta.waitStart);
   await room.runChecks(meta.waitStart + 4 * 60000);
   assert.equal(store.listMatches(tid)[0].status, 'pending');
   await room.runChecks(meta.waitStart + 6 * 60000);
@@ -121,14 +121,14 @@ test('Erscheinen-Frist: wer allein im Raum wartet, gewinnt nach Ablauf kampflos'
   assert.equal(store.getMatchMeta(tid, m.id).forfeit, 'b');
 });
 
-test('Erscheinen-Frist steht still, solange der Abwesende in einem anderen Match spielt; ohne Anwesende kein Freilos', async () => {
+test('Bereit-Frist steht still, solange der Nicht-Bereite in einem anderen Match spielt; ohne Bereite kein Freilos', async () => {
   const tid = await tournament({ maxPlayers: 3, showUpMinutes: 5, groupStage: { enabled: true, groupSize: 3, advancePerGroup: 2 }, bestOf: { normal: 1, finals: 3 } }, 3);
   const matches = store.listMatches(tid);
   // Match X: P wartet allein; P's Gegner Q spielt gerade Match Y gegen R
   const [x] = matches;
   const absent = x.b;
   const y = matches.find(mm => mm.id !== x.id && (mm.a === absent || mm.b === absent));
-  room._markPresent(ctx(tid, x.id, idOf(tid, x.a)));
+  room._actions.ready(ctx(tid, x.id, idOf(tid, x.a)), { ready: true });
   playDraft(tid, y.id); // Q hat ein laufendes Spiel (Kampf-Phase)
   const start = store.getMatchMeta(tid, x.id).waitStart;
   await room.runChecks(start + 10 * 60000);
@@ -149,4 +149,30 @@ test('Prüfschleife läuft nie doppelt: ein zweiter Aufruf während eines laufen
   assert.equal(second, 0);
   assert.ok(calls > 0 && first >= 0);
   room._setBattleApi({ configured: () => true, fetchLog: async (tag) => logs[tag] || [] });
+});
+
+test('Bereit-Frist mitten in der Serie: bisherige Spiele zählen, der Bereite bekommt die fehlenden Siege', async () => {
+  const tid = await tournament({ maxPlayers: 2, showUpMinutes: 5, bestOf: { normal: 1, finals: 3 } }, 2);
+  const m = store.listMatches(tid)[0];
+  playDraft(tid, m.id);
+  room._actions.gameResult(ctx(tid, m.id, BOSS), { gameNo: 1, winner: 'a' }); // A führt 1:0
+  room._actions.ready(ctx(tid, m.id, idOf(tid, m.b)), { ready: true });        // nur B ist für Spiel 2 bereit
+  const wait = store.getMatchMeta(tid, m.id).waitStart;
+  await room.runChecks(wait + 6 * 60000);
+  const done = store.listMatches(tid)[0];
+  assert.deepEqual([done.status, done.winner, done.scoreA, done.scoreB], ['done', 'b', 1, 2]);
+});
+
+test('Live-Stand im Bracket für Zuschauer ohne Login: Serienstand und Phase', async () => {
+  const tid = await tournament({ maxPlayers: 2, bestOf: { normal: 1, finals: 3 } }, 2);
+  const m = store.listMatches(tid)[0];
+  let view = (await call('GET', `/${tid}`)).data; // ohne Login
+  assert.equal(view.structure.matches[0].live, null);
+  room._actions.ready(ctx(tid, m.id, idOf(tid, m.a)), { ready: true });
+  view = (await call('GET', `/${tid}`)).data;
+  assert.equal(view.structure.matches[0].live.phase, 'ready');
+  playDraft(tid, m.id);
+  room._actions.gameResult(ctx(tid, m.id, BOSS), { gameNo: 1, winner: 'b' });
+  view = (await call('GET', `/${tid}`)).data;
+  assert.deepEqual([view.structure.matches[0].live.scoreA, view.structure.matches[0].live.scoreB], [0, 1]);
 });

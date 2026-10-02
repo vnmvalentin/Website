@@ -16,6 +16,16 @@ import Podium from './Podium';
 
 const sideOf = (m, pid) => (m.a === pid ? 'a' : 'b');
 
+/** Kleines Live-Etikett eines laufenden Matches (Bracket-Kopf): Punkt + Phase. */
+function LivePhase({ phase, t }) {
+  return (
+    <span className="flex items-center gap-1 text-sky-200 normal-case tracking-normal font-semibold">
+      <span className="w-1.5 h-1.5 rounded-sm bg-sky-300" aria-hidden="true" />
+      {t.liveLabel[phase] || phase}
+    </span>
+  );
+}
+
 // ── Nächstes Match / Sieger ─────────────────────────────────────────────
 
 export function NextMatchCard({ structure, me, byId, onOpenRoom, t }) {
@@ -121,8 +131,9 @@ function GroupTable({ group, matches, byId, me, canOpen, onOpen, t }) {
             const row = (
               <>
                 <span className={`flex-1 truncate text-right ${done && m.winner === 'a' ? 'text-white font-semibold' : 'text-white/60'}`}>{A?.displayName}</span>
-                <span className={`font-cr w-12 text-center shrink-0 ${done ? 'text-[var(--cr-arcade-gold)]' : 'text-white/30'}`}>
-                  {done ? `${m.scoreA}:${m.scoreB}` : t.vs}
+                <span className={`font-cr w-12 text-center shrink-0 ${done ? 'text-[var(--cr-arcade-gold)]' : m.live ? 'text-sky-200' : 'text-white/30'}`}
+                  title={m.live?.phase ? t.liveLabel[m.live.phase] : undefined}>
+                  {done ? `${m.scoreA}:${m.scoreB}` : m.live ? `${m.live.scoreA}:${m.live.scoreB}` : t.vs}
                 </span>
                 <span className={`flex-1 truncate ${done && m.winner === 'b' ? 'text-white font-semibold' : 'text-white/60'}`}>{B?.displayName}</span>
               </>
@@ -174,6 +185,9 @@ function MatchBox({ m, matches, byId, me, canOpen, onOpen, t, fresh }) {
             {side === 'a' ? m.scoreA : m.scoreB}
           </span>
         )}
+        {m.status === 'pending' && m.live && (
+          <span className="font-cr text-sm tabular-nums text-sky-200">{side === 'a' ? m.live.scoreA : m.live.scoreB}</span>
+        )}
       </div>
     );
   };
@@ -181,7 +195,9 @@ function MatchBox({ m, matches, byId, me, canOpen, onOpen, t, fresh }) {
     <div className={`cr-row w-52 overflow-hidden ${has(m, me?.id) && m.status === 'pending' ? 'cr-row--me' : ''} ${skipped || m.status === 'bye' ? 'opacity-50' : ''}`}>
       <div className="flex items-center justify-between px-2.5 pt-1 text-[10px] uppercase tracking-wider text-white/40">
         <span>{skipped ? t.notNeeded : matchLabel(m, matches, t)}</span>
-        <span>{t.bestOfShort(m.bestOf)}</span>
+        {m.status === 'pending' && m.live?.phase
+          ? <LivePhase phase={m.live.phase} t={t} />
+          : <span>{t.bestOfShort(m.bestOf)}</span>}
       </div>
       {line('a')}
       {line('b')}

@@ -84,21 +84,26 @@ test('Disqualifizieren: offenes Match sofort verloren, künftige Matches ebenfal
   assert.ok(theirs.every(m => m.status === 'done' && (m.a === victim ? m.winner === 'b' : m.winner === 'a')));
 });
 
-test('Pause: kein Spielstart, Erscheinen-Frist steht still; Übersicht nur für den Veranstalter; Abbrechen nach dem Start', async () => {
+test('Pause: kein Spielstart, Bereit-Frist steht still; Übersicht nur für den Veranstalter; Abbrechen nach dem Start', async () => {
   const id = await started({ maxPlayers: 2, showUpMinutes: 5 }, 2);
   const m = (await get(id)).structure.matches[0];
   assert.equal((await call('POST', `/${id}/pause`, { user: OWNER, body: { paused: true } })).status, 200);
   const parts = store.listParticipants(id);
   const ctx = (pid) => room._loadContext(id, m.id, { twitchId: parts.find(p => p.id === pid).twitchId });
-  room._actions.ready(ctx(m.a), { ready: true });
+  // Bereit-Frist: B wartet allein, aber pausiert → kein kampfloser Sieg
   room._actions.ready(ctx(m.b), { ready: true });
-  assert.throws(() => room._actions.start(ctx(m.a), {}), /tournamentPaused/);
-  // Erscheinen-Frist: B wartet allein, aber pausiert → kein kampfloser Sieg
-  room._markPresent(ctx(m.b));
   await room.runChecks(Date.now() + 60 * 60000);
   assert.equal((await get(id)).structure.matches[0].status, 'pending');
+  // Beide bereit, aber pausiert → kein Countdown, kein Start
+  assert.equal(room._actions.ready(ctx(m.a), { ready: true }).autoStartAt, null);
+  await room.runChecks();
+  assert.equal(store.listGames(id, m.id).length, 0);
+  // Fortsetzen → die Prüfschleife setzt den Countdown, danach startet das Spiel
   await call('POST', `/${id}/pause`, { user: OWNER, body: { paused: false } });
-  room._actions.start(ctx(m.a), {});
+  await room.runChecks();
+  const startAt = store.getMatchMeta(id, m.id).startAt;
+  assert.ok(startAt);
+  await room.runChecks(startAt + 10);
   // Übersicht: Veranstalter sieht das laufende Spiel, Spieler bekommen keine
   const own = await get(id);
   assert.equal(own.ownerOverview.length, 1);

@@ -33,6 +33,13 @@ function sides(tid, mid) {
   return c.side === 'a' ? { pa: A, pb: B } : { pa: B, pb: A };
 }
 const run = (name, tid, mid, who, payload = {}) => room._actions[name](ctx(tid, mid, who), payload);
+/** Beide bereit → Countdown sofort "ablaufen lassen" (statt 3 s zu warten) → Spiel startet von selbst. */
+function readyBoth(tid, mid, pa, pb) {
+  run('ready', tid, mid, pa, { ready: true });
+  const { autoStartAt } = run('ready', tid, mid, pb, { ready: true });
+  assert.ok(autoStartAt, 'Countdown läuft');
+  assert.equal(room._autoStart(tid, mid, autoStartAt), true);
+}
 
 test('Zugang: nur die beiden Spieler und der Veranstalter', async () => {
   const { tid, mid } = await startedTournament({ modes: ['snake', 'auction', 'bingo', 'dark-maze'], bestOf: { normal: 1, finals: 3 } });
@@ -44,24 +51,32 @@ test('Zugang: nur die beiden Spieler und der Veranstalter', async () => {
   assert.throws(() => run('ready', tid, mid, BOSS, { ready: true }), /tournamentNoAccess/);
 });
 
-test('Bo3 mit Pick & Ban: Bereit → Start → Bannen → Draft-Lobby → Decks → Ergebnisse → Match entschieden', async () => {
-  room._resetReady();
+test('Bo3 mit Pick & Ban: Bereit → Countdown → Start → Bannen → Draft-Lobby → Decks → Ergebnisse → Match entschieden', async () => {
   created = [];
   const { tid, mid } = await startedTournament({ modes: ['snake', 'auction', 'bingo', 'dark-maze'], bestOf: { normal: 1, finals: 3 } });
   const { pa, pb } = sides(tid, mid);
 
-  // Start erst, wenn beide bereit sind, und nur durch Spieler A
-  run('ready', tid, mid, pa, { ready: true });
-  assert.throws(() => run('start', tid, mid, pa), /tournamentNotReady/);
-  run('ready', tid, mid, pb, { ready: true });
-  assert.throws(() => run('start', tid, mid, pb), /tournamentOnlyStarter/);
-  run('start', tid, mid, pa);
+  // Nur einer bereit: kein Countdown, aber die Bereit-Frist läuft
+  assert.equal(run('ready', tid, mid, pa, { ready: true }).autoStartAt, null);
   let st = room._buildState(ctx(tid, mid, pa));
+  assert.ok(st.readyDeadline > Date.now());
+  assert.equal(st.startAt, null);
+  // Zurücknehmen beendet die Frist; beide bereit → Countdown, vor Ablauf startet nichts
+  run('ready', tid, mid, pa, { ready: false });
+  assert.equal(room._buildState(ctx(tid, mid, pa)).readyDeadline, null);
+  run('ready', tid, mid, pa, { ready: true });
+  const { autoStartAt } = run('ready', tid, mid, pb, { ready: true });
+  assert.equal(room._autoStart(tid, mid, autoStartAt - 1000), false, 'Countdown noch nicht um');
+  st = room._buildState(ctx(tid, mid, pa));
+  assert.equal(st.startAt, autoStartAt);
+  assert.equal(st.readyDeadline, null);
+  assert.equal(room._autoStart(tid, mid, autoStartAt), true);
+  st = room._buildState(ctx(tid, mid, pa));
   assert.equal(st.phase, 'banning');
   assert.equal(st.games[0].offer.length, 3);
   assert.deepEqual(st.ready, { a: false, b: false }, 'Bereit wird nach dem Start zurückgesetzt');
   assert.equal(st.banTurn, 'b');
-  assert.throws(() => run('start', tid, mid, pa), /tournamentGameRunning/);
+  assert.throws(() => run('ready', tid, mid, pa, { ready: true }), /tournamentGameRunning/);
 
   // Bannen: B zuerst, dann A; der dritte Modus wird gespielt
   const offer = st.games[0].offer;
@@ -93,8 +108,7 @@ test('Bo3 mit Pick & Ban: Bereit → Start → Bannen → Draft-Lobby → Decks 
   assert.ok(!lobbies.has(created[0].code), 'Lobby wird nach dem Spiel aufgeräumt');
 
   // Spiel 2: jetzt bannt A zuerst; wird annulliert und neu gestartet
-  run('ready', tid, mid, pa, { ready: true }); run('ready', tid, mid, pb, { ready: true });
-  run('start', tid, mid, BOSS); // Veranstalter darf auch starten
+  readyBoth(tid, mid, pa, pb);
   st = room._buildState(ctx(tid, mid, pa));
   assert.equal(st.banTurn, 'a');
   run('voidGame', tid, mid, BOSS, { gameNo: 2 });
@@ -103,8 +117,7 @@ test('Bo3 mit Pick & Ban: Bereit → Start → Bannen → Draft-Lobby → Decks 
   assert.equal(st.games[1].status, 'void');
 
   // Spiel 3 (nach dem annullierten): A bannt weiterhin zuerst, B gewinnt
-  run('ready', tid, mid, pa, { ready: true }); run('ready', tid, mid, pb, { ready: true });
-  run('start', tid, mid, pa);
+  readyBoth(tid, mid, pa, pb);
   st = room._buildState(ctx(tid, mid, pa));
   assert.equal(st.games[2].gameNo, 3);
   assert.equal(st.banTurn, 'a');
@@ -113,8 +126,7 @@ test('Bo3 mit Pick & Ban: Bereit → Start → Bannen → Draft-Lobby → Decks 
   run('gameResult', tid, mid, BOSS, { gameNo: 3, winner: 'b' });
 
   // Spiel 4: A gewinnt → 2:1, Match und (bei 2 Spielern) Turnier entschieden
-  run('ready', tid, mid, pa, { ready: true }); run('ready', tid, mid, pb, { ready: true });
-  run('start', tid, mid, pa);
+  readyBoth(tid, mid, pa, pb);
   st = room._buildState(ctx(tid, mid, pa));
   const g4 = st.games.find(g => g.gameNo === 4);
   run('ban', tid, mid, pb, { mode: g4.offer[0] });
@@ -130,12 +142,10 @@ test('Bo3 mit Pick & Ban: Bereit → Start → Bannen → Draft-Lobby → Decks 
 });
 
 test('Zufallsmodus: Start öffnet direkt die Draft-Lobby; verschwundene Lobby (Neustart) annulliert das Spiel', async () => {
-  room._resetReady();
   created = [];
   const { tid, mid } = await startedTournament({ modeSelection: 'random', modes: ['snake', 'bingo'], bestOf: { normal: 1, finals: 3 } });
   const { pa, pb } = sides(tid, mid);
-  run('ready', tid, mid, pa, { ready: true }); run('ready', tid, mid, pb, { ready: true });
-  run('start', tid, mid, pa);
+  readyBoth(tid, mid, pa, pb);
   let st = room._buildState(ctx(tid, mid, pa));
   assert.equal(st.phase, 'drafting');
   assert.ok(['snake', 'bingo'].includes(st.games[0].mode));
