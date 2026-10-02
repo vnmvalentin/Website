@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { playSound } from '../ui/sound';
 import { useTitleAlert } from './useTitleAlert';
 import ModeSpin from './ModeSpin';
+import { MatchIntro, MatchWin } from './MatchShows';
 import { useNavigate } from 'react-router-dom';
 import ChunkyButton from '../ui/ChunkyButton';
 import Section from '../ui/Section';
@@ -210,15 +211,26 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
     if (doneNow.length > doneBefore) playSound(doneNow[doneNow.length - 1].winner === side ? 'win' : 'tap');
   }, [state, me]);
   // Modus-Walze (Zufall) bzw. Enthüllung (nach Pick & Ban), sobald der Draft live beginnt — für alle im Raum
+  // Shows bei live erlebten Übergängen: VS-Bildschirm (Spielstart) → ggf. Modus-Walze; Krone (Matchsieg)
   const [spin, setSpin] = useState(null);
+  const [intro, setIntro] = useState(null);
+  const [win, setWin] = useState(null);
   const prevPhaseRef = useRef(null);
   useEffect(() => {
     if (!state) return;
     const prev = prevPhaseRef.current;
     prevPhaseRef.current = { phase: state.phase, matchId: state.matchId };
-    if (!prev || prev.matchId !== state.matchId || prev.phase === state.phase || state.phase !== 'drafting') return;
-    const g = state.games.find(x => x.status === 'drafting');
-    if (g?.mode) setSpin({ key: `${state.matchId}-${g.gameNo}`, mode: g.mode, kind: prev.phase === 'banning' ? 'reveal' : 'spin' });
+    if (!prev || prev.matchId !== state.matchId || prev.phase === state.phase) return;
+    const active = state.games.find(x => !['done', 'void'].includes(x.status));
+    if (prev.phase === 'lobby' && (state.phase === 'banning' || state.phase === 'drafting') && active) {
+      setIntro({ key: `${state.matchId}-${active.gameNo}`, gameNo: active.gameNo });
+    }
+    if (state.phase === 'drafting' && active?.mode) {
+      setSpin({ key: `${state.matchId}-${active.gameNo}`, mode: active.mode, kind: prev.phase === 'banning' ? 'reveal' : 'spin' });
+    }
+    if (state.phase === 'finished' && state.match.winner) {
+      setWin({ key: state.matchId, side: state.match.winner, scoreA: state.match.scoreA, scoreB: state.match.scoreB });
+    }
   }, [state]);
 
   // Tab-Titel blinkt, wenn ich beim Bannen dran bin und der Tab im Hintergrund ist
@@ -497,7 +509,13 @@ export default function MatchRoom({ tournament, matchId, socket, connected, me, 
 
       <ChatPanel chat={state.chat} myRole={myRole} players={P} t={t} onSend={(text) => send('tmatch:chat', { text })} />
 
-      {spin && (
+      {intro && (
+        <MatchIntro key={intro.key} players={P} gameNo={intro.gameNo} bestOf={state.match.bestOf} t={t} onDone={() => setIntro(null)} />
+      )}
+      {win && !intro && (
+        <MatchWin key={win.key} winner={P[win.side]} side={win.side} scoreA={win.scoreA} scoreB={win.scoreB} t={t} onDone={() => setWin(null)} />
+      )}
+      {spin && !intro && (
         <ModeSpin key={spin.key} pool={tournament.settings.modes} target={spin.mode} kind={spin.kind}
           lang={lang} t={t} onDone={() => setSpin(null)} />
       )}

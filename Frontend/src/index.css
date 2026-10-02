@@ -1156,6 +1156,31 @@ summary::-webkit-details-marker { display: none; }
   100% { opacity: 1; transform: none; }
 }
 .cr-deal-in { animation: crDealIn 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.15) backwards; }
+/* VS-Bildschirm: Banner fliegen von links/rechts herein, "VS" knallt in die Mitte */
+@keyframes crVsLeft { 0% { opacity: 0; transform: translateX(-70vw) skewX(-8deg); } 70% { opacity: 1; transform: translateX(12px) skewX(-8deg); } 100% { opacity: 1; transform: skewX(-8deg); } }
+@keyframes crVsRight { 0% { opacity: 0; transform: translateX(70vw) skewX(-8deg); } 70% { opacity: 1; transform: translateX(-12px) skewX(-8deg); } 100% { opacity: 1; transform: skewX(-8deg); } }
+@keyframes crVsText { 0% { opacity: 0; transform: scale(3.2) rotate(-12deg); } 60% { opacity: 1; transform: scale(0.9) rotate(2deg); } 100% { opacity: 1; transform: none; } }
+.cr-vs-left { animation: crVsLeft 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) backwards; transform: skewX(-8deg); }
+.cr-vs-right { animation: crVsRight 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) backwards; transform: skewX(-8deg); }
+.cr-vs-text { animation: crVsText 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.45s backwards; }
+/* Krone fällt beim Matchsieg auf den Gewinner und federt nach */
+@keyframes crCrownDrop {
+  0% { opacity: 0; transform: translateY(-140px) rotate(-25deg); }
+  55% { opacity: 1; transform: translateY(8px) rotate(6deg); }
+  75% { transform: translateY(-10px) rotate(-3deg); }
+  100% { opacity: 1; transform: none; }
+}
+.cr-crown-drop { animation: crCrownDrop 0.8s cubic-bezier(0.3, 0.8, 0.4, 1) 0.2s backwards; }
+/* Countdown 3-2-1 vor dem Draft */
+@keyframes crCountIn { 0% { opacity: 0; transform: scale(2.4); } 40% { opacity: 1; transform: scale(0.95); } 100% { opacity: 1; transform: none; } }
+.cr-count-in { animation: crCountIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards; }
+/* Bracket: frisch eingezogener Spieler gleitet ins Feld, kurzer Goldschimmer im Hintergrund */
+@keyframes crAdvanceIn {
+  0% { opacity: 0; transform: translateX(-28px); background-color: rgba(255, 201, 60, 0.35); }
+  60% { opacity: 1; transform: none; background-color: rgba(255, 201, 60, 0.25); }
+  100% { background-color: transparent; }
+}
+.cr-advance-in { animation: crAdvanceIn 1.1s ease-out backwards; }
 
 /* ── Emotes (ui/EmoteLayer.jsx) ─────────────────────────────────────────
    Die Emotes sind animierte WebPs (ui/emotes.js) — von hier kommt nur das Erscheinen:
@@ -1209,6 +1234,12 @@ html[data-cr-anim="off"] .cr-stage,
 html[data-cr-anim="off"] .cr-ban-stamp,
 html[data-cr-anim="off"] .cr-spin-land,
 html[data-cr-anim="off"] .cr-deal-in,
+html[data-cr-anim="off"] .cr-vs-left,
+html[data-cr-anim="off"] .cr-vs-right,
+html[data-cr-anim="off"] .cr-vs-text,
+html[data-cr-anim="off"] .cr-crown-drop,
+html[data-cr-anim="off"] .cr-count-in,
+html[data-cr-anim="off"] .cr-advance-in,
 html[data-cr-anim="off"] .cr-timer--urgent,
 html[data-cr-anim="off"] .cr-game-card--turn,
 html[data-cr-anim="off"] .cr-turn-banner--mine,

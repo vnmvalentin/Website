@@ -2,7 +2,7 @@
 // mit Spielplan, Bracket-Baum und der Ergebnis-Dialog des Veranstalters. Die Reiter setzt
 // TournamentPage.jsx daraus zusammen. Daten kommen fertig berechnet vom Server
 // (Backend/clashRoyale/tournament/lifecycle.js → structureView).
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ChunkyButton from '../ui/ChunkyButton';
 import Modal from '../ui/Modal';
 import Section from '../ui/Section';
@@ -153,7 +153,7 @@ export function GroupsPanel({ structure, ...rest }) {
 
 // ── Bracket ─────────────────────────────────────────────────────────────
 
-function MatchBox({ m, matches, byId, me, canOpen, onOpen, t }) {
+function MatchBox({ m, matches, byId, me, canOpen, onOpen, t, fresh }) {
   const clickable = canOpen(m);
   const skipped = m.status === 'skipped';
   const line = (side) => {
@@ -163,7 +163,7 @@ function MatchBox({ m, matches, byId, me, canOpen, onOpen, t }) {
     const won = m.winner === side && (m.status === 'done' || m.status === 'bye');
     const lost = m.status === 'done' && m.winner && m.winner !== side;
     return (
-      <div className={`flex items-center gap-2 px-2.5 h-8 ${side === 'b' ? 'border-t border-[rgba(2,8,20,0.55)]' : ''}`}>
+      <div className={`flex items-center gap-2 px-2.5 h-8 ${side === 'b' ? 'border-t border-[rgba(2,8,20,0.55)]' : ''} ${fresh?.has(`${m.id}:${side}`) ? 'cr-advance-in' : ''}`}>
         <span className={`flex-1 min-w-0 truncate text-[13px] ${
           isBye ? 'text-white/30 italic' : !p ? 'text-white/30' : lost ? 'text-white/40' : won ? 'text-white font-semibold' : 'text-white/85'
         } ${p && me?.id === pid ? '!text-[var(--cr-arcade-gold)]' : ''} ${p?.dropped ? 'line-through' : ''}`}>
@@ -213,12 +213,32 @@ function BracketPart({ title, list, ...rest }) {
   );
 }
 
+/**
+ * Welche Bracket-Plätze sind seit der letzten Anzeige neu besetzt worden (Sieger/Verlierer eingezogen)?
+ * Beim ersten Anzeigen nichts — die Animation soll nur Live-Änderungen zeigen, nicht jeden Reiterwechsel.
+ */
+function useFreshSlots(matches) {
+  const prevRef = useRef(null);
+  const [fresh, setFresh] = useState(() => new Set());
+  useEffect(() => {
+    const now = new Map();
+    for (const m of matches) { now.set(`${m.id}:a`, m.a); now.set(`${m.id}:b`, m.b); }
+    const prev = prevRef.current;
+    prevRef.current = now;
+    if (!prev) return;
+    const added = new Set([...now].filter(([k, v]) => v && !prev.get(k)).map(([k]) => k));
+    if (added.size) setFresh(added);
+  }, [matches]);
+  return fresh;
+}
+
 export function BracketPanel({ structure, ...rest }) {
   const { matches } = structure;
+  const fresh = useFreshSlots(matches);
   const upper = matches.filter(m => m.stage === 'upper');
   const lower = matches.filter(m => m.stage === 'lower');
   const grand = matches.filter(m => m.stage === 'grand');
-  const shared = { matches, ...rest };
+  const shared = { matches, fresh, ...rest };
   return (
     <div className="cr-arcade-panel overflow-hidden">
       <Section icon={CrTourneyTrophy} title={rest.t.bracket}>
