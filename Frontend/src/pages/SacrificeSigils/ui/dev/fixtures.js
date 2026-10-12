@@ -4,9 +4,11 @@ import { createMatch, applyAction, awaiting } from "../../engine/match.js";
 import { aiAction } from "../../engine/ai/index.js";
 import { createScene } from "../../engine/path.js";
 import { EVENTS } from "../../data/events.js";
+import { Resolver } from "../../engine/battle.js";
+import { resolveCard } from "../../engine/cards.js";
 
 const SCENES = ["cardChoice", "fuse", "transfer", "campfire", "remove", "merchant", "shrine", "copyist"];
-export const FIXTURES = ["draft", "extras", "path", "battle", "result", ...SCENES.map((k) => `scene:${k}`), ...EVENTS.map((e) => `event:${e}`)];
+export const FIXTURES = ["draft", "extras", "path", "battle", "sacrifice", "result", ...SCENES.map((k) => `scene:${k}`), ...EVENTS.map((e) => `event:${e}`)];
 
 /**
  * @param {string} name  Präfix „gz-“ = derselbe Stand im Gezeiten-Zirkel (z. B. gz-battle, gz-extras, gz-scene:shrine)
@@ -27,6 +29,18 @@ export function buildFixture(name) {
   else if (name === "extras") run((x) => x.phase === "extras" && awaiting(x)[0] === 0);
   else if (name === "path") run((x) => x.phase === "path");
   else if (name === "battle") run((x) => x.phase === "battle" && x.battle.turn >= 7 && x.battle.active === 0);
+  else if (name === "sacrifice") {
+    // Opferwahl prüfen: zwei eigene Karten auf dem Feld, eine 2-Blut-Karte vorn auf der Hand, schon gezogen
+    run((x) => x.phase === "battle" && x.battle.turn >= 7 && x.battle.active === 0);
+    const B = s.battle;
+    const r = new Resolver(B);
+    const P = B.players[0];
+    for (const [zone, lane, id] of [["front", 0, "side_moorling"], ["front", 2, "stammlose_holzgolem"], ["back", 1, "side_moorling"]]) {
+      P[zone][lane] = r.makeUnit(resolveCard(id, [], r.newUid()), 0, zone, lane);
+    }
+    P.hand.unshift(resolveCard("bestien_aschbaer", [], r.newUid()));
+    P.drew = true;
+  }
   else if (name === "result") run((x) => x.phase === "over");
   else if (name.startsWith("scene:") || name.startsWith("event:")) {
     run((x) => x.phase === "path");

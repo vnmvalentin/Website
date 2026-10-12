@@ -46,6 +46,32 @@ export const resetStats = () => apiFetch("/api/stream-tool/stats/reset", { metho
 
 export const getOverlayData = (overlayKey) => apiFetch(`/api/stream-tool/overlay/${overlayKey}`);
 
+/* ── Szenen: Probeläufe und Murmelbahn ────────────────────────────────────── */
+
+const scenePost = (path, body) =>
+  apiFetch(`/api/stream-tool/scenes/${path}`, { method: "POST", body: JSON.stringify(body || {}) });
+
+/** Probezug: fährt ein, steigt alle zehn Sekunden ein Level auf (bis Level 4) und fährt ab. */
+export const testHypeTrain = () => scenePost("hype/test");
+/** Probe-Ansturm mit der angegebenen Zuschauerzahl. */
+export const testRaidStorm = (viewers) => scenePost("storm/test", { viewers });
+/** Flugzeug sofort losschicken. */
+export const testPlane = () => scenePost("plane/test");
+
+export const openMarbles = () => scenePost("marbles/open");
+export const startMarbles = () => scenePost("marbles/start");
+export const addMarbleBots = (count) => scenePost("marbles/bots", { count });
+
+/** Laufende Szene beenden: 'hype' | 'storm' | 'plane' | 'marbles'. */
+export const stopScene = (key) => apiFetch(`/api/stream-tool/scenes/${key}`, { method: "DELETE" });
+
+/** Sieger der Murmelbahn melden — die erste Meldung zählt. */
+export const reportMarbleWinner = (overlayKey, raceId, winnerId) =>
+  apiFetch(`/api/stream-tool/overlay/${overlayKey}/marbles/result`, {
+    method: "POST",
+    body: JSON.stringify({ raceId, winnerId }),
+  });
+
 /**
  * Zusatzrechte fürs Mitlesen. Bewusst NUR Leserechte: gestartet und beendet wird
  * alles direkt in Twitch, also muss niemand uns erlauben, seine Abstimmungen zu
@@ -61,4 +87,8 @@ export const STREAM_TOOL_SCOPES = [
   "channel:read:subscriptions",
   // Für die im Creator-Dashboard gesetzten Ziele
   "channel:read:goals",
+  // Hype Train: Level, Fortschritt und die Spitzen-Beitragenden
+  "channel:read:hype_train",
+  // Raid-Ansturm: Zuschauerliste, aus der die Namen der Raider geschätzt werden
+  "moderator:read:chatters",
 ];

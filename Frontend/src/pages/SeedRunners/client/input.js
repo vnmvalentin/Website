@@ -1,4 +1,4 @@
-// Eingabe im Browser: Tastatur und Maus (über den Latch), Gamepad, Umbelegung.
+// Eingabe im Browser: Tastatur und Maus (über den Latch), Gamepad, Touch-Knöpfe (client/touchInput.js), Umbelegung.
 //
 // Maustasten (26.09.2026) sind für den Latch einfach weitere "Tasten": Mouse0 links, Mouse1 Mitte, Mouse2 rechts, Mouse3/Mouse4
 // die Seitentasten (MouseEvent.button). Klicks auf Bedienelemente (Knöpfe, Felder, Links) zählen nie als Spieleingabe. Ist eine
@@ -11,6 +11,7 @@
 
 import { INPUT } from '../sim/inputBits.js';
 import { ACTIONS, DEFAULT_BINDINGS, createInputLatch } from './inputLatch.js';
+import { sampleTouch, releaseTouch } from './touchInput.js';
 
 const STORAGE_KEY = 'seedrunners_bindings';
 const STICK_DEADZONE = 0.4;
@@ -131,7 +132,13 @@ export function createInput() {
       done?.(bindings);
       return;
     }
-    if (e.repeat || isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+    // Wiederholungen beim Gedrückthalten ändern am Latch nichts — der Browser muss aber auch sie abbekommen: Sonst scrollt
+    // eine gehaltene Leertaste die Seite Stück für Stück nach unten und das Spielfeld rutscht aus dem Bild
+    if (e.repeat) {
+      if (isBound(e.code)) e.preventDefault();
+      return;
+    }
     // Nur belegte Tasten abfangen: Space/Pfeile würden sonst die Seite scrollen
     if (latch.keyDown(e.code)) e.preventDefault();
   };
@@ -183,7 +190,7 @@ export function createInput() {
     if (latch.keyUp(e.code) && !isTyping(e.target)) e.preventDefault();
   };
 
-  const releaseAll = () => latch.releaseAll();
+  const releaseAll = () => { latch.releaseAll(); releaseTouch(); };
 
   return {
     attach() {
@@ -226,7 +233,7 @@ export function createInput() {
     },
     /** Einmal pro Sim-Tick. */
     sampleTick() {
-      return latch.sample(padMask);
+      return latch.sample(padMask | sampleTouch());
     },
     getBindings() {
       return bindings;
@@ -249,6 +256,35 @@ export function createInput() {
   };
 }
 
+/**
+ * Eine Aktion außerhalb der Sim (z. B. „Neu starten“): `handler` läuft, sobald eine dafür belegte Taste oder Maustaste gedrückt
+ * wird — nicht beim Tippen in Feldern, nicht mit Strg/Alt, nicht auf Bedienelementen und nicht während einer Umbelegung.
+ * Eine Umbelegung gilt sofort. Gibt die Abmeldung zurück.
+ */
+export function onBoundAction(actionId, handler) {
+  let codes = loadBindings()[actionId] || [];
+  const reload = () => { codes = loadBindings()[actionId] || []; };
+  const onStorage = (e) => { if (e.key === STORAGE_KEY) reload(); };
+  const onKeyDown = (e) => {
+    if (umbelegendeEingabe || e.repeat || isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (codes.includes(e.code)) handler(e);
+  };
+  const onMouseDown = (e) => {
+    if (umbelegendeEingabe || isControl(e.target)) return;
+    if (codes.includes(mouseCode(e.button))) handler(e);
+  };
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('mousedown', onMouseDown);
+  window.addEventListener(GEAENDERT, reload);
+  window.addEventListener('storage', onStorage);
+  return () => {
+    window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('mousedown', onMouseDown);
+    window.removeEventListener(GEAENDERT, reload);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
 /** "KeyA" → "A", "ArrowLeft" → "←" — für die Steuerungsanzeige. */
 export function keyLabel(code) {
   if (code.startsWith('Key')) return code.slice(3);
@@ -260,4 +296,9 @@ export function keyLabel(code) {
     ControlLeft: 'Strg', ControlRight: 'Strg (rechts)', Enter: 'Enter', Tab: 'Tab',
   };
   return named[code] || code;
+}
+
+/** Die aktuelle Belegung einer Aktion als Text („N“, „N / Maus 4“) — für Hinweise und Knöpfe */
+export function boundLabel(actionId) {
+  return (loadBindings()[actionId] || []).map(keyLabel).join(' / ');
 }

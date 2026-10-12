@@ -1,5 +1,6 @@
 // discord/bot/events/guildMemberUpdate.js
 const { getAutoRoles } = require('../../database/db');
+const { cleanupBoosterRoles } = require('../boosterRoles');
 
 module.exports = {
     name: 'guildMemberUpdate',
@@ -14,6 +15,9 @@ module.exports = {
         const removedRoleIds = [...oldRoles.keys()].filter(id => !newRoles.has(id));
 
         if (addedRoleIds.length === 0 && removedRoleIds.length === 0) return;
+
+        // Boost beendet (die Booster-Rolle fällt weg) → Rollen aus dem Booster-Kanal wieder entfernen
+        if (removedRoleIds.length > 0) await cleanupBoosterRoles(newMember);
 
         let autoRules;
         try {

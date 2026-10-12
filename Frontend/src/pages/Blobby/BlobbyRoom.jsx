@@ -628,10 +628,8 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
       onPointerUp={(e) => { e.preventDefault(); setKey(field, false); }}
       onPointerCancel={() => setKey(field, false)}
       onContextMenu={(e) => e.preventDefault()}
-      className={`flex-1 flex items-center justify-center h-16 rounded-lg border transition-colors select-none ${
-        touchUi[field]
-          ? "bg-violet-600 border-violet-400 text-white"
-          : "bg-white/5 border-white/10 text-white/70"
+      className={`flex-1 flex items-center justify-center h-16 rounded-md border-2 border-[var(--bv-ink)] shadow-[0_3px_0_var(--bv-ink)] transition-colors select-none ${
+        touchUi[field] ? "bg-[var(--bv-sea)] text-white" : "bg-[var(--bv-paper)] text-[var(--bv-ink)]"
       }`}
       style={{ touchAction: "none" }}
     >
@@ -643,7 +641,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
     <div ref={wrapRef} className="w-full relative">
       <canvas
         ref={canvasRef}
-        className="block w-full rounded-xl border border-white/10 bg-[#0e2b46]"
+        className="block w-full bv-field"
         style={{ touchAction: "none" }}
       />
       {/* Detailwerte für die Fehlersuche, per ?net=1 in der Adresszeile.
@@ -683,7 +681,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
               aria-label={`Powerup einsetzen: ${POWERUP_LABELS[heldType]}`}
               onPointerDown={(e) => { e.preventDefault(); firePowerup(); }}
               onContextMenu={(e) => e.preventDefault()}
-              className="flex-1 flex items-center justify-center h-16 rounded-lg border transition-colors select-none"
+              className="flex-1 flex items-center justify-center h-16 rounded-md border-2 shadow-[0_3px_0_var(--bv-ink)] transition-colors select-none"
               style={{
                 touchAction: "none",
                 borderColor: POWERUP_COLOR[heldType],
@@ -743,12 +741,12 @@ function TeamSide({ team, slots, players, mySlot }) {
               <div className={`flex items-center gap-1.5 min-w-0 ${right ? "flex-row-reverse" : ""}`}>
                 <span className="text-sm font-semibold text-white truncate leading-tight">
                   {player ? player.name : "Wartet…"}
-                  {mySlot === slot && <span className="text-white/40 font-normal"> (Du)</span>}
+                  {mySlot === slot && <span className="text-white/55 font-normal"> (Du)</span>}
                 </span>
                 <ConnectionBadge player={player} />
               </div>
               {(!player || !player.connected) && (
-                <div className="text-[11px] text-white/40 truncate leading-tight">
+                <div className="text-[11px] text-white/55 truncate leading-tight">
                   {!player ? "Platz frei" : "Getrennt…"}
                 </div>
               )}
@@ -913,27 +911,23 @@ export default function BlobbyRoom() {
   // ---------- Zwischenzustände ----------
   if (phase === "loading" || phase === "joining") {
     return (
-      <div className="page-fade w-full max-w-md mx-auto px-2 md:px-4 py-20 text-center">
+      <div className="w-full max-w-md mx-auto px-4 py-20 text-center">
         <SEO title="Blobby Volley" description="Tritt einer Blobby-Volley-Partie bei." path={`/blobby/${code}`} />
-        <Loader2 size={24} className="animate-spin text-violet-300 mx-auto mb-3" />
-        <p className="text-white/50 text-sm">{phase === "joining" ? "Trete bei…" : "Verbinde…"}</p>
+        <Loader2 size={26} className="animate-spin bv-sea mx-auto mb-3" />
+        <p className="bv-dim text-sm">{phase === "joining" ? "Trete bei …" : "Verbinde …"}</p>
       </div>
     );
   }
 
   if (phase === "not-found") {
     return (
-      <div className="page-fade w-full max-w-md mx-auto px-2 md:px-4 py-16">
+      <div className="w-full max-w-md mx-auto px-4 py-16">
         <SEO title="Blobby Volley" description="Diese Blobby-Volley-Partie wurde nicht gefunden." path={`/blobby/${code}`} />
-        <div className="panel p-6 text-center">
-          <h1 className="font-display text-xl font-bold text-white mb-2">Spiel nicht gefunden</h1>
-          <p className="text-sm text-white/50 mb-5">Dieser Link ist abgelaufen oder die Partie wurde beendet.</p>
-          <button
-            type="button"
-            onClick={() => navigate("/blobby")}
-            className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-          >
-            Neues Spiel erstellen
+        <div className="bv-card p-6 text-center">
+          <h1 className="bv-display text-[28px] mb-2">Spiel nicht gefunden</h1>
+          <p className="text-sm bv-dim mb-5">Dieser Link ist abgelaufen oder die Partie wurde beendet.</p>
+          <button type="button" onClick={() => navigate("/blobby")} className="bv-btn">
+            Zum Hauptmenü
           </button>
         </div>
       </div>
@@ -942,14 +936,12 @@ export default function BlobbyRoom() {
 
   if (phase === "name-entry") {
     return (
-      <div className="page-fade w-full max-w-md mx-auto px-2 md:px-4 py-16">
+      <div className="w-full max-w-md mx-auto px-4 py-16">
         <SEO title="Blobby Volley · Einladung" description="Tritt einer Blobby-Volley-Partie bei." path={`/blobby/${code}`} />
-        <div className="panel p-6 text-center">
-          <span className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 mb-4">
-            <Volleyball size={26} />
-          </span>
-          <h1 className="font-display text-xl font-bold text-white mb-1">Blobby-Volley-Einladung</h1>
-          <p className="text-xs uppercase tracking-widest text-white/30 mb-5">Code: {code}</p>
+        <div className="bv-card p-6 text-center">
+          <span className="bv-menu-icon mx-auto mb-4"><Volleyball size={22} /></span>
+          <h1 className="bv-display text-[30px] mb-1">Du bist eingeladen</h1>
+          <p className="bv-label mb-5">Partie {code}</p>
           <form onSubmit={submitName} className="space-y-3">
             <input
               type="text"
@@ -958,15 +950,11 @@ export default function BlobbyRoom() {
               onChange={(e) => setName(e.target.value)}
               maxLength={24}
               placeholder="Dein Name"
-              className="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2.5 text-white placeholder:text-white/25 focus:border-violet-500 focus:outline-none transition-colors text-sm text-center"
+              aria-label="Dein Name"
+              className="bv-input text-center"
             />
-            {error && <p className="text-sm text-red-300">{error}</p>}
-            <button
-              type="submit"
-              className="w-full bg-violet-600 hover:bg-violet-500 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
-            >
-              Beitreten
-            </button>
+            {error && <p className="text-sm bv-bad" role="alert">{error}</p>}
+            <button type="submit" className="bv-btn bv-btn-lg w-full">Beitreten</button>
           </form>
         </div>
       </div>
@@ -996,57 +984,42 @@ export default function BlobbyRoom() {
   if (status === "finished") {
     banner = myTeam === winnerTeam ? "Ihr habt gewonnen!" : `${winnerLabel || "Die andere Seite"} hat gewonnen!`;
   } else if (missing > 0) {
-    banner = missing === 1 ? "Warte auf einen weiteren Spieler…" : `Warte auf ${missing} weitere Spieler…`;
+    banner = missing === 1 ? "Warte auf einen weiteren Spieler …" : `Warte auf ${missing} weitere Spieler …`;
   } else if (paused) {
     banner = "Ein Spieler ist getrennt — das Spiel pausiert.";
   } else if (hud.phase === "serve") {
-    banner = "Aufschlag…";
+    banner = "Aufschlag …";
   } else if (hud.phase === "point") {
     banner = hud.reason === "touches" ? `Mehr als ${settings.maxTouches} Berührungen!` : "Punkt!";
   }
 
   return (
-    <div className="page-fade w-full max-w-5xl mx-auto px-2 md:px-4 py-6 md:py-10">
+    <div className="w-full max-w-6xl mx-auto px-3 md:px-4 py-4 md:py-6">
       <SEO title={`Blobby Volley · ${code}`} description="Live-Partie Blobby Volley." path={`/blobby/${code}`} />
 
-      {toast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 panel-strong px-4 py-2.5 text-sm text-white/85 shadow-2xl shadow-black/60">
-          {toast}
-        </div>
-      )}
+      {toast && <div className="bv-toast bv-card" role="status">{toast}</div>}
 
-      {/* Kopfzeile */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-        <div className="flex items-center gap-3">
-          <span className="hidden sm:flex items-center justify-center w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
-            <Volleyball size={20} />
-          </span>
-          <div>
-            <h1 className="font-display text-xl font-bold text-white">Blobby Volley</h1>
-            <p className="text-[11px] text-white/40 tracking-widest uppercase">
-              Code: {code}
-              {game?.spectatorCount > 0 && (
-                <span className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal text-white/30">
-                  <Users size={11} /> {game.spectatorCount}
-                </span>
-              )}
-            </p>
-          </div>
+      {/* Alles folgt der Breite des Spielfelds */}
+      <div
+        className="mx-auto w-full"
+        style={{ maxWidth: `max(360px, calc((100dvh - 330px) * ${aspect}))` }}
+      >
+
+      {/* Kopfzeile: Code links, Einladen/Verlassen rechts */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="bv-label">Partie</span>
+          <span className="bv-display text-[24px] tracking-wider">{code}</span>
+          {game?.spectatorCount > 0 && (
+            <span className="bv-chip" title="Zuschauer"><Users size={12} /> {game.spectatorCount}</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={copyLink}
-            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition-colors"
-          >
-            {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+          <button type="button" onClick={copyLink} className="bv-btn bv-btn-sm bv-btn-ghost">
+            {copied ? <Check size={15} className="bv-sea" /> : <Copy size={15} />}
             {copied ? "Kopiert" : "Link kopieren"}
           </button>
-          <button
-            type="button"
-            onClick={leaveGame}
-            className="flex items-center gap-2 bg-white/5 hover:bg-red-500/15 border border-white/10 hover:border-red-500/30 text-white/60 hover:text-red-300 text-sm font-semibold px-3.5 py-2 rounded-lg transition-colors"
-          >
+          <button type="button" onClick={leaveGame} className="bv-btn bv-btn-sm bv-btn-ghost">
             <LogOut size={15} />
             Verlassen
           </button>
@@ -1054,235 +1027,214 @@ export default function BlobbyRoom() {
       </div>
 
       {connStatus === "reconnecting" && (
-        <div className="mb-4 text-center text-xs text-amber-300/90 bg-amber-500/10 border border-amber-400/20 rounded-lg py-2">
-          Verbindung wird wiederhergestellt…
+        <div className="mb-3 text-center text-sm font-semibold bv-card-flat bg-[var(--bv-sun)] py-2">
+          Verbindung wird wiederhergestellt …
         </div>
       )}
 
       {/* Anzeigetafel: Namen außen, Punkte in der Mitte — die Zusatzinfos stehen
-          darunter, sonst wird es auf dem Handy zwischen den Namen zu eng */}
-      <div className="panel px-3 sm:px-4 py-3 mb-4">
-        {/* Reihenfolge folgt dem Feld: die eigene Seite steht auch hier links */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <TeamSide team={leftTeam} slots={slots.filter((s) => teamOf(s) === leftTeam)} players={game?.players} mySlot={mySlot} />
-          <div className="flex items-baseline gap-1.5 shrink-0">
-            <span className="font-display text-3xl font-bold text-white tabular-nums">{score[leftTeam] ?? 0}</span>
-            <span className="text-white/25 text-xl font-bold">:</span>
-            <span className="font-display text-3xl font-bold text-white tabular-nums">{score[rightTeam] ?? 0}</span>
+          darunter, sonst wird es auf dem Handy zwischen den Namen zu eng. */}
+        <div className="bv-board px-3 sm:px-4 py-3 mb-3">
+          {/* Reihenfolge folgt dem Feld: die eigene Seite steht auch hier links */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <TeamSide team={leftTeam} slots={slots.filter((s) => teamOf(s) === leftTeam)} players={game?.players} mySlot={mySlot} />
+            <div className="flex items-baseline gap-2 shrink-0">
+              <span className="bv-board-score">{score[leftTeam] ?? 0}</span>
+              <span className="bv-display text-[26px] text-white/35">:</span>
+              <span className="bv-board-score">{score[rightTeam] ?? 0}</span>
+            </div>
+            <TeamSide team={rightTeam} slots={slots.filter((s) => teamOf(s) === rightTeam)} players={game?.players} mySlot={mySlot} />
           </div>
-          <TeamSide team={rightTeam} slots={slots.filter((s) => teamOf(s) === rightTeam)} players={game?.players} mySlot={mySlot} />
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mt-2 text-[11px] text-white/30">
-          <span className="uppercase tracking-widest">bis {game?.scoreToWin || 15}</span>
-          {settings.maxTouches > 0 && hud.touches > 0 && hud.lastHit > 0 && status === "playing" && (
-            <span className="tabular-nums text-white/45">
-              · {hud.touches}/{settings.maxTouches} Berührungen
-            </span>
-          )}
-          {settingsSummary(settings).map((label) => (
-            <span key={label} className="text-white/25">· {label}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* Spielfeld. Die Breite wird zusätzlich von der Fensterhöhe gedeckelt, damit auf dem
-          Notebook das ganze Feld sichtbar bleibt statt unter den Rand zu rutschen.
-          Der Mindestwert hält es in Querlage auf dem Handy spielbar. */}
-      <div
-        className="relative mx-auto w-full"
-        style={{ maxWidth: `max(360px, calc((100dvh - 340px) * ${aspect}))` }}
-      >
-        <BlobbyGame
-          key={settings.mode}
-          socket={socket}
-          mySlot={mySlot}
-          status={status}
-          players={game?.players}
-          settings={settings}
-          slots={slots}
-          mirror={mirror}
-          onHud={handleHud}
-        />
-
-        {banner && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-lg bg-black/55 border border-white/10 backdrop-blur-sm pointer-events-none">
-            <span className="text-white text-sm font-bold">{banner}</span>
-          </div>
-        )}
-
-        {/* Laufende Powerups liegen ÜBER dem Feld statt darunter im Textfluss: sonst
-            wächst die Seite, sobald eines aktiv wird, und das Spielfeld rutscht mitten
-            im Ballwechsel hoch und runter. */}
-        {hud.effects.length > 0 && status === "playing" && (
-          <div className="absolute top-3 left-3 flex flex-col items-start gap-1 pointer-events-none">
-            {hud.effects.map((e) => (
-              <span
-                key={`${e.type}-${e.team}`}
-                className="flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded border backdrop-blur-sm"
-                style={{
-                  color: POWERUP_COLOR[e.type],
-                  borderColor: `${POWERUP_COLOR[e.type]}66`,
-                  background: "rgba(8, 16, 28, 0.6)",
-                }}
-              >
-                <span className="w-2 h-2 rounded-sm" style={{ background: TEAM_COLOR[e.team] }} />
-                {POWERUP_LABELS[e.type]}
-                <span className="tabular-nums opacity-70">{e.secs}s</span>
-              </span>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mt-2 text-[11px] text-white/50">
+            <span className="uppercase tracking-widest font-semibold text-[var(--bv-sun)]">bis {game?.scoreToWin || 15}</span>
+            {settings.maxTouches > 0 && hud.touches > 0 && hud.lastHit > 0 && status === "playing" && (
+              <span className="bv-num text-white/80">· {hud.touches}/{settings.maxTouches} Berührungen</span>
+            )}
+            {settingsSummary(settings).map((label) => (
+              <span key={label}>· {label}</span>
             ))}
           </div>
-        )}
+        </div>
 
-        {/* Powerup-Slot unten links. Eingesammelt wird automatisch, gezündet per
-            Leertaste — die Anzeige ist deshalb auch die einzige Stelle, an der die
-            Taste erklärt wird. Der leere Slot bleibt sichtbar, sonst wüsste niemand,
-            dass es ihn gibt, bis zufällig das erste Powerup eingesammelt wird. */}
-        {settings.powerups && status === "playing" && mySlot && (
-          <div className="absolute bottom-3 left-3 pointer-events-none">
-            {hud.held ? (
-              <div
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded border backdrop-blur-sm"
-                style={{
-                  borderColor: `${POWERUP_COLOR[hud.held]}66`,
-                  background: "rgba(8, 16, 28, 0.72)",
-                }}
-              >
-                <span className="w-2 h-2 rounded-sm" style={{ background: POWERUP_COLOR[hud.held] }} />
-                <span className="text-[11px] font-semibold" style={{ color: POWERUP_COLOR[hud.held] }}>
-                  {POWERUP_LABELS[hud.held]}
+        {/* Spielfeld. Die Breite wird von der Fensterhöhe gedeckelt (oben), damit auf dem Notebook
+            das ganze Feld sichtbar bleibt; der Mindestwert hält es in Querlage auf dem Handy spielbar. */}
+        <div className="relative w-full">
+          <BlobbyGame
+            key={settings.mode}
+            socket={socket}
+            mySlot={mySlot}
+            status={status}
+            players={game?.players}
+            settings={settings}
+            slots={slots}
+            mirror={mirror}
+            onHud={handleHud}
+          />
+
+          {banner && missing === 0 && status !== "finished" && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-md bg-[var(--bv-paper)] border-2 border-[var(--bv-ink)] pointer-events-none whitespace-nowrap">
+              <span className="text-[var(--bv-ink)] text-sm font-bold">{banner}</span>
+            </div>
+          )}
+
+          {/* Laufende Powerups liegen ÜBER dem Feld statt darunter im Textfluss: sonst
+              wächst die Seite, sobald eines aktiv wird, und das Spielfeld rutscht mitten
+              im Ballwechsel hoch und runter. */}
+          {hud.effects.length > 0 && status === "playing" && (
+            <div className="absolute top-3 left-3 flex flex-col items-start gap-1 pointer-events-none">
+              {hud.effects.map((e) => (
+                <span
+                  key={`${e.type}-${e.team}`}
+                  className="flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded border"
+                  style={{
+                    color: POWERUP_COLOR[e.type],
+                    borderColor: `${POWERUP_COLOR[e.type]}66`,
+                    background: "rgba(8, 16, 28, 0.72)",
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-sm" style={{ background: TEAM_COLOR[e.team] }} />
+                  {POWERUP_LABELS[e.type]}
+                  <span className="tabular-nums opacity-70">{e.secs}s</span>
                 </span>
-                <span className="text-[10px] text-white/45 border-l border-white/15 pl-2">
-                  {IS_COARSE_POINTER ? "Taste rechts" : "Leertaste"}
-                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Powerup-Slot unten links. Eingesammelt wird automatisch, gezündet per
+              Leertaste — die Anzeige ist deshalb auch die einzige Stelle, an der die
+              Taste erklärt wird. Der leere Slot bleibt sichtbar, sonst wüsste niemand,
+              dass es ihn gibt, bis zufällig das erste Powerup eingesammelt wird. */}
+          {settings.powerups && status === "playing" && mySlot && (
+            <div className="absolute bottom-3 left-3 pointer-events-none">
+              {hud.held ? (
+                <div
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded border"
+                  style={{
+                    borderColor: `${POWERUP_COLOR[hud.held]}66`,
+                    background: "rgba(8, 16, 28, 0.78)",
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-sm" style={{ background: POWERUP_COLOR[hud.held] }} />
+                  <span className="text-[11px] font-semibold" style={{ color: POWERUP_COLOR[hud.held] }}>
+                    {POWERUP_LABELS[hud.held]}
+                  </span>
+                  <span className="text-[10px] text-white/55 border-l border-white/15 pl-2">
+                    {IS_COARSE_POINTER ? "Taste rechts" : "Leertaste"}
+                  </span>
+                </div>
+              ) : (
+                <div className="px-2.5 py-1.5 rounded border border-dashed border-white/25 bg-black/40">
+                  <span className="text-[11px] text-white/60">Powerup-Slot leer</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {status !== "finished" && missing > 0 && (
+            <div className="bv-overlay rounded-md">
+              <div className="bv-card w-full max-w-md p-4 sm:p-5 text-center">
+                <p className="bv-display text-[22px] mb-1">
+                  {missing === 1 ? "Noch ein Spieler fehlt" : `Noch ${missing} Spieler fehlen`}
+                </p>
+                <p className="text-sm bv-dim mb-3">Schick den Link an deine Leute:</p>
+                <div className="flex items-center gap-2">
+                  <code className="bv-input flex-1 !py-2 text-xs sm:text-sm truncate text-left font-sans">
+                    {window.location.origin}/blobby/{code}
+                  </code>
+                  <button type="button" onClick={copyLink} className="bv-btn shrink-0 !px-3.5" aria-label="Link kopieren">
+                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                  </button>
+                </div>
+                {isSpectator && (
+                  <button type="button" onClick={claimSlot} className="bv-btn bv-btn-sea mt-4">
+                    <Volleyball size={15} /> Als Spieler mitspielen
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {status === "finished" && (
+            <div className="bv-overlay rounded-md">
+              <div className="bv-card px-6 py-5 text-center max-w-sm w-full">
+                <p className="bv-display text-[30px] leading-tight mb-1">
+                  {myTeam === winnerTeam ? "Ihr habt gewonnen!" : `${winnerLabel || "Die andere Seite"} hat gewonnen!`}
+                </p>
+                <p className="bv-display text-[22px] bv-coral mb-4 bv-num">
+                  {score[1]} : {score[2]}
+                </p>
+                {mySlot != null && (
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={requestRematch}
+                      disabled={!!game?.rematch?.[mySlot]}
+                      className="bv-btn"
+                    >
+                      <RotateCcw size={15} />
+                      {game?.rematch?.[mySlot] ? "Warte auf die anderen …" : "Revanche"}
+                    </button>
+                    {slots.some((s) => s !== mySlot && game?.rematch?.[s]) && !game?.rematch?.[mySlot] && (
+                      <p className="text-xs font-semibold bv-sea">Die anderen wollen eine Revanche!</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {(canSwap || (isHost && status !== "playing")) && (
+          <div className="bv-card p-4 mt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 bv-display text-[19px]">
+                <Settings2 size={17} className="bv-faint" />
+                Einstellungen
+              </div>
+              <div className="flex items-center gap-2">
+                {canSwap && (
+                  <button type="button" onClick={swapTeam} className="bv-btn bv-btn-sm bv-btn-ghost">
+                    <ArrowLeftRight size={14} />
+                    Seite wechseln
+                  </button>
+                )}
+                {isHost && status !== "playing" && (
+                  <button type="button" onClick={() => setShowSettings((v) => !v)} className="bv-btn bv-btn-sm bv-btn-ghost">
+                    {showSettings ? "Zuklappen" : "Ändern"}
+                  </button>
+                )}
+              </div>
+            </div>
+            {isHost && status !== "playing" && showSettings ? (
+              <div className="mt-2">
+                <BlobbySettings value={settings} onChange={changeSettings} />
+                <p className="text-xs bv-faint mt-2">
+                  Änderungen setzen den Punktestand zurück. Beim Wechsel auf 1 gegen 1 werden die
+                  hinteren Plätze zu Zuschauern.
+                </p>
               </div>
             ) : (
-              <div className="px-2.5 py-1.5 rounded border border-dashed border-white/15 bg-black/35">
-                <span className="text-[11px] text-white/30">Powerup-Slot leer</span>
-              </div>
+              <p className="text-xs bv-dim mt-2">{settingsSummary(settings).join(" · ")}</p>
             )}
           </div>
         )}
 
-        {status !== "finished" && missing > 0 && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/65 px-4">
-            <div className="text-center max-w-md w-full">
-              <Loader2 size={20} className="animate-spin text-violet-300 mx-auto mb-3" />
-              <p className="text-white/70 text-sm mb-3">
-                {missing === 1 ? "Noch ein Spieler fehlt. Schick den Link:" : `Noch ${missing} Spieler fehlen. Schick den Link:`}
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-white/80 text-xs sm:text-sm truncate text-left">
-                  {window.location.origin}/blobby/{code}
-                </code>
-                <button
-                  type="button"
-                  onClick={copyLink}
-                  className="shrink-0 flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition-colors"
-                >
-                  {copied ? <Check size={15} /> : <Copy size={15} />}
-                </button>
-              </div>
-              {isSpectator && (
-                <button
-                  type="button"
-                  onClick={claimSlot}
-                  className="mt-4 inline-flex items-center gap-2 bg-white/10 hover:bg-white/15 border border-white/15 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                >
-                  <Volleyball size={15} /> Als Spieler mitspielen
-                </button>
-              )}
-            </div>
-          </div>
+        {mySlot && (
+          <p className="text-center text-xs bv-dim mt-4">
+            {IS_COARSE_POINTER
+              ? "Tasten unter dem Feld: laufen und springen (halten = höher)"
+              : "A / D oder ← / → laufen · W oder ↑ springen (halten = höher)"}
+            {settings.powerups && (IS_COARSE_POINTER
+              ? " · Powerup mit der rechten Taste einsetzen"
+              : " · Leertaste setzt das gesammelte Powerup ein")}
+            {settings.crossNet && " · auf den Pfeiler springen und rüberklettern ist erlaubt"}
+            {settings.maxTouches > 0 && ` · max. ${settings.maxTouches} Berührungen pro Seite`}
+          </p>
         )}
-
-        {status === "finished" && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/70 px-4">
-            <div className="text-center">
-              <p className="font-display text-2xl font-bold text-white mb-1">
-                {myTeam === winnerTeam ? "Ihr habt gewonnen!" : `${winnerLabel || "Die andere Seite"} hat gewonnen!`}
-              </p>
-              <p className="text-white/50 text-sm mb-5 tabular-nums">
-                {score[1]} : {score[2]}
-              </p>
-              {mySlot != null && (
-                <div className="flex flex-col items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={requestRematch}
-                    disabled={!!game?.rematch?.[mySlot]}
-                    className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:bg-violet-600/40 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-                  >
-                    <RotateCcw size={15} />
-                    {game?.rematch?.[mySlot] ? "Warte auf die anderen…" : "Revanche"}
-                  </button>
-                  {slots.some((s) => s !== mySlot && game?.rematch?.[s]) && !game?.rematch?.[mySlot] && (
-                    <p className="text-xs text-violet-300">Die anderen wollen eine Revanche!</p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+        {isSpectator && status === "playing" && (
+          <p className="text-center text-xs bv-dim mt-3">Du schaust zu.</p>
         )}
       </div>
-
-      {(canSwap || (isHost && status !== "playing")) && (
-        <div className="panel p-4 mt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Settings2 size={15} className="text-white/50" />
-              Einstellungen
-            </div>
-            <div className="flex items-center gap-2">
-              {canSwap && (
-                <button
-                  type="button"
-                  onClick={swapTeam}
-                  className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/75 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  <ArrowLeftRight size={14} />
-                  Seite wechseln
-                </button>
-              )}
-              {isHost && status !== "playing" && (
-                <button
-                  type="button"
-                  onClick={() => setShowSettings((v) => !v)}
-                  className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/75 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  {showSettings ? "Zuklappen" : "Ändern"}
-                </button>
-              )}
-            </div>
-          </div>
-          {isHost && status !== "playing" && showSettings ? (
-            <div className="mt-4 pt-4 border-t border-white/10">
-              <BlobbySettings value={settings} onChange={changeSettings} />
-              <p className="text-xs text-white/35 mt-4">
-                Änderungen setzen den Punktestand zurück. Beim Wechsel auf 1 gegen 1 werden die
-                hinteren Plätze zu Zuschauern.
-              </p>
-            </div>
-          ) : (
-            <p className="text-xs text-white/40 mt-2">{settingsSummary(settings).join(" · ")}</p>
-          )}
-        </div>
-      )}
-
-      {mySlot && (
-        <p className="text-center text-xs text-white/35 mt-3">
-          {IS_COARSE_POINTER
-            ? "Tasten unter dem Feld: laufen und springen (halten = höher)"
-            : "A / D oder ← / → laufen · W oder ↑ springen (halten = höher)"}
-          {settings.powerups && (IS_COARSE_POINTER
-            ? " · Powerup mit der rechten Taste einsetzen"
-            : " · Leertaste setzt das gesammelte Powerup ein")}
-          {settings.crossNet && " · auf den Pfeiler springen und rüberklettern ist erlaubt"}
-          {settings.maxTouches > 0 && ` · max. ${settings.maxTouches} Berührungen pro Seite`}
-        </p>
-      )}
-      {isSpectator && status === "playing" && (
-        <p className="text-center text-xs text-white/35 mt-3">Du schaust zu.</p>
-      )}
     </div>
   );
 }

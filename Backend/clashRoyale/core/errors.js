@@ -29,7 +29,8 @@ const MESSAGES = {
     `Kartenpool zu klein: ${needed} Karten benötigt, nur ${available} verfügbar. Schließe weniger Karten aus!`,
   carouselTooManyPlayers: ({ perTable, maxPlayers, poolSize }) =>
     `Bei ${perTable} Karten pro Tisch sind max. ${maxPlayers} Spieler möglich (Kartenpool: ${poolSize})!`,
-  teamsNotReady: () => 'Beide Teams brauchen genau 2 Spieler (Slot 1 + Slot 2)!',
+  teamsNotReady: () => 'Jedes Team braucht genau 2 Spieler (Slot 1 + Slot 2)!',
+  randomNoModes: () => 'Zufallsmodus: Es ist kein passender Modus im Pool ausgewählt.',
 
   // ── Modusübergreifend ─────────────────────────────────────────────────────
   championLimit: () => 'Max. 2 Champions pro Deck!',

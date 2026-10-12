@@ -1,5 +1,5 @@
 // ui/card/CardArt.jsx — Artwork einer Karte.
-// 1. Liegt public/assets/cards/<id>.webp oder .png vor, wird die Datei benutzt (echtes Artwork einfach ablegen).
+// 1. Liegt public/media/cards/<id>.webp oder .png vor, wird die Datei benutzt (echtes Artwork einfach ablegen).
 // 2. Sonst das prozedurale SVG (deterministisch aus art.seed, im Speicher gecacht).
 import React, { useEffect, useState } from "react";
 import { artDataUri } from "../../art/procedural.js";
@@ -21,8 +21,8 @@ function tryLoad(url) {
 function probe(id) {
   const hit = probed.get(id);
   if (hit !== undefined) return hit;
-  const p = tryLoad(`/assets/cards/${id}.webp`)
-    .then((u) => u || tryLoad(`/assets/cards/${id}.png`))
+  const p = tryLoad(`/media/cards/${id}.webp`)
+    .then((u) => u || tryLoad(`/media/cards/${id}.png`))
     .then((u) => {
       probed.set(id, u);
       return u;

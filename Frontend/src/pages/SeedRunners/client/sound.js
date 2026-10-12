@@ -11,7 +11,7 @@
 // Kamera) und `pan` (links/rechts) an; Ereignisse der Figur selbst spielen mit voller Lautstärke.
 
 const MIN_GAP_MS = {
-  crumbleStart: 90, crumbleGone: 60, blockShake: 250, laserWarn: 110, laserOn: 90, gust: 400,
+  crumbleStart: 90, crumbleGone: 60, blockShake: 250, laserWarn: 110, laserOn: 90, gust: 400, cannonShot: 120,
   land: 60, jump: 40, tick: 0, go: 0,
 };
 
@@ -160,6 +160,7 @@ export function createSound() {
     laserWarn: (o) => tone('sine', 1500, 1500, 0.045, 0.07, o),
     laserOn: (o) => { hiss('bandpass', 3200, 1400, 0.12, 0.12, { ...o, q: 2 }); tone('square', 95, 90, 0.1, 0.06, o); },
     gust: (o) => hiss('bandpass', 450, 950, 0.5, 0.12, { ...o, q: 0.8, attack: 0.15 }),
+    cannonShot: (o) => { tone('square', 180, 70, 0.07, 0.07, o); hiss('lowpass', 1400, 400, 0.06, 0.08, o); },
     tick: (o) => tone('sine', 660, 660, 0.07, 0.16, o),
     go: (o) => { tone('sine', 990, 990, 0.22, 0.2, o); tone('triangle', 1980, 1980, 0.2, 0.06, o); },
   };

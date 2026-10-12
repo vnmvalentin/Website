@@ -31,7 +31,7 @@ const GLYPH_COLOR = { I: "#7dd3fc", W: "#a3e635", ">": "#facc15", "<": "#facc15"
 
 /** Farbe je Elementtyp in der Übersicht — dieselbe Zuordnung erklärt die Legende in der Werkbank */
 export const ENTITY_COLOR = {
-  spike: '#f87171', saw: '#fb923c', laser: '#e879f9', spring: '#4ade80', mover: '#60a5fa',
+  spike: '#f87171', saw: '#fb923c', laser: '#e879f9', cannon: '#fb7185', spring: '#4ade80', mover: '#60a5fa',
   crystal: '#22d3ee', ring: '#a3e635', crumble: '#a8a29e', fallingBlock: '#d6b98c',
   switch: '#fde047', door: '#fde047', key: '#fde047', portal: '#c084fc', wind: '#7dd3fc',
   anchor: '#fef08a', other: '#ffffff',

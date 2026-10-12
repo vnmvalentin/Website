@@ -48,10 +48,19 @@ function triangle(ctx, x1, y1, x2, y2, x3, y3) {
 }
 
 const DRAW = {
-  spike(ctx, el) {
+  spike(ctx, hit) {
+    // Gezeichnet wird höchstens bis zum Kachelrand: An offenen Blockkanten reicht die Trefferfläche 1 px darüber hinaus
+    // (sim/elements/spike.js), das Bild soll trotzdem nicht über den Block ragen
+    const x0 = Math.max(hit.x, hit.tx * TILE);
+    const y0 = Math.max(hit.y, hit.ty * TILE);
+    const el = {
+      dir: hit.dir, period: hit.period, deadly: hit.deadly, x: x0, y: y0,
+      w: Math.min(hit.x + hit.w, (hit.tx + 1) * TILE) - x0,
+      h: Math.min(hit.y + hit.h, (hit.ty + 1) * TILE) - y0,
+    };
     // Ein-/ausfahrende Spikes stehen nur so weit heraus, wie `out` sagt (0 = ganz in der Kachel).
     // Die Sockelplatte bleibt sichtbar, damit man die Kachel auch eingefahren als Falle erkennt.
-    const out = el.out === undefined ? 1 : el.out;
+    const out = hit.out === undefined ? 1 : hit.out;
     if (el.period) {
       ctx.fillStyle = COLOR.hazardDark;
       const base = 2;
@@ -147,6 +156,37 @@ const DRAW = {
     // Mündung des Emitters
     ctx.fillStyle = el.on ? COLOR.hazard : COLOR.hazardDark;
     ctx.fillRect(el.tx * TILE + 4, el.ty * TILE + 4, TILE - 8, TILE - 8);
+  },
+
+  cannon(ctx, el) {
+    // Immer eine ganz schwache Bahn, damit man sieht, wohin geschossen wird (wie beim Laser)
+    const x0 = el.mx;
+    const y0 = el.my;
+    const lang = el.laneLen + el.r;
+    ctx.fillStyle = 'rgba(255, 90, 90, 0.1)';
+    if (el.dx) ctx.fillRect(Math.min(x0, x0 + el.dx * lang), y0 - 2, lang, 4);
+    else ctx.fillRect(x0 - 2, Math.min(y0, y0 + el.dy * lang), 4, lang);
+    // Gehäuse im Block, Rohr zeigt in Schussrichtung; kurz nach dem Schuss leuchtet die Mündung
+    const x = el.tx * TILE;
+    const y = el.ty * TILE;
+    ctx.fillStyle = '#3b3947';
+    ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2);
+    ctx.fillStyle = el.shotAge < 8 ? COLOR.hazard : COLOR.hazardDark;
+    if (el.dx) ctx.fillRect(el.dx > 0 ? x + TILE - 6 : x, y + 5, 6, 6);
+    else ctx.fillRect(x + 5, el.dy > 0 ? y + TILE - 6 : y, 6, 6);
+    ctx.fillStyle = '#5d5a6e';
+    ctx.fillRect(x + 5, y + 5, 6, 6);
+    for (const b of el.bodies) {
+      if (!b.on) continue;
+      ctx.fillStyle = COLOR.hazard;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, el.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = COLOR.hazardDark;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, el.r * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    }
   },
 
   fallingBlock(ctx, el, world) {

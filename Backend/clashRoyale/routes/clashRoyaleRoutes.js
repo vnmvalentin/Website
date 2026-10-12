@@ -10,18 +10,21 @@ const { ALL_CARDS, getCardPool, cardIdByOfficialName } = require('../core/cards'
 const {
   lobbies, PLAYER_COLORS, LOBBY_DISCONNECT_GRACE_MS, MAX_PLAYERS_PER_LOBBY,
   generateCode, generateOverlayKey, generateBotId, findLobbyByOverlayKey,
-  lobbyIsAbandoned, sanitizeLobby, getActiveLobbiesForAdmin, getPublicLobbies,
+  lobbyIsAbandoned, sanitizeLobby, getActiveLobbiesForAdmin, getPublicLobbies, shuffle,
 } = require('../core/lobbies');
 const {
   applyModePreset, applySuggestedPreset, reapplyActivePreset, clearActivePreset,
 } = require('../core/modePresets');
 const { emitStreamerEvent, updateDeckFeeds, lastDeckFeedPayload } = require('../core/streamerFeed');
 const { clearTurnTimer } = require('../core/timers');
-const { emitClashError } = require('../core/errors');
-const { teamPlayers } = require('../core/teams');
+const { emitClashError, clashError } = require('../core/errors');
+const { RANDOM_SPIN_MS, sanitizeRandomModes, probeMode, drawRandomMode } = require('../core/randomMode');
+const { teamPlayers, activeTeamIds, TEAM_COUNT_MIN, TEAM_COUNT_MAX } = require('../core/teams');
 const { isConfigured: crApiConfigured, normalizeTag, fetchPlayerSummary, fetchPlayerCards } = require('../lib/crApi');
 const { initCrTracking, startTracking, stopTracking, onPlayerLinked } = require('../core/crTracking');
 const registry = require('../core/registry');
+const lobbyPersistence = require('../core/lobbyPersistence');
+const { registerFriendsSocket } = require('../core/friends');
 // Turnier-Match-Räume (lazy, weil tournament/matchRoom selbst createTournamentLobby von hier braucht)
 const tournamentRoom = () => require('../tournament/matchRoom');
 
@@ -29,6 +32,7 @@ const tournamentRoom = () => require('../tournament/matchRoom');
 const TOURNAMENT_AUTOSTART_MS = 3000;
 // Ausgelagerte Modi melden sich beim Laden selbst an der Registry an
 require('../modes');
+const { CAROUSEL_TABLE_SIZES } = require('../modes/shadowCarousel');
 
 // Erlaubte Emote-IDs = Dateinamen in Frontend/src/assets/clashRoyale/emotes/still/ (ui/emotes.js
 // liest sie von dort) — bei neuen Emotes hier mitpflegen
@@ -40,6 +44,13 @@ const EMOTE_IDS = new Set([
   'whiteflag',
 ]);
 const EMOTE_COOLDOWN_MS = 1200;
+
+// Socket.io-Raum der Lobby-Browser-Liste: nur wer im CR-Hub clash:listPublicLobbies gefragt hat
+const PUBLIC_LOBBIES_ROOM = 'clash:hub';
+
+function emitPublicLobbies(io) {
+  io.to(PUBLIC_LOBBIES_ROOM).emit('clash:publicLobbiesUpdate', getPublicLobbies());
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 // Mindestgröße des Kartenpools für den aktuellen Modus mit den aktuellen Einstellungen.
@@ -56,6 +67,21 @@ function requiredPoolSize(lobby) {
 // ausgeführt, nur angezeigt.
 function cleanAvatarUrl(u) {
   return typeof u === 'string' && /^https:\/\//.test(u) ? u.slice(0, 300) : null;
+}
+
+// Spielername vom Client: bisher nur im Eingabefeld begrenzt — ein selbst gebauter Socket-Aufruf
+// konnte beliebig lange Namen schicken, die dann mit jedem Lobby-Update an alle gingen.
+// 24 = längste Grenze, die ein Client erlaubt (Turnier-Anzeigename; Hub-Feld 20).
+const MAX_PLAYER_NAME = 24;
+function cleanPlayerName(n) {
+  return String(n ?? '').trim().slice(0, MAX_PLAYER_NAME).trim();
+}
+
+// Laufende Zufallsmodus-Walze abbrechen (Abbruch durch den Host, Lobby aufgelöst)
+function clearRandomSpin(lobby) {
+  if (lobby.randomSpinTimer) clearTimeout(lobby.randomSpinTimer);
+  lobby.randomSpinTimer = null;
+  lobby.randomSpin = null;
 }
 
 // Reconnect/Session-Übernahme: alle Spielreferenzen des jeweiligen Modus auf die neue ID umhängen
@@ -76,8 +102,81 @@ function emitGameStateTo(socket, lobby, opts = {}) {
   if (built) socket.emit(built.event, built.payload);
 }
 
+// ── Lobbys über einen Neustart retten (core/lobbyPersistence.js) ─────────────
+// Wiederhergestellte Spieler bekommen mehr Zeit als die normale 30-s-Gnadenfrist: ein Neustart samt
+// Deploy dauert länger, und die Browser verbinden sich mit wachsendem Abstand neu.
+const RESTORE_GRACE_MS = 3 * 60 * 1000;
+// Älter gespeicherte Stände sind nach einem längeren Ausfall nicht mehr sinnvoll.
+const RESTORE_MAX_AGE_MS = 30 * 60 * 1000;
+const LOBBY_SAVE_INTERVAL_MS = 60 * 1000;
+// io gibt es erst mit der ersten Socket-Verbindung (registerClashRoyaleSocket) — die Aufräum-Timer
+// der wiederhergestellten Lobbys laufen aber unabhängig davon.
+let ioRef = null;
+let persistenceStarted = false;
+
+function saveLobbiesNow(reason) {
+  try {
+    const n = lobbyPersistence.saveLobbies(lobbies);
+    if (reason === 'exit' && n) console.log(`[clash] ${n} Lobby(s) für den Neustart gespeichert`);
+  } catch (e) {
+    console.error('[clash] Lobbys speichern fehlgeschlagen:', e.message);
+  }
+}
+
+// Wer nach RESTORE_GRACE_MS nicht zurück ist, fliegt raus — wie bei einem normalen Disconnect.
+function cleanupRestoredLobby(code) {
+  const lobby = lobbies.get(code);
+  if (!lobby || lobby.started) return;
+  const before = lobby.players.length;
+  lobby.players = lobby.players.filter((p) => !(p.restored && p.disconnected));
+  if (lobby.players.length === before) return;
+  if (lobbyIsAbandoned(lobby)) {
+    lobbies.delete(code);
+    if (lobby.isPublic && ioRef) emitPublicLobbies(ioRef);
+    return;
+  }
+  if (!lobby.players.some((p) => p.id === lobby.host && !p.disconnected)) {
+    const next = lobby.players.find((p) => !p.disconnected && !p.isAdmin);
+    if (next) lobby.host = next.id;
+  }
+  if (ioRef) {
+    ioRef.to(code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
+    if (lobby.isPublic) emitPublicLobbies(ioRef);
+  }
+}
+
+/**
+ * Einmal beim Serverstart aus index.js aufrufen: gespeicherte Lobbys laden, danach regelmäßig und
+ * beim Beenden speichern. Bewusst NICHT beim require() — sonst würde jedes Skript/jeder Prüfstand,
+ * der dieses Modul lädt, die echte Lobby-Datei lesen und beim Beenden überschreiben.
+ */
+function initLobbyPersistence() {
+  if (persistenceStarted) return;
+  persistenceStarted = true;
+  let restored = [];
+  try {
+    restored = lobbyPersistence.loadLobbies({ maxAgeMs: RESTORE_MAX_AGE_MS });
+  } catch (e) {
+    console.error('[clash] Lobbys laden fehlgeschlagen:', e.message);
+  }
+  for (const lobby of restored) {
+    if (lobbies.has(lobby.code)) continue;
+    lobbies.set(lobby.code, lobby);
+    setTimeout(() => cleanupRestoredLobby(lobby.code), RESTORE_GRACE_MS).unref();
+  }
+  if (restored.length) console.log(`[clash] ${restored.length} Lobby(s) nach dem Neustart wiederhergestellt`);
+  // Regelmäßig speichern: deckt auch einen Absturz ab, bei dem kein "exit" mehr kommt.
+  setInterval(() => saveLobbiesNow('interval'), LOBBY_SAVE_INTERVAL_MS).unref();
+  // index.js beendet bei SIGTERM/SIGINT mit process.exit(0) — "exit" läuft dann synchron, und
+  // better-sqlite3 schreibt synchron, also kommt der Stand garantiert noch auf die Platte.
+  process.on('exit', () => saveLobbiesNow('exit'));
+}
+
 // ── Socket ─────────────────────────────────────────────────────────────────
 function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = null, twitchLogin = null } = {}) {
+  ioRef = io;
+  // Freundesliste im Hub (Anwesenheit + Live-Stand, siehe core/friends.js)
+  registerFriendsSocket(socket, io, { twitchId, twitchLogin });
   // Host-Aktionen dürfen genauso vom (server-seitig verifizierten) Admin ausgeführt werden
   // Turnier-Lobbys steuert niemand von Hand (Einstellungen kommen vom Turnier) — außer dem Admin
   const canControl = (lobby) => (lobby.host === socket.id && !lobby.tournament) || isAdmin;
@@ -98,6 +197,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       lobby.started = true;
       mode.start(lobby, io);
       emitStreamerEvent(lobby, io, 'gameStart');
+      if (lobby.isPublic) emitPublicLobbies(io);
     }, TOURNAMENT_AUTOSTART_MS);
   };
 
@@ -106,16 +206,17 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
   // sobald jemand dazukommt. Ohne aktives Preset (Host hat selbst geschraubt) oder in einer
   // laufenden Runde ist das ein No-op.
   //
-  // Läuft dieselbe Lobby öffentlich (oder war es gerade eben noch), geht zusätzlich die
-  // komplette Browser-Liste an ALLE verbundenen Sockets raus — nicht nur an den Lobby-Raum.
-  // So verschwindet/erscheint sie live im Hub, ohne dass wer im "Lobby beitreten"-Bildschirm
-  // erst neu laden müsste. isPublicChanged fängt genau den Fall ab, in dem der Host gerade
-  // von öffentlich auf privat umschaltet — danach ist lobby.isPublic schon false, die Liste
-  // muss die Lobby aber trotzdem einmal noch verschwinden lassen.
+  // Steht dieselbe Lobby im Lobby-Browser (öffentlich und noch nicht gestartet), geht
+  // zusätzlich die komplette Browser-Liste an den Hub-Raum — so verschwindet/erscheint sie
+  // live im Hub, ohne dass wer im "Lobby beitreten"-Bildschirm erst neu laden müsste.
+  // isPublicChanged fängt genau den Fall ab, in dem der Host gerade von öffentlich auf privat
+  // umschaltet — danach ist lobby.isPublic schon false, die Liste muss die Lobby aber trotzdem
+  // einmal noch verschwinden lassen. Eine laufende Partie steht nicht in der Liste; ihre
+  // Updates ändern daran nichts und lösen deshalb keinen Versand mehr aus.
   const broadcastLobby = (lobby, { isPublicChanged = false } = {}) => {
     reapplyActivePreset(lobby);
     io.to(lobby.code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
-    if (lobby.isPublic || isPublicChanged) io.emit('clash:publicLobbiesUpdate', getPublicLobbies());
+    if ((lobby.isPublic && !lobby.started) || isPublicChanged) emitPublicLobbies(io);
   };
 
   // Lobby endgültig entfernen (verlassen, Admin-Abmeldung, abgelaufene Reconnect-Frist).
@@ -123,8 +224,9 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
   // kein Lobby-Objekt mehr, über das broadcastLobby() das noch erledigen könnte.
   const removeLobby = (lobby) => {
     clearTurnTimer(lobby);
+    clearRandomSpin(lobby);
     lobbies.delete(lobby.code);
-    if (lobby.isPublic) io.emit('clash:publicLobbiesUpdate', getPublicLobbies());
+    if (lobby.isPublic) emitPublicLobbies(io);
   };
 
   // Die Tracking-Schleife braucht io, das es erst hier gibt. initCrTracking() ist
@@ -163,7 +265,8 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
   }
 
   socket.on('clash:createLobby', ({ playerName, mode, timerSeconds = 60, cardsPerRound = 4, avatar = 'knight', avatarUrl }) => {
-    if (!playerName?.trim()) return;
+    const name = cleanPlayerName(playerName);
+    if (!name) return;
     const code = generateCode();
     const lobby = {
       code, overlayKey: generateOverlayKey(), mode: registry.getMode(mode) ? mode : 'snake', host: socket.id,
@@ -175,9 +278,15 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       excludedCards: [],
       locked: false,
       isPublic: false,
+      // Zufallsmodus (core/randomMode.js) ist aus; der Pool steht anfangs auf allen Modi —
+      // Solo/Duo filtert erst bei der Auslosung, damit ein Wechsel nichts verliert.
+      teamCount: 2,
+      randomEnabled: false,
+      randomModes: registry.modeIds(),
+      randomNoRepeat: true,
       createdAt: Date.now(),
       players: [{
-        id: socket.id, name: playerName.trim(), color: PLAYER_COLORS[0],
+        id: socket.id, name, color: PLAYER_COLORS[0],
         avatar: avatar || 'knight', avatarUrl: cleanAvatarUrl(avatarUrl),
         deck: [], elixir: 100, isSpectator: false, twitchId: twitchId || null,
         teamId: null, teamSlot: null,
@@ -214,7 +323,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
         return emitClashError(socket, 'tournamentLobbyOnly');
       }
     }
-    const trimmedName = tAuth ? tAuth.name : String(playerName || '').trim();
+    const trimmedName = tAuth ? tAuth.name : cleanPlayerName(playerName);
     if (!trimmedName) return emitClashError(socket, 'nameRequired');
 
     // Reconnect/Übernahme: Spieler mit gleichem Namen während eines laufenden Spiels.
@@ -259,6 +368,15 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       dcLobby.disconnectedAt = null;
       dcLobby.twitchId = twitchId || dcLobby.twitchId || null;
       if (dcLobby.wasHost) { lobby.host = socket.id; dcLobby.wasHost = false; }
+      // Kein verbundener Host (alle waren weg, z.B. nach einem Neustart): der Erste, der
+      // zurückkommt, übernimmt — der eigentliche Host holt sich die Rolle per wasHost zurück.
+      else if (!lobby.players.some(p => p.id === lobby.host && !p.disconnected)) lobby.host = socket.id;
+      // Nach einem Neustart wiederhergestellt (core/lobbyPersistence.js), und es lief gerade eine
+      // Runde: einmal Bescheid geben, warum man wieder in der Lobby steht.
+      if (dcLobby.restored) {
+        delete dcLobby.restored;
+        if (lobby.wasInterrupted) socket.emit('clash:lobbyRestart', { reason: 'serverRestart' });
+      }
     } else if (activeSame) {
       io.to(activeSame.id).emit('clash:sessionTakeover');
       io.sockets.sockets.get(activeSame.id)?.leave(uCode);
@@ -365,9 +483,12 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     broadcastLobby(lobby, { isPublicChanged: true });
   });
 
-  // Einmalige Anfrage der Liste — für den Erstaufbau des Lobby-Browsers im Hub, bevor
-  // sich dort durch irgendeine Lobby-Änderung ein clash:publicLobbiesUpdate ergäbe.
+  // Einmalige Anfrage der Liste — für den Erstaufbau des Lobby-Browsers im Hub. Wer fragt,
+  // kommt zugleich in den Hub-Raum und bekommt ab dann die Live-Updates (emitPublicLobbies).
+  // Vorher gingen die an ALLE Sockets der Website, also auch an Garden, Seed Runners und
+  // OBS-Overlays.
   socket.on('clash:listPublicLobbies', (payload, ack) => {
+    socket.join(PUBLIC_LOBBIES_ROOM);
     if (typeof ack === 'function') ack(getPublicLobbies());
   });
 
@@ -516,9 +637,35 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     // 2v2 kennt z.B. kein Free-for-all-Bieten).
     if (!registry.modeAllowsParty(target, lobby.partyMode || 'solo')) return;
     lobby.mode = mode;
+    // Ein fester Modus gewählt → der Zufallsmodus ist damit aus
+    lobby.randomEnabled = false;
     // Der neue Modus bringt eigene Einstellungen mit, die noch niemand konfiguriert hat —
     // also mit seiner Empfehlung starten statt mit den Resten des vorherigen Modus.
     applySuggestedPreset(lobby);
+    broadcastLobby(lobby);
+  });
+
+  // ── Zufallsmodus (core/randomMode.js) ────────────────────────────────────
+  socket.on('clash:setRandomMode', ({ code, enabled }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    lobby.randomEnabled = !!enabled;
+    broadcastLobby(lobby);
+  });
+
+  socket.on('clash:setRandomModes', ({ code, modes }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    const clean = sanitizeRandomModes(modes);
+    if (!clean) return;
+    lobby.randomModes = clean;
+    broadcastLobby(lobby);
+  });
+
+  socket.on('clash:setRandomNoRepeat', ({ code, value }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    lobby.randomNoRepeat = !!value;
     broadcastLobby(lobby);
   });
 
@@ -557,12 +704,41 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       broadcastLobby(lobby);
       return;
     }
-    if (team !== 'A' && team !== 'B') return;
+    if (!activeTeamIds(lobby).includes(team)) return;
     const teams = teamPlayers(lobby);
     const alreadyInTeam = teams[team][0]?.id === player.id || teams[team][1]?.id === player.id;
     if (!alreadyInTeam && teams[team][0] && teams[team][1]) return; // Team schon voll
     player.teamId = team;
     player.teamSlot = teams[team][0] && teams[team][0].id !== player.id ? 2 : 1;
+    broadcastLobby(lobby);
+  });
+
+  // Host (oder Admin) legt fest, wie viele 2er-Teams es gibt (2–4). Wer in einem Team steht,
+  // das es danach nicht mehr gibt, ist wieder ohne Team.
+  socket.on('clash:setTeamCount', ({ code, count }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    const n = Math.round(Number(count));
+    if (!Number.isInteger(n) || n < TEAM_COUNT_MIN || n > TEAM_COUNT_MAX) return;
+    lobby.teamCount = n;
+    const ids = activeTeamIds(lobby);
+    lobby.players.forEach(pl => { if (pl.teamId && !ids.includes(pl.teamId)) { pl.teamId = null; pl.teamSlot = null; } });
+    broadcastLobby(lobby);
+  });
+
+  // Host (oder Admin) mischt die Teams neu: alle aktiven Spieler (keine Zuschauer) werden zufällig
+  // auf die Team-Plätze verteilt; wer keinen Platz mehr findet, bleibt ohne Team.
+  socket.on('clash:randomizeTeams', ({ code }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started || lobby.partyMode !== 'duo') return;
+    const ids = activeTeamIds(lobby);
+    const seats = ids.flatMap(id => [[id, 1], [id, 2]]);
+    const active = shuffle(lobby.players.filter(pl => !pl.isAdmin && !pl.left && !pl.isSpectator));
+    lobby.players.forEach(pl => { pl.teamId = null; pl.teamSlot = null; });
+    active.forEach((pl, i) => {
+      if (!seats[i]) return;
+      [pl.teamId, pl.teamSlot] = seats[i];
+    });
     broadcastLobby(lobby);
   });
 
@@ -602,10 +778,48 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     broadcastLobby(lobby);
   });
 
+  // Zufallsmodus: Modus auslosen, Walze an alle schicken (randomSpin im Lobby-Zustand) und erst
+  // nach deren Laufzeit wirklich starten. started=true sperrt in der Zwischenzeit alle
+  // Einstellungen, einen zweiten Start und nimmt die Lobby aus dem Lobby-Browser — game bleibt
+  // null, Beitreten/Verlassen laufen also noch wie in der Lobby-Phase.
+  const startRandomSpin = (lobby) => {
+    const drawn = drawRandomMode(lobby);
+    if (drawn.error) return emitClashError(socket, drawn.error.key, drawn.error.params);
+    lobby.mode = drawn.mode;
+    applySuggestedPreset(lobby);
+    lobby.started = true;
+    lobby.randomSpin = { id: Date.now(), mode: drawn.mode, pool: drawn.pool, endsAt: Date.now() + RANDOM_SPIN_MS };
+    lobby.randomSpinTimer = setTimeout(() => finishRandomStart(lobby), RANDOM_SPIN_MS);
+    broadcastLobby(lobby);
+    if (lobby.isPublic) emitPublicLobbies(io);
+  };
+
+  // Läuft im Timer — der Host-Socket kann inzwischen weg sein, deshalb gehen Fehler an den Raum.
+  // Seit der Auslosung kann jemand gegangen sein: deshalb dieselbe Prüfung noch einmal.
+  const finishRandomStart = (lobby) => {
+    lobby.randomSpinTimer = null;
+    if (!lobbies.has(lobby.code) || !lobby.randomSpin) return;
+    lobby.randomSpin = null;
+    const mode = registry.modeForLobby(lobby);
+    const blocked = !mode ? { key: 'unknownMode' }
+      : lobby.players.length < 2 ? { key: 'needTwoPlayers' }
+        : probeMode(lobby, lobby.mode);
+    if (blocked) {
+      lobby.started = false;
+      broadcastLobby(lobby);
+      io.to(lobby.code).emit('clash:error', clashError(blocked.key, blocked.params));
+      return;
+    }
+    lobby.lastRandomMode = lobby.mode;
+    mode.start(lobby, io);
+    emitStreamerEvent(lobby, io, 'gameStart');
+  };
+
   socket.on('clash:startGame', ({ code }) => {
     const lobby = lobbies.get(code);
     if (!lobby || !canControl(lobby) || lobby.started) return;
     if (lobby.players.length < 2) return emitClashError(socket, 'needTwoPlayers');
+    if (lobby.randomEnabled && !lobby.tournament) return startRandomSpin(lobby);
     const mode = registry.modeForLobby(lobby);
     if (!mode) return emitClashError(socket, 'unknownMode');
     const poolSize = getCardPool(lobby).length;
@@ -625,7 +839,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     emitStreamerEvent(lobby, io, 'gameStart');
     // War die Lobby öffentlich gelistet, verschwindet sie jetzt aus dem Lobby-Browser —
     // mode.start() sendet den eigenen clash:*state-Event an den Raum, nicht broadcastLobby().
-    if (lobby.isPublic) io.emit('clash:publicLobbiesUpdate', getPublicLobbies());
+    if (lobby.isPublic) emitPublicLobbies(io);
   });
 
   // Deck-Overlay (Browserquelle in OBS) meldet sich mit seinem Overlay-Key an
@@ -770,6 +984,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     if (!lobby || !canControl(lobby)) return;
     const wasCancelled = !!(lobby.started && lobby.game && !lobby.game.finished);
     clearTurnTimer(lobby);
+    clearRandomSpin(lobby);
     lobby.started = false;
     lobby.game = null;
     // Während des Spiels nur ausgeblendete (aktiv gegangene) Spieler jetzt endgültig entfernen
@@ -837,11 +1052,13 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     const hist = lobby.history?.[lobby.history.length - 1];
     const histPlayer = hist?.players.find(p => p.id === targetPlayerId);
     if (histPlayer?.deck?.[idx]) histPlayer.deck[idx] = { ...newCard };
-    // Endscreen bei allen aktualisieren
+    // Endscreen bei allen aktualisieren (teamId nur in Team-Modi, sonst gruppiert der Client nicht)
+    const teamMode = registry.getMode(lobby.mode)?.partyModes?.includes('duo');
     io.to(code).emit('clash:gameOver', {
       players: lobby.players.filter(p => !p.isAdmin).map(p => ({
         id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
         deck: p.deck || [], isSpectator: p.isSpectator ?? false,
+        teamId: teamMode ? (p.teamId ?? null) : null,
       })),
     });
     broadcastLobby(lobby);
@@ -997,4 +1214,4 @@ function createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID } = {}) {
   return router;
 }
 
-module.exports = { createClashRoyaleRouter, registerClashRoyaleSocket, createTournamentLobby, ALL_CARDS };
+module.exports = { createClashRoyaleRouter, registerClashRoyaleSocket, createTournamentLobby, initLobbyPersistence, ALL_CARDS };

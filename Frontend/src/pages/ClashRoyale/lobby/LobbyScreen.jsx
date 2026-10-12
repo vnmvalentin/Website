@@ -25,6 +25,7 @@ import TrackingCard from './TrackingCard';
 import ModeStartBand from './ModeStartBand';
 import { TournamentLobbyBanner } from '../tournament/TournamentLobbyBits';
 import HistoryModal from './HistoryModal';
+import RandomModeShow from './RandomModeShow';
 import CrAccountModal from './CrAccountModal';
 import CardExclusionModal from '../modals/CardExclusionModal';
 import { lobbyReadiness } from './poolRequirements';
@@ -130,6 +131,11 @@ export default function LobbyScreen({
         />
       )}
 
+      {/* Zufallsmodus: Walze + Modus-Einblendung bis zum Spielstart (key = eine Auslosung) */}
+      {lobbyData?.randomSpin && (
+        <RandomModeShow key={lobbyData.randomSpin.id} spin={lobbyData.randomSpin} lang={lang} t={t} />
+      )}
+
       <EmoteLayer emotes={emotes} players={lobbyData?.players || []} onSend={actions.sendEmote} lang={lang} />
 
       <div className="cr-anim-rise max-w-6xl mx-auto px-3 md:px-6 py-4 md:py-6 space-y-4">
@@ -219,6 +225,8 @@ export default function LobbyScreen({
                   onOpenCrAccount={(p) => setCrTarget(p.id)}
                   onSwitchTeam={actions.switchTeam}
                   onAddBot={actions.addBot}
+                  onSetTeamCount={actions.setTeamCount}
+                  onRandomizeTeams={actions.randomizeTeams}
                 />
               </Section>
               {canControlLobby && (

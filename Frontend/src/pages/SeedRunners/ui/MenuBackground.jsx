@@ -1,17 +1,22 @@
 // MenuBackground.jsx — hinter dem Hauptmenü läuft ein echtes Level vorbei: Parallax und Kacheln aus dem Renderer des Spiels,
 // die Kamera fährt langsam nach rechts. Das Level ist ein schnelles Chunk-Level (wenige Millisekunden, kein Worker nötig) im
-// Biom der Oberfläche; bei „Bewegung reduzieren“ steht das Bild still.
-import React, { useEffect, useRef } from "react";
+// Biom der Oberfläche. Ob es sich bewegt, entscheidet der Schalter in den Einstellungen (fxSettings.menuBewegung, Vorgabe aus
+// „Bewegung reduzieren“ des Systems); aus heißt: ein stehendes Bild.
+import React, { useEffect, useRef, useSyncExternalStore } from "react";
 import { generateLevel, createLevelWorld, BIOMES } from "../gen/index.js";
 import { drawTiles } from "../client/render.js";
 import { drawParallax } from "../client/parallax.js";
 import { TILE } from "../sim/config.js";
+import { getFx, subscribeFx } from "../client/fxSettings.js";
+
+const getMoving = () => getFx().menuBewegung;
 
 const VIEW_WORLD_H = 250;      // so viele Weltpixel hoch ist der Ausschnitt — die Kacheln wirken wie im Spiel
 const SPEED = 18;              // Weltpixel pro Sekunde
 
 export default function MenuBackground({ biome, seed }) {
   const canvasRef = useRef(null);
+  const moving = useSyncExternalStore(subscribeFx, getMoving, getMoving);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,7 +32,7 @@ export default function MenuBackground({ biome, seed }) {
       return undefined;                    // ohne Level bleibt der ruhige Hintergrund der Hülle
     }
     const palette = BIOMES[biome]?.palette || BIOMES.meadow.palette;
-    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const still = !moving;
     let raf = 0;
     const t0 = performance.now();
 
@@ -86,7 +91,7 @@ export default function MenuBackground({ biome, seed }) {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
     };
-  }, [biome, seed]);
+  }, [biome, seed, moving]);
 
   return <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full" />;
 }

@@ -93,20 +93,20 @@ const routesToPrerender = [
         };
 
         // A. TITEL BEREINIGEN
-        dropDefaults('title');
+        dropDefaults('head > title');
 
         // SPEZIAL-CHECK: Wenn wir NICHT auf der Startseite sind...
         if (currentRoute !== '/' && currentRoute !== '') {
-            Array.from(document.querySelectorAll('title')).forEach(t => {
+            Array.from(document.querySelectorAll('head > title')).forEach(t => {
                 // ...lösche den Home-Titel gnadenlos, egal wo er steht
-                if (t.innerText.includes("Home - vnmvalentin")) {
+                if (t.textContent.includes("Home - vnmvalentin")) {
                     t.remove();
                 }
             });
         }
 
         // Falls immer noch Doppelte da sind: Nur den letzten behalten
-        const remainingTitles = Array.from(document.querySelectorAll('title'));
+        const remainingTitles = Array.from(document.querySelectorAll('head > title'));
         if (remainingTitles.length > 1) {
              const last = remainingTitles[remainingTitles.length - 1];
              remainingTitles.forEach(t => {

@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const { MAX_PLAYERS, PLAYER_COLORS } = require('../roomManager');
 
 const { HASH, harness, sock, tok, room, startRace } = require('./harness');
+const { PFAD_GEN_VERSION } = require('../genVersion');
 
 // ── Anlegen und Beitreten ───────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ test('Raum anlegen: 5-stelliger Code, Ersteller ist Host, Standard-Einstellungen
   assert.equal(state.hostId, res.you.id);
   assert.deepEqual(state.settings, {
     length: 'short', speedClass: 'normal', biome: 'random', seedMode: 'random', seed: '',
-    rounds: 1, playlist: [{ kind: 'random' }], includeDaily: false,
+    rounds: 1, playlist: [{ kind: 'random' }], includeDaily: false, mode: 'race', hardcore: false,
   });
   assert.ok(h.joined.get('s1').has(res.code), 'Socket wurde dem Raum zugeordnet');
 });
@@ -66,7 +67,7 @@ test('Einstellungen: nur Host, nur in der Lobby, ungültige Werte werden ignorie
   const code = room(h, ['Anna', 'Bob']);
   assert.equal(h.mgr.setSettings(sock('s2'), { length: 'long' }).ok, false);
   assert.equal(h.mgr.setSettings(sock('s1'), { length: 'long', speedClass: 'super', biome: 'ice', seedMode: 'custom', seed: 'mein seed' }).ok, true);
-  const withSeries = { length: 'long', speedClass: 'super', biome: 'ice', seedMode: 'custom', seed: 'mein seed', rounds: 1, playlist: [{ kind: 'random' }], includeDaily: false };
+  const withSeries = { length: 'long', speedClass: 'super', biome: 'ice', seedMode: 'custom', seed: 'mein seed', rounds: 1, playlist: [{ kind: 'random' }], includeDaily: false, mode: 'race', hardcore: false };
   assert.deepEqual(h.lastState(code).settings, withSeries);
   h.mgr.setSettings(sock('s1'), { length: 'riesig', speedClass: 'warp', biome: 'mars', seedMode: 'x', seed: { boese: 1 } });
   assert.deepEqual(h.lastState(code).settings, withSeries);
@@ -86,7 +87,7 @@ test('Nur der Host startet; Start verteilt Seed und Einstellungen', () => {
   assert.equal(state.phase, 'loading');
   assert.equal(state.round.number, 1);
   // Phase D: Zufallsrunden bauen mit Pfad — immer lang und „super“, das Biom kommt aus den Einstellungen
-  assert.deepEqual(state.round.params, { seed: state.round.params.seed, length: 'long', speedClass: 'super', biome: 'cave', gen: 'pfad', gv: 1 });
+  assert.deepEqual(state.round.params, { seed: state.round.params.seed, length: 'long', speedClass: 'super', biome: 'cave', gen: 'pfad', gv: PFAD_GEN_VERSION });
   assert.match(state.round.params.seed, /^seed/);
   assert.ok(state.players.every((p) => p.state === 'loading'));
   assert.equal(h.mgr.start(sock('s1')).ok, false, 'läuft schon');

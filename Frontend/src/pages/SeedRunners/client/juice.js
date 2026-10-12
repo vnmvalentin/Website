@@ -276,6 +276,10 @@ export function createJuice({ biome: initialBiome = 'meadow', palette: initialPa
     gust(d) {
       soundAt('gust', d.x + d.w / 2, d.y + d.h / 2);
     },
+    cannonShot(d) {
+      sparks(d.x, d.y, 3, COLOR.hazard, { v0: 15, v1: 50, ay: 0, l0: 0.08, l1: 0.18 });
+      soundAt('cannonShot', d.x, d.y);
+    },
   };
 
   // ── Pro Bild ────────────────────────────────────────────────────────────

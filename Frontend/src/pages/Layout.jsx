@@ -5,6 +5,9 @@ import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import { socket, ensureSocketConnected } from "../utils/socket";
 import AppBackground from "../components/AppBackground";
 import { NAV_CATEGORIES } from "../config/navigation";
+// 96-px-WebP (2 KB) statt /logos/logo.png: das Original ist 512×512 und 255 KB groß, wird hier
+// aber nur 32 px hoch gezeigt — und das auf jeder Seite. Das PNG bleibt für og:image (SEO.jsx).
+import logoHeader from "../assets/logo-header.webp";
 import {
   Volume2,
   VolumeX,
@@ -44,10 +47,9 @@ export default function Layout() {
   const normalizedPath = location.pathname.length > 1
     ? location.pathname.replace(/\/+$/, "")
     : location.pathname;
+  // (Garden, adVentures und die Clash-Royale-Minigames haben seit 27.09.2026 eigene Hüllen außerhalb von Layout)
   const isFullBleedGame =
-    normalizedPath === "/garden" || normalizedPath === "/adventures" ||
-    normalizedPath === "/discord-bot" || normalizedPath === "/WinChallenge-Overlay" ||
-    normalizedPath === "/clash-royale";
+    normalizedPath === "/discord-bot" || normalizedPath === "/WinChallenge-Overlay";
 
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('globalIsMuted') === 'true';
@@ -83,6 +85,19 @@ export default function Layout() {
     setOpenDropdown(null);
     setMobileNavOpen(false);
   }, [location.pathname]);
+
+  // Escape schließt, was gerade offen ist (Dropdown, Handy-Menü, Feedback-Dialog)
+  useEffect(() => {
+    if (!mobileNavOpen && !feedbackModalOpen && !openDropdown) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      setOpenDropdown(null);
+      setMobileNavOpen(false);
+      setFeedbackModalOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen, feedbackModalOpen, openDropdown]);
 
   useEffect(() => {
       const fetchActiveBroadcast = async () => {
@@ -265,7 +280,7 @@ export default function Layout() {
 
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 shrink-0 pr-2 lg:pr-6 hover:opacity-80 transition-opacity">
-              <img src="/logos/logo.png" alt="Logo" className="h-8 w-auto" />
+              <img src={logoHeader} alt="Logo" width="32" height="32" className="h-8 w-auto" />
               <span className="font-display text-lg font-bold text-white tracking-tight">vnmvalentin</span>
             </Link>
 
@@ -280,9 +295,14 @@ export default function Layout() {
                     className="relative flex items-stretch"
                     onMouseEnter={() => openMenu(cat.key)}
                     onMouseLeave={scheduleClose}
+                    // Tastatur: beim Durchtabben öffnet sich das Menü wie beim Überfahren
+                    onFocus={() => openMenu(cat.key)}
+                    onBlur={scheduleClose}
                   >
                     <Link
                       to={cat.to}
+                      aria-haspopup="true"
+                      aria-expanded={open}
                       className={`relative flex items-center gap-1.5 px-4 xl:px-5 font-display text-[15px] xl:text-base font-semibold tracking-wide transition-colors ${
                         active || open ? "text-white" : "text-white/60 hover:text-white"
                       }`}
@@ -332,6 +352,7 @@ export default function Layout() {
                 onClick={() => setIsMuted(!isMuted)}
                 className="p-2 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors"
                 title={isMuted ? "Sound einschalten" : "Sound ausschalten"}
+                aria-label={isMuted ? "Sound einschalten" : "Sound ausschalten"}
               >
                 {isMuted ? <VolumeX size={18} className="text-red-400"/> : <Volume2 size={18}/>}
               </button>
@@ -368,6 +389,8 @@ export default function Layout() {
                 onClick={() => setMobileNavOpen(true)}
                 className="lg:hidden p-2 text-white/60 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
                 title="Menü öffnen"
+                aria-label="Menü öffnen"
+                aria-expanded={mobileNavOpen}
               >
                 <Menu size={22} />
               </button>
@@ -382,10 +405,10 @@ export default function Layout() {
             <div className="absolute inset-y-0 left-0 w-[88%] max-w-[360px] bg-[#0c0c18]/95 backdrop-blur-xl border-r border-white/10 flex flex-col">
               <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
                 <Link to="/" onClick={() => setMobileNavOpen(false)} className="flex items-center gap-3">
-                  <img src="/logos/logo.png" alt="Logo" className="h-7 w-auto" />
+                  <img src={logoHeader} alt="Logo" width="28" height="28" className="h-7 w-auto" />
                   <span className="font-display text-base font-bold text-white">vnmvalentin</span>
                 </Link>
-                <button onClick={() => setMobileNavOpen(false)} className="p-2 text-white/50 hover:text-white rounded-lg hover:bg-white/5">
+                <button onClick={() => setMobileNavOpen(false)} aria-label="Menü schließen" className="p-2 text-white/50 hover:text-white rounded-lg hover:bg-white/5">
                   <X size={20} />
                 </button>
               </div>
@@ -439,9 +462,9 @@ export default function Layout() {
 
         {/* ================= FEEDBACK MODAL ================= */}
         {feedbackModalOpen && (
-           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-label="Feedback">
               <div className="panel-strong p-6 w-full max-w-lg shadow-2xl shadow-black/60 relative flex flex-col gap-4">
-                  <button onClick={() => setFeedbackModalOpen(false)} className="absolute top-4 right-4 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"><X size={18} /></button>
+                  <button onClick={() => setFeedbackModalOpen(false)} aria-label="Schließen" className="absolute top-4 right-4 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"><X size={18} /></button>
                   <h2 className="font-display text-xl font-bold text-white">Feedback</h2>
                   {!user ? (
                       <div className="py-4"><p className="text-white/50 mb-4 text-sm">Du musst eingeloggt sein, um Feedback zu senden.</p><button onClick={() => { setFeedbackModalOpen(false); login(true); }} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"><TwitchGlyph className="w-4 h-4" /> Mit Twitch anmelden</button></div>

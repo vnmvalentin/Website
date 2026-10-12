@@ -21,6 +21,7 @@ try {
 const createWinchallengeRouter = require("../winchallenge/winchallengeRoutes");
 const streamToolRaids = require("../streamTool/lib/streamToolRaids");
 const streamToolStats = require("../streamTool/lib/streamToolStats");
+const streamToolScenes = require("../streamTool/lib/streamToolScenes");
 const winTrackerChat = require("../clashRoyale/lib/winTrackerChat");
 const { step } = require("./startupLog");
 
@@ -408,6 +409,7 @@ function getChannelList() {
   try {
     for (const c of streamToolRaids.getRaidChannels()) set.add(normalizeChannel(c));
     for (const c of streamToolStats.getStatsChannels()) set.add(normalizeChannel(c));
+    for (const c of streamToolScenes.getSceneChannels()) set.add(normalizeChannel(c));
   } catch (e) {
     console.warn("[stream-tool] Overlay-Kanäle nicht lesbar:", e.message);
   }
@@ -691,6 +693,14 @@ async function onChatMessage(channel, tags, message, self) {
 
   const ch = normalizeChannel(channel.replace(/^#/, ""));
 
+  // Murmelbahn: Beitritt und Steuerung. Synchron und für fremde Kanäle sofort
+  // wieder draußen (Nachschlagen in einer Map).
+  try {
+    streamToolScenes.onChatCommand(ch, tags, message);
+  } catch (e) {
+    console.warn("[stream-tool] Murmelbahn-Befehl:", e.message);
+  }
+
   // Win-Tracker: "!tracker #TAG" — eigener Kanalkreis und eigene Mod-Prüfung, unabhängig
   // davon, ob der Kanal auch einem Win-Challenge-Doc gehört.
   try {
@@ -857,6 +867,9 @@ async function initWinchallengeIrc() {
         );
       })
       .catch((e) => console.warn("[stream-tool] Raid-Verarbeitung:", e.message));
+    streamToolScenes
+      .onRaid(ircChannel, raiderName, viewers, tags || {})
+      .catch((e) => console.warn("[stream-tool] Raid-Ansturm:", e.message));
   });
   // Stream-Statistik: Cheers und Abos mitzählen. Alle Handler bekommen den
   // Kanal als erstes Argument — mehr braucht das Modul nicht.
@@ -868,13 +881,18 @@ async function initWinchallengeIrc() {
   client.on("cheer", (ircChannel, tags) => {
     try {
       streamToolStats.onCheer(ircChannel, tags || {});
+      streamToolScenes.onContribution(ircChannel, tags || {});
     } catch (e) {
       console.warn("[stream-tool] Cheer nicht gezählt:", e.message);
     }
   });
-  const countSub = (kind) => (ircChannel) => {
+  const countSub = (kind) => (ircChannel, ...rest) => {
     try {
       streamToolStats.onSub(ircChannel, kind);
+      // Die Tags des Absenders stehen je nach Ereignis an anderer Stelle —
+      // der Hype Train braucht daraus nur, wer es war.
+      const who = rest.find((a) => a && typeof a === "object" && a["user-id"]);
+      if (who) streamToolScenes.onContribution(ircChannel, who);
     } catch (e) {
       console.warn("[stream-tool] Abo nicht gezählt:", e.message);
     }
@@ -1007,6 +1025,8 @@ module.exports = {
   // Kanalliste neu abgleichen (auch aus anderen Modulen, z.B. Raid-Clips)
   refreshChannels: afterWinchallengeConfigSaved,
   getIrcStatus,
+  // Sichtbare Chatzeile über die Sendewarteschlange (Murmelbahn-Ansagen)
+  say: queueChatReply,
   // pure Helfer (u. a. für Tests)
   findChallengeMatches,
   parseClockToMs,

@@ -3,9 +3,9 @@
 // Die Seite zeigt je nach Raumphase eine andere Ansicht (siehe Backend/seedRunners/roomManager.js):
 //   lobby → Lobby · loading/countdown/racing → RaceView + Rangliste · results → Ergebnis-Tabelle
 // Der Server ist die einzige Quelle für Phase, Startzeit und Platzierung; gespielt wird lokal.
-import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Copy, Check, LogOut, WifiOff, Eye, EyeOff } from "lucide-react";
+import { Copy, Check, LogOut, WifiOff, Eye, EyeOff, RotateCcw } from "lucide-react";
 import SEO from "../../components/SEO";
 import { useRoomSocket } from "./room/useRoomSocket.js";
 import { getIdentity } from "./room/identity.js";
@@ -22,9 +22,15 @@ import { Spinner } from "./ui/kit.jsx";
 import { useShellBiome } from "./ui/shellContext.js";
 import { merkeRaum, gemerkterRaum, vergissRaum, versteckeAdresse, verdeckt } from "./room/raumCode.js";
 import { useCodeSichtbar } from "./room/useCodeSichtbar.js";
-import { getFx, subscribeFx } from "./client/fxSettings.js";
+import { getFx, setFx, subscribeFx } from "./client/fxSettings.js";
+import { MODE_LABELS } from "./room/labels.js";
+import { formatTicks } from "./room/format.js";
 
 const PLAYING_STATES = ["loading", "ready", "racing", "finished", "dnf"];
+// Zeitjagd: so lange nach dem Klick bzw. Enter beginnt der nächste Versuch (kurzer Countdown, damit man bereit ist)
+const NEW_ATTEMPT_DELAY_MS = 1200;
+// Nach dem eigenen Ziel: so lange steht die Zielzeit, bevor das Zuschauen von selbst beginnt
+const WATCH_AUTO_DELAY_MS = 2500;
 
 function CenterCard({ children }) {
   return (
@@ -37,6 +43,29 @@ function CenterCard({ children }) {
 /** Eine Hinweis-Fläche neben der Rangliste (Level lädt, Zuschauer, falsche Version) */
 function Notice({ children }) {
   return <div className="sr-panel p-6 text-center">{children}</div>;
+}
+
+/** Rundenangabe der Kopfzeile: in einer Serie "Runde 2 / 3", sonst die Runde dieser Sitzung (zählt ab der Lobby neu) */
+function rundenText(state) {
+  const series = state.series;
+  return series && series.total > 1 ? `Runde ${series.index} / ${series.total}` : `Runde ${state.round.number}`;
+}
+
+/** Was läuft ab? Zeitjagd: das Rundenende; Rennen: die DNF-Frist, sobald jemand im Ziel ist */
+function deadlineOf(round) {
+  if (round?.mode === "timeattack" && round.endAt) return { label: "Restzeit", at: round.endAt };
+  if (round?.dnfAt) return { label: "DNF-Frist", at: round.dnfAt };
+  return null;
+}
+
+/** Kästchen: die anderen Läufer als Geister im eigenen Bild zeigen (Einstellung, gilt für alle Räume) */
+function GeisterSchalter({ an }) {
+  return (
+    <label className="flex items-center gap-2.5 px-1 cursor-pointer">
+      <input type="checkbox" checked={an} onChange={(e) => setFx({ geister: e.target.checked })} className="sr-check" />
+      <span className="text-sm sr-ink">Geister der anderen zeigen</span>
+    </label>
+  );
 }
 
 export default function SeedRunnersRoom() {
@@ -52,7 +81,7 @@ export default function SeedRunnersRoom() {
     versteckeAdresse();
   }, [code]);
   const navigate = useNavigate();
-  const { status, connected, state, me, you, error, notice, epoch, join, actions, clock } = useRoomSocket(code);
+  const { status, connected, state, me, you, error, notice, epoch, join, actions, clock, remote } = useRoomSocket(code);
 
   const [name, setName] = useState(() => getIdentity().name);
   const [toast, setToast] = useState(null);
@@ -134,6 +163,78 @@ export default function SeedRunnersRoom() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch { /* Zwischenablage gesperrt */ }
+  };
+
+  // ── Zeitjagd: Versuche ──────────────────────────────────────────────────────
+  // Jeder Versuch ist ein frischer Lauf auf derselben Karte (neue Welt, Uhr ab 0). Der erste startet mit dem gemeinsamen
+  // Countdown, jeder weitere kurz nach dem Klick bzw. Enter. Die Nummer gehört zur Runde und fängt dort wieder bei 1 an.
+  const geister = useSyncExternalStore(subscribeFx, () => getFx().geister, () => true);
+  // (die Runden-id, nicht die Nummer: Die Nummer beginnt in jeder Sitzung wieder bei 1)
+  const roundId = state?.round?.id ?? null;
+  const timeattack = state?.round?.mode === "timeattack";
+  const [versuch, setVersuch] = useState({ round: null, n: 1, startAt: null });
+  // Hardcore: in welcher Runde (round.id) man gestorben ist — der Lauf hält sofort an, auch bevor der Server antwortet
+  const [gestorbenIn, setGestorbenIn] = useState(null);
+  const attempt = versuch.round === roundId ? versuch.n : 1;
+  const attemptStartAt = versuch.round === roundId ? versuch.startAt : null;
+  const bestRef = useRef(null);    // { round, attempt, payload } — für das erneute Senden nach einem Reconnect
+  const meRacing = state?.phase === "racing" && me?.state === "racing";
+  const neuerVersuch = useCallback(() => {
+    if (!timeattack || !meRacing) return;
+    // Serverzeit jetzt = lokale Zeit + Versatz (ohne Messung: Uhren als gleich annehmen)
+    const serverNow = Date.now() + (clock.offset ?? 0);
+    setVersuch({ round: roundId, n: attempt + 1, startAt: serverNow + NEW_ATTEMPT_DELAY_MS });
+  }, [timeattack, meRacing, clock, roundId, attempt]);
+  useEffect(() => {
+    if (!timeattack || !meRacing) return undefined;
+    const onKey = (e) => {
+      if ((e.code !== "Enter" && e.code !== "NumpadEnter") || e.repeat) return;
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (t && t.closest && t.closest("[role='dialog'], [data-sr-popup]")) return;
+      e.preventDefault();
+      neuerVersuch();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [timeattack, meRacing, neuerVersuch]);
+  // Nach einem Reconnect die bisher beste Zeit noch einmal melden (die Rennansicht kennt nur den laufenden Versuch)
+  useEffect(() => {
+    const best = bestRef.current;
+    if (epoch > 1 && timeattack && best && best.round === roundId) actions.finish({ ...best.payload, attempt: best.attempt });
+  }, [epoch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Zuschauen ──────────────────────────────────────────────────────────────
+  // Wer gerade nicht selbst läuft (im Ziel, aufgegeben, zu spät gekommen), kann einem Läufer folgen. Nach dem eigenen Ziel
+  // geht das nach einer kurzen Pause von selbst los (beim Führenden); fällt der Beobachtete heraus, kommt der nächste.
+  const [watchId, setWatchId] = useState(null);
+  const [watchAuto, setWatchAuto] = useState(true);   // false, sobald man selbst "Zuschauen beenden" wählt
+  const inRace = state?.phase === "racing" || state?.phase === "countdown";
+  const canWatch = inRace && !!me && !(me.state === "racing" || me.state === "ready" || me.state === "loading" || me.state === "incompatible");
+  const aktiveLaeufer = (state?.players || [])
+    .filter((p) => p.state === "racing" && p.connected && p.id !== you?.id)
+    .sort((a, b) => (a.place ?? 99) - (b.place ?? 99));
+  const aktiveKey = aktiveLaeufer.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!canWatch) {
+      if (watchId) setWatchId(null);
+      return undefined;
+    }
+    if (watchId && aktiveLaeufer.some((p) => p.id === watchId)) return undefined;
+    if (!watchAuto && !watchId) return undefined;
+    const next = aktiveLaeufer[0]?.id || null;
+    if (!watchId) {
+      // Erst die eigene Zielzeit zeigen, dann umschalten
+      const t = setTimeout(() => setWatchId(next), WATCH_AUTO_DELAY_MS);
+      return () => clearTimeout(t);
+    }
+    setWatchId(next);
+    return undefined;
+  }, [canWatch, watchId, watchAuto, aktiveKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setWatchAuto(true); setWatchId(null); }, [roundId]);
+  const chooseWatch = (id) => {
+    setWatchId(id);
+    setWatchAuto(!!id);
   };
 
   // ── Zwischenzustände ────────────────────────────────────────────────────────
@@ -227,10 +328,82 @@ export default function SeedRunnersRoom() {
       </div>
     );
   } else if (playing && round) {
+    const hardcore = !!round.hardcore;
+    const stopped = me.state === "dnf" || (hardcore && gestorbenIn === round.id) || (timeattack && me.state === "finished");
+    // Rangliste und Knöpfe: neben dem Bild auf der Seite — und als Seitenspalte, wenn der Lauf den Bildschirm füllt
+    const seite = (
+      <div className="space-y-3">
+        <Standings players={state.players} meId={you?.id} checkpointTotal={checkpointTotal} mode={round.mode} canWatch={canWatch} watchingId={watchId} onWatch={chooseWatch} />
+        {timeattack && meRacing && (
+          <button type="button" onClick={neuerVersuch} className="sr-btn sr-btn-sm w-full">
+            <RotateCcw size={14} />
+            Neuer Versuch <span className="sr-kbd ml-1">Enter</span>
+          </button>
+        )}
+        {phase === "racing" && me.state === "racing" && gestorbenIn !== round.id && (
+          <button type="button" onClick={() => actions.giveUp()} className="sr-btn sr-btn-sm sr-btn-ghost w-full">
+            {timeattack ? (me.finishTicks !== null ? "Fertig — Bestzeit behalten" : "Beenden (ohne Zeit)") : "Aufgeben (DNF)"}
+          </button>
+        )}
+        <GeisterSchalter an={geister} />
+        <p className="text-xs sr-faint leading-relaxed px-1">
+          {hardcore
+            ? "Hardcore: Ein Tod und du bist raus; zurück zum Checkpoint ist gesperrt."
+            : <><span className="sr-kbd">R</span> bringt dich zurück zum letzten Checkpoint; die Zeit läuft weiter.</>}
+          {timeattack && <> <span className="sr-kbd">Enter</span> startet einen neuen Versuch von vorn — die beste Zeit zählt.</>}
+          {canWatch && " Mit dem Auge in der Rangliste schaust du einem Läufer zu."}
+        </p>
+      </div>
+    );
     body = (
       // Nebeneinander erst, wenn Spielfeld (fest) + Rangliste wirklich nebeneinander passen — sonst
       // rutscht die Rangliste unter das Bild, statt das Bild zusammenzuquetschen.
-      <div className="grid 2xl:grid-cols-[auto_300px] gap-4 items-start justify-center">
+      // (minmax(0, auto): Ohne die 0 richtet sich die Spalte nach der festen Bildbreite und ragt auf schmalen
+      // Bildschirmen — Handy, Tablet — links und rechts aus der Seite.)
+      <div className="grid grid-cols-[minmax(0,auto)] 2xl:grid-cols-[auto_300px] gap-4 items-start justify-center">
+        <RaceView
+          key={round.number}
+          params={round.kind === "custom" ? undefined : round.params}
+          level={round.kind === "custom" ? customLevel.level : undefined}
+          // (Zeitjagd: jeder Versuch baut die Welt neu auf — deshalb steckt die Versuchsnummer mit drin)
+          roundNumber={round.number * 1000 + attempt}
+          phase={phase}
+          startAt={attempt > 1 && attemptStartAt ? attemptStartAt : round.startAt}
+          clock={clock}
+          epoch={epoch}
+          frozen={stopped}
+          playerColor={me.color}
+          meState={me.state}
+          finishNote={timeattack ? (me.finishTicks !== null ? `Bestzeit ${formatTicks(me.finishTicks)} · Enter für einen neuen Versuch` : "Enter für einen neuen Versuch") : undefined}
+          onReady={(hash, checkpoints) => { if (state.phase === "loading") actions.ready(hash, checkpoints); }}
+          onCheckpoint={(index, tick) => actions.checkpoint(index, tick, timeattack ? attempt : undefined)}
+          onFinish={(payload) => {
+            if (timeattack) {
+              const best = bestRef.current;
+              if (!best || best.round !== round.id || payload.ticks < best.payload.ticks) bestRef.current = { round: round.id, attempt, payload };
+              actions.finish({ ...payload, attempt });
+            } else {
+              actions.finish(payload);
+            }
+          }}
+          onPosition={(pos) => actions.position({ ...pos, a: attempt })}
+          remote={remote}
+          runners={aktiveLaeufer}
+          spectate={canWatch && watchId ? aktiveLaeufer.find((p) => p.id === watchId) || null : null}
+          deadline={deadlineOf(round)}
+          extraStats={timeattack ? [{ label: "Versuch", value: attempt }, { label: "Bestzeit", value: formatTicks(me.finishTicks) }] : undefined}
+          hardcore={hardcore}
+          onDeath={() => { setGestorbenIn(round.id); actions.giveUp({ died: true }); }}
+          vollbild
+          panel={seite}
+        />
+        {seite}
+      </div>
+    );
+  } else if (inRace && round && me?.state !== "incompatible" && (round.kind !== "custom" || (customLevel.code === round.custom?.code && customLevel.status === "ready"))) {
+    // Zuschauer (zu spät gekommen, nicht rechtzeitig fertig): dasselbe Level, die Kamera folgt einem der Läufer
+    body = (
+      <div className="grid grid-cols-[minmax(0,auto)] 2xl:grid-cols-[auto_300px] gap-4 items-start justify-center">
         <RaceView
           key={round.number}
           params={round.kind === "custom" ? undefined : round.params}
@@ -240,28 +413,23 @@ export default function SeedRunnersRoom() {
           startAt={round.startAt}
           clock={clock}
           epoch={epoch}
-          frozen={me.state === "dnf"}
-          playerColor={me.color}
-          meState={me.state}
-          onReady={(hash, checkpoints) => actions.ready(hash, checkpoints)}
-          onCheckpoint={(index, tick) => actions.checkpoint(index, tick)}
-          onFinish={(payload) => actions.finish(payload)}
+          frozen
+          watchOnly
+          meState="spectator"
+          remote={remote}
+          runners={aktiveLaeufer}
+          spectate={watchId ? aktiveLaeufer.find((p) => p.id === watchId) || null : null}
+          deadline={deadlineOf(round)}
         />
         <div className="space-y-3">
-          <Standings players={state.players} meId={you?.id} checkpointTotal={checkpointTotal} />
-          {phase === "racing" && me.state === "racing" && (
-            <button type="button" onClick={() => actions.giveUp()} className="sr-btn sr-btn-sm sr-btn-ghost w-full">
-              Aufgeben (DNF)
-            </button>
-          )}
-          <p className="text-xs sr-faint leading-relaxed px-1">
-            <span className="sr-kbd">R</span> bringt dich zurück zum letzten Checkpoint; die Zeit läuft weiter.
-          </p>
+          <Standings players={state.players} meId={you?.id} checkpointTotal={checkpointTotal} mode={round.mode} canWatch={canWatch} watchingId={watchId} onWatch={chooseWatch} />
+          <GeisterSchalter an={geister} />
+          <p className="text-xs sr-faint leading-relaxed px-1">Du schaust diese Runde zu und spielst in der nächsten mit.</p>
         </div>
       </div>
     );
   } else {
-    // Zuschauer (zu spät gekommen, nicht rechtzeitig fertig, falsche Version)
+    // Zuschauer ohne Level (falsche Version, eigenes Level nicht ladbar)
     body = (
       <div className="grid md:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
         <Notice>
@@ -278,7 +446,7 @@ export default function SeedRunnersRoom() {
             </>
           )}
         </Notice>
-        <Standings players={state.players} meId={you?.id} checkpointTotal={checkpointTotal} />
+        <Standings players={state.players} meId={you?.id} checkpointTotal={checkpointTotal} mode={round?.mode} />
       </div>
     );
   }
@@ -293,7 +461,7 @@ export default function SeedRunnersRoom() {
 
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <p className="sr-label">{phase === "lobby" ? "Lobby" : phase === "results" ? "Ergebnis" : "Rennen"}{round ? ` · Runde ${round.number}` : ""}</p>
+          <p className="sr-label">{phase === "lobby" ? "Lobby" : phase === "results" ? "Ergebnis" : "Rennen"}{round ? ` · ${rundenText(state)}` : ""}{round?.mode === "timeattack" ? ` · ${MODE_LABELS.timeattack}` : ""}{round?.hardcore ? " · Hardcore" : ""}</p>
           <div className="flex items-center gap-2">
             <h1 className="sr-display text-3xl tracking-wider" aria-label={codeOffen ? `Code ${code}` : "Code verdeckt"}>{verdeckt(code, codeOffen)}</h1>
             <button

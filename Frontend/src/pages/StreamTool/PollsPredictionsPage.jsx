@@ -11,7 +11,7 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from 'rea
 import {
   Copy, Check, Eye, EyeOff, RefreshCw, BarChart3, Scale, Crosshair, Grid3x3,
   LogOut, TriangleAlert, Info, Users, Star, ArrowRight, Clapperboard, Play, Square,
-  Activity, RotateCcw,
+  Activity, RotateCcw, TrainFront, Plane, UsersRound, CircleDot,
 } from 'lucide-react';
 import { TwitchGlyph } from '../../components/BrandGlyphs';
 import SEO from '../../components/SEO';
@@ -24,12 +24,15 @@ import { STREAM_TOOL_SCOPES } from './streamToolApi';
 import {
   defaultConfig, mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
   useDemoSim, useLinger, paintDemo, MODULE_DEFAULTS, TWITCH_GOAL_TYPES, TWITCH_GOAL_FAMILY,
-  resolveTwitchGoal, STAT_METRICS,
+  resolveTwitchGoal, STAT_METRICS, SCENE_IDS, DEMO_HYPE, demoMarbles, planeMessages,
 } from './streamToolConfig';
 import {
   PollWidget, PredictionWidget, GoalWidget, RaidClipWidget, StatsWidget, WidgetFrame,
   STAGE_W, STAGE_H, BAR_TEXT_MIN_H,
 } from './OverlayWidgets';
+import {
+  HypeTrainScene, RaidStormScene, PlaneBannerScene, MarbleRunWidget, STORM_LANE_H,
+} from './OverlayScenes';
 
 const LIVE_POLL_MS = 2500;
 const SAVE_DEBOUNCE_MS = 700;
@@ -107,6 +110,44 @@ const MODULES = [
     hint: 'Raidet dich jemand, spielt das Overlay automatisch einen Clip aus dessen Kanal ab.',
     maxColors: 1,
     colorHint: 'Farbe der Raid-Überschrift.',
+  },
+  // Ab hier die Szenen: sie spielen quer übers Bild und haben keine Karte, die
+  // man verschieben könnte (scene: true) — bis auf die Murmelbahn.
+  {
+    id: 'hypeTrain',
+    kind: 'hype',
+    scene: true,
+    label: 'Hype Train',
+    icon: TrainFront,
+    hint: 'Startet in deinem Kanal ein Hype Train, fährt ein Zug ein. Jedes Level hängt einen Wagen an, die Teilnehmer sitzen mit ihrem Profilbild darin.',
+    maxColors: 2,
+  },
+  {
+    id: 'raidStorm',
+    kind: 'storm',
+    scene: true,
+    label: 'Raid-Ansturm',
+    icon: UsersRound,
+    hint: 'Bei einem Raid rennt eine Menschenmenge durchs Bild, vorneweg der Raider mit Fahne und Zuschauerzahl.',
+    maxColors: 8,
+  },
+  {
+    id: 'planeBanner',
+    kind: 'plane',
+    scene: true,
+    label: 'Flugzeug mit Banner',
+    icon: Plane,
+    hint: 'Ein Flugzeug zieht in festen Abständen deine Nachricht durchs Bild.',
+    maxColors: 3,
+  },
+  {
+    id: 'marbleRun',
+    kind: 'marbles',
+    label: 'Murmelbahn',
+    icon: CircleDot,
+    hint: 'Zuschauer melden sich im Chat an und rollen als Murmel mit ihrem Profilbild um den Sieg.',
+    maxColors: 8,
+    colorHint: 'Ringfarben der Murmeln, der Reihe nach verteilt.',
   },
 ];
 
@@ -342,6 +383,317 @@ function RaidSettings({ meta, module, set, tools }) {
           <Note>Spielt einen Clip dieses Kanals in deiner OBS-Quelle ab, samt Vorlauf. In der Vorschau läuft er stumm mit.</Note>
           {tools?.note && <p className="text-[11px] font-semibold text-green-400 mt-1.5">{tools.note}</p>}
         </div>
+      </Section>
+    </>
+  );
+}
+
+/* ── Szenen: gemeinsame Bausteine ─────────────────────────────────────────── */
+
+/** Höhe der Spur und Größe — mehr Platzierung gibt es bei einer Szene nicht. */
+function LaneFields({ meta, module, set, yNote }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor={`${meta.id}-y`}>Höhe im Bild</Label>
+        <Field id={`${meta.id}-y`} type="number" className="mt-1.5" value={Math.round(module.y)}
+          onChange={(e) => set({ y: Math.max(-200, Math.min(STAGE_H, Number(e.target.value) || 0)) })} />
+        <Note>{yNote}</Note>
+      </div>
+      <Slider label="Größe" value={Math.round(module.scale * 100)} min={50} max={160} step={5} unit=" %"
+        onChange={(v) => set({ scale: v / 100 })} />
+    </div>
+  );
+}
+
+function ColorRow({ meta, module, set, labels }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <Label>Farben</Label>
+        <button onClick={() => set({ colors: [...MODULE_DEFAULTS[meta.id].colors] })}
+          className="text-[11px] font-semibold text-gray-500 hover:text-violet-300 transition-colors">
+          Standard
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {module.colors.slice(0, meta.maxColors).map((c, i) => (
+          <input key={i} type="color" value={c} title={labels?.[i] || `Farbe ${i + 1}`}
+            onChange={(e) => set({ colors: module.colors.map((old, idx) => (idx === i ? e.target.value : old)) })}
+            className="w-8 h-8 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
+        ))}
+      </div>
+      {labels && <Note>{labels.join(' · ')}</Note>}
+    </div>
+  );
+}
+
+/** Probelauf-Knopf samt Abbruch. Der Lauf erscheint in der Vorschau UND in OBS. */
+function TestRow({ label, onTest, onStop, busy, disabled }) {
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <MiniButton icon={Play} onClick={onTest} disabled={busy || disabled}>{label}</MiniButton>
+      {onStop && (
+        <button onClick={onStop} title="Beenden"
+          className="p-2 rounded-lg border border-white/10 text-gray-500 hover:text-white hover:border-white/25 transition-colors">
+          <Square size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+const DIRECTION_OPTIONS = [['right', 'Nach rechts'], ['left', 'Nach links']];
+
+/* ── Hype Train ───────────────────────────────────────────────────────────── */
+
+function HypeSettings({ meta, module, set, tools }) {
+  return (
+    <>
+      <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="Cheers und Abos" />
+
+      <Section title="Zug" cols={4}>
+        <div>
+          <Label>Fährt ein</Label>
+          <Choice value={module.from} options={[['left', 'Von links'], ['right', 'Von rechts']]}
+            onChange={(v) => set({ from: v })} />
+          <Note>Bei jedem Level fährt der Zug hinaus und kommt mit einem Wagen mehr zurück. Ab etwa Level 6 schrumpft er, damit er ins Bild passt.</Note>
+        </div>
+
+        <div className="space-y-1">
+          <ToggleRow label="Fortschritt zeigen" description="Balken und Prozent bis zum nächsten Level."
+            checked={module.showProgress !== false} onChange={(v) => set({ showProgress: v })} />
+          <ToggleRow label="Restzeit zeigen" description="Im Führerhaus der Lok."
+            checked={module.timer !== false} onChange={(v) => set({ timer: v })} />
+          <ToggleRow label="Namen unter den Bildern" description="Macht die Bilder etwas kleiner."
+            checked={!!module.showNames} onChange={(v) => set({ showNames: v })} />
+        </div>
+
+        <LaneFields meta={meta} module={module} set={set} yNote="Oberkante des Zugs. 850 stellt ihn an den unteren Rand." />
+
+        <div>
+          <ColorRow meta={meta} module={module} set={set} labels={['Lok', 'Wagen']} />
+          <div className="mt-4">
+            <Label>Probelauf</Label>
+            <TestRow label={tools?.busy ? 'Startet…' : 'Probezug schicken'} busy={tools?.busy}
+              onTest={() => tools?.onTest('hype')} onStop={() => tools?.onStop('hype')} />
+            <Note>Fährt ein, steigt alle zehn Sekunden ein Level auf (bis Level 4) und fährt wieder ab.</Note>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Wer mitfährt" cols={2}>
+        <Note>
+          Twitch nennt nur die Spitzen-Beitragenden eines Zugs. Alle anderen erkennt der Chat-Bot an
+          ihren Cheers und Abos — wer nur Kanalpunkte einsetzt, taucht deshalb nicht auf.
+        </Note>
+      </Section>
+    </>
+  );
+}
+
+/* ── Raid-Ansturm ─────────────────────────────────────────────────────────── */
+
+function StormSettings({ meta, module, set, tools }) {
+  const [viewers, setViewers] = useState(40);
+  const guess = module.guessNames !== false;
+
+  return (
+    <>
+      <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="Raids" />
+
+      <Section title="Ansturm" cols={4}>
+        <div>
+          <Label>Laufrichtung</Label>
+          <Choice value={module.direction} options={DIRECTION_OPTIONS} onChange={(v) => set({ direction: v })} />
+          <div className="mt-4">
+            <Label htmlFor={`${meta.id}-minv`}>Ab wie vielen Zuschauern</Label>
+            <Field id={`${meta.id}-minv`} type="number" min={0} className="mt-1.5" value={module.minViewers}
+              onChange={(e) => set({ minViewers: Math.max(0, Number(e.target.value) || 0) })} />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <Slider label="Start nach Raid" value={module.delaySeconds ?? 0} min={0} max={30} step={1} unit=" s"
+            onChange={(v) => set({ delaySeconds: v })} />
+          <Slider label="Höchstens Figuren" value={module.maxFigures ?? 100} min={10} max={140} step={10} unit=""
+            onChange={(v) => set({ maxFigures: v })} />
+          <Note>Kommen mehr Leute, laufen so viele Figuren — die echte Zahl steht auf der Fahne.</Note>
+        </div>
+
+        <div className="space-y-1">
+          <ToggleRow label="Namen über den Figuren" checked={module.showNames !== false}
+            onChange={(v) => set({ showNames: v })} />
+          <ToggleRow
+            label="Raider erkennen"
+            description="Twitch nennt die Mitgekommenen nicht. Als Raider gilt, wer kurz nach dem Raid neu in deiner Zuschauerliste steht — diese Figuren tragen ihr Profilbild als Kopf."
+            checked={guess}
+            onChange={(v) => set({ guessNames: v })}
+          />
+          {guess && (
+            <Note>
+              Dafür muss das Overlay schon vor dem Raid laufen und der Vorlauf einige Sekunden betragen —
+              Twitch zieht die Zuschauerliste verzögert nach. Figuren ohne Treffer bleiben namenlos und bekommen einen gezeichneten Kopf.
+            </Note>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <LaneFields meta={meta} module={module} set={set} yNote="Oberkante der Laufspur. 760 legt sie an den unteren Rand." />
+        </div>
+      </Section>
+
+      <Section title="Aussehen und Probelauf" cols={3}>
+        <ColorRow meta={meta} module={module} set={set} />
+        <div>
+          <Label htmlFor={`${meta.id}-accent`}>Farbe der Fahne</Label>
+          <div className="flex items-center gap-2 mt-1.5">
+            <input id={`${meta.id}-accent`} type="color" value={module.accent}
+              onChange={(e) => set({ accent: e.target.value })}
+              className="w-9 h-9 shrink-0 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
+            <Note>Auch das Oberteil des Anführers.</Note>
+          </div>
+        </div>
+        <div>
+          <Label htmlFor={`${meta.id}-test`}>Probelauf mit Zuschauern</Label>
+          <Field id={`${meta.id}-test`} type="number" min={1} max={5000} className="mt-1.5" value={viewers}
+            onChange={(e) => setViewers(Math.max(1, Number(e.target.value) || 1))} />
+          <TestRow label={tools?.busy ? 'Startet…' : 'Ansturm auslösen'} busy={tools?.busy}
+            onTest={() => tools?.onTest('storm', viewers)} onStop={() => tools?.onStop('storm')} />
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ── Flugzeug mit Banner ──────────────────────────────────────────────────── */
+
+function PlaneSettings({ meta, module, set, tools }) {
+  const count = planeMessages(module).length;
+  return (
+    <Section title="Flug" cols={4}>
+      <div className="sm:col-span-2 xl:col-span-1">
+        <Label htmlFor={`${meta.id}-msg`}>Nachricht</Label>
+        <textarea id={`${meta.id}-msg`} rows={4} maxLength={1500} value={module.messages}
+          onChange={(e) => set({ messages: e.target.value })}
+          className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-sm transition-colors resize-y"
+          placeholder="Eine Nachricht je Zeile" />
+        <Note>
+          {count > 1
+            ? `${count} Nachrichten — das Flugzeug nimmt bei jedem Flug die nächste.`
+            : 'Eine Nachricht je Zeile. Bei mehreren wechselt das Flugzeug durch.'}
+        </Note>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor={`${meta.id}-int`}>Alle wie viele Minuten</Label>
+          <Field id={`${meta.id}-int`} type="number" min={1} max={240} className="mt-1.5" value={module.intervalMin}
+            onChange={(e) => set({ intervalMin: Math.max(1, Math.min(240, Number(e.target.value) || 1)) })} />
+          <Note>Geflogen wird nach der Uhr — bei 10 Minuten also zu jeder vollen Zehn.</Note>
+        </div>
+        <Slider label="Dauer eines Überflugs" value={module.flightSeconds ?? 24} min={8} max={60} step={2} unit=" s"
+          onChange={(v) => set({ flightSeconds: v })} />
+      </div>
+
+      <div>
+        <Label>Flugrichtung</Label>
+        <Choice value={module.direction} options={DIRECTION_OPTIONS} onChange={(v) => set({ direction: v })} />
+        <div className="mt-4">
+          <LaneFields meta={meta} module={module} set={set} yNote="Oberkante des Flugzeugs." />
+        </div>
+      </div>
+
+      <div>
+        <ColorRow meta={meta} module={module} set={set} labels={['Flugzeug', 'Banner', 'Schrift']} />
+        <div className="mt-4">
+          <Label>Probeflug</Label>
+          <TestRow label={tools?.busy ? 'Startet…' : 'Jetzt fliegen'} busy={tools?.busy} disabled={!count}
+            onTest={() => tools?.onTest('plane')} />
+          <Note>Startet sofort in der Vorschau und in deiner OBS-Quelle.</Note>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/* ── Murmelbahn ───────────────────────────────────────────────────────────── */
+
+const MARBLE_PHASE_TEXT = {
+  join: 'Anmeldung offen',
+  race: 'Rennen läuft',
+  done: 'Entschieden',
+};
+
+function MarbleSettings({ meta, module, set, tools }) {
+  const state = tools?.state;
+  const phase = state?.phase;
+  const command = module.joinCommand || '!murmel';
+
+  return (
+    <>
+      <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="Anmeldungen" />
+
+      <Section title="Rennen" cols={4}>
+        <div className="sm:col-span-2">
+          <Label>Steuerung</Label>
+          <p className="text-[13px] font-semibold text-white mt-1.5">
+            {phase
+              ? `${MARBLE_PHASE_TEXT[phase]} · ${state.players.length} ${state.players.length === 1 ? 'Murmel' : 'Murmeln'}`
+              : 'Kein Rennen offen'}
+            {state?.winner && <span className="text-violet-300"> · Sieger: {state.winner.name}</span>}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <MiniButton icon={Play} onClick={() => tools?.onAction('open')} disabled={tools?.busy || phase === 'race'}>
+              {phase === 'join' ? 'Neu öffnen' : 'Anmeldung öffnen'}
+            </MiniButton>
+            <MiniButton icon={ArrowRight} onClick={() => tools?.onAction('start')}
+              disabled={tools?.busy || phase !== 'join' || state.players.length < 2}>
+              Rennen starten
+            </MiniButton>
+            <MiniButton icon={Users} onClick={() => tools?.onAction('bots')} disabled={tools?.busy || phase !== 'join'}>
+              8 Testmurmeln
+            </MiniButton>
+            <MiniButton icon={Square} onClick={() => tools?.onAction('cancel')} disabled={tools?.busy || !phase}>
+              Abbrechen
+            </MiniButton>
+          </div>
+          <Note>
+            Im Chat geht dasselbe für dich und deine Mods: <span className="font-mono text-gray-400">{command} open</span>,{' '}
+            <span className="font-mono text-gray-400">{command} start</span> und{' '}
+            <span className="font-mono text-gray-400">{command} stop</span>. Zuschauer treten mit{' '}
+            <span className="font-mono text-gray-400">{command}</span> bei.
+          </Note>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor={`${meta.id}-cmd`}>Befehl zum Beitreten</Label>
+            <Field id={`${meta.id}-cmd`} className="mt-1.5 font-mono" maxLength={25} value={module.joinCommand}
+              onChange={(e) => set({ joinCommand: e.target.value.replace(/\s/g, '') })} />
+          </div>
+          <Slider label="Anmeldezeit" value={module.joinSeconds ?? 60} min={0} max={300} step={15} unit=" s"
+            onChange={(v) => set({ joinSeconds: v })} />
+          <Note>{(module.joinSeconds ?? 60) > 0 ? 'Danach startet das Rennen von allein.' : '0 = du startest von Hand.'}</Note>
+        </div>
+
+        <div className="space-y-4">
+          <Slider label="Höchstens Murmeln" value={module.maxPlayers ?? 40} min={5} max={80} step={5} unit=""
+            onChange={(v) => set({ maxPlayers: v })} />
+          <Slider label="Länge der Bahn" value={module.sections ?? 12} min={6} max={24} step={1} unit=" Abschnitte"
+            onChange={(v) => set({ sections: v })} />
+          <Slider label="Sieger bleibt stehen" value={module.winnerSeconds ?? 15} min={5} max={60} step={5} unit=" s"
+            onChange={(v) => set({ winnerSeconds: v })} />
+        </div>
+      </Section>
+
+      <Section title="Anzeige" cols={3}>
+        <ToggleRow label="Im Chat ansagen" description="Der Bot meldet die Öffnung und den Sieger."
+          checked={module.announce !== false} onChange={(v) => set({ announce: v })} />
+        <ToggleRow label="Namen an den Murmeln" description="Bei den sechs vordersten."
+          checked={module.showNames !== false} onChange={(v) => set({ showNames: v })} />
+        <ToggleRow label="Countdown der Anmeldung" checked={module.timer !== false}
+          onChange={(v) => set({ timer: v })} />
       </Section>
     </>
   );
@@ -640,7 +992,7 @@ function FeedSettings({ meta, module, set }) {
 
 /* ── Einstellungen eines Moduls ───────────────────────────────────────────── */
 
-function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools, statsTools }) {
+function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools, statsTools, sceneTools }) {
   const set = (patch) => onChange(patch);
 
   return (
@@ -652,8 +1004,14 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
       {meta.kind === 'goal' && <GoalSettings meta={meta} module={module} set={set} tools={goalTools} />}
       {meta.kind === 'stats' && <StatsSettings meta={meta} module={module} set={set} tools={statsTools} />}
       {meta.kind === 'raid' && <RaidSettings meta={meta} module={module} set={set} tools={raidTools} />}
+      {meta.kind === 'hype' && <HypeSettings meta={meta} module={module} set={set} tools={sceneTools} />}
+      {meta.kind === 'storm' && <StormSettings meta={meta} module={module} set={set} tools={sceneTools} />}
+      {meta.kind === 'plane' && <PlaneSettings meta={meta} module={module} set={set} tools={sceneTools} />}
+      {meta.kind === 'marbles' && <MarbleSettings meta={meta} module={module} set={set} tools={sceneTools} />}
 
-      {/* Aussehen und Platzierung — bei jedem Modul dieselben vier Spalten */}
+      {/* Aussehen und Platzierung — bei jeder Karte dieselben vier Spalten.
+          Szenen bringen Höhe, Größe und Farben oben selbst mit. */}
+      {!meta.scene && (
       <Section title="Aussehen" cols={4}>
         <div>
           <Label>Position</Label>
@@ -712,8 +1070,9 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
           <Note>{meta.colorHint}</Note>
 
           {/* Beim Raid-Clip nicht anbieten: die Unschärfe hinter der Karte
-              hindert Twitch daran, den Clip von allein zu starten. */}
-          {meta.id !== 'raidClip' && (
+              hindert Twitch daran, den Clip von allein zu starten. Die
+              Murmelbahn ist ebenfalls immer flach (großer Canvas). */}
+          {meta.id !== 'raidClip' && meta.id !== 'marbleRun' && (
             <div className="mt-4">
               <ToggleRow label="Glassmorphism" description="Weiche Unschärfe hinter der Karte."
                 checked={module.glass} onChange={(v) => set({ glass: v })} />
@@ -721,6 +1080,7 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
           )}
         </div>
       </Section>
+      )}
     </div>
   );
 }
@@ -817,7 +1177,7 @@ export default function PollsPredictionsPage() {
   const [overlayKey, setOverlayKey] = useState(null);
   const [connected, setConnected] = useState(false);
   const [twitchLogin, setTwitchLogin] = useState('');
-  const [live, setLive] = useState({ poll: null, prediction: null, goals: null, raid: null, stats: null, notice: null });
+  const [live, setLive] = useState({ poll: null, prediction: null, goals: null, raid: null, stats: null, scenes: null, notice: null });
   const [missingGoalScopes, setMissingGoalScopes] = useState([]);
   const [hasTwitchGoalScope, setHasTwitchGoalScope] = useState(true);
   const [chatWatch, setChatWatch] = useState(null);
@@ -827,6 +1187,8 @@ export default function PollsPredictionsPage() {
   const [raidNote, setRaidNote] = useState('');
   const [statsBusy, setStatsBusy] = useState(false);
   const [statsNote, setStatsNote] = useState('');
+  const [sceneStatus, setSceneStatus] = useState(null);
+  const [sceneBusy, setSceneBusy] = useState(false);
   const [selected, setSelected] = useState('poll'); // hervorgehoben auf der Leinwand
   const [demoOn, setDemoOn] = useState(true);
   const [demoOutcomes, setDemoOutcomes] = useState(2);
@@ -855,6 +1217,7 @@ export default function PollsPredictionsPage() {
         setMissingGoalScopes(d.missingGoalScopes || []);
         setHasTwitchGoalScope(d.hasTwitchGoalScope !== false);
         setChatWatch(d.chatWatch || null);
+        setSceneStatus(d.sceneStatus || null);
         if (d.config) setConfig(mergeConfig(d.config));
         clockOffset.current = d.serverNow - Date.now();
         setLoaded(true);
@@ -890,7 +1253,7 @@ export default function PollsPredictionsPage() {
         .then((d) => {
           if (!alive) return;
           clockOffset.current = d.serverNow - Date.now();
-          setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, notice: d.notice });
+          setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, scenes: d.scenes, notice: d.notice });
           if (d.chatWatch) setChatWatch(d.chatWatch);
           if (!d.connected) setConnected(false);
         })
@@ -970,6 +1333,49 @@ export default function PollsPredictionsPage() {
     }
   }, []);
 
+  /* ── Szenen: Probeläufe und Murmelbahn ──────────────────────────────────── */
+  const refreshLive = useCallback(async () => {
+    const d = await api.getLive();
+    clockOffset.current = d.serverNow - Date.now();
+    setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, scenes: d.scenes, notice: d.notice });
+  }, []);
+
+  /** Führt eine Szenen-Aktion aus und holt den Stand sofort nach, statt auf den Takt zu warten. */
+  const runScene = useCallback(async (call) => {
+    setSceneBusy(true);
+    try {
+      // Erst den offenen Speichervorgang abschließen — sonst gilt ein eben
+      // eingeschaltetes Modul für das Backend noch als aus.
+      clearTimeout(saveTimer.current);
+      await api.saveConfig(configRef.current).catch(() => {});
+      await call();
+      await refreshLive().catch(() => {});
+    } catch (e) {
+      flash(e.message);
+    } finally {
+      setSceneBusy(false);
+    }
+  }, [refreshLive]);
+
+  const testScene = useCallback((key, arg) => runScene(() => (
+    key === 'hype' ? api.testHypeTrain() : key === 'storm' ? api.testRaidStorm(arg) : api.testPlane()
+  )), [runScene]);
+
+  const stopScene = useCallback((key) => runScene(() => api.stopScene(key)), [runScene]);
+
+  const marbleAction = useCallback((action) => runScene(() => {
+    if (action === 'open') return api.openMarbles();
+    if (action === 'start') return api.startMarbles();
+    if (action === 'bots') return api.addMarbleBots(8);
+    return api.stopScene('marbles');
+  }), [runScene]);
+
+  // Auch die Vorschau rechnet das Rennen und darf den Sieger melden — so gibt
+  // es ein Ergebnis, selbst wenn gerade keine OBS-Quelle offen ist.
+  const reportWinner = useCallback((raceId, winnerId) => {
+    if (overlayKey) api.reportMarbleWinner(overlayKey, raceId, winnerId).catch(() => {});
+  }, [overlayKey]);
+
   // Eigener Takt für die Countdowns zwischen den Abrufen
   useEffect(() => {
     const id = setInterval(() => tick((n) => n + 1), 200);
@@ -985,7 +1391,8 @@ export default function PollsPredictionsPage() {
       setConnected(true);
       setTwitchLogin(r.twitchLogin || '');
       setMissingGoalScopes(r.missingGoalScopes || []);
-        setHasTwitchGoalScope(r.hasTwitchGoalScope !== false);
+      setHasTwitchGoalScope(r.hasTwitchGoalScope !== false);
+      setSceneStatus(r.sceneStatus || null);
     } catch (e) {
       if (e.status === 403 && e.missingScopes) {
         // Vorhandener Login reicht nicht — erneut mit den Leserechten anfragen
@@ -1005,10 +1412,15 @@ export default function PollsPredictionsPage() {
   // ohne diesen Fall würde das Backend weiter den alten Token ohne die neuen
   // Rechte benutzen und das Ziel bliebe für immer leer.
   const autoTried = useRef('');
+  // Fehlt ein Recht, das eine eingeschaltete Szene braucht?
+  const sceneScopeMissing = !!sceneStatus && (
+    (config.modules.hypeTrain.enabled && !sceneStatus.hypeScope) ||
+    (config.modules.raidStorm.enabled && config.modules.raidStorm.guessNames !== false && !sceneStatus.chattersScope)
+  );
   useEffect(() => {
     if (!loaded || !accessToken || autoTried.current === accessToken) return;
     // Schon verbunden und nichts zu gewinnen? Dann sparen wir uns den Aufruf.
-    if (connected && missingGoalScopes.length === 0 && hasTwitchGoalScope) return;
+    if (connected && missingGoalScopes.length === 0 && hasTwitchGoalScope && !sceneScopeMissing) return;
 
     autoTried.current = accessToken;
     api.connectTwitch(accessToken)
@@ -1017,15 +1429,16 @@ export default function PollsPredictionsPage() {
         setTwitchLogin(r.twitchLogin || '');
         setMissingGoalScopes(r.missingGoalScopes || []);
         setHasTwitchGoalScope(r.hasTwitchGoalScope !== false);
+        setSceneStatus(r.sceneStatus || null);
       })
       .catch(() => {});
-  }, [loaded, connected, accessToken, missingGoalScopes.length, hasTwitchGoalScope]);
+  }, [loaded, connected, accessToken, missingGoalScopes.length, hasTwitchGoalScope, sceneScopeMissing]);
 
   const disconnect = async () => {
     try {
       await api.disconnectTwitch();
       setConnected(false);
-      setLive({ poll: null, prediction: null, goals: null, raid: null, stats: null, notice: null });
+      setLive({ poll: null, prediction: null, goals: null, raid: null, stats: null, scenes: null, notice: null });
       autoTried.current = '';
     } catch (e) { flash(e.message); }
   };
@@ -1156,6 +1569,12 @@ export default function PollsPredictionsPage() {
   const pollHeld = useLinger(pollView);
   const predHeld = useLinger(predView);
 
+  // Szenen. Läuft gerade nichts, steht bei eingeschalteten Demo-Daten ein
+  // Standbild auf der Leinwand — sonst gäbe es nichts zum Ausrichten.
+  const scenes = live.scenes || {};
+  const marblesView = scenes.marbles || (demoOn ? demoMarbles(m.marbleRun) : null);
+  const hypeView = scenes.hype || (demoOn ? DEMO_HYPE : null);
+
   // Was auf der Leinwand liegt — dieselbe Reihenfolge wie die Modul-Liste
   const rendered = {
     poll: pollHeld && <PollWidget data={pollHeld} module={m.poll} />,
@@ -1164,6 +1583,9 @@ export default function PollsPredictionsPage() {
     subGoal: subView && <GoalWidget data={subView} module={m.subGoal} />,
     streamStats: statsView && <StatsWidget data={statsView} module={m.streamStats} />,
     raidClip: raidView && <RaidClipWidget data={raidView} module={m.raidClip} preview />,
+    marbleRun: marblesView && (
+      <MarbleRunWidget data={marblesView} module={m.marbleRun} offsetRef={clockOffset} onResult={reportWinner} />
+    ),
   };
   const hasData = {
     poll: !!pollView,
@@ -1172,6 +1594,7 @@ export default function PollsPredictionsPage() {
     subGoal: !!subView,
     streamStats: !!statsView,
     raidClip: !!raidView,
+    marbleRun: !!marblesView,
   };
 
   /** Modul, dessen Einstellungen gerade unter der Leinwand stehen. */
@@ -1186,6 +1609,17 @@ export default function PollsPredictionsPage() {
     if (!connected) return null;
     const mod = config.modules[id];
     if (!mod) return null;
+
+    if (id === 'hypeTrain' && mod.enabled && sceneStatus && !sceneStatus.hypeScope) {
+      return 'Zum Lesen des Hype Trains fehlt noch ein Leserecht. Oben auf „Rechte jetzt erteilen“ klicken.';
+    }
+    if (id === 'raidStorm' && mod.enabled && mod.guessNames !== false && sceneStatus && !sceneStatus.chattersScope) {
+      return 'Für die Namen der Raider fehlt das Leserecht für deine Zuschauerliste. Oben auf „Rechte jetzt erteilen“ klicken — oder das Schätzen der Namen abschalten.';
+    }
+    if (id === 'hypeTrain' || id === 'raidStorm' || id === 'marbleRun') {
+      if (!mod.enabled || !chatWatch || chatWatch.botConfigured) return null;
+      return 'Auf diesem Server ist kein Chat-Bot hinterlegt — ohne ihn kommen weder Raids noch Anmeldungen noch Cheers an.';
+    }
 
     if (id === 'raidClip' || id === 'streamStats') {
       if (!mod.enabled || !chatWatch || chatWatch.botConfigured) return null;
@@ -1306,11 +1740,13 @@ export default function PollsPredictionsPage() {
           <p className="text-amber-200 text-sm">{live.notice}</p>
         </div>
       )}
-      {connected && (missingGoalScopes.length > 0 || !hasTwitchGoalScope) && (
+      {connected && (missingGoalScopes.length > 0 || !hasTwitchGoalScope || sceneScopeMissing) && (
         <div className="mb-4 shrink-0 flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3">
           <Info size={15} className="text-amber-400 shrink-0 mt-0.5" />
           <p className="text-amber-200 text-sm">
-            Für die Ziel-Module fehlen noch Leserechte für Follower und Abos.{' '}
+            {sceneScopeMissing && missingGoalScopes.length === 0 && hasTwitchGoalScope
+              ? 'Für Hype Train oder Raid-Ansturm fehlt noch ein Leserecht.'
+              : 'Für einige Module fehlen noch Leserechte (Follower, Abos, Hype Train oder Zuschauerliste).'}{' '}
             <button onClick={() => login(false, STREAM_TOOL_SCOPES)} className="underline font-semibold hover:text-white">
               Rechte jetzt erteilen
             </button>
@@ -1378,7 +1814,11 @@ export default function PollsPredictionsPage() {
                         {meta.label}
                       </span>
                       <span className={`block text-[11px] truncate ${hint ? 'text-amber-400/80' : 'text-gray-500'}`}>
-                        {hint ? 'Aktion nötig' : (module.enabled ? `${Math.round(module.x)} × ${Math.round(module.y)}` : 'Ausgeblendet')}
+                        {hint
+                          ? 'Aktion nötig'
+                          : !module.enabled
+                            ? 'Ausgeblendet'
+                            : meta.scene ? 'Über die ganze Breite' : `${Math.round(module.x)} × ${Math.round(module.y)}`}
                       </span>
                     </span>
                     {/* Pfeil zeigt auf die Einstellungen — dasselbe Muster wie in den Abstimmungs-Karten */}
@@ -1457,7 +1897,7 @@ export default function PollsPredictionsPage() {
                   {guides.v && <div className="stw-guide v" style={{ left: STAGE_W / 2 }} />}
                   {guides.h && <div className="stw-guide h" style={{ top: STAGE_H / 2 }} />}
 
-                  {MODULES.map((meta) => (
+                  {MODULES.filter((meta) => !meta.scene).map((meta) => (
                     <WidgetFrame
                       key={meta.id}
                       id={meta.id}
@@ -1470,6 +1910,23 @@ export default function PollsPredictionsPage() {
                       {rendered[meta.id]}
                     </WidgetFrame>
                   ))}
+
+                  {/* Szenen: laufen über die ganze Bühne und lassen sich nicht
+                      greifen. Ist eine ausgewählt, zeigt ein Rahmen ihre Spur. */}
+                  {selected === 'raidStorm' && m.raidStorm.enabled && (
+                    <div className="stw-lane" style={{ top: Math.round(m.raidStorm.y), height: Math.round(STORM_LANE_H * m.raidStorm.scale) }} />
+                  )}
+                  {m.hypeTrain.enabled && (
+                    <HypeTrainScene data={hypeView} module={m.hypeTrain} offsetRef={clockOffset} still={!scenes.hype} />
+                  )}
+                  {m.raidStorm.enabled && (
+                    <RaidStormScene data={scenes.storm} module={m.raidStorm} offsetRef={clockOffset} />
+                  )}
+                  <PlaneBannerScene module={m.planeBanner} test={scenes.plane} offsetRef={clockOffset} />
+                  {/* Standbild nur, solange das Flugzeug ausgewählt ist — sonst stünde es dauerhaft im Bild */}
+                  {selected === 'planeBanner' && demoOn && (
+                    <PlaneBannerScene module={m.planeBanner} offsetRef={clockOffset} still />
+                  )}
                 </div>
               </div>
             </div>
@@ -1496,11 +1953,14 @@ export default function PollsPredictionsPage() {
                   <p className="text-[11px] text-gray-500 leading-tight">Einstellungen</p>
                 </div>
                 <div className="ml-auto flex gap-2">
+                  {/* Eine Szene hat keine Karte, die sich mittig setzen ließe */}
+                  {!activeMeta.scene && (
                   <button onClick={() => centerWidget(activeMeta.id)}
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-gray-300 hover:text-white transition-colors">
                     <Crosshair size={13} />
                     Zentrieren
                   </button>
+                  )}
                   <button onClick={() => patchModule(activeMeta.id, { ...MODULE_DEFAULTS[activeMeta.id] })}
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-gray-300 hover:text-white transition-colors">
                     <RefreshCw size={13} />
@@ -1534,6 +1994,14 @@ export default function PollsPredictionsPage() {
                   note: statsNote,
                   watch: chatWatch,
                   stats: live.stats,
+                } : null}
+                sceneTools={SCENE_IDS.includes(activeMeta.id) || activeMeta.kind === 'marbles' ? {
+                  onTest: testScene,
+                  onStop: stopScene,
+                  onAction: marbleAction,
+                  busy: sceneBusy,
+                  watch: chatWatch,
+                  state: live.scenes?.marbles || null,
                 } : null}
               />
             </div>

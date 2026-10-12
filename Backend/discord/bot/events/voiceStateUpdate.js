@@ -1,5 +1,5 @@
 // discord/bot/events/voiceStateUpdate.js
-const { ChannelType, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const {
     getVoiceConfig, saveActiveVoiceChannel,
     getActiveVoiceChannel, deleteActiveVoiceChannel, updateVoiceOwner,
@@ -23,6 +23,17 @@ function trackLeave(guildId, userId) {
     if (durationSeconds > 0) trackVoiceActivity(guildId, userId, entry.channelId, durationSeconds);
 }
 
+// Laufende Sitzungen (noch nicht in der DB, weil der Nutzer den Voice noch nicht verlassen hat): userId -> Sekunden
+function getLiveVoiceSeconds(guildId) {
+    const live = new Map();
+    const prefix = `${guildId}:`;
+    for (const [key, entry] of voiceJoinTimestamps) {
+        if (!key.startsWith(prefix)) continue;
+        live.set(key.slice(prefix.length), Math.round((Date.now() - entry.joinedAt) / 1000));
+    }
+    return live;
+}
+
 // Bei Bot-Neustart: Nutzer, die bereits im Voice sind, ab jetzt tracken
 function initVoiceTracking(client) {
     for (const guild of client.guilds.cache.values()) {
@@ -41,15 +52,37 @@ function buildCommandsEmbed(ownerName) {
         .setColor(0x06b6d4)
         .setTitle('🎛️ Voice Channel Commands')
         .setDescription(
-            'Diese Commands funktionieren nur hier, solange du im Voice bist:\n\n' +
+            'Nur für den Channel-Besitzer, solange er im Voice ist. Per Knopf unten oder per Command:\n\n' +
             '`/voicelimit [zahl]` — Userlimit setzen (0 = unbegrenzt)\n' +
             '`/voicelock` — Channel sperren / entsperren\n' +
             '`/voice_rename [name]` — Channel umbenennen\n' +
             '`/voice_hide` — Channel für andere unsichtbar machen\n' +
             '`/voice_unhide` — Channel wieder sichtbar machen\n' +
+            '`/voice_kick [user]` — Nutzer aus dem Channel werfen\n' +
+            '`/voice_ban [user]` — Nutzer werfen und am Beitreten hindern\n' +
+            '`/voice_unban [user]` — Bann wieder aufheben\n' +
             '`/voice_transfer [user]` — Besitzer-Status übergeben\n\n' +
             `👑 **Voice Channel Besitzer:** ${ownerName || 'Unbekannt'}`
         );
+}
+
+// Knopfleiste unter der Commands-Übersicht (customIds: siehe commands/voice.js → handleVoiceComponent)
+function buildVoiceControls() {
+    const button = (id, label, style = ButtonStyle.Secondary) => new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
+    return [
+        new ActionRowBuilder().addComponents(
+            button('vc_lock', 'Sperren / Entsperren'),
+            button('vc_hide', 'Verstecken / Zeigen'),
+            button('vc_limit', 'Limit'),
+            button('vc_rename', 'Umbenennen'),
+        ),
+        new ActionRowBuilder().addComponents(
+            button('vc_kick', 'Kicken', ButtonStyle.Danger),
+            button('vc_ban', 'Bannen', ButtonStyle.Danger),
+            button('vc_unban', 'Entbannen'),
+            button('vc_transfer', 'Besitzer übergeben'),
+        ),
+    ];
 }
 
 // Besitzer-Zeile in der angepinnten Commands-Nachricht aktualisieren (bei Transfer / Auto-Übergabe)
@@ -88,7 +121,7 @@ async function createPrivateVC(guild, member, triggerChannel) {
     // Commands-Übersicht (inkl. Besitzer-Zeile) anpinnen
     let pinMessageId = '';
     try {
-        const pinMsg = await textChannel.send({ embeds: [buildCommandsEmbed(member.displayName)] });
+        const pinMsg = await textChannel.send({ embeds: [buildCommandsEmbed(member.displayName)], components: buildVoiceControls() });
         await pinMsg.pin();
         pinMessageId = pinMsg.id;
     } catch (e) {}
@@ -127,6 +160,7 @@ module.exports = {
     once: false,
     initVoiceTracking,
     updateVoicePinOwner,
+    getLiveVoiceSeconds,
     async execute(oldState, newState) {
         const guild = newState.guild || oldState.guild;
         const member = newState.member || oldState.member;

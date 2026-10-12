@@ -24,7 +24,11 @@ function snappedCamera(world) {
   return cam;
 }
 
-export default function ReplayScrubber({ code, which, name, color = "#a78bfa", onClose }) {
+/**
+ * @param code, which  veröffentlichtes Level und welcher Geist (Bestenliste der Level)
+ * @param load         statt code/which: async () => { level, log, ticks } | null — z. B. das Replay des Tagesbesten
+ */
+export default function ReplayScrubber({ code, which, load, name, color = "#a78bfa", onClose }) {
   const [state, setState] = useState({ status: "loading" });
   const [tick, setTick] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -38,6 +42,16 @@ export default function ReplayScrubber({ code, which, name, color = "#a78bfa", o
     let alive = true;
     setState({ status: "loading" });
     (async () => {
+      if (load) {
+        const r = await load().catch(() => null);
+        if (!alive) return;
+        if (!r || !r.level || !Array.isArray(r.log)) { setState({ status: "error" }); return; }
+        dataRef.current = { level: r.level, log: r.log, ticks: r.ticks, palette: BIOMES[r.level.biome].palette };
+        runRef.current = seekTo(r.level, r.log, 0);
+        setTick(0);
+        setState({ status: "ready" });
+        return;
+      }
       const [served, ghost] = await Promise.all([getLevelDoc(code), getGhost(code, which)]);
       if (!alive) return;
       if (!served || !ghost || !Array.isArray(ghost.log)) { setState({ status: "error" }); return; }
@@ -50,7 +64,8 @@ export default function ReplayScrubber({ code, which, name, color = "#a78bfa", o
       setState({ status: "ready" });
     })();
     return () => { alive = false; };
-  }, [code, which]);
+    // (`load` bewusst nicht in den Abhängigkeiten: Der Aufrufer baut die Funktion bei jedem Rendern neu, geladen wird einmal)
+  }, [code, which]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draw = () => {
     const canvas = canvasRef.current;

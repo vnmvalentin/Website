@@ -15,6 +15,7 @@ const HINWEISE = {
   dash: "in die Richtung der Pfeiltasten — braucht eine Kristall-Ladung",
   grapple: "am Anker, auf den du zielst",
   restart: "zurück zum letzten Checkpoint (die Zeit läuft weiter)",
+  neustart: "den Lauf von vorn beginnen — im Tagesrennen, bei eigenen Leveln und im Testspiel des Editors",
 };
 
 const PAD = [
@@ -23,6 +24,14 @@ const PAD = [
   ["X oder B", "Dash"],
   ["Y oder Schultertasten", "Grapple"],
   ["Back / Select", "zurück zum Checkpoint"],
+];
+
+const TOUCH = [
+  ["Steuerkreuz links", "laufen und zielen — schräg halten zielt diagonal"],
+  ["Sprung", "gedrückt halten springt höher; Wandsprung und Doppelsprung wie mit der Taste"],
+  ["Dash", "in die Richtung des Steuerkreuzes — braucht eine Kristall-Ladung"],
+  ["Grapple", "am Anker, auf den du zielst"],
+  ["Checkpoint", "oben links: zurück zum letzten Checkpoint"],
 ];
 
 const REGELN = [
@@ -86,7 +95,7 @@ export default function ControlsDialog({ open, onClose }) {
         label="Steuerung"
         value={tab}
         onChange={setTab}
-        tabs={[{ id: "tasten", label: "Tastatur & Maus" }, { id: "pad", label: "Gamepad" }, { id: "regeln", label: "So läuft eine Runde" }]}
+        tabs={[{ id: "tasten", label: "Tastatur & Maus" }, { id: "pad", label: "Gamepad" }, { id: "touch", label: "Touch" },{ id: "regeln", label: "So läuft eine Runde" }]}
         className="mb-4"
       />
 
@@ -130,7 +139,24 @@ export default function ControlsDialog({ open, onClose }) {
               </div>
             ))}
           </div>
-          <p className="text-xs sr-faint mt-4">Ein angeschlossenes Gamepad wird automatisch erkannt. Am Handy gibt es noch keine Touch-Steuerung.</p>
+          <p className="text-xs sr-faint mt-4">Ein angeschlossenes Gamepad wird automatisch erkannt.</p>
+        </div>
+      )}
+
+      {tab === "touch" && (
+        <div>
+          <div className="sr-rows">
+            {TOUCH.map(([k, v]) => (
+              <div key={k} className="flex items-center gap-4 py-2.5">
+                <span className="sr-kbd shrink-0">{k}</span>
+                <span className="sr-dim">{v}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs sr-faint mt-4">
+            Am Handy und Tablet füllt der Lauf ab dem Countdown den Bildschirm, die Knöpfe liegen darüber — am besten im Querformat.
+            Das Kreuz oben rechts verlässt das Vollbild, der Lauf geht dabei weiter.
+          </p>
         </div>
       )}
 

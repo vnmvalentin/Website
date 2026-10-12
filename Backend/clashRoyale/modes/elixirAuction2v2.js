@@ -1,31 +1,24 @@
 // ── Elixir Auction 2v2 ───────────────────────────────────────────────────────
-// Variante von elixirAuction.js für Duo-Teams (siehe core/teams.js). Wie in der Solo-Auktion
-// liegen pro Runde MEHRERE Karten aus (steuerbar über das geteilte Lobby-Feld cardsPerRound,
-// hier interpretiert als "Karten pro Seite" — Default 3) statt nur einer, in zwei Phasen:
+// Variante von elixirAuction.js für 2 bis 4 Teams à 2 (siehe core/teams.js). Wie in der
+// Solo-Auktion liegen pro Runde MEHRERE Karten aus (das geteilte Lobby-Feld cardsPerRound, hier
+// "Karten pro Seite" — Default 3), und jeder Bieter gibt pro Runde EIN Gebot auf EINE Karte ab:
 //
-//   Phase "hint" (10s pro Karte): Slot-1-Spieler beider Teams sehen dieselben N Karten
-//   ("Seite X"), Slot-2-Spieler sehen N andere Karten ("Seite Y"). Für jede Karte einzeln:
-//   Karte anklicken → 4 aus echten Kartendaten abgeleitete Merkmals-Tags erscheinen
-//   (Kosten/Einheitentyp/Ziel/Besonderheit, siehe buildHintTags) — 2 davon auswählen und an
-//   den eigenen Partner schicken (nicht ans gegnerische Team). Reihum für alle N Karten.
+//   Phase "hint" (10s pro Karte): Slot 1 aller Teams sieht dieselben N Karten ("Seite X"),
+//   Slot 2 sieht N andere Karten ("Seite Y"). Für jede Karte 2 von 4 Merkmalen (Kosten/Typ/
+//   Ziel/Besonderheit, siehe buildHintTags) an den eigenen Partner schicken.
 //
-//   Phase "bid" (lobby.timerSeconds): Die Ansicht wechselt. Slot-2 sieht jetzt für jede der
-//   N X-Karten NUR die 2 Hinweise, die Slot-1 geschickt hat (kein Kartenbild) und bietet
-//   blind aus dem gemeinsamen Team-Elixier-Pool — pro Karte einzeln. Gleichzeitig bietet
-//   Slot-1 auf die N Y-Karten. Wie im Solo-Modus (elixirAuction.js resolveAuction) zahlt
-//   JEDER Bieter sein eigenes Gebot, unabhängig davon, ob er gewinnt — nur wer pro Karte
-//   mehr bietet als der Gegenüber bekommt sie für sein PERSÖNLICHES Deck (Decks bleiben
-//   getrennt, nur der Elixier-Pool ist geteilt).
+//   Phase "bid" (lobby.timerSeconds): Slot 2 sieht die X-Karten verdeckt, nur mit den Hinweisen
+//   seines Partners, und bietet blind auf EINE davon — aus dem gemeinsamen Team-Pool.
+//   Gleichzeitig bietet Slot 1 auf eine der Y-Karten. Auflösung pro Seite genau wie in der
+//   Solo-Auktion (elixirAuction.js resolveAuction): pro Karte gewinnt das höchste Gebot, jeder
+//   zahlt sein Gebot; wer nichts gewinnt, bekommt eine Karte, auf die niemand geboten hat, und
+//   erst wenn keine passt eine Bonuskarte von außerhalb (nie ein Champion).
 //
-//   Wer eine Karte verliert, bekommt wie in der Solo-Auktion eine zufällige Trostkarte aus
-//   dem Rest-Pool (nie ein Champion) — niemand geht bei einem Gebot leer aus.
+// Jeder Spieler bekommt so genau eine Karte pro Runde — 8 Runden = volles Deck. Decks bleiben
+// persönlich, nur der Elixier-Pool ist pro Team geteilt.
 //
-// Die Rundenzahl skaliert umgekehrt zur Kartenzahl pro Seite, damit am Ende trotzdem ein
-// CR-übliches ~8-Karten-Deck steht (computeRoundSizing) — mehr Karten pro Runde heißt
-// einfach weniger Runden bis zum vollen Deck, nicht mehr Karten insgesamt.
-//
-// Kein Mutterhexen-System in dieser Variante — bewusste Vereinfachung gegenüber der
-// Solo-Auktion für den ersten Wurf dieses Modus.
+// Kein Mutterhexen-System und keine "letzte Runde = alles"-Regel in dieser Variante: zwei
+// Spieler teilen sich einen Pool, ein automatisches All-in beider würde ihn doppelt belasten.
 
 const { ALL_CARDS, getCardPool, getElixirCost } = require('../core/cards');
 const { getBingoCardAttrs } = require('../core/bingoAttributes');
@@ -33,13 +26,12 @@ const { lobbies, shuffle, sanitizeLobby } = require('../core/lobbies');
 const { clearTurnTimer, startTurnTimer, emitTimerTick } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
-const { teamPlayers, isDuoTeamsReady } = require('../core/teams');
+const { teamPlayers, isDuoTeamsReady, activeTeamIds } = require('../core/teams');
 
 const HINT_SECONDS_PER_CARD = 10;
 const REVEAL_MS_BASE = 6000;
 const REVEAL_MS_PER_CARD = 2500; // mehr Karten in der Auflösung -> mehr Zeit zum Lesen
 const DECK_TARGET = 8; // CR-übliche Deckgröße — bestimmt, wie viele Runden gespielt werden
-const MIN_ROUNDS = 2;
 const CARDS_PER_SIDE_MIN = 1;
 const CARDS_PER_SIDE_MAX = 8;
 
@@ -69,38 +61,47 @@ function buildHintTags(card) {
 }
 
 // Karten pro Seite (das geteilte Lobby-Feld cardsPerRound, hier als "wie viele X- bzw.
-// Y-Karten liegen pro Runde aus" gelesen) + die daraus abgeleitete Rundenzahl, damit am Ende
-// ~DECK_TARGET Karten pro persönlichem Deck herauskommen, egal wie viele Karten pro Runde
-// ausliegen.
+// Y-Karten liegen pro Runde aus" gelesen). Jeder bekommt eine Karte pro Runde, also immer
+// DECK_TARGET Runden — mehr Karten pro Seite heißt nur mehr Auswahl, nicht mehr Karten.
 function computeRoundSizing(lobby) {
   const cardsPerSide = Math.max(CARDS_PER_SIDE_MIN, Math.min(CARDS_PER_SIDE_MAX, Number(lobby.cardsPerRound) || 3));
-  const maxRounds = Math.max(MIN_ROUNDS, Math.round(DECK_TARGET / cardsPerSide));
-  return { cardsPerSide, maxRounds };
+  return { cardsPerSide, maxRounds: DECK_TARGET };
 }
 
-// Die bis zu 4 aktiven Team-Spieler als flaches Array (Reihenfolge egal) — Grundlage für
-// "haben alle abgegeben?"-Zählungen. Scheidet jemand aus (Zuschauer/verlassen), schrumpft
-// das automatisch, genau wie bei den übrigen Modi.
+// Alle aktiven Team-Spieler (2 bis 4 Teams à 2) als flaches Array (Reihenfolge egal) —
+// Grundlage für "haben alle abgegeben?"-Zählungen. Scheidet jemand aus (Zuschauer/verlassen),
+// schrumpft das automatisch, genau wie bei den übrigen Modi.
 function activeTeamPlayers(lobby) {
-  const teams = teamPlayers(lobby);
-  return [...teams.A, ...teams.B].filter(Boolean);
+  return Object.values(teamPlayers(lobby)).flat().filter(Boolean);
 }
 
 // Team + Slot + Partner eines Spielers, oder null (kein Team / kein Duo).
 function playerRole(lobby, playerId) {
-  const teams = teamPlayers(lobby);
-  for (const team of ['A', 'B']) {
-    if (teams[team][0]?.id === playerId) return { team, slot: 1, partner: teams[team][1] };
-    if (teams[team][1]?.id === playerId) return { team, slot: 2, partner: teams[team][0] };
+  for (const [team, [one, two]] of Object.entries(teamPlayers(lobby))) {
+    if (one?.id === playerId) return { team, slot: 1, partner: two };
+    if (two?.id === playerId) return { team, slot: 2, partner: one };
   }
   return null;
 }
 
-// Hat dieser Spieler für ALLE N Karten seiner Seite schon abgegeben (Hinweis bzw. Gebot)?
+// Spielerliste für die Clients — mit Team-Zuordnung, damit Spiel und Endbildschirm nach Teams
+// gruppieren können.
+function publicPlayers(lobby) {
+  return lobby.players.map(p => ({
+    id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
+    teamId: p.teamId ?? null, teamSlot: p.teamSlot ?? null, deck: p.deck || [], isSpectator: p.isSpectator ?? false,
+  }));
+}
+
+// Hinweise: hat jeder für ALLE N Karten seiner Seite abgegeben? Gebote: hat jeder sein eines
+// Gebot der Runde abgegeben?
 function doneCount(map) { return Object.keys(map || {}).length; }
-function allSubmitted(lobby, map) {
+function allHintsSent(lobby) {
   const need = lobby.game.cardsPerSide;
-  return activeTeamPlayers(lobby).every(p => doneCount(map[p.id]) >= need);
+  return activeTeamPlayers(lobby).every(p => doneCount(lobby.game.hints[p.id]) >= need);
+}
+function allBidsPlaced(lobby) {
+  return activeTeamPlayers(lobby).every(p => lobby.game.bids[p.id]);
 }
 
 // Individuelle Sicht EINES Spielers auf die laufende Runde (hint- oder bid-Phase).
@@ -116,12 +117,11 @@ function buildRoundStateFor(lobby, playerId) {
     timerRemaining: g.timerRemaining,
     timerSeconds: g.phase === 'hint' ? g.hintSeconds : lobby.timerSeconds,
     teamElixir: g.teamElixir,
+    teamPool: g.teamPool,
+    teamIds: g.teamIds,
     finished: g.finished,
     myRole: role,
-    players: lobby.players.map(p => ({
-      id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
-      teamId: p.teamId, teamSlot: p.teamSlot, deck: p.deck || [], isSpectator: p.isSpectator ?? false,
-    })),
+    players: publicPlayers(lobby),
   };
   if (!role || g.phase === 'reveal') return base;
 
@@ -142,7 +142,7 @@ function buildRoundStateFor(lobby, playerId) {
     ...base,
     forCard: role.slot === 1 ? 'Y' : 'X',
     partnerHintsByCard: Array.from({ length: g.cardsPerSide }, (_, i) => partnerHints[i] || []),
-    myBids: g.bids[playerId] || {}, // { cardIndex: amount }
+    myBid: g.bids[playerId] || null, // { cardIndex, amount } — ein Gebot pro Runde
   };
 }
 
@@ -165,11 +165,10 @@ function buildRevealPayload(lobby, resultsX, resultsY) {
     bids: g.bids,
     resultsX, resultsY,
     teamElixir: g.teamElixir,
+    teamPool: g.teamPool,
+    teamIds: g.teamIds,
     finished: g.finished,
-    players: lobby.players.map(p => ({
-      id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
-      teamId: p.teamId, teamSlot: p.teamSlot, deck: p.deck || [], isSpectator: p.isSpectator ?? false,
-    })),
+    players: publicPlayers(lobby),
   };
 }
 
@@ -255,49 +254,65 @@ function resolveRound2v2(lobby, io) {
   clearTurnTimer(lobby);
   g.phase = 'reveal';
 
+  // Pro Seite bieten die passenden Slots ALLER Teams gegeneinander: Slot 2 jedes Teams auf die
+  // X-Karten (Hinweise kamen von Slot 1), Slot 1 auf die Y-Karten.
   const teams = teamPlayers(lobby);
-  const bidderX = { A: teams.A[1], B: teams.B[1] }; // Slot 2 bietet auf die X-Karten
-  const bidderY = { A: teams.A[0], B: teams.B[0] }; // Slot 1 bietet auf die Y-Karten
+  const biddersFor = (slotIdx) => Object.entries(teams)
+    .map(([team, pair]) => ({ team, player: pair[slotIdx] }))
+    .filter(b => b.player);
   const bonusCardsGiven = []; // über die ganze Runde hinweg geteilt, keine Dopplung
-  const bidAt = (playerId, idx) => g.bids[playerId]?.[idx] ?? 0;
 
-  const resolveOne = (card, bidders, idx) => {
-    if (!card || !bidders.A || !bidders.B) return null;
-    const bidA = bidAt(bidders.A.id, idx);
-    const bidB = bidAt(bidders.B.id, idx);
-    const winnerTeam = bidA === bidB ? (Math.random() < 0.5 ? 'A' : 'B') : (bidA > bidB ? 'A' : 'B');
-    // Beide Teams zahlen ihr eigenes Gebot, gewonnen oder nicht — spiegelt die Solo-Auktion
-    // (elixirAuction.js resolveAuction), Bieten ist damit riskant statt kostenlos.
-    g.teamElixir.A = Math.max(0, g.teamElixir.A - bidA);
-    g.teamElixir.B = Math.max(0, g.teamElixir.B - bidB);
-    const winner = winnerTeam === 'A' ? bidders.A : bidders.B;
-    const loser = winnerTeam === 'A' ? bidders.B : bidders.A;
+  // Eine Seite auflösen — dieselben Regeln wie resolveAuction() der Solo-Auktion.
+  const resolveSide = (cards, bidders) => {
+    const bids = bidders.map(b => {
+      const bid = g.bids[b.player.id];
+      const cardIndex = Number.isInteger(bid?.cardIndex) ? bid.cardIndex : -1;
+      return { team: b.team, playerId: b.player.id, cardIndex, amount: cardIndex >= 0 ? bid.amount : 0 };
+    });
+    // Jeder zahlt sein Gebot, gewonnen oder nicht
+    bids.forEach(b => { g.teamElixir[b.team] = Math.max(0, (g.teamElixir[b.team] ?? 0) - b.amount); });
 
-    // Gewinner: die echte Karte — außer das Champion-Limit (max. 2/Deck) verbietet es,
-    // dann genau wie beim Verlierer eine Trostkarte (Sicherheitsnetz aus elixirAuction.js).
-    const champCount = (winner.deck || []).filter(c => c.isChampion).length;
-    const winnerBonus = card.isChampion && champCount >= 2;
-    const winnerCard = winnerBonus ? drawBonusCard2v2(lobby, bonusCardsGiven) : card;
-    if (winnerBonus) bonusCardsGiven.push(winnerCard);
-    winner.deck = [...(winner.deck || []), winnerCard];
+    // Höchstes Gebot je Karte; bei Gleichstand entscheidet das Los
+    const winners = cards.map((_, i) => {
+      const on = bids.filter(b => b.cardIndex === i);
+      if (!on.length) return null;
+      const top = Math.max(...on.map(b => b.amount));
+      const tied = on.filter(b => b.amount === top);
+      return tied[Math.floor(Math.random() * tied.length)].playerId;
+    });
 
-    // Verlierer: bekommt IMMER eine zufällige Trostkarte aus dem Rest-Pool — niemand geht
-    // bei einem Gebot leer aus (spiegelt die Solo-Auktion, wo Verlierer ebenfalls einen
-    // Trostpreis erhalten).
-    const loserCard = drawBonusCard2v2(lobby, bonusCardsGiven);
-    bonusCardsGiven.push(loserCard);
-    loser.deck = [...(loser.deck || []), loserCard];
-
-    return {
-      winnerTeam, winnerId: winner.id, loserId: loser.id,
-      bidA, bidB,
-      winnerCard, winnerBonus,
-      loserCard,
-    };
+    // Trostkarten = Karten dieser Seite, auf die niemand geboten hat
+    const uncontested = shuffle(cards.filter((_, i) => winners[i] === null));
+    const usedConsol = new Set();
+    const results = bids.map(b => {
+      const player = bidders.find(x => x.player.id === b.playerId).player;
+      const cantTakeChamp = (player.deck || []).filter(c => c.isChampion).length >= 2;
+      const won = b.cardIndex >= 0 && winners[b.cardIndex] === b.playerId;
+      let got = null;
+      let isBonus = false;
+      if (won) {
+        const card = cards[b.cardIndex];
+        // Blind geboten — das Champion-Limit kann der Bieter nicht sehen, also Sicherheitsnetz
+        if (cantTakeChamp && card.isChampion) { got = drawBonusCard2v2(lobby, bonusCardsGiven); isBonus = true; }
+        else got = card;
+      } else {
+        for (let ci = 0; ci < uncontested.length; ci++) {
+          if (usedConsol.has(ci) || (cantTakeChamp && uncontested[ci].isChampion)) continue;
+          got = uncontested[ci];
+          usedConsol.add(ci);
+          break;
+        }
+        if (!got) { got = drawBonusCard2v2(lobby, bonusCardsGiven); isBonus = true; }
+      }
+      if (isBonus) bonusCardsGiven.push(got);
+      player.deck = [...(player.deck || []), got];
+      return { ...b, won, got, isBonus };
+    });
+    return { winners, results };
   };
 
-  const resultsX = g.cardsX.map((card, i) => resolveOne(card, bidderX, i));
-  const resultsY = g.cardsY.map((card, i) => resolveOne(card, bidderY, i));
+  const resultsX = resolveSide(g.cardsX, biddersFor(1));
+  const resultsY = resolveSide(g.cardsY, biddersFor(0));
 
   io.to(lobby.code).emit('clash:auction2v2:reveal', buildRevealPayload(lobby, resultsX, resultsY));
   io.to(lobby.code).emit('clash:lobbyUpdate', sanitizeLobby(lobby));
@@ -319,10 +334,10 @@ function endAuction2v2Game(lobby, io) {
   lobby.history.push({
     gameNum: lobby.history.length + 1,
     mode: 'elixir-auction-2v2',
-    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: [...(p.deck || [])], isSpectator: p.isSpectator ?? false })),
+    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: [...(p.deck || [])], isSpectator: p.isSpectator ?? false, teamId: p.teamId ?? null })),
   });
   io.to(lobby.code).emit('clash:gameOver', {
-    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: p.deck || [], isSpectator: p.isSpectator ?? false })),
+    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: p.deck || [], isSpectator: p.isSpectator ?? false, teamId: p.teamId ?? null })),
   });
   notifyDraftComplete(lobby, io);
 }
@@ -330,6 +345,7 @@ function endAuction2v2Game(lobby, io) {
 function startAuction2v2(lobby, io) {
   lobby.players.forEach(p => { p.deck = []; });
   const pool = lobby.teamElixirPool ?? 200;
+  const teamIds = activeTeamIds(lobby);
   const { cardsPerSide, maxRounds } = computeRoundSizing(lobby);
   lobby.game = {
     type: 'auction2v2',
@@ -341,7 +357,9 @@ function startAuction2v2(lobby, io) {
     phase: 'hint',
     cardsX: [], cardsY: [], hintTagsX: [], hintTagsY: [],
     hints: {}, bids: {},
-    teamElixir: { A: pool, B: pool },
+    teamIds,
+    teamPool: pool, // Startvorrat — Maßstab für den Elixierbalken im Client
+    teamElixir: Object.fromEntries(teamIds.map(id => [id, pool])),
     timerRemaining: 0, timerInterval: null,
     finished: false,
   };
@@ -357,10 +375,10 @@ function maybeAdvance(lobby, io) {
   const g = lobby.game;
   if (!g || g.finished) return;
   if (!activeTeamPlayers(lobby).length) return;
-  if (g.phase === 'hint' && allSubmitted(lobby, g.hints)) {
+  if (g.phase === 'hint' && allHintsSent(lobby)) {
     clearTurnTimer(lobby);
     startBidPhase2v2(lobby, io);
-  } else if (g.phase === 'bid' && allSubmitted(lobby, g.bids)) {
+  } else if (g.phase === 'bid' && allBidsPlaced(lobby)) {
     clearTurnTimer(lobby);
     resolveRound2v2(lobby, io);
   }
@@ -385,7 +403,7 @@ function applyAuctionHint(lobby, io, playerId, cardIndex, tagIds) {
   if (chosen.length !== 2) return;
   g.hints[playerId][idx] = chosen;
 
-  if (allSubmitted(lobby, g.hints)) {
+  if (allHintsSent(lobby)) {
     clearTurnTimer(lobby);
     startBidPhase2v2(lobby, io);
   } else {
@@ -405,7 +423,7 @@ function applyAuctionHint(lobby, io, playerId, cardIndex, tagIds) {
   }
 }
 
-// Kernlogik eines Gebots — siehe applyAuctionHint, dasselbe Prinzip.
+// Kernlogik eines Gebots — siehe applyAuctionHint, dasselbe Prinzip. Ein Gebot pro Runde.
 function applyAuctionBid(lobby, io, playerId, cardIndex, amount) {
   const g = lobby.game;
   if (!g || g.type !== 'auction2v2' || g.phase !== 'bid') return;
@@ -413,21 +431,18 @@ function applyAuctionBid(lobby, io, playerId, cardIndex, amount) {
   if (!Number.isInteger(idx) || idx < 0 || idx >= g.cardsPerSide) return;
   const role = playerRole(lobby, playerId);
   if (!role) return;
-  if (!g.bids[playerId]) g.bids[playerId] = {};
-  if (g.bids[playerId][idx] !== undefined) return; // diese Karte schon beboten
+  if (g.bids[playerId]) return; // schon geboten
   const pool = g.teamElixir[role.team] ?? 0;
-  g.bids[playerId][idx] = Math.max(0, Math.min(pool, Number(amount) || 0));
+  g.bids[playerId] = { cardIndex: idx, amount: Math.max(0, Math.min(pool, Math.round(Number(amount) || 0))) };
 
-  if (allSubmitted(lobby, g.bids)) {
+  if (allBidsPlaced(lobby)) {
     clearTurnTimer(lobby);
     resolveRound2v2(lobby, io);
   } else {
-    // Dieselbe Begründung wie in applyAuctionHint oben: ohne diesen Broadcast bliebe myBids
-    // beim Absender auf dem alten Stand, "nächste offene Karte" würde nie weiterspringen.
+    // Ohne diesen Broadcast bliebe myBid beim Absender auf dem alten Stand
     broadcastRound2v2(lobby, io);
-    const total = activeTeamPlayers(lobby).length;
-    const done = activeTeamPlayers(lobby).filter(p => doneCount(g.bids[p.id]) >= g.cardsPerSide).length;
-    io.to(lobby.code).emit('clash:auction2v2:bidProgress', { pendingCount: done, total });
+    const players = activeTeamPlayers(lobby);
+    io.to(lobby.code).emit('clash:auction2v2:bidProgress', { pendingCount: players.filter(p => g.bids[p.id]).length, total: players.length });
   }
 }
 
@@ -445,7 +460,9 @@ function scheduleBotAuctionActions(lobby, io) {
   activeTeamPlayers(lobby).filter(p => p.isBot).forEach(bot => {
     const role = playerRole(lobby, bot.id);
     if (!role) return;
-    for (let idx = 0; idx < g.cardsPerSide; idx++) {
+    const actions = phaseToken === 'hint' ? g.cardsPerSide : 1;
+    for (let n = 0; n < actions; n++) {
+      const idx = phaseToken === 'hint' ? n : Math.floor(Math.random() * g.cardsPerSide);
       const delay = 600 + Math.random() * (phaseToken === 'hint' ? 2800 : 2200);
       setTimeout(() => {
         if (lobby.game !== g || g.phase !== phaseToken) return;

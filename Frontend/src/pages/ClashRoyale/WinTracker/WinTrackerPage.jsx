@@ -1,24 +1,46 @@
+// WinTrackerPage.jsx — Editor des Clash-Royale-Win-Trackers (/clash-royale/win-tracker).
+//
+// Seit Oktober 2026 im selben Arcade-Look wie die Minigames: läuft in der CrShell (ohne
+// Website-Kopfzeile), oben die Chip-Leiste wie im Hub, darunter EINE Fläche (.cr-arcade-panel)
+// pro Reiter, deren Abschnitte durch die eingeprägte Fuge (.cr-section) getrennt sind — keine
+// schwebenden Einzelkarten. Das OBS-Overlay selbst (WinTrackerOverlayPage.jsx) behält sein vom
+// Streamer einstellbares Aussehen; nur die Bedienseite hier ist umgezogen.
 import React, { useContext, useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Trophy, Plus, X, RefreshCw, Trash2, Copy, Check, Eye, EyeOff, TrendingUp, ChevronsUp, Minus,
-  MessageSquare, RotateCcw, Palette, LayoutGrid, Link2, ChevronDown, ChevronRight,
+  Trophy, Plus, X, RefreshCw, Trash2, Copy, Check, Eye, EyeOff, ChevronsUp, Minus,
+  RotateCcw, ChevronDown, ArrowLeftToLine,
 } from 'lucide-react';
 import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import SEO from '../../../components/SEO';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
-import { leagueIconUrl, leagueName, MEDAL_ICON_URL } from '../data/leagueIcons';
+import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl } from '../data/leagueIcons';
 import { trophyArenaIcon, trophyArenaName } from '../data/trophyArenas';
 import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
 import trophy2v2Icon from '../../../assets/clashRoyale/ui/trophy2v2.webp';
 import OverlayPreview from './OverlayPreview';
 import Toggle from '../ui/Toggle';
+import Slider from '../ui/Slider';
+import Modal from '../ui/Modal';
+import ChunkyButton from '../ui/ChunkyButton';
+import ArcadeTitle from '../ui/ArcadeTitle';
 import { SegmentedControl } from '../ui/SettingRow';
+import {
+  CrFriends, CrTv, CrSettings, CrUserAdd, CrTrophy, CrChat, CrCheck, CrCards, CrEye, CrElixir,
+} from '../ui/CrIcons';
+import { useCrPrefs } from '../ui/crPrefs';
+import LanguageSelect from '../components/LanguageSelect';
 import * as api from './winTrackerApi';
 import { dictForWt, wt } from './wtI18n';
+import { ROYALE_PANELS } from './overlayTheme';
 
 const fmt = (n, lang) => (n || 0).toLocaleString(lang === 'en' ? 'en-US' : 'de-DE');
+const isSeasonalMode = (mode) => typeof mode === 'string' && mode.startsWith('s:');
 
-// ── Account hinzufügen (Modal) ───────────────────────────────────────────────
+// Gemeinsamer Stil der Leisten-Chips oben — derselbe wie im Hub und auf den Turnierseiten.
+const chipClass = 'cr-chip flex items-center gap-2 h-11 rounded-xl font-cr text-[15px] text-white transition-colors';
+
+// ── Account hinzufügen (Dialog) ─────────────────────────────────────────────
 function AddAccountModal({ t, onClose, onAdded }) {
   const [tag, setTag] = useState('');
   const [error, setError] = useState('');
@@ -37,35 +59,30 @@ function AddAccountModal({ t, onClose, onAdded }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="panel-strong w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-white font-bold">{t.addAccountTitle}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={16} /></button>
-        </div>
-        <p className="text-gray-500 text-xs leading-relaxed mb-4">
-          {t.addAccountHint}
-        </p>
-        <div className="flex items-center gap-0 mb-3">
-          <span className="bg-[#1a1a20] border border-r-0 border-white/10 rounded-l-lg px-3 py-2.5 text-gray-500 font-mono text-sm">#</span>
-          <input
-            value={tag}
-            onChange={e => setTag(e.target.value.toUpperCase().replace(/^#/, ''))}
-            onKeyDown={e => e.key === 'Enter' && submit()}
-            placeholder="2PP0V9YLL"
-            maxLength={12}
-            autoFocus
-            className="flex-1 bg-[#1a1a20] border border-white/10 rounded-r-lg px-3 py-2.5 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-sm font-mono tracking-widest uppercase"
-          />
-        </div>
-        {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
-        <button onClick={submit} disabled={busy || !tag.trim()}
-          className="w-full bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white font-black py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed">
-          <Plus size={15} />
+    <Modal icon={<CrUserAdd size={26} />} title={t.addAccountTitle} onClose={onClose} size="sm">
+      <div className="cr-section space-y-4">
+        <p className="text-white/60 text-sm leading-relaxed">{t.addAccountHint}</p>
+        <label className="block">
+          <span className="cr-eyebrow block mb-1.5">{t.tagLabel}</span>
+          <div className="relative">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-cr text-lg text-white/40 pointer-events-none">#</span>
+            <input
+              value={tag}
+              onChange={e => setTag(e.target.value.toUpperCase().replace(/^#/, ''))}
+              onKeyDown={e => e.key === 'Enter' && submit()}
+              placeholder="2PP0V9YLL"
+              maxLength={12}
+              autoFocus
+              className="cr-input pl-8 pr-3 py-3 font-cr text-lg tracking-widest uppercase"
+            />
+          </div>
+        </label>
+        {error && <p className="text-red-300 text-sm">{error}</p>}
+        <ChunkyButton variant="green" block onClick={submit} disabled={busy || !tag.trim()} icon={Plus}>
           {busy ? t.addAccountBusy : t.addAccountSubmit}
-        </button>
+        </ChunkyButton>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -73,25 +90,27 @@ function AddAccountModal({ t, onClose, onAdded }) {
 // crWinTrackerRoutes.js) — die haben KEINE Liga, der Ranked1v1-Orden wäre hier irreführend.
 // Zeigt stattdessen die klassische Trophäenstraßen-Arena (derselbe Fix wie am Overlay-Kopf in
 // WinTrackerOverlayPage.jsx/OverlayPreview.jsx) — trophyArenaIcon() liefert null oberhalb von
-// 14.000 Trophäen (kein Icon bekannt, siehe trophyArenas.js), dann der bisherige Platzhalter.
-function LeagueBadge({ leagueNumber, polRank, size = 40, lang, trackMode, trophies }) {
+// 14.000 Trophäen (kein Icon bekannt, siehe trophyArenas.js), dann der Platzhalter. Generische
+// Saison-Modi (Spooky Chess League …) haben kein eigenes Liga-Bild: dort die Trophäe.
+function LeagueBadge({ leagueNumber, polRank, size = 52, lang, trackMode, trophies }) {
   const isTrophyMode = trackMode === 'trophies';
-  const url = isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
+  const isSeasonal = isSeasonalMode(trackMode);
+  const url = isSeasonal ? (seasonalBadgeUrl(trackMode) || trophyIcon) : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
   const label = isTrophyMode ? trophyArenaName(trophies) : leagueName(leagueNumber, lang);
   if (!url) {
     return (
-      <div className="rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
-        <Trophy size={size * 0.5} className="text-amber-400" />
+      <div className="cr-tile-icon shrink-0" style={{ width: size, height: size }}>
+        <Trophy size={size * 0.45} className="text-amber-300" />
       </div>
     );
   }
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }} title={label}>
-      <img src={url} alt={label} className="w-full h-full object-contain" />
-      {/* polRank ist 1v1-spezifisch (Path of Legend) — beim Trophäenmodus (Lifetime-Trophäen,
-          keine eigene Rangliste) wäre er hier ein fälschlich angehängter 1v1-Rang. */}
-      {polRank && !isTrophyMode ? (
-        <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#0f0f13] border border-violet-400/40 text-violet-300 text-[9px] font-bold px-1 rounded-lg leading-tight whitespace-nowrap">
+      <img src={url} alt={label} className="w-full h-full object-contain drop-shadow-[0_3px_0_rgba(2,8,20,0.5)]" />
+      {/* polRank ist 1v1-spezifisch (Path of Legend) — bei Trophäen- und Saison-Modi wäre er ein
+          fälschlich angehängter 1v1-Rang. */}
+      {polRank && !isTrophyMode && !isSeasonal ? (
+        <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 font-cr text-[11px] leading-none px-1.5 py-0.5 rounded-md whitespace-nowrap text-[#4a2e00] bg-[var(--cr-arcade-gold)] border-2 border-[#071225]">
           #{polRank}
         </span>
       ) : null}
@@ -102,9 +121,9 @@ function LeagueBadge({ leagueNumber, polRank, size = 40, lang, trackMode, trophi
 // ── Stufenleiste (Ligen 1-6) ─────────────────────────────────────────────────
 function StepBar({ step, maxSteps }) {
   return (
-    <div className="flex gap-[3px]">
+    <div className="flex gap-[3px] p-[3px] rounded-md bg-[#081426] border border-[#020814]/80 shadow-[inset_0_2px_3px_rgba(0,0,0,0.45)]">
       {Array.from({ length: maxSteps }, (_, i) => (
-        <span key={i} className={`flex-1 h-1.5 rounded-sm ${i < step ? 'bg-amber-400' : 'bg-white/10'}`} />
+        <span key={i} className={`flex-1 h-2 rounded-sm ${i < step ? 'bg-[var(--cr-arcade-gold)]' : 'bg-white/[0.07]'}`} />
       ))}
     </div>
   );
@@ -114,245 +133,230 @@ function StepBar({ step, maxSteps }) {
 // Ranked-Matches — der Startwert muss einmal von Hand stimmen.
 function LadderValue({ ladder, onStepChange, t }) {
   return (
-    <>
-      <div className="flex items-center gap-1.5">
-        <ChevronsUp size={14} className="text-amber-400" />
-        <span className="font-black text-lg tabular-nums text-white">{ladder.step}</span>
-        <span className="text-gray-500 font-bold text-sm tabular-nums -ml-1">/{ladder.maxSteps}</span>
-        <span className="text-gray-600 text-xs">{t.stepsUnit}</span>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <ChevronsUp size={18} className="text-[var(--cr-arcade-gold)]" />
+        <span className="font-cr text-2xl leading-none tabular-nums text-white">{ladder.step}</span>
+        <span className="font-cr text-base text-white/40 tabular-nums -ml-1">/{ladder.maxSteps}</span>
+        <span className="text-white/45 text-xs">{t.stepsUnit}</span>
         {ladder.bonusRemaining > 0 && (
-          <span className="text-[10px] font-bold text-amber-300 border border-amber-400/40 bg-amber-500/10 px-1.5 py-0.5 rounded-lg"
+          <span className="font-cr text-xs text-[#4a2e00] bg-[var(--cr-arcade-gold)] border-2 border-[#071225] px-1.5 py-0.5 rounded-md"
             title={t.bonusTitle}>
             {wt(t, 'bonusLabel', { n: ladder.bonusRemaining })}
           </span>
         )}
-        <span className="ml-auto flex items-center gap-1">
-          <button onClick={() => onStepChange(ladder.step - 1)} disabled={ladder.step <= 1 && ladder.league <= 1}
-            title={t.stepCorrectTitle}
-            className="w-6 h-6 flex items-center justify-center rounded-lg border border-white/10 text-gray-500 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:hover:text-gray-500 disabled:hover:border-white/10 transition-colors">
-            <Minus size={12} />
+        {/* Kleiner −/+-Stepper auf eingelassener Spur wie im Turnierformular */}
+        <span className="cr-seg !flex-nowrap ml-auto" title={t.stepCorrectTitle}>
+          <button type="button" className="!flex-none !min-h-0 w-8 h-8 !p-0" onClick={() => onStepChange(ladder.step - 1)}
+            disabled={ladder.step <= 1 && ladder.league <= 1} aria-label="−">
+            <Minus size={14} />
           </button>
-          <button onClick={() => onStepChange(ladder.step + 1)}
-            title={t.stepCorrectTitle}
-            className="w-6 h-6 flex items-center justify-center rounded-lg border border-white/10 text-gray-500 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:hover:text-gray-500 disabled:hover:border-white/10 transition-colors">
-            <Plus size={12} />
+          <button type="button" className="!flex-none !min-h-0 w-8 h-8 !p-0" onClick={() => onStepChange(ladder.step + 1)} aria-label="+">
+            <Plus size={14} />
           </button>
         </span>
       </div>
-      <div className="mt-2">
-        <StepBar step={ladder.step} maxSteps={ladder.maxSteps} />
-      </div>
-    </>
-  );
-}
-
-// ── Accounts-Übersicht ───────────────────────────────────────────────────────
-function AccountsTab({ t, lang, accounts, onActivate, onDelete, onAdd, onRefresh, onLadderStepChange, refreshingId }) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-white font-bold">{t.yourAccounts}</h2>
-          <p className="text-gray-500 text-xs mt-0.5">
-            {t.yourAccountsHint}
-          </p>
-        </div>
-        <button onClick={onAdd}
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors shrink-0">
-          <Plus size={14} />
-          {t.addAccountBtn}
-        </button>
-      </div>
-
-      {accounts.length === 0 ? (
-        <div className="border border-dashed border-white/10 rounded-lg p-10 text-center">
-          <p className="text-white font-bold mb-1">{t.emptyTitle}</p>
-          <p className="text-gray-500 text-sm mb-5 max-w-md mx-auto">
-            {t.emptyHint}
-          </p>
-          <button onClick={onAdd}
-            className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-colors">
-            <Plus size={14} />
-            {t.addAccountBtn}
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {accounts.map(acc => (
-            <div key={acc.accountId}
-              className={`bg-[#0f0f13] border rounded-lg p-5 transition-colors group relative ${
-                acc.isActive ? 'border-violet-400/40' : 'border-white/5 hover:border-white/20'
-              }`}>
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <LeagueBadge leagueNumber={acc.leagueNumber} polRank={acc.polRank} lang={lang} trackMode={acc.trackMode} trophies={acc.trophies} />
-                  <div className="min-w-0">
-                    <p className="font-bold truncate text-white">{acc.playerName}</p>
-                    <p className="text-gray-600 text-xs font-mono">#{acc.playerTag}</p>
-                  </div>
-                </div>
-
-                {acc.isActive ? (
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300 border border-violet-400/40 bg-violet-600/10 px-2 py-0.5 rounded-lg shrink-0">
-                    {t.active}
-                  </span>
-                ) : (
-                  <button onClick={() => onActivate(acc)}
-                    className="text-[10px] font-bold uppercase tracking-wider text-gray-400 border border-white/10 px-2 py-0.5 rounded-lg hover:text-violet-300 hover:border-violet-400/40 transition-colors shrink-0">
-                    {t.activate}
-                  </button>
-                )}
-              </div>
-
-              <div className="mb-3">
-                {acc.trackMode === 'medals' && acc.ladder ? (
-                  <LadderValue ladder={acc.ladder} onStepChange={(step) => onLadderStepChange(acc, step)} t={t} />
-                ) : acc.trackMode === '2v2' ? (
-                  <div className="flex items-center gap-1.5">
-                    <img src={trophy2v2Icon} alt="" className="h-[18px] w-auto object-contain" />
-                    <span className="font-black text-lg tabular-nums text-white">{fmt(acc.league2v2Trophies, lang)}</span>
-                    <span className="text-gray-600 text-xs">{wt(t, 'league2v2Label', { n: fmt(acc.league2v2BestTrophies, lang) })}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    {acc.trackMode === 'trophies'
-                      ? <img src={trophyIcon} alt="" className="h-[18px] w-auto object-contain" />
-                      : <img src={MEDAL_ICON_URL} alt="" className="h-[18px] w-auto object-contain" />}
-                    {acc.trackMode === 'trophies' ? (
-                      <>
-                        <span className="font-black text-lg tabular-nums text-white">{fmt(acc.trophies, lang)}</span>
-                        <span className="text-gray-600 text-xs">{wt(t, 'bestTrophiesLabel', { n: fmt(acc.bestTrophies, lang) })}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="font-black text-lg tabular-nums text-white">{fmt(acc.seasonMedals, lang)}</span>
-                        <span className="text-gray-600 text-xs">{t.medalsSeasonLabel}</span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3 text-xs text-gray-500 border-t border-white/5 pt-3">
-                <span>{leagueName(acc.leagueNumber, lang)}</span>
-                <button onClick={() => onRefresh(acc)} title={t.refreshNow}
-                  className="ml-auto text-gray-600 hover:text-white transition-colors p-0.5">
-                  <RefreshCw size={13} className={refreshingId === acc.accountId ? 'animate-spin' : ''} />
-                </button>
-                <button onClick={() => onDelete(acc)} title={t.removeAccount}
-                  className="text-gray-700 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 p-0.5">
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <StepBar step={ladder.step} maxSteps={ladder.maxSteps} />
     </div>
   );
 }
 
-// ── AN/AUS-Knopf ───────────────────────────────────────────────────────────
-// EIN Knopf statt Label+Schalter nebeneinander (frühere ToggleRow) — Zustand steht direkt im
-// Knopftext, dadurch halb so hoch und ohne eigene Hintergrund-"Bubble". Passt so auch zu zweit
-// nebeneinander in eine Zeile (siehe Autoswitch+Reset in SettingsTab).
-function ToggleButton({ label, checked, onChange, onLabel, offLabel, title, disabled, className = '' }) {
+// Name des gerade getrackten Modus — als Etikett über dem Wert jeder Account-Zeile.
+function modeLabel(acc, t) {
+  if (acc.seasonal) return acc.seasonal.label;
+  if (acc.trackMode === '2v2') return t.opt2v2;
+  if (acc.trackMode === 'trophies') return t.optTrophies;
+  return t.optRanked;
+}
+
+// Hauptwert einer Account-Zeile, passend zum getrackten Modus.
+function TrackedValue({ acc, t, lang, onLadderStepChange }) {
+  if (acc.trackMode === 'medals' && acc.ladder) {
+    return <LadderValue ladder={acc.ladder} onStepChange={(step) => onLadderStepChange(acc, step)} t={t} />;
+  }
+  let icon = MEDAL_ICON_URL, value = acc.seasonMedals, note = t.medalsSeasonLabel, goal = null;
+  if (acc.seasonal) {
+    icon = LEAGUE_MEDAL_ICON_URL; value = acc.seasonal.trophies; goal = acc.seasonal.qualifyWins || null;
+    // Qualifikationsphase: Wert = Siege, Ziel daneben, darunter wie viele noch fehlen
+    note = goal
+      ? wt(t, 'qualifyLabel', { tier: acc.seasonal.arenaName, left: Math.max(0, goal - value) })
+      : wt(t, 'seasonalBestLabel', { tier: acc.seasonal.arenaName, n: fmt(acc.seasonal.bestTrophies, lang) });
+  } else if (acc.trackMode === '2v2') {
+    icon = trophy2v2Icon; value = acc.league2v2Trophies;
+    note = wt(t, 'league2v2Label', { n: fmt(acc.league2v2BestTrophies, lang) });
+  } else if (acc.trackMode === 'trophies') {
+    icon = trophyIcon; value = acc.trophies;
+    note = wt(t, 'bestTrophiesLabel', { n: fmt(acc.bestTrophies, lang) });
+  }
   return (
-    <button type="button" onClick={() => !disabled && onChange(!checked)} disabled={disabled} title={title}
-      aria-pressed={checked}
-      className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-semibold transition-colors border ${
-        disabled
-          ? 'bg-black/20 border-white/5 text-white/20 cursor-not-allowed'
-          : checked
-            ? 'bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-500'
-            : 'bg-black/30 border-white/10 text-white/50 hover:text-white hover:border-white/25'
-      } ${className}`}>
-      {label}: {checked ? onLabel : offLabel}
-    </button>
+    <div className="flex items-center gap-2 flex-wrap">
+      <img src={icon} alt="" className="h-6 w-auto object-contain" />
+      <span className="font-cr text-2xl leading-none tabular-nums text-white">{fmt(value, lang)}</span>
+      {goal && <span className="font-cr text-base text-white/40 tabular-nums -ml-1">/{goal}</span>}
+      <span className="text-white/45 text-xs">{note}</span>
+    </div>
   );
 }
 
-// ── Kleine Pille für unabhängige Unter-Schalter (z.B. "Win-Rate %" innerhalb Session) ────────
-// Durchgehend gefüllt statt nur ein dünner Rand — die reine Rand-Variante war im ausgeschalteten
-// Zustand (heller grauer Text auf fast unsichtbarem Rand) kaum noch als Knopf erkennbar. Dieselbe
-// Farbsprache wie SegmentedControl (bg-black/30 im Aus-Zustand), damit sich beide wie dieselbe
-// Art Bedienelement anfühlen, nicht wie zwei verschiedene.
-function Pill({ label, active, onClick, title }) {
+// ── Eine Account-Zeile ──────────────────────────────────────────────────────
+// Zeilen in der gemeinsamen Fläche (.cr-row, wie die Spielerliste der Lobby) statt einzelner
+// Karten — der aktive Account trägt die Goldkante (.cr-row--me).
+function AccountRow({ acc, t, lang, onActivate, onDelete, onRefresh, onLadderStepChange, refreshing }) {
+  // Weitere laufende Saison-Modi (außer dem gerade getrackten) — nur als Info darunter.
+  const otherSeasonal = (acc.seasonalModes || []).filter(m => m.mode !== acc.trackMode);
   return (
-    <button onClick={onClick} title={title} type="button" aria-pressed={active}
-      className={`text-xs font-bold px-2.5 py-1.5 rounded-lg transition-colors ${
-        active ? 'bg-violet-600 text-white' : 'bg-black/30 text-white/50 hover:bg-black/50 hover:text-white'
-      }`}>
-      {label}
-    </button>
+    <div className={`cr-row ${acc.isActive ? 'cr-row--me' : ''} p-3.5 sm:p-4`}>
+      <div className="flex items-start gap-3.5">
+        <LeagueBadge leagueNumber={acc.leagueNumber} polRank={acc.polRank} lang={lang} trackMode={acc.trackMode} trophies={acc.trophies} />
+        <div className="min-w-0 flex-1">
+          {/* flex-wrap + Mindestbreite: auf dem Handy rutschen die Knöpfe unter den Namen,
+              statt ihn auf drei Buchstaben zusammenzudrücken. */}
+          <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-2">
+            <div className="min-w-0 flex-1 basis-40">
+              <p className="font-cr text-lg leading-tight text-white truncate">{acc.playerName}</p>
+              <p className="text-white/40 text-xs tabular-nums">#{acc.playerTag} · {leagueName(acc.leagueNumber, lang)}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {acc.isActive ? (
+                <span className="flex items-center gap-1 font-cr text-sm text-[var(--cr-arcade-gold)] px-1"
+                  style={{ textShadow: '0 2px 0 rgba(2,8,20,0.6)' }}>
+                  <CrCheck size={18} />
+                  {t.active}
+                </span>
+              ) : (
+                <ChunkyButton size="sm" onClick={() => onActivate(acc)}>{t.activate}</ChunkyButton>
+              )}
+              <button onClick={() => onRefresh(acc)} title={t.refreshNow} aria-label={t.refreshNow}
+                className="cr-arcade-icon-btn w-9 h-9">
+                <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+              </button>
+              <button onClick={() => onDelete(acc)} title={t.removeAccount} aria-label={t.removeAccount}
+                className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-9 h-9">
+                <Trash2 size={15} />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <p className="cr-eyebrow mb-1.5">{modeLabel(acc, t)}</p>
+            <TrackedValue acc={acc} t={t} lang={lang} onLadderStepChange={onLadderStepChange} />
+          </div>
+
+          {otherSeasonal.length > 0 && (
+            <p className="text-white/45 text-xs mt-2.5">
+              {t.alsoRunning}:{' '}
+              {otherSeasonal.map((m, i) => (
+                <span key={m.mode}>
+                  {i > 0 && ', '}
+                  <span className="text-white/75">{m.label}</span> {fmt(m.trophies, lang)}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ── Beschriftete Gruppe von Pillen/Segmented-Controls unter einem Modul ──────────────────────
-// Vorher lagen bei "Session" bis zu 10 Pillen ungeordnet in einer einzigen Zeile — nicht mehr
-// erkennbar, welche zusammengehören (z.B. die 3 Darstellungs-Optionen) und welche unabhängige
-// Schalter sind. Eine kurze graue Bezeichnung darüber macht die Gruppierung auf einen Blick klar.
-function PillGroup({ label, children }) {
+// ── Accounts-Reiter ─────────────────────────────────────────────────────────
+function AccountsTab({ t, lang, accounts, onActivate, onDelete, onAdd, onRefresh, onLadderStepChange, refreshingId }) {
   return (
-    <div>
-      <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2.5">{label}</p>
-      <div className="flex flex-wrap items-center gap-2">{children}</div>
+    <div className="cr-arcade-panel cr-anim-rise">
+      <section className="cr-section">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+          <h2 className="cr-section-title text-xl">
+            <CrFriends size={28} />
+            {t.yourAccounts}
+          </h2>
+          <ChunkyButton variant="green" size="sm" icon={Plus} onClick={onAdd}>{t.addAccountBtn}</ChunkyButton>
+        </div>
+        <p className="text-white/50 text-sm leading-relaxed">{t.yourAccountsHint}</p>
+      </section>
+
+      <section className="cr-section">
+        {accounts.length === 0 ? (
+          <div className="py-8 text-center">
+            <CrUserAdd size={56} className="mx-auto mb-3" />
+            <p className="font-cr text-xl text-white mb-1">{t.emptyTitle}</p>
+            <p className="text-white/50 text-sm mb-6 max-w-md mx-auto">{t.emptyHint}</p>
+            <ChunkyButton variant="green" icon={Plus} onClick={onAdd}>{t.addAccountBtn}</ChunkyButton>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {accounts.map(acc => (
+              <AccountRow key={acc.accountId} acc={acc} t={t} lang={lang}
+                onActivate={onActivate} onDelete={onDelete} onRefresh={onRefresh}
+                onLadderStepChange={onLadderStepChange} refreshing={refreshingId === acc.accountId} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
 // ── Einstellungs-Abschnitt, aufklappbar ──────────────────────────────────────
-// Kein eigener Kasten pro Abschnitt mehr (Nutzer-Feedback: nicht jedes Modul in eine einzelne
-// schwebende Glas-Pille packen) — alle Abschnitte teilen sich die EINE Fläche aus SettingsTab,
-// getrennt nur durch die Linien des umgebenden divide-y. Symbol+Titel in der Kopfzeile, per Klick
-// auf die ganze Zeile (nicht nur den Pfeil, größere Trefffläche) zu- und aufklappbar; ob ein
-// Abschnitt beim Öffnen der Seite offen ist, bestimmt defaultOpen.
+// Ein Abschnitt der gemeinsamen Fläche (.cr-section, getrennt durch die eingeprägte Fuge) —
+// kein eigener Kasten. Klick auf die ganze Kopfzeile klappt auf/zu.
 function SettingsSection({ icon: Icon, title, description, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    // Großzügige Abstände (Nutzer-Feedback: man erkannte kaum, wo ein Abschnitt endet und die
-    // nächste Option beginnt): mehr Luft um den Abschnitt und deutlich mehr zwischen seinen Teilen.
-    <section className="px-6 py-6">
-      <button type="button" onClick={() => setOpen(o => !o)} title={description}
+    <section className="cr-section">
+      <button type="button" onClick={() => setOpen(o => !o)} title={description} aria-expanded={open}
         className="w-full flex items-center justify-between gap-3 text-left">
-        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-          {Icon && <Icon size={15} className="text-violet-300" />}
+        <h3 className="cr-section-title">
+          {Icon && <Icon size={24} />}
           {title}
         </h3>
-        <ChevronDown size={16} className={`text-gray-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={18} className={`text-white/50 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && <div className="space-y-6 mt-5">{children}</div>}
+      {open && <div className="space-y-5 mt-4">{children}</div>}
     </section>
   );
 }
 
-// ── Farbfeld: kompakter Swatch für die nebeneinander stehende Farbreihe ──────────────────────
-// Kein eigener Hintergrund/Rahmen-Kasten mehr (Nutzer-Feedback: "no single bubbles flying
-// around") — nur Farbkreis + kurzes Label, mehrere davon stehen per flex nebeneinander auf dem
-// gemeinsamen Karten-Hintergrund (Nutzer-Feedback: "make the colours go side by side"). Der
-// native <input type="color"> selbst bleibt der große, eindeutig klickbare Kreis.
-function ColorSwatch({ label, value, onChange, auto, onReset, resetTitle }) {
-  if (auto) {
-    return (
-      <button type="button" onClick={() => onChange(value)} className="flex flex-col items-center gap-1.5 w-16">
-        <span className="w-10 h-10 rounded-full border border-dashed border-white/25 flex items-center justify-center text-white/25">
-          <Plus size={14} />
-        </span>
-        <span className="text-white/50 text-[10px] font-semibold text-center leading-tight">{label}</span>
-      </button>
-    );
-  }
+// Kleines Etikett über einer Gruppe von Optionen.
+function GroupLabel({ children }) {
+  return <p className="cr-eyebrow mb-2">{children}</p>;
+}
+
+// ── Ja/Nein-Option: Text links, Arcade-Schalter rechts ──────────────────────
+// Ersetzt die früheren Pillen/AN-AUS-Knöpfe — derselbe Schalter wie in der Lobby.
+function OptionRow({ label, note, checked, onChange, disabled }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 w-16">
-      <label className="cursor-pointer">
-        <input type="color" value={value} onChange={e => onChange(e.target.value)}
-          className="w-10 h-10 rounded-full border border-white/20 bg-transparent cursor-pointer p-0" />
-      </label>
+    <div className="flex items-center justify-between gap-4 py-1.5">
+      <div className="min-w-0">
+        <p className="text-white text-sm font-semibold leading-tight">{label}</p>
+        {note && <p className="text-white/45 text-xs mt-0.5 leading-snug">{note}</p>}
+      </div>
+      <Toggle checked={!!checked} onChange={onChange} disabled={disabled} accent="bg-[#34c759]" aria-label={label} />
+    </div>
+  );
+}
+
+// ── Farbfeld: Farbkreis mit Tinten-Rand, darüber unsichtbar der native Farbwähler ──────────
+function ColorSwatch({ label, value, onChange, auto, onReset, resetTitle }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 w-[4.5rem]">
+      {auto ? (
+        <button type="button" onClick={() => onChange(value)} title={resetTitle}
+          className="w-11 h-11 rounded-full border-2 border-dashed border-white/25 flex items-center justify-center text-white/35 hover:text-white/70 hover:border-white/50 transition-colors">
+          <Plus size={16} />
+        </button>
+      ) : (
+        <label className="relative w-11 h-11 cursor-pointer">
+          <span className="block w-full h-full rounded-full border-[3px] border-[#071225] shadow-[inset_0_2px_0_rgba(255,255,255,0.25),0_3px_0_rgba(2,8,20,0.55)]"
+            style={{ background: value }} />
+          <input type="color" value={value} onChange={e => onChange(e.target.value)} aria-label={label}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+        </label>
+      )}
       <span className="flex items-center gap-1">
-        <span className="text-white/60 text-[10px] font-semibold text-center leading-tight">{label}</span>
+        <span className="text-white/60 text-[11px] font-semibold text-center leading-tight">{label}</span>
         {onReset && (
-          <button type="button" onClick={onReset} title={resetTitle} className="text-white/25 hover:text-white/60 transition-colors">
-            <X size={9} />
+          <button type="button" onClick={onReset} title={resetTitle} className="text-white/30 hover:text-white/70 transition-colors">
+            <X size={10} />
           </button>
         )}
       </span>
@@ -360,32 +364,22 @@ function ColorSwatch({ label, value, onChange, auto, onReset, resetTitle }) {
   );
 }
 
-// ── Visuelle Auswahl: Karten mit kleiner Vorschau statt reinem Text ──────────────────────────
-// Für Wahlen, bei denen eine kleine Miniatur schneller zeigt "was passiert dann" als ein Label
-// allein (getrackter Wert, Deck-Platzierung, Darstellung der letzten Spiele) — genau eine Option
-// wählbar, wie SegmentedControl, nur mit Bildchen statt nur Text (Nutzer-Feedback: "more visually
-// appealing" statt einer reinen Text-Pillen-Reihe).
-function VisualPicker({ options, value, onChange, disabled, columns = 3 }) {
-  const colClass = columns === 4 ? 'grid-cols-2 sm:grid-cols-4' : columns === 2 ? 'grid-cols-2' : 'grid-cols-3';
+// ── Kachel-Auswahl mit Mini-Vorschau ────────────────────────────────────────
+// .cr-tile-btn wie der Modus-Wähler der Lobby: gewählt = Goldkante, der Rest tritt zurück.
+// readOnly: reine Anzeige (getrackter Wert folgt automatisch dem letzten Match).
+function VisualPicker({ options, value, onChange, readOnly, columns = 3 }) {
+  const colClass = columns >= 4 ? 'grid-cols-2 sm:grid-cols-4' : columns === 2 ? 'grid-cols-2' : 'grid-cols-3';
   return (
-    <div className={`grid ${colClass} gap-3`} role="group">
+    <div className={`grid ${colClass} gap-2.5`} role="group">
       {options.map(opt => {
         const active = opt.id === value;
-        const isDisabled = disabled || opt.disabled;
         return (
           <button key={opt.id} type="button" title={opt.title}
-            onClick={() => !isDisabled && onChange(opt.id)}
-            disabled={isDisabled}
+            onClick={() => !readOnly && onChange(opt.id)}
             aria-pressed={active}
-            className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors ${
-              isDisabled
-                ? 'border-white/5 bg-black/20 opacity-40 cursor-not-allowed'
-                : active
-                  ? 'border-violet-400/60 bg-violet-600/15'
-                  : 'border-white/10 bg-black/20 hover:border-white/25 hover:bg-black/30'
-            }`}>
-            <div className="h-8 flex items-center justify-center">{opt.preview}</div>
-            <span className={`text-xs font-semibold text-center leading-tight ${active ? 'text-white' : 'text-white/60'}`}>{opt.label}</span>
+            className={`cr-tile-btn !flex-col !gap-2 justify-center p-3 ${readOnly ? 'cr-tile-btn--static cursor-default' : ''}`}>
+            <div className="h-9 flex items-center justify-center">{opt.preview}</div>
+            <span className="font-cr text-sm text-center leading-tight text-white">{opt.label}</span>
           </button>
         );
       })}
@@ -393,78 +387,77 @@ function VisualPicker({ options, value, onChange, disabled, columns = 3 }) {
   );
 }
 
-// Mini-Diagramm für die Deck-Platzierung: ein kleines "Karten"-Rechteck mit einem hervorgehobenen
-// Streifen an der Seite, an der das Deck andocken würde — zeigt in einem Blick, was z.B. "Links"
-// bedeutet, ohne erst das Overlay selbst danach absuchen zu müssen.
+// Mini-Diagramm für die Deck-Platzierung: Streifen an der Seite, an der das Deck andockt.
 function PlacementPreview({ side }) {
   const isRow = side === 'left' || side === 'right';
   const deckFirst = side === 'top' || side === 'left';
-  const deck = <span key="deck" className="bg-violet-400/70 rounded-[2px]" style={isRow ? { width: 5 } : { height: 5 }} />;
-  const main = <span key="main" className="bg-white/20 rounded-[2px] flex-1" />;
+  const deck = <span key="deck" className="bg-[var(--cr-arcade-gold)] rounded-[2px]" style={isRow ? { width: 6 } : { height: 6 }} />;
+  const main = <span key="main" className="bg-white/25 rounded-[2px] flex-1" />;
   return (
-    <div className={`w-9 h-7 rounded-[4px] border border-white/15 bg-black/30 p-[3px] flex gap-[3px] ${isRow ? 'flex-row' : 'flex-col'}`}>
+    <div className={`w-10 h-8 rounded-[5px] border-2 border-[#071225] bg-[#081426] p-[3px] flex gap-[3px] ${isRow ? 'flex-row' : 'flex-col'}`}>
       {deckFirst ? [deck, main] : [main, deck]}
     </div>
   );
 }
 
-// Mini-Vorschau für die Darstellung der letzten 5 Spiele — zeigt exakt die Form, die im Overlay
-// tatsächlich auftaucht (grüne Sieg-Blase/-Punkt), statt nur ihren Namen ("Win/Lose", "+/-", …).
-function Last5StylePreview({ kind }) {
-  if (kind === 'dot') return <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />;
+// Mini-Vorschau für den Grundstil: schlichte dunkle Karte vs. Spieltafel mit Kontur-Zahl.
+function LookPreview({ kind, panel = 'blue' }) {
+  if (kind === 'classic') {
+    return (
+      <span className="w-14 h-9 rounded-md bg-[#0c0c12] border border-white/15 flex items-center justify-center text-white font-black text-sm tabular-nums">
+        1180
+      </span>
+    );
+  }
+  const c = ROYALE_PANELS[panel] || ROYALE_PANELS.blue;
   return (
-    <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/40 rounded-lg px-2 py-1 tabular-nums">
+    <span className="w-14 h-9 rounded-md border-[2px] flex items-center justify-center font-cr text-[15px] text-white"
+      style={{ background: `linear-gradient(to bottom, ${c.light}, ${c.base})`, borderColor: c.edge, textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 0 rgba(0,0,0,0.45)' }}>
+      1180
+    </span>
+  );
+}
+
+// Mini-Vorschau für die Darstellung der letzten 5 Spiele — exakt die Form aus dem Overlay.
+function Last5StylePreview({ kind }) {
+  if (kind === 'dot') return <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" />;
+  return (
+    <span className="text-[11px] font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/40 rounded-lg px-2 py-1 tabular-nums">
       {kind === 'result' ? 'Win' : '+28'}
     </span>
   );
 }
 
-// ── Overlay-Designer: Teile ein-/ausblenden ──────────────────────────────────
-// Der Kopfbereich (Name/Liga/Hauptwert) ist immer sichtbar und fix oben. Darunter gibt es nur
-// noch zwei Teile: "Session" (Statistik + letzte 5 Spiele, ein gemeinsames Modul) und "Deck" —
-// dessen Position ist keine Sortierfrage mehr (siehe deckPlacement-Pillen unten), darum
-// braucht hier nichts mehr eine Ziehen-Geste oder Pfeile.
 const moduleDefs = (t) => ({
   deck: { label: t.moduleDeckLabel, description: t.moduleDeckDesc },
   session: { label: t.moduleSessionLabel, description: t.moduleSessionDesc },
 });
 
-// ── Modul-Zeile: Name + Sichtbarkeit, Feinabstimmung (falls vorhanden) einzeln aufklappbar ────
-// Kein eigener Kasten mehr pro Zeile (Nutzer-Feedback: keine "bubbles") — nur eine Trennlinie
-// zur vorherigen Zeile, alle drei teilen sich den Hintergrund der umgebenden SettingsSection. Die
-// Feinabstimmung ist jetzt standardmäßig EINGEKLAPPT (Nutzer-Feedback: "openable menu to save
-// space") statt immer offen — Klick auf den Zeilentitel (nicht auf den Sichtbarkeits-Schalter
-// rechts, der bleibt unabhängig) klappt sie auf. Sichtbarkeit bleibt ein echter Schalter (Toggle,
-// wie überall sonst in der Lobby) statt eines reinen Augen-Icon-Buttons.
+// ── Modul-Zeile: Name + Sichtbarkeit, Feinabstimmung aufklappbar ─────────────
+// Trennung zur vorigen Zeile nur durch eine Linie; aufgeklappter Inhalt mit Führungslinie links.
 function ModuleControlRow({ t, moduleKey, label, description, visible, onToggle, children }) {
   const def = moduleDefs(t)[moduleKey] || { label, description };
   const hasChildren = !!children;
   const [open, setOpen] = useState(false);
   return (
-    // Gleich viel Luft über und unter der Trennlinie, und die Linie ist jetzt deutlich sichtbar
-    // (vorher white/5 mit Abstand nur nach unten) — so endet ein Modul erkennbar, bevor das
-    // nächste beginnt.
-    <div className="border-t border-white/10 pt-5 mt-5 first:border-t-0 first:pt-0 first:mt-0">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="border-t border-[#020814]/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] pt-4 mt-4 first:border-t-0 first:shadow-none first:pt-0 first:mt-0">
+      <div className="flex items-center gap-3">
         <button type="button" onClick={() => hasChildren && setOpen(o => !o)} disabled={!hasChildren}
-          title={description}
-          className="min-w-[150px] flex-1 flex items-center gap-1.5 text-left disabled:cursor-default">
+          title={description} aria-expanded={hasChildren ? open : undefined}
+          className="min-w-0 flex-1 flex items-center gap-2 text-left disabled:cursor-default">
           {hasChildren && (
-            <ChevronRight size={13} className={`text-gray-600 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+            <ChevronDown size={15} className={`text-white/45 shrink-0 transition-transform ${open ? '' : '-rotate-90'}`} />
           )}
-          <span className={`font-bold text-sm ${visible ? 'text-white' : 'text-gray-600'}`}>{def.label}</span>
+          <span className={`font-cr text-base ${visible ? 'text-white' : 'text-white/40'}`}>{def.label}</span>
         </button>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-[11px] font-semibold ${visible ? 'text-gray-400' : 'text-violet-300'}`}>
-            {visible ? t.visible : t.hidden}
-          </span>
-          <Toggle variant="flat" checked={visible} onChange={onToggle} aria-label={visible ? t.ariaHideModule : t.ariaShowModule} />
-        </div>
+        <span className={`text-xs font-semibold ${visible ? 'text-white/50' : 'text-white/35'}`}>
+          {visible ? t.visible : t.hidden}
+        </span>
+        <Toggle checked={visible} onChange={onToggle} accent="bg-[#34c759]"
+          aria-label={visible ? t.ariaHideModule : t.ariaShowModule} />
       </div>
       {open && children && (
-        // Senkrechte Führungslinie: alles darunter gehört zu DIESEM Modul, nicht zum nächsten.
-        // Die einzelnen Optionsgruppen darin haben deutlich mehr Abstand als vorher (space-y-3).
-        <div className="mt-4 ml-1.5 pl-5 border-l border-white/10 space-y-6">
+        <div className="mt-4 ml-2 pl-5 border-l-2 border-white/10 space-y-5">
           {children}
         </div>
       )}
@@ -472,7 +465,7 @@ function ModuleControlRow({ t, moduleKey, label, description, visible, onToggle,
   );
 }
 
-// ── Einstellungen (OBS-Link + Anzeige-Optionen) ──────────────────────────────
+// ── Einstellungs-Reiter (Overlay) ───────────────────────────────────────────
 function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured, activeAccount, onResetSession, flashError }) {
   const { user } = useContext(TwitchAuthContext);
   const [hidden, setHidden] = useState(true);
@@ -484,20 +477,19 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
     navigator.clipboard.writeText(link).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(() => flashError?.(t.copyTitle));
   };
 
   const regenerate = async () => {
     if (!window.confirm(t.regenerateConfirm)) return;
-    await api.regenerateOverlayKey();
-    window.location.reload();
+    try {
+      await api.regenerateOverlayKey();
+      window.location.reload();
+    } catch (e) { flashError?.(e.message); }
   };
 
-  // Schlug der Server-Save fehl, MUSS die UI das zeigen — sonst sieht z.B. der Chat-Befehl-
-  // Schalter "aktiv" aus, obwohl die Datenbank nie erfahren hat, dass er an ist (genau der Fehler,
-  // der den Chat-Befehl unbemerkt tot aussehen ließ: die Karte zeigte "Aktiv in #kanal", aber
-  // gespeichert war nie etwas). Bei einem Fehler außerdem den alten Stand wiederherstellen, statt
-  // optimistisch auf dem falschen (nie gespeicherten) Wert stehen zu bleiben.
+  // Schlug der Server-Save fehl, MUSS die UI das zeigen und den alten Stand wiederherstellen —
+  // sonst sieht z.B. der Chat-Befehl "aktiv" aus, obwohl nie etwas gespeichert wurde.
   const applyPatch = async (patch) => {
     const previous = settings;
     const next = { ...settings, ...patch };
@@ -511,51 +503,93 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
   };
   const toggle = (key) => (value) => applyPatch({ [key]: value });
 
-  // ── Overlay-Designer: Sichtbarkeit von Deck + Session ──────────────────────
   // "Session" hat keinen eigenen Sichtbarkeits-Schalter in der DB — sie zählt als sichtbar,
-  // sobald mindestens eine ihrer Unter-Optionen an ist (genau wie das Overlay es selbst
-  // auswertet). Aus-/Einschalten der Zeile schaltet alle vier zusammen (Profit-Zahl,
-  // Win/Loss-Zahlen, Win-Rate %, letzte-5-Zeile).
+  // sobald mindestens eine ihrer Unter-Optionen an ist (genau wie das Overlay es auswertet).
   const sessionVisible = !!(settings.showDailyProfit || settings.showWinLossNumbers || settings.showWinLossPercent || settings.showLast5);
   const moduleVisibility = { deck: settings.showDeck !== false, session: sessionVisible };
   const setModuleVisible = (key, value) => {
     if (key === 'deck') return applyPatch({ showDeck: value });
     if (key === 'session') return applyPatch({ showDailyProfit: value, showWinLossNumbers: value, showWinLossPercent: value, showLast5: value });
   };
+  const overlayTheme = settings.overlayTheme === 'royale' ? 'royale' : 'classic';
+  const royalePanel = ROYALE_PANELS[settings.royalePanel] ? settings.royalePanel : 'blue';
   const last5Style = settings.last5Style || 'result';
   const deckPlacement = settings.deckPlacement || 'top';
   const last5Direction = settings.last5Direction || 'newestLeft';
 
+  // Getrackter Wert: feste Modi + alle laufenden Saison-Modi des aktiven Accounts. Beendete
+  // Modi liefert der Server nicht mehr in availableModes (siehe availableTrackModes).
+  const trackedOptions = activeAccount ? [
+    {
+      id: 'medals', label: t.optRanked,
+      title: activeAccount.ladder ? t.titleStepsLeague : t.titleMedalsSeason,
+      preview: <img src={MEDAL_ICON_URL} alt="" className="h-9 w-auto object-contain" />,
+    },
+    {
+      id: 'trophies', label: t.optTrophies, title: t.titleTrophiesLifetime,
+      preview: <img src={trophyIcon} alt="" className="h-9 w-auto object-contain" />,
+    },
+    {
+      id: '2v2', label: t.opt2v2, title: t.titleLeague2v2Season,
+      preview: <img src={trophy2v2Icon} alt="" className="h-9 w-auto object-contain" />,
+    },
+    ...(activeAccount.seasonalModes || []).map(m => ({
+      id: m.mode, label: m.label,
+      title: m.qualifyWins
+        ? wt(t, 'qualifyLabel', { tier: m.arenaName, left: Math.max(0, m.qualifyWins - m.trophies) })
+        : wt(t, 'seasonalBestLabel', { tier: m.arenaName, n: m.bestTrophies }),
+      preview: <img src={seasonalBadgeUrl(m.mode) || LEAGUE_MEDAL_ICON_URL} alt="" className="h-9 w-auto object-contain" />,
+    })),
+  ].filter(o => !activeAccount.availableModes || activeAccount.availableModes.includes(o.id)) : [];
+
   return (
-    // Eine einzige, undurchsichtige Fläche für den ganzen Editor statt je einer schwebenden Karte
-    // pro Modul — die Abschnitte sind nur durch Linien getrennt. Breiter als früher (siehe
-    // max-width-Wahl auf Seitenebene) UND eine sticky rechte Spalte: die Vorschau/der Link bleiben
-    // beim Scrollen durch die Einstellungen links die ganze Zeit sichtbar — vorher musste man nach
-    // jeder Änderung weit unten wieder hoch scrollen, um das Ergebnis zu sehen (Nutzer-Feedback).
-    // Bewusst KEIN items-start am Grid: die linke Spalte soll auf volle Zeilenhöhe strecken, damit
-    // ihre rechte Trennlinie auch dann durchgehend ist, wenn die (sticky, self-start) Vorschau
-    // höher ist als die zugeklappte linke Spalte. Kein overflow-* an diesem Element, sonst
-    // funktioniert sticky nicht mehr.
-    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] bg-[#0f0f13] border border-white/10 rounded-lg">
-      {/* Linke Spalte: die eigentlichen Einstellungen (Farben / Getrackter Wert / Anzeige /
-          Chat-Befehle) als Abschnitte übereinander, getrennt durch divide-y. */}
-      <div className="min-w-0 divide-y divide-white/10 xl:border-r xl:border-white/10">
-        <SettingsSection icon={Palette} title={t.sectionColorsTitle} description={t.sectionColorsDesc}>
-          {/* Alle drei Farben in einer Reihe statt jede in ihrer eigenen vollbreiten Zeile
-              (Nutzer-Feedback: "make the colours go side by side so they dont use that much
-              space") — der Verlauf-Knopf sitzt als vierter, gleich großer Swatch mit an, statt
-              eine eigene Umschalter-Zeile zu brauchen. */}
-          <div className="flex flex-wrap gap-5">
+    // Eine Fläche, zwei Spalten: links die Einstellungen, rechts (ab xl) mitlaufend Vorschau +
+    // OBS-Link. Kein overflow-* hier, sonst funktioniert sticky nicht.
+    <div className="cr-arcade-panel cr-anim-rise grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="min-w-0 xl:border-r xl:border-[#020814]/60">
+        <SettingsSection icon={CrElixir} title={t.sectionLookTitle} description={t.sectionLookDesc}>
+          <VisualPicker columns={2}
+            options={[
+              { id: 'classic', label: t.lookClassic, title: t.lookClassicTitle, preview: <LookPreview kind="classic" /> },
+              { id: 'royale', label: t.lookRoyale, title: t.lookRoyaleTitle, preview: <LookPreview kind="royale" panel={royalePanel} /> },
+            ]}
+            value={overlayTheme} onChange={(v) => toggle('overlayTheme')(v)} />
+
+          {overlayTheme === 'royale' ? (
+            <>
+              <div>
+                <GroupLabel>{t.royalePanelLabel}</GroupLabel>
+                <div className="flex flex-wrap gap-4">
+                  {Object.entries(ROYALE_PANELS).map(([id, c]) => (
+                    <button key={id} type="button" onClick={() => toggle('royalePanel')(id)} aria-pressed={royalePanel === id}
+                      className="flex flex-col items-center gap-1.5 w-[4.5rem]">
+                      <span className={`block w-11 h-11 rounded-full border-[3px] ${royalePanel === id ? 'border-[var(--cr-arcade-gold)]' : 'border-[#071225]'}`}
+                        style={{ background: `linear-gradient(to bottom, ${c.light}, ${c.base})` }} />
+                      <span className={`text-[11px] font-semibold ${royalePanel === id ? 'text-white' : 'text-white/60'}`}>
+                        {t[`royalePanel${id[0].toUpperCase()}${id.slice(1)}`]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <OptionRow label={t.royalePatternLabel} note={t.royalePatternNote}
+                checked={settings.royalePattern !== false} onChange={toggle('royalePattern')} />
+            </>
+          ) : (
+          <div className="flex flex-wrap gap-4">
             <ColorSwatch label={t.bgColorLabel} value={settings.bgColor} onChange={toggle('bgColor')} />
-            <button type="button" onClick={() => toggle('bgGradient')(!settings.bgGradient)} title={t.bgGradientDesc}
-              className="flex flex-col items-center gap-1.5 w-16">
-              <span className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${
-                settings.bgGradient ? 'border-violet-400/60 bg-violet-600/20 text-violet-300' : 'border-dashed border-white/25 text-white/30 hover:text-white/50 hover:border-white/40'
-              }`}>
-                <Plus size={14} className={`transition-transform ${settings.bgGradient ? 'rotate-45' : ''}`} />
-              </span>
-              <span className="text-white/50 text-[10px] font-semibold text-center leading-tight">{t.bgGradientLabel}</span>
-            </button>
+            <div className="flex flex-col items-center gap-1.5 w-[4.5rem]">
+              <button type="button" onClick={() => toggle('bgGradient')(!settings.bgGradient)} title={t.bgGradientDesc}
+                aria-pressed={!!settings.bgGradient}
+                className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+                  settings.bgGradient
+                    ? 'border-[3px] border-[var(--cr-arcade-gold)] bg-[#1d3d68] text-[var(--cr-arcade-gold)]'
+                    : 'border-2 border-dashed border-white/25 text-white/35 hover:text-white/70 hover:border-white/50'
+                }`}>
+                <Plus size={16} className={`transition-transform ${settings.bgGradient ? 'rotate-45' : ''}`} />
+              </button>
+              <span className="text-white/60 text-[11px] font-semibold text-center leading-tight">{t.bgGradientLabel}</span>
+            </div>
             {settings.bgGradient && (
               <ColorSwatch label={t.bgColor2Label} value={settings.bgColor2 || '#1a1a2e'} onChange={toggle('bgColor2')} />
             )}
@@ -564,98 +598,66 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
               onReset={settings.borderColor ? () => toggle('borderColor')('') : undefined}
               resetTitle={t.borderColorAutoTitle} />
           </div>
+          )}
 
           <div>
-            <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
-              <span>{t.transparency}</span>
-              <span className="text-white font-bold tabular-nums">{settings.bgOpacity}%</span>
-            </div>
-            <input type="range" min="0" max="100" value={settings.bgOpacity}
-              onChange={e => toggle('bgOpacity')(Number(e.target.value))}
-              className="w-full accent-violet-500" />
+            <GroupLabel>{t.transparency}</GroupLabel>
+            <Slider value={settings.bgOpacity} min={0} max={100} onChange={toggle('bgOpacity')}
+              format={(v) => `${v}%`} accent="var(--cr-arcade-gold)" aria-label={t.transparency} />
+          </div>
+
+          <div>
+            <GroupLabel>{t.overlayScaleLabel}</GroupLabel>
+            <Slider value={settings.overlayScale ?? 100} min={100} max={200} step={5} onChange={toggle('overlayScale')}
+              format={(v) => `${v}%`} accent="var(--cr-arcade-gold)" aria-label={t.overlayScaleLabel} />
+            <p className="text-white/45 text-xs mt-1.5 leading-relaxed">{t.overlayScaleNote}</p>
           </div>
         </SettingsSection>
 
-        {/* Getrackter Wert — eigener Abschnitt, NICHT im Profil-Kopf verschachtelt: wirkt zwar auf
-            den aktiven Account, ändert aber nicht nur den Kopf, sondern auch Session/letzte-5/Deck
-            (jeder Modus hat seine eigene Statistik und sein eigenes Deck, siehe
-            crWinTrackerRoutes.js). Ohne aktiven Account (noch keiner verknüpft) gibt es nichts
-            zu zeigen. Rein informativ: track_mode wird IMMER automatisch auf den zuletzt
-            gespielten Modus gestellt (siehe autoSwitchTrackMode in crWinTrackerRoutes.js) — daher
-            fest disabled statt einer echten Auswahl, es gibt nichts mehr manuell umzustellen; der
-            Hinweistext darüber sagt das dem Nutzer. Standardmäßig zugeklappt, weil dort nichts
-            mehr eingestellt wird (bis auf den Session-Reset). */}
+        {/* Getrackter Wert — rein informativ: der Modus folgt automatisch dem letzten Match
+            (autoSwitchTrackMode im Backend), neue Saison-Modi erscheinen von selbst. */}
         {activeAccount && (
-          <SettingsSection icon={Trophy} title={t.trackedValue} description={t.sectionTrackedDesc} defaultOpen={false}>
-            <p className="text-gray-500 text-xs leading-relaxed">{t.trackedAutoHint}</p>
-            <VisualPicker
-              options={[
-                {
-                  id: 'medals', label: t.optRanked,
-                  title: activeAccount.ladder ? t.titleStepsLeague : t.titleMedalsSeason,
-                  preview: <img src={MEDAL_ICON_URL} alt="" className="h-8 w-auto object-contain" />,
-                },
-                {
-                  id: 'trophies', label: t.optTrophies, title: t.titleTrophiesLifetime,
-                  preview: <img src={trophyIcon} alt="" className="h-8 w-auto object-contain" />,
-                },
-                {
-                  id: '2v2', label: t.opt2v2, title: t.titleLeague2v2Season,
-                  preview: <img src={trophy2v2Icon} alt="" className="h-8 w-auto object-contain" />,
-                },
-              // Beendete saisonale Ranked-Modi (z.B. 2v2 nach Season-Ende) liefert der Server
-              // nicht mehr in availableModes — siehe availableTrackModes in crWinTrackerRoutes.js.
-              ].filter(o => !activeAccount.availableModes || activeAccount.availableModes.includes(o.id))}
-              columns={activeAccount.availableModes?.length || 3}
-              value={activeAccount.trackMode}
-              disabled
-            />
-
-            {/* Wirkt auf die Session DIESES Modus (Ranked1v1 deckt medals+trophies ab, 2v2 hat
-                seine eigene) — für wer vor Stream-Start schon ein paar Spiele gespielt hat und
-                die nicht in Profit/Win-Loss/letzte 5 sehen will, ohne auf die automatische
-                4h-Pausen-Regel zu warten (siehe SESSION_GAP_MS in crWinTrackerRoutes.js). */}
-            <button onClick={() => onResetSession(activeAccount)} title={t.resetSessionTitle}
-              className="w-full bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5">
-              <RotateCcw size={14} />
+          <SettingsSection icon={CrTrophy} title={t.trackedValue} description={t.sectionTrackedDesc} defaultOpen={false}>
+            <p className="text-white/50 text-sm leading-relaxed">
+              {t.trackedAutoHint} {t.seasonalModesHint}
+            </p>
+            <VisualPicker options={trackedOptions} columns={Math.min(4, trackedOptions.length || 3)}
+              value={activeAccount.trackMode} readOnly />
+            {/* Wirkt nur auf die Session DIESES Modus — jeder Modus hat seine eigene. */}
+            <ChunkyButton variant="red" size="sm" icon={RotateCcw} title={t.resetSessionTitle}
+              onClick={() => onResetSession(activeAccount)}>
               {t.resetSessionBtn}
-            </button>
+            </ChunkyButton>
           </SettingsSection>
         )}
 
-        {/* Anzeige: Sichtbarkeit (Schalter) + Feinabstimmung direkt an Ort und Stelle, dauerhaft
-            sichtbar statt nur beim Hover auf der Vorschau. Der Profil-Kopf steht separat zuerst:
-            aus-/einblendbar wie Session und Deck, bleibt aber immer an erster Stelle. */}
-        <SettingsSection icon={LayoutGrid} title={t.sectionVisualsTitle} description={t.sectionVisualsDesc}>
-          {/* Kein space-y hier: die Trennlinie + das Padding jeder ModuleControlRow (siehe dort)
-              übernehmen den Abstand bereits selbst. */}
+        <SettingsSection icon={CrCards} title={t.sectionVisualsTitle} description={t.sectionVisualsDesc}>
           <div>
             <ModuleControlRow t={t}
               label={t.profileHeadLabel} description={t.profileHeadDesc}
               visible={settings.showProfile !== false}
               onToggle={() => toggle('showProfile')(settings.showProfile === false)}>
-              <PillGroup label={t.displayGroupLabel}>
-                <Pill label={t.showClanPill} title={t.showClanTitle}
-                  active={!!settings.showClan} onClick={() => toggle('showClan')(!settings.showClan)} />
-              </PillGroup>
+              <OptionRow label={t.showClanPill} note={t.showClanTitle}
+                checked={!!settings.showClan} onChange={toggle('showClan')} />
             </ModuleControlRow>
 
             <ModuleControlRow t={t} moduleKey="session" visible={moduleVisibility.session}
               onToggle={() => setModuleVisible('session', !moduleVisibility.session)}>
-              <PillGroup label={t.displayGroupLabel}>
-                <Pill label={t.dailyProfitPill} title={t.dailyProfitTitle}
-                  active={settings.showDailyProfit} onClick={() => toggle('showDailyProfit')(!settings.showDailyProfit)} />
-                <Pill label={t.winLossNumbersPill} title={t.winLossNumbersTitle}
-                  active={settings.showWinLossNumbers} onClick={() => toggle('showWinLossNumbers')(!settings.showWinLossNumbers)} />
-                <Pill label={t.winRatePctPill} title={t.winRatePctTitle}
-                  active={settings.showWinLossPercent} onClick={() => toggle('showWinLossPercent')(!settings.showWinLossPercent)} />
-                <Pill label={t.last5Pill} title={t.last5Title}
-                  active={settings.showLast5} onClick={() => toggle('showLast5')(!settings.showLast5)} />
-              </PillGroup>
+              <div>
+                <GroupLabel>{t.displayGroupLabel}</GroupLabel>
+                <OptionRow label={t.dailyProfitPill} note={t.dailyProfitTitle}
+                  checked={settings.showDailyProfit} onChange={toggle('showDailyProfit')} />
+                <OptionRow label={t.winLossNumbersPill} note={t.winLossNumbersTitle}
+                  checked={settings.showWinLossNumbers} onChange={toggle('showWinLossNumbers')} />
+                <OptionRow label={t.winRatePctPill} note={t.winRatePctTitle}
+                  checked={settings.showWinLossPercent} onChange={toggle('showWinLossPercent')} />
+                <OptionRow label={t.last5Pill} note={t.last5Title}
+                  checked={settings.showLast5} onChange={toggle('showLast5')} />
+              </div>
               {settings.showLast5 && (
                 <>
                   <div>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2.5">{t.last5DisplayGroupLabel}</p>
+                    <GroupLabel>{t.last5DisplayGroupLabel}</GroupLabel>
                     <VisualPicker
                       options={[
                         { id: 'result', label: t.styleResultLabel, title: t.styleResultTitle, preview: <Last5StylePreview kind="result" /> },
@@ -664,17 +666,19 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
                       ]}
                       value={last5Style} onChange={(v) => toggle('last5Style')(v)} />
                   </div>
-                  <PillGroup label={t.orderGroupLabel}>
+                  <div>
+                    <GroupLabel>{t.orderGroupLabel}</GroupLabel>
                     <SegmentedControl
-                      variant="flat"
                       options={[
                         { id: 'newestLeft', label: t.newestLeftLabel, title: t.newestLeftTitle },
                         { id: 'newestRight', label: t.newestRightLabel, title: t.newestRightTitle },
                       ]}
                       value={last5Direction} onChange={(v) => toggle('last5Direction')(v)} />
-                    <Pill label={t.markNewestPill} title={t.markNewestTitle}
-                      active={settings.last5NewBadge !== false} onClick={() => toggle('last5NewBadge')(settings.last5NewBadge === false)} />
-                  </PillGroup>
+                    <div className="mt-2">
+                      <OptionRow label={t.markNewestPill} note={t.markNewestTitle}
+                        checked={settings.last5NewBadge !== false} onChange={toggle('last5NewBadge')} />
+                    </div>
+                  </div>
                 </>
               )}
             </ModuleControlRow>
@@ -682,7 +686,7 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
             <ModuleControlRow t={t} moduleKey="deck" visible={moduleVisibility.deck}
               onToggle={() => setModuleVisible('deck', !moduleVisibility.deck)}>
               <div>
-                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2.5">{t.deckPlacementGroupLabel}</p>
+                <GroupLabel>{t.deckPlacementGroupLabel}</GroupLabel>
                 <VisualPicker
                   options={[
                     { id: 'top', label: t.placementTop, title: t.placementTopTitle, preview: <PlacementPreview side="top" /> },
@@ -695,109 +699,81 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
               </div>
             </ModuleControlRow>
 
-            {/* Paginierung: statt Profilkopf/Deck/Session dauerhaft übereinander zu stapeln,
-                zeigt das Overlay nur EINEN Teil zur Zeit und wechselt automatisch durch — macht
-                die Karte kompakter (siehe WinTrackerOverlayPage.jsx). Eigene Zeile statt Teil
-                eines ModuleControlRow, weil sie sich auf ALLE Teile gemeinsam bezieht, nicht auf
-                einen einzelnen. */}
-            <div className="pt-5 mt-5 border-t border-white/10">
-              <ToggleButton label={t.paginateLabel} title={t.paginateDesc} className="w-full"
-                checked={!!settings.paginateOverlay} onLabel={t.onLabel} offLabel={t.offLabel}
-                onChange={(v) => toggle('paginateOverlay')(v)} />
+            {/* Paginierung bezieht sich auf ALLE Teile gemeinsam — eigene Zeile. */}
+            <div className="border-t border-[#020814]/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] pt-4 mt-4 space-y-3">
+              <OptionRow label={t.paginateLabel} note={t.paginateDesc}
+                checked={!!settings.paginateOverlay} onChange={toggle('paginateOverlay')} />
               {settings.paginateOverlay && (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
-                    <span>{t.paginateIntervalLabel}</span>
-                    <span className="text-white font-bold tabular-nums">{settings.paginateIntervalS}s</span>
-                  </div>
-                  <input type="range" min="2" max="30" value={settings.paginateIntervalS}
-                    onChange={e => toggle('paginateIntervalS')(Number(e.target.value))}
-                    className="w-full accent-violet-500" />
+                <div>
+                  <GroupLabel>{t.paginateIntervalLabel}</GroupLabel>
+                  <Slider value={settings.paginateIntervalS} min={2} max={30} onChange={toggle('paginateIntervalS')}
+                    format={(v) => `${v}s`} accent="var(--cr-arcade-gold)" aria-label={t.paginateIntervalLabel} />
                 </div>
               )}
             </div>
           </div>
         </SettingsSection>
 
-        {/* Ganz unten, im linken Hauptfluss statt in der (sonst zu vollen) rechten Seitenleiste
-            — Nutzer-Feedback: "you have to scroll super far down to see the button for on".
-            Standardmäßig zugeklappt: die Befehlsliste braucht man nur einmal, danach nimmt sie
-            nur Platz weg. */}
-        <SettingsSection icon={MessageSquare} title={t.chatCmdTitle} defaultOpen={false}
+        <SettingsSection icon={CrChat} title={t.chatCmdTitle} defaultOpen={false}
           description={`${t.chatCmdDescPre}${t.chatCmdDescMod}${t.chatCmdDescMid}`}>
-          {/* Jeder Befehl als eigene Zeile mit Code-Badge statt einer reinen Aufzählung mit
-              Gedankenstrich — auf einen Blick als "das ist tippbar" erkennbar (Nutzer-Feedback:
-              "make the overview more appealing for the commands"). */}
+          <OptionRow label={t.chatActiveLabel}
+            note={user?.login ? wt(t, 'chatActiveDesc', { channel: user.login }) : t.chatActiveDescEmpty}
+            checked={settings.chatEnabled} onChange={toggle('chatEnabled')} />
           <div className="space-y-1.5">
             {t.chatCmdList.map((cmd) => (
-              <div key={cmd.code} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 bg-black/20 rounded-lg px-3 py-2">
-                <code className="text-violet-300 font-mono text-xs font-bold shrink-0">{cmd.code}</code>
-                <span className="text-gray-500 text-xs leading-snug">{cmd.desc}</span>
+              <div key={cmd.code} className="cr-row flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3.5 py-2.5">
+                <code className="font-cr text-sm text-[var(--cr-arcade-gold)] shrink-0">{cmd.code}</code>
+                <span className="text-white/50 text-xs leading-snug">{cmd.desc}</span>
               </div>
             ))}
           </div>
-          <p className="text-gray-600 text-[11px] leading-relaxed">{t.chatCmdDescPost}</p>
-          {/* Kanal ist immer der eigene Twitch-Login — kein Freitextfeld mehr, das vom Server-
-              Wert abweichen kann (siehe Kommentar an chatChannel in crWinTrackerRoutes.js). Nur
-              noch EIN Wert zum Umschalten statt zwei, die getrennt gespeichert werden mussten. */}
-          <ToggleButton label={t.chatActiveLabel} className="w-full"
-            title={user?.login ? wt(t, 'chatActiveDesc', { channel: user.login }) : t.chatActiveDescEmpty}
-            checked={settings.chatEnabled} onLabel={t.onLabel} offLabel={t.offLabel}
-            onChange={(v) => toggle('chatEnabled')(v)} />
+          <p className="text-white/40 text-xs leading-relaxed">{t.chatCmdDescPost}</p>
         </SettingsSection>
       </div>
 
-      {/* Rechte Spalte: sticky, bleibt beim Scrollen durch die Abschnitte links stehen. Unter xl
-          (einspaltig) rutscht sie unter die linke Spalte und bekommt dafür eine Linie darüber. */}
-      <div className="xl:sticky xl:top-6 xl:self-start min-w-0 divide-y divide-white/10 border-t border-white/10 xl:border-t-0">
-        <SettingsSection title={t.livePreviewTitle}>
-          <OverlayPreview
-            settings={settings}
-            overlayKey={overlayKey}
-            moduleVisibility={moduleVisibility}
-            onToggleModule={(key) => setModuleVisible(key, !moduleVisibility[key])}
-            onToggleProfile={() => toggle('showProfile')(settings.showProfile === false)}
-            refreshSignal={activeAccount ? `${activeAccount.accountId}:${activeAccount.trackMode}:${activeAccount.ladder?.step ?? ''}` : ''}
-          />
+      {/* Rechte Spalte: läuft beim Scrollen mit. Unter xl rutscht sie unter die linke Spalte. */}
+      <div className="xl:sticky xl:top-4 xl:self-start min-w-0 border-t border-[#020814]/60 xl:border-t-0">
+        <SettingsSection icon={CrEye} title={t.livePreviewTitle}>
+          <div className="rounded-2xl bg-[#081426] border border-[#020814]/80 shadow-[inset_0_2px_6px_rgba(0,0,0,0.45)] p-3">
+            <OverlayPreview
+              settings={settings}
+              overlayKey={overlayKey}
+              moduleVisibility={moduleVisibility}
+              onToggleModule={(key) => setModuleVisible(key, !moduleVisibility[key])}
+              onToggleProfile={() => toggle('showProfile')(settings.showProfile === false)}
+              refreshSignal={activeAccount ? `${activeAccount.accountId}:${activeAccount.trackMode}:${activeAccount.ladder?.step ?? ''}` : ''}
+            />
+          </div>
         </SettingsSection>
 
-        <SettingsSection icon={Link2} title={t.obsOverlayTitle} description={t.obsOverlayHint}>
-          <div className={`bg-black/30 border border-white/10 rounded-lg px-3.5 py-3 text-gray-300 text-xs font-mono break-all transition-all ${hidden ? 'blur-sm select-none pointer-events-none' : ''}`}>
+        <SettingsSection icon={CrTv} title={t.obsOverlayTitle} description={t.obsOverlayHint}>
+          <p className="text-white/50 text-sm">{t.obsOverlayHint}</p>
+          <div className={`cr-input px-3.5 py-3 text-white/80 text-xs break-all transition-all ${hidden ? 'blur-sm select-none pointer-events-none' : ''}`}>
             {link || t.linkLoading}
           </div>
-          <div className="flex items-center gap-2">
-            {/* Volltext-Knopf statt nur des Kopier-Symbols — der Link ist die wichtigste
-                Einzelaktion auf dieser Seite (geht in OBS), soll also nicht als kleines Icon
-                neben zwei anderen untergehen. */}
-            <button onClick={copy} disabled={!link}
-              className="flex-1 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white font-bold text-sm py-2.5 rounded-lg transition-colors">
-              {copied ? <Check size={14} /> : <Copy size={14} />}
+          <div className="flex items-stretch gap-2">
+            <ChunkyButton variant="green" className="flex-1" onClick={copy} disabled={!link} icon={copied ? Check : Copy}>
               {copied ? t.copiedLabel : t.copyTitle}
-            </button>
+            </ChunkyButton>
             <button onClick={() => setHidden(v => !v)} title={hidden ? t.showTitle : t.hideTitle}
-              className="p-2.5 border border-white/10 rounded-lg hover:border-white/30 transition-colors text-gray-500 hover:text-white shrink-0">
-              {hidden ? <Eye size={14} /> : <EyeOff size={14} />}
+              aria-label={hidden ? t.showTitle : t.hideTitle}
+              className="cr-arcade-icon-btn w-12 shrink-0">
+              {hidden ? <Eye size={17} /> : <EyeOff size={17} />}
             </button>
           </div>
-          <button onClick={regenerate} disabled={!overlayKey}
-            className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-red-400 transition-colors">
-            <RefreshCw size={12} />
-            {t.regenLink}
-          </button>
-        </SettingsSection>
-
-        {/* Kleiner Statuschip statt einer großen, farbig hinterlegten Box — die Information ist
-            wichtig, aber selten die aktive Aufgabe auf dieser Seite; der volle Text steht noch
-            als Tooltip bereit. Als letzte Zeile der rechten Spalte, mit demselben Innenabstand wie
-            die Abschnitte darüber. */}
-        <div className="px-5 py-4">
-          <div className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border ${
-            apiConfigured ? 'text-green-400 border-green-500/20 bg-green-500/5' : 'text-amber-400 border-amber-500/20 bg-amber-500/5'
-          }`} title={apiConfigured ? t.apiConnectedDesc : t.apiNotConfiguredDesc}>
-            <span className={`w-1.5 h-1.5 rounded-full ${apiConfigured ? 'bg-green-400' : 'bg-amber-400'}`} />
-            {apiConfigured ? t.apiConnectedShort : t.apiNotConfiguredShort}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <button onClick={regenerate} disabled={!overlayKey}
+              className="flex items-center gap-1.5 text-xs font-semibold text-white/45 hover:text-red-300 transition-colors disabled:opacity-40">
+              <RefreshCw size={12} />
+              {t.regenLink}
+            </button>
+            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${apiConfigured ? 'text-emerald-300' : 'text-amber-300'}`}
+              title={apiConfigured ? t.apiConnectedDesc : t.apiNotConfiguredDesc}>
+              <span className={`w-2 h-2 rounded-full ${apiConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              {apiConfigured ? t.apiConnectedShort : t.apiNotConfiguredShort}
+            </span>
           </div>
-        </div>
+        </SettingsSection>
       </div>
     </div>
   );
@@ -806,6 +782,7 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
 // ── Hauptseite ───────────────────────────────────────────────────────────────
 export default function WinTrackerPage() {
   const { user, login } = useContext(TwitchAuthContext);
+  const { openSettings } = useCrPrefs();
   const [tab, setTab] = useState('accounts');
   const [accounts, setAccounts] = useState(null);
   const [overlayKey, setOverlayKey] = useState(null);
@@ -815,6 +792,7 @@ export default function WinTrackerPage() {
     last5Style: 'result', last5Direction: 'newestLeft', last5NewBadge: true,
     showDeck: true, showProfile: true, deckPlacement: 'top', language: 'de', chatChannel: '', chatEnabled: false,
     paginateOverlay: false, paginateIntervalS: 6, showClan: false,
+    overlayTheme: 'classic', royalePanel: 'blue', royalePattern: true, overlayScale: 100,
   });
   const [apiConfigured, setApiConfigured] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -866,8 +844,7 @@ export default function WinTrackerPage() {
     const max = acc.ladder?.maxSteps || 0;
     if (!max || step === acc.ladder.step) return;
     // Bleibt die Stufe innerhalb der aktuellen Liga, sofort optimistisch zeigen. Ein Sprung über
-    // die Ligagrenze (Stufe > maxSteps bzw. < 1) wechselt serverseitig auch die Liga selbst —
-    // das kommt erst mit der Antwort, damit Badge/Liga-Name nicht kurz falsch aufblitzen.
+    // die Ligagrenze wechselt serverseitig auch die Liga selbst — das kommt erst mit der Antwort.
     const staysInLeague = step >= 1 && step <= max;
     if (staysInLeague) {
       setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, ladder: { ...a.ladder, step } } : a));
@@ -883,10 +860,9 @@ export default function WinTrackerPage() {
 
   const handleResetSession = async (acc) => {
     if (!window.confirm(wt(t, 'confirmResetSession'))) return;
-    // medals/trophies/2v2 haben je eine eigene Session — siehe SESSION_GAP_MS/
-    // computeSessionStartMs/computeTrophySessionStartMs/compute2v2SessionStartMs in
-    // crWinTrackerRoutes.js.
-    const scope = acc.trackMode === '2v2' ? '2v2' : acc.trackMode === 'trophies' ? 'trophies' : 'ranked';
+    // Jeder Modus hat seine eigene Session; Saison-Modi ("s:<prefix>") werden direkt durchgereicht.
+    const scope = isSeasonalMode(acc.trackMode) ? acc.trackMode
+      : acc.trackMode === '2v2' ? '2v2' : acc.trackMode === 'trophies' ? 'trophies' : 'ranked';
     try {
       const res = await api.resetAccountSession(acc.accountId, scope);
       setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? res.account : a));
@@ -902,13 +878,10 @@ export default function WinTrackerPage() {
     finally { setRefreshingId(null); }
   };
 
+  const activeAccount = accounts?.find(a => a.isActive) || null;
+
   return (
-    // Der Einstellungen-Tab braucht mehr Platz (Vorschau + Einstellungen nebeneinander, siehe
-    // SettingsTab) als der Accounts-Tab — deshalb breiter NUR auf diesem Tab, nicht seitenweit.
-    // max-w-[1680px] statt einfach 100%: bleibt bei 1920px Breite noch klar als Inhaltsspalte mit
-    // Rand erkennbar (kein Kante-an-Kante-Stretchen), nutzt bei größeren Bildschirmen spürbar mehr
-    // vom verfügbaren Platz als die alte max-w-6xl (1152px).
-    <div className={`page-fade mx-auto ${tab === 'settings' ? 'max-w-[1680px]' : 'max-w-6xl'}`}>
+    <div className="page-fade cr-arcade-bg h-full overflow-y-auto custom-scrollbar relative">
       <SEO
         title="Clash Royale Win Tracker Overlay für OBS"
         description="Kostenloses OBS-Overlay für Clash Royale: zeigt Liga, Medaillen oder Trophäen, Session-Gewinn, Win-Rate und die letzten 5 Spiele — live aus der offiziellen Clash-Royale-API, pro Account einstellbar."
@@ -938,87 +911,95 @@ export default function WinTrackerPage() {
           },
         ]} />
 
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-white tracking-tight">Win Tracker Overlay</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {t.pageSubtitle}
-          </p>
+      <div className="min-h-full flex flex-col">
+        {/* ── Obere Zeile wie im Hub: zurück zur Website | Sprache + Einstellungen ──────── */}
+        <div className="shrink-0 flex items-center gap-2 px-3 md:px-6 pt-3 md:pt-5 relative z-20">
+          <Link to="/clash" className={`${chipClass} px-3.5`} title={t.backToWebsite}>
+            <ArrowLeftToLine size={16} />
+            <span className="hidden sm:inline">{t.backToWebsite}</span>
+          </Link>
+          <div className="flex-1" />
+          {/* Eine Einstellung für Editor-Text UND Overlay-Inhalt zugleich (siehe changeLanguage) */}
+          <LanguageSelect lang={lang} onChange={changeLanguage} languages={['de', 'en']} />
+          <button onClick={openSettings} className={`${chipClass} w-11 justify-center`} title={t.settingsAria} aria-label={t.settingsAria}>
+            <CrSettings size={24} />
+          </button>
         </div>
-        {/* Eine Einstellung für Editor-Text UND Overlay-Inhalt zugleich (siehe changeLanguage) —
-            deshalb hier oben auf Seitenebene statt versteckt im Einstellungen-Tab. */}
-        <div className="shrink-0">
-          <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5 text-right">{t.languageLabel}</p>
-          <SegmentedControl
-            variant="flat"
-            options={[{ id: 'de', label: 'DE' }, { id: 'en', label: 'EN' }]}
-            value={lang} onChange={changeLanguage} />
+
+        <div className={`flex-1 w-full mx-auto px-3 md:px-6 py-4 md:py-6 ${tab === 'settings' ? 'max-w-[1500px]' : 'max-w-4xl'}`}>
+          {/* ── Titel ─────────────────────────────────────────────────────────────── */}
+          <div className="flex flex-col items-center text-center mb-5 md:mb-6">
+            <p className="font-cr text-[15px] md:text-lg tracking-[0.18em] uppercase text-[var(--cr-arcade-gold)]"
+              style={{ textShadow: '0 2px 0 rgba(2,8,20,0.7)' }}>
+              Clash Royale
+            </p>
+            <ArcadeTitle as="h1" className="text-4xl md:text-5xl leading-none">Win Tracker</ArcadeTitle>
+            <p className="text-white/55 text-sm mt-2 max-w-xl">{t.pageSubtitle}</p>
+          </div>
+
+          {!user ? (
+            <div className="cr-arcade-panel cr-anim-rise max-w-md mx-auto">
+              <div className="cr-section text-center py-8">
+                <CrTrophy size={56} className="mx-auto mb-3" />
+                <p className="font-cr text-xl text-white mb-1">{t.loginRequired}</p>
+                <p className="text-white/50 text-sm mb-6">{t.loginHint}</p>
+                <ChunkyButton onClick={() => login(false)}>
+                  <TwitchGlyph size={17} />
+                  {t.loginButton}
+                </ChunkyButton>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="cr-tabs mb-4 md:mb-5 max-w-md mx-auto" role="tablist">
+                <button role="tab" aria-selected={tab === 'accounts'} onClick={() => setTab('accounts')}>
+                  <CrFriends size={26} />
+                  <span className="cr-tab-label">{t.tabAccounts}</span>
+                </button>
+                <button role="tab" aria-selected={tab === 'settings'} onClick={() => setTab('settings')}>
+                  <CrSettings size={26} />
+                  <span className="cr-tab-label">{t.tabSettings}</span>
+                </button>
+              </div>
+
+              {error && (
+                <div className="cr-row border-red-500/50 bg-red-500/10 px-4 py-2.5 mb-4 text-red-200 text-sm" role="alert">{error}</div>
+              )}
+
+              {tab === 'accounts' && (
+                accounts === null ? (
+                  <p className="text-white/50 text-sm py-8 text-center">{t.loadingAccounts}</p>
+                ) : (
+                  <AccountsTab
+                    t={t} lang={lang}
+                    accounts={accounts}
+                    onActivate={handleActivate}
+                    onDelete={handleDelete}
+                    onAdd={() => setAddOpen(true)}
+                    onRefresh={handleRefresh}
+                    onLadderStepChange={handleLadderStepChange}
+                    refreshingId={refreshingId}
+                  />
+                )
+              )}
+
+              {tab === 'settings' && (
+                <SettingsTab t={t} overlayKey={overlayKey} settings={settings} onSettingsChange={setSettings} apiConfigured={apiConfigured}
+                  activeAccount={activeAccount}
+                  onResetSession={handleResetSession}
+                  flashError={flashError} />
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {!user ? (
-        <div className="panel p-10 text-center max-w-md mx-auto mt-12">
-          <p className="text-white font-bold mb-1">{t.loginRequired}</p>
-          <p className="text-gray-500 text-sm mb-5">{t.loginHint}</p>
-          <button onClick={() => login(false)}
-            className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-colors">
-            <TwitchGlyph size={15} />
-            {t.loginButton}
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="flex border-b border-white/5 mb-6 overflow-x-auto">
-            <button onClick={() => setTab('accounts')}
-              className={`flex items-center justify-center gap-2 py-3 px-5 text-sm font-bold transition-colors border-b-2 ${
-                tab === 'accounts' ? 'border-violet-400 text-white bg-white/[0.03]' : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}>
-              <Trophy size={14} />
-              {t.tabAccounts}
-            </button>
-            <button onClick={() => setTab('settings')}
-              className={`flex items-center justify-center gap-2 py-3 px-5 text-sm font-bold transition-colors border-b-2 ${
-                tab === 'settings' ? 'border-violet-400 text-white bg-white/[0.03]' : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}>
-              <TrendingUp size={14} />
-              {t.tabSettings}
-            </button>
-          </div>
-
-          {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-
-          {tab === 'accounts' && (
-            accounts === null ? (
-              <p className="text-gray-500 text-sm py-8 text-center">{t.loadingAccounts}</p>
-            ) : (
-              <AccountsTab
-                t={t} lang={lang}
-                accounts={accounts}
-                onActivate={handleActivate}
-                onDelete={handleDelete}
-                onAdd={() => setAddOpen(true)}
-                onRefresh={handleRefresh}
-                onLadderStepChange={handleLadderStepChange}
-                refreshingId={refreshingId}
-              />
-            )
-          )}
-
-          {tab === 'settings' && (
-            <SettingsTab t={t} overlayKey={overlayKey} settings={settings} onSettingsChange={setSettings} apiConfigured={apiConfigured}
-              activeAccount={accounts?.find(a => a.isActive) || null}
-              onResetSession={handleResetSession}
-              flashError={flashError} />
-          )}
-
-          {addOpen && (
-            <AddAccountModal
-              t={t}
-              onClose={() => setAddOpen(false)}
-              onAdded={() => { setAddOpen(false); load(); }}
-            />
-          )}
-        </>
+      {addOpen && (
+        <AddAccountModal
+          t={t}
+          onClose={() => setAddOpen(false)}
+          onAdded={() => { setAddOpen(false); load(); }}
+        />
       )}
     </div>
   );

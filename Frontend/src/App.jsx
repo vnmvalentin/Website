@@ -79,8 +79,10 @@ const SeedRunnersLevels = lazy(() => import("./pages/SeedRunners/SeedRunnersLeve
 const SeedRunnersLevel = lazy(() => import("./pages/SeedRunners/SeedRunnersLevel"));
 const SeedRunnersCreator = lazy(() => import("./pages/SeedRunners/SeedRunnersCreator"));
 const SeedRunnersShell = lazy(() => import("./pages/SeedRunners/ui/GameShell"));
-const DleShell = lazy(() => import("./pages/Dle/ui/Shell.jsx"));
-const DleHubPage = lazy(() => import("./pages/Dle/DleHubPage"));
+const FlickShell = lazy(() => import("./pages/FlickSoccer/ui/Shell.jsx"));
+const FlickMenu = lazy(() => import("./pages/FlickSoccer/FlickMenu.jsx"));
+const FlickLocal = lazy(() => import("./pages/FlickSoccer/FlickLocal.jsx"));
+const FlickRoom = lazy(() => import("./pages/FlickSoccer/FlickRoom.jsx"));
 const SigilsShell = lazy(() => import("./pages/SacrificeSigils/ui/Shell.jsx"));
 const SigilsHome = lazy(() => import("./pages/SacrificeSigils/ui/screens/HomeScreen.jsx"));
 const SigilsRoom = lazy(() => import("./pages/SacrificeSigils/ui/pages/RoomPage.jsx"));
@@ -90,13 +92,6 @@ const SigilsGuide = lazy(() => import("./pages/SacrificeSigils/ui/pages/GuidePag
 const SigilsTutorial = lazy(() => import("./pages/SacrificeSigils/ui/pages/TutorialPage.jsx"));
 const SigilsRun = lazy(() => import("./pages/SacrificeSigils/ui/pages/MoorwanderungPage.jsx"));
 const SigilsRunRoom = lazy(() => import("./pages/SacrificeSigils/ui/pages/RunRoomPage.jsx"));
-const TempdlePage = lazy(() => import("./pages/Dle/Tempdle/TempdlePage"));
-const VelocidlePage = lazy(() => import("./pages/Dle/Velocidle/VelocidlePage"));
-const ProbabildlePage = lazy(() => import("./pages/Dle/Probabildle/ProbabildlePage"));
-const DuratidlePage = lazy(() => import("./pages/Dle/Duratidle/DuratidlePage"));
-const InventiondlePage = lazy(() => import("./pages/Dle/Inventiondle/InventiondlePage"));
-const PricedlePage = lazy(() => import("./pages/Dle/Pricedle/PricedlePage"));
-const BalancdlePage = lazy(() => import("./pages/Dle/Balancdle/BalancdlePage"));
 
 // Der Marker data-page-fallback ist die Schnittstelle zu prerender.js — nicht umbenennen.
 function PageFallback() {
@@ -204,13 +199,19 @@ export default function App() {
           </Route>
 
           {/* Clash-Royale-Minigames: volle Fensterhöhe ohne Website-Kopfzeile (ClashRoyale/ui/CrShell.jsx).
-              Nur die Minigame-Seite selbst — WinTracker und Nuzlocke bleiben unter Layout. */}
+              Seit Okt. 2026 auch der Win-Tracker und Nuzlocke (gleicher Arcade-Look). */}
           <Route path="/clash-royale" element={<CrShell />}>
             <Route index element={<ClashRoyalePage />} />
             {/* Turniere (Backend/clashRoyale/PLANUNG_TURNIER.md) */}
             <Route path="turnier/neu" element={<TournamentForm />} />
             <Route path="turnier/:id" element={<TournamentPage />} />
             <Route path="turnier/:id/bearbeiten" element={<TournamentForm />} />
+            {/* Win-Tracker-Editor seit Okt. 2026 im selben Arcade-Look (das OBS-Overlay oben bleibt ohne Hülle) */}
+            <Route path="win-tracker" element={<WinTrackerPage />} />
+          </Route>
+          {/* Nuzlocke: seit Okt. 2026 ebenfalls im Arcade-Look, URL bleibt /nuzlocke (SEO) */}
+          <Route path="/nuzlocke" element={<CrShell />}>
+            <Route index element={<NuzlockePage />} />
           </Route>
 
           {/* Virtual Farm: eigene Hülle, volle Fensterhöhe (GardenGame/ui/menu/GardenShell.jsx) */}
@@ -223,16 +224,11 @@ export default function App() {
             <Route index element={<AdventureGame/>} />
           </Route>
 
-          {/* Daily Games: eigene Hülle „Messlabor" (Dle/ui/Shell.jsx) */}
-          <Route path="/daily" element={<DleShell />}>
-            <Route index element={<DleHubPage/>} />
-            <Route path="tempdle" element={<TempdlePage/>} />
-            <Route path="velocidle" element={<VelocidlePage/>} />
-            <Route path="probabildle" element={<ProbabildlePage/>} />
-            <Route path="duratidle" element={<DuratidlePage/>} />
-            <Route path="inventiondle" element={<InventiondlePage/>} />
-            <Route path="pricedle" element={<PricedlePage/>} />
-            <Route path="balancdle" element={<BalancdlePage/>} />
+          {/* Flick Soccer: rundenbasierter Scheiben-Fußball, eigene Hülle „Kronkorken-Liga" (FlickSoccer/ui/Shell.jsx) */}
+          <Route path="/flick-soccer" element={<FlickShell />}>
+            <Route index element={<FlickMenu/>} />
+            <Route path="spiel" element={<FlickLocal/>} />
+            <Route path=":code" element={<FlickRoom/>} />
           </Route>
 
           {/* Alle “normalen” Seiten unter Layout */}
@@ -274,8 +270,6 @@ export default function App() {
             <Route path="/discord-bot" element={<DiscordBotDashboard />} />
             <Route path="/discord-bot/privacy" element={<DiscordBotPrivacyPage />} />
             <Route path="/discord-bot/terms" element={<DiscordBotTermsPage />} />
-            <Route path="/nuzlocke" element={<NuzlockePage />} />
-            <Route path="/clash-royale/win-tracker" element={<WinTrackerPage />} />
             <Route path="/twitch-tools" element={<PollsPredictionsPage />} />
 
             {/* Entfernte Seiten sanft umleiten */}

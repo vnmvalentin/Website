@@ -204,6 +204,17 @@ try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN paginate_interval_s
 // nützt dagegen JEDEM Modus gleichermaßen (auch Ultimate Champion, 2v2, Trophäenmodus).
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN show_clan INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
 
+// Overlay-Aussehen (Okt. 2026): 'classic' = bisherige schlichte Karte (bg_color/Verlauf/Rand),
+// 'royale' = Clash-Royale-Look (Spieltafel mit dunklem Rand, Lilita One, Kontur-Schrift). Für
+// 'royale' eigene Optionen: Tafelfarbe (Preset) und ob das Rauten-Karo der Menüs drauf liegt.
+// Standard bleibt 'classic' — bestehende OBS-Quellen ändern sich nicht von selbst.
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN overlay_theme TEXT NOT NULL DEFAULT 'classic'"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN royale_panel TEXT NOT NULL DEFAULT 'blue'"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN royale_pattern INTEGER NOT NULL DEFAULT 1"); } catch { /* Spalte existiert bereits */ }
+// Overlay-Größe in Prozent (100-200): echtes CSS-zoom statt Hochskalieren in OBS — die Schrift
+// wird in der Zielgröße gerendert und bleibt scharf. Standard 100, bestehende Quellen bleiben gleich.
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN overlay_scale INTEGER NOT NULL DEFAULT 100"); } catch { /* Spalte existiert bereits */ }
+
 // Manueller Session-Reset (Button im Editor, siehe /accounts/:id/reset-session in
 // crWinTrackerRoutes.js): hebt den Sessionbeginn auf "jetzt" an, ohne auf die automatische
 // 4h-Lücken-Regel warten zu müssen — für wer vor Stream-Start schon ein paar Spiele gespielt hat
@@ -241,5 +252,31 @@ db.exec(`CREATE TABLE IF NOT EXISTS cr_wintracker_discovered_modes (
     last_seen_at INTEGER NOT NULL,
     sample_count INTEGER NOT NULL DEFAULT 0
 )`);
+
+// Generische saisonale Ranked-Modi (Spooky Chess League & alles, was Supercell künftig nachschiebt —
+// siehe lib/seasonalModes.js): statt pro Modus neue Spalten wie bei 2v2 eine Zeile je Account und
+// Modus-Präfix. trackMode solcher Modi ist "s:<prefix>" (z.B. "s:spookychesstrail").
+db.exec(`CREATE TABLE IF NOT EXISTS cr_wintracker_seasonal (
+    account_id TEXT NOT NULL,
+    prefix TEXT NOT NULL,
+    progress_key TEXT NOT NULL DEFAULT '',
+    label TEXT NOT NULL DEFAULT '',
+    arena_name TEXT NOT NULL DEFAULT '',
+    trophies INTEGER NOT NULL DEFAULT 0,
+    best_trophies INTEGER NOT NULL DEFAULT 0,
+    deck TEXT NOT NULL DEFAULT '',
+    deck_at INTEGER NOT NULL DEFAULT 0,
+    session_reset_at INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (account_id, prefix)
+)`);
+// Ende der Qualifikationsphase (Zeit des letzten Qualifikationssiegs, z.B. 15. Sieg in Spooky
+// Chess "Casual") — Session-Statistik zählt danach neu, sonst stünden die +15 der Qualifikation
+// im Profit des ersten echten Ranked-Spiels. 0 = keine Qualifikation erkannt.
+try { db.exec("ALTER TABLE cr_wintracker_seasonal ADD COLUMN qualified_at INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+// Zu welchem saisonalen Modus ein Battle gehört ('' = keinem) — beim Sync per Wort-Abgleich
+// bestimmt (siehe matchBattle in seasonalModes.js), danach filtern Session-Statistik und letzte 5 darauf.
+try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN seasonal_prefix TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+db.exec(`CREATE INDEX IF NOT EXISTS idx_wt_battles_seasonal ON cr_wintracker_battles(account_id, seasonal_prefix, battle_time_ms)`);
 
 module.exports = db;

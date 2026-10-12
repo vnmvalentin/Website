@@ -1,28 +1,18 @@
 const express = require("express");
-const fs = require("fs");
+const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
 const path = require("path");
 
 // Pfad zur polls.json (relativ zum routes-Ordner)
 const POLLS_FILE = path.join(__dirname, "../data/polls.json");
 
 // --- Hilfsfunktionen zum Laden und Speichern ---
+// Über lib/jsonFile.js: atomar, und eine kaputte Datei wird nie mit [] überschrieben
 function loadPolls() {
-    try {
-        if (!fs.existsSync(POLLS_FILE)) return [];
-        const data = fs.readFileSync(POLLS_FILE, "utf8");
-        return JSON.parse(data);
-    } catch (e) {
-        console.error("Fehler beim Laden der polls.json:", e);
-        return [];
-    }
+    return readJson(POLLS_FILE, []);
 }
 
 function savePolls(data) {
-    try {
-        fs.writeFileSync(POLLS_FILE, JSON.stringify(data, null, 2), "utf8");
-    } catch (e) {
-        console.error("Fehler beim Speichern der polls.json:", e);
-    }
+    writeJsonAtomic(POLLS_FILE, data);
 }
 
 const liveBadges = require("../lib/liveBadges");

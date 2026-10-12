@@ -137,6 +137,19 @@ function getProfile(twitchId) {
   return rowToProfile(row);
 }
 
+/** Profil über den Twitch-Login finden (Freundesliste: "Freund hinzufügen" für jemanden, der
+ *  die Minigames zwar schon mit Twitch benutzt, aber seit Einführung der Freundesliste noch
+ *  nicht wieder geöffnet hat — siehe core/friends.js). */
+function findProfileByLogin(login) {
+  if (!_db) return null;
+  const clean = String(login || "").trim().replace(/^@/, "").toLowerCase();
+  if (!clean) return null;
+  const row = _db
+    .prepare("SELECT * FROM cr_profiles WHERE lower(json_extract(data, '$.twitchLogin')) = ?")
+    .get(clean);
+  return rowToProfile(row);
+}
+
 /** Teil-Update: nur die übergebenen Felder ändern, Rest bleibt. */
 function saveProfile(twitchId, patch) {
   if (!_db) return null;
@@ -187,6 +200,7 @@ module.exports = {
   initCrProfileStore,
   getOrCreateProfile,
   getProfile,
+  findProfileByLogin,
   saveProfile,
   addCrAccount,
   removeCrAccount,

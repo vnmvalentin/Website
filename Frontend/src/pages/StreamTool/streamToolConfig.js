@@ -169,7 +169,83 @@ export const MODULE_DEFAULTS = {
     // Vorlauf, damit der Clip nicht in den Raid-Alert hineinredet
     delaySeconds: 5,
   },
+
+  /* ── Szenen ──────────────────────────────────────────────────────────────
+     Sie spielen quer über das ganze Bild statt als Karte an einer Stelle. Von
+     der Platzierung zählt deshalb nur y (die Höhe der Spur) und die Größe. Die
+     Murmelbahn ist die Ausnahme: sie ist eine Karte wie die anderen. */
+  hypeTrain: {
+    ...BASE_MODULE,
+    enabled: false,
+    x: 0,
+    y: 850,
+    timer: true,
+    // [Zugfarbe, Wagenfarbe]
+    colors: ['#9146ff', '#23232d'],
+    // Aus welcher Richtung der Zug einfährt
+    from: 'left',
+    showProgress: true,
+    showNames: false,
+  },
+  raidStorm: {
+    ...BASE_MODULE,
+    enabled: false,
+    x: 0,
+    y: 760,
+    timer: false,
+    // Farben der Oberteile, der Reihe nach verteilt
+    colors: [...CATEGORICAL],
+    // In welche Richtung die Menge rennt
+    direction: 'right',
+    minViewers: 1,
+    // Vorlauf wie beim Raid-Clip. Er gibt Twitch zugleich Zeit, die
+    // Zuschauerliste nachzuziehen — daraus stammen die Namen.
+    delaySeconds: 8,
+    // Mehr Figuren zeichnet das Overlay nicht; die echte Zahl steht auf der Fahne
+    maxFigures: 100,
+    showNames: true,
+    // Namen aus der Zuschauerliste schätzen (Twitch nennt die Raider nicht)
+    guessNames: true,
+  },
+  planeBanner: {
+    ...BASE_MODULE,
+    enabled: false,
+    x: 0,
+    y: 50,
+    timer: false,
+    // [Flugzeug, Banner, Schrift]
+    colors: ['#d95926', '#f3efe4', '#17171c'],
+    // Eine Nachricht je Zeile — bei mehreren wechselt das Flugzeug durch
+    messages: 'Schön, dass du da bist!',
+    intervalMin: 10,
+    // Sekunden für einen Überflug
+    flightSeconds: 24,
+    direction: 'right',
+  },
+  marbleRun: {
+    ...BASE_MODULE,
+    enabled: false,
+    x: 1260,
+    y: 60,
+    opacity: 88,
+    timer: true,
+    colors: [...CATEGORICAL],
+    joinCommand: '!murmel',
+    // Anmeldezeit in Sekunden; 0 = von Hand starten
+    joinSeconds: 60,
+    maxPlayers: 40,
+    // Länge der Bahn in Abschnitten (12 ergeben im Mittel etwa 40 Sekunden)
+    sections: 12,
+    // Wie lange der Sieger stehen bleibt
+    winnerSeconds: 15,
+    // Öffnung und Sieger im Chat ansagen
+    announce: true,
+    showNames: true,
+  },
 };
+
+/** Module, die über die ganze Bildbreite spielen statt als verschiebbare Karte. */
+export const SCENE_IDS = ['hypeTrain', 'raidStorm', 'planeBanner'];
 
 /** Zieltypen, die Twitch im Creator-Dashboard kennt. */
 export const TWITCH_GOAL_TYPES = {
@@ -603,6 +679,45 @@ export function useDemoSim(enabled, outcomeCount = 2) {
       bits: 4250 + creep * 25,
     },
     raid: DEMO_RAID,
+  };
+}
+
+/* ── Szenen: Hilfen und Standbilder ───────────────────────────────────────── */
+
+/** Nachrichten des Flugzeugs aus dem Textfeld: eine je Zeile. */
+export function planeMessages(module) {
+  return String(module.messages || '')
+    .split('\n')
+    .map((l) => l.trim().slice(0, 120))
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+const DEMO_NAMES = ['Kieselkönig', 'Rollmops', 'Kugelblitz', 'Glasperle', 'Schusser', 'Flummi', 'Looping', 'Trudel', 'Kreisel', 'Prellbock', 'Wirbelwind'];
+
+/** Stehender Beispielzug zum Ausrichten (Dashboard und ?demo=1). */
+export const DEMO_HYPE = {
+  id: 'demo-train',
+  level: 3,
+  total: 4200,
+  progress: 620,
+  goal: 1000,
+  expiresAt: 0,
+  endedAt: 0,
+  people: DEMO_NAMES.map((name, i) => ({ id: `demo-${i}`, name, avatar: '' })),
+};
+
+/** Anmeldung der Murmelbahn mit Beispielspielern — zum Ausrichten, wenn nichts läuft. */
+export function demoMarbles(module) {
+  return {
+    id: 'demo',
+    phase: 'join',
+    command: String(module.joinCommand || '!murmel'),
+    joinEndsAt: 0,
+    seed: 0,
+    startsAt: 0,
+    winner: null,
+    players: DEMO_NAMES.slice(0, 9).map((name, i) => ({ id: `demo-${i}`, name, avatar: '' })),
   };
 }
 

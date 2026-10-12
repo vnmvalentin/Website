@@ -5,11 +5,12 @@
 'use strict';
 
 const { createStore } = require('./store');
+const { loadEngine } = require('./replay');
 const { createVerifier } = require('./verifier');
 const { createDailyService, dailyDateOf, dailyKeyFromToken, previousDay } = require('./daily');
 const { createLevelVerifyService } = require('./levelVerify');
 const { createLevelService } = require('./levelService');
-const { todayDateKey } = require('../dle/core/dailySeed');
+const { todayDateKey } = require('./dateKey');
 
 // Logs älterer Tage sind nur noch Beweisstücke ohne Nutzen; die Einträge selbst bleiben
 const KEEP_LOGS_DAYS = 14;
@@ -41,9 +42,26 @@ function getRuntime() {
   }, REVERIFY_DELAY_MS);
   reverifyTimer.unref?.();
 
+  // Das Tages-Level im Prüf-Worker vorab bauen (beim Start und nach jedem Tageswechsel): Der Bau dauert je nach Seed
+  // bis zu einigen zehn Sekunden — das soll nicht der erste Spieler des Tages beim Einreichen abwarten müssen. Der
+  // Auftrag ist ein absichtlich ungültiger Lauf; er dient nur dazu, dass der Worker das Level in seinem Speicher hat.
+  let vorgewaermt = null;
+  const tagesLevelVorbauen = () => {
+    const key = todayDateKey();
+    if (key === vorgewaermt) return;
+    vorgewaermt = key;
+    loadEngine()
+      .then((engine) => verifier.verify({ params: daily.dailyParams(key), log: [0, 0], ticks: 60, fp: engine.ENGINE_FINGERPRINT }))
+      .catch((e) => console.error('[seed-runners] Tages-Level vorbauen:', e));
+  };
+  tagesLevelVorbauen();
+  const vorbauTimer = setInterval(tagesLevelVorbauen, 5 * 60 * 1000);
+  vorbauTimer.unref?.();
+
   runtime = {
     store,
     reverifyTimer,
+    vorbauTimer,
     verifier,
     daily,
     levelVerify,
@@ -71,6 +89,7 @@ async function closeRuntime() {
   const rt = runtime;
   runtime = null;
   clearTimeout(rt.reverifyTimer);
+  clearInterval(rt.vorbauTimer);
   await rt.verifier.close();
   rt.store.close();
 }

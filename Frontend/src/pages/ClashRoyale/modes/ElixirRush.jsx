@@ -4,6 +4,7 @@ import { useServerClock } from '../ui/serverClock';
 import { CrCheck, CrRage, CrStopwatch, CrTv } from '../ui/CrIcons';
 import unknownCardImg from '../../../assets/clashRoyale/UnknownCard.png';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import marketEmblem from '../../../assets/clashRoyale/ui/icon_menu_shop.png';
 import ModeShell from './ModeShell';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, ProgressHairline, GameSurface, GameFooter, PlayerPanel, DeckGrid } from './GameChrome';
@@ -27,7 +28,72 @@ export const RUSH_STYLE = `
 .rush-flip-in  { animation: rushFlipIn  .18s ease-out both; }
 .rush-pop      { animation: rushPop .22s cubic-bezier(0.34, 1.35, 0.64, 1) both; }
 .rush-shake    { animation: rushShake .4s ease both; }
+
+/* Marktplatz als Holz-Markttisch: Bretter mit Fugen und Maserung, dunkle Kante. Der Tisch ist nur
+   so breit wie seine Karten (.rush-board ist w-fit). Jede Karte liegt in einer eingelassenen Mulde
+   (.rush-pad), oben hängt ein Holzschild mit Wappen (.rush-sign). Von Solo und 2v2 gleich genutzt. */
+.rush-board {
+  position: relative;
+  border-radius: 18px;
+  padding: 30px 12px 14px;
+  background:
+    repeating-linear-gradient(90deg, rgba(40,20,6,0.35) 0 2px, transparent 2px 132px),
+    repeating-linear-gradient(0deg, rgba(255,235,200,0.05) 0 1px, transparent 1px 6px),
+    linear-gradient(to bottom, #a8733f, #85562c);
+  border: 5px solid #4a2c12;
+  box-shadow: inset 0 3px 0 rgba(255,220,170,0.35), inset 0 -4px 0 rgba(0,0,0,0.25), 0 10px 0 #2f1a09, 0 18px 30px rgba(2,8,20,0.55);
+}
+.rush-pad {
+  padding: 5px 5px 4px;
+  border-radius: 14px;
+  background: linear-gradient(to bottom, #4f3218, #5e3c1d);
+  border: 2px solid #2f1a09;
+  box-shadow: inset 0 3px 6px rgba(0,0,0,0.55), 0 1px 0 rgba(255,220,170,0.25);
+}
+.rush-sign {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -55%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 16px 5px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  background: linear-gradient(to bottom, #d49a55, #b07535);
+  border: 4px solid #4a2c12;
+  box-shadow: inset 0 2px 0 rgba(255,235,200,0.5), inset 0 -3px 0 rgba(0,0,0,0.2), 0 5px 0 #2f1a09;
+  z-index: 5;
+}
+@media (min-width: 640px) {
+  .rush-board { padding: 38px 22px 20px; }
+  .rush-pad { padding: 8px 8px 6px; }
+}
 `;
+
+/**
+ * Markttisch um alle Marktplatz-Felder (siehe .rush-board in RUSH_STYLE) — nur so breit wie die
+ * Karten, mittig, mit Holzschild obendrauf.
+ * @param {string} label   Text auf dem Schild ("Markt" bzw. Spielername in der Zuschauer-Ansicht)
+ * @param {React.ReactNode} badge  optional vor dem Text, z.B. das Team-Abzeichen
+ */
+export function MarketBoard({ children, label, badge = null, className = '' }) {
+  return (
+    <div className={`flex justify-center pt-6 ${className}`}>
+      <div className="rush-board w-fit max-w-full">
+        {label && (
+          <div className="rush-sign">
+            <img src={marketEmblem} alt="" width={30} height={36} className="w-[30px] h-auto drop-shadow-[0_2px_0_rgba(47,26,9,0.6)]" draggable={false} />
+            {badge}
+            <span className="font-cr text-lg text-white leading-none" style={{ textShadow: '0 2px 0 #4a2c12' }}>{label}</span>
+          </div>
+        )}
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-4">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 const DENIED_TEXT_I18N = {
   de: {
@@ -75,6 +141,7 @@ const RUSH_I18N = {
     marketplace: 'Marktplatz',
     cardsSwapEvery: (s) => `Karten wechseln alle ${s}s`,
     getReady: 'Alle bereit machen…',
+    marketSign: 'Markt',
     marketOpensForAll: 'Der Marktplatz öffnet für alle gleichzeitig',
     fullElixirAutoBuy: (s) => `Volles Elixier! In ${s}s bekommst du automatisch eine zufällige Karte.`,
     spectatorNoElixir: 'Als Zuschauer hast du kein Elixier.',
@@ -101,6 +168,7 @@ const RUSH_I18N = {
     marketplace: 'Marketplace',
     cardsSwapEvery: (s) => `Cards swap every ${s}s`,
     getReady: 'Everyone get ready…',
+    marketSign: 'Market',
     marketOpensForAll: 'The marketplace opens for everyone at the same time',
     fullElixirAutoBuy: (s) => `Elixir full! In ${s}s you'll automatically get a random card.`,
     spectatorNoElixir: 'As a spectator you have no elixir.',
@@ -127,6 +195,7 @@ const RUSH_I18N = {
     marketplace: 'Mercado',
     cardsSwapEvery: (s) => `Las cartas cambian cada ${s}s`,
     getReady: 'Todos listos…',
+    marketSign: 'Mercado',
     marketOpensForAll: 'El mercado se abre para todos al mismo tiempo',
     fullElixirAutoBuy: (s) => `¡Elixir al máximo! En ${s}s recibirás automáticamente una carta aleatoria.`,
     spectatorNoElixir: 'Como espectador no tienes elixir.',
@@ -287,7 +356,7 @@ export function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCou
     // stand unter dem sichtbaren Bereich. In einem Spiel, in dem der Erste gewinnt, ist
     // eine Karte, die man erst herunterscrollen muss, wertlos. Bei 96px passen drei in
     // eine Reihe und der ganze Markt bleibt ohne Scrollen sichtbar.
-    <div className={`group w-24 sm:w-40 select-none ${isDenied ? 'rush-shake' : ''}`}>
+    <div className={`rush-pad group w-[6.25rem] sm:w-[11rem] select-none ${isDenied ? 'rush-shake' : ''}`}>
       <div
         onClick={() => clickable && onBuy(slot.seq)}
         title={card ? t.costElixir(card.name, card.cost) : t.empty}
@@ -370,7 +439,7 @@ export function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCou
 
       {/* Restzeit-Balken — per Host-Einstellung ein-/ausblendbar */}
       {showTimer && (
-        <div className="mt-2 h-1 rounded-full overflow-hidden bg-white/[0.07]">
+        <div className="mt-2 h-1.5 rounded-full overflow-hidden bg-[#5a4630]/45">
           {card && showNewCard && (
             <div className="h-full rounded-full"
               style={{
@@ -383,8 +452,8 @@ export function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCou
       )}
       {/* Eigene Plakette statt bloßen Fließtexts — der Name steht jetzt direkt im
           Diamant-Karo der Spielfläche, nicht mehr auf der Karte selbst. */}
-      <p className="text-[13px] text-white font-semibold text-center mt-2 truncate px-2 py-0.5 rounded-md"
-        style={{ background: card && showNewCard ? '#111d2c' : 'transparent' }}>
+      <p className="text-[13px] text-white font-semibold text-center mt-1.5 truncate px-2 py-0.5 rounded-md"
+        style={{ background: card && showNewCard ? '#3b2c1a' : 'transparent' }}>
         {card && showNewCard ? card.name : ' '}
       </p>
     </div>
@@ -484,7 +553,7 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied, lang 
             Marktplatz, ein Rahmen drumherum macht sie nur kleiner. */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-10 py-6 sm:py-8 flex items-center justify-center">
           <div className="w-full max-w-5xl relative">
-            <div className="flex flex-wrap justify-center gap-4 sm:gap-7">
+            <MarketBoard label={t.marketSign}>
                 {state.market.map((slot, i) => (
                   <MarketSlot key={i}
                     slot={slot}
@@ -502,7 +571,7 @@ export default function ElixirRush({ rushState, myPlayerId, onBuy, denied, lang 
                     lang={lang}
                   />
                 ))}
-            </div>
+            </MarketBoard>
 
             {/* Countdown-Fenster deckt exakt den Marktplatz ab (komplett blickdicht,
                 damit man die Karten nicht schon durchscheinen sieht) */}

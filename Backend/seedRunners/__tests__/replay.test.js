@@ -180,7 +180,8 @@ test('Ein Seed-Auftrag bleibt beim ENGINE-Fingerprint, auch nach der Erweiterung
 // ein Log, das nicht ins Ziel führt, fällt durch, ein fremder Fingerprint wird übersprungen.
 test('Phase D: Pfad-Runden werden mit dem Pfad-Level nachgespielt', async () => {
   const engine = await loadEngine();
-  const params = { seed: 'phase-d', length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad' };
+  // (laufende Generator-Version: nur die baut levelFuerParams live, ältere kommen aus dem Archiv)
+  const params = { seed: 'phase-d', length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad', gv: engine.GEN_VERSION };
   const level = engine.levelFuerParams(params);
   assert.equal(level.version, 3, 'Pfad-Level (Weltgenerator v3)');
   assert.equal(engine.levelFuerParams({ ...params, length: 'short', speedClass: 'normal' }).hash, level.hash, 'Länge/Tempo lassen sich nicht unterschieben');
@@ -201,7 +202,8 @@ test('Phase D: ein echter Lauf durch ein Pfad-Level besteht die Server-Prüfung'
   const { zugEingabe, zugFertig } = await imp('gen/world/pfad/zuege.js');
   const { stepWorld } = await imp('sim/world.js');
   const { INPUT } = await imp('sim/inputBits.js');
-  const params = { seed: 'phase-d', length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad' };
+  // (laufende Generator-Version: nur die baut levelFuerParams live, ältere kommen aus dem Archiv)
+  const params = { seed: 'phase-d', length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad', gv: engine.GEN_VERSION };
   const level = engine.levelFuerParams(params);
   const { schritte } = WEGE.get(WELT_BAU.get(level));
   const welt = engine.createLevelWorld(level);

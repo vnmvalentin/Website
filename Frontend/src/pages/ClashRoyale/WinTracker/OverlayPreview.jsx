@@ -10,69 +10,27 @@
 // zeigt die Vorschau echte, aktuelle Werte des aktiven Accounts. Ohne Account/Daten (z.B. frisch
 // registriert) springt sie auf Beispieldaten, damit man das Layout trotzdem schon gestalten kann.
 //
-// BREITE der Karte: kommt aus einer echten JS-Messung des Profilkopfs (useMeasuredWidth), nicht
-// aus CSS allein — siehe die ausführliche Begründung in WinTrackerOverlayPage.jsx (dieselbe
-// Technik, 1:1 übernommen für Pixel-Parität zwischen echtem Overlay und Vorschau).
+// BREITE der Karte: fest (CARD_WIDTH), wie im echten Overlay — siehe WinTrackerOverlayPage.jsx.
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Trophy, TrendingUp, TrendingDown, ChevronsUp, Eye, EyeOff } from "lucide-react";
-import { leagueIconUrl, leagueName, MEDAL_ICON_URL } from "../data/leagueIcons";
+import { Trophy, ChevronsUp, Eye, EyeOff } from "lucide-react";
+import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl } from "../data/leagueIcons";
 import { trophyArenaIcon, trophyArenaName } from "../data/trophyArenas";
 import { cardImageUrl } from "../data/cards";
 import { useClanBadgeUrl } from "../data/clanBadges";
 import { getOverlayData } from "./winTrackerApi";
 import { usePagedTransition, SLIDE_MS } from "./usePagedTransition";
 import { dictForWt } from "./wtI18n";
+import FitText from "./FitText";
+import { overlayLook } from "./overlayTheme";
 import trophyIcon from "../../../assets/clashRoyale/ui/trophy.png";
 import trophy2v2Icon from "../../../assets/clashRoyale/ui/trophy2v2.webp";
 import league2v2Badge from "../../../assets/clashRoyale/ui/league2v2.png";
 
-const CARD_MIN_WIDTH = 260;
-// Kleiner als im echten Overlay (dort 480, siehe WinTrackerOverlayPage.jsx) — die Vorschau hier
-// ist nur zum Entwerfen da, nicht pixelgenau mit der in OBS eingestellten Browserquellen-Größe
-// verbunden. Kleiner heißt: mehr vom restlichen Editor bleibt gleichzeitig sichtbar.
-const CARD_MAX_WIDTH = 360;
+// Dieselbe feste Breite wie das echte Overlay (Pixel-Parität).
+const CARD_WIDTH = 310;
 // Zahlenformat folgt der Editor-Sprache (settings.language) — siehe WinTrackerOverlayPage.jsx.
 const fmt = (n, lang) => (n || 0).toLocaleString(lang === "en" ? "en-US" : "de-DE");
 
-// Misst die WAHRE, ungebremste Wunschbreite von Kopf und Session-Tageszeile und liefert die
-// GRÖSSERE der beiden zurück — siehe ausführlichen Kommentar an derselben Stelle in
-// WinTrackerOverlayPage.jsx (1:1 übernommen für Pixel-Parität). Kurzfassung: die refs zeigen auf
-// unsichtbare Messkopien (headerMeasure/dailyMeasure), NICHT auf die sichtbaren Elemente — die
-// sichtbaren haben absichtlich ein maxWidth-Sicherheitsnetz (headerRow) bzw. flexWrap (dailyRow),
-// beides würde die Messung an der aktuellen (ggf. noch zu schmalen) Kartenbreite selbst verfälschen.
-function useMeasuredWidth(min, max, fallback) {
-  const headerRef = useRef(null);
-  const dailyRef = useRef(null);
-  const raw = useRef({ header: 0, daily: 0 });
-  const [width, setWidth] = useState(fallback);
-
-  useLayoutEffect(() => {
-    const recompute = () => {
-      const need = Math.max(raw.current.header, raw.current.daily);
-      setWidth(Math.max(min, Math.min(max, Math.ceil(need))));
-    };
-    const observers = [];
-    const attach = (ref, key) => {
-      if (!ref.current) return;
-      const measure = () => { raw.current[key] = ref.current.getBoundingClientRect().width; recompute(); };
-      measure();
-      const ro = new ResizeObserver(measure);
-      ro.observe(ref.current);
-      observers.push(ro);
-    };
-    attach(headerRef, "header");
-    attach(dailyRef, "daily");
-    recompute();
-    return () => observers.forEach((ro) => ro.disconnect());
-  });
-
-  return [headerRef, dailyRef, width];
-}
-
-// Misst die Höhe jedes einzelnen Stapel-Teils — 1:1 aus WinTrackerOverlayPage.jsx übernommen
-// (siehe dort für die ausführliche Begründung), für dieselbe Paginierungs-Vorschau hier: sonst
-// zeigte die Vorschau die Paginierung gar nicht erst an, obwohl sie in den Einstellungen bereits
-// aktiv war (Nutzer-Feedback).
 function useBlockHeights() {
   const profileRef = useRef(null);
   const deckRef = useRef(null);
@@ -103,14 +61,6 @@ function useBlockHeights() {
   });
 
   return [{ profile: profileRef, deck: deckRef, session: sessionRef }, heights];
-}
-
-function hexToRgba(hex, opacityPct) {
-  const h = String(hex || "#0c0c12").replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16) || 0;
-  const g = parseInt(h.slice(2, 4), 16) || 0;
-  const b = parseInt(h.slice(4, 6), 16) || 0;
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(100, opacityPct ?? 88)) / 100})`;
 }
 
 // Beispieldaten für Accounts ohne (genug) echte Daten — bewusst ein bunter Mix (Evo, Hero, Rang,
@@ -214,7 +164,7 @@ function Toggleable({ visible, onToggleVisible, t, children }) {
 
 export default function OverlayPreview({ settings, overlayKey, moduleVisibility, onToggleModule, onToggleProfile, refreshSignal }) {
   const [data, setData] = useState(null); // null = lädt noch
-  const [headerRef, dailyRef, cardWidth] = useMeasuredWidth(CARD_MIN_WIDTH, CARD_MAX_WIDTH, CARD_MIN_WIDTH);
+  const cardWidth = CARD_WIDTH;
   const [heightRefs, blockHeights] = useBlockHeights();
   const paginate = !!settings.paginateOverlay;
   const paginateIntervalMs = Math.max(2, Number(settings.paginateIntervalS) || 6) * 1000;
@@ -255,7 +205,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   const isDemo = data === DEMO_DATA;
   const {
     playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, clanName,
-    league2v2Trophies, league2v2BestTrophies, ladder, daily, last5, deck,
+    league2v2Trophies, league2v2BestTrophies, seasonal, ladder, daily, last5, deck,
   } = data;
   // trackMode kommt vom aktiven Account selbst (data.settings, genau wie beim echten Overlay) —
   // es gibt keine globale Voreinstellung mehr dafür. In der Demo (kein data.settings) gilt
@@ -266,12 +216,16 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   // Trophäenmodus zeigt player.trophies (Lifetime-Trophäen) — das hat KEINE Liga, der
   // Ranked1v1-Liga-Orden wäre also irreführend, siehe ausführlicher Kommentar an derselben Stelle
   // in WinTrackerOverlayPage.jsx. Zeigt stattdessen die klassische Trophäenstraßen-Arena.
-  const badgeUrl = isLeague2v2 ? league2v2Badge : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
-  const badgeAlt = isTrophyMode ? trophyArenaName(trophies) : leagueName(leagueNumber, lang);
+  // Generischer saisonaler Ranked-Modus (Spooky Chess League & künftige, siehe lib/seasonalModes.js
+  // im Backend): eigenes Objekt mit Name, Stand und Stufe — kein eigenes Liga-Bild bekannt, deshalb
+  // die Trophäe als Abzeichen.
+  const isSeasonal = !!seasonal;
+  const badgeUrl = isSeasonal ? (seasonalBadgeUrl(seasonal.mode) || trophyIcon) : isLeague2v2 ? league2v2Badge : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
+  const badgeAlt = isSeasonal ? seasonal.label : isTrophyMode ? trophyArenaName(trophies) : leagueName(leagueNumber, lang);
   // Siehe Kommentar zu isLadderMode in WinTrackerOverlayPage.jsx — computeLadder läuft
   // serverseitig unabhängig vom trackMode, isLeague2v2 muss hier deshalb ausgeschlossen werden.
-  const isLadderMode = !isTrophyMode && !isLeague2v2 && !!ladder;
-  const mainValue = isLeague2v2 ? league2v2Trophies : isTrophyMode ? trophies : seasonMedals;
+  const isLadderMode = !isTrophyMode && !isLeague2v2 && !isSeasonal && !!ladder;
+  const mainValue = isSeasonal ? seasonal.trophies : isLeague2v2 ? league2v2Trophies : isTrophyMode ? trophies : seasonMedals;
   const dailyValue = isLadderMode ? (ladder.sessionDelta || 0) : (daily?.profit || 0);
   const profitPositive = dailyValue >= 0;
   const last5Style = settings.last5Style || "result";
@@ -279,22 +233,11 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   const showLast5NewBadge = settings.last5NewBadge !== false;
   const directionLabel = "NEWEST";
   const showProfile = settings.showProfile !== false;
-  const opacityFrac = Math.max(0, Math.min(100, settings.bgOpacity ?? 88)) / 100;
-  // Interne Trennlinien (zwischen Profilkopf/Session/Deck) bleiben IMMER die dezente, von
-  // bgOpacity abgeleitete weiße Linie — die Rahmenfarbe unten gilt bewusst nur für den
-  // äußeren Kartenrand, sonst wirkt eine kräftige eigene Farbe an jeder Trennlinie schnell
-  // unruhig statt wie ein einzelner, bewusst gesetzter Akzent.
-  const lineColor = `rgba(255,255,255,${(0.08 * opacityFrac).toFixed(3)})`;
-  const dividerStyle = { ...styles.divider, background: lineColor };
-  const vDividerStyle = { ...styles.vDivider, background: lineColor };
-  // Eigene Rahmenfarbe: nie hauchdünn-unsichtbar wie die automatische Linie (min. 45% Deckkraft),
-  // sonst wirkt eine bewusst gewählte Farbe bei niedriger Karten-Deckkraft wie "nichts passiert".
-  const cardBorderColor = settings.borderColor
-    ? hexToRgba(settings.borderColor, Math.max(45, settings.bgOpacity ?? 88))
-    : lineColor;
-  const cardBackground = settings.bgGradient
-    ? `linear-gradient(135deg, ${hexToRgba(settings.bgColor, settings.bgOpacity)}, ${hexToRgba(settings.bgColor2, settings.bgOpacity)})`
-    : hexToRgba(settings.bgColor, settings.bgOpacity);
+  // Kartenfläche, Trennlinien und ggf. Clash-Royale-Look kommen aus overlayTheme.js (gemeinsam
+  // mit OverlayPreview.jsx — vorher stand diese Rechnung in beiden Dateien).
+  const look = overlayLook(baseStyles, settings);
+  const styles = look.styles;
+  const { dividerStyle, vDividerStyle } = look;
 
   // Bei ausgeblendetem Session-Teil gibt es keine echten Unter-Flags (alle stehen auf false) —
   // für die Vorschau trotzdem repräsentativ alle zeigen, statt eine leere, nur abgedunkelte Box.
@@ -319,53 +262,43 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   const pagesActive = paginate && activeStackKeys.length > 1;
   const pageHeight = pagesActive ? Math.max(...activeStackKeys.map((k) => blockHeights[k] || 0)) : 0;
 
-  // Inhalt von headerText — einmal definiert, ZWEIMAL verwendet: sichtbar im echten Kopf UND
-  // (unverändert, gleiche Styles) in der unsichtbaren Messkopie weiter unten. Siehe ausführlichen
-  // Kommentar an derselben Stelle in WinTrackerOverlayPage.jsx.
-  const headerTextInner = (
-    <>
-      <div style={styles.nameRow}><span style={styles.name}>{playerName}</span></div>
-      {/* Feste Höhe, siehe ausführlicher Kommentar in WinTrackerOverlayPage.jsx (dieselbe
-          Technik, für Pixel-Parität zwischen Vorschau und echtem Overlay). */}
+  const subLine = (isTrophyMode || isLeague2v2)
+    ? `${t.bestLabel}: ${fmt(isLeague2v2 ? league2v2BestTrophies : bestTrophies, lang)}`
+    : isLadderMode ? leagueName(leagueNumber, lang)
+    : (polRank && !isSeasonal) ? `#${fmt(polRank, lang)}` : null;
+  const valueRow = (
+    <FitText><div style={styles.trophyRow}>
+      {isLadderMode
+        ? <ChevronsUp size={22} color="#fbbf24" style={{ flexShrink: 0 }} />
+        : <img src={isLeague2v2 ? trophy2v2Icon : isSeasonal ? LEAGUE_MEDAL_ICON_URL : isTrophyMode ? trophyIcon : MEDAL_ICON_URL} alt="" style={styles.valueIcon} />}
+      <span style={styles.trophyValue}>{isLadderMode ? ladder.step : fmt(mainValue, lang)}</span>
+      {isLadderMode
+        ? <span style={styles.stepMax}>/{ladder.maxSteps}</span>
+        : isSeasonal && seasonal.qualifyWins ? <span style={styles.stepMax}>/{seasonal.qualifyWins}</span> : null}
+      {subLine && <span style={isLadderMode ? styles.leagueTag : subLine.startsWith("#") ? styles.rankLine : styles.bestRowSlot}>{subLine}</span>}
+    </div></FitText>
+  );
+
+  // Profilkopf: Abzeichen links, daneben untereinander Name, Clan, eine Trennlinie und die
+  // Wert-Zeile (Medaillen/Stufe + Rang bzw. Bestwert). Untereinander statt nebeneinander hält die
+  // Karte schmal. Die Liga steht nur noch als Abzeichen da (kein "League 6"-Text mehr).
+  // nameCol wird ZWEIMAL verwendet: im echten Kopf und in der unsichtbaren Messkopie.
+  const nameCol = (
+    <div style={styles.headerText}>
+      <FitText><span style={styles.name}>{playerName}</span></FitText>
       {settings.showClan && (
         <div style={styles.clanRowSlot}>
           {clanName && (
-            <div style={styles.clanRow}>
+            <FitText style={{ height: "100%" }}><div style={styles.clanRow}>
               {clanBadgeImgUrl && <img src={clanBadgeImgUrl} alt="" style={styles.clanBadgeImg} />}
               <span style={styles.clanName}>{clanName}</span>
-            </div>
+            </div></FitText>
           )}
         </div>
       )}
-      {isLadderMode ? (
-        <div style={styles.trophyRow}>
-          <ChevronsUp size={18} color="#fbbf24" />
-          <span style={styles.trophyValue}>{ladder.step}</span>
-          <span style={styles.stepMax}>/{ladder.maxSteps}</span>
-          <span style={styles.leagueLabel}>{leagueName(leagueNumber, lang)}</span>
-        </div>
-      ) : (
-        <div style={styles.trophyRow}>
-          {isLeague2v2
-            ? <img src={trophy2v2Icon} alt="" style={styles.valueIcon} />
-            : isTrophyMode
-              ? <img src={trophyIcon} alt="" style={styles.valueIcon} />
-              : <img src={MEDAL_ICON_URL} alt="" style={styles.valueIcon} />}
-          <span style={styles.trophyValue}>{fmt(mainValue, lang)}</span>
-          {/* polRank ist 1v1-spezifisch (Path of Legend) — bei 2v2 Ranked und beim Trophäenmodus
-              (Lifetime-Trophäen, keine eigene Rangliste) liefert die API keinen vergleichbaren
-              Rang, würde hier sonst fälschlich den 1v1-Rang neben einem anderen Wert zeigen. */}
-          {polRank && !isLeague2v2 && !isTrophyMode ? <span style={styles.rankInline}>#{fmt(polRank, lang)}</span> : null}
-        </div>
-      )}
-      {/* Feste Höhe, siehe ausführlicher Kommentar in WinTrackerOverlayPage.jsx (dieselbe
-          Technik, für Pixel-Parität zwischen Vorschau und echtem Overlay). */}
-      <div style={styles.bestRowSlot}>
-        {(isTrophyMode || isLeague2v2) && (
-          <span>{t.bestLabel}: {fmt(isLeague2v2 ? league2v2BestTrophies : bestTrophies, lang)}</span>
-        )}
-      </div>
-    </>
+      <div style={styles.headerLine} />
+      {valueRow}
+    </div>
   );
 
   const profileBlock = (
@@ -378,49 +311,46 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
             <div style={styles.badgeFallback}><Trophy size={26} color="#fbbf24" /></div>
           )}
         </div>
-        <div style={styles.headerText}>{headerTextInner}</div>
+        {nameCol}
       </div>
     </Toggleable>
   );
 
-  // Inhalt der Tageszeile — wie headerTextInner oben: einmal definiert, im echten (umbrechbaren)
-  // Block UND in der unsichtbaren (nicht umbrechbaren) Messkopie verwendet.
-  const dailyRowInner = (
-    <>
-      <div style={styles.dailyLeft}>
-        {sessionFlags.profit && (
-          <span style={{ ...styles.profitValue, color: profitPositive ? "#4ade80" : "#f87171" }}>
-            {profitPositive ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
-            {profitPositive ? "+" : ""}{fmt(dailyValue, lang)}
-            {isLadderMode && <span style={styles.profitUnit}>{Math.abs(dailyValue) === 1 ? t.stepSingular : t.stepPlural}</span>}
-          </span>
-        )}
-      </div>
-      <div style={styles.dailyRight}>
-        {sessionFlags.numbers && (
-          <span style={styles.wlNumbers}>
-            <span style={{ color: "#4ade80" }}>{daily.wins}W</span>
-            {" – "}
-            <span style={{ color: "#f87171" }}>{daily.losses}L</span>
-          </span>
-        )}
-        {sessionFlags.percent && <span style={styles.wlPct}>{daily.winPct}%</span>}
-      </div>
-    </>
-  );
+  // Session-Werte als gleich breite Spalten — 1:1 wie in WinTrackerOverlayPage.jsx.
+  const stats = [];
+  if (sessionFlags.profit) {
+    stats.push({
+      key: "profit",
+      label: isLadderMode ? t.statSteps : t.statProfit,
+      value: <span style={{ color: profitPositive ? "#4ade80" : "#f87171" }}>{profitPositive ? "+" : ""}{fmt(dailyValue, lang)}</span>,
+    });
+  }
+  if (sessionFlags.numbers) {
+    stats.push({
+      key: "record",
+      label: t.statRecord,
+      value: <><span style={{ color: "#4ade80" }}>{daily.wins}</span><span style={styles.statDash}>–</span><span style={{ color: "#f87171" }}>{daily.losses}</span></>,
+    });
+  }
+  if (sessionFlags.percent) {
+    stats.push({ key: "pct", label: t.statWinRate, value: `${daily.winPct}%` });
+  }
+  const statColumns = `repeat(${Math.max(1, stats.length)}, minmax(0, 1fr))`;
+  const statsInner = stats.map((st, i) => (
+    <div key={st.key} style={i > 0 ? { ...styles.statCell, ...look.statSepStyle } : styles.statCell}>
+      <span style={styles.statLabel}>{st.label}</span>
+      <FitText align="center"><span style={styles.statValue}>{st.value}</span></FitText>
+    </div>
+  ));
 
-  // Pillen um Profit-Zeile/letzte-5-Bereich — 1:1 aus WinTrackerOverlayPage.jsx (siehe dortiger
-  // Kommentar, Pixel-Parität).
   const sessionBlock = (
     <Toggleable visible={moduleVisibility.session} onToggleVisible={() => onToggleModule("session")} t={t}>
       <div style={styles.sessionBlock}>
-        {(sessionFlags.profit || sessionFlags.numbers || sessionFlags.percent) && (
-          <div style={styles.dailyPill}>
-            <div style={styles.dailyRow}>{dailyRowInner}</div>
-          </div>
+        {stats.length > 0 && (
+          <div style={{ ...styles.statsRow, gridTemplateColumns: statColumns }}>{statsInner}</div>
         )}
         {sessionFlags.last5 && (
-          <div style={styles.last5Pill}>
+          <div>
           {last5Style === "dot" ? (
             <div>
               {/* Immer 5 Punkte, fehlende Spiele als gedimmter Platzhalter — siehe
@@ -497,7 +427,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
         const c = deck?.cards?.[i];
         if (!c) return <div key={i} style={styles.deckCard} />;
         return (
-          <div key={i} title={c.name} style={styles.deckCard}>
+          <div key={i} title={c.name} style={{ ...styles.deckCard, ...styles.deckCardFilled }}>
             {c.id ? <img src={cardImageUrl(c.id, c.variant)} alt={c.name} style={styles.deckCardImg} onError={(e) => { e.target.style.visibility = "hidden"; }} /> : null}
           </div>
         );
@@ -551,7 +481,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
     </>
   ) : null;
 
-  const cardBase = { ...styles.card, background: cardBackground, border: `1px solid ${cardBorderColor}` };
+  const cardBase = { ...styles.card, ...look.cardSurface };
   // Steht neben dem Deck nur EIN Teil (Kopf ODER Session, nicht beide), mittig statt oben
   // ausrichten — nach der ECHTEN Sichtbarkeit, nicht danach, ob es hier (abgedunkelt) noch im
   // DOM steht: beide Teile bleiben in der Vorschau immer sichtbar, damit man sie zurückschalten
@@ -559,18 +489,6 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   // gilt dieselbe Logik wie "nur ein Teil sichtbar" — es steht ja ohnehin nur eine Seite da.
   const visibleMainCount = (showProfile ? 1 : 0) + (moduleVisibility.session ? 1 : 0);
   const mainPaneStyle = { ...styles.mainPane, width: cardWidth, justifyContent: (pagesActive || visibleMainCount === 1) ? "center" : "flex-start" };
-
-  // Unsichtbare Messkopien für useMeasuredWidth — siehe ausführlichen Kommentar an
-  // useMeasuredWidth und styles.headerMeasure/dailyMeasure (1:1 aus WinTrackerOverlayPage.jsx).
-  const headerProbe = (
-    <div ref={headerRef} style={styles.headerMeasure}>
-      <div style={styles.badgeWrap} />
-      <div style={styles.headerText}>{headerTextInner}</div>
-    </div>
-  );
-  const dailyProbe = (sessionFlags.profit || sessionFlags.numbers || sessionFlags.percent)
-    ? <div ref={dailyRef} style={styles.dailyMeasure}>{dailyRowInner}</div>
-    : null;
 
   return (
     <div>
@@ -580,8 +498,6 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
         </p>
       )}
       <div className="relative rounded-lg border border-white/10 bg-[#08080b] p-5 flex justify-center overflow-x-auto">
-        {headerProbe}
-        {dailyProbe}
         {heightProbes}
         {sidebarSide ? (
           <div style={{ ...cardBase, ...styles.cardRow, width: "auto" }}>
@@ -601,36 +517,20 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
 
 // 1:1 aus WinTrackerOverlayPage.jsx übernommen (siehe dort für Details) — für Pixel-Parität
 // zwischen echtem Overlay und Vorschau bewusst dieselben Werte, nicht Tailwind.
-const styles = {
-  // width kommt per Inline-Style aus der JS-Messung (cardWidth) — hier nur der Fallback-Rahmen.
-  // Details siehe WinTrackerOverlayPage.jsx (styles.card).
+const baseStyles = {
   card: {
-    width: CARD_MIN_WIDTH,
+    width: CARD_WIDTH,
     backdropFilter: "blur(10px)", borderRadius: 16, padding: "16px 18px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.5)", color: "#fff",
   },
   cardRow: { display: "flex", flexDirection: "row", alignItems: "stretch" },
   // display:flex/column, damit justifyContent (per Inline-Style gesetzt) greift — siehe
   // visibleMainCount weiter oben.
-  mainPane: { width: CARD_MIN_WIDTH, display: "flex", flexDirection: "column" },
+  mainPane: { width: CARD_WIDTH, display: "flex", flexDirection: "column" },
   // Zentriert das (immer 4×2, fest breite) Deckgitter auf der Y-Achse in seiner Spalte.
   deckPane: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" },
   vDivider: { width: 1, margin: "0 14px", alignSelf: "stretch" },
-  // inline-flex statt flex: zieht sich auf die eigene natürliche Breite zusammen. maxWidth:100%
-  // als Sicherheitsnetz gegen extreme Namen — GENAU DESHALB liest useMeasuredWidth die Breite
-  // nicht mehr hier ab, sondern an headerMeasure unten (siehe ausführlicher Kommentar an
-  // useMeasuredWidth und an derselben Stelle in WinTrackerOverlayPage.jsx).
-  headerRow: { display: "inline-flex", alignItems: "center", gap: 14, maxWidth: "100%" },
-  // padding: "0 18px" + border: "1px solid transparent" — dieselben 18px links/rechts wie
-  // styles.card.padding ("16px 18px") PLUS der 1px-Kartenrahmen, siehe ausführlicher Kommentar an
-  // derselben Stelle in WinTrackerOverlayPage.jsx: ohne beides bekam der Kopf am Ende 38px
-  // weniger Platz als gemessen (globales box-sizing:border-box zieht beides von der width ab),
-  // unabhängig von CARD_MAX_WIDTH.
-  headerMeasure: {
-    display: "inline-flex", alignItems: "center", gap: 14, padding: "0 18px", border: "1px solid transparent",
-    position: "absolute", visibility: "hidden", pointerEvents: "none", whiteSpace: "nowrap",
-    left: 0, top: 0,
-  },
+  headerRow: { display: "flex", alignItems: "center", gap: 14, width: "100%" },
   // Messkopie für useBlockHeights (Paginierungs-Vorschau) — 1:1 aus WinTrackerOverlayPage.jsx
   // (siehe dortiger Kommentar zum weit-negativen left/top statt bloßem visibility:hidden).
   pageProbe: {
@@ -641,7 +541,7 @@ const styles = {
   // Seitenwechsel-Animation.
   pageSlideOuter: { overflow: "hidden", width: "100%" },
   pageSlideInner: { display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", willChange: "transform" },
-  badgeWrap: { width: 54, height: 54, flexShrink: 0 },
+  badgeWrap: { width: 64, height: 64, flexShrink: 0 },
   badgeImg: { width: "100%", height: "100%", objectFit: "contain" },
   badgeFallback: {
     width: "100%", height: "100%", borderRadius: 10,
@@ -650,78 +550,61 @@ const styles = {
   },
   // Kein flex:1: headerText gibt seine eigene natürliche Breite an die Karte weiter, statt in
   // einen von außen vorgegebenen Rest-Platz gezwängt zu werden — das soll die Kartenbreite
-  // bestimmen. minWidth:0 bleibt als Sicherheitsnetz (Ellipsis bei extrem langem Namen).
-  headerText: { minWidth: 0 },
-  nameRow: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
-  name: { fontSize: 18, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  // whiteSpace:nowrap (vererbt an leagueLabel & co.) verhindert, dass z.B. "League 4" am
-  // Leerzeichen umbricht, wenn die Zeile mal knapp ist — siehe WinTrackerOverlayPage.jsx.
-  trophyRow: { display: "flex", alignItems: "center", gap: 7, marginTop: 5, whiteSpace: "nowrap" },
-  valueIcon: { height: 24, width: "auto", objectFit: "contain" },
-  trophyValue: { fontSize: 25, fontWeight: 900, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" },
-  rankInline: {
-    fontSize: 14, fontWeight: 800, color: "#c4b5fd", background: "rgba(167,139,250,0.16)",
-    border: "1px solid rgba(167,139,250,0.45)", borderRadius: 7, padding: "2px 8px",
-    fontVariantNumeric: "tabular-nums",
+  // bestimmen. minWidth:0 bleibt als Sicherheitsnetz (FitText skaliert extrem lange Namen).
+  headerText: { minWidth: 0, flex: "1 1 auto", display: "flex", flexDirection: "column", justifyContent: "center" },
+  // Linie zwischen Name/Clan und Wert-Zeile (Farbe kommt aus overlayTheme.js)
+  headerLine: { height: 1, margin: "6px 0 5px", background: "rgba(255,255,255,0.12)" },
+  name: { fontSize: 20, fontWeight: 800, whiteSpace: "nowrap", padding: "0 2px" },
+  // Wert-Zeile rechtsbündig im Kopf; whiteSpace:nowrap hält Icon, Zahl und /Ziel zusammen.
+  trophyRow: { display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" },
+  valueIcon: { height: 26, width: "auto", objectFit: "contain" },
+  trophyValue: { fontSize: 27, fontWeight: 900, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" },
+  rankLine: {
+    fontSize: 19, marginLeft: 6, fontWeight: 900, color: "#c4b5fd",
+    fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
   },
-  leagueLabel: { fontSize: 12, color: "rgba(255,255,255,0.5)", marginLeft: 2 },
   stepMax: { fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.45)", marginLeft: -5, fontVariantNumeric: "tabular-nums" },
   // Feste Höhe statt content-abhängig, siehe WinTrackerOverlayPage.jsx (dieselbe Technik).
-  clanRowSlot: { marginTop: 4, height: 18 },
+  clanRowSlot: { marginTop: 3, height: 18 },
   clanRow: { display: "flex", alignItems: "center", gap: 5, height: "100%" },
   clanBadgeImg: { width: 16, height: 16, objectFit: "contain", flexShrink: 0 },
-  clanName: {
-    fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)",
-    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-  },
-  profitUnit: { fontSize: 12, fontWeight: 700, opacity: 0.75, marginLeft: 1 },
-  bestRowSlot: { fontSize: 13, lineHeight: "15px", height: 15, color: "rgba(255,255,255,0.4)", marginTop: 2 },
+  clanName: { fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.55)", whiteSpace: "nowrap", padding: "0 1px" },
+  bestRowSlot: { fontSize: 13, marginLeft: 4, color: "rgba(255,255,255,0.5)", whiteSpace: "nowrap" },
+  // Liga-Name hinter der Stufe (1/10) in den Ligen 1-6
+  leagueTag: { fontSize: 15, marginLeft: 6, fontWeight: 800, color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap" },
   divider: { height: 1, margin: "12px 0" },
-  // Im Stapel: width:100% füllt die von der Kopf-Messung vorgegebene (feste) Kartenbreite.
+  // Im Stapel: width:100% füllt die feste Kartenbreite (CARD_WIDTH).
   // maxWidth deckelt das zusätzlich nach oben (ein sehr breiter Name soll die Kartenbilder
   // nicht riesig werden lassen), margin:auto zentriert es dann in der breiteren Karte. Seitlich
   // (deckGridSidebar) hat es keinen Kopf neben sich, der eine Breite vorgeben könnte — eigene
   // feste Breite nötig, sonst kollabiert das Gitter.
-  deckGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, width: "100%", maxWidth: 320, margin: "0 auto" },
-  deckGridSidebar: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, width: 288 },
-  deckCard: { position: "relative", aspectRatio: "150 / 172", borderRadius: 7, overflow: "hidden", background: "rgba(0,0,0,0.35)", lineHeight: 0 },
-  deckCardImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-  sessionBlock: { display: "flex", flexDirection: "column", gap: 4 },
-  // 1:1 aus WinTrackerOverlayPage.jsx (siehe dortiger Kommentar für die genaue Pixel-Rechnung,
-  // Pixel-Parität) — boxShadow statt border: kein Einfluss auf die Layout-Größe.
-  dailyPill: {
-    boxShadow: "0 0 0 1px rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.035)",
-    borderRadius: 10, padding: "2px 10px",
+  deckGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "3px 6px", width: "100%", maxWidth: 262, margin: "0 auto" },
+  deckGridSidebar: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "3px 6px", width: 262 },
+  deckCard: { position: "relative", aspectRatio: "285 / 392", borderRadius: 7, overflow: "hidden", background: "rgba(0,0,0,0.35)", lineHeight: 0 },
+  // Bild 285×420, Feld 285×392: die 28 überzähligen Pixel sind transparenter Rand — 43 % oben
+  // abschneiden (≈12px) entspricht dem leeren Streifen über dem Evo-/Hero-Symbol.
+  deckCardImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 43%", display: "block" },
+  // Belegtes Feld ohne dunkle Platzhalter-Fläche — die Kartenbilder haben transparente Ecken
+  deckCardFilled: { background: "transparent", boxShadow: "none" },
+  // 1:1 aus WinTrackerOverlayPage.jsx (Pixel-Parität), siehe dortige Kommentare.
+  sessionBlock: { display: "flex", flexDirection: "column", gap: 10 },
+  statsRow: { display: "grid", alignItems: "center" },
+  statCell: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1, padding: "0 8px", whiteSpace: "nowrap", minWidth: 0 },
+  statLabel: {
+    fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase",
+    color: "rgba(255,255,255,0.45)",
   },
-  last5Pill: {
-    boxShadow: "0 0 0 1px rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.022)",
-    borderRadius: 10, padding: "2px 8px 1px",
-  },
-  // space-between hält Win-Rate % rechtsbündig; gap setzt nur den Mindestabstand — die Lücke
-  // selbst schrumpft mit der jetzt vom Profilkopf (nicht mehr fix 340) bestimmten Kartenbreite.
-  dailyRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" },
-  // padding: "0 28px" = 18px Kartenpadding PLUS 10px dailyPill-Padding — siehe ausführlicher
-  // Kommentar an derselben Stelle in WinTrackerOverlayPage.jsx (Pixel-Parität).
-  dailyMeasure: {
-    display: "flex", alignItems: "center", gap: 16, flexWrap: "nowrap", justifyContent: "flex-start",
-    padding: "0 28px", border: "1px solid transparent",
-    position: "absolute", visibility: "hidden", pointerEvents: "none", whiteSpace: "nowrap",
-    left: 0, top: 0,
-  },
-  dailyLeft: { display: "flex", alignItems: "center", gap: 8 },
-  dailyRight: { display: "flex", alignItems: "center", gap: 8 },
-  profitValue: { display: "flex", alignItems: "center", gap: 4, fontSize: 17, fontWeight: 800, fontVariantNumeric: "tabular-nums" },
-  wlNumbers: { fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" },
-  wlPct: { fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.75)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 8px" },
+  statValue: { fontSize: 21, fontWeight: 900, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em", color: "#fff" },
+  statDash: { color: "rgba(255,255,255,0.4)", margin: "0 5px" },
   // Immer 5 Spalten (nicht flex:1 über die tatsächliche Anzahl) — bei weniger als 5 Spielen
   // bleiben die Blasen so groß, wie sie mit allen 5 wären, statt sich aufzublähen.
   last5Row: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 },
   // Dieselben 5 Spalten wie last5Row, damit gridColumnStart am Badge exakt unter der richtigen
   // Blase landet. marginTop statt marginBottom: sitzt UNTER der Reihe.
-  last5BadgeRow: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", marginTop: 0 },
+  last5BadgeRow: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", marginTop: 4 },
   last5Badge: { justifySelf: "center", fontSize: 8, fontWeight: 800, letterSpacing: "0.05em", color: "#fbbf24", whiteSpace: "nowrap" },
   // Richtungshinweis unter den Punkten (kein festes Raster dort, siehe dotRow).
-  last5Caption: { display: "flex", marginTop: 0, fontSize: 8, fontWeight: 800, letterSpacing: "0.05em", color: "#fbbf24" },
+  last5Caption: { display: "flex", marginTop: 4, fontSize: 8, fontWeight: 800, letterSpacing: "0.05em", color: "#fbbf24" },
   matchPill: (result) => ({
     textAlign: "center", padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 800,
     fontVariantNumeric: "tabular-nums",

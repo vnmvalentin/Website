@@ -3,7 +3,8 @@
 //
 //   GET  /daily               Rangliste von heute (Top 50) + die des Vortags (Top 3) + eigener Platz
 //                             (Kopfzeile X-Player-Key, optional)
-//   GET  /daily/:dateKey      Rangliste eines der letzten 30 Tage
+//   GET  /daily/:dateKey      Rangliste eines vergangenen Tages: die letzten 30 Tage und jeder Archiv-Tag (ab ARCHIV_AB,
+//                             dem ersten Pfad-Tagesrennen) + eigener Platz (Kopfzeile X-Player-Key, optional)
 //   POST /daily/submit        { playerKey, name, dateKey, ticks, deaths, log, fp } → wird nachgespielt
 //   POST /levels/check        { doc, forPublish? } → prüft ein Level-Dokument (Schema, Grenzen, Rauchtest) und
 //                             liefert den Inhalts-Hash, Warnungen und Kennzahlen; 422 mit Fehlerliste, wenn ungültig
@@ -17,7 +18,7 @@
 'use strict';
 
 const express = require('express');
-const { previousDay } = require('./daily');
+const { previousDay, ARCHIV_AB } = require('./daily');
 const { checkLevel } = require('./levelCheck');
 const { HASH_RE } = require('./levelVerify');
 const { mountLevelRoutes } = require('./levelsRoutes');
@@ -85,11 +86,22 @@ function createSeedRunnersRouter(deps) {
   router.get('/daily/:dateKey', (req, res) => {
     const { dateKey } = req.params;
     if (!DATE_RE.test(dateKey)) return res.status(400).json({ error: 'Ungültiges Datum.' });
-    // Nur die letzten Tage: Ältere Listen gibt es nicht als Abruf (sie bleiben in der Datenbank)
+    // Die letzten Tage und das Archiv (Pfad-Tagesrennen, die sich jederzeit nachspielen lassen); ältere Chunk-Tage bleiben
+    // nur in der Datenbank
     let oldest = todayKey();
     for (let i = 0; i < HISTORY_DAYS; i++) oldest = previousDay(oldest);
+    if (oldest > ARCHIV_AB) oldest = ARCHIV_AB;
     if (dateKey < oldest || dateKey > todayKey()) return res.status(404).json({ error: 'Dafür gibt es keine Rangliste.' });
-    res.json({ board: daily.board(dateKey, 50) });
+    res.json({ board: daily.board(dateKey, 50), me: daily.me(dateKey, String(req.headers['x-player-key'] || '')) });
+  });
+
+  // Replay des Tagesbesten (Logs werden nach 14 Tagen gelöscht — danach 404)
+  router.get('/daily/:dateKey/replay', (req, res) => {
+    const { dateKey } = req.params;
+    if (!DATE_RE.test(dateKey) || dateKey > todayKey()) return res.status(400).json({ error: 'Ungültiges Datum.' });
+    const replay = daily.topReplay(dateKey);
+    if (!replay) return res.status(404).json({ error: 'Für diesen Tag gibt es kein Replay.' });
+    res.json(replay);
   });
 
   router.post('/daily/submit', async (req, res) => {

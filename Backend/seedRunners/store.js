@@ -5,7 +5,7 @@
 // prüfen lässt (etwa nach einer Änderung der Sim) — und weil es bei Streit der Beweis ist. Alte Logs
 // räumt `pruneLogs()` weg; der Eintrag selbst (Name, Zeit) bleibt.
 //
-// Folgt dem Muster von dle/store/dleStore.js. Anders als dort eine Fabrik statt eines Moduls mit
+// better-sqlite3-Speicher, als Fabrik statt als Modul mit
 // festem Pfad: Die Tests legen ihre Datenbank in einem Wegwerf-Ordner an (Projekt-Konvention: nie
 // gegen die echte Backend/data/*.db testen).
 'use strict';
@@ -88,6 +88,8 @@ function createStore(dbPath = defaultPath()) {
     count: db.prepare('SELECT COUNT(*) AS c FROM sr_daily_runs WHERE date_key = ?'),
     ahead: db.prepare(`SELECT COUNT(*) AS c FROM sr_daily_runs
       WHERE date_key = ? AND (ticks < ? OR (ticks = ? AND created_at < ?))`),
+    top: db.prepare(`SELECT player_name, ticks, deaths, log_json FROM sr_daily_runs
+      WHERE date_key = ? ORDER BY ticks ASC, created_at ASC LIMIT 1`),
     pruneLogs: db.prepare('UPDATE sr_daily_runs SET log_json = NULL WHERE date_key < ? AND log_json IS NOT NULL'),
   };
 
@@ -113,6 +115,13 @@ function createStore(dbPath = defaultPath()) {
   return {
     /** Veröffentlichte Level: Tabellen, Bestenlisten, Likes, Meldungen, Sperren (levelStore.js; dieselbe Datenbank) */
     levels: createLevelStore(db),
+
+    /** Lauf auf Platz 1 eines Tages mit Input-Log (für das Replay) oder null — auch null, wenn das Log schon gelöscht ist */
+    getTopRun(dateKey) {
+      const row = stmt.top.get(dateKey);
+      if (!row || !row.log_json) return null;
+      return { name: row.player_name, ticks: row.ticks, deaths: row.deaths, log: JSON.parse(row.log_json) };
+    },
 
     /** Bester Lauf dieser Person an diesem Tag oder null */
     getRun(dateKey, playerKey) {

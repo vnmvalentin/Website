@@ -1,5 +1,5 @@
 const express = require("express");
-const fs = require("fs");
+const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
 const path = require("path");
 const { nanoid } = require("nanoid");
 const liveBadges = require("../lib/liveBadges");
@@ -22,24 +22,13 @@ const DISCORD_GIVEAWAY_WEBHOOK_URL =
 
 /* ================= HELPER ================= */
 
+// Über lib/jsonFile.js: atomar, und eine kaputte Datei wird nie mit [] überschrieben
 function loadGiveaways() {
-  try {
-    if (!fs.existsSync(GIVEAWAYS_PATH)) return [];
-    const raw = fs.readFileSync(GIVEAWAYS_PATH, "utf8");
-    if (!raw.trim()) return [];
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error("Giveaways laden fehlgeschlagen:", e);
-    return [];
-  }
+  return readJson(GIVEAWAYS_PATH, []);
 }
 
 function saveGiveaways(list) {
-  try {
-    fs.writeFileSync(GIVEAWAYS_PATH, JSON.stringify(list, null, 2), "utf8");
-  } catch (e) {
-    console.error("Giveaways speichern fehlgeschlagen:", e);
-  }
+  writeJsonAtomic(GIVEAWAYS_PATH, list);
 }
 
 function normalizeGiveaway(raw = {}) {

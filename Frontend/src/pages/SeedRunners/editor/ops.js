@@ -283,7 +283,7 @@ export function placeElement(doc, type, x, y, given = {}) {
   }
   const ch = doc.tiles[y][x];
   if (schema.anchor === 'air' && ch !== '.') return { doc, error: 'Hier ist die Kachel nicht frei.' };
-  if (schema.anchor === 'airOrSolid' && ch !== '.' && ch !== '#') return { doc, error: 'Ein Laser sitzt auf freier Luft oder in einem Block.' };
+  if (schema.anchor === 'airOrSolid' && ch !== '.' && ch !== '#') return { doc, error: `${schema.label} sitzt auf freier Luft oder in einem Block.` };
 
   const element = defaultElement(doc, type, x, y, given);
   const without = elementIndexAt(doc, x, y) >= 0 ? removeElement(doc, x, y) : doc;

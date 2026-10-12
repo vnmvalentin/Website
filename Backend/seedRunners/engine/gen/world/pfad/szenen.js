@@ -31,6 +31,10 @@ const MUSTER = {
   bergab: (n) => Array.from({ length: n }, (_, i) => (i % 3 === 2 ? 'runter' : 'runterrechts')),
   etageRechts: (n) => ['rechts', 'rechts', 'rechts', 'rechts', 'hochlinks', 'hochrechts', 'hochlinks'].slice(0, n),
   etageLinks: (n) => ['links', 'links', 'links', 'links', 'hochrechts', 'hochlinks', 'hochrechts'].slice(0, n),
+  // Schlot: hinauf, mal zur einen, mal zur anderen Seite
+  // (Richtung frei; an einer Wand erzwingt der Planer die Gegenrichtung — ein festes Zickzack querte bei jedem Zug den ganzen
+  // Schacht, und für Aufbauten wie Kanonenbahnen blieb kein Platz)
+  schlot: (n) => Array(n).fill('hoch'),
 };
 
 export const FORMEN = {
@@ -50,7 +54,8 @@ export const FORMEN = {
     ausweich: ['hoch', 'links', 'rechts'], stile: ['offen', 'grotte'],
   },
   absturz: {
-    groesse: (z) => ({ w: Math.min(1150, 60 + z * 14), h: 158 }), start: () => ({ x: 8, y: 22 }), eroeffnung: 'sturzTraverse',
+    // (16 je Zug statt 14: Luftportale versetzen den Weg um bis zu 20 Kacheln — der Absturz lief an den rechten Rand)
+    groesse: (z) => ({ w: Math.min(1150, 60 + z * 16), h: 158 }), start: () => ({ x: 8, y: 22 }), eroeffnung: 'sturzTraverse',
     // Kein Zickzack nach unten: Wer unter sich selbst zurückläuft, kann auf spätere Plattformen einfach hinabfallen
     muster: { abstieg: 2, sturzTraverse: 3, traverse: 1 },
     ausweich: ['runter', 'rechts', 'links'], stile: ['offen', 'grotte', 'grotte'],
@@ -65,6 +70,14 @@ export const FORMEN = {
     groesse: (z) => ({ w: Math.min(1150, 60 + z * 24), h: 158 }), start: () => ({ x: 8, y: 120 }), eroeffnung: 'bergauf',
     muster: { bergauf: 1, bergab: 1 },
     ausweich: ['rechts', 'hoch', 'runter'], stile: ['offen', 'grotte'], wechselnd: null,
+  },
+  // Schlot (Rückmeldung 01.10.2026: „keinen Turm, der relativ eng ist und viele Hindernisse beim Klettern nach oben“): ein enger
+  // Schacht zwischen Eiswänden (planer.js: Rahmen so breit wie ein Sprung + 10), höchstens 24 Züge (Aufgaben wie Feder, Kette,
+  // Luftportal brauchen 8–14 Zeilen — bei 34 Zügen war das Höhenbudget erschöpft), fast jeder Zug mit Aufgabe (`dicht`)
+  schlot: {
+    groesse: (z, reach) => ({ w: Math.round(40 + (reach?.gap.jump ?? 8) + 8), h: 158 }), start: () => ({ x: 8, y: 150 }), eroeffnung: 'schlot', maxZuege: 24,
+    muster: { schlot: 1 },
+    ausweich: ['hoch'], stile: ['offen'], wechselnd: null, eng: true, dicht: true,
   },
 };
 export const FORM_IDS = Object.freeze(Object.keys(FORMEN));
@@ -94,18 +107,22 @@ const MECHANIKEN = ['feder', 'ring', 'greifen', 'portal', 'wand', 'tor', 'broeck
   // Schwerkraft-Zone: kopfüber an der Decke über Stachelstreifen (schwer: Einzelblock kopfüber)
   'kopfueber', 'kopfueber+broeckel',
   // Kristallkette: nach oben von Kristall zu Kristall dashen
-  'kette', 'kette+nadeloehr'];
+  'kette', 'kette+nadeloehr',
+  // Rückmeldung 01.10.2026: Projektile zum Ausweichen, Portale und Schlüssel mit eigenen Ideen, mehr mit Dash-Kristallen
+  'beschuss', 'beschuss+broeckel', 'beschuss+einzelblock',
+  'luftportal', 'luftportal+schluesselsprung', 'schluesselsprung', 'schluesselsprung+ring',
+  'tunnelkette', 'luftdash', 'luftdash+broeckel'];
 
 /** Gewicht einer Mechanik im Szenenplan (sonst 1) */
 // (Warte-Aufgaben — Tor, Mitfahrt, Böe, Deckel — leiser: „mehr eigener Input statt warten“, Rückmeldung 27.09.2026)
 /** Aufgaben mit vielen Sim-Proben je Versuch (eigene Probe über Sekunden, Anker-/Kristallketten, Streuungsläufe) */
 export const TEUER = new Set(['flappy', 'greifen', 'bruecke', 'deckel', 'kopfueber', 'mitfahrt', 'dashsprung', 'kette']);
-const GEWICHT = { schluessel: 3, einzelblock: 2, dash: 2, wind: 2, aufwind: 2, schalter: 2, mitfahrt: 1, broeckel: 0.5, ring: 0.35, nadeloehr: 2, 'greifen+nadeloehr': 2, boee: 1, deckel: 1, flappy: 2, tor: 0.6, dashsprung: 1, flach: 1.5, kopfueber: 2, kette: 2 };
+const GEWICHT = { schluessel: 3, einzelblock: 2, dash: 2, wind: 2, aufwind: 2, schalter: 2, mitfahrt: 1, broeckel: 0.5, ring: 0.35, nadeloehr: 2, 'greifen+nadeloehr': 2, boee: 1, deckel: 1, flappy: 2, tor: 0.6, dashsprung: 1, flach: 1.5, kopfueber: 2, kette: 2, beschuss: 2.5, luftportal: 2.5, schluesselsprung: 2, tunnelkette: 1.5, luftdash: 1.5 };
 
 /** Richtungsarten eines Musters (hoch / runter / quer) */
 const richtungsArten = (muster) => new Set(MUSTER[muster](9).map((r) => (r.startsWith('hoch') ? 'hoch' : r.startsWith('runter') ? 'runter' : 'quer')));
 /** Kann eine Mechanik in einem Muster mit diesen Richtungsarten überhaupt vorkommen? */
-const passtZu = (teil, dirs) => ((teil !== 'aufwind' && teil !== 'deckel' && teil !== 'kette') || dirs.has('hoch')) && ((teil !== 'wind' && teil !== 'boee' && teil !== 'dash' && teil !== 'bruecke' && teil !== 'flappy' && teil !== 'greifen' && teil !== 'dashsprung' && teil !== 'flach' && teil !== 'kopfueber') || dirs.has('quer'))
+const passtZu = (teil, dirs) => ((teil !== 'aufwind' && teil !== 'deckel' && teil !== 'kette') || dirs.has('hoch')) && ((teil !== 'wind' && teil !== 'boee' && teil !== 'dash' && teil !== 'bruecke' && teil !== 'flappy' && teil !== 'greifen' && teil !== 'dashsprung' && teil !== 'flach' && teil !== 'kopfueber' && teil !== 'tunnelkette' && teil !== 'luftdash') || dirs.has('quer'))
   && ((teil !== 'wand' && teil !== 'mitfahrt' && teil !== 'nadeloehr') || dirs.has('hoch') || dirs.has('quer'));
 
 /**
@@ -129,7 +146,10 @@ export function planeSzenen(rng, zuegeGesamt, formId = 'strom', hand = null, lei
   // zum Gegenteil“ — gemessen: nur 28 % der Züge hatten überhaupt eine Aufgabe, die Lücken waren schlichte Sprünge).
   // (Gescheiterte Aufgaben auf dem nächsten Zug nachzuholen verdoppelte die Bauzeit — verworfen.)
   const MAX_FOLGE = 2;
-  const MAX_JE_SZENE = 3;
+  // (Schlot: dicht — Rückmeldung 01.10.2026: „viele Hindernisse beim Climben“; gleiche Aufgaben trotzdem höchstens 2 am Stück)
+  const MAX_JE_SZENE = form.dicht ? 4 : 3;
+  const ANTEIL_SZENE = form.dicht ? 0.8 : 0.65;
+  const ANTEIL_LUECKE = form.dicht ? 0.97 : 0.85;
   let aufgabenFolge = 0;
   // Breite Mischung (Rückmeldung 27.09.2026: „bei einem Level mit Schaltern will ich nicht 20 Schalter und fast keine
   // anderen Aufgaben, sondern von allem ein bisschen … es kann ruhig Level geben, wo es von einem sehr viel gibt“): Im
@@ -158,11 +178,11 @@ export function planeSzenen(rng, zuegeGesamt, formId = 'strom', hand = null, lei
       return kand.length ? rng.weighted(kand, kand.map(gewicht)) : '';
     };
     for (let k = 0; k < n; k++) {
-      const mit = mechanik && aufgabenFolge < MAX_FOLGE && inSzene < MAX_JE_SZENE && rng.range(0, 1) < 0.65;
+      const mit = mechanik && aufgabenFolge < MAX_FOLGE && inSzene < MAX_JE_SZENE && rng.range(0, 1) < ANTEIL_SZENE;
       if (mit) { out.push(mechanik); aufgabenFolge++; inSzene++; continue; }
       aufgabenFolge = 0;
       const frei = alternativen.filter((m) => m !== out[k - 1]);
-      if (mechanik && frei.length && rng.range(0, 1) < 0.85) out.push(rng.weighted(frei, frei.map(gewicht)));
+      if (mechanik && frei.length && rng.range(0, 1) < ANTEIL_LUECKE) out.push(rng.weighted(frei, frei.map(gewicht)));
       else out.push('');
     }
     return out.map((m, k) => ({ m, ersatz: m ? ersatzFuer(m, k) : '' }));
@@ -187,7 +207,8 @@ export function planeSzenen(rng, zuegeGesamt, formId = 'strom', hand = null, lei
     else if (form.wechselnd) muster = form.wechselnd[szenen.length % form.wechselnd.length];
     else if (form === FORMEN.welle) muster = szenen.length % 2 === 0 ? 'bergauf' : 'bergab';
     else {
-      let kandidaten = namen.filter((m) => m !== letztes);
+      // (Eine Form mit nur einem Muster — der Schlot — wiederholt es)
+      let kandidaten = namen.length > 1 ? namen.filter((m) => m !== letztes) : namen;
       // Mit Palette: bevorzugt Muster, in denen eine ihrer Mechaniken geht (Mitfahrt bergab gibt es nicht — gemessen:
       // beim „Fährmann" waren zwei Drittel der Züge schlichte Sprünge)
       if (palette && palette.length) {
@@ -198,7 +219,8 @@ export function planeSzenen(rng, zuegeGesamt, formId = 'strom', hand = null, lei
     }
     if (muster === 'rueckweg' && richtungen.filter((x) => x.r === 'rechts').length < 6) muster = letztes === 'serpentine' ? 'traverse' : 'serpentine';
     // (Die Handschrift entscheidet, wie oft eine Decke über der Szene hängt; die Halle bleibt Halle)
-    let stil = hand && !form.stile.includes('halle') ? (rng.range(0, 1) < hand.grotte ? 'grotte' : 'offen') : rng.pick(form.stile);
+    // (Schlot: nie Grotte — eine Decke im Schacht versperrte den Aufstieg)
+    let stil = form.eng ? 'offen' : hand && !form.stile.includes('halle') ? (rng.range(0, 1) < hand.grotte ? 'grotte' : 'offen') : rng.pick(form.stile);
     let mechanik = '';
     let alternativen = [];
     if (!erste) {
@@ -216,7 +238,8 @@ export function planeSzenen(rng, zuegeGesamt, formId = 'strom', hand = null, lei
       // (Mit Leitidee genau die Mechaniken des Akts — auch Kombinationen, die es im allgemeinen Topf nicht gibt)
       // (Keine Kopfüber-Passage im Turm: Sie braucht 20+ Kacheln Breite und schob den Weg an den Rand — gemessen: Abbruch)
       const geht = (topf) => topf.filter((m) => (form !== FORMEN.halle || !m.includes('tor')) && (form !== FORMEN.turm || !m.includes('kopfueber'))
-        && (m !== 'schluessel' || (form !== FORMEN.turm && form !== FORMEN.halle && n >= 5))
+        && (m !== 'schluessel' || (form !== FORMEN.turm && form !== FORMEN.halle && !form.eng && n >= 5))
+        && (!form.eng || !/kopfueber|bruecke|flappy|greifen/.test(m))
         && m.split('+').some(passt) && inPalette(m));
       // (Mischung: alle Aufgaben, dazu die Kombinationen des Akts, die es im allgemeinen Topf nicht gibt)
       let moeglich = geht(extrem ? (akt ? akt.mechaniken : MECHANIKEN) : [...new Set([...MECHANIKEN, ...(akt ? akt.mechaniken : [])])]);
@@ -235,7 +258,9 @@ export function planeSzenen(rng, zuegeGesamt, formId = 'strom', hand = null, lei
       // Schlichte Szenen nach Handschrift (der „Klassiker“ baut nur solche) bzw. nach dem Akt der Leitidee
       // (Mischung: höchstens ein Viertel schlichte Szenen — der „Klassiker“ baut nur im Extrem-Level nur Sprünge)
       const schlichtRoh = akt ? akt.schlicht : hand ? hand.schlicht : null;
-      const schlichtAnteil = extrem || schlichtRoh == null ? schlichtRoh : Math.min(schlichtRoh, 0.25);
+      const schlichtRoh2 = extrem || schlichtRoh == null ? schlichtRoh : Math.min(schlichtRoh, 0.25);
+      // (im Schlot kaum schlichte Szenen — der Klassiker ausgenommen, der baut nur Sprünge)
+      const schlichtAnteil = form.dicht && schlichtRoh2 != null && schlichtRoh2 < 1 ? Math.min(schlichtRoh2, 0.05) : schlichtRoh2;
       if (liste.length && !(schlichtAnteil != null && rng.range(0, 1) < schlichtAnteil)) mechanik = rng.weighted(liste, liste.map(gewicht));
       // Andere Aufgaben, die in dieser Szene gehen — für die Lücken zwischen denen der Szene (Schlüssel-Abstecher nicht)
       alternativen = moeglich.filter((m) => m !== mechanik && m !== 'schluessel');
@@ -243,8 +268,8 @@ export function planeSzenen(rng, zuegeGesamt, formId = 'strom', hand = null, lei
     // Aussehen (fuellung.js): Säulen = Plattformen auf Fels, Stachelgruben dazwischen; sonst schwebend über dem Abgrund.
     // Ein Tor braucht beides — die Grotten-Decke hält den Sender, der Grubenboden den Fänger (sonst hingen beide als
     // Blöcke mit Stachel in der Luft; Rückmeldung 25.09.2026)
-    if (mechanik.includes('tor')) stil = 'grotte';
-    const saeulen = form !== FORMEN.halle && (mechanik.includes('tor') || rng.range(0, 1) < (hand ? hand.saeulen : 0.65));
+    if (mechanik.includes('tor') && !form.eng) stil = 'grotte';
+    const saeulen = form !== FORMEN.halle && !form.eng && (mechanik.includes('tor') || rng.range(0, 1) < (hand ? hand.saeulen : 0.65));
     benutzt.add(`${muster}|${mechanik}`);
     letzteMechanik = mechanik;
     const idx = szenen.length;
@@ -262,7 +287,7 @@ export function planeSzenen(rng, zuegeGesamt, formId = 'strom', hand = null, lei
     } else {
       const mechs = dosiere(mechanik, n, alternativen);
       for (const { m } of mechs) if (m) genutzt.set(m, (genutzt.get(m) || 0) + 1);
-      MUSTER[muster](n).forEach((r, k) => richtungen.push({ r, szene: idx, mechanik: mechs[k].m, ersatz: mechs[k].ersatz, dVersatz }));
+      MUSTER[muster](n).forEach((r, k) => richtungen.push({ r, szene: idx, mechanik: mechs[k].m, ersatz: mechs[k].ersatz, dVersatz, ...(form.eng ? { schlot: true } : {}) }));
     }
     letztes = muster;
   }

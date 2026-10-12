@@ -19,6 +19,9 @@ export const ACTIONS = [
   { id: 'dash', bit: INPUT.DASH, label: 'Dash' },
   { id: 'grapple', bit: INPUT.GRAPPLE, label: 'Grapple' },
   { id: 'restart', bit: INPUT.RESTART, label: 'Zum Checkpoint' },
+  // Keine Sim-Eingabe (Bit 0, landet nie in der Maske): Die Seite fängt die Taste selbst ab (client/useBoundAction.js) —
+  // Tagesrennen, eigene Level, Testspiel im Editor. Steht hier, damit sie mit umbelegt werden kann.
+  { id: 'neustart', bit: 0, label: 'Neu starten' },
 ];
 
 // KeyboardEvent.code statt .key: Die Belegung hängt an der Tastenposition, nicht am
@@ -32,6 +35,7 @@ export const DEFAULT_BINDINGS = {
   dash: ['ShiftLeft', 'ShiftRight', 'KeyJ'],
   grapple: ['KeyE', 'KeyL'],
   restart: ['KeyR'],
+  neustart: ['KeyN'],
 };
 
 function buildCodeMap(bindings) {

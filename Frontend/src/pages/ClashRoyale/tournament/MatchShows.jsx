@@ -62,7 +62,7 @@ export function BigCountdown({ endsAt, label }) {
   const left = Math.ceil((endsAt - now) / 1000);
   const lastRef = useRef(null);
   useEffect(() => {
-    if (left > 0 && left !== lastRef.current) { lastRef.current = left; playSound('tap'); }
+    if (left > 0 && left !== lastRef.current) { lastRef.current = left; playSound('count'); }
   }, [left]);
   if (left <= 0) return null;
   return (

@@ -25,11 +25,23 @@ dist-ssr
 *.sw?
 # Stream-Tool: enthält den Twitch-Token des Streamers (verschlüsselt) und den Schlüssel.
 # Bewusst NICHT im Repo — die übrigen Backend/data/*.db sind zwar getrackt, hier wären
-# es aber Zugangsdaten.
+# es aber Zugangsdaten. Seit der Ordner-Neuordnung liegt alles unter streamTool/data/ —
+# die alten Backend/data/-Zeilen bleiben stehen, falls dort noch eine Kopie auftaucht.
+Backend/streamTool/data/
 Backend/data/stream_tool.db
 Backend/data/stream_tool.db-shm
 Backend/data/stream_tool.db-wal
 Backend/data/stream_tool.key
+
+# Twitch-Tokens und eingeloggte Sitzungen — Zugangsdaten, nie ins (öffentliche) Repo.
+# garden/data/twitch_token.json schreibt gardenGameRoutes.js, Backend/data/ ist der Altpfad.
+Backend/sessions.json
+Backend/data/twitch_token.json
+Backend/garden/data/
+
+# Backend/lib/jsonFile.js: Zwischenstand beim atomaren Schreiben und Sicherung kaputter Dateien
+*.json.tmp
+*.corrupt-*
 # Seed Runners: Tagesrangliste samt Input-Logs der geprüften Läufe. Wächst mit jedem Tag und gehört
 # der laufenden Instanz — lokal nur Testdaten, deploy.sh lässt data/ ohnehin aus.
 Backend/data/seedrunners.db
@@ -40,3 +52,12 @@ Backend/data/seedrunners.db-wal
 Backend/clashRoyale/data/cr_tournaments.db
 Backend/clashRoyale/data/cr_tournaments.db-shm
 Backend/clashRoyale/data/cr_tournaments.db-wal
+# Lobby-Zwischenstand für Backend-Neustarts (core/lobbyPersistence.js) — reine Laufzeitdaten mit
+# Twitch-IDs, darf nie per Deploy über den Stand des Servers gelegt werden
+Backend/clashRoyale/data/cr_lobbies.db
+Backend/clashRoyale/data/cr_lobbies.db-shm
+Backend/clashRoyale/data/cr_lobbies.db-wal
+# Freundesliste der CR-Minigames (clashRoyale/lib/crFriendsStore.js) — Twitch-IDs und Beziehungen
+Backend/clashRoyale/data/cr_friends.db
+Backend/clashRoyale/data/cr_friends.db-shm
+Backend/clashRoyale/data/cr_friends.db-wal

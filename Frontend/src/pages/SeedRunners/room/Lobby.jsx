@@ -3,11 +3,11 @@
 // Runde dazu (bis 5).
 import React, { useEffect, useRef, useState } from "react";
 import { Crown, WifiOff, Play, Copy, Check } from "lucide-react";
-import SettingsForm from "./SettingsForm.jsx";
 import SeriesForm from "./SeriesForm.jsx";
 import { entryKey } from "../ui/levelRef.js";
 import LevelPicker from "./LevelPicker.jsx";
-import { Panel, Spinner } from "../ui/kit.jsx";
+import { Panel, Spinner, Tabs } from "../ui/kit.jsx";
+import { MODE_LABELS, MODE_HINTS, HARDCORE_HINT } from "./labels.js";
 import { verdeckt } from "./raumCode.js";
 import { useCodeSichtbar } from "./useCodeSichtbar.js";
 
@@ -29,7 +29,7 @@ export default function Lobby({ state, meId, isHost, actions, code }) {
   const [labels, setLabels] = useState({});
   const settings = state.settings;
 
-  // Eingaben im Textfeld (Seed) nicht bei jedem Zeichen an den Server schicken: kurz sammeln.
+  // Änderungen gesammelt an den Server (der Start übernimmt vorher noch eine ausstehende)
   const pending = useRef(null);
   const [draft, setDraft] = useState(settings);
   useEffect(() => setDraft(settings), [settings]);
@@ -38,7 +38,7 @@ export default function Lobby({ state, meId, isHost, actions, code }) {
     const next = { ...draft, ...patch };
     setDraft(next);
     clearTimeout(pending.current);
-    pending.current = setTimeout(() => actions.setSettings(next), "seed" in patch ? 350 : 0);
+    pending.current = setTimeout(() => actions.setSettings(next), 0);
   };
   useEffect(() => () => clearTimeout(pending.current), []);
 
@@ -80,15 +80,13 @@ export default function Lobby({ state, meId, isHost, actions, code }) {
   const start = async () => {
     setStarting(true);
     setError("");
-    // Erst die noch ausstehende Eingabe (Seed) übernehmen, dann starten
+    // Erst die noch ausstehende Änderung übernehmen, dann starten
     clearTimeout(pending.current);
     await actions.setSettings(draft);
     const res = await actions.start("settings");
     setStarting(false);
     if (!res.ok) setError(res.error || "Start nicht möglich.");
   };
-
-  const single = draft.rounds === 1 && draft.playlist[0]?.kind === "random";
 
   return (
     <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] items-start">
@@ -121,12 +119,26 @@ export default function Lobby({ state, meId, isHost, actions, code }) {
       <div className="grid gap-4 xl:grid-cols-2 items-start min-w-0">
         <Panel title="Rundenplan" bodyClassName="">
           <div className="p-4 space-y-5">
+            <div>
+              <span className="sr-label block mb-1">Modus</span>
+              <Tabs
+                label="Modus"
+                value={draft.mode || "race"}
+                onChange={(id) => { if (isHost) change({ mode: id }); }}
+                tabs={Object.entries(MODE_LABELS).map(([id, label]) => ({ id, label }))}
+              />
+              <p className="text-xs sr-faint mt-2 leading-relaxed">{MODE_HINTS[draft.mode || "race"]}{draft.rounds > 1 ? " Gilt für alle Runden der Serie." : ""}</p>
+              {(draft.mode || "race") === "race" && (
+                <label className={`flex items-start gap-2.5 mt-3 ${isHost ? "cursor-pointer" : "opacity-50"}`}>
+                  <input type="checkbox" disabled={!isHost} checked={!!draft.hardcore} onChange={(e) => change({ hardcore: e.target.checked })} className="sr-check mt-0.5" />
+                  <span>
+                    <span className="text-sm sr-ink block">Hardcore-Modus</span>
+                    <span className="text-xs sr-faint leading-relaxed block">{HARDCORE_HINT}</span>
+                  </span>
+                </label>
+              )}
+            </div>
             <SeriesForm settings={draft} onChange={change} labels={labels} disabled={!isHost} />
-            {single && (
-              <div className="sr-divider pt-4">
-                <SettingsForm settings={draft} onChange={change} disabled={!isHost} />
-              </div>
-            )}
           </div>
           <div className="px-4 py-3 sr-divider flex flex-wrap items-center justify-between gap-3">
             {isHost ? (

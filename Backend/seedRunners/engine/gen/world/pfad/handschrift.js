@@ -21,12 +21,16 @@ export const THEMEN = Object.freeze({
   // (ohne Ringe: seit den Ring-Ketten waren 45 % der Züge Ringe, mehr als Böen — dafür Böen durchs Nadelöhr)
   windlaeufer: { palette: ['wind', 'aufwind', 'nadeloehr', 'boee'], gewicht: 1, schlicht: [0.1, 0.2] },
   uhrwerk: { palette: ['tor', 'broeckel', 'schalter', 'boee'], gewicht: 1, schlicht: [0.1, 0.2], grotte: [0.5, 0.9], zielschloss: 0.8 },
-  kletterer: { palette: ['wand', 'feder', 'aufwind', 'mitfahrt', 'deckel', 'kette'], gewicht: 1, schlicht: [0.1, 0.2], formen: { turm: 4, halle: 2, welle: 1.5 } },
+  kletterer: { palette: ['wand', 'feder', 'aufwind', 'mitfahrt', 'deckel', 'kette', 'beschuss', 'luftportal'], gewicht: 1, schlicht: [0.1, 0.2], formen: { turm: 3, schlot: 4, halle: 2, welle: 1.5 } },
+  // Beschuss (Rückmeldung 01.10.2026: „Projektile, denen man ausweichen muss“): Kugelströme abpassen, dazu knappe Landungen
+  kanonier: { palette: ['beschuss', 'einzelblock', 'broeckel', 'tor'], gewicht: 1.2, schlicht: [0.05, 0.15], formen: { schlot: 2, strom: 1.5 } },
+  // Portale und Schlüssel im Flug (Rückmeldung 01.10.2026: „besondere Ideen mit den Portalen und Schlüsseln“)
+  portalier: { palette: ['luftportal', 'schluesselsprung', 'portal', 'ring'], gewicht: 1.2, schlicht: [0.05, 0.15], formen: { strom: 1.5, schlot: 1.5 } },
   akrobat: { palette: ['greifen', 'ring', 'feder', 'kopfueber'], gewicht: 1.5, schlicht: [0.1, 0.2], saeulen: [0.1, 0.4] },
   // „Flappy-Seil“: Schwung um Schwung durch enge Lücken (Rückmeldung 27.09.2026)
   seiltaenzer: { palette: ['greifen', 'nadeloehr', 'ring', 'flappy'], gewicht: 1, schlicht: [0.05, 0.15], formen: { strom: 2, welle: 1.5, turm: 0.3 } },
-  tueftler: { palette: ['schalter', 'schluessel', 'portal', 'einzelblock'], gewicht: 1, schlicht: [0.1, 0.25], zielschloss: 0.85 },
-  flitzer: { palette: ['dash', 'ring', 'broeckel', 'wind', 'dashsprung', 'kette'], gewicht: 1, schlicht: [0.05, 0.15], plattform: ['normal', 'breit'] },
+  tueftler: { palette: ['schalter', 'schluessel', 'portal', 'einzelblock', 'luftportal', 'schluesselsprung'], gewicht: 1, schlicht: [0.1, 0.25], zielschloss: 0.85 },
+  flitzer: { palette: ['dash', 'ring', 'broeckel', 'wind', 'dashsprung', 'kette', 'tunnelkette', 'luftdash'], gewicht: 1, schlicht: [0.05, 0.15], plattform: ['normal', 'breit'] },
 });
 export const THEMA_IDS = Object.freeze(Object.keys(THEMEN));
 

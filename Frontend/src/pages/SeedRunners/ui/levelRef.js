@@ -76,7 +76,8 @@ export const entryKey = (e) => (e.kind === 'custom' ? `c:${e.code}` : e.kind ===
 
 /**
  * Aus einem Listeneintrag der Level-Auswahl (Favorit, Bestenliste: { ref, level?, info? }; Community-Karte: das Level selbst mit
- * `code`) wird { entry, label }: der Playlist-Eintrag für den Server und was die Lobby dazu anzeigt.
+ * `code`) wird { entry, label }: der Playlist-Eintrag für den Server und was die Lobby dazu anzeigt. `item.title` ersetzt den
+ * Titel eines Zufallslevels (Tagesarchiv: „Tagesrennen vom …“).
  */
 export function pickOf(item) {
   if (item.level || item.code || item.ref?.kind === 'custom') {
@@ -84,5 +85,5 @@ export function pickOf(item) {
     return { entry: { kind: 'custom', code: l.code }, label: { title: l.name, sub: `von ${l.creator?.name || '?'}`, biome: l.biome } };
   }
   const { seed, biome, gv = 1 } = item.ref;
-  return { entry: { kind: 'seed', seed, biome, gv }, label: { title: randomTitle(item.info), sub: seedLine(seed, biome), biome } };
+  return { entry: { kind: 'seed', seed, biome, gv }, label: { title: item.title || randomTitle(item.info), sub: seedLine(seed, biome), biome } };
 }

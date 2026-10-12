@@ -254,7 +254,7 @@ function CreatePollModal({ onClose, onSave }) {
 export default function AbstimmungPage() {
   // Vollpayload nur für diese Seite (siehe Backend/lib/liveBadges.js)
   useFeedRoom("polls");
-  const { user, login } = useContext(TwitchAuthContext);
+  const { user } = useContext(TwitchAuthContext);
   const navigate = useNavigate();
 
   const [polls, setPolls] = useState([]);
@@ -265,33 +265,39 @@ export default function AbstimmungPage() {
     return !!user && String(user.id) === String(STREAMER_ID);
   }, [user]);
 
+  // 'loading' | 'ready' | 'error' — ohne das stand während des Ladens (und bei einem
+  // Serverfehler) schon "Keine aktiven Abstimmungen." da.
+  const [loadState, setLoadState] = useState("loading");
+
+  const refreshPolls = async () => {
+    try {
+      const res = await fetch("/api/polls", { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setPolls(Array.isArray(data) ? data : []);
+      setLoadState("ready");
+    } catch (e) {
+      console.error("Reload Error:", e);
+      setLoadState("error");
+    }
+  };
+
   // Load Polls
   useEffect(() => {
     // Initial laden
-    fetch("/api/polls", { credentials: "include" })
-      .then(r => r.json())
-      .then(d => setPolls(d));
+    refreshPolls();
 
     // Live Updates
     const handleUpdate = (updatedList) => {
         if(Array.isArray(updatedList)) {
             setPolls(updatedList);
+            setLoadState("ready");
         }
     };
 
     socket.on("polls_update", handleUpdate);
     return () => socket.off("polls_update", handleUpdate);
   }, []);
-
-  const refreshPolls = async () => {
-    try {
-      const res = await fetch("/api/polls", { credentials: "include" });
-      const data = await res.json();
-      setPolls(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error("Reload Error:", e);
-    }
-  };
 
   const handleCreate = async (newPollData) => {
     try {
@@ -361,7 +367,16 @@ export default function AbstimmungPage() {
 
       {/* List Area */}
       <div className="space-y-3">
-          {displayPolls.length === 0 ? (
+          {loadState === "loading" ? (
+              <div className="text-center py-20 text-white/30 animate-pulse">Lade Abstimmungen...</div>
+          ) : loadState === "error" ? (
+              <div className="text-center py-16 px-4 text-white/50 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
+                  <p className="mb-4">Die Abstimmungen konnten gerade nicht geladen werden.</p>
+                  <button onClick={() => { setLoadState("loading"); refreshPolls(); }} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition-colors">
+                      Erneut versuchen
+                  </button>
+              </div>
+          ) : displayPolls.length === 0 ? (
               <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
                  {activeTab === "active" ? "Keine aktiven Abstimmungen." : "Keine vergangenen Abstimmungen."}
               </div>
@@ -379,7 +394,10 @@ export default function AbstimmungPage() {
       </div>
 
       {/* Admin Floating Action Button */}
-      {isAdmin ? (
+      {/* Den schwebenden "Admin Login"-Knopf für Abgemeldete gibt es nicht mehr: er stand bei
+          JEDEM Besucher unten in der Seite, obwohl er nur für eine Person gedacht war — die
+          Anmeldung sitzt ohnehin oben rechts in der Kopfzeile. */}
+      {isAdmin && (
           <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-40">
               <button
                 onClick={refreshPolls}
@@ -396,14 +414,6 @@ export default function AbstimmungPage() {
                   <Plus size={20} />
               </button>
           </div>
-      ) : (
-         !user && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-                <button onClick={() => login(false)} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors shadow-lg shadow-black/40">
-                    <TwitchGlyph className="w-3.5 h-3.5" /> Admin Login
-                </button>
-            </div>
-         )
       )}
 
       {/* Modal */}

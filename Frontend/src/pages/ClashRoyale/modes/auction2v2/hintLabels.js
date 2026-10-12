@@ -30,6 +30,20 @@ const TRAIT_LABEL = {
   rarity_common: { de: 'Gewöhnlich', en: 'Common', es: 'Común' },
 };
 
+const CATEGORY_LABEL = {
+  cost: { de: 'Kosten', en: 'Cost', es: 'Coste' },
+  unit: { de: 'Typ', en: 'Type', es: 'Tipo' },
+  target: { de: 'Ziel', en: 'Targets', es: 'Objetivo' },
+  trait: { de: 'Besonderheit', en: 'Trait', es: 'Rasgo' },
+};
+
+/** Kategorie eines Merkmals ("cost:5" → "Kosten") — beim blinden Bieten steht sie vor dem Wert. */
+export function hintTagCategory(tagId, lang = 'de') {
+  const kind = String(tagId || '').split(':')[0];
+  const l = lang === 'en' || lang === 'es' ? lang : 'de';
+  return CATEGORY_LABEL[kind]?.[l] || '';
+}
+
 /** "cost:5" | "unit:ground" | "target:groundAir" | "trait:splash" → lesbarer Text. */
 export function hintTagLabel(tagId, lang = 'de') {
   const [kind, value] = String(tagId || '').split(':');

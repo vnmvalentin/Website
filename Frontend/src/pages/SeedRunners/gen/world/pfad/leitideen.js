@@ -103,6 +103,48 @@ export const LEITIDEEN = Object.freeze({
       { mechaniken: ['schalter+bruecke', 'deckel', 'bruecke+broeckel'], schlicht: 0, dVersatz: 1 },
     ],
   },
+  // (Rückmeldung 01.10.2026: „Projektile, die fliegen und denen man ausweichen muss“)
+  kugelhagel: {
+    name: 'Kugelhagel',
+    satz: 'Kanonen schießen quer durch jeden Sprung — erst eine, dann ganze Ströme auf wackligem Boden; im Twist entkommt man durch Portale mitten im Sprung, im Finale beides.',
+    autoren: { kanonier: 3, kletterer: 1, allrounder: 1 },
+    formen: { schlot: 2, strom: 1.5 },
+    zielschloss: false,
+    akte: [
+      { mechaniken: ['beschuss'], schlicht: 0.15, dVersatz: -1 },
+      { mechaniken: ['beschuss', 'beschuss+broeckel', 'beschuss+einzelblock'], schlicht: 0.05, dVersatz: 0 },
+      { mechaniken: ['luftportal'], schlicht: 0.05, dVersatz: 0 },
+      { mechaniken: ['beschuss', 'luftportal', 'beschuss+einzelblock'], schlicht: 0, dVersatz: 1 },
+    ],
+  },
+  // (Rückmeldung 01.10.2026: „besondere Ideen mit den Portalen und Schlüsseln, da diese ziemlich eintönig sind“)
+  schluesselloch: {
+    name: 'Schlüsselloch',
+    satz: 'Portale hängen mitten im Sprung — man fliegt hinein und kommt woanders heraus; dann Schlüssel, die man im Flug schnappen muss, sonst prallt man an der Tür ab; im Twist der Schlüssel auf einem Abstecher, im Finale Portal und Schlüssel im selben Sprung.',
+    autoren: { portalier: 3, tueftler: 2 },
+    formen: { strom: 2, turm: 0.3 },
+    zielschloss: true,
+    akte: [
+      { mechaniken: ['luftportal'], schlicht: 0.15, dVersatz: -1 },
+      { mechaniken: ['luftportal', 'schluesselsprung', 'schluesselsprung+ring'], schlicht: 0.05, dVersatz: 0 },
+      { mechaniken: ['schluessel', 'schluesselsprung'], schlicht: 0.05, dVersatz: 0 },
+      { mechaniken: ['luftportal+schluesselsprung', 'luftportal'], schlicht: 0, dVersatz: 1 },
+    ],
+  },
+  // (Rückmeldung 01.10.2026: „mehr Ideen mit den Dash-Kristallen, da gibt es einen größeren Horizont“)
+  kristallsturm: {
+    name: 'Kristallsturm',
+    satz: 'Jeder Kristall ist ein Dash — erst flach durch Stacheltunnel, dann zwei am Stück und im Fall geschnappt; im Twist geht es von Kristall zu Kristall nach oben, im Finale alles durcheinander.',
+    autoren: { flitzer: 3, akrobat: 1 },
+    formen: { strom: 2.5, welle: 0.4, turm: 0.4 },
+    zielschloss: false,
+    akte: [
+      { mechaniken: ['dash', 'luftdash'], schlicht: 0.15, dVersatz: -1 },
+      { mechaniken: ['tunnelkette', 'luftdash', 'dashsprung'], schlicht: 0.05, dVersatz: 0 },
+      { mechaniken: ['kette'], schlicht: 0.05, dVersatz: 0 },
+      { mechaniken: ['tunnelkette', 'luftdash+broeckel', 'kette'], schlicht: 0, dVersatz: 1 },
+    ],
+  },
 });
 export const LEITIDEE_IDS = Object.freeze(Object.keys(LEITIDEEN));
 

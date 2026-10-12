@@ -241,11 +241,11 @@ export function validateDoc(input, { requireName = false, smoke = true, limits }
 
   // ── Kanonisches Dokument ──
   elements.sort(compareElements);
-  // Der Laser sitzt in einem festen Block; die Engine macht die Kachel ohnehin fest. Im Dokument steht dort Luft,
-  // damit "Laser auf Luft" und "Laser auf Block" dasselbe Level sind.
+  // Laser und Kanone sitzen in einem festen Block; die Engine macht die Kachel ohnehin fest. Im Dokument steht dort Luft,
+  // damit "Laser auf Luft" und "Laser auf Block" dasselbe Level sind (ebenso die Kanone).
   const canonTiles = tiles.slice();
   for (const e of elements) {
-    if (e.type === 'laser' && canonTiles[e.ty][e.tx] === '#') {
+    if ((e.type === 'laser' || e.type === 'cannon') && canonTiles[e.ty][e.tx] === '#') {
       canonTiles[e.ty] = `${canonTiles[e.ty].slice(0, e.tx)}.${canonTiles[e.ty].slice(e.tx + 1)}`;
     }
   }

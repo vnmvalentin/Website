@@ -19,6 +19,11 @@ import league8 from '../../../assets/clashRoyale/leagues/league8.webp';
 import league9 from '../../../assets/clashRoyale/leagues/league9.webp';
 import league10 from '../../../assets/clashRoyale/leagues/league10.webp';
 import ratingIcon from '../../../assets/clashRoyale/leagues/rating.webp';
+// Punkte-Symbol der Event-Ligen (Spooky Chess League, Okt. 2026): dieselbe Medaille, aber hellblaue
+// Scheibe und Band blau/rot. In keiner Asset-Quelle vorhanden (RoyaleAPI-CDN, cr-api-assets,
+// cr-assets-png) — aus rating.webp umgefärbt, Farben nach einem In-Game-Screenshot abgeglichen.
+import ratingLeagueIcon from '../../../assets/clashRoyale/leagues/rating_league.webp';
+import spookyChessBadge from '../../../assets/clashRoyale/ui/spooky-chess.webp';
 
 // RoyaleAPI hostet die Embleme noch unter der alten 10-stufigen Nummerierung (die 3 inzwischen
 // entfernten Challenger-Ligen kamen davor) — daher der Offset +3 beim Bild-Lookup unten.
@@ -47,6 +52,15 @@ export function leagueName(leagueNumber, lang) {
 // Das offizielle Medaillen-/Rating-Symbol (Ranked/Path of Legend) — unterscheidet sich bewusst
 // vom Trophäen-Pokal der Trophäenstraße.
 export const MEDAL_ICON_URL = ratingIcon;
+// Punkte der generischen Saison-Modi (Win-Tracker trackMode "s:<prefix>")
+export const LEAGUE_MEDAL_ICON_URL = ratingLeagueIcon;
+
+// Abzeichen je Saison-Modus (Profilkopf im Overlay, Kachel "Getrackter Wert") — trackMode -> Bild.
+// Ein Modus ohne Eintrag zeigt den Pokal; ein neues Bild = eine Zeile hier.
+const SEASONAL_BADGES = {
+  's:spookychesstrail': spookyChessBadge,
+};
+export const seasonalBadgeUrl = (mode) => SEASONAL_BADGES[mode] || null;
 
 // Unterhalb von Ultimate Champion zählt die Ranked-Leiter keine Medaillen, sondern Stufen:
 // Liga 1-3 haben 11, Liga 4-6 haben 10. Erst in Liga 7 (UC) gibt es wieder Medaillen.

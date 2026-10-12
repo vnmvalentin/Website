@@ -30,8 +30,13 @@ function audio() {
   }
 }
 
-/** Ein Ton mit kurzer Hüllkurve. freq kann ein [start, ende]-Paar sein (Glissando). */
-function tone(ac, { freq, type = 'sine', start = 0, dur = 0.12, gain = 0.3 }) {
+/**
+ * Ein Ton mit kurzer Hüllkurve. freq kann ein [start, ende]-Paar sein (Glissando).
+ * atk = Einschwingzeit (kurz = knackiger), lp = optionaler Tiefpass in Hz (nimmt die Schärfe aus
+ * Rechteck/Sägezahn). Die Rezepte unten stammen aus der Klangbibliothek
+ * (claude.ai/artifact/WrL3SexXfQXUw9vRPmMM5S) und sind dort 1:1 anhörbar.
+ */
+function tone(ac, { freq, type = 'sine', start = 0, dur = 0.12, gain = 0.3, atk = 0.012, lp = 0 }) {
   const t0 = ac.currentTime + start;
   const osc = ac.createOscillator();
   const g = ac.createGain();
@@ -41,39 +46,61 @@ function tone(ac, { freq, type = 'sine', start = 0, dur = 0.12, gain = 0.3 }) {
   if (f1 !== f0) osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
   const peak = gain * volume;
   g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t0 + Math.min(atk, dur * 0.5));
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  osc.connect(g).connect(ac.destination);
+  let out = osc;
+  if (lp) {
+    const filter = ac.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = lp;
+    osc.connect(filter);
+    out = filter;
+  }
+  out.connect(g).connect(ac.destination);
   osc.start(t0);
   osc.stop(t0 + dur + 0.02);
 }
 
 const SOUNDS = {
-  // Knopfdruck: kurzer, weicher "Plopp"
-  tap: (ac) => tone(ac, { freq: [520, 360], type: 'triangle', dur: 0.07, gain: 0.22 }),
-  // Fenster/Blatt öffnet sich
-  open: (ac) => tone(ac, { freq: [300, 620], type: 'sine', dur: 0.14, gain: 0.18 }),
-  // Karte genommen / Auswahl bestätigt
+  // Knopfdruck ("Kissen"): tiefer, runder Sinus — der häufigste Klang, deshalb bewusst unaufdringlich
+  tap: (ac) => tone(ac, { freq: [260, 180], dur: 0.08, gain: 0.25, atk: 0.004 }),
+  // Walze/Auslosung, eine vorbeilaufende Kachel ("Murmel") — sehr kurz, spielt in schneller Folge
+  tick: (ac) => tone(ac, { freq: 1200, dur: 0.025, gain: 0.1, atk: 0.001 }),
+  // Walze bleibt stehen / Auslosung fertig ("Ta-da sanft")
+  land: (ac) => {
+    tone(ac, { freq: 659, type: 'triangle', dur: 0.12, gain: 0.15, atk: 0.004 });
+    tone(ac, { freq: 988, type: 'triangle', start: 0.09, dur: 0.4, gain: 0.15, atk: 0.004 });
+  },
+  // Countdown-Zahl 3, 2, 1 ("Beep weich")
+  count: (ac) => tone(ac, { freq: 880, type: 'triangle', dur: 0.09, gain: 0.1, atk: 0.003, lp: 2500 }),
+  // Fenster/Blatt öffnet sich ("Aufklappen")
+  open: (ac) => tone(ac, { freq: [400, 800], dur: 0.1, gain: 0.1, atk: 0.012 }),
+  // Karte genommen / Auswahl bestätigt ("Bestätigt": Quinte nach oben)
   pick: (ac) => {
-    tone(ac, { freq: 880, type: 'triangle', dur: 0.08, gain: 0.2 });
-    tone(ac, { freq: 1320, type: 'sine', start: 0.05, dur: 0.1, gain: 0.14 });
+    tone(ac, { freq: 784, type: 'triangle', dur: 0.07, gain: 0.14, atk: 0.003 });
+    tone(ac, { freq: 1175, type: 'triangle', start: 0.06, dur: 0.12, gain: 0.12, atk: 0.003 });
   },
-  // Jemand betritt die Lobby
+  // Jemand betritt die Lobby ("Freundlich")
   join: (ac) => {
-    tone(ac, { freq: 660, type: 'sine', dur: 0.1, gain: 0.2 });
-    tone(ac, { freq: 990, type: 'sine', start: 0.08, dur: 0.14, gain: 0.18 });
+    tone(ac, { freq: 587, type: 'triangle', dur: 0.12, gain: 0.13, atk: 0.004 });
+    tone(ac, { freq: 880, type: 'triangle', start: 0.1, dur: 0.2, gain: 0.13, atk: 0.004 });
   },
-  // Spielstart: aufsteigender Dreiklang
+  // Spielstart ("Arena-Horn"): gedämpfte Sägezahn-Quarte
   start: (ac) => {
-    [523, 659, 784, 1047].forEach((f, i) => tone(ac, { freq: f, type: 'square', start: i * 0.08, dur: 0.16, gain: 0.1 }));
+    tone(ac, { freq: 262, type: 'sawtooth', dur: 0.25, gain: 0.08, atk: 0.02, lp: 1200 });
+    tone(ac, { freq: 392, type: 'sawtooth', start: 0.15, dur: 0.55, gain: 0.08, atk: 0.02, lp: 1200 });
   },
-  // Spielende: kleine Fanfare
+  // Spielende ("Krone"): Dreiklang, langer Schlusston mit Glitzer
   win: (ac) => {
-    [[523, 0], [659, 0.1], [784, 0.2], [1047, 0.32]].forEach(([f, s]) =>
-      tone(ac, { freq: f, type: 'triangle', start: s, dur: s === 0.32 ? 0.45 : 0.14, gain: 0.22 }));
+    [784, 988, 1175].forEach((f, i) => tone(ac, { freq: f, type: 'triangle', start: i * 0.09, dur: 0.12, gain: 0.14, atk: 0.003 }));
+    tone(ac, { freq: 1568, type: 'triangle', start: 0.27, dur: 0.6, gain: 0.15, atk: 0.003 });
+    tone(ac, { freq: 3136, start: 0.3, dur: 0.5, gain: 0.03, atk: 0.003 });
   },
-  // Fehler / nicht erlaubt
-  error: (ac) => tone(ac, { freq: [220, 150], type: 'sawtooth', dur: 0.18, gain: 0.08 }),
+  // Fehler / nicht erlaubt ("Zwei tief"): absteigende Terz
+  error: (ac) => {
+    tone(ac, { freq: 330, type: 'triangle', dur: 0.08, gain: 0.12, atk: 0.003 });
+    tone(ac, { freq: 262, type: 'triangle', start: 0.1, dur: 0.12, gain: 0.12, atk: 0.003 });
+  },
 };
 
 /** Spielt einen der Sounds oben ab — bei Lautstärke 0 oder ohne WebAudio still. */

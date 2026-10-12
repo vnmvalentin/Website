@@ -42,7 +42,7 @@ const ZIEL_ZEILE_MIN = KOPFRAUM + 3;
  * Zug mit Stellgrößen für eine Richtung würfeln. dy: Zeilen (negativ = hinauf).
  * `mechanik`: was die Szene erlaubt ('feder' | 'ring' | 'greifen' | 'portal', mit + verbunden); `sperre`: feste Laufrichtung.
  */
-function wuerfleZug(rng, richtungEin, d, limits, mechanik = '', sperre = null, zwang = false) {
+function wuerfleZug(rng, richtungEin, d, limits, mechanik = '', sperre = null, zwang = false, eng = false) {
   // 'hochlinks' / 'hochrechts': hinauf mit fester Richtung (Zickzack auf der Stelle, etwa zwischen zwei Etagen)
   // …ebenso 'runterlinks' / 'runterrechts'
   const richtung = richtungEin.startsWith('hoch') ? 'hoch' : richtungEin.startsWith('runter') ? 'runter' : richtungEin;
@@ -55,7 +55,7 @@ function wuerfleZug(rng, richtungEin, d, limits, mechanik = '', sperre = null, z
   // den Ring-Ketten waren beim Windläufer 44 % der Züge Ringe, mehr als Böen)
   const teile = [...erlaubt];
   // (das Nadelöhr als Zusatz: In Kombinationen wird meist die andere Mechanik gewählt, die Röhren kommen dazu)
-  const gewicht = (m) => (m === 'broeckel' ? 0.35 : m === 'ring' ? 0.5 : m === 'nadeloehr' && teile.length > 1 ? 0 : 1);
+  const gewicht = (m) => (m === 'broeckel' ? 0.35 : m === 'ring' ? 0.5 : (m === 'nadeloehr' || m === 'schluesselsprung') && teile.length > 1 ? 0 : 1);
   const gewaehlt = zwang && teile.length ? rng.weighted(teile, teile.map(gewicht)) : null;
   const nimm = (m, p) => (gewaehlt ? m === gewaehlt : erlaubt.has(m) && rng.range(0, 1) < p);
 
@@ -130,7 +130,7 @@ function wuerfleZug(rng, richtungEin, d, limits, mechanik = '', sperre = null, z
   if (nimm('feder', richtung === 'hoch' ? 0.65 : 0.35)) {
     // Doppelsprung im Flug: Die Feder füllt den Luftsprung auf, erst beides zusammen trägt über 7,5 Zeilen
     const zug = { art: 'feder', dir, mechanik: 'feder', doppelNach: rng.intRange(24, 44) };
-    if (rng.range(0, 1) < 0.4) zug.loslassen = rng.intRange(20, 40);
+    if (rng.range(0, 1) < (eng ? 0.9 : 0.4)) zug.loslassen = rng.intRange(eng ? 4 : 20, eng ? 20 : 40);
     // Nur Ziele, die ein Doppelsprung (7,5 Zeilen) NICHT schafft — sonst ist die Feder unnötig (regeln.js). Die Feder
     // füllt den Luftsprung auf: Feder + Doppelsprung trägt bis ~15 Zeilen.
     return { zug, dy: -rng.intRange(8, 12) };
@@ -138,7 +138,7 @@ function wuerfleZug(rng, richtungEin, d, limits, mechanik = '', sperre = null, z
 
   let dy;
   let art;
-  if (richtung === 'hoch') { dy = -rng.intRange(3, Math.max(3, limits.maxUp)); art = dy <= -4 ? 'doppel' : 'sprung'; }
+  if (richtung === 'hoch') { dy = -rng.intRange(eng ? 4 : 3, Math.max(eng ? 4 : 3, limits.maxUp)); art = dy <= -4 ? 'doppel' : 'sprung'; }
   else if (richtung === 'runter') { dy = rng.intRange(3, 8); art = rng.range(0, 1) < 0.4 ? 'fall' : 'sprung'; }
   else { dy = rng.intRange(-2, 2); art = rng.range(0, 1) < (d >= 3 ? 0.45 : 0.3) ? 'doppel' : 'sprung'; }
   const zug = { art, dir, halte: rng.intRange(14, 30), kanteVersatz: -rng.intRange(10, 20) };
@@ -146,6 +146,8 @@ function wuerfleZug(rng, richtungEin, d, limits, mechanik = '', sperre = null, z
   if (art === 'fall' && rng.range(0, 1) < 0.4) zug.doppelNach = rng.intRange(10, 24);
   // Kurzer Bogen: Richtung früh loslassen (bei hohen Stufen häufiger — eine Aufgabe für sich)
   if (rng.range(0, 1) < 0.15 + 0.05 * d) zug.loslassen = rng.intRange(16, 30);
+  // Im Schlot meist früh loslassen: Mit voller Richtung trägt ein Sprung bei „super“ über den ganzen Schacht
+  if (eng && rng.range(0, 1) < 0.8) zug.loslassen = rng.intRange(8, 24);
 
   if (art !== 'fall' && nimm('ring', 0.5)) {
     // Ring-Kette: Sprung → Doppelsprung → Ring am zweiten Scheitel → noch ein Luftsprung (den der Ring zurückgibt).
@@ -270,6 +272,65 @@ function wuerfleZug(rng, richtungEin, d, limits, mechanik = '', sperre = null, z
     // Schalter im Bogen: Erst er macht die Farbblock-Plattformen der nächsten Züge fest
     zug.schalter = true;
     zug.mechanik = 'schalter';
+  } else if (art !== 'fall' && nimm('beschuss', 0.6)) {
+    // Beschuss (Rückmeldung 01.10.2026: „Projektile, die fliegen und denen man ausweichen muss“): Kanonen schießen quer
+    // durch den Sprung — man wartet auf einen Schuss und springt hinter der Kugel durch die Lücke im Strom
+    zug.beschuss = true;
+    zug.schussReaktion = rng.intRange(4, 16);
+    zug.mechanik = 'beschuss';
+  } else if (nimm('luftportal', 0.6)) {
+    // Luftportal (Rückmeldung 01.10.2026: „besondere Ideen mit den Portalen … ziemlich eintönig“): Das Portal hängt IM
+    // Sprungbogen über der Grube — man springt hinein und kommt mit demselben Schwung woanders heraus. `anteil`: wo im
+    // Bogen (Zeit bis zum Scheitel), `ausgang`: wohin, relativ zum Eingang.
+    zug.art = art === 'fall' ? 'sprung' : art;
+    if (zug.art === 'sprung' && richtung === 'hoch') { zug.art = 'doppel'; zug.doppelNach = rng.intRange(16, 26); }
+    zug.luftportal = true;
+    zug.mechanik = 'luftportal';
+    delete zug.loslassen;
+    zug.halte = rng.intRange(20, 30);
+    if (richtung === 'hoch') {
+      zug.anteil = rng.intRange(40, 80) / 100;
+      zug.ausgang = { dx: dir * rng.intRange(-3, 5), dy: -rng.intRange(9, 14) };
+      zug.nachDy = rng.intRange(0, 2);
+    } else if (richtung === 'runter') {
+      zug.anteil = rng.intRange(80, 130) / 100;
+      zug.ausgang = { dx: dir * rng.intRange(6, 14), dy: rng.intRange(6, 12) };
+      zug.nachDy = rng.intRange(1, 4);
+    } else {
+      zug.anteil = rng.intRange(60, 125) / 100;
+      zug.ausgang = { dx: dir * rng.intRange(12, 20), dy: rng.intRange(-7, 2) };
+      zug.nachDy = rng.intRange(1, 4);
+    }
+    dy = 0;                                                     // die Zielzeile ergibt sich aus dem Ausgang (planer)
+  }
+  // Kristall-Tunnel (Rückmeldung 01.10.2026: „mehr Ideen mit den Dash-Kristallen“): flach unter der Stacheldecke dashen, am Ende
+  // des Dashs hängt ein zweiter Kristall — gleich schräg hinauf dashen, auf eine Plattform HÖHER als der Start. (Zwei flache Dashes
+  // trugen nur ~1 Kachel weiter als einer: Nach dem Dash fliegt man ohnehin mit Lauftempo weiter.)
+  if ((richtung === 'links' || richtung === 'rechts') && !zug.mechanik && nimm('tunnelkette', 0.6)) {
+    zug.art = 'fall';
+    zug.dashNach = rng.intRange(2, 8);
+    zug.dash2 = true;
+    zug.dash2Reaktion = rng.intRange(0, 6);
+    zug.mechanik = 'tunnelkette';
+    delete zug.loslassen;
+    delete zug.doppelNach;
+    delete zug.halte;
+    delete zug.kanteVersatz;
+    dy = -rng.intRange(1, 2);
+  }
+  // Luftkristall: Sprung, Doppelsprung, im Fallen hängt ein Kristall — schnappen und dashen (flach oder schräg hinauf), der
+  // Dash fängt den Fall ab und trägt über eine Grube, die kein Doppelsprung schafft
+  if ((richtung === 'links' || richtung === 'rechts') && !zug.mechanik && art !== 'fall' && nimm('luftdash', 0.6)) {
+    zug.art = 'doppel';
+    zug.halte = rng.intRange(24, 32);
+    zug.doppelNach = rng.intRange(20, 30);
+    zug.luftdash = true;
+    zug.luftdashReaktion = rng.intRange(0, 6);
+    zug.luftdashHoch = rng.range(0, 1) < 0.5;
+    zug.fallTicks = rng.intRange(4, 16);                      // wie weit nach dem zweiten Scheitel der Kristall hängt
+    zug.mechanik = 'luftdash';
+    delete zug.loslassen;
+    dy = rng.intRange(-1, 3);
   }
   // Bröckelnde Landefläche: Man landet und muss sofort weiter (Verzögerung 0,28 s). Kein eigenes Ziel, deshalb kein
   // `mechanik`-Eintrag und keine Notwendigkeitsprüfung.
@@ -281,9 +342,17 @@ function wuerfleZug(rng, richtungEin, d, limits, mechanik = '', sperre = null, z
   // anderen Mechanik der Szene (Schwung, Ring, Böe durchs Nadelöhr).
   // (zu einem Schwung, Ring oder einer Böe fast immer — sonst gewann meist der schlichte Sprung durchs Nadelöhr)
   const schwung = zug.greifNach != null || zug.ring || zug.wind;
-  if (erlaubt.has('nadeloehr') && (gewaehlt === 'nadeloehr' || (!gewaehlt && rng.range(0, 1) < 0.6) || (gewaehlt && zug.mechanik && rng.range(0, 1) < (schwung ? 0.9 : 0.6)))) {
+  if (erlaubt.has('nadeloehr') && !zug.luftportal && (gewaehlt === 'nadeloehr' || (!gewaehlt && rng.range(0, 1) < 0.6) || (gewaehlt && zug.mechanik && rng.range(0, 1) < (schwung ? 0.9 : 0.6)))) {
     zug.roehren = zug.greifNach != null ? 2 : 1;
     if (!zug.mechanik) zug.mechanik = 'nadeloehr';
+  }
+  // Schlüsselsprung (Rückmeldung 01.10.2026: Schlüssel „ziemlich eintönig“): Der Schlüssel hängt am Scheitel dieses Sprungs,
+  // die Tür steckt im Flugweg des NÄCHSTEN — wer ihn im Flug verpasst, prallt dort ab. Wie das Nadelöhr auch als Zusatz zu
+  // einer anderen Aufgabe (Portal, Ring …), dann hängt er am letzten Scheitel.
+  if (erlaubt.has('schluesselsprung') && art !== 'fall' && zug.art !== 'fall' && !zug.greifNach && !zug.flappy && !zug.kette
+    && (gewaehlt === 'schluesselsprung' || (!gewaehlt && rng.range(0, 1) < 0.5) || (gewaehlt && zug.mechanik && rng.range(0, 1) < 0.6))) {
+    zug.schluesselFlug = true;
+    if (!zug.mechanik) zug.mechanik = 'schluesselsprung';
   }
   return { zug, dy };
 }
@@ -318,10 +387,10 @@ export function pruefeZug(grid, entities, cls, laufTempo, schritt) {
     const st0 = v.startX != null ? { x: v.startX, y: von.y } : von;
     const aus = ausschnittWelt(grid, entities, st0, cls, { x: Math.round((von.x + ziel.x0) / 2), y: Math.round((von.y + ziel.row) / 2) });
     if (v.startDx) aus.welt.player.x += v.startDx;
-    if (schritt.schluessel) aus.welt.flags.keys = 1;          // nach dem Abstecher: Die Tür öffnet sich
+    aus.welt.flags.keys = Number(schritt.schluessel) || 0;     // Schlüssel in der Tasche: Türen öffnen sich
     aus.welt.flags.sw = schritt.sw || 0;                        // geschaltete Kanäle: Farbblock-Brücken sind fest
     // (Mitfahrt: Warten auf die Plattform und Fahrt dauern — bis zu 20 s Sim-Zeit)
-    const r = spieleZug(aus, ...mitVorlauf(zugEingabe(v, kanteX - aus.x0 * TILE), zugFertig, schritt.vorlauf), zug.art === 'mitfahrt' ? 2400 : zug.art === 'bruecke' || zug.art === 'deckel' || zug.art === 'kopfueber' ? 1400 : zug.boee ? 1100 : 700);
+    const r = spieleZug(aus, ...mitVorlauf(zugEingabe(v, kanteX - aus.x0 * TILE), zugFertig, schritt.vorlauf), zug.art === 'mitfahrt' ? 2400 : zug.art === 'bruecke' || zug.art === 'deckel' || zug.art === 'kopfueber' ? 1400 : zug.boee || zug.beschuss ? 1100 : 700);
     const ende = r.spur[r.spur.length - 1];
     // Schon im ersten Tick gestorben (etwa ein Start von einer anderen Landekachel mitten in einer Stachel): leere Spur
     if (!ende) return { ok: false, spuren, landungen, fehl: { variante: v, st: null, tot: true, grund: r.grund } };
@@ -330,12 +399,42 @@ export function pruefeZug(grid, entities, cls, laufTempo, schritt) {
     // (Die Sim hat nur 4 Kanäle: Ab dem fünften Schalter wird ein Kanal wiederverwendet, dessen Bit schon gesetzt sein kann —
     // dann schaltet der Schalter AUS. Entscheidend ist der Zustand nach dem Umschalten, `schalterZiel`.)
     const geschaltet = zug.schalterKanal == null || ((r.welt.flags.sw >> zug.schalterKanal) & 1) === zug.schalterZiel;
-    const aufZiel = !r.tot && geschaltet && ende.boden && st.y === ziel.row - 1 && st.x >= ziel.x0 && st.x <= ziel.x1;
+    // Schlüsselsprung und Tür: Jede Variante muss den Schlüssel im Flug schnappen bzw. die Tür wirklich öffnen
+    const schluesselOk = schritt.schluesselEnde == null || r.welt.flags.keys === schritt.schluesselEnde;
+    const aufZiel = !r.tot && geschaltet && schluesselOk && ende.boden && st.y === ziel.row - 1 && st.x >= ziel.x0 && st.x <= ziel.x1;
     spuren.push(r.spur);
     landungen.push({ ...st, boden: ende.boden, tot: r.tot });
     if (!aufZiel) return { ok: false, spuren, landungen, fehl: { variante: v, st, tot: r.tot, grund: r.grund } };
   }
   return { ok: true, spuren, landungen };
+}
+
+/**
+ * Nach der Füllung: Kristall-Züge, die im FERTIGEN Gelände auch ohne Kristall gehen, verlieren ihn (Rückmeldung 03.10.2026:
+ * „random Dash-Kristalle ohne Use Case“). Der Planer prüft das schon beim Bauen, aber erst die Füllung stellt etwa eine Eiswand
+ * hinter eine schmale Zielplattform — die fängt dann einen schlichten Fall ab, der vorher darüber hinausflog. Der Zug wird
+ * durch den gefundenen schlichten ersetzt (der Kettenlauf spielt ihn so), aber nur, wenn der alle Varianten besteht.
+ * @returns {number} wie viele Züge ihren Kristall verloren
+ */
+export function kristalleAufraeumen({ grid, entities, schritte, plattformen, cls, laufTempo }) {
+  let n = 0;
+  schritte.forEach((s, i) => {
+    const kristalle = [s.zug.kristall, s.zug.kristall2].filter((k) => k && entities.includes(k));
+    if (!kristalle.length || s.zug.kette) return;
+    const plat = i === 0 ? plattformen[0] : schritte[i - 1].ziel;
+    const ohne = ohneMechanikErreichbar({ grid, entities, ohne: kristalle, anker: null, cls, von: s.von, plat, ziel: s.ziel, gruendlich: true, sw: s.sw || 0 });
+    if (!ohne) return;
+    const alt = { zug: s.zug, kanteX: s.kanteX, mechanik: s.mechanik };
+    // (von hinten entfernen, von vorn wieder einsetzen — so stimmen die Stellen)
+    const paare = kristalle.map((k) => [entities.indexOf(k), k]).sort((a, b) => b[0] - a[0]);
+    for (const [k] of paare) entities.splice(k, 1);
+    Object.assign(s, { zug: ohne.zug, kanteX: ohne.kanteX, mechanik: 'sprung' });
+    if (pruefeZug(grid, entities, cls, laufTempo, s).ok) { n++; return; }
+    // Der schlichte Zug hält den Varianten nicht stand: dann bleibt der Kristall
+    for (const [k, e] of [...paare].reverse()) entities.splice(k, 0, e);
+    Object.assign(s, alt);
+  });
+  return n;
 }
 
 /**
@@ -351,7 +450,7 @@ export function pruefeZug(grid, entities, cls, laufTempo, schritt) {
  *   wahlweise mit der Szene, zu der er gehört
  * @returns {{ schritte: object[], plattformen: object[], korridor: Set<string>, entities: object[], ende: {x,y} }}
  */
-export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen: plan, portalBudget = 2, ausweich = ['rechts', 'runter', 'hoch'], plattform = null, zielschalter = false, extrem = true }) {
+export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen: plan, portalBudget = 2, luftBudget = 3, ausweich = ['rechts', 'runter', 'hoch'], plattform = null, zielschalter = false, extrem = true }) {
   // Zwangsversuche je Zug: geplante Aufgabe, dann Ersatz. Im Extrem-Level (eine Aufgabe trägt das ganze Level) großzügig
   // 10+10; in der Mischung 8+8 — dort gibt es viele Aufgaben, und jeder gescheiterte Versuch kostet Bauzeit.
   const PHASE = extrem ? 10 : 8;
@@ -368,7 +467,26 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
   if (zielschalter && richtungen.length) richtungen.push({ r: 'zielschalter', abstecher: 'zielschalter', szene: richtungen[richtungen.length - 1].szene, mechanik: '' });
   const letzterIdx = richtungen.length - 1 - (zielschalter ? 1 : 0);
   let zielPunkt = null;
-  const hochDanach = richtungen.map((_, i) => richtungen.slice(i + 1).filter(istHoch).length);
+  // Höhenbedarf in Zeilen — je Zug das MINDESTE, was er klettert: ein Aufstieg 3, im Schlot 4 (wuerfleZug `eng`); ein Abstieg
+  // gibt 3 zurück. Reserviert wird der höchste noch kommende NETTO-Aufstieg. (Vorher 3 je Aufstieg, Abstiege nicht gerechnet:
+  // Vor einem Schlot durfte die Etappe davor so weit hinauf, dass ihm ~40 Zeilen fehlten — tausende Verwerfungen, Rücknahmen,
+  // Abbruch, 40–60 s Bauzeit. Mehr als das Mindeste zu reservieren machte den Schlot dagegen unbaubar, wenn die Etappe davor
+  // nicht tief genug endete.)
+  const istRunter = (e) => (typeof e === 'string' ? e : e.r).startsWith('runter');
+  const hochBedarf = (e) => (istHoch(e) ? (typeof e === 'object' && e.schlot ? 4 : 3) : istRunter(e) ? -3 : 0);
+  const hochDanachAus = (k) => {
+    let summe = 0;
+    let max = 0;
+    for (let j = k + 1; j < richtungen.length; j++) {
+      summe += hochBedarf(richtungen[j]);
+      // (Die letzte Plattform darf höchstens auf ZIEL_ZEILE_MIN liegen, nicht auf RAND + 6 — sonst kletterte ein Schlot am
+      // Levelende bis an den Rand, und das Ziel fand keinen Platz mehr: Rücknahme um Rücknahme)
+      const zielExtra = j === letzterIdx ? ZIEL_ZEILE_MIN - (RAND + 6) : 0;
+      if (summe + zielExtra > max) max = summe + zielExtra;
+    }
+    return max;
+  };
+  const hochDanach = richtungen.map((_, i) => hochDanachAus(i));
   const plattformen = [];
   const schritte = [];
   const W = grid[0].length;
@@ -390,11 +508,19 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
   // Plattform und Korridor zurückgenommen und dort anders versucht. Ohne das endete jeder dritte Weg nach wenigen Zügen.
   const stapel = [];
   let rueckBudget = Math.max(20, richtungen.length);
+  let endBudget = 12;
   let sperre = null;
   let portale = 0;
   // Schlüssel-Abstecher: Plattform vor der Tür (Hub) und ob der Schlüssel schon eingesammelt ist
   let hub = null;
-  let schluesselDa = false;
+  // Schlüssel in der Tasche (Abstecher, Schlüsselsprung) — die Prüfwelten starten damit; eine Tür verbraucht einen
+  let schluessel = 0;
+  // Schlüsselsprung: Der nächste Zug muss die Tür bekommen
+  let tuerFaellig = false;
+  // Luftportale bisher (eigenes Budget neben den Boden-Portalen)
+  let luftPortale = 0;
+  // Schlot: Rahmen (Spalten) des engen Schachts, solange die Etappe läuft
+  let rahmen = null;
   // Schalter-Brücken: geschaltete Kanäle (Bitmaske wie world.flags.sw), wie viele Schalter es gibt, und wie viele der
   // nächsten Landeplattformen noch aus Farbblöcken des letzten Kanals sind
   let swMaske = 0;
@@ -417,7 +543,21 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
     // Ausweichrichtungen gibt die Großform vor (Turm: lieber hoch als nach rechts)
     // (Ein Abstecher weicht nicht aus: Sonst landete der Schlüssel etwa UNTER dem Hub)
     const wunsch = abst ? [gewuenscht] : [gewuenscht, gewuenscht, gewuenscht, ...((typeof eintrag === 'object' && eintrag.ausweich) || ausweich)];
-    for (let versuch = 0; versuch < 40; versuch++) {
+    // Schlot (Rückmeldung 01.10.2026: „noch keinen Turm, der relativ eng ist und viele Hindernisse beim Klettern hat“): Beim
+    // ersten Zug der Etappe wird der Schacht festgelegt — so breit wie ein Sprung plus 10 Kacheln; alle Plattformen, Bahnen und
+    // Bauteile der Etappe bleiben darin, die Füllung zieht links und rechts Eiswände hoch
+    const rahmenVorher = rahmen;
+    if (typeof eintrag === 'object' && eintrag.schlot) {
+      if (!rahmen) {
+        const wi = Math.ceil(reach.gap.jump) + 14;
+        // (Vom Start aus: gleich rechts neben dessen reserviertem Kopfraum — darin darf keine Plattform liegen)
+        const x0 = plattformen.length === 1 ? plat.x1 + 3 : Math.max(RAND + 3, Math.min(W - RAND - 3 - wi, cur.x - rng.intRange(3, wi - 4)));
+        rahmen = { x0, x1: x0 + wi - 1, ab: i };
+      }
+    } else rahmen = null;
+    // (Im Schlot mehr Versuche: Im engen Schacht findet eine Landefläche seltener Platz)
+    const VERSUCHE = rahmen ? 64 : 40;
+    for (let versuch = 0; versuch < VERSUCHE; versuch++) {
       const richtung = wunsch[Math.min(wunsch.length - 1, Math.floor(versuch / 7))];
       // In den letzten Versuchen ohne Mechanik: lieber ein schlichter Sprung als eine Sackgasse
       const letzter = i === letzterIdx;
@@ -431,29 +571,39 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       const z2 = schritte[schritte.length - 2];
       const zweimal = z1 && z2 && z1.mechanik !== 'sprung' && z1.mechanik === z2.mechanik ? z1.mechanik : null;
       // Geplante Aufgabe in den ersten PHASE Versuchen, danach (falls vorhanden) PHASE mit dem Ersatz — erst zuletzt schlicht
-      const mechanik = ersatz && versuch >= PHASE ? ersatz : mechanikPlan;
+      // (Nach einem Schlüsselsprung ein schlichter Sprung: In SEINEM Flugweg steckt die Tür)
+      const mechanik = tuerFaellig ? '' : ersatz && versuch >= (rahmen ? 2 : 1) * PHASE ? ersatz : mechanikPlan;
       // Motiv-Vorstellung: nur Aufgaben ohne eigenen Zustand (motive.js) — sonst ließe sich die Phrase nicht wiederholen
       const motivSetzen = typeof eintrag === 'object' && eintrag.motiv && eintrag.motiv.rolle === 'setzen';
+      // Schlüsselsprung nur, wenn danach noch ein gewöhnlicher Zug kommt (dort steckt die Tür)
+      const naechster = richtungen[i + 1];
+      const tuerMoeglich = i + 1 <= letzterIdx && !(typeof naechster === 'object' && naechster.abstecher);
       // (…und kein Brückenblock: Man wartet dort auf den Aufprall — Bröckel- und Farbblöcke tragen einen so lange nicht)
-      const mech = mechanik.split('+').filter((m) => !(plat.broeckel && (m === 'feder' || m === 'portal')) && !((plat.broeckel || plat.farbe != null) && m === 'bruecke') && !(wandDavor && m === 'wand')
-        && !(motivSetzen && ['schalter', 'tor', 'mitfahrt', 'wand', 'portal'].includes(m))
+      // (Beschuss nicht von Bröckeln: Man wartet dort auf den Schuss)
+      const mech = mechanik.split('+').filter((m) => !(plat.broeckel && (m === 'feder' || m === 'portal' || m === 'beschuss')) && !((plat.broeckel || plat.farbe != null) && m === 'bruecke') && !(wandDavor && m === 'wand')
+        && !(motivSetzen && ['schalter', 'tor', 'mitfahrt', 'wand', 'portal', 'beschuss', 'luftportal', 'schluesselsprung'].includes(m))
+        && !(m === 'schluesselsprung' && !tuerMoeglich) && !(m === 'luftportal' && luftPortale >= luftBudget)
         && m !== zweimal && !(!extrem && TEUER.has(m) && teureVersuche >= TEUER_BUDGET)).join('+');
       if (mech.split('+').some((m) => TEUER.has(m))) teureVersuche++;
       // Die ersten 20 Versuche MIT der Mechanik der Szene; passt sie nicht (etwa Aufwind bei einem waagerechten Zug), neu
       // würfeln statt einen schlichten Sprung zu nehmen. Danach frei, ab Versuch 28 ohne — lieber schlicht als Sackgasse.
-      const zwang = versuch < 2 * PHASE && !letzter && !!mech;
-      let { zug, dy } = wuerfleZug(rng, richtung, dZug, limits, versuch < 2 * PHASE + 6 && !letzter ? mech : '', sperre, zwang);
+      const zwang = versuch < (rahmen ? 4 : 2) * PHASE && !letzter && !!mech;
+      // Schlot: dorthin, wo neben der Plattform mehr Platz ist (an der Wand geht es nur zur anderen Seite); ist beidseits Platz, frei
+      const schlotDir = rahmen && !sperre ? (Math.min(plat.x0 - rahmen.x0, rahmen.x1 - plat.x1) >= 7 ? null : plat.x0 - rahmen.x0 > rahmen.x1 - plat.x1 ? -1 : 1) : null;
+      let { zug, dy } = wuerfleZug(rng, richtung, dZug, limits, versuch < (rahmen ? 4 : 2) * PHASE + 6 && !letzter ? mech : '', sperre || schlotDir, zwang, !!rahmen);
       // Motiv-Wiederholung: der gemerkte Zug der Vorstellung, abgewandelt — ersetzt die Aufgabe der Szene. Passt er nach
       // 6 Versuchen nicht (Wand, Höhenbudget, Abkürzung …), würfelt der Zug normal weiter: Lösbarkeit geht vor.
       const mm = typeof eintrag === 'object' ? eintrag.motiv : null;
       let motivGenutzt = null;
       // (Rückfall-Kette: 3 Versuche die Abwandlung, 3 Versuche unverändert — gespiegelt lief die Phrase im Strom oft zurück
       // über den eigenen Weg — dann normal)
-      if (mm && mm.rolle === 'wiederholen' && !letzter && !abst && versuch < 6 && motive.has(`${mm.id}:${mm.teil}`)) {
+      if (mm && mm.rolle === 'wiederholen' && !letzter && !abst && !tuerFaellig && versuch < 6 && motive.has(`${mm.id}:${mm.teil}`)) {
         motivGenutzt = versuch < 3 ? mm : { ...mm, variante: 'gleich', statt: mm.variante };
         ({ zug, dy } = variiere(motive.get(`${mm.id}:${mm.teil}`), motivGenutzt));
       }
       if (!motivGenutzt && zwang && !zug.mechanik && !zug.broeckel) { zaehle('zwang'); continue; }
+      // Die Tür eines Schlüsselsprungs kommt in einen schlichten Bogen (Sprung, Doppelsprung, Fall)
+      if (tuerFaellig && !abst && (!['sprung', 'doppel', 'fall'].includes(zug.art) || zug.greifNach != null || zug.flappy || zug.ring)) { zaehle('tuer-art'); continue; }
       // Hinab zum Schlüssel: Erst die Nische bauen — 4–6 Kacheln vor dem Hub (je nach Tempo) (näher prallte der Rücksprung seitlich gegen
       // die Hubkante), 3–6 Zeilen tiefer, 4–7 breit (Anlauf für den Rücksprung) —, dann einen Sprung suchen, dessen
       // Varianten alle darauf landen. Nach vorn, weil dort noch nichts gebaut ist: Nach oben fand der Abstecher kaum Platz
@@ -532,7 +682,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       // Höhenbudget: Über dem Ziel müssen die noch geplanten Aufstiege Platz haben (je mindestens 3 Zeilen). Sonst
       // verbrauchte ein Wandschacht (11–15 Zeilen) früh die Höhe, und der Turm endete lange vor seinem Plan. Ein
       // schlichter Sprung wird gekürzt; Wandschacht und Feder brauchen ihre Höhe (sonst wären sie unnötig) — verworfen.
-      const maxHub = plat.row - (RAND + 6) - 3 * hochDanach[i];
+      const maxHub = plat.row - (i === letzterIdx ? Math.max(RAND + 6, ZIEL_ZEILE_MIN) : RAND + 6) - hochDanach[i];
       if (dy < 0 && -dy > maxHub) {
         if (zug.art === 'wand' || zug.art === 'feder' || zug.art === 'deckel' || zug.kette || maxHub < 3) { verwerfen('hoehe'); continue; }
         R = plat.row - maxHub;
@@ -591,7 +741,8 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       } else if (zug.art === 'portal' && portale >= portalBudget) { verwerfen('portalBudget'); continue; }
       else if (zug.art === 'portal') {
         // Portal: Eingang zwei Kacheln vor einem her auf der Plattform, Ausgang irgendwo anders, darunter die neue Plattform
-        const px = (zug.dir > 0 ? Math.max(cur.x, ...landeXs) : Math.min(cur.x, ...landeXs)) + zug.dir * 2;
+        // (3 Kacheln hinter den Landestellen: Mit 2 rutschte man im Kettenlauf nach der Landung hinein)
+        const px = (zug.dir > 0 ? Math.max(cur.x, ...landeXs) : Math.min(cur.x, ...landeXs)) + zug.dir * 3;
         if (px < plat.x0 || px > plat.x1) { verwerfen('portal-platz'); continue; }
         // Weit weg — in einen anderen Bereich (Rückmeldung: „nicht 5 Teleporter, die einen 3 Felder weiter teleportieren“)
         const ax = cur.x + zug.dir * rng.intRange(20, 36) * (rng.range(0, 1) < 0.25 ? -1 : 1);
@@ -632,7 +783,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         eigenerStrahl = zone;
         // Probe: fahren, abspringen — wo fällt man nach dem Absprung durch die Zielzeile?
         const aus = ausschnittWelt(grid, entities, von, cls, { x: mx + Math.round(weg[0] / 2), y: my + Math.round(weg[1] / 2) });
-        if (schluesselDa) aus.welt.flags.keys = 1;
+        aus.welt.flags.keys = schluessel;
         aus.welt.flags.sw = swMaske;
         let zRef = null;
         const basis = zugEingabe(zug, kanteX - aus.x0 * TILE);
@@ -733,7 +884,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         eigenerStrahl = zone;
         // Probe (mit langem Liegen): Wie lange braucht man vom Aufprall bis hinüber? Das plus 1,5 s Puffer ist die Liegezeit.
         const aus = ausschnittWelt(grid, entities, von, cls, { x: Math.round((bx0 + bx1) / 2), y: plat.row - 4 });
-        if (schluesselDa) aus.welt.flags.keys = 1;
+        aus.welt.flags.keys = schluessel;
         aus.welt.flags.sw = swMaske;
         let zRef = null;
         const basis = zugEingabe(zug, kanteX - aus.x0 * TILE);
@@ -794,7 +945,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         // Probe: Wo landet man nach dem Zurückkippen? Dort kommt die Zielplattform hin.
         R = plat.row + dy;
         const aus = ausschnittWelt(grid, entities, von, cls, { x: Math.round((zx0 + zx1) / 2) + dir * 6, y: C + 4 });
-        if (schluesselDa) aus.welt.flags.keys = 1;
+        aus.welt.flags.keys = schluessel;
         aus.welt.flags.sw = swMaske;
         let zRef = null;
         const basis = zugEingabe(zug, kanteX - aus.x0 * TILE);
@@ -897,7 +1048,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         for (const key of zone) { strahlen.add(key); extra.push(() => strahlen.delete(key)); }
         eigenerStrahl = zone;
         const aus = ausschnittWelt(grid, entities, von, cls, { x: Math.round((hx0 + hx1) / 2), y: C });
-        if (schluesselDa) aus.welt.flags.keys = 1;
+        aus.welt.flags.keys = schluessel;
         aus.welt.flags.sw = swMaske;
         let zRef = null;
         const basis = zugEingabe(zug, kanteX - aus.x0 * TILE);
@@ -912,7 +1063,9 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         const aussen = ohneMechanikErreichbar({ grid, entities, ohne: [block], anker: null, cls, von, plat, ziel: { x0: cx0, x1: cx1, row: C }, gruendlich: true });
         for (const [x, c] of alt) grid[C][x] = c;
         if (aussen) { verwerfen('deckel-aussen'); continue; }
-        ziel = { x0: zx0, x1: zx1, row: C, deckel: true };
+        // (Der Überhang der Decke jenseits der Zielfläche ist begehbar — er gehört zur Plattform; als Rest daneben lag er sonst
+        // als freie Standfläche im Korridor, ohne Sicherheits-Stachel)
+        ziel = { x0: dir > 0 ? zx0 : cx0, x1: dir > 0 ? cx1 : zx1, row: C, deckel: true };
       } else if (zug.art === 'wand') {
         // Wandschacht: Wand A über der Plattformkante (unten offen — darunter springt man hinein), Wand B jenseits des
         // Schachts, oben auf B die neue Plattform. A ragt höher als B und trägt oben eine Stachel: Hinaus kommt man nur
@@ -937,7 +1090,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         for (let y = R + 1; y <= plat.row + 2; y++) setzeKachel(xb, y, ROCK);
         for (let x = Math.min(xb, xe); x <= Math.max(xb, xe); x++) setzeKachel(x, R, ROCK);
         const aus = ausschnittWelt(grid, entities, von, cls, { x: Math.round((kante + xe) / 2), y: Math.round((von.y + R) / 2) });
-        if (schluesselDa) aus.welt.flags.keys = 1;
+        aus.welt.flags.keys = schluessel;
         aus.welt.flags.sw = swMaske;
         const probe = spieleZug(aus, ...mitVorlauf(zugEingabe(zug, kanteX - aus.x0 * TILE), zugFertig, vorlauf), 900);
         const ende = probe.spur[probe.spur.length - 1];
@@ -953,12 +1106,14 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           setzeEntity({ type: 'spring', tx: fx, ty: von.y, dir: 'up' });
         }
         // Ohne Ziel spielen
+        // (Luftportal: Ausschnitt zwischen Absprung und Ausgang, sonst läge der Ausgang außerhalb)
+        let mitte = null;
         const probeSpielen = (z2 = zug) => {
-          const aus = ausschnittWelt(grid, entities, von, cls, { x: von.x + zug.dir * 10, y: von.y + Math.round(dy / 2) });
-          if (schluesselDa) aus.welt.flags.keys = 1;
+          const aus = ausschnittWelt(grid, entities, von, cls, mitte || { x: von.x + zug.dir * 10, y: von.y + Math.round(dy / 2) });
+          aus.welt.flags.keys = schluessel;
           aus.welt.flags.sw = swMaske;
           if (z2.startDx) aus.welt.player.x += z2.startDx;
-          return spieleZug(aus, ...mitVorlauf(zugEingabe(z2, kanteX - aus.x0 * TILE), zugFertig, vorlauf), zug.flappy ? 800 : 500);
+          return spieleZug(aus, ...mitVorlauf(zugEingabe(z2, kanteX - aus.x0 * TILE), zugFertig, vorlauf), zug.flappy ? 800 : zug.beschuss ? 1000 : 500);
         };
         // Windzone vor der Probe: Sie formt den Flug. Ihre Kacheln darf danach kein anderer Zug berühren (wie ein
         // Laserstrahl) — wer hindurchfiele, würde unerwartet weggeweht.
@@ -996,6 +1151,46 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         }
         let probe = probeSpielen();
         const abflug = probe.spur.findIndex((s) => !s.boden);
+        // Luftportal: Eingang an der gewählten Stelle des Bogens, Ausgang versetzt; die Zielzeile folgt aus dem Ausgang
+        if (zug.luftportal) {
+          if (abflug < 0) { verwerfen('keinAbflug'); continue; }
+          const scheitel0 = probe.spur.findIndex((s, k) => k > abflug && s.vy >= 0);
+          if (scheitel0 < 0) { verwerfen('keinScheitel'); continue; }
+          // Um beide Portale ein Feld Luft, das kein anderer Zug berührt — sonst zöge es ihn hinein. Der Eingang: die erste
+          // Stelle ab `anteil` der Zeit bis zum Scheitel, an der das geht (direkt über der Absprungkante liegt der Kopfraum der
+          // Plattform); der Ausgang: der gewürfelte Versatz, sonst etwas daneben.
+          const rund = (x, y) => [-1, 0, 1].flatMap((ddx) => [-1, 0, 1].map((ddy) => [x + ddx, y + ddy]));
+          const luft = (x, y) => rund(x, y).every(([x2, y2]) => x2 >= RAND && x2 < W - RAND && y2 >= RAND + 2 && y2 < H - RAND - 2 && frei(grid, x2, y2) && !korridor.has(`${x2},${y2}`) && !strahlen.has(`${x2},${y2}`)
+            && (!rahmen || (x2 >= rahmen.x0 && x2 <= rahmen.x1)));
+          let px = -1;
+          let py = -1;
+          for (let k = abflug + Math.max(4, Math.round((scheitel0 - abflug) * zug.anteil)); k < probe.spur.length && px < 0; k += 2) {
+            const s = probe.spur[k];
+            if (s.boden) break;
+            const qx = Math.floor((s.x + PLAYER_W / 2) / TILE);
+            const qy = Math.floor((s.y + PLAYER_H / 2) / TILE);
+            if (luft(qx, qy)) { px = qx; py = qy; }
+          }
+          if (px < 0) { verwerfen('luftportal-eingang'); continue; }
+          const aus = [[0, 0], [zug.dir * 3, -2], [-zug.dir * 3, 2], [0, -4], [0, 4]].map(([ddx, ddy]) => [px + zug.ausgang.dx + ddx, py + zug.ausgang.dy + ddy]).find(([x, y]) => luft(x, y));
+          if (!aus) { verwerfen('luftportal-ausgang'); continue; }
+          const [ax, ay] = aus;
+          const pid = `lp${i}v${versuch}`;
+          // (Fangradius 14 statt 8 px: Mitten im Sprung trifft man ein Portal nicht so genau wie im Laufen — ±50 ms verschieben den Bogen)
+          setzeEntity({ type: 'portal', tx: px, ty: py, id: `${pid}a`, pair: `${pid}b`, radius: 14 });
+          setzeEntity({ type: 'portal', tx: ax, ty: ay, id: `${pid}b`, pair: `${pid}a`, radius: 14 });
+          const zone = new Set([...rund(px, py), ...rund(ax, ay)].map(([x, y]) => `${x},${y}`));
+          for (const key of zone) { strahlen.add(key); extra.push(() => strahlen.delete(key)); }
+          eigenerStrahl = new Set([...(eigenerStrahl || []), ...zone]);
+          R = ay + 1 + zug.nachDy;
+          mitte = { x: Math.round((von.x + ax) / 2), y: Math.round((von.y + ay) / 2) };
+          probe = probeSpielen();
+          // Wirklich hindurch? (Sprung der Lage um mehr als 3 Kacheln in einem Tick)
+          if (!probe.spur.some((q, j) => j > 0 && Math.abs(q.x - probe.spur[j - 1].x) + Math.abs(q.y - probe.spur[j - 1].y) > 48)) { verwerfen('luftportal-verfehlt'); continue; }
+          if (R < RAND + 6 || R > H - RAND - 2) { verwerfen('rand-y'); continue; }
+          // Höhenbudget wie bei jedem Aufstieg
+          if (R < plat.row && plat.row - R > plat.row - (RAND + 6) - hochDanach[i]) { verwerfen('hoehe'); continue; }
+        }
         // Dash-Kristall und Schalter: in den Bogen, dort, wo man einige Ticks vor dem Dash bzw. am Scheitel ist
         if (zug.dashNach != null) {
           // Kristall auf der Kante, über die man läuft (im eigenen Kopfraum — nur dieser Zug geht hier los)
@@ -1004,7 +1199,29 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           const kante0 = zug.dir > 0 ? plat.x1 : plat.x0;
           const kx = zug.dashSprung ? [2, 1, 0].map((k) => kante0 - zug.dir * k).find((x) => (x - von.x) * zug.dir > 0 && frei(grid, x, von.y)) : kante0;
           if (kx === undefined || !frei(grid, kx, von.y) || kx === von.x) { verwerfen('element-platz'); continue; }
-          setzeEntity({ type: 'crystal', tx: kx, ty: von.y });
+          zug.kristall = { type: 'crystal', tx: kx, ty: von.y };
+          setzeEntity(zug.kristall);
+          probe = probeSpielen();
+        }
+        // Kristall-Tunnel: der zweite Kristall dort, wo der erste Dash ausläuft (Dash 0,14 s = 17 Ticks, dann 1–4 Ticks weiter)
+        // Luftkristall: nach dem zweiten Scheitel, `fallTicks` ins Fallen hinein
+        if (zug.dash2 || zug.luftdash) {
+          if (abflug < 0) { verwerfen('keinAbflug'); continue; }
+          let k2;
+          if (zug.dash2) k2 = abflug + zug.dashNach + 17 + rng.intRange(1, 4);
+          else {
+            const a2 = probe.spur.findIndex((s, k) => k > abflug + zug.doppelNach + 2 && s.vy >= 0);
+            k2 = a2 < 0 ? -1 : a2 + zug.fallTicks;
+          }
+          const s2 = probe.spur[k2];
+          if (!s2 || s2.boden) { verwerfen('kristall-platz'); continue; }
+          const kx2 = Math.floor((s2.x + PLAYER_W / 2) / TILE);
+          const ky2 = Math.floor((s2.y + PLAYER_H / 2) / TILE);
+          if (kx2 < RAND || kx2 >= W - RAND || ky2 < RAND || !frei(grid, kx2, ky2) || korridor.has(`${kx2},${ky2}`) || strahlen.has(`${kx2},${ky2}`)) { verwerfen('kristall-platz'); continue; }
+          const kristall2 = { type: 'crystal', tx: kx2, ty: ky2 };
+          setzeEntity(kristall2);
+          zug.kristall2 = kristall2;
+          zug.kristallRel = { dx: kx2 - von.x, dy: ky2 - von.y };
           probe = probeSpielen();
         }
         if (zug.schalter) {
@@ -1128,14 +1345,44 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           const xs = ankerAlle.map((a) => a.x);
           zug.roehrenX = xs.slice(1).map((x, k) => Math.round((xs[k] + x) / 2));
         }
+        // Schlüsselsprung: der Schlüssel am letzten Scheitel, bevor man zur Zielzeile hinabfällt (beim Luftportal nach dem
+        // Austritt, beim Ring nach dem Umlenken) — jede Variante muss ihn im Flug schnappen (pruefeZug)
+        if (zug.schluesselFlug) {
+          if (abflug < 0) { verwerfen('keinAbflug'); continue; }
+          let letzterScheitel = -1;
+          for (let k = abflug + 1; k < probe.spur.length; k++) {
+            const q = probe.spur[k];
+            if (q.boden || (q.vy > 0 && q.y + PLAYER_H >= Math.max(R, von.y + 1) * TILE)) break;
+            if (probe.spur[k - 1].vy < 0 && q.vy >= 0) letzterScheitel = k;
+          }
+          const sk = letzterScheitel >= 0 ? probe.spur[letzterScheitel] : null;
+          const kx = sk ? Math.floor((sk.x + PLAYER_W / 2) / TILE) : -1;
+          const ky = sk ? Math.floor((sk.y + PLAYER_H / 2) / TILE) : -1;
+          if (!sk || kx < RAND || kx >= W - RAND || ky < RAND || !frei(grid, kx, ky) || korridor.has(`${kx},${ky}`) || strahlen.has(`${kx},${ky}`)) { verwerfen('schluessel-platz'); continue; }
+          zug.schluesselEnt = { type: 'key', tx: kx, ty: ky };
+          setzeEntity(zug.schluesselEnt);
+          strahlen.add(`${kx},${ky}`); extra.push(() => strahlen.delete(`${kx},${ky}`));
+          eigenerStrahl = new Set([...(eigenerStrahl || []), `${kx},${ky}`]);
+        }
         // Landestelle: der erste Tick, in dem man nach dem Abheben fallend die Zielzeile erreicht
+        // (Luftportal: erst nach dem Austritt — vorher kreuzt der Bogen die Zielzeile womöglich schon; ohne Austritt keine Landung)
         const landeIndex = (spur) => {
           let abgehoben = false;
-          for (let k = 0; k < spur.length; k++) {
+          let k0 = 0;
+          if (zug.luftportal) {
+            k0 = spur.findIndex((q, j) => j > 0 && Math.abs(q.x - spur[j - 1].x) + Math.abs(q.y - spur[j - 1].y) > 48);
+            if (k0 < 0) return -1;
+            abgehoben = true;
+          }
+          // (Gelandet wird von oben: Liegt das Ziel höher als der Start, zählt die Zielzeile erst, wenn man über ihr war —
+          // sonst galt beim Kristall-Tunnel schon das Absinken unter der Decke als Landung)
+          let ueber = false;
+          for (let k = k0; k < spur.length; k++) {
             const s = spur[k];
             if (!s.boden) abgehoben = true;
             if (abgehoben && s.boden) return -1;                 // vorher auf etwas anderem gelandet
-            if (abgehoben && s.vy > 0 && s.y + PLAYER_H >= R * TILE) return k;
+            if (s.y + PLAYER_H < R * TILE) ueber = true;
+            if (abgehoben && ueber && s.vy > 0 && s.y + PLAYER_H >= R * TILE) return k;
           }
           return -1;
         };
@@ -1150,7 +1397,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         let streuX0 = lande.x;
         let streuX1 = lande.x;
         const broeckelSchmal = zug.broeckel && !letzter;
-        if (zug.greifNach != null || zug.flappy || zug.ring || zug.praezise || zug.knapp || zug.dashSprung || broeckelSchmal) {
+        if (zug.greifNach != null || zug.flappy || zug.ring || zug.praezise || zug.knapp || zug.dashSprung || zug.luftportal || zug.luftdash || zug.dash2 || broeckelSchmal) {
           let gut = true;
           // (Flappy-Seil: auch die Starts ±4 px der Menschen-Prüfung — nach mehreren Schwüngen streuen sie am weitesten)
           const streuLaeufe = [...varianten(zug, reach.runSpeed).slice(1), ...(zug.flappy ? [{ ...zug, startDx: -4 }, { ...zug, startDx: 4 }] : [])];
@@ -1174,9 +1421,10 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         // die Varianten des vorigen Zugs; lag sie im Landebereich, lief man versehentlich darüber)
         // Bröckelplattform schmal: Man soll nicht auf ihr herumlaufen, sondern sofort weiter
         // (Plattformbreite nach Handschrift: schmal, normal oder breit)
-        const [vornMin, vornMax] = plattform ? plattform.vorn : [1, 4];
+        // (im Schlot schmal: Breite Plattformen füllten den halben Schacht)
+        const [vornMin, vornMax] = rahmen ? [0, 2] : plattform ? plattform.vorn : [1, 4];
         const vorn = zug.broeckel && !letzter ? rng.intRange(0, 1) : mechanik.includes('feder') ? rng.intRange(4, 6) : rng.intRange(vornMin, vornMax);
-        const rand = plattform?.rand ?? (dZug >= 4 ? 1 : 2);
+        const rand = rahmen ? 1 : plattform?.rand ?? (dZug >= 4 ? 1 : 2);
         // Wer schnell landet (Schwung am Seil, Ring), rutscht nach dem Loslassen noch: Bremsweg v²/(2·1900 px/s²) — die
         // langsamste Bremsung aller Klassen. Um so viel wird die Plattform in Rutschrichtung länger (sonst rutschte man
         // über die Kante; bis die Prüfung auf den Stillstand wartete, fiel das nicht auf).
@@ -1201,6 +1449,12 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         // Bröckel: genau die Landestreuung (höchstens 3 Kacheln) — Rückmeldung 26.09.2026: schmal, damit man zielgenau
         // landen muss und nur kurz Zeit zum Absprung hat
         if (broeckelSchmal) { x0 = streuX0; x1 = streuX1; }
+        // Schlot: Die Plattform endet an den Schachtwänden (die Landestelle muss drin liegen)
+        if (rahmen) {
+          x0 = Math.max(x0, rahmen.x0);
+          x1 = Math.min(x1, rahmen.x1);
+          if (lande.x < x0 || lande.x > x1 || streuX0 < rahmen.x0 || streuX1 > rahmen.x1) { verwerfen('schlot-landung'); continue; }
+        }
         if (x0 < RAND || x1 >= W - RAND) { verwerfen('rand-x'); continue; }
         const flug = beruehrteKacheln(probe.spur.slice(0, Math.max(0, L - 1)));
         const spalteFrei = (x) => {
@@ -1211,8 +1465,11 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         // Blockierte Enden kürzen, solange die Landestelle ±1 bleibt (etwa direkt hinter einer Wand) — die Varianten prüft
         // die Sim danach ohnehin. Vorher scheiterte hier jede Plattform, deren Rand eine Kachel zu weit reichte.
         if (!letzter) {
-          while (x0 < lande.x - 1 && !spalteFrei(x0)) x0++;
-          while (x1 > lande.x + 1 && !spalteFrei(x1)) x1--;
+          // (im Schlot bis an die Landestelle: Beim steilen Aufstieg kreuzt man die Zielzeile dicht daneben)
+          // (…ebenso nach dem schrägen Dash im Kristall-Tunnel)
+          const rest = rahmen || zug.dash2 ? 0 : 1;
+          while (x0 < lande.x - rest && !spalteFrei(x0)) x0++;
+          while (x1 > lande.x + rest && !spalteFrei(x1)) x1--;
         }
         let passt = !letzter || R >= ZIEL_ZEILE_MIN;
         for (let x = x0; x <= x1 && passt; x++) {
@@ -1277,7 +1534,8 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           // Dash-Tunnel: niedrige Stachel-Decke über der ganzen Lücke, Stacheln direkt über Kopfhöhe — der flache Dash passt
           // darunter, jeder Sprung stößt hinein (eine Zeile höher passte noch ein kurzer Hüpfer durch). Oben Fels mit Kappe (die Füllung lässt ihn nach oben wachsen).
           const kante = zug.dir > 0 ? plat.x1 : plat.x0;
-          const ende = zug.dir > 0 ? x0 - 1 : x1 + 1;
+          // (Kristall-Tunnel: Die Decke endet vor dem zweiten Kristall — dort geht es schräg hinauf)
+          const ende = zug.dash2 ? zug.kristall2.tx - zug.dir : zug.dir > 0 ? x0 - 1 : x1 + 1;
           const C = von.y - 2;                                   // Felszeile; Stacheln darunter (C+1) und darauf (C-1)
           let ok = C - 1 >= RAND && (ende - kante) * zug.dir >= 2;
           const flugAlle = beruehrteKacheln(probe.spur);
@@ -1289,6 +1547,16 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
             setzeKachel(x, C, ROCK);
             setzeEntity({ type: 'spike', tx: x, ty: C - 1, dir: 'up', kappe: true });
             setzeEntity({ type: 'spike', tx: x, ty: C + 1, dir: 'down' });
+          }
+          // Kristall-Tunnel: Ein Dash allein darf nicht reichen — ohne den zweiten Kristall landet man nicht auf der Plattform
+          if (zug.dash2) {
+            const idx = entities.indexOf(zug.kristall2);
+            entities.splice(idx, 1);
+            const r1 = probeSpielen();
+            entities.splice(idx, 0, zug.kristall2);
+            const e1 = r1.spur[r1.spur.length - 1];
+            const st1 = e1 ? standKachel(e1) : null;
+            if (!r1.tot && e1 && e1.boden && st1.y === R - 1 && st1.x >= x0 && st1.x <= x1) { verwerfen('tunnelkette-unnoetig'); continue; }
           }
         }
 
@@ -1322,6 +1590,97 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           eigenerStrahl = new Set(strahl);
         }
 
+        if (zug.beschuss) {
+          // Beschuss: 1–2 Kanonen, deren Kugelbahn den Flug kreuzt — bei waagerechten Zügen von oben (Tropfen) oder von unten
+          // (Fontäne), bei Auf- und Abstiegen von der Seite (im Schlot aus der Schachtwand). Die Bahn endet an einem eigenen
+          // Fänger; kein anderer Zug kreuzt sie (wie beim Tor), und sie meidet Start- und Landeplattform samt Kopfraum — dort
+          // wartet man auf den Schuss. Langsame Kugeln (60–100 px/s): Sie bleiben lange in der Bahn, man muss die Lücke abpassen.
+          const period = rng.intRange(8, 13) / 10;
+          const tempo = rng.intRange(6, 10) * 10;
+          const zwei = dZug >= 3 && rng.range(0, 1) < 0.4;
+          const flugK = [...flug].map((key) => key.split(',').map(Number));
+          // Flacher Flug → Bahn von oben/unten; steiler Flug → von der Seite (nach der Form der Bahn, nicht nach dem Namen der Richtung)
+          const fxs = flugK.map((q) => q[0]);
+          const fys = flugK.map((q) => q[1]);
+          const quer = Math.max(...fxs) - Math.min(...fxs) >= 1.5 * (Math.max(...fys) - Math.min(...fys));
+          const frage = (x, y) => x >= RAND - 2 && x < W - RAND + 2 && y >= 2 && y < H - 2 && frei(grid, x, y) && !korridor.has(`${x},${y}`) && !strahlen.has(`${x},${y}`)
+            && !(x >= x0 - 1 && x <= x1 + 1 && y >= R - 3 && y <= R);
+          // Kandidaten: waagerecht die Spalten über der Lücke (nicht über den Plattformen), sonst die Zeilen der Bahn zwischen den
+          // Kopfräumen von Start und Ziel — der Reihe nach ab einer zufälligen Stelle, die erste, an der alles frei ist
+          const spalten = [...new Set(flugK.map((q) => q[0]))].filter((x) => (x < plat.x0 || x > plat.x1) && (x < x0 - 1 || x > x1 + 1)).sort((a, b) => a - b);
+          // (Zeilen: alle der Bahn — ob die Bahn einen Kopfraum schneidet, prüft frage(); sie reicht nur knapp über den Flug hinaus)
+          const zeilen = [...new Set(flugK.map((q) => q[1]))].filter((y) => y < von.y - 1).sort((a, b) => a - b);
+          const kandidaten = quer ? spalten : zeilen;
+          /** Kanone samt Bahn an Kandidat c — oder der Grund, warum nicht */
+          const baueKanone = (c) => {
+            let kx; let ky; let fx; let fy; let dirK;
+            if (quer) {
+              const ys = flugK.filter((q) => q[0] === c).map((q) => q[1]);
+              const [oben, unten] = [Math.min(...ys), Math.max(...ys)];
+              kx = c; fx = c;
+              if (rng.range(0, 1) < 0.7) { ky = oben - rng.intRange(3, 5); fy = unten + rng.intRange(2, 3); dirK = 'down'; }
+              else { ky = unten + rng.intRange(2, 3); fy = oben - rng.intRange(3, 5); dirK = 'up'; }
+            } else {
+              const xs = flugK.filter((q) => q[1] === c).map((q) => q[0]);
+              ky = c; fy = c;
+              const links = rng.range(0, 1) < 0.5;
+              // (im Schlot sitzt die Kanone in der Wand, wenn die nah ist)
+              const lx = Math.max(rahmen ? rahmen.x0 - 1 : 0, Math.min(...xs) - rng.intRange(2, 4));
+              const rx = Math.min(rahmen ? rahmen.x1 + 1 : W - 1, Math.max(...xs) + rng.intRange(2, 4));
+              kx = links ? lx : rx; fx = links ? rx : lx; dirK = links ? 'right' : 'left';
+            }
+            const sx = Math.sign(fx - kx);
+            const sy = Math.sign(fy - ky);
+            const bahn = [];
+            for (let x = kx + sx, y = ky + sy; x !== fx || y !== fy; x += sx, y += sy) bahn.push([x, y]);
+            // Oben auf Kanone und Fänger eine Stachel (keine Standfläche) — außer, die Kugeln fliegen dort ohnehin durch
+            const kappeK = dirK !== 'up';
+            const kappeF = dirK !== 'down';
+            if (!frage(kx, ky) || (kappeK && !frage(kx, ky - 1))) return 'beschuss-platz-kanone';
+            if (!frage(fx, fy) || (kappeF && !frage(fx, fy - 1))) return 'beschuss-platz-faenger';
+            if (bahn.some(([x, y]) => !frage(x, y))) return 'beschuss-kreuzt';
+            setzeKachel(kx, ky, ROCK);
+            setzeKachel(fx, fy, ROCK);
+            if (kappeK) setzeEntity({ type: 'spike', tx: kx, ty: ky - 1, dir: 'up', kappe: true });
+            if (kappeF) setzeEntity({ type: 'spike', tx: fx, ty: fy - 1, dir: 'up', ...(dirK === 'down' ? { sockel: true } : { kappe: true }) });
+            const kanone = { type: 'cannon', tx: kx, ty: ky, dir: dirK, period, speed: tempo, phase: rng.intRange(0, 9) / 10 };
+            setzeEntity(kanone);
+            kanonen.push({ kx, ky, c, kanone, bahn });
+            for (const [x, y] of bahn) { strahlen.add(`${x},${y}`); extra.push(() => strahlen.delete(`${x},${y}`)); }
+            eigenerStrahl = new Set([...(eigenerStrahl || []), ...bahn.map(([x, y]) => `${x},${y}`)]);
+            return null;
+          };
+          const kanonen = [];
+          let grund = kandidaten.length ? null : 'beschuss-bahn';
+          for (let n = 0; n < (zwei ? 2 : 1) && kandidaten.length; n++) {
+            const ab = rng.intRange(0, kandidaten.length - 1);
+            grund = 'beschuss-bahn';
+            for (let j = 0; j < kandidaten.length; j++) {
+              const c = kandidaten[(ab + j) % kandidaten.length];
+              // (die zweite Bahn mindestens 3 Kacheln neben der ersten)
+              if (kanonen.some((k2) => Math.abs(k2.c - c) < 3)) continue;
+              grund = baueKanone(c);
+              if (!grund) break;
+            }
+            if (grund) break;
+          }
+          if (grund) { verwerfen(grund); continue; }
+          zug.kanoneRel = { dx: kanonen[0].kx - von.x, dy: kanonen[0].ky - von.y };
+          // Muss man die Lücke wirklich abpassen? Derselbe Zug zu 6 anderen Zeitpunkten im Takt — mindestens 2 davon treffen
+          // die Kugeln (sonst wäre der Beschuss Kulisse)
+          let tote = 0;
+          for (let k = 1; k <= 6; k++) if (probeSpielen({ ...zug, schussReaktion: zug.schussReaktion + Math.round((k * period * 120) / 7) }).tot) tote++;
+          if (tote < 2) { verwerfen('beschuss-harmlos'); continue; }
+          // Muss man überhaupt durch die Kugelbahn? (Rückmeldung 03.10.2026: „unter den Projektilen einfach durch, ohne dort
+          // jemals durchzumüssen“ — eine Bahn quer über dem Scheitel unterflog ein flacherer Sprung.) Die Bahnen zur Probe
+          // zumauern, die Kanonen weg: Kommt ein schlichter Sprung dann noch ans Ziel, ist der Beschuss umgehbar.
+          const zu = kanonen.flatMap((k) => k.bahn).map(([x, y]) => [x, y, grid[y][x]]);
+          for (const [x, y] of zu) grid[y][x] = ROCK;
+          const umgehbar = ohneMechanikErreichbar({ grid, entities, ohne: kanonen.map((k) => k.kanone), anker: null, cls, von, plat, ziel: { x0, x1, row: R }, gruendlich: true, reach, sw: swMaske });
+          for (const [x, y, alt] of zu) grid[y][x] = alt;
+          if (umgehbar) { verwerfen('beschuss-umgehbar'); continue; }
+        }
+
         // Sichtfeld: Man muss sehen, wohin man springt — die Landestelle spätestens am Scheitel (danach lässt sich kaum
         // noch lenken), einen Anker schon beim Absprung (Rückmeldung 25.09.2026: „manchmal sieht man Grappler oder Wege
         // nicht")
@@ -1329,7 +1688,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         // (Bei einem Fall schaut die Kamera mit nach unten, und im Fallen lenkt man noch: dort bis zur Landung)
         // (…ebenso im Wind und nach einem Ring: Sie tragen einen erst nach dem Scheitel dorthin, das sieht man im Flug)
         // (…und beim Flappy-Seil: Die Landung liegt mehrere Schwünge voraus)
-        const bis = scheitel < 0 || zug.art === 'fall' || zug.wind || zug.ring || zug.flappy || zug.dashSprung || zug.kette ? L : scheitel;
+        const bis = scheitel < 0 || zug.art === 'fall' || zug.wind || zug.ring || zug.flappy || zug.dashSprung || zug.kette || zug.luftportal || zug.luftdash ? L : scheitel;
         let gesehen = false;
         for (let k = 0; k <= bis && !gesehen; k++) gesehen = imBild(probe.spur[k], zug.dir, lande.x, R - 1);
         if (!gesehen || (anker && !imBild(probe.spur[0], zug.dir, anker.x, anker.y))) { verwerfen('sicht'); continue; }
@@ -1343,6 +1702,15 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       // (Die Schlüssel-Nische ist eine Sackgasse — von ihr geht es nur zurück auf den Hub: dort nur gegen ältere Plattformen)
       // (Hinter der Tür nicht: Die Wand schließt jede Abkürzung aus, die grobe Schätzung kennt keine Wände)
       if (abst !== 'zurueck' && abst !== 'tuer' && abst !== 'zielschalter' && plattformen.slice(0, abst === 'start' ? -5 : -3).some((q) => !juengste.includes(q) && q !== hub && erreichbar(q, ziel, reach))) { verwerfen('abkuerzung'); continue; }
+      // …und hatte der vorige Zug eine Aufgabe, auch nicht von der Plattform davor — sonst überspringt man genau diese Aufgabe
+      // (Rückmeldung 03.10.2026, „random Dash-Kristalle ohne Use Case“: Ein Zug zurück legte seine Plattform in die Lücke
+      // des Dash-Sprungs davor, direkt neben dessen Absprung). In der Sim geprüft, vom Absprung des vorigen Zugs — die grobe
+      // Schätzung allein verwarf so viel, dass Wege abbrachen.
+      const vorZug = schritte[schritte.length - 1];
+      if (!abst && vorZug && !vorZug.abstecher && !['sprung', 'broeckel'].includes(vorZug.mechanik) && plattformen.length >= 2) {
+        const q = plattformen[plattformen.length - 2];
+        if (q !== hub && ohneMechanikErreichbar({ grid, entities, ohne: [], anker: null, cls, von: vorZug.von, plat: q, ziel, reach, sw: swMaske })) { verwerfen('abkuerzung-aufgabe'); continue; }
+      }
       // …ebenso von der Oberkante einer Aufwindsäule, die 3 oder mehr Schritte zurückliegt
       if (abst !== 'zurueck' && abst !== 'tuer' && abst !== 'zielschalter' && schritte.slice(0, -2).some((s2) => s2.lift && erreichbar(s2.lift, ziel, reach))) { verwerfen('abkuerzung-wind'); continue; }
       // Seil (Rückmeldung 27.09.2026: „die Seilsprünge kann man zu 90 % auch mit einem Doppelsprung schaffen“): nur, wenn das
@@ -1362,7 +1730,16 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       // Notwendigkeit: Eine Mechanik muss gebraucht werden
       // (Das Tor nicht: Sein Ziel erreicht man auch ohne Laser — seine Aufgabe ist das Warten, belegt durch den Strahl in der Bahn)
       // (Tor und Einzelblock nicht: Ihr Ziel erreicht man auch schlicht — ihre Aufgabe ist das Warten bzw. die Genauigkeit)
-      if (zug.mechanik && zug.mechanik !== 'tor' && zug.mechanik !== 'einzelblock' && zug.mechanik !== 'schalter' && zug.mechanik !== 'nadeloehr' && zug.mechanik !== 'fallblock' && zug.mechanik !== 'deckel' && zug.mechanik !== 'flach' && !zug.roehren && ohneMechanikErreichbar({ grid, entities, ohne: neueEnts.filter((e) => e.type !== 'spike'), anker: ankerAlle.length ? ankerAlle : anker, cls, von, plat, ziel, gruendlich: !!zug.ring || zug.greifNach != null, reach })) { verwerfen('unnoetig'); continue; }
+      // (Ein Zug mit Kristall immer — auch ein Dash-Sprung unter Stacheldecke, der als ‚flach‘ von der Prüfung ausgenommen wäre)
+      const kristallZug = zug.dashNach != null || !!zug.luftdash || !!zug.kette;
+      // (Ohne die Elemente des Zugs — aber Stacheln und die Zielplattform selbst bleiben: Landet man auf Farb- oder Bröckelblöcken,
+      // nahm die Prüfung sonst die Landefläche mit weg, und jede Mechanik galt als nötig)
+      const ohneZiel = (ents) => ents.filter((e) => e.type !== 'spike' && !(e.ty === ziel.row && e.tx >= ziel.x0 && e.tx <= ziel.x1));
+      if ((kristallZug || (zug.mechanik && zug.mechanik !== 'tor' && zug.mechanik !== 'einzelblock' && zug.mechanik !== 'schalter' && zug.mechanik !== 'nadeloehr' && zug.mechanik !== 'fallblock' && zug.mechanik !== 'deckel' && zug.mechanik !== 'flach' && zug.mechanik !== 'beschuss' && zug.mechanik !== 'schluesselsprung' && !zug.roehren)) && ohneMechanikErreichbar({ grid, entities, ohne: ohneZiel(neueEnts), anker: ankerAlle.length ? ankerAlle : anker, cls, von, plat, ziel, gruendlich: !!zug.ring || zug.greifNach != null || kristallZug, reach: kristallZug ? null : reach, sw: swMaske })) { verwerfen('unnoetig'); continue; }
+      // (Kristalle ebenso gründlich und ohne die Vorab-Schätzung — Rückmeldung 03.10.2026: „random Dash-Kristalle ohne Use
+      // Case“: Ein Dash-Tunnel hinab ließ sich mit Fall + spätem Doppelsprung unterfliegen, die 21 Standard-Proben fanden das
+      // nicht; und unter der Stacheldecke eines Dash-Sprungs kam man mit Fall + Doppelsprung 13 Kacheln weit, wo die Schätzung
+      // „unerreichbar“ sagte)
       // (Ring: gründliche Probe mit ~50 schlichten Sprüngen — die 21 Standard-Proben waren zu schwach, Rückmeldung
       // 26.09.2026: „viele Boost-Ring-Sprünge gehen auch einfach mit einem Doppelsprung“)
 
@@ -1378,7 +1755,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           for (let x = Math.max(vor.ziel.x0, Math.min(...xs) - 1); x <= Math.min(vor.ziel.x1, Math.max(...xs) + 1); x++) if (x !== von.x) starts.push(x);
         }
       }
-      const schritt = { von, zug, kanteX, ziel, vorlauf, schluessel: schluesselDa || abst === 'zurueck', sw: swMaske, starts };
+      const schritt = { von, zug, kanteX, ziel, vorlauf, schluessel: schluessel + (abst === 'zurueck' ? 1 : 0), sw: swMaske, starts, ...(zug.schluesselFlug ? { schluesselEnde: schluessel + 1 } : {}) };
       let p = pruefeZug(grid, entities, cls, reach.runSpeed, schritt);
       if (!p.ok) { verwerfen('variante'); continue; }
       // Rückweg geschafft — jetzt erst die Sperre: eine Eiswand vom oberen bis zum unteren Rand gleich hinter der Nische, in
@@ -1449,8 +1826,83 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         if (!p.ok) { verwerfen('roehre-variante'); continue; }
         // Notwendigkeit erst MIT den Röhren: Ein schlichter Doppelsprung, der ohne sie reichte, prallt jetzt dagegen —
         // erst so wird ein Schwung durchs Nadelöhr wirklich nötig
-        if (zug.mechanik && zug.mechanik !== 'nadeloehr' && zug.mechanik !== 'fallblock' && ohneMechanikErreichbar({ grid, entities, ohne: neueEnts.filter((e) => e.type !== 'spike'), anker: ankerAlle.length ? ankerAlle : anker, cls, von, plat, ziel, gruendlich: !!zug.ring, reach })) { verwerfen('unnoetig'); continue; }
+        if (zug.mechanik && zug.mechanik !== 'nadeloehr' && zug.mechanik !== 'fallblock' && ohneMechanikErreichbar({ grid, entities, ohne: ohneZiel(neueEnts), anker: ankerAlle.length ? ankerAlle : anker, cls, von, plat, ziel, gruendlich: !!zug.ring, reach, sw: swMaske })) { verwerfen('unnoetig'); continue; }
         zug.roehrenGesetzt = gesetzt;
+      }
+      // Tür des Schlüsselsprungs davor: quer durch die Flugbahn DIESES Zugs, darüber und darunter Eis (wie beim Nadelöhr) —
+      // offen nur mit Schlüssel. Wer ihn im Flug davor verpasst hat, prallt ab. Waagerechter Flug: eine Türspalte; steiler
+      // Flug (Schlot, Aufstieg): eine Türluke.
+      let tuerGesetzt = false;
+      // (Findet die Tür nach 60 % der Versuche keinen Platz, geht es ohne — der Schlüssel bleibt dann ein Sammelstück; sonst
+      // nahm der Planer den Schlüsselsprung so oft zurück, bis der ganze Weg abbrach)
+      if (tuerFaellig && !abst && versuch < VERSUCHE * 0.6) {
+        const alle = new Set(p.spuren.flatMap((sp) => [...beruehrteKacheln(sp)]));
+        const aufPlat = (x, y, q) => x >= q.x0 - 1 && x <= q.x1 + 1 && y >= q.row - 4 && y <= q.row;
+        const flugK = [...alle].map((key) => key.split(',').map(Number)).filter(([x, y]) => !aufPlat(x, y, plat) && !aufPlat(x, y, ziel));
+        if (flugK.length < 3) { verwerfen('tuer-platz'); continue; }
+        const xs = flugK.map((q) => q[0]);
+        const ys = flugK.map((q) => q[1]);
+        const spalte = Math.max(...xs) - Math.min(...xs) >= Math.max(...ys) - Math.min(...ys);
+        const besetzt = (x, y) => !frei(grid, x, y) || korridor.has(`${x},${y}`) || strahlen.has(`${x},${y}`);
+        // Eis über/unter der Türspalte bzw. links/rechts der Luke, bis 7 Kacheln (im Schlot schließt die Schachtwand an)
+        const eisLauf = (x, y, sx, sy, eis) => {
+          for (let k = 0; k < 7; k++) {
+            const [ex, ey] = [x + sx * k, y + sy * k];
+            if (rahmen && (ex < rahmen.x0 || ex > rahmen.x1)) return 7;
+            if (besetzt(ex, ey) || alle.has(`${ex},${ey}`)) return k;
+            eis.push([ex, ey]);
+          }
+          return 7;
+        };
+        /** Tür an Spalte bzw. Zeile c — oder null */
+        const tuerBei = (c) => {
+          const tuer = [];
+          const eis = [];
+          let lang;
+          if (spalte) {
+            const zeilen = [...alle].map((key) => key.split(',').map(Number)).filter(([x]) => x === c).map((q) => q[1]);
+            const [ya, yb] = [Math.min(...zeilen) - 1, Math.max(...zeilen) + 1];
+            // (eine Kachel dick: Die Tür zählt je Kachel als Element — zwei Spalten fraßen bis zu 200 vom Elemente-Limit)
+            for (let y = ya; y <= yb; y++) tuer.push([c, y]);
+            lang = Math.min(eisLauf(c, ya - 1, 0, -1, eis), eisLauf(c, yb + 1, 0, 1, eis));
+          } else {
+            const spalten = [...alle].map((key) => key.split(',').map(Number)).filter(([, y]) => y === c).map((q) => q[0]);
+            const [xa, xb] = [Math.min(...spalten) - 1, Math.max(...spalten) + 1];
+            for (let x = xa; x <= xb; x++) tuer.push([x, c]);
+            lang = Math.min(eisLauf(xa - 1, c, -1, 0, eis), eisLauf(xb + 1, c, 1, 0, eis));
+          }
+          // (Ob man außen herum käme, prüft unten die Probe ohne Schlüssel — hier reicht ein Ansatz von 3 Kacheln Eis)
+          return lang >= 3 && !tuer.some(([x, y]) => besetzt(x, y)) ? { tuer, eis } : null;
+        };
+        // Kandidaten von der Mitte des Flugs nach außen
+        const werte = [...new Set(spalte ? xs : ys)].sort((a, b) => a - b);
+        const mitteW = werte[Math.floor(werte.length / 2)];
+        werte.sort((a, b) => Math.abs(a - mitteW) - Math.abs(b - mitteW) || a - b);
+        let gefunden = null;
+        for (const c of werte) { gefunden = tuerBei(c); if (gefunden) break; }
+        if (!gefunden) { verwerfen('tuer-platz'); continue; }
+        const { tuer, eis } = gefunden;
+        for (const [x, y] of eis) setzeKachel(x, y, 'I');
+        for (const [x, y] of tuer) setzeEntity({ type: 'door', tx: x, ty: y });
+        schritt.schluesselEnde = schritt.schluessel - 1;
+        p = pruefeZug(grid, entities, cls, reach.runSpeed, schritt);
+        if (!p.ok) { verwerfen('tuer-variante'); continue; }
+        // Ohne Schlüssel kein Durchkommen: weder dieser Zug noch ein schlichter Sprung außen herum
+        const aus0 = ausschnittWelt(grid, entities, von, cls, { x: Math.round((von.x + ziel.x0) / 2), y: Math.round((von.y + ziel.row) / 2) });
+        aus0.welt.flags.sw = swMaske;
+        const r0 = spieleZug(aus0, ...mitVorlauf(zugEingabe(zug, kanteX - aus0.x0 * TILE), zugFertig, vorlauf), 700);
+        const e0 = r0.spur[r0.spur.length - 1];
+        const st0 = e0 ? standKachel(e0) : null;
+        if (!r0.tot && e0 && e0.boden && st0.y === ziel.row - 1 && st0.x >= ziel.x0 && st0.x <= ziel.x1) { verwerfen('tuer-offen'); continue; }
+        if (ohneMechanikErreichbar({ grid, entities, ohne: [], anker: null, cls, von, plat, ziel, gruendlich: true, reach })) { verwerfen('tuer-aussen'); continue; }
+        tuerGesetzt = true;
+      }
+      // Schlot: Plattform, Bahnen aller Varianten und Bauteile bleiben im Schacht (Kanonen dürfen in der Wand sitzen). Beim
+      // ersten Zug der Etappe zählt, was über der alten Plattform liegt, nicht mit (dort ist der Eingang in den Schacht).
+      if (rahmen) {
+        const raus = (x) => (x < rahmen.x0 || x > rahmen.x1) && !(rahmen.ab === i && x >= plat.x0 - 2 && x <= plat.x1 + 2);
+        if (ziel.x0 < rahmen.x0 || ziel.x1 > rahmen.x1 || aenderungen.some(([x]) => x < rahmen.x0 - 1 || x > rahmen.x1 + 1)) { verwerfen('schlot-bau'); continue; }
+        if (p.spuren.some((sp) => [...beruehrteKacheln(sp)].some((key) => raus(Number(key.split(',')[0]))))) { verwerfen('schlot-bahn'); continue; }
       }
       // Fallblock: Ab wann ist man im Anflug unter ihm (in seiner Breite, höchstens 10 Zeilen darunter)? Die Zeit von dort bis
       // zum Stillstand ist der Vorlauf des nächsten Zugs — im ungünstigsten Fall über alle Varianten
@@ -1522,7 +1974,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       for (const key of polster || []) merke(key);
       const kopf = i === letzterIdx ? ZIEL_KOPF : 3;
       for (let x = ziel.x0; x <= ziel.x1; x++) for (let y = ziel.row - kopf; y < ziel.row; y++) merke(`${x},${y}`);
-      stapel.push({ plat, cur, neu, ziel, extra, sperre, federVorher: !!plat.feder, portal: zug.art === 'portal', hub, schluesselDa, swMaske, kanalZahl, farbe });
+      stapel.push({ plat, cur, neu, ziel, extra, sperre, federVorher: !!plat.feder, portal: zug.art === 'portal', hub, schluessel, tuerFaellig, luftPortale, rahmen: rahmenVorher, swMaske, kanalZahl, farbe });
       // Ein Schalter KIPPT das Bit seines Kanals (auch zurück auf 0, wenn der Kanal schon einmal geschaltet war)
       if (abst === 'zielschalter') { swMaske ^= 1 << zug.schalterKanal; kanalZahl++; zielPunkt = zug.zielPunkt; }
       if (zug.schalter) {
@@ -1532,7 +1984,11 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       }
       else if (ziel.farbe != null && farbe) farbe = { ...farbe, rest: farbe.rest - 1 };
       if (abst === 'start') { hub = plat; hub.dir = eintrag.hauptDir; hub.abSchritt = schritte.length; }
-      if (abst === 'zurueck') schluesselDa = true;
+      if (abst === 'zurueck') schluessel++;
+      if (abst === 'tuer') schluessel = Math.max(0, schluessel - 1);
+      // Schlüsselsprung: Schlüssel in der Tasche, der nächste Zug bekommt die Tür; die Tür verbraucht ihn wieder
+      if (zug.schluesselFlug) { schluessel++; tuerFaellig = true; } else if (tuerGesetzt) { schluessel = Math.max(0, schluessel - 1); tuerFaellig = false; } else if (tuerFaellig && !abst) tuerFaellig = false;
+      if (zug.luftportal) luftPortale++;
       if (zug.art === 'feder') plat.feder = true;                // für die Abkürzungsprüfung: von hier kommt man höher
       if (zug.art === 'portal') portale++;
       // Tatsächlich berührte Kacheln (ohne reservierten Kopfraum): Die Füllung setzt Stacheln UNTER und ÜBER diese Bahn
@@ -1551,7 +2007,7 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         motive.set(motivKey, { zug: motivKopie(zug), dy: ziel.row - (von.y + 1) });
       }
       // (`geplant`: die Aufgabe laut Szenenplan — Diagnose, wie oft sie gelingt)
-      schritte.push({ ...schritt, geplant: mechanikPlan, motiv: motivGenutzt || (motivKey ? mm : null), motivKey, abstecher: abst, anker, lift, fallZone, landungen: p.landungen, richtung, szene, mechanik: abst === 'zurueck' ? 'schluessel' : zug.mechanik || (zug.broeckel ? 'broeckel' : 'sprung'), box, beruehrt });
+      schritte.push({ ...schritt, geplant: mechanikPlan, motiv: motivGenutzt || (motivKey ? mm : null), motivKey, abstecher: abst, anker, lift, fallZone, schlot: rahmen, tuer: tuerGesetzt, landungen: p.landungen, richtung, szene, mechanik: abst === 'zurueck' ? 'schluessel' : zug.mechanik || (zug.broeckel ? 'broeckel' : 'sprung'), box, beruehrt });
       plattformen.push(ziel);
       plat = ziel;
       cur = { x: p.landungen[0].x, y: ziel.row - 1 };
@@ -1574,7 +2030,10 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
     cur = letzt.cur;
     sperre = letzt.sperre;
     hub = letzt.hub;
-    schluesselDa = letzt.schluesselDa;
+    schluessel = letzt.schluessel;
+    tuerFaellig = letzt.tuerFaellig;
+    luftPortale = letzt.luftPortale;
+    rahmen = letzt.rahmen;
     swMaske = letzt.swMaske;
     kanalZahl = letzt.kanalZahl;
     farbe = letzt.farbe;
@@ -1599,11 +2058,15 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       while (richtungen[s0].abstecher !== 'start') s0--;
       while (i > s0) { zuruecknehmen(); i--; }
       for (let k = s0; k < richtungen.length && richtungen[k].abstecher; k++) richtungen[k] = { r: 'rechts', szene: richtungen[k].szene, mechanik: '' };
-      richtungen.forEach((_, k) => { hochDanach[k] = richtungen.slice(k + 1).filter(istHoch).length; });
+      richtungen.forEach((_, k) => { hochDanach[k] = hochDanachAus(k); });
       zaehle('abstecherAufgegeben');
       continue;
     }
     if (!stapel.length || rueckBudget-- <= 0) { abbruch = { bei: i, gruende }; break; }
+    // Auf den letzten 10 % nur wenige Rücknahmen: Ein so weit gebauter Weg wird ohnehin genommen (typen/pfad.js, fastFertig)
+    // und unten bis zu einer tauglichen Zielplattform gekürzt. (Gemessen: Ein Schlot am Levelende verbrannte hier das ganze
+    // Budget, ~20 s.)
+    if (i >= Math.ceil(plan.length * 0.9) && endBudget-- <= 0) { abbruch = { bei: i, gruende }; break; }
     zuruecknehmen();
     i--;
   }
@@ -1623,6 +2086,22 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
       return !entities.some((e) => e.type !== 'spike' && e.tx >= gx0 && e.tx <= gx1 && e.ty >= y0 && e.ty <= y1);
     };
     while (schritte.length > 1 && stapel.length && !taugt()) zuruecknehmen();
+  }
+  // Schlüsselsprung ohne Tür dahinter (die Tür fand im nächsten Zug keinen Platz, oder der Weg endete): Der Schlüssel hinge
+  // nutzlos in der Luft (Rückmeldung 03.10.2026) — und bliebe in der Tasche, wo er die Tür eines späteren Abstechers öffnete.
+  // Raus damit; alle späteren Züge haben einen Schlüssel weniger.
+  for (let j = 0; j < schritte.length; j++) {
+    const s = schritte[j];
+    if (!s.zug.schluesselEnt || schritte[j + 1]?.tuer) continue;
+    entities.splice(entities.indexOf(s.zug.schluesselEnt), 1);
+    delete s.zug.schluesselEnt;
+    delete s.zug.schluesselFlug;
+    delete s.schluesselEnde;
+    for (let k = j + 1; k < schritte.length; k++) {
+      schritte[k].schluessel = Math.max(0, schritte[k].schluessel - 1);
+      if (schritte[k].schluesselEnde != null) schritte[k].schluesselEnde = Math.max(0, schritte[k].schluesselEnde - 1);
+    }
+    s.mechanik = s.mechanik === 'schluesselsprung' ? 'sprung' : s.mechanik;
   }
   return { schritte, plattformen, korridor, entities, ende: cur, abbruch, gruende, zielPunkt };
 }

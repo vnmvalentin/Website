@@ -1,5 +1,5 @@
-// dailyApi.js — API-Client der Tagesrangliste von Seed Runners (/api/seed-runners), gleiches Muster wie
-// Dle/dleApi.js. Der Server antwortet bei abgelehnten oder ungeprüften Läufen mit Statuscodes ≠ 200, der Body
+// dailyApi.js — API-Client der Tagesrangliste von Seed Runners (/api/seed-runners), Läufe werden
+// serverseitig nachgespielt. Der Server antwortet bei abgelehnten oder ungeprüften Läufen mit Statuscodes ≠ 200, der Body
 // trägt trotzdem { status, reason } — die Seite zeigt den Grund, deshalb wird er hier nicht als Fehler verschluckt.
 
 async function apiFetch(path, opts = {}) {
@@ -30,4 +30,19 @@ export async function submitDailyRun(payload) {
   } catch {
     return { status: 'fehler', reason: 'Keine Verbindung zum Server.' };
   }
+}
+
+/** Rangliste eines vergangenen Tages (Archiv) und der eigene Platz dort: { board, me } */
+export async function getDailyBoardOf(dateKey, playerKey) {
+  const res = await apiFetch(`/api/seed-runners/daily/${encodeURIComponent(dateKey)}`, { headers: playerKey ? { 'X-Player-Key': playerKey } : {} });
+  if (!res.ok) throw new Error(res.json?.error || `HTTP ${res.code}`);
+  return res.json;
+}
+
+/** Replay des Tagesbesten: { params, name, ticks, deaths, log } oder null (kein Lauf, Log schon gelöscht) */
+export async function getDailyTopReplay(dateKey) {
+  const res = await apiFetch(`/api/seed-runners/daily/${encodeURIComponent(dateKey)}/replay`);
+  if (res.code === 404) return null;
+  if (!res.ok) throw new Error(res.json?.error || `HTTP ${res.code}`);
+  return res.json;
 }

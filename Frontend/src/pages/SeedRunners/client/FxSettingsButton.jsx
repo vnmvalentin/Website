@@ -96,7 +96,7 @@ export default function FxSettingsButton({ align = "right" }) {
         className="sr-btn sr-btn-sm sr-btn-ghost"
       >
         <Settings size={14} />
-        <span className="hidden md:inline">Einstellungen</span>
+        <span className="hidden lg:inline">Einstellungen</span>
       </button>
       {open && (
         <div
@@ -123,6 +123,8 @@ export default function FxSettingsButton({ align = "right" }) {
             </label>
             <Row id="fx-shake" label="Bildschütteln" checked={fx.shake} onChange={(v) => setFx({ shake: v })} />
             <Row id="fx-particles" label="Partikel" checked={fx.particles} onChange={(v) => setFx({ particles: v })} />
+            <Row id="fx-menu-bg" label="Bewegter Menü-Hintergrund" checked={fx.menuBewegung} onChange={(v) => setFx({ menuBewegung: v })} />
+            <Row id="fx-vollbild" label="Lauf füllt den Bildschirm" checked={fx.vollbild} onChange={(v) => setFx({ vollbild: v })} />
           </div>
 
           <p className="sr-label mt-4 mb-1">Minimap</p>

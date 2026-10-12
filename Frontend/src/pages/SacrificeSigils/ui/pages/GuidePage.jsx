@@ -30,7 +30,7 @@ export default function GuidePage() {
       </Section>
 
       <Section title="Totems">
-        <p>Ein <b>Stammkopf</b> gibt allen Karten eines Stamms ein Sigil, ein <b>Lanenkopf</b> wirkt auf eine Lane. Der <b>Nebendeck-Kopf</b> gibt jedem deiner Moorlinge ein Sigil – hier gibt es auch Opfer-Sigils wie Dreifachblut oder Wachsgabe, die auf einem ganzen Stamm zu stark wären. Köpfe und Basen tauschst du im Totem-Schrein auf dem Pfad.</p>
+        <p>Ein <b>Stammkopf</b> gibt allen Karten eines Stamms ein Sigil, ein <b>Lanenkopf</b> wirkt auf eine Lane. Der <b>Nebendeck-Kopf</b> gibt jedem deiner Moorlinge ein Sigil – hier gibt es auch Opfer-Sigils wie Dreifachblut oder Wachsgabe, die auf einem ganzen Stamm zu stark wären. Köpfe und Körper tauschst du im Totem-Schrein auf dem Pfad.</p>
       </Section>
 
       <Section title="Drei Ressourcen">
@@ -53,7 +53,7 @@ export default function GuidePage() {
 
       <Section title="Sigils und Totems">
         <p>Sigils sind die Fähigkeiten der Karten – alle stehen im <Link className="underline" to="/sacrifice-and-sigils/kartenbuch">Kartenbuch</Link>. Eine Karte trägt höchstens 4.</p>
-        <p>Ein <b>Totem</b> besteht aus Kopf und Basis. Ein Stammkopf gibt allen Karten eines Stamms die Basis-Sigil, ein Lanenkopf jeder eigenen Karte in seiner Lane – oder, mit einer Lanen-Eigenschaft, einen besonderen Effekt.</p>
+        <p>Ein <b>Totem</b> besteht aus Kopf und Körper: Der <b>Kopf</b> bestimmt, wer es bekommt, der <b>Körper</b>, was sie bekommen. Ein Stammkopf gibt allen Karten eines Stamms das Sigil des Körpers, ein Lanenkopf jeder eigenen Karte in seiner Lane – oder, mit einer Lanen-Eigenschaft, einen besonderen Effekt.</p>
       </Section>
 
       <Section title="Zwei Zirkel">

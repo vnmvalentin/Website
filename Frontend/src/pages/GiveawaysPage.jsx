@@ -321,28 +321,34 @@ export default function GiveawaysPage() {
 
   const isAdmin = !!user && String(user.id) === String(STREAMER_ID);
 
+  const [loadError, setLoadError] = useState(false);
+
   const refresh = async () => {
     try {
       const res = await fetch("/api/giveaways", { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setData({ active: json.active || [], expired: json.expired || [] });
+      setLoadError(false);
     } catch (e) {
       console.error(e);
+      setLoadError(true);
     } finally {
         setLoading(false);
     }
   };
 
   useEffect(() => {
-      // Initial
-      fetch("/api/giveaways", { credentials: "include" })
-        .then(r => r.json())
-        .then(setData);
+      // Das erste Laden macht refresh() unten. Hier stand zusätzlich ein zweiter, ungeprüfter
+      // Abruf, der die Antwort roh in den State schrieb — bei einer Fehlerantwort ohne
+      // active/expired stürzte die Seite danach beim Sortieren ab.
 
       // Live Listener
       const handleUpdate = (newData) => {
           // newData hat schon die Struktur { active: [], expired: [] } vom Server
-          setData(newData);
+          if (!newData) return;
+          setData({ active: newData.active || [], expired: newData.expired || [] });
+          setLoadError(false);
       };
 
       socket.on("giveaways_update", handleUpdate);
@@ -489,7 +495,14 @@ export default function GiveawaysPage() {
 
         {/* Content List */}
         <div className="space-y-4">
-            {activeTab === "active" ? (
+            {loadError ? (
+                <div className="text-center py-16 px-4 text-white/50 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
+                    <p className="mb-4">Die Giveaways konnten gerade nicht geladen werden.</p>
+                    <button onClick={refresh} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition-colors">
+                        Erneut versuchen
+                    </button>
+                </div>
+            ) : activeTab === "active" ? (
                 activeSorted.length === 0 ? (
                     <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
                         Aktuell keine aktiven Giveaways.

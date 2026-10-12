@@ -110,6 +110,7 @@ export const ELEMENT_PARAMS = {
   crystal: { radius: 7, respawn: 2.0 },
   portal: { radius: 8, cooldown: 0.45 },
   switch: { cooldown: 0.4 },
+  cannon: { period: 1.4, speed: 130, radius: 4 },                         // Kugeln im Takt, fliegen bis zum ersten Block
 };
 
 /** Standardwerte als flaches Objekt: { runMaxSpeed: 140, … } */

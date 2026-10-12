@@ -11,6 +11,7 @@
 import { pickWeighted, rand, randInt, shuffle, streamFrom } from "../../rng.js";
 import { getZirkel } from "../../zirkel/index.js";
 import { STRANDS } from "../../path.js";
+import { MAX_CAMPFIRES_PER_MAP } from "../../../data/events.js";
 
 /** Späherturm-Gewicht in normalen Ebenen. */
 const SCOUT_WEIGHT = 6;
@@ -46,6 +47,7 @@ export function generateRunMap(opts) {
     .map(([t, w]) => [t, w * (opts.weights?.[t] ?? 1)])
     .concat(fights ? [["scout", SCOUT_WEIGHT * (opts.weights?.scout ?? 1)]] : []);
   const usedEvents = new Set();
+  let campfires = 0;
 
   const nodes = [];
   for (let lv = 0; lv < levels; lv++) {
@@ -70,9 +72,11 @@ export function generateRunMap(opts) {
         continue;
       }
       const cc = row.filter((n) => n.type === "cardChoice").length;
-      const options = weights.filter(([t]) => (!used.has(t) || t === "cardChoice") && (t !== "cardChoice" || cc < 2));
+      const options = weights.filter(([t]) => (!used.has(t) || t === "cardChoice") && (t !== "cardChoice" || cc < 2)
+        && (t !== "campfire" || campfires < MAX_CAMPFIRES_PER_MAP));
       const type = pickWeighted(s, /** @type {any} */ (options));
       used.add(type);
+      if (type === "campfire") campfires += 1;
       /** @type {any} */
       const node = { type };
       if (type === "cardChoice") {

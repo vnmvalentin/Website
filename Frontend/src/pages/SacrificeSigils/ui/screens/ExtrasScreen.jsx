@@ -12,7 +12,7 @@ import { SIDE_ONLY_SIGILS } from "../../data/totems.js";
 import { extrasTurn } from "../../engine/draft.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
-import { totemText, headLabel } from "../common/totemText.js";
+import { totemText, baseDesc, baseName, headKind, headName, headTarget } from "../common/totemText.js";
 import "./screens.css";
 
 /** @param {{ view: any, you: 0|1|null, send: (a: any) => Promise<any>, names: string[], timers?: any, clockOffset?: number }} props */
@@ -60,7 +60,7 @@ export default function ExtrasScreen({ view, you, send, names, timers, clockOffs
           <p className="ss-dim text-sm">
             {sequential
               ? <>Gewähltes ist für den anderen weg. Kopf wählt zuerst: <b>{who(d.extraOrder[0][0])}</b> · Nebendeck-Totem zuerst: <b>{who(d.extraOrder[2][0])}</b></>
-              : <>Der Kopf kommt mit einer Start-Basis; im Totem-Schrein auf dem Pfad kannst du beides später umbauen.</>}
+              : <>Der Kopf kommt mit einem Start-Körper; im Totem-Schrein auf dem Pfad kannst du beides später umbauen.</>}
           </p>
         </div>
         {timer && <TurnTimer timer={timer} clockOffset={clockOffset} />}
@@ -73,14 +73,18 @@ export default function ExtrasScreen({ view, you, send, names, timers, clockOffs
             const enabled = canHead && owner === undefined;
             return (
               <button key={i} type="button" disabled={!enabled} onClick={() => setHead(i)} className={`ss-paper p-4 text-left transition-transform relative ${head === i && canHead ? "ring-2 ring-[var(--wax-red)] -translate-y-1" : enabled ? "hover:-translate-y-0.5" : ""} ${owner !== undefined ? "opacity-45" : ""}`}>
-                <div className="flex items-center gap-3">
-                  <div className="ss-totem-figure" aria-hidden />
-                  <div>
-                    <p className="ss-title !text-[var(--ink)]">{headLabel(h.head)}</p>
-                    <p className="text-sm flex items-center gap-1">{h.base.kind === "sigil" && <SigilIcon sigil={h.base.sigil} size={18} />}{h.base.kind === "sigil" ? de.sigils[h.base.sigil].name : de.totems.props[h.base.prop].name}</p>
+                <div className="flex items-start gap-3">
+                  <div className="ss-totem-figure mt-1" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wide opacity-60">{de.totems.head} · {headKind(h.head)}</p>
+                    <p className="ss-title !text-[var(--ink)] leading-tight">{headName(h.head, view.settings?.zirkel)}</p>
+                    <p className="text-xs opacity-70">trifft {headTarget(h.head, view.settings?.zirkel)}</p>
+                    <p className="text-xs uppercase tracking-wide opacity-60 mt-1.5">{de.totems.base}</p>
+                    <p className="text-sm flex items-center gap-1">{h.base.kind === "sigil" && <SigilIcon sigil={h.base.sigil} size={18} />}{baseName(h.base)}</p>
                   </div>
                 </div>
-                <p className="text-sm mt-2 opacity-80">{totemText(h.head, h.base, view.settings?.zirkel)}</p>
+                <p className="text-sm mt-2"><b>{totemText(h.head, h.base, view.settings?.zirkel)}</b></p>
+                <p className="text-sm opacity-80">{h.base.kind === "sigil" ? `${baseName(h.base)}: ${baseDesc(h.base)}` : ""}</p>
                 {owner !== undefined && <span className="ss-badge !absolute top-2 right-2">{who(owner)}</span>}
               </button>
             );

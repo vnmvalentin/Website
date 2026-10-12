@@ -6,7 +6,7 @@
 import { TILE_GLYPHS, isSolidKind } from '../sim/glyphs.js';
 import { CHANNELS } from '../sim/elements/schema.js';
 
-const HAZARDS = new Set(['spike', 'saw', 'laser', 'fallingBlock']);
+const HAZARDS = new Set(['spike', 'saw', 'laser', 'fallingBlock', 'cannon']);
 // So nah an Start oder Checkpoint darf nichts Tödliches sitzen, ohne dass es auffällt (wie im Generator)
 const SPAWN_SAFE_TILES = 4;
 // Ab dieser Breite erwartet man Checkpoints

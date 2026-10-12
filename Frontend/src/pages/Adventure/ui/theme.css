@@ -1,0 +1,182 @@
+/*
+ * adVentures — eigener Look „Pixel-Dungeon", getrennt von der übrigen Website.
+ *
+ * Ursprünglich aus den alten Spielgrafiken abgeleitet (seit Oktober 2026 flacher Stil ohne Bilder, render/flat/): Flächen wie Steinblöcke mit
+ * Pixelkante (Ecken ausgespart per box-shadow — keine Rundungen), Fackelorange als Signalfarbe, Gold für Münzen und
+ * Ränge, Moosgrün für „besessen/aktiv", Blutrot für Tod und Löschen. Bilder werden pixelig skaliert, nie weichgezeichnet.
+ *
+ * Schriften: Silkscreen (Titel, Logo), Tiny5 (alles andere — klare Ziffern; Pixelify Sans verwechselte 2/8 und 5/S). Geladen von der Hülle (ui/Shell.jsx) per <link>.
+ * Präfix av- für alle Klassen. Seit dem Umbau (Oktober 2026) nutzt auch das HUD im Lauf diesen Look (hud/Hud.jsx).
+ */
+
+.av-game {
+  --av-bg: #121016;
+  --av-stone: #1f1c25;
+  --av-stone-2: #2a2632;
+  --av-stone-3: #37323f;
+  --av-edge: #0a090d;
+  --av-ink: #efe6d2;
+  --av-dim: rgb(239 230 210 / 0.72);
+  --av-faint: rgb(239 230 210 / 0.48);
+  --av-line: rgb(239 230 210 / 0.12);
+  --av-torch: #f0a33c;
+  --av-torch-dark: #a8621a;
+  --av-gold: #f5cf4a;
+  --av-moss: #86b85f;
+  --av-blood: #d9473a;
+  --av-font: "Tiny5", "Rubik", ui-sans-serif, system-ui, sans-serif;
+  --av-font-display: "Silkscreen", "Tiny5", ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: dark;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--av-bg);
+  color: var(--av-ink);
+  font-family: var(--av-font);
+  font-size: 17px;
+  line-height: 1.45;
+  font-synthesis: none; /* Tiny5 hat nur einen Schnitt — kein künstliches Fett */
+}
+.av-game ::selection { background: var(--av-torch); color: var(--av-edge); }
+.av-game :focus-visible { outline: 2px solid var(--av-torch); outline-offset: 2px; }
+.av-pixel { image-rendering: pixelated; }
+
+.av-title { font-family: var(--av-font-display); font-weight: 700; letter-spacing: 0.02em; line-height: 1; }
+.av-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--av-faint); }
+.av-dim { color: var(--av-dim); }
+.av-faint { color: var(--av-faint); }
+.av-torch { color: var(--av-torch); }
+.av-gold { color: var(--av-gold); }
+.av-moss { color: var(--av-moss); }
+.av-blood { color: var(--av-blood); }
+.av-num { font-variant-numeric: tabular-nums; }
+
+/* ── Steinblock mit Pixelkante: die Kante sitzt als Schatten außen, die Ecken bleiben frei ── */
+.av-block {
+  background: var(--av-stone);
+  box-shadow:
+    0 -4px 0 0 var(--av-edge), 0 4px 0 0 var(--av-edge), -4px 0 0 0 var(--av-edge), 4px 0 0 0 var(--av-edge),
+    inset 0 3px 0 0 rgb(255 255 255 / 0.06), inset 0 -3px 0 0 rgb(0 0 0 / 0.3);
+}
+.av-slot {
+  background: var(--av-stone-2);
+  box-shadow: inset 0 0 0 2px var(--av-edge), inset 0 3px 0 0 rgb(0 0 0 / 0.25);
+}
+
+/* ── Knöpfe: Pixelknopf mit dunkler Unterkante, gedrückt rutscht er runter ── */
+.av-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 10px 18px 13px; font-family: var(--av-font); font-weight: 700; font-size: 17px; letter-spacing: 0.02em;
+  background: var(--av-torch); color: #231305;
+  box-shadow:
+    0 -3px 0 0 var(--av-edge), 0 3px 0 0 var(--av-edge), -3px 0 0 0 var(--av-edge), 3px 0 0 0 var(--av-edge),
+    inset 0 -4px 0 0 var(--av-torch-dark), inset 0 3px 0 0 rgb(255 255 255 / 0.25);
+  transition: filter 100ms, transform 60ms;
+  cursor: pointer; white-space: nowrap;
+}
+.av-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.av-btn:active:not(:disabled) { transform: translateY(2px); }
+.av-btn:disabled { filter: grayscale(0.8) brightness(0.6); cursor: not-allowed; }
+.av-btn-stone { background: var(--av-stone-3); color: var(--av-ink);
+  box-shadow:
+    0 -3px 0 0 var(--av-edge), 0 3px 0 0 var(--av-edge), -3px 0 0 0 var(--av-edge), 3px 0 0 0 var(--av-edge),
+    inset 0 -4px 0 0 #1b1820, inset 0 3px 0 0 rgb(255 255 255 / 0.08); }
+.av-btn-danger { background: var(--av-blood); color: #fff; box-shadow:
+    0 -3px 0 0 var(--av-edge), 0 3px 0 0 var(--av-edge), -3px 0 0 0 var(--av-edge), 3px 0 0 0 var(--av-edge),
+    inset 0 -4px 0 0 #7d2019, inset 0 3px 0 0 rgb(255 255 255 / 0.2); }
+.av-btn-lg { padding: 14px 24px 17px; font-size: 21px; }
+.av-btn-sm { padding: 5px 11px 8px; font-size: 14px; gap: 6px; }
+
+/* ── Kopfleiste ──────────────────────────────────────────────────────────── */
+.av-topbar { position: relative; z-index: 40; background: var(--av-stone); border-bottom: 4px solid var(--av-edge); padding-top: env(safe-area-inset-top, 0px); }
+.av-logo { font-family: var(--av-font-display); font-weight: 700; font-size: 22px; color: var(--av-ink); white-space: nowrap; line-height: 1; }
+.av-logo b { color: var(--av-torch); font-weight: 700; }
+
+/* ── Hauptmenü ───────────────────────────────────────────────────────────── */
+/* Menühintergrund: dieselben ruhigen Zweiton-Fliesen wie der Verlies-Boden im Spiel (render/flat/world.js) */
+.av-floor {
+  background-color: #2b2733;
+  background-image: repeating-conic-gradient(#302b39 0 25%, #2b2733 0 50%);
+  background-size: 240px 240px;
+}
+.av-menu-item {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 11px 14px;
+  background: var(--av-stone-2); color: var(--av-ink);
+  box-shadow: inset 0 0 0 2px var(--av-edge), inset 0 -4px 0 0 rgb(0 0 0 / 0.3);
+  transition: background-color 100ms;
+}
+.av-menu-item:hover { background: var(--av-stone-3); }
+.av-menu-item:hover .av-menu-arrow { color: var(--av-torch); }
+.av-sprite-bob { animation: av-bob 0.9s steps(2, jump-none) infinite; }
+@keyframes av-bob { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .av-sprite-bob { animation: none; } }
+
+/* ── Fenster, Reiter, Listen ─────────────────────────────────────────────── */
+.av-overlay { position: absolute; inset: 0; z-index: 40; background: rgb(10 9 13 / 0.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.av-scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--av-stone-3) transparent; }
+.av-tabs { display: flex; gap: 22px; border-bottom: 2px solid var(--av-line); }
+.av-tab { padding: 8px 0 10px; margin-bottom: -2px; border-bottom: 3px solid transparent; color: var(--av-dim); cursor: pointer; white-space: nowrap; }
+.av-tab:hover { color: var(--av-ink); }
+.av-tab[aria-selected="true"] { color: var(--av-ink); border-bottom-color: var(--av-torch); }
+.av-seg { display: grid; gap: 8px; }
+.av-seg-btn { padding: 10px 12px; text-align: left; background: var(--av-stone-2); box-shadow: inset 0 0 0 2px var(--av-edge); cursor: pointer; }
+.av-seg-btn:hover:not(:disabled) { background: var(--av-stone-3); }
+.av-seg-btn[aria-pressed="true"] { box-shadow: inset 0 0 0 3px var(--av-torch); background: var(--av-stone-3); }
+.av-seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.av-xpbar { height: 12px; background: var(--av-edge); position: relative; }
+.av-xpbar > i { position: absolute; left: 2px; top: 2px; bottom: 2px; background: var(--av-torch); display: block; }
+.av-input { width: 100%; background: var(--av-edge); color: var(--av-ink); padding: 10px 12px; box-shadow: inset 0 0 0 2px var(--av-stone-3); font-family: var(--av-font); }
+.av-input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--av-torch); }
+
+/* ── Item- und Fähigkeitssymbole ─────────────────────────────────────────── */
+.av-item-icon {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  background: var(--av-stone-2); color: var(--rar);
+  box-shadow: inset 0 0 0 2px var(--rar), 0 0 0 2px var(--av-edge);
+}
+.av-count { position: absolute; right: -5px; bottom: -6px; min-width: 16px; padding: 0 3px; font-size: 12px; line-height: 15px; text-align: center; background: var(--av-edge); color: var(--av-ink); }
+
+/* ── HUD im Lauf ─────────────────────────────────────────────────────────── */
+.av-hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; color: var(--av-ink); font-family: var(--av-font); }
+.av-hud-panel { background: rgb(18 16 22 / 0.86); box-shadow: 0 0 0 3px var(--av-edge); }
+.av-bar { position: relative; height: 18px; background: #26141a; box-shadow: inset 0 0 0 2px var(--av-edge); }
+.av-bar > i { position: absolute; top: 2px; bottom: 2px; left: 2px; display: block; }
+.av-bar > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; text-shadow: 1px 1px 0 var(--av-edge); }
+.av-skill { position: relative; width: 58px; height: 58px; display: flex; align-items: center; justify-content: center; background: var(--av-stone-2); color: var(--av-ink); box-shadow: inset 0 0 0 2px var(--av-edge), 0 0 0 3px var(--av-edge); }
+.av-skill-cd { position: absolute; left: 0; right: 0; bottom: 0; background: rgb(10 9 13 / 0.74); }
+.av-skill-time { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; text-shadow: 1px 1px 0 var(--av-edge); }
+.av-key { position: absolute; top: -11px; left: -7px; padding: 0 4px; font-size: 11px; line-height: 15px; background: var(--av-ink); color: var(--av-edge); }
+.av-banner { text-align: center; text-shadow: 3px 3px 0 var(--av-edge); }
+.av-tip { position: absolute; z-index: 30; width: 260px; padding: 10px 12px; background: var(--av-stone); box-shadow: 0 0 0 3px var(--av-edge); pointer-events: none; }
+
+/* ── Stufenaufstieg: Karten mit Akzentkante in der Farbe der Waffe/des Talents ── */
+.av-upgrade {
+  position: relative; display: flex; flex-direction: column; padding: 18px 16px 16px; text-align: left;
+  background: var(--av-stone); color: var(--av-ink); cursor: pointer;
+  box-shadow: 0 0 0 3px var(--av-edge), inset 0 4px 0 0 var(--acc), inset 0 -3px 0 0 rgb(0 0 0 / 0.3);
+  animation: av-rise 220ms steps(4, jump-end) both;
+  transition: background-color 100ms;
+}
+.av-upgrade:nth-child(2) { animation-delay: 60ms; }
+.av-upgrade:nth-child(3) { animation-delay: 120ms; }
+.av-upgrade:hover:not(:disabled) { background: var(--av-stone-2); box-shadow: 0 0 0 3px var(--acc), inset 0 4px 0 0 var(--acc), inset 0 -3px 0 0 rgb(0 0 0 / 0.3); }
+.av-upgrade:disabled { cursor: default; }
+.av-upgrade .av-key { top: -10px; left: -6px; }
+
+/* ── Item aufgehoben: Kärtchen über der Figur ── */
+.av-reveal {
+  display: flex; align-items: center; gap: 16px; width: min(440px, 86vw); padding: 14px 18px 14px 14px;
+  background: rgb(18 16 22 / 0.94); box-shadow: 0 0 0 3px var(--av-edge), inset 4px 0 0 0 var(--acc);
+  animation: av-rise 200ms steps(4, jump-end) both, av-fade 300ms 2.1s steps(3, jump-end) forwards;
+}
+@keyframes av-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes av-fade { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .av-upgrade, .av-reveal { animation: none; } }
+
+/* ── HUD: Waffen- und Talentleiste ── */
+.av-pips { position: absolute; left: 3px; right: 3px; bottom: 3px; display: flex; gap: 1px; }
+.av-pips > i { flex: 1; height: 3px; background: var(--av-stone-3); }
+.av-pips > i.on { background: var(--acc); }
+
+/* Münze im HUD (statt Bilddatei) */
+.av-coin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #e0b030; box-shadow: inset 0 0 0 3px #f5cf4a; }

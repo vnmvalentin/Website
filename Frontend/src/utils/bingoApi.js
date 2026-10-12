@@ -9,7 +9,9 @@ async function apiFetch(path, opts = {}) {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = json?.error || json?.message || `HTTP ${res.status}`;
+    // Ohne Fehlertext vom Server stand früher nur "HTTP 500" auf der Seite
+    const msg = json?.error || json?.message
+      || (res.status >= 500 ? "Der Server ist gerade nicht erreichbar. Bitte versuch es gleich noch einmal." : `Anfrage fehlgeschlagen (HTTP ${res.status})`);
     const err = new Error(msg);
     err.status = res.status;
     err.payload = json;

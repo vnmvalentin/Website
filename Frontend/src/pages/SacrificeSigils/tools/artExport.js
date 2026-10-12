@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tools/artExport.js — rendert alle prozeduralen Artworks als SVG nach public/assets/cards/generated/ (Vorschau/Referenz).
+// tools/artExport.js — rendert alle prozeduralen Artworks als SVG nach public/media/cards/generated/ (Vorschau/Referenz).
 //   npm run art:export
 import fs from "node:fs";
 import path from "node:path";
@@ -8,7 +8,7 @@ import { ALL_CARDS } from "../data/cards/index.js";
 import { renderArtSvg } from "../art/procedural.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const out = path.resolve(here, "..", "..", "..", "..", "public", "assets", "cards", "generated");
+const out = path.resolve(here, "..", "..", "..", "..", "public", "media", "cards", "generated");
 fs.mkdirSync(out, { recursive: true });
 let n = 0;
 for (const card of ALL_CARDS) {

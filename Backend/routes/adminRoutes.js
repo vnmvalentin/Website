@@ -1,5 +1,5 @@
 const express = require("express");
-const fs = require("fs");
+const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
 const path = require("path");
 const createWinchallengeRouter = require("../winchallenge/winchallengeRoutes");
 const createGardenRouter = require("../garden/routes/gardenGameRoutes");
@@ -20,24 +20,14 @@ const PATHS = {
   promo: path.join(ROOT_DIR, "data/promo-codes.json"),
 };
 
+// Über lib/jsonFile.js: atomar, und eine kaputte Datei wird nie mit {} überschrieben
+// (saveJson liefert dann false; der Grund steht im Server-Log)
 function loadJson(key) {
-  try {
-    if (!fs.existsSync(PATHS[key])) return {};
-    return JSON.parse(fs.readFileSync(PATHS[key], "utf8"));
-  } catch (e) {
-    console.error(`Fehler beim Laden von ${key}:`, e.message);
-    return {}; 
-  }
+  return readJson(PATHS[key], {});
 }
 
 function saveJson(key, data) {
-  try {
-    fs.writeFileSync(PATHS[key], JSON.stringify(data, null, 2));
-    return true;
-  } catch (e) { 
-    console.error(`Fehler beim Speichern von ${key}:`, e.message);
-    return false; 
-  }
+  return writeJsonAtomic(PATHS[key], data);
 }
 
 // HIER: 'io' aus den Argumenten entpacken
@@ -96,22 +86,12 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
 
   // --- SPECIFIC UPDATES ---
 
-  // CASINO & ADVENTURE CREDITS UPDATE
+  // ADVENTURE-NUTZER BEARBEITEN (Credits gibt es seit Oktober 2026 nicht mehr)
   router.post("/update/user", (req, res) => {
     const { targetId, changes } = req.body; 
     if (!targetId) return res.status(400).json({ error: "No ID" });
 
-    let updatedCasino = false;
     let updatedAdventure = false;
-
-    // Casino Data
-    const casinoDb = loadJson("casino");
-    if (!casinoDb[targetId]) casinoDb[targetId] = { credits: 0 };
-    if (changes.credits !== undefined) {
-        casinoDb[targetId].credits = parseInt(changes.credits);
-        saveJson("casino", casinoDb);
-        updatedCasino = true;
-    }
 
     // Adventure Data
     const advDb = loadJson("adventure");
@@ -128,8 +108,7 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
     res.json({ success: true });
 
     // SOCKET UPDATE TRIGGERN
-    const updates = ["stats"]; // Stats ändern sich immer bei Credits
-    if (updatedCasino) updates.push("casino");
+    const updates = ["stats"];
     if (updatedAdventure) updates.push("adventure");
     notifyUpdate(updates);
   });

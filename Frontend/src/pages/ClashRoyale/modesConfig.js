@@ -11,6 +11,8 @@ import {
   CrTelescope, CrSkull, CrTripleDraft, CrElixirPair, CrTwoVsTwo, CrCheck, CrRage, CrRandom,
 } from './ui/CrIcons';
 
+// partyModes: in welchen Lobby-Arten der Modus im Moduswähler auftaucht ('solo' / 'duo').
+// Fehlt das Feld, gilt der Modus als solo-only — dieselbe Default-Regel wie in registry.js im Backend.
 export const MODES = [
   {
     id: 'snake',
@@ -18,9 +20,6 @@ export const MODES = [
     icon: CrMegaDraft,
     desc: 'Wähle Karten aus einem 11×11-Raster – aber nur anliegend an die zuletzt gewählte Karte. Baue das beste Deck!',
     available: true,
-    // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
-    // Default-Regel gilt dort für Modi ohne eigenes partyModes-Feld). Alle bisherigen Modi
-    // kennen kein Team-Konzept und tauchen deshalb nur im Solo-Moduswähler auf.
     partyModes: ['solo'],
   },
   {
@@ -29,9 +28,6 @@ export const MODES = [
     icon: CrElixir,
     desc: 'Starte mit 100 Elixier und biete in jeder Runde auf angezeigte Karten. Der Höchstbietende gewinnt – Verlierer erhalten einen Trostpreis!',
     available: true,
-    // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
-    // Default-Regel gilt dort für Modi ohne eigenes partyModes-Feld). Alle bisherigen Modi
-    // kennen kein Team-Konzept und tauchen deshalb nur im Solo-Moduswähler auf.
     partyModes: ['solo'],
   },
   {
@@ -40,9 +36,6 @@ export const MODES = [
     icon: CrClassicDecks,
     desc: 'Fülle deine Bingo-Karte mit Clash Royale Karten. Bingos geben dir PowerUps mit denen du dein Deck verbessern oder gegnerische sabotieren kannst.',
     available: true,
-    // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
-    // Default-Regel gilt dort für Modi ohne eigenes partyModes-Feld). Alle bisherigen Modi
-    // kennen kein Team-Konzept und tauchen deshalb nur im Solo-Moduswähler auf.
     partyModes: ['solo'],
   },
   {
@@ -51,9 +44,6 @@ export const MODES = [
     icon: CrTrader,
     desc: 'Jeder Spieler hat einen Tisch voller verdeckter Karten. Decke pro Runde Karten auf und nimm eine — auch blind. Danach wandern die Tische im Karussell weiter.',
     available: true,
-    // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
-    // Default-Regel gilt dort für Modi ohne eigenes partyModes-Feld). Alle bisherigen Modi
-    // kennen kein Team-Konzept und tauchen deshalb nur im Solo-Moduswähler auf.
     partyModes: ['solo'],
   },
   {
@@ -62,9 +52,6 @@ export const MODES = [
     icon: CrDoubleElixir,
     desc: 'Dein Elixier lädt sich automatisch auf — auf dem Marktplatz erscheinen Karten mit echten Elixierkosten. Wer zuerst klickt, bekommt die Karte. 8 Käufe = fertiges Deck!',
     available: true,
-    // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
-    // Default-Regel gilt dort für Modi ohne eigenes partyModes-Feld). Alle bisherigen Modi
-    // kennen kein Team-Konzept und tauchen deshalb nur im Solo-Moduswähler auf.
     partyModes: ['solo'],
   },
   {
@@ -73,9 +60,6 @@ export const MODES = [
     icon: CrBoost,
     desc: '3 Runden: Karten mit progressiven Tokenkosten aufwerten und locken, dann Gegner sabotieren, dann weiter aufwerten. Karten kommen aus einem geteilten Pool — jede Karte gehört immer nur einem Spieler gleichzeitig.',
     available: true,
-    // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
-    // Default-Regel gilt dort für Modi ohne eigenes partyModes-Feld). Alle bisherigen Modi
-    // kennen kein Team-Konzept und tauchen deshalb nur im Solo-Moduswähler auf.
     partyModes: ['solo'],
   },
   {
@@ -84,9 +68,6 @@ export const MODES = [
     icon: CrFisherman,
     desc: 'Karten treiben in zufälligen Bahnen über den Fluss — manche schnell, manche in Wellenlinien, manche tauchen kurz ab und sind dann nicht fangbar. Klicke sie an, um sie zu angeln. Nach jedem Fang braucht deine Angel einen Moment — und wer zu lange gar nicht angelt, bekommt eine zufällige Karte zugelost.',
     available: true,
-    // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
-    // Default-Regel gilt dort für Modi ohne eigenes partyModes-Feld). Alle bisherigen Modi
-    // kennen kein Team-Konzept und tauchen deshalb nur im Solo-Moduswähler auf.
     partyModes: ['solo'],
   },
   {
@@ -95,9 +76,6 @@ export const MODES = [
     icon: CrTelescope,
     desc: 'Ein bei jedem Start neu generiertes Labyrinth in völliger Dunkelheit — du siehst nur deinen eigenen Lichtkegel. Sammle Draft-Kisten (1 aus 2) und lose Bodenkarten, in der Mitte wartet ein Joker. Läuft die Zeit ab, werden leere Deck-Plätze zufällig aufgefüllt.',
     available: true,
-    // Fehlt partyModes, ist ein Modus solo-only (siehe registry.js im Backend — dieselbe
-    // Default-Regel gilt dort für Modi ohne eigenes partyModes-Feld). Alle bisherigen Modi
-    // kennen kein Team-Konzept und tauchen deshalb nur im Solo-Moduswähler auf.
     partyModes: ['solo'],
   },
   {
@@ -122,7 +100,7 @@ export const MODES = [
     id: 'elixir-auction-2v2',
     name: 'Elixir Auction 2v2',
     icon: CrElixirPair,
-    desc: 'Zwei Teams, ein gemeinsamer Elixier-Pool. Jede Runde siehst du eine Karte und schickst 2 Merkmale davon an deinen Partner — danach bietet ihr blind auf die Karte des jeweils anderen. Wer mehr bietet, bekommt sie fürs eigene Deck.',
+    desc: 'Zwei bis vier Teams, jedes mit eigenem Elixier-Pool. Jede Runde siehst du eine Karte und schickst 2 Merkmale davon an deinen Partner — danach bietet ihr blind auf die Karte des jeweils anderen. Wer mehr bietet, bekommt sie fürs eigene Deck.',
     available: true,
     isNew: true,
     partyModes: ['duo'],
@@ -159,7 +137,7 @@ const MODE_DESC_EN = {
   'dark-maze': 'A maze regenerated on every start, in complete darkness — you only see your own cone of light. Collect draft chests (1 of 2) and loose floor cards; a joker waits in the center. When time runs out, empty deck slots are filled randomly.',
   'trap-setter': 'Disguise one of your trap cards as something attractive and drop it into a shared grid alongside real cards. After a short countdown, everyone clicks as fast as possible — lose a collision and you\'re redirected at random, maybe straight into someone else\'s trap.',
   'pyramid-draft': 'Only the bottom row of the card pyramid lies face up — everything else is hidden. A card is only revealed once both cards directly beneath it are gone. Draft in turn order that rotates every round; at the end of each round one more face-up card gets randomly blocked.',
-  'elixir-auction-2v2': 'Two teams, one shared elixir pool. Each round you see one card and send your partner 2 of its traits — then you both bid blind on the other pair\'s card. Highest bid wins it for their own deck.',
+  'elixir-auction-2v2': 'Two to four teams, each with its own shared elixir pool. Each round you see one card and send your partner 2 of its traits — then you both bid blind on the other pair\'s card. Highest bid wins it for their own deck.',
   'elixir-rush-2v2': 'Separate marketplaces, one shared elixir bar. You and your partner buy independently from the team\'s elixir — it refills faster and holds more than in solo mode.',
 };
 
@@ -186,7 +164,7 @@ const MODE_DESC_ES = {
   'dark-maze': 'Un laberinto que se regenera en cada partida, en completa oscuridad — solo ves tu propio cono de luz. Recoge cofres de draft (1 de 2) y cartas sueltas en el suelo; en el centro espera un comodín. Cuando se acaba el tiempo, las casillas de mazo vacías se rellenan al azar.',
   'trap-setter': 'Disfraza una de tus cartas trampa como algo atractivo y colócala en una cuadrícula compartida junto a cartas reales. Tras una breve cuenta atrás, todos hacen clic lo más rápido posible — si pierdes una colisión te redirigen al azar, quizá directo a la trampa de otro.',
   'pyramid-draft': 'Solo la fila inferior de la pirámide de cartas está boca arriba — el resto permanece oculto. Una carta solo se revela cuando las dos que tiene justo debajo han sido elegidas. Se draftea por turnos que rotan cada ronda; al final de cada ronda, una carta boca arriba más se bloquea al azar.',
-  'elixir-auction-2v2': 'Dos equipos, un pool de elixir compartido. Cada ronda ves una carta y le envías a tu compañero 2 de sus características — luego ambos pujáis a ciegas por la carta del otro par. La puja más alta se la lleva para su propio mazo.',
+  'elixir-auction-2v2': 'De dos a cuatro equipos, cada uno con su propio pool de elixir compartido. Cada ronda ves una carta y le envías a tu compañero 2 de sus características — luego ambos pujáis a ciegas por la carta del otro par. La puja más alta se la lleva para su propio mazo.',
   'elixir-rush-2v2': 'Mercados separados, una barra de elixir compartida. Tú y tu compañero compráis de forma independiente del elixir del equipo — se recarga más rápido y tiene más capacidad que en solitario.',
 };
 

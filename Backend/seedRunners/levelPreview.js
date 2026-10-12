@@ -11,7 +11,7 @@
 const MAX_W = 96;
 const MAX_H = 32;
 const SOLID = '#IW><';
-const HAZARDS = new Set(['spike', 'saw', 'laser', 'fallingBlock']);
+const HAZARDS = new Set(['spike', 'saw', 'laser', 'fallingBlock', 'cannon']);
 
 /**
  * @param {{ width: number, height: number, tiles: string[], elements: { type: string, tx: number, ty: number }[] }} doc  kanonisches Dokument

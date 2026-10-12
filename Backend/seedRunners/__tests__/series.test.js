@@ -73,7 +73,7 @@ test('Ein einzelnes Rennen (rounds 1) ist eine Serie der Länge 1: gleiche Anzei
   const code = room(h, ['Anna']);
   h.mgr.start(sock('s1'));
   const s = h.lastState(code);
-  assert.deepEqual(s.series, { index: 1, total: 1, plan: [{ kind: 'random' }], naechste: null, hasNext: false, standings: null });
+  assert.deepEqual(s.series, { index: 1, total: 1, mode: 'race', plan: [{ kind: 'random' }], naechste: null, hasNext: false, standings: null });
   assert.equal(s.round.kind, 'random');
   assert.equal(s.round.custom, null);
 });

@@ -15,9 +15,8 @@ import TournamentCreatorsPanel from "./ClashRoyale/tournament/TournamentCreators
 // DEINE ID
 const STREAMER_ID = "160224748";
 
-// Der Reiter "Credits" (die Casino-User-Tabelle) ist bewusst entfernt — die Daten
-// werden im Dashboard nicht mehr gepflegt. Die Credits der adVentures-Spieler
-// stehen weiterhin in deren eigener Tabelle.
+// Credits gibt es auf der Website nicht mehr (Oktober 2026): kein Casino-Reiter, keine Credit-Spalte, Promo-Codes
+// schalten nur noch adVentures-Kits frei.
 const SECTIONS = [
   { id: "overview", label: "Übersicht", icon: LayoutDashboard },
   { id: "adventures", label: "adVentures", icon: Swords },
@@ -122,7 +121,7 @@ export default function AdminDashboard() {
 
   // --- NEUE STATES FÜR CODES ---
   const [newCode, setNewCode] = useState({
-      code: "", type: "credits", value: 0, maxUses: 10, expiresAt: ""
+      code: "", type: "skin", value: "", maxUses: 10, expiresAt: ""
   });
   const [isUnlimited, setIsUnlimited] = useState(false);
   const [gardenUsers, setGardenUsers] = useState([]);
@@ -274,7 +273,7 @@ export default function AdminDashboard() {
           method: "POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify(payload)
       });
-      setNewCode({ code: "", type: "credits", value: 0, maxUses: 10, expiresAt: "" });
+      setNewCode({ code: "", type: "skin", value: "", maxUses: 10, expiresAt: "" });
       setIsUnlimited(false);
       fetchData("codes");
   };
@@ -434,7 +433,6 @@ export default function AdminDashboard() {
                       <div>
                           <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Typ</label>
                           <select className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.type} onChange={e=>setNewCode({...newCode, type: e.target.value})}>
-                              <option value="credits">Credits</option>
                               <option value="skin">Skin</option>
                           </select>
                       </div>
@@ -506,7 +504,7 @@ export default function AdminDashboard() {
 
                                       <div className="text-sm text-white/70">
                                           <span className="uppercase text-[10px] text-white/30 font-bold block">Reward</span>
-                                          {info.type === "credits" ? `${info.value} Credits` : `Skin: ${info.value}`}
+                                          {info.type === "credits" ? `${info.value} Credits (abgeschafft, ungültig)` : `Skin: ${info.value}`}
                                       </div>
 
                                       <div className="text-sm text-white/70">
@@ -540,10 +538,9 @@ export default function AdminDashboard() {
                       <thead className="bg-black/25 text-[10px] uppercase tracking-wider text-white/40">
                           <tr>
                               <th className="p-3 font-bold">User</th>
-                              <th className="p-3 font-bold">Credits</th>
                               <th className="p-3 font-bold">Highscore</th>
                               <th className="p-3 font-bold">Skins</th>
-                              <th className="p-3 font-bold">Slots</th>
+                              <th className="p-3 font-bold">XP · Läufe</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -552,14 +549,6 @@ export default function AdminDashboard() {
                                   <td className="p-3 font-mono text-xs text-white/40">
                                       <div className="text-white font-semibold text-sm font-sans">{u.name || u.twitchLogin || "Unknown"}</div>
                                       {id}
-                                  </td>
-                                  <td className="p-3">
-                                      <input
-                                          type="number"
-                                          defaultValue={u.credits}
-                                          onBlur={(e) => updateUser(id, { credits: e.target.value })}
-                                          className="w-24 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
-                                      />
                                   </td>
                                   <td className="p-3">
                                       <input
@@ -579,14 +568,8 @@ export default function AdminDashboard() {
                                           className="ml-2 text-violet-300 hover:text-violet-200 inline-flex align-middle"
                                       ><Pencil size={12} /></button>
                                   </td>
-                                  <td className="p-3">
-                                      <input
-                                          type="number"
-                                          defaultValue={u.unlockedSlots}
-                                          onBlur={(e) => updateUser(id, { unlockedSlots: e.target.value })}
-                                          className="w-14 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
-                                      />
-                                  </td>
+                                  {/* seit dem Umbau (Okt. 2026) keine Slots mehr: Fortschritt = Account-XP */}
+                                  <td className="p-3 text-xs text-white/60 tabular-nums">{u.xp ?? 0} · {u.runs ?? 0}</td>
                               </tr>
                           ))}
                           {entries.length === 0 && (

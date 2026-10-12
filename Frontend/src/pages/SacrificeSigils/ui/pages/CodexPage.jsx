@@ -116,7 +116,7 @@ export default function CodexPage() {
                   <div key={s.id} className="flex gap-3 items-start">
                     <SigilIcon sigil={s.id === "kerzendocht" ? "kerzendocht:3" : s.id} size={40} />
                     <div>
-                      <p className="ss-title !text-[var(--ink)]">{de.sigils[s.id].name}{TOTEM_BASE_SIGILS.includes(s.id) ? <span className="text-xs opacity-60"> · Totem-Basis</span> : null}</p>
+                      <p className="ss-title !text-[var(--ink)]">{de.sigils[s.id].name}{TOTEM_BASE_SIGILS.includes(s.id) ? <span className="text-xs opacity-60"> · Totem-Körper</span> : null}</p>
                       <p className="text-[0.95rem]">{de.sigils[s.id].desc}</p>
                       {de.sigils[s.id].example && <p className="text-sm italic opacity-70">{de.sigils[s.id].example}</p>}
                       <button type="button" className="text-xs underline opacity-70" onClick={() => { setSigil(s.id); setTab("cards"); }}>Karten mit diesem Sigil</button>
@@ -152,9 +152,9 @@ export default function CodexPage() {
             <ul className="space-y-1.5">{EVENTS.map((e) => <li key={e}><b>{de.events[e].name}:</b> {de.events[e].intro}</li>)}</ul>
           </section>
           <section className="ss-paper p-4">
-            <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Totem-Basen ({TOTEM_BASE_SIGILS.length})</h2>
+            <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Totem-Körper ({TOTEM_BASE_SIGILS.length})</h2>
             <div className="flex flex-wrap gap-2">{TOTEM_BASE_SIGILS.map((s) => <span key={s} className="flex items-center gap-1 text-sm"><SigilIcon sigil={s} size={20} />{de.sigils[s].name}</span>)}</div>
-            <p className="text-sm mt-2 opacity-75">Mit einem Stammkopf gilt die Basis für alle Karten des Stamms, mit einem Lanenkopf für jede eigene Karte in der Lane.</p>
+            <p className="text-sm mt-2 opacity-75">Mit einem Stammkopf gilt der Körper für alle Karten des Stamms, mit einem Lanenkopf für jede eigene Karte in der Lane.</p>
           </section>
           <section className="ss-paper p-4">
             <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Lanen-Eigenschaften ({LANE_PROPS.length})</h2>

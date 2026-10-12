@@ -149,10 +149,10 @@ const MODE_PRESETS = {
       id: 'suggested',
       values: (lobby, n) => ({
         rushMarketSize: atLeast(RUSH_MARKET_SIZES, 5), rushCardLifetime: 8,
-        rushShowElixir: false, rushShowTimer: true,
+        rushShowElixir: false, rushShowTimer: true, rushElixirSpeed: 'normal',
       }),
     },
-    { id: 'chaos', values: { rushMarketSize: 8, rushCardLifetime: 4, rushShowElixir: true, rushShowTimer: false } },
+    { id: 'chaos', values: { rushMarketSize: 8, rushCardLifetime: 4, rushShowElixir: true, rushShowTimer: false, rushElixirSpeed: 'veryfast' } },
   ],
   // Sabotage-Runde: mehr Spieler = mehr mögliche Ziele = mehr Zeit nötig.
   'card-evolution': [
@@ -206,10 +206,9 @@ const MODE_PRESETS = {
   'elixir-auction-2v2': [
     { id: 'suggested', values: () => ({ teamElixirPool: 200, cardsPerRound: 3 }) },
   ],
-  // 2v2: Marktgröße/Kartenlebensdauer 1:1 wie Solo-Rush — nur Elixier-Kapazität/-Rate sind
-  // hier fest (siehe elixirRush2v2.js), deshalb keine eigene Einstellung dafür.
+  // 2v2: Marktgröße/Kartenlebensdauer 1:1 wie Solo-Rush, Tempo eine Stufe schneller, Team-Balken 10.
   'elixir-rush-2v2': [
-    { id: 'suggested', values: () => ({ rush2v2MarketSize: 5, rush2v2CardLifetime: 8 }) },
+    { id: 'suggested', values: () => ({ rush2v2MarketSize: 5, rush2v2CardLifetime: 8, rush2v2ElixirSpeed: 'fast', rush2v2MaxElixir: 10 }) },
   ],
   // "Vorgeschlagen" ist bewusst die kleinste tragfähige Pyramide (kein Puffer verschenkt) —
   // damit kommt man am ehesten bis zur Spitze durch. "Chaos" blockiert viel mehr pro Runde

@@ -1,0 +1,160 @@
+/*
+ * Blobby Volley — eigener Look „Strandturnier", getrennt von der übrigen Website.
+ *
+ * Hell statt dunkel: trockener Sand als Grund, Sonnencreme-weiße Tafeln, Tiefsee-Blau als Tinte und Korallenrot als
+ * Signalfarbe (die Farbe von Team Rot auf dem Feld). Flächen sehen aus wie bedruckte Strandschilder: kräftige blaue Kontur,
+ * ein harter versetzter Schatten statt Weichzeichner oder Leuchten, kleine Radien.
+ *
+ * Schriften: Lilita One (Logo, Überschriften, Punktestand), Rubik (Text). Geladen von der Hülle (ui/Shell.jsx) per <link> —
+ * ein @import landet im Build mitten in der zusammengefassten CSS-Datei, wo Browser ihn ignorieren.
+ * Präfix bv- für alle Klassen, damit nichts mit dem Website-Look kollidiert.
+ */
+
+.bv-game {
+  --bv-sand: #f2e1bd;
+  --bv-sand-deep: #e4c994;
+  --bv-paper: #fff8ea;
+  --bv-paper-2: #fbeed2;
+  --bv-ink: #12304d;
+  --bv-ink-2: #2b4a68;
+  --bv-dim: rgb(18 48 77 / 0.72);
+  --bv-faint: rgb(18 48 77 / 0.5);
+  --bv-line: rgb(18 48 77 / 0.16);
+  --bv-coral: #e2503a;
+  --bv-coral-dark: #9d2c1c;
+  --bv-sea: #0f6e9b;
+  --bv-sea-dark: #0a4770;
+  --bv-sun: #f6b73c;
+  --bv-good: #1c8a5a;
+  --bv-bad: #c2352a;
+  --bv-font: "Rubik", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --bv-font-display: "Lilita One", "Rubik", ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: light;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bv-sand);
+  color: var(--bv-ink);
+  font-family: var(--bv-font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.bv-game ::selection { background: var(--bv-sun); color: var(--bv-ink); }
+.bv-game :focus-visible { outline: 3px solid var(--bv-sea); outline-offset: 2px; }
+
+/* ── Schrift ─────────────────────────────────────────────────────────────── */
+.bv-display { font-family: var(--bv-font-display); font-weight: 400; letter-spacing: 0.01em; line-height: 1; }
+.bv-label { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--bv-faint); }
+.bv-dim { color: var(--bv-dim); }
+.bv-faint { color: var(--bv-faint); }
+.bv-coral { color: var(--bv-coral); }
+.bv-sea { color: var(--bv-sea); }
+.bv-bad { color: var(--bv-bad); }
+.bv-num { font-variant-numeric: tabular-nums; }
+
+/* ── Flächen: Strandschild mit Kontur und hartem Schatten ────────────────── */
+.bv-card {
+  background: var(--bv-paper);
+  border: 2px solid var(--bv-ink);
+  border-radius: 6px;
+  box-shadow: 4px 4px 0 var(--bv-ink);
+}
+.bv-card-flat { background: var(--bv-paper); border: 2px solid var(--bv-ink); border-radius: 6px; }
+.bv-rows > * + * { border-top: 1.5px dashed var(--bv-line); }
+.bv-divider { border-top: 1.5px dashed var(--bv-line); }
+
+/* ── Knöpfe ──────────────────────────────────────────────────────────────── */
+.bv-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 18px; border-radius: 6px; border: 2px solid var(--bv-ink);
+  font-weight: 700; font-size: 15px; letter-spacing: 0.01em;
+  background: var(--bv-coral); color: #fff;
+  box-shadow: 0 3px 0 var(--bv-ink);
+  transition: background-color 120ms, transform 60ms, box-shadow 60ms;
+  cursor: pointer; white-space: nowrap; user-select: none;
+}
+.bv-btn:hover:not(:disabled) { background: #ec5f48; }
+.bv-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--bv-ink); }
+.bv-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.bv-btn-lg { padding: 13px 22px; font-size: 17px; }
+.bv-btn-sm { padding: 6px 12px; font-size: 13px; gap: 6px; box-shadow: 0 2px 0 var(--bv-ink); }
+.bv-btn-sea { background: var(--bv-sea); }
+.bv-btn-sea:hover:not(:disabled) { background: #177fb0; }
+.bv-btn-ghost { background: var(--bv-paper); color: var(--bv-ink); }
+.bv-btn-ghost:hover:not(:disabled) { background: #fff; }
+.bv-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px;
+  color: var(--bv-ink); border: 2px solid var(--bv-ink); background: var(--bv-paper); transition: background-color 120ms;
+}
+.bv-icon-btn:hover { background: #fff; }
+
+/* Umschalter (Einstellungen): eine Reihe Felder, das gewählte ist blau gefüllt */
+.bv-seg { display: inline-flex; border: 2px solid var(--bv-ink); border-radius: 6px; overflow: hidden; background: var(--bv-paper); }
+.bv-seg > button { padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--bv-ink-2); transition: background-color 120ms, color 120ms; }
+.bv-seg > button + button { border-left: 2px solid var(--bv-ink); }
+.bv-seg > button:hover:not(:disabled) { background: var(--bv-paper-2); }
+.bv-seg > button[aria-pressed="true"] { background: var(--bv-sea); color: #fff; }
+.bv-seg > button:disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* ── Eingaben ────────────────────────────────────────────────────────────── */
+.bv-input {
+  width: 100%; background: #fff; color: var(--bv-ink);
+  border: 2px solid var(--bv-ink); border-radius: 6px; padding: 9px 12px; font-size: 15px;
+}
+.bv-input::placeholder { color: var(--bv-faint); }
+.bv-input:focus { outline: none; box-shadow: 0 0 0 3px rgb(15 110 155 / 0.3); }
+
+/* ── Kleinteile ──────────────────────────────────────────────────────────── */
+.bv-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px;
+  font-size: 12px; font-weight: 600; color: var(--bv-ink-2); background: var(--bv-paper-2); border: 1.5px solid var(--bv-line);
+}
+.bv-kbd {
+  display: inline-block; min-width: 26px; padding: 1px 7px; text-align: center; border-radius: 4px;
+  font-weight: 700; font-size: 13px; color: var(--bv-ink); background: #fff;
+  border: 1.5px solid var(--bv-ink); box-shadow: 0 2px 0 var(--bv-ink);
+}
+.bv-toast {
+  position: fixed; left: 50%; top: 72px; transform: translateX(-50%); z-index: 60;
+  max-width: calc(100vw - 32px); padding: 10px 16px; font-size: 14px;
+}
+
+/* ── Fenster ─────────────────────────────────────────────────────────────── */
+.bv-modal-back { position: fixed; inset: 0; z-index: 70; background: rgb(18 48 77 / 0.55); display: flex; align-items: flex-start; justify-content: center; padding: max(48px, env(safe-area-inset-top)) 16px 16px; overflow-y: auto; }
+
+/* ── Kopfleiste ──────────────────────────────────────────────────────────── */
+.bv-topbar {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--bv-sand);
+  border-bottom: 2px solid var(--bv-ink);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.bv-logo { font-family: var(--bv-font-display); font-size: 21px; color: var(--bv-ink); white-space: nowrap; line-height: 1; }
+.bv-logo b { color: var(--bv-coral); font-weight: 400; }
+.bv-nav { font-weight: 600; font-size: 14px; padding: 6px 10px; border-radius: 4px; color: var(--bv-dim); transition: color 120ms, background-color 120ms; }
+.bv-nav:hover { color: var(--bv-ink); background: rgb(255 255 255 / 0.45); }
+.bv-nav[aria-current="page"] { color: var(--bv-ink); background: var(--bv-paper); box-shadow: inset 0 0 0 2px var(--bv-ink); }
+
+/* ── Hauptmenü ───────────────────────────────────────────────────────────── */
+.bv-menu-item {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 13px 15px; border-radius: 6px; background: var(--bv-paper);
+  border: 2px solid var(--bv-ink); box-shadow: 3px 3px 0 var(--bv-ink);
+  transition: background-color 120ms, transform 60ms, box-shadow 60ms;
+}
+.bv-menu-item:hover { background: #fff; }
+.bv-menu-item:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--bv-ink); }
+.bv-menu-item[aria-expanded="true"] { background: #fff; border-bottom-left-radius: 0; border-bottom-right-radius: 0; box-shadow: 3px 0 0 var(--bv-ink); }
+.bv-menu-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0;
+  border-radius: 6px; border: 2px solid var(--bv-ink); background: var(--bv-sun); color: var(--bv-ink);
+}
+.bv-menu-drawer { background: #fff; border: 2px solid var(--bv-ink); border-top: 1.5px dashed var(--bv-line); border-radius: 0 0 6px 6px; box-shadow: 3px 3px 0 var(--bv-ink); margin-top: -2px; }
+
+/* Anzeigetafel im Raum: dunkle Tafel wie am Spielfeldrand */
+.bv-board { background: var(--bv-ink); color: #fff; border: 2px solid var(--bv-ink); border-radius: 6px; box-shadow: 4px 4px 0 rgb(18 48 77 / 0.35); }
+.bv-board-score { font-family: var(--bv-font-display); font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; color: #fff; }
+.bv-field { border: 2px solid var(--bv-ink); border-radius: 6px; box-shadow: 4px 4px 0 var(--bv-ink); overflow: hidden; background: #123f6d; }
+
+/* Überlagerung auf dem Spielfeld */
+.bv-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgb(18 48 77 / 0.62); }

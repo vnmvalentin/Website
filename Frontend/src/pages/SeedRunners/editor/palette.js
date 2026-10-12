@@ -19,7 +19,7 @@ export const MARKER_ENTRIES = [
 ];
 
 const ELEMENT_COLORS = {
-  spike: '#ff5a5a', saw: '#ff5a5a', laser: '#ff5a5a', fallingBlock: '#6d6a7c',
+  spike: '#ff5a5a', saw: '#ff5a5a', laser: '#ff5a5a', cannon: '#ff5a5a', fallingBlock: '#6d6a7c',
   mover: '#7f8cff', crumble: '#8a7a68',
   spring: '#f0b94a', ring: '#7dd3fc', crystal: '#a78bfa', wind: '#7dd3fc', gravityZone: '#c084fc', portal: '#38bdf8',
   switch: '#e05a5a', colorBlock: '#5a8be0', key: '#facc15', door: '#a07a3e',

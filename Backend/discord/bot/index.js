@@ -3,6 +3,8 @@ const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { startTwitchPoller } = require('./twitchPoller');
+const { startBoosterRoleSweep } = require('./boosterRoles');
+const { startSeedRunnersBoard } = require('./seedRunnersBoard');
 
 const discordClient = new Client({
     intents: [
@@ -45,6 +47,8 @@ discordClient.login(process.env.DISCORD_BOT_TOKEN);
 // Twitch-Poller nach erfolgreichem Login starten
 discordClient.once('clientReady', () => {
     startTwitchPoller(discordClient);
+    startBoosterRoleSweep(discordClient);
+    startSeedRunnersBoard(discordClient);
 });
 
 module.exports = discordClient;

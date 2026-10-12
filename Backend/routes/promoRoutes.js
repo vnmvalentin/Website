@@ -1,14 +1,14 @@
 const express = require("express");
-const fs = require("fs");
 const path = require("path");
 const { nanoid } = require("nanoid");
+const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
 
 const PROMO_PATH = path.join(__dirname, "../data/promo-codes.json");
-const CASINO_PATH = path.join(__dirname, "../data/casinoData.json");
 const ADVENTURE_PATH = path.join(__dirname, "../data/adventures-users.json");
 
-function loadJson(p) { try { if (!fs.existsSync(p)) return {}; return JSON.parse(fs.readFileSync(p, "utf8")); } catch(e) { return {}; } }
-function saveJson(p, d) { fs.writeFileSync(p, JSON.stringify(d, null, 2)); }
+// Über lib/jsonFile.js: atomar, und eine kaputte Datei wird nie mit {} überschrieben
+function loadJson(p) { return readJson(p, {}); }
+function saveJson(p, d) { writeJsonAtomic(p, d); }
 
 module.exports = function createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }) {
   const router = express.Router();
@@ -18,7 +18,8 @@ module.exports = function createPromoRouter({ requireAuth, STREAMER_TWITCH_ID })
       if (String(req.twitchId) !== String(STREAMER_TWITCH_ID)) return res.status(403).json({ error: "Admin only" });
       
       const { code, type, value, maxUses, expiresAt } = req.body;
-      // type: 'credits', 'skin', 'item'
+      // Credits gibt es nicht mehr (Oktober 2026) — ein Code schaltet ein adVentures-Kit frei
+      if (type !== "skin" || !String(value || "").trim()) return res.status(400).json({ error: "Nur Skin-Codes mit Skin-ID möglich" });
       
       const db = loadJson(PROMO_PATH);
       const finalCode = (code || nanoid(8)).toUpperCase();
@@ -76,15 +77,9 @@ module.exports = function createPromoRouter({ requireAuth, STREAMER_TWITCH_ID })
       let message = "";
       let resultCode = "";
 
-      if (promo.type === "credits") {
-          const casinoDb = loadJson(CASINO_PATH);
-          if (!casinoDb[req.twitchId]) casinoDb[req.twitchId] = { credits: 0 };
-          casinoDb[req.twitchId].credits += parseInt(promo.value);
-          saveJson(CASINO_PATH, casinoDb);
-          message = `${promo.value} Credits erhalten!`;
-          resultCode = "credits";
-      }
-      else if (promo.type === "skin") {
+      // Alte Credit-Codes sind wertlos geworden und zählen als ungültig (werden nicht verbraucht)
+      if (promo.type !== "skin") return res.status(404).json({ error: "Code ungültig", code: "invalid" });
+      {
           const advDb = loadJson(ADVENTURE_PATH);
           if (!advDb[req.twitchId]) advDb[req.twitchId] = { skins: ["default"], powerups: [] };
           if (!advDb[req.twitchId].skins.includes(promo.value)) {

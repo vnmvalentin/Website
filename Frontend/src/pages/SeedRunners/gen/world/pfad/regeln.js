@@ -54,8 +54,9 @@ function schlichteZuege(dir, gruendlich = false) {
  * Schafft ein schlichter Zug (ohne die Elemente in `ohne`) dasselbe Ziel? Dann ist die Mechanik unnötig.
  * @param {object[]} entities  alle Elemente; die in `ohne` werden für die Prüfung weggelassen
  * @param {{x,y}|{x,y}[]|null} anker   Ankerkachel(n), die für die Prüfung entfernt werden
+ * @param {number} [sw]  geschaltete Kanäle (world.flags.sw) — sonst wären Farbblock-Plattformen womöglich durchlässig
  */
-export function ohneMechanikErreichbar({ grid, entities, ohne, anker, cls, von, plat, ziel, gruendlich = false, reach = null }) {
+export function ohneMechanikErreichbar({ grid, entities, ohne, anker, cls, von, plat, ziel, gruendlich = false, reach = null, sw = 0 }) {
   // Vorprüfung: Sagt schon die großzügige Schätzung „unerreichbar“, kommt auch kein schlichter Sprung hin — die bis zu ~96
   // Sim-Proben sparen (gemessen: 28 % der Bauzeit steckten hier)
   if (reach && !erreichbar(plat, ziel, reach)) return false;
@@ -72,11 +73,13 @@ export function ohneMechanikErreichbar({ grid, entities, ohne, anker, cls, von, 
       const kanteX = dir > 0 ? (plat.x1 + 1) * TILE : plat.x0 * TILE;
       for (const zug of schlichteZuege(dir, gruendlich)) {
         const aus = ausschnittWelt(grid, ents, von, cls, { x: Math.round((von.x + ziel.x0) / 2), y: Math.round((von.y + ziel.row) / 2) });
+        aus.welt.flags.sw = sw;
         const r = spieleZug(aus, zugEingabe(zug, kanteX - aus.x0 * TILE), zugFertig, 600);
         if (r.tot) continue;
         const ende = r.spur[r.spur.length - 1];
         const st = standKachel(ende);
-        if (ende.boden && st.y === ziel.row - 1 && st.x >= ziel.x0 && st.x <= ziel.x1) return true;
+        // (der gefundene Zug samt Absprungkante — wahr wie true, und wer will, baut ihn nach)
+        if (ende.boden && st.y === ziel.row - 1 && st.x >= ziel.x0 && st.x <= ziel.x1) return { zug, kanteX };
       }
     }
     return false;

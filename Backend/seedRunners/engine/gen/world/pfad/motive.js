@@ -13,11 +13,11 @@
 
 /** Nur Züge ohne eigenen Zustand: Schalter (Kanäle), Tor (Takt), Mitfahrt, Wand, Portal hängen an ihrem Ort */
 export function motivFaehig(zug) {
-  return ['sprung', 'doppel', 'fall', 'feder'].includes(zug.art) && !zug.tor && !zug.schalter && !zug.sofort;
+  return ['sprung', 'doppel', 'fall', 'feder'].includes(zug.art) && !zug.tor && !zug.schalter && !zug.sofort && !zug.beschuss && !zug.luftportal && !zug.schluesselFlug;
 }
 
 /** Abgeleitete Felder, die der Planer beim Bauen in den Zug schreibt — sie gehören nicht ins Motiv */
-const ABGELEITET = ['doppelNach2', 'roehrenGesetzt', 'torRel', 'schalterKanal', 'schalterZiel', 'wechsel', 'zielPunkt', 'moverWeg', 'moverRel', 'schwelle', 'boeeRel', 'blockRel', 'roehrenX', 'greif', 'seilRel'];
+const ABGELEITET = ['doppelNach2', 'roehrenGesetzt', 'torRel', 'schalterKanal', 'schalterZiel', 'wechsel', 'zielPunkt', 'moverWeg', 'moverRel', 'schwelle', 'boeeRel', 'blockRel', 'roehrenX', 'greif', 'seilRel', 'kanoneRel', 'kristall', 'kristall2', 'kristallRel', 'schluesselEnt'];
 
 /** Eingaben eines Zugs, als unabhängige Kopie */
 export function motivKopie(zug) {

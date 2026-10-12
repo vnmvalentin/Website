@@ -13,6 +13,7 @@ import RaceView from "../room/RaceView.jsx";
 import { verifyLevel } from "../room/levelApi.js";
 import { formatTicks } from "../room/format.js";
 import { buttonClass, primaryButtonClass } from "./fields.jsx";
+import { boundLabel } from "../client/input.js";
 
 const OWN_CLOCK = { toLocal: (t) => t };
 const noop = () => {};
@@ -117,7 +118,7 @@ export default function VerifyRun({ run, onExit, onRestart, onVerified }) {
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-white/10">
         <button type="button" onClick={onExit} className={buttonClass}><ArrowLeft size={14} />Zurück zum Editor (Esc)</button>
         {phase !== "done" && (
-          <button type="button" onClick={onRestart} disabled={busy} className={buttonClass}><RotateCcw size={14} />Neu starten (N)</button>
+          <button type="button" onClick={onRestart} disabled={busy} className={buttonClass}><RotateCcw size={14} />Neu starten ({boundLabel("neustart")})</button>
         )}
         <span className="text-xs text-white/40 ml-auto">Verifizierungslauf · das Level ist gesperrt</span>
       </div>

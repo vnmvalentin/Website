@@ -4,9 +4,10 @@
 // ein eigenes Fenster (derselbe Modal-Rahmen wie Kartenpool/Verlauf/Account, jetzt
 // blickdicht statt halbtransparent — siehe .cr-arcade-panel in index.css).
 import React from 'react';
-import { CrSettings } from '../ui/CrIcons';
+import { CrSettings, CrRandom } from '../ui/CrIcons';
 import Modal from '../ui/Modal';
 import HostSettings from './HostSettings';
+import RandomModeSettings from './RandomModeSettings';
 import { modeNameFor, modeInfo } from '../modesConfig';
 
 export default function GameSettingsModal({
@@ -16,7 +17,8 @@ export default function GameSettingsModal({
   poolSize, activeCount, carouselMaxPlayers, carouselTooMany,
 }) {
   const mode = lobbyData?.mode || 'snake';
-  const ModeIcon = modeInfo(mode).icon;
+  const random = !!lobbyData?.randomEnabled;
+  const ModeIcon = random ? CrRandom : modeInfo(mode).icon;
 
   return (
     <Modal
@@ -31,9 +33,13 @@ export default function GameSettingsModal({
           <span className="cr-tile-icon w-11 h-11"><ModeIcon size={30} /></span>
           <span className="min-w-0">
             <span className="cr-eyebrow block">{t.gameMode}</span>
-            <span className="block font-cr text-white text-lg leading-tight truncate">{modeNameFor(mode, lang)}</span>
+            <span className="block font-cr text-white text-lg leading-tight truncate">{random ? t.randomMode : modeNameFor(mode, lang)}</span>
           </span>
         </div>
+        {random ? (
+          <RandomModeSettings lobbyData={lobbyData} actions={actions} t={t} lang={lang}
+            isClashAdmin={isClashAdmin} effectiveIsHost={effectiveIsHost} />
+        ) : (
         <HostSettings
           lobbyData={lobbyData}
           actions={actions}
@@ -46,6 +52,7 @@ export default function GameSettingsModal({
           carouselMaxPlayers={carouselMaxPlayers}
           carouselTooMany={carouselTooMany}
         />
+        )}
       </div>
     </Modal>
   );

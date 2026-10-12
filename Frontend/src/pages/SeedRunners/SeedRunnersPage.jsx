@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { io } from "socket.io-client";
-import { ArrowRight, Users, CalendarDays, Hammer, LibraryBig, Gamepad2, Flag, ChevronDown } from "lucide-react";
+import { ArrowRight, Users, CalendarDays, Hammer, LibraryBig, Gamepad2, Flag, ChevronDown, History } from "lucide-react";
 import SEO from "../../components/SEO";
 import { getIdentity, saveIdentity } from "./room/identity.js";
 import { getFx } from "./client/fxSettings.js";
@@ -47,7 +47,7 @@ export default function SeedRunnersPage() {
   const [joinCode, setJoinCode] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const [multiOpen, setMultiOpen] = useState(true);
+  const [multiOpen, setMultiOpen] = useState(false);
 
   useEffect(() => () => socketRef.current?.disconnect(), []);
 
@@ -158,6 +158,7 @@ export default function SeedRunnersPage() {
             </MenuItem>
 
             <MenuItem to="/seed-runners/levels" icon={LibraryBig} title="Level-Bibliothek" text="Level der Community spielen, bewerten und als Favorit merken." />
+            <MenuItem to="/seed-runners/verlauf" icon={History} title="Verlauf" text="Deine letzten Runden und alle vergangenen Tagesrennen — nachträglich merken und nachspielen." />
             <MenuItem to="/seed-runners/sandbox" icon={Hammer} title="Sandbox" text="Eigene Level im Editor bauen, anspielen und veröffentlichen." />
             <MenuItem onClick={openControls} icon={Gamepad2} title="Steuerung" text="Tasten ansehen und umbelegen, Gamepad, Regeln einer Runde." />
           </ul>

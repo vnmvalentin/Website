@@ -30,6 +30,9 @@
 // Kristallkette (`kette` = Zahl der Kristalle): nach dem Doppelsprung am Scheitel dashen, sobald ein Kristall geladen hat
 // (`kReaktion[k]` Ticks später; `kDiag[k]`: schräg in Laufrichtung statt senkrecht).
 // Dash-Sprung (`dashSprung`): an der Absprunglinie dashen (`dashNach` 0), `sprungNach` Ticks später springen.
+// Kristall-Tunnel (`dash2`): nach dem ersten Dash am zweiten Kristall (`kristallRel`) schräg hinauf dashen (`dash2Reaktion`).
+// Luftkristall (`luftdash`): nach dem Doppelsprung im Fallen am Kristall dashen (`luftdashReaktion`, `luftdashHoch`).
+// Beschuss (`beschuss`): wie das Tor warten — auf einen Schuss der eigenen Kanone (`kanoneRel`), dann `schussReaktion` Ticks.
 // Flacher Sprung (`flach`): nur kurz getippt (`halte` 4–8) — unter einer Stacheldecke hindurch.
 //
 // Greifen (bei jeder Art möglich): `greifNach` Ticks nach dem Absprung die Greiftaste drücken, `greifHalte` Ticks halten.
@@ -85,6 +88,23 @@ export function zugEingabe(zug, absX) {
       }
     }
     if (zug.tor && t < z.torT) return 0;
+    // Beschuss: an der Stelle warten, bis SEINE Kanone schießt (`kanoneRel`, wie beim Tor der Laser), dann `schussReaktion`
+    // Ticks später los — die Kugel fliegt vorbei, man springt hinter ihr durch die Lücke im Strom
+    if (zug.beschuss && z.schussT === undefined) {
+      if (z.kanone === undefined) {
+        const sx = Math.floor((p.x + PLAYER_W / 2) / TILE);
+        const sy = Math.floor((p.y + PLAYER_H - 1) / TILE);
+        const ab = (el) => Math.abs(el.tx - sx - zug.kanoneRel.dx) + Math.abs(el.ty - sy - zug.kanoneRel.dy);
+        z.kanone = zug.kanoneRel ? welt.elements.filter((el) => el.type === 'cannon' && ab(el) <= 2).sort((a2, b2) => ab(a2) - ab(b2))[0] || null : null;
+      }
+      if (!z.kanone) z.schussT = t;
+      else {
+        if (z.alter !== undefined && z.kanone.shotAge < z.alter) z.schussT = t + zug.schussReaktion;
+        z.alter = z.kanone.shotAge;
+        return 0;
+      }
+    }
+    if (zug.beschuss && t < z.schussT) return 0;
     // Böe im Takt: erst bis 12 px vor die Absprunglinie, dort auf den ANFANG einer Böe warten (+`boeeReaktion`), dann los —
     // der Sprung fällt so ganz in die Böe. Die Windzone findet der Zug über `boeeRel` (wie das Tor seinen Laser).
     if (zug.boee && z.boeT === undefined) {
@@ -156,6 +176,37 @@ export function zugEingabe(zug, absX) {
         }
       }
     }
+    // Kristall-Tunnel: Nach dem ersten Dash lädt ein Kristall im Tunnel wieder auf — sobald die Ladung da ist
+    // (+`dash2Reaktion`), schräg hinauf dashen. Nach ZUSTAND, wie die Kristallkette.
+    let dashJetzt = 0;
+    // Kristall-Tunnel und Luftkristall: Gedasht wird, wenn man AM Kristall ist (kristallRel, relativ zur Startkachel) und Ladung
+    // hat — wer noch eine Ladung von früher mitbringt, dashte sonst zu früh (Kettenlauf)
+    if ((zug.dash2 || zug.luftdash) && zug.kristallRel && z.kx === undefined) {
+      // (der echte Kristall nächst der erwarteten Stelle, höchstens 3 Kacheln daneben — wie das Tor seinen Laser findet)
+      const sx = Math.floor((p.x + PLAYER_W / 2) / TILE);
+      const sy = Math.floor((p.y + PLAYER_H - 1) / TILE);
+      const ab = (el) => Math.abs(el.tx - sx - zug.kristallRel.dx) + Math.abs(el.ty - sy - zug.kristallRel.dy);
+      const k = welt.elements.filter((el) => el.type === 'crystal' && ab(el) <= 3).sort((a2, b2) => ab(a2) - ab(b2))[0];
+      z.kx = k ? k.x : -1e9;
+      z.ky = k ? k.y : -1e9;
+    }
+    const amKristall = !zug.kristallRel || (Math.abs(p.x + PLAYER_W / 2 - z.kx) <= 14 && Math.abs(p.y + PLAYER_H / 2 - z.ky) <= 14);
+    if (zug.dash2 && s > zug.dashNach + 2) {
+      if (z.d2T === undefined && p.dashCharges > 0 && amKristall) z.d2T = t + zug.dash2Reaktion;
+      // (noch einmal drücken, solange die Ladung nicht verbraucht ist: Fiel der erste Druck in die Abklingzeit des ersten Dashs,
+      // lief der Puffer ab — ein Mensch drückt dann eben noch einmal)
+      if (z.d2T !== undefined && t >= z.d2T && (t - z.d2T) % 12 === 0 && (!z.d2 || p.dashCharges > 0) && t < z.d2T + 40) { z.d2 = true; dashJetzt = richtung | INPUT.DASH; }
+      // (HOCH gehalten: Läuft die Abklingzeit des ersten Dashs noch, startet der gepufferte Dash erst Ticks später — mit der
+      // Richtung, die man DANN hält)
+      if (z.d2T !== undefined && t >= z.d2T && t < z.d2T + 44) dashJetzt |= INPUT.UP;
+    }
+    // Luftkristall: im Fallen nach dem Doppelsprung einen Kristall schnappen und sofort weiter dashen (flach oder schräg
+    // hinauf) — der Dash fängt den Fall ab und trägt über die Grube
+    if (zug.luftdash && s > (zug.doppelNach ?? 0) + 2) {
+      if (z.ldT === undefined && p.dashCharges > 0 && amKristall) z.ldT = t + zug.luftdashReaktion;
+      if (z.ldT !== undefined && !z.ld && t >= z.ldT) { z.ld = true; dashJetzt = richtung | INPUT.DASH; }
+      if (zug.luftdashHoch && z.ldT !== undefined && t >= z.ldT && t < z.ldT + 20) dashJetzt |= INPUT.UP;
+    }
     // Dash (nach dem Kristall): Richtung halten, einmal drücken — schräg nach oben mit UP
     // ('senkrecht': nur hoch, ohne Richtung — der Dash geht dann gerade nach oben)
     if (zug.dashNach != null && s === zug.dashNach) m = (zug.dashHoch === 'senkrecht' ? 0 : richtung) | INPUT.DASH | (zug.dashHoch ? INPUT.UP : 0) | (m & INPUT.JUMP);
@@ -173,7 +224,7 @@ export function zugEingabe(zug, absX) {
       if (d2 >= 0 && d2 < 30) m |= INPUT.JUMP;
       if (d2 === -1) m &= ~INPUT.JUMP;
     }
-    return m;
+    return m | dashJetzt;
   };
 }
 
@@ -444,7 +495,7 @@ function anhalten(p, t, z) {
 /** Ende eines Zugs: nach dem Absprung wieder gelandet (und einen Moment gestanden) */
 export function zugFertig(welt, t, z) {
   if (z.mf !== undefined) return !!z.fertig || t > 2400;
-  if (z.ab === undefined) return !z.boeWartet && t > 400 + (z.torT ?? z.boeT ?? 0);
+  if (z.ab === undefined) return !z.boeWartet && t > 400 + (z.torT ?? z.boeT ?? z.schussT ?? 0);
   if (z.letztX !== undefined) return welt.player.onGround && t - z.ab > 30;   // Portal: nach Austritt und Nachlauf stehen
   if (!welt.player.onGround) { z.luft = true; return false; }
   // …bis man steht (oder nach einer halben Sekunde)
@@ -561,6 +612,18 @@ export function varianten(zug, laufTempo) {
   if (zug.tor) {
     mit({ torReaktion: Math.max(1, zug.torReaktion - tol) });
     mit({ torReaktion: zug.torReaktion + tol });
+  }
+  if (zug.beschuss) {
+    mit({ schussReaktion: Math.max(0, zug.schussReaktion - tol) });
+    mit({ schussReaktion: zug.schussReaktion + tol });
+  }
+  if (zug.dash2) {
+    mit({ dash2Reaktion: Math.max(0, zug.dash2Reaktion - tol) });
+    mit({ dash2Reaktion: zug.dash2Reaktion + tol });
+  }
+  if (zug.luftdash) {
+    mit({ luftdashReaktion: Math.max(0, zug.luftdashReaktion - tol) });
+    mit({ luftdashReaktion: zug.luftdashReaktion + tol });
   }
   if (zug.loslassen != null) {
     mit({ loslassen: Math.max(1, zug.loslassen - tol) });

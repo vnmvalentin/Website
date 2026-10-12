@@ -110,7 +110,7 @@ export function fuelle({ grid, entities, korridor, schritte, rng, d, start, maxS
     // Über die ganze Breite des Zugs (auch unter den Plattformen — dort stoßen gleich die Säulen darauf); nur die Tiefe
     // richtet sich nach der Lücke. Schmale Streifen nur unter der Lücke sahen wie dünne Eisstriche aus.
     // (Portal: Die Bahn reicht vom Eingang bis zum Ausgang — dort nur die Lücke)
-    const xs = s.zug.art === 'portal' ? luecke : [...tiefste.keys()];
+    const xs = s.zug.art === 'portal' || s.zug.luftportal ? luecke : [...tiefste.keys()];
     for (let x = Math.min(...xs) - 1; x <= Math.max(...xs) + 1; x++) {
       if (!frei(x, ys) || !frei(x, ys + 1)) continue;
       const g = neueGruppe('grube');
@@ -202,6 +202,61 @@ export function fuelle({ grid, entities, korridor, schritte, rng, d, start, maxS
     }
   }
 
+  // Schlot (Rückmeldung 01.10.2026: enger Turm mit vielen Hindernissen): Eiswände links und rechts des Schachts über die ganze
+  // Höhe seiner Züge (zwei Kacheln dick, in Abschnitten zu 6 Zeilen — eine Rücknahme reißt nur ein Stück heraus), an den
+  // Innenseiten Stachelstreifen, wo kein Zug vorbeikommt. Wo ein Zug von außen herein- oder hinausführt, bleibt die Wand offen.
+  const schaechte = new Map();
+  for (const s of schritte) {
+    if (!s.schlot) continue;
+    const e = schaechte.get(s.schlot) || { r: s.schlot, y0: Infinity, y1: -1 };
+    e.y0 = Math.min(e.y0, s.box.y0, s.ziel.row - 4);
+    e.y1 = Math.max(e.y1, s.box.y1, s.ziel.row);
+    schaechte.set(s.schlot, e);
+  }
+  const wandQuote = [0.2, 0.3, 0.45, 0.55, 0.65][d - 1];
+  for (const { r, y0, y1 } of schaechte.values()) {
+    const oben = Math.max(1, y0 - 3);
+    const unten = Math.min(H - 1, y1 + 4);
+    for (const x of [r.x0 - 2, r.x0 - 1, r.x1 + 1, r.x1 + 2]) {
+      for (let y = oben; y <= unten; y += 6) {
+        const g = neueGruppe('wand');
+        for (let yy = y; yy < y + 6 && yy <= unten; yy++) if (frei(x, yy)) setze(x, yy, ICE, g);
+      }
+    }
+    for (const [x, wx, dir] of [[r.x0, r.x0 - 1, 'right'], [r.x1, r.x1 + 1, 'left']]) {
+      for (let y = oben; y <= unten;) {
+        const n = rng.intRange(2, 5);
+        if (rng.range(0, 1) < wandQuote) {
+          const g = neueGruppe('wandstachel');
+          for (let yy = y; yy < y + n && yy <= unten; yy++) if (frei(x, yy) && fest(grid[yy][wx])) stachel(x, yy, dir, 'wand', g);
+        }
+        y += n + rng.intRange(1, 4);
+      }
+    }
+    // Unterseiten der Plattformen: Wer sich darunter den Kopf stößt, stirbt (nur wo kein Zug vorbeikommt)
+    for (const s of schritte) {
+      if (s.schlot !== r || s.ziel.broeckel || s.ziel.farbe != null) continue;
+      if (rng.range(0, 1) >= wandQuote + 0.2) continue;
+      const g = neueGruppe('unterseite');
+      for (let x = s.ziel.x0; x <= s.ziel.x1; x++) if (frei(x, s.ziel.row + 1) && fest(grid[s.ziel.row][x])) stachel(x, s.ziel.row + 1, 'down', 'wand', g);
+    }
+    // Sägen in freien Nischen des Schachts — mit einer Kachel Abstand zu jeder Bahn: Wer patzt und fällt, fällt hinein
+    const saegen = [];
+    const nische = (x, y) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].every(([ddx, ddy]) => frei(x + ddx, y + ddy));
+    for (let y = oben + 2; y <= unten - 2; y += 2) {
+      for (let x = r.x0 + 1; x <= r.x1 - 1; x++) {
+        if (!nische(x, y) || saegen.some((q) => Math.abs(q[0] - x) + Math.abs(q[1] - y) < 7) || rng.range(0, 1) >= 0.12 * wandQuote * 3) continue;
+        saegen.push([x, y]);
+        const g = neueGruppe('saege');
+        entities.push({ type: 'saw', tx: x, ty: y, fuellung: 'saege' });
+        gesetzt.add(k(x, y));
+        belegt.add(k(x, y));
+        gruppen.get(g).kacheln.push(k(x, y));
+        gruppeVon.set(k(x, y), g);
+      }
+    }
+  }
+
   // 5. Kappen des Planers zu Gelände: wächst der Fels unter der Stachel nach oben an Fels oder an den Rand, braucht es
   //    sie nicht mehr. Breite Kappen (Seilgang-Decke, ab 3 Kacheln) dürfen bis zum Rand wachsen; einzelne (Wand, Laser-
   //    Sender) nur, wenn sie binnen 20 Zeilen an Fels stoßen (etwa an die Grotten-Decke) — sonst stünden dünne Striche bis zum oberen Rand.
@@ -230,7 +285,7 @@ export function fuelle({ grid, entities, korridor, schritte, rng, d, start, maxS
   // Über der Obergrenze ausdünnen: erst Landekanten, dann ganze Gruben eines Zugs auf einmal — die Lücke wird zum Abgrund
   // (auch tödlich, ohne Standfläche). Einzelne Säulen herauszunehmen hinterließ gestreifte Gruben voller Eisstriche.
   let zuViel = entities.filter((e) => e.fuellung).length - maxStacheln;
-  for (const art of ['kante', 'grube']) {
+  for (const art of ['kante', 'saege', 'wand', 'grube']) {
     while (zuViel > 0) {
       const kandidaten = entities.map((e, i) => (e.fuellung === art ? i : -1)).filter((i) => i >= 0);
       if (!kandidaten.length) break;
@@ -302,7 +357,7 @@ function schwebendeWeg(grid, entities, gesetzt) {
   const halt = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] };
   for (let j = entities.length - 1; j >= 0; j--) {
     const e = entities[j];
-    if (!e.fuellung) continue;
+    if (!e.fuellung || e.type !== 'spike') continue;                  // (Sägen der Füllung schweben absichtlich)
     const [dx, dy] = halt[e.dir] || [0, 1];
     if (!fest(grid[e.ty + dy]?.[e.tx + dx])) { entities.splice(j, 1); gesetzt.delete(k(e.tx, e.ty)); }
   }

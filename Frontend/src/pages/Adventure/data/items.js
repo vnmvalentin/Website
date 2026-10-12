@@ -1,0 +1,141 @@
+// data/items.js — alle Items, die man im Lauf aus Kisten bekommt. Items stapeln sich: `stats(n)` liefert die Werte für
+// n Stück. Schlüssel, die auf "Mult" enden, werden multipliziert, alle anderen addiert (siehe engine/stats.js).
+// Effekte, die mehr als reine Werte sind (Blitze, Explosionen …), stehen in engine/procs.js und lesen nur die Anzahl.
+//
+// Seltenheit: common (weiß), uncommon (grün), legendary (rot), boss (gelb — nur vom jeweiligen Boss).
+// icon = Name eines lucide-react-Icons (hud/ItemIcon.jsx übersetzt es).
+
+export const RARITY = {
+  common: { name: "Gewöhnlich", color: "#e8e2d4" },
+  uncommon: { name: "Selten", color: "#86d05f" },
+  legendary: { name: "Legendär", color: "#e5534b" },
+  boss: { name: "Boss", color: "#f5cf4a" },
+};
+
+const pct = (x) => `${Math.round(x * 100)} %`;
+
+export const ITEMS = {
+  // ── Gewöhnlich ────────────────────────────────────────────────────────────
+  schleifstein: { name: "Schleifstein", rarity: "common", icon: "Sword",
+    desc: (n) => `+${pct(0.1 * n)} Schaden`, stats: (n) => ({ damagePct: 0.1 * n }) },
+  energietrank: { name: "Energietrank", rarity: "common", icon: "FlaskConical",
+    desc: (n) => `+${pct(0.12 * n)} Angriffstempo`, stats: (n) => ({ attackSpeedPct: 0.12 * n }) },
+  federschuh: { name: "Federschuh", rarity: "common", icon: "Footprints",
+    desc: (n) => `+${pct(0.12 * n)} Lauftempo`, stats: (n) => ({ moveSpeedPct: 0.12 * n }) },
+  lebensbeere: { name: "Lebensbeere", rarity: "common", icon: "Heart",
+    desc: (n) => `+${25 * n} max. Leben`, stats: (n) => ({ maxHp: 25 * n }) },
+  adlerauge: { name: "Adlerauge", rarity: "common", icon: "Eye",
+    desc: (n) => `+${pct(0.08 * n)} Krit-Chance`, stats: (n) => ({ critChance: 0.08 * n }) },
+  verband: { name: "Verband", rarity: "common", icon: "Bandage",
+    desc: (n) => `+${(1.5 * n).toFixed(1)} Leben pro Sekunde`, stats: (n) => ({ regen: 1.5 * n }) },
+  panzerplatte: { name: "Panzerplatte", rarity: "common", icon: "Shield",
+    desc: (n) => `+${10 * n} Rüstung`, stats: (n) => ({ armor: 10 * n }) },
+  gluecksmuenze: { name: "Glücksmünze", rarity: "common", icon: "Coins",
+    desc: (n) => `+${pct(0.2 * n)} Gold`, stats: (n) => ({ goldPct: 0.2 * n }) },
+  magnet: { name: "Magnet", rarity: "common", icon: "Magnet",
+    desc: (n) => `+${pct(0.5 * n)} Sammelradius`, stats: (n) => ({ pickupPct: 0.5 * n }) },
+  vampirzahn: { name: "Vampirzahn", rarity: "common", icon: "Droplet",
+    desc: (n) => `Treffer heilen ${n} Leben`, stats: (n) => ({ lifeOnHit: n }) },
+  glimmspan: { name: "Glimmspan", rarity: "common", icon: "Flame",
+    desc: (n) => `${pct(Math.min(1, 0.1 * n))} Chance: Gegner brennt (3 s, 50 % pro s)`, stats: () => ({}) },
+  monsterzahn: { name: "Monsterzahn", rarity: "common", icon: "Bone",
+    desc: (n) => `Besiegte Gegner lassen eine Heilkugel fallen (${8 * n} Leben)`, stats: () => ({}) },
+  stoppuhr: { name: "Stoppuhr", rarity: "common", icon: "Timer",
+    desc: (n) => `−${pct(1 - Math.pow(0.92, n))} Abklingzeit`, stats: (n) => ({ cdMult: Math.pow(0.92, n) }) },
+  dornenhemd: { name: "Dornenhemd", rarity: "common", icon: "Spline",
+    desc: (n) => `Wirst du getroffen, nehmen Gegner in der Nähe ${pct(1 * n)} Schaden`, stats: () => ({}) },
+  zielfernrohr: { name: "Zielfernrohr", rarity: "common", icon: "Telescope",
+    desc: (n) => `+${pct(0.15 * n)} Reichweite und Geschosstempo`, stats: (n) => ({ rangePct: 0.15 * n }) },
+  glueckspilz: { name: "Glückspilz", rarity: "common", icon: "Coins",
+    desc: (n) => `Krits haben 30 % Chance auf ${n} × Schwierigkeit Gold`, stats: () => ({}) },
+  rueckstoss: { name: "Rückstoßhandschuh", rarity: "common", icon: "Hand",
+    desc: (n) => `Hauptangriffe stoßen Gegner zurück (Stärke ${90 * n})`, stats: () => ({}) },
+  kettenhemd: { name: "Kettenhemd", rarity: "common", icon: "Shield",
+    desc: (n) => `Jeder Treffer auf dich macht ${3 * n} Schaden weniger`, stats: () => ({}) },
+  kompass: { name: "Kompass", rarity: "common", icon: "Compass",
+    desc: (n) => `Teleporter ist sofort auf der Karte, +${pct(0.05 * n)} Lauftempo`, stats: (n) => ({ moveSpeedPct: 0.05 * n }) },
+  gierfinger: { name: "Gierfinger", rarity: "common", icon: "Magnet",
+    desc: (n) => `+${pct(0.4 * n)} Sammelradius, +${pct(0.1 * n)} Gold`, stats: (n) => ({ pickupPct: 0.4 * n, goldPct: 0.1 * n }) },
+
+  // ── Selten ────────────────────────────────────────────────────────────────
+  zwillingslauf: { name: "Zwillingslauf", rarity: "uncommon", icon: "Copy",
+    desc: (n) => `+${n} Geschoss${n > 1 ? "e" : ""} beim Hauptangriff`, stats: (n) => ({ projectiles: n }) },
+  durchbohrer: { name: "Durchbohrer", rarity: "uncommon", icon: "ChevronsRight",
+    desc: (n) => `Geschosse durchschlagen ${n} weitere Gegner`, stats: (n) => ({ pierce: n }) },
+  kettenblitz: { name: "Kettenblitz", rarity: "uncommon", icon: "Zap",
+    desc: (n) => `20 % Chance: Blitz springt auf ${2 + n} Gegner (60 %)`, stats: () => ({}) },
+  brandsatz: { name: "Brandsatz", rarity: "uncommon", icon: "Bomb",
+    desc: (n) => `Besiegte Gegner explodieren (${pct(1.5 + 0.75 * (n - 1))}, Radius ${90 + 20 * (n - 1)})`, stats: () => ({}) },
+  raketenwerfer: { name: "Raketenwerfer", rarity: "uncommon", icon: "Rocket",
+    desc: (n) => `${pct(Math.min(1, 0.1 * n))} Chance: zielsuchende Rakete (300 %)`, stats: () => ({}) },
+  frostring: { name: "Frostring", rarity: "uncommon", icon: "Snowflake",
+    desc: (n) => `${pct(Math.min(0.6, 0.08 * n))} Chance: Gegner 1 s einfrieren`, stats: () => ({}) },
+  federmantel: { name: "Federmantel", rarity: "uncommon", icon: "Feather",
+    desc: (n) => `+${n} Ladung${n > 1 ? "en" : ""} für die Bewegungsfähigkeit`, stats: (n) => ({ utilityCharges: n }) },
+  harpune: { name: "Jägerharpune", rarity: "uncommon", icon: "Anchor",
+    desc: (n) => `Kills geben 1,5 s +${pct(0.4 * n)} Lauftempo`, stats: () => ({}) },
+  blutrausch: { name: "Blutrausch", rarity: "uncommon", icon: "Activity",
+    desc: (n) => `Kills: +5 % Angriffstempo für 3 s, bis ${5 * n + 5} Stapel`, stats: () => ({}) },
+  schutzrune: { name: "Schutzrune", rarity: "uncommon", icon: "ShieldPlus",
+    desc: (n) => `Schild mit ${pct(0.1 * n)} max. Leben, lädt nach 4 s ohne Treffer`, stats: (n) => ({ shieldPct: 0.1 * n }) },
+  giftphiole: { name: "Giftphiole", rarity: "uncommon", icon: "Biohazard",
+    desc: (n) => `Treffer vergiften (${pct(0.3 * n)} pro s, 3 s)`, stats: () => ({}) },
+  orbitalklinge: { name: "Orbitalklinge", rarity: "uncommon", icon: "Orbit",
+    desc: (n) => `${n} Klinge${n > 1 ? "n kreisen" : " kreist"} um dich (200 % pro Treffer)`, stats: () => ({}) },
+  riesentoeter: { name: "Riesentöter", rarity: "uncommon", icon: "Axe",
+    desc: (n) => `+${pct(0.3 * n)} Schaden gegen Bosse und Elite`, stats: (n) => ({ bossDamagePct: 0.3 * n }) },
+  ausweichmantel: { name: "Schattenumhang", rarity: "uncommon", icon: "Ghost",
+    desc: (n) => `${pct(1 - 1 / (1 + 0.12 * n))} Chance, Treffern auszuweichen`, stats: (n) => ({ dodgeStacks: n }) },
+  glueckskatze: { name: "Glückskatze", rarity: "uncommon", icon: "Cat",
+    desc: (n) => `+${n} Glück: Kisten würfeln öfter`, stats: (n) => ({ luck: n }) },
+  zwilling: { name: "Zwillingsstein", rarity: "uncommon", icon: "Copy",
+    desc: (n) => `${pct(Math.min(0.6, 0.12 * n))} Chance: eine Waffe löst gleich noch einmal aus`, stats: () => ({}) },
+  erstehilfe: { name: "Erste Hilfe", rarity: "uncommon", icon: "Bandage",
+    desc: (n) => `Unter 25 % Leben: heilt 30 % (alle ${Math.round(60 / (1 + 0.5 * (n - 1)))} s)`, stats: () => ({}) },
+
+  // ── Legendär ──────────────────────────────────────────────────────────────
+  phoenixfeder: { name: "Phönixfeder", rarity: "legendary", icon: "Bird",
+    desc: (n) => `Belebt dich einmal wieder (${n}× übrig)`, stats: () => ({}) },
+  zeitkristall: { name: "Zeitkristall", rarity: "legendary", icon: "Hourglass",
+    desc: (n) => `−${pct(1 - Math.pow(0.75, n))} Abklingzeit, +${n} Ladung Zweitangriff`, stats: (n) => ({ cdMult: Math.pow(0.75, n), secondaryCharges: n }) },
+  sternenkanone: { name: "Sternenkanone", rarity: "legendary", icon: "Sparkles",
+    desc: (n) => `Jeder 6. Hauptangriff feuert eine Nova aus ${8 * n} Geschossen`, stats: () => ({}) },
+  blutpakt: { name: "Blutpakt", rarity: "legendary", icon: "HeartPulse",
+    desc: (n) => `+20 % Krit-Chance, Krits heilen ${2 * n} % max. Leben`, stats: () => ({ critChance: 0.2 }) },
+  gewitterkrone: { name: "Gewitterkrone", rarity: "legendary", icon: "CloudLightning",
+    desc: (n) => `Alle ${(1.5 / n).toFixed(2)} s trifft ein Blitz den nächsten Gegner (400 %)`, stats: () => ({}) },
+  drachenherz: { name: "Drachenherz", rarity: "legendary", icon: "Gem",
+    desc: (n) => `+${100 * n} max. Leben, +${4 * n} Leben pro Sekunde`, stats: (n) => ({ maxHp: 100 * n, regen: 4 * n }) },
+  seelenernte: { name: "Seelenernte", rarity: "legendary", icon: "Skull",
+    desc: (n) => `Kills geben dauerhaft +1 % Schaden (bis ${40 * n} %)`, stats: () => ({}) },
+  meteorsplitter: { name: "Meteorsplitter", rarity: "legendary", icon: "Sun",
+    desc: (n) => `${pct(Math.min(0.5, 0.05 * n))} Chance: Meteor am Ziel (500 %)`, stats: () => ({}) },
+
+  // ── Boss-Items: jeder Boss lässt sein eigenes fallen ──────────────────────
+  knochenkrone: { name: "Knochenkrone", rarity: "boss", icon: "Crown",
+    desc: (n) => `15 % Chance: Kill erweckt ein Skelett als Verbündeten (max. ${1 + n})`, stats: () => ({}) },
+  schleimkern: { name: "Schleimkern", rarity: "boss", icon: "Droplets",
+    desc: (n) => `Beim Laufen hinterlässt du Säure (${pct(0.8 * n)} alle 0,5 s)`, stats: () => ({}) },
+  spinnendruese: { name: "Spinnendrüse", rarity: "boss", icon: "Bug",
+    desc: (n) => `Treffer verlangsamen Gegner um ${pct(Math.min(0.6, 0.3 * n))}`, stats: () => ({}) },
+  kolossherz: { name: "Kolossherz", rarity: "boss", icon: "Mountain",
+    desc: (n) => `+${20 * n} Rüstung, Treffer auf dich lösen eine Schockwelle aus (${pct(2 * n)})`, stats: (n) => ({ armor: 20 * n }) },
+  frostfell: { name: "Frostfell", rarity: "boss", icon: "Wind",
+    desc: (n) => `Gegner um dich sind verlangsamt und nehmen ${pct(0.6 * n)} Frostschaden pro s`, stats: () => ({}) },
+  hornbrecher: { name: "Hornbrecher", rarity: "boss", icon: "Hammer",
+    desc: (n) => `Bewegungsfähigkeit trifft Gegner auf dem Weg (${pct(4 * n)})`, stats: () => ({}) },
+  schwarzschild: { name: "Schwarzer Schild", rarity: "boss", icon: "Shield",
+    desc: (n) => `Blockt alle ${(8 / n).toFixed(1).replace(".0", "")} s einen Treffer komplett`, stats: () => ({}) },
+  skarabaeus: { name: "Goldener Skarabäus", rarity: "boss", icon: "Bug",
+    desc: (n) => `+${pct(0.15 * n)} Gold, jede Münze heilt ${(0.6 * n).toFixed(1)} Leben`, stats: (n) => ({ goldPct: 0.15 * n }) },
+  magmaherz: { name: "Magmaherz", rarity: "boss", icon: "Flame",
+    desc: (n) => `Deine Bewegungsfähigkeit hinterlässt Lava (${pct(1.2 * n)} alle 0,5 s)`, stats: () => ({}) },
+  sturmschwinge: { name: "Sturmschwinge", rarity: "boss", icon: "Tornado",
+    desc: (n) => `Hauptangriffe springen auf ${n + 1} weitere Gegner (35 %)`, stats: () => ({}) },
+};
+
+export const ITEM_IDS = Object.keys(ITEMS);
+
+export function itemsOfRarity(rarity, locked = []) {
+  return ITEM_IDS.filter((id) => ITEMS[id].rarity === rarity && !locked.includes(id));
+}

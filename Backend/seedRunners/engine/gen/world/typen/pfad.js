@@ -10,7 +10,7 @@
 
 import { createRng } from '../../../sim/rng.js';
 import { planeSzenen, FORMEN } from '../pfad/szenen.js';
-import { planePfad } from '../pfad/planer.js';
+import { planePfad, kristalleAufraeumen } from '../pfad/planer.js';
 import { waehleHandschrift } from '../pfad/handschrift.js';
 import { waehleLeitidee, aktPlan } from '../pfad/leitideen.js';
 import { planeMotive } from '../pfad/motive.js';
@@ -29,9 +29,11 @@ const ZUEGE = Object.freeze({ short: 18, medium: 32, long: 90 });
 const ETAPPEN = [
   ['strom', 'turm', 'absturz'], ['strom', 'turm', 'strom'], ['turm', 'strom', 'absturz'], ['welle', 'turm', 'absturz'],
   ['strom', 'welle', 'strom'], ['absturz', 'strom', 'turm'], ['turm', 'welle', 'absturz'], ['welle', 'strom', 'welle'],
+  // Schlot (enger Kletterschacht, 01.10.2026): hinauf, dann quer oder hinab
+  ['strom', 'schlot', 'absturz'], ['schlot', 'strom', 'absturz'], ['welle', 'schlot', 'strom'], ['absturz', 'strom', 'schlot'],
 ];
 /** Großformen und ihr Gewicht (pfad/szenen.js); die Halle nur ab mittlerer Länge — kurz wäre sie kaum mehr als ein Raum */
-const FORM_GEWICHT = { strom: 2, turm: 1.5, absturz: 1.5, halle: 1.2, welle: 1.5 };
+const FORM_GEWICHT = { strom: 2, turm: 1.5, absturz: 1.5, halle: 1.2, welle: 1.5, schlot: 1.4 };
 /** Ergebnis von baue() → der geplante Weg (Züge, Start) — für den Kettenlauf-Test, ohne die Level-Daten aufzublähen */
 export const WEGE = new WeakMap();
 
@@ -88,7 +90,10 @@ export default {
     const nJe = etappig ? Math.round(n / etappen.length) : n;
     const breite = Math.min(LIMITS.maxWidth - 50, etappen.reduce((a, f) => a + FORMEN[f].groesse(nJe, reach).w, 0));
     const HOEHE = Math.max(...etappen.map((f) => FORMEN[f].groesse(nJe, reach).h));
-    const start = form.start();
+    // (Kommt später ein Schlot, startet das Level weiter unten: Er klettert ~100 Zeilen — von Zeile 100 aus war das Höhenbudget
+    // aufgebraucht, und große Aufstiege wie Wandschacht, Feder oder Kristallkette fanden keinen Platz mehr)
+    const start0 = form.start();
+    const start = etappen.slice(1).includes('schlot') && etappen[0] !== 'absturz' ? { ...start0, y: Math.max(start0.y, 140) } : start0;
     const akte = idee ? aktPlan(idee, nJe * etappen.length) : null;
 
     const szenen = [];
@@ -118,13 +123,20 @@ export default {
     }
     // Portale sind selten und weit: 1 im kurzen Level, sonst 2
     const portalBudget = params.length === 'short' ? 1 : etappig ? 3 : 2;
+    // Luftportale (im Sprungbogen) haben ein eigenes, größeres Budget — sie tragen eine Aufgabe, nicht nur einen Ortswechsel;
+    // die Leitideen Schlüsselloch und Kugelhagel leben von ihnen
+    const luftBudget = idee && (idee.id === 'schluesselloch' || idee.id === 'kugelhagel') ? 12 : params.length === 'short' ? 2 : etappig ? 5 : 3;
     // Endet der Weg vorzeitig (er hat sich eingekreist), mit neuem Zufall noch einmal — der längste Versuch gewinnt. Enge
     // Formen (Halle, Turm) liefen sonst bei jedem dritten bis vierten Seed zu kurz aus.
     let grid = null;
     let weg = null;
-    for (let versuch = 0; versuch < 3 && (!weg || weg.abbruch); versuch++) {
+    // (5 statt 3: Mit mehr Aufgaben im Topf liefen einzelne Seeds dreimal in dieselbe Sackgasse)
+    // (Ein Weg, der erst auf den letzten 10 % abbrach, bleibt: Der Planer kürzt ihn ohnehin bis zu einer tauglichen
+    // Zielplattform. Ein Schlot am Levelende brach oft zwei Züge vor dem Ziel ab — jeder Neuversuch kostete ~12 s.)
+    const fastFertig = (w) => w.schritte.length >= Math.ceil(richtungen.length * 0.9);
+    for (let versuch = 0; versuch < 5 && (!weg || (weg.abbruch && !fastFertig(weg))); versuch++) {
       const g2 = ctx.neuesRaster(breite, HOEHE);
-      const w2 = planePfad({ rng: rng.fork(versuch ? `weg${versuch}` : 'weg'), cls: params.speedClass, d: params.difficulty, limits, reach, grid: g2, start, richtungen, portalBudget, ausweich: form.ausweich, plattform: hand.plattform, zielschalter: hand.zielschalter, extrem: hand.extrem });
+      const w2 = planePfad({ rng: rng.fork(versuch ? `weg${versuch}` : 'weg'), cls: params.speedClass, d: params.difficulty, limits, reach, grid: g2, start, richtungen, portalBudget, luftBudget, ausweich: form.ausweich, plattform: hand.plattform, zielschalter: hand.zielschalter, extrem: hand.extrem });
       if (!weg || w2.schritte.length > weg.schritte.length) { grid = g2; weg = w2; }
     }
 
@@ -133,6 +145,7 @@ export default {
     const maxStacheln = Math.max(0, Math.min(etappig ? 700 : 450, LIMITS.maxElements - weg.entities.length - 40));
     const { gesetzt, gruppen, gruppeVon } = fuelle({ grid, entities: weg.entities, korridor: weg.korridor, schritte: weg.schritte, rng: rng.fork('fuellung'), d: params.difficulty, start, szenen, halle: !etappig && formId === 'halle', maxStacheln, hand });
     const pruefung = verifiziere({ grid, entities: weg.entities, schritte: weg.schritte, cls: params.speedClass, laufTempo: reach.runSpeed, gesetzt, gruppen, gruppeVon, korridor: weg.korridor, start });
+    const kristalleWeg = kristalleAufraeumen({ grid, entities: weg.entities, schritte: weg.schritte, plattformen: weg.plattformen, cls: params.speedClass, laufTempo: reach.runSpeed });
 
     // Bis zum Ende des Weges zuschneiden (etwas Rand für die Zielplattform)
     const letzte = weg.schritte.length ? weg.schritte[weg.schritte.length - 1].ziel : weg.plattformen[0];
@@ -194,7 +207,7 @@ export default {
         szenen: szenen.map((s) => `${s.akt != null ? `A${s.akt + 1} ` : ''}${s.muster}/${s.stil}/${s.mechanik || 'sprung'}`),
         zuege: weg.schritte.length,
         mechaniken: weg.schritte.reduce((m, s) => ({ ...m, [s.mechanik]: (m[s.mechanik] || 0) + 1 }), {}),
-        pruefung: { zurueckgenommen: pruefung.zurueckgenommen, offen: pruefung.offen },
+        pruefung: { zurueckgenommen: pruefung.zurueckgenommen, offen: pruefung.offen, kristalleWeg },
         gruende: weg.gruende,
       },
     };

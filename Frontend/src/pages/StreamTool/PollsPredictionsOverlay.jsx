@@ -4,17 +4,20 @@
 //
 // Welche Module erscheinen, entscheiden allein die Häkchen im Dashboard — es gibt
 // bewusst keine Modul-Auswahl über die URL mehr. Eine Quelle, ein Link.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useStableState } from '../../utils/useStableState';
-import { getOverlayData } from './streamToolApi';
+import { getOverlayData, reportMarbleWinner } from './streamToolApi';
 import {
   mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
-  useDemoSim, useLinger, paintDemo,
+  useDemoSim, useLinger, paintDemo, DEMO_HYPE, demoMarbles,
 } from './streamToolConfig';
 import {
   PollWidget, PredictionWidget, GoalWidget, RaidClipWidget, StatsWidget, WidgetFrame, STAGE_W, STAGE_H,
 } from './OverlayWidgets';
+import {
+  HypeTrainScene, RaidStormScene, PlaneBannerScene, MarbleRunWidget,
+} from './OverlayScenes';
 
 const POLL_MS = 2000;
 
@@ -94,10 +97,21 @@ export default function PollsPredictionsOverlay() {
   const raidView = toRaidView(demo ? sim.raid : payload?.raid, m.raidClip, now);
   const statsView = toStatsView(demo ? sim.stats : payload?.stats, m.streamStats);
 
+  // Szenen: sie bewegen sich von selbst und brauchen den Takt oben nicht
+  const scenes = payload?.scenes;
+  const marbles = demo ? demoMarbles(m.marbleRun) : scenes?.marbles;
+
   // Nachlaufende Kopien, damit das Ausblenden sichtbar wird
   const pollHeld = useLinger(pollView);
   const predHeld = useLinger(predView);
   const raidHeld = useLinger(raidView);
+  const marblesHeld = useLinger(marbles);
+
+  // Jede Quelle rechnet das Rennen selbst und meldet den Sieger — die erste
+  // Meldung zählt, weitere lehnt das Backend still ab.
+  const reportWinner = useCallback((raceId, winnerId) => {
+    reportMarbleWinner(overlayKey, raceId, winnerId).catch(() => {});
+  }, [overlayKey]);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'transparent', overflow: 'hidden' }}>
@@ -131,6 +145,21 @@ export default function PollsPredictionsOverlay() {
         <WidgetFrame id="raidClip" module={m.raidClip} visible={!!raidView && m.raidClip.enabled}>
           {raidHeld && <RaidClipWidget data={raidHeld} module={m.raidClip} />}
         </WidgetFrame>
+
+        <WidgetFrame id="marbleRun" module={m.marbleRun} visible={!!marbles && m.marbleRun.enabled}>
+          {marblesHeld && (
+            <MarbleRunWidget data={marblesHeld} module={m.marbleRun} offsetRef={clockOffset} onResult={reportWinner} />
+          )}
+        </WidgetFrame>
+
+        {/* Szenen über die ganze Bildbreite — zuletzt, damit sie vor den Karten vorbeiziehen */}
+        {m.hypeTrain.enabled && (
+          <HypeTrainScene data={demo ? DEMO_HYPE : scenes?.hype} module={m.hypeTrain} offsetRef={clockOffset} still={demo} />
+        )}
+        {m.raidStorm.enabled && !demo && (
+          <RaidStormScene data={scenes?.storm} module={m.raidStorm} offsetRef={clockOffset} />
+        )}
+        <PlaneBannerScene module={m.planeBanner} test={scenes?.plane} offsetRef={clockOffset} still={demo} />
       </div>
     </div>
   );

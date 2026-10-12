@@ -300,8 +300,11 @@ test('Pfad: Schlüssel-Abstecher — Schlüssel vor der Tür, Wand ohne Lücke',
   for (let i = 0; i < 16 && gefunden < 2; i++) {
     const cls = i % 2 ? 'super' : 'normal';
     const g = baue(`ks-${i}`, 'long', 3, cls, 'tueftler');
-    const tueren = g.entities.filter((e) => e.type === 'door');
-    const keys = g.entities.filter((e) => e.type === 'key');
+    // (nur die Türen der Abstecher-Wand — Schlüsselsprünge haben eigene, kurze Türen im Flug; Test „Luftportal und Schlüsselsprung“)
+    const wandSpalte = (tx) => g.grid.every((r, y) => r[tx] === 'I' || g.entities.some((e) => e.type === 'door' && e.tx === tx && e.ty === y));
+    const tueren = g.entities.filter((e) => e.type === 'door' && wandSpalte(e.tx));
+    const abstecher = WEGE.get(g).schritte.filter((s) => s.abstecher === 'zurueck');
+    const keys = g.entities.filter((e) => e.type === 'key' && abstecher.some((s) => e.tx === s.von.x && e.ty === s.von.y));
     if (!tueren.length) continue;
     gefunden++;
     assert.equal(keys.length, new Set(tueren.map((t) => t.tx)).size, 'je Tür ein Schlüssel');
@@ -492,7 +495,8 @@ test('Leitidee: vier Akte in Reihenfolge — Mechaniken und Schwierigkeit kommen
 test('Leitidee: der Seed wählt mal eine, mal keine; erzwungenes Thema baut ohne', () => {
   assert.equal(waehleLeitidee(createRng('x', 'l'), 'keine'), null);
   assert.equal(waehleLeitidee(createRng('x', 'l'), 'taktwerk').id, 'taktwerk');
-  const ids = Array.from({ length: 40 }, (_, i) => waehleLeitidee(createRng(`l-${i}`, 'l'))?.id || 'keine');
+  // (80 Ziehungen: Bei 9 Leitideen fehlte in 40 mal eine)
+  const ids = Array.from({ length: 80 }, (_, i) => waehleLeitidee(createRng(`l-${i}`, 'l'))?.id || 'keine');
   assert.ok(ids.includes('keine') && LEITIDEE_IDS.every((id) => ids.includes(id)), ids.join(','));
   assert.equal(baue('li-thema', 'short', 3, 'super', 'klassiker').notizen.leitidee, null);
 });
@@ -745,4 +749,82 @@ test('Kristallkette: Kristalle am Scheitel, Ziel über der Doppelsprung-Höhe �
     if (gefunden >= 3) break;
   }
   assert.ok(gefunden >= 3, `nur ${gefunden} Kristallketten`);
+});
+
+// ── Runde 01.10.2026: Kanonen, Luftportale, Schlüsselsprung, Kristall-Tunnel, Luftkristall, Schlot ──
+
+test('Beschuss: Kanonenbahnen kreuzt nur ihr eigener Zug — und das Level läuft am Stück', () => {
+  let gefunden = 0;
+  for (const seed of ['m-kugelhagel-0', 'm-kugelhagel-2']) {
+    const g = baueIdee(seed, 'kugelhagel');
+    const { schritte } = WEGE.get(g);
+    const kanonen = g.entities.filter((e) => e.type === 'cannon');
+    const { start } = WEGE.get(g);
+    const w = createWorld(parseMap(g.grid.map((r, y) => r.map((c, x) => (x === start.x && y === start.y ? 'S' : c)).join('')), { entities: g.entities }), { tuning: classTuning('super') });
+    // Bahnkacheln jeder Kanone aus der Sim (bis zum ersten Block)
+    for (const k of w.elements.filter((e) => e.type === 'cannon')) {
+      const bahn = new Set(Array.from({ length: k.lane }, (_, j) => `${k.tx + k.dx * (j + 1)},${k.ty + k.dy * (j + 1)}`));
+      const eigene = schritte.filter((s) => s.zug.beschuss && [...s.beruehrt].some((key) => bahn.has(key)));
+      const fremde = schritte.filter((s) => !s.zug.beschuss && [...s.beruehrt].some((key) => bahn.has(key)));
+      assert.ok(eigene.length >= 1, `${seed}: Kanone ${k.tx},${k.ty} kreuzt keinen Beschuss-Zug`);
+      assert.deepEqual(fremde.map((s) => s.mechanik), [], `${seed}: fremder Zug in der Bahn`);
+    }
+    assert.deepEqual(kettenlauf(g, 'super'), [], seed);
+    gefunden += kanonen.length;
+  }
+  assert.ok(gefunden >= 6, `nur ${gefunden} Kanonen`);
+});
+
+test('Luftportal und Schlüsselsprung: Portal mitten im Bogen, jede Tür hinter ihrem Schlüssel — das Level läuft am Stück', () => {
+  for (const seed of ['m-schluesselloch-0', 'm-schluesselloch-1']) {
+    const g = baueIdee(seed, 'schluesselloch');
+    const { schritte } = WEGE.get(g);
+    const luft = schritte.filter((s) => s.zug.luftportal);
+    assert.ok(luft.length >= 4, `${seed}: nur ${luft.length} Luftportale`);
+    // Die Portale hängen in der Luft: keine Plattform direkt darunter
+    for (const p of g.entities.filter((e) => e.type === 'portal' && e.radius === 14)) assert.equal(g.grid[p.ty + 1][p.tx], '.', `${seed}: Portal ${p.tx},${p.ty} steht auf etwas`);
+    const spruenge = schritte.map((s, i) => (s.zug.schluesselFlug ? i : -1)).filter((i) => i >= 0);
+    assert.ok(spruenge.length >= 3, `${seed}: nur ${spruenge.length} Schlüsselsprünge`);
+    // Jeder Schlüsselsprung erwartet den Schlüssel am Ende des Zugs; Türen gibt es nur so viele, wie es Schlüssel gab
+    for (const i of spruenge) assert.equal(schritte[i].schluesselEnde, schritte[i].schluessel + 1);
+    assert.ok(g.entities.filter((e) => e.type === 'key').length >= spruenge.length);
+    assert.deepEqual(kettenlauf(g, 'super'), [], seed);
+  }
+});
+
+test('Kristall-Tunnel und Luftkristall: zweiter Kristall auf der Bahn — und das Level läuft am Stück', () => {
+  let tunnel = 0;
+  let luft = 0;
+  for (const seed of ['m-kristallsturm-0', 'm-kristallsturm-1']) {
+    const g = baueIdee(seed, 'kristallsturm');
+    const { schritte } = WEGE.get(g);
+    for (const s of schritte.filter((q) => q.zug.dash2 || q.zug.luftdash)) {
+      const k = s.zug.kristall2;
+      assert.ok(g.entities.some((e) => e.type === 'crystal' && e.tx === k.tx && e.ty === k.ty), `${seed}: Kristall fehlt`);
+      if (s.zug.dash2) assert.ok(s.ziel.row <= s.von.y, `${seed}: Kristall-Tunnel endet nicht höher`);
+    }
+    tunnel += schritte.filter((q) => q.zug.dash2).length;
+    luft += schritte.filter((q) => q.zug.luftdash).length;
+    assert.deepEqual(kettenlauf(g, 'super'), [], seed);
+  }
+  assert.ok(tunnel >= 2 && luft >= 4, `Tunnel ${tunnel}, Luftkristall ${luft}`);
+});
+
+test('Schlot: enger Schacht mit Eiswänden, alles bleibt drin — und das Level läuft am Stück', () => {
+  for (const cls of ['super', 'normal']) {
+    const params = normalizeParams({ seed: `schlot-${cls}`, length: 'long', difficulty: 3, speedClass: cls });
+    const g = typ.baue({ params, limits: limitsFuer(cls, 3), reach: reachForClass(cls), neuesRaster: (w, h) => neuesRaster(w, h, 'luft'), biomeId: 'cave', pfadForm: 'schlot' });
+    const { schritte } = WEGE.get(g);
+    const imSchlot = schritte.filter((s) => s.schlot);
+    assert.ok(imSchlot.length >= 20, `${cls}: nur ${imSchlot.length} Züge im Schacht`);
+    const r = imSchlot[0].schlot;
+    assert.ok(r.x1 - r.x0 + 1 <= Math.ceil(reachForClass(cls).gap.jump) + 14, `${cls}: Schacht ${r.x1 - r.x0 + 1} breit`);
+    for (const s of imSchlot) assert.ok(s.ziel.x0 >= r.x0 && s.ziel.x1 <= r.x1, `${cls}: Plattform außerhalb`);
+    // Eiswände links und rechts über den größten Teil der Höhe
+    const ys = imSchlot.map((s) => s.ziel.row);
+    let wand = 0;
+    for (let y = Math.min(...ys); y <= Math.max(...ys); y++) if (g.grid[y][r.x0 - 1] === 'I' && g.grid[y][r.x1 + 1] === 'I') wand++;
+    assert.ok(wand >= 0.6 * (Math.max(...ys) - Math.min(...ys)), `${cls}: Wände nur auf ${wand} Zeilen`);
+    assert.deepEqual(kettenlauf(g, cls), [], cls);
+  }
 });

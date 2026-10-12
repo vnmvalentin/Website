@@ -30,6 +30,8 @@ import { verificationState } from "./editor/verification.js";
 import { getVerification } from "./room/levelApi.js";
 import { formatTicks } from "./room/format.js";
 import { buttonClass, primaryButtonClass } from "./editor/fields.jsx";
+import { useBoundAction } from "./client/useBoundAction.js";
+import { boundLabel } from "./client/input.js";
 import { editorReducer, initEditorState } from "./editor/editorReducer.js";
 import { canUndo, canRedo } from "./editor/history.js";
 import { buildPreview } from "./editor/previewWorld.js";
@@ -122,7 +124,7 @@ function TestPlay({ play, onRestart, onExit }) {
     <div>
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-white/10">
         <button type="button" onClick={onExit} className={buttonClass}><ArrowLeft size={14} />Zurück zum Editor (Esc)</button>
-        <button type="button" onClick={onRestart} className={buttonClass}><RotateCcw size={14} />Neu starten (N)</button>
+        <button type="button" onClick={onRestart} className={buttonClass}><RotateCcw size={14} />Neu starten ({boundLabel("neustart")})</button>
         <span className="text-xs text-white/40 ml-auto">
           {play.startTile ? `Start bei ${play.startTile.tx} | ${play.startTile.ty}` : "Start am Levelstart"} · Testlauf: zählt nicht als Verifizierung
         </span>
@@ -370,6 +372,9 @@ function EditorWorkspace({ draftId, initialDoc, store }) {
     return startTest({ tx: at.x, ty: at.y });
   };
 
+  // Testspiel/Nachweis-Lauf: „Neu starten“ (Standard N, umbelegbar unter „Steuerung“)
+  useBoundAction("neustart", () => { if (play) restartTest(); else restartVerify(); }, !!(play || verifyRun));
+
   // ── Tastenkürzel ── (ein Listener, der immer die aktuellen Funktionen ruft)
   const keys = useRef(null);
   useEffect(() => {
@@ -378,7 +383,6 @@ function EditorWorkspace({ draftId, initialDoc, store }) {
       const k = e.key.toLowerCase();
       if (play || verifyRun) {
         if (e.key === "Escape") { if (play) exitTest(); else exitVerify(); }
-        else if (k === "n") { if (play) restartTest(); else restartVerify(); }
         return;
       }
       const mod = e.ctrlKey || e.metaKey;

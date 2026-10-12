@@ -17,8 +17,9 @@ import toggleSwitch from './switch.js';
 import colorBlock from './colorBlock.js';
 import key from './key.js';
 import door from './door.js';
+import cannon from './cannon.js';
 
 export const ELEMENT_TYPES = Object.fromEntries(
   [spike, saw, laser, fallingBlock, mover, crumble, spring, ring, crystal, wind, gravityZone,
-    portal, toggleSwitch, colorBlock, key, door].map((mod) => [mod.type, mod]),
+    portal, toggleSwitch, colorBlock, key, door, cannon].map((mod) => [mod.type, mod]),
 );

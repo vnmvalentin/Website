@@ -15,11 +15,31 @@ import { generateWorld } from '../../gen/world/generate.js';
 import { welterzeugerFuer, erzeugeWelt } from '../generatorArchiv.js';
 import { einfrieren } from '../../gen/tools/einfrieren.mjs';
 
-// Referenz-Level je Version: Hash des Levels zu Seed und Biom (ermittelt beim Einfrieren; v1 am 26.09.2026)
+// Referenz-Level je Version: Hash des Levels zu Seed und Biom (ermittelt beim Einfrieren; v1 am 26.09.2026, v2 am 27.09.2026).
+// 'archiv-probe' trifft Spikes an offenen Blockkanten — golden-1/2 blieben bei der Spike-Änderung (v1 → v2) gleich und hätten
+// sie nicht bemerkt.
 const REFERENZ = {
   1: [
     { seed: 'golden-1', biome: 'random', hash: '2b1cc8af' },
     { seed: 'golden-2', biome: 'ice', hash: 'a15c01b1' },
+    { seed: 'archiv-probe', biome: 'random', hash: 'b44bccc6' },
+  ],
+  2: [
+    { seed: 'golden-1', biome: 'random', hash: '2b1cc8af' },
+    { seed: 'golden-2', biome: 'ice', hash: 'a15c01b1' },
+    { seed: 'archiv-probe', biome: 'random', hash: 'c15b50c7' },
+  ],
+  // v3 am 01.10.2026: Kanonen, Luftportale, Schlüsselsprung, Kristall-Tunnel, Luftkristall, Schlot
+  3: [
+    { seed: 'golden-1', biome: 'random', hash: '16091aa5' },
+    { seed: 'golden-2', biome: 'ice', hash: 'dbab5ec6' },
+    { seed: 'archiv-probe', biome: 'random', hash: '2bf6afb4' },
+  ],
+  // v4 am 03.10.2026: Höhenbudget je Zeile, keine Schlüssel ohne Tür, Kanonenbahnen nicht umgehbar, Kristalle nur mit Nutzen
+  4: [
+    { seed: 'golden-1', biome: 'random', hash: '943b98ad' },
+    { seed: 'golden-2', biome: 'ice', hash: 'a42f8f44' },
+    { seed: 'archiv-probe', biome: 'random', hash: '38aac024' },
   ],
 };
 const REFERENZ_V1 = REFERENZ[1];

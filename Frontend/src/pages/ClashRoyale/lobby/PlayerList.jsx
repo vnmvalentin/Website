@@ -11,8 +11,10 @@
 // auf ihn wartet.
 //
 // Duo-Party-Modus (partyMode === 'duo'): statt der einen flachen Liste zeigt sich hier
-// zusätzlich die Team-Zuordnung — zwei Spalten mit je 2 Slots. Die Zeilen-Kachel selbst
-// (PlayerRow) bleibt für beide Ansichten identisch, nur die Anordnung drumherum ändert sich.
+// die Team-Zuordnung — 2 bis 4 Team-Karten mit je 2 Plätzen, darüber für den Host Teamanzahl,
+// "Teams mischen" und "Bot hinzufügen". Beitreten geht nur über den freien Platz im Team selbst
+// (keine zweite Knopfreihe unter dem eigenen Namen), Verlassen über einen Knopf in der eigenen
+// Zeile. Die Zeilen-Kachel selbst (PlayerRow) bleibt für beide Ansichten identisch.
 
 import React from 'react';
 import PlayerAvatar from '../components/PlayerAvatar';
@@ -22,8 +24,10 @@ import { leagueIconUrl, leagueName } from '../data/leagueIcons';
 // Host übergeben = Krone, Account = König, Bot = Goblin — siehe ui/CrIcons.jsx.
 import {
   CrTv, CrBattle, CrCrown, CrUserRemove, CrDisconnected, CrKingBlue, CrUserAdd, CrGoblin,
-  CrCrownBlue, CrCrownRed, CrTrophy,
+  CrTrophy, CrRandom,
 } from '../ui/CrIcons';
+import { SegmentedControl } from '../ui/SettingRow';
+import { activeTeams, teamStyle, teamChipClass } from './teamStyle';
 
 /** Rang des verknüpften CR-Accounts rechts im Banner: Ranked-Liga-Emblem, sonst die Trophäen.
  *  crLeague/crTrophies setzt der Server beim Verknüpfen (clashRoyaleRoutes → linkCrAccount). */
@@ -74,6 +78,7 @@ function IconAction({ icon: Icon, title, onClick, tone = 'neutral' }) {
 function PlayerRow({
   p, myId, hostId, canControlLobby, t,
   onToggleOwnSpectator, onSetPlayerSpectator, onTransferHost, onKick, onOpenCrAccount,
+  extraAction = null,
 }) {
   const isMe = p.id === myId;
   const isHost = p.id === hostId;
@@ -144,6 +149,7 @@ function PlayerRow({
         {/* Aktionen rechts, dauerhaft sichtbar — auf Touch gibt es kein Hover,
             und der Host soll nicht erst suchen müssen. */}
         <div className="flex items-center gap-1 shrink-0">
+          {extraAction}
           {showOwnToggle && (
             <button onClick={onToggleOwnSpectator}
               className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2.5 h-[34px] w-auto">
@@ -193,14 +199,14 @@ function PlayerRow({
   );
 }
 
-/** Leerer Team-Slot: eigener "Beitreten"-Knopf für den Betrachter, sonst nur "Frei". */
+/** Leerer Team-Platz: "Beitreten" für den Betrachter, sonst nur "Frei". */
 function EmptySlot({ letter, canJoin, onJoin, t }) {
   return (
-    <div className="rounded-xl border-2 border-dashed border-white/10 bg-[rgba(6,16,32,0.35)] px-3 py-2.5 flex items-center justify-between gap-2">
+    <div className="rounded-xl border-2 border-dashed border-white/10 bg-[rgba(6,16,32,0.35)] px-3 min-h-[60px] flex items-center justify-between gap-2">
       <span className="text-white/40 text-xs">{t.emptyTeamSlot}</span>
       {canJoin && (
         <button onClick={onJoin}
-          className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2.5 h-[30px] w-auto">
+          className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2.5 h-[34px] w-auto">
           <CrUserAdd size={18} />
           {t.joinTeamLabel(letter)}
         </button>
@@ -212,7 +218,7 @@ function EmptySlot({ letter, canJoin, onJoin, t }) {
 export default function PlayerList({
   lobbyData, myId, canControlLobby, t,
   onToggleOwnSpectator, onSetPlayerSpectator, onTransferHost, onKick,
-  onOpenCrAccount, onSwitchTeam, onAddBot,
+  onOpenCrAccount, onSwitchTeam, onAddBot, onSetTeamCount, onRandomizeTeams,
 }) {
   const players = lobbyData?.players || [];
   const hostId = lobbyData?.host;
@@ -224,89 +230,112 @@ export default function PlayerList({
     onToggleOwnSpectator: lobbyData?.tournament ? null : onToggleOwnSpectator,
   };
 
-  // Für die Team-Slots: pro Team nach teamSlot sortiert (Slot 1 zuerst), egal in welcher
-  // Reihenfolge die Spieler beigetreten sind.
-  const teamOf = (letter) => players
-    .filter(p => p.teamId === letter)
-    .sort((a, b) => (a.teamSlot || 1) - (b.teamSlot || 1));
-  const unassigned = players.filter(p => !p.teamId);
-  const myTeam = players.find(p => p.id === myId)?.teamId || null;
+  // Für die Team-Plätze: [Slot 1, Slot 2] je Team, egal in welcher Reihenfolge beigetreten wurde
+  const teamIds = activeTeams(lobbyData?.teamCount);
+  const teamOf = (letter) => {
+    const inTeam = players.filter(p => p.teamId === letter);
+    return [inTeam.find(p => p.teamSlot !== 2) || null, inTeam.find(p => p.teamSlot === 2) || null];
+  };
+  const unassigned = players.filter(p => !p.teamId || !teamIds.includes(p.teamId));
+  const me = players.find(p => p.id === myId) || null;
 
   return (
     <div>
 
       {duo ? (
-        <div className="space-y-4">
-          {/* Test-Bots: nur in Duo sichtbar, weil sie sich aktuell nur in den 2v2-Modi selbst
-              spielen (siehe elixirAuction2v2.js/elixirRush2v2.js) — praktisch, um die 4 Slots
-              zu füllen, ohne jedes Mal 4 echte Leute zusammentrommeln zu müssen. */}
+        <div className="space-y-3">
+          {/* Host-Werkzeuge in einer Zeile: Teamanzahl, mischen, Bot. Bots spielen sich nur in den
+              2v2-Modi selbst (elixirAuction2v2.js/elixirRush2v2.js) — praktisch, um Plätze zu füllen. */}
           {canControlLobby && !lobbyData?.started && (
-            <button onClick={onAddBot}
-              className="cr-arcade-icon-btn w-full flex items-center justify-center gap-1.5 text-xs font-semibold h-[34px]">
-              <CrGoblin size={20} />
-              {t.addBot}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-white/55 text-xs font-semibold">{t.teamCountLabel}</span>
+              <div className="w-[150px]">
+                <SegmentedControl
+                  options={[2, 3, 4].map(n => ({ id: n, label: String(n) }))}
+                  value={teamIds.length}
+                  onChange={onSetTeamCount} />
+              </div>
+              <span className="flex-1" />
+              <button onClick={onRandomizeTeams}
+                className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2.5 h-[34px] w-auto">
+                <CrRandom size={18} />
+                {t.randomizeTeams}
+              </button>
+              <button onClick={onAddBot}
+                className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2.5 h-[34px] w-auto">
+                <CrGoblin size={18} />
+                {t.addBot}
+              </button>
+            </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {['A', 'B'].map(letter => {
+
+          {/* Untereinander statt zweispaltig: in der halben Lobby-Breite wurden die Namen sonst abgeschnitten */}
+          <div className="grid grid-cols-1 gap-3">
+            {teamIds.map(letter => {
               const slots = teamOf(letter);
-              // EIN gemeinsames Kästchen pro Team statt loser Beschriftung über zwei
-              // unverbundenen Zeilen — Blau für Team A, Rot für Team B (dieselben
-              // Akzentfarben wie --cr-arcade-blue/--cr-arcade-red im Rest vom Arcade-Look),
-              // damit die zwei Teams auf den ersten Blick auseinanderfallen.
-              const teamTint = letter === 'A'
-                ? 'bg-blue-500/10 border-blue-500/25'
-                : 'bg-red-500/10 border-red-500/25';
-              const teamLabelTint = letter === 'A' ? 'text-blue-300' : 'text-red-300';
-              const TeamCrown = letter === 'A' ? CrCrownBlue : CrCrownRed;
+              const style = teamStyle(letter);
+              const filled = slots.filter(Boolean).length;
+              // Beitreten darf jeder aktive Spieler, der nicht schon in genau diesem Team ist —
+              // auch direkt aus einem anderen Team heraus (wechseln statt erst verlassen).
+              const canJoin = !!me && !me.isSpectator && !me.isAdmin && me.teamId !== letter && !lobbyData?.started;
               return (
-                <div key={letter} className={`rounded-lg border p-2.5 space-y-1.5 ${teamTint}`}>
-                  <p className={`flex items-center gap-1.5 font-cr text-sm ${teamLabelTint}`}><TeamCrown size={22} />{t.teamLabel(letter)}</p>
-                  {[0, 1].map(i => (
-                    slots[i]
-                      ? (
-                        <div key={slots[i].id} className="space-y-1">
-                          <PlayerRow p={slots[i]} {...rowProps} />
-                          {/* Eigenes Team verlassen (jeder für sich) oder — als Host/Admin —
-                              jeden beliebigen Spieler aus seinem Team nehmen (z.B. um ihn
-                              danach über die Liste unten neu zuzuordnen). */}
-                          {(slots[i].id === myId || canControlLobby) && (
-                            <button onClick={() => onSwitchTeam(null, slots[i].id === myId ? undefined : slots[i].id)}
-                              className="w-full text-white/25 hover:text-white/50 text-[11px] text-center py-0.5">
-                              {slots[i].id === myId ? t.leaveTeam : t.removeFromTeam}
+                <div key={letter} className={`rounded-xl border p-2.5 space-y-2 ${style.panel}`}>
+                  <div className="flex items-center gap-2 px-0.5">
+                    <span className={`${teamChipClass(letter)} w-6 h-6 text-sm`}>{letter}</span>
+                    <span className={`font-cr text-sm ${style.text}`}>{t.teamLabel(letter)}</span>
+                    <span className="ml-auto text-white/45 text-xs tabular-nums">{filled}/2</span>
+                  </div>
+                  {[0, 1].map(i => {
+                    const pl = slots[i];
+                    if (!pl) {
+                      return <EmptySlot key={`empty-${i}`} letter={letter} t={t} canJoin={canJoin} onJoin={() => onSwitchTeam(letter)} />;
+                    }
+                    const isMe = pl.id === myId;
+                    return (
+                      <div key={pl.id} className="space-y-1">
+                        <PlayerRow p={pl} {...rowProps}
+                          extraAction={isMe && !lobbyData?.started ? (
+                            <button onClick={() => onSwitchTeam(null)} title={t.leaveTeam}
+                              className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2.5 h-[34px] w-auto">
+                              <CrUserRemove size={18} />
+                              <span className="hidden sm:inline">{t.leaveTeamShort}</span>
                             </button>
-                          )}
-                        </div>
-                      )
-                      : (
-                        <EmptySlot key={i} letter={letter} t={t}
-                          canJoin={!myTeam}
-                          onJoin={() => onSwitchTeam(letter)} />
-                      )
-                  ))}
+                          ) : null} />
+                        {/* Host/Admin nimmt andere aus dem Team — leise unter der Zeile, damit die
+                            Aktionsleiste nicht noch einen roten Knopf neben "Kicken" bekommt. */}
+                        {!isMe && canControlLobby && !lobbyData?.started && (
+                          <button onClick={() => onSwitchTeam(null, pl.id)}
+                            className="w-full text-white/30 hover:text-white/60 text-[11px] text-center py-0.5">
+                            {t.removeFromTeam}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
           </div>
 
           {unassigned.length > 0 && (
-            <div className="space-y-1.5 pt-1 border-t border-white/5">
-              {unassigned.map(p => {
-                const isMe = p.id === myId;
-                // Eigene Zeile: direkt hier beitreten statt erst zur Team-Spalte hochzuscrollen.
-                // Jede fremde Zeile: Host/Admin darf JEDEN unzugeordneten Spieler direkt einem
-                // Team zuweisen — praktisch, wenn er im Stream reihum durchgegeben wird.
-                const showAssign = (isMe || canControlLobby) && !p.isSpectator;
+            <div className="space-y-1.5 pt-2 border-t border-white/10">
+              <p className="text-white/45 text-xs font-semibold px-0.5">{t.withoutTeam(unassigned.length)}</p>
+              {unassigned.map(pl => {
+                // Nur der Host/Admin weist ANDERE direkt einem Team zu; für sich selbst nimmt jeder
+                // den "Beitreten"-Knopf im Team (keine doppelte Knopfreihe unter dem eigenen Namen).
+                const showAssign = canControlLobby && pl.id !== myId && !pl.isSpectator && !lobbyData?.started;
                 return (
-                  <div key={p.id} className="space-y-1">
-                    <PlayerRow p={p} {...rowProps} />
+                  <div key={pl.id} className="space-y-1">
+                    <PlayerRow p={pl} {...rowProps} />
                     {showAssign && (
-                      <div className="flex gap-1.5 px-1">
-                        {['A', 'B'].map(letter => (
-                          <button key={letter} onClick={() => onSwitchTeam(letter, isMe ? undefined : p.id)}
-                            className="cr-arcade-icon-btn flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-2.5 h-[30px]">
-                            <CrUserAdd size={18} />
-                            {isMe ? t.joinTeamLabel(letter) : t.assignToTeamLabel(letter)}
+                      <div className="flex flex-wrap items-center gap-1.5 px-1">
+                        <span className="text-white/40 text-[11px]">{t.assignTo}</span>
+                        {teamIds.map(letter => (
+                          <button key={letter} onClick={() => onSwitchTeam(letter, pl.id)}
+                            disabled={teamOf(letter).filter(Boolean).length >= 2}
+                            title={t.assignToTeamLabel(letter)}
+                            className="cr-arcade-icon-btn flex items-center gap-1.5 text-xs font-semibold px-2 h-[30px] w-auto disabled:opacity-35 disabled:cursor-not-allowed">
+                            <span className={`${teamChipClass(letter)} w-5 h-5 text-xs`}>{letter}</span>
                           </button>
                         ))}
                       </div>

@@ -1,0 +1,26 @@
+/* Totem-Werkbank (Schrein, Lager): liegt auf Pergament, deshalb Tinte statt heller Schrift. */
+.ss-tb-row {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; padding: 6px 8px; text-align: left;
+  border-bottom: 1px dashed rgb(0 0 0 / 0.2);
+  border-left: 3px solid transparent;
+}
+.ss-tb-row:hover { background: rgb(142 27 27 / 0.06); }
+.ss-tb-row.ss-tb-sel { background: rgb(142 27 27 / 0.14); border-left-color: var(--wax-red); }
+.ss-tb-row.ss-tb-clash { opacity: 0.5; }
+.ss-tb-kind { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.65; }
+.ss-tb-tag { display: inline-block; min-width: 3.6em; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.6; }
+
+.ss-tb-preview {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 12px; border: 1px solid rgb(0 0 0 / 0.25); background: rgb(0 0 0 / 0.04);
+}
+/* Kleiner Totempfahl: Kopf oben, Körper darunter */
+.ss-tb-stack { display: flex; flex-direction: column; align-items: center; width: 116px; flex-shrink: 0; }
+.ss-tb-piece {
+  width: 100%; padding: 5px 6px; text-align: center; font-size: 13px; line-height: 1.15;
+  color: var(--parchment-light, #efe6d0); background: #5a3d24; border: 1px solid #2a1a0e;
+}
+.ss-tb-piece.ss-tb-body { width: 86%; background: #3a2716; border-top: 0; }
+.ss-tb-piece.ss-tb-empty { background: transparent; color: rgb(0 0 0 / 0.45); border-style: dashed; border-color: rgb(0 0 0 / 0.35); }
+.ss-tb-active { padding: 6px 8px; border-top: 1px solid rgb(0 0 0 / 0.2); }

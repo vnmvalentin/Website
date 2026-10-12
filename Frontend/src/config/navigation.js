@@ -23,7 +23,7 @@ import {
   Disc,
   Flag,
   Volleyball,
-  Puzzle,
+  Goal,
   Flame,
 } from "lucide-react";
 import { InstagramGlyph } from "../components/BrandGlyphs";
@@ -41,7 +41,7 @@ export const NAV_CATEGORIES = [
         label: "adVentures",
         to: "/adventures",
         icon: Swords,
-        description: "Das Action-Adventure: Kämpfe dich durch Räume, sammle Coins und Packs.",
+        description: "Roguelite: Kit wählen, Items stapeln, Bosse besiegen — je länger du brauchst, desto härter wird es.",
       },
       {
         label: "Virtual Farm",
@@ -78,10 +78,10 @@ export const NAV_CATEGORIES = [
         description: "Düsteres 1v1-Kartenspiel: draften, opfern, die Waage neigen. Online oder gegen die KI.",
       },
       {
-        label: "Daily Games",
-        to: "/daily",
-        icon: Puzzle,
-        description: "Tägliche Schätzspiele im Browser — mit Bestenliste und Ergebnis zum Teilen.",
+        label: "Flick Soccer",
+        to: "/flick-soccer",
+        icon: Goal,
+        description: "Scheiben-Fußball Zug um Zug: Formation wählen, Kronkorken zurückziehen und abschießen. Gegen die KI, zu zweit oder online.",
       },
     ],
   },

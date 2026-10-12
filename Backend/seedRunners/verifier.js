@@ -18,7 +18,10 @@ const { Worker } = require('worker_threads');
 
 function createVerifier(opts = {}) {
   const workerFile = opts.workerFile || path.join(__dirname, 'verifyWorker.js');
-  const timeoutMs = opts.timeoutMs ?? 20000;
+  // Großzügig: Das Nachspielen selbst dauert unter einer Sekunde, aber ein Pfad-Level muss der Worker erst bauen — je Seed
+  // 1 bis 18 s (lokal gemessen 28.09.2026), auf dem VPS spürbar länger. Mit 20 s riss das Tages-Level vom 28.09. das Limit;
+  // der verworfene Worker verlor dabei sein fertiges Level, und jeder weitere Versuch baute es von vorn (Dauer-503).
+  const timeoutMs = opts.timeoutMs ?? 90000;
   const maxQueue = opts.maxQueue ?? 40;
 
   let worker = null;

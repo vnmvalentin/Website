@@ -9,7 +9,7 @@
 // (violetter Rahmen + Abzeichen für den aktuell gewählten Modus).
 
 import React from 'react';
-import { CrBattle, CrUser, CrTwoVsTwo, CrCheck } from '../ui/CrIcons';
+import { CrBattle, CrUser, CrTwoVsTwo, CrCheck, CrRandom } from '../ui/CrIcons';
 import Modal from '../ui/Modal';
 import ModeCard from '../hub/ModeCard';
 import { MODES, modeNameFor, modeDescFor } from '../modesConfig';
@@ -39,7 +39,7 @@ function PartyModeButton({ active, icon: Icon, label, desc, onClick }) {
 }
 
 export default function ModePickerModal({
-  mode, lang, t, onSelect, onClose,
+  mode, random = false, lang, t, onSelect, onSelectRandom, onClose,
   partyMode = 'solo', onSetPartyMode,
 }) {
   return (
@@ -57,6 +57,13 @@ export default function ModePickerModal({
           label={t.partyModeDuo} desc={t.partyModeDuoDesc}
           onClick={() => onSetPartyMode('duo')} />
       </div>
+      {/* Zufallsmodus über dem Raster: kein Modus wie die anderen, sondern "lass die Walze
+          entscheiden" — welche Modi sie enthält, stellt man im Einstellungsfenster ein. */}
+      <div className="flex mb-5">
+        <PartyModeButton active={random} icon={CrRandom}
+          label={t.randomMode} desc={t.randomModeTileDesc}
+          onClick={onSelectRandom} />
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {MODES.filter(m => m.available && (m.partyModes || ['solo']).includes(partyMode)).map(m => (
           <ModeCard
@@ -65,7 +72,7 @@ export default function ModePickerModal({
             name={modeNameFor(m.id, lang)}
             description={modeDescFor(m.id, lang)}
             openLabel={t.selectModeLabel(modeNameFor(m.id, lang))}
-            selected={m.id === mode}
+            selected={!random && m.id === mode}
             selectedLabel={t.activeMode}
             newLabel={t.newMode}
             hideHint

@@ -8,6 +8,9 @@
 // Beide Stellen müssen zusammenpassen: ändert sich im Backend die Formel eines Modus,
 // gehört sie hier nachgezogen.
 
+import { MODES } from '../modesConfig';
+import { activeTeams } from './teamStyle';
+
 const REQUIREMENTS = {
   snake: (lobby) => {
     const grid = lobby?.gridSize || 11;
@@ -44,17 +47,26 @@ export function requiredPoolFor(lobby, activeCount) {
   return fn(lobby, activeCount);
 }
 
-// 2v2-Modi brauchen beide Teams vollständig (Slot 1 + Slot 2) — eine reine Spielerzahl-Prüfung
+// 2v2-Modi brauchen alle Teams vollständig (Slot 1 + Slot 2) — eine reine Spielerzahl-Prüfung
 // (>= 2) würde z.B. 3 Spieler in Team A und 1 in Team B fälschlich als startbereit zeigen.
 // Spiegelbild von isDuoTeamsReady() in Backend/clashRoyale/core/teams.js.
 function teamsReady(lobby) {
   if (lobby?.partyMode !== 'duo') return true;
   const players = lobby?.players || [];
-  return ['A', 'B'].every(letter => {
+  return activeTeams(lobby?.teamCount).every(letter => {
     const slots = new Set(
       players.filter(p => p.teamId === letter && !p.isSpectator).map(p => p.teamSlot)
     );
     return slots.has(1) && slots.has(2);
+  });
+}
+
+/** Modi des Zufalls-Pools, die im aktuellen Solo/Duo-Modus wählbar sind (wie partyPool() im Backend). */
+export function randomPoolFor(lobby) {
+  const party = lobby?.partyMode || 'solo';
+  return (lobby?.randomModes || []).filter(id => {
+    const m = MODES.find(x => x.id === id);
+    return m?.available && (m.partyModes || ['solo']).includes(party);
   });
 }
 
@@ -65,6 +77,18 @@ function teamsReady(lobby) {
  * ist eine andere Meldung und eine andere Abhilfe.
  */
 export function lobbyReadiness(lobby, activeCount, poolSize, canControlLobby) {
+  // Zufallsmodus: der Modus steht erst nach der Auslosung fest. Was mit Spielerzahl und Pool
+  // nicht läuft, überspringt der Server dabei (core/randomMode.js) — hier zählt nur, dass
+  // überhaupt ein im Solo/Duo-Modus wählbarer Modus im Pool steht.
+  if (lobby?.randomEnabled) {
+    const randomPoolEmpty = randomPoolFor(lobby).length === 0;
+    const teamsNotReady = !teamsReady(lobby);
+    return {
+      requiredPool: 0, poolTooSmall: false, carouselMaxPlayers: 8, carouselTooMany: false,
+      teamsNotReady, randomPoolEmpty,
+      canStart: !!canControlLobby && activeCount >= 2 && !teamsNotReady && !randomPoolEmpty,
+    };
+  }
   const cardsPerTable = lobby?.carouselCardsPerTable || 8;
   const carouselMaxPlayers = Math.min(8, Math.floor(poolSize / cardsPerTable));
   const carouselTooMany = lobby?.mode === 'shadow-carousel' && activeCount > carouselMaxPlayers;

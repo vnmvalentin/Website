@@ -196,7 +196,8 @@ export function drawGhosts(ctx, ghosts, alpha) {
  * @param world  Sim-Welt
  * @param cam    Kamera
  * @param alpha  Bruchteil bis zum nächsten Tick, für die Interpolation
- * @param opts   { aim: {x,y} (Zielrichtung für die Ankeranzeige), showWarps, palette, juice, ghosts, playerColor }
+ * @param opts   { aim: {x,y} (Zielrichtung für die Ankeranzeige), showWarps, palette, juice, ghosts, playerColor, hidePips, hidePlayer }
+ *               hidePips: keine Luftsprung-/Dash-Punkte (Zuschauen: vom Beobachteten unbekannt) · hidePlayer: gar keine Figur
  *               playerColor: Farbe der eigenen Figur (Einstellungen bzw. Raumfarbe); ohne Angabe das bisherige Violett
  *               juice (client/juice.js): Hintergrund, Partikel, Bildschütteln, Squash & Stretch, Einblendungen
  */
@@ -270,15 +271,19 @@ export function drawFrame(ctx, scale, world, cam, alpha, opts = {}) {
   const bx = px + PLAYER_W / 2 - bw / 2;
   const by = flip ? py : py + PLAYER_H - bh;
   const farbe = /^#[0-9a-f]{6}$/i.test(opts.playerColor || '') ? opts.playerColor : null;
-  ctx.fillStyle = p.dashCharges > 0 ? (farbe || COLOR.playerReady) : (farbe ? spentColor(farbe) : COLOR.playerSpent);
-  ctx.fillRect(bx, by, bw, bh);
-  ctx.fillStyle = COLOR.playerEye;
-  ctx.fillRect(bx + (p.facing > 0 ? bw - 4 : 2), flip ? by + bh - 5 : by + 3, 2, 2);
+  if (!opts.hidePlayer) {
+    ctx.fillStyle = p.dashCharges > 0 ? (farbe || COLOR.playerReady) : (farbe ? spentColor(farbe) : COLOR.playerSpent);
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = COLOR.playerEye;
+    ctx.fillRect(bx + (p.facing > 0 ? bw - 4 : 2), flip ? by + bh - 5 : by + 3, 2, 2);
+  }
 
   // Anzeige, was noch übrig ist: Luftsprünge (hell) und Dash-Ladungen (violett) als Punkte
   const pips = [];
-  for (let i = 0; i < world.cfg.airJumps; i++) pips.push(i < p.airJumps ? COLOR.pipOn : COLOR.pipOff);
-  for (let i = 0; i < world.cfg.dashCharges; i++) pips.push(i < p.dashCharges ? (farbe || COLOR.pipDash) : COLOR.pipOff);
+  if (!opts.hidePips && !opts.hidePlayer) {
+    for (let i = 0; i < world.cfg.airJumps; i++) pips.push(i < p.airJumps ? COLOR.pipOn : COLOR.pipOff);
+    for (let i = 0; i < world.cfg.dashCharges; i++) pips.push(i < p.dashCharges ? (farbe || COLOR.pipDash) : COLOR.pipOff);
+  }
   const pipW = 3;
   const pipStart = px + PLAYER_W / 2 - (pips.length * (pipW + 1) - 1) / 2;
   pips.forEach((color, i) => {
@@ -287,7 +292,7 @@ export function drawFrame(ctx, scale, world, cam, alpha, opts = {}) {
   });
 
   // Schlüssel in der Tasche
-  for (let i = 0; i < world.flags.keys; i++) {
+  for (let i = 0; !opts.hidePlayer && i < world.flags.keys; i++) {
     ctx.fillStyle = '#facc15';
     ctx.fillRect(px + PLAYER_W + 2 + i * 4, flip ? py + PLAYER_H - 4 : py, 3, 3);
   }

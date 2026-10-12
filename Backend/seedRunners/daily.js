@@ -37,8 +37,14 @@ const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 // Phase D: Ab PFAD_AB ist das Tagesrennen ein Pfad-Level (lang, „super“) — muss zu Frontend gen/generator.js
 // (PFAD_TAGESRENNEN_AB, dailyParams) passen. Frühere Tage bleiben beim Chunk-Generator: Ihre Bestzeiten bleiben gültig.
 const PFAD_AB = '2026-09-26';
+// Ab diesem Tag Generator-Version 2 (Frontend GV2_TAGESRENNEN_AB); frühere Tage behalten Version 1
+const GV2_AB = '2026-09-28';
+// Ab diesem Tag Generator-Version 3 (Frontend GV3_TAGESRENNEN_AB)
+const GV3_AB = '2026-10-03';
+// Ab diesem Tag Generator-Version 4 (Frontend GV4_TAGESRENNEN_AB)
+const GV4_AB = '2026-10-04';
 const dailyParams = (dateKey) => (dateKey >= PFAD_AB
-  ? { seed: `daily-${dateKey}`, length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad', gv: 1 }
+  ? { seed: `daily-${dateKey}`, length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad', gv: dateKey >= GV4_AB ? 4 : dateKey >= GV3_AB ? 3 : dateKey >= GV2_AB ? 2 : 1 }
   : { seed: `daily-${dateKey}`, length: 'medium', speedClass: 'normal', biome: 'random' });
 
 /** Ist dies das Tages-Level eines Tages? Gibt den Datumsschlüssel zurück oder null. */
@@ -105,6 +111,13 @@ function createDailyService(deps) {
       };
     },
 
+    /** Replay von Platz 1: Name, Zeit und Input-Log (der Browser spielt es mit demselben Level nach) — oder null */
+    topReplay(dateKey) {
+      if (!DATE_RE.test(dateKey)) return null;
+      const run = store.getTopRun(dateKey);
+      return run ? { dateKey, params: paramsFor(dateKey), name: run.name, ticks: run.ticks, deaths: run.deaths, log: run.log } : null;
+    },
+
     /** Eigener Eintrag und Platz (oder null) */
     me(dateKey, playerKey) {
       if (!KEY_RE.test(String(playerKey || ''))) return null;
@@ -119,6 +132,8 @@ function createDailyService(deps) {
      */
     recordVerified({ dateKey, playerKey, name, ticks, deaths, splits, log, fp, source }) {
       if (!KEY_RE.test(playerKey) || !DATE_RE.test(dateKey)) return { saved: false, rank: null };
+      // Ein vergangenes Tages-Level lässt sich über das Archiv in jeder Lobby nachspielen — das ändert seine Rangliste nicht mehr
+      if (!acceptsDay(dateKey)) return { saved: false, rank: null };
       const createdAt = now();
       const saved = store.saveRun({
         dateKey, playerKey, playerName: cleanName(name), ticks, deaths, splits: cleanSplits(splits),
@@ -164,4 +179,4 @@ function createDailyService(deps) {
   return api;
 }
 
-module.exports = { createDailyService, dailyParams, dailyDateOf, dailyKeyFromToken, previousDay, cleanName };
+module.exports = { createDailyService, dailyParams, dailyDateOf, dailyKeyFromToken, previousDay, cleanName, ARCHIV_AB: PFAD_AB };

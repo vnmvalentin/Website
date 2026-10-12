@@ -8,8 +8,12 @@ const db = require("../lib/winTrackerStore");
 // (lib/crApi.js) — sie waren vorher hier, in nuzlockeRoutes.js und im Modus-Scanner
 // jeweils separat ausgeschrieben.
 const {
-  isConfigured, normalizeTag, fetchBattlelog: fetchBattlelogRaw, fetchPlayerSummary,
+  isConfigured, normalizeTag, fetchBattlelog: fetchBattlelogRaw, fetchPlayerSummary, fetchEvents,
 } = require("../lib/crApi");
+// Generische saisonale Ranked-Modi (Spooky Chess League & künftige) — Zuordnung Battle <-> Profil.
+const {
+  normalizeSeasonalPrefix, trackableEntries, matchBattle, labelFromEvents, humanizeKey, qualifyGoal, hasQualifyPhase,
+} = require("../lib/seasonalModes");
 // Kartenpool fürs Deck-Modul — dieselbe Liste, aus der auch die Icon-URLs im Frontend
 // entstehen (1:1 synchron gehalten, siehe Kommentar dort).
 const { ALL_CARDS } = require("../core/cards");
@@ -106,8 +110,8 @@ const updateLeague2v2DeckStmt = db.prepare("UPDATE cr_wintracker_accounts SET le
 // UPSERT lässt jeden späteren, besser informierten Sync das schon gespeicherte Match korrigieren,
 // solange es noch in den letzten ~25 Battlelog-Einträgen auftaucht.
 const upsertBattleStmt = db.prepare(`INSERT INTO cr_wintracker_battles
-  (account_id, battle_time, battle_time_ms, result, trophy_change, crowns_for, crowns_against, opponent_name, game_mode, battle_arena)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (account_id, battle_time, battle_time_ms, result, trophy_change, crowns_for, crowns_against, opponent_name, game_mode, battle_arena, seasonal_prefix)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(account_id, battle_time) DO UPDATE SET
     result = excluded.result,
     trophy_change = excluded.trophy_change,
@@ -115,10 +119,11 @@ const upsertBattleStmt = db.prepare(`INSERT INTO cr_wintracker_battles
     crowns_against = excluded.crowns_against,
     opponent_name = excluded.opponent_name,
     game_mode = excluded.game_mode,
-    battle_arena = excluded.battle_arena`);
+    battle_arena = excluded.battle_arena,
+    seasonal_prefix = excluded.seasonal_prefix`);
 const insertBattles = db.transaction((accountId, battles) => {
   for (const b of battles) {
-    upsertBattleStmt.run(accountId, b.battleTime, b.battleTimeMs, b.result, b.trophyChange, b.crownsFor, b.crownsAgainst, b.opponentName, b.gameMode, b.arenaRawName || "");
+    upsertBattleStmt.run(accountId, b.battleTime, b.battleTimeMs, b.result, b.trophyChange, b.crownsFor, b.crownsAgainst, b.opponentName, b.gameMode, b.arenaRawName || "", b.seasonalPrefix || "");
   }
 });
 
@@ -153,7 +158,8 @@ const upsertDiscoveredModeStmt = db.prepare(`
 // (siehe normalizeSeasonalPrefix) -> trackMode. Solche Modi gibt es nur, solange Supercell den
 // progress-Eintrag liefert — fehlt er, verschwindet der Modus aus der Übersicht (siehe
 // availableTrackModes). Live geprüft am 25.09.2026: nach dem Ende von 2v2 Ranked fehlt
-// "2v2League_<season>" komplett in progress. Ein künftiger neuer Modus braucht hier nur eine Zeile.
+// "2v2League_<season>" komplett in progress. Neue Modi brauchen hier KEINE Zeile mehr — sie laufen
+// automatisch über die generischen Saison-Modi (siehe "Generische saisonale Ranked-Modi" unten).
 const SEASONAL_TRACK_MODES = { "2v2league": "2v2" };
 // Bereits bekannte/bewusst uninteressante Modi — die gebauten aus SEASONAL_TRACK_MODES, dazu
 // "seasonal-trophy-road", das nur den ohnehin schon getrackten trophies-Wert dupliziert.
@@ -166,9 +172,7 @@ const KNOWN_SEASONAL_PREFIXES = new Set([...Object.keys(SEASONAL_TRACK_MODES), "
 // Eintrag; ändert sich die Ziffernfolge NICHT am Ende, sondern mittendrin (z.B. ein Jahres-
 // wechsel bei "AutoChess_2026_Season_11" -> "..._2027_Season_1"), entsteht einmalig ein neuer
 // Eintrag — für eine reine Beobachtungsliste unschädlich, kein Korrektheitsproblem.
-function normalizeSeasonalPrefix(key) {
-  return String(key || "").replace(/([_-]\d+)+$/, "").toLowerCase();
-}
+// (normalizeSeasonalPrefix selbst liegt seit den generischen Saison-Modi in lib/seasonalModes.js.)
 function recordDiscoveredModes(seasonalProgress) {
   const now = Date.now();
   for (const p of seasonalProgress || []) {
@@ -186,15 +190,195 @@ function recordSeasonalPrefixes(accountId, seasonalProgress) {
   setSeasonalPrefixesStmt.run(JSON.stringify(prefixes), accountId);
 }
 
+// ── Generische saisonale Ranked-Modi ─────────────────────────────────────────────────────────
+// Jeder progress-Eintrag, den lib/seasonalModes.js als Modus erkennt (alles außer 2v2 und der
+// saisonalen Trophäenstraße), wird ohne weiteren Code getrackt: trackMode "s:<prefix>", eigene Zeile
+// in cr_wintracker_seasonal (Stand, Liga-Stufe, Deck), Battles per seasonal_prefix markiert.
+// Erstes Beispiel: "Spooky Chess League" (Oktober 2026, progress-Schlüssel "SpookyChessTrail").
+const SEASONAL_MODE_PREFIX = "s:";
+const isSeasonalMode = (mode) => typeof mode === "string" && mode.startsWith(SEASONAL_MODE_PREFIX);
+const seasonalPrefixOf = (mode) => (isSeasonalMode(mode) ? mode.slice(SEASONAL_MODE_PREFIX.length) : null);
+
+const getSeasonalRowsStmt = db.prepare("SELECT * FROM cr_wintracker_seasonal WHERE account_id = ? ORDER BY prefix");
+const getSeasonalRowStmt = db.prepare("SELECT * FROM cr_wintracker_seasonal WHERE account_id = ? AND prefix = ?");
+// Leerer Name überschreibt keinen schon bekannten (/events kann einen Sync lang ausfallen).
+const upsertSeasonalProgressStmt = db.prepare(`INSERT INTO cr_wintracker_seasonal
+  (account_id, prefix, progress_key, label, arena_name, trophies, best_trophies, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(account_id, prefix) DO UPDATE SET
+    progress_key = excluded.progress_key,
+    label = CASE WHEN excluded.label <> '' THEN excluded.label ELSE cr_wintracker_seasonal.label END,
+    arena_name = excluded.arena_name,
+    trophies = excluded.trophies,
+    best_trophies = excluded.best_trophies,
+    updated_at = excluded.updated_at`);
+const updateSeasonalDeckStmt = db.prepare("UPDATE cr_wintracker_seasonal SET deck = ?, deck_at = ? WHERE account_id = ? AND prefix = ?");
+const setSeasonalSessionResetStmt = db.prepare("UPDATE cr_wintracker_seasonal SET session_reset_at = ? WHERE account_id = ? AND prefix = ?");
+const deleteSeasonalForAccount = db.prepare("DELETE FROM cr_wintracker_seasonal WHERE account_id = ?");
+
+// "< 100" = PLACEMENT_JUMP_THRESHOLD — die Konstante steht weiter unten und ist beim Laden dieser
+// Zeilen noch nicht initialisiert (const), deshalb hier als Zahl.
+const sessionBattlesDescSeasonalStmt = db.prepare(`SELECT battle_time_ms FROM cr_wintracker_battles
+  WHERE account_id = ? AND seasonal_prefix = ? AND battle_time_ms >= ? ORDER BY battle_time_ms DESC`);
+const dailySeasonalStmt = db.prepare(`SELECT
+    COALESCE(SUM(trophy_change), 0) AS profit,
+    COALESCE(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END), 0) AS wins,
+    COALESCE(SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END), 0) AS losses
+  FROM cr_wintracker_battles
+  WHERE account_id = ? AND seasonal_prefix = ? AND battle_time_ms >= ? AND ABS(trophy_change) < 100`);
+const last5SeasonalStmt = db.prepare(`SELECT * FROM cr_wintracker_battles
+  WHERE account_id = ? AND seasonal_prefix = ? AND battle_time_ms >= ? AND ABS(trophy_change) < 100
+  ORDER BY battle_time_ms DESC LIMIT 5`);
+
+/** Wie computeSessionStartMs, aber für einen saisonalen Modus (seasonal_prefix statt game_mode). */
+function computeSeasonalSessionStartMs(accountId, prefix, seasonalRow, nowMs = Date.now()) {
+  const rows = sessionBattlesDescSeasonalStmt.all(accountId, prefix, nowMs - SESSION_LOOKBACK_MS);
+  let start;
+  if (!rows.length || nowMs - rows[0].battle_time_ms > SESSION_GAP_MS) {
+    start = nowMs;
+  } else {
+    start = rows[0].battle_time_ms;
+    for (let i = 1; i < rows.length; i++) {
+      if (start - rows[i].battle_time_ms > SESSION_GAP_MS) break;
+      start = rows[i].battle_time_ms;
+    }
+  }
+  // Nach der Qualifikation neu zählen (siehe qualified_at) — +1 statt ">=": die Statements filtern
+  // mit "battle_time_ms >= start", der letzte Qualifikationssieg selbst gehört nicht mehr dazu.
+  const qualifiedAt = seasonalRow?.qualified_at ? seasonalRow.qualified_at + 1 : 0;
+  return Math.max(start, seasonalRow?.session_reset_at || 0, qualifiedAt);
+}
+
+const setSeasonalQualifiedAtStmt = db.prepare("UPDATE cr_wintracker_seasonal SET qualified_at = ? WHERE account_id = ? AND prefix = ?");
+// Qualifikationssiege bringen genau +1 (Casual, live geprüft); echte Ranked-Siege ~+30.
+const lastQualifyWinStmt = db.prepare(`SELECT MAX(battle_time_ms) AS ms FROM cr_wintracker_battles
+  WHERE account_id = ? AND seasonal_prefix = ? AND result = 'win' AND trophy_change BETWEEN 0 AND 1`);
+
+// /events ändert sich nur mit der Rotation — einmal pro Viertelstunde reicht für alle Accounts.
+const EVENTS_CACHE_MS = 15 * 60 * 1000;
+let eventsCache = { at: 0, list: [] };
+async function getEvents() {
+  if (Date.now() - eventsCache.at < EVENTS_CACHE_MS) return eventsCache.list;
+  const list = await fetchEvents(WT_TOKEN);
+  // Bei einem Fehler (leere Liste) die alten Titel behalten, aber trotzdem erst in 15 Min neu fragen.
+  eventsCache = { at: Date.now(), list: list.length ? list : eventsCache.list };
+  return eventsCache.list;
+}
+
+/** Erkennungsbasis, falls der Profil-Abruf fehlschlug: die zuletzt gespeicherten Schlüssel. */
+function storedSeasonalEntries(accountId) {
+  return getSeasonalRowsStmt.all(accountId)
+    .filter((r) => r.progress_key)
+    .map((r) => ({ key: r.progress_key, arenaRawName: "" }));
+}
+
+/** Markiert jedes Battle mit seinem saisonalen Modus (b.seasonalPrefix, "" = keiner). 2v2-League,
+ *  Trophäenstraße und Ranked1v1 haben ihre eigene Zuordnung (gameModeGroup) und bleiben außen vor. */
+function tagSeasonalBattles(battles, entries) {
+  for (const b of battles || []) {
+    b.seasonalPrefix = gameModeGroup(b) ? "" : (matchBattle(b, entries) || "");
+  }
+}
+
+// Fehlt trophyChange bei einem saisonalen Battle (Spooky Chess: Niederlagen in der "Casual"-Stufe
+// liefern keins), wird es — wo möglich — wie bei 2v2 aus startingTrophies aufeinanderfolgender
+// Matches und dem aktuellen Profilstand nachgerechnet; sonst bleibt es 0. Battles kommen
+// neueste-zuerst. Geliefertes trophyChange bleibt immer unangetastet.
+function fillSeasonalDeltas(battles, seasonalProgress) {
+  const current = new Map();
+  for (const p of seasonalProgress || []) current.set(normalizeSeasonalPrefix(p.key), p.trophies || 0);
+  const chains = new Map(); // prefix -> { after, valid }
+  for (const b of battles || []) {
+    if (!b.seasonalPrefix) continue;
+    let chain = chains.get(b.seasonalPrefix);
+    if (!chain) {
+      chain = { after: current.get(b.seasonalPrefix) ?? 0, valid: current.has(b.seasonalPrefix) };
+      chains.set(b.seasonalPrefix, chain);
+    }
+    const start = typeof b.startingTrophies === "number" ? b.startingTrophies : null;
+    if (!b.trophyChangeKnown) {
+      b.trophyChange = chain.valid && start !== null ? chain.after - start : 0;
+    }
+    // Stand VOR diesem Match = Anker für das nächstältere
+    if (start !== null) { chain.after = start; chain.valid = true; }
+    else if (b.trophyChangeKnown && chain.valid) chain.after -= b.trophyChange;
+    else chain.valid = false;
+  }
+}
+
+/** Profilstand je Modus schreiben + Deck des neuesten zugeordneten Matches übernehmen.
+ *  entries = null, wenn der Profil-Abruf fehlschlug (dann nur Decks, Stände bleiben). */
+function updateSeasonalRows(accountId, battles, entries, events) {
+  const newest = new Map();
+  for (const b of battles || []) {
+    if (!b.seasonalPrefix) continue;
+    const cur = newest.get(b.seasonalPrefix);
+    if (!cur || b.battleTimeMs > cur.battleTimeMs) newest.set(b.seasonalPrefix, b);
+  }
+  const now = Date.now();
+  for (const e of entries || []) {
+    const prefix = normalizeSeasonalPrefix(e.key);
+    const label = labelFromEvents(e, events, newest.get(prefix)?.eventTag);
+    const before = getSeasonalRowStmt.get(accountId, prefix);
+    upsertSeasonalProgressStmt.run(accountId, prefix, e.key, label, e.arenaName || "", e.trophies || 0, e.bestTrophies || 0, now);
+    // Qualifikation gerade abgeschlossen (Stufe war das Qualifikationsziel, jetzt nicht mehr):
+    // ab dem letzten Qualifikationssieg zählt die Session neu.
+    // Nachholen, falls die Qualifikation schon VOR diesem Code abgeschlossen war (Stufe nie als
+    // Wechsel gesehen): Modus hat eine Qualifikation, steht nicht mehr darin, noch kein Ende gesetzt.
+    const justQualified = before && qualifyGoal(prefix, before.arena_name) && !qualifyGoal(prefix, e.arenaName);
+    const missedQualify = before && !before.qualified_at && hasQualifyPhase(prefix)
+      && e.arenaName && !qualifyGoal(prefix, e.arenaName);
+    if (justQualified || missedQualify) {
+      const ms = lastQualifyWinStmt.get(accountId, prefix)?.ms;
+      if (ms) setSeasonalQualifiedAtStmt.run(ms, accountId, prefix);
+    }
+  }
+  for (const [prefix, b] of newest) {
+    const row = getSeasonalRowStmt.get(accountId, prefix);
+    // ">=" aus demselben Grund wie bei applyDeckUpdates: ein Mapping-Fix greift auch ohne neues Match.
+    if (row && b.battleTimeMs >= (row.deck_at || 0)) {
+      updateSeasonalDeckStmt.run(JSON.stringify(mapDeckCards(b.cards)), b.battleTimeMs, accountId, prefix);
+    }
+  }
+}
+
+/** Saisonale Modi, die gerade laufen (beim letzten Profilabruf vorhanden) UND entweder schon
+ *  gespielt wurden ODER als laufendes Event in /events stehen (label gesetzt). Nur "gespielt" reichte
+ *  nicht: die Spooky Chess League stand bei einem Account, der sie noch nicht angefasst hatte, nicht
+ *  in der Auswahl. Ohne beides bleibt ein Eintrag verborgen — z.B. AutoChess/Merge Tactics, dessen
+ *  Matches nie im Battlelog auftauchen und das deshalb gar nicht trackbar ist. */
+function activeSeasonalRows(row, seasonalRows) {
+  let prefixes = null;
+  try { prefixes = JSON.parse(row?.seasonal_prefixes || "null"); } catch { prefixes = null; }
+  if (!Array.isArray(prefixes)) return [];
+  return seasonalRows.filter((r) => prefixes.includes(r.prefix)
+    && (r.deck_at > 0 || r.trophies > 0 || r.best_trophies > 0 || !!r.label));
+}
+
+function seasonalInfo(r) {
+  return {
+    mode: SEASONAL_MODE_PREFIX + r.prefix,
+    label: r.label || humanizeKey(r.progress_key || r.prefix),
+    trophies: r.trophies || 0,
+    bestTrophies: r.best_trophies || 0,
+    // Stufe innerhalb des Modus (z.B. "Casual") — der Arena-Name des progress-Eintrags.
+    arenaName: r.arena_name || "",
+    // Siegziel der Qualifikation (z.B. 15 in der Spooky-Chess-Stufe "Casual") — null außerhalb.
+    // Solange gesetzt, ist `trophies` die Zahl der Qualifikationssiege.
+    qualifyWins: qualifyGoal(r.prefix, r.arena_name),
+  };
+}
+
 // Welche trackModes für diesen Account gerade existieren: medals/trophies immer, saisonale
-// Modi (SEASONAL_TRACK_MODES) nur, solange ihr progress-Eintrag beim letzten Abruf da war.
-function availableTrackModes(row) {
+// Modi (SEASONAL_TRACK_MODES + generische) nur, solange ihr progress-Eintrag beim letzten Abruf da war.
+function availableTrackModes(row, seasonalRows = row ? getSeasonalRowsStmt.all(row.account_id) : []) {
   let prefixes = null;
   try { prefixes = JSON.parse(row?.seasonal_prefixes || "null"); } catch { prefixes = null; }
   const seasonal = Object.entries(SEASONAL_TRACK_MODES)
     .filter(([prefix]) => !Array.isArray(prefixes) || prefixes.includes(prefix))
     .map(([, mode]) => mode);
-  return ["medals", "trophies", ...seasonal];
+  const generic = activeSeasonalRows(row, seasonalRows).map((r) => SEASONAL_MODE_PREFIX + r.prefix);
+  return ["medals", "trophies", ...seasonal, ...generic];
 }
 
 // 2v2-Ranked-Matches liefern in der API kein trophyChange (das Feld fehlt schlicht) — anders als
@@ -394,6 +578,31 @@ function normalizePaginateIntervalS(raw) {
   return Number.isFinite(n) ? Math.max(2, Math.min(30, Math.round(n))) : 6;
 }
 
+// Overlay-Aussehen (siehe Migration in winTrackerStore.js). Eigenes Statement statt weiterer
+// Positionsparameter im ohnehin langen updateSettingsStmt.
+const OVERLAY_THEMES = ["classic", "royale"];
+const ROYALE_PANELS = ["blue", "red", "purple", "dark"];
+function normalizeOverlayTheme(raw) {
+  return OVERLAY_THEMES.includes(raw) ? raw : "classic";
+}
+function normalizeRoyalePanel(raw) {
+  return ROYALE_PANELS.includes(raw) ? raw : "blue";
+}
+function normalizeOverlayScale(raw) {
+  const n = Math.round(Number(raw));
+  return Number.isFinite(n) ? Math.max(100, Math.min(200, n)) : 100;
+}
+const updateThemeStmt = db.prepare("UPDATE cr_wintracker_settings SET overlay_theme = ?, royale_panel = ?, royale_pattern = ?, overlay_scale = ? WHERE user_id = ?");
+// Gemeinsam für /me und die öffentliche Overlay-Route — beide müssen dieselben Werte liefern.
+function themeSettings(settings) {
+  return {
+    overlayTheme: normalizeOverlayTheme(settings.overlay_theme),
+    royalePanel: normalizeRoyalePanel(settings.royale_panel),
+    royalePattern: settings.royale_pattern === null || settings.royale_pattern === undefined ? true : !!settings.royale_pattern,
+    overlayScale: normalizeOverlayScale(settings.overlay_scale),
+  };
+}
+
 function getOrCreateSettings(userId) {
   let row = getSettingsByUser.get(userId);
   if (!row) {
@@ -430,13 +639,47 @@ function reanchorLadder(accountId, step, leagueNumber, bonusStart = 0) {
   setLadderAnchorStmt.run(step, Number(leagueNumber) || 0, newest || Date.now(), Math.max(0, bonusStart || 0), accountId);
 }
 
-// Kumulativer Session-Stufenzähler: Sieg +1, Niederlage -1 — bewusst OHNE den Season-Bonus-
-// Multiplikator und ohne Deckelung an maxSteps, weil er (anders als ladder_step) über
-// Liga-Grenzen hinweg weiterlaufen soll und dafür nicht an eine einzelne Liga gebunden sein
-// darf. Wird bei jedem Sync inkrementell nachgezogen (nur wirklich neue Matches seit dem
-// letzten Aufruf, siehe session_climb_anchor_ms) — ein Ligawechsel setzt NUR ladder_anchor_ms
-// zurück (für die "aktuelle Stufe"-Anzeige), diesen Zähler hier nicht.
-function updateSessionClimb(row) {
+// Echte Stufen-Änderung je Ranked-Match ab dem Leiter-Anker — dieselben Regeln wie computeLadder:
+// ein Sieg bringt den Season-Bonus (falls noch übrig, sonst 1), eine Niederlage auf Stufe 1 kostet
+// NICHTS (tiefer geht es nicht). Anders als computeLadder wird an der Ligagrenze nicht gedeckelt,
+// sondern in die nächste Liga weitergezählt, damit der Session-Zähler über Aufstiege hinweg stimmt.
+// Vorher zählte der Session-Zähler stur +1/-1: der Bonus fehlte (+6 nach UC in der Vorsaison) und
+// jede Niederlage auf Stufe 1 zog fälschlich eine Stufe ab ("21–19, aber eine Stufe zu wenig").
+// @returns Array<{ ms, delta }> in Spielreihenfolge
+function ladderStepDeltas(row) {
+  let league = Number(row.league_number) || 0;
+  if (!ladderStepCount(league)) return [];
+  const anchored = Number(row.ladder_league) === league;
+  let step = anchored ? Math.max(1, Math.min(ladderStepCount(league), row.ladder_step || 1)) : 1;
+  let bonus = anchored ? Math.max(0, row.ladder_bonus_start || 0) : 0;
+  const out = [];
+  for (const b of ladderBattlesStmt.all(row.account_id, anchored ? (row.ladder_anchor_ms || 0) : (newestBattleMsStmt.get(row.account_id)?.ms || 0))) {
+    let delta = 0;
+    if (ladderStepCount(league) && b.result === "win") {
+      delta = bonus > 0 ? bonus : 1;
+      if (bonus > 0) bonus -= 1;
+      step += delta;
+      // Über die Ligagrenze: Rest zählt in der nächsten Liga weiter (ab Liga 7 gibt es keine Stufen)
+      while (ladderStepCount(league) && step > ladderStepCount(league)) {
+        step -= ladderStepCount(league);
+        league += 1;
+      }
+    } else if (ladderStepCount(league) && b.result === "loss" && step > 1) {
+      step -= 1;
+      delta = -1;
+    }
+    out.push({ ms: b.battle_time_ms, delta });
+  }
+  return out;
+}
+
+// Kumulativer Session-Stufenzähler aus den echten Stufen-Änderungen (siehe ladderStepDeltas) —
+// läuft über Liga-Grenzen hinweg weiter. Wird bei jedem Sync inkrementell nachgezogen (nur
+// wirklich neue Matches seit dem letzten Aufruf, siehe session_climb_anchor_ms).
+// ladderRow: Zeile, deren Leiter-Anker die neuen Matches abdeckt. Nach einem Aufstieg ist das die
+// Zeile VOR dem Sync — reanchorLadder legt den neuen Anker auf das neueste Match, von dort aus
+// wäre das Aufstiegsspiel selbst nicht mehr nachspielbar.
+function updateSessionClimb(row, ladderRow = row) {
   const sessionStartMs = computeSessionStartMs(row.account_id);
   let anchorMs = row.session_climb_anchor_ms || 0;
   let climb = row.session_climb || 0;
@@ -451,14 +694,25 @@ function updateSessionClimb(row) {
     // "2 Siege in den letzten 5 Spielen" aber nur "+1" beim Session-Profit.
     anchorMs = sessionStartMs - 1;
   }
-  let newestMs = anchorMs;
+  let newestMs = 0;
+  const deltas = new Map(ladderStepDeltas(ladderRow).map((d) => [d.ms, d.delta]));
   for (const b of ladderBattlesStmt.all(row.account_id, anchorMs)) {
-    if (b.result === "win") climb += 1;
+    // Nicht nachspielbar (vor dem Leiter-Anker, z.B. Account ohne gesetzte Stufe): wie früher ±1.
+    if (deltas.has(b.battle_time_ms)) climb += deltas.get(b.battle_time_ms);
+    else if (b.result === "win") climb += 1;
     else if (b.result === "loss") climb -= 1;
     newestMs = Math.max(newestMs, b.battle_time_ms);
   }
-  if (newestMs !== (row.session_climb_anchor_ms || 0) || climb !== (row.session_climb || 0)) {
-    setSessionClimbStmt.run(climb, newestMs, row.account_id);
+  // Anker NUR auf den Zeitstempel eines echten, verarbeiteten Matches setzen — nie auf "jetzt".
+  // Ohne Matches liefert computeSessionStartMs die aktuelle Uhrzeit; das wurde vorher als Anker
+  // gespeichert. Das Battlelog zeigt ein Match aber erst ~30-60s nach seinem Ende (API-Cache), und
+  // sein Zeitstempel liegt VOR dieser Uhrzeit — das erste Match der Session fiel so dauerhaft durch
+  // ("3 Siege, aber +2 Stufen"). Ohne neue Matches bleibt der alte Anker stehen; sessionClimbFor
+  // zeigt dann ohnehin 0, solange er vor dem Sessionbeginn liegt.
+  const storedAnchor = row.session_climb_anchor_ms || 0;
+  const nextAnchor = newestMs || storedAnchor;
+  if (nextAnchor !== storedAnchor || climb !== (row.session_climb || 0)) {
+    setSessionClimbStmt.run(climb, nextAnchor, row.account_id);
   }
 }
 
@@ -550,7 +804,8 @@ function resolveManualLadderStep(league, step) {
 }
 
 // ── Getrackter Wert ───────────────────────────────────────────────────────────
-const normalizeTrackMode = (raw) => (raw === "trophies" || raw === "2v2" ? raw : "medals");
+const normalizeTrackMode = (raw) =>
+  (raw === "trophies" || raw === "2v2" || /^s:[a-z0-9_-]{1,60}$/.test(String(raw || "")) ? raw : "medals");
 // Jeder Account entscheidet selbst, ob Medaillen, Trophäen oder 2v2 Ranked getrackt werden
 // (Umschalter im Tab "Accounts"). Es gibt bewusst keine globale Voreinstellung mehr dafür — neue
 // Accounts starten immer mit Ranked/Medaillen, wer etwas anderes will, stellt es am Account
@@ -701,6 +956,13 @@ function parseDeckJson(raw) {
 /** Deck passend zum getrackten Wert: Ranked-Deck bei "medals", Trophy-Road-Deck bei "trophies",
  *  eigenes 2v2-Ranked-Deck bei "2v2". */
 function resolveDeck(row, trackMode) {
+  const seasonalPrefix = seasonalPrefixOf(trackMode);
+  if (seasonalPrefix) {
+    const sRow = getSeasonalRowStmt.get(row.account_id, seasonalPrefix);
+    const cards = parseDeckJson(sRow?.deck);
+    if (!cards.length) return null;
+    return { mode: trackMode, cards, updatedAt: sRow.deck_at || 0 };
+  }
   if (trackMode === "2v2") {
     const cards = parseDeckJson(row.league2v2_deck);
     if (!cards.length) return null;
@@ -714,6 +976,10 @@ function resolveDeck(row, trackMode) {
 
 // ── Serialisierung ────────────────────────────────────────────────────────────
 function accountSummary(row) {
+  const seasonalRows = getSeasonalRowsStmt.all(row.account_id);
+  const activeSeasonal = activeSeasonalRows(row, seasonalRows);
+  const currentPrefix = seasonalPrefixOf(resolveTrackMode(row));
+  const currentSeasonal = currentPrefix ? seasonalRows.find((r) => r.prefix === currentPrefix) : null;
   return {
     accountId: row.account_id,
     playerTag: row.player_tag,
@@ -727,7 +993,11 @@ function accountSummary(row) {
     lastFetched: row.last_fetched,
     trackMode: resolveTrackMode(row),
     // Modi, die es gerade gibt — beendete saisonale Ranked-Modi fehlen (siehe availableTrackModes).
-    availableModes: availableTrackModes(row),
+    availableModes: availableTrackModes(row, seasonalRows),
+    // Generische saisonale Ranked-Modi, die gerade laufen und schon gespielt wurden (Name, Stand,
+    // Stufe) — und der davon gerade getrackte, falls trackMode einer ist.
+    seasonalModes: activeSeasonal.map(seasonalInfo),
+    seasonal: currentSeasonal ? seasonalInfo(currentSeasonal) : null,
     // In den Ligen 1-6 gibt es Stufen statt Medaillen — null ab Ultimate Champion
     ladder: computeLadder(row),
     // Deck des getrackten Modus (Ranked-, Trophy-Road- oder 2v2-Ranked-Deck) — null, solange noch
@@ -769,9 +1039,12 @@ function battleRowToPublic(row) {
  */
 function autoSwitchTrackMode(row) {
   const at = { medals: row.ranked_deck_at || 0, trophies: row.trophy_deck_at || 0, "2v2": row.league2v2_deck_at || 0 };
+  // Generische saisonale Modi: deck_at ist auch dort der Zeitstempel des neuesten zugeordneten Matches.
+  const seasonalRows = getSeasonalRowsStmt.all(row.account_id);
+  for (const r of seasonalRows) at[SEASONAL_MODE_PREFIX + r.prefix] = r.deck_at || 0;
   // Beendete saisonale Modi (siehe availableTrackModes) scheiden aus — sonst bliebe ein Account nach
   // dem Ende von 2v2 Ranked ewig auf "2v2" stehen, weil das zuletzt gespielte Match eines war.
-  const available = availableTrackModes(row);
+  const available = availableTrackModes(row, seasonalRows);
   let newestMode = null, newestAt = 0;
   for (const mode of available) {
     if ((at[mode] || 0) > newestAt) { newestAt = at[mode]; newestMode = mode; }
@@ -785,6 +1058,12 @@ function autoSwitchTrackMode(row) {
 
 async function syncAccount(row) {
   const [player, battles] = await Promise.all([fetchPlayer(row.player_tag), fetchBattlelog(row.player_tag)]);
+  const playerOk = !!(player && !player.notFound);
+  // Saisonale Modi: Battles zuordnen (ohne Profil mit den zuletzt bekannten Schlüsseln) und fehlende
+  // Deltas nachrechnen, BEVOR sie unten in die DB gehen.
+  const seasonalEntries = playerOk ? trackableEntries(player.seasonalProgress) : storedSeasonalEntries(row.account_id);
+  tagSeasonalBattles(battles, seasonalEntries);
+  fillSeasonalDeltas(battles, playerOk ? player.seasonalProgress : null);
   // 2v2-Ranked-Matches liefern kein trophyChange — vor dem Wegschreiben aus dem aktuellen
   // Kontostand (frisch vom Profil, sonst der zuletzt gespeicherte) nachrechnen.
   const currentLeague2v2Trophies = player && !player.notFound && player.league2v2
@@ -842,6 +1121,7 @@ async function syncAccount(row) {
   // Deck pro Modus aus denselben frisch geholten Battles ableiten (die DB-Zeilen tragen die
   // Karten nicht mit) — unabhängig davon, ob der Spieler-Request unten klappt.
   applyDeckUpdates(row.account_id, row, battles);
+  updateSeasonalRows(row.account_id, battles, playerOk ? seasonalEntries : null, await getEvents());
 
   // 2v2 STALE erkannt: ein neues 2v2-Match kam gerade rein (battleTimeMs > der bisher bekannte
   // league2v2_deck_at-Stand), aber player.league2v2.trophies ist noch EXAKT derselbe Wert wie
@@ -877,9 +1157,23 @@ async function syncAccount(row) {
     && player.league2v2.trophies !== (row.league2v2_trophies || 0)
     && !(newest2v2 && newest2v2.battleTimeMs > (row.league2v2_trophies_at || 0)));
 
+  // Ligen-Gegenstück zu battlelogStale: /players meldet schon den Aufstieg, /battlelog zeigt das
+  // Aufstiegsspiel aber noch nicht (kein neues Ranked-Match seit dem letzten bekannten). Würde der
+  // Leiter-Anker jetzt gesetzt, läge er auf dem Spiel DAVOR — das Aufstiegsspiel käme beim nächsten
+  // Sync als erstes "UC-Spiel" mit +30 in den Medaillen-Profit. Deshalb Liga zurückhalten, bis das
+  // Spiel da ist; nach PROMOTION_HOLD_MAX_MS trotzdem übernehmen (Spiel evtl. nie mehr im Battlelog).
+  const PROMOTION_HOLD_MAX_MS = 3 * 60 * 1000;
+  const promotionPending = !!(player && !player.notFound
+    && Number(row.ladder_league) >= 1
+    && Number(row.league_number) === Number(row.ladder_league)
+    && Number(player.leagueNumber) > Number(row.ladder_league)
+    && Date.now() - (row.last_fetched || 0) < PROMOTION_HOLD_MAX_MS
+    && !battles.some((b) => gameModeGroup(b) === "ranked" && b.battleTimeMs > (row.ranked_deck_at || 0)));
+
   if (player && !player.notFound) {
-    const fetchedAt = (league2v2Stale || battlelogStale) ? (row.last_fetched || 0) : Date.now();
-    updatePlayerData.run(player.name || row.player_name, player.trophies, player.bestTrophies, player.seasonMedals, player.leagueNumber, player.polRank, player.clan?.name || "", player.clan?.badgeId ?? null, fetchedAt, row.account_id);
+    const fetchedAt = (league2v2Stale || battlelogStale || promotionPending) ? (row.last_fetched || 0) : Date.now();
+    const leagueNumber = promotionPending ? row.league_number : player.leagueNumber;
+    updatePlayerData.run(player.name || row.player_name, player.trophies, player.bestTrophies, player.seasonMedals, leagueNumber, player.polRank, player.clan?.name || "", player.clan?.badgeId ?? null, fetchedAt, row.account_id);
     recordDiscoveredModes(player.seasonalProgress);
     recordSeasonalPrefixes(row.account_id, player.seasonalProgress);
     // battlelogStale zurückhalten statt schreiben: der Overlay-Trophäenwert (league2v2_trophies)
@@ -903,7 +1197,7 @@ async function syncAccount(row) {
     // gezählt wird ab dem neuesten bekannten Match.
     const oldLeague = Number(row.ladder_league);
     const newLeague = Number(player.leagueNumber);
-    if (newLeague !== oldLeague) {
+    if (newLeague !== oldLeague && !promotionPending) {
       // Innerhalb einer Season kann die Liga nur steigen, nie sinken (kein Downrank) — ein
       // Rückgang ist deshalb immer ein Season-Reset, und oldLeague war der in dieser Season
       // höchste erreichte Stand. Wer dort ankam, startet die neue Season (immer in Liga 1) mit
@@ -936,7 +1230,10 @@ async function syncAccount(row) {
   // Block oben gerade erst geändert haben (und für autoSwitchTrackMode unten die soeben von
   // applyDeckUpdates geschriebenen Deck-Zeitstempel).
   const freshRow = getAccountById.get(row.account_id);
-  updateSessionClimb(freshRow);
+  // Aufstieg in diesem Sync: der alte Leiter-Anker deckt das Aufstiegsspiel noch ab (der neue liegt
+  // schon dahinter). Bei einem Season-Reset (Liga sinkt) gilt dagegen der neue Anker.
+  const promoted = Number(freshRow.league_number) > Number(row.league_number);
+  updateSessionClimb(freshRow, promoted ? row : freshRow);
   autoSwitchTrackMode(freshRow);
 }
 
@@ -987,9 +1284,13 @@ async function addAccountForUser(userId, twitchLogin, rawTag) {
     try {
       const battles = await fetchBattlelog(tag);
       applyLeague2v2Deltas(battles, league2v2Trophies);
+      const seasonalEntries = trackableEntries(seasonalProgress);
+      tagSeasonalBattles(battles, seasonalEntries);
+      fillSeasonalDeltas(battles, seasonalProgress);
       if (battles.length) insertBattles(accountId, battles);
       // Deck-Erstbefüllung — sonst bliebe das Deck-Modul bis zum nächsten Sync leer.
       applyDeckUpdates(accountId, { ranked_deck_at: 0, trophy_deck_at: 0, league2v2_deck_at: 0 }, battles);
+      updateSeasonalRows(accountId, battles, seasonalProgress ? seasonalEntries : null, await getEvents());
       // Die 2v2-Trophäen oben kommen frisch vom Profil und gehören zu diesem Match-Stand — Anker
       // setzen, damit die Zurückhaltung in syncAccount (battlelogStale) von Anfang an greift.
       const newest2v2 = findLatestDeckBattles(battles)["2v2"];
@@ -1108,6 +1409,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
         chatEnabled: !!settings.chat_enabled,
         paginateOverlay: !!settings.paginate_overlay,
         paginateIntervalS: normalizePaginateIntervalS(settings.paginate_interval_s),
+        ...themeSettings(settings),
       },
     });
   });
@@ -1158,6 +1460,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       Date.now(),
       userId
     );
+    updateThemeStmt.run(normalizeOverlayTheme(s.overlayTheme), normalizeRoyalePanel(s.royalePanel), s.royalePattern === false ? 0 : 1, normalizeOverlayScale(s.overlayScale), userId);
     // Kanal-Joins des gemeinsamen IRC-Bots sofort abgleichen (kein Neustart nötig).
     try { require("../../lib/winchallengeIrc").refreshChannels(); } catch { /* IRC optional */ }
     res.json({ ok: true });
@@ -1180,6 +1483,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     const row = ownAccount(req, res);
     if (!row) return;
     deleteBattlesForAccount.run(row.account_id);
+    deleteSeasonalForAccount.run(row.account_id);
     deleteAccountStmt.run(row.account_id);
     if (row.is_active) {
       const rest = getAccountsByUser.all(row.user_id);
@@ -1248,9 +1552,11 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     const row = ownAccount(req, res);
     if (!row) return;
     const rawScope = req.body?.scope;
+    const seasonalPrefix = seasonalPrefixOf(normalizeTrackMode(rawScope));
     const scope = rawScope === "2v2" || rawScope === "trophies" ? rawScope : "ranked";
     const now = Date.now();
-    if (scope === "2v2") setSessionReset2v2Stmt.run(now, row.account_id);
+    if (seasonalPrefix) setSeasonalSessionResetStmt.run(now, row.account_id, seasonalPrefix);
+    else if (scope === "2v2") setSessionReset2v2Stmt.run(now, row.account_id);
     else if (scope === "trophies") setSessionResetTrophyStmt.run(now, row.account_id);
     else setSessionResetStmt.run(now, row.account_id);
     res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id)) });
@@ -1271,7 +1577,12 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       active = getAccountById.get(active.account_id);
     }
 
-    const trackMode = resolveTrackMode(active);
+    // Generischer saisonaler Modus: eigene Zeile + eigene Statistik über seasonal_prefix. Fehlt die
+    // Zeile (sollte nicht vorkommen), lieber Ranked zeigen als einen leeren Kopf.
+    let trackMode = resolveTrackMode(active);
+    const seasonalPrefix = seasonalPrefixOf(trackMode);
+    const seasonalRow = seasonalPrefix ? getSeasonalRowStmt.get(active.account_id, seasonalPrefix) : null;
+    if (seasonalPrefix && !seasonalRow) trackMode = "medals";
     const is2v2 = trackMode === "2v2";
     const isTrophyMode = trackMode === "trophies";
     // Jeder Modus hat seine eigene Session/Statistik (siehe daily2v2Stmt/last5_2v2Stmt bzw.
@@ -1289,19 +1600,24 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     // trophyChange (Bug: 7 Stufen-Siege vor dem Aufstieg erschienen instant als "+210", jedes
     // davon in "letzte 5" plötzlich als "+30" statt der bis dahin gezeigten Stufe). ladder_anchor_ms
     // wird bei JEDEM Liga-Wechsel neu gesetzt (siehe reanchorLadder in syncAccount) — ist die
-    // aktuelle Liga schon UC, ist das exakt der Aufstiegszeitpunkt; Math.max mit dem normalen
-    // Sessionbeginn verschiebt profit/last5 dann auf "ab dem Aufstieg", ohne Stufen-1-6- oder
-    // trophies/2v2-Sessions anzufassen (dort bleibt sessionStart unverändert).
-    const sessionStart = is2v2 ? compute2v2SessionStartMs(active.account_id)
+    // aktuelle Liga schon UC, ist das exakt der Aufstiegszeitpunkt (= Zeitstempel des
+    // Aufstiegsspiels selbst). NUR der Medaillen-Profit startet dort neu, und zwar STRIKT danach
+    // (+1): mit ">=" zählte das Aufstiegsspiel als erstes UC-Spiel mit (direkt "+30", obwohl man
+    // gerade erst angekommen war). Win/Loss + letzte 5 laufen über die ganze Session weiter — der
+    // Aufstieg ist kein Session-Ende; nur die Stufen-Anzeige wird durch den Medaillen-Profit ersetzt.
+    const sessionStart = seasonalRow ? computeSeasonalSessionStartMs(active.account_id, seasonalPrefix, seasonalRow)
+      : is2v2 ? compute2v2SessionStartMs(active.account_id)
       : isTrophyMode ? computeTrophySessionStartMs(active.account_id)
-      : (() => {
-          const base = computeSessionStartMs(active.account_id);
-          const inUC = ladderStepCount(active.league_number) === 0;
-          return inUC ? Math.max(base, active.ladder_anchor_ms || 0) : base;
-        })();
-    const daily = is2v2 ? daily2v2Stmt.get(active.account_id, sessionStart)
+      : computeSessionStartMs(active.account_id);
+    const ucProfitStart = !seasonalRow && !is2v2 && !isTrophyMode && ladderStepCount(active.league_number) === 0
+      && (active.ladder_anchor_ms || 0) >= sessionStart
+      ? active.ladder_anchor_ms + 1
+      : null;
+    const daily = seasonalRow ? dailySeasonalStmt.get(active.account_id, seasonalPrefix, sessionStart)
+      : is2v2 ? daily2v2Stmt.get(active.account_id, sessionStart)
       : isTrophyMode ? dailyTrophyStmt.get(active.account_id, sessionStart)
       : dailyStatsStmt.get(active.account_id, sessionStart);
+    if (ucProfitStart !== null) daily.profit = dailyStatsStmt.get(active.account_id, ucProfitStart).profit;
     const wins = daily.wins || 0, losses = daily.losses || 0;
     // 2v2-Profit kommt NICHT aus SUM(trophy_change) wie bei den anderen Modi (daily.profit oben),
     // sondern direkt aus dem Kontostand-Anker (siehe updateLeague2v2SessionAnchor) — unabhängig
@@ -1327,11 +1643,16 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       // 2v2 Ranked: eigener Medaillen-Stand, unabhängig von trophies/seasonMedals oben.
       league2v2Trophies: active.league2v2_trophies || 0,
       league2v2BestTrophies: active.league2v2_best_trophies || 0,
+      // Generischer saisonaler Modus (Name, Stand, Stufe) — null bei medals/trophies/2v2.
+      seasonal: seasonalRow ? seasonalInfo(seasonalRow) : null,
       // Ligen 1-6: Stufen statt Medaillen (null ab Ultimate Champion) — computeLadder ist
       // 1v1-Ranked-spezifisch (greift nur bei league_number 1-6) und braucht daher IMMER den
       // Ranked1v1-Sessionbeginn, unabhängig davon, welchen Modus der aktive Account gerade trackt
       // (medals ist der einzige, bei dem sessionStart oben bereits der Ranked1v1-Wert ist).
-      ladder: computeLadder(active, trackMode === "medals" ? sessionStart : computeSessionStartMs(active.account_id)),
+      // Nur bei medals mitschicken: alle anderen Modi zeigen nie Stufen. Ein noch offenes Overlay mit
+      // älterem Frontend-Code (OBS lädt die Seite nicht von selbst neu) kannte z.B. die Saison-Modi
+      // nicht und zeigte bei vorhandenem ladder "+0 Stufen" statt des Saison-Profits.
+      ladder: trackMode === "medals" ? computeLadder(active, sessionStart) : null,
       daily: {
         profit: is2v2 ? league2v2Profit : (daily.profit || 0),
         wins,
@@ -1343,7 +1664,17 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       // drückt den Rest nach rechts) oder umdreht (newestRight: chronologisch, neuestes rechts).
       last5: (() => {
         const stmt = is2v2 ? last5_2v2Stmt : isTrophyMode ? last5TrophyStmt : last5Stmt;
-        const rows = stmt.all(active.account_id, sessionStart).map(battleRowToPublic);
+        const rows = (seasonalRow
+          ? last5SeasonalStmt.all(active.account_id, seasonalPrefix, sessionStart)
+          : stmt.all(active.account_id, sessionStart)).map((r) => {
+            const pub = battleRowToPublic(r);
+            // Spiele bis einschließlich Aufstiegsspiel waren noch Stufen-Spiele: als ±1 Stufe zeigen
+            // wie vor dem Aufstieg, nicht mit ihrem internen trophyChange (sonst plötzlich "+30").
+            if (ucProfitStart !== null && r.battle_time_ms < ucProfitStart) {
+              pub.trophyChange = r.result === "win" ? 1 : r.result === "loss" ? -1 : 0;
+            }
+            return pub;
+          });
         return normalizeLast5Direction(settings.last5_direction) === "newestRight" ? rows.reverse() : rows;
       })(),
       // Deck des getrackten Modus — null, solange kein passendes Match gesynct wurde
@@ -1373,6 +1704,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
         showClan: !!settings.show_clan,
         paginateOverlay: !!settings.paginate_overlay,
         paginateIntervalS: normalizePaginateIntervalS(settings.paginate_interval_s),
+        ...themeSettings(settings),
       },
     });
   });

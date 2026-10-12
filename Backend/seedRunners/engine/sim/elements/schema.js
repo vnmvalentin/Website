@@ -151,6 +151,8 @@ export const ELEMENT_SCHEMA = {
     params: {
       id: { kind: 'id', required: true, label: 'Kennung', hint: 'Eigene Kennung dieses Portals.' },
       pair: { kind: 'id', required: true, label: 'Partner', hint: 'Kennung des anderen Portals, zu dem es führt — beide zeigen aufeinander.' },
+      // (optional: ohne Angabe 8 px wie bisher — der Inhalt bestehender Level bleibt gleich; Portale im Sprungbogen sind größer)
+      radius: num('portal', 'radius', 4, 20, { optional: true, step: 1, unit: 'px', label: 'Fangradius', hint: 'Wie nah die Spielermitte kommen muss. Größer verzeiht Ungenauigkeit — etwa bei Portalen mitten im Sprung.' }),
     },
   },
   switch: {
@@ -166,6 +168,17 @@ export const ELEMENT_SCHEMA = {
   },
   key: { label: 'Schlüssel', category: 'logic', anchor: 'air', params: {} },
   door: { label: 'Tür', category: 'logic', anchor: 'air', params: {} },
+  // (am Ende der Liste: TYPE_ORDER bestimmt die kanonische Reihenfolge — die Hashes bestehender Level bleiben gleich)
+  cannon: {
+    label: 'Kanone', category: 'hazard', anchor: 'airOrSolid',
+    params: {
+      dir: oneOf(DIRS_4, { default: 'right', label: 'Richtung', hint: 'Die Kugeln fliegen geradeaus, bis sie an einen Block stoßen.' }),
+      period: num('cannon', 'period', 0.4, 8, { step: 0.1, unit: 's', label: 'Takt', hint: 'Alle wie viele Sekunden ein Schuss fällt.' }),
+      speed: num('cannon', 'speed', 30, 400, { step: 5, unit: 'px/s', label: 'Kugeltempo' }),
+      radius: num('cannon', 'radius', 3, 8, { step: 1, unit: 'px', label: 'Kugelgröße' }),
+      phase: num('cannon', 'phase', 0, 1, { default: 0, step: 0.05, label: 'Zeitversatz', hint: 'Verschiebt den Takt, falls mehrere Kanonen nicht gleichzeitig schießen sollen.' }),
+    },
+  },
 };
 
 export const ELEMENT_TYPE_LIST = Object.keys(ELEMENT_SCHEMA);

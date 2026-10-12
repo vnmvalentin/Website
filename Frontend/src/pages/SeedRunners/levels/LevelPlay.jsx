@@ -12,6 +12,8 @@ import RaceView from "../room/RaceView.jsx";
 import { beginAttempt, submitRun, reverifyOwnLevel } from "./levelsApi.js";
 import { formatTicks } from "../room/format.js";
 import { buttonClass, primaryButtonClass } from "../editor/fields.jsx";
+import { useBoundAction } from "../client/useBoundAction.js";
+import { boundLabel } from "../client/input.js";
 
 const COUNTDOWN_MS = 3300;
 const OWN_CLOCK = { toLocal: (t) => t };
@@ -108,7 +110,7 @@ function Attempt({ code, level, ghosts, mode, name, canImprove, round, startAt, 
           )}
           {settled && (
             <div className="flex flex-wrap gap-2 pt-1">
-              <button type="button" onClick={onRestart} className={primaryButtonClass}><RotateCcw size={14} />Nochmal spielen (N)</button>
+              <button type="button" onClick={onRestart} className={primaryButtonClass}><RotateCcw size={14} />Nochmal spielen ({boundLabel("neustart")})</button>
               <button type="button" onClick={onExit} className={buttonClass}><ArrowLeft size={14} />Zurück zum Level (Esc)</button>
             </div>
           )}
@@ -125,6 +127,19 @@ function Attempt({ code, level, ghosts, mode, name, canImprove, round, startAt, 
         finishNote={res ? (settled ? "Im Ziel" : "Im Ziel — der Server prüft deinen Lauf …") : "Im Ziel"}
         onReady={noop}
         onFinish={handleFinish}
+        vollbild
+        hudActions={(
+          <>
+            <button type="button" onClick={onRestart} className="sr-btn sr-btn-sm sr-btn-ghost">
+              <RotateCcw size={13} />
+              <span className="hidden md:inline">Neu starten</span> <span className="sr-kbd">{boundLabel("neustart")}</span>
+            </button>
+            <button type="button" onClick={onExit} className="sr-btn sr-btn-sm sr-btn-ghost">
+              <ArrowLeft size={13} />
+              <span className="hidden md:inline">Zum Level</span> <span className="sr-kbd">Esc</span>
+            </button>
+          </>
+        )}
       />
     </div>
   );
@@ -143,24 +158,24 @@ export default function LevelPlay({ code, level, ghosts, mode = "submit", name, 
   const [startAt, setStartAt] = useState(() => Date.now() + COUNTDOWN_MS);
   const restart = useCallback(() => { setRound((r) => r + 1); setStartAt(Date.now() + COUNTDOWN_MS); }, []);
 
-  // Esc zurück, N neu — dieselben Tasten wie im Testspiel des Editors
+  // Esc zurück, „Neu starten“ (Standard N, umbelegbar) — dieselben Tasten wie im Testspiel des Editors und im Tagesrennen
+  useBoundAction("neustart", restart);
   useEffect(() => {
     const onKey = (e) => {
       const t = e.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "Escape") onExit();
-      else if (e.key.toLowerCase() === "n") restart();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onExit, restart]);
+  }, [onExit]);
 
   return (
     <div className="bg-[#0d0d14] border border-white/10 rounded-md" data-testid="level-play">
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-white/10">
         <button type="button" onClick={onExit} className={buttonClass}><ArrowLeft size={14} />Zurück zum Level (Esc)</button>
-        <button type="button" onClick={restart} className={buttonClass}><RotateCcw size={14} />Neu starten (N)</button>
+        <button type="button" onClick={restart} className={buttonClass}><RotateCcw size={14} />Neu starten ({boundLabel("neustart")})</button>
         <span className="text-xs text-white/40 ml-auto">
           {mode === "reverify" ? "Neu-Verifizierung deines Levels" : ghosts?.length ? `${ghosts.length} ${ghosts.length === 1 ? "Geist läuft" : "Geister laufen"} mit` : "Lauf für die Bestenliste"}
         </span>

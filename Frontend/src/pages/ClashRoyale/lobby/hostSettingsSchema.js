@@ -27,6 +27,8 @@ import {
 // Whitelists — müssen mit dem Backend übereinstimmen (Datei/Zeile als Fundstelle):
 const RUSH_MARKET_SIZES = [3, 4, 5, 6, 7, 8];          // modes/elixirRush.js
 const RUSH_LIFETIMES = [4, 6, 8, 10, 15, 20, 30];      // modes/elixirRush.js
+// Aufladetempo-Stufen — dieselben IDs wie RUSH_SPEED_MS in Backend/clashRoyale/core/rushSpeed.js
+const RUSH_SPEEDS = ['slow', 'normal', 'fast', 'veryfast'];
 const FISH_SPAWN_RATES = [1, 1.5, 2, 2.5, 3];          // modes/angelRoyale.js
 const FISH_COOLDOWNS = [0, 1, 2, 3, 5];                // modes/angelRoyale.js
 const FISH_IDLE_SECONDS = [0, 3, 5, 8, 10];            // modes/angelRoyale.js
@@ -229,6 +231,16 @@ export const HOST_SETTINGS = [
 
   // ── Elixir Rush ───────────────────────────────────────────────────────────
   {
+    key: 'rushElixirSpeed',
+    modes: ['elixir-rush'],
+    control: 'segmented',
+    icon: CrElixir, accent: 'fuchsia',
+    label: ({ t }) => t.rushSpeed,
+    options: ({ t }) => RUSH_SPEEDS.map(id => ({ id, label: t.rushSpeedOptions[id] })),
+    note: ({ t }) => t.rushSpeedNote,
+    apply: (a, v) => a.setRushElixirSpeed(v),
+  },
+  {
     key: 'rushMarketSize',
     modes: ['elixir-rush'],
     control: 'segmented',
@@ -266,9 +278,18 @@ export const HOST_SETTINGS = [
   },
 
   // ── Elixir Rush 2v2 ───────────────────────────────────────────────────────
-  // Marktgröße/Kartenlebensdauer 1:1 wie im Solo-Modus. Die Kapazität des geteilten
-  // Team-Elixier-Balkens ist einstellbar (rush2v2MaxElixir); die Aufladerate selbst
-  // bleibt fix, siehe modes/elixirRush2v2.js.
+  // Marktgröße/Kartenlebensdauer 1:1 wie im Solo-Modus, dazu Aufladetempo und Kapazität des
+  // geteilten Team-Elixier-Balkens (siehe modes/elixirRush2v2.js).
+  {
+    key: 'rush2v2ElixirSpeed',
+    modes: ['elixir-rush-2v2'],
+    control: 'segmented',
+    icon: CrElixir, accent: 'fuchsia',
+    label: ({ t }) => t.rushSpeed,
+    options: ({ t }) => RUSH_SPEEDS.map(id => ({ id, label: t.rushSpeedOptions[id] })),
+    note: ({ t }) => t.rushSpeedNote,
+    apply: (a, v) => a.setRush2v2ElixirSpeed(v),
+  },
   {
     key: 'rush2v2MarketSize',
     modes: ['elixir-rush-2v2'],

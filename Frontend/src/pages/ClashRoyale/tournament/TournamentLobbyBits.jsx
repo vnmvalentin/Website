@@ -13,7 +13,7 @@ function Countdown({ t }) {
   const [n, setN] = useState(3);
   useEffect(() => {
     if (n < 0) return undefined;
-    playSound(n === 0 ? 'start' : 'tap');
+    playSound(n === 0 ? 'start' : 'count');
     const id = setTimeout(() => setN(n - 1), 1000);
     return () => clearTimeout(id);
   }, [n]);

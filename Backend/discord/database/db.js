@@ -147,6 +147,11 @@ db.exec(`CREATE TABLE IF NOT EXISTS auto_roles (
     assign_role_id TEXT NOT NULL,
     enabled INTEGER DEFAULT 1
 )`);
+db.exec(`CREATE TABLE IF NOT EXISTS seed_runners_boards (
+    guild_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    message_id TEXT DEFAULT ''
+)`);
 
 // ── Migrations ─────────────────────────────────────────────────────────────────
 try { db.exec("ALTER TABLE reaction_roles ADD COLUMN title TEXT DEFAULT 'Unbenannt'"); } catch (e) {}
@@ -402,6 +407,30 @@ function getVoiceStats(guildId, days = 30) {
     return db.prepare(`SELECT user_id as userId, SUM(duration_seconds) as totalSeconds FROM voice_activity WHERE guild_id=? AND date>=? GROUP BY user_id ORDER BY totalSeconds DESC LIMIT 20`).all(guildId, since);
 }
 
+function getMessageTotal(guildId, days = 30) {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return db.prepare('SELECT COALESCE(SUM(msg_count), 0) as total FROM message_stats WHERE guild_id=? AND date>=?').get(guildId, since).total;
+}
+// Voice-Sekunden ALLER Nutzer im Zeitraum (ohne Limit — für Gesamtzeit, Rang und Einzelabfrage)
+function getVoiceTotalsByUser(guildId, days = 30) {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return db.prepare(`SELECT user_id as userId, SUM(duration_seconds) as totalSeconds FROM voice_activity WHERE guild_id=? AND date>=? GROUP BY user_id`).all(guildId, since);
+}
+
+// ── SEED RUNNERS RANGLISTE ─────────────────────────────────────────────────────
+function getSeedRunnersBoard(guildId) {
+    const r = db.prepare('SELECT * FROM seed_runners_boards WHERE guild_id=?').get(guildId);
+    return r ? { guildId: r.guild_id, channelId: r.channel_id, messageId: r.message_id || '' } : null;
+}
+function getAllSeedRunnersBoards() {
+    return db.prepare('SELECT * FROM seed_runners_boards').all()
+        .map(r => ({ guildId: r.guild_id, channelId: r.channel_id, messageId: r.message_id || '' }));
+}
+function saveSeedRunnersBoard(guildId, channelId, messageId) {
+    db.prepare(`INSERT INTO seed_runners_boards (guild_id, channel_id, message_id) VALUES (?, ?, ?) ON CONFLICT(guild_id) DO UPDATE SET channel_id=excluded.channel_id, message_id=excluded.message_id`).run(guildId, channelId, messageId || '');
+}
+function deleteSeedRunnersBoard(guildId) { db.prepare('DELETE FROM seed_runners_boards WHERE guild_id=?').run(guildId); }
+
 // ── DISCORD DB BACKUP (alle 30 Min, 3 Slots) ───────────────────────────────────
 const BACKUP_DIR = path.join(dataDir, 'backups');
 if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
@@ -438,4 +467,6 @@ module.exports = {
     getTicketConfig, saveTicketConfig, updateTicketConfigMessageId, deleteTicketConfig,
     getTicketFields, saveTicketFields, getTicketHistory, saveTicketHistoryEntry, closeTicketHistoryEntry,
     incrementMessageStat, trackMessage, trackVoiceActivity, getMessageStats, getVoiceStats,
+    getMessageTotal, getVoiceTotalsByUser,
+    getSeedRunnersBoard, getAllSeedRunnersBoards, saveSeedRunnersBoard, deleteSeedRunnersBoard,
 };

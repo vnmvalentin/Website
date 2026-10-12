@@ -46,12 +46,23 @@ export default {
     const { tx, ty } = spec;
     const dir = spec.dir || facing(world.map, tx, ty);
     // Die Trefferfläche ist etwas schmaler als die Kachel: Ein Streifschuss an der Ecke tötet nicht.
-    const rect = {
-      up: { x: tx * TILE + 2, y: (ty + 1) * TILE - th, w: TILE - 4, h: th },
-      down: { x: tx * TILE + 2, y: ty * TILE, w: TILE - 4, h: th },
-      right: { x: tx * TILE, y: ty * TILE + 2, w: th, h: TILE - 4 },
-      left: { x: (tx + 1) * TILE - th, y: ty * TILE + 2, w: th, h: TILE - 4 },
-    }[dir];
+    // Ausnahme: eine OFFENE Kante des Trägerblocks (daneben geht der Block nicht weiter). Dort stand man
+    // sonst auf den äußersten 1–3 px des Blocks, ohne die Spitzen zu berühren — die Fläche reicht deshalb
+    // 1 px über die Kachel hinaus (die Spieler-Hitbox ist für Gefahren um 1 px verkleinert, playerHits).
+    // Wer nur seitlich am Block vorbeifällt, ohne ihn zu überlappen, bleibt heil.
+    const lo = (sx, sy, nx, ny) => (isSolid(world.map, sx, sy) && !isSolid(world.map, nx, ny) ? -1 : 2);
+    let rect;
+    if (dir === 'up' || dir === 'down') {
+      const sy = dir === 'up' ? ty + 1 : ty - 1;
+      const a = lo(tx, sy, tx - 1, sy);
+      const b = lo(tx, sy, tx + 1, sy);
+      rect = { x: tx * TILE + a, y: dir === 'up' ? (ty + 1) * TILE - th : ty * TILE, w: TILE - a - b, h: th };
+    } else {
+      const sx = dir === 'right' ? tx - 1 : tx + 1;
+      const a = lo(sx, ty, sx, ty - 1);
+      const b = lo(sx, ty, sx, ty + 1);
+      rect = { x: dir === 'right' ? tx * TILE : (tx + 1) * TILE - th, y: ty * TILE + a, w: th, h: TILE - a - b };
+    }
 
     const period = spec.period === undefined ? 0 : Math.max(2, ticks(spec.period));
     const el = {

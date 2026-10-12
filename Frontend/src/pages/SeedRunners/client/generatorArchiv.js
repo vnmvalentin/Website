@@ -10,6 +10,9 @@ import { GEN_VERSION, ohneGv } from '../gen/index.js';
 // Jede eingefrorene Version hier eintragen (statischer Pfad, damit der Bundler sie als eigenen Teil kennt)
 const ARCHIV = {
   1: () => import('../archiv/pfad-v1/gen/world/generate.js'),
+  2: () => import('../archiv/pfad-v2/gen/world/generate.js'),
+  3: () => import('../archiv/pfad-v3/gen/world/generate.js'),
+  4: () => import('../archiv/pfad-v4/gen/world/generate.js'),
 };
 
 /** Die generateWorld-Funktion einer Version */

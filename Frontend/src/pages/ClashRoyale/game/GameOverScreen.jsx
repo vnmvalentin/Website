@@ -1,5 +1,6 @@
 // Endscreen: alle fertigen Decks nebeneinander, mit Deck-Link und QR-Code.
 // Admins können hier einzelne Karten nachträglich austauschen.
+// Team-Modi (2v2): die Decks stehen nach Teams gruppiert in je einem Team-Kasten.
 
 import React, { useState } from 'react';
 import { LayoutGrid, Rows, LogOut, Copy } from 'lucide-react';
@@ -13,6 +14,7 @@ import Leaderboard from './Leaderboard';
 import { BackToTournamentButton } from '../tournament/TournamentLobbyBits';
 import { SIZE_COLS } from '../constants';
 import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
+import { TEAM_IDS, teamStyle, teamChipClass } from '../lobby/teamStyle';
 
 /** Deck-Karte im Endscreen — für Admins klickbar, um sie auszutauschen. */
 function DeckCardTile({ card, canSwap, onSwap, t }) {
@@ -42,6 +44,11 @@ export default function GameOverScreen({
   const [overlayCopied, setOverlayCopied] = useState(false);
 
   const activePlayers = (gameOver.players || []).filter(p => !p.isSpectator);
+  // Team-Modus: sobald der Server Teams mitschickt, nach Teams gruppieren (Reihenfolge A, B, C, D)
+  const teamGroups = TEAM_IDS
+    .map(letter => ({ letter, members: activePlayers.filter(p => p.teamId === letter) }))
+    .filter(g => g.members.length > 0);
+  const withoutTeam = activePlayers.filter(p => !p.teamId);
 
   // Lobbyeigenes Deck-Overlay (siehe streamer/LobbyDeckOverlayPage.jsx): derselbe Link für
   // die komplette Sitzung, jeder Spieler kann ihn als OBS-Browserquelle einfügen — genau wie
@@ -165,7 +172,22 @@ export default function GameOverScreen({
           </div>
         </div>
 
-        {layout === 'grid' ? (
+        {teamGroups.length > 0 ? (
+          <div className={`grid gap-4 ${layout === 'grid' ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
+            {teamGroups.map(({ letter, members }) => (
+              <section key={letter} className={`rounded-2xl border-2 p-3 space-y-3 ${teamStyle(letter).panel}`}>
+                <div className="flex items-center gap-2 px-1">
+                  <span className={`${teamChipClass(letter)} w-7 h-7 text-base`}>{letter}</span>
+                  <span className={`font-cr text-lg ${teamStyle(letter).text}`}>{t.teamLabel(letter)}</span>
+                </div>
+                <div className={`grid gap-3 ${layout === 'grid' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+                  {members.map((p, i) => playerCard(p, i, layout === 'grid' ? 'grid-cols-4' : 'grid-cols-4 sm:grid-cols-8'))}
+                </div>
+              </section>
+            ))}
+            {withoutTeam.map((p, i) => playerCard(p, i, 'grid-cols-4'))}
+          </div>
+        ) : layout === 'grid' ? (
           <div className={`grid ${SIZE_COLS[size]} gap-4`}>
             {activePlayers.map((p, i) => playerCard(p, i, 'grid-cols-4'))}
           </div>

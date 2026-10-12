@@ -2,32 +2,13 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const { nanoid } = require("nanoid");
+const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
 
 const BINGO_THEMES_PATH = path.join(__dirname, "../data/bingo-themes.json");
 const BINGO_SESSIONS_PATH = path.join(__dirname, "../data/bingo-sessions.json");
 
-// ---- Helpers (readJson, writeJsonAtomic, etc. bleiben gleich) ----
-function readJson(filePath, fallback) {
-  try {
-    if (!fs.existsSync(filePath)) return fallback;
-    const raw = fs.readFileSync(filePath, "utf8");
-    if (!raw.trim()) return fallback;
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error("readJson failed:", filePath, e);
-    return fallback;
-  }
-}
-
-function writeJsonAtomic(filePath, data) {
-  try {
-    const tmp = filePath + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), "utf8");
-    fs.renameSync(tmp, filePath);
-  } catch (e) {
-    console.error("writeJsonAtomic failed:", filePath, e);
-  }
-}
+// readJson/writeJsonAtomic kommen aus lib/jsonFile.js — eine kaputte Datei wird dort nicht
+// mehr mit dem Fallback überschrieben (vorher: Lesefehler → {} → nächste Speicherung leerte alles)
 
 function clampInt(n, min, max, fallback) {
   const v = parseInt(n, 10);

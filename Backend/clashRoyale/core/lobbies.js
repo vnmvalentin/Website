@@ -8,6 +8,7 @@ const { nanoid } = require('nanoid');
 const registry = require('./registry');
 const { presetsForLobby } = require('./modePresets');
 const { trackingScoreFor } = require('./crTracking');
+const { teamCountOf } = require('./teams');
 
 const lobbies = new Map();
 
@@ -84,6 +85,20 @@ function sanitizeLobby(lobby) {
     // 'solo' (Standard) | 'duo' — schaltet um, welche Modi wählbar sind (registry.
     // modeAllowsParty) und ob die Spielerliste Teams zeigt.
     partyMode: lobby.partyMode || 'solo',
+    // Anzahl 2er-Teams in Duo-Lobbys (2–4, siehe core/teams.js)
+    teamCount: teamCountOf(lobby),
+    // Zufallsmodus (core/randomMode.js): Schalter, Pool und "nicht zweimal hintereinander".
+    // randomSpin steht nur während der Walze vor dem Start — msLeft statt Zeitstempel, damit
+    // eine abweichende Uhr im Browser die Einblendung nicht verschiebt.
+    randomEnabled: !!lobby.randomEnabled,
+    randomModes: lobby.randomModes || [],
+    randomNoRepeat: lobby.randomNoRepeat !== false,
+    randomSpin: lobby.randomSpin
+      ? {
+        id: lobby.randomSpin.id, mode: lobby.randomSpin.mode, pool: lobby.randomSpin.pool,
+        msLeft: Math.max(0, lobby.randomSpin.endsAt - Date.now()),
+      }
+      : null,
     host: lobby.host,
     timerSeconds: lobby.timerSeconds,
     tokenShopTimerSeconds: lobby.tokenShopTimerSeconds ?? 60,

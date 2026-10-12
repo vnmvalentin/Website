@@ -27,7 +27,7 @@ export const GEZEITEN_EVENTS = [
 /** Knotentypen der Pfad-Phase und ihre Grundgewichte. */
 export const NODE_TYPES = [
   ["cardChoice", 30],
-  ["campfire", 12],
+  ["campfire", 5],
   ["merchant", 10],
   ["transfer", 9],
   ["fuse", 8],
@@ -39,3 +39,5 @@ export const NODE_TYPES = [
 
 export const MIN_DECK = 8;
 export const CAMPFIRE_RISK = [0, 0.2, 0.45, 0.7];
+/** Lagerfeuer höchstens so oft pro Pfadkarte: mehrfach aufgewertete schwache Karten wurden sonst übermächtig. */
+export const MAX_CAMPFIRES_PER_MAP = 1;

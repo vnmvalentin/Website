@@ -1,0 +1,504 @@
+/* ===================================================================
+   Overlay-Szenen: Hype Train, Raid-Ansturm, Flugzeug, Murmelbahn
+   Eigene Datei neben overlayWidgets.css — beide landen im lazy geladenen
+   Chunk der Stream-Tools. Maße gelten für die 1920x1080-Bühne.
+   Bewusst flach gezeichnet: Flächen und Linien, keine Verläufe, kein Glühen.
+   =================================================================== */
+
+/* Szenen liegen über der ganzen Bühne und dürfen im Editor nichts abfangen */
+.sts-storm,
+.sts-plane-lane {
+  position: absolute;
+  left: 0;
+  pointer-events: none;
+}
+
+/* Profilbild-Kreis — in Wagen, Anmeldung und Siegerzeile derselbe */
+.sts-face {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #101014;
+  flex-shrink: 0;
+}
+.sts-face.is-blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font: 800 18px/1 Inter, Roboto, system-ui, sans-serif;
+}
+.sts-face.is-more {
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 14px;
+}
+.sts-face.is-big {
+  width: 76px;
+  height: 76px;
+  font-size: 30px;
+}
+
+/* ── Hype Train ───────────────────────────────────────────────────────────── */
+.sts-train-scene {
+  position: absolute;
+  left: 0;
+  width: 1920px;
+  pointer-events: none;
+  font-family: Inter, Roboto, system-ui, sans-serif;
+  color: #fff;
+}
+
+/* Gleis über die ganze Breite */
+.sts-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: #101015;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  animation: sts-rail-in 0.6s ease both;
+  transition: opacity 1s ease 3s;
+}
+@keyframes sts-rail-in { from { opacity: 0; } }
+.sts-train-scene.is-over .sts-rail { opacity: 0; }
+
+/* Die Spur trägt die Fahrt. Drei Stellungen:
+   is-pre  steht hinten außerhalb bereit (ohne Übergang — sonst führe der Zug
+           nach einem Levelaufstieg rückwärts durchs Bild zurück)
+   is-in   fährt ein und bremst
+   is-out  zieht nach vorn aus dem Bild */
+.sts-train-lane {
+  width: 1920px;
+  padding: 0 60px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: flex-end;
+  transform: translateX(-2100px);
+}
+.sts-train-lane.is-in {
+  transform: none;
+  transition: transform 2.7s cubic-bezier(0.14, 0.82, 0.28, 1);
+}
+.sts-train-lane.is-out {
+  transform: translateX(2100px);
+  transition: transform 2.2s cubic-bezier(0.55, 0, 0.9, 0.45);
+}
+.from-right .sts-train-lane { justify-content: flex-start; transform: translateX(2100px); }
+.from-right .sts-train-lane.is-in { transform: none; }
+.from-right .sts-train-lane.is-out { transform: translateX(-2100px); }
+.sts-train-lane.is-still { transition: none; }
+
+.sts-train {
+  display: flex;
+  align-items: flex-end;
+  --sts-a: #9146ff;
+  --sts-w: #23232d;
+}
+.from-right .sts-train { flex-direction: row-reverse; }
+
+.sts-loco,
+.sts-wagon {
+  position: relative;
+  height: 200px;
+  flex-shrink: 0;
+}
+.sts-loco { width: 330px; }
+.sts-wagon { width: 250px; }
+
+/* Zeichnung: für die Fahrt nach links gespiegelt, Schrift und Bilder nicht */
+.sts-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+}
+.from-right .sts-art { transform: scaleX(-1); }
+
+.sts-wheel { animation: sts-roll 0.62s linear infinite; }
+@keyframes sts-roll { to { transform: rotate(360deg); } }
+/* Kuppelstange: zwei versetzte Pendelbewegungen ergeben den Kreis der Kurbel */
+.sts-rod-x { animation: sts-rod-x 0.62s ease-in-out infinite; }
+.sts-rod-y { animation: sts-rod-y 0.62s ease-in-out infinite; }
+@keyframes sts-rod-x {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(11px); }
+  75% { transform: translateX(-11px); }
+}
+@keyframes sts-rod-y {
+  0%, 100% { transform: translateY(-11px); }
+  50% { transform: translateY(11px); }
+}
+.is-parked .sts-wheel,
+.is-parked .sts-rod-x,
+.is-parked .sts-rod-y,
+.is-still .sts-wheel,
+.is-still .sts-rod-x,
+.is-still .sts-rod-y { animation-play-state: paused; }
+
+/* Wagen: Fenster in zwei Decks */
+.sts-wagon-no {
+  position: absolute;
+  top: 25px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
+}
+.sts-windows {
+  position: absolute;
+  left: 20px;
+  top: 47px;
+  display: grid;
+  grid-template-columns: repeat(4, 46px);
+  gap: 9px 9px;
+}
+.sts-window {
+  position: relative;
+  width: 46px;
+  height: 38px;
+  border-radius: 8px;
+  background: #0d0d11;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.sts-window.is-taken { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5); }
+.sts-window img,
+.sts-window b {
+  position: absolute;
+  inset: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  border-radius: 6px;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 800;
+  animation: sts-board 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.sts-window b:only-child { background: rgba(255, 255, 255, 0.14); font-size: 13px; }
+@keyframes sts-board {
+  from { transform: translateY(-22px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+/* Mit Namen: schmaleres Bild, darunter eine Zeile */
+.sts-windows.has-names .sts-window img,
+.sts-windows.has-names .sts-window b { bottom: 12px; height: calc(100% - 14px); }
+.sts-window i {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 1px;
+  font-style: normal;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 11px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Lok */
+.sts-puff {
+  position: absolute;
+  left: 236px;
+  top: 2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(236, 236, 241, 0.92);
+  opacity: 0;
+  animation: sts-puff 1.6s ease-out infinite;
+}
+.from-right .sts-puff { left: auto; right: 236px; }
+.sts-puff:nth-child(2) { animation-delay: 0.4s; }
+.sts-puff:nth-child(3) { animation-delay: 0.8s; }
+.sts-puff:nth-child(4) { animation-delay: 1.2s; }
+/* In Fahrt reißt der Fahrtwind den Dampf nach hinten … */
+@keyframes sts-puff {
+  0% { transform: translate(0, 16px) scale(0.35); opacity: 0; }
+  15% { opacity: 0.95; }
+  100% { transform: translate(-190px, -70px) scale(2); opacity: 0; }
+}
+.from-right .sts-puff { animation-name: sts-puff-r; }
+@keyframes sts-puff-r {
+  0% { transform: translate(0, 16px) scale(0.35); opacity: 0; }
+  15% { opacity: 0.95; }
+  100% { transform: translate(190px, -70px) scale(2); opacity: 0; }
+}
+/* … im Stand steigt er gemächlich gerade hoch */
+.is-parked .sts-puff { animation-name: sts-puff-idle; animation-duration: 3.2s; }
+@keyframes sts-puff-idle {
+  0% { transform: translate(0, 16px) scale(0.35); opacity: 0; }
+  20% { opacity: 0.8; }
+  100% { transform: translate(-14px, -110px) scale(1.5); opacity: 0; }
+}
+.is-still .sts-puff { animation: none; }
+
+.sts-cab-text {
+  position: absolute;
+  left: 26px;
+  top: 56px;
+  width: 74px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #101014;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+  font-size: 19px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.from-right .sts-cab-text { left: auto; right: 26px; }
+.sts-boiler-info {
+  position: absolute;
+  left: 160px;
+  top: 88px;
+  width: 100px;
+}
+.from-right .sts-boiler-info { left: 70px; }
+.sts-boiler-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sts-boiler-top b { font-size: 18px; font-weight: 900; }
+.sts-prog {
+  margin-top: 8px;
+  height: 11px;
+  background: rgba(0, 0, 0, 0.38);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sts-prog i {
+  display: block;
+  height: 100%;
+  background: #fff;
+  border-radius: 6px;
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Schild, mit dem die Lok nach einem Aufstieg einfährt */
+.sts-levelup {
+  position: absolute;
+  left: 10px;
+  top: -44px;
+  padding: 9px 20px;
+  background: #fff;
+  color: #14141a;
+  border-radius: 8px;
+  font-size: 26px;
+  font-weight: 900;
+  white-space: nowrap;
+  animation: sts-levelup 5.5s ease both;
+}
+.from-right .sts-levelup { left: auto; right: 10px; }
+@keyframes sts-levelup {
+  0% { transform: translateY(18px) scale(0.7); opacity: 0; }
+  8% { transform: translateY(-6px) scale(1.06); opacity: 1; }
+  13%, 82% { transform: none; opacity: 1; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
+
+/* ── Raid-Ansturm ─────────────────────────────────────────────────────────── */
+.sts-storm { width: 1920px; }
+
+/* ── Flugzeug mit Banner ──────────────────────────────────────────────────── */
+.sts-plane-lane {
+  width: 1920px;
+  height: 0;
+  font-family: Inter, Roboto, system-ui, sans-serif;
+}
+.sts-plane-group {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+/* Standbild im Editor: mittig, damit man die Höhe ausrichten kann */
+.sts-plane-lane.is-still .sts-plane-group {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.sts-plane {
+  display: flex;
+  align-items: center;
+  animation: sts-bob 3.4s ease-in-out infinite alternate;
+}
+.sts-plane.to-left { flex-direction: row-reverse; }
+.sts-plane.to-left .sts-plane-art { transform: scaleX(-1); }
+@keyframes sts-bob {
+  from { transform: translateY(-7px); }
+  to { transform: translateY(7px); }
+}
+.is-still .sts-plane { animation: none; }
+
+.sts-plane-art { display: block; flex-shrink: 0; }
+.sts-prop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sts-prop 0.12s linear infinite;
+}
+@keyframes sts-prop {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.25); }
+}
+.sts-rope {
+  width: 70px;
+  height: 3px;
+  background: rgba(240, 240, 245, 0.85);
+  flex-shrink: 0;
+}
+.sts-banner {
+  padding: 16px 40px 16px 64px;
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+  /* Schwalbenschwanz am freien Ende */
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 34px 50%);
+  transform-origin: right center;
+  animation: sts-wave 1.7s ease-in-out infinite alternate;
+}
+.sts-plane.to-left .sts-banner {
+  padding: 16px 64px 16px 40px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 34px) 50%, 100% 100%, 0 100%);
+  transform-origin: left center;
+}
+@keyframes sts-wave {
+  from { transform: skewY(-1.4deg); }
+  to { transform: skewY(1.4deg); }
+}
+.is-still .sts-banner { animation: none; }
+
+/* ── Murmelbahn ───────────────────────────────────────────────────────────── */
+.sts-marbles-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 16px;
+}
+
+.sts-lobby { padding: 4px 24px 24px; }
+.sts-lobby-call {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.sts-lobby-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+}
+.sts-lobby-time { color: #fff; font-variant-numeric: tabular-nums; }
+.sts-lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px 6px;
+  margin-top: 18px;
+  min-height: 62px;
+}
+.sts-lobby-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  animation: sts-board 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.sts-lobby-player i {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.sts-race {
+  position: relative;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.sts-race canvas { display: block; }
+.sts-rank {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  margin: 0;
+  padding: 10px 14px;
+  list-style: none;
+  width: 190px;
+  background: rgba(10, 10, 13, 0.82);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.sts-rank li {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+}
+.sts-rank b {
+  width: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.sts-rank span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sts-race-count {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 7px 12px;
+  background: rgba(10, 10, 13, 0.82);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.8);
+}
+.sts-winner {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 22px;
+  background: rgba(10, 10, 13, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  animation: sts-board 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.sts-winner strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}

@@ -2,8 +2,8 @@
 // Seed Runners: Socket.io-Anbindung der Raum-Logik (seedRunners/roomManager.js).
 //
 // Läuft im Hauptprozess und nicht in einem eigenen wie Blobby: Der Server rechnet keine Physik.
-// Jeder Spieler simuliert sein Level im Browser; hier laufen nur ein paar Dutzend kleine
-// Nachrichten pro Rennen (bereit, Checkpoint, Ziel) und drei Timer je Raum. Nichts davon schreibt
+// Jeder Spieler simuliert sein Level im Browser; hier laufen nur kleine Nachrichten (bereit, Checkpoint,
+// Ziel, dazu ~10 Positionen pro Sekunde und Läufer, gebündelt weitergereicht) und wenige Timer je Raum. Nichts davon schreibt
 // synchron auf die Platte, der Event-Loop bleibt frei für den Rest des Backends.
 //
 // Protokoll (alle Ereignisse mit Präfix `sr:`; Antworten per Ack `{ ok, error?, … }`)
@@ -16,19 +16,21 @@
 //     sr:ready    { hash, checkpoints }            Level ist erzeugt (Hash aller Spieler muss gleich sein)
 //     sr:checkpoint { index, tick }                Checkpoint erreicht
 //     sr:finish   { ticks, deaths, splits, log, fp }  Ziel erreicht (log + fp für die Replay-Prüfung, siehe seedRunners/replay.js)
-//     sr:giveup   {}                               Aufgeben (DNF)
+//     sr:giveup   { died? }                        Aufgeben (DNF); died = Hardcore-Tod
 //     sr:lobby    {}                               Host: aus dem Ergebnis zurück in die Lobby
 //     sr:leave    {}                               Raum verlassen
 //     sr:ping     { t }                            Uhrenabgleich (Ack: t, serverNow)
+//     sr:pos      { x, y, f, t, a }                eigene Position (~10/s, ohne Ack) für Geister und Zuschauer
 //   Server → Client
 //     sr:state    vollständiger Raumzustand (bei jeder Änderung)
 //     sr:notice   { text }                         kurze Meldung (Beitritt, Hostwechsel …)
 //     sr:kicked   { reason }                       Platz wurde von einem anderen Fenster übernommen
+//     sr:pos      { list: [[id, x, y, f, t, a], …] }  Positionen aller Läufer, gebündelt höchstens 10/s (volatile)
 
 const crypto = require('crypto');
 const { createRoomManager } = require('../seedRunners/roomManager');
 const { getRuntime } = require('../seedRunners/runtime');
-const { todayDateKey } = require('../dle/core/dailySeed');
+const { todayDateKey } = require('../seedRunners/dateKey');
 
 const SWEEP_MS = 5 * 60 * 1000;
 // Mehr Nachrichten pro Sekunde und Socket sind kein Spiel mehr, sondern ein Fehler oder Missbrauch
@@ -63,6 +65,8 @@ function getManager(io) {
     // Code dort dürfte hier nicht mithören.
     emitRoom: (code, event, payload) => io.to(`sr:${code}`).emit(event, payload),
     emitSocket: (socketId, event, payload) => io.to(socketId).emit(event, payload),
+    // Positionen: ein verlorenes Paket ist egal (das nächste kommt 100 ms später) — nicht puffern, nicht nachschicken
+    emitRoomVolatile: (code, event, payload) => io.to(`sr:${code}`).volatile.emit(event, payload),
     joinRoom: (socketId, code) => io.in(socketId).socketsJoin(`sr:${code}`),
     leaveRoom: (socketId, code) => io.in(socketId).socketsLeave(`sr:${code}`),
     randomSeed: () => crypto.randomBytes(4).toString('hex'),
@@ -115,10 +119,11 @@ function registerSeedRunnersSocket(socket, io) {
   on('sr:ready', (p) => mgr.ready(socket, p));
   on('sr:checkpoint', (p) => mgr.checkpoint(socket, p));
   on('sr:finish', (p) => mgr.finish(socket, p));
-  on('sr:giveup', () => mgr.giveUp(socket));
+  on('sr:giveup', (p) => mgr.giveUp(socket, p));
   on('sr:lobby', () => mgr.toLobby(socket));
   on('sr:leave', () => mgr.leave(socket));
   on('sr:ping', (p) => mgr.ping(socket, p));
+  on('sr:pos', (p) => mgr.position(socket, p));
 
   socket.on('disconnect', () => {
     try {

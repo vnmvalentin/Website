@@ -149,6 +149,9 @@ export default function PropertiesPanel({ el, doc, checkpoint, onChange, onDelet
     case "laser":
       fields.push(en("dir", dirOptions(schema.params.dir.options, false)), num("period"), num("on"), num("warn"), num("phase"));
       break;
+    case "cannon":
+      fields.push(en("dir", dirOptions(schema.params.dir.options, false)), num("period"), num("speed"), num("radius"), num("phase"));
+      break;
     case "fallingBlock":
       fields.push(num("width"), num("height"), num("range"), num("margin"), num("shake"), num("reset"));
       break;

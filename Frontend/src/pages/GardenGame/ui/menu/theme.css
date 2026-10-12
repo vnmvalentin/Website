@@ -1,0 +1,90 @@
+/*
+ * Virtual Farm — Hauptmenü „Hofmarkt", im selben Cartoon-Look wie das HUD (siehe ui/gardenTokens.js):
+ * Holzschilder mit dicker dunkler Kontur und hartem Stufen-Schatten zum Drücken, cremefarbene Zettel für Text,
+ * grasgrüne Hauptaktion, Baloo 2 als Schrift. Dahinter eine Wiese mit den echten Spielgrafiken (Marktstände, Tiere).
+ * Präfix gf- für alle Klassen. Die Hülle (GardenShell.jsx) lädt Baloo 2 per <link>.
+ */
+
+.gf-game {
+  --gf-wood: #92400e;
+  --gf-wood-dark: #78350f;
+  --gf-wood-edge: #451a03;
+  --gf-wood-shadow: #2c1606;
+  --gf-cream: #fffbeb;
+  --gf-cream-2: #fef3c7;
+  --gf-cream-line: #fcd34d;
+  --gf-ink: #3b1d06;
+  --gf-ink-dim: rgb(59 29 6 / 0.72);
+  --gf-green: #16a34a;
+  --gf-green-dark: #15803d;
+  --gf-green-edge: #052e16;
+  --gf-gold: #f59e0b;
+  --gf-font: "Baloo 2", "Nunito", "Segoe UI", system-ui, sans-serif;
+
+  color-scheme: light;
+  height: 100vh;
+  height: 100dvh;
+  font-family: var(--gf-font);
+  background: #0f172a;
+}
+
+/* ── Szene ───────────────────────────────────────────────────────────────── */
+.gf-scene {
+  background: linear-gradient(180deg, #8fd0ef 0%, #bfe6f5 45%, #e6f5dc 70%, #b9e08f 100%);
+}
+/* width ausdrücklich: Bei einem <svg> dehnt left/right: 0 die Breite nicht (ersetztes Element) — sie folgte sonst dem
+   Seitenverhältnis der viewBox, und die Wiese hörte auf breiten Fenstern vor dem rechten Rand auf */
+.gf-hill { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 52%; pointer-events: none; }
+.gf-prop { position: absolute; pointer-events: none; user-select: none; filter: drop-shadow(0 6px 0 rgb(44 22 6 / 0.25)); }
+
+/* ── Holzschild und Zettel ───────────────────────────────────────────────── */
+.gf-board {
+  background: linear-gradient(180deg, var(--gf-wood), var(--gf-wood-dark));
+  border: 3px solid var(--gf-wood-edge);
+  border-radius: 18px;
+  box-shadow: 0 6px 0 0 var(--gf-wood-shadow);
+  color: var(--gf-cream);
+}
+.gf-paper {
+  background: var(--gf-cream);
+  border: 2px solid var(--gf-cream-line);
+  border-radius: 12px;
+  color: var(--gf-ink);
+}
+.gf-title {
+  font-weight: 800; line-height: 0.95; letter-spacing: -0.01em; color: var(--gf-cream);
+  -webkit-text-stroke: 7px var(--gf-wood-edge); paint-order: stroke fill;
+}
+.gf-label { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* ── Knöpfe (dieselbe Drück-Mechanik wie HUD_SURFACE / BTN_PRIMARY) ─────── */
+.gf-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 9px 18px; border-radius: 14px; font-family: var(--gf-font); font-weight: 800; font-size: 16px;
+  color: #fff; background: linear-gradient(180deg, var(--gf-green), var(--gf-green-dark));
+  border: 3px solid var(--gf-green-edge); box-shadow: 0 4px 0 0 var(--gf-green-edge);
+  transition: transform 100ms, box-shadow 100ms, filter 120ms; cursor: pointer; white-space: nowrap;
+}
+.gf-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.gf-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 0 var(--gf-green-edge); }
+.gf-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: translateY(3px); box-shadow: none; filter: grayscale(0.6); }
+.gf-btn-lg { padding: 13px 22px; font-size: 20px; border-radius: 16px; }
+.gf-btn-wood {
+  background: linear-gradient(180deg, #b45309, var(--gf-wood));
+  border-color: var(--gf-wood-edge); box-shadow: 0 4px 0 0 var(--gf-wood-shadow);
+}
+.gf-btn-wood:active:not(:disabled) { box-shadow: 0 0 0 0 var(--gf-wood-shadow); }
+.gf-btn-twitch { background: linear-gradient(180deg, #9d5cff, #7c3aed); border-color: #2e1065; box-shadow: 0 4px 0 0 #2e1065; }
+.gf-btn-twitch:active:not(:disabled) { box-shadow: 0 0 0 0 #2e1065; }
+.gf-btn-sm { padding: 5px 11px; font-size: 14px; border-radius: 11px; border-width: 2px; box-shadow: 0 3px 0 0 var(--gf-wood-shadow); }
+
+.gf-input {
+  width: 100%; background: #fff; color: var(--gf-ink); font-family: var(--gf-font); font-weight: 700; font-size: 17px;
+  border: 3px solid var(--gf-wood-edge); border-radius: 12px; padding: 7px 12px;
+}
+.gf-input::placeholder { color: rgb(59 29 6 / 0.4); font-weight: 600; }
+.gf-input:focus { outline: none; border-color: var(--gf-green-dark); }
+.gf-input:disabled { opacity: 0.55; }
+.gf-game :focus-visible { outline: 3px solid #fde047; outline-offset: 2px; }
+
+.gf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 10px; font-size: 13px; font-weight: 700; border: 2px solid; }

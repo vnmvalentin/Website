@@ -1,5 +1,23 @@
 export const NEWS_UPDATES = [
   {
+    date: "03.10.2026",
+    version: "v6.8: adVentures komplett neu",
+    sections: [
+      {
+        title: "adVentures: Roguelite statt Stage-Grind",
+        items: [
+          "Vor jedem Lauf wählst du ein Kit: Abenteurer, Ritter, Ninja, Magier, Giftmischer, Cyber-Söldner oder Baumeister. Jedes hat einen eigenen Hauptangriff, Zweitangriff, eine Bewegungs- und eine Spezialfähigkeit",
+          "Jede Welt ist eine große Karte mit Kisten, Schreinen und Gegnerlagern. Gold kaufst du in Kisten gegen Items: 45 Stück in vier Seltenheiten, die sich stapeln — von mehr Schaden über Kettenblitze und Orbitalklingen bis zur Phönixfeder",
+          "Die Schwierigkeit steigt mit der Zeit: wer trödelt, trifft auf stärkere Gegner und Elite-Monster mit Feuer-, Eis-, Blitz- oder Gift-Eigenschaft",
+          "Teleporter aktivieren, Boss besiegen, weiterreisen: fünf neue Bosse (Nekromantenfürst, Spinnenkönigin, Sandkoloss, Yeti-Urahn, Minotaurenfürst), König Schleim überarbeitet und Thunderwing als Finale. Jeder Angriff wird vorher am Boden angekündigt",
+          "Die alten Powerups gibt es jetzt als Ausrüstung im Lauf (Taste Q) statt im Shop",
+          "Neuer Fortschritt: Account-Stufen aus jedem Lauf schalten Kits, weitere Items, die Schwierigkeit Albtraum und Startgeschenke frei. Gekaufte Skins bleiben als Kits erhalten, gekaufte Powerups und Slots wurden in Credits erstattet",
+          "Neues HUD, Minikarte, Kodex mit allen gefundenen Items und eine Rangliste nach geschafften Welten und Zeit",
+        ]
+      },
+    ]
+  },
+  {
     date: "26.09.2026",
     version: "v6.7: Neues Kartenspiel „Sacrifice & Sigils“",
     sections: [

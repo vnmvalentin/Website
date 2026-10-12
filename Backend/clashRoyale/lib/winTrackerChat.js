@@ -22,6 +22,7 @@ const db = require("./winTrackerStore");
 // addAccountForUser für "!tracker add" — dieselbe Erstbefüllung (Spielerdaten, Battlelog, Deck,
 // Stufen-Anker) wie POST /accounts, nicht ein zweites Mal ausgeschrieben.
 const { addAccountForUser } = require("../routes/crWinTrackerRoutes");
+const { humanizeKey } = require("./seasonalModes");
 
 const getSettingsByChatChannel = db.prepare(
   "SELECT * FROM cr_wintracker_settings WHERE chat_channel = ? AND chat_enabled = 1"
@@ -39,6 +40,9 @@ const activateOne = db.prepare("UPDATE cr_wintracker_accounts SET is_active = 1 
 const setSessionResetStmt = db.prepare("UPDATE cr_wintracker_accounts SET session_reset_at = ? WHERE account_id = ?");
 const setSessionReset2v2Stmt = db.prepare("UPDATE cr_wintracker_accounts SET session_reset_2v2_at = ? WHERE account_id = ?");
 const setSessionResetTrophyStmt = db.prepare("UPDATE cr_wintracker_accounts SET session_reset_trophy_at = ? WHERE account_id = ?");
+// Generische saisonale Modi (trackMode "s:<prefix>", siehe lib/seasonalModes.js) — Reset + Name je Modus.
+const setSeasonalSessionResetStmt = db.prepare("UPDATE cr_wintracker_seasonal SET session_reset_at = ? WHERE account_id = ? AND prefix = ?");
+const getSeasonalLabelStmt = db.prepare("SELECT label, progress_key FROM cr_wintracker_seasonal WHERE account_id = ? AND prefix = ?");
 
 const normalizeChannel = (ch) => String(ch || "").trim().toLowerCase().replace(/^#/, "");
 // Gleiche Normalisierung wie crApi.js: O wird als 0 gelesen (Verwechslungsgefahr in der Spielschrift).
@@ -123,6 +127,12 @@ function cmdReset(row, t) {
   const active = getAccountsByUser.all(row.user_id).find((a) => a.is_active);
   if (!active) return t.resetNoActive();
   const mode = active.track_mode || "medals";
+  if (mode.startsWith("s:")) {
+    const prefix = mode.slice(2);
+    setSeasonalSessionResetStmt.run(Date.now(), active.account_id, prefix);
+    const s = getSeasonalLabelStmt.get(active.account_id, prefix);
+    return t.resetOk(active.player_name || "#" + active.player_tag, s?.label || humanizeKey(s?.progress_key || prefix));
+  }
   if (mode === "2v2") setSessionReset2v2Stmt.run(Date.now(), active.account_id);
   else if (mode === "trophies") setSessionResetTrophyStmt.run(Date.now(), active.account_id);
   else setSessionResetStmt.run(Date.now(), active.account_id);

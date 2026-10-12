@@ -31,10 +31,10 @@ export default function DrawReveal({ structure, byId, t, onClose }) {
 
   const [done, setDone] = useState(false);
   useEffect(() => {
-    // Ein paar Ticks während des Austeilens (gedeckelt), am Ende der Startton
+    // Ein paar Ticks während des Austeilens (gedeckelt), am Ende der Landeton
     const ticks = Math.min(24, Math.round(plan.total / 140));
-    const timers = Array.from({ length: ticks }, (_, i) => setTimeout(() => playSound('tap'), (plan.total / Math.max(1, ticks)) * i));
-    timers.push(setTimeout(() => { setDone(true); playSound('start'); }, plan.total + 350));
+    const timers = Array.from({ length: ticks }, (_, i) => setTimeout(() => playSound('tick'), (plan.total / Math.max(1, ticks)) * i));
+    timers.push(setTimeout(() => { setDone(true); playSound('land'); }, plan.total + 350));
     return () => timers.forEach(clearTimeout);
   }, [plan]);
 

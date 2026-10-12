@@ -1,7 +1,7 @@
 // audio/sound.js — Sound-Manager von Sacrifice & Sigils.
 //
 // Alle Klänge entstehen prozedural per Web Audio API (keine Audiodateien nötig). Liegt eine Datei
-// public/assets/sfx/<key>.ogg vor, wird sie stattdessen benutzt (einmal per HEAD geprüft und dann gecacht).
+// public/media/sfx/<key>.ogg vor, wird sie stattdessen benutzt (einmal per HEAD geprüft und dann gecacht).
 // Kanäle: Gesamt → Effekte / Ambient. Einstellungen in localStorage. Audio startet erst nach der ersten
 // Nutzerinteraktion (Autoplay-Regeln der Browser): unlock() wird von der Hülle bei pointerdown/keydown aufgerufen.
 
@@ -189,9 +189,9 @@ class SoundManager {
     }
   }
 
-  /** Prüft einmal, ob public/assets/sfx/<key>.ogg existiert. @param {string} key */
+  /** Prüft einmal, ob public/media/sfx/<key>.ogg existiert. @param {string} key */
   probeOverride(key) {
-    const url = `/assets/sfx/${key}.ogg`;
+    const url = `/media/sfx/${key}.ogg`;
     const p = fetch(url)
       .then((r) => {
         const type = r.headers.get("content-type") || "";

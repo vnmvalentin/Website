@@ -43,7 +43,8 @@ const LANGUAGES = [
   { id: 'es', label: 'Español', Flag: FlagES },
 ];
 
-export default function LanguageSelect({ lang, onChange, className = '' }) {
+// languages: optional nur diese Sprach-IDs anbieten (der Win-Tracker kennt nur DE/EN).
+export default function LanguageSelect({ lang, onChange, className = '', languages }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -59,7 +60,8 @@ export default function LanguageSelect({ lang, onChange, className = '' }) {
     };
   }, [open]);
 
-  const current = LANGUAGES.find(l => l.id === lang) || LANGUAGES[0];
+  const list = languages ? LANGUAGES.filter(l => languages.includes(l.id)) : LANGUAGES;
+  const current = list.find(l => l.id === lang) || list[0];
   const CurrentFlag = current.Flag;
   const label = lang === 'de' ? 'Sprache wählen' : lang === 'es' ? 'Elegir idioma' : 'Choose language';
 
@@ -86,7 +88,7 @@ export default function LanguageSelect({ lang, onChange, className = '' }) {
         // schweben. style gewinnt gegen jede Klasse, deshalb hier explizit erzwungen.
         <div role="listbox" className="cr-arcade-panel absolute right-0 top-full mt-2 z-50 min-w-[10rem] overflow-hidden py-1.5"
           style={{ position: 'absolute' }}>
-          {LANGUAGES.map(l => {
+          {list.map(l => {
             const Flag = l.Flag;
             const active = l.id === lang;
             return (

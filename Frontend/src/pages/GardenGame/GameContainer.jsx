@@ -44,6 +44,7 @@ import {
     istNacht, partyTitelIndex, PARTY_RAINBOW_FAKTOR,
 } from './engine/Tageszeit';
 import SEO from '../../components/SEO';
+import GardenMenu from './ui/menu/GardenMenu';
 import PlantHoverLayer from './ui/PlantHoverLayer';
 import { createHoverStore } from './ui/hoverStore';
 import PetDetailModal from './ui/PetDetailModal';
@@ -5972,135 +5973,17 @@ export default function GameContainer() {
 
     if (showLobbyScreen) {
         return (
-            <div className="page-fade w-full flex-1 min-h-0 h-full relative overflow-y-auto custom-scrollbar flex items-center justify-center p-6 md:p-10">
-                {/* Ohne eigene Metadaten behielt der Reiter den Titel der Seite, von der
-                    man gekommen ist — auf der Farm stand dann „Home - vnmvalentin". */}
-                <SEO {...FARM_SEO} />
-                <div className="w-full max-w-2xl flex flex-col items-center gap-7 py-6">
-
-                    <div className="flex items-center gap-3 self-start">
-                        <span className="flex items-center justify-center w-10 h-10 rounded-2xl border border-slate-700 bg-slate-900 text-violet-400 shrink-0">
-                            <Sprout size={20} />
-                        </span>
-                        <div>
-                            <h1 className="text-2xl font-semibold text-white tracking-tight">Virtual Farm</h1>
-                            <p className="text-xs text-slate-400 mt-0.5">Eine gemeinsame Welt mit acht Grundstücken</p>
-                        </div>
-                    </div>
-
-                    <div className="w-full rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden">
-                        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800">
-                            <HudIcon.level size={14} className="text-amber-400" />
-                            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-300">Bestenliste</h2>
-                        </div>
-                        {leaderboard.length === 0 ? (
-                            <p className="px-4 py-6 text-center text-sm text-slate-500">Noch keine Farmer unterwegs.</p>
-                        ) : (
-                            <div>
-                                {leaderboard.slice(0, 5).map((e, i) => (
-                                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-800 last:border-b-0">
-                                        <span className={`text-xs tabular-nums w-6 shrink-0 ${i === 0 ? "text-amber-400" : "text-slate-500"}`}>
-                                            {i + 1}
-                                        </span>
-                                        <span className="flex-1 min-w-0 text-sm text-white truncate" title={e.name}>{e.name}</span>
-                                        <span className="flex items-center gap-1.5 text-sm font-semibold text-amber-400 tabular-nums shrink-0">
-                                            <HudIcon.gold size={13} /> {formatGold(e.gold)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Twitch-Konto</div>
-                            {authUser?.twitchLogin || authUser?.login ? (
-                                <div className="text-sm text-white font-medium flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                    {(authUser?.twitchLogin || authUser?.login)}
-                                </div>
-                            ) : (
-                                <div className="text-sm text-amber-300">Nicht angemeldet — die Farm braucht einen Twitch-Login</div>
-                            )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            {/* Der Admin trägt sein eigenes Schild statt „Subscriber" —
-                                den Verkaufsbonus bekommt er trotzdem, deshalb steht er
-                                weiterhin daneben. */}
-                            {authUser && istGartenAdmin && (
-                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-red-500/40 text-red-300 text-[11px] font-medium">
-                                    <HudIcon.trusted size={12} /> Admin{isSubscriber ? " · +50 % Verkauf" : ""}
-                                </span>
-                            )}
-                            {authUser && !istGartenAdmin && isSubscriber && (
-                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-amber-500/40 text-amber-300 text-[11px] font-medium">
-                                    <HudIcon.star size={12} /> Subscriber · +50 % Verkauf
-                                </span>
-                            )}
-                            {authUser && isBeta && (
-                                <span className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-sky-500/40 text-sky-300 text-[11px] font-medium">
-                                    <FlaskConical size={12} /> Beta
-                                </span>
-                            )}
-                            {!authUser && (
-                                <button
-                                    type="button"
-                                    onClick={() => twitchLogin?.()}
-                                    className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-3 py-2 rounded-2xl text-xs font-semibold transition-colors"
-                                >
-                                    <TwitchGlyph className="w-3.5 h-3.5" /> Mit Twitch anmelden
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => enterWorld("public")}
-                        disabled={!authUser}
-                        className="w-full bg-violet-600 hover:bg-violet-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold py-3 rounded-2xl text-sm transition-colors flex items-center justify-center gap-2"
-                    >
-                        <Play size={16} />
-                        Öffentliche Welt betreten
-                    </button>
-
-                    <div className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 flex flex-col gap-3">
-                        <div className="text-[10px] uppercase tracking-wider text-slate-500">Private Welt</div>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <input
-                                type="text"
-                                value={joinCodeInput}
-                                onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5))}
-                                onKeyDown={(e) => { if (e.key === "Enter" && authUser) enterWorld("code"); }}
-                                placeholder="Weltcode"
-                                disabled={!authUser}
-                                className="flex-1 px-3 py-2 rounded-2xl bg-slate-950 border border-slate-700 text-sm text-white tracking-[0.3em] uppercase placeholder:tracking-normal placeholder:text-slate-600 focus:border-violet-500 focus:outline-none disabled:opacity-50"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => enterWorld("code")}
-                                disabled={!authUser || joinCodeInput.trim().length < 4}
-                                className="px-4 py-2 rounded-2xl border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 disabled:opacity-40 disabled:hover:border-slate-700 text-xs font-semibold transition-colors"
-                            >
-                                Beitreten
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => enterWorld("create")}
-                                disabled={!authUser}
-                                className="px-4 py-2 rounded-2xl border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 disabled:opacity-40 disabled:hover:border-slate-700 text-xs font-semibold transition-colors"
-                            >
-                                Neue Welt
-                            </button>
-                        </div>
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
-                            Eine neue Welt bekommt einen fünfstelligen Code, den du weitergeben kannst.
-                            Deine Farm bleibt dabei dieselbe — sie zieht mit dir in jede Welt um.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <GardenMenu
+                authUser={authUser}
+                twitchLogin={twitchLogin}
+                istGartenAdmin={istGartenAdmin}
+                isSubscriber={isSubscriber}
+                isBeta={isBeta}
+                leaderboard={leaderboard}
+                joinCodeInput={joinCodeInput}
+                setJoinCodeInput={setJoinCodeInput}
+                enterWorld={enterWorld}
+            />
         );
     }
 

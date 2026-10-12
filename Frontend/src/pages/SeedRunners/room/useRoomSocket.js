@@ -9,6 +9,7 @@ import { io } from 'socket.io-client';
 import { getIdentity, rememberName } from './identity.js';
 import { getFx } from '../client/fxSettings.js';
 import { createClockSync } from './clockSync.js';
+import { createRemoteRunners } from './remoteRunners.js';
 
 // Abstand der Uhr-Messungen im laufenden Betrieb; direkt nach dem Beitritt gibt es eine Salve
 const PING_EVERY_MS = 4000;
@@ -31,6 +32,9 @@ export function useRoomSocket(code) {
   const statusRef = useRef('connecting');
   const clockRef = useRef(null);
   if (clockRef.current === null) clockRef.current = createClockSync();
+  // Positionen der anderen (Geister, Zuschauen) — außerhalb von React, siehe remoteRunners.js
+  const remoteRef = useRef(null);
+  if (remoteRef.current === null) remoteRef.current = createRemoteRunners();
 
   const setStatusBoth = useCallback((next) => {
     statusRef.current = next;
@@ -83,6 +87,7 @@ export function useRoomSocket(code) {
     socket.on('sr:state', (next) => setState(next));
     socket.on('sr:notice', (n) => setNotice({ text: n.text, id: Date.now() + Math.random() }));
     socket.on('sr:kicked', () => setStatusBoth('kicked'));
+    socket.on('sr:pos', (msg) => remoteRef.current.push(msg?.list, performance.now()));
 
     return () => {
       socket.disconnect();
@@ -123,9 +128,12 @@ export function useRoomSocket(code) {
     setColor: (color) => send('sr:color', { color }),
     start: (mode) => send('sr:start', { mode }),
     ready: (hash, checkpoints) => send('sr:ready', { hash, checkpoints }),
-    checkpoint: (index, tick) => send('sr:checkpoint', { index, tick }),
+    checkpoint: (index, tick, attempt) => send('sr:checkpoint', { index, tick, attempt }),
+    // Eigene Position für Geister/Zuschauer: ohne Antwort und "volatile" — was nicht sofort rausgeht, ist ohnehin veraltet
+    position: (pos) => { const socket = socketRef.current; if (socket?.connected) socket.volatile.emit('sr:pos', pos); },
     finish: (payload) => send('sr:finish', payload),
-    giveUp: () => send('sr:giveup'),
+    // { died: true }: Hardcore-Tod (RaceView meldet den ersten Tod) — der Server macht daraus ein DNF „ausgeschieden“
+    giveUp: (payload) => send('sr:giveup', payload),
     toLobby: () => send('sr:lobby'),
     leave: async () => {
       await send('sr:leave');
@@ -135,5 +143,5 @@ export function useRoomSocket(code) {
 
   const me = state && you ? state.players.find((p) => p.id === you.id) || null : null;
 
-  return { status, connected, state, me, you, error, notice, epoch, join, actions, clock: clockRef.current };
+  return { status, connected, state, me, you, error, notice, epoch, join, actions, clock: clockRef.current, remote: remoteRef.current };
 }

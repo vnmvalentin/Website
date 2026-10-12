@@ -26,6 +26,7 @@ import PlayerAvatar from '../components/PlayerAvatar';
 import { AVATAR_IDS, AVATAR_URL_MAP } from '../components/avatars';
 import LanguageSelect from '../components/LanguageSelect';
 import UsedByPanel from './UsedByPanel';
+import FriendsPanel from './FriendsPanel';
 import ModeCard from './ModeCard';
 import ModeTutorialModal from './ModeTutorialModal';
 import { TUTORIAL_I18N } from './modeTutorials';
@@ -132,6 +133,7 @@ export default function HubScreen({
   error,
   publicLobbies = [],
   profile, updateProfile, linkCr, unlinkCr, switchActiveCr,
+  friends, user, login, onJoinFriend,
 }) {
   // 'menu' | 'create' | 'join' | 'tournaments' | 'minigames' | 'faq' | 'support'
   const [view, setView] = useState('menu');
@@ -248,12 +250,12 @@ export default function HubScreen({
               </div>
 
               {/* Drei Spalten: "Benutzt von" fest links (ab lg, auf dem Handy ganz weg),
-                  Karussell + Knöpfe zusammen in der Mitte — eine gleich breite LEERE dritte
-                  Spalte gleicht die linke aus, sonst stünde die Mitte nicht mittig auf der
-                  Seite. Knöpfe stecken BEWUSST mit im selben Grid-Feld wie das Karussell:
+                  Karussell + Knöpfe zusammen in der Mitte, rechts gleich breit die Freundesliste
+                  (auf dem Handy unter den Knöpfen) — so steht die Mitte mittig auf der Seite.
+                  Knöpfe stecken BEWUSST mit im selben Grid-Feld wie das Karussell:
                   eine Grid-Zeile ist immer so hoch wie ihre höchste Spalte, als eigene Zeile
                   risse die hohe "Benutzt von"-Liste sonst eine Lücke unter dem Karussell auf. */}
-              <div className="w-full grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)_15rem] lg:items-start gap-3 lg:gap-6 mt-3">
+              <div className="w-full grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)_16rem] lg:items-start gap-3 lg:gap-6 mt-3">
                 <div className="hidden lg:block">
                   <UsedByPanel t={t} />
                 </div>
@@ -266,8 +268,12 @@ export default function HubScreen({
                       </ChunkyButton>
                     ))}
                   </div>
+                  {view === 'menu' && error && <p className="text-red-400 text-sm text-center">{error}</p>}
                 </div>
-                <div className="hidden lg:block" aria-hidden="true" />
+                <div className="w-full max-w-md mx-auto lg:max-w-none">
+                  <FriendsPanel lang={lang} friends={friends} user={user} login={login}
+                    onJoin={onJoinFriend} maxListHeight={320} />
+                </div>
               </div>
 
               {/* mt-3: reiner Abstand zum Schatten des untersten Knopfes — ohne den saß der

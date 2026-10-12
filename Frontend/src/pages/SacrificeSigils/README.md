@@ -26,7 +26,7 @@ Browserfenster (oder ein privates Fenster) öffnen: im ersten „Spiel erstellen
 | `npm run test:sigils` | Engine-Tests: jedes Sigil, Ressourcen, Waage, Draft, Pfad-Knoten, Determinismus, 1000-Spiele-Fuzz, versteckte Info |
 | `npm run sigils:check` | Datenvalidierung aller Karten (Sigils, Folgeformen, Kosten, Budget-Warnungen) |
 | `npm run balance -- --games 5000` | KI gegen KI, Bericht nach `docs/sacrifice-and-sigils/balance-report.json` (Optionen: `--level easy\|normal\|hard`, `--workers n`, `--out pfad`) |
-| `npm run art:export` | alle prozeduralen Artworks als SVG nach `public/assets/cards/generated/` (+ `index.html` zum Durchblättern, nicht eingecheckt) |
+| `npm run art:export` | alle prozeduralen Artworks als SVG nach `public/media/cards/generated/` (+ `index.html` zum Durchblättern, nicht eingecheckt) |
 | `npm run art:prompts` | `art-prompts.md` mit einem Bildprompt pro Karte |
 | `node src/pages/SacrificeSigils/tools/screenshots.cjs` | alle Screens × 9 Auflösungen (vite dev auf :5199, Socket-Server auf :3001, Playwright), danach `tools/toWebp.cjs <ordner>`; Spielstände kommen aus den Dev-Fixtures `?fixture=…` (`ui/dev/fixtures.js`, nur im Dev-Build) |
 
@@ -71,12 +71,12 @@ Neue Sigils: Objekt in `engine/sigils/index.js` (Hooks), Name/Text in `i18n/de.j
 ## Artwork ersetzen
 
 Jede Karte zeichnet ihr Bild prozedural (`art/procedural.js`, deterministisch aus `art.seed`). Echtes Artwork einfach als
-`Frontend/public/assets/cards/<karten-id>.webp` (oder `.png`) ablegen, Seitenverhältnis 100:76 — der Renderer nimmt die Datei
+`Frontend/public/media/cards/<karten-id>.webp` (oder `.png`) ablegen, Seitenverhältnis 100:76 — der Renderer nimmt die Datei
 automatisch. Die IDs stehen im Kartenbuch (Detailansicht) und in `art-prompts.md`.
 
 ## Sounds ersetzen
 
-Alle Sounds sind Web-Audio-Synthese (`audio/sound.js`). Eine Datei `Frontend/public/assets/sfx/<key>.ogg` ersetzt den
+Alle Sounds sind Web-Audio-Synthese (`audio/sound.js`). Eine Datei `Frontend/public/media/sfx/<key>.ogg` ersetzt den
 jeweiligen Klang. Keys: `draw`, `place`, `sacrifice`, `bones`, `attack`, `hit`, `wing`, `splash`, `crackle`, `fire`, `needle`,
 `chain`, `creak`, `scale`, `weight`, `seal`, `coins`, `death`, `heartbeat`, `transform`, `victory`, `defeat`, `turn`, `error`.
 

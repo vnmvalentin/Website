@@ -15,7 +15,7 @@ export default function GameSettingsCard({ lobbyData, lang, t, onOpen }) {
       <span className="min-w-0 flex-1">
         <span className="block font-cr text-white text-base leading-tight">{t.hostPanelTitle}</span>
         <span className="block text-white/55 text-xs truncate mt-0.5">
-          {modeNameFor(lobbyData?.mode || 'snake', lang)} · {t.hostPanelHint}
+          {lobbyData?.randomEnabled ? t.randomMode : modeNameFor(lobbyData?.mode || 'snake', lang)} · {t.hostPanelHint}
         </span>
       </span>
       <ChevronRight size={18} className="text-white/60 shrink-0" />

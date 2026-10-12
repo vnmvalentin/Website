@@ -4,24 +4,30 @@
 //
 // Der Lauf selbst ist der aus den Räumen (RaceView): gleiche Sim, gleiches Rendering, nur ohne Server-Countdown —
 // der Start liegt ein paar Sekunden nach dem Klick auf die eigene Uhr.
+//
+// Archiv (27.09.2026): Unter /seed-runners/daily/JJJJ-MM-TT läuft ein vergangener Tag (ui/tagesArchiv.js) — dasselbe Level,
+// die feste Rangliste des Tages, aber nichts wird eingereicht: Die Zeit ist nur für einen selbst.
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Play, RotateCcw, Trophy, Loader2, Check, AlertTriangle } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { Play, RotateCcw, Trophy, Loader2, Check, AlertTriangle, History, ArrowLeft, Film } from "lucide-react";
 import SEO from "../../components/SEO";
 import RaceView from "./room/RaceView.jsx";
 import { getIdentity, saveIdentity, getDailyKey } from "./room/identity.js";
-import { getDailyBoard, submitDailyRun } from "./room/dailyApi.js";
+import { getDailyBoard, getDailyBoardOf, submitDailyRun, getDailyTopReplay } from "./room/dailyApi.js";
+import ReplayScrubber from "./levels/ReplayScrubber.jsx";
 import { formatTicks, formatDelta } from "./room/format.js";
 import { checkpointSpalten, besteJeCheckpoint, splitVergleich } from "./room/splits.js";
 import { vorerzeugen, pfadLevel } from "./client/generateWorldAsync.js";
 import RateBox from "./ui/RateBox.jsx";
 import { refForParams } from "./ui/levelRef.js";
+import { isArchivTag, germanDate, ARCHIV_AB } from "./ui/tagesArchiv.js";
+import { useBoundAction } from "./client/useBoundAction.js";
+import { boundLabel } from "./client/input.js";
 
 const COUNTDOWN_MS = 3300;
 // Solo gibt es keinen Uhrenabgleich: Die Startzeit ist schon die eigene Zeit.
 const OWN_CLOCK = { toLocal: (t) => t };
 const noop = () => {};
-
-const germanDate = (dateKey) => dateKey.split("-").reverse().join(".");
 
 const Panel = ({ children, className = "" }) => (
   <div className={`sr-panel ${className}`}>{children}</div>
@@ -57,18 +63,18 @@ function SubmitNote({ submit, onRetry }) {
   );
 }
 
-function Leaderboard({ board, me, ownName }) {
+function Leaderboard({ board, me, ownName, archiv }) {
   const entries = board?.today.entries || [];
   // Zwischenzeiten je Checkpoint (vom Server nachgespielt); die schnellste an jedem Checkpoint ist hervorgehoben
   const cps = checkpointSpalten(...entries.map((e) => e.splits));
   const beste = besteJeCheckpoint(entries);
-  const yesterday = board?.yesterday.entries[0];
+  const yesterday = board?.yesterday?.entries[0];
   return (
     <Panel>
       <div className="sr-panel-head">
         <div className="flex items-center gap-2.5">
           <Trophy size={16} className="sr-accent-text" />
-          <h2 className="sr-panel-title">Rangliste von heute</h2>
+          <h2 className="sr-panel-title">{archiv ? `Rangliste vom ${germanDate(archiv)}` : "Rangliste von heute"}</h2>
         </div>
         <p className="text-xs sr-faint">
           {board ? `${board.today.total} ${board.today.total === 1 ? "bestätigter Lauf" : "bestätigte Läufe"}` : ""}
@@ -77,7 +83,7 @@ function Leaderboard({ board, me, ownName }) {
 
       {entries.length === 0 ? (
         <p className="px-4 py-6 text-sm sr-faint">
-          {board ? "Noch keine bestätigte Zeit — die erste gehört dir." : "Lädt …"}
+          {!board ? "Lädt …" : archiv ? "An diesem Tag hat niemand eine bestätigte Zeit eingetragen." : "Noch keine bestätigte Zeit — die erste gehört dir."}
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -116,7 +122,7 @@ function Leaderboard({ board, me, ownName }) {
         </div>
       )}
 
-      {cps.length > 0 && <p className="px-4 py-2.5 sr-divider text-xs sr-faint">CP = Zeit am jeweiligen Checkpoint; hervorgehoben die schnellste des Tages.</p>}
+      {cps.length > 0 && <p className="px-4 py-2.5 sr-divider text-xs sr-faint">CP = Zeit am jeweiligen Checkpoint; hervorgehoben die schnellste des Tages.{archiv ? " Die Rangliste ist abgeschlossen." : ""}</p>}
       {me && !entries.some((e) => e.rank === me.rank) && (
         <p className="px-4 py-2.5 sr-divider text-sm sr-dim">
           Du: Platz {me.rank} · {formatTicks(me.ticks)} · {me.deaths} {me.deaths === 1 ? "Tod" : "Tode"}
@@ -172,7 +178,16 @@ function SplitVergleich({ lauf, titel, me, entries, mitBestDu }) {
   );
 }
 
+// Ein eigener Zustand je Tag: Beim Wechsel zwischen heute und einem Archiv-Tag (dieselbe Komponente) fängt alles frisch an
 export default function SeedRunnersDaily() {
+  const { dateKey } = useParams();
+  return <DailyPage key={dateKey || "heute"} tagParam={dateKey} />;
+}
+
+function DailyPage({ tagParam }) {
+  // Archiv-Modus: ein vergangener Tag; ein ungültiges Datum (Zukunft, heute, vor dem Archiv) zeigt einen Hinweis
+  const archiv = tagParam && isArchivTag(tagParam) ? tagParam : null;
+  const falscherTag = !!tagParam && !archiv;
   const [board, setBoard] = useState(null);
   const [boardError, setBoardError] = useState("");
   const [key, setKey] = useState(undefined);            // undefined = wird berechnet, null = nicht möglich
@@ -183,11 +198,24 @@ export default function SeedRunnersDaily() {
   const [run, setRun] = useState(null);                 // Ergebnis des letzten Laufs { ticks, deaths, log, fp, … }
   const [submit, setSubmit] = useState(null);
   const [error, setError] = useState("");
+  const [replayOffen, setReplayOffen] = useState(false);
   const startTimer = useRef(null);
+  const feldRef = useRef(null);
+  // Beim Start das ganze Spielfeld ins Bild holen: Nach einem Lauf stehen Zeit und Checkpoint-Übersicht darüber und
+  // schieben es nach unten — sonst war es oben oder unten abgeschnitten
+  useEffect(() => {
+    if (phase === "countdown") feldRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [phase, attempt]);
 
   const loadBoard = useCallback(async (playerKey) => {
     try {
-      const b = await getDailyBoard(playerKey);
+      let b;
+      if (archiv) {
+        const res = await getDailyBoardOf(archiv, playerKey);
+        b = { today: res.board, yesterday: null, me: res.me || null };
+      } else {
+        b = await getDailyBoard(playerKey);
+      }
       setBoard(b);
       setBoardError("");
       // Ein Pfad-Tagesrennen braucht einige Sekunden: schon beim Öffnen der Seite im Hintergrund bauen (Phase D)
@@ -195,9 +223,10 @@ export default function SeedRunnersDaily() {
     } catch (e) {
       setBoardError(e.message || "Rangliste nicht erreichbar.");
     }
-  }, []);
+  }, [archiv]);
 
   useEffect(() => {
+    if (falscherTag) return undefined;
     let alive = true;
     getDailyKey().then((k) => {
       if (!alive) return;
@@ -205,7 +234,7 @@ export default function SeedRunnersDaily() {
       loadBoard(k);
     });
     return () => { alive = false; clearTimeout(startTimer.current); };
-  }, [loadBoard]);
+  }, [loadBoard, falscherTag]);
 
   const send = useCallback(async (finished, playerName) => {
     if (!key) {
@@ -222,12 +251,12 @@ export default function SeedRunnersDaily() {
 
   const startRun = () => {
     const trimmed = name.trim();
-    if (!trimmed) {
+    if (!trimmed && !archiv) {
       setError("Bitte gib zuerst deinen Namen ein — er steht in der Rangliste.");
       return;
     }
     setError("");
-    saveIdentity({ ...getIdentity(), name: trimmed });
+    if (trimmed) saveIdentity({ ...getIdentity(), name: trimmed });
     // Erster Start: die Welt steht schon auf Tick 0. Jeder weitere ist ein neuer Versuch mit frischer Welt.
     if (phase !== "idle") setAttempt((a) => a + 1);
     setRun(null);
@@ -238,11 +267,14 @@ export default function SeedRunnersDaily() {
     startTimer.current = setTimeout(() => setPhase((p) => (p === "countdown" ? "racing" : p)), COUNTDOWN_MS);
   };
 
+  // Neu starten per Taste (Standard N, umbelegbar unter „Steuerung“) — während des Laufs und danach, nicht vor dem ersten Start
+  useBoundAction("neustart", (e) => { e.preventDefault(); startRun(); }, board !== null && phase !== "idle");
+
   const handleFinish = useCallback((finished) => {
     setRun(finished);
     setPhase("finished");
-    send(finished, name.trim());
-  }, [send, name]);
+    if (!archiv) send(finished, name.trim());                  // im Archiv zählt die Zeit nur für einen selbst
+  }, [send, name, archiv]);
 
   const running = phase === "countdown" || phase === "racing";
   const dailyRef = refForParams(board?.today?.params);
@@ -254,24 +286,48 @@ export default function SeedRunnersDaily() {
     pfadLevel(board?.today?.params)?.then(setBuiltLevel, () => {});
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (falscherTag) {
+    return (
+      <div className="w-full max-w-[1160px] mx-auto px-4 py-8 md:py-10">
+        <p className="sr-label mb-2">Tagesrennen-Archiv</p>
+        <h1 className="sr-display text-3xl md:text-5xl mb-3">Diesen Tag gibt es nicht im Archiv</h1>
+        <p className="sr-dim text-sm max-w-2xl leading-relaxed mb-5">
+          Im Archiv stehen alle vergangenen Tagesrennen seit dem {germanDate(ARCHIV_AB)}. Das heutige Level spielst du im Tagesrennen.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/seed-runners/verlauf?tab=archiv" className="sr-btn sr-btn-ghost"><History size={15} />Zum Archiv</Link>
+          <Link to="/seed-runners/daily" className="sr-btn">Zum Tagesrennen</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-[1160px] mx-auto px-4 py-8 md:py-10">
       <SEO
-        title="Seed Runners: Tagesrennen"
+        title={archiv ? `Seed Runners: Tagesrennen vom ${germanDate(archiv)}` : "Seed Runners: Tagesrennen"}
         description="Das Tagesrennen von Seed Runners: jeden Tag ein festes Level für alle. Die beste bestätigte Zeit kommt in die Rangliste."
-        path="/seed-runners/daily"
+        path={archiv ? `/seed-runners/daily/${archiv}` : "/seed-runners/daily"}
         keywords="Seed Runners, Tagesrennen, Daily Speedrun, Rangliste"
+        noindex={!!archiv}
       />
 
-      <div className="mb-6">
-        <p className="sr-label mb-2">
-          Tagesrennen{board ? ` · ${germanDate(board.today.dateKey)}` : ""}
-        </p>
-        <h1 className="sr-display text-3xl md:text-5xl mb-3">Das Level von heute</h1>
-        <p className="sr-dim text-sm max-w-2xl leading-relaxed">
-          Jeden Tag ein festes Level, für alle gleich. Du spielst allein, so oft du willst, und deine beste Zeit zählt.
-          Der Server spielt jeden Lauf aus deinen Eingaben nach — nur bestätigte Zeiten kommen in die Rangliste.
-        </p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <p className="sr-label mb-2">
+            {archiv ? "Tagesrennen-Archiv" : "Tagesrennen"}{board ? ` · ${germanDate(board.today.dateKey)}` : ""}
+          </p>
+          <h1 className="sr-display text-3xl md:text-5xl mb-3">{archiv ? `Das Level vom ${germanDate(archiv)}` : "Das Level von heute"}</h1>
+          <p className="sr-dim text-sm max-w-2xl leading-relaxed">
+            {archiv
+              ? "Ein vergangenes Tagesrennen, genau dasselbe Level wie an dem Tag. Spiel es so oft du willst — die Rangliste des Tages ist abgeschlossen, deine Zeit hier zählt nur für dich."
+              : "Jeden Tag ein festes Level, für alle gleich. Du spielst allein, so oft du willst, und deine beste Zeit zählt. Der Server spielt jeden Lauf aus deinen Eingaben nach — nur bestätigte Zeiten kommen in die Rangliste."}
+          </p>
+        </div>
+        <Link to="/seed-runners/verlauf?tab=archiv" className="sr-btn sr-btn-sm sr-btn-ghost shrink-0">
+          {archiv ? <ArrowLeft size={14} /> : <History size={14} />}
+          {archiv ? "Zum Archiv" : "Vergangene Tage"}
+        </Link>
       </div>
 
       {boardError && !board && (
@@ -282,7 +338,7 @@ export default function SeedRunnersDaily() {
       )}
 
       {!board && !boardError && (
-        <p className="flex items-center gap-2 text-sm sr-dim py-10"><Loader2 size={16} className="animate-spin sr-accent-text" /> Lade das Level von heute …</p>
+        <p className="flex items-center gap-2 text-sm sr-dim py-10"><Loader2 size={16} className="animate-spin sr-accent-text" /> {archiv ? "Lade das Level …" : "Lade das Level von heute …"}</p>
       )}
 
       {board && (
@@ -290,6 +346,9 @@ export default function SeedRunnersDaily() {
           <Panel className="px-4 py-3 flex flex-wrap items-end gap-x-6 gap-y-3">
             {phase === "idle" || phase === "finished" ? (
               <>
+                {archiv ? (
+                  <p className="text-sm sr-dim flex-1 min-w-[12rem]">Archiv-Lauf: Die Zeit wird nicht eingereicht.</p>
+                ) : (
                 <label className="block flex-1 min-w-[12rem]">
                   <span className="sr-label block mb-1.5">Dein Name in der Rangliste</span>
                   <input
@@ -302,19 +361,21 @@ export default function SeedRunnersDaily() {
                     className="sr-input"
                   />
                 </label>
+                )}
                 <button type="button" onClick={startRun} className="sr-btn sr-btn-lg">
                   {phase === "finished" ? <RotateCcw size={16} /> : <Play size={16} fill="currentColor" />}
                   {phase === "finished" ? "Nochmal versuchen" : "Rennen starten"}
+                  {phase === "finished" && <span className="sr-kbd">{boundLabel("neustart")}</span>}
                 </button>
               </>
             ) : (
               <>
                 <p className="text-sm sr-dim flex-1">
-                  {phase === "countdown" ? "Gleich geht's los …" : "Das Rennen läuft. R bringt dich zum letzten Checkpoint zurück, die Zeit läuft weiter."}
+                  {phase === "countdown" ? "Gleich geht's los …" : `Das Rennen läuft. ${boundLabel("restart")} bringt dich zum letzten Checkpoint zurück, die Zeit läuft weiter.`}
                 </p>
                 <button type="button" onClick={startRun} className="sr-btn sr-btn-sm sr-btn-ghost">
                   <RotateCcw size={13} />
-                  Neu starten
+                  Neu starten <span className="sr-kbd">{boundLabel("neustart")}</span>
                 </button>
               </>
             )}
@@ -328,13 +389,16 @@ export default function SeedRunnersDaily() {
                   <span className="sr-label mr-2">Zeit</span><span className="sr-num text-2xl">{formatTicks(run.ticks)}</span>
                   <span className="sr-faint"> · {run.deaths} {run.deaths === 1 ? "Tod" : "Tode"}</span>
                 </p>
-                <SubmitNote submit={submit} onRetry={() => send(run, name.trim())} />
+                {archiv
+                  ? <p className="text-sm sr-dim">Im Archiv zählt die Zeit nur für dich — die Rangliste des Tages bleibt, wie sie war.</p>
+                  : <SubmitNote submit={submit} onRetry={() => send(run, name.trim())} />}
               </div>
               <SplitVergleich lauf={run.splits} titel="Deine Zwischenzeiten" me={board.me} entries={board.today.entries} mitBestDu={!!board.me} />
-              {dailyRef && <RateBox levelRef={dailyRef} level={builtLevel} title="Wie war das Level von heute?" />}
+              {dailyRef && <RateBox levelRef={dailyRef} level={builtLevel} title={archiv ? "Wie war das Level?" : "Wie war das Level von heute?"} />}
             </Panel>
           )}
 
+          <div ref={feldRef} className="scroll-mt-4">
           <RaceView
             params={board.today.params}
             roundNumber={attempt}
@@ -344,19 +408,42 @@ export default function SeedRunnersDaily() {
             epoch={1}
             frozen={false}
             meState={running ? "racing" : phase === "finished" ? "finished" : "ready"}
-            finishNote={!submit || submit.state === "sending" ? "Im Ziel — der Server prüft deinen Lauf" : "Im Ziel"}
+            finishNote={archiv ? "Im Ziel" : !submit || submit.state === "sending" ? "Im Ziel — der Server prüft deinen Lauf" : "Im Ziel"}
             waitNote="Bereit — starte das Rennen mit dem Knopf oben"
             onReady={noop}
             onCheckpoint={noop}
             onFinish={handleFinish}
+            vollbild
+            hudActions={(
+              <button type="button" onClick={startRun} className="sr-btn sr-btn-sm sr-btn-ghost">
+                <RotateCcw size={13} />
+                <span className="hidden md:inline">Neu starten</span> <span className="sr-kbd">{boundLabel("neustart")}</span>
+              </button>
+            )}
           />
+          </div>
 
-          <Leaderboard board={board} me={board.me} ownName={name.trim()} />
-          {!(phase === "finished" && run) && board.me?.splits?.length > 0 && (
-            <Panel className="px-4 py-3">
-              <SplitVergleich lauf={board.me.splits} titel="Deine Bestzeit von heute an den Checkpoints" me={board.me} entries={board.today.entries} mitBestDu={false} />
-            </Panel>
+          {board.today.entries.length > 0 && !running && (
+            replayOffen ? (
+              <Panel className="px-4 py-3">
+                <ReplayScrubber
+                  name={`Platz 1 · ${board.today.entries[0].name}`}
+                  // Lauf vom Server, Level wie beim Spielen (gleiche Parameter samt Generator-Version, im Worker gebaut)
+                  load={async () => {
+                    const r = await getDailyTopReplay(board.today.dateKey);
+                    return r ? { level: await pfadLevel(r.params), log: r.log, ticks: r.ticks } : null;
+                  }}
+                  onClose={() => setReplayOffen(false)}
+                />
+              </Panel>
+            ) : (
+              <button type="button" onClick={() => setReplayOffen(true)} className="sr-btn sr-btn-sm sr-btn-ghost">
+                <Film size={14} />
+                Replay von Platz 1 ansehen ({board.today.entries[0].name})
+              </button>
+            )
           )}
+          <Leaderboard board={board} me={board.me} ownName={name.trim()} archiv={archiv} />
         </div>
       )}
     </div>

@@ -13,13 +13,15 @@ const { lobbies } = require('../core/lobbies');
 const { clearTurnTimer } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
-const { isDuoTeamsReady } = require('../core/teams');
+const { isDuoTeamsReady, activeTeamIds } = require('../core/teams');
+const { rushRegenMs, sanitizeRushSpeed } = require('../core/rushSpeed');
 
-const RUSH2V2_ELIXIR_MS = 1500;      // ~14% schneller als Solo (1750ms) — "lädt ein bisschen schneller auf"
-// Kapazität des geteilten Team-Balkens ist jetzt Host-einstellbar (rush2v2MaxElixir),
-// die Aufladerate bleibt fix. Startwert bleibt bei 20% der Kapazität — dasselbe
+// Aufladetempo (rush2v2ElixirSpeed, siehe core/rushSpeed.js) und Kapazität des geteilten
+// Team-Balkens (rush2v2MaxElixir) sind Host-Einstellungen. Standard: eine Stufe schneller als
+// Solo, Balken wie im Original bei 10. Startwert bleibt bei 20% der Kapazität — dasselbe
 // Verhältnis wie im Solo-Modus (Start 2 von max. 10).
-const RUSH2V2_MAX_ELIXIR_DEFAULT = 20;
+const RUSH2V2_SPEED_DEFAULT = 'fast';
+const RUSH2V2_MAX_ELIXIR_DEFAULT = 10;
 const RUSH2V2_MAX_ELIXIR_MIN = 10;
 const RUSH2V2_MAX_ELIXIR_MAX = 40;
 const RUSH2V2_START_ELIXIR_RATIO = 0.2;
@@ -35,7 +37,12 @@ const RUSH2V2_MARKET_SIZE_DEFAULT = 5;
 function rush2v2ComputeElixir(g, teamId, now = Date.now()) {
   const e = g.teamElixir[teamId];
   if (!e) return 0;
-  return Math.min(g.maxElixir, e.value + (now - e.ts) / RUSH2V2_ELIXIR_MS);
+  return Math.min(g.maxElixir, e.value + (now - e.ts) / g.regenMs);
+}
+
+// Aktueller Stand aller Team-Balken { A: 4.2, B: 7, … }
+function teamElixirNow(g, now = Date.now()) {
+  return Object.fromEntries(g.teamIds.map(id => [id, rush2v2ComputeElixir(g, id, now)]));
 }
 
 function rush2v2SetElixir(g, teamId, value, now = Date.now()) {
@@ -92,17 +99,18 @@ function buildRush2v2State(lobby) {
     // Kein eigener Host-Regler dafür in 2v2 (anders als rushShowTimer im Solo-Modus) —
     // der Restzeit-Balken pro Marktkarte ist hier immer an.
     showTimer: true,
-    regenMs: RUSH2V2_ELIXIR_MS,
+    regenMs: g.regenMs,
     autoBuyMs: RUSH2V2_AUTOBUY_MS,
     maxElixir: g.maxElixir,
     deckSize: RUSH2V2_DECK_SIZE,
     serverNow: now,
     // Ein Markt pro Spieler statt eines einzigen geteilten Arrays wie im Solo-Modus
     markets: g.markets,
-    teamElixir: { A: rush2v2ComputeElixir(g, 'A', now), B: rush2v2ComputeElixir(g, 'B', now) },
+    teamIds: g.teamIds,
+    teamElixir: teamElixirNow(g, now),
     players: lobby.players.map(p => ({
       id: p.id, name: p.name, color: p.color, avatar: p.avatar || '',
-      teamId: p.teamId, teamSlot: p.teamSlot,
+      teamId: p.teamId ?? null, teamSlot: p.teamSlot ?? null,
       deck: p.deck || [], isSpectator: p.isSpectator ?? false,
       fullDeadline: g.fullSince[p.id] ? g.fullSince[p.id] + RUSH2V2_AUTOBUY_MS : null,
     })),
@@ -115,7 +123,7 @@ function buildRush2v2Sync(lobby) {
   const now = Date.now();
   return {
     serverNow: now,
-    teamElixir: { A: rush2v2ComputeElixir(g, 'A', now), B: rush2v2ComputeElixir(g, 'B', now) },
+    teamElixir: teamElixirNow(g, now),
     players: lobby.players.filter(p => !p.isSpectator).map(p => ({
       id: p.id,
       fullDeadline: g.fullSince[p.id] ? g.fullSince[p.id] + RUSH2V2_AUTOBUY_MS : null,
@@ -136,11 +144,11 @@ function checkRush2v2End(lobby, io) {
   lobby.history.push({
     gameNum: lobby.history.length + 1,
     mode: 'elixir-rush-2v2',
-    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: [...(p.deck || [])], isSpectator: p.isSpectator ?? false })),
+    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: [...(p.deck || [])], isSpectator: p.isSpectator ?? false, teamId: p.teamId ?? null })),
   });
   io.to(lobby.code).emit('clash:rush2v2:state', buildRush2v2State(lobby));
   io.to(lobby.code).emit('clash:gameOver', {
-    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: p.deck || [], isSpectator: p.isSpectator ?? false })),
+    players: lobby.players.map(p => ({ id: p.id, name: p.name, color: p.color, avatar: p.avatar || '', deck: p.deck || [], isSpectator: p.isSpectator ?? false, teamId: p.teamId ?? null })),
   });
   notifyDraftComplete(lobby, io);
 }
@@ -283,17 +291,17 @@ function startElixirRush2v2(lobby, io) {
   const activePlayers = lobby.players.filter(p => !p.isSpectator);
   activePlayers.forEach(p => { p.deck = []; });
 
+  const teamIds = activeTeamIds(lobby);
   lobby.game = {
     type: 'elixir-rush-2v2',
+    regenMs: rushRegenMs(lobby.rush2v2ElixirSpeed, RUSH2V2_SPEED_DEFAULT),
+    teamIds,
     marketSize,
     cardLifetimeMs: lifeSec * 1000,
     repeatCooldownMs: Math.max(15000, lifeSec * 2000),
     maxElixir,
     markets: {}, recentUntil: {}, fullSince: {}, botNextActionAt: {},
-    teamElixir: {
-      A: { value: startElixir, ts: now },
-      B: { value: startElixir, ts: now },
-    },
+    teamElixir: Object.fromEntries(teamIds.map(id => [id, { value: startElixir, ts: now }])),
     finished: false, timerInterval: null, countdownUntil,
   };
   activePlayers.forEach(p => newMarket(lobby, p.id, marketSize, countdownUntil));
@@ -308,6 +316,12 @@ registerMode({
   gameType: 'elixir-rush-2v2',
   partyModes: ['duo'],
   settings: {
+    rush2v2ElixirSpeed: {
+      default: RUSH2V2_SPEED_DEFAULT,
+      event: 'clash:setRush2v2ElixirSpeed',
+      payloadKey: 'speed',
+      sanitize: sanitizeRushSpeed,
+    },
     rush2v2MarketSize: {
       default: RUSH2V2_MARKET_SIZE_DEFAULT,
       event: 'clash:setRush2v2MarketSize',
@@ -329,9 +343,9 @@ registerMode({
       sanitize: (v) => Math.max(RUSH2V2_MAX_ELIXIR_MIN, Math.min(RUSH2V2_MAX_ELIXIR_MAX, Math.round(Number(v)) || RUSH2V2_MAX_ELIXIR_DEFAULT)),
     },
   },
-  // Zwei unabhängige Märkte, die sich keine Karten teilen müssen — jeder braucht 8 Karten
-  // plus seinen eigenen befüllbaren Markt.
-  requiredPool: (lobby) => 2 * (RUSH2V2_DECK_SIZE + (lobby.rush2v2MarketSize || RUSH2V2_MARKET_SIZE_DEFAULT)),
+  // Die Märkte sind unabhängig voneinander (dieselbe Karte darf in mehreren liegen) — jeder
+  // Spieler braucht nur seine 8 Deckkarten plus einen befüllbaren Markt aus dem Pool.
+  requiredPool: (lobby) => RUSH2V2_DECK_SIZE + (lobby.rush2v2MarketSize || RUSH2V2_MARKET_SIZE_DEFAULT),
   canStart: (lobby) => (isDuoTeamsReady(lobby) ? null : { key: 'teamsNotReady' }),
   start: (lobby, io) => startElixirRush2v2(lobby, io),
   buildState: (lobby) => ({ event: 'clash:rush2v2:state', payload: buildRush2v2State(lobby) }),

@@ -9,13 +9,12 @@ import { parseSigil } from "../../engine/sigils/index.js";
 import { CAMPFIRE_RISK, MIN_DECK } from "../../data/events.js";
 import { MAX_ITEMS } from "../../data/items.js";
 import { tribeIdsOf } from "../../data/tribes.js";
-import { getZirkel } from "../../engine/zirkel/index.js";
 import { TideMark } from "../icons/GameIcons.jsx";
-import { de, errorText } from "../../i18n/de.js";
-import { combineError, SIDE_ONLY_SIGILS } from "../../data/totems.js";
+import { de } from "../../i18n/de.js";
+import TotemBuilder from "../common/TotemBuilder.jsx";
 import { particles } from "../anim/particles.js";
 import { sound } from "../../audio/sound.js";
-import { totemText, headLabel, slotLabel } from "../common/totemText.js";
+import { baseDesc, baseName, headKind, headName, headTarget } from "../common/totemText.js";
 
 function SceneFrame({ title, intro, children, actions }) {
   return (
@@ -215,13 +214,6 @@ export function MerchantScene({ scene, player, act }) {
 }
 
 export function ShrineScene({ scene, player, act, zirkel }) {
-  const [head, setHead] = useState(/** @type {number|null} */ (null));
-  const [base, setBase] = useState(/** @type {number|null} */ (null));
-  const offerLabel = (o) => (o.head
-    ? headLabel(o.head)
-    : (o.base.kind === "sigil" ? `${de.totems.base}: ${de.sigils[o.base.sigil].name}` : `${de.totems.base}: ${de.totems.props[o.base.prop].name}`));
-  const pairError = head !== null && base !== null ? combineError(player.heads[head], player.bases[base], getZirkel(zirkel)) : null;
-  const validPair = head !== null && base !== null && !pairError;
   return (
     <SceneFrame
       title={de.nodes.shrine.name}
@@ -232,43 +224,15 @@ export function ShrineScene({ scene, player, act, zirkel }) {
         <div className="grid sm:grid-cols-3 gap-3 mb-4">
           {scene.offers.map((o, i) => (
             <button key={i} type="button" className="ss-panel p-3 text-left text-[var(--bone)] hover:brightness-110" onClick={() => { sound.play("seal"); act("take", { index: i }); }}>
-              <p className="ss-title">{offerLabel(o)}</p>
-              <p className="text-sm ss-dim">{o.base ? (o.base.kind === "sigil" ? de.sigils[o.base.sigil].desc : de.totems.props[o.base.prop].desc) : "Ein neuer Kopf für ein Totem."}</p>
+              <p className="text-xs uppercase tracking-wide ss-dim">{o.head ? `Neuer ${de.totems.head} · ${headKind(o.head)}` : `Neuer ${de.totems.base}`}</p>
+              <p className="ss-title flex items-center gap-1.5">{o.base?.kind === "sigil" && <SigilIcon sigil={o.base.sigil} size={18} />}{o.head ? headName(o.head, zirkel) : baseName(o.base)}</p>
+              <p className="text-sm ss-dim">{o.head ? `Trifft ${headTarget(o.head, zirkel)}.` : baseDesc(o.base)}</p>
             </button>
           ))}
         </div>
       )}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <p className="ss-title !text-[var(--ink)]">Köpfe</p>
-          {player.heads.map((h, i) => (
-            <button key={i} type="button" className={`block w-full text-left px-2 py-1 border-b border-dashed border-black/20 ${head === i ? "bg-[#8e1b1b]/15" : ""}`} onClick={() => setHead(i)}>
-              {headLabel(h)}
-            </button>
-          ))}
-        </div>
-        <div>
-          <p className="ss-title !text-[var(--ink)]">Basen</p>
-          {player.bases.map((b, i) => (
-            <button key={i} type="button" className={`flex items-center gap-2 w-full text-left px-2 py-1 border-b border-dashed border-black/20 ${base === i ? "bg-[#8e1b1b]/15" : ""}`} onClick={() => setBase(i)}>
-              {b.kind === "sigil" && <SigilIcon sigil={b.sigil} size={18} />}
-              {b.kind === "sigil"
-                ? `${de.sigils[b.sigil].name}${SIDE_ONLY_SIGILS.includes(b.sigil) ? " (nur Nebendeck)" : ""}`
-                : `${de.totems.props[b.prop].name} (nur Lane)`}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mt-3 text-center">
-        <button type="button" className="ss-seal" disabled={!validPair} onClick={() => { sound.play("creak"); act("assemble", { head, base }); }}>Totem zusammensetzen</button>
-        {pairError && <p className="text-sm text-[var(--wax-red)] mt-1">{errorText(pairError)}</p>}
-      </div>
-      <div className="mt-4 text-sm">
-        <p className="ss-title !text-[var(--ink)]">Aktive Totems</p>
-        {["tribe", "lane", "side"].map((slot) => (
-          <p key={slot}>{slotLabel(slot)}: {player.totems[slot] ? totemText(player.totems[slot].head, player.totems[slot].base, zirkel) : "–"}</p>
-        ))}
-      </div>
+      <TotemBuilder heads={player.heads} bases={player.bases} totems={player.totems} zirkel={zirkel}
+        onBuild={(head, base) => { sound.play("creak"); act("assemble", { head, base }); }} />
     </SceneFrame>
   );
 }

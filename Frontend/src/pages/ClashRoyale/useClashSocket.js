@@ -206,14 +206,16 @@ export function useClashSocket(user) {
       setTimeout(() => setEmotes(prev => prev.filter(x => x.key !== key)), EMOTE_SHOW_MS);
     });
     socket.on('clash:historyData', setHistoryData);
-    // Live-Update der Lobby-Browser-Liste — der Server schickt sie an ALLE verbundenen
-    // Sockets, sobald sich irgendeine öffentliche Lobby ändert (siehe clashRoyaleRoutes.js).
+    // Live-Update der Lobby-Browser-Liste — der Server schickt sie an alle, die oben
+    // clash:listPublicLobbies gefragt haben (Hub-Raum, siehe clashRoyaleRoutes.js).
     socket.on('clash:publicLobbiesUpdate', setPublicLobbies);
 
-    socket.on('clash:lobbyRestart', ({ cancelled } = {}) => {
+    socket.on('clash:lobbyRestart', ({ cancelled, reason } = {}) => {
       setPhase('lobby');
       resetGameStates();
       if (cancelled) flashError({ key: 'gameCancelled' });
+      // Lobby nach einem Backend-Neustart wiederhergestellt, die Runde war weg (lobbyPersistence.js)
+      else if (reason === 'serverRestart') flashError({ key: 'gameInterruptedRestart' });
     });
 
     // ── Spielphase ──────────────────────────────────────────────────────────
@@ -406,13 +408,16 @@ export function useClashSocket(user) {
     });
   }, [emit, playerName, selectedAvatar, selectedAvatarUrl, flashError]);
 
-  const joinLobby = useCallback((joinCode) => {
+  // nameOverride: Beitritt über die Freundesliste, bevor im Hub ein Name getippt wurde (dann
+  // nimmt ClashRoyalePage den Profil-/Twitch-Namen und setzt ihn parallel als playerName).
+  const joinLobby = useCallback((joinCode, nameOverride) => {
     const target = (joinCode || '').toUpperCase().trim();
-    if (!playerName.trim()) return flashError({ key: 'nameRequired' });
+    const name = (nameOverride ?? playerName).trim();
+    if (!name) return flashError({ key: 'nameRequired' });
     if (!target) return flashError({ key: 'codeRequired' });
     setError(null);
     emit('clash:joinLobby', {
-      code: target, playerName: playerName.trim(), avatar: selectedAvatar, avatarUrl: selectedAvatarUrl,
+      code: target, playerName: name, avatar: selectedAvatar, avatarUrl: selectedAvatarUrl,
     });
   }, [emit, playerName, selectedAvatar, selectedAvatarUrl, flashError]);
 
@@ -460,5 +465,7 @@ export function useClashSocket(user) {
     // und würde als benannte Funktion hier nur eine dritte Stelle erzeugen, an der ein
     // Event-Name gepflegt werden muss.
     emit, emitToLobby, setMyBid,
+    // Für Funktionen, die eigene Events abonnieren (Freundesliste, hub/useFriends.js)
+    socketRef,
   };
 }

@@ -86,7 +86,7 @@ function randomSeed() {
   return (buf[0].toString(36) + buf[1].toString(36)).slice(0, 8);
 }
 
-// Kalendertag in Berlin — derselbe Schlüssel wie das Backend (Backend/dle/core/dailySeed.js)
+// Kalendertag in Berlin — derselbe Schlüssel wie das Backend (Backend/seedRunners/dateKey.js)
 function berlinDateKey() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }

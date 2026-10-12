@@ -204,6 +204,9 @@ test('Läufe aus dem Raum (schon geprüft) landen in derselben Liste, ein Mensch
     assert.equal(board.total, 1);
     assert.equal(board.entries[0].ticks, 4900);
     assert.deepEqual(daily.recordVerified({ dateKey: DAY, playerKey: 'kaputt', name: 'X', ticks: 1, deaths: 0, splits: [], log: LOG, fp: 'f', source: 'raum' }), { saved: false, rank: null });
+    // Ein vergangener Tag (über das Archiv in einer Lobby gespielt) ändert seine Rangliste nicht mehr
+    assert.deepEqual(daily.recordVerified({ dateKey: '2026-09-15', playerKey: KEY_A, name: 'Anna', ticks: 100, deaths: 0, splits: [], log: LOG, fp: 'fp1', source: 'raum' }), { saved: false, rank: null });
+    assert.equal(daily.board('2026-09-15').total, 0);
   } finally {
     cleanup();
   }
@@ -230,7 +233,7 @@ async function withServer(opts, fn) {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
   let clock = Date.UTC(2026, 8, 21, 12, 0);
-  app.use('/api/seed-runners', createSeedRunnersRouter({ daily: rig.daily, todayKey: () => DAY, now: () => clock }));
+  app.use('/api/seed-runners', createSeedRunnersRouter({ daily: rig.daily, todayKey: () => opts.routeDay || DAY, now: () => clock }));
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}/api/seed-runners`;
@@ -292,6 +295,14 @@ test('HTTP: Rangliste eines Tages nur für die letzten 30 Tage und gültige Date
     assert.equal((await fetch(`${base}/daily/2026-09-22`)).status, 404, 'Zukunft');
     assert.equal((await fetch(`${base}/daily/2025-01-01`)).status, 404, 'zu alt');
     assert.equal((await fetch(`${base}/daily/heute`)).status, 400);
+  });
+  // Archiv: Pfad-Tagesrennen (ab 2026-09-26) bleiben auch nach 30 Tagen abrufbar, ältere Chunk-Tage nicht
+  await withServer({ routeDay: '2026-12-31' }, async ({ base }) => {
+    assert.equal((await fetch(`${base}/daily/2026-09-26`)).status, 200);
+    assert.equal((await fetch(`${base}/daily/2026-09-25`)).status, 404);
+    const res = await (await fetch(`${base}/daily/2026-09-26`, { headers: { 'X-Player-Key': KEY_A } })).json();
+    assert.equal(res.board.dateKey, '2026-09-26');
+    assert.equal(res.me, null);
   });
 });
 

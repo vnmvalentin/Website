@@ -90,7 +90,7 @@ function InfoModal({ title, onClose, children }) {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
@@ -103,6 +103,7 @@ function InfoModal({ title, onClose, children }) {
           <h2 className="font-display text-lg font-bold text-white">{title}</h2>
           <button
             onClick={onClose}
+            aria-label="Schließen"
             className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
           >
             <X size={18} />
@@ -201,16 +202,22 @@ function TwitchTV() {
           allowFullScreen
           frameBorder="0"
           title="Twitch Player"
+          loading="lazy"
           className="w-full h-full"
         />
       </div>
-      <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/10">
-        <span className="text-xs font-mono text-white/30 tracking-widest uppercase">twitch.tv/vnmvalentin</span>
-        <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
-          <span className="text-[10px] font-mono text-white/25 uppercase tracking-wider">Live</span>
-        </div>
-      </div>
+      {/* Hier stand früher fest "● Live" — auch wenn der Kanal offline war und der Player
+          direkt darüber "OFFLINE" zeigte. Den Zustand kennt nur der Player, deshalb steht
+          hier jetzt ein Link zum Kanal statt einer Behauptung. */}
+      <a
+        href="https://twitch.tv/vnmvalentin"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex items-center justify-between px-4 py-2.5 border-t border-white/10 text-xs text-white/40 hover:text-white transition-colors"
+      >
+        <span>twitch.tv/vnmvalentin</span>
+        <span className="flex items-center gap-1.5">Kanal öffnen <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" /></span>
+      </a>
     </div>
   );
 }

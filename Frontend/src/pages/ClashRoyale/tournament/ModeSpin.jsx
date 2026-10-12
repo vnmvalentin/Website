@@ -56,15 +56,15 @@ export default function ModeSpin({ pool, target, kind = 'spin', lang, t, onDone 
   }, []);
 
   useEffect(() => {
-    if (!animate) { playSound('start'); onDoneRef.current?.(); return undefined; }
+    if (!animate) { playSound('land'); onDoneRef.current?.(); return undefined; }
     const timers = [];
     const finish = () => {
       setLanded(true);
-      playSound('start');
+      playSound('land');
       timers.push(setTimeout(() => onDoneRef.current?.(), LAND_HOLD_MS));
     };
     if (kind === 'reveal') {
-      playSound('start');
+      playSound('land');
       timers.push(setTimeout(() => onDoneRef.current?.(), LAND_HOLD_MS + 400));
       return () => timers.forEach(clearTimeout);
     }
@@ -80,7 +80,7 @@ export default function ModeSpin({ pool, target, kind = 'spin', lang, t, onDone 
       const x = final * easeOutQuart(p);
       setX(x);
       const tile = Math.floor((x + width / 2) / STEP);
-      if (tile !== lastTile) { lastTile = tile; if (p < 0.98) playSound('tap'); }
+      if (tile !== lastTile) { lastTile = tile; if (p < 0.98) playSound('tick'); }
       if (p < 1) raf = requestAnimationFrame(frame);
       else if (!done) { done = true; finish(); }
     };

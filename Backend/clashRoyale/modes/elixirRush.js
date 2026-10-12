@@ -7,8 +7,10 @@ const { lobbies } = require('../core/lobbies');
 const { clearTurnTimer } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
+const { rushRegenMs, sanitizeRushSpeed } = require('../core/rushSpeed');
 
-const RUSH_ELIXIR_MS     = 1750;   // 1 Elixier pro 1,75s
+// Aufladetempo ist eine Host-Einstellung (rushElixirSpeed, siehe core/rushSpeed.js) und liegt
+// pro Partie in g.regenMs — "normal" = 1 Elixier pro 1,75 s wie bisher.
 const RUSH_START_ELIXIR  = 2;
 const RUSH_MAX_ELIXIR    = 10;
 const RUSH_AUTOBUY_MS    = 3000;  // voller Balken ohne Kauf → nach 10s zufällige Karte
@@ -27,7 +29,7 @@ const RUSH_MARKET_SIZE_DEFAULT = 5;
 function rushComputeElixir(g, playerId, now = Date.now()) {
   const e = g.elixir[playerId];
   if (!e) return 0;
-  return Math.min(RUSH_MAX_ELIXIR, e.value + (now - e.ts) / RUSH_ELIXIR_MS);
+  return Math.min(RUSH_MAX_ELIXIR, e.value + (now - e.ts) / g.regenMs);
 }
 
 function rushSetElixir(g, playerId, value, now = Date.now()) {
@@ -80,7 +82,7 @@ function buildRushState(lobby) {
     showElixir: lobby.rushShowElixir ?? false,
     showTimer: lobby.rushShowTimer ?? true,
     countdownUntil: g.countdownUntil || null,
-    regenMs: RUSH_ELIXIR_MS,
+    regenMs: g.regenMs,
     autoBuyMs: RUSH_AUTOBUY_MS,
     maxElixir: RUSH_MAX_ELIXIR,
     deckSize: RUSH_DECK_SIZE,
@@ -230,6 +232,7 @@ function startElixirRush(lobby, io) {
   lobby.players.forEach(p => { p.deck = []; });
   lobby.game = {
     type: 'elixir-rush',
+    regenMs: rushRegenMs(lobby.rushElixirSpeed, 'normal'),
     marketSize,
     cardLifetimeMs: lifeSec * 1000,
     // Abgelaufene Karten dürfen erst nach einem Abstand wieder erscheinen
@@ -258,6 +261,12 @@ registerMode({
   id: 'elixir-rush',
   gameType: 'elixir-rush',
   settings: {
+    rushElixirSpeed: {
+      default: 'normal',
+      event: 'clash:setRushElixirSpeed',
+      payloadKey: 'speed',
+      sanitize: sanitizeRushSpeed,
+    },
     rushMarketSize: {
       default: RUSH_MARKET_SIZE_DEFAULT,
       event: 'clash:setRushMarketSize',

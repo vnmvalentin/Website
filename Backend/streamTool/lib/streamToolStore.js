@@ -42,6 +42,11 @@ try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN raid_event TEXT NOT N
 // während der Twitch-Abgleich den cache überschreibt.
 try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN stats TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 
+// Bildschirmfüllende Szenen (Hype Train, Raid-Ansturm, Flugzeug, Murmelbahn).
+// Eigene Spalte aus demselben Grund wie oben: der Chat-Bot schreibt hier bei
+// jedem Beitritt zur Murmelbahn hinein.
+try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN scenes TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+
 // ── Token-Verschlüsselung ────────────────────────────────────────────────────
 // Schlüssel kommt aus STREAM_TOOL_SECRET. Fehlt die Variable, wird einmalig ein
 // Schlüssel neben der DB erzeugt (Datei ist ebenfalls gitignored) — so funktioniert

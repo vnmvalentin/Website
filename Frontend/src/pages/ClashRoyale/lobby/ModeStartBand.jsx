@@ -10,22 +10,27 @@ import React, { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import ChunkyButton from '../ui/ChunkyButton';
 import ModePickerModal from './ModePickerModal';
-import { CrBattle, CrTrophy, CrShield } from '../ui/CrIcons';
+import { CrBattle, CrTrophy, CrShield, CrRandom } from '../ui/CrIcons';
 import { modeNameFor, modeDescFor, modeInfo } from '../modesConfig';
+import { randomPoolFor } from './poolRequirements';
 
 export default function ModeStartBand({
   lobbyData, actions, t, lang,
   canControlLobby, isClashAdmin, effectiveIsHost,
   onStart, onShowHistory,
-  canStart, poolSize, requiredPool, poolTooSmall, carouselMaxPlayers, carouselTooMany, teamsNotReady,
+  canStart, poolSize, requiredPool, poolTooSmall, carouselMaxPlayers, carouselTooMany, teamsNotReady, randomPoolEmpty,
 }) {
   const [modePickerOpen, setModePickerOpen] = useState(false);
 
   const mode = lobbyData?.mode || 'snake';
-  const CurrentIcon = modeInfo(mode).icon;
+  // Zufallsmodus: Kachel zeigt den Zufall statt des (zuletzt gespielten) internen Modus
+  const random = !!lobbyData?.randomEnabled;
+  const CurrentIcon = random ? CrRandom : modeInfo(mode).icon;
   const historyCount = lobbyData?.historyCount || 0;
 
-  const blockedReason = carouselTooMany
+  const blockedReason = randomPoolEmpty
+    ? t.startBlockedRandom
+    : carouselTooMany
     ? t.startBlockedCarousel(carouselMaxPlayers, lobbyData?.carouselCardsPerTable || 8)
     : poolTooSmall
       ? t.startBlockedPool(poolSize, requiredPool)
@@ -42,7 +47,7 @@ export default function ModeStartBand({
         <span className="cr-eyebrow block">{t.gameMode}</span>
         <span className="block font-cr text-2xl sm:text-[28px] text-white leading-tight truncate"
           style={{ textShadow: '0 2px 0 rgba(2,8,20,0.6)' }}>
-          {modeNameFor(mode, lang)}
+          {random ? t.randomMode : modeNameFor(mode, lang)}
         </span>
       </span>
       {/* Deutlich als Aktion erkennbar: goldenes Etikett mit Pfeil, auf dem Handy nur der Pfeil */}
@@ -72,7 +77,9 @@ export default function ModeStartBand({
           ) : (
             <div className="cr-tile-btn cr-tile-btn--static p-3 sm:p-4">{tileContent}</div>
           )}
-          <p className="text-white/55 text-xs leading-relaxed px-1">{modeDescFor(mode, lang)}</p>
+          <p className="text-white/55 text-xs leading-relaxed px-1">
+            {random ? t.randomModeDesc(randomPoolFor(lobbyData).length) : modeDescFor(mode, lang)}
+          </p>
         </div>
 
         <div className="flex md:flex-col gap-3 md:w-64 shrink-0">
@@ -95,14 +102,21 @@ export default function ModeStartBand({
       {modePickerOpen && (
         <ModePickerModal
           mode={mode}
+          random={random}
           lang={lang}
           t={t}
           partyMode={lobbyData?.partyMode || 'solo'}
           onSetPartyMode={actions.setPartyMode}
+          onSelectRandom={() => {
+            setModePickerOpen(false);
+            if (!random) actions.setRandomMode(true);
+          }}
           onClose={() => setModePickerOpen(false)}
           onSelect={(id) => {
             setModePickerOpen(false);
-            if (id !== mode) actions.setMode(id);
+            // Auch derselbe Modus muss gesendet werden, wenn gerade der Zufall aktiv ist — der
+            // Server schaltet ihn mit clash:setMode ab
+            if (id !== mode || random) actions.setMode(id);
           }}
         />
       )}

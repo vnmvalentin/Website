@@ -50,9 +50,10 @@ export const ELEMENT_GLYPHS = Object.freeze({
   Y: { type: 'door' },
 });
 
-// Elemente, deren Kachel im Raster fest ist (der Laser sitzt in einem Block)
+// Elemente, deren Kachel im Raster fest ist (Laser und Kanone sitzen in einem Block)
 export const ELEMENT_TILE = Object.freeze({
   laser: KIND.SOLID,
+  cannon: KIND.SOLID,
 });
 
 // Alles, was sonst als Zeichen vorkommen darf

@@ -5,9 +5,9 @@
 // Der Server rechnet KEINE Physik und kennt kein Level: Jeder Spieler erzeugt das Level aus dem
 // Seed selbst und läuft es in seinem Browser. Der Server verteilt Einstellungen und Seed, gibt
 // den Startzeitpunkt vor, sammelt Checkpoint- und Zielmeldungen und errechnet daraus Platzierung
-// und Ergebnis-Tabelle. Pro Rennen sind das ein paar Dutzend winzige Nachrichten — kein Takt,
-// keine Positionen, deshalb belastet ein Raum den Event-Loop praktisch nicht (Grund für die
-// Trennung von Blobby war 75-Hz-Physik, die es hier nicht gibt; siehe blobbyServer.js).
+// und Ergebnis-Tabelle. Dazu kommen seit 27.09.2026 Positionen für Geister/Zuschauen: je Läufer ~10 kleine
+// Nachrichten pro Sekunde herein, je Raum höchstens 10 gebündelte hinaus — keine Physik, kein Nachrechnen, deshalb
+// belastet ein Raum den Event-Loop kaum (Grund für die Trennung von Blobby war 75-Hz-Physik; siehe blobbyServer.js).
 //
 // ZEITEN sind Sim-Ticks (120 pro Sekunde), gemessen vom Client. Der Server prüft nur, ob eine
 // Meldung möglich ist (nicht mehr Ticks, als seit dem Start vergangen sind; aufsteigend), und
@@ -44,6 +44,27 @@
 // abstimmung wie bei Zufalls-Leveln (beginCountdown): Wer einen anderen Hash meldet, hat schlicht einen anderen
 // (veralteten) Stand. Ist das Level inzwischen gelöscht oder ausgeblendet, wird die Runde durch eine Zufallsrunde
 // ersetzt (mit Hinweis an alle) statt die Serie abzubrechen.
+//
+// MODUS (27.09.2026): `settings.mode` ist 'race' (wer zuerst im Ziel ist, gewinnt — wie bisher) oder 'timeattack'
+// (Zeitjagd): Alle haben TIMEATTACK_MS (10 Minuten) für dasselbe Level und dürfen so oft von vorn anfangen, wie sie
+// wollen; die beste Zielzeit zählt. Ein Spieler bleibt dabei im Zustand 'racing', `finishTicks` ist seine bisher beste
+// Zeit (null = noch keine), `runs` die Zahl seiner Läufe im Ziel. Jeder Versuch hat eine Nummer (`attempt`, vom Client
+// hochgezählt) — damit sind wiederholte Meldungen nach einem Reconnect harmlos. Der Modus gilt für eine ganze Serie
+// (`series.mode`), wie der Rundenplan. Anti-Cheat wie gehabt: nachgespielt wird das Log des besten Laufs.
+//
+// HARDCORE (30.09.2026): `settings.hardcore` (nur im Modus 'race') — wer in einer Runde einmal stirbt, ist sofort DNF. Der
+// Browser meldet den ersten Tod selbst (`giveUp` mit { died: true }); der Server verlässt sich aber nicht darauf: Eine
+// Zielmeldung mit Toden zählt nicht, und beim Nachspielen fällt ein Lauf mit Toden durch. „Zum Checkpoint“ ist gesperrt (sonst
+// ließe sich ein sicherer Sturz kurz vorher wegdrücken): Enthält das Input-Log die Taste, ist der Lauf ein DNF. Gilt wie der Modus für die
+// ganze Serie (`series.hardcore`).
+//
+// SITZUNG: `room.session` sammelt Punkte und Siege aller Runden seit der Lobby (auch über mehrere Einzelrennen
+// hinweg); zurück in die Lobby beginnt eine neue Sitzung, und die Rundennummer zählt wieder ab 1.
+//
+// GEISTER / ZUSCHAUEN (27.09.2026): Während des Rennens schickt jeder Browser etwa 10× pro Sekunde seine Position
+// (`position`, ohne Antwort). Der Server merkt sich nur die letzte und verteilt alle gesammelten Positionen höchstens
+// alle GHOST_TICK_MS in EINER Nachricht an den Raum (`sr:pos`, "volatile": verlorene Pakete werden nicht nachgeschickt).
+// Kommt nichts, wird auch nichts verschickt. Das ist reine Anzeige — der Server rechnet nichts damit und prüft nichts.
 
 'use strict';
 
@@ -65,14 +86,17 @@ const LENGTHS = ['short', 'medium', 'long'];
 const SPEED_CLASSES = ['normal', 'fast', 'super'];
 const BIOMES = ['random', 'meadow', 'ice', 'factory', 'cave', 'sky'];
 const SEED_MODES = ['random', 'daily', 'custom'];
+const MODES = ['race', 'timeattack'];
 const MAX_ROUNDS = 5;
 
 const DEFAULT_SETTINGS = Object.freeze({
   length: 'short', speedClass: 'normal', biome: 'random', seedMode: 'random', seed: '',
-  rounds: 1, playlist: [{ kind: 'random' }], includeDaily: false,
+  rounds: 1, playlist: [{ kind: 'random' }], includeDaily: false, mode: 'race', hardcore: false,
 });
 
 const TICK_HZ = 120;
+// Bit der Taste „Zum Checkpoint“ in der Eingabemaske (Frontend sim/inputBits.js: INPUT.RESTART)
+const INPUT_RESTART = 128;
 // So viele Ticks darf eine Meldung "in der Zukunft" liegen (Uhrengenauigkeit beim Start)
 const TICK_SLACK = 40;
 
@@ -87,7 +111,14 @@ const DEFAULT_CONFIG = Object.freeze({
   STALE_AFTER_MS: 30 * 60 * 1000,
   MAX_SPLITS: 200,
   MAX_LOG_NUMBERS: 60000,
+  // Zeitjagd: so lange hat jeder für seine beste Zeit
+  TIMEATTACK_MS: 10 * 60 * 1000,
+  // Positionen werden höchstens so oft an den Raum verteilt
+  GHOST_TICK_MS: 100,
 });
+
+// Obergrenze für Positionswerte (Pixel, Ticks) — nur gegen Unsinn, die Werte sind reine Anzeige
+const POS_MAX = 10 ** 7;
 
 const ACTIVE_STATES = ['loading', 'ready', 'racing', 'finished', 'dnf'];
 
@@ -111,6 +142,8 @@ function createRoomManager(deps) {
   const todayKey = deps.todayKey || (() => new Date().toISOString().slice(0, 10));
   const emitRoom = deps.emitRoom || (() => {});
   const emitSocket = deps.emitSocket || (() => {});
+  // Für Positionen: darf Nachrichten verlieren (Socket.io "volatile"); ohne eigene Angabe wie emitRoom
+  const emitRoomVolatile = deps.emitRoomVolatile || emitRoom;
   const joinRoom = deps.joinRoom || (() => {});
   const leaveRoom = deps.leaveRoom || (() => {});
   // Anti-Cheat (optional): verify(job) → Promise<{ status, ticks?, deaths?, splits? }>; dailyDateOf(params) →
@@ -123,6 +156,8 @@ function createRoomManager(deps) {
   const resolveCustomLevel = deps.resolveCustomLevel || (() => null);
 
   const rooms = new Map();        // code -> room
+  // Eindeutige Kennung jeder Runde: Die Rundennummer beginnt in jeder Sitzung wieder bei 1 und taugt deshalb nicht als Schlüssel
+  let roundSeq = 0;
   const socketIndex = new Map();  // socket.id -> { code, pid }
 
   const ok = (extra = {}) => ({ ok: true, ...extra });
@@ -168,6 +203,8 @@ function createRoomManager(deps) {
     // Auch wenn nur die Rundenzahl geändert wurde, muss die Liste auf die neue Länge gebracht werden
     s.playlist = cleanPlaylist(r.playlist !== undefined ? r.playlist : base.playlist, s.rounds);
     if (typeof r.includeDaily === 'boolean') s.includeDaily = r.includeDaily;
+    if (MODES.includes(r.mode)) s.mode = r.mode;
+    if (typeof r.hardcore === 'boolean') s.hardcore = r.hardcore;
     return s;
   }
 
@@ -209,10 +246,13 @@ function createRoomManager(deps) {
 
   // Live-Platzierung: Ziel vor Checkpoint-Fortschritt; im Ziel nach Zeit, sonst nach Checkpoint und
   // der Zeit, zu der er erreicht wurde. Aufgeber (DNF) ans Ende.
+  // (Zeitjagd: Wer schon eine Bestzeit hat, zählt wie "im Ziel", auch wenn er noch weiterläuft.)
+  const hasTime = (p) => p.state !== 'dnf' && p.finishTicks !== null;
+
   function rank(list) {
     const order = list.slice().sort((a, b) => {
-      const fa = a.state === 'finished';
-      const fb = b.state === 'finished';
+      const fa = hasTime(a);
+      const fb = hasTime(b);
       if (fa !== fb) return fa ? -1 : 1;
       if (fa && fb) return a.finishTicks - b.finishTicks || a.finishedAt - b.finishedAt;
       const da = a.state === 'dnf';
@@ -223,7 +263,7 @@ function createRoomManager(deps) {
     const place = new Map();
     order.forEach((p, i) => {
       const prev = order[i - 1];
-      const tie = prev && p.state === 'finished' && prev.state === 'finished' && prev.finishTicks === p.finishTicks;
+      const tie = prev && hasTime(p) && hasTime(prev) && prev.finishTicks === p.finishTicks;
       place.set(p.id, tie ? place.get(prev.id) : i + 1);
     });
     return place;
@@ -256,10 +296,12 @@ function createRoomManager(deps) {
       color: p.color,
       place: place.get(p.id),
       dnf: p.state === 'dnf',
+      died: p.died,
       ticks: p.state === 'finished' ? p.finishTicks : null,
       gap: p.state === 'finished' && winner ? p.finishTicks - winner.finishTicks : null,
       deaths: p.deaths,
       cp: p.cp,
+      runs: p.runs,
       splits: p.splits,
       points: p.state === 'dnf' ? 0 : sorted.length - place.get(p.id) + 1,
       // true = nachgespielt und bestätigt · false = Prüfung fehlgeschlagen (Lauf gilt nicht) · null = nicht geprüft
@@ -322,6 +364,28 @@ function createRoomManager(deps) {
     }
   }
 
+  /** Sitzung (seit der Lobby) fortschreiben: Punkte wie in der Serie, dazu Siege und Zahl der Runden. */
+  function applySessionScoring(room) {
+    if (!room.session) return;
+    room.session.rounds += 1;
+    for (const r of room.results) {
+      const cur = room.session.scores.get(r.id) || { points: 0, wins: 0, rounds: 0 };
+      cur.points += r.points;
+      if (!r.dnf && r.place === 1) cur.wins += 1;
+      cur.rounds += 1;
+      room.session.scores.set(r.id, cur);
+    }
+  }
+
+  function sessionStandings(room) {
+    return [...room.players.values()]
+      .map((p) => {
+        const s = room.session.scores.get(p.id) || { points: 0, wins: 0, rounds: 0 };
+        return { id: p.id, name: p.name, color: p.color, points: s.points, wins: s.wins, rounds: s.rounds };
+      })
+      .sort((a, b) => b.points - a.points || b.wins - a.wins);
+  }
+
   /** Gesamtwertung für die Anzeige: alle aktuellen Spieler, auch wer noch nie mitgelaufen ist (0 Punkte). Sortiert
    * nach Punkten, bei Gleichstand nach der (kleineren) Zeitsumme. */
   function seriesStandings(room) {
@@ -345,6 +409,7 @@ function createRoomManager(deps) {
       roundNumber: room.roundNumber,
       round: room.round
         ? {
+          id: room.round.id,
           number: room.round.number,
           kind: room.round.kind,
           // bei kind 'custom' Name/Ersteller für die Anzeige; das Dokument selbst holt der Client per HTTP
@@ -353,8 +418,16 @@ function createRoomManager(deps) {
           params: room.round.params,
           startAt: room.round.startAt,
           checkpointTotal: room.round.checkpointTotal,
+          mode: room.round.mode,
+          hardcore: room.round.hardcore,
+          // Serverzeit, zu der die Runde spätestens endet: Zeitjagd = Ende der 10 Minuten; im Rennen die DNF-Frist, sobald
+          // jemand im Ziel ist (vorher null — die allgemeine Obergrenze ist keine Anzeige wert)
+          endAt: room.round.endAt,
+          dnfAt: room.round.firstFinishAt !== null && room.round.mode !== 'timeattack' ? room.round.firstFinishAt + cfg.DNF_AFTER_FIRST_MS : null,
         }
         : null,
+      // Sitzung seit der Lobby: erst ab der ersten beendeten Runde
+      session: room.session && room.session.rounds > 0 ? { rounds: room.session.rounds, standings: sessionStandings(room) } : null,
       // Serie (Phase 4): nur vorhanden, sobald mindestens eine Runde gestartet wurde. Bei einem einzelnen Rennen
       // (rounds === 1) ist plan.length === 1 und hasNext immer false — die Oberfläche zeigt dann wie bisher nur
       // "Neue Runde"/"Revanche"/"Lobby" statt einer Gesamtwertung.
@@ -362,6 +435,7 @@ function createRoomManager(deps) {
         ? {
           index: room.series.index + 1,
           total: room.series.plan.length,
+          mode: room.series.mode,
           plan: room.series.plan.map((e) => (e.kind === 'custom' ? { kind: 'custom', code: e.code } : e.kind === 'seed' ? { kind: 'seed', seed: e.seed, biome: e.biome, gv: e.gv } : { kind: e.kind })),
           // Parameter der NÄCHSTEN Zufallsrunde — erst auf dem Ergebnisbildschirm (sonst könnte man sie während der Runde
           // vorab erkunden); die Browser bauen das Level damit im Hintergrund vor
@@ -380,6 +454,8 @@ function createRoomManager(deps) {
         cp: p.cp,
         cpTick: p.cpTick,
         finishTicks: p.finishTicks,
+        runs: p.runs,
+        died: p.died,
         place: showPlaces && place.has(p.id) ? place.get(p.id) : null,
       })),
       results: room.phase === 'results' ? room.results : null,
@@ -425,6 +501,11 @@ function createRoomManager(deps) {
       fp: '',
       verified: null,
       invalid: false,
+      runs: 0,
+      died: false,
+      attempt: 0,
+      lastFinishAttempt: 0,
+      pos: null,
       disconnectTimer: null,
     };
     room.players.set(p.id, p);
@@ -516,6 +597,8 @@ function createRoomManager(deps) {
       lastParams: null,
       roundNumber: 0,
       series: null,
+      session: null,
+      posDirty: false,
       timers: {},
     };
     rooms.set(code, room);
@@ -611,13 +694,16 @@ function createRoomManager(deps) {
     } else {
       mode = payload.mode === 'same' || payload.mode === 'new' ? payload.mode : 'settings';
       if (mode === 'same' && !room.lastParams) return fail('Es gibt keine vorige Runde.');
-      room.series = { plan: buildSeriesPlan(room), index: 0, scores: new Map() };
+      const seriesMode = room.settings.mode;
+      room.series = { plan: buildSeriesPlan(room), index: 0, scores: new Map(), mode: seriesMode, hardcore: seriesMode !== 'timeattack' && !!room.settings.hardcore };
     }
+    if (!room.session) room.session = { rounds: 0, scores: new Map() };
 
     const entry = resolveRoundEntry(room, mode);
     room.roundNumber++;
     if (entry.kind === 'random') room.lastParams = entry.params;
     room.round = {
+      id: ++roundSeq,
       number: room.roundNumber,
       kind: entry.kind,
       params: entry.params,
@@ -626,6 +712,9 @@ function createRoomManager(deps) {
       checkpointTotal: null,
       hash: entry.kind === 'custom' ? entry.custom.hash : null,
       firstFinishAt: null,
+      mode: room.series.mode || 'race',
+      hardcore: !!room.series.hardcore,
+      endAt: null,
     };
     room.results = null;
     room.phase = 'loading';
@@ -642,6 +731,11 @@ function createRoomManager(deps) {
       q.fp = '';
       q.verified = null;
       q.invalid = false;
+      q.runs = 0;
+      q.attempt = 0;
+      q.lastFinishAttempt = 0;
+      q.died = false;
+      q.pos = null;
     }
     setRoomTimer(room, 'load', room.round.params?.gen === 'pfad' ? cfg.LOAD_TIMEOUT_PFAD_MS : cfg.LOAD_TIMEOUT_MS, () => beginCountdown(room));
     emitState(room);
@@ -727,7 +821,10 @@ function createRoomManager(deps) {
     for (const p of room.players.values()) if (p.state === 'ready') p.state = 'racing';
     // Zufalls- und Tages-Runden kennen ihre Länge (kurz/mittel/lang); ein Custom-Level (params: null) bekommt die
     // großzügigste Grenze, weil eigene Level bis zu 1200 Kacheln breit sein dürfen.
-    setRoomTimer(room, 'cap', cfg.RACE_CAP_MS[room.round.params?.length] ?? cfg.RACE_CAP_MS.long, () => endRound(room));
+    // Zeitjagd: feste 10 Minuten ab dem Start, und die stehen für alle sichtbar im Zustand (endAt)
+    const capMs = room.round.mode === 'timeattack' ? cfg.TIMEATTACK_MS : (cfg.RACE_CAP_MS[room.round.params?.length] ?? cfg.RACE_CAP_MS.long);
+    if (room.round.mode === 'timeattack') room.round.endAt = room.round.startAt + capMs;
+    setRoomTimer(room, 'cap', capMs, () => endRound(room));
     emitState(room);
     checkRaceDone(room);
   }
@@ -737,11 +834,15 @@ function createRoomManager(deps) {
     clearRoomTimer(room, 'go');
     clearRoomTimer(room, 'cap');
     clearRoomTimer(room, 'dnf');
+    clearRoomTimer(room, 'ghosts');
     room.phase = 'lobby';
     room.round = null;
     room.results = null;
     // Zurück in die Lobby beendet eine laufende Serie; von dort beginnt "Runde starten" immer eine neue.
     room.series = null;
+    // … und eine neue Sitzung: Wertung und Rundenzählung fangen wieder bei null an
+    room.session = null;
+    room.roundNumber = 0;
     for (const p of room.players.values()) {
       p.state = 'lobby';
       p.hash = null;
@@ -762,12 +863,24 @@ function createRoomManager(deps) {
     if (room.phase !== 'racing' || p.state !== 'racing') return fail('Gerade läuft kein Rennen für dich.');
     const total = room.round.checkpointTotal || 0;
     if (!isInt(payload.index, 1, Math.max(1, total)) || !isInt(payload.tick, 1, 10 ** 8)) return fail('Ungültiger Checkpoint.');
+    const timeattack = room.round.mode === 'timeattack';
+    if (timeattack) {
+      // Jeder Versuch beginnt wieder bei Checkpoint 0; eine Meldung aus einem älteren Versuch ist überholt
+      const attempt = isInt(payload.attempt, 1, 10 ** 6) ? payload.attempt : 1;
+      if (attempt < p.attempt) return ok();
+      if (attempt > p.attempt) {
+        p.attempt = attempt;
+        p.cp = 0;
+        p.cpTick = 0;
+      }
+    }
     if (payload.index <= p.cp) return ok();           // schon bekannt (Wiederholung nach Reconnect)
     if (payload.tick > elapsedTicks(room) + TICK_SLACK) return fail('Zeit liegt in der Zukunft.');
     if (payload.tick < p.cpTick) return fail('Zeit liegt vor dem letzten Checkpoint.');
     p.cp = payload.index;
     p.cpTick = payload.tick;
-    p.splits.push([payload.index, payload.tick]);
+    // (Zeitjagd: Die Zwischenzeiten der Tabelle gehören zum BESTEN Lauf und kommen mit dessen Zielmeldung)
+    if (!timeattack) p.splits.push([payload.index, payload.tick]);
     emitState(room);
     return ok();
   }
@@ -796,6 +909,13 @@ function createRoomManager(deps) {
     return raw;
   }
 
+  /** Hardcore: Kommt im Input-Log [tick, maske, …] die Taste „Zum Checkpoint“ vor? (Kein Log zählt nicht — das fängt die Prüfung ab) */
+  function logHasRestart(log) {
+    if (!Array.isArray(log)) return false;
+    for (let i = 1; i < log.length; i += 2) if ((log[i] & INPUT_RESTART) !== 0) return true;
+    return false;
+  }
+
   function finish(sock, payload = {}) {
     const ctx = ctxOf(sock);
     if (!ctx) return fail('Du bist in keinem Raum.');
@@ -804,7 +924,11 @@ function createRoomManager(deps) {
     if (room.phase !== 'racing' || p.state !== 'racing') return fail('Gerade läuft kein Rennen für dich.');
     if (!isInt(payload.ticks, 60, 10 ** 8)) return fail('Ungültige Zeit.');
     if (payload.ticks > elapsedTicks(room) + TICK_SLACK) return fail('Zeit liegt in der Zukunft.');
+    if (room.round.mode === 'timeattack') return finishAttempt(room, p, payload);
     if (payload.ticks < p.cpTick) return fail('Zeit liegt vor dem letzten Checkpoint.');
+
+    // Hardcore: Ein Lauf mit Toden hätte gar nicht ins Ziel kommen dürfen (der Browser meldet den ersten Tod) — DNF
+    if (room.round.hardcore && (payload.deaths !== 0 || logHasRestart(payload.log))) return eliminate(room, p);
 
     p.finishTicks = payload.ticks;
     p.finishedAt = now();
@@ -831,15 +955,66 @@ function createRoomManager(deps) {
     return ok();
   }
 
-  function giveUp(sock) {
+  /**
+   * Zeitjagd: ein Lauf im Ziel. Der Spieler bleibt im Rennen; zählt nur, wenn er schneller ist als seine Bestzeit.
+   * Ein Versuch zählt einmal — eine wiederholte Meldung (Reconnect) ändert nichts.
+   */
+  function finishAttempt(room, p, payload) {
+    const attempt = isInt(payload.attempt, 1, 10 ** 6) ? payload.attempt : 1;
+    // Ein schon gezählter (oder älterer) Versuch: nachgereicht nach einem Reconnect. Zählt nicht noch einmal als Lauf —
+    // nur, falls genau diese Meldung damals verloren ging und schneller ist, wird sie noch Bestzeit.
+    const repeat = attempt <= p.lastFinishAttempt;
+    const improved = p.finishTicks === null || payload.ticks < p.finishTicks;
+    if (repeat && !improved) return ok({ best: p.finishTicks, improved: false });
+    if (!repeat) {
+      p.lastFinishAttempt = attempt;
+      p.runs += 1;
+      if (attempt >= p.attempt) {
+        p.attempt = attempt;
+        p.cp = 0;
+        p.cpTick = 0;
+      }
+    }
+    if (improved) {
+      p.finishTicks = payload.ticks;
+      p.finishedAt = now();
+      p.deaths = isInt(payload.deaths, 0, 99999) ? payload.deaths : 0;
+      p.splits = cleanSplits(payload.splits, payload.ticks, room.round.checkpointTotal || 0) || [];
+      p.log = cleanLog(payload.log);
+      p.fp = /^[A-Za-z0-9]{1,40}$/.test(String(payload.fp || '')) ? String(payload.fp) : '';
+    }
+    emitState(room);
+    return ok({ best: p.finishTicks, improved });
+  }
+
+  /** Wer aus dem Rennen geht (aufgeben, weg, Zeit um): Mit Zeit (Zeitjagd-Bestzeit) ist er im Ziel, sonst DNF. */
+  function stopRunner(p) {
+    p.state = p.finishTicks !== null ? 'finished' : 'dnf';
+    p.pos = null;
+  }
+
+  function giveUp(sock, payload = {}) {
     const ctx = ctxOf(sock);
     if (!ctx) return fail('Du bist in keinem Raum.');
     const { room, p } = ctx;
     if (room.phase !== 'racing' || p.state !== 'racing') return fail('Gerade läuft kein Rennen für dich.');
-    p.state = 'dnf';
+    // Hardcore: der erste Tod (vom Browser gemeldet) — ausgeschieden statt aufgegeben
+    if (payload.died === true && room.round.hardcore) return eliminate(room, p);
+    // Zeitjagd: "Beenden" behält die Bestzeit; im Rennen gibt es keine, das bleibt ein DNF
+    stopRunner(p);
     emitState(room);
     checkRaceDone(room);
     return ok();
+  }
+
+  /** Hardcore: gestorben — DNF ohne Zeit, in Rangliste und Ergebnis als „ausgeschieden“ markiert */
+  function eliminate(room, p) {
+    p.died = true;
+    p.finishTicks = null;
+    stopRunner(p);
+    emitState(room);
+    checkRaceDone(room);
+    return ok({ eliminated: true });
   }
 
   function checkRaceDone(room) {
@@ -852,13 +1027,16 @@ function createRoomManager(deps) {
     if (room.phase !== 'racing') return;
     clearRoomTimer(room, 'dnf');
     clearRoomTimer(room, 'cap');
-    for (const p of participants(room)) if (p.state === 'racing' || p.state === 'ready') p.state = 'dnf';
+    clearRoomTimer(room, 'ghosts');
+    for (const p of participants(room)) if (p.state === 'racing' || p.state === 'ready') stopRunner(p);
+    for (const p of room.players.values()) p.pos = null;
     room.results = computeResults(room);
     room.phase = 'results';
     // Punkte gehören zu GENAU diesem Ergebnis und werden nur einmal vergeben. Verwirft die spätere Prüfung
     // (verifyRound) ausnahmsweise den Lauf des Siegers, ändert das die Serien-Wertung nicht rückwirkend — der Fall
     // ist zu selten (nur bei einem Betrugsversuch), um eine schon gezeigte Wertung nachträglich zu verbiegen.
     applySeriesScoring(room);
+    applySessionScoring(room);
     scheduleGraceForDisconnected(room);
     emitState(room);
     verifyRound(room);
@@ -892,7 +1070,15 @@ function createRoomManager(deps) {
         const verdict = p.log ? await verify(job) : { status: 'invalid', reason: 'Kein Input-Log.' };
         if (room.round !== round || room.phase !== 'results') return;      // der Raum ist weitergegangen
 
-        if (verdict.status === 'ok') {
+        // Hardcore: Das Nachspielen zeigt einen Tod, den der Browser nicht gemeldet hat — die Zeit zählt nicht
+        if (verdict.status === 'ok' && round.hardcore && verdict.deaths > 0) {
+          p.state = 'dnf';
+          p.died = true;
+          p.invalid = true;
+          p.verified = false;
+          p.finishTicks = null;
+          notice(room, `${p.name}: Im Hardcore-Modus zählt ein Lauf mit Tod nicht.`);
+        } else if (verdict.status === 'ok') {
           p.verified = true;
           p.deaths = verdict.deaths;
           if (Array.isArray(verdict.splits)) p.splits = verdict.splits;
@@ -939,7 +1125,7 @@ function createRoomManager(deps) {
       if (p.connected || !room.players.has(p.id)) return;
       // Mitten im Rennen zählt ein Ausgefallener als DNF, sonst wird er aus dem Raum genommen
       if (room.phase === 'racing' && p.state === 'racing') {
-        p.state = 'dnf';
+        stopRunner(p);
         emitState(room);
         checkRaceDone(room);
       } else {
@@ -979,7 +1165,7 @@ function createRoomManager(deps) {
     if (!room || !p) return;
     leaveRoom(sock.id, room.code);
     if (room.phase === 'racing' && p.state === 'racing') {
-      p.state = 'dnf';
+      stopRunner(p);
       p.connected = false;
       p.socketId = null;
       emitState(room);
@@ -1000,8 +1186,8 @@ function createRoomManager(deps) {
       return ok();
     }
     if (room.phase === 'racing' && p.state === 'racing') {
-      // Wer mitten im Rennen geht, hat aufgegeben; der Eintrag bleibt für die Tabelle
-      p.state = 'dnf';
+      // Wer mitten im Rennen geht, hat aufgegeben (Zeitjagd: mit seiner Bestzeit); der Eintrag bleibt für die Tabelle
+      stopRunner(p);
     }
     if (p.state === 'dnf' || p.state === 'finished') {
       // Ergebnis bleibt sichtbar: als "getrennt" markieren statt entfernen, bis die Runde vorbei ist
@@ -1017,6 +1203,37 @@ function createRoomManager(deps) {
     }
     removePlayer(room, p);
     return ok();
+  }
+
+  // ── Positionen (Geister, Zuschauen) ─────────────────────────────────────
+
+  /** Letzte Position eines Läufers merken; verteilt wird gebündelt (flushPositions). Keine Antwort, kein Fehlertext. */
+  function position(sock, payload = {}) {
+    const ctx = ctxOf(sock);
+    if (!ctx) return;
+    const { room, p } = ctx;
+    if (room.phase !== 'racing' || p.state !== 'racing') return;
+    const { x, y, t } = payload;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > POS_MAX || Math.abs(y) > POS_MAX || !isInt(t, 0, POS_MAX)) return;
+    p.pos = {
+      x: Math.round(x),
+      y: Math.round(y),
+      f: payload.f === -1 ? -1 : 1,
+      t,
+      a: isInt(payload.a, 0, 10 ** 6) ? payload.a : 0,
+    };
+    room.posDirty = true;
+    if (!room.timers.ghosts) setRoomTimer(room, 'ghosts', cfg.GHOST_TICK_MS, () => flushPositions(room));
+  }
+
+  function flushPositions(room) {
+    if (room.phase !== 'racing' || !room.posDirty) return;
+    room.posDirty = false;
+    const list = [];
+    for (const p of room.players.values()) {
+      if (p.pos && p.state === 'racing') list.push([p.id, p.pos.x, p.pos.y, p.pos.f, p.pos.t, p.pos.a]);
+    }
+    if (list.length) emitRoomVolatile(room.code, 'sr:pos', { list });
   }
 
   function ping(_sock, payload = {}) {
@@ -1038,12 +1255,12 @@ function createRoomManager(deps) {
   }
 
   return {
-    create, join, leave, disconnect, setSettings, setColor, start, ready, checkpoint, finish, giveUp, toLobby, ping, sweep, stats,
+    create, join, leave, disconnect, setSettings, setColor, start, ready, checkpoint, finish, giveUp, toLobby, position, ping, sweep, stats,
     // für Tests
     _rooms: rooms,
   };
 }
 
 module.exports = {
-  createRoomManager, MAX_PLAYERS, MAX_ROUNDS, DEFAULT_SETTINGS, DEFAULT_CONFIG, LENGTHS, SPEED_CLASSES, BIOMES, SEED_MODES, PLAYER_COLORS,
+  createRoomManager, MAX_PLAYERS, MAX_ROUNDS, DEFAULT_SETTINGS, DEFAULT_CONFIG, LENGTHS, SPEED_CLASSES, BIOMES, SEED_MODES, MODES, PLAYER_COLORS,
 };

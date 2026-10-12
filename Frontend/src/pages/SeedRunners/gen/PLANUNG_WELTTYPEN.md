@@ -1678,3 +1678,91 @@ Zufallslevel gibt es das nicht. Physik-Änderungen also mit Bedacht.
 
 **Level auf den Server bringen.** `./deploy.sh level` listet die lokal veröffentlichten Level, `./deploy.sh level SR-…`
 überträgt sie (Backend/seedRunners/tools/levelTransfer.js; nie überschreibend, Import als www-data).
+
+### 16s. Kanonen, Luftportale, Schlüsselsprung, Kristall-Tunnel, Luftkristall, Schlot (01.10.2026)
+
+**Rückmeldung:** Level-Generierung gefällt; mehr verschiedene Sprünge und Ideen — vor allem mit Portalen und Schlüsseln
+(„ziemlich eintönig“), neue Dinge wie fliegende Projektile zum Ausweichen, mehr mit Dash-Kristallen („größerer Horizont“), und
+einen Turm, der eng ist und beim Klettern viele Hindernisse hat.
+
+**Neues Element `cannon`** (sim/elements/cannon.js, Editor „Kanone“, Gefahren): sitzt in einem Block wie der Laser, schießt im
+Takt Kugeln in eine von 4 Richtungen, die Kugel fliegt bis zum ersten festen Block. Lage aller Kugeln = reine Funktion der
+Tick-Zahl (kein Zustand, Checkpoint-sicher, laufender Strom schon bei Tick 0). `shotAge` = Ticks seit dem letzten Schuss (danach
+richtet sich der Zug). Parameter period 0,4–8 s, speed 30–400 px/s, radius 3–8, phase. Im Schema am ENDE der Liste (kanonische
+Reihenfolge, bestehende Hashes unverändert). Portal bekam einen optionalen `radius` (ohne Angabe wie bisher 8 px).
+
+**Neue Aufgaben** (planer.js/zuege.js, alle mit ±50 ms in der Sim geprüft, Kettenlauf):
+- **Beschuss** (`beschuss`): 1–2 Kanonen, deren Bahn den Flug kreuzt — flacher Flug: von oben (Tropfen) oder unten (Fontäne),
+  steiler Flug: von der Seite (im Schlot aus der Wand). Ausrichtung nach der FORM der Bahn (der Richtungsname „hochrechts“
+  in der Welle führte in die Irre). Kandidaten: alle Spalten über der Lücke bzw. Zeilen der Bahn, die erste freie gewinnt.
+  Zug wartet auf einen Schuss seiner Kanone (`kanoneRel`) + `schussReaktion`. Langsame Kugeln (60–100 px/s, Takt 0,8–1,3 s).
+  „Harmlos“-Prüfung: derselbe Zug zu 6 anderen Zeitpunkten im Takt — mindestens 2 müssen sterben. Bahn = Strahl (kein anderer
+  Zug), meidet Start/Ziel samt Kopfraum.
+- **Luftportal** (`luftportal`): Eingang im Sprungbogen (erste freie Stelle ab `anteil` der Zeit bis zum Scheitel), Ausgang
+  versetzt (quer 14–24 voraus, hoch 9–14 darüber, runter 6–12 darunter), Schwung bleibt; Landung erst NACH dem Austritt
+  gesucht. Fangradius 14 px: Mit 8 px verfehlten die ±50-ms-Varianten das Portal fast immer (ein Mensch lenkt, die Probe nicht).
+  Eigenes Budget (3, Etappen 5, Leitideen Schlüsselloch/Kugelhagel 12).
+- **Schlüsselsprung** (`schluesselsprung`, auch als Zusatz): Schlüssel am letzten Scheitel (jede Variante muss ihn schnappen,
+  `schluesselEnde`), die Tür steckt im Flug des NÄCHSTEN Zugs (der schlicht gewürfelt wird): eine Kachel dicke Türspalte bzw.
+  Türluke mit Eis daneben. Geprüft: mit Schlüssel trägt jede Variante und öffnet die Tür; ohne Schlüssel weder dieser Zug noch
+  ein schlichter Sprung außen herum. Findet die Tür nach 60 % der Versuche keinen Platz, geht es ohne (sonst Rücknahme-Kaskade
+  bis zum Abbruch). Der Planer zählt Schlüssel jetzt (`schluessel`, Abstecher-Tür verbraucht ihren).
+- **Kristall-Tunnel** (`tunnelkette`): flach unter der Stacheldecke dashen, am Dash-Ende zweiter Kristall → schräg HINAUF auf
+  eine höhere Plattform; die Decke endet vor dem zweiten Kristall. (Zwei flache Dashes trugen nur ~1 Kachel weiter.) Zweiter
+  Druck wird wiederholt, solange die Ladung da ist (fiel er in die Abklingzeit, verfiel der Puffer), HOCH bleibt gehalten.
+- **Luftkristall** (`luftdash`): Sprung, Doppelsprung, im Fallen ein Kristall — schnappen und dashen (flach/schräg).
+- Beide Kristall-Züge dashen erst AM Kristall (echtes Element nahe `kristallRel`), nicht schon mit einer mitgebrachten Ladung.
+- Landung allgemein: zählt erst, wenn man über der Zielzeile war (sonst galt beim Kristall-Tunnel das Absinken als Landung).
+
+**Großform Schlot** (`schlot`): Etappe bzw. Form; Rahmen = Sprungweite + 14 Kacheln (super 26, normal 22), festgelegt beim ersten
+Zug (vom Start aus rechts neben dessen Kopfraum). Alle Plattformen, Bahnen, Bauteile im Rahmen (Kanonen dürfen in der Wand
+sitzen); Richtung nach freiem Platz, frühes Loslassen (8–24 Ticks), schmale Plattformen, höchstens 24 Züge (Höhenbudget für
+Feder/Kette/Portal), 64 Versuche je Zug, dichte Dosierung (80 %/97 %). Füllung: Eiswände 2 dick in 6er-Abschnitten,
+Stachelstreifen an den Innenseiten, Stacheln unter Plattformen, Sägen in freien Nischen (Abstand ≥ 1 zu jeder Bahn), nie Grotte.
+Gemessen: In einem 22er-Schacht kreuzte jeder Sprung den ganzen Schacht — fast keine Aufgabe fand Platz; mit 26 und freier
+Richtung ~30 % Aufgaben (Beschuss, Luftportal, Kette, Einzelblock, Bröckel).
+
+**Autoren/Leitideen:** neu Kanonier (Beschuss, Einzelblock, Bröckel, Tor) und Portalier (Luftportal, Schlüsselsprung, Portal,
+Ring); Tüftler/Flitzer/Kletterer erweitert. Leitideen Kugelhagel, Schlüsselloch, Kristallsturm. Etappen mit Schlot (4 Folgen).
+
+**Gemessen (20 zufällige lange Level, super):** Luftportal 49, Schlüsselsprung 45, Beschuss 38, Kette 13, Kristall-Tunnel/Luftkristall
+selten außerhalb des Kristallsturms; Kettenlauf 19/20 (Ausreißer: Sprung von 2er-Bröckel im Schlot, bekannte Art), Bauzeit Mittel
+4,9 s (ein Schlot-Level 22 s). Leitideen: Kugelhagel 8–14 Kanonen, Schlüsselloch 12 Luftportale + 9–17 Schlüsselsprünge,
+Kristallsturm 2–6 Tunnel + 3–19 Luftkristalle.
+
+**Generator-Version 3** (diese Runde verändert Level): siehe 16r.
+
+### 16t. Nachbesserung nach dem ersten Tagesrennen mit v3 (03.10.2026)
+
+**Rückmeldung:** Erzeugung dauert sehr lange; Schlüssel hängen ohne Zweck in der Luft; im Tagesrennen 3.10. kommt man unter
+den Kugeln durch, ohne je durch den Beschuss zu müssen; Dash-Kristalle ohne Use Case.
+
+**Bauzeit (40–60 s bei Schlot-Leveln).** Das Höhenbudget reservierte 3 Zeilen je noch kommendem Aufstieg — ein Schlot-Zug
+klettert aber mindestens 4. Bei `absturz>strom>schlot` durfte der Strom deshalb bis Zeile ~81 hinauf, dem Schlot fehlten ~40
+Zeilen: tausende Verwerfungen (`platzBelegt`, `hoehe`), das Rücknahme-Budget lief leer, alle 5 Weg-Versuche brachen ab. Jetzt
+(planer.js `hochBedarf`): Bedarf in Zeilen je Zug (Aufstieg 3, Schlot 4 — immer das MINDESTE, mehr machte den Schlot unbaubar),
+Abstiege geben 3 zurück, reserviert wird der höchste Netto-Aufstieg; dazu Kopfraum für die Zielplattform (ZIEL_ZEILE_MIN). Ein
+Weg, der erst auf den letzten 10 % abbricht, wird genommen (typen/pfad.js `fastFertig`; der Planer kürzt ihn ohnehin auf eine
+taugliche Zielplattform), dort höchstens 12 Rücknahmen (`endBudget`). Gemessen (27 Seeds, drei Läufe parallel): 4–22 s, Tagesrennen 3.10. allein
+57 s → 6,5 s.
+
+**Schlüssel ohne Tür.** Fand die Tür im Zug nach einem Schlüsselsprung nach 60 % der Versuche keinen Platz, blieb der Schlüssel
+liegen — und in der Tasche, wo er die Tür eines späteren Abstechers öffnete. Jetzt entfernt der Planer am Ende jeden
+Flug-Schlüssel ohne Tür dahinter und zieht den späteren Zügen einen Schlüssel ab (`zug.schluesselEnt`, Schritt `tuer`).
+
+**Kanonen umgehbar.** Die Prüfung „harmlos“ spielte nur DENSELBEN Zug zu anderen Zeitpunkten. Im Tagesrennen 3.10. lag der
+Fänger einer zweiten Kanone knapp unter dem Bogen — ein flacher Hüpfer ging darunter durch. Jetzt: Bahnen zur Probe zumauern,
+Kanonen weg, gründliche schlichte Sprünge; kommt einer ans Ziel → `beschuss-umgehbar`.
+
+**Kristalle ohne Nutzen.** Vier Ursachen: (1) Kristall-Züge wurden nur mit den 21 Standard-Proben geprüft — ein Dash-Tunnel
+hinab ließ sich mit Fall + spätem Doppelsprung unterfliegen → jetzt gründlich und ohne Vorab-Schätzung (die unterschätzte
+„Fall + Doppelsprung“ bei super). Ein Kristall-Zug wird immer geprüft, auch wenn er als `flach` läuft. (2) Die Prüfung nahm
+alle neuen Elemente weg, auch eine Zielplattform aus Farb-/Bröckelblöcken — dann galt JEDE Mechanik als nötig; jetzt bleibt die
+Zielplattform (`ohneZiel`) und der Schalterzustand (`sw`) geht mit. (3) Ein Zug zurück legte seine Plattform in die Lücke des
+Kristall-Sprungs davor (die Abkürzungsregel prüfte erst ab 3 Plattformen zurück) → hatte der vorige Zug eine Aufgabe, darf
+auch die Plattform davor die neue nicht erreichen (Sim-Probe, `abkuerzung-aufgabe`; die grobe Schätzung allein brach Wege ab).
+(4) Erst die Füllung stellt manchmal eine Eiswand hinter eine schmale Zielplattform, die einen schlichten Fall abfängt →
+`kristalleAufraeumen` nach der Füllung: geht der Zug im fertigen Gelände ohne Kristall UND hält der schlichte Zug den Varianten
+stand, fliegt der Kristall raus und der Zug wird ersetzt. Ein Weg ohne Kristall, der nur auf den Tick genau klappt, zählt nicht.
+
+**Generator-Version 4** (Tagesrennen ab 2026-10-04, GV4_TAGESRENNEN_AB / Backend GV4_AB) — Deploy muss vor diesem Tag liegen.

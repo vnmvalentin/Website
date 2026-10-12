@@ -16,6 +16,7 @@ const { db, encryptToken, decryptToken } = require("../lib/streamToolStore");
 const { helix, validateToken } = require("../lib/twitchHelix");
 const raids = require("../lib/streamToolRaids");
 const stats = require("../lib/streamToolStats");
+const scenes = require("../lib/streamToolScenes");
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
 const MIN_SYNC_INTERVAL_MS = 2000;
@@ -286,10 +287,31 @@ function invalidateGoals(row) {
 }
 
 /** Module, die den Chat-Bot brauchen: Raid-Clips (Raids) und Statistik (Cheers, Abos). */
-const CHAT_MODULE_IDS = [raids.MODULE_ID, stats.MODULE_ID];
+const CHAT_MODULE_IDS = [raids.MODULE_ID, stats.MODULE_ID, ...scenes.CHAT_IDS];
 
+// Der Beitrittsbefehl der Murmelbahn gehört dazu: der Bot führt ihn in einem
+// eigenen Index, der beim Abgleich der Kanäle neu gebaut wird.
 const chatSignature = (config) =>
-  CHAT_MODULE_IDS.map((id) => (config?.modules?.[id]?.enabled ? "1" : "0")).join("");
+  CHAT_MODULE_IDS.map((id) => (config?.modules?.[id]?.enabled ? "1" : "0")).join("") +
+  scenes.joinCommandOf(config?.modules?.[scenes.IDS.marbles]);
+
+/** Szenen fürs Overlay. Ein Fehler hier darf den Rest der Antwort nicht kosten. */
+async function collectScenes(row) {
+  try {
+    return await scenes.collect(row);
+  } catch (e) {
+    console.warn("[stream-tool] Szenen:", e.message);
+    return { hype: null, storm: null, plane: null, marbles: null };
+  }
+}
+
+/** Meldungen der Szenen-Probeläufe. */
+const SCENE_MESSAGES = {
+  module_off: "Schalte das Modul erst ein.",
+  no_settings: "Keine Einstellungen gefunden.",
+  not_open: "Die Anmeldung ist gerade nicht offen.",
+  too_few: "Für ein Rennen braucht es mindestens zwei Murmeln.",
+};
 
 /** Der Chat-Bot muss den Kanal betreten/verlassen, wenn eines dieser Module umschaltet. */
 function refreshChatChannels() {
@@ -346,6 +368,8 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       // beiden Module stumm — das Dashboard soll das sagen können, statt es
       // stillschweigend zu schlucken.
       chatWatch: chatWatchStatus(row),
+      // Fehlende Rechte der Szenen (Hype Train, Raider-Namen)
+      sceneStatus: scenes.status(row),
       serverNow: Date.now(),
     });
   });
@@ -366,7 +390,11 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     // Beim Einschalten der Statistik gilt dasselbe wie bei den Zielen: der
     // Sendungsstand soll sofort kommen und nicht erst in einer halben Minute.
     if (chatChanged || goalSignature(before) !== goalSignature(config)) invalidateGoals(row);
-    if (chatChanged) refreshChatChannels();
+    if (chatChanged) {
+      // Sofort neu aufbauen — auch wenn auf diesem Server kein Bot läuft
+      scenes.getSceneChannels();
+      refreshChatChannels();
+    }
 
     res.json({ ok: true, chatWatch: chatWatchStatus(row) });
   });
@@ -407,6 +435,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       twitchLogin: info.login || "",
       missingGoalScopes: GOAL_SCOPES.filter((s) => !(info.scopes || []).includes(s)),
       hasTwitchGoalScope: (info.scopes || []).includes(TWITCH_GOAL_SCOPE),
+      sceneStatus: scenes.status(getByUser.get(String(req.twitchId))),
     });
   });
 
@@ -416,6 +445,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     updateCache.run("", 0, String(req.twitchId));
     clearRaidEvent.run(String(req.twitchId));
     stats.clearStats(String(req.twitchId));
+    scenes.clear(String(req.twitchId));
     res.json({ ok: true });
   });
 
@@ -423,7 +453,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   router.get("/live", requireAuth, async (req, res) => {
     const row = getOrCreate(String(req.twitchId));
     if (!decryptToken(row.token_enc)) {
-      return res.json({ connected: false, poll: null, prediction: null, goals: null, raid: null, stats: null, chatWatch: chatWatchStatus(row), notice: null, serverNow: Date.now() });
+      return res.json({ connected: false, poll: null, prediction: null, goals: null, raid: null, stats: null, scenes: null, chatWatch: chatWatchStatus(row), notice: null, serverNow: Date.now() });
     }
     const data = await syncFromTwitch(row);
     const fresh = getByUser.get(String(req.twitchId));
@@ -434,6 +464,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       goals: data.goals || null,
       raid: raids.activeRaidEvent(fresh),
       stats: stats.statsModuleOf(fresh) ? stats.currentStats(fresh.user_id) : null,
+      scenes: await collectScenes(fresh),
       // Mitgeschickt, weil der Chat-Bot einen Kanal erst nach ein paar Sekunden
       // betritt — so wird die Anzeige im Dashboard von selbst grün.
       chatWatch: chatWatchStatus(fresh),
@@ -509,6 +540,42 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     res.json({ ok: true });
   });
 
+  // ── Szenen: Probeläufe und Murmelbahn-Steuerung ───────────────────────────
+  const sceneAction = (fn) => (req, res) => {
+    getOrCreate(String(req.twitchId));
+    const result = fn(String(req.twitchId), req.body || {});
+    if (result.error) return res.status(400).json({ error: SCENE_MESSAGES[result.error] || "Das hat nicht geklappt." });
+    res.json({ ok: true });
+  };
+
+  router.post("/scenes/hype/test", requireAuth, sceneAction((id) => scenes.testHype(id)));
+  router.post("/scenes/storm/test", requireAuth, sceneAction((id, body) => scenes.testStorm(id, body.viewers)));
+  router.post("/scenes/plane/test", requireAuth, sceneAction((id) => scenes.testPlane(id)));
+  router.post("/scenes/marbles/open", requireAuth, sceneAction((id) => scenes.marblesOpen(id)));
+  router.post("/scenes/marbles/start", requireAuth, sceneAction((id) => scenes.marblesStart(id)));
+  router.post("/scenes/marbles/bots", requireAuth, sceneAction((id, body) => scenes.marblesAddBots(id, body.count)));
+
+  /** Laufende Szene sofort beenden (Probelauf abbrechen, Rennen absagen). */
+  router.delete("/scenes/:key", requireAuth, (req, res) => {
+    getOrCreate(String(req.twitchId));
+    if (!scenes.stop(String(req.twitchId), String(req.params.key))) {
+      return res.status(404).json({ error: "Unbekannte Szene" });
+    }
+    res.json({ ok: true });
+  });
+
+  /**
+   * Sieger der Murmelbahn, gemeldet von der Quelle, die das Rennen zeigt.
+   * Öffentlich wie die Overlay-Route: wer den Schlüssel hat, ist das Overlay.
+   */
+  router.post("/overlay/:overlayKey/marbles/result", (req, res) => {
+    const row = getByOverlayKey.get(String(req.params.overlayKey || ""));
+    if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link" });
+    const result = scenes.marblesResult(row, req.body && req.body.raceId, req.body && req.body.winnerId);
+    // Abgelehnt heißt fast immer: eine andere Quelle war schneller — kein Fehler
+    res.json({ ok: !result.error, winner: result.winner || null });
+  });
+
   // ── Öffentliche Overlay-Route (OBS) ───────────────────────────────────────
   // Kennt nur den overlay_key, bekommt ausschließlich Anzeigedaten.
   router.get("/overlay/:overlayKey", async (req, res) => {
@@ -527,6 +594,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       // Nur solange der Clip läuft — danach fällt das Feld von selbst wieder weg
       raid: raids.activeRaidEvent(row),
       stats: stats.statsModuleOf(row) ? stats.currentStats(row.user_id) : null,
+      scenes: await collectScenes(row),
       serverNow: Date.now(),
     });
   });

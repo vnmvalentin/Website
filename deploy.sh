@@ -33,11 +33,46 @@ check_sim_mirror() {
     echo "Abbruch: Sacrifice-&-Sigils-Spiegel veraltet. Im Ordner Backend:  npm run sigils:spiegel" >&2
     exit 1
   fi
+  # Flick Soccer: Der Server rechnet Online-Schüsse mit einer gespiegelten Kopie der Physik nach (Backend/flickSoccer/shared).
+  if ! (cd "$ROOT/Backend" && node flickSoccer/tools/spiegel.js --pruefen); then
+    echo "Abbruch: Flick-Soccer-Spiegel veraltet. Im Ordner Backend:  npm run flick:spiegel" >&2
+    exit 1
+  fi
+}
+
+# Sicherheitslücken in Abhängigkeiten: vor jedem Deploy die ungefährlichen Updates einspielen (npm audit fix,
+# bewusst OHNE --force — das würde auch Major-Versionen ziehen) und abbrechen, wenn danach in den AUSGELIEFERTEN
+# Paketen (--omit=dev) noch hohe oder kritische Lücken stecken. Reine Dev-Werkzeuge (puppeteer & Co.) laufen nur
+# hier lokal und halten den Deploy nicht auf. Das Backend bekommt die Fixes über die mitgeschickte
+# package-lock.json (der Server macht danach npm install --omit=dev).
+# Notausgang, z.B. ohne Verbindung zur npm-Registry:  SKIP_AUDIT=1 ./deploy.sh
+fix_vulnerabilities() {
+  local dir="$1"
+  if [ "${SKIP_AUDIT:-}" = "1" ]; then
+    echo "--- npm audit ($dir) übersprungen (SKIP_AUDIT=1)"
+    return
+  fi
+  echo "--- npm audit ($dir)"
+  local lock="$ROOT/$dir/package-lock.json" before after
+  before="$(md5sum "$lock" | cut -d' ' -f1)"
+  # Exit-Code ignorieren: audit fix meldet auch dann einen Fehler, wenn nur Lücken übrig sind, die es ohne
+  # --force nicht beheben darf — ob das schlimm ist, entscheidet die Prüfung direkt darunter.
+  (cd "$ROOT/$dir" && npm audit fix --no-fund --loglevel=error >/dev/null 2>&1) || true
+  after="$(md5sum "$lock" | cut -d' ' -f1)"
+  if [ "$before" != "$after" ]; then
+    echo "Sicherheitsupdates eingespielt — $dir/package-lock.json hat sich geändert, bitte mitcommitten."
+  fi
+  if ! (cd "$ROOT/$dir" && npm audit --omit=dev --audit-level=high); then
+    echo "Abbruch: $dir hat noch hohe/kritische Sicherheitslücken in ausgelieferten Paketen, die npm audit fix" >&2
+    echo "nicht ohne Major-Update beheben kann (Liste oben). Erst beheben, dann erneut deployen." >&2
+    exit 1
+  fi
 }
 
 deploy_frontend() {
   echo "=== Frontend ==="
   check_sim_mirror
+  fix_vulnerabilities Frontend
   cd "$ROOT/Frontend"
 
   npm run build
@@ -62,6 +97,7 @@ deploy_frontend() {
 deploy_backend() {
   echo "=== Backend ==="
   check_sim_mirror
+  fix_vulnerabilities Backend
   cd "$ROOT/Backend"
 
   # Anders als beim Frontend kein tar+atomarer mv-Swap: der laufende Node-Prozess
@@ -85,18 +121,21 @@ deploy_backend() {
   #                                                "data/"!), weil rsync so ein Muster OHNE
   #                                                führenden Slash auf JEDEN gleichnamigen
   #                                                Ordner in der ganzen Baumstruktur anwendet —
-  #                                                das riss bisher auch dle/data/ (Spielinhalte)
+  #                                                das riss früher auch Inhalts-Ordner namens data/
   #                                                und discord/bot/commands/data/ (Modulcode)
   #                                                mit raus, die eigentlich mit sollen. Legt
   #                                                jemand einen NEUEN Ordner mit Live-Datenbanken
   #                                                an, muss er hier einzeln ergänzt werden.
+  #   garden/data/                                 erneuerter Twitch-Broadcaster-Token (gardenGameRoutes.js
+  #                                                legt ihn erst auf dem Server an) — fehlte hier, dadurch
+  #                                                löschte rsync --delete ihn bei jedem Deploy.
   #   clashRoyale/data/cardIconUrls.json           einzige Nicht-Datenbank-Datei in einem sonst
   #                                                ausgeschlossenen Ordner — statischer Inhalt,
   #                                                muss trotzdem mit (siehe cardIconSpiegel.js).
   #   node_modules/   nativ kompiliert (better-sqlite3), zieht sich der Server per npm selbst
   #   sessions.json   eingeloggte Nutzer — sonst wirft jeder Deploy alle raus
   #   .env / .env.*   Server-Zugangsdaten, dürfen nie vom lokalen Dev-.env überschrieben werden
-  local excludes=(--exclude='./data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
+  local excludes=(--exclude='./data' --exclude='./garden/data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
 
   tar -cz "${excludes[@]}" -C . . | ssh "$SERVER" "set -e
     rm -rf '$BACKEND_DEST.new'
@@ -105,7 +144,7 @@ deploy_backend() {
     test -f '$BACKEND_DEST.new/index.js'
     rsync -a --delete \
       --include '/clashRoyale/data/cardIconUrls.json' \
-      --exclude '/data/' --exclude '/clashRoyale/data/*' --exclude '/streamTool/data/' \
+      --exclude '/data/' --exclude '/clashRoyale/data/*' --exclude '/streamTool/data/' --exclude '/garden/data/' \
       --exclude 'node_modules/' --exclude 'sessions.json' \
       --exclude '.env' --exclude '.env.*' \
       '$BACKEND_DEST.new/' '$BACKEND_DEST/'

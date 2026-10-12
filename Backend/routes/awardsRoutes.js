@@ -1,38 +1,24 @@
 const express = require("express");
-const fs = require("fs");
 const path = require("path");
 const { nanoid } = require("nanoid");
+const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
 
 const AWARDS_DB_PATH = path.join(__dirname, "../data/awards-submissions.json");
 const DEFAULT_AWARDS_SEASON = 2026;
 
 // =================== HELPER =====================================
 
+// Über lib/jsonFile.js: atomar, und eine kaputte Datei wird nie mit leeren Daten überschrieben
 function loadAwardsDb() {
-  try {
-    if (!fs.existsSync(AWARDS_DB_PATH)) {
-      return { submissions: [] };
-    }
-    const raw = fs.readFileSync(AWARDS_DB_PATH, "utf8");
-    if (!raw.trim()) return { submissions: [] };
-
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.submissions)) {
-      return { submissions: [] };
-    }
-    return parsed;
-  } catch (e) {
-    console.error("Fehler beim Laden von awards-submissions.json:", e);
+  const parsed = readJson(AWARDS_DB_PATH, { submissions: [] });
+  if (!Array.isArray(parsed?.submissions)) {
     return { submissions: [] };
   }
+  return parsed;
 }
 
 function saveAwardsDb(db) {
-  try {
-    fs.writeFileSync(AWARDS_DB_PATH, JSON.stringify(db, null, 2), "utf8");
-  } catch (e) {
-    console.error("Fehler beim Speichern von awards-submissions.json:", e);
-  }
+  writeJsonAtomic(AWARDS_DB_PATH, db);
 }
 
 // =================== ROUTER FACTORY ==============================

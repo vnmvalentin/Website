@@ -15,12 +15,15 @@
     "balance:run": "node src/pages/SacrificeSigils/tools/balanceRun.js",
     "art:export": "node src/pages/SacrificeSigils/tools/artExport.js",
     "art:prompts": "node src/pages/SacrificeSigils/tools/artPrompts.js",
+    "art:generate": "node src/pages/SacrificeSigils/tools/artGenerate.js",
+    "art:comfy": "node src/pages/SacrificeSigils/tools/artComfy.js",
     "preview": "vite preview",
-    "tailwind:init": "tailwindcss init -p"
+    "tailwind:init": "tailwindcss init -p",
+    "test:flick": "node --test \"src/pages/FlickSoccer/**/*.test.js\"",
+    "test:adventure":"node --test \"src/pages/Adventure/**/*.test.js\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.13",
-    "framer-motion": "^13.1.1",
     "lucide-react": "^0.577.0",
     "nanoid": "^5.1.6",
     "qrcode": "^1.5.4",
@@ -42,6 +45,7 @@
     "postcss": "^8.5.6",
     "puppeteer": "^24.34.0",
     "rollup-plugin-visualizer": "^6.0.5",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.1.13",
     "vite": "^7.1.9"
   }

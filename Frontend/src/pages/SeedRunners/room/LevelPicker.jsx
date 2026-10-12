@@ -1,19 +1,25 @@
 // LevelPicker.jsx — die Level-Auswahl in der Lobby: Favoriten (Community- und Zufallslevel), alle Community-Level (sortierbar,
-// durchsuchbar, auch nach Share-Code) und die bestbewerteten Zufallslevel. Ein Klick auf „In Runde“ legt das Level in die
+// durchsuchbar, auch nach Share-Code), die bestbewerteten Zufallslevel, die eigenen letzten Runden (rundenVerlauf.js) und das
+// Tagesarchiv (ui/tagesArchiv.js), dazu ein eigener Seed (30.09.2026, ersetzt den früheren Seed-Reiter im Rundenplan). Ein Klick auf „In Runde“ legt das Level in die
 // nächste freie Runde des Plans (Lobby.jsx entscheidet, welche).
 //
 // Aus einem Level wird ein Playlist-Eintrag für den Server (Backend/seedRunners/roomManager.js):
 //   Community-Level  → { kind: 'custom', code }
 //   Zufallslevel     → { kind: 'seed', seed, biome }   (Pfad-Generator, lang, „super“ — wie jede Zufallsrunde)
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Plus, Search, Shuffle } from "lucide-react";
 import { getFavorites, getTopRandom, listLevels } from "../levels/levelsApi.js";
 import LevelPreview from "../levels/LevelPreview.jsx";
 import { BIOMES } from "../gen/biomes.js";
 import { formatTicks } from "./format.js";
 import { Tabs, RatingBadge, Spinner, Empty } from "../ui/kit.jsx";
-import { pickOf } from "../ui/levelRef.js";
+import { pickOf, refKey } from "../ui/levelRef.js";
+import { useFavoriten } from "../ui/useFavoriten.js";
+import { getVerlauf, subscribeVerlauf } from "./rundenVerlauf.js";
+import { archivTage, tagesRef, germanDate } from "../ui/tagesArchiv.js";
+import { GEN_VERSION } from "../gen/generator.js";
 
+const ARCHIV_IN_LOBBY = 30;
 const PAGE = 12;
 const COMMUNITY_SORTS = [
   { id: "rated", label: "Bestbewertet" },
@@ -79,7 +85,41 @@ export default function LevelPicker({ onPick, disabled = false, pickText = "In R
   const [sort, setSort] = useState("rated");
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
+  const [seedQ, setSeedQ] = useState("");
   const [top, setTop] = useState({ status: "idle", items: [] });
+  const verlauf = useSyncExternalStore(subscribeVerlauf, getVerlauf, getVerlauf);
+
+  // Verlauf und Tagesarchiv: Einträge im Format der Favoritenliste ({ key, ref, info, title }); dasselbe Level zweimal gespielt
+  // steht nur einmal da. Die Sterne dazu erst, wenn der Reiter offen ist.
+  const verlaufItems = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (const e of verlauf) {
+      const key = refKey(e.ref);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(e.ref.kind === "custom"
+        ? { key, ref: e.ref, code: e.ref.code, name: e.custom?.name || e.ref.code, creator: { name: e.custom?.creatorName || "?" } }
+        : { key, ref: e.ref, info: e.info, ...(e.daily ? { title: "Tages-Level" } : {}) });
+    }
+    return out;
+  }, [verlauf]);
+  const archivItems = useMemo(
+    () => archivTage().slice(0, ARCHIV_IN_LOBBY).map((tag) => ({ key: `d:${tag}`, ref: tagesRef(tag), title: `Tagesrennen vom ${germanDate(tag)}` })),
+    [],
+  );
+  // Eigener Seed: dasselbe Zufallslevel, das eine Zufallsrunde mit diesem Seed bekäme (Biom würfelt der Seed, aktuelle Version)
+  const seed = seedQ.trim().slice(0, 40);
+  const seedItems = useMemo(
+    () => (seed ? [{ key: `s:${seed}`, ref: { kind: "pfad", seed, biome: "random", gv: GEN_VERSION }, title: "Eigener Seed" }] : []),
+    [seed],
+  );
+  const bewertet = useMemo(
+    () => (tab === "verlauf" ? verlaufItems : tab === "archiv" ? archivItems : tab === "seed" ? seedItems : []),
+    [tab, verlaufItems, archivItems, seedItems],
+  );
+  const { status: sterne } = useFavoriten(useMemo(() => bewertet.map((it) => it.ref), [bewertet]));
+  const mitSternen = (items) => items.map((it) => ({ ...it, rating: sterne.get(refKey(it.ref))?.rating }));
 
   // Favoriten zuerst laden: Wer welche hat, sieht sie sofort (sonst die Community-Level)
   useEffect(() => {
@@ -150,7 +190,14 @@ export default function LevelPicker({ onPick, disabled = false, pickText = "In R
         label="Level-Auswahl"
         value={tab || "fav"}
         onChange={setTab}
-        tabs={[{ id: "fav", label: `Favoriten${favs.items.length ? ` (${favs.items.length})` : ""}` }, { id: "community", label: "Community" }, { id: "top", label: "Beste Zufallslevel" }]}
+        tabs={[
+          { id: "fav", label: `Favoriten${favs.items.length ? ` (${favs.items.length})` : ""}` },
+          { id: "community", label: "Community" },
+          { id: "top", label: "Beste Zufallslevel" },
+          { id: "verlauf", label: "Verlauf" },
+          { id: "archiv", label: "Tagesarchiv" },
+          { id: "seed", label: "Seed" },
+        ]}
       />
 
       {(tab || "fav") === "fav" && (
@@ -205,6 +252,39 @@ export default function LevelPicker({ onPick, disabled = false, pickText = "In R
           {top.status === "error" && <Empty>Konnte nicht geladen werden.</Empty>}
           {top.status === "ok" && !top.items.length && <Empty>Noch keine bewerteten Zufallslevel. Nach jeder Runde kann jeder Sterne vergeben.</Empty>}
           {top.items.length > 0 && rows(top.items)}
+        </div>
+      )}
+
+      {tab === "verlauf" && (
+        <div className="pt-3">
+          {!verlaufItems.length && <Empty>Noch keine Runden in diesem Browser. Jedes gespielte Level landet hier.</Empty>}
+          {verlaufItems.length > 0 && rows(mitSternen(verlaufItems))}
+        </div>
+      )}
+
+      {tab === "seed" && (
+        <div className="pt-3">
+          <label className="relative block mb-1">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 sr-faint" />
+            <input
+              value={seedQ}
+              onChange={(e) => setSeedQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && seedItems.length && !disabled) pick(seedItems[0]); }}
+              maxLength={40}
+              placeholder="Seed eingeben"
+              className="sr-input !py-1.5 !pl-8 text-sm"
+              aria-label="Seed"
+            />
+          </label>
+          {seedItems.length > 0 ? rows(mitSternen(seedItems)) : <Empty>Derselbe Seed ergibt bei allen exakt dasselbe Level — auch an einem anderen Tag.</Empty>}
+        </div>
+      )}
+
+      {tab === "archiv" && (
+        <div className="pt-3">
+          {!archivItems.length && <Empty>Noch keine vergangenen Tagesrennen.</Empty>}
+          {archivItems.length > 0 && rows(mitSternen(archivItems))}
+          {archivItems.length > 0 && <p className="text-xs sr-faint pt-2">In der Lobby zählen die Zeiten nicht für die Rangliste des Tages.</p>}
         </div>
       )}
     </div>

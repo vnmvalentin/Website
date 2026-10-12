@@ -19,7 +19,7 @@ import { ITEM_BY_ID } from "../../data/items.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell, useTipHandlers } from "../shellContext.js";
-import { headLabel, headName } from "../common/totemText.js";
+import { baseDesc, baseName, headLabel, headName, headTarget, totemText } from "../common/totemText.js";
 import "./battle.css";
 
 /** Reihen von oben nach unten. Im Gezeiten-Zirkel heißt die Hinterreihe Uferreihe (sie bringt Salz). */
@@ -34,14 +34,24 @@ const ROWS_FOR = (bottom, shore = false) => [
  * Gezeitenanzeige: Phase, Wirkung als Tooltip und wann sie wechselt.
  * @param {{ tide: number, turn: number, shift: number }} props
  */
-function TideGauge({ tide, turn, shift }) {
-  const tip = useTipHandlers(() => (
-    <><b>{de.tide.phases[tide]}</b><br /><span className="opacity-80">{de.tide.effects[tide === 0 ? 0 : tide === 2 ? 2 : isHighWater(tide) ? 1 : 3]}</span></>
-  ));
-  // Wie viele Züge bleibt die Phase noch? (ohne Mondzug)
+/** Wie viele Züge bleibt die Phase noch? (ohne Mondzug) */
+function tideTurnsLeft(tide, turn, shift) {
   let left = 1;
   while (left < 3 && tideAt(turn + left, shift) === tide) left++;
-  const level = [15, 60, 92, 45][tide];
+  return left;
+}
+
+const TIDE_LEVEL = [15, 60, 92, 45];
+
+/** Zuschlag auf die Tischhöhe für die Neigung (rotateX 14° bei perspective 1400px, gemessen bis 1440p). */
+const TABLE_TILT_GROWTH = 1.1;
+
+function TideGauge({ tide, turn, shift }) {
+  const tip = useTipHandlers(() => (
+    <><b>{de.tide.phases[tide]}</b>{de.tide.phaseEffects[tide].map((i) => <React.Fragment key={i}><br /><span className="opacity-80">{de.tide.effects[i]}</span></React.Fragment>)}</>
+  ));
+  const left = tideTurnsLeft(tide, turn, shift);
+  const level = TIDE_LEVEL[tide];
   return (
     <div className={`ss-tide ss-tide-p${tide}`} {...tip} tabIndex={0} aria-label={`${de.tide.phases[tide]}, ${de.tide.next(left)}`}>
       <div className="ss-tide-glass" aria-hidden><div className="ss-tide-water" style={{ height: `${level}%` }} /></div>
@@ -50,6 +60,31 @@ function TideGauge({ tide, turn, shift }) {
         <p className="text-xs ss-faint">{de.tide.next(left)}</p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Gezeiten-Box (Desktop/Tablet): aktuelle Phase mit allen Wirkungen im Klartext und was als Nächstes kommt.
+ * @param {{ tide: number, turn: number, shift: number }} props
+ */
+function TideBox({ tide, turn, shift }) {
+  const left = tideTurnsLeft(tide, turn, shift);
+  const next = (tide + 1) % 4;
+  return (
+    <section className={`ss-b-tide ss-panel ss-tide-p${tide}`} aria-label={de.tide.boxTitle}>
+      <div className="flex items-center gap-2">
+        <div className="ss-tide-glass" aria-hidden><div className="ss-tide-water" style={{ height: `${TIDE_LEVEL[tide]}%` }} /></div>
+        <div className="leading-tight min-w-0">
+          <p className="text-[11px] uppercase tracking-wide ss-faint">{de.tide.boxTitle}</p>
+          <p className="ss-title text-[15px] flex items-center gap-1"><TideMark tide={isHighWater(tide) ? "high" : "low"} size={14} />{de.tide.phases[tide]}</p>
+          <p className="text-xs ss-faint">{isHighWater(tide) ? de.tide.highShort : de.tide.lowShort}</p>
+        </div>
+      </div>
+      <ul className="ss-tide-list">
+        {de.tide.phaseEffects[tide].map((i) => <li key={i}>{de.tide.effects[i]}</li>)}
+      </ul>
+      <p className="ss-tide-next">{de.tide.thenTitle(de.tide.phases[next], left)}</p>
+    </section>
   );
 }
 
@@ -137,22 +172,22 @@ function ItemButton({ id, active, disabled, onClick }) {
   );
 }
 
+/** Totem am Tischrand: wer es bekommt (Kopf), was sie bekommen (Körper) und was das bewirkt. */
 function TotemFigure({ totem, kind, owner, onHover, zirkel }) {
-  const tip = useTipHandlers(() => {
-    const base = totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].name : de.totems.props[totem.base.prop].name;
-    const text = totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].desc : de.totems.props[totem.base.prop].desc;
-    const head = headLabel(totem.head);
-    return <><b>{head}</b><br />{de.totems.base}: {base}<br /><span className="opacity-80">{text}</span></>;
-  });
+  const tip = useTipHandlers(() => (
+    <><b>{totemText(totem.head, totem.base, zirkel)}</b><br />{de.totems.head}: {headLabel(totem.head)}<br />{de.totems.base}: {baseName(totem.base)}<br /><span className="opacity-80">{baseDesc(totem.base)}</span></>
+  ));
   return (
     <div className="ss-totem" {...tip} onMouseEnter={(e) => { tip.onMouseEnter(e); onHover(totem); }} onMouseLeave={() => { tip.onMouseLeave(); onHover(null); }} tabIndex={0}>
       <div className="ss-totem-figure" aria-hidden />
-      <div className="text-xs leading-tight">
+      <div className="text-xs leading-tight min-w-0">
         <div className="ss-title text-[13px]">{owner ? <span className="ss-faint">{owner}: </span> : null}{headName(totem.head, zirkel)}</div>
-        <div className="flex items-center gap-1">
-          {totem.base.kind === "sigil" ? <SigilIcon sigil={totem.base.sigil} size={18} /> : null}
-          <span className="ss-dim">{totem.base.kind === "sigil" ? de.sigils[totem.base.sigil].name : de.totems.props[totem.base.prop].name}</span>
+        <div className="ss-faint text-[11px]">trifft {headTarget(totem.head, zirkel)}</div>
+        <div className="flex items-center gap-1 mt-0.5">
+          {totem.base.kind === "sigil" ? <SigilIcon sigil={totem.base.sigil} size={16} /> : null}
+          <span className="text-[var(--bone)]">{baseName(totem.base)}</span>
         </div>
+        <div className="ss-totem-desc">{baseDesc(totem.base)}</div>
       </div>
       <span className="sr-only">{kind}</span>
     </div>
@@ -196,6 +231,7 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
   const mobile = vw < 1080;
   // Layout (Runde 2, D2): Desktop quer · Tablet/kleiner Laptop · Handy hochkant · Handy quer (kompakt)
   const layout = vw < 700 && vh >= vw ? "portrait" : vh < 560 && vw > vh ? "landscape-s" : vw < 1180 || vh < 720 ? "tablet" : "desktop";
+  const wideLayout = layout === "desktop" || layout === "tablet";
   // Der Kampf füllt genau den Rest des Fensters (dvh), nichts scrollt; die Kartengröße folgt dem Platz des Tischs
   const rootRef = useRef(/** @type {HTMLDivElement|null} */ (null));
   const boardRef = useRef(/** @type {HTMLDivElement|null} */ (null));
@@ -226,7 +262,9 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
   }, []);
   // 4 Lanes nebeneinander (+ Reihenbeschriftung), 4 Reihen à 1,2 Slot-Höhen + Mittellinie untereinander
   const labelSpace = layout === "desktop" || layout === "tablet" ? 34 : 6;
-  const slotPx = Math.floor(Math.max(40, Math.min(190, (boardBox.w - labelSpace) / 4, (boardBox.h - 22) / (4 * 1.2))));
+  // TABLE_TILT_GROWTH: der Tisch ist per rotateX geneigt, die untere Reihe wird dadurch größer projiziert als ihr
+  // Layout-Kasten und ragte sonst über Hinweiszeile und Blut-Zähler
+  const slotPx = Math.floor(Math.max(40, Math.min(190, (boardBox.w - labelSpace) / 4, (boardBox.h - 22) / (4 * 1.2 * TABLE_TILT_GROWTH))));
   const handW = Math.round(Math.max(56, Math.min(layout === "portrait" ? vw / 4.6 : 150, slotPx * (layout === "portrait" ? 0.95 : 0.84))));
   const floats = useFloats(anim, b);
 
@@ -268,6 +306,15 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
 
   const freedSlot = (zone, lane) => sacs.some((s) => s.zone === zone && s.lane === lane) && me[zone][lane] && r.level(me[zone][lane], "ewigesopfer") === 0;
 
+  // Genug Blut, aber noch kein Ziel: die neue Karte landet auf dem Feld des zuletzt gewählten Opfers
+  const needsSacNow = !!selCard && selCard.cost.type === "blood" && needBlood > 0;
+  useEffect(() => {
+    if (!needsSacNow || !bloodReady || target) return;
+    const last = [...sacs].reverse().find((s) => freedSlot(s.zone, s.lane));
+    if (last) setTarget({ zone: last.zone, lane: last.lane });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsSacNow, bloodReady, target, sacs]);
+
   const tryPlay = async (tgt, sacrifices = sacs) => {
     if (!selCard) return;
     const ok = await act({ type: "play", uid: selCard.uid, zone: tgt.zone, lane: tgt.lane, sacrifices });
@@ -299,21 +346,27 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
     if (selCard) {
       if (p !== bottom) return;
       const needsSac = selCard.cost.type === "blood" && needBlood > 0;
-      if (u && needsSac && !freedSlot(zone, lane) && r.laneProp(bottom, lane) !== "heilig") {
-        // Opfer an-/abwählen; ist genug Blut da, macht ein Klick auf ein Opfer dessen Slot zum Ziel
-        setSacs((cur) => (cur.some((s) => s.zone === zone && s.lane === lane) ? cur.filter((s) => !(s.zone === zone && s.lane === lane)) : [...cur, { zone, lane }]));
+      if (!needsSac) {
+        if (!u) await tryPlay({ zone, lane }, []);
+        return;
+      }
+      const marked = sacs.some((s) => s.zone === zone && s.lane === lane);
+      const isTarget = !!target && target.zone === zone && target.lane === lane;
+      if (u && !marked) {
+        // Neues Opfer; das Zielfeld wählt sich von selbst, sobald genug Blut markiert ist (siehe Effekt unten)
+        if (r.laneProp(bottom, lane) === "heilig") return;
+        setSacs((cur) => [...cur, { zone, lane }]);
         sound.play("seal");
         return;
       }
-      if (u && needsSac && freedSlot(zone, lane) && bloodReady) {
-        setTarget({ zone, lane });
+      if (u && marked) {
+        // Markiertes Opfer: bei genug Blut wird sein Feld zum Ziel, sonst (oder wenn es schon Ziel ist) wird es abgewählt
+        if (bloodReady && freedSlot(zone, lane) && !isTarget) { setTarget({ zone, lane }); return; }
+        setSacs((cur) => cur.filter((s) => !(s.zone === zone && s.lane === lane)));
+        if (isTarget) setTarget(null);
         return;
       }
-      if (!u || freedSlot(zone, lane)) {
-        if (!needsSac) { await tryPlay({ zone, lane }, []); return; }
-        setTarget({ zone, lane });
-        return;
-      }
+      setTarget({ zone, lane });
       return;
     }
     if (u) openDetail(u);
@@ -411,7 +464,9 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
   else if (liveMe && !liveMe.drew) hint = "Ziehe eine Karte: Hauptdeck oder Nebendeck.";
   else if (mode === "hammer") hint = "Hammer: Tippe eine eigene Karte an, um sie zu zerstören (gibt Knochen, kein Blut).";
   else if (mode === "item" && item) hint = pinUnit ? "Wähle das Sigil, das entfernt werden soll." : `${de.items[item].name}: Ziel wählen.`;
-  else if (selCard && selCard.cost.type === "blood" && needBlood > 0) hint = `Opfer wählen: ${sacSum}/${needBlood} Blut${target ? " – dann bestätigen" : bloodReady ? " – jetzt Zielslot antippen" : ""}.`;
+  else if (needsSacNow && !bloodReady) hint = `Opfer wählen: Tippe eigene Karten an, bis ${needBlood} Blut erreicht sind (nochmal tippen hebt die Wahl auf).`;
+  else if (needsSacNow && target) hint = `${selCard.name} landet im markierten Feld. Bestätigen – oder ein anderes Opfer- oder freies Feld antippen.`;
+  else if (needsSacNow) hint = `Genug Blut. Tippe das Feld an, auf dem ${selCard.name} landen soll.`;
   else if (selCard) hint = "Zielslot antippen (Front oder Hinterreihe).";
   else hint = "Karte antippen oder ziehen, dann einen freien Slot wählen. Zug beenden, wenn du fertig bist.";
   if (hint && live.phase !== "over" && b.turn <= NO_ATTACK_TURNS) hint = `${de.ui.firstTurnNoAttack}. ${hint}`;
@@ -516,7 +571,7 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
             <span className="text-xs ss-faint">{de.ui.turn} {b.turn}</span>
           </div>
         </div>
-        {tideOn && <TideGauge tide={b.tide} turn={b.turn} shift={b.tideShift || 0} />}
+        {tideOn && !wideLayout && <TideGauge tide={b.tide} turn={b.turn} shift={b.tideShift || 0} />}
       </div>
 
       </div>
@@ -643,9 +698,27 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
                     <button type="button" className="ss-btn ss-btn-sm ss-rush" onClick={() => act({ type: "rush", lane: u.lane })} title="Vorpreschen" aria-label="Vorpreschen"><RushArrow size={16} /></button>
                   )}
                   {u.submerged && <span className="ss-ripple" aria-hidden />}
+                  {marked && (
+                    <span className="ss-sac-tag" aria-hidden>
+                      <BloodDrop size={14} /> Opfer +{r.bloodValueOf(u)}{r.level(u, "ewigesopfer") > 0 ? " · bleibt" : ""}
+                    </span>
+                  )}
                 </div>
               );
             })}
+
+            {/* Landevorschau: hier erscheint die gewählte Karte nach dem Opfern */}
+            {selCard && target && (() => {
+              const ri = rows.findIndex((row) => row.p === bottom && row.zone === target.zone);
+              const occupant = me[target.zone][target.lane];
+              if (ri < 0 || (occupant && !freedSlot(target.zone, target.lane))) return null;
+              return (
+                <div className="ss-unit ss-ghost-unit" style={{ transform: `translate(calc(var(--slot-w) * ${target.lane}), ${rowTop(ri)})`, zIndex: 16 }} aria-hidden>
+                  <div className="ss-ghost"><Card card={selCard} width={slotPx * 0.84} /></div>
+                  <span className="ss-ghost-label">{!bloodReady ? "Ziel" : occupant ? `landet hier, statt ${occupant.card.name}` : "landet hier"}</span>
+                </div>
+              );
+            })()}
 
             {floats.map((f) => {
               const ri = rows.findIndex((row) => row.p === f.p && row.zone === f.zone);
@@ -820,6 +893,9 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
         )}
         {you === null && <p className="text-xs ss-faint text-center">{names[bottom]}: {me.handSize ?? me.hand.length} Karten · {names[top]}: {opp.handSize ?? opp.hand.length} Karten</p>}
       </div>
+
+      {/* ── Gezeiten-Box (auf dem Handy bleibt die kompakte Anzeige im Status) ── */}
+      {tideOn && wideLayout && <TideBox tide={b.tide} turn={b.turn} shift={b.tideShift || 0} />}
 
       </div>
 

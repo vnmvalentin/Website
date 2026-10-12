@@ -60,8 +60,18 @@ function registerMode(descriptor) {
 
 const getMode = (id) => modes.get(id) || null;
 
-// lobby.game.type ist bei Snake historisch nicht gesetzt — dort auf 'snake' zurückfallen
-const modeForGame = (game) => (game ? modes.get(game.type || 'snake') || null : null);
+// lobby.game.type ist bei Snake historisch nicht gesetzt — dort auf 'snake' zurückfallen.
+// Gesucht wird über gameType, nicht über die Modus-ID: bei Elixir Auction 2v2 weichen beide ab
+// (game.type 'auction2v2', ID 'elixir-auction-2v2') — die reine ID-Suche fand den Modus dort
+// nie, wodurch u.a. onTimerExpire ausblieb und eine Gebotsrunde ohne alle Gebote ewig hing.
+const modeForGame = (game) => {
+  if (!game) return null;
+  const type = game.type || 'snake';
+  for (const mode of modes.values()) {
+    if ((mode.gameType || mode.id) === type) return mode;
+  }
+  return null;
+};
 
 const modeForLobby = (lobby) => (lobby ? modes.get(lobby.mode) || null : null);
 

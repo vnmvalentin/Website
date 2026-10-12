@@ -21,6 +21,17 @@ export const WT_I18N = {
     tabAccounts: 'Accounts',
     tabSettings: 'Einstellungen',
     loadingAccounts: 'Lade Accounts…',
+    // ── Arcade-Rahmen (seit dem Umbau im Minigame-Look) ─────────────────────
+    backToWebsite: 'Website',
+    settingsAria: 'Einstellungen',
+    tagLabel: 'Spieler-Kürzel',
+    // Generische Saison-Modi (Spooky Chess League & alles, was künftig kommt)
+    seasonalBestLabel: (p) => (p.tier ? `${p.tier} · Beste ${p.n}` : `Beste ${p.n}`),
+    seasonalModesHint: 'Neue Ranked-Modi einer Season (z.B. Spooky Chess League) tauchen hier automatisch auf, sobald du sie spielst — das Overlay schaltet dann selbst um.',
+    trackingNow: (p) => `Overlay zeigt: ${p.mode}`,
+    // Qualifikationsphase (z.B. Spooky Chess League: 15 Siege in "Casual" bis zum Rang)
+    qualifyLabel: (p) => (p.left > 0 ? `${p.tier} · noch ${p.left} ${p.left === 1 ? 'Sieg' : 'Siege'} bis zum Rang` : `${p.tier} · Rang erreicht`),
+    alsoRunning: 'Laufende Saison-Modi',
 
     // ── AddAccountModal ────────────────────────────────────────────────────
     addAccountTitle: 'Account hinzufügen',
@@ -87,9 +98,28 @@ export const WT_I18N = {
     // 100% steht für VOLL sichtbar — "Transparenz" hätte das genau umgekehrt gelesen
     // (100% Transparenz = unsichtbar). "Deckkraft" passt zur tatsächlichen Reglerrichtung.
     transparency: 'Deckkraft',
+    overlayScaleLabel: 'Größe im Overlay',
+    overlayScaleNote: 'Zeichnet das Overlay größer, statt es in OBS hochzuziehen — die Schrift bleibt scharf. Danach die Browserquelle in OBS entsprechend größer machen.',
+    statProfit: 'Profit',
+    statSteps: 'Stufen',
+    statRecord: 'Bilanz',
+    statWinRate: 'Winrate',
     // ── Farben-Karte ─────────────────────────────────────────────────────────
     sectionColorsTitle: 'Farben',
     sectionColorsDesc: 'Hintergrund, Verlauf und Rahmen der Overlay-Karte.',
+    sectionLookTitle: 'Aussehen',
+    sectionLookDesc: 'Grundstil der Overlay-Karte.',
+    lookClassic: 'Klassisch',
+    lookClassicTitle: 'Schlichte Karte, Farben frei wählbar',
+    lookRoyale: 'Clash Royale',
+    lookRoyaleTitle: 'Spieltafel mit Kontur-Schrift wie im Spiel',
+    royalePanelLabel: 'Tafelfarbe',
+    royalePanelBlue: 'Blau',
+    royalePanelRed: 'Rot',
+    royalePanelPurple: 'Lila',
+    royalePanelDark: 'Dunkel',
+    royalePatternLabel: 'Rauten-Muster',
+    royalePatternNote: 'Das Karo aus den Spielmenüs auf der Tafel.',
     bgColorLabel: 'Hintergrundfarbe',
     bgGradientLabel: 'Verlauf',
     bgGradientDesc: 'Zweite Farbe für einen diagonalen Verlauf statt einer einfarbigen Fläche.',
@@ -165,7 +195,6 @@ export const WT_I18N = {
     chatCmdDescMid: ' (und du selbst) das Overlay per Chat steuern können — kein zusätzlicher Twitch-Connect, läuft über den ohnehin schon laufenden Chat-Bot der Seite:',
     chatCmdList: [
       { code: '!tracker set #KÜRZEL', desc: 'zeigt diesen (bereits verknüpften) Account im Overlay' },
-      { code: '!tracker mode <ranked|trophy|2v2>', desc: 'wechselt den getrackten Wert des aktiven Accounts' },
       { code: '!tracker reset', desc: 'setzt die Session (Profit/Win-Loss/letzte 5) des aktiven Accounts im gerade getrackten Modus zurück' },
       { code: '!tracker add #KÜRZEL', desc: 'verknüpft einen neuen Account' },
       { code: '!tracker list', desc: 'listet alle verknüpften Accounts mit Spielername' },
@@ -200,6 +229,17 @@ export const WT_I18N = {
     tabAccounts: 'Accounts',
     tabSettings: 'Settings',
     loadingAccounts: 'Loading accounts…',
+    // ── Arcade frame ─────────────────────────────────────────────────────────
+    backToWebsite: 'Website',
+    settingsAria: 'Settings',
+    tagLabel: 'Player tag',
+    // Generic seasonal modes (Spooky Chess League and whatever comes next)
+    seasonalBestLabel: (p) => (p.tier ? `${p.tier} · Best ${p.n}` : `Best ${p.n}`),
+    seasonalModesHint: 'New ranked modes of a season (e.g. Spooky Chess League) show up here automatically as soon as you play them — the overlay then switches on its own.',
+    trackingNow: (p) => `Overlay shows: ${p.mode}`,
+    // Qualification phase (e.g. Spooky Chess League: 15 wins in "Casual" to get ranked)
+    qualifyLabel: (p) => (p.left > 0 ? `${p.tier} · ${p.left} ${p.left === 1 ? 'win' : 'wins'} to rank` : `${p.tier} · rank reached`),
+    alsoRunning: 'Running seasonal modes',
 
     // ── AddAccountModal ────────────────────────────────────────────────────
     addAccountTitle: 'Add account',
@@ -264,9 +304,28 @@ export const WT_I18N = {
     // 100% means FULLY visible — "Transparency" would have read the opposite way (100%
     // transparency = invisible). "Opacity" matches the slider's actual direction.
     transparency: 'Opacity',
+    overlayScaleLabel: 'Overlay size',
+    overlayScaleNote: 'Renders the overlay larger instead of stretching it in OBS, so the text stays sharp. Make the OBS browser source bigger to match.',
+    statProfit: 'Profit',
+    statSteps: 'Steps',
+    statRecord: 'Record',
+    statWinRate: 'Win rate',
     // ── Colors card ──────────────────────────────────────────────────────────
     sectionColorsTitle: 'Colors',
     sectionColorsDesc: 'Background, gradient and border of the overlay card.',
+    sectionLookTitle: 'Style',
+    sectionLookDesc: 'Base style of the overlay card.',
+    lookClassic: 'Classic',
+    lookClassicTitle: 'Plain card, free colors',
+    lookRoyale: 'Clash Royale',
+    lookRoyaleTitle: 'Game panel with outlined text like in-game',
+    royalePanelLabel: 'Panel color',
+    royalePanelBlue: 'Blue',
+    royalePanelRed: 'Red',
+    royalePanelPurple: 'Purple',
+    royalePanelDark: 'Dark',
+    royalePatternLabel: 'Diamond pattern',
+    royalePatternNote: 'The checkered pattern from the game menus on the panel.',
     bgColorLabel: 'Background color',
     bgGradientLabel: 'Gradient',
     bgGradientDesc: 'A second color for a diagonal gradient instead of a flat fill.',
@@ -340,7 +399,6 @@ export const WT_I18N = {
     chatCmdDescMid: ' (and you) can control the overlay via chat — no additional Twitch connection needed, it runs through the site’s existing chat bot:',
     chatCmdList: [
       { code: '!tracker set #TAG', desc: 'shows this (already-linked) account in the overlay' },
-      { code: '!tracker mode <ranked|trophy|2v2>', desc: 'switches the tracked value of the active account' },
       { code: '!tracker reset', desc: "resets the active account's session (profit/win-loss/last 5) in its currently tracked mode" },
       { code: '!tracker add #TAG', desc: 'links a new account' },
       { code: '!tracker list', desc: 'lists every linked account with its player name' },

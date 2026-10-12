@@ -4,7 +4,8 @@
 // denselben Stand sehen (useSyncExternalStore in FxPanel.jsx). Gespeichert wird im Browser; ist der
 // Speicher gesperrt (privates Fenster), gelten die Werte bis zum Neuladen.
 //
-// "Bildschütteln" ist standardmäßig aus, wenn das System "Bewegung reduzieren" meldet.
+// "Bildschütteln" und der laufende Menü-Hintergrund sind standardmäßig aus, wenn das System "Bewegung reduzieren" meldet —
+// danach entscheidet der eigene Schalter, nicht mehr das System (menuBewegung seit 27.09.2026).
 //
 // Dazu die Anzeige (26.09.2026): Minimap (Größe, Ecke, Ausschnitt) und die eigene Figurenfarbe. In einem Raum bekommt man die
 // Wunschfarbe, wenn sie dort frei ist (Backend/seedRunners/roomManager.js) — die Figur trägt dann die Farbe des Raums.
@@ -27,8 +28,12 @@ const reducedMotion = () => {
 };
 
 const defaults = () => ({
-  sound: true, volume: 0.6, shake: !reducedMotion(), particles: true,
-  minimap: 'mittel', minimapEcke: 'or', minimapAnsicht: 'umgebung', farbe: null,
+  sound: true, volume: 0.6, shake: !reducedMotion(), particles: true, menuBewegung: !reducedMotion(),
+  minimap: 'klein', minimapEcke: 'or', minimapAnsicht: 'umgebung', farbe: null,
+  // Mehrspieler: die anderen Läufer als halbdurchsichtige Figuren im eigenen Bild (27.09.2026)
+  geister: true,
+  // Am Rechner füllt der laufende Lauf den Bildschirm (room/RaceView.jsx „Bühne“, 12.10.2026)
+  vollbild: true,
 });
 
 function load() {
@@ -41,10 +46,13 @@ function load() {
       volume: typeof raw.volume === 'number' ? Math.min(1, Math.max(0, raw.volume)) : base.volume,
       shake: typeof raw.shake === 'boolean' ? raw.shake : base.shake,
       particles: typeof raw.particles === 'boolean' ? raw.particles : base.particles,
+      menuBewegung: typeof raw.menuBewegung === 'boolean' ? raw.menuBewegung : base.menuBewegung,
       minimap: aus(MINIMAP_GROESSEN, raw.minimap, base.minimap),
       minimapEcke: aus(MINIMAP_ECKEN, raw.minimapEcke, base.minimapEcke),
       minimapAnsicht: aus(MINIMAP_ANSICHTEN, raw.minimapAnsicht, base.minimapAnsicht),
       farbe: FIGUR_FARBEN.includes(raw.farbe) ? raw.farbe : null,
+      geister: typeof raw.geister === 'boolean' ? raw.geister : base.geister,
+      vollbild: typeof raw.vollbild === 'boolean' ? raw.vollbild : base.vollbild,
     };
   } catch {
     return base;

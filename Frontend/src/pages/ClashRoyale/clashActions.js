@@ -40,9 +40,15 @@ export function createClashActions(emitToLobby, setMyBid) {
     setPlayerSpectator: (targetPlayerId, isSpectator) =>
       emitToLobby('clash:setPlayerSpectator', { targetPlayerId, isSpectator }),
     setMode: (mode) => emitToLobby('clash:setMode', { mode }),
+    // ── Zufallsmodus ─────────────────────────────────────────────────────────
+    setRandomMode: (enabled) => emitToLobby('clash:setRandomMode', { enabled }),
+    setRandomModes: (modes) => emitToLobby('clash:setRandomModes', { modes }),
+    setRandomNoRepeat: (value) => emitToLobby('clash:setRandomNoRepeat', { value }),
     // ── Solo/Duo & Teams ─────────────────────────────────────────────────────
     setPartyMode: (partyMode) => emitToLobby('clash:setPartyMode', { partyMode }),
     switchTeam: (team, targetPlayerId) => emitToLobby('clash:switchTeam', { team, targetPlayerId }),
+    setTeamCount: (count) => emitToLobby('clash:setTeamCount', { count }),
+    randomizeTeams: () => emitToLobby('clash:randomizeTeams'),
     applyPreset: (presetId) => emitToLobby('clash:applyModePreset', { presetId }),
     setExcludedCards: (cardIds) => emitToLobby('clash:setExcludedCards', { cardIds }),
     // Kartenpool auf die Schnittmenge der freigeschalteten Karten aller verknüpften Spieler
@@ -93,12 +99,14 @@ export function createClashActions(emitToLobby, setMyBid) {
     setRushLifetime: (seconds) => emitToLobby('clash:setRushLifetime', { seconds }),
     setRushShowElixir: (show) => emitToLobby('clash:setRushShowElixir', { show }),
     setRushShowTimer: (show) => emitToLobby('clash:setRushShowTimer', { show }),
+    setRushElixirSpeed: (speed) => emitToLobby('clash:setRushElixirSpeed', { speed }),
     rushBuy: (slotIdx, seq) => emitToLobby('clash:rush:buy', { slotIdx, seq }),
 
     // ── Elixir Rush 2v2 ──────────────────────────────────────────────────────
     setRush2v2MarketSize: (count) => emitToLobby('clash:setRush2v2MarketSize', { count }),
     setRush2v2Lifetime: (seconds) => emitToLobby('clash:setRush2v2Lifetime', { seconds }),
     setRush2v2MaxElixir: (amount) => emitToLobby('clash:setRush2v2MaxElixir', { amount }),
+    setRush2v2ElixirSpeed: (speed) => emitToLobby('clash:setRush2v2ElixirSpeed', { speed }),
     rush2v2Buy: (slotIdx, seq) => emitToLobby('clash:rush2v2:buy', { slotIdx, seq }),
 
     // ── Karten-Evolution ────────────────────────────────────────────────────

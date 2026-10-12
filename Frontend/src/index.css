@@ -404,6 +404,17 @@ summary::-webkit-details-marker { display: none; }
 
   --cr-arcade-ink: #2b1c10; /* dunkles Braun statt reinem Schwarz für Kartenrahmen */
   --cr-panel-edge: #071225; /* Kante der blauen Flächen (Panels, Kacheln, Leisten) */
+
+  /* Schrift auf Knöpfen wie im Spiel: weiß mit schwarzer Kontur rundum (acht gestapelte
+     text-shadows, siehe .cr-arcade-title für das Warum) plus harter Schatten nach unten. */
+  --cr-text-outline:
+    -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000,
+    0 -1.5px 0 #000, 0 1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000,
+    0 3px 0 rgba(0, 0, 0, 0.45);
+  --cr-text-outline-thick:
+    -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000,
+    0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000,
+    0 4px 0 rgba(0, 0, 0, 0.45);
 }
 
 /* ── Buttons ───────────────────────────────────────────────────────────
@@ -431,7 +442,7 @@ summary::-webkit-details-marker { display: none; }
   border-radius: 14px;
   padding: 0.85em 1.5em;
   line-height: 1.1;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  text-shadow: var(--cr-text-outline);
   background: linear-gradient(to bottom, var(--cr-arcade-face-light), var(--cr-arcade-face));
   /* Schattierung wie die Knöpfe im Spiel: heller Lichtrand oben innen, dunklere
      Unterkante innen — dazu der harte 3D-Sockel und ein weicher Bodenschatten. */
@@ -471,7 +482,7 @@ summary::-webkit-details-marker { display: none; }
   filter: grayscale(0.6) brightness(0.75);
 }
 .cr-arcade-btn--block { width: 100%; }
-.cr-arcade-btn--lg { padding: 1.05em 1.8em; font-size: 1.15rem; border-radius: 18px; --cr-arcade-shadow-depth: 7px; }
+.cr-arcade-btn--lg { padding: 1.05em 1.8em; font-size: 1.15rem; border-radius: 18px; --cr-arcade-shadow-depth: 7px; text-shadow: var(--cr-text-outline-thick); }
 .cr-arcade-btn--sm { padding: 0.55em 1.05em; font-size: 0.82rem; border-radius: 10px; --cr-arcade-shadow-depth: 4px; }
 
 .cr-arcade-btn--blue {
@@ -489,13 +500,11 @@ summary::-webkit-details-marker { display: none; }
   --cr-arcade-face-light: var(--cr-arcade-red-light);
   --cr-arcade-face-dark: var(--cr-arcade-red-dark);
 }
-/* Gold braucht dunklen statt weißen Text — Kontrast auf hellem Gelb */
+/* Gold: wie im Spiel ebenfalls weiße Schrift mit Kontur — die Kontur trägt den Kontrast auf Gelb */
 .cr-arcade-btn--gold {
   --cr-arcade-face: var(--cr-arcade-gold);
   --cr-arcade-face-light: var(--cr-arcade-gold-light);
   --cr-arcade-face-dark: var(--cr-arcade-gold-dark);
-  color: #4a2e00;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 /* ── Overlay-Karten im Comic-Look ─────────────────────────────────────────
@@ -662,7 +671,7 @@ summary::-webkit-details-marker { display: none; }
   background: linear-gradient(to bottom, #3160a0, #22477a);
   border-color: var(--cr-arcade-gold);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 3px 0 #0a1a31;
-  text-shadow: 0 2px 0 rgba(2, 8, 20, 0.6);
+  text-shadow: var(--cr-text-outline);
 }
 /* Handy: inaktive Reiter nur als Symbol, damit alle in eine Zeile passen */
 @media (max-width: 639px) {
@@ -761,6 +770,7 @@ summary::-webkit-details-marker { display: none; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #0a1a31, 0 6px 12px rgba(2, 8, 20, 0.3);
 }
 .cr-chip:hover { background: linear-gradient(to bottom, #2a5591, #1c3d69); }
+.cr-chip { text-shadow: var(--cr-text-outline); }
 
 /* Kleines Etikett über einem Abschnitt oder Wert */
 .cr-eyebrow {

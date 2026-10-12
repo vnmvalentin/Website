@@ -22,6 +22,7 @@ import { useProfile } from './useProfile';
 import { createClashActions } from './clashActions';
 import { isKnownAvatar } from './components/avatars';
 import HubScreen from './hub/HubScreen';
+import { useFriends } from './hub/useFriends';
 import LobbyScreen from './lobby/LobbyScreen';
 import GameScreen from './game/GameScreen';
 import BattleSplash from './ui/BattleSplash';
@@ -30,11 +31,24 @@ import { modeNameFor } from './modesConfig';
 import { useCrPrefs } from './ui/crPrefs';
 
 export default function ClashRoyalePage() {
-  const { user } = useContext(TwitchAuthContext);
+  const { user, login } = useContext(TwitchAuthContext);
   const { lang, t, changeLang } = useLanguage();
   const socket = useClashSocket(user);
   const profileState = useProfile(user);
   const { profile, loading: profileLoading } = profileState;
+
+  // Freundesliste (hub/FriendsPanel.jsx) — nach useClashSocket, damit der Socket schon steht.
+  // Visitenkarte = Profilname (nicht das Hub-Eingabefeld, das ändert sich bei jedem Tastendruck).
+  const friendName = (profile.displayName || user?.displayName || user?.login || '').slice(0, 24);
+  const friends = useFriends(socket.socketRef, user, {
+    name: friendName, avatarId: socket.selectedAvatar, avatarUrl: socket.selectedAvatarUrl,
+  });
+  // Beitreten aus der Freundesliste: ist im Hub noch kein Name getippt, den Profilnamen nehmen.
+  const joinFriendLobby = (code) => {
+    const typed = socket.playerName.trim();
+    if (!typed && friendName) socket.setPlayerName(friendName);
+    socket.joinLobby(code, typed || friendName);
+  };
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   const actions = useMemo(
@@ -177,6 +191,10 @@ export default function ClashRoyalePage() {
         linkCr={profileState.linkCr}
         unlinkCr={profileState.unlinkCr}
         switchActiveCr={profileState.switchActiveCr}
+        friends={friends}
+        user={user}
+        login={login}
+        onJoinFriend={joinFriendLobby}
       />
     );
   }

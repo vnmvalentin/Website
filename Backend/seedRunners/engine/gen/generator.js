@@ -61,11 +61,23 @@ export const GEN_PFAD = 'pfad';
  * so bleiben Favoriten, vergangene Tagesrennen und geteilte Seeds genau dasselbe Level. Muss zu Backend/seedRunners/genVersion.js
  * passen. Parameter ohne `gv` stammen aus der Zeit vor der Versionierung: Version 1.
  */
-export const GEN_VERSION = 1;
+// Version 2 (27.09.2026): Spikes an offenen Blockkanten töten jetzt auch dort, wo man vorher auf 1–3 px des Blocks stehen
+// konnte (sim/elements/spike.js). Der Generator probt Züge mit der Sim, deshalb baut derselbe Seed ein etwas anderes Level.
+// Version 3 (01.10.2026): Kanonen, Luftportale, Schlüsselsprung, Kristall-Tunnel, Luftkristall, Großform Schlot (PLANUNG 16s).
+// Version 4 (03.10.2026): Höhenbudget je Zeile (Schlot baute 40–60 s), keine Schlüssel ohne Tür, Kanonenbahnen nicht umgehbar,
+// Kristalle nur, wo sie gebraucht werden (PLANUNG 16t).
+export const GEN_VERSION = 4;
 const cleanGv = (v) => (Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 999 ? Number(v) : 1);
 
 /** Ab diesem Tag ist das Tagesrennen ein Pfad-Level (muss zu Backend/seedRunners/daily.js passen) */
 export const PFAD_TAGESRENNEN_AB = '2026-09-26';
+/** Ab diesem Tag baut das Tagesrennen mit Generator-Version 2 (muss zu Backend/seedRunners/daily.js passen) — frühere Tage
+ * behalten Version 1, sonst änderte sich rückwirkend das Level vergangener Tage */
+export const GV2_TAGESRENNEN_AB = '2026-09-28';
+/** Ab diesem Tag Generator-Version 3 (muss zu Backend/seedRunners/daily.js passen; nach dem Deploy liegen) */
+export const GV3_TAGESRENNEN_AB = '2026-10-03';
+/** Ab diesem Tag Generator-Version 4 (muss zu Backend/seedRunners/daily.js passen; nach dem Deploy liegen) */
+export const GV4_TAGESRENNEN_AB = '2026-10-04';
 
 export function normalizeParams(raw = {}) {
   if (raw.gen === GEN_PFAD) {
@@ -82,9 +94,11 @@ export function normalizeParams(raw = {}) {
 
 /** Der Tages-Seed: alle Besucher bekommen am selben Kalendertag dasselbe Level. */
 export function dailyParams(dateKey) {
-  // (Tagesrennen bauen mit Version 1; bekommt der Generator eine neue Version, kommt hier ein Stichtag dazu — frühere Tage
-  // behalten ihre Version, sonst änderte sich rückwirkend das Level vergangener Tage)
-  if (dateKey >= PFAD_TAGESRENNEN_AB) return normalizeParams({ seed: `daily-${dateKey}`, biome: 'random', gen: GEN_PFAD, gv: 1 });
+  // (Jede Generator-Version bekommt einen Stichtag — frühere Tage behalten ihre Version, sonst änderte sich rückwirkend das
+  // Level vergangener Tage)
+  if (dateKey >= PFAD_TAGESRENNEN_AB) {
+    return normalizeParams({ seed: `daily-${dateKey}`, biome: 'random', gen: GEN_PFAD, gv: dateKey >= GV4_TAGESRENNEN_AB ? 4 : dateKey >= GV3_TAGESRENNEN_AB ? 3 : dateKey >= GV2_TAGESRENNEN_AB ? 2 : 1 });
+  }
   return normalizeParams({ seed: `daily-${dateKey}`, length: 'medium', speedClass: 'normal', biome: 'random' });
 }
 

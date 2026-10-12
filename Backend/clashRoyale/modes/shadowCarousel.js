@@ -392,3 +392,7 @@ registerMode({
     },
   },
 });
+
+// Die Routen brauchen die erlaubten Tischgrößen, um sie beim Ausschließen von Karten nach unten
+// anzupassen (clash:setExcludedCards) — dieselbe Liste wie oben, keine zweite Kopie.
+module.exports = { CAROUSEL_TABLE_SIZES };

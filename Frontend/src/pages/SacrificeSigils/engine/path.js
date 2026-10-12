@@ -7,7 +7,7 @@
 
 import { COLLECTIBLE, CARDS, RARITIES, resolveCard } from "./cards.js";
 import { pickWeighted, rand, randInt, shuffle, streamFrom } from "./rng.js";
-import { MIN_DECK, CAMPFIRE_RISK } from "../data/events.js";
+import { MIN_DECK, CAMPFIRE_RISK, MAX_CAMPFIRES_PER_MAP } from "../data/events.js";
 import { ITEMS, MAX_ITEMS } from "../data/items.js";
 import { allHeads, allBases, sameHead, sameBase, totemSlot, combineError } from "../data/totems.js";
 import { parseSigil } from "./sigils/index.js";
@@ -25,15 +25,17 @@ export function generateMap(seed, pathNo, levels, zirkelId) {
   const s = streamFrom("map", seed, pathNo);
   const usedEvents = new Set();
   const nodes = [];
+  let campfires = 0;
   for (let lv = 0; lv < levels; lv++) {
     const row = [];
     const used = new Set();
     for (let st = 0; st < STRANDS; st++) {
-      const options = z.pathNodeTypes.filter(([t]) => !used.has(t) || t === "cardChoice");
+      const options = z.pathNodeTypes.filter(([t]) => (!used.has(t) || t === "cardChoice") && (t !== "campfire" || campfires < MAX_CAMPFIRES_PER_MAP));
       // Kartenwahl höchstens zweimal pro Ebene
       const cc = row.filter((n) => n.type === "cardChoice").length;
       const type = pickWeighted(s, /** @type {any} */ (options.filter(([t]) => t !== "cardChoice" || cc < 2)));
       used.add(type);
+      if (type === "campfire") campfires += 1;
       /** @type {any} */
       const node = { type };
       if (type === "cardChoice") {

@@ -16,6 +16,9 @@
     "test:sigils": "node --test \"sacrificeSigils/**/*.test.js\"",
     "sigils:spiegel": "node sacrificeSigils/tools/spiegel.js",
     "sigils:spiegel:pruefen": "node sacrificeSigils/tools/spiegel.js --pruefen",
+    "flick:spiegel": "node flickSoccer/tools/spiegel.js",
+    "flick:spiegel:pruefen": "node flickSoccer/tools/spiegel.js --pruefen",
+    "test:flick": "node --test \"flickSoccer/**/*.test.js\"",
     "test:cr-turnier": "node --test \"clashRoyale/tournament/__tests__/*.test.js\""
   },
   "keywords": [],

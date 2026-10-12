@@ -145,6 +145,11 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
       // Nur bei 2v2-Ranked genutzt (siehe applyLeague2v2Deltas in crWinTrackerRoutes.js) — die
       // API liefert hier kein trophyChange, wohl aber den Kontostand VOR dem Match.
       startingTrophies: typeof team.startingTrophies === 'number' ? team.startingTrophies : null,
+      // Ob trophyChange wirklich geliefert wurde (oben steht sonst eine 0) — saisonale Modi
+      // rechnen fehlende Werte aus startingTrophies nach (siehe fillSeasonalDeltas).
+      trophyChangeKnown: typeof team.trophyChange === 'number',
+      // Event-Zuordnung (GET /events) — liefert den Anzeigenamen saisonaler Modi.
+      eventTag: b.eventTag || '',
       // Rohe Kartenliste des eigenen Teams (Name, Level, Evo-Stufe) — nicht persistiert in
       // cr_wintracker_battles, aber während des Syncs verfügbar, um das "aktuelle Deck" je
       // Modus abzuleiten (die API kennt keinen eigenen Endpoint dafür).
@@ -251,8 +256,19 @@ async function fetchPlayerCards(tag, token) {
   return { names: (data.cards || []).map((c) => c.name).filter(Boolean) };
 }
 
+/**
+ * Laufende Event-Rotation (GET /events, undokumentiert): [{ eventTag, title, description }].
+ * Liefert immer ein Array (leer bei Fehler) — die Titel sind nur Beschriftung.
+ */
+async function fetchEvents(token) {
+  const data = await crApiGetSafe('/events', { token });
+  const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+  return list.filter((e) => e && e.title).map((e) => ({ eventTag: e.eventTag || '', title: String(e.title) }));
+}
+
 module.exports = {
   CR_API_BASE,
+  fetchEvents,
   isConfigured,
   normalizeTag,
   crApiGet,

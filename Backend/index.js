@@ -22,18 +22,20 @@ const createAwardsRouter = require("./routes/awardsRoutes");
 const createGiveawayRouter = require("./routes/giveawayRoutes");
 const createWinchallengeRouter = require("./winchallenge/winchallengeRoutes");
 const createPollRouter = require("./routes/pollRoutes");
-const createCasinoRouter = require("./routes/casinoRoutes");
-const createAdventureRouter = require("./routes/adVenturesRoutes");
+const createAdventureRouter = require("./adventure/routes");
 const createAdminRouter = require("./routes/adminRoutes");
 const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
 const createGardenGameRouter = require("./garden/routes/gardenGameRoutes");
 const discordClient = require("./discord/bot/index");
 const createDiscordRouter = require("./discord/api/index");
-const { createClashRoyaleRouter, registerClashRoyaleSocket } = require("./clashRoyale/routes/clashRoyaleRoutes");
+const { createClashRoyaleRouter, registerClashRoyaleSocket, initLobbyPersistence } = require("./clashRoyale/routes/clashRoyaleRoutes");
+// CR-Lobbys überleben einen Neustart: vor dem ersten Socket laden, beim Beenden speichern
+initLobbyPersistence();
 const { registerConnect4Socket } = require("./routes/connect4Routes");
 const { registerSeedRunnersSocket } = require("./routes/seedRunnersRoutes");
 const { registerSacrificeSigilsSocket } = require("./routes/sacrificeSigilsRoutes");
+const { registerFlickSoccerSocket } = require("./routes/flickSoccerRoutes");
 const { createSeedRunnersRouter } = require("./seedRunners/routes");
 const { getRuntime: getSeedRunnersRuntime } = require("./seedRunners/runtime");
 // Blobby Volley läuft NICHT hier, sondern als eigener Prozess: blobbyServer.js. Seine
@@ -42,6 +44,7 @@ const { getRuntime: getSeedRunnersRuntime } = require("./seedRunners/runtime");
 const createCrStreamerRouter = require("./clashRoyale/routes/crStreamerRoutes");
 const { initCrStreamerStore } = require("./clashRoyale/lib/crStreamerStore");
 const createCrProfileRouter = require("./clashRoyale/routes/crProfileRoutes");
+const createCrFriendRouter = require("./clashRoyale/routes/crFriendRoutes");
 const { initCrProfileStore } = require("./clashRoyale/lib/crProfileStore");
 const createBannedCardsRouter = require("./clashRoyale/routes/bannedCardsRoutes");
 const createNuzlockeRouter = require("./clashRoyale/routes/nuzlockeRoutes");
@@ -52,7 +55,6 @@ const { registerTournamentSocket } = require("./clashRoyale/tournament/matchRoom
 const createStreamToolRouter = require("./streamTool/routes/streamToolRoutes");
 const { registerLiveBadgesSocket } = require("./lib/liveBadges");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
-const createDleRouter = require("./dle/routes/dleRoutes");
 const {
     saveAllFarmsOnExit, initGardenFarmsStore, farmStates,
     scheduleFarmsSave: scheduleFarmsSaveFuerMigration,
@@ -62,6 +64,7 @@ const { runGardenMigrations } = require("./garden/migrations");
 const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./winchallenge/winchallengeStore");
 const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc } = require("./lib/winchallengeIrc");
 const { step } = require("./lib/startupLog");
+const { writeJsonAtomic } = require("./lib/jsonFile");
 
 const app = express();
 
@@ -103,7 +106,6 @@ app.use(
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSIONS_PATH = path.join(__dirname, "sessions.json");
 const STREAMER_TWITCH_ID = process.env.STREAMER_TWITCH_ID;
-const ADMIN_PW = process.env.ADMIN_PW || "";
 
 function loadSessionsFromFile() {
   try {
@@ -113,8 +115,11 @@ function loadSessionsFromFile() {
     return JSON.parse(raw);
   } catch (e) { console.error(e); return {}; }
 }
+// Atomar (tmp + rename), damit ein Absturz mitten im Schreiben nicht alle ausloggt. Das Laden oben
+// bleibt bewusst bei "kaputt → {}": eine Schreibsperre wie in lib/jsonFile.readJson würde hier
+// jeden neuen Login verhindern.
 function saveSessionsToFile(sessions) {
-  try { fs.writeFileSync(SESSIONS_PATH, JSON.stringify(sessions, null, 2), "utf8"); } catch (e) {}
+  writeJsonAtomic(SESSIONS_PATH, sessions);
 }
 
 let sessions = loadSessionsFromFile();
@@ -200,11 +205,8 @@ function optionalAuth(req, res, next) {
 }
 
 // =================== AUTH ROUTES ===================
-app.post("/api/admin/login", (req, res) => {
-  const { password } = req.body;
-  if (password === ADMIN_PW && ADMIN_PW !== "") return res.json({ ok: true });
-  res.status(401).json({ ok: false });
-});
+// Der frühere POST /api/admin/login ist entfernt: kein Aufrufer mehr (Admin läuft über die
+// Twitch-Session + STREAMER_TWITCH_ID), er bot nur unbegrenzte Rateversuche auf ADMIN_PW.
 
 app.get("/api/twitch/clientid", (req, res) => res.json({ clientId: process.env.TWITCH_CLIENT_ID || null }));
 
@@ -296,8 +298,7 @@ app.use("/api/awards", createAwardsRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
 app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
-app.use("/api/casino", createCasinoRouter({ requireAuth, io }));
-app.use("/api/", createCasinoRouter.createLegacyCardsAdminRouter());
+// /api/casino gibt es nicht mehr — Credits sind abgeschafft (Oktober 2026); die Daten liegen weiter in data/casinoData.json
 app.use("/api/adventure", createAdventureRouter({ requireAuth }));
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
@@ -306,6 +307,8 @@ app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, session
 // Streamer-Konfiguration VOR dem allgemeinen Clash-Router mounten (spezifischerer Pfad)
 app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
 app.use("/api/clash/profile", createCrProfileRouter({ requireAuth }));
+// Freundesliste der Minigames (Aktionen; Live-Stand läuft über den Socket, clashRoyale/core/friends.js)
+app.use("/api/clash/friends", createCrFriendRouter({ requireAuth }));
 app.use("/api/clash/presets", createCrPresetRouter({ requireAuth }));
 // Turniere der CR-Minigames (Plan: clashRoyale/PLANUNG_TURNIER.md)
 app.use("/api/clash/tournaments", createTournamentRouter({
@@ -319,9 +322,6 @@ app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));
 app.use("/api/cr-wintracker", createCrWinTrackerRouter({ requireAuth }));
 app.use("/api/stream-tool", createStreamToolRouter({ requireAuth }));
 app.use("/api/used-by", createUsedByRouter());
-// Keine requireAuth-Abhängigkeit: die -dle-Tagesspiele sind ohne Login spielbar,
-// siehe Kommentarkopf in dle/routes/dleRoutes.js.
-app.use("/api/dle", createDleRouter());
 // Seed Runners: Tagesrangliste, ohne Login (Identität = Schlüssel aus dem Browser-Token), siehe seedRunners/daily.js
 try {
   app.use("/api/seed-runners", createSeedRunnersRouter({
@@ -366,6 +366,9 @@ io.on("connection", (socket) => {
 
     // Sacrifice & Sigils — 1v1-Kartenspiel, serverautoritativ (Engine-Spiegel, siehe sacrificeSigilsRoutes.js)
     registerSacrificeSigilsSocket(socket, io);
+
+    // Flick Soccer — rundenbasierter Scheiben-Fußball, 1v1 per Link, serverautoritativ (Engine-Spiegel)
+    registerFlickSoccerSocket(socket, io);
 
     // Abstimmungen/Giveaways: Vollpayload nur für die jeweilige Seite, sonst
     // nur der schlanke Nav-Punkt (siehe lib/liveBadges.js)

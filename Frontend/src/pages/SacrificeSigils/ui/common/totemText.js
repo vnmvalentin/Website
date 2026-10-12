@@ -1,4 +1,5 @@
-// ui/common/totemText.js — Beschreibung eines Totems (Kopf + Basis) als Text.
+// ui/common/totemText.js — Beschreibung eines Totems (Kopf + Körper) als Text.
+//   Kopf = WER bekommt es (Stamm, Lane, Nebendeck-Karte) · Körper (intern „base“) = WAS sie bekommen (Sigil oder Lanen-Eigenschaft).
 import { de } from "../../i18n/de.js";
 import { getZirkel } from "../../engine/zirkel/index.js";
 
@@ -21,15 +22,37 @@ export function headLabel(head) {
   return de.totems.sideHead;
 }
 
+/** Art des Kopfes („Stammkopf“, „Lanenkopf“, „Nebendeck-Kopf“). @param {any} head */
+export function headKind(head) {
+  return head.kind === "tribe" ? de.totems.tribeHead : head.kind === "lane" ? de.totems.laneHead : de.totems.sideHead;
+}
+
+/** Wen der Kopf trifft („alle Nager-Karten“, „jede eigene Karte in Lane 2“). @param {any} head @param {string} [zirkel] */
+export function headTarget(head, zirkel) {
+  if (head.kind === "tribe") return de.totems.targetTribe(de.tribes[head.tribe].name);
+  if (head.kind === "lane") return de.totems.targetLane(head.lane);
+  return de.totems.targetSide(sideName(zirkel));
+}
+
+/** Name des Körpers (Sigil oder Lanen-Eigenschaft). @param {any} base */
+export function baseName(base) {
+  return base.kind === "sigil" ? de.sigils[base.sigil].name : de.totems.props[base.prop].name;
+}
+
+/** Was der Körper bewirkt. @param {any} base */
+export function baseDesc(base) {
+  return base.kind === "sigil" ? de.sigils[base.sigil].desc : de.totems.props[base.prop].desc;
+}
+
 /** Name des Totem-Platzes. @param {"tribe"|"lane"|"side"} slot */
 export function slotLabel(slot) {
   return slot === "tribe" ? de.totems.tribeSlot : slot === "lane" ? de.totems.laneSlot : de.totems.sideSlot;
 }
 
-/** Beschreibung eines Totems (Kopf + Basis). @param {any} head @param {any} base @param {string} [zirkel] */
+/** Beschreibung eines Totems (Kopf + Körper). @param {any} head @param {any} base @param {string} [zirkel] */
 export function totemText(head, base, zirkel) {
-  const baseName = base.kind === "sigil" ? de.sigils[base.sigil].name : de.totems.props[base.prop].name;
-  if (head.kind === "tribe") return de.totems.tribeAura(de.tribes[head.tribe].name, baseName);
-  if (head.kind === "side") return de.totems.sideAura(baseName, sideName(zirkel));
-  return base.kind === "sigil" ? de.totems.laneAura(head.lane, baseName) : `${de.totems.lane(head.lane)}: ${de.totems.props[base.prop].desc}`;
+  const name = baseName(base);
+  if (head.kind === "tribe") return de.totems.tribeAura(de.tribes[head.tribe].name, name);
+  if (head.kind === "side") return de.totems.sideAura(name, sideName(zirkel));
+  return base.kind === "sigil" ? de.totems.laneAura(head.lane, name) : `${de.totems.lane(head.lane)}: ${de.totems.props[base.prop].desc}`;
 }

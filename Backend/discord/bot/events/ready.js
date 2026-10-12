@@ -1,5 +1,5 @@
 // discord/bot/events/ready.js
-const { REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { getAllActiveVoiceChannels, deleteActiveVoiceChannel } = require('../../database/db');
 const { initVoiceTracking } = require('./voiceStateUpdate');
 const { step } = require('../../../lib/startupLog');
@@ -68,6 +68,32 @@ const commands = [
         .setName('voice_transfer')
         .setDescription('Übergibt den Besitzer-Status deines Voice Channels (nur im Voice-Text-Kanal)')
         .addUserOption(opt => opt.setName('user').setDescription('Neuer Besitzer (muss im Voice sein)').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('voice_kick')
+        .setDescription('Wirft einen Nutzer aus deinem Voice Channel (nur im Voice-Text-Kanal)')
+        .addUserOption(opt => opt.setName('user').setDescription('Nutzer im Voice Channel').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('voice_ban')
+        .setDescription('Wirft einen Nutzer und hindert ihn am Beitreten (nur im Voice-Text-Kanal)')
+        .addUserOption(opt => opt.setName('user').setDescription('Nutzer, der nicht mehr beitreten darf').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('voice_unban')
+        .setDescription('Hebt einen Bann in deinem Voice Channel auf (nur im Voice-Text-Kanal)')
+        .addUserOption(opt => opt.setName('user').setDescription('Gebannter Nutzer').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('serverstats')
+        .setDescription('Zeigt die Server-Statistik: Voice-Zeiten und Nachrichten.')
+        .addIntegerOption(opt =>
+            opt.setName('zeitraum').setDescription('Zeitraum (Standard: 30 Tage)')
+                .addChoices({ name: '7 Tage', value: 7 }, { name: '30 Tage', value: 30 }, { name: '90 Tage', value: 90 })
+        )
+        .addUserOption(opt => opt.setName('user').setDescription('Statt der Rangliste nur diesen Nutzer zeigen')),
+    new SlashCommandBuilder()
+        .setName('tagesrennen')
+        .setDescription('Seed Runners: Tagesrangliste, die sich in diesem Kanal selbst aktualisiert.')
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .addSubcommand(sub => sub.setName('setzen').setDescription('Postet die Tagesrangliste in diesem Kanal und hält sie aktuell.'))
+        .addSubcommand(sub => sub.setName('entfernen').setDescription('Entfernt die Tagesrangliste von diesem Server.')),
 ].map(cmd => cmd.toJSON());
 
 function getCommandsJSON() { return commands; }

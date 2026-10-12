@@ -14,11 +14,13 @@ const { handleAllStats } = require('../commands/allstats');
 const { handleSuperkraft } = require('../commands/superkraft');
 const { handleAusrede } = require('../commands/ausrede');
 const { handleApply, handleApprove, handleReject } = require('../commands/approval');
-const { handleVoiceCommand } = require('../commands/voice');
+const { handleVoiceCommand, handleVoiceComponent } = require('../commands/voice');
+const { handleServerStats } = require('../commands/serverstats');
+const { handleTagesrennen } = require('../seedRunnersBoard');
 const { handleTicketCreateButton, handleTicketModalSubmit, handleTicketClose } = require('../commands/tickets');
 
 const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'pp', 'aussehen', 'iq', 'größe', 'gewicht', 'ship', 'coinflip', 'allstats', 'superkraft', 'ausrede'];
-const VOICE_COMMANDS = ['voicelimit', 'voicelock', 'voice_rename', 'voice_hide', 'voice_unhide', 'voice_transfer'];
+const VOICE_COMMANDS = ['voicelimit', 'voicelock', 'voice_rename', 'voice_hide', 'voice_unhide', 'voice_transfer', 'voice_kick', 'voice_ban', 'voice_unban'];
 
 module.exports = {
     name: 'interactionCreate',
@@ -59,7 +61,15 @@ module.exports = {
                 return handleVoiceCommand(interaction);
             }
 
+            if (cmd === 'serverstats') return handleServerStats(interaction);
+            if (cmd === 'tagesrennen') return handleTagesrennen(interaction);
+
             return;
+        }
+
+        // ── Voice Channel: Knöpfe, Modals und Auswahlmenüs der angepinnten Nachricht ──
+        if ((interaction.isButton() || interaction.isModalSubmit() || interaction.isUserSelectMenu()) && interaction.customId.startsWith('vc_')) {
+            return handleVoiceComponent(interaction);
         }
 
         // ── Modal: Ticket erstellen ───────────────────────────────────────────

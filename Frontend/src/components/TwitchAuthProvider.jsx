@@ -1,5 +1,5 @@
 // src/components/TwitchAuthProvider.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { TwitchAuthContext } from "./TwitchAuthContext";
 
 const USER_STORAGE_KEY = "twitchUser";
@@ -24,11 +24,45 @@ function normalizeUser(u) {
   };
 }
 
+// Gespeicherten Login synchron lesen — ohne Netzwerk, damit er schon beim ersten Rendern da ist.
+function readStoredAuth() {
+  try {
+    const savedUserStr = localStorage.getItem(USER_STORAGE_KEY);
+    const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!savedUserStr || !savedToken) return null;
+    const normalized = normalizeUser(JSON.parse(savedUserStr));
+    if (normalized && normalized.id) return { user: normalized, token: savedToken };
+  } catch { /* kaputter Eintrag — wird unten entfernt */ }
+  try {
+    localStorage.removeItem(USER_STORAGE_KEY);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch { /* Speicher gesperrt */ }
+  return null;
+}
+
+// Token aus dem Twitch-Redirect (/auth/twitch#access_token=…). Muss SOFORT gelesen werden:
+// AuthTwitch.jsx navigiert nach 500 ms weiter, danach ist der Hash aus der Adresse weg.
+function readHashToken() {
+  const hash = window.location.hash;
+  if (!hash.includes("access_token")) return null;
+  return new URLSearchParams(hash.substring(1)).get("access_token");
+}
+
 export default function TwitchAuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  // Früher gab der Provider `null` zurück, bis /api/twitch/clientid geantwortet hatte, und
+  // stellte den Login erst danach wieder her. Folge: Die vorgerenderte Seite wurde beim Start
+  // von React erst einmal LEER gewischt (createRoot ersetzt den Inhalt von #root) und blieb es
+  // für die Dauer der Anfrage; danach blitzte für Angemeldete noch kurz "Mit Twitch anmelden"
+  // auf. Jetzt rendert die Seite sofort, und der gespeicherte Login steht ab dem ersten Bild.
+  // Die Client-ID braucht nur noch, wer sich gerade anmeldet (login() und der Redirect-Fall).
+  const [pendingToken] = useState(readHashToken);
+  // Bei einem frischen Redirect bewusst leer starten — sonst stünde bei "Account wechseln"
+  // kurz noch der alte Account da.
+  const [stored] = useState(() => (pendingToken ? null : readStoredAuth()));
+  const [user, setUser] = useState(stored ? stored.user : null);
   const [clientId, setClientId] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [accessToken, setAccessToken] = useState(stored ? stored.token : null);
+  const loginHandled = useRef(false);
 
   const redirectUri = window.location.origin + "/auth/twitch";
 
@@ -44,7 +78,10 @@ export default function TwitchAuthProvider({ children }) {
     try {
       const res = await fetch("/api/auth/me", { credentials: "include" });
       if (!res.ok) {
-        clearAuth();
+        // Nur abmelden, wenn der Server die Sitzung wirklich ablehnt. Ein 502/503/504 heißt
+        // bloß, dass das Backend gerade nicht antwortet (Neustart beim Deploy) — früher flog
+        // dabei jeder raus, dessen Tab in dem Moment den Fokus bekam.
+        if (res.status === 401 || res.status === 403) clearAuth();
         return null;
       }
       return await res.json();
@@ -57,93 +94,63 @@ export default function TwitchAuthProvider({ children }) {
   useEffect(() => {
     fetch("/api/twitch/clientid")
       .then((r) => r.json())
-      .then((data) => {
-        setClientId(data.clientId);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Fehler beim Laden der Twitch Client ID:", err);
-        setLoading(false);
-      });
+      .then((data) => setClientId(data.clientId))
+      .catch((err) => console.error("Fehler beim Laden der Twitch Client ID:", err));
   }, []);
 
-  // 2. Login-Logik & Restore
+  // 2a. Wiederhergestellten Login gegen die Backend-Sitzung prüfen
   useEffect(() => {
-    if (!clientId) return;
+    if (stored) syncBackendSession();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const hash = window.location.hash;
+  // 2b. Frischer Login von Twitch (Redirect zurück zur Seite)
+  useEffect(() => {
+    if (!clientId || !pendingToken || loginHandled.current) return;
+    loginHandled.current = true;
+    const token = pendingToken;
 
-    // A) Frischer Login von Twitch (Redirect zurück zur Seite)
-    if (hash.includes("access_token")) {
-      const token = new URLSearchParams(hash.substring(1)).get("access_token");
-
-      if (token) {
-        (async () => {
-          try {
-            // Session im Backend setzen
-            const sessRes = await fetch("/api/auth/twitch", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token }),
-              credentials: "include",
-            });
-
-            if (!sessRes.ok) throw new Error("Backend-Auth fehlgeschlagen");
-
-            // Userdaten von Helix laden
-            const userRes = await fetch("https://api.twitch.tv/helix/users", {
-              headers: {
-                "Client-ID": clientId,
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            const data = await userRes.json();
-            const rawUser = data.data?.[0];
-
-            if (!rawUser) throw new Error("Keine Userdaten erhalten");
-
-            // HIER: Normalisieren bevor wir speichern
-            const normalized = normalizeUser(rawUser);
-
-            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(normalized));
-            localStorage.setItem(TOKEN_STORAGE_KEY, token);
-
-            setUser(normalized);
-            setAccessToken(token);
-            await syncBackendSession();
-
-            // URL bereinigen
-            const cleanUrl = window.location.pathname + window.location.search;
-            window.history.replaceState({}, document.title, cleanUrl);
-          } catch (err) {
-            console.error("Login failed:", err);
-          }
-        })();
-        return;
-      }
-    }
-
-    // B) Restore aus localStorage
-    const savedUserStr = localStorage.getItem(USER_STORAGE_KEY);
-    const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-
-    if (savedUserStr && savedToken) {
+    (async () => {
       try {
-        const parsed = JSON.parse(savedUserStr);
-        // Auch beim Laden sicherstellen, dass Struktur stimmt
-        const normalized = normalizeUser(parsed);
-        if (normalized && normalized.id) {
-          setUser(normalized);
-          setAccessToken(savedToken);
-          syncBackendSession();
-        } else {
-          clearAuth();
-        }
-      } catch {
-        clearAuth();
+        // Session im Backend setzen
+        const sessRes = await fetch("/api/auth/twitch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+          credentials: "include",
+        });
+
+        if (!sessRes.ok) throw new Error("Backend-Auth fehlgeschlagen");
+
+        // Userdaten von Helix laden
+        const userRes = await fetch("https://api.twitch.tv/helix/users", {
+          headers: {
+            "Client-ID": clientId,
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await userRes.json();
+        const rawUser = data.data?.[0];
+
+        if (!rawUser) throw new Error("Keine Userdaten erhalten");
+
+        // HIER: Normalisieren bevor wir speichern
+        const normalized = normalizeUser(rawUser);
+
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(normalized));
+        localStorage.setItem(TOKEN_STORAGE_KEY, token);
+
+        setUser(normalized);
+        setAccessToken(token);
+        await syncBackendSession();
+
+        // URL bereinigen
+        const cleanUrl = window.location.pathname + window.location.search;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch (err) {
+        console.error("Login failed:", err);
       }
-    }
-  }, [clientId]);
+    })();
+  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Session-Check bei Fokus
   useEffect(() => {
@@ -186,8 +193,6 @@ export default function TwitchAuthProvider({ children }) {
     // Optional: Reload, um UI komplett zu resetten
     // window.location.reload();
   };
-
-  if (loading) return null;
 
   return (
     <TwitchAuthContext.Provider value={{ user, login, logout, clientId, accessToken }}>
