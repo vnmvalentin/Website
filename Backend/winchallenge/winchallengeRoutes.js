@@ -6,6 +6,7 @@ const {
   saveDoc,
   deleteDoc,
 } = require("./winchallengeStore");
+const { searchGames, sanitizeItems } = require("./winchallengeGames");
 
 // ===== DB (RAM-Cache + Speichern in SQLite via winchallengeStore) =====
 // Wichtig: Ein Node-Prozess (nicht PM2 cluster ohne gemeinsame DB).
@@ -176,7 +177,7 @@ const DEFAULT_STYLE = {
 };
 
 // Erlaubte Werte der Darstellungs-Optionen (Gegenstück: overlayUtils.js im Frontend)
-const OVERLAY_LAYOUTS = ["list", "cards", "compact"];
+const OVERLAY_LAYOUTS = ["list", "broadcast", "bar"];
 const COUNTER_STYLES = ["plain", "box"];
 const HEADER_PROGRESS_MODES = ["off", "count", "box"];
 
@@ -233,6 +234,35 @@ function normalizeChatCommands(cc) {
   return merged;
 }
 
+// Jeder Stil behält seine eigenen Einstellungen: der Editor legt beim Stilwechsel den
+// Stand des verlassenen Stils in style.layoutMemory[stil] ab und holt ihn beim
+// Zurückwechseln wieder (switchLayout in Frontend/…/WinChallenge.jsx). Gezeichnet
+// wird davon nichts — das Overlay liest nur die Felder direkt in style. Hier wird
+// deshalb nur die Form begrenzt: bekannte Stile, bekannte Felder, einfache Werte.
+// Die Werte selbst prüft normalizeStyle, sobald sie wieder zum aktiven Stil werden.
+const LAYOUT_MEMORY_KEYS = [
+  "boxWidth", "scale", "titleFontSize", "itemFontSize", "timerFontSize", "borderRadius",
+  "titleAlign", "headerProgress", "counterStyle", "doneToBottom",
+  "animEnabled", "animMode",
+];
+
+function normalizeLayoutMemory(memory) {
+  const out = {};
+  if (!memory || typeof memory !== "object") return out;
+  for (const layout of OVERLAY_LAYOUTS) {
+    const snap = memory[layout];
+    if (!snap || typeof snap !== "object") continue;
+    const clean = {};
+    for (const key of LAYOUT_MEMORY_KEYS) {
+      const v = snap[key];
+      if (typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v))) clean[key] = v;
+      else if (typeof v === "string" && v.length <= 20) clean[key] = v;
+    }
+    out[layout] = clean;
+  }
+  return out;
+}
+
 function normalizeStyle(style) {
   const s = { ...DEFAULT_STYLE, ...style };
 
@@ -251,8 +281,18 @@ function normalizeStyle(style) {
 
   s.borderRadius = Math.max(0, parseInt(s.borderRadius ?? 0, 10));
   s.scale = Number(s.scale ?? 1);
-  // Muss zum Frontend-Slider passen (max 1000), sonst springt der Regler zurück
-  s.boxWidth = Math.min(1600, Math.max(280, parseInt(s.boxWidth ?? 320, 10)));
+  // Muss zum Frontend-Slider passen (min MIN_BOX_WIDTH in overlayUtils.js, max 1000 bzw.
+  // 1920 für die Leiste als Laufband), sonst springt der Regler zurück
+  s.boxWidth = Math.min(1920, Math.max(200, parseInt(s.boxWidth ?? 320, 10)));
+  // Eigene Breite des Laufbands der Leiste, getrennt von boxWidth (Grenzen wie
+  // BAR_TICKER_MIN_WIDTH/BAR_MAX_WIDTH in overlayUtils.js). Fehlt sie, bleibt das
+  // Feld leer — das Frontend leitet sie für Bestandsdaten beim Zeichnen ab.
+  if (style?.barWidth != null) {
+    s.barWidth = Math.min(1920, Math.max(400, parseInt(style.barWidth, 10) || 800));
+  } else {
+    delete s.barWidth;
+  }
+  s.layoutMemory = normalizeLayoutMemory(style?.layoutMemory);
   s.titleAlign = s.titleAlign === "center" ? "center" : "left";
   s.layout = OVERLAY_LAYOUTS.includes(s.layout) ? s.layout : "list";
   s.counterStyle = COUNTER_STYLES.includes(s.counterStyle) ? s.counterStyle : "plain";
@@ -260,6 +300,9 @@ function normalizeStyle(style) {
     ? s.headerProgress
     : "off";
   s.doneToBottom = s.doneToBottom === true;
+  // Nur für den Stil „Leiste“: Titel ausblendbar, Timer fest links oder rechts
+  s.barTitle = s.barTitle !== false;
+  s.barTimerSide = s.barTimerSide === "left" ? "left" : "right";
 
   s.titleFontSize = Math.max(
     10,
@@ -369,7 +412,8 @@ function ensureDocShape(input = {}) {
     userId: doc.userId,
     hostName: typeof doc.hostName === "string" ? doc.hostName : "Unknown",
     title: typeof doc.title === "string" ? doc.title : "Win-Challenge",
-    items: Array.isArray(doc.items) ? doc.items : [],
+    // Spielcover je Challenge: nur geprüfte Twitch-Adressen (siehe winchallengeGames.js)
+    items: sanitizeItems(doc.items),
     style,
     timer,
     pager,
@@ -378,6 +422,8 @@ function ensureDocShape(input = {}) {
     chatCommands,
     overlayKey: doc.overlayKey,
     controlKey: doc.controlKey,
+    // Sprache des Editors und der Chat-Antworten (lib/winchallengeIrc.js); Bestandsdaten: Deutsch
+    language: doc.language === "en" ? "en" : "de",
     refreshNonce:
       Number.isFinite(Number(doc.refreshNonce)) && Number(doc.refreshNonce) > 0
         ? Number(doc.refreshNonce)
@@ -705,7 +751,8 @@ function createWinchallengeRouter({ requireAuth } = {}) {
         if (!Array.isArray(req.body.items)) {
           return res.status(400).json({ error: "items muss ein Array sein" });
         }
-        doc.items = req.body.items;
+        // Dieser Weg läuft nicht mehr durch ensureDocShape — hier selbst prüfen
+        doc.items = sanitizeItems(req.body.items);
       } else if (action === "timerStart") {
         if (!perms.allowModsTimer) {
           return res
@@ -797,6 +844,63 @@ function createWinchallengeRouter({ requireAuth } = {}) {
       await saveDb(db);
 
       res.json(doc);
+    })
+  );
+
+  // ========== WinChallenge: Spielsuche für die Cover ==========
+  // Muss VOR den /:twitchId-Routen stehen, sonst gilt "games" als Twitch-ID.
+  //
+  // Suchen darf, wer Challenges bearbeiten darf: der eingeloggte Streamer oder ein
+  // Mod mit Control-Link (die Mod-Seite hat keinen Login), sofern der Streamer
+  // das Bearbeiten der Challenges freigegeben hat.
+  const allowGameSearch = (req, res, next) => {
+    const controlKey = String(req.query.control || "");
+    if (controlKey) {
+      const db = loadDb();
+      const userId = controlIndex.get(controlKey);
+      const perms = userId ? ensureDocShape(db[userId]).controlPermissions : null;
+      if (perms?.allowModsChallenges) {
+        req.gameSearchCaller = `c:${controlKey}`;
+        return next();
+      }
+    }
+    return requireAuth(req, res, () => {
+      req.gameSearchCaller = `u:${req.twitchId}`;
+      next();
+    });
+  };
+
+  // Das Helix-Limit gilt pro Client-ID für die ganze Website zusammen — ein
+  // einzelner Aufrufer darf es nicht aufbrauchen. Getippt wird mit Verzögerung,
+  // 40 Suchen pro Minute erreicht von Hand niemand.
+  const GAME_SEARCH_WINDOW_MS = 60 * 1000;
+  const GAME_SEARCH_MAX = 40;
+  const gameSearchHits = new Map(); // Aufrufer → { start, count }
+  const gameSearchAllowed = (caller) => {
+    const now = Date.now();
+    if (gameSearchHits.size > 5000) gameSearchHits.clear();
+    const hit = gameSearchHits.get(caller);
+    if (!hit || now - hit.start >= GAME_SEARCH_WINDOW_MS) {
+      gameSearchHits.set(caller, { start: now, count: 1 });
+      return true;
+    }
+    hit.count += 1;
+    return hit.count <= GAME_SEARCH_MAX;
+  };
+
+  router.get(
+    "/games",
+    allowGameSearch,
+    asyncHandler(async (req, res) => {
+      if (!gameSearchAllowed(req.gameSearchCaller)) {
+        return res.status(429).json({ error: "Zu viele Suchanfragen — kurz warten." });
+      }
+      try {
+        res.json({ games: await searchGames(req.query.q) });
+      } catch (e) {
+        console.error("[winchallenge] Spielsuche fehlgeschlagen:", e.message);
+        res.status(e?.status === 503 ? 503 : 502).json({ error: "Spielsuche gerade nicht möglich" });
+      }
     })
   );
 

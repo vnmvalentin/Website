@@ -11,13 +11,17 @@
 import React, { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import Section from '../ui/Section';
-import { CrBattle, CrSettings, CrLock, CrSocial } from '../ui/CrIcons';
+import { CrBattle, CrSettings, CrLock, CrSocial, CrTourneyTrophy } from '../ui/CrIcons';
 import { useCrPrefs } from '../ui/crPrefs';
 import EmoteLayer from '../ui/EmoteLayer';
 import SEO from '../../../components/SEO';
 import LanguageSelect from '../components/LanguageSelect';
 import LobbyCodeCard from './LobbyCodeCard';
 import GameSettingsCard from './GameSettingsCard';
+import LobbyTournamentCard from './LobbyTournamentCard';
+import LobbyTournamentPanel from './LobbyTournamentPanel';
+import ViewTabs from './ViewTabs';
+import { ltDict, tournamentRunning } from './ltourI18n';
 import GameSettingsModal from './GameSettingsModal';
 import CardPoolCard from './CardPoolCard';
 import PlayerList from './PlayerList';
@@ -44,6 +48,16 @@ export default function LobbyScreen({
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Für welchen Spieler ist der Account-Dialog offen (null = zu)
   const [crTarget, setCrTarget] = useState(null);
+  // Läuft ein Lobby-Turnier, gibt es die Reiter Lobby | Turnier. Beim Start (und nach jedem
+  // Begegnungs-Draft, wenn man in die Lobby zurückkommt) steht man direkt im Turnier.
+  const tourRunning = tournamentRunning(lobbyData);
+  const [tab, setTab] = useState(tourRunning ? 'tournament' : 'lobby');
+  const tourPhase = lobbyData?.ltour?.phase || null;
+  useEffect(() => {
+    if (tourPhase === 'drawn' || tourPhase === 'running' || tourPhase === 'draft') setTab('tournament');
+    if (!tourPhase || tourPhase === 'setup') setTab('lobby');
+  }, [tourPhase]);
+  const lt = ltDict(lang);
   const { openSettings } = useCrPrefs();
 
   // Admin-Beobachter zählen nicht als Spieler
@@ -163,6 +177,16 @@ export default function LobbyScreen({
             den MITSPIELERN. Abschnitte trennt eine eingeprägte Fuge (ui/Section.jsx). */}
         {lobbyData?.tournament && <TournamentLobbyBanner tournament={lobbyData.tournament} players={lobbyData.players} lang={lang} />}
 
+        {tourRunning && (
+          <ViewTabs active={tab} onSelect={setTab} tabs={[
+            { id: 'lobby', icon: CrBattle, label: lt.tabLobby },
+            { id: 'tournament', icon: CrTourneyTrophy, label: lt.tabTournament },
+          ]} />
+        )}
+
+        {tourRunning && tab === 'tournament' ? (
+          <LobbyTournamentPanel lobbyData={lobbyData} myId={myId} canControl={canControlLobby} actions={actions} lang={lang} />
+        ) : (
         <div className="cr-arcade-panel overflow-hidden">
           <ModeStartBand
             lobbyData={lobbyData}
@@ -173,6 +197,7 @@ export default function LobbyScreen({
             effectiveIsHost={effectiveIsHost}
             onStart={actions.startGame}
             onShowHistory={openHistory}
+            onShowTournament={() => setTab('tournament')}
             poolSize={poolSize}
             {...readiness}
           />
@@ -183,6 +208,9 @@ export default function LobbyScreen({
                 <div className="flex flex-col gap-3">
                   {canControlLobby && (
                     <GameSettingsCard lobbyData={lobbyData} lang={lang} t={t} onOpen={() => setSettingsOpen(true)} />
+                  )}
+                  {canControlLobby && !lobbyData?.tournament && (
+                    <LobbyTournamentCard lobbyData={lobbyData} actions={actions} lang={lang} />
                   )}
                   <CardPoolCard
                     excludedCount={excludedCards.length}
@@ -237,6 +265,7 @@ export default function LobbyScreen({
             </div>
           </div>
         </div>
+        )}
 
         {error && <p className="text-red-400 text-sm text-center">{error}</p>}
       </div>

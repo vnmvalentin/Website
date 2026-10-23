@@ -9,7 +9,7 @@
 // die feste Rangliste des Tages, aber nichts wird eingereicht: Die Zeit ist nur für einen selbst.
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Play, RotateCcw, Trophy, Loader2, Check, AlertTriangle, History, ArrowLeft, Film } from "lucide-react";
+import { Play, RotateCcw, Trophy, Loader2, Check, AlertTriangle, History, ArrowLeft, Film, Share2 } from "lucide-react";
 import SEO from "../../components/SEO";
 import RaceView from "./room/RaceView.jsx";
 import { getIdentity, saveIdentity, getDailyKey } from "./room/identity.js";
@@ -23,6 +23,8 @@ import { refForParams } from "./ui/levelRef.js";
 import { isArchivTag, germanDate, ARCHIV_AB } from "./ui/tagesArchiv.js";
 import { useBoundAction } from "./client/useBoundAction.js";
 import { boundLabel } from "./client/input.js";
+import { tagesrennenText } from "./room/shareText.js";
+import { copyText } from "./levels/clipboard.js";
 
 const COUNTDOWN_MS = 3300;
 // Solo gibt es keinen Uhrenabgleich: Die Startzeit ist schon die eigene Zeit.
@@ -174,6 +176,56 @@ function SplitVergleich({ lauf, titel, me, entries, mitBestDu }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Ergebnis teilen wie bei Wordle: Zeit, Platz und ein Quadrat je Abschnitt. Geteilt wird die eigene Bestzeit des Tages
+ * (aus der Rangliste); ohne bestätigte Zeit (Archiv, abgelehnt) der letzte Lauf ohne Platz. Am Handy über das
+ * Teilen-Menü des Systems, sonst in die Zwischenablage.
+ */
+function ShareResult({ board, run, archiv }) {
+  const [done, setDone] = useState(null);
+  const timer = useRef(0);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const best = !archiv && board.me ? board.me : null;
+  const url = `${window.location.origin}${archiv ? `/seed-runners/daily/${archiv}` : "/seed-runners/daily"}`;
+  const text = tagesrennenText({
+    dateKey: board.today.dateKey,
+    lauf: best || run,
+    rank: best?.rank ?? null,
+    total: board.today.total,
+    entries: board.today.entries,
+    url,
+    archiv: !!archiv,
+  });
+
+  const share = async () => {
+    const mobil = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    if (mobil && navigator.share) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch (e) {
+        if (e?.name === "AbortError") return;           // selbst abgebrochen
+      }
+    }
+    const ok = await copyText(text);
+    setDone(ok ? "ok" : "fehler");
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setDone(null), 2500);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <button type="button" onClick={share} className="sr-btn sr-btn-sm sr-btn-ghost" data-testid="daily-share">
+        {done === "ok" ? <Check size={14} /> : <Share2 size={14} />}
+        {done === "ok" ? "Kopiert" : best ? "Bestzeit teilen" : "Ergebnis teilen"}
+      </button>
+      {done === "fehler" && (
+        <pre className="basis-full text-xs sr-dim whitespace-pre-wrap select-all sr-sunk px-3 py-2">{text}</pre>
+      )}
     </div>
   );
 }
@@ -394,6 +446,7 @@ function DailyPage({ tagParam }) {
                   : <SubmitNote submit={submit} onRetry={() => send(run, name.trim())} />}
               </div>
               <SplitVergleich lauf={run.splits} titel="Deine Zwischenzeiten" me={board.me} entries={board.today.entries} mitBestDu={!!board.me} />
+              {(archiv || (submit && submit.state !== "sending")) && <ShareResult board={board} run={run} archiv={archiv} />}
               {dailyRef && <RateBox levelRef={dailyRef} level={builtLevel} title={archiv ? "Wie war das Level?" : "Wie war das Level von heute?"} />}
             </Panel>
           )}

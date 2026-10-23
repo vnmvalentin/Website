@@ -13,6 +13,22 @@
 import React from 'react';
 import { CrBook, CrCheck } from '../ui/CrIcons';
 
+// Kachel neigt sich zum Mauszeiger (nur Maus — auf Touch gäbe es kein "Loslassen" zum Zurückkippen).
+// Schreibt CSS-Variablen direkt ans Element statt in den React-Zustand: kein Neu-Rendern pro Bewegung.
+function tiltTo(e) {
+  if (e.pointerType !== 'mouse') return;
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width - 0.5;
+  const y = (e.clientY - r.top) / r.height - 0.5;
+  el.style.setProperty('--ry', `${(x * 14).toFixed(2)}deg`);
+  el.style.setProperty('--rx', `${(-y * 12).toFixed(2)}deg`);
+}
+function tiltReset(e) {
+  e.currentTarget.style.setProperty('--rx', '0deg');
+  e.currentTarget.style.setProperty('--ry', '0deg');
+}
+
 /**
  * @param {boolean} [selected]       Goldener Rahmen + "Aktiv"-Abzeichen (Modus-Wähler)
  * @param {string}  [selectedLabel]  Text des Abzeichens
@@ -33,7 +49,9 @@ export default function ModeCard({
         onClick={onOpen}
         aria-label={openLabel}
         aria-pressed={selected}
-        className={`cr-mode-card relative w-full h-full rounded-2xl border-[3px] transition-[transform,border-color,box-shadow] duration-150 cursor-pointer hover:-translate-y-1 hover:z-10 flex ${
+        onPointerMove={tiltTo}
+        onPointerLeave={tiltReset}
+        className={`cr-mode-card cr-tilt relative w-full h-full rounded-2xl border-[3px] transition-[transform,border-color,box-shadow] duration-150 cursor-pointer hover:-translate-y-1 hover:z-10 flex ${
           compact ? 'flex-col items-center text-center gap-2 px-2.5 pt-4 pb-3' : 'items-start text-left gap-3 p-3'
         } ${selected ? 'border-[var(--cr-arcade-gold)]' : 'border-[var(--cr-panel-edge)] hover:border-[var(--cr-arcade-gold)]'}`}>
 

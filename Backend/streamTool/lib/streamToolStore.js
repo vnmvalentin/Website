@@ -47,6 +47,17 @@ try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN stats TEXT NOT NULL D
 // jedem Beitritt zur Murmelbahn hinein.
 try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN scenes TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 
+// Siege der Murmelbahn je Kanal ("!murmeltop"). Eigene Tabelle statt JSON in der
+// Zeile des Streamers: die Liste wächst mit jedem neuen Sieger.
+db.exec(`CREATE TABLE IF NOT EXISTS marble_wins (
+    user_id TEXT NOT NULL,
+    player_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    wins INTEGER NOT NULL DEFAULT 0,
+    last_at INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, player_id)
+)`);
+
 // ── Token-Verschlüsselung ────────────────────────────────────────────────────
 // Schlüssel kommt aus STREAM_TOOL_SECRET. Fehlt die Variable, wird einmalig ein
 // Schlüssel neben der DB erzeugt (Datei ist ebenfalls gitignored) — so funktioniert

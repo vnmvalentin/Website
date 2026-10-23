@@ -145,6 +145,27 @@ export function createClashActions(emitToLobby, setMyBid) {
     setPyramidBlocks: (count) => emitToLobby('clash:setPyramidBlocks', { count }),
     setPyramidRows: (rows) => emitToLobby('clash:setPyramidRows', { rows }),
     pyramidPick: (row, col) => emitToLobby('clash:pyramid:pick', { row, col }),
+    pyramidChatVoteEnd: () => emitToLobby('clash:pyramid:chatVoteEnd'),
+
+    // ── Lobby-Turnier ────────────────────────────────────────────────────────
+    ltourSetEnabled: (enabled) => emitToLobby('clash:ltour:setEnabled', { enabled }),
+    ltourSetSettings: (settings) => emitToLobby('clash:ltour:setSettings', { settings }),
+    ltourBegin: () => emitToLobby('clash:ltour:begin'),
+    ltourNextRound: () => emitToLobby('clash:ltour:nextRound'),
+    ltourStartRoundDraft: () => emitToLobby('clash:ltour:startRoundDraft'),
+    ltourStartMatch: (matchId) => emitToLobby('clash:ltour:startMatch', { matchId }),
+    ltourGameWin: (matchId, side) => emitToLobby('clash:ltour:gameWin', { matchId, side }),
+    ltourUndo: (matchId) => emitToLobby('clash:ltour:undo', { matchId }),
+    ltourReset: () => emitToLobby('clash:ltour:reset'),
+
+    // ── Twitch-Chat draftet für den Streamer ─────────────────────────────────
+    // Einschalten per Ack: der Server prüft den Twitch-Login und meldet z.B. "nicht eingeloggt"
+    setTwitchChat: (enabled, lang) => new Promise(resolve =>
+      emitToLobby('clash:setTwitchChat', { enabled, lang }, resolve)),
+    setChatVoteSeconds: (value) => emitToLobby('clash:setChatVoteSeconds', { value }),
+    setChatShare: (value) => emitToLobby('clash:setChatShare', { value }),
+    setChatVoters: (value) => emitToLobby('clash:setChatVoters', { value }),
+    setChatAnnounce: (value) => emitToLobby('clash:setChatAnnounce', { value }),
 
     // ── Admin ───────────────────────────────────────────────────────────────
     adminSwapCard: (targetPlayerId, deckIndex, newCardId) =>

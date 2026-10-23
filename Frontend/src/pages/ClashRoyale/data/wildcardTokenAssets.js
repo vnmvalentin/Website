@@ -1,10 +1,11 @@
 // Bilder für den Karten-Evolution-Modus: Wildcard-Platzhalter (Start-Slots) + Evolutions-Tokens.
-// Dateien liegen unter: Frontend/src/assets/clashRoyale/
-//   - CommonWild.png / RareWild.png / EpicWild.png — Wildcard-Platzhalter nach Rarity
-//   - tt-common.png   — normaler Evolutions-Token
-//   - tt-legendary.png — Super-Evolutions-Token
+// Dateien liegen unter: Frontend/src/assets/clashRoyale/ui/ (Endung egal: jpg/png/webp)
+//   - CommonWild / RareWild / EpicWild — Wildcard-Platzhalter nach Rarity
+//   - tt-common    — normaler Evolutions-Token
+//   - tt-legendary — Super-Evolutions-Token
+// Nur diese Namen im Glob — ui/ enthält ~100 weitere Bilder, die hier nicht mitgeladen werden sollen.
 const _wtGlob = import.meta.glob(
-  '/src/assets/clashRoyale/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}',
+  '/src/assets/clashRoyale/ui/{CommonWild,RareWild,EpicWild,tt-common,tt-legendary}.{jpg,jpeg,png,webp}',
   { eager: true }
 );
 const WT_MAP = Object.fromEntries(

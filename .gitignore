@@ -45,6 +45,14 @@ Backend/garden/data/
 # Seed Runners: Tagesrangliste samt Input-Logs der geprüften Läufe. Wächst mit jedem Tag und gehört
 # der laufenden Instanz — lokal nur Testdaten, deploy.sh lässt data/ ohnehin aus.
 Backend/data/seedrunners.db
+# Discord-Verknüpfungen samt (verschlüsselter) Tokens (discord/linkStore.js)
+Backend/data/discord_links.db
+Backend/data/discord_links.db-shm
+Backend/data/discord_links.db-wal
+# Abo-Stand und Stripe-Kundennummern (billing/billingStore.js) — gehört nicht ins Repo
+Backend/data/billing.db
+Backend/data/billing.db-shm
+Backend/data/billing.db-wal
 Backend/data/seedrunners.db-shm
 Backend/data/seedrunners.db-wal
 
@@ -61,3 +69,8 @@ Backend/clashRoyale/data/cr_lobbies.db-wal
 Backend/clashRoyale/data/cr_friends.db
 Backend/clashRoyale/data/cr_friends.db-shm
 Backend/clashRoyale/data/cr_friends.db-wal
+# Besucherstatistik (analytics/analyticsStore.js) — Laufzeitdaten des Servers, lokal nur Testwerte
+Backend/analytics/data/
+
+# 3D-Stream-Szenen: Figuren der Zuschauer + Steuerpult (nur auf dem Server echt, siehe deploy.sh)
+Backend/streamScenes/data/

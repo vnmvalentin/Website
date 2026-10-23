@@ -17,6 +17,7 @@ const { helix, validateToken } = require("../lib/twitchHelix");
 const raids = require("../lib/streamToolRaids");
 const stats = require("../lib/streamToolStats");
 const scenes = require("../lib/streamToolScenes");
+const { premiumStatus, isPremium } = require("../../billing/entitlements");
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
 const MIN_SYNC_INTERVAL_MS = 2000;
@@ -262,6 +263,24 @@ function parseConfig(raw) {
   }
 }
 
+// Module, die zum Abo gehören (billing/entitlements.js): die vier Szenen
+const PREMIUM_MODULE_IDS = Object.values(scenes.IDS);
+
+/**
+ * Konfiguration, wie die OBS-Quelle sie bekommt. Ohne Abo sind die Abo-Module darin
+ * ausgeschaltet — das Flugzeug etwa fliegt allein aus der Konfiguration heraus und käme
+ * sonst am Backend vorbei. Gespeichert bleibt die Einstellung: mit Abo ist alles wieder da.
+ */
+function overlayConfigOf(row) {
+  const config = parseConfig(row.config);
+  if (!config || !config.modules || isPremium(row.user_id)) return config;
+  const modules = { ...config.modules };
+  for (const id of PREMIUM_MODULE_IDS) {
+    if (modules[id] && modules[id].enabled) modules[id] = { ...modules[id], enabled: false };
+  }
+  return { ...config, modules };
+}
+
 // ── Ziel-Einstellungen: Änderungen sofort sichtbar machen ────────────────────
 // Die Ziel-Zahlen werden nur alle 30 Sekunden geholt (siehe fetchGoals). Wer im
 // Dashboard gerade ein Ziel einrichtet, würde deshalb bis zu eine halbe Minute
@@ -370,6 +389,9 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       chatWatch: chatWatchStatus(row),
       // Fehlende Rechte der Szenen (Hype Train, Raider-Namen)
       sceneStatus: scenes.status(row),
+      // Abo: schaltet die Szenen frei. premiumModules sagt dem Dashboard, wo ein Schloss hingehört.
+      premium: premiumStatus(row.user_id),
+      premiumModules: PREMIUM_MODULE_IDS,
       serverNow: Date.now(),
     });
   });
@@ -465,6 +487,8 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       raid: raids.activeRaidEvent(fresh),
       stats: stats.statsModuleOf(fresh) ? stats.currentStats(fresh.user_id) : null,
       scenes: await collectScenes(fresh),
+      // Murmelbahn: Bestenliste und Stand der Belohnungs-Erkennung
+      marbleSetup: scenes.marbleSetup(fresh),
       // Mitgeschickt, weil der Chat-Bot einen Kanal erst nach ein paar Sekunden
       // betritt — so wird die Anzeige im Dashboard von selbst grün.
       chatWatch: chatWatchStatus(fresh),
@@ -554,6 +578,24 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   router.post("/scenes/marbles/open", requireAuth, sceneAction((id) => scenes.marblesOpen(id)));
   router.post("/scenes/marbles/start", requireAuth, sceneAction((id) => scenes.marblesStart(id)));
   router.post("/scenes/marbles/bots", requireAuth, sceneAction((id, body) => scenes.marblesAddBots(id, body.count)));
+  /** Die nächste Kanalpunkte-Einlösung im Kanal als Start-Belohnung merken. */
+  router.post("/scenes/marbles/learn", requireAuth, sceneAction((id) => scenes.learnReward(id)));
+  router.post("/scenes/marbles/top/reset", requireAuth, sceneAction((id) => scenes.resetMarbleTop(id)));
+
+  /** Kanalpunkte-Belohnung in Twitch anlegen — braucht das Recht channel:manage:redemptions. */
+  router.post("/scenes/marbles/reward", requireAuth, async (req, res) => {
+    getOrCreate(String(req.twitchId));
+    const result = await scenes.createReward(String(req.twitchId), req.body || {});
+    if (result.error) return res.status(400).json({ error: result.error, needsScope: !!result.needsScope });
+    res.json(result);
+  });
+
+  /** Die selbst angelegte Belohnung wieder löschen; offene Einlösungen werden erstattet. */
+  router.delete("/scenes/marbles/reward/:rewardId", requireAuth, async (req, res) => {
+    const result = await scenes.deleteReward(String(req.twitchId), String(req.params.rewardId));
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json({ ok: true });
+  });
 
   /** Laufende Szene sofort beenden (Probelauf abbrechen, Rennen absagen). */
   router.delete("/scenes/:key", requireAuth, (req, res) => {
@@ -587,7 +629,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
 
     const data = await syncFromTwitch(row);
     res.json({
-      config: parseConfig(row.config),
+      config: overlayConfigOf(row),
       poll: data.poll || null,
       prediction: data.prediction || null,
       goals: data.goals || null,

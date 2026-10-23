@@ -5,6 +5,8 @@ const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fet
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI;
+// Die Verknüpfung hängt an der Twitch-ID, nicht an der Sitzung (Begründung in ../linkStore.js)
+const links = require("../linkStore");
 
 // Nur interne Pfade als Rücksprungziel erlauben (kein Open Redirect)
 function safeReturnPath(value, fallback = "/discord-bot") {
@@ -15,6 +17,12 @@ function safeReturnPath(value, fallback = "/discord-bot") {
 
 module.exports = function({ requireAuth, sessions, saveSessionsToFile }) {
     const router = express.Router();
+
+    // Verknüpfung dieses Nutzers. Steckt sie noch in einer alten Sitzung, zieht sie hier um.
+    const linkOf = (req) => {
+        if (links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
+        return links.getLink(req.twitchId);
+    };
 
     router.get("/login-url", requireAuth, (req, res) => {
         const returnTo = safeReturnPath(req.query.returnTo);
@@ -45,17 +53,18 @@ module.exports = function({ requireAuth, sessions, saveSessionsToFile }) {
             });
             const discordUser = await userResponse.json();
 
-            const sessionId = req.cookies.session;
-            if (sessionId && sessions[sessionId]) {
-                sessions[sessionId].discord = {
-                    accessToken: tokens.access_token, refreshToken: tokens.refresh_token, userId: discordUser.id,
-                    username: discordUser.global_name || discordUser.username || null,
-                    avatar: discordUser.avatar
-                        ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=128`
-                        : null,
-                };
-                saveSessionsToFile(sessions);
-            }
+            if (!discordUser || !discordUser.id) throw new Error("Discord hat kein Konto geliefert");
+            links.setLink(req.twitchId, {
+                accessToken: tokens.access_token, refreshToken: tokens.refresh_token, userId: discordUser.id,
+                // Das Zugriffstoken läuft ab (meist nach 7 Tagen) — guilds.js erneuert es rechtzeitig
+                expiresAt: tokens.expires_in ? Date.now() + Number(tokens.expires_in) * 1000 : 0,
+                username: discordUser.global_name || discordUser.username || null,
+                avatar: discordUser.avatar
+                    ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=128`
+                    : null,
+            });
+            // Reste alter Art aus den Sitzungen räumen
+            if (links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
             res.redirect(`${frontendUrl}${returnTo}`);
         } catch (e) {
             console.error("Discord Auth Fehler:", e);
@@ -65,8 +74,7 @@ module.exports = function({ requireAuth, sessions, saveSessionsToFile }) {
 
     // Status der Discord-Verknüpfung für die Profil-Seite
     router.get("/link-status", requireAuth, (req, res) => {
-        const sessionId = req.cookies.session;
-        const discord = sessionId && sessions[sessionId] ? sessions[sessionId].discord : null;
+        const discord = linkOf(req);
         if (!discord || !discord.userId) return res.json({ linked: false });
         res.json({
             linked: true,
@@ -79,11 +87,8 @@ module.exports = function({ requireAuth, sessions, saveSessionsToFile }) {
     });
 
     router.post("/unlink", requireAuth, (req, res) => {
-        const sessionId = req.cookies.session;
-        if (sessionId && sessions[sessionId] && sessions[sessionId].discord) {
-            delete sessions[sessionId].discord;
-            saveSessionsToFile(sessions);
-        }
+        links.removeLink(req.twitchId);
+        if (links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
         res.json({ success: true });
     });
 

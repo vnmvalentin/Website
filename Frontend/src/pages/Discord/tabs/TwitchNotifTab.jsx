@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { Tv, Pencil, Trash2 } from 'lucide-react';
 
 const VARIABLES = ['{streamer}', '{game}', '{title}', '{url}'];
 const DEFAULT_MSG = '🔴 **{streamer}** ist jetzt live! Spiel: {game}\n{url}';
@@ -164,12 +165,12 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                     setNotifs(prev => [...prev, { id: data.id, twitchUsername, channelId, messageTemplate: templateForStorage, enabled: 1 }]);
                 }
                 resetForm();
-                setSaveStatus('✅ Gespeichert!');
+                setSaveStatus('Gespeichert!');
             } else {
-                setSaveStatus(`❌ ${data.error}`);
+                setSaveStatus(`Fehler: ${data.error}`);
             }
         } catch {
-            setSaveStatus('❌ Netzwerkfehler.');
+            setSaveStatus('Fehler: keine Verbindung zum Server.');
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 3000);
@@ -190,42 +191,42 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
     };
 
     return (
-        <div className="space-y-8">
+        <div className="dc-page">
             <div>
-                <h2 className="text-2xl text-white font-bold mb-1">Twitch Benachrichtigungen</h2>
+                <h2 className="dc-h2">Twitch Benachrichtigungen</h2>
                 <p className="text-white/50 text-sm">Sende automatisch eine Nachricht wenn ein Twitch-Kanal live geht.</p>
             </div>
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-2xl">
+            <div className="dc-card p-6 space-y-4 max-w-2xl">
                 <h3 className="text-white font-semibold flex items-center gap-2">
-                    {editingId ? '✏️ Bearbeiten' : '➕ Neue Benachrichtigung'}
+                    {editingId ? 'Bearbeiten' : 'Neue Benachrichtigung'}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-white text-sm font-medium mb-2">Twitch Nutzername</label>
+                        <label className="dc-label">Twitch Nutzername</label>
                         <input value={twitchUsername} onChange={e => setTwitchUsername(e.target.value)}
                             placeholder="z.B. shroud"
-                            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
+                            className="dc-input w-full" />
                     </div>
                     <div>
-                        <label className="block text-white text-sm font-medium mb-2">Discord Kanal</label>
+                        <label className="dc-label">Discord Kanal</label>
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
-                            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                            className="dc-input w-full">
                             <option value="">-- Kanal auswählen --</option>
                             {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                         </select>
                     </div>
                 </div>
                 <div className="relative">
-                    <label className="block text-white text-sm font-medium mb-2">Nachrichtenvorlage</label>
+                    <label className="dc-label">Nachrichtenvorlage</label>
                     <textarea ref={textareaRef} value={messageTemplate} onChange={handleTemplateChange}
                         onKeyDown={handleTemplateKeyDown}
                         onClick={e => updateMentionState(e.target.value, e.target.selectionStart)}
                         onBlur={() => setMentionOpen(false)}
                         rows={3}
-                        className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none resize-none font-mono text-sm" />
+                        className="dc-input w-full resize-none" />
                     {mentionOpen && (
-                        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-[#0e0e1a]/90 border border-white/10 rounded-lg shadow-2xl max-h-48 overflow-y-auto">
+                        <div className="dc-card absolute z-50 left-0 right-0 top-full mt-1 shadow-2xl max-h-48 overflow-y-auto">
                             {mentionMatches.length > 0 ? mentionMatches.map((r, i) => (
                                 <div key={r.id}
                                     onMouseDown={e => { e.preventDefault(); insertRoleMention(r); }}
@@ -241,21 +242,21 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                     <div className="flex flex-wrap gap-2 mt-2">
                         {VARIABLES.map(v => (
                             <button key={v} onClick={() => setMessageTemplate(prev => prev + v)}
-                                className="text-xs bg-[#0e0e1a]/85 border border-white/10 hover:border-violet-500/40 text-violet-400 px-2 py-1 rounded-lg transition-colors font-mono">
+                                className="text-xs bg-[#0e0e1a]/85 border border-white/10 hover:border-indigo-500/40 text-indigo-400 px-2 py-1 rounded-md transition-colors">
                                 {v}
                             </button>
                         ))}
                     </div>
-                    <p className="text-white/40 text-xs mt-2">Klicke auf eine Variable um sie einzufügen. Tippe <span className="font-mono text-white/50">@</span> um eine Rolle zu markieren. Markdown wird unterstützt.</p>
+                    <p className="text-white/40 text-xs mt-2">Klicke auf eine Variable um sie einzufügen. Tippe <span className="text-white/50">@</span> um eine Rolle zu markieren. Markdown wird unterstützt.</p>
                 </div>
                 <div className="flex items-center gap-3 pt-1">
                     <button onClick={handleSave} disabled={isSaving || !twitchUsername || !channelId}
-                        className="bg-violet-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
+                        className="dc-btn">
                         {isSaving ? 'Speichere...' : editingId ? 'Aktualisieren' : 'Hinzufügen'}
                     </button>
                     {editingId && (
                         <button onClick={resetForm}
-                            className="bg-white/5 hover:bg-white/10 text-white/50 font-bold py-2.5 px-5 rounded-lg transition-colors">
+                            className="bg-white/5 hover:bg-white/10 text-white/50 font-bold py-2.5 px-5 rounded-md transition-colors">
                             Abbrechen
                         </button>
                     )}
@@ -267,39 +268,35 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                 <div className="max-w-2xl space-y-3">
                     <h3 className="text-white font-semibold text-lg">Aktive Benachrichtigungen</h3>
                     {notifs.map(n => (
-                        <div key={n.id} className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-4 flex items-start gap-4">
-                            <div className="text-2xl shrink-0">📺</div>
+                        <div key={n.id} className="dc-card p-4 flex items-start gap-4">
+                            <Tv size={18} className="text-white/40 shrink-0" />
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-1">
                                     <span className="text-white font-bold">twitch.tv/{n.twitchUsername}</span>
                                     <span className="text-white/40 text-xs">→</span>
-                                    <span className="text-violet-400 text-sm">#{channels.find(c => c.id === n.channelId)?.name || n.channelId}</span>
+                                    <span className="text-indigo-400 text-sm">#{channels.find(c => c.id === n.channelId)?.name || n.channelId}</span>
                                 </div>
-                                <p className="text-white/40 text-xs font-mono truncate">{formatMentionsForDisplay(n.messageTemplate)}</p>
+                                <p className="text-white/40 text-xs truncate">{formatMentionsForDisplay(n.messageTemplate)}</p>
                             </div>
                             <div className="flex gap-2 shrink-0">
                                 <button onClick={() => startEdit(n)}
-                                    className="text-white/50 hover:text-white hover:bg-white/5 p-2 rounded-lg transition-colors">
-                                    ✏️
-                                </button>
+                                    className="text-white/50 hover:text-white hover:bg-white/5 p-2 rounded-md transition-colors"><Pencil size={14} /></button>
                                 <button onClick={() => handleDelete(n.id)}
-                                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-lg transition-colors">
-                                    🗑️
-                                </button>
+                                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-md transition-colors"><Trash2 size={14} /></button>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 max-w-2xl">
-                <h3 className="text-white font-semibold text-sm mb-2">ℹ️ Hinweis</h3>
+            <details className="dc-help">
+                <summary>Hinweis</summary>
                 <ul className="text-white/50 text-sm space-y-1">
                     <li>• Der Bot prüft alle 2 Minuten ob neue Streams live sind</li>
                     <li>• Eine Benachrichtigung wird nur einmal pro Stream-Session gesendet</li>
                     <li>• Mehrere Twitch-Kanäle können gleichzeitig überwacht werden</li>
                 </ul>
-            </div>
+            </details>
         </div>
     );
 }

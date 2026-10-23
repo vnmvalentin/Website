@@ -1,6 +1,7 @@
 // src/pages/Layout.jsx
 import React, { useEffect, useState, useContext, useRef, useCallback } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
+import LegalFooter from "../components/LegalFooter";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import { socket, ensureSocketConnected } from "../utils/socket";
 import AppBackground from "../components/AppBackground";
@@ -48,8 +49,8 @@ export default function Layout() {
     ? location.pathname.replace(/\/+$/, "")
     : location.pathname;
   // (Garden, adVentures und die Clash-Royale-Minigames haben seit 27.09.2026 eigene Hüllen außerhalb von Layout)
-  const isFullBleedGame =
-    normalizedPath === "/discord-bot" || normalizedPath === "/WinChallenge-Overlay";
+  // (die Win Challenge seit 13.10.2026 ebenfalls: WinChallenge/ui/WcShell.jsx)
+  const isFullBleedGame = normalizedPath === "/discord-bot";
 
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('globalIsMuted') === 'true';
@@ -491,6 +492,7 @@ export default function Layout() {
           }
         >
           <Outlet context={{ isMuted, openFeedback }} />
+          {!isFullBleedGame && <LegalFooter />}
         </section>
       </div>
     </div>

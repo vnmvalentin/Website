@@ -62,6 +62,23 @@ export const openMarbles = () => scenePost("marbles/open");
 export const startMarbles = () => scenePost("marbles/start");
 export const addMarbleBots = (count) => scenePost("marbles/bots", { count });
 
+/** Merkt sich die nächste Kanalpunkte-Einlösung im Kanal als Start-Belohnung der Murmelbahn. */
+export const learnMarbleReward = () => scenePost("marbles/learn");
+/** Legt die Start-Belohnung in Twitch an (ohne Textfeld). Braucht MARBLE_REWARD_SCOPE. */
+export const createMarbleReward = (title, cost) => scenePost("marbles/reward", { title, cost });
+/** Löscht die von der Seite angelegte Belohnung wieder. */
+export const deleteMarbleReward = (rewardId) =>
+  apiFetch(`/api/stream-tool/scenes/marbles/reward/${encodeURIComponent(rewardId)}`, { method: "DELETE" });
+
+/**
+ * Das einzige Schreibrecht des Stream-Tools. Bewusst NICHT in STREAM_TOOL_SCOPES:
+ * angefragt wird es nur, wenn jemand die Belohnung von der Seite anlegen lässt.
+ */
+export const MARBLE_REWARD_SCOPE = "channel:manage:redemptions";
+
+/** Bestenliste der Murmelbahn leeren. */
+export const resetMarbleTop = () => scenePost("marbles/top/reset");
+
 /** Laufende Szene beenden: 'hype' | 'storm' | 'plane' | 'marbles'. */
 export const stopScene = (key) => apiFetch(`/api/stream-tool/scenes/${key}`, { method: "DELETE" });
 

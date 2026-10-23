@@ -13,11 +13,12 @@ import ModePickerModal from './ModePickerModal';
 import { CrBattle, CrTrophy, CrShield, CrRandom } from '../ui/CrIcons';
 import { modeNameFor, modeDescFor, modeInfo } from '../modesConfig';
 import { randomPoolFor } from './poolRequirements';
+import { ltDict } from './ltourI18n';
 
 export default function ModeStartBand({
   lobbyData, actions, t, lang,
   canControlLobby, isClashAdmin, effectiveIsHost,
-  onStart, onShowHistory,
+  onStart, onShowHistory, onShowTournament,
   canStart, poolSize, requiredPool, poolTooSmall, carouselMaxPlayers, carouselTooMany, teamsNotReady, randomPoolEmpty,
 }) {
   const [modePickerOpen, setModePickerOpen] = useState(false);
@@ -27,6 +28,11 @@ export default function ModeStartBand({
   const random = !!lobbyData?.randomEnabled;
   const CurrentIcon = random ? CrRandom : modeInfo(mode).icon;
   const historyCount = lobbyData?.historyCount || 0;
+  // Lobby-Turnier: vor dem Start heißt der Knopf "Turnier starten"; läuft es, wird über den
+  // Turnierbaum gestartet (LobbyTournamentPanel.jsx) und der Knopf springt nur dorthin
+  const ltour = lobbyData?.ltour || null;
+  const lt = ltDict(lang);
+  const tourRunning = !!ltour && ltour.phase !== 'setup';
 
   const blockedReason = randomPoolEmpty
     ? t.startBlockedRandom
@@ -83,10 +89,16 @@ export default function ModeStartBand({
         </div>
 
         <div className="flex md:flex-col gap-3 md:w-64 shrink-0">
-          {canControlLobby ? (
+          {tourRunning ? (
+            <ChunkyButton variant="gold" size="lg" block icon={CrTrophy} iconSize={30} className="md:flex-1"
+              onClick={onShowTournament}>
+              {lt.toBracket}
+            </ChunkyButton>
+          ) : canControlLobby ? (
             <ChunkyButton variant="green" size="lg" block icon={CrBattle} iconSize={30} onClick={onStart} disabled={!canStart}
-              className="md:flex-1">
-              {canStart ? t.startGame : blockedReason}
+              // Startklar: Glanzstreifen zieht über den Knopf
+              className={`md:flex-1 ${canStart ? 'cr-shine' : ''}`}>
+              {!canStart ? blockedReason : ltour ? lt.startTournament : t.startGame}
             </ChunkyButton>
           ) : lobbyData?.tournament ? null : (
             <p className="flex-1 self-center text-white/45 text-sm text-center">{t.waitingForHost}</p>

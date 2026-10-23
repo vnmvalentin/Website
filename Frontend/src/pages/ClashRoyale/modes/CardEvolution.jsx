@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { sparkBurst, ringPulse, floatText, bigBanner, shake, flash, stamp } from '../ui/juice';
+import { playSound } from '../ui/sound';
 import CardFace from '../ui/CardFace';
 import { CrCheck, CrDowngrade, CrLock, CrRandom, CrStar, CrUpgrade } from '../ui/CrIcons';
 import { RARITY_COLOR } from '../data/cards';
@@ -28,6 +30,7 @@ const EVO_I18N = {
     wildcardOf: (r) => `${r}-Wildcard`,
     lockCard: 'Karte locken',
     locked: 'Gelockt',
+    sabotagedBanner: 'SABOTIERT!',
     notEnoughTokensLock: 'Nicht genug Tokens zum Locken',
     sabotageHint: 'Klicke auf eine ungelockte Karte eines Gegners, um sie für 3 Tokens neu zu würfeln.',
     yourTokens: 'Deine Tokens',
@@ -49,6 +52,7 @@ const EVO_I18N = {
     wildcardOf: (r) => `${r} wildcard`,
     lockCard: 'Lock card',
     locked: 'Locked',
+    sabotagedBanner: 'SABOTAGED!',
     notEnoughTokensLock: 'Not enough tokens to lock',
     sabotageHint: "Click an opponent's unlocked card to reroll it for 3 tokens.",
     yourTokens: 'Your tokens',
@@ -70,6 +74,7 @@ const EVO_I18N = {
     wildcardOf: (r) => `Comodín ${r}`,
     lockCard: 'Bloquear carta',
     locked: 'Bloqueada',
+    sabotagedBanner: '¡SABOTEADA!',
     notEnoughTokensLock: 'No hay suficientes fichas para bloquear',
     sabotageHint: 'Haz clic en una carta sin bloquear de un rival para rerollearla por 3 fichas.',
     yourTokens: 'Tus fichas',
@@ -192,7 +197,7 @@ function SpectatorPlayerRow({ player, flashing, t, interactive = false, canAct =
           return (
             // Sabotierbarkeit als INNERER Ring statt als Rahmen: ein border würde das
             // Artwork beim Überfahren um 2px stauchen und die ganze Reihe verspringen lassen.
-            <div key={si} onClick={() => clickable && onSlotClick(si)}
+            <div key={si} data-evo-slot={`${player.id}:${si}`} onClick={() => clickable && onSlotClick(si)}
               title={slot.card ? slot.card.name : t.wildcardOf(slot.rarity)}
               className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden ${isPendingSlot ? 'evo-pending' : ''} ${clickable ? 'cursor-pointer hover:ring-2 hover:ring-inset hover:ring-red-400/70' : ''}`}>
               <div className={`w-full h-full ${isFlashing ? 'evo-pop' : ''}`}><SlotArt slot={slot} /></div>
@@ -372,9 +377,11 @@ function MyBoardStage({ me, poolCounts, allowLock, onAction, onLock, finished, f
         <div className="min-h-full flex flex-col items-center justify-center py-6">
           <div className="flex flex-wrap items-start justify-center gap-4 w-full max-w-[1400px] px-4">
             {me.slots.map((slot, si) => (
-              <CardStageUnit key={si} me={me} slot={slot} slotIdx={si}
+              <div key={si} data-evo-slot={`${me.id}:${si}`} className="contents">
+              <CardStageUnit me={me} slot={slot} slotIdx={si}
                 poolCounts={poolCounts} champCount={champCount} disabled={disabled} allowLock={allowLock}
                 onAction={onAction} onLock={onLock} isFlashing={flashing?.has(si)} t={t} />
+              </div>
             ))}
           </div>
         </div>
@@ -433,6 +440,8 @@ function PendingChoiceModal({ pending, onChoose, t }) {
 
 const PHASE_LABEL_KEY = { round1: 'phaseRound1', sabotage: 'phaseSabotage', round3: 'phaseRound3' };
 
+const isSabotage = (phase) => phase === 'sabotage';
+
 export default function CardEvolution({ evoState, myPlayerId, onAction, onResolvePending, onLock, onSabotage, lang = 'de' }) {
   const t = EVO_I18N[lang] || EVO_I18N.de;
 
@@ -440,6 +449,18 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
   // kurzen Pop aus — greift sowohl bei eigenen Auf-/Abwertungen als auch bei der
   // automatischen Spielende-Auflösung übrig gebliebener Wildcards.
   const prevCardsRef = useRef({});
+  const prevSlotsRef = useRef(null);
+  // Phasenwechsel (Runde 1 → Sabotage → Runde 3) als großes Banner
+  const prevPhaseRef = useRef(evoState?.phase);
+  useEffect(() => {
+    const ph = evoState?.phase;
+    if (ph && prevPhaseRef.current && ph !== prevPhaseRef.current && !evoState.finished) {
+      bigBanner(t[PHASE_LABEL_KEY[ph]] || ph, { color: isSabotage(ph) ? '#f87171' : '#22d3ee' });
+      playSound('start');
+    }
+    prevPhaseRef.current = ph;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evoState?.phase]);
   const flashTimerRef = useRef(null);
   const [flashSlots, setFlashSlots] = useState({});
 
@@ -459,12 +480,51 @@ export default function CardEvolution({ evoState, myPlayerId, onAction, onResolv
       }
     });
     prevCardsRef.current = nextSnapshot;
+    // Inszenierung je geänderter Karte: Richtung aus der Seltenheit von vorher/nachher
+    const prevFull = prevSlotsRef.current;
+    prevSlotsRef.current = Object.fromEntries(evoState.players.map(p => [p.id, p.slots.map(sl => ({ rarity: sl.card?.rarity || sl.rarity, locked: !!sl.locked }))]));
+    if (prevFull) {
+      evoState.players.forEach(p => {
+        p.slots.forEach((sl, i) => {
+          const before = prevFull[p.id]?.[i];
+          if (!before) return;
+          let el = document.querySelector(`[data-evo-slot="${p.id}:${i}"]`);
+          // eigene Bühne: Wrapper mit display:contents hat keine Fläche → erstes Kind messen
+          if (el && !el.getBoundingClientRect().width) el = el.firstElementChild;
+          if (!el || el.getBoundingClientRect().width === 0) return;
+          const after = sl.card?.rarity || sl.rarity;
+          if (sl.locked && !before.locked) {
+            stamp(el, t.locked.toUpperCase(), { color: '#22d3ee' });
+            playSound('land');
+            return;
+          }
+          const delta = RARITY_ORDER.indexOf(after) - RARITY_ORDER.indexOf(before.rarity);
+          const changedCard = newFlash[p.id]?.has(i);
+          if (!changedCard && delta === 0) return;
+          const color = RARITY_COLOR[after] || '#ffffff';
+          if (delta > 0) {
+            flash(el, { color });
+            sparkBurst(el, { color, count: after === 'Champion' || after === 'Legendary' ? 30 : 18, spread: 110 });
+            ringPulse(el, { color });
+            floatText(el, after, { color, size: 22 });
+            if (p.id === myPlayerId) playSound('win');
+          } else if (delta < 0) {
+            shake(el, { intensity: 7 });
+            sparkBurst(el, { colors: ['#ef4444', '#64748b', '#1f2937'], count: 16, spread: 90 });
+            floatText(el, isSabotage(evoState.phase) && p.id === myPlayerId ? t.sabotagedBanner : after, { color: '#f87171', size: 22 });
+            if (p.id === myPlayerId) playSound('error');
+          } else {
+            ringPulse(el, { color });
+          }
+        });
+      });
+    }
     if (Object.keys(newFlash).length) {
       setFlashSlots(newFlash);
       clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setFlashSlots({}), 700);
     }
-  }, [evoState]);
+  }, [evoState, myPlayerId, t]);
 
   useEffect(() => () => clearTimeout(flashTimerRef.current), []);
 

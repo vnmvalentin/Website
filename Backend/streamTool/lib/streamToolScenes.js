@@ -14,7 +14,8 @@
 const crypto = require("crypto");
 const { nanoid } = require("nanoid");
 const { db, decryptToken } = require("./streamToolStore");
-const { helix } = require("./twitchHelix");
+const { helix, helixWrite } = require("./twitchHelix");
+const { isPremium } = require("../../billing/entitlements");
 
 const IDS = { hype: "hypeTrain", storm: "raidStorm", plane: "planeBanner", marbles: "marbleRun" };
 /** Module, für die der Chat-Bot im Kanal sitzen muss. */
@@ -22,6 +23,8 @@ const CHAT_IDS = [IDS.hype, IDS.storm, IDS.marbles];
 
 const HYPE_SCOPE = "channel:read:hype_train";
 const CHATTERS_SCOPE = "moderator:read:chatters";
+/** Einziges Schreibrecht des Stream-Tools — nur für die selbst angelegte Kanalpunkte-Belohnung. */
+const REWARD_SCOPE = "channel:manage:redemptions";
 
 const listConnected = db.prepare(
   "SELECT * FROM stream_tool_settings WHERE token_enc <> '' AND twitch_login <> ''"
@@ -29,6 +32,17 @@ const listConnected = db.prepare(
 const getByLogin = db.prepare("SELECT * FROM stream_tool_settings WHERE twitch_login = ?");
 const getByUser = db.prepare("SELECT * FROM stream_tool_settings WHERE user_id = ?");
 const setScenes = db.prepare("UPDATE stream_tool_settings SET scenes = ? WHERE user_id = ?");
+
+const addWin = db.prepare(
+  `INSERT INTO marble_wins (user_id, player_id, name, wins, last_at) VALUES (?, ?, ?, 1, ?)
+   ON CONFLICT(user_id, player_id) DO UPDATE SET wins = wins + 1, name = excluded.name, last_at = excluded.last_at`
+);
+const getWins = db.prepare("SELECT wins FROM marble_wins WHERE user_id = ? AND player_id = ?");
+// Bei Gleichstand steht vorn, wer die Zahl zuerst erreicht hat
+const listTop = db.prepare(
+  "SELECT name, wins FROM marble_wins WHERE user_id = ? ORDER BY wins DESC, last_at ASC LIMIT ?"
+);
+const clearWins = db.prepare("DELETE FROM marble_wins WHERE user_id = ?");
 
 const normalizeLogin = (v) => String(v || "").trim().toLowerCase().replace(/^#/, "");
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
@@ -41,10 +55,16 @@ function parseJson(raw) {
   }
 }
 
-/** Die Modul-Einstellungen des Streamers, oder null wenn das Modul aus ist. */
+/**
+ * Die Modul-Einstellungen des Streamers, oder null wenn das Modul aus ist.
+ * Alle Szenen dieser Datei gehören zum Abo (billing/entitlements.js): ohne Abo gilt ein
+ * eingeschaltetes Modul als aus — damit greifen Probeläufe, Chat-Befehle, Kanalpunkte und
+ * der Abgleich mit Twitch von selbst nicht mehr.
+ */
 function moduleOf(row, id) {
   const mod = parseJson(row && row.config)?.modules?.[id];
   if (!mod || typeof mod !== "object" || !mod.enabled) return null;
+  if (!isPremium(row.user_id)) return null;
   return mod;
 }
 
@@ -524,6 +544,154 @@ function beginRace(m, now, mod) {
   m.sections = clamp(Math.round(Number(mod && mod.sections) || 12), 6, 24);
 }
 
+/* ── Kanalpunkte-Belohnung, die die Seite selbst anlegt ─────────────────────
+ *
+ * Twitch gibt die Einlösungen einer Belohnung nur der Anwendung heraus, die sie
+ * angelegt hat. Legt also die Seite die Belohnung an, kann sie die Einlösungen
+ * abfragen — ganz ohne Textfeld und ohne den Chat-Bot. Und sie kann sie
+ * abschließen oder erstatten:
+ *
+ *   - Einlösung kommt        -> Anmeldung öffnet sich, der Einlösende ist dabei;
+ *                               die Einlösung bleibt in Twitch "offen"
+ *   - Rennen startet         -> alle offenen Einlösungen werden abgeschlossen
+ *   - Rennen fällt aus       -> sie werden erstattet (zu wenige Murmeln, Abbruch)
+ *   - Einlösung mitten im Rennen -> sofort erstattet
+ *
+ * Abgefragt wird wie alles andere nur, solange ein Overlay oder das Dashboard
+ * seine Route abruft.
+ */
+const REWARD_SYNC_MS = 3000;
+const rewardSyncAt = new Map(); // userId -> Zeitpunkt des letzten Abrufs
+
+/** Merkt die offenen Einlösungen eines Rennens zum Abschließen oder Erstatten vor. */
+function settleRedemptions(s, m, status) {
+  if (!m || !Array.isArray(m.redemptions) || !m.redemptions.length) return;
+  s.rewardQueue = (s.rewardQueue || []).concat(m.redemptions.map((id) => ({ id, reward: m.rewardId, status })));
+  m.redemptions = [];
+}
+
+const managedReward = (row) => {
+  const mod = moduleOf(row, IDS.marbles);
+  return mod && mod.rewardManaged && mod.rewardId && hasScope(row, REWARD_SCOPE) ? String(mod.rewardId) : "";
+};
+
+async function syncReward(row, token) {
+  // Vorgemerkte Abschlüsse/Erstattungen zuerst — unabhängig davon, ob die
+  // Belohnung inzwischen ausgeschaltet wurde
+  const queue = readScenes(row).rewardQueue || [];
+  if (queue.length && hasScope(row, REWARD_SCOPE)) {
+    const done = [];
+    for (const status of ["FULFILLED", "CANCELED"]) {
+      const group = queue.filter((q) => q.status === status && q.reward).slice(0, 50);
+      if (!group.length) continue;
+      const params = new URLSearchParams({ broadcaster_id: row.user_id, reward_id: group[0].reward });
+      for (const q of group.filter((x) => x.reward === group[0].reward)) params.append("id", q.id);
+      try {
+        await helixWrite("PATCH", `channel_points/custom_rewards/redemptions?${params.toString()}`, token, { status });
+      } catch (e) {
+        // 404 = längst erledigt (z. B. von Hand in Twitch) — nicht ewig wiederholen
+        if (e.status !== 404 && e.status !== 400) continue;
+      }
+      done.push(...params.getAll("id"));
+    }
+    if (done.length) {
+      patchScenes(row.user_id, (s) => {
+        s.rewardQueue = (s.rewardQueue || []).filter((q) => !done.includes(q.id));
+        if (!s.rewardQueue.length) delete s.rewardQueue;
+      });
+    }
+  }
+
+  const rewardId = managedReward(row);
+  if (!rewardId) return;
+  const now = Date.now();
+  if (now - (rewardSyncAt.get(row.user_id) || 0) < REWARD_SYNC_MS) return;
+  rewardSyncAt.set(row.user_id, now);
+
+  let list;
+  try {
+    const params = new URLSearchParams({ broadcaster_id: row.user_id, reward_id: rewardId, status: "UNFULFILLED", first: "50" });
+    list = (await helix(`channel_points/custom_rewards/redemptions?${params.toString()}`, token)).data || [];
+  } catch {
+    return;
+  }
+
+  const mod = moduleOf(row, IDS.marbles);
+  for (const r of list) {
+    const fresh = getByUser.get(row.user_id);
+    const state = readScenes(fresh);
+    if ((state.marbles?.redemptions || []).includes(r.id)) continue; // wartet schon auf den Start
+    if ((state.rewardQueue || []).some((q) => q.id === r.id)) continue; // wird gerade erledigt
+
+    // Läuft schon ein Rennen, gibt es die Punkte zurück
+    if (state.marbles && state.marbles.phase !== "join") {
+      patchScenes(row.user_id, (s) => { s.rewardQueue = (s.rewardQueue || []).concat({ id: r.id, reward: rewardId, status: "CANCELED" }); });
+      continue;
+    }
+    if (!state.marbles) marblesOpen(row.user_id);
+    patchScenes(row.user_id, (s) => {
+      const m = s.marbles;
+      if (!m || m.phase !== "join") return;
+      m.rewardId = rewardId;
+      m.redemptions = (m.redemptions || []).concat(r.id);
+      const id = String(r.user_id);
+      if (m.players.length < maxPlayersOf(mod) && !m.players.some((p) => p.id === id)) {
+        m.players.push({ id, name: String(r.user_name || r.user_login || "").slice(0, 30) });
+      }
+    });
+  }
+}
+
+const REWARD_ERRORS = {
+  403: "Kanalpunkte-Belohnungen gibt es nur für Affiliates und Partner.",
+  401: "Twitch hat die Anmeldung abgelehnt — bitte das Recht erneut erteilen.",
+};
+
+/** Legt die Belohnung in Twitch an. Die ID speichert das Dashboard in den Einstellungen. */
+async function createReward(userId, { title, cost } = {}) {
+  const row = getByUser.get(String(userId));
+  if (!row) return { error: "Keine Einstellungen gefunden." };
+  const token = decryptToken(row.token_enc);
+  if (!token) return { error: "Twitch ist nicht verbunden." };
+  if (!hasScope(row, REWARD_SCOPE)) return { error: "Dafür fehlt noch das Recht, Kanalpunkte-Belohnungen zu verwalten.", needsScope: true };
+
+  const name = String(title || "").trim().slice(0, 45) || "Murmelrennen starten";
+  try {
+    const data = await helixWrite("POST", `channel_points/custom_rewards?broadcaster_id=${row.user_id}`, token, {
+      title: name,
+      cost: clamp(Math.round(Number(cost) || 500), 1, 1000000),
+      is_enabled: true,
+      is_user_input_required: false,
+      // Offen lassen, bis das Rennen wirklich startet — sonst ließe sich nichts erstatten
+      should_redemptions_skip_request_queue: false,
+    });
+    const reward = data.data && data.data[0];
+    if (!reward) return { error: "Twitch hat keine Belohnung zurückgegeben." };
+    return { ok: true, reward: { id: reward.id, title: reward.title, cost: reward.cost } };
+  } catch (e) {
+    // Twitch verlangt eindeutige Titel
+    if (e.status === 400 && /DUPLICATE|duplicate|already exists/i.test(e.message)) {
+      return { error: `Eine Belohnung namens „${name}“ gibt es schon — wähle einen anderen Namen.` };
+    }
+    return { error: REWARD_ERRORS[e.status] || `Twitch: ${e.message}` };
+  }
+}
+
+/** Löscht die von der Seite angelegte Belohnung wieder aus Twitch. */
+async function deleteReward(userId, rewardId) {
+  const row = getByUser.get(String(userId));
+  const token = row && decryptToken(row.token_enc);
+  if (!token || !rewardId || !hasScope(row, REWARD_SCOPE)) return { ok: true };
+  patchScenes(userId, (s) => { settleRedemptions(s, s.marbles, "CANCELED"); });
+  try {
+    const params = new URLSearchParams({ broadcaster_id: row.user_id, id: String(rewardId) });
+    await helixWrite("DELETE", `channel_points/custom_rewards?${params.toString()}`, token);
+  } catch (e) {
+    if (e.status !== 404) return { error: `Twitch: ${e.message}` };
+  }
+  return { ok: true };
+}
+
 /** Zeitabhängige Übergänge. Läuft bei jedem Lesen mit — einen Timer gibt es nicht. */
 function tickMarbles(row) {
   const m = readScenes(row).marbles;
@@ -541,9 +709,11 @@ function tickMarbles(row) {
     if (!cur) return;
     if (cur.phase === "join" && cur.players.length >= 2) {
       beginRace(cur, Date.now(), moduleOf(row, IDS.marbles));
+      settleRedemptions(s, cur, "FULFILLED");
       return;
     }
     if (cur.phase === "join") note = "Zu wenige Murmeln am Start — das Rennen fällt aus.";
+    settleRedemptions(s, cur, "CANCELED");
     delete s.marbles;
   });
   if (note && moduleOf(row, IDS.marbles)?.announce !== false) say(row.twitch_login, note);
@@ -558,6 +728,8 @@ function marblesOpen(userId) {
   const seconds = clamp(Math.round(Number(mod.joinSeconds) || 0), 0, 600);
   const now = Date.now();
   patchScenes(userId, (s) => {
+    // Eine noch offene Anmeldung wird ersetzt — deren Einlösungen gehen zurück
+    settleRedemptions(s, s.marbles, "CANCELED");
     s.marbles = {
       id: nanoid(10),
       phase: "join",
@@ -581,13 +753,19 @@ function marblesStart(userId) {
     const m = s.marbles;
     if (!m || m.phase !== "join") error = "not_open";
     else if (m.players.length < 2) error = "too_few";
-    else beginRace(m, Date.now(), moduleOf(row, IDS.marbles));
+    else {
+      beginRace(m, Date.now(), moduleOf(row, IDS.marbles));
+      settleRedemptions(s, m, "FULFILLED");
+    }
   });
   return error ? { error } : { ok: true };
 }
 
 function marblesCancel(userId) {
-  patchScenes(userId, (s) => { delete s.marbles; });
+  patchScenes(userId, (s) => {
+    settleRedemptions(s, s.marbles, "CANCELED");
+    delete s.marbles;
+  });
   return { ok: true };
 }
 
@@ -628,15 +806,114 @@ function marblesResult(row, raceId, winnerId) {
     if (!m || m.phase !== "race" || m.id !== String(raceId) || now < m.startsAt + MARBLES_MIN_RACE_MS) return;
     const player = m.players.find((p) => p.id === String(winnerId));
     if (!player) return;
-    winner = { id: player.id, name: player.name };
+    winner = { id: player.id, name: player.name, wins: 0 };
+    // Testmurmeln kommen nicht in die Bestenliste
+    if (!player.bot) {
+      addWin.run(row.user_id, player.id, player.name, now);
+      winner.wins = getWins.get(row.user_id, player.id)?.wins || 1;
+    }
     m.phase = "done";
     m.winner = winner;
     m.finishedAt = now;
     m.hideAt = now + clamp(Math.round(Number(mod.winnerSeconds) || 15), 5, 120) * 1000;
   });
   if (!winner) return { error: "rejected" };
-  if (mod.announce !== false) say(row.twitch_login, `${winner.name} gewinnt das Murmelrennen!`);
+  if (mod.announce !== false) {
+    say(row.twitch_login, `${winner.name} gewinnt das Murmelrennen!${winner.wins > 1 ? ` Das ist Sieg Nr. ${winner.wins}.` : ""}`);
+  }
   return { ok: true, winner };
+}
+
+/* Bestenliste */
+
+const TOP_COOLDOWN_MS = 15 * 1000;
+const topSaidAt = new Map(); // login -> Zeitpunkt der letzten Ausgabe
+
+const marbleTop = (userId, limit = 5) => listTop.all(String(userId), limit);
+
+function sayTop(row) {
+  const login = normalizeLogin(row.twitch_login);
+  const now = Date.now();
+  // Jeder darf fragen — deshalb gedrosselt, sonst füllt die Liste den Chat
+  if (now - (topSaidAt.get(login) || 0) < TOP_COOLDOWN_MS) return;
+  topSaidAt.set(login, now);
+  const top = marbleTop(row.user_id, 5);
+  say(login, top.length
+    ? `Murmel-Bestenliste: ${top.map((e, i) => `${i + 1}. ${e.name} (${e.wins})`).join(" · ")}`
+    : "Noch hat niemand ein Murmelrennen gewonnen.");
+}
+
+function resetMarbleTop(userId) {
+  clearWins.run(String(userId));
+  return { ok: true };
+}
+
+/* Start über eine Kanalpunkte-Belohnung
+ *
+ * Der Chat-Bot sieht eine Einlösung nur, wenn die Belohnung ein Textfeld hat —
+ * dann schickt Twitch sie als Chatzeile mit der ID der Belohnung. Dafür braucht
+ * es kein zusätzliches Recht. Die ID lernt das Dashboard, indem der Streamer
+ * die Belohnung einmal selbst einlöst ("Belohnung erkennen").
+ */
+const LEARN_MS = 90 * 1000;
+const learnUntil = new Map(); // userId -> bis wann die nächste Einlösung gemerkt wird
+
+function learnReward(userId) {
+  const row = getByUser.get(String(userId));
+  if (!row) return { error: "no_settings" };
+  if (!moduleOf(row, IDS.marbles)) return { error: "module_off" };
+  learnUntil.set(row.user_id, Date.now() + LEARN_MS);
+  patchScenes(userId, (s) => { delete s.reward; });
+  return { ok: true };
+}
+
+/** Fürs Dashboard: Stand der Erkennung und die Bestenliste. */
+function marbleSetup(row) {
+  const reward = readScenes(row).reward;
+  return {
+    learning: (learnUntil.get(row.user_id) || 0) > Date.now(),
+    // Nur eine frisch erkannte ID — das Dashboard übernimmt sie in die Einstellungen
+    reward: reward && Date.now() - reward.at < 10 * 60 * 1000 ? reward : null,
+    top: marbleTop(row.user_id, 10),
+  };
+}
+
+function joinPlayer(row, mod, tags) {
+  const id = String(tags["user-id"] || "");
+  if (!/^\d+$/.test(id)) return;
+  const name = String(tags["display-name"] || tags.username || "").slice(0, 30);
+  patchScenes(row.user_id, (s) => {
+    const m = s.marbles;
+    if (!m || m.phase !== "join" || m.players.length >= maxPlayersOf(mod)) return;
+    if (m.players.some((p) => p.id === id)) return;
+    m.players.push({ id, name });
+  });
+}
+
+/**
+ * Einlösung einer Kanalpunkte-Belohnung mit Textfeld.
+ * Öffnet die Anmeldung (wenn keine offen ist) und meldet den Einlösenden gleich an.
+ */
+function onRedeem(channel, tags = {}, rewardId = "") {
+  const login = normalizeLogin(channel);
+  if (!marbleCommands.has(login)) return;
+  const row = getByLogin.get(login);
+  const mod = row && moduleOf(row, IDS.marbles);
+  if (!mod) return;
+
+  const id = String(rewardId || "");
+  if ((learnUntil.get(row.user_id) || 0) > Date.now()) {
+    learnUntil.delete(row.user_id);
+    patchScenes(row.user_id, (s) => { s.reward = { id, at: Date.now() }; });
+    return;
+  }
+
+  if (!id || id !== String(mod.rewardId || "").trim()) return;
+  const state = readScenes(row).marbles;
+  // Läuft schon ein Rennen, verfällt die Einlösung — erstatten kann nur der Streamer
+  if (state && state.phase !== "join") return;
+  if (!state) marblesOpen(row.user_id);
+  joinPlayer(row, mod, tags);
 }
 
 const isModOrBroadcaster = (tags) => {
@@ -655,11 +932,17 @@ function onChatCommand(channel, tags = {}, message = "") {
   const command = marbleCommands.get(login);
   if (!command) return;
   const text = String(message).trim().toLowerCase();
-  if (text !== command && !text.startsWith(`${command} `)) return;
+  const wantsTop = text === "!murmeltop" || text === `${command}top` || text === `${command} top`;
+  if (!wantsTop && text !== command && !text.startsWith(`${command} `)) return;
 
   const row = getByLogin.get(login);
   const mod = row && moduleOf(row, IDS.marbles);
   if (!mod) return;
+
+  if (wantsTop) {
+    sayTop(row);
+    return;
+  }
 
   const arg = text.slice(command.length).trim();
   if (arg) {
@@ -672,15 +955,7 @@ function onChatCommand(channel, tags = {}, message = "") {
     return;
   }
 
-  const id = String(tags["user-id"] || "");
-  if (!/^\d+$/.test(id)) return;
-  const name = String(tags["display-name"] || tags.username || "").slice(0, 30);
-  patchScenes(row.user_id, (s) => {
-    const m = s.marbles;
-    if (!m || m.phase !== "join" || m.players.length >= maxPlayersOf(mod)) return;
-    if (m.players.some((p) => p.id === id)) return;
-    m.players.push({ id, name });
-  });
+  joinPlayer(row, mod, tags);
 }
 
 function publicMarbles(row, scenes) {
@@ -696,6 +971,8 @@ function publicMarbles(row, scenes) {
     startsAt: m.startsAt || 0,
     sections: m.sections || 0,
     winner: m.winner || null,
+    // Die drei Besten für die Anmeldekarte
+    top: mod.showTop === false ? [] : marbleTop(row.user_id, 3),
     players: m.players.map((p) => ({ id: p.id, name: p.name, avatar: avatarOf(p.id) })),
   };
 }
@@ -713,8 +990,14 @@ async function collect(row) {
       syncHype(row, token).catch(() => {}),
       syncChatters(row, token).catch(() => {}),
     ]);
+    // Vor den Zeitübergängen: eine frische Einlösung soll noch in dieses Rennen
+    await syncReward(row, token).catch(() => {});
   }
   tickMarbles(row);
+  // Was tickMarbles gerade abgeschlossen oder erstattet hat, gleich erledigen
+  if (token && (readScenes(getByUser.get(row.user_id) || row).rewardQueue || []).length) {
+    await syncReward(getByUser.get(row.user_id) || row, token).catch(() => {});
+  }
 
   const fresh = getByUser.get(row.user_id) || row;
   const scenes = readScenes(fresh);
@@ -736,13 +1019,17 @@ function status(row) {
   return {
     hypeScope: hasScope(row, HYPE_SCOPE),
     chattersScope: hasScope(row, CHATTERS_SCOPE),
+    rewardScope: hasScope(row, REWARD_SCOPE),
   };
 }
 
 /** Eine Szene sofort beenden (Probelauf abbrechen). */
 function stop(userId, key) {
   if (!["hype", "storm", "plane", "marbles"].includes(key)) return false;
-  patchScenes(userId, (s) => { delete s[key]; });
+  patchScenes(userId, (s) => {
+    if (key === "marbles") settleRedemptions(s, s.marbles, "CANCELED");
+    delete s[key];
+  });
   return true;
 }
 
@@ -772,4 +1059,10 @@ module.exports = {
   marblesCancel,
   marblesAddBots,
   marblesResult,
+  onRedeem,
+  createReward,
+  deleteReward,
+  learnReward,
+  marbleSetup,
+  resetMarbleTop,
 };

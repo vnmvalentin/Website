@@ -3,7 +3,7 @@
 import React from 'react';
 import Modal from './Modal';
 import Slider from './Slider';
-import { CrSettings, CrMegaphone, CrCheck, CrStar } from './CrIcons';
+import { CrSettings, CrMegaphone, CrCheck, CrStar, CrEye } from './CrIcons';
 import Toggle from './Toggle';
 import { useLanguage } from '../useLanguage';
 import { BACKGROUNDS, DEFAULT_BACKGROUND, useCrPrefs } from './crPrefs';
@@ -15,18 +15,21 @@ const L = {
     backgroundNote: 'Gilt nur für dich — Mitspieler sehen ihren eigenen Hintergrund.',
     sound: 'Lautstärke', mute: 'Stumm', test: 'Testen',
     animations: 'Animationen', animationsNote: 'Übergänge, aufploppende Karten und die Einblendung beim Spielstart.',
+    scene3d: '3D-Ansicht', scene3dNote: 'Elixier Auktion, Pyramidendraft, Angel Royale und Blindes Karussell in 3D. Aus = klassische 2D-Ansicht. Lässt sich auch im Spiel umschalten.',
   },
   en: {
     title: 'Settings', background: 'Background', defaultBg: 'Default (diamonds)',
     backgroundNote: 'Only for you — other players keep their own background.',
     sound: 'Volume', mute: 'Muted', test: 'Test',
     animations: 'Animations', animationsNote: 'Transitions, popping cards and the game-start splash.',
+    scene3d: '3D view', scene3dNote: 'Elixir Auction, Pyramid Draft, Angel Royale and Shadow Carousel in 3D. Off = classic 2D view. Can also be switched in-game.',
   },
   es: {
     title: 'Ajustes', background: 'Fondo', defaultBg: 'Estándar (rombos)',
     backgroundNote: 'Solo para ti — los demás jugadores ven su propio fondo.',
     sound: 'Volumen', mute: 'Silencio', test: 'Probar',
     animations: 'Animaciones', animationsNote: 'Transiciones, cartas que aparecen y la pantalla de inicio de partida.',
+    scene3d: 'Vista 3D', scene3dNote: 'Elixir Auction, Draft de Pirámide, Pesca Royale y Carrusel de Sombras en 3D. Desactivado = vista 2D clásica. También se puede cambiar en la partida.',
   },
 };
 
@@ -105,6 +108,17 @@ export default function CrSettingsModal({ onClose }) {
             </div>
             <Toggle checked={prefs.animations} onChange={(v) => setPref('animations', v)}
               accent="bg-green-500" aria-label={t.animations} />
+          </div>
+        </div>
+
+        <div className="cr-section">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="cr-section-title"><CrEye size={24} />{t.scene3d}</p>
+              <p className="text-white/50 text-xs mt-1 pl-[34px]">{t.scene3dNote}</p>
+            </div>
+            <Toggle checked={prefs.scene3d} onChange={(v) => setPref('scene3d', v)}
+              accent="bg-green-500" aria-label={t.scene3d} />
           </div>
         </div>
       </div>

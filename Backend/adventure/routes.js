@@ -15,13 +15,31 @@ const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
 const P = require("./progression");
 const M = require("./meta");
 
-const GAME_DATA_PATH = path.join(__dirname, "../data/adventures-users.json");
+const DATA_DIR = process.env.ADVENTURE_DATA_DIR || path.join(__dirname, "../data");
+const GAME_DATA_PATH = path.join(DATA_DIR, "adventures-users.json");
+// Gäste (ohne Twitch-Login, seit Okt. 2026) liegen getrennt: nicht im Admin-Dashboard, nicht bei Promo-Codes, nicht in
+// der Bestenliste. Wer sich später anmeldet, nimmt seinen Fortschritt mit (POST /claim-guest).
+const GUEST_DATA_PATH = path.join(DATA_DIR, "adventures-guests.json");
+const GUEST_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const GUEST_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const GUEST_MAX = 3000;
 const SCHEMA = 2;
 const MAX_SNAPSHOT_BYTES = 24_000;
 const HISTORY_SIZE = 20;
 
 const loadGameData = () => readJson(GAME_DATA_PATH, {});
 const saveGameData = (data) => writeJsonAtomic(GAME_DATA_PATH, data);
+const loadGuestData = () => readJson(GUEST_DATA_PATH, {});
+// Beim Speichern aufräumen: 30 Tage ohne Besuch → weg; mehr als GUEST_MAX → die am längsten nicht gesehenen zuerst
+function saveGuestData(data) {
+  const cutoff = Date.now() - GUEST_TTL_MS;
+  for (const [id, g] of Object.entries(data)) if (!(g.lastSeen >= cutoff)) delete data[id];
+  const ids = Object.keys(data);
+  if (ids.length > GUEST_MAX) {
+    ids.sort((a, b) => data[a].lastSeen - data[b].lastSeen).slice(0, ids.length - GUEST_MAX).forEach((id) => delete data[id]);
+  }
+  writeJsonAtomic(GUEST_DATA_PATH, data);
+}
 
 // Liefert den Nutzer (legt ihn an / hebt ihn auf v2)
 function ensureUser(db, id, name) {
@@ -69,6 +87,27 @@ function profilePayload(u) {
   };
 }
 
+/** Gast-Fortschritt in ein Konto übernehmen: Summen addieren, Mengen vereinigen, Bestwerte vergleichen */
+function mergeGuestInto(user, guest) {
+  user.xp = (user.xp || 0) + (guest.xp || 0);
+  user.runs = (user.runs || 0) + (guest.runs || 0);
+  user.wins = (user.wins || 0) + (guest.wins || 0);
+  user.ascension = Math.max(user.ascension || 0, guest.ascension || 0);
+  const union = (a, b) => [...new Set([...(a || []), ...(b || [])])];
+  user.discovered = union(user.discovered, guest.discovered);
+  user.achievements = union(user.achievements, guest.achievements);
+  user.skins = union(user.skins, guest.skins);
+  if (guest.best && better(guest.best, user.best)) user.best = guest.best;
+  for (const entry of Object.values(guest.kitBest || {})) recordBests(user, entry);
+  if (guest.daily?.best && guest.daily.day === M.dayKey()) {
+    if (!user.daily || user.daily.day !== guest.daily.day) user.daily = { day: guest.daily.day, best: null };
+    if (better(guest.daily.best, user.daily.best)) user.daily.best = guest.daily.best;
+  }
+  user.history = [...(user.history || []), ...(guest.history || [])].sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, HISTORY_SIZE);
+  if (!user.activeRun && guest.activeRun) user.activeRun = guest.activeRun;
+  user.highScore = user.best?.stages || 0;
+}
+
 const int = (v, max) => Math.max(0, Math.min(max, Math.floor(Number(v) || 0)));
 // Bestwert = meiste Punkte. Alte Einträge (vor den Punkten) werden aus ihren gespeicherten Werten nachgerechnet.
 const scoreOf = (entry) => entry.score ?? P.runScore({ kills: entry.kills, stagesCleared: entry.stages, timeSec: entry.timeSec, won: entry.won, difficulty: entry.difficulty });
@@ -102,28 +141,63 @@ function cleanExtra(b) {
   };
 }
 
-module.exports = function createAdventureRouter({ requireAuth }) {
+module.exports = function createAdventureRouter({ requireAuth, optionalAuth }) {
   const router = express.Router();
 
-  // Laden und ggf. auf v2 heben
+  // Angemeldet (Session) oder Gast (Header X-Adventure-Guest mit zufälliger ID aus dem Browser). Die Session hat Vorrang.
+  const player = (req, res, next) => {
+    const decide = () => {
+      if (req.twitchId) return next();
+      const g = String(req.get("x-adventure-guest") || "");
+      if (!GUEST_RE.test(g)) return res.status(401).json({ error: "Nicht eingeloggt" });
+      req.guestId = g.toLowerCase();
+      return next();
+    };
+    return optionalAuth ? optionalAuth(req, res, decide) : decide();
+  };
+
+  // Laden und ggf. auf v2 heben. save() schreibt in die richtige Datei; ein Gast, der nur schaut, wird nicht angelegt.
   function withUser(req) {
+    if (req.guestId) {
+      const db = loadGuestData();
+      const existed = !!db[req.guestId];
+      const user = ensureUser(db, req.guestId, "Gast");
+      user.lastSeen = Date.now();
+      return { user, existed, guest: true, save: () => saveGuestData(db) };
+    }
     const db = loadGameData();
     const user = ensureUser(db, req.twitchId, req.twitchLogin);
-    return { db, user };
+    return { user, existed: true, guest: false, save: () => saveGameData(db) };
   }
 
-  router.get("/profile", requireAuth, (req, res) => {
-    const { db, user } = withUser(req);
+  router.get("/profile", player, (req, res) => {
+    const { user, existed, guest, save } = withUser(req);
+    if (existed) save();
+    res.json({ ...profilePayload(user), guest });
+  });
+
+  // Nach dem Login: den Gast-Fortschritt dieses Browsers ins Konto übernehmen (und den Gast löschen)
+  router.post("/claim-guest", requireAuth, (req, res) => {
+    const g = String(req.get("x-adventure-guest") || "").toLowerCase();
+    if (!GUEST_RE.test(g)) return res.status(400).json({ error: "Keine Gast-ID." });
+    const guests = loadGuestData();
+    const guest = guests[g];
+    if (!guest) return res.json({ success: true, merged: false });
+    const db = loadGameData();
+    const user = ensureUser(db, req.twitchId, req.twitchLogin);
+    mergeGuestInto(user, guest);
     saveGameData(db);
-    res.json(profilePayload(user));
+    delete guests[g];
+    saveGuestData(guests);
+    res.json({ success: true, merged: true, xp: guest.xp || 0, runs: guest.runs || 0 });
   });
 
   // Tageslauf (mode "daily"): gleicher Seed für alle, immer Normal, alle Items im Pool, kein Startgeschenk — damit die
   // Tagesbestenliste fair ist. Albtraum+ gibt es nur auf Albtraum und nur bis zur freigespielten Stufe.
-  router.post("/start-run", requireAuth, (req, res) => {
+  router.post("/start-run", player, (req, res) => {
     const { kitId, skin = "" } = req.body || {};
     const mode = req.body?.mode === "daily" ? "daily" : "normal";
-    const { db, user } = withUser(req);
+    const { user, save } = withUser(req);
     const lv = P.levelInfo(user.xp);
     const unlocks = P.unlocksFor(lv.level, user.skins);
     const difficulty = mode === "daily" ? "normal" : req.body?.difficulty;
@@ -136,16 +210,16 @@ module.exports = function createAdventureRouter({ requireAuth }) {
     const seed = mode === "daily" ? M.dailySeed(day) : crypto.randomInt(1, 2 ** 31 - 1);
     user.activeRun = { id: crypto.randomUUID(), kitId, difficulty, seed, mode, day: mode === "daily" ? day : undefined, skin: skin || "", ascension, startedAt: Date.now(), snapshot: null };
     user.runs = (user.runs || 0) + 1;
-    saveGameData(db);
+    save();
     res.json({
       runId: user.activeRun.id, seed, mode, skin: skin || "", ascension, difficulty,
       lockedItems: mode === "daily" ? [] : unlocks.lockedItems, startItems: mode === "daily" ? 0 : unlocks.startItems,
     });
   });
 
-  router.post("/save-run", requireAuth, (req, res) => {
+  router.post("/save-run", player, (req, res) => {
     const { runId, snapshot } = req.body || {};
-    const { db, user } = withUser(req);
+    const { user, save } = withUser(req);
     if (!user.activeRun || user.activeRun.id !== runId) return res.status(409).json({ error: "Kein passender Lauf aktiv." });
     if (!snapshot || snapshot.v !== 1 || snapshot.kitId !== user.activeRun.kitId || snapshot.seed !== user.activeRun.seed) {
       return res.status(400).json({ error: "Ungültiger Spielstand." });
@@ -153,13 +227,13 @@ module.exports = function createAdventureRouter({ requireAuth }) {
     if (JSON.stringify(snapshot).length > MAX_SNAPSHOT_BYTES) return res.status(413).json({ error: "Spielstand zu groß." });
     user.activeRun.snapshot = snapshot;
     user.activeRun.savedAt = Date.now();
-    saveGameData(db);
+    save();
     res.json({ success: true });
   });
 
-  router.get("/load-run", requireAuth, (req, res) => {
-    const { db, user } = withUser(req);
-    saveGameData(db);
+  router.get("/load-run", player, (req, res) => {
+    const { user, existed, save } = withUser(req);
+    if (existed) save();
     if (!user.activeRun) return res.json({ success: false });
     const lv = P.levelInfo(user.xp);
     const unlocks = P.unlocksFor(lv.level, user.skins);
@@ -168,16 +242,16 @@ module.exports = function createAdventureRouter({ requireAuth }) {
       lockedItems: r.mode === "daily" ? [] : unlocks.lockedItems } });
   });
 
-  router.post("/abandon-run", requireAuth, (req, res) => {
-    const { db, user } = withUser(req);
+  router.post("/abandon-run", player, (req, res) => {
+    const { user, existed, save } = withUser(req);
     delete user.activeRun;
-    saveGameData(db);
+    if (existed) save();
     res.json({ success: true });
   });
 
-  router.post("/end-run", requireAuth, (req, res) => {
+  router.post("/end-run", player, (req, res) => {
     const b = req.body || {};
-    const { db, user } = withUser(req);
+    const { user, save } = withUser(req);
     const run = user.activeRun;
     if (!run || run.id !== b.runId) return res.status(409).json({ error: "Kein passender Lauf aktiv." });
 
@@ -236,7 +310,7 @@ module.exports = function createAdventureRouter({ requireAuth }) {
     }
     delete user.activeRun;
 
-    saveGameData(db);
+    save();
 
     res.json({
       success: true, xpGained, isRecord, score, bestScore, dailyBest,
@@ -273,12 +347,19 @@ module.exports = function createAdventureRouter({ requireAuth }) {
     res.json(rows);
   });
 
-  router.get("/history", requireAuth, (req, res) => {
-    const db = loadGameData();
-    res.json(db[req.twitchId]?.history || []);
+  router.get("/history", player, (req, res) => {
+    const db = req.guestId ? loadGuestData() : loadGameData();
+    res.json(db[req.guestId || req.twitchId]?.history || []);
   });
 
-  router.post("/feedback", requireAuth, async (req, res) => {
+  // Feedback auch von Gästen, aber gedeckelt (der Discord-Webhook soll nicht zugespammt werden)
+  let guestFeedback = { minute: 0, n: 0 };
+  router.post("/feedback", player, async (req, res) => {
+    if (req.guestId) {
+      const minute = Math.floor(Date.now() / 60000);
+      if (guestFeedback.minute !== minute) guestFeedback = { minute, n: 0 };
+      if (++guestFeedback.n > 5) return res.status(429).json({ error: "Gerade kommt viel Feedback an — versuch es gleich noch mal." });
+    }
     const message = String(req.body?.message || "").trim().slice(0, 1500);
     const webhook = process.env.DISCORD_WEBHOOK_URL;
     if (!message) return res.status(400).json({ error: "Nachricht darf nicht leer sein." });
@@ -290,7 +371,7 @@ module.exports = function createAdventureRouter({ requireAuth }) {
         body: JSON.stringify({
           username: "adVentures Feedback",
           embeds: [{ title: "Feedback / Bugreport", color: 15770428,
-            fields: [{ name: "User", value: req.twitchLogin || "Unbekannt", inline: true }, { name: "Nachricht", value: message }],
+            fields: [{ name: "User", value: req.twitchLogin || (req.guestId ? "Gast" : "Unbekannt"), inline: true }, { name: "Nachricht", value: message }],
             footer: { text: `Gesendet am ${new Date().toLocaleString("de-DE")}` } }],
         }),
       });
@@ -306,3 +387,18 @@ module.exports = function createAdventureRouter({ requireAuth }) {
 };
 
 module.exports.ensureUser = ensureUser;
+module.exports.mergeGuestInto = mergeGuestInto;
+
+/** Fürs öffentliche Profil (profile/): Stufe, Läufe, Siege, Bestwert, Erfolge — oder null ohne Läufe */
+module.exports.publicStats = function publicStats(twitchId) {
+  const u = loadGameData()[String(twitchId)];
+  if (!u || !(u.runs > 0)) return null;
+  return {
+    level: P.levelInfo(u.xp || 0).level,
+    runs: u.runs || 0,
+    wins: u.wins || 0,
+    bestScore: u.best ? scoreOf(u.best) : 0,
+    achievements: (u.achievements || []).length,
+    achievementsTotal: M.ACHIEVEMENT_DEFS.length,
+  };
+};

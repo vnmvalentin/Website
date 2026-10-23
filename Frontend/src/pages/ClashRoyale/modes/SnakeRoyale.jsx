@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CrTv } from '../ui/CrIcons';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import ModeShell from './ModeShell';
@@ -6,6 +6,8 @@ import { CARD_RATIO } from './cardCrop';
 import CardFace from '../ui/CardFace';
 import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid, TurnBanner } from './GameChrome';
 import { avatarUrl } from '../components/avatars';
+import { sparkBurst, ringPulse, bigBanner } from '../ui/juice';
+import { playSound } from '../ui/sound';
 
 /** Akzentfarbe des Modus — Kopfzeile, Fortschritt, gültige Felder. */
 const ACCENT = '#22d3ee';
@@ -27,6 +29,7 @@ const SNAKE_I18N = {
     roundLabel: 'Runde',
     gameOver: 'Spiel beendet',
     newSnake: 'Neue Schlange — freie Auswahl!',
+    newSnakeBanner: 'NEUE SCHLANGE!',
     noMoveTimer: 'Kein Zug möglich – Timer läuft ab…',
     yourTurn: 'Du bist am Zug!',
     isTurn: 'ist am Zug',
@@ -39,6 +42,7 @@ const SNAKE_I18N = {
     roundLabel: 'Round',
     gameOver: 'Game over',
     newSnake: 'New snake — pick anywhere!',
+    newSnakeBanner: 'NEW SNAKE!',
     noMoveTimer: 'No move possible – timer running out…',
     yourTurn: 'Your turn!',
     isTurn: 'is up',
@@ -51,6 +55,7 @@ const SNAKE_I18N = {
     roundLabel: 'Ronda',
     gameOver: 'Partida terminada',
     newSnake: 'Nueva serpiente — ¡elección libre!',
+    newSnakeBanner: '¡NUEVA SERPIENTE!',
     noMoveTimer: 'No hay movimiento posible – se acaba el tiempo…',
     yourTurn: '¡Es tu turno!',
     isTurn: 'está jugando',
@@ -127,6 +132,31 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
     }
     return { validSet: valid, blockedSet: blocked };
   }, [grid, isMyTurn, myPlayerId, players, lastPickedCellIndex, finished, gridCols, totalCells]);
+
+  // ── Effekte: Pick explodiert in der Spielerfarbe, "Neue Schlange" als Banner ──
+  const gridRef = useRef(null);
+  const prevPickRef = useRef(lastPickedCellIndex);
+  useEffect(() => {
+    const idx = lastPickedCellIndex;
+    if (idx === null || idx === undefined || idx === prevPickRef.current) { prevPickRef.current = idx; return; }
+    prevPickRef.current = idx;
+    const el = gridRef.current?.querySelector(`[data-idx="${idx}"]`);
+    const picker = players.find(p => p.id === grid[idx]?.pickedBy);
+    if (!el || !picker) return;
+    sparkBurst(el, { color: picker.color || ACCENT, count: picker.id === myPlayerId ? 22 : 14, spread: picker.id === myPlayerId ? 130 : 90 });
+    ringPulse(el, { color: picker.color || ACCENT });
+    if (picker.id !== myPlayerId) playSound('pick');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastPickedCellIndex, currentTurn]);
+  const prevResetRef = useRef(isSnakeReset);
+  useEffect(() => {
+    if (isSnakeReset && !prevResetRef.current && !finished) bigBanner(t.newSnakeBanner, { color: '#fbbf24', sub: t.newSnake });
+    prevResetRef.current = isSnakeReset;
+  }, [isSnakeReset, finished, t]);
+  // Raster beim Start als Welle von der Mitte aus austeilen (nur beim ersten Erscheinen)
+  const [dealing, setDealing] = useState(true);
+  useEffect(() => { const tm = setTimeout(() => setDealing(false), 1200); return () => clearTimeout(tm); }, []);
+  const midCol = (gridCols - 1) / 2, midRow = (Math.ceil(grid.length / gridCols) - 1) / 2;
 
   const timerPct    = timerSeconds > 0 ? (timerRemaining / timerSeconds) * 100 : 100;
   const timerUrgent = timerRemaining <= 10;
@@ -236,6 +266,7 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
               seine Höhe. Das Raster bleibt damit auf JEDER Auflösung formtreu und wird
               einfach kleiner, statt sich zu verziehen. */}
           <div
+            ref={gridRef}
             className="grid gap-0.5 sm:gap-1"
             style={{
               gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
@@ -258,6 +289,9 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
               return (
                 <div
                   key={idx}
+                  data-idx={idx}
+                  // role=button: so erkennt der Karten-Flug (ui/flyToDeck.js) das Feld als Karte
+                  role={isValid && isMyTurn && !finished ? 'button' : undefined}
                   onClick={() => isValid && !finished && isMyTurn && onPickCard(idx)}
                   title={`${cell.card.name}${isBlocked ? t.championLimitSuffix : ''}`}
                   // Abdunkeln bedeutet "für dich gerade nicht wählbar" — das gilt nur
@@ -272,11 +306,17 @@ export default function SnakeRoyale({ gameState, players, myPlayerId, onPickCard
                     ${isPicked ? 'opacity-70' : ''}
                     ${!isPicked && isMyTurn && !isValid && !isBlocked ? 'opacity-25' : ''}
                     ${isBlocked ? 'opacity-15 grayscale' : ''}
+                    ${dealing ? 'cr-deal-card' : ''}
+                    ${isValid && isMyTurn && !finished ? 'cr-snake-option' : ''}
                   `}
                   // Auswahl als INNERER Ring statt Rahmen: Ein Rahmen verschiebt die
                   // Kachel um einen Pixel, wodurch das ganze Raster beim Überfahren
                   // zuckte. Der Ring liegt im Bild und bewegt nichts.
                   style={{
+                    // Austeilen von der Mitte aus — Abstand zur Mitte bestimmt die Verzögerung
+                    animationDelay: dealing
+                      ? `${(Math.hypot((idx % gridCols) - midCol, Math.floor(idx / gridCols) - midRow) * 0.035).toFixed(3)}s`
+                      : undefined,
                     boxShadow: isLast
                       ? `inset 0 0 0 2px ${picker?.color || '#fff'}`
                       : isPicked

@@ -21,9 +21,35 @@
 // Modul: derselbe Verlauf wie die Seitenleiste (ModeShell.jsx) statt eines transparenten
 // Streifens über dem Diamant-Karo — Kopfzeile und Seitenleiste rahmen die Spielfläche
 // jetzt sichtbar als zusammengehöriges Paar aus zwei blickdichten Leisten.
-import React from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CrStopwatch, CrBattle } from '../ui/CrIcons';
+import { cardImageUrl } from '../data/cards';
+import { takePick, flyInto } from '../ui/flyToDeck';
 import { avatarUrl } from '../components/avatars';
+import { useCrPrefs } from '../ui/crPrefs';
+
+/**
+ * Umschalter 2D | 3D für Modi mit 3D-Szene (Elixir Auction, Pyramidendraft). Schreibt
+ * dieselbe Einstellung wie das Zahnrad-Fenster (prefs.scene3d), gilt also modusübergreifend
+ * und bleibt im Browser gespeichert. Ohne WebGL (`available` = false) gibt es nichts zu wählen.
+ */
+export function ViewToggle({ available = true, label = 'Ansicht' }) {
+  const { prefs, setPref } = useCrPrefs();
+  if (!available) return null;
+  const opt = (on, text) => (
+    <button type="button" aria-pressed={prefs.scene3d === on} onClick={() => setPref('scene3d', on)}
+      className={`px-2 py-1 font-cr text-xs leading-none transition-colors ${
+        prefs.scene3d === on ? 'bg-[var(--cr-arcade-gold)] text-[#4a2e00]' : 'text-white/55 hover:text-white'}`}>
+      {text}
+    </button>
+  );
+  return (
+    <span role="group" aria-label={label} title={label}
+      className="inline-flex shrink-0 rounded-md overflow-hidden border-2 border-[var(--cr-panel-edge)] bg-[#111d2c]">
+      {opt(false, '2D')}{opt(true, '3D')}
+    </span>
+  );
+}
 
 /** Spielfläche: der Bereich, in dem die Karten liegen, trägt jetzt selbst das
  *  Diamant-Karo (.cr-arcade-bg, wie Hub/Lobby/Endscreen) statt einer einfarbigen
@@ -75,7 +101,7 @@ export function GameHeader({
 
         {/* Zeit als eigenes Abzeichen mit Stoppuhr — wird in den letzten Sekunden rot und pocht */}
         {typeof timerRemaining === 'number' && (
-          <span className={`cr-timer ${timerUrgent ? 'cr-timer--urgent' : ''}`}>
+          <span className={`cr-timer ${timerUrgent ? (timerRemaining <= 3 ? 'cr-timer--urgent cr-timer--critical' : 'cr-timer--urgent') : ''}`}>
             <CrStopwatch size={24} />
             <span className="tabular-nums">{timerRemaining}s</span>
           </span>
@@ -196,6 +222,37 @@ export function TurnBanner({ player, mine, text }) {
  *
  * @param {function} renderCard  (card, index) => ReactNode
  */
+/**
+ * Eine Karte im Deck-Platz. Hat der Spieler genau diese Karte gerade selbst angeklickt, fliegt
+ * sie von dort hierher (ui/flyToDeck.js) und staucht sich beim Landen — sonst ploppt sie auf.
+ */
+function DeckSlotCard({ card, index, renderCard }) {
+  const ref = useRef(null);
+  const mounted = useRef(false);
+  const [phase, setPhase] = useState('pop'); // 'pop' | 'flying' | 'landed'
+  // Eigene Mount-Ref statt eines Abbruch-Schalters im Effekt: React (StrictMode) spielt Effekte
+  // im Dev-Modus doppelt ab — der zweite Lauf findet keinen Klick mehr, der erste Flug muss die
+  // Karte trotzdem wieder sichtbar machen.
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useLayoutEffect(() => {
+    const pick = takePick(cardImageUrl(card.id));
+    if (!pick) return;
+    const flight = flyInto(pick, ref.current);
+    if (!flight) return;
+    setPhase('flying');
+    flight.then(() => { if (mounted.current) setPhase('landed'); });
+  }, [card.id]);
+  return (
+    <div ref={ref} className={`w-full h-full ${phase === 'landed' ? 'cr-card-land' : phase === 'pop' ? 'cr-card-pop' : ''}`}
+      style={phase === 'flying' ? { visibility: 'hidden' } : undefined}>
+      {renderCard(card, index)}
+    </div>
+  );
+}
+
 export function DeckGrid({ deck = [], size = 8, renderCard }) {
   return (
     <div className="grid grid-cols-4 gap-1.5">
@@ -206,10 +263,8 @@ export function DeckGrid({ deck = [], size = 8, renderCard }) {
         // Leerer Platz als eingelassene Mulde (wie die leeren Deck-Slots im Spiel)
         <div key={i} className="aspect-[4/5] rounded-md overflow-hidden bg-[#081426] shadow-[inset_0_2px_4px_rgba(0,0,0,0.55)]"
           style={{ border: '2px solid var(--cr-panel-edge)' }}>
-          {/* key an der Karte: wechselt der Inhalt eines Platzes, ploppt die neue Karte auf */}
-          {deck[i] ? (
-            <div key={deck[i].id ?? i} className="cr-card-pop w-full h-full">{renderCard(deck[i], i)}</div>
-          ) : null}
+          {/* key an der Karte: wechselt der Inhalt eines Platzes, kommt die neue Karte neu herein */}
+          {deck[i] ? <DeckSlotCard key={deck[i].id ?? i} card={deck[i]} index={i} renderCard={renderCard} /> : null}
         </div>
       ))}
     </div>

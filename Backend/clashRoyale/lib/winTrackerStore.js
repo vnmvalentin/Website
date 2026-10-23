@@ -279,4 +279,32 @@ try { db.exec("ALTER TABLE cr_wintracker_seasonal ADD COLUMN qualified_at INTEGE
 try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN seasonal_prefix TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_wt_battles_seasonal ON cr_wintracker_battles(account_id, seasonal_prefix, battle_time_ms)`);
 
+// Saisonrückblick (lib/winTrackerRecap.js): das eigene Deck je Match (JSON [{id,name,variant}], '' = unbekannt —
+// Matches vor Okt. 2026 haben keins, die API liefert rückwirkend nur die letzten 25) …
+try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN deck TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+// Stand VOR dem Match laut API (team.startingTrophies; in Ranked/UC = Medaillen). NULL = unbekannt (ältere Matches).
+// Damit zeigt die Rückblick-Kurve echte Stände statt vom aktuellen Stand zurückgerechneter (Lücken im Sync verschoben die).
+try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN starting_trophies INTEGER"); } catch { /* Spalte existiert bereits */ }
+// Spielart laut API (battle.type: "pathOfLegend", "PvP", "friendly", "clanMate", "tournament", "casual1v1" …; '' = unbekannt,
+// ältere Matches). Unterscheidet im Rückblick Freundschaftskämpfe, Turniere und Partymodi (lib/winTrackerRecap.js modeOf).
+try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN battle_type TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+// Classic/Grand/20-Win-Challenge (lib/challengeModes.js): Schlüssel ('' = keine Challenge) und
+// challengeWinCountBefore laut API (NULL = nicht geliefert). Daraus baut das Overlay die Runs nach.
+try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN challenge_key TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN challenge_wins_before INTEGER"); } catch { /* Spalte existiert bereits */ }
+db.exec(`CREATE INDEX IF NOT EXISTS idx_wt_battles_challenge ON cr_wintracker_battles(account_id, challenge_key, battle_time_ms)`);
+// Manueller Session-Reset der Challenges (gilt für alle drei gemeinsam)
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN challenge_session_reset_at INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+// … und der Verlauf von Medaillen/Liga/Platz/Trophäen (eine Zeile je Sync, nur wenn sich etwas geändert hat) für
+// "höchste Medaillen" und "bester Platz" der Saison — die Kontozeile kennt nur den aktuellen Stand.
+db.exec(`CREATE TABLE IF NOT EXISTS cr_wintracker_snapshots (
+    account_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    trophies INTEGER NOT NULL DEFAULT 0,
+    season_medals INTEGER NOT NULL DEFAULT 0,
+    league_number INTEGER NOT NULL DEFAULT 0,
+    pol_rank INTEGER,
+    PRIMARY KEY (account_id, at)
+)`);
+
 module.exports = db;

@@ -3,45 +3,43 @@
 
 import React from 'react';
 import FaqAccordion from '../../components/FaqAccordion';
-import { WC_FEATURES, WC_STEPS, WC_FAQ } from './seoData';
+import { wcSeo } from './seoData';
+
+const SECTION_HEADING = 'font-display text-lg font-bold text-white tracking-tight mb-5';
 
 /**
  * Beschreibungsteil der Seite. Steht über dem Login (dort ist es der ganze Inhalt)
  * und ist damit das, was Suchmaschinen und Erstbesucher zu sehen bekommen.
+ * Aufbau wie der Editor: keine einzelnen Kästen, Abschnitte nur durch Linien getrennt.
  */
-export default function WinChallengeSeoContent({ children }) {
+export default function WinChallengeSeoContent({ lang = 'de', children }) {
+  const s = wcSeo(lang);
   return (
-    <div className="max-w-5xl mx-auto w-full space-y-6 pb-10">
+    <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 pb-16">
 
       {/* ── Kopf: das H1 trägt das Hauptkeyword ──────────────────────────────── */}
-      <header className="text-center pt-2">
-        <h1 className="font-display text-2xl md:text-4xl font-bold text-white tracking-tight">
-          Win Challenge Overlay für OBS
+      <header className="pt-10 md:pt-16 pb-10 md:pb-12">
+        <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight">
+          {s.h1}
         </h1>
-        <p className="text-white/50 text-sm mt-3 max-w-2xl mx-auto leading-relaxed">
-          Lege deine Stream-Ziele fest und zeig deinen Zuschauern jederzeit, was noch offen
-          ist. Kostenlos, ohne Download, in zwei Minuten in OBS eingerichtet.
+        <p className="text-white/60 text-base md:text-lg mt-4 max-w-2xl leading-relaxed">
+          {s.lead}
         </p>
-        <p className="text-white/30 text-xs mt-2">
-          Für Twitch · OBS, Streamlabs, XSplit · keine Kosten, kein Abo
-        </p>
+        {/* Login-Schaltfläche bzw. was die Seite an dieser Stelle sonst anbietet */}
+        <div className="mt-7">{children}</div>
+        <p className="text-white/35 text-xs mt-4">{s.sub}</p>
       </header>
 
-      {/* Login-Schaltfläche bzw. was die Seite an dieser Stelle sonst anbietet */}
-      {children}
-
       {/* ── Funktionen ───────────────────────────────────────────────────────── */}
-      <section className="panel p-5 md:p-6">
-        <h2 className="text-white font-semibold text-sm mb-4">Was das Overlay kann</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {WC_FEATURES.map(({ icon: Icon, title, text }) => (
-            <div key={title} className="rounded-xl border border-white/5 bg-black/20 p-4">
-              <div className="flex items-start gap-3">
-                <Icon size={16} className="text-violet-400 shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <h3 className="text-white font-semibold text-sm mb-1">{title}</h3>
-                  <p className="text-white/45 text-xs leading-relaxed">{text}</p>
-                </div>
+      <section className="border-t border-white/10 py-10">
+        <h2 className={SECTION_HEADING}>{s.featuresHeading}</h2>
+        <div className="grid gap-x-10 gap-y-7 sm:grid-cols-2">
+          {s.features.map(({ icon: Icon, title, text }) => (
+            <div key={title} className="flex items-start gap-3.5">
+              <Icon size={18} className="text-white/40 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <h3 className="text-white font-semibold text-sm mb-1.5">{title}</h3>
+                <p className="text-white/50 text-sm leading-relaxed">{text}</p>
               </div>
             </div>
           ))}
@@ -49,19 +47,18 @@ export default function WinChallengeSeoContent({ children }) {
       </section>
 
       {/* ── Einrichtung ──────────────────────────────────────────────────────── */}
-      <section className="panel p-5 md:p-6">
-        <h2 className="text-white font-semibold text-sm mb-4">
-          Win Challenge Overlay in OBS einrichten
-        </h2>
-        <ol className="space-y-3">
-          {WC_STEPS.map((step, i) => (
-            <li key={step.name} className="flex items-start gap-3">
-              <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 text-xs font-bold shrink-0">
+      <section className="border-t border-white/10 py-10">
+        <h2 className={SECTION_HEADING}>{s.stepsHeading}</h2>
+        <ol className="divide-y divide-white/10 border-y border-white/10">
+          {s.steps.map((step, i) => (
+            // Die id ist das Sprungziel aus den strukturierten Daten (jsonLd.js, HowToStep.url)
+            <li key={step.name} id={`schritt-${i + 1}`} className="flex items-start gap-4 py-4">
+              <span className="w-6 text-right text-sm font-bold text-violet-400 tabular-nums shrink-0">
                 {i + 1}
               </span>
               <div className="min-w-0">
-                <h3 className="text-white/85 font-semibold text-sm">{step.name}</h3>
-                <p className="text-white/40 text-xs leading-relaxed mt-0.5">{step.text}</p>
+                <h3 className="text-white font-semibold text-sm">{step.name}</h3>
+                <p className="text-white/50 text-sm leading-relaxed mt-1">{step.text}</p>
               </div>
             </li>
           ))}
@@ -69,8 +66,13 @@ export default function WinChallengeSeoContent({ children }) {
       </section>
 
       {/* ── Häufige Fragen ───────────────────────────────────────────────────── */}
-      <section className="panel p-5 md:p-6">
-        <FaqAccordion items={WC_FAQ} heading="Häufige Fragen zum Win Challenge Overlay" />
+      <section className="border-t border-white/10 pt-10">
+        <FaqAccordion
+          items={s.faq}
+          heading={s.faqHeading}
+          headingClassName={SECTION_HEADING}
+          listClassName="divide-y divide-white/10 border-y border-white/10"
+        />
       </section>
 
     </div>

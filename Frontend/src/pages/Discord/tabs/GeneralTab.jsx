@@ -1,30 +1,26 @@
 import React from 'react';
+import { DcSaveBar } from '../ui';
 
-export default function GeneralTab({ prefix, setPrefix, botNickname, setBotNickname, isSaving, saveStatus, handleSaveSettings }) {
+export default function GeneralTab({ prefix, setPrefix, botNickname, setBotNickname, isSaving, saveStatus, handleSaveSettings, dirty }) {
     return (
-        <div className="space-y-8 max-w-2xl">
-            <h2 className="text-2xl text-white font-bold">Allgemeine Einstellungen</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="dc-page">
+            <div>
+                <h2 className="dc-h2">Allgemeine Einstellungen</h2>
+                <p>Gilt für den ganzen Server.</p>
+            </div>
+            <div className="dc-card p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-white text-sm font-medium mb-2">Befehls-Prefix</label>
-                    <input type="text" value={prefix} onChange={e => setPrefix(e.target.value)}
-                        className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
+                    <label className="dc-label" htmlFor="dc-prefix">Befehls-Prefix</label>
+                    <input id="dc-prefix" type="text" value={prefix} onChange={e => setPrefix(e.target.value)} className="dc-input w-full" />
+                    <p className="text-[12px] text-white/40 mt-1.5">Zeichen vor Text-Befehlen, etwa !ship.</p>
                 </div>
                 <div>
-                    <label className="block text-white text-sm font-medium mb-2">Bot Nickname</label>
-                    <input type="text" value={botNickname} onChange={e => setBotNickname(e.target.value)}
-                        className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
-                        placeholder="Leer = Standard" />
+                    <label className="dc-label" htmlFor="dc-nick">Name des Bots auf diesem Server</label>
+                    <input id="dc-nick" type="text" value={botNickname} onChange={e => setBotNickname(e.target.value)}
+                        className="dc-input w-full" placeholder="Leer = Standard" />
                 </div>
             </div>
-            <div className="pt-6 border-t border-white/5 flex items-center gap-4">
-                <button onClick={handleSaveSettings} disabled={isSaving}
-                    className="bg-violet-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
-                    {isSaving ? 'Speichere...' : 'Speichern'}
-                </button>
-                {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
-            </div>
+            <DcSaveBar onSave={handleSaveSettings} isSaving={isSaving} status={saveStatus} dirty={dirty} />
         </div>
     );
 }
-

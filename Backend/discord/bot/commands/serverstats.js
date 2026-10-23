@@ -2,7 +2,7 @@
 // Zeigt die Statistik, die der Bot ohnehin sammelt (Voice-Zeit je Nutzer, Nachrichten je Kanal), im Discord an.
 // Laufende Voice-Sitzungen zählen mit: In der DB landen sie erst beim Verlassen des Channels.
 const { EmbedBuilder, MessageFlags, escapeMarkdown } = require('discord.js');
-const { getMessageStats, getMessageTotal, getVoiceTotalsByUser } = require('../../database/db');
+const { getMessageStats, getMessageTotal, getVoiceTotalsByUser, getUserMessageStats } = require('../../database/db');
 const { getLiveVoiceSeconds } = require('../events/voiceStateUpdate');
 
 const TOP_USERS = 10;
@@ -70,7 +70,10 @@ async function handleServerStats(interaction) {
 
     // ── Rangliste des Servers ─────────────────────────────────────────────────
     const top = ranking.slice(0, TOP_USERS);
-    const names = await displayNames(guild, top.map(r => r.userId));
+    const chatTop = getUserMessageStats(guild.id, days, TOP_USERS);
+    const names = await displayNames(guild, [...new Set([...top, ...chatTop].map(r => r.userId))]);
+    const chatLines = chatTop.map((r, i) =>
+        `\`${String(i + 1).padStart(2, ' ')}.\` **${escapeMarkdown(names.get(r.userId))}** — ${r.total.toLocaleString('de-DE')}`);
     const voiceLines = top.map((r, i) => {
         const name = escapeMarkdown(names.get(r.userId));
         return `\`${String(i + 1).padStart(2, ' ')}.\` **${name}** — ${formatDuration(r.totalSeconds)}${live.has(r.userId) ? ' · gerade im Voice' : ''}`;
@@ -90,6 +93,7 @@ async function handleServerStats(interaction) {
             { name: 'Nutzer im Voice', value: `${ranking.length}`, inline: true },
             { name: 'Nachrichten', value: totalMessages.toLocaleString('de-DE'), inline: true },
             { name: `Top ${TOP_USERS} Voice-Zeit`, value: voiceLines.join('\n') || 'Noch keine Voice-Zeit erfasst.' },
+            { name: `Top ${TOP_USERS} Nachrichten`, value: chatLines.join('\n') || 'Noch keine Nachrichten je Nutzer erfasst.' },
             { name: `Top ${TOP_CHANNELS} Kanäle nach Nachrichten`, value: channelLines.join('\n') || 'Noch keine Nachrichten erfasst.' },
         )
         .setFooter({ text: `Letzte ${days} Tage` });

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Pencil, Trash2, X, Smile } from 'lucide-react';
+import { DcAddTile } from '../ui';
 
 const btnStyle = n => {
     switch (Number(n)) {
@@ -82,9 +84,9 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                 method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ channelId: rrChannel, messageText: embedText, mode: rrMode, roleMapping: valid, title, color: rrColor, embedTitle, embedFooter }),
             });
-            if (res.ok) { setSaveStatus(editingId ? '✅ Aktualisiert!' : '✅ Erstellt!'); loadList(); setTimeout(() => setView('list'), 1500); }
-            else setSaveStatus('❌ Fehler. Hat der Bot Rechte?');
-        } catch { setSaveStatus('❌ Fehler.'); }
+            if (res.ok) { setSaveStatus(editingId ? 'Aktualisiert!' : 'Erstellt!'); loadList(); setTimeout(() => setView('list'), 1500); }
+            else setSaveStatus('Fehler. Hat der Bot Rechte?');
+        } catch { setSaveStatus('Fehler.'); }
         finally { setIsSaving(false); setTimeout(() => setSaveStatus(''), 4000); }
     };
 
@@ -102,23 +104,22 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
 
     if (view === 'list') return (
         <div className="space-y-6">
-            <div className="flex justify-between items-end">
-                <div>
-                    <h2 className="text-2xl text-white font-bold mb-1">Rollen-Buttons</h2>
-                    <p className="text-white/50 text-sm">Nutzer klicken Buttons für Rollen — nur sie sehen die Antwort.</p>
-                </div>
-                <button onClick={() => openEditor()} className="bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-black font-bold py-3 px-6 rounded-xl transition-all">➕ Neues Embed</button>
+            <div>
+                <h2 className="dc-h2">Rollen-Buttons</h2>
+                <p className="text-white/50 text-sm">Nutzer klicken Buttons für Rollen — nur sie sehen die Antwort.</p>
             </div>
+            <DcAddTile label="Neues Embed" onClick={() => openEditor()} large={list.length === 0}
+                hint={list.length === 0 ? 'Noch keine Rollen-Buttons erstellt. Lege das erste Embed mit Buttons an.' : undefined} />
             {list.length === 0
-                ? <div className="text-center py-12 border border-dashed border-white/10 rounded-lg text-white/40">Noch keine Rollen-Buttons erstellt.</div>
+                ? null
                 : <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {list.map(rr => {
                         const btns = Array.isArray(rr.roleMapping) ? rr.roleMapping : Object.entries(rr.roleMapping).map(([e, r]) => ({ emoji: e, roleId: r, label: '', style: 2 }));
                         return (
-                            <div key={rr.id} className="bg-[#0e0e1a]/75 border-l-4 rounded-lg p-5 relative group transition-colors" style={{ borderLeftColor: rr.color || '#06b6d4' }}>
+                            <div key={rr.id} className="dc-inset border-l-4 p-5 relative group transition-colors" style={{ borderLeftColor: rr.color || '#06b6d4' }}>
                                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => openEditor(rr)} className="bg-white/5 hover:bg-violet-500 hover:text-black text-white/50 p-2 rounded-lg transition-colors">✏️</button>
-                                    <button onClick={() => handleDelete(rr.id)} className="bg-white/5 hover:bg-red-500 text-white/50 p-2 rounded-lg transition-colors">🗑️</button>
+                                    <button onClick={() => openEditor(rr)} className="bg-white/5 hover:bg-indigo-500 hover:text-white text-white/50 p-2 rounded-md transition-colors"><Pencil size={14} /></button>
+                                    <button onClick={() => handleDelete(rr.id)} className="bg-white/5 hover:bg-red-500 text-white/50 p-2 rounded-md transition-colors"><Trash2 size={14} /></button>
                                 </div>
                                 <h3 className="text-white font-bold truncate pr-20">{rr.title || 'Unbenannt'}</h3>
                                 <div className="text-xs text-white/40 mb-3">{rr.mode === 'single' ? 'Single Choice' : 'Multi Choice'} • #{channels.find(c => c.id === rr.channelId)?.name || '?'}</div>
@@ -127,7 +128,7 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                                         const role = serverRoles.find(r => r.id === b.roleId);
                                         const ce = serverEmojis.find(e => e.id === b.emoji);
                                         return (
-                                            <div key={i} className="flex items-center justify-between text-sm bg-[#0e0e1a]/85 px-3 py-1.5 rounded-lg">
+                                            <div key={i} className="dc-inset flex items-center justify-between text-sm px-3 py-1.5">
                                                 <div className={`px-2 py-0.5 rounded text-xs flex items-center gap-1 ${btnStyle(b.style)}`}>
                                                     {ce ? <img src={ce.url} className="w-3 h-3"/> : <span>{b.emoji}</span>}
                                                     {b.label && <span>{b.label}</span>}
@@ -148,25 +149,25 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
 
     return (
         <div onClick={closeAllDropdowns} className="">
-            <div className="bg-[#0e0e1a]/75 border border-violet-500/20 rounded-lg p-6 md:p-8">
+            <div className="dc-card border-indigo-500/20 p-6 md:p-8">
                 <div className="flex items-center gap-3 mb-8 pb-4 border-b border-white/5">
-                    <button onClick={() => setView('list')} className="text-white/40 hover:text-white transition-colors">✕</button>
-                    <h3 className="text-xl font-bold text-white">{editingId ? '✏️ Embed bearbeiten' : '➕ Neues Embed'}</h3>
+                    <button onClick={() => setView('list')} className="text-white/40 hover:text-white transition-colors"><X size={14} /></button>
+                    <h3 className="text-xl font-bold text-white">{editingId ? 'Embed bearbeiten' : 'Neues Embed'}</h3>
                 </div>
 
                 {/* ── SEKTION 1: Titel + Kanal ──────────────────────────── */}
-                <div className="mb-8 p-5 bg-[#0e0e1a]/85 rounded-lg border border-white/5 space-y-4">
-                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">① Allgemein</h4>
+                <div className="dc-card mb-8 p-5 space-y-4">
+                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">1. Allgemein</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Interner Titel</label>
+                            <label className="dc-label">Interner Titel</label>
                             <input value={title} onChange={e => setTitle(e.target.value)} placeholder="z.B. Spiele-Rollen"
-                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"/>
+                                className="dc-input w-full"/>
                         </div>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Ziel-Kanal</label>
+                            <label className="dc-label">Ziel-Kanal</label>
                             <select value={rrChannel} onChange={e => setRrChannel(e.target.value)} disabled={!!editingId}
-                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none disabled:opacity-50">
+                                className="dc-input w-full">
                                 <option value="">-- Wählen --</option>
                                 {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                             </select>
@@ -175,24 +176,24 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                 </div>
 
                 {/* ── SEKTION 2: Embed ──────────────────────────────────── */}
-                <div className="mb-8 p-5 bg-[#0e0e1a]/85 rounded-lg border border-white/5 space-y-4">
-                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">② Embed Inhalt</h4>
+                <div className="dc-card mb-8 p-5 space-y-4">
+                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">2. Embed Inhalt</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Embed Titel</label>
+                            <label className="dc-label">Embed Titel</label>
                             <input value={embedTitle} onChange={e => setEmbedTitle(e.target.value)} placeholder="Wähle deine Rollen!"
-                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"/>
+                                className="dc-input w-full"/>
                         </div>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Footer Text</label>
+                            <label className="dc-label">Footer Text</label>
                             <input value={embedFooter} onChange={e => setEmbedFooter(e.target.value)} placeholder="Klicke auf Buttons..."
-                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"/>
+                                className="dc-input w-full"/>
                         </div>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Farbe</label>
-                            <div className="flex items-center gap-2 bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-2 pr-4">
+                            <label className="dc-label">Farbe</label>
+                            <div className="dc-card flex items-center gap-2 p-2 pr-4">
                                 <input type="color" value={rrColor} onChange={e => setRrColor(e.target.value)} className="w-9 h-9 rounded cursor-pointer border-0 bg-transparent p-0"/>
-                                <span className="text-white/60 font-mono text-sm">{rrColor}</span>
+                                <span className="text-white/60 text-sm">{rrColor}</span>
                             </div>
                         </div>
                     </div>
@@ -201,17 +202,17 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                         <div className="relative z-30" onClick={e => e.stopPropagation()}>
                             <div className="flex justify-between items-center mb-2">
                                 <label className="text-white text-sm font-medium">Nachrichtentext</label>
-                                <button onClick={() => setShowMsgEmoji(!showMsgEmoji)} className="text-white/50 hover:text-violet-400 bg-[#0e0e1a]/75 border border-white/10 p-1.5 rounded-lg text-sm">😀</button>
+                                <button onClick={() => setShowMsgEmoji(!showMsgEmoji)} className="text-white/50 hover:text-indigo-400 bg-[#0e0e1a]/75 border border-white/10 p-1.5 rounded-md text-sm"><Smile size={14} /></button>
                             </div>
                             <textarea value={embedText} onChange={e => setEmbedText(e.target.value)} rows="6"
-                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-4 text-white focus:border-violet-500 outline-none resize-y font-mono text-sm"/>
+                                className="dc-input w-full resize-y"/>
                             {showMsgEmoji && (
-                                <div className="absolute right-0 top-16 w-64 bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-3 z-50">
+                                <div className="dc-card absolute right-0 top-16 w-64 p-3 z-50">
                                     <div className="text-xs text-white/50 mb-2">Server Emojis</div>
                                     <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto">
                                         {serverEmojis.map(e => (
                                             <button key={e.id} onClick={() => { const fmt = e.animated ? `<a:${e.name}:${e.id}>` : `<:${e.name}:${e.id}>`; setEmbedText(t => t + fmt + ' '); setShowMsgEmoji(false); }}
-                                                className="p-1 hover:bg-white/10 rounded-lg flex justify-center">
+                                                className="p-1 hover:bg-white/10 rounded-md flex justify-center">
                                                 <img src={e.url} alt={e.name} className="w-7 h-7"/>
                                             </button>
                                         ))}
@@ -220,7 +221,7 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                             )}
                         </div>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Live Vorschau</label>
+                            <label className="dc-label">Live Vorschau</label>
                             <div className="bg-[#313338] rounded-md p-4 border-l-4 shadow-md" style={{ borderLeftColor: rrColor }}>
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="w-8 h-8 bg-[#5865F2] rounded-full overflow-hidden shrink-0">
@@ -251,8 +252,8 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                 </div>
 
                 {/* ── SEKTION 3: Buttons ───────────────────────────────── */}
-                <div className="p-5 bg-[#0e0e1a]/85 rounded-lg border border-white/5 space-y-4">
-                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">③ Buttons & Rollen</h4>
+                <div className="dc-card p-5 space-y-4">
+                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">3. Buttons & Rollen</h4>
 
                     {/* Auswahl-Modus: eine oder mehrere Rollen aus diesem Embed */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -261,35 +262,35 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                             { id: 'single', label: 'Single-Choice (nur 1 Rolle)', desc: 'Nutzer können nur EINE Rolle aus diesem Embed haben — beim Klick auf einen anderen Button wird die alte Rolle automatisch ausgetauscht.' },
                         ].map(o => (
                             <button key={o.id} onClick={() => setRrMode(o.id)}
-                                className={`text-left p-4 rounded-lg border transition-colors ${
-                                    rrMode === o.id ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 bg-[#0e0e1a]/75 hover:border-white/25'}`}>
-                                <span className={`block text-sm font-bold mb-1 ${rrMode === o.id ? 'text-violet-300' : 'text-white'}`}>{o.label}</span>
+                                className={`text-left p-4 rounded-md border transition-colors ${
+                                    rrMode === o.id ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 bg-[#0e0e1a]/75 hover:border-white/25'}`}>
+                                <span className={`block text-sm font-bold mb-1 ${rrMode === o.id ? 'text-indigo-300' : 'text-white'}`}>{o.label}</span>
                                 <span className="block text-xs text-white/40 leading-relaxed">{o.desc}</span>
                             </button>
                         ))}
                     </div>
 
                     {mappings.map((m, i) => (
-                        <div key={i} onClick={e => e.stopPropagation()} className="flex flex-col xl:flex-row gap-3 bg-[#0e0e1a]/75 p-4 rounded-lg border border-white/5 hover:border-violet-500/20 transition-colors">
+                        <div key={i} onClick={e => e.stopPropagation()} className="flex flex-col xl:flex-row gap-3 bg-[#0e0e1a]/75 p-4 rounded-md border border-white/5 hover:border-indigo-500/20 transition-colors">
                             <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 <select value={m.style} onChange={e => updateMapping(i, 'style', e.target.value)}
-                                    className="bg-[#0e0e1a]/85 text-white rounded-lg p-3 border border-white/10 outline-none">
+                                    className="dc-input">
                                     <option value={1}>Blau</option><option value={2}>Grau</option>
                                     <option value={3}>Grün</option><option value={4}>Rot</option>
                                 </select>
                                 <select value={m.type} onChange={e => updateMapping(i, 'type', e.target.value)}
-                                    className="bg-[#0e0e1a]/85 text-white rounded-lg p-3 border border-white/10 outline-none">
+                                    className="dc-input">
                                     <option value="unicode">Std. Emoji</option>
                                     <option value="custom">Serv. Emoji</option>
                                 </select>
                                 {m.type === 'custom' ? (
                                     <div className="relative">
                                         <button onClick={() => { setOpenRoleIdx(null); setOpenEmojiIdx(openEmojiIdx === i ? null : i); }}
-                                            className="w-full bg-[#0e0e1a]/85 text-white rounded-lg p-3 border border-white/10 flex items-center gap-2">
+                                            className="dc-card w-full text-white p-3 flex items-center gap-2">
                                             {m.emoji ? <img src={serverEmojis.find(e => e.id === m.emoji)?.url} className="w-6 h-6"/> : <span className="text-white/50 text-sm">Emoji</span>}
                                         </button>
                                         {openEmojiIdx === i && (
-                                            <div className="absolute z-50 top-full mt-1 w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg max-h-40 overflow-y-auto">
+                                            <div className="dc-card absolute z-50 top-full mt-1 w-full max-h-40 overflow-y-auto">
                                                 {serverEmojis.map(e => (
                                                     <div key={e.id} onClick={() => { updateMapping(i, 'emoji', e.id); setOpenEmojiIdx(null); }}
                                                         className="flex items-center gap-2 p-2 hover:bg-white/10 cursor-pointer">
@@ -301,23 +302,23 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                                     </div>
                                 ) : (
                                     <input type="text" value={m.emoji} onChange={e => updateMapping(i, 'emoji', e.target.value)} placeholder="👍"
-                                        className="bg-[#0e0e1a]/85 text-center text-xl text-white rounded-lg p-2 border border-white/10"/>
+                                        className="dc-card text-center text-xl text-white p-2"/>
                                 )}
                                 <input type="text" value={m.label} onChange={e => updateMapping(i, 'label', e.target.value)} placeholder="Button Text"
-                                    className="bg-[#0e0e1a]/85 text-white rounded-lg p-3 border border-white/10"/>
+                                    className="dc-card text-white p-3"/>
                             </div>
                             <div className="hidden xl:flex items-center text-white/40">→</div>
                             <div className="flex gap-3 xl:w-56">
                                 <div className="relative flex-1">
                                     <button onClick={() => { setOpenEmojiIdx(null); setOpenRoleIdx(openRoleIdx === i ? null : i); }}
-                                        className="w-full bg-[#0e0e1a]/75 text-white rounded-lg p-3 border border-white/10 flex items-center gap-2">
+                                        className="dc-card w-full text-white p-3 flex items-center gap-2">
                                         {m.roleId ? (() => { const r = serverRoles.find(r => r.id === m.roleId); return r
                                             ? <><span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: r.color !== '#000000' ? r.color : '#6b7280' }}/><span className="text-sm truncate">{r.name}</span></>
                                             : <span className="text-white/50 text-sm">Unbekannt</span>; })()
                                             : <span className="text-white/50 text-sm">Rolle wählen</span>}
                                     </button>
                                     {openRoleIdx === i && (
-                                        <div className="absolute z-50 top-full mt-1 w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg max-h-40 overflow-y-auto">
+                                        <div className="dc-card absolute z-50 top-full mt-1 w-full max-h-40 overflow-y-auto">
                                             {serverRoles.map(r => (
                                                 <div key={r.id} onClick={() => { updateMapping(i, 'roleId', r.id); setOpenRoleIdx(null); }}
                                                     className="flex items-center gap-2 p-2 hover:bg-white/10 cursor-pointer">
@@ -330,14 +331,14 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                                 </div>
                                 {mappings.length > 1 && (
                                     <button onClick={() => setMappings(mappings.filter((_, j) => j !== i))}
-                                        className="text-white/40 hover:text-white hover:bg-red-500/80 px-3 rounded-lg transition-colors">✖</button>
+                                        className="text-white/40 hover:text-white hover:bg-red-500/80 px-3 rounded-md transition-colors"><X size={14} /></button>
                                 )}
                             </div>
                         </div>
                     ))}
                     {mappings.length < 25 && (
                         <button onClick={() => setMappings([...mappings, { type: 'unicode', emoji: '', label: '', style: 2, roleId: '' }])}
-                            className="text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors">
+                            className="text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2.5 rounded-md text-sm font-bold transition-colors">
                             + Weitere Verknüpfung
                         </button>
                     )}
@@ -346,9 +347,9 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                 <div className="mt-8 flex items-center justify-between">
                     <button onClick={() => setView('list')} className="text-white/50 hover:text-white px-4 py-2 transition-colors">Abbrechen</button>
                     <div className="flex items-center gap-4">
-                        {saveStatus && <span className={`text-sm font-medium ${saveStatus.includes('❌') ? 'text-red-400' : 'text-green-400'}`}>{saveStatus}</span>}
+                        {saveStatus && <span className={`text-sm font-medium ${saveStatus.startsWith('Fehler') ? 'text-red-400' : 'text-green-400'}`}>{saveStatus}</span>}
                         <button onClick={handleSave} disabled={isSaving}
-                            className="bg-violet-600 text-white py-3 px-8 rounded-lg font-bold hover:bg-violet-500 disabled:opacity-50 transition-colors">
+                            className="dc-btn">
                             {isSaving ? 'Speichere...' : editingId ? 'Änderungen senden' : 'Embed erstellen'}
                         </button>
                     </div>

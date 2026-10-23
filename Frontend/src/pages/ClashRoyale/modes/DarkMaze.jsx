@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import CardFace from '../ui/CardFace';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Hand } from 'lucide-react';
 import { CrCheck, CrChest, CrClock, CrClose, CrSearch, CrSocial, CrStar, CrTelescope, CrTv } from '../ui/CrIcons';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import { RARITY_COLOR, ALL_CARDS, cardImageUrl } from '../data/cards';
-import ghostImgSrc from '../../../assets/clashRoyale/Royale_Ghost.png';
-import chestImgSrc from '../../../assets/clashRoyale/draft-chest.png';
-import jokerImgSrc from '../../../assets/clashRoyale/UnknownCard.png';
+import ghostImgSrc from '../../../assets/clashRoyale/ui/Royale_Ghost.png';
+import chestImgSrc from '../../../assets/clashRoyale/ui/draft-chest.png';
+import jokerImgSrc from '../../../assets/clashRoyale/ui/UnknownCard.webp';
 import { drawCardFrame } from './cardCrop';
 import { ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';
 import { avatarUrl } from '../components/avatars';
+import { useMazeStepper } from './maze/useMazeStepper';
+
+// Ego-Perspektive (three.js) — erst geladen, wenn sie gebraucht wird
+const Maze3D = lazy(() => import('./maze/Maze3D'));
 
 /** Akzentfarbe des Modus. */
 const ACCENT = '#a78bfa';
@@ -28,10 +32,6 @@ const IS_COARSE_POINTER = typeof window !== 'undefined' && typeof window.matchMe
   ? window.matchMedia('(pointer: coarse)').matches
   : false;
 
-const MOVE_DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-// Ein bestätigter Zug ist nach spätestens dieser Zeit durch — was dann noch offen ist,
-// ist unterwegs verloren gegangen und darf die Vorhersage nicht weiter verschieben.
-const MOVE_ACK_TIMEOUT_MS = 2000;
 
 const MAZE_I18N = {
   de: {
@@ -47,6 +47,8 @@ const MAZE_I18N = {
     yourDeckFull: 'Dein Deck ist voll! Warte auf die anderen oder auf den Timer…',
     moveHint: 'WASD / Pfeiltasten: bewegen · Leertaste: aufheben & Kisten öffnen',
     moveHintTouch: 'Steuerkreuz: bewegen · Hand-Taste: aufheben & Kisten öffnen',
+    moveHint3d: 'W/S: vor & zurück · A/D: drehen · Q/E: seitwärts · Leertaste: aufheben',
+    moveHint3dTouch: 'Pfeile: gehen · Drehpfeile: umdrehen · Hand: aufheben',
     players: 'Spieler',
     pickupBtn: 'Aufheben',
     getReady: 'Bereit machen…',
@@ -77,6 +79,8 @@ const MAZE_I18N = {
     yourDeckFull: 'Your deck is full! Wait for the others or the timer…',
     moveHint: 'WASD / arrow keys: move · Space: pick up & open chests',
     moveHintTouch: 'D-pad: move · Hand button: pick up & open chests',
+    moveHint3d: 'W/S: forward & back · A/D: turn · Q/E: strafe · Space: pick up',
+    moveHint3dTouch: 'Arrows: walk · Turn arrows: turn · Hand: pick up',
     players: 'Players',
     pickupBtn: 'Pick up',
     getReady: 'Get ready…',
@@ -107,6 +111,8 @@ const MAZE_I18N = {
     yourDeckFull: '¡Tu mazo está completo! Espera a los demás o al temporizador…',
     moveHint: 'WASD / flechas: moverse · Espacio: recoger y abrir cofres',
     moveHintTouch: 'Cruceta: moverse · Botón de mano: recoger y abrir cofres',
+    moveHint3d: 'W/S: avanzar y retroceder · A/D: girar · Q/E: lateral · Espacio: recoger',
+    moveHint3dTouch: 'Flechas: andar · Flechas de giro: girar · Mano: recoger',
     players: 'Jugadores',
     pickupBtn: 'Recoger',
     getReady: 'Prepárate…',
@@ -232,58 +238,17 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
   const fogRef = useRef(null);          // Offscreen-Canvas für die Dunkelheit
   const stateRef = useRef(state);
   const renderPosRef = useRef({});      // weich interpolierte Render-Positionen aller Spieler
-  const predRef = useRef(null);         // lokale Vorhersage der eigenen Position
-  const pendingRef = useRef([]);        // gesendete, vom Server noch nicht quittierte Schritte
-  const seqRef = useRef(0);             // fortlaufende Nummer je gesendetem Schritt
+  // Vorhersage + Server-Abgleich der eigenen Schritte (geteilt mit der 3D-Ansicht)
+  const { predRef, pendingRef, tryStep } = useMazeStepper({ state, myPlayerId, frozen });
   const keysRef = useRef([]);           // gehaltene Richtungen, letzte zuerst relevant
-  const lastStepRef = useRef(0);
   const lastFrameRef = useRef(0);
   const dprRef = useRef(1);             // Pixel pro Bühnenpixel (Gerät × Bühnen-Skalierung)
   const propsRef = useRef({});
   stateRef.current = state;
-  propsRef.current = { myPlayerId, amSpectator, onMove, onPickup, frozen };
+  propsRef.current = { myPlayerId, amSpectator, onMove, onPickup, frozen, tryStep };
 
   // Öffnet ein Popup, dürfen gehaltene Tasten nicht "nachlaufen", sobald es schließt
-  useEffect(() => { if (frozen) { keysRef.current = []; pendingRef.current = []; } }, [frozen]);
-
-  // Eigene Vorhersage gegen den Server abgleichen. Der Server quittiert mit positions[me].seq
-  // JEDEN empfangenen Zug — auch abgelehnte. Alles bis dahin ist damit erledigt; die eigene
-  // Position ist deshalb exakt "Serverposition + die danach gesendeten Schritte". Eine
-  // Toleranzschwelle braucht es dafür nicht mehr: früher galt jede Abweichung unter zwei
-  // Kacheln als Latenz und wurde geschluckt, bis sie größer wurde — dann sprang die Figur
-  // sichtbar mehrere Kacheln zurück. Jetzt wird ein verworfener Schritt sofort und einzeln
-  // korrigiert, und die Interpolation im Renderer gleitet die Kachel weich zurück.
-  useEffect(() => {
-    const sp = state?.positions?.[myPlayerId];
-    if (!sp) { predRef.current = null; pendingRef.current = []; return; }
-    if (frozen) {
-      pendingRef.current = [];
-      predRef.current = { x: sp.x, y: sp.y, dir: sp.dir || 1 };
-      return;
-    }
-    if (sp.seq === undefined) {
-      // Server ohne Zug-Quittung (z.B. eine ältere Instanz während eines Deploys):
-      // wie früher nur bei grober Abweichung nachziehen, statt blind neu zu rechnen.
-      pendingRef.current = [];
-      const prev = predRef.current;
-      if (!prev || Math.abs(prev.x - sp.x) + Math.abs(prev.y - sp.y) > 1.5) {
-        predRef.current = { x: sp.x, y: sp.y, dir: sp.dir || 1 };
-      }
-      return;
-    }
-    const ack = sp.seq || 0;
-    const cutoff = performance.now() - MOVE_ACK_TIMEOUT_MS;
-    pendingRef.current = pendingRef.current.filter(m => m.seq > ack && m.at > cutoff);
-    let x = sp.x, y = sp.y, dir = sp.dir || 1;
-    for (const m of pendingRef.current) {
-      const D = MOVE_DIRS[m.dir];
-      const nx = x + D[0], ny = y + D[1];
-      if (nx < 0 || ny < 0 || nx >= state.W || ny >= state.H || state.walls[ny][nx] === '1') continue;
-      x = nx; y = ny;
-      if (D[0] !== 0) dir = D[0];
-    }
-    predRef.current = { x, y, dir };
-  }, [state?.positions, state?.walls, state?.W, state?.H, myPlayerId, frozen]);
+  useEffect(() => { if (frozen) { keysRef.current = []; pendingRef.current = []; } }, [frozen, pendingRef]);
 
   // Tastatur: Bewegen + Aufheben (Leertaste). preventDefault, damit die Seite nicht scrollt.
   useEffect(() => {
@@ -349,7 +314,7 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
     const draw = (nowPerf) => {
       raf = requestAnimationFrame(draw);
       const s = stateRef.current;
-      const { myPlayerId: myId, amSpectator: spec, onMove: move, frozen: isFrozen } = propsRef.current;
+      const { myPlayerId: myId, amSpectator: spec, onMove: move, frozen: isFrozen, tryStep: step } = propsRef.current;
       const dpr = dprRef.current;
       const W = canvas.width / dpr, H = canvas.height / dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -365,21 +330,8 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
 
       // ── Eingabe → Schritt senden (mit lokaler Vorhersage) ────────────────
       const pred = predRef.current;
-      if (!spec && !isFrozen && !inCountdown && !s.finished && pred && keysRef.current.length &&
-          nowPerf - lastStepRef.current >= s.stepMs) {
-        const dir = keysRef.current[keysRef.current.length - 1];
-        const D = MOVE_DIRS[dir];
-        const nx = pred.x + D[0], ny = pred.y + D[1];
-        if (nx >= 0 && ny >= 0 && nx < s.W && ny < s.H && s.walls[ny][nx] !== '1') {
-          pred.x = nx; pred.y = ny;
-          if (D[0] !== 0) pred.dir = D[0];
-          lastStepRef.current = nowPerf;
-          const seq = ++seqRef.current;
-          pendingRef.current.push({ seq, dir, at: nowPerf });
-          move(dir, seq);
-        } else {
-          lastStepRef.current = nowPerf - s.stepMs * 0.5; // an der Wand: schneller neu probieren
-        }
+      if (!spec && !isFrozen && !inCountdown && !s.finished && pred && keysRef.current.length) {
+        step(s, keysRef.current[keysRef.current.length - 1], nowPerf, move);
       }
 
       // ── Render-Positionen weich interpolieren ────────────────────────────
@@ -575,7 +527,7 @@ function MazeCanvas({ state, myPlayerId, amSpectator, onMove, onPickup, frozen }
     };
     raf = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); };
-  }, []);
+  }, [predRef]);
 
   // Klick auf die eigene Kachel hebt ebenfalls auf (Alternative zur Leertaste)
   const handleClick = useCallback(() => {
@@ -771,6 +723,7 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
   // Auf schmalen Bildschirmen ist die Spielerliste eine Schublade — sonst bliebe vom
   // Labyrinth kaum etwas übrig
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [webglFailed, setWebglFailed] = useState(false);
 
   // Für die Joker-Auswahl: freie Karten = Pool minus Decks, Bodenkarten und offene Draft-Optionen
   const availableJokerIds = useMemo(() => {
@@ -796,6 +749,10 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
   const myChampCount = myDeck.filter(c => c.isChampion).length;
   const myDraft = state.drafts?.[myPlayerId] || null;
   const frozen = !!myDraft;
+  // Zuschauer sehen das ganze Labyrinth von oben — Ego-Perspektive nur für Mitspieler
+  // Spieler sehen nur noch die 3D-Ansicht. Die Draufsicht bleibt für Zuschauer (sie folgen
+  // keinem Spieler) und als Ersatz, wenn das Gerät kein WebGL kann.
+  const show3d = !amSpectator && !webglFailed;
 
   const countdownUntilClient = state.countdownUntil ? state.countdownUntil + clientOffset : null;
   const inCountdown = !!(countdownUntilClient && countdownUntilClient > now);
@@ -862,7 +819,9 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-violet-300 text-sm font-semibold">
-              <CrTelescope size={21} /> {IS_COARSE_POINTER ? t.moveHintTouch : t.moveHint}
+              <CrTelescope size={21} /> {show3d
+                ? (IS_COARSE_POINTER ? t.moveHint3dTouch : t.moveHint3d)
+                : (IS_COARSE_POINTER ? t.moveHintTouch : t.moveHint)}
             </span>
           )}
 
@@ -877,14 +836,27 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
 
         {/* Labyrinth */}
         <div className="flex-1 relative overflow-hidden bg-[#0a0a0d]">
-          <MazeCanvas
-            state={state}
-            myPlayerId={myPlayerId}
-            amSpectator={amSpectator}
-            onMove={onMove}
-            onPickup={onPickup}
-            frozen={frozen || inCountdown || state.finished}
-          />
+          {show3d ? (
+            <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm">{t.loading}</div>}>
+              <Maze3D
+                state={state}
+                myPlayerId={myPlayerId}
+                onMove={onMove}
+                onPickup={onPickup}
+                frozen={frozen || inCountdown || state.finished}
+                onUnsupported={() => setWebglFailed(true)}
+              />
+            </Suspense>
+          ) : (
+            <MazeCanvas
+              state={state}
+              myPlayerId={myPlayerId}
+              amSpectator={amSpectator}
+              onMove={onMove}
+              onPickup={onPickup}
+              frozen={frozen || inCountdown || state.finished}
+            />
+          )}
 
           {/* Timer-Chip (Glas) */}
           <div className={`absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-1.5 rounded-lg border backdrop-blur-md ${

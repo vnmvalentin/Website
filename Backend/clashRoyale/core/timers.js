@@ -21,10 +21,12 @@ function emitTimerTick(lobby, io) {
 
 // Sekundengenauer Zugtimer mit Tick an alle Clients. Nur Snake und Auktion nutzen ihn —
 // die übrigen Modi bringen eigene Tick-Loops mit und definieren kein onTimerExpire.
-function startTurnTimer(lobby, io) {
+// `seconds` überschreibt die Zugzeit der Lobby für genau diesen Zug (Chat-Abstimmung im
+// Pyramidendraft hat eine eigene, längere Zeit wegen der Stream-Verzögerung).
+function startTurnTimer(lobby, io, seconds = lobby.timerSeconds) {
   clearTurnTimer(lobby);
   const game = lobby.game;
-  game.timerRemaining = lobby.timerSeconds;
+  game.timerRemaining = seconds;
   emitTimerTick(lobby, io);
   game.timerInterval = setInterval(() => {
     game.timerRemaining--;

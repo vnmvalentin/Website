@@ -12,7 +12,8 @@ const COLS = 7;
 
 const SLOT_COLOR = {
   1: { hex: "#ef4444", label: "Rot" },
-  2: { hex: "#8b5cf6", label: "Violett" },
+  // Rot gegen Gelb wie beim echten Spiel (und wie im Vorschaubild der Startseite)
+  2: { hex: "#facc15", label: "Gelb" },
 };
 
 function otherSlot(slot) {
@@ -356,14 +357,16 @@ export default function Connect4Room() {
       )}
 
       {/* Spielfeld */}
+      {/* Brett wie im echten Spiel: blaue Fläche mit Sockel, eingelassene Löcher, Scheiben mit Kante (c4-* in
+          index.css). Eine neu gesetzte Scheibe fällt von oben ein (key mit Wert → neu eingehängt → Animation). */}
       <div className="flex justify-center">
-        <div className="panel-strong p-3 sm:p-5 inline-block">
-          <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 mb-2 h-7 sm:h-9">
+        <div className="inline-block">
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 mb-2 h-7 sm:h-9 px-2 sm:px-3">
             {Array.from({ length: COLS }).map((_, c) => (
               <div key={c} className="flex items-center justify-center">
                 {canPlay && hoverCol === c && !columnFull[c] && (
                   <div
-                    className="w-5 h-5 sm:w-8 sm:h-8 rounded-full opacity-70"
+                    className="c4-disc c4-disc--preview w-6 h-6 sm:w-9 sm:h-9"
                     style={{ background: SLOT_COLOR[mySlot].hex }}
                   />
                 )}
@@ -371,7 +374,7 @@ export default function Connect4Room() {
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 bg-black/30 rounded-xl p-2 sm:p-3 border border-white/10">
+          <div className="c4-board grid grid-cols-7 gap-1.5 sm:gap-2.5 p-2 sm:p-3">
             {board.flatMap((rowArr, r) =>
               rowArr.map((val, c) => {
                 const isWin = winKeys.has(`${r},${c}`);
@@ -387,13 +390,18 @@ export default function Connect4Room() {
                     aria-label={
                       val ? `Spalte ${c + 1}, Reihe ${r + 1}, belegt von ${SLOT_COLOR[val].label}` : `Spalte ${c + 1}, Reihe ${r + 1}, leer`
                     }
-                    className={`w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full border transition-colors ${
-                      val === 0 ? "bg-black/40 border-white/10" : "border-black/25"
-                    } ${clickable ? "cursor-pointer" : "cursor-default"} ${
-                      isWin ? "ring-2 ring-white/80" : ""
+                    className={`c4-hole w-8 h-8 sm:w-12 sm:h-12 md:w-14 md:h-14 ${clickable ? "cursor-pointer" : "cursor-default"} ${
+                      clickable && hoverCol === c ? "c4-hole--col" : ""
                     }`}
-                    style={val !== 0 ? { background: SLOT_COLOR[val].hex } : undefined}
-                  />
+                  >
+                    {val !== 0 && (
+                      <span
+                        key={val}
+                        className={`c4-disc c4-disc--drop ${isWin ? "c4-disc--win" : ""}`}
+                        style={{ background: SLOT_COLOR[val].hex, "--c4-rows": r + 1 }}
+                      />
+                    )}
+                  </button>
                 );
               })
             )}

@@ -5,7 +5,7 @@ import React, { useCallback, useContext, useEffect, useState } from "react";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import SEO from "../../components/SEO";
 import { useAdventureShell } from "./ui/shellContext.js";
-import { api } from "./api.js";
+import { api, guestId, forgetGuest } from "./api.js";
 import MainMenu from "./screens/MainMenu.jsx";
 import KitSelect from "./screens/KitSelect.jsx";
 import Unlocks from "./screens/Unlocks.jsx";
@@ -37,10 +37,22 @@ export default function AdventureGame() {
   const [dialog, setDialog] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+  // Ohne Login als Gast spielen (ID aus diesem Browser). Nur wenn der Browser nichts speichern darf, bleibt die Anmeldung Pflicht.
+  const [canGuest] = useState(() => (user ? true : !!guestId(true)));
 
   const refresh = useCallback(async () => {
-    if (!user) return;
+    if (!user && !canGuest) return;
     try {
+      // Frisch angemeldet und vorher als Gast gespielt: Fortschritt ins Konto übernehmen, dann die Gast-ID vergessen
+      if (user && guestId()) {
+        try {
+          const c = await api.claimGuest();
+          forgetGuest();
+          if (c?.merged && c.runs > 0) setNotice(`Dein Gast-Fortschritt (${c.runs} ${c.runs === 1 ? "Lauf" : "Läufe"}) ist jetzt in deinem Konto.`);
+        } catch { /* nächster Versuch beim nächsten Laden */ }
+      }
+      if (!user) guestId(true); // nach einem Logout wieder als Gast
       const p = await api.profile();
       setProfile(p);
       setMenuKey((k) => k + 1);
@@ -48,7 +60,7 @@ export default function AdventureGame() {
     } catch (e) {
       setError(e.message);
     }
-  }, [user]);
+  }, [user, canGuest]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -113,7 +125,7 @@ export default function AdventureGame() {
     refresh();
   };
 
-  if (!user) {
+  if (!user && !canGuest) {
     return (
       <div className="av-floor relative h-full w-full flex items-center justify-center p-6">
         <SEO title="adVentures" />
@@ -142,7 +154,19 @@ export default function AdventureGame() {
           onUnlocks={() => setView("unlocks")} onCodex={() => setView("codex")}
           onAchievements={() => setView("achievements")} onHistory={() => setView("history")}
           onHelp={() => setDialog({ type: "help" })} onFeedback={() => setDialog({ type: "feedback" })}
+          guestNote={!user && (
+            <div className="mt-3 av-slot px-4 py-3 flex flex-col gap-2.5">
+              <p className="text-[14px] av-dim leading-relaxed">
+                Du spielst als Gast: Dein Fortschritt bleibt nur in diesem Browser, und die Bestenliste ist Konten vorbehalten.
+                Mit Twitch angemeldet nimmst du alles mit.
+              </p>
+              <button onClick={() => login(false)} className="av-btn av-btn-stone self-start"><TwitchGlyph className="w-4 h-4" /> Mit Twitch anmelden</button>
+            </div>
+          )}
         />
+      )}
+      {notice && view === "menu" && (
+        <button type="button" onClick={() => setNotice(null)} className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 av-block px-4 py-2 text-left">{notice}</button>
       )}
       {view === "kits" && <KitSelect profile={profile} mode={kitMode} busy={busy} error={error} onBack={() => { setError(null); setView("menu"); }} onStart={startRun} />}
       {view === "achievements" && <Achievements profile={profile} onBack={() => setView("menu")} />}

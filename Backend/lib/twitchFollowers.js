@@ -126,4 +126,6 @@ async function getFollowerCounts(twitchIds, opts = {}) {
   return out;
 }
 
-module.exports = { getFollowerCounts };
+// getAppToken auch für andere lesende Helix-Aufrufe ohne Nutzer-Token
+// (z. B. die Spielsuche in winchallenge/winchallengeGames.js)
+module.exports = { getFollowerCounts, getAppToken };

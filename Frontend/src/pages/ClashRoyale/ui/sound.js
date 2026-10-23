@@ -97,6 +97,17 @@ const SOUNDS = {
     tone(ac, { freq: 3136, start: 0.3, dur: 0.5, gain: 0.03, atk: 0.003 });
   },
   // Fehler / nicht erlaubt ("Zwei tief"): absteigende Terz
+  // Auktionshammer: dumpfer Schlag + kurzes Holzknacken
+  stamp: (ac) => {
+    tone(ac, { freq: [170, 55], type: 'triangle', dur: 0.24, gain: 0.55, atk: 0.003 });
+    tone(ac, { freq: [900, 300], type: 'square', dur: 0.05, gain: 0.08, atk: 0.001, lp: 1800 });
+  },
+  // Zauber (Mutterhexe): schimmerndes Arpeggio nach oben
+  magic: (ac) => {
+    [660, 880, 1175, 1568].forEach((f, i) => tone(ac, { freq: f, start: i * 0.055, dur: 0.22, gain: 0.08, atk: 0.01 }));
+  },
+  // Elixier fließt auf eine Karte
+  pour: (ac) => tone(ac, { freq: [520, 1040], type: 'sine', dur: 0.18, gain: 0.08, atk: 0.01 }),
   error: (ac) => {
     tone(ac, { freq: 330, type: 'triangle', dur: 0.08, gain: 0.12, atk: 0.003 });
     tone(ac, { freq: 262, type: 'triangle', start: 0.1, dur: 0.12, gain: 0.12, atk: 0.003 });

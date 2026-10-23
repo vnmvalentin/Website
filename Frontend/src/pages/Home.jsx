@@ -1,9 +1,10 @@
 import { useMemo, useEffect, useState, useContext } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import SEO from "../components/SEO";
-import { NAV_CATEGORIES } from "../config/navigation";
 import { Share2, MonitorSmartphone, ArrowRight, X } from "lucide-react";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
+import ActivityStrip from "../components/ActivityStrip";
+import HomeDoors from "../components/HomeDoors";
 
 // --- DATEN ---
 
@@ -250,79 +251,59 @@ export default function Home() {
         description="Die offizielle Website von vnmvalentin. Streaming, Tools und Community."
         path="/"
       />
-      <div className="max-w-7xl mx-auto flex flex-col gap-12 md:gap-16">
+      <div className="max-w-7xl mx-auto flex flex-col gap-10 md:gap-12">
 
-        {/* Stream + Seiten-Intro */}
-        <section className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(300px,380px)] gap-8 items-center">
-          <div className="w-full max-w-4xl mx-auto lg:mx-0">
+        {/* Kopf: Frage links, Stream klein rechts (statt großem Fernseher) */}
+        <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-8 items-end">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">
+              {user ? `Willkommen, ${user.displayName || user.login}` : "vnmvalentin.de"}
+            </p>
+            <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight mb-3">Was führt dich her?</h1>
+            <p className="text-white/50 text-sm md:text-base max-w-2xl">
+              Tools für Streamer, alles rund um Clash Royale und Browserspiele — kostenlos und ohne Download.
+            </p>
+          </div>
+          <aside className="hidden lg:block">
+            <p className="text-xs font-bold uppercase tracking-widest text-white/45 mb-3">Auf Twitch</p>
             <TwitchTV />
-          </div>
-
-          <div className="flex flex-col gap-5">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">Willkommen</p>
-              <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">
-                {user?.displayName || user?.login || "Auf der Website!"}
-              </h1>
-              <p className="text-white/50 text-sm md:text-base mt-3 leading-relaxed">
-                Streams, Community-Aktionen und kostenlose Tools für Streamer — alles an einem Ort.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => openModal('social')}
-                className="group panel flex items-center gap-4 p-4 text-left transition-colors hover:bg-white/[0.06] hover:border-violet-400/30"
-              >
-                <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
-                  <Share2 size={18} />
-                </span>
-                <span className="flex-1">
-                  <span className="block text-sm font-semibold text-white">Social Media</span>
-                  <span className="block text-xs text-white/40 mt-0.5">Alle Kanäle auf einen Blick</span>
-                </span>
-                <ArrowRight size={16} className="text-white/20 group-hover:text-violet-300 group-hover:translate-x-1 transition-all shrink-0" />
-              </button>
-
-              <button
-                onClick={() => openModal('setup')}
-                className="group panel flex items-center gap-4 p-4 text-left transition-colors hover:bg-white/[0.06] hover:border-violet-400/30"
-              >
-                <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
-                  <MonitorSmartphone size={18} />
-                </span>
-                <span className="flex-1">
-                  <span className="block text-sm font-semibold text-white">Mein Setup</span>
-                  <span className="block text-xs text-white/40 mt-0.5">Hardware & Streaming-Equipment</span>
-                </span>
-                <ArrowRight size={16} className="text-white/20 group-hover:text-violet-300 group-hover:translate-x-1 transition-all shrink-0" />
-              </button>
-            </div>
-          </div>
+          </aside>
         </section>
 
-        {/* Entdecken: die Hauptbereiche der Seite */}
-        <section>
-          <h2 className="font-display text-xl md:text-2xl font-bold text-white tracking-tight mb-6">Entdecken</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {NAV_CATEGORIES.map((cat) => {
-              const Icon = cat.icon;
-              return (
-                <Link
-                  key={cat.key}
-                  to={cat.to}
-                  className="group panel p-5 transition-colors hover:bg-white/[0.06] hover:border-violet-400/30"
-                >
-                  <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 mb-4 group-hover:bg-violet-500/20 transition-colors">
-                    <Icon size={18} />
-                  </span>
-                  <span className="block font-display text-base font-bold text-white mb-1">{cat.label}</span>
-                  <span className="block text-xs text-white/40 leading-relaxed">{cat.tagline}</span>
-                </Link>
-              );
-            })}
-          </div>
+        {/* Die drei Türen: je bis zu 4 Einträge, meistbesuchte zuerst (components/HomeDoors.jsx) */}
+        <HomeDoors />
+
+        {/* Echte Zahlen, nur wenn sie über ihrer Schwelle liegen (Backend/activity) */}
+        <ActivityStrip />
+
+        {/* Über mich: Social Media und Setup (öffnen die Fenster unten, ?view=social|setup) */}
+        <section aria-label="Über vnmvalentin" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[
+            { view: "social", icon: Share2, title: "Social Media", text: "Alle Kanäle auf einen Blick" },
+            { view: "setup", icon: MonitorSmartphone, title: "Mein Setup", text: "Hardware & Streaming-Equipment" },
+          ].map((x) => (
+            <button
+              key={x.view}
+              type="button"
+              onClick={() => openModal(x.view)}
+              className="group flex items-center gap-4 p-4 text-left rounded-2xl bg-[#13131c] border border-white/10 hover:border-violet-400/40 transition-colors"
+            >
+              <span className="flex items-center justify-center w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
+                <x.icon size={19} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold text-white">{x.title}</span>
+                <span className="block text-xs text-white/40 mt-0.5">{x.text}</span>
+              </span>
+              <ArrowRight size={16} className="text-white/20 group-hover:text-violet-300 group-hover:translate-x-1 transition-all shrink-0" />
+            </button>
+          ))}
         </section>
+
+        <aside className="lg:hidden">
+          <p className="text-xs font-bold uppercase tracking-widest text-white/45 mb-3">Auf Twitch</p>
+          <TwitchTV />
+        </aside>
 
         {/* Modals prüfen auf den URL Parameter 'view' */}
         {activeModal === 'social' && (

@@ -25,13 +25,27 @@ import {
   Volleyball,
   Goal,
   Flame,
+  Flashlight,
+  PersonStanding,
 } from "lucide-react";
 import { InstagramGlyph } from "../components/BrandGlyphs";
+// Kleine Symbolbilder (thumb) — Clash-Royale-Grafiken NUR für Clash-Royale-Seiten, der Rest aus public/media/icons
+import crCrownImg from "../assets/clashRoyale/ui/crown.png";
+import crTrophyImg from "../assets/clashRoyale/ui/trophy.png";
+import crKingImg from "../assets/clashRoyale/ui/king_blue.webp";
+import crSkullImg from "../assets/clashRoyale/ui/sudden_death.webp";
+
+// Vorschaubilder der Unterseiten (Startseite, Türen, Übersichtsseiten) — erzeugt mit scripts/vorschaubilder.cjs
+// fit: "cover" füllt die Karte (Spiele, Seiten), "contain" zeigt das ganze Bild (Overlays sind kleine Ausschnitte)
+// thumb: kleines Symbolbild (Startseite, Schnell weiter) — erzeugt mit scripts/vorschaubilder.cjs icons
+const icon = (id) => `/media/icons/${id}.webp`;
+const preview = (id, fit = "cover") => ({ src: `/media/previews/${id}.webp`, fit });
 
 export const NAV_CATEGORIES = [
   {
     key: "fun",
     label: "Fun",
+    thumb: icon("blobby"),
     to: "/fun",
     icon: Gamepad2,
     tagline: "Spiele & Zeitvertreib",
@@ -40,18 +54,27 @@ export const NAV_CATEGORIES = [
       {
         label: "adVentures",
         to: "/adventures",
+        id: "adventures",
+        thumb: icon("adventures"),
+        previews: [preview("adventures")],
         icon: Swords,
         description: "Roguelite: Kit wählen, Items stapeln, Bosse besiegen — je länger du brauchst, desto härter wird es.",
       },
       {
         label: "Virtual Farm",
         to: "/garden",
+        id: "garden",
+        thumb: "/garden-assets/animals/huhn/1.png",
+        previews: [preview("garden")],
         icon: Sprout,
         description: "Deine eigene Farm: Pflanzen setzen, ernten und ausbauen.",
       },
       {
         label: "Connect 4",
         to: "/connect4",
+        id: "connect4",
+        thumb: icon("connect4"),
+        previews: [preview("connect4")],
         icon: Disc,
         description: "Vier Gewinnt gegen einen Freund — Link teilen und direkt loslegen.",
       },
@@ -62,32 +85,54 @@ export const NAV_CATEGORIES = [
         // unterstützt, falls wieder einmal ein Punkt still gelegt werden muss.
         label: "Blobby Volley",
         to: "/blobby",
+        id: "blobby",
+        thumb: icon("blobby"),
+        previews: [preview("blobby")],
         icon: Volleyball,
         description: "Strandvolleyball im Browser — 1v1 oder 2v2, mit Powerups. Link teilen und spielen.",
       },
       {
         label: "Seed Runners",
         to: "/seed-runners",
+        id: "seed-runners",
+        thumb: icon("seed-runners"),
+        previews: [preview("seed-runners")],
         icon: Flag,
         description: "Speedrun-Rennen im Browser: alle laufen dasselbe Zufallslevel, wer zuerst im Ziel ist, gewinnt.",
       },
       {
         label: "Sacrifice & Sigils",
         to: "/sacrifice-and-sigils",
+        id: "sacrifice-and-sigils",
+        thumb: "/media/cards/bestien_grauwolf.webp",
+        previews: [preview("sacrifice-and-sigils")],
         icon: Flame,
         description: "Düsteres 1v1-Kartenspiel: draften, opfern, die Waage neigen. Online oder gegen die KI.",
       },
       {
         label: "Flick Soccer",
         to: "/flick-soccer",
+        id: "flick-soccer",
+        thumb: icon("flick-soccer"),
+        previews: [preview("flick-soccer")],
         icon: Goal,
         description: "Scheiben-Fußball Zug um Zug: Formation wählen, Kronkorken zurückziehen und abschießen. Gegen die KI, zu zweit oder online.",
+      },
+      {
+        label: "Lights Out",
+        to: "/lights-out",
+        id: "lights-out",
+        thumb: icon("lights-out"),
+        previews: [preview("lights-out")],
+        icon: Flashlight,
+        description: "Horror in drei Ebenen: Wald, Anstalt, Keller. Mit der Taschenlampe haushalten, schleichen und drei verschiedenen Monstern entkommen.",
       },
     ],
   },
   {
     key: "community",
     label: "Community",
+    thumb: icon("giveaways"),
     to: "/community",
     icon: Users,
     tagline: "Mitmachen & Abstauben",
@@ -96,20 +141,35 @@ export const NAV_CATEGORIES = [
       {
         label: "Abstimmungen",
         to: "/Abstimmungen",
+        id: "abstimmungen",
+        thumb: icon("abstimmungen"),
+        previews: [preview("abstimmungen")],
         icon: Vote,
         description: "Stimme bei aktuellen Fragen ab und bestimme mit.",
       },
       {
         label: "Giveaways",
         to: "/Giveaways",
+        id: "giveaways",
+        thumb: icon("giveaways"),
+        previews: [preview("giveaways")],
         icon: Gift,
         description: "Aktuelle Verlosungen — mitmachen lohnt sich.",
+      },
+      {
+        label: "Tanzfigur",
+        to: "/tanzfigur",
+        id: "tanzfigur",
+        icon: PersonStanding,
+        description: "Bau dir deine Figur — sie tanzt beim Stream-Start auf der Tanzfläche mit.",
       },
     ],
   },
   {
     key: "clash-royale",
     label: "Clash Royale",
+    // Tür der Startseite: der König ist sofort als Clash Royale erkennbar (die Krone trägt der Eintrag Mini Games)
+    thumb: crKingImg,
     to: "/clash",
     icon: Crown,
     tagline: "Challenges & Formate",
@@ -125,18 +185,27 @@ export const NAV_CATEGORIES = [
       {
         label: "Mini Games",
         to: "/clash-royale",
+        id: "cr-minigames",
+        thumb: crCrownImg,
+        previews: [preview("cr-minigames")],
         icon: Dices,
-        description: "Bingo Royale, Elixir Auction, Snake Royale und mehr.",
+        description: "Bingo Royale, Elixier Auktion, Snake Royale und mehr.",
       },
       {
         label: "Nuzlocke",
         to: "/nuzlocke",
+        id: "nuzlocke",
+        thumb: crSkullImg,
+        previews: [preview("nuzlocke")],
         icon: Skull,
         description: "Die Nuzlocke-Challenge: Verlorene Karten sind weg.",
       },
       {
         label: "Win Tracker Overlay",
         to: "/clash-royale/win-tracker",
+        id: "win-tracker",
+        thumb: crTrophyImg,
+        previews: [preview("win-tracker", "contain")],
         icon: TrendingUp,
         description: "OBS-Overlay mit Liga, Trophäen, Tagesstatistik und den letzten Matches.",
       },
@@ -145,6 +214,7 @@ export const NAV_CATEGORIES = [
   {
     key: "tools",
     label: "Streamer-Tools",
+    thumb: icon("streamer"),
     to: "/tools",
     icon: Wrench,
     tagline: "Kostenlose Tools für Streamer",
@@ -153,30 +223,45 @@ export const NAV_CATEGORIES = [
       {
         label: "Win-Challenge Overlay",
         to: "/WinChallenge-Overlay",
+        id: "win-challenge",
+        thumb: icon("win-challenge"),
+        previews: [preview("win-challenge", "contain")],
         icon: Trophy,
         description: "Individuelles OBS-Overlay mit Timer, Zählern und Chat-Befehlen.",
       },
       {
         label: "Twitch-Overlay-Tools",
         to: "/twitch-tools",
+        id: "twitch-tools",
+        thumb: icon("twitch-tools"),
+        previews: [preview("twitch-poll", "contain"), preview("twitch-prediction", "contain"), preview("twitch-goal", "contain"), preview("twitch-stats", "contain")],
         icon: BarChart3,
         description: "Umfragen, Vorhersagen, Ziele und Stream-Statistik als OBS-Overlay.",
       },
       {
         label: "Bingo-Card Generator",
         to: "/Bingo",
+        id: "bingo",
+        thumb: icon("bingo"),
+        previews: [preview("bingo")],
         icon: Grid3x3,
         description: "Erstelle Bingo-Karten für deinen Stream — inklusive Overlay.",
       },
       {
         label: "YTM Songrequest (Bot)",
         to: "/tutorial/ytm-bot",
+        id: "ytm-bot",
+        thumb: icon("ytm-bot"),
+        previews: [{ src: "/media/vorschau_ytmbot.png", fit: "cover" }],
         icon: Music,
         description: "Songrequests über YouTube Music — Anleitung & Setup.",
       },
       {
         label: "Discord-Bot",
         to: "/discord-bot",
+        id: "discord-bot",
+        thumb: icon("discord-bot"),
+        previews: [preview("discord-bot")],
         icon: Bot,
         description: "Der Bot für deinen Server: Rollen, Tickets, Live-Pings u.v.m.",
       },
@@ -211,6 +296,11 @@ export const NAV_CATEGORIES = [
     ],
   },
 ];
+
+/** Alle Unterseiten mit Vorschau, flach (für Startseite und "Schnell weiter") — ohne noch nicht fertige */
+export function showcaseLinks() {
+  return NAV_CATEGORIES.flatMap((c) => c.links.filter((l) => l.id && l.to && !l.soon && !l.locked).map((l) => ({ ...l, category: c.key })));
+}
 
 export function getCategory(key) {
   return NAV_CATEGORIES.find((c) => c.key === key) || null;

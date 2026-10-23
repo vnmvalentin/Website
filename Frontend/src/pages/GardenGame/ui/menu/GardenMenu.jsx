@@ -19,6 +19,15 @@ const PROPS = [
   { src: "/garden-assets/deco/nature/cherry_blossom.png", style: { right: "12%", bottom: "30%", width: "min(14vw, 190px)" } },
 ];
 
+// Für Besucher ohne Login: was sie nach der Anmeldung erwartet — mit echten Spielgrafiken (auf dem Handy gibt es sonst
+// gar keine, die Kulisse oben erscheint erst ab lg)
+const PREVIEW = [
+  { src: "/garden-assets/plants/apfel/structure.png", title: "Pflanzen und ernten", text: "Über 50 Sorten vom Radieschen bis zum Obstbaum, mit Wetter und Tageszeiten." },
+  { src: "/garden-assets/animals/kuh/1.png", title: "Tiere halten", text: "Hühner, Kühe, Pferde — bis hin zu Drache und Einhorn." },
+  { src: "/garden-assets/deco/nature/tulpenbett.png", title: "Deinen Hof gestalten", text: "Zäune, Beete, Lampen und Wege frei platzieren." },
+  { src: "/garden-assets/world/mailbox.png", title: "Mit Nachbarn spielen", text: "Acht Grundstücke pro Welt, Post an Nachbarn, Bestenliste." },
+];
+
 export default function GardenMenu({
   authUser, twitchLogin, istGartenAdmin, isSubscriber, isBeta,
   leaderboard, joinCodeInput, setJoinCodeInput, enterWorld,
@@ -48,7 +57,7 @@ export default function GardenMenu({
       </div>
 
       <div className="relative z-10 max-w-[1240px] mx-auto px-4 pb-10 pt-2 md:pt-6 grid lg:grid-cols-[minmax(0,470px)_minmax(0,360px)] justify-between gap-8 items-start">
-        <div>
+        <div className="min-w-0">
           <h1 className="gf-title text-[56px] sm:text-[76px] mb-2">Virtual<br />Farm</h1>
           <p className="gf-paper inline-block px-3 py-1 text-[15px] font-semibold mb-5">
             Eine gemeinsame Welt mit acht Grundstücken — pflanzen, ernten, verkaufen.
@@ -62,7 +71,7 @@ export default function GardenMenu({
                 {loginName ? (
                   <div className="font-extrabold text-lg truncate">{loginName}</div>
                 ) : (
-                  <div className="font-semibold text-[15px]">Nicht angemeldet — die Farm braucht einen Twitch-Login.</div>
+                  <div className="font-semibold text-[15px]">Nicht angemeldet</div>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -82,15 +91,35 @@ export default function GardenMenu({
                     <FlaskConical size={13} /> Beta
                   </span>
                 )}
-                {!authUser && (
-                  <button type="button" onClick={() => twitchLogin?.()} className="gf-btn gf-btn-twitch gf-btn-sm">
-                    <TwitchGlyph className="w-3.5 h-3.5" /> Anmelden
-                  </button>
-                )}
               </div>
             </div>
 
-            <button type="button" onClick={() => enterWorld("public")} disabled={!authUser} className="gf-btn gf-btn-lg w-full">
+            {!authUser ? (
+              <>
+                <button type="button" onClick={() => twitchLogin?.()} className="gf-btn gf-btn-twitch gf-btn-lg w-full !whitespace-normal text-center leading-tight">
+                  <TwitchGlyph className="w-5 h-5" /> Mit Twitch anmelden und loslegen
+                </button>
+                <div className="gf-paper px-4 py-3">
+                  <div className="gf-label text-[var(--gf-ink-dim)] mb-1">Das erwartet dich</div>
+                  <ul>
+                    {PREVIEW.map((f) => (
+                      <li key={f.title} className="flex items-center gap-3 py-2.5 border-b-2 border-dashed border-[var(--gf-cream-line)] last:border-b-0">
+                        <img src={f.src} alt="" aria-hidden="true" draggable={false} loading="lazy" className="w-14 h-14 object-contain shrink-0" />
+                        <span className="min-w-0">
+                          <span className="block font-extrabold leading-tight">{f.title}</span>
+                          <span className="block text-[13px] leading-snug text-[var(--gf-ink-dim)]">{f.text}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[13px] leading-snug text-[var(--gf-ink-dim)] mt-2">
+                    Kostenlos. Dein Hof wird mit deinem Twitch-Konto gespeichert, damit Nachbarn dich wiederfinden.
+                  </p>
+                </div>
+              </>
+            ) : (
+            <>
+            <button type="button" onClick={() => enterWorld("public")} className="gf-btn gf-btn-lg w-full">
               <Play size={20} fill="currentColor" /> Öffentliche Welt betreten
             </button>
 
@@ -121,6 +150,8 @@ export default function GardenMenu({
                 Eine neue Welt bekommt einen fünfstelligen Code zum Weitergeben. Deine Farm zieht mit dir in jede Welt um.
               </p>
             </div>
+            </>
+            )}
           </div>
         </div>
 

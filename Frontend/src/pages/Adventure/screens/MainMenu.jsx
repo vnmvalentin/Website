@@ -82,7 +82,7 @@ function HallOfHeroes({ reloadKey }) {
   );
 }
 
-export default function MainMenu({ profile, leaderboardKey, onNewRun, onDaily, onResume, onAbandon, onUnlocks, onCodex, onAchievements, onHistory, onHelp, onFeedback, busy }) {
+export default function MainMenu({ profile, leaderboardKey, onNewRun, onDaily, onResume, onAbandon, onUnlocks, onCodex, onAchievements, onHistory, onHelp, onFeedback, busy, guestNote = null }) {
   const next = profile?.track.find((u) => u.level > profile.level);
   const run = profile?.activeRun;
   const runKit = run ? KITS[run.kitId] : null;
@@ -138,6 +138,8 @@ export default function MainMenu({ profile, leaderboardKey, onNewRun, onDaily, o
               )}
             </div>
           )}
+          {/* Als Gast: Hinweis + Anmelden (AdventureGame.jsx) */}
+          {guestNote}
 
           <nav className="mt-4 flex flex-col gap-2" aria-label="Hauptmenü">
             <MenuButton icon={Lock} label="Freischaltungen" sub="Kits, Items und Boni pro Stufe" onClick={onUnlocks} />

@@ -881,7 +881,7 @@ summary::-webkit-details-marker { display: none; }
    dazwischen.
    Wird auf den Hub-, Lobby- und (seit dem Minigame-Reskin) den ModeShell-Wurzel-
    Container gelegt (überdeckt dort den seitenweiten .app-bg). Kachel-SVG liegt
-   zusätzlich als Datei unter src/assets/clashRoyale/diamond-tile.svg — bei Änderungen
+   zusätzlich als Datei unter src/assets/clashRoyale/bg/diamond-tile.svg — bei Änderungen
    dort UND hier neu base64-kodieren (Buffer.from(svgOhneKommentar).toString('base64')). */
 .cr-arcade-bg {
   background-color: #154c82;
@@ -1226,6 +1226,306 @@ summary::-webkit-details-marker { display: none; }
 .cr-splash { animation: crSplashIn 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 
 
+/* ── Juice (Okt. 2026): Hub-Bühne, Intro, Glanz, Übergänge, Karten-Flug ────────────────
+   Alles nur transform/opacity (GPU), alles in der "Animationen aus"-Liste weiter unten.
+   Endwerte wie bei crRise: kein transform bleibt hängen (fill backwards, Ende = none). */
+
+/* Hub-Hintergrund (hub/HubStage.jsx): dieselbe Rautenkachel wie .cr-arcade-bg wandert
+   langsam schräg, darüber dieselben Lichtschichten. Die Kachelfläche ist eine Kachel größer
+   als das Fenster und rutscht genau eine Kachel weit — dann springt sie unsichtbar zurück.
+   (Früher: aufsteigende Karten + Elixiertropfen unter dem Namen .cr-stage — der Name
+   kollidierte mit den Turnier-Bühnen, die .cr-stage ebenfalls tragen.) */
+.cr-hub-bg { position: absolute; left: 0; right: 0; top: 0; height: 100dvh; overflow: hidden; pointer-events: none; }
+.cr-hub-bg__tile {
+  position: absolute; top: -140px; left: -140px; right: 0; bottom: 0;
+  background: #154c82 url("./assets/clashRoyale/bg/diamond-tile.svg") repeat;
+  background-size: 140px 140px;
+  animation: crTileDrift 14s linear infinite;
+  will-change: transform;
+}
+@keyframes crTileDrift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(140px, 140px, 0); } }
+.cr-hub-bg__light {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(120% 65% at 50% -8%, rgba(140, 205, 255, 0.30) 0%, rgba(140, 205, 255, 0) 62%),
+    radial-gradient(150% 85% at 50% 118%, rgba(3, 12, 30, 0.82) 0%, rgba(3, 12, 30, 0) 64%),
+    linear-gradient(90deg, rgba(3, 12, 30, 0.5) 0%, rgba(3, 12, 30, 0) 16%, rgba(3, 12, 30, 0) 84%, rgba(3, 12, 30, 0.5) 100%);
+}
+/* Eigener Hintergrund (crPrefs): Muster ausblenden, das Bild am Container bleibt sichtbar */
+.cr-root[data-crbg="custom"] .cr-hub-bg { display: none; }
+
+/* Intro des Hauptmenüs: Krone fällt und federt, Kicker zieht zusammen, Buchstaben ploppen */
+.cr-hub-crown { animation: crCrownLand 0.75s cubic-bezier(0.2, 0.9, 0.3, 1) backwards, crBob 3.4s ease-in-out 1.3s infinite; }
+@keyframes crCrownLand {
+  0% { opacity: 0; transform: translateY(-110px) rotate(-28deg) scale(0.5); }
+  55% { opacity: 1; transform: translateY(6px) rotate(5deg) scale(1.12, 0.84); }
+  75% { transform: translateY(-5px) rotate(-2deg) scale(0.95, 1.06); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes crBob { 0%, 100% { transform: none; } 50% { transform: translateY(-6px) rotate(-3deg); } }
+.cr-kicker-in { animation: crKickerIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s backwards; }
+@keyframes crKickerIn { from { opacity: 0; letter-spacing: 0.75em; } }
+.cr-pop-letter { display: inline-block; animation: crLetterPop 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) backwards; }
+@keyframes crLetterPop {
+  0% { opacity: 0; transform: translateY(-46px) scale(0.3) rotate(-14deg); }
+  60% { opacity: 1; transform: translateY(5px) scale(1.14) rotate(3deg); }
+  100% { opacity: 1; transform: none; }
+}
+.cr-fade-in-late { animation: crRise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.9s backwards; }
+
+/* Menüknöpfe fliegen abwechselnd von links/rechts ein, Seitenpaneele gleiten herein */
+.cr-fly-l { animation: crFlyL 0.62s cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
+.cr-fly-r { animation: crFlyR 0.62s cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
+@keyframes crFlyL {
+  0% { opacity: 0; transform: translateX(-110px) rotate(-5deg) scale(0.88); }
+  65% { opacity: 1; transform: translateX(9px) rotate(1deg) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes crFlyR {
+  0% { opacity: 0; transform: translateX(110px) rotate(5deg) scale(0.88); }
+  65% { opacity: 1; transform: translateX(-9px) rotate(-1deg) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* Unteransichten: hinein von rechts, zurück ins Menü von links */
+.cr-view-in { animation: crViewIn 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.08) backwards; }
+.cr-view-back { animation: crViewBack 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.08) backwards; }
+@keyframes crViewIn { from { opacity: 0; transform: translateX(56px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes crViewBack { from { opacity: 0; transform: translateX(-56px) scale(0.97); } to { opacity: 1; transform: none; } }
+
+/* Glanzstreifen über einen Knopf (Hauptaktion, bereiter Startknopf) — liegt unter dem
+   Inhalt (z-index -1 wie die Kuppe in ::before), overflow schneidet ihn am Knopfrand ab;
+   den 3D-Sockel (box-shadow) betrifft das nicht. */
+.cr-shine { overflow: hidden; }
+.cr-shine::after {
+  content: ""; position: absolute; top: -30%; bottom: -30%; left: 0; width: 34%;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-180%) skewX(-20deg);
+  animation: crShine 4.6s ease-in-out 1.4s infinite;
+  pointer-events: none; z-index: -1;
+}
+@keyframes crShine { 0% { transform: translateX(-180%) skewX(-20deg); } 24%, 100% { transform: translateX(420%) skewX(-20deg); } }
+
+/* Symbol im Knopf wackelt beim Überfahren */
+.cr-arcade-btn:hover > img,
+.cr-arcade-btn:hover > svg { animation: crWiggle 0.5s ease; }
+@keyframes crWiggle {
+  0%, 100% { transform: none; }
+  25% { transform: rotate(-14deg) scale(1.15); }
+  55% { transform: rotate(9deg) scale(1.1); }
+  80% { transform: rotate(-4deg); }
+}
+
+/* Modus-Kacheln: neigen sich zum Zeiger (hub/ModeCard.jsx setzt --rx/--ry), Austeilen beim Öffnen */
+.cr-tilt { transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transform-style: preserve-3d; }
+.cr-deal > * { animation: crDealIn 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.15) backwards; }
+.cr-deal > *:nth-child(1) { animation-delay: 0.05s; }
+.cr-deal > *:nth-child(2) { animation-delay: 0.1s; }
+.cr-deal > *:nth-child(3) { animation-delay: 0.15s; }
+.cr-deal > *:nth-child(4) { animation-delay: 0.2s; }
+.cr-deal > *:nth-child(5) { animation-delay: 0.25s; }
+.cr-deal > *:nth-child(6) { animation-delay: 0.3s; }
+.cr-deal > *:nth-child(7) { animation-delay: 0.35s; }
+.cr-deal > *:nth-child(8) { animation-delay: 0.4s; }
+.cr-deal > *:nth-child(9) { animation-delay: 0.45s; }
+.cr-deal > *:nth-child(10) { animation-delay: 0.5s; }
+.cr-deal > *:nth-child(11) { animation-delay: 0.55s; }
+.cr-deal > *:nth-child(n+12) { animation-delay: 0.6s; }
+
+/* Lobby: neuer Spieler federt herein */
+.cr-join-in { animation: crJoinIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards; }
+@keyframes crJoinIn {
+  0% { opacity: 0; transform: translateX(-40px) scale(0.92); }
+  70% { opacity: 1; transform: translateX(4px) scale(1.01); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* Karte landet nach dem Flug ins Deck (ui/flyToDeck.js): kurzes Stauchen */
+.cr-card-land { animation: crCardLand 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.3) backwards; }
+@keyframes crCardLand {
+  0% { transform: scale(1.18, 0.82); }
+  60% { transform: scale(0.95, 1.06); }
+  100% { transform: none; }
+}
+
+/* 3D-Labyrinth (modes/maze/Maze3D.jsx): dunkle Ränder wie ein Blick aus der Fackel heraus,
+   dazu ein warmer, flackernder Schein von rechts unten, wo die Fackel sitzt */
+.cr-maze3d-vignette { background: radial-gradient(ellipse 75% 70% at 50% 52%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.78) 100%); }
+.cr-maze3d-torchglow {
+  background: radial-gradient(ellipse 45% 40% at 88% 108%, rgba(255, 150, 60, 0.22), rgba(255, 150, 60, 0) 70%);
+  animation: crTorchFlicker 2.3s ease-in-out infinite;
+}
+@keyframes crTorchFlicker {
+  0%, 100% { opacity: 0.85; } 18% { opacity: 1; } 31% { opacity: 0.72; } 47% { opacity: 0.95; } 66% { opacity: 0.8; } 82% { opacity: 1; }
+}
+
+/* Draft-Ende: Pokal hüpft herein, Decks werden ausgeteilt (Verzögerung je Karte inline) */
+.cr-trophy-hop { animation: crCrownLand 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) 0.1s backwards; }
+.cr-deal-card { animation: crDealIn 0.36s cubic-bezier(0.2, 0.9, 0.3, 1.15) backwards; }
+
+/* Letzte drei Sekunden: Uhr zittert zusätzlich zum Pulsieren */
+.cr-timer--critical { animation: crTimerPulse 0.5s ease-in-out infinite, crShake 0.5s linear infinite; }
+@keyframes crShake {
+  0%, 100% { translate: 0 0; } 20% { translate: -2px 0; } 40% { translate: 2px 0; } 60% { translate: -1px 0; } 80% { translate: 1px 0; }
+}
+
+
+/* ── Elixir Auction (Okt. 2026): Austeilen, Auktionshammer, Mutterhexe ────────────────
+   Verzögerungen kommen als CSS-Variablen aus modes/auction/AuctionRevealCard.jsx:
+   --d0 = Karte erscheint, --slam = Hammerschlag, --cd = Gebot erscheint, --wc = Gewinnerfarbe */
+.cr-auction-deal { animation: crDealArc 0.62s cubic-bezier(0.2, 0.9, 0.3, 1.05) backwards; }
+@keyframes crDealArc {
+  0% { opacity: 0; transform: translateY(-38vh) rotate(-18deg) rotateY(180deg) scale(0.55); }
+  55% { opacity: 1; transform: translateY(10px) rotate(3deg) rotateY(0deg) scale(1.04); }
+  100% { opacity: 1; transform: none; }
+}
+.cr-reveal-card {
+  animation:
+    crFlipIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.1) var(--d0, 0s) backwards,
+    crCardSlam 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.3) var(--slam, 0.6s) backwards;
+}
+@keyframes crCardSlam { 0% { transform: scale(1.08); } 35% { transform: scale(0.95); } 100% { transform: none; } }
+.cr-reveal-ring {
+  position: absolute; inset: -3px; border: 4px solid var(--wc); border-radius: inherit; pointer-events: none;
+  animation: crRingIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) var(--slam) both; z-index: 3;
+}
+@keyframes crRingIn { 0% { opacity: 0; transform: scale(1.12); } 100% { opacity: 1; transform: none; } }
+.cr-stamp {
+  position: absolute; left: 50%; top: 44%; z-index: 4; pointer-events: none; white-space: nowrap;
+  font-family: var(--font-cr); font-size: 1.65rem; line-height: 1.1; color: #fff; text-shadow: var(--cr-text-outline);
+  padding: 0.1em 0.45em; border: 4px solid var(--wc); border-radius: 12px; background: rgba(6, 10, 24, 0.55);
+  animation: crStampSlam 1.3s cubic-bezier(0.2, 0.9, 0.3, 1.2) var(--slam) both;
+}
+@keyframes crStampSlam {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(3.2); }
+  20% { opacity: 1; transform: translate(-50%, -50%) rotate(-12deg) scale(0.9); }
+  30% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); }
+  80% { opacity: 1; transform: translate(-50%, -50%) rotate(-12deg) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(1.06); }
+}
+.cr-shockwave {
+  position: absolute; left: 50%; top: 44%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%;
+  border: 4px solid var(--wc); pointer-events: none; z-index: 3; opacity: 0;
+  animation: crShock 0.6s ease-out var(--slam) forwards; /* nicht "both": sonst steht das erste Keyframe schon vor dem Schlag als Punkt in Gewinnerfarbe da */
+}
+@keyframes crShock { 0% { opacity: 0.95; transform: scale(0.2); } 100% { opacity: 0; transform: scale(6); } }
+.cr-shard {
+  position: absolute; left: 50%; top: 44%; width: 7px; height: 14px; margin: -7px 0 0 -3px; border-radius: 2px;
+  background: var(--wc); pointer-events: none; z-index: 3; opacity: 0;
+  animation: crShard 0.75s cubic-bezier(0.15, 0.7, 0.4, 1) var(--slam) forwards;
+}
+@keyframes crShard {
+  0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(1); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(-110px) scale(0.4); }
+}
+.cr-bid-chip { animation: crChipIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.35) var(--cd) backwards; }
+.cr-bid-chip--lose { animation: crChipIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.35) var(--cd) backwards, crChipLose 0.3s ease var(--slam) both; }
+.cr-bid-chip--win { animation: crChipIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.35) var(--cd) backwards, crChipWin 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4) var(--slam) both; }
+@keyframes crChipIn {
+  0% { opacity: 0; transform: translateY(34px) scale(0.75); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.06); }
+  100% { opacity: 1; transform: none; }
+}
+/* Auflösung Karte für Karte: wartende Karten abgedunkelt, die aktive hebt sich (--focus/--fdur) */
+.cr-reveal-focus { animation: crRevealWait var(--focus) linear, crRevealFocus var(--fdur) ease var(--focus); }
+@keyframes crRevealWait { from, to { filter: brightness(0.5) saturate(0.6); } }
+@keyframes crRevealFocus {
+  0% { transform: none; }
+  15%, 85% { transform: translateY(-12px) scale(1.06); }
+  100% { transform: none; }
+}
+@keyframes crChipLose { to { opacity: 0.5; } }
+@keyframes crChipWin { 0% { transform: none; } 40% { transform: scale(1.12); } 100% { transform: none; background-color: color-mix(in srgb, var(--wc) 30%, transparent); } }
+/* Erst nach dem Hammerschlag sichtbar (nur Deckkraft — das DU-Band behält seine Drehung) */
+.cr-after-slam { animation: crFadeIn 0.25s ease var(--head) backwards; }
+.cr-reveal-head { animation: crDropIn 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2) var(--head) backwards; }
+.cr-mw-unmask { animation: crUnmask 0.6s ease both; }
+@keyframes crUnmask {
+  0% { transform: rotateY(0deg); filter: hue-rotate(120deg) brightness(1.7) saturate(1.6); }
+  50% { transform: rotateY(90deg); }
+  100% { transform: none; filter: none; }
+}
+/* Gebots-Fortschritt in der Kopfzeile: ein Tropfen je Spieler, füllt sich beim Gebot */
+.cr-bid-token { width: 14px; height: auto; transition: filter 0.2s ease, opacity 0.2s ease; }
+.cr-bid-token--empty { filter: grayscale(1) brightness(0.55); opacity: 0.6; }
+.cr-bid-token--full { animation: crTokenPop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.5); }
+@keyframes crTokenPop { 0% { transform: scale(0.4) translateY(-6px); } 60% { transform: scale(1.35); } 100% { transform: none; } }
+
+/* Mutterhexe (modes/MotherWitchVisit.jsx) */
+.cr-mw-stage {
+  background: radial-gradient(ellipse at 50% 62%, rgba(80, 24, 120, 0.6), rgba(8, 2, 18, 0.93) 70%);
+  overflow: hidden; animation: crFadeIn 0.35s ease both;
+}
+.cr-mw-stage--out { animation: crMwOut 0.45s ease 0.08s both; }
+/* 3D-Saal: die Hexe erscheint im Zauberspiegel der Szene — kein Vollbild-Nebel, nur unten ein
+   leichter Schatten hinter dem Angebot, damit der Spiegel darüber sichtbar bleibt */
+.cr-mw-stage--scene { background: linear-gradient(to top, rgba(8, 2, 18, 0.75), rgba(8, 2, 18, 0) 45%); pointer-events: none; }
+.cr-mw-stage--scene > * { pointer-events: auto; }
+@keyframes crMwOut { to { opacity: 0; } }
+.cr-mw-fog {
+  position: absolute; inset: -30%; pointer-events: none;
+  background:
+    radial-gradient(circle at 30% 40%, rgba(190, 90, 255, 0.28), transparent 38%),
+    radial-gradient(circle at 70% 66%, rgba(90, 255, 170, 0.13), transparent 34%),
+    radial-gradient(circle at 55% 20%, rgba(255, 90, 220, 0.14), transparent 30%);
+  animation: crFogSpin 18s linear infinite;
+}
+.cr-mw-fog--2 { animation-duration: 27s; animation-direction: reverse; opacity: 0.7; }
+@keyframes crFogSpin { to { transform: rotate(360deg); } }
+.cr-mw-bubble {
+  position: absolute; bottom: -40px; left: var(--x); width: var(--s); height: var(--s); border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle at 35% 30%, rgba(225, 255, 235, 0.95), rgba(90, 225, 150, 0.6) 58%, rgba(40, 160, 90, 0.2));
+  animation: crBubbleUp var(--dur) ease-in var(--dl) infinite; pointer-events: none;
+}
+@keyframes crBubbleUp {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  10% { opacity: 0.85; }
+  85% { opacity: 0.55; }
+  100% { opacity: 0; transform: translateY(-80vh) translateX(24px) scale(1.15); }
+}
+.cr-mw-witch { animation: crWitchRise 0.85s cubic-bezier(0.2, 0.9, 0.3, 1.15) 0.1s backwards, crWitchFloat 3.2s ease-in-out 1.1s infinite; }
+@keyframes crWitchRise {
+  0% { opacity: 0; transform: translateY(60%) scale(0.7) rotate(-6deg); }
+  60% { opacity: 1; transform: translateY(-6%) scale(1.05) rotate(2deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes crWitchFloat { 0%, 100% { transform: none; } 50% { transform: translateY(-10px) rotate(-1.5deg); } }
+.cr-mw-witch--cast { animation: crWitchCast 0.55s ease-in both; }
+@keyframes crWitchCast {
+  0% { transform: none; }
+  30% { transform: scale(1.12) rotate(-5deg); }
+  100% { opacity: 0; transform: translateY(-30%) scale(0.2) rotate(40deg); }
+}
+.cr-mw-witch--sink { animation: crWitchSink 0.5s ease-in both; }
+@keyframes crWitchSink { to { opacity: 0; transform: translateY(70%) rotate(-8deg); } }
+.cr-mw-speech { animation: crSpeechIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.3) 0.5s backwards; transform-origin: left bottom; }
+@keyframes crSpeechIn { 0% { opacity: 0; transform: scale(0.4) rotate(-6deg); } 100% { opacity: 1; transform: none; } }
+.cr-mw-flash {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 35% 60%, rgba(235, 170, 255, 0.95), rgba(160, 60, 255, 0.4) 35%, transparent 65%);
+  animation: crMwFlash 0.5s ease-out both;
+}
+@keyframes crMwFlash { 0% { opacity: 0; transform: scale(0.6); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.6); } }
+.cr-caret::after { content: '▍'; margin-left: 1px; animation: crCaret 0.8s steps(1) infinite; }
+@keyframes crCaret { 50% { opacity: 0; } }
+
+
+/* ── Snake Royale: wählbare Nachbarfelder "atmen" (Ring pulsiert, Feld hebt sich leicht) ── */
+.cr-snake-option::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 2px #22d3ee; animation: crOptionPulse 1.1s ease-in-out infinite;
+}
+@keyframes crOptionPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* ── Bingo Royale: goldene Welle über eine frisch vollendete Linie ── */
+.cr-bingo-sweep { animation: crBingoSweep 1.4s ease both; }
+@keyframes crBingoSweep {
+  0% { transform: none; filter: none; }
+  20% { transform: scale(1.12); filter: brightness(1.8) saturate(1.4); border-color: #fde68a; }
+  45% { transform: scale(0.97); filter: brightness(1.3); }
+  100% { transform: none; filter: none; }
+}
+
 /* Animationen AUS — persönliche Einstellung im CR-Einstellungsfenster (ui/crPrefs.js,
    Standard: an), bewusst NICHT an die System-Einstellung "Bewegung reduzieren" gekoppelt.
    CrShell setzt data-cr-anim auf <html>, damit auch die per Portal an <body> hängenden
@@ -1264,6 +1564,51 @@ html[data-cr-anim="off"] .cr-card--selectable:hover,
 html[data-cr-anim="off"] .cr-card-hover:hover,
 html[data-cr-anim="off"] .cr-mode-card:hover,
 html[data-cr-anim="off"] .cr-arcade-card--hoverable:hover { transform: none; }
+/* Juice (Okt. 2026): Hub-Muster steht still, alles andere ohne Bewegung */
+html[data-cr-anim="off"] .cr-hub-bg__tile { animation: none; }
+html[data-cr-anim="off"] .cr-hub-crown,
+html[data-cr-anim="off"] .cr-kicker-in,
+html[data-cr-anim="off"] .cr-pop-letter,
+html[data-cr-anim="off"] .cr-fade-in-late,
+html[data-cr-anim="off"] .cr-fly-l,
+html[data-cr-anim="off"] .cr-fly-r,
+html[data-cr-anim="off"] .cr-view-in,
+html[data-cr-anim="off"] .cr-view-back,
+html[data-cr-anim="off"] .cr-shine::after,
+html[data-cr-anim="off"] .cr-arcade-btn:hover > img,
+html[data-cr-anim="off"] .cr-arcade-btn:hover > svg,
+html[data-cr-anim="off"] .cr-deal > *,
+html[data-cr-anim="off"] .cr-join-in,
+html[data-cr-anim="off"] .cr-card-land,
+html[data-cr-anim="off"] .cr-trophy-hop,
+html[data-cr-anim="off"] .cr-deal-card,
+html[data-cr-anim="off"] .cr-timer--critical,
+html[data-cr-anim="off"] .cr-maze3d-torchglow { animation: none; }
+/* Elixir Auction + Mutterhexe: Endzustand ohne Bewegung (Stempel/Splitter/Blasen ganz weg) */
+html[data-cr-anim="off"] .cr-snake-option::after,
+html[data-cr-anim="off"] .cr-bingo-sweep,
+html[data-cr-anim="off"] .cr-auction-deal,
+html[data-cr-anim="off"] .cr-reveal-card,
+html[data-cr-anim="off"] .cr-reveal-focus,
+html[data-cr-anim="off"] .cr-reveal-ring,
+html[data-cr-anim="off"] .cr-bid-chip,
+html[data-cr-anim="off"] .cr-bid-chip--lose,
+html[data-cr-anim="off"] .cr-bid-chip--win,
+html[data-cr-anim="off"] .cr-reveal-head,
+html[data-cr-anim="off"] .cr-after-slam,
+html[data-cr-anim="off"] .cr-mw-unmask,
+html[data-cr-anim="off"] .cr-bid-token--full,
+html[data-cr-anim="off"] .cr-mw-stage,
+html[data-cr-anim="off"] .cr-mw-fog,
+html[data-cr-anim="off"] .cr-mw-witch,
+html[data-cr-anim="off"] .cr-mw-speech { animation: none; }
+html[data-cr-anim="off"] .cr-stamp,
+html[data-cr-anim="off"] .cr-shockwave,
+html[data-cr-anim="off"] .cr-shard,
+html[data-cr-anim="off"] .cr-mw-bubble,
+html[data-cr-anim="off"] .cr-mw-flash { display: none; }
+html[data-cr-anim="off"] .cr-shine::after { display: none; }
+html[data-cr-anim="off"] .cr-tilt { transform: none; }
 
 /* ===================================================================
    SCROLLBARS (wird seitenweit als .custom-scrollbar benutzt)
@@ -1376,3 +1721,107 @@ html {
 .animate-scroll-credits {
     animation: scroll-credits 100s linear forwards;
 }
+
+/* ── TileCard (components/TileCard.jsx): Vorschau-Karte mit 3D-Neigung ────────────────────────────────
+   Neigung über --rx/--ry (setzt die Komponente aus der Zeigerposition), Bild-Parallaxe über --px/--py, Textleiste
+   mit translateZ davor. Aufklappen beim Erscheinen mit fill-mode backwards: danach gilt wieder die Neigung. Kein
+   Leuchten, kein Vergrößern der Karte (Design-Vorgabe) — nur Tiefe. */
+.tile3d {
+  position: relative; display: flex; flex-direction: column; text-align: left; width: 100%;
+  background: #12121a; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px;
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d; transition: transform 0.35s cubic-bezier(.2,.8,.2,1), border-color 0.2s;
+  box-shadow: 0 8px 0 #07070b, 0 18px 28px rgba(0, 0, 0, 0.45);
+}
+.tile3d:hover { transition: transform 0.08s linear, border-color 0.2s; border-color: rgba(167, 139, 250, 0.45); }
+.tile3d:focus-visible { outline: 2px solid #a78bfa; outline-offset: 3px; }
+.tile3d-media {
+  position: relative; overflow: hidden; border-radius: 13px 13px 0 0; aspect-ratio: 16 / 10; background: #0a0a0f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.tile3d--lg .tile3d-media { aspect-ratio: 16 / 9; }
+.tile3d-media img {
+  position: absolute; inset: -2%; width: 104%; height: 104%; object-fit: cover; object-position: center top;
+  opacity: 0; transition: opacity 0.7s ease, transform 0.35s cubic-bezier(.2,.8,.2,1);
+  transform: translate3d(var(--px, 0px), var(--py, 0px), 0);
+}
+.tile3d-media img.is-on { opacity: 1; }
+/* Overlay-Ausschnitte ganz zeigen, mit Luft zum Rand */
+.tile3d-media img.fit-contain { inset: 7%; width: 86%; height: 86%; object-fit: contain; object-position: center; }
+.tile3d-media--icon { display: flex; align-items: center; justify-content: center; color: #c4b5fd; aspect-ratio: 16 / 7; }
+.tile3d-body { padding: 14px 16px 16px; transform: translateZ(26px); }
+.tile3d-kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(196, 181, 253, 0.8); margin-bottom: 4px; }
+.tile3d-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; line-height: 1.25; color: #fff; }
+.tile3d--lg .tile3d-title { font-size: 1.35rem; }
+.tile3d-text { margin-top: 6px; font-size: 0.85rem; line-height: 1.5; color: rgba(255, 255, 255, 0.5); }
+.tile3d-arrow { flex: none; margin-top: 3px; color: rgba(255, 255, 255, 0.3); transition: color 0.2s, transform 0.2s; }
+.tile3d:hover .tile3d-arrow { color: #c4b5fd; transform: translateX(2px); }
+/* Klein (Schnellzugriff): Bild links, Titel rechts */
+.tile3d--sm { flex-direction: row; align-items: center; border-radius: 12px; box-shadow: 0 5px 0 #07070b, 0 12px 18px rgba(0, 0, 0, 0.4); }
+.tile3d--sm .tile3d-media { width: 92px; flex: none; aspect-ratio: 16 / 10; border-radius: 11px 0 0 11px; border-bottom: 0; border-right: 1px solid rgba(255, 255, 255, 0.08); }
+.tile3d--sm .tile3d-media--icon { aspect-ratio: 16 / 10; }
+.tile3d--sm .tile3d-body { padding: 10px 12px; flex: 1; min-width: 0; transform: translateZ(14px); }
+.tile3d--sm .tile3d-title { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes tile3d-in {
+  from { opacity: 0; transform: perspective(900px) rotateX(28deg) translateY(36px); }
+  to { opacity: 1; transform: perspective(900px) rotateX(0deg) translateY(0); }
+}
+.tile3d-in { animation: tile3d-in 0.65s cubic-bezier(.2,.8,.2,1) backwards; }
+/* Bewegung reduzieren: kein Aufklappen beim Laden; die Neigung unter dem Zeiger bleibt (selbst ausgelöst) */
+@media (prefers-reduced-motion: reduce) {
+  .tile3d-in { animation: none; }
+}
+
+/* ── Connect 4 (pages/Connect4/Connect4Room.jsx): Brett wie im echten Spiel — blaue Fläche mit Sockel, eingelassene
+   Löcher, Scheiben mit Kante. Neu gesetzte Scheiben fallen von oben ein (Fallhöhe über --c4-rows). */
+.c4-board { background: #1d2a6b; border-radius: 18px; box-shadow: 0 12px 0 #111a48, 0 22px 30px rgba(0, 0, 0, 0.45); }
+.c4-hole { position: relative; border-radius: 50%; background: #0b0b10; box-shadow: inset 0 5px 0 rgba(0, 0, 0, 0.5); transition: background-color 0.15s; }
+.c4-hole--col { background: #15152a; }
+.c4-disc { display: block; border-radius: 50%; box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.25), inset 0 3px 0 rgba(255, 255, 255, 0.25); }
+.c4-hole > .c4-disc { position: absolute; inset: 0; }
+.c4-disc--preview { opacity: 0.75; }
+.c4-disc--drop { animation: c4-drop calc(0.18s + var(--c4-rows, 1) * 0.06s) cubic-bezier(.45, 0, .9, .55) both; }
+@keyframes c4-drop {
+  0% { transform: translateY(calc(var(--c4-rows, 1) * -118%)); }
+  80% { transform: translateY(0); }
+  90% { transform: translateY(-8%); }
+  100% { transform: translateY(0); }
+}
+.c4-disc--win { box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.25), inset 0 3px 0 rgba(255, 255, 255, 0.25), 0 0 0 3px #fff; }
+/* Das Fallen bleibt auch bei "Bewegung reduzieren": Es zeigt, wo der Gegner gerade gesetzt hat (Spielgeschehen, keine Deko) */
+
+/* ── Türen der Startseite (components/HomeDoors.jsx): drei Karten, je bis zu 4 Einträge (meistbesuchte zuerst).
+   3D: die ganze Tür neigt sich unter dem Zeiger (--rx/--ry aus utils/useTilt.js), Kopf und Liste liegen in
+   verschiedener Tiefe (translateZ). Einträge sind Zeilen mit Haarlinien, keine Pillen in der Pille. Beim Überfahren
+   hüpft das Symbol der Zeile. Bei "Bewegung reduzieren" entfällt nur das Aufklappen beim Laden. */
+.door3d {
+  position: relative; display: flex; flex-direction: column; border-radius: 20px;
+  background: #13131c; border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 0 #07070b, 0 22px 34px rgba(0, 0, 0, 0.45);
+  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(.2,.8,.2,1), border-color 0.2s;
+}
+.door3d:hover { transition: transform 0.08s linear, border-color 0.2s; border-color: rgba(167, 139, 250, 0.45); }
+.door3d-head { display: flex; align-items: center; gap: 14px; padding: 18px 18px 14px; transform: translateZ(40px); }
+.door3d-head-thumb { flex: none; width: 64px; height: 64px; border-radius: 18px; overflow: hidden; background: #0b0b12; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 6px 0 #07070b; }
+.door3d-head-thumb img { width: 100%; height: 100%; object-fit: contain; transform: translate3d(var(--px, 0px), var(--py, 0px), 0); transition: transform 0.4s cubic-bezier(.2,.8,.2,1); }
+.door3d-list { padding: 0 10px 6px; transform: translateZ(22px); }
+.door3d-row {
+  display: flex; align-items: center; gap: 12px; padding: 9px 8px; border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px; transition: background-color 0.15s;
+}
+.door3d-row:first-child { border-top-color: transparent; }
+.door3d-row:hover { background: rgba(255, 255, 255, 0.05); }
+.door3d-row:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+.door3d-thumb { flex: none; width: 40px; height: 40px; border-radius: 11px; overflow: hidden; background: #0b0b12; border: 1px solid rgba(255, 255, 255, 0.08); }
+.door3d-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.door3d-thumb img.cover { object-fit: cover; }
+.door3d-row:hover .door3d-thumb img { animation: door3d-hop 0.5s cubic-bezier(.2,.8,.2,1); }
+@keyframes door3d-hop { 0% { transform: translateY(0) rotate(0); } 40% { transform: translateY(-6px) rotate(-8deg); } 70% { transform: translateY(1px) rotate(3deg); } 100% { transform: translateY(0) rotate(0); } }
+.door3d-arrow { flex: none; margin-left: auto; color: rgba(255, 255, 255, 0.22); transition: color 0.2s, transform 0.2s; }
+.door3d-row:hover .door3d-arrow { color: #c4b5fd; transform: translateX(3px); }
+.door3d-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding: 12px 18px 16px; border-top: 1px solid rgba(255, 255, 255, 0.07); font-size: 0.875rem; font-weight: 600; color: #c4b5fd; transform: translateZ(14px); }
+.door3d-foot:hover { color: #ddd6fe; }
+@keyframes door3d-in { from { opacity: 0; transform: perspective(1100px) rotateX(24deg) translateY(40px); } to { opacity: 1; transform: perspective(1100px) rotateX(0deg) translateY(0); } }
+.door3d-in { animation: door3d-in 0.7s cubic-bezier(.2,.8,.2,1) backwards; }
+@media (prefers-reduced-motion: reduce) { .door3d-in { animation: none; } }

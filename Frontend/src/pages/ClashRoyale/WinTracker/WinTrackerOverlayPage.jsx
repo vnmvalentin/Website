@@ -12,15 +12,16 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Trophy, ChevronsUp } from "lucide-react";
-import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl } from "../data/leagueIcons";
+import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl, challengeBadgeUrl } from "../data/leagueIcons";
 import { trophyArenaIcon, trophyArenaName } from "../data/trophyArenas";
 import { cardImageUrl } from "../data/cards";
 import { useClanBadgeUrl } from "../data/clanBadges";
 import { useStableState } from "../../../utils/useStableState";
 import { getOverlayData } from "./winTrackerApi";
 import { usePagedTransition, SLIDE_MS } from "./usePagedTransition";
-import { dictForWt } from "./wtI18n";
+import { dictForWt, challengeLabel } from "./wtI18n";
 import FitText from "./FitText";
+import ChallengeValue, { ChallengeBadge } from "./ChallengeValue";
 import { overlayLook, CR_FONT_HREF } from "./overlayTheme";
 import trophyIcon from "../../../assets/clashRoyale/ui/trophy.png";
 import trophy2v2Icon from "../../../assets/clashRoyale/ui/trophy2v2.webp";
@@ -145,7 +146,8 @@ export default function WinTrackerOverlayPage() {
   const clanBadgeImgUrl = useClanBadgeUrl(data?.clanBadgeId ?? null);
 
   // Clash-Royale-Look braucht die Titelschrift — das Overlay läuft ohne CrShell (die sie sonst lädt).
-  const royaleTheme = data?.settings?.overlayTheme === "royale";
+  // Die Siegzahl im Challenge-Schild nutzt dieselbe Schrift, auch im klassischen Look.
+  const royaleTheme = data?.settings?.overlayTheme === "royale" || !!data?.challenge;
   useEffect(() => {
     if (!royaleTheme || document.querySelector(`link[href="${CR_FONT_HREF}"]`)) return;
     const link = document.createElement("link");
@@ -160,7 +162,7 @@ export default function WinTrackerOverlayPage() {
 
   const {
     playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, clanName,
-    league2v2Trophies, league2v2BestTrophies, seasonal, ladder, daily, last5, deck, settings,
+    league2v2Trophies, league2v2BestTrophies, seasonal, challenge, ladder, daily, last5, deck, settings,
   } = data;
   const lang = settings.language === "en" ? "en" : "de";
   const t = dictForWt(lang);
@@ -176,15 +178,17 @@ export default function WinTrackerOverlayPage() {
   // im Backend): eigenes Objekt mit Name, Stand und Stufe — kein eigenes Liga-Bild bekannt, deshalb
   // die Trophäe als Abzeichen.
   const isSeasonal = !!seasonal;
-  const badgeUrl = isSeasonal ? (seasonalBadgeUrl(seasonal.mode) || trophyIcon) : isLeague2v2 ? league2v2Badge : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
-  const badgeAlt = isSeasonal ? seasonal.label : isTrophyMode ? trophyArenaName(trophies) : leagueName(leagueNumber, lang);
+  // Challenge (Classic/Grand/20 Win): Kopf zeigt Siege des Runs + Niederlagen-Felder (ChallengeValue)
+  const isChallenge = !!challenge;
+  const badgeUrl = isChallenge ? challengeBadgeUrl(challenge.key) : isSeasonal ? (seasonalBadgeUrl(seasonal.mode) || trophyIcon) : isLeague2v2 ? league2v2Badge : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
+  const badgeAlt = isChallenge ? challengeLabel(challenge.key, t) : isSeasonal ? seasonal.label : isTrophyMode ? trophyArenaName(trophies) : leagueName(leagueNumber, lang);
   // Ligen 1-6 kennen keine Medaillen: dort zählt der Tracker die Stufen bis Ultimate Champion.
   // Ab UC (Liga 7) liefert das Backend kein ladder-Objekt mehr und es geht zurück auf Medaillen.
   // computeLadder läuft serverseitig unabhängig vom trackMode (1v1-Liga bleibt bestehen, auch
   // während 2v2 Ranked getrackt wird) — hier deshalb zusätzlich isLeague2v2 ausschließen, sonst
   // würde ein 2v2-Account in Liga 1-6 fälschlich die 1v1-Stufenanzeige statt seiner 2v2-Trophäen
   // zeigen.
-  const isLadderMode = !isTrophyMode && !isLeague2v2 && !isSeasonal && !!ladder;
+  const isLadderMode = !isTrophyMode && !isLeague2v2 && !isSeasonal && !isChallenge && !!ladder;
   const mainValue = isSeasonal ? seasonal.trophies : isLeague2v2 ? league2v2Trophies : isTrophyMode ? trophies : seasonMedals;
   const dailyValue = isLadderMode ? (ladder.sessionDelta || 0) : (daily?.profit || 0);
   const profitPositive = dailyValue >= 0;
@@ -220,7 +224,7 @@ export default function WinTrackerOverlayPage() {
     ? `${t.bestLabel}: ${fmt(isLeague2v2 ? league2v2BestTrophies : bestTrophies, lang)}`
     : isLadderMode ? leagueName(leagueNumber, lang)
     : (polRank && !isSeasonal) ? `#${fmt(polRank, lang)}` : null;
-  const valueRow = (
+  const valueRow = isChallenge ? <ChallengeValue challenge={challenge} styles={styles} t={t} /> : (
     <FitText><div style={styles.trophyRow}>
       {isLadderMode
         ? <ChevronsUp size={22} color="#fbbf24" style={{ flexShrink: 0 }} />
@@ -260,15 +264,18 @@ export default function WinTrackerOverlayPage() {
 
   const profileBlock = (
     <div style={styles.headerRow}>
-      <div style={styles.badgeWrap}>
-        {badgeUrl ? (
-          <img src={badgeUrl} alt={badgeAlt} style={styles.badgeImg} />
-        ) : (
-          <div style={styles.badgeFallback}>
-            <Trophy size={26} color="#fbbf24" />
-          </div>
-        )}
-      </div>
+      {/* Challenge: Kranz mit Siegzahl + Niederlagen-Felder wie im Spiel statt des Abzeichens */}
+      {isChallenge ? <ChallengeBadge challenge={challenge} /> : (
+        <div style={styles.badgeWrap}>
+          {badgeUrl ? (
+            <img src={badgeUrl} alt={badgeAlt} style={styles.badgeImg} />
+          ) : (
+            <div style={styles.badgeFallback}>
+              <Trophy size={26} color="#fbbf24" />
+            </div>
+          )}
+        </div>
+      )}
       {nameCol}
     </div>
   );
@@ -276,7 +283,10 @@ export default function WinTrackerOverlayPage() {
   // Session-Werte als gleich breite Spalten (Beschriftung klein darüber, Wert groß darunter),
   // durch Trennlinien voneinander abgesetzt — keine eigenen Pillen, kein Trend-Pfeil mehr.
   const stats = [];
-  if (settings.showDailyProfit) {
+  if (settings.showDailyProfit && isChallenge) {
+    // Challenges haben keinen Punkte-Profit — an seiner Stelle steht der beste Run der Session.
+    stats.push({ key: "profit", label: t.statBestRun, value: challenge.bestWins });
+  } else if (settings.showDailyProfit) {
     stats.push({
       key: "profit",
       label: isLadderMode ? t.statSteps : t.statProfit,
@@ -365,7 +375,7 @@ export default function WinTrackerOverlayPage() {
                         Session-Profit kommt für 2v2 stattdessen aus einem Kontostand-Anker
                         (siehe updateLeague2v2SessionAnchor), der diese Einschränkung nicht hat —
                         hier in "letzte 5" bleibt sie aber bestehen, deshalb der Zwang auf Win/Lose. */}
-                    {last5Style === "result" || isLeague2v2
+                    {last5Style === "result" || isLeague2v2 || isChallenge
                       ? (RESULT_LABEL[b.result] || RESULT_LABEL.draw)
                       // In den Stufen-Ligen ist trophy_change je Match immer 0 (dort zählt der
                       // Tracker eigene Stufen statt echter Medaillen) — die Zahl kommt dort aus

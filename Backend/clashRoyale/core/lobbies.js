@@ -9,6 +9,8 @@ const registry = require('./registry');
 const { presetsForLobby } = require('./modePresets');
 const { trackingScoreFor } = require('./crTracking');
 const { teamCountOf } = require('./teams');
+const { publicChatInfo } = require('./twitchChat');
+const lobbyTournament = require('./lobbyTournament');
 
 const lobbies = new Map();
 
@@ -115,6 +117,11 @@ function sanitizeLobby(lobby) {
     // Preset-Wert am Kartenpool gescheitert ist und deshalb nicht exakt übernommen wurde.
     activePresetId: lobby.activePresetId ?? null,
     excludedCards: lobby.excludedCards || [],
+    // Twitch-Chat draftet für den Streamer (core/twitchChat.js): Kanal, für wen, Bot-Status.
+    // Die Twitch-ID des Streamers bleibt auf dem Server.
+    twitchChat: publicChatInfo(lobby),
+    // Lobby-Turnier (core/lobbyTournament.js): Einstellungen, Baum/Tabelle, Decks — null wenn aus
+    ltour: lobbyTournament.publicView(lobby),
     // Gesperrte Lobby: keine NEUEN Spieler mehr. Bewusst auch für Gäste sichtbar —
     // wer den Code hat und nicht reinkommt, soll den Grund sehen statt eine
     // kommentarlose Fehlermeldung.
@@ -154,6 +161,8 @@ function sanitizeLobby(lobby) {
       crTrophies: p.crTrophies || 0,
       crScore: trackingScoreFor(lobby, p.id),
       tournamentSide: p.tournamentSide || null,
+      // Teilnehmer-ID im Lobby-Turnier (core/lobbyTournament.js) — so findet der Client "mich" im Baum
+      ltId: p.ltId || null,
     })),
     started: lobby.started,
     // Turnier-Lobby (tournament/matchRoom.js): nur Verweis + Name fürs Banner und den Rückweg in

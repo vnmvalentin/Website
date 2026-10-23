@@ -150,6 +150,11 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
       trophyChangeKnown: typeof team.trophyChange === 'number',
       // Event-Zuordnung (GET /events) — liefert den Anzeigenamen saisonaler Modi.
       eventTag: b.eventTag || '',
+      // Classic/Grand/20-Win-Challenge (siehe lib/challengeModes.js): ID, Titel und Siege des
+      // laufenden Runs VOR diesem Match — nur bei Challenge-Matches gesetzt.
+      challengeId: typeof b.challengeId === 'number' ? b.challengeId : null,
+      challengeTitle: typeof b.challengeTitle === 'string' ? b.challengeTitle : '',
+      challengeWinsBefore: typeof b.challengeWinCountBefore === 'number' ? b.challengeWinCountBefore : null,
       // Rohe Kartenliste des eigenen Teams (Name, Level, Evo-Stufe) — nicht persistiert in
       // cr_wintracker_battles, aber während des Syncs verfügbar, um das "aktuelle Deck" je
       // Modus abzuleiten (die API kennt keinen eigenen Endpoint dafür).
@@ -162,6 +167,40 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
       teamSize: Array.isArray(b.team) ? b.team.length : 0,
     };
   });
+}
+
+// Platzierung (Path of Legend). Die Rangliste der API reicht nur bis Platz 1000 — und
+// currentPathOfLegendSeasonResult.rank im Profil ist außerhalb davon KEIN Live-Wert, sondern
+// der stehengebliebene Endrang der Vorsaison (live geprüft 12.10.2026: current.rank 8931 ===
+// last.rank 8931 bei 1785 Medaillen, während Platz 1000 schon 1888 hatte; ein Account in den
+// Top 1000 zeigte dagegen 619 im Profil und 620 in der Rangliste). Deshalb: alles über 1000
+// verwerfen, und einen Profilwert bis 1000 gegen die echte Rangliste prüfen — sonst stünde zu
+// Saisonbeginn der alte Endrang da, bis der Spieler wieder in den Top 1000 ist.
+const POL_RANK_MAX = 1000;
+const POL_TOP_TTL_MS = 2 * 60 * 1000;
+let polTopCache = { at: 0, ranks: null };
+
+/** Tag → Platz der globalen Top 1000, kurz zwischengespeichert. null, wenn nicht abrufbar. */
+async function fetchPolTopRanks(token) {
+  if (polTopCache.ranks && Date.now() - polTopCache.at < POL_TOP_TTL_MS) return polTopCache.ranks;
+  const data = await crApiGetSafe('/locations/global/pathoflegend/players', { token });
+  if (!Array.isArray(data?.items)) return null;
+  const ranks = new Map();
+  for (const it of data.items) {
+    const t = normalizeTag(it?.tag);
+    if (t && typeof it.rank === 'number') ranks.set(t, it.rank);
+  }
+  polTopCache = { at: Date.now(), ranks };
+  return ranks;
+}
+
+async function resolvePolRank(tag, pol, token) {
+  const rank = pol?.rank;
+  if (typeof rank !== 'number' || rank < 1 || rank > POL_RANK_MAX) return null;
+  const ranks = await fetchPolTopRanks(token);
+  // Rangliste nicht abrufbar: Profilwert stehen lassen statt die Platzierung auszublenden.
+  if (!ranks) return rank;
+  return ranks.get(normalizeTag(tag)) ?? null;
 }
 
 /**
@@ -182,7 +221,7 @@ async function fetchPlayerSummary(tag, token) {
     // zu den Lifetime-"Trophäen" oben startet dieser Wert jede Season wieder bei 0.
     seasonMedals: pol?.trophies || 0,
     leagueNumber: pol?.leagueNumber || 0,
-    polRank: typeof pol?.rank === 'number' ? pol.rank : null,
+    polRank: await resolvePolRank(tag, pol, token),
     league2v2: extractLeague2v2Progress(data),
     // Clan-Header-Zusatz (Überschrift-Modul im Win-Tracker-Overlay) — steckt schon in derselben
     // /players-Antwort, kein zweiter Request nötig. clan ist null, solange kein Clan (data.clan

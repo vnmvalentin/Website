@@ -25,6 +25,8 @@ const { initCrTracking, startTracking, stopTracking, onPlayerLinked } = require(
 const registry = require('../core/registry');
 const lobbyPersistence = require('../core/lobbyPersistence');
 const { registerFriendsSocket } = require('../core/friends');
+const twitchChat = require('../core/twitchChat');
+const lobbyTournament = require('../core/lobbyTournament');
 // Turnier-Match-Räume (lazy, weil tournament/matchRoom selbst createTournamentLobby von hier braucht)
 const tournamentRoom = () => require('../tournament/matchRoom');
 
@@ -175,6 +177,8 @@ function initLobbyPersistence() {
 // ── Socket ─────────────────────────────────────────────────────────────────
 function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = null, twitchLogin = null } = {}) {
   ioRef = io;
+  // Live-Stimmenstand der Chat-Abstimmung geht über io an die Lobby (core/twitchChat.js)
+  twitchChat.setIo(io);
   // Freundesliste im Hub (Anwesenheit + Live-Stand, siehe core/friends.js)
   registerFriendsSocket(socket, io, { twitchId, twitchLogin });
   // Host-Aktionen dürfen genauso vom (server-seitig verifizierten) Admin ausgeführt werden
@@ -344,6 +348,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
         if (dc.wasHost) { lobby.host = socket.id; dc.wasHost = false; }
         if (lobby.host === oldId) lobby.host = socket.id;
         remapGamePlayerId(lobby.game, oldId, socket.id);
+        lobbyTournament.remapPlayerId(lobby, oldId, socket.id);
         socket.join(uCode);
         socket.emit('clash:lobbyJoined', { code: uCode, isHost: lobby.host === socket.id, reconnected: true });
         broadcastLobby(lobby);
@@ -599,6 +604,45 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     done({ ok: true, keptCount: kept.length, playersConsidered: usable.length, skippedCount: linked.length - usable.length });
   });
 
+  // ── Twitch-Chat draftet für den Streamer (core/twitchChat.js) ─────────────
+  // Einschalten darf nur, wer die Lobby steuert UND selbst per Twitch eingeloggt ist: Kanal und
+  // "für wen stimmt der Chat ab" kommen aus SEINER Sitzung, nicht aus dem Payload — sonst könnte
+  // jeder einen fremden Kanal eintragen. Ergebnis per Ack, der Dialog zeigt es direkt an.
+  socket.on('clash:setTwitchChat', async ({ code, enabled, lang } = {}, ack) => {
+    const done = (res) => { if (typeof ack === 'function') ack(res); };
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return done({ ok: false, key: 'noPermission' });
+    if (!enabled) {
+      lobby.twitchChat = null;
+      broadcastLobby(lobby);
+      done({ ok: true });
+      twitchChat.refreshChannels();
+      return;
+    }
+    const me = lobby.players.find(p => p.id === socket.id && !p.isAdmin && !p.left);
+    if (!twitchId || !twitchLogin || !me) return done({ ok: false, key: 'twitchLoginRequired' });
+    const channel = twitchChat.normalizeChannel(twitchLogin);
+    me.twitchId = String(twitchId);
+    // Ein Kanal stimmt immer nur in EINER Lobby ab — die neueste gewinnt (Streamer hat neu erstellt)
+    for (const other of lobbies.values()) {
+      if (other !== lobby && other.twitchChat?.channel === channel) {
+        other.twitchChat = null;
+        io.to(other.code).emit('clash:lobbyUpdate', sanitizeLobby(other));
+      }
+    }
+    lobby.twitchChat = {
+      channel,
+      ownerTwitchId: String(twitchId),
+      ownerName: me.name,
+      lang: ['de', 'en', 'es'].includes(lang) ? lang : 'de',
+    };
+    broadcastLobby(lobby);
+    done({ ok: true });
+    // Bot betritt den Kanal — danach noch einmal senden, damit der Status "liest mit" ankommt
+    await twitchChat.refreshChannels();
+    if (lobbies.get(lobby.code) === lobby) broadcastLobby(lobby);
+  });
+
   // Host (oder Admin) überträgt den Host-Status an einen anderen Spieler
   socket.on('clash:transferHost', ({ code, targetPlayerId }) => {
     const lobby = lobbies.get(code);
@@ -680,6 +724,8 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     if (lobby.partyMode === partyMode) return;
     lobby.partyMode = partyMode;
     lobby.players.forEach(p => { p.teamId = null; p.teamSlot = null; });
+    // Lobby-Turnier gibt es nur für Einzelspieler — in Duo-Lobbys aus (Einstellungen bleiben)
+    if (partyMode !== 'solo' && lobby.ltour?.enabled) lobby.ltour = { enabled: false, settings: lobby.ltour.settings };
     const currentMode = registry.getMode(lobby.mode);
     if (!registry.modeAllowsParty(currentMode, partyMode)) {
       const fallback = registry.allModes().find(m => registry.modeAllowsParty(m, partyMode));
@@ -784,7 +830,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
   // null, Beitreten/Verlassen laufen also noch wie in der Lobby-Phase.
   const startRandomSpin = (lobby) => {
     const drawn = drawRandomMode(lobby);
-    if (drawn.error) return emitClashError(socket, drawn.error.key, drawn.error.params);
+    if (drawn.error) { emitClashError(socket, drawn.error.key, drawn.error.params); return false; }
     lobby.mode = drawn.mode;
     applySuggestedPreset(lobby);
     lobby.started = true;
@@ -792,6 +838,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     lobby.randomSpinTimer = setTimeout(() => finishRandomStart(lobby), RANDOM_SPIN_MS);
     broadcastLobby(lobby);
     if (lobby.isPublic) emitPublicLobbies(io);
+    return true;
   };
 
   // Läuft im Timer — der Host-Socket kann inzwischen weg sein, deshalb gehen Fehler an den Raum.
@@ -806,6 +853,8 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
         : probeMode(lobby, lobby.mode);
     if (blocked) {
       lobby.started = false;
+      // Lobby-Turnier: Begegnungs-Draft kam nicht zustande → Zuschauer wiederherstellen
+      lobbyTournament.onGameCancelled(lobby);
       broadcastLobby(lobby);
       io.to(lobby.code).emit('clash:error', clashError(blocked.key, blocked.params));
       return;
@@ -815,23 +864,24 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     emitStreamerEvent(lobby, io, 'gameStart');
   };
 
-  socket.on('clash:startGame', ({ code }) => {
-    const lobby = lobbies.get(code);
-    if (!lobby || !canControl(lobby) || lobby.started) return;
-    if (lobby.players.length < 2) return emitClashError(socket, 'needTwoPlayers');
+  // Minigame der Lobby starten (Startknopf, Lobby-Turnier). Liefert true, wenn es losging —
+  // Fehler gehen als clash:error an den auslösenden Socket.
+  const startLobbyGame = (lobby) => {
+    if (lobby.players.length < 2) { emitClashError(socket, 'needTwoPlayers'); return false; }
     if (lobby.randomEnabled && !lobby.tournament) return startRandomSpin(lobby);
     const mode = registry.modeForLobby(lobby);
-    if (!mode) return emitClashError(socket, 'unknownMode');
+    if (!mode) { emitClashError(socket, 'unknownMode'); return false; }
     const poolSize = getCardPool(lobby).length;
 
     // Modusspezifische Startbedingung (z.B. Karussel: Pool muss für alle Tische reichen).
     // canStart() liefert { key, params } — der Client übersetzt anhand des Schlüssels.
     const blocked = mode.canStart?.(lobby, poolSize);
-    if (blocked) return emitClashError(socket, blocked.key, blocked.params);
+    if (blocked) { emitClashError(socket, blocked.key, blocked.params); return false; }
 
     const needed = requiredPoolSize(lobby);
     if (poolSize < needed) {
-      return emitClashError(socket, 'poolTooSmall', { needed, available: poolSize });
+      emitClashError(socket, 'poolTooSmall', { needed, available: poolSize });
+      return false;
     }
     lobby.started = true;
     mode.start(lobby, io);
@@ -840,6 +890,124 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     // War die Lobby öffentlich gelistet, verschwindet sie jetzt aus dem Lobby-Browser —
     // mode.start() sendet den eigenen clash:*state-Event an den Raum, nicht broadcastLobby().
     if (lobby.isPublic) emitPublicLobbies(io);
+    return true;
+  };
+
+  socket.on('clash:startGame', ({ code }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    // Eingeschaltetes Lobby-Turnier: der Startknopf lost nur aus — gestartet wird danach im
+    // Turnier-Reiter (clash:ltour:begin), wenn alle den Baum gesehen haben
+    const tour = lobbyTournament.activeTour(lobby);
+    if (tour) {
+      if (tour.phase !== 'setup') return;
+      const err = lobbyTournament.start(lobby);
+      if (err) return emitClashError(socket, err);
+      broadcastLobby(lobby);
+      return;
+    }
+    startLobbyGame(lobby);
+  });
+
+  // ── Lobby-Turnier (core/lobbyTournament.js) ──────────────────────────────
+  // Alles nur in der Lobby-Phase und nur für den Host: Einstellungen, Begegnungs-Draft starten,
+  // Spielsiege eintragen/zurücknehmen, Turnier abbrechen.
+  socket.on('clash:ltour:setEnabled', ({ code, enabled }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started || lobby.tournament) return;
+    if (enabled && (lobby.partyMode || 'solo') !== 'solo') return emitClashError(socket, 'ltourSoloOnly');
+    if (enabled) {
+      if (!lobby.ltour?.enabled) lobby.ltour = lobbyTournament.freshTour(lobby.ltour?.settings);
+    } else if (lobby.ltour) {
+      lobbyTournament.restoreSpectators(lobby);
+      // Einstellungen für ein späteres Wiedereinschalten behalten
+      lobby.ltour = { enabled: false, settings: lobby.ltour.settings };
+    }
+    broadcastLobby(lobby);
+  });
+
+  socket.on('clash:ltour:setSettings', ({ code, settings }) => {
+    const lobby = lobbies.get(code);
+    const tour = lobby && lobbyTournament.activeTour(lobby);
+    if (!tour || !canControl(lobby) || lobby.started || tour.phase !== 'setup') return;
+    tour.settings = lobbyTournament.sanitizeSettings(settings || {}, tour.settings);
+    broadcastLobby(lobby);
+  });
+
+  // Ergebnisse/Rundenwechsel auch im Ende-Bildschirm eines Drafts (Runde vorbei, Lobby noch
+  // "gestartet") — nur nicht, solange wirklich gedraftet wird
+  const draftRunning = (lobby) => lobby.started && !lobby.game?.finished;
+
+  // Gemeinsamer Draft der laufenden Runde (Draft pro Runde): Spieler der Runde draften, Rest
+  // schaut zu. Scheitert der Start (z.B. Kartenpool), bleibt die Runde ohne Decks — der Host
+  // kann es über clash:ltour:startRoundDraft erneut versuchen.
+  const startRoundDraft = (lobby) => {
+    const err = lobbyTournament.prepareRoundDraft(lobby);
+    if (err) { emitClashError(socket, err); return; }
+    if (!startLobbyGame(lobby)) lobbyTournament.onGameCancelled(lobby);
+  };
+
+  // Ausgelostes Turnier beginnen: Runde 1, beim Draft pro Runde gleich mit dem ersten Runden-Draft
+  socket.on('clash:ltour:begin', ({ code }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    const res = lobbyTournament.begin(lobby);
+    if (res.error) return emitClashError(socket, res.error);
+    if (res.startDraft) startRoundDraft(lobby);
+    broadcastLobby(lobby);
+  });
+
+  socket.on('clash:ltour:nextRound', ({ code }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || draftRunning(lobby)) return;
+    // Draft pro Runde: die neue Runde startet sofort ihren Draft — das geht nur aus der Lobby,
+    // nicht aus dem Ende-Bildschirm der vorigen Runde (dort ist die Lobby noch "gestartet")
+    if (lobby.started && lobbyTournament.activeTour(lobby)?.settings.draft === 'shared') return;
+    const res = lobbyTournament.advanceRound(lobby);
+    if (res.error) return emitClashError(socket, res.error);
+    if (res.startDraft) startRoundDraft(lobby);
+    broadcastLobby(lobby);
+  });
+
+  socket.on('clash:ltour:startRoundDraft', ({ code }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    startRoundDraft(lobby);
+    broadcastLobby(lobby);
+  });
+
+  socket.on('clash:ltour:startMatch', ({ code, matchId }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started) return;
+    const err = lobbyTournament.prepareMatchDraft(lobby, String(matchId || ''));
+    if (err) return emitClashError(socket, err);
+    if (!startLobbyGame(lobby)) lobbyTournament.onGameCancelled(lobby);
+    // Zuschauer-Flags und "Draft läuft" an alle — mode.start() schickt nur den Spielzustand
+    broadcastLobby(lobby);
+  });
+
+  socket.on('clash:ltour:gameWin', ({ code, matchId, side }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || draftRunning(lobby)) return;
+    const err = lobbyTournament.addGameWin(lobby, String(matchId || ''), side);
+    if (err) return emitClashError(socket, err);
+    broadcastLobby(lobby);
+  });
+
+  socket.on('clash:ltour:undo', ({ code, matchId }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || draftRunning(lobby)) return;
+    const err = lobbyTournament.undo(lobby, String(matchId || ''));
+    if (err) return emitClashError(socket, err);
+    broadcastLobby(lobby);
+  });
+
+  // Turnier abbrechen oder nach dem Ende ein neues aufsetzen (Einstellungen bleiben)
+  socket.on('clash:ltour:reset', ({ code }) => {
+    const lobby = lobbies.get(code);
+    if (!lobby || !canControl(lobby) || lobby.started || !lobbyTournament.activeTour(lobby)) return;
+    lobbyTournament.reset(lobby);
+    broadcastLobby(lobby);
   });
 
   // Deck-Overlay (Browserquelle in OBS) meldet sich mit seinem Overlay-Key an
@@ -983,8 +1151,12 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     const lobby = lobbies.get(code);
     if (!lobby || !canControl(lobby)) return;
     const wasCancelled = !!(lobby.started && lobby.game && !lobby.game.finished);
+    const wasSpinning = !!lobby.randomSpin;
     clearTurnTimer(lobby);
     clearRandomSpin(lobby);
+    // Lobby-Turnier: abgebrochener Draft (oder abgebrochene Zufallswalze davor) zählt nicht —
+    // Zuschauer zurück, Begegnung wieder offen
+    if (wasCancelled || wasSpinning) lobbyTournament.onGameCancelled(lobby);
     lobby.started = false;
     lobby.game = null;
     // Während des Spiels nur ausgeblendete (aktiv gegangene) Spieler jetzt endgültig entfernen
@@ -1184,8 +1356,50 @@ function createTournamentLobby({ mode, tournament }) {
   return code;
 }
 
+// ── Kartenbilder für WebGL (3D-Labyrinth) ─────────────────────────────────────
+// Supercells CDN schickt keinen CORS-Header, WebGL darf die Bilder deshalb nicht direkt
+// verwenden. Diese Route reicht sie durch — NUR im Arbeitsspeicher, nie als Datei auf der
+// Platte (Fan-Content-Policy, siehe tools/cardIconSpiegel.js). Kein offener Proxy: nur
+// bekannte Karten-IDs, die Ziel-URL kommt ausschließlich aus cardIconUrls.json.
+const CARD_ICON_URLS = require('../data/cardIconUrls.json');
+const CARD_IMG_CACHE_MAX = 260; // > Anzahl Karten × Varianten, die im Spiel vorkommen
+const cardImgCache = new Map(); // "id:variant" → { buf, type }
+
+async function fetchCardImage(id, variant) {
+  const key = `${id}:${variant}`;
+  const hit = cardImgCache.get(key);
+  if (hit) {
+    cardImgCache.delete(key); cardImgCache.set(key, hit); // zuletzt benutzt nach hinten
+    return hit;
+  }
+  const url = CARD_ICON_URLS[id]?.[variant];
+  if (!url) return null;
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) return null;
+  const entry = { buf: Buffer.from(await res.arrayBuffer()), type: res.headers.get('content-type') || 'image/png' };
+  cardImgCache.set(key, entry);
+  if (cardImgCache.size > CARD_IMG_CACHE_MAX) cardImgCache.delete(cardImgCache.keys().next().value);
+  return entry;
+}
+
 function createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID } = {}) {
   const router = express.Router();
+
+  router.get('/card-img/:id', async (req, res) => {
+    const id = String(req.params.id || '');
+    const variant = ['base', 'ev1', 'hero'].includes(req.query.v) ? req.query.v : 'base';
+    if (!Object.prototype.hasOwnProperty.call(CARD_ICON_URLS, id)) return res.status(404).end();
+    try {
+      const img = await fetchCardImage(id, variant);
+      if (!img) return res.status(404).end();
+      res.set('Content-Type', img.type);
+      // Der Browser darf zwischenspeichern — die URLs sind hash-basiert und über Jahre stabil
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.send(img.buf);
+    } catch {
+      res.status(502).end();
+    }
+  });
 
   router.get('/lobby/:code', (req, res) => {
     const lobby = lobbies.get(req.params.code.toUpperCase());

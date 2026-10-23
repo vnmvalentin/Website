@@ -11,7 +11,9 @@ const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
 const FISH_TICK_MS            = 250;
 const FISH_DECK_SIZE          = 8;
-const FISH_COUNTDOWN_MS       = 3000;
+// 5 s statt 3: in der 3D-Ansicht läuft währenddessen die Intro-Kamerafahrt (angel/Angel3D.jsx),
+// die genau bei countdownUntil über dem Wasser ankommt. Vorher schwimmen keine Karten — fair.
+const FISH_COUNTDOWN_MS       = 5000;
 const FISH_CAUGHT_LINGER_MS   = 1100;  // gefangene Karte bleibt kurz im State (Fang-Animation)
 const FISH_MAX_ONSCREEN       = 20;    // mitwachsend zur höheren Spawnrate, sonst wird gedeckelt
 const FISH_REPEAT_COOLDOWN_MS = 12000; // rausgeschwommene Karten kommen nicht sofort wieder

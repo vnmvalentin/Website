@@ -3,7 +3,7 @@ const { WebhookClient, REST, Routes, PermissionFlagsBits } = require('discord.js
 const {
     getSettings, getAllEnabledImageOnlyChannels,
     getAllEnabledSyncChannels,
-    incrementMessageStat
+    incrementMessageStat, incrementUserMessageStat
 } = require('../../database/db');
 const { handlePP } = require('../commands/pp');
 const { handleMiesmuschel } = require('../commands/magische_miesmuschel');
@@ -109,7 +109,14 @@ module.exports = {
         const guildId = message.guild.id;
 
         // ── Nachrichtenstatistik ──────────────────────────────────────────────
-        try { incrementMessageStat(guildId, message.channelId); } catch (e) {}
+        // Threads und Forenbeiträge zählen zu ihrem Kanal. Vorher bekam jeder
+        // Thread eine eigene Zeile — und weil Threads nicht im Kanal-Cache
+        // liegen, stand in der Statistik statt eines Namens nur seine ID.
+        try {
+            const inThread = typeof message.channel?.isThread === 'function' && message.channel.isThread();
+            incrementMessageStat(guildId, (inThread && message.channel.parentId) || message.channelId);
+            incrementUserMessageStat(guildId, message.author.id);
+        } catch (e) {}
 
         // ── Image-Only-Kanäle ─────────────────────────────────────────────────
         try {

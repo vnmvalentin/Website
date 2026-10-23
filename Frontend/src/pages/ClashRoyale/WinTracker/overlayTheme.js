@@ -24,6 +24,16 @@ export const ROYALE_PANELS = {
   dark: { light: "#2c3c55", base: "#152034", edge: "#04080f" },
 };
 
+// Fertige Looks für die Overlay-Galerie (/tools) — "Verwenden" öffnet den Editor mit ?vorlage=<id>, der übernimmt
+// die Einstellungen (WinTrackerPage.jsx, load). Nur Theme-Felder: Inhalt und Sprache bleiben, wie der Streamer sie hat.
+export const OVERLAY_TEMPLATES = [
+  { id: "classic", label: "Klassisch", settings: { overlayTheme: "classic" } },
+  { id: "royale-blue", label: "Royale Blau", settings: { overlayTheme: "royale", royalePanel: "blue", royalePattern: true } },
+  { id: "royale-red", label: "Royale Rot", settings: { overlayTheme: "royale", royalePanel: "red", royalePattern: true } },
+  { id: "royale-purple", label: "Royale Lila", settings: { overlayTheme: "royale", royalePanel: "purple", royalePattern: true } },
+  { id: "royale-dark", label: "Royale Dunkel", settings: { overlayTheme: "royale", royalePanel: "dark", royalePattern: false } },
+];
+
 function hexToRgba(hex, opacityPct) {
   const h = String(hex || "#0c0c12").replace("#", "");
   const r = parseInt(h.slice(0, 2), 16) || 0;

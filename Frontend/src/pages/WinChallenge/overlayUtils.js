@@ -4,19 +4,34 @@
 export const OVERLAY_FONT = "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif";
 export const OVERLAY_TEXT_SHADOW = "0 2px 6px rgba(0,0,0,.65)";
 
+// Kleinste einstellbare Breite. Viele Streamer wollen das Overlay schmal am Rand statt als
+// breiten Block im Bild; bei 200px passen der Standardtitel und der Timer noch in eine Zeile.
+// Muss zur Untergrenze in Backend/winchallenge/winchallengeRoutes.js passen, sonst springt
+// der Regler nach dem Speichern zurück.
+export const MIN_BOX_WIDTH = 200;
+// Die Leiste als Laufband: darunter bleibt neben Stand und Timer kein Platz für die Challenges.
+export const BAR_TICKER_MIN_WIDTH = 400;
+
 // Erlaubte Werte der Darstellungs-Optionen. Editor und Backend prüfen dagegen.
-export const OVERLAY_LAYOUTS = ["list", "cards", "compact"];
+// Stile des Overlays. Anders als die früheren „Karten“/„Kompakt“ (dieselbe Liste mit
+// anderen Abständen) sind das wirklich unterschiedliche Formen. Gespeicherte Werte,
+// die es nicht mehr gibt („cards“, „compact“, „quest“), fallen auf „list“ zurück.
+//   list      — Klassisch: Kopfband, Zeilen mit Trennlinie, Fußband mit Timer
+//   broadcast — Sendegrafik: Stand als Akzentblock, Timer im Kopf, Zeilen ohne Linien
+//   bar       — Leiste: ein waagerechter Streifen für den Bildrand
+// Muss zur Liste in Backend/winchallenge/winchallengeRoutes.js passen.
+export const OVERLAY_LAYOUTS = ["list", "broadcast", "bar"];
 // Zähler bei den Zeilen: reine Zahl oder Zahl in einer Box. Im Header zusätzlich „Aus“.
 // (Frühere Werte wie „line“ gelten nicht mehr und fallen auf den Standard zurück.)
 export const COUNTER_STYLES = ["plain", "box"];
 export const HEADER_PROGRESS_MODES = ["off", "count", "box"];
 
-// Abstände je Layout. „cards“ trennt Header, Zeilen und Footer durch Lücken,
-// „compact“ ist dieselbe Liste mit engeren Abständen.
+// Abstände je Stil. `gap` ist der Abstand zwischen zwei Zeilen (überall 0 — die
+// Laufschrift im Overlay rechnet damit).
 const LAYOUT_METRICS = {
   list: { headPad: "10px 14px", rowPad: "9px 14px", footPad: "8px 14px", gap: 0 },
-  compact: { headPad: "5px 12px", rowPad: "5px 12px", footPad: "5px 12px", gap: 0 },
-  cards: { headPad: "10px 14px", rowPad: "9px 14px", footPad: "8px 14px", gap: 6 },
+  broadcast: { headPad: "9px 14px", rowPad: "7px 14px", footPad: "7px 14px", gap: 0 },
+  bar: { headPad: "8px 14px", rowPad: "8px 14px", footPad: "8px 14px", gap: 0 },
 };
 
 export function msToClock(ms) {
@@ -72,9 +87,47 @@ export function overlayTextShadow(color) {
   return brightness > 128 ? OVERLAY_TEXT_SHADOW : "none";
 }
 
+/** Schwarz oder Weiß — je nachdem, was auf der Farbe besser lesbar ist (Akzentblock). */
+export function readableOn(color) {
+  const rgb = parseHex(color);
+  if (!rgb) return "#ffffff";
+  const brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
+  return brightness > 150 ? "#0b0b10" : "#ffffff";
+}
+
 /** Eine Challenge gilt als erledigt: Zähler am Ziel, sonst Haken gesetzt. */
 export function isItemDone(it) {
   return it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
+}
+
+// Spielcover einer Challenge kommen ausschließlich aus der Twitch-Kategoriesuche.
+// Das Backend prüft die Adresse streng (winchallenge/winchallengeGames.js); hier
+// noch einmal grob, weil die Editor-Vorschau ungespeicherte Daten zeichnet.
+const ICON_URL_PREFIX = "https://static-cdn.jtvnw.net/ttv-boxart/";
+
+/** Adresse des Spielcovers einer Challenge — "" wenn sie keins hat. */
+export function itemIconUrl(it) {
+  const url = it?.icon?.url;
+  return typeof url === "string" && url.startsWith(ICON_URL_PREFIX) ? url : "";
+}
+
+// Größte Breite des Laufbands (volle 1080p-Breite). Gegenstück im Backend: normalizeStyle.
+export const BAR_MAX_WIDTH = 1920;
+const BAR_DEFAULT_WIDTH = 800;
+
+/**
+ * Breite des Laufbands der Leiste. Eigener Wert (`barWidth`), getrennt von der
+ * Spaltenbreite `boxWidth` der anderen Stile: früher teilten sich beide ein Feld,
+ * und wer von der Leiste zurück zu „Klassisch“ wechselte, hatte dort plötzlich
+ * 800px. Bestandsdaten ohne `barWidth`: stand die Leiste schon mit Laufband-Breite
+ * in `boxWidth`, gilt die weiter, sonst die Vorgabe.
+ */
+export function resolveBarWidth(style) {
+  const s = style || {};
+  const own = Number(s.barWidth);
+  const legacy = s.layout === "bar" && Number(s.boxWidth) >= BAR_TICKER_MIN_WIDTH ? Number(s.boxWidth) : BAR_DEFAULT_WIDTH;
+  const w = Number.isFinite(own) && own > 0 ? own : legacy;
+  return Math.min(BAR_MAX_WIDTH, Math.max(BAR_TICKER_MIN_WIDTH, w));
 }
 
 /** Offene zuerst, erledigte dahinter — die Reihenfolge innerhalb bleibt erhalten. */
@@ -157,39 +210,17 @@ export function resolveOverlayStyle(style) {
     timerAlpha: clamp01(timerOpacity ?? 0.15, 0.15),
     layout,
     metrics: LAYOUT_METRICS[layout],
-    // Nur die Außenecken folgen dem Radius-Regler in voller Höhe. Zähler-Marke
-    // und Karten bleiben höchstens leicht gerundet — nicht alles soll eine
-    // Pille sein.
+    // Nur die Außenecken folgen dem Radius-Regler in voller Höhe. Die Zähler-Marke
+    // bleibt höchstens leicht gerundet — nicht alles soll eine Pille sein.
     badgeRadius: Math.min(4, radius),
-    cardRadius: Math.min(14, radius),
     divider: overlayDivider(textColor),
     textShadow: overlayTextShadow(textColor),
     counterStyle: COUNTER_STYLES.includes(s.counterStyle) ? s.counterStyle : "plain",
     headerProgress: HEADER_PROGRESS_MODES.includes(s.headerProgress) ? s.headerProgress : "off",
     doneToBottom: !!s.doneToBottom,
-  };
-}
-
-/**
- * Hülle um Header, Zeilen und Footer. Liste und Kompakt sind ein Block mit
- * gemeinsamer Rundung und Schatten. Bei Karten gibt es keine Hülle — der
- * Schatten kommt per drop-shadow auf jede Karte einzeln (ein box-shadow würde
- * nur einen Rahmen um den ganzen Stapel legen).
- */
-export function overlayBoxStyle(st) {
-  const base = {
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-    gap: st.metrics.gap,
-  };
-  if (st.layout === "cards") {
-    return { ...base, filter: "drop-shadow(0 4px 10px rgba(0,0,0,.35))" };
-  }
-  return {
-    ...base,
-    borderRadius: st.borderRadius,
-    overflow: "hidden",
-    boxShadow: "0 8px 24px rgba(0,0,0,.35)",
+    // Nur für den Stil „Leiste“
+    barWidth: resolveBarWidth(s),
+    barTitle: s.barTitle !== false,
+    barTimerSide: s.barTimerSide === "left" ? "left" : "right",
   };
 }

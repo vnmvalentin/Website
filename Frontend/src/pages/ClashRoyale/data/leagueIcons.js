@@ -24,6 +24,9 @@ import ratingIcon from '../../../assets/clashRoyale/leagues/rating.webp';
 // cr-assets-png) — aus rating.webp umgefärbt, Farben nach einem In-Game-Screenshot abgeglichen.
 import ratingLeagueIcon from '../../../assets/clashRoyale/leagues/rating_league.webp';
 import spookyChessBadge from '../../../assets/clashRoyale/ui/spooky-chess.webp';
+import challengeClassicBadge from '../../../assets/clashRoyale/ui/challenge-classic.webp';
+import challengeGrandBadge from '../../../assets/clashRoyale/ui/challenge-grand.webp';
+import crlBadge from '../../../assets/clashRoyale/ui/crl.webp';
 
 // RoyaleAPI hostet die Embleme noch unter der alten 10-stufigen Nummerierung (die 3 inzwischen
 // entfernten Challenger-Ligen kamen davor) — daher der Offset +3 beim Bild-Lookup unten.
@@ -61,6 +64,11 @@ const SEASONAL_BADGES = {
   's:spookychesstrail': spookyChessBadge,
 };
 export const seasonalBadgeUrl = (mode) => SEASONAL_BADGES[mode] || null;
+
+// Abzeichen der Challenges (Win-Tracker trackMode "c:<key>"): Schwert im grünen bzw. goldenen Kranz
+// für Classic/Grand, das CRL-Wappen für die 20-Win-Challenge (läuft als CRL-Challenge).
+const CHALLENGE_BADGES = { classic: challengeClassicBadge, grand: challengeGrandBadge, '20win': crlBadge };
+export const challengeBadgeUrl = (key) => CHALLENGE_BADGES[key] || challengeClassicBadge;
 
 // Unterhalb von Ultimate Champion zählt die Ranked-Leiter keine Medaillen, sondern Stufen:
 // Liga 1-3 haben 11, Liga 4-6 haben 10. Erst in Liga 7 (UC) gibt es wieder Medaillen.

@@ -28,8 +28,10 @@ export function useAuctionView({ auctionState, revealState, myPlayerId, myBid, o
 
   useEffect(() => {
     if (!isReveal) { setRevealCountdown(7); return; }
+    setRevealCountdown(Math.ceil((state?.revealMs ?? 7000) / 1000));
     const iv = setInterval(() => setRevealCountdown(v => Math.max(0, v - 1)), 1000);
     return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReveal]);
 
   if (!state) return { ready: false };

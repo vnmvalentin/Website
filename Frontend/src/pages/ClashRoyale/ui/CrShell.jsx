@@ -11,6 +11,7 @@ import { Outlet } from "react-router-dom";
 import CrSettingsModal from "./CrSettingsModal";
 import { CrPrefsContext, DEFAULT_BACKGROUND, backgroundUrl, loadPrefs, savePrefs } from "./crPrefs";
 import { playSound, setSoundVolume } from "./sound";
+import { rememberPick } from "./flyToDeck";
 
 // Titelschrift (siehe --font-cr in index.css) — nur hier geladen, der Rest der Website braucht sie nicht.
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Lilita+One&display=swap";
@@ -49,6 +50,8 @@ export default function CrShell() {
       const el = e.target instanceof Element ? e.target.closest(TAP_TARGETS) : null;
       if (!el || el.disabled || el.getAttribute("aria-disabled") === "true") return;
       playSound("tap");
+      // Kartenklick merken — die Karte fliegt nach der Server-Bestätigung ins Deck (ui/flyToDeck.js)
+      rememberPick(e);
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);

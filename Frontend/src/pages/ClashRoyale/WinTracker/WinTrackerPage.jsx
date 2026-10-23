@@ -14,7 +14,7 @@ import {
 import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import SEO from '../../../components/SEO';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
-import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl } from '../data/leagueIcons';
+import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl, challengeBadgeUrl } from '../data/leagueIcons';
 import { trophyArenaIcon, trophyArenaName } from '../data/trophyArenas';
 import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
 import trophy2v2Icon from '../../../assets/clashRoyale/ui/trophy2v2.webp';
@@ -26,16 +26,20 @@ import ChunkyButton from '../ui/ChunkyButton';
 import ArcadeTitle from '../ui/ArcadeTitle';
 import { SegmentedControl } from '../ui/SettingRow';
 import {
-  CrFriends, CrTv, CrSettings, CrUserAdd, CrTrophy, CrChat, CrCheck, CrCards, CrEye, CrElixir,
+  CrFriends, CrTv, CrSettings, CrUserAdd, CrTrophy, CrChat, CrCheck, CrCards, CrEye, CrElixir, CrScroll,
 } from '../ui/CrIcons';
 import { useCrPrefs } from '../ui/crPrefs';
 import LanguageSelect from '../components/LanguageSelect';
 import * as api from './winTrackerApi';
-import { dictForWt, wt } from './wtI18n';
-import { ROYALE_PANELS } from './overlayTheme';
+import { dictForWt, wt, challengeLabel } from './wtI18n';
+import checkIcon from '../../../assets/clashRoyale/ui/check.webp';
+import { ROYALE_PANELS, OVERLAY_TEMPLATES } from './overlayTheme';
 
 const fmt = (n, lang) => (n || 0).toLocaleString(lang === 'en' ? 'en-US' : 'de-DE');
 const isSeasonalMode = (mode) => typeof mode === 'string' && mode.startsWith('s:');
+// Challenges (Classic/Grand/20 Win): trackMode "c:<key>"
+const challengeKeyOf = (mode) => (typeof mode === 'string' && mode.startsWith('c:') ? mode.slice(2) : null);
+const CHALLENGE_MODES = ['c:classic', 'c:grand', 'c:20win'];
 
 // Gemeinsamer Stil der Leisten-Chips oben — derselbe wie im Hub und auf den Turnierseiten.
 const chipClass = 'cr-chip flex items-center gap-2 h-11 rounded-xl font-cr text-[15px] text-white transition-colors';
@@ -94,8 +98,8 @@ function AddAccountModal({ t, onClose, onAdded }) {
 // Saison-Modi (Spooky Chess League …) haben kein eigenes Liga-Bild: dort die Trophäe.
 function LeagueBadge({ leagueNumber, polRank, size = 52, lang, trackMode, trophies }) {
   const isTrophyMode = trackMode === 'trophies';
-  const isSeasonal = isSeasonalMode(trackMode);
-  const url = isSeasonal ? (seasonalBadgeUrl(trackMode) || trophyIcon) : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
+  const isSeasonal = isSeasonalMode(trackMode) || !!challengeKeyOf(trackMode);
+  const url = challengeKeyOf(trackMode) ? challengeBadgeUrl(challengeKeyOf(trackMode)) : isSeasonal ? (seasonalBadgeUrl(trackMode) || trophyIcon) : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
   const label = isTrophyMode ? trophyArenaName(trophies) : leagueName(leagueNumber, lang);
   if (!url) {
     return (
@@ -164,6 +168,7 @@ function LadderValue({ ladder, onStepChange, t }) {
 // Name des gerade getrackten Modus — als Etikett über dem Wert jeder Account-Zeile.
 function modeLabel(acc, t) {
   if (acc.seasonal) return acc.seasonal.label;
+  if (acc.challenge) return challengeLabel(acc.challenge.key, t);
   if (acc.trackMode === '2v2') return t.opt2v2;
   if (acc.trackMode === 'trophies') return t.optTrophies;
   return t.optRanked;
@@ -175,7 +180,11 @@ function TrackedValue({ acc, t, lang, onLadderStepChange }) {
     return <LadderValue ladder={acc.ladder} onStepChange={(step) => onLadderStepChange(acc, step)} t={t} />;
   }
   let icon = MEDAL_ICON_URL, value = acc.seasonMedals, note = t.medalsSeasonLabel, goal = null;
-  if (acc.seasonal) {
+  if (acc.challenge) {
+    const c = acc.challenge;
+    icon = checkIcon; value = c.wins; goal = c.maxWins;
+    note = wt(t, 'challengeNote', { attempt: c.attempt, losses: c.losses, maxLosses: c.maxLosses, best: c.bestWins });
+  } else if (acc.seasonal) {
     icon = LEAGUE_MEDAL_ICON_URL; value = acc.seasonal.trophies; goal = acc.seasonal.qualifyWins || null;
     // Qualifikationsphase: Wert = Siege, Ziel daneben, darunter wie viele noch fehlen
     note = goal
@@ -295,6 +304,9 @@ function AccountsTab({ t, lang, accounts, onActivate, onDelete, onAdd, onRefresh
     </div>
   );
 }
+
+// Platzhalter {name} in Texten füllen (Rückblick-Hinweis)
+const fill = (s, p) => String(s).replace(/\{(\w+)\}/g, (_, k) => (p[k] ?? ''));
 
 // ── Einstellungs-Abschnitt, aufklappbar ──────────────────────────────────────
 // Ein Abschnitt der gemeinsamen Fläche (.cr-section, getrennt durch die eingeprägte Fuge) —
@@ -540,7 +552,12 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
         : wt(t, 'seasonalBestLabel', { tier: m.arenaName, n: m.bestTrophies }),
       preview: <img src={seasonalBadgeUrl(m.mode) || LEAGUE_MEDAL_ICON_URL} alt="" className="h-9 w-auto object-contain" />,
     })),
-  ].filter(o => !activeAccount.availableModes || activeAccount.availableModes.includes(o.id)) : [];
+    // Challenges immer zeigen (wie Ranked/Trophäen) — aktiv wird eine, sobald man sie spielt
+    ...CHALLENGE_MODES.map(id => ({
+      id, label: challengeLabel(challengeKeyOf(id), t), title: challengeLabel(challengeKeyOf(id), t),
+      preview: <img src={challengeBadgeUrl(challengeKeyOf(id))} alt="" className="h-9 w-auto object-contain" />,
+    })),
+  ].filter(o => challengeKeyOf(o.id) || !activeAccount.availableModes || activeAccount.availableModes.includes(o.id)) : [];
 
   return (
     // Eine Fläche, zwei Spalten: links die Einstellungen, rechts (ab xl) mitlaufend Vorschau +
@@ -817,13 +834,45 @@ export default function WinTrackerPage() {
       .then(d => {
         setAccounts(d.accounts);
         setOverlayKey(d.overlayKey);
-        setSettings(d.settings);
+        // Aus der Overlay-Galerie (/tools?…): ?vorlage=<id> einmal übernehmen, speichern und aus der Adresse nehmen
+        const params = new URLSearchParams(window.location.search);
+        const template = OVERLAY_TEMPLATES.find((x) => x.id === params.get('vorlage'));
+        if (template) {
+          const next = { ...d.settings, ...template.settings };
+          setSettings(next);
+          setTab('settings');
+          api.saveSettings(next).catch(() => { /* Sync korrigiert es beim nächsten Laden */ });
+          params.delete('vorlage');
+          const rest = params.toString();
+          window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
+        } else {
+          setSettings(d.settings);
+        }
         setApiConfigured(d.apiConfigured);
       })
       .catch(() => setAccounts([]));
   }, [user]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Rückblick gibt es nur für fertige Saisons (Backend: recapFor). Knopf "Rückblick", sobald es einen gibt; Hinweis-Banner
+  // in den ersten 14 Tagen nach Ende der zuletzt fertigen Saison.
+  const [recapAvailable, setRecapAvailable] = useState(false);
+  const [recapReady, setRecapReady] = useState(null);
+  const hasActive = !!accounts?.some((a) => a.isActive);
+  useEffect(() => {
+    if (!user || !hasActive) { setRecapReady(null); setRecapAvailable(false); return undefined; }
+    let alive = true;
+    api.getRecap('').then((d) => {
+      if (!alive) return;
+      setRecapAvailable(!!d.seasons?.length);
+      if (!d.season || Date.now() - d.season.end > 14 * 24 * 60 * 60 * 1000) return;
+      const [y, m] = d.season.key.split('-').map(Number);
+      const label = new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(lang === 'en' ? 'en-US' : 'de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      setRecapReady({ key: d.season.key, label });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [user, hasActive, lang]);
 
   const handleActivate = async (acc) => {
     try {
@@ -861,7 +910,7 @@ export default function WinTrackerPage() {
   const handleResetSession = async (acc) => {
     if (!window.confirm(wt(t, 'confirmResetSession'))) return;
     // Jeder Modus hat seine eigene Session; Saison-Modi ("s:<prefix>") werden direkt durchgereicht.
-    const scope = isSeasonalMode(acc.trackMode) ? acc.trackMode
+    const scope = isSeasonalMode(acc.trackMode) || challengeKeyOf(acc.trackMode) ? acc.trackMode
       : acc.trackMode === '2v2' ? '2v2' : acc.trackMode === 'trophies' ? 'trophies' : 'ranked';
     try {
       const res = await api.resetAccountSession(acc.accountId, scope);
@@ -951,7 +1000,8 @@ export default function WinTrackerPage() {
             </div>
           ) : (
             <>
-              <div className="cr-tabs mb-4 md:mb-5 max-w-md mx-auto" role="tablist">
+              <div className="flex items-center justify-center gap-2 mb-4 md:mb-5">
+              <div className="cr-tabs flex-1 min-w-0 max-w-sm" role="tablist">
                 <button role="tab" aria-selected={tab === 'accounts'} onClick={() => setTab('accounts')}>
                   <CrFriends size={26} />
                   <span className="cr-tab-label">{t.tabAccounts}</span>
@@ -961,9 +1011,28 @@ export default function WinTrackerPage() {
                   <span className="cr-tab-label">{t.tabSettings}</span>
                 </button>
               </div>
+              {/* Rückblick ist eine eigene Seite, kein Reiter — erst, wenn eine Saison fertig ist */}
+              {recapAvailable && (
+              <Link to="/clash-royale/win-tracker/rueckblick" className="cr-tabs shrink-0 !overflow-visible">
+                <span className="cr-tab-link flex items-center gap-2 px-3 sm:px-4 py-[0.55rem] rounded-xl font-cr text-[1.05rem] text-white/80 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap">
+                  <CrScroll size={26} />
+                  <span className="hidden sm:inline">{t.tabRecap}</span>
+                </span>
+              </Link>
+              )}
+              </div>
 
               {error && (
                 <div className="cr-row border-red-500/50 bg-red-500/10 px-4 py-2.5 mb-4 text-red-200 text-sm" role="alert">{error}</div>
+              )}
+
+              {/* Saison gerade vorbei: Hinweis auf den fertigen Rückblick (die ersten 14 Tage der neuen Saison) */}
+              {recapReady && (
+                <Link to={`/clash-royale/win-tracker/rueckblick?season=${recapReady.key}`}
+                  className="cr-row flex items-center justify-between gap-3 px-4 py-3 mb-4 rounded-xl border-2 border-[#f2c14e]/60 bg-[#f2c14e]/10 hover:bg-[#f2c14e]/15 transition-colors">
+                  <span className="flex items-center gap-3 font-cr text-white"><CrScroll size={28} />{fill(t.recapBanner, { season: recapReady.label })}</span>
+                  <span className="font-cr text-[var(--cr-arcade-gold)] shrink-0">{t.recapBannerCta} →</span>
+                </Link>
               )}
 
               {tab === 'accounts' && (
@@ -989,6 +1058,7 @@ export default function WinTrackerPage() {
                   onResetSession={handleResetSession}
                   flashError={flashError} />
               )}
+
             </>
           )}
         </div>

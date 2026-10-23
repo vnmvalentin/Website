@@ -17,7 +17,7 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
     const router = express.Router();
 
     router.use("/", authRoutes({ requireAuth, sessions, saveSessionsToFile }));
-    router.use("/guilds",    guildsRoutes({ requireAuth, discordClient, sessions }));
+    router.use("/guilds",    guildsRoutes({ requireAuth, discordClient, sessions, saveSessionsToFile }));
     router.use("/settings",  settingsRoutes({ requireAuth, discordClient }));
     router.use("/settings",  approvalRoutes({ requireAuth, discordClient }));
     router.use("/settings",  voiceRoutes({ requireAuth }));

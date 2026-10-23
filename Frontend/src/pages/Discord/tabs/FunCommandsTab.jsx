@@ -80,14 +80,14 @@ function Toggle({ enabled, onToggle }) {
     return (
         <button
             onClick={onToggle}
-            className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${enabled ? 'bg-violet-500' : 'bg-[#2a2a32]'}`}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${enabled ? 'bg-indigo-500' : 'bg-[#2a2a32]'}`}
         >
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
         </button>
     );
 }
 
-export default function FunCommandsTab({ funChannel, setFunChannel, channels, isSaving, saveStatus, handleSaveSettings, disabledCommands, setDisabledCommands }) {
+export default function FunCommandsTab({ funChannel, setFunChannel, channels, isSaving, saveStatus, handleSaveSettings, disabledCommands, setDisabledCommands, dirty }) {
     const isEnabled = (name) => !disabledCommands.includes(name);
 
     const toggleCommand = (name) => {
@@ -97,18 +97,18 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
     };
 
     return (
-        <div className="space-y-8">
+        <div className="dc-page">
             <div>
-                <h2 className="text-2xl text-white font-bold mb-1">Fun Commands</h2>
+                <h2 className="dc-h2">Fun Commands</h2>
                 <p className="text-white/50 text-sm">Slash Commands und Prefix-Commands für alle Mitglieder. Optional auf einen Kanal beschränken.</p>
             </div>
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-lg">
-                <h3 className="text-white font-semibold flex items-center gap-2">⚙️ Kanal-Einschränkung</h3>
+            <div className="dc-card p-6 space-y-4 max-w-lg">
+                <h3 className="text-white font-semibold flex items-center gap-2">Kanal-Einschränkung</h3>
                 <div>
-                    <label className="block text-white text-sm font-medium mb-2">Fun Commands Kanal</label>
+                    <label className="dc-label">Fun Commands Kanal</label>
                     <select value={funChannel} onChange={e => setFunChannel(e.target.value)}
-                        className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                        className="dc-input w-full">
                         <option value="">-- Überall erlaubt --</option>
                         {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                     </select>
@@ -120,10 +120,12 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                 </div>
                 <div className="pt-2 flex items-center gap-4">
                     <button onClick={handleSaveSettings} disabled={isSaving}
-                        className="bg-violet-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
+                        className="dc-btn">
                         {isSaving ? 'Speichere...' : 'Speichern'}
                     </button>
-                    {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
+                    {saveStatus
+                    ? <span className="text-sm font-medium text-white">{saveStatus}</span>
+                    : dirty && <span className="dc-unsaved">Ungespeicherte Änderungen</span>}
                 </div>
             </div>
 
@@ -133,24 +135,24 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                     {COMMANDS.map(cmd => {
                         const enabled = isEnabled(cmd.name);
                         return (
-                            <div key={cmd.name} className={`bg-[#0e0e1a]/75 border rounded-lg p-5 flex flex-col gap-3 transition-colors ${
-                                enabled ? 'border-white/5 hover:border-violet-500/20' : 'border-white/5 opacity-60'
+                            <div key={cmd.name} className={`dc-card p-5 flex flex-col gap-3 transition-colors ${
+                                enabled ? 'border-white/5 hover:border-indigo-500/20' : 'border-white/5 opacity-60'
                             }`}>
                                 <div className="flex items-center gap-3">
                                     <span className="text-white/60 shrink-0">{cmd.icon}</span>
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-white font-bold font-mono text-sm">{cmd.displayName}</div>
+                                        <div className="text-white font-bold text-sm">{cmd.displayName}</div>
                                         <div className="text-white/40 text-xs">{cmd.tag}</div>
                                     </div>
                                     <Toggle enabled={enabled} onToggle={() => toggleCommand(cmd.name)} />
                                 </div>
                                 <p className="text-white/50 text-sm flex-1">{cmd.desc}</p>
-                                <div className="bg-[#0e0e1a]/85 rounded-lg p-3 font-mono text-xs text-violet-400 leading-relaxed">{cmd.usage}</div>
+                                <div className="dc-inset p-3 text-xs text-indigo-400 leading-relaxed">{cmd.usage}</div>
                                 <ul className="text-white/40 text-xs space-y-1">
                                     {cmd.details.map((d, i) => <li key={i}>• {d}</li>)}
                                 </ul>
                                 {!enabled && (
-                                    <div className="text-xs text-red-400 font-medium">⛔ Deaktiviert</div>
+                                    <div className="text-xs text-red-400 font-medium">Deaktiviert</div>
                                 )}
                             </div>
                         );
@@ -158,10 +160,12 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                 </div>
                 <div className="mt-4 flex items-center gap-4">
                     <button onClick={handleSaveSettings} disabled={isSaving}
-                        className="bg-violet-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
+                        className="dc-btn">
                         {isSaving ? 'Speichere...' : 'Änderungen speichern'}
                     </button>
-                    {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
+                    {saveStatus
+                    ? <span className="text-sm font-medium text-white">{saveStatus}</span>
+                    : dirty && <span className="dc-unsaved">Ungespeicherte Änderungen</span>}
                 </div>
             </div>
         </div>

@@ -2,8 +2,41 @@
 const express = require("express");
 const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
+const links = require("../linkStore");
+
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const guildCache = new Map();
+
+/**
+ * Holt mit dem Erneuerungs-Token ein frisches Zugriffstoken. Discord-Zugriffstokens laufen ab
+ * (meist nach 7 Tagen); ohne das sah es danach aus, als sei man abgemeldet.
+ * @returns {"ok"|"invalid"|"error"} invalid = Verknüpfung wirklich widerrufen, error = Discord gerade nicht erreichbar
+ */
+async function refreshTokens(twitchId, link) {
+    if (!link.refreshToken) return "invalid";
+    try {
+        const res = await fetch("https://discord.com/api/oauth2/token", {
+            method: "POST",
+            body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, grant_type: "refresh_token", refresh_token: link.refreshToken }),
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        });
+        const tokens = await res.json().catch(() => ({}));
+        if (res.ok && tokens.access_token) {
+            links.setTokens(twitchId, {
+                accessToken: tokens.access_token,
+                refreshToken: tokens.refresh_token || link.refreshToken,
+                expiresAt: tokens.expires_in ? Date.now() + Number(tokens.expires_in) * 1000 : 0,
+            });
+            return "ok";
+        }
+        // 400/401 mit invalid_grant: der Nutzer hat der Anwendung den Zugriff entzogen
+        if (res.status === 400 || res.status === 401) return "invalid";
+        return "error";
+    } catch {
+        return "error";
+    }
+}
 
 // Timer-Cache gegen Rate Limit (Opcode 8) beim Member-Fetch
 const membersFetchCache = new Map();
@@ -12,30 +45,49 @@ function hasAdminPermission(permissions) {
     return (BigInt(permissions) & BigInt(0x8)) === BigInt(0x8);
 }
 
-module.exports = function({ requireAuth, discordClient, sessions }) {
+module.exports = function({ requireAuth, discordClient, sessions, saveSessionsToFile }) {
     const router = express.Router();
 
     // 1. Server-Liste
     router.get("/", requireAuth, async (req, res) => {
-        const userSession = sessions[req.cookies.session];
-        if (!userSession?.discord?.accessToken) return res.status(401).json({ error: "Discord not linked" });
+        // Verknüpfung alter Art (an der Sitzung) zieht beim ersten Zugriff in die Datenbank um
+        if (links.migrateFromSessions(req.twitchId, sessions) && saveSessionsToFile) saveSessionsToFile(sessions);
+        let link = links.getLink(req.twitchId);
+        // 401 heißt hier und NUR hier: nicht verknüpft. Das Dashboard zeigt dann die Discord-Anmeldung.
+        if (!link || !link.accessToken) return res.status(401).json({ error: "Discord not linked" });
 
-        const discordUserId = userSession.discord.userId;
+        const discordUserId = link.userId;
         const now = Date.now();
+        const cachedData = guildCache.get(discordUserId);
+        const fromCache = () => ({ guilds: cachedData.guilds.map(g => ({ ...g, botPresent: discordClient.guilds.cache.has(g.id) })) });
 
-        if (guildCache.has(discordUserId)) {
-            const cachedData = guildCache.get(discordUserId);
-            if (now < cachedData.expiresAt) {
-                const result = cachedData.guilds.map(g => ({ ...g, botPresent: discordClient.guilds.cache.has(g.id) }));
-                return res.json({ guilds: result });
-            }
-        }
+        if (cachedData && now < cachedData.expiresAt) return res.json(fromCache());
+
+        // Discord gerade nicht erreichbar oder gedrosselt: lieber der letzte bekannte Stand als ein
+        // Fehler — und auf keinen Fall „abgemeldet“.
+        const unavailable = () => (cachedData
+            ? res.json(fromCache())
+            : res.status(503).json({ error: "Discord antwortet gerade nicht. Bitte gleich noch einmal versuchen." }));
 
         try {
-            const response = await fetch("https://discord.com/api/users/@me/guilds", {
-                headers: { Authorization: `Bearer ${userSession.discord.accessToken}` },
-            });
-            if (!response.ok) throw new Error(`Discord Fehler: ${response.status}`);
+            // Läuft das Zugriffstoken ab (oder ist es schon abgelaufen), vorher erneuern
+            if (link.expiresAt && link.expiresAt < now + 60 * 1000) {
+                const r = await refreshTokens(req.twitchId, link);
+                if (r === "invalid") { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked" }); }
+                if (r === "ok") link = links.getLink(req.twitchId);
+            }
+            const load = (token) => fetch("https://discord.com/api/users/@me/guilds", { headers: { Authorization: `Bearer ${token}` } });
+            let response = await load(link.accessToken);
+            if (response.status === 401) {
+                // Token abgelehnt: einmal erneuern und noch einmal versuchen
+                const r = await refreshTokens(req.twitchId, link);
+                if (r === "invalid") { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked" }); }
+                if (r === "error") return unavailable();
+                link = links.getLink(req.twitchId);
+                response = await load(link.accessToken);
+                if (response.status === 401) { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked" }); }
+            }
+            if (!response.ok) return unavailable();
 
             const guilds = await response.json();
             const adminGuilds = guilds.filter(g => hasAdminPermission(g.permissions));
@@ -50,7 +102,7 @@ module.exports = function({ requireAuth, discordClient, sessions }) {
             guildCache.set(discordUserId, { guilds: result, expiresAt: now + (5 * 60 * 1000) });
             res.json({ guilds: result });
         } catch (e) {
-            res.status(500).json({ error: "Fehler beim Laden der Server" });
+            unavailable();
         }
     });
 

@@ -174,6 +174,10 @@ const stmt = {
   setFinished: db.prepare(`UPDATE tournaments SET status = 'finished', finished_at = ?, updated_at = ? WHERE id = ?`),
   listAutoStart: db.prepare(`SELECT * FROM tournaments WHERE status IN ('registration', 'drawn')`),
   listM: db.prepare('SELECT * FROM tournament_matches WHERE tournament_id = ?'),
+  // Öffentliches Profil (profile/): Turniere, in denen ein Twitch-Account mitgespielt hat
+  listJoinedBy: db.prepare(`SELECT t.*, p.id AS participant_id FROM tournament_participants p
+    JOIN tournaments t ON t.id = p.tournament_id
+    WHERE p.twitch_id = ? AND t.status IN ('running', 'finished') ORDER BY t.created_at DESC LIMIT 20`),
   upsertM: db.prepare(`INSERT INTO tournament_matches
     (tournament_id, id, stage, group_index, round, slot, player_a, player_b, best_of, score_a, score_b, crowns_a, crowns_b,
      winner, status, win_to, win_side, lose_to, lose_side, finished_at)
@@ -329,6 +333,7 @@ module.exports = {
   setFriendLink: (tournamentId, id, link) => stmt.updateFriendLink.run(link, id, tournamentId).changes > 0,
 
   // ── Phase 2: Auslosung, Matches ──
+  listJoinedBy: (twitchId) => stmt.listJoinedBy.all(String(twitchId)).map((r) => ({ ...rowToTournament(r), participantId: r.participant_id })),
   listMatches: (tournamentId) => stmt.listM.all(tournamentId).map(rowToMatch)
     .sort((x, y) => STAGE_ORDER[x.stage] - STAGE_ORDER[y.stage] || (x.group ?? 0) - (y.group ?? 0) || x.round - y.round || x.slot - y.slot),
   saveMatches(tournamentId, matches) { for (const m of matches) stmt.upsertM.run(matchToRow(tournamentId, m)); },

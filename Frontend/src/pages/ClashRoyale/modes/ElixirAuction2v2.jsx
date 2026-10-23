@@ -20,7 +20,7 @@ import { avatarUrl } from '../components/avatars';
 import { useAuction2v2View } from './auction2v2/useAuction2v2View';
 import { hintTagLabel, hintTagCategory } from './auction2v2/hintLabels';
 import { teamStyle, teamChipClass } from '../lobby/teamStyle';
-import unknownCardImg from '../../../assets/clashRoyale/UnknownCard.png';
+import unknownCardImg from '../../../assets/clashRoyale/ui/UnknownCard.webp';
 import elixirIcon from '../../../assets/clashRoyale/ui/elixir_1.png';
 
 const I18N = {
@@ -426,7 +426,8 @@ export default function ElixirAuction2v2(props) {
   const footer = (
     <GameFooter>
       <div className="max-w-4xl mx-auto space-y-3">
-        <div className="flex items-baseline justify-between gap-3">
+        {/* Gebot mittig über dem Regler — rechts lag es auf dem Handy unter dem Emote-Knopf */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <span className="text-white/55 text-xs">{allBid ? t.bidSentWaiting : t.setBidHint}</span>
           {!allBid && (
             <span className="cr-elixir-pill text-2xl !px-3 !py-1">

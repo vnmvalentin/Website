@@ -55,6 +55,15 @@ const { registerTournamentSocket } = require("./clashRoyale/tournament/matchRoom
 const createStreamToolRouter = require("./streamTool/routes/streamToolRoutes");
 const { registerLiveBadgesSocket } = require("./lib/liveBadges");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
+const { createChatAvatarRouter } = require("./routes/chatAvatarRoutes");
+const createStreamScenesRouter = require("./streamScenes/routes/streamScenesRoutes");
+const { createAnalyticsRouter } = require("./analytics/analyticsRoutes");
+const { createOgRouter } = require("./og/ogRoutes");
+const { createActivityRouter } = require("./activity/activityRoutes");
+const { createProfileRouter, buildProfile: buildPublicProfile } = require("./profile/profileRoutes");
+const { createProfileStore } = require("./profile/profileStore");
+const { previousDay: seedRunnersPreviousDay } = require("./seedRunners/daily");
+const { createBillingRouter, createBillingWebhook } = require("./billing/billingRoutes");
 const {
     saveAllFarmsOnExit, initGardenFarmsStore, farmStates,
     scheduleFarmsSave: scheduleFarmsSaveFuerMigration,
@@ -90,6 +99,10 @@ app.use(
     crossOriginEmbedderPolicy: false, 
   })
 );
+
+// Stripe-Webhook: MUSS vor express.json() stehen — die Signatur gilt für den unveränderten
+// Body, den express.json() schon geparst (und damit verworfen) hätte.
+app.post("/api/billing/webhook", ...createBillingWebhook());
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -299,7 +312,7 @@ app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
 app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 // /api/casino gibt es nicht mehr — Credits sind abgeschafft (Oktober 2026); die Daten liegen weiter in data/casinoData.json
-app.use("/api/adventure", createAdventureRouter({ requireAuth }));
+app.use("/api/adventure", createAdventureRouter({ requireAuth, optionalAuth }));
 app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
 app.use("/api/garden", createGardenGameRouter({ requireAuth }));
@@ -321,7 +334,14 @@ app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));
 app.use("/api/cr-wintracker", createCrWinTrackerRouter({ requireAuth }));
 app.use("/api/stream-tool", createStreamToolRouter({ requireAuth }));
+// Abo (Stripe): Stand, Bezahlseite, Kundenportal. Wer frei ist, entscheidet billing/entitlements.js
+app.use("/api/billing", createBillingRouter({ requireAuth }));
 app.use("/api/used-by", createUsedByRouter());
+app.use("/api/chat-avatars", createChatAvatarRouter());
+// 3D-Stream-Szenen: Steuerpult (OBS-Link mit Key) und Figurbaukasten der Zuschauer
+app.use("/api/stream-scenes", createStreamScenesRouter({ requireAuth, STREAMER_TWITCH_ID }));
+// Besucherstatistik ohne Cookies (analytics/analyticsStore.js); die Auswertung liegt unter /api/admin/analytics
+app.use("/api/analytics", createAnalyticsRouter({ optionalAuth, STREAMER_TWITCH_ID }));
 // Seed Runners: Tagesrangliste, ohne Login (Identität = Schlüssel aus dem Browser-Token), siehe seedRunners/daily.js
 try {
   app.use("/api/seed-runners", createSeedRunnersRouter({
@@ -333,6 +353,108 @@ try {
 } catch (e) {
   console.error("[seed-runners] Tagesrangliste nicht verfügbar:", e);
 }
+
+// Link-Vorschau für Discord, WhatsApp & Co. (og/ogRoutes.js): nginx schickt nur Vorschau-Bots hierher.
+// Die Quellen werden erst bei der Anfrage geholt — fehlt eine, bleibt es bei der Standard-Vorschau.
+const OG_GUEST = { accountId: null, name: "", isAdmin: false };
+app.use("/api/og", createOgRouter({
+  getSources: () => {
+    const tStore = require("./clashRoyale/tournament/store");
+    const sr = getSeedRunnersRuntime();
+    return {
+      tournament: (id) => {
+        const t = tStore.getTournament(id);
+        if (!t || t.status === "void") return null;
+        return {
+          name: t.settings?.name, description: t.settings?.description, maxPlayers: t.settings?.maxPlayers,
+          status: t.status, ownerLogin: t.ownerLogin, count: tStore.countParticipants(t.id),
+        };
+      },
+      level: (code) => sr.levelService.detail(String(code).toUpperCase(), OG_GUEST, ""),
+      creator: (id) => sr.levelService.creator(id, OG_GUEST),
+      dailyBoard: (dateKey) => sr.daily.board(dateKey, 3),
+      todayKey: () => sr.todayKey(),
+      // Öffentliches Profil: nur eingeschaltete (byLogin liefert sonst null)
+      profile: (login) => {
+        const entry = publicProfileStore.byLogin(login);
+        return entry ? { login: entry.login, displayName: entry.displayName, sections: buildPublicProfile(entry.twitchId, publicProfileSources) } : null;
+      },
+    };
+  },
+}));
+
+// Öffentliches Profil /u/<login> (profile/profileRoutes.js), opt-in unter /profile. Jede Quelle liefert einen Abschnitt
+// oder null; Fehler einer Quelle kosten nur ihren Abschnitt.
+const publicProfileStore = createProfileStore();
+const publicProfileSources = {
+  winTracker: (id) => {
+    const wt = require("./clashRoyale/lib/winTrackerStore");
+    const acc = wt.prepare("SELECT * FROM cr_wintracker_accounts WHERE user_id = ? ORDER BY is_active DESC, last_fetched DESC LIMIT 1").get(String(id));
+    if (!acc) return null;
+    const settingsMode = wt.prepare("SELECT track_mode FROM cr_wintracker_settings WHERE user_id = ?").get(String(id))?.track_mode;
+    const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const counts = Object.fromEntries(wt.prepare("SELECT result, COUNT(*) AS c FROM cr_wintracker_battles WHERE account_id = ? AND battle_time_ms >= ? GROUP BY result")
+      .all(acc.account_id, since).map((r) => [r.result, r.c]));
+    return {
+      playerName: acc.player_name, trackMode: acc.track_mode || settingsMode || "medals",
+      trophies: acc.trophies, bestTrophies: acc.best_trophies, seasonMedals: acc.season_medals,
+      leagueNumber: acc.league_number, polRank: acc.pol_rank ?? null,
+      last30: { wins: counts.win || 0, losses: counts.loss || 0, draws: counts.draw || 0 },
+    };
+  },
+  tournaments: (id) => {
+    const tStore = require("./clashRoyale/tournament/store");
+    const { championOf } = require("./clashRoyale/tournament/structure");
+    return tStore.listJoinedBy(id).map((t) => ({
+      id: t.id, name: t.settings?.name || "Turnier", status: t.status, ownerLogin: t.ownerLogin,
+      champion: t.status === "finished" && championOf(tStore.listMatches(t.id)) === t.participantId,
+      at: t.finishedAt || t.startedAt || t.createdAt,
+    }));
+  },
+  seedRunners: (id) => {
+    const c = getSeedRunnersRuntime().levelService.creator(String(id), OG_GUEST);
+    return c ? { creatorId: c.id, levels: c.stats.levels, plays: c.stats.plays, ratings: c.stats.ratings, ratingAvg: c.stats.ratingAvg } : null;
+  },
+  adventure: (id) => createAdventureRouter.publicStats(id),
+  garden: (id) => {
+    const s = require("./garden/store/farms").farmStates.get(String(id));
+    if (!s || !((s.xp || 0) > 0 || (s.gold || 0) > 0)) return null;
+    return { level: require("./garden/core/skills").levelZuXp(s.xp), gold: s.gold || 0 };
+  },
+};
+app.use("/api/public-profile", createProfileRouter({ requireAuth, store: publicProfileStore, getSources: () => publicProfileSources }));
+
+// "Gerade los" auf der Startseite (activity/activityRoutes.js): nur Zahlen über ihrer Schwelle werden gezeigt.
+// Jede Quelle einzeln abgesichert — fällt eine aus, fehlt nur ihre Zahl.
+app.use("/api/activity", createActivityRouter({
+  getStats: () => {
+    const stats = {};
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    try {
+      const wt = require("./clashRoyale/lib/winTrackerStore");
+      stats.wtBattles7 = wt.prepare("SELECT COUNT(*) AS c FROM cr_wintracker_battles WHERE battle_time_ms >= ?").get(weekAgo).c;
+      stats.wtUsers7 = wt.prepare("SELECT COUNT(DISTINCT user_id) AS c FROM cr_wintracker_accounts WHERE last_fetched >= ?").get(weekAgo).c;
+    } catch (e) { console.error("[activity] Win Tracker:", e.message); }
+    try {
+      const sr = getSeedRunnersRuntime();
+      let day = sr.todayKey();
+      let runs = 0;
+      for (let i = 0; i < 7; i++) {
+        runs += sr.daily.board(day, 0).total;
+        day = seedRunnersPreviousDay(day);
+      }
+      stats.dailyRuns7 = runs;
+      stats.levelsPublished = sr.levelService.list({ sort: "new", limit: 1 }, OG_GUEST).total;
+    } catch (e) { console.error("[activity] Seed Runners:", e.message); }
+    try {
+      const tStore = require("./clashRoyale/tournament/store");
+      stats.openTournaments = tStore.listListed()
+        .filter((t) => t.status === "registration")
+        .map((t) => ({ id: t.id, name: t.settings?.name || "Turnier" }));
+    } catch (e) { console.error("[activity] Turniere:", e.message); }
+    return stats;
+  },
+}));
 
 // =================== SOCKET.IO LOGIC ===================
 io.on("connection", (socket) => {

@@ -13,14 +13,15 @@
 // BREITE der Karte: fest (CARD_WIDTH), wie im echten Overlay — siehe WinTrackerOverlayPage.jsx.
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Trophy, ChevronsUp, Eye, EyeOff } from "lucide-react";
-import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl } from "../data/leagueIcons";
+import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl, challengeBadgeUrl } from "../data/leagueIcons";
 import { trophyArenaIcon, trophyArenaName } from "../data/trophyArenas";
 import { cardImageUrl } from "../data/cards";
 import { useClanBadgeUrl } from "../data/clanBadges";
 import { getOverlayData } from "./winTrackerApi";
 import { usePagedTransition, SLIDE_MS } from "./usePagedTransition";
-import { dictForWt } from "./wtI18n";
+import { dictForWt, challengeLabel } from "./wtI18n";
 import FitText from "./FitText";
+import ChallengeValue, { ChallengeBadge } from "./ChallengeValue";
 import { overlayLook } from "./overlayTheme";
 import trophyIcon from "../../../assets/clashRoyale/ui/trophy.png";
 import trophy2v2Icon from "../../../assets/clashRoyale/ui/trophy2v2.webp";
@@ -151,7 +152,9 @@ function computeStacks(settings, moduleVisibility) {
 
 // ── Hülle um ein Teil: abgedunkelt wenn ausgeblendet, eigene Kopfzeile mit dem Auge-Knopf
 // rechtsbündig darüber. Nicht mehr ziehbar (siehe Datei-Kommentar oben) — nur noch Sichtbarkeit.
-function Toggleable({ visible, onToggleVisible, t, children }) {
+function Toggleable({ visible, onToggleVisible, t, bare = false, children }) {
+  // Schaufenster (Streamer-Seite /tools): nur das Overlay, ohne Bearbeitungsknöpfe
+  if (bare) return visible ? children : null;
   return (
     <div style={{ opacity: visible ? 1 : 0.4, transition: "opacity .15s ease" }}>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 5 }}>
@@ -162,7 +165,7 @@ function Toggleable({ visible, onToggleVisible, t, children }) {
   );
 }
 
-export default function OverlayPreview({ settings, overlayKey, moduleVisibility, onToggleModule, onToggleProfile, refreshSignal }) {
+export default function OverlayPreview({ settings, overlayKey, moduleVisibility, onToggleModule, onToggleProfile, refreshSignal, showcase = false }) {
   const [data, setData] = useState(null); // null = lädt noch
   const cardWidth = CARD_WIDTH;
   const [heightRefs, blockHeights] = useBlockHeights();
@@ -205,7 +208,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   const isDemo = data === DEMO_DATA;
   const {
     playerName, trophies, bestTrophies, seasonMedals, leagueNumber, polRank, clanName,
-    league2v2Trophies, league2v2BestTrophies, seasonal, ladder, daily, last5, deck,
+    league2v2Trophies, league2v2BestTrophies, seasonal, challenge, ladder, daily, last5, deck,
   } = data;
   // trackMode kommt vom aktiven Account selbst (data.settings, genau wie beim echten Overlay) —
   // es gibt keine globale Voreinstellung mehr dafür. In der Demo (kein data.settings) gilt
@@ -220,11 +223,13 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   // im Backend): eigenes Objekt mit Name, Stand und Stufe — kein eigenes Liga-Bild bekannt, deshalb
   // die Trophäe als Abzeichen.
   const isSeasonal = !!seasonal;
-  const badgeUrl = isSeasonal ? (seasonalBadgeUrl(seasonal.mode) || trophyIcon) : isLeague2v2 ? league2v2Badge : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
-  const badgeAlt = isSeasonal ? seasonal.label : isTrophyMode ? trophyArenaName(trophies) : leagueName(leagueNumber, lang);
+  // Challenge (Classic/Grand/20 Win) — siehe ChallengeValue.jsx
+  const isChallenge = !!challenge;
+  const badgeUrl = isChallenge ? challengeBadgeUrl(challenge.key) : isSeasonal ? (seasonalBadgeUrl(seasonal.mode) || trophyIcon) : isLeague2v2 ? league2v2Badge : isTrophyMode ? trophyArenaIcon(trophies) : leagueIconUrl(leagueNumber);
+  const badgeAlt = isChallenge ? challengeLabel(challenge.key, t) : isSeasonal ? seasonal.label : isTrophyMode ? trophyArenaName(trophies) : leagueName(leagueNumber, lang);
   // Siehe Kommentar zu isLadderMode in WinTrackerOverlayPage.jsx — computeLadder läuft
   // serverseitig unabhängig vom trackMode, isLeague2v2 muss hier deshalb ausgeschlossen werden.
-  const isLadderMode = !isTrophyMode && !isLeague2v2 && !isSeasonal && !!ladder;
+  const isLadderMode = !isTrophyMode && !isLeague2v2 && !isSeasonal && !isChallenge && !!ladder;
   const mainValue = isSeasonal ? seasonal.trophies : isLeague2v2 ? league2v2Trophies : isTrophyMode ? trophies : seasonMedals;
   const dailyValue = isLadderMode ? (ladder.sessionDelta || 0) : (daily?.profit || 0);
   const profitPositive = dailyValue >= 0;
@@ -266,7 +271,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
     ? `${t.bestLabel}: ${fmt(isLeague2v2 ? league2v2BestTrophies : bestTrophies, lang)}`
     : isLadderMode ? leagueName(leagueNumber, lang)
     : (polRank && !isSeasonal) ? `#${fmt(polRank, lang)}` : null;
-  const valueRow = (
+  const valueRow = isChallenge ? <ChallengeValue challenge={challenge} styles={styles} t={t} /> : (
     <FitText><div style={styles.trophyRow}>
       {isLadderMode
         ? <ChevronsUp size={22} color="#fbbf24" style={{ flexShrink: 0 }} />
@@ -302,15 +307,17 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   );
 
   const profileBlock = (
-    <Toggleable visible={showProfile} onToggleVisible={onToggleProfile} t={t}>
+    <Toggleable visible={showProfile} onToggleVisible={onToggleProfile} t={t} bare={showcase}>
       <div style={styles.headerRow}>
-        <div style={styles.badgeWrap}>
-          {badgeUrl ? (
-            <img src={badgeUrl} alt={badgeAlt} style={styles.badgeImg} />
-          ) : (
-            <div style={styles.badgeFallback}><Trophy size={26} color="#fbbf24" /></div>
-          )}
-        </div>
+        {isChallenge ? <ChallengeBadge challenge={challenge} /> : (
+          <div style={styles.badgeWrap}>
+            {badgeUrl ? (
+              <img src={badgeUrl} alt={badgeAlt} style={styles.badgeImg} />
+            ) : (
+              <div style={styles.badgeFallback}><Trophy size={26} color="#fbbf24" /></div>
+            )}
+          </div>
+        )}
         {nameCol}
       </div>
     </Toggleable>
@@ -318,7 +325,9 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
 
   // Session-Werte als gleich breite Spalten — 1:1 wie in WinTrackerOverlayPage.jsx.
   const stats = [];
-  if (sessionFlags.profit) {
+  if (sessionFlags.profit && isChallenge) {
+    stats.push({ key: "profit", label: t.statBestRun, value: challenge.bestWins });
+  } else if (sessionFlags.profit) {
     stats.push({
       key: "profit",
       label: isLadderMode ? t.statSteps : t.statProfit,
@@ -344,7 +353,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
   ));
 
   const sessionBlock = (
-    <Toggleable visible={moduleVisibility.session} onToggleVisible={() => onToggleModule("session")} t={t}>
+    <Toggleable visible={moduleVisibility.session} onToggleVisible={() => onToggleModule("session")} t={t} bare={showcase}>
       <div style={styles.sessionBlock}>
         {stats.length > 0 && (
           <div style={{ ...styles.statsRow, gridTemplateColumns: statColumns }}>{statsInner}</div>
@@ -383,7 +392,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
                     <div key={i} style={styles.matchPill(b.result)}>
                       {/* 2v2 zeigt IMMER Win/Lose, unabhängig vom gewählten last5Style — siehe
                           ausführlicher Kommentar an derselben Stelle in WinTrackerOverlayPage.jsx. */}
-                      {last5Style === "result" || isLeague2v2
+                      {last5Style === "result" || isLeague2v2 || isChallenge
                         ? (RESULT_LABEL[b.result] || RESULT_LABEL.draw)
                         // In den Stufen-Ligen ist trophy_change je Match immer 0 — die Zahl kommt
                         // dort aus dem Ergebnis selbst (Sieg = +1 Stufe, Niederlage = -1).
@@ -435,7 +444,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
     </div>
   );
   const deckBlock = (gridStyle) => (
-    <Toggleable visible={moduleVisibility.deck} onToggleVisible={() => onToggleModule("deck")} t={t}>
+    <Toggleable visible={moduleVisibility.deck} onToggleVisible={() => onToggleModule("deck")} t={t} bare={showcase}>
       {deckGridEl(gridStyle)}
     </Toggleable>
   );
@@ -492,7 +501,7 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
 
   return (
     <div>
-      {isDemo && (
+      {isDemo && !showcase && (
         <p className="text-[11px] text-gray-600 mb-2">
           {t.demoDataHint}
         </p>

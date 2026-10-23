@@ -42,6 +42,8 @@ const setSessionReset2v2Stmt = db.prepare("UPDATE cr_wintracker_accounts SET ses
 const setSessionResetTrophyStmt = db.prepare("UPDATE cr_wintracker_accounts SET session_reset_trophy_at = ? WHERE account_id = ?");
 // Generische saisonale Modi (trackMode "s:<prefix>", siehe lib/seasonalModes.js) — Reset + Name je Modus.
 const setSeasonalSessionResetStmt = db.prepare("UPDATE cr_wintracker_seasonal SET session_reset_at = ? WHERE account_id = ? AND prefix = ?");
+// Challenges (trackMode "c:<key>") teilen sich einen Reset-Zeitpunkt.
+const setChallengeSessionResetStmt = db.prepare("UPDATE cr_wintracker_accounts SET challenge_session_reset_at = ? WHERE account_id = ?");
 const getSeasonalLabelStmt = db.prepare("SELECT label, progress_key FROM cr_wintracker_seasonal WHERE account_id = ? AND prefix = ?");
 
 const normalizeChannel = (ch) => String(ch || "").trim().toLowerCase().replace(/^#/, "");
@@ -86,7 +88,8 @@ const T = {
     listEmpty: () => `Noch kein Account verknüpft.`,
     listPrefix: (n) => `${n} Account${n === 1 ? "" : "s"}: `,
     listEntry: (name, tag, active) => `#${tag} (${name}${active ? ", aktiv" : ""})`,
-    modeLabels: { medals: "Ranked (Medaillen)", trophies: "Trophäenstraße", "2v2": "2v2 Ranked" },
+    modeLabels: { medals: "Ranked (Medaillen)", trophies: "Trophäenstraße", "2v2": "2v2 Ranked",
+      "c:20win": "20-Siege-Challenge", "c:classic": "Classic Challenge", "c:grand": "Grand Challenge" },
   },
   en: {
     help: "Commands: !tracker set #TAG, !tracker reset, !tracker add #TAG, !tracker list",
@@ -100,7 +103,8 @@ const T = {
     listEmpty: () => `No account linked yet.`,
     listPrefix: (n) => `${n} account${n === 1 ? "" : "s"}: `,
     listEntry: (name, tag, active) => `#${tag} (${name}${active ? ", active" : ""})`,
-    modeLabels: { medals: "Ranked (medals)", trophies: "Trophy Road", "2v2": "2v2 Ranked" },
+    modeLabels: { medals: "Ranked (medals)", trophies: "Trophy Road", "2v2": "2v2 Ranked",
+      "c:20win": "20 Win Challenge", "c:classic": "Classic Challenge", "c:grand": "Grand Challenge" },
   },
 };
 const dict = (row) => (row?.language === "en" ? T.en : T.de);
@@ -133,7 +137,8 @@ function cmdReset(row, t) {
     const s = getSeasonalLabelStmt.get(active.account_id, prefix);
     return t.resetOk(active.player_name || "#" + active.player_tag, s?.label || humanizeKey(s?.progress_key || prefix));
   }
-  if (mode === "2v2") setSessionReset2v2Stmt.run(Date.now(), active.account_id);
+  if (mode.startsWith("c:")) setChallengeSessionResetStmt.run(Date.now(), active.account_id);
+  else if (mode === "2v2") setSessionReset2v2Stmt.run(Date.now(), active.account_id);
   else if (mode === "trophies") setSessionResetTrophyStmt.run(Date.now(), active.account_id);
   else setSessionResetStmt.run(Date.now(), active.account_id);
   return t.resetOk(active.player_name || "#" + active.player_tag, t.modeLabels[mode] || t.modeLabels.medals);

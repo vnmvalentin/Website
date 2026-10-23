@@ -409,6 +409,29 @@
   color: rgba(255, 255, 255, 0.6);
 }
 .sts-lobby-time { color: #fff; font-variant-numeric: tabular-nums; }
+.sts-lobby-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+.sts-lobby-top b {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+.sts-lobby-top i {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.5);
+}
 .sts-lobby-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -501,4 +524,30 @@
   font-weight: 900;
   line-height: 1.1;
   overflow-wrap: anywhere;
+}
+
+/* Murmelbahn in 3D: Namen und Countdown liegen als HTML über dem WebGL-Canvas */
+.sts-m3-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sts-m3-name {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font: 700 13px Inter, Roboto, system-ui, sans-serif;
+  white-space: nowrap;
+  color: #fff;
+  text-shadow: 0 0 2px rgba(12, 12, 16, 0.95), 0 1px 3px rgba(12, 12, 16, 0.95);
+}
+.sts-m3-count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 900 150px Inter, Roboto, system-ui, sans-serif;
+  color: #fff;
 }

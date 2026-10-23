@@ -60,34 +60,43 @@ function makeRng(seed) {
 
 /* ── Bahn ─────────────────────────────────────────────────────────────────── */
 
-/**
- * Keile an beiden Wänden. Ohne sie bleibt in vielen Abschnitten am Rand eine
- * freie Gasse, durch die eine Murmel ungebremst an allem vorbeifällt.
- */
-function wedges(c, y) {
-  c.segs.push({ x1: 0, y1: y, x2: 58, y2: y + 46 });
-  c.segs.push({ x1: WORLD_W, y1: y, x2: WORLD_W - 58, y2: y + 46 });
+/* Regel für jeden Abschnitt: KEINE senkrechte Gasse. An jeder Stelle x muss
+   eine frei fallende Murmel auf mindestens ein Hindernis treffen. Vorher gab es
+   bei x ≈ 71–85 (und gespiegelt rechts) eine Lücke, die in Drehkreuzen,
+   Prellböcken und Mühle zugleich frei war — wer dort hineinfiel, rauschte durch
+   die halbe Bahn. Bei jedem neuen Abschnitt nachmessen (Skript im Memory). */
+
+const HALF = WORLD_W / 2;
+
+/** Keile an beiden Wänden: schließen den Streifen zwischen Wand und erstem Hindernis. */
+function wedges(c, y, reach = 58) {
+  c.segs.push({ x1: 0, y1: y, x2: reach, y2: y + reach * 0.8 });
+  c.segs.push({ x1: WORLD_W, y1: y, x2: WORLD_W - reach, y2: y + reach * 0.8 });
+}
+
+/** Versetzte Reihe: gerade Reihen auf dem Raster, ungerade um ein halbes Feld verschoben
+ *  und zusätzlich an beiden Wänden besetzt. Ruft fn(x, reihe) je Platz auf. */
+function staggered(rows, spacing, fn) {
+  for (let r = 0; r < rows; r++) {
+    const odd = r % 2 === 1;
+    for (let x = odd ? 0 : spacing / 2; x <= WORLD_W + 0.5; x += spacing) fn(x, r);
+  }
 }
 
 /** Die Abschnitte, aus denen eine Bahn gewürfelt wird. Jeder gibt seine Höhe zurück. */
-const SECTIONS = {
+export const SECTIONS = {
   // Nagelbrett: versetzte Reihen, klassisches Galtonbrett
   pegs(c, y, rng) {
     const rows = 6 + Math.floor(rng() * 3);
-    for (let r = 0; r < rows; r++) {
-      const shifted = r % 2 === 1;
-      const py = y + 40 + r * 72;
-      for (let x = 37.5 + (shifted ? 37.5 : 0); x < WORLD_W - 20; x += 75) {
-        c.pegs.push({ x, y: py, r: 9, bounce: 0.55 });
-      }
-      // In den versetzten Reihen sitzt ein Nagel in der Wand — sonst bliebe
-      // dort die freie Gasse
-      if (shifted) {
-        c.pegs.push({ x: 0, y: py, r: 9, bounce: 0.55 });
-        c.pegs.push({ x: WORLD_W, y: py, r: 9, bounce: 0.55 });
-      }
-    }
+    staggered(rows, 75, (x, r) => c.pegs.push({ x, y: y + 40 + r * 72, r: 9, bounce: 0.55 }));
     return rows * 72 + 60;
+  },
+
+  // Dicke Nägel: weniger, größer, mehr Abprall
+  boulders(c, y, rng) {
+    const rows = 4 + Math.floor(rng() * 2);
+    staggered(rows, 120, (x, r) => c.pegs.push({ x, y: y + 50 + r * 100, r: 20, bounce: 0.7 }));
+    return rows * 100 + 50;
   },
 
   // Lochrampen: lange Rampen im Zickzack, jede mit zwei Löchern. Wer hineinfällt,
@@ -113,61 +122,185 @@ const SECTIONS = {
     return count * 190 + 40;
   },
 
-  // Drehkreuze: schleudern, was hineinfällt
+  // Reißverschluss: kurze Zähne von beiden Wänden, die sich in der Mitte überlappen
+  zipper(c, y, rng) {
+    const teeth = 4 + Math.floor(rng() * 2);
+    let fromLeft = rng() < 0.5;
+    for (let i = 0; i < teeth; i++) {
+      const top = y + 30 + i * 140;
+      if (fromLeft) c.segs.push({ x1: 0, y1: top, x2: 350, y2: top + 115 });
+      else c.segs.push({ x1: WORLD_W, y1: top, x2: 250, y2: top + 115 });
+      fromLeft = !fromLeft;
+    }
+    return teeth * 140 + 90;
+  },
+
+  // Drehkreuze: schleudern, was hineinfällt. Dreier- und Zweierreihe stehen auf
+  // Lücke, die Keile schließen den Rand.
   spinners(c, y, rng) {
     const rows = 2;
     for (let r = 0; r < rows; r++) {
-      const count = r % 2 ? 2 : 3;
       const cy = y + 100 + r * 190;
-      for (let i = 0; i < count; i++) {
-        const x = (WORLD_W / (count + 1)) * (i + 1);
+      for (const x of r % 2 ? [200, 400] : [100, 300, 500]) {
         const dir = rng() < 0.5 ? 1 : -1;
-        const speed = (1.3 + rng() * 1.2) * dir;
-        c.spinners.push({ x, y: cy, len: 52, ux: 1, uy: 0, w: speed });
+        c.spinners.push({ x, y: cy, len: 52, arms: 2, ux: 1, uy: 0, w: (1.3 + rng() * 1.2) * dir });
       }
-      wedges(c, cy - 95);
+      // Nur die Dreierreihe braucht Keile — den Rand der Zweierreihe deckt sie mit ab
+      if (r % 2 === 0) wedges(c, cy - 95);
     }
     return rows * 190 + 70;
   },
 
-  // Trichter mit Teiler darunter: alles muss durch die Mitte
-  funnel(c, y) {
-    c.segs.push({ x1: 0, y1: y + 20, x2: 235, y2: y + 190 });
-    c.segs.push({ x1: WORLD_W, y1: y + 20, x2: WORLD_W - 235, y2: y + 190 });
-    c.pegs.push({ x: WORLD_W / 2, y: y + 300, r: 30, bounce: 0.7 });
+  // Propeller: einzelne schnelle Balken statt Kreuze
+  propellers(c, y, rng) {
+    const rows = 2;
+    for (let r = 0; r < rows; r++) {
+      const cy = y + 100 + r * 180;
+      for (const x of r % 2 ? [150, 300, 450] : [75, 225, 375, 525]) {
+        const dir = rng() < 0.5 ? 1 : -1;
+        c.spinners.push({ x, y: cy, len: 64, arms: 1, ux: 1, uy: 0, w: (2.2 + rng() * 1.6) * dir });
+      }
+    }
+    return rows * 180 + 70;
+  },
+
+  // Zwillingsräder: zwei große Kreuze gegenläufig, darunter ein Teiler
+  twins(c, y, rng) {
+    const w = 1.0 + rng() * 0.6;
+    const dir = rng() < 0.5 ? 1 : -1;
+    c.spinners.push({ x: 150, y: y + 150, len: 118, arms: 2, ux: 1, uy: 0, w: w * dir });
+    c.spinners.push({ x: 450, y: y + 150, len: 118, arms: 2, ux: 1, uy: 0, w: -w * dir });
+    c.pegs.push({ x: HALF, y: y + 320, r: 34, bounce: 0.7 });
+    c.pegs.push({ x: 0, y: y + 320, r: 22, bounce: 0.6 });
+    c.pegs.push({ x: WORLD_W, y: y + 320, r: 22, bounce: 0.6 });
     return 380;
   },
 
-  // Prellböcke: wenige große, federnde Scheiben
-  bumpers(c, y, rng) {
+  // Mühle: ein großes, langsames Kreuz über fast die ganze Breite
+  mill(c, y, rng) {
+    const dir = rng() < 0.5 ? 1 : -1;
+    c.spinners.push({ x: HALF, y: y + 230, len: 185, arms: 2, ux: 1, uy: 0, w: (0.8 + rng() * 0.5) * dir });
+    // Lange Keile führen vom Rand in den Schwung hinein
+    wedges(c, y + 10, 105);
+    return 450;
+  },
+
+  // Trichter mit Teiler darunter: alles muss durch die Mitte
+  funnel(c, y) {
+    c.segs.push({ x1: 0, y1: y + 20, x2: 240, y2: y + 190 });
+    c.segs.push({ x1: WORLD_W, y1: y + 20, x2: WORLD_W - 240, y2: y + 190 });
+    c.pegs.push({ x: HALF, y: y + 300, r: 36, bounce: 0.7 });
+    return 380;
+  },
+
+  // Sanduhr: erst zur Mitte, dann über ein Dach wieder nach außen
+  hourglass(c, y) {
+    c.segs.push({ x1: 0, y1: y + 20, x2: 262, y2: y + 170 });
+    c.segs.push({ x1: WORLD_W, y1: y + 20, x2: WORLD_W - 262, y2: y + 170 });
+    c.segs.push({ x1: HALF, y1: y + 235, x2: 75, y2: y + 335 });
+    c.segs.push({ x1: HALF, y1: y + 235, x2: WORLD_W - 75, y2: y + 335 });
+    return 380;
+  },
+
+  // Prellböcke: große federnde Scheiben in zwei Reihen auf Lücke. Die äußeren
+  // sitzen halb in der Wand: ein Prellbock NEBEN der Wand bildet mit ihr eine
+  // Mulde, und ein Spalt von genau Murmelbreite verklemmt sich.
+  bumpers(c, y) {
     const rows = 3;
     for (let r = 0; r < rows; r++) {
-      const count = r % 2 ? 2 : 3;
-      const cy = y + 80 + r * 150;
-      for (let i = 0; i < count; i++) {
-        const x = (WORLD_W / (count + 1)) * (i + 1) + (rng() - 0.5) * 50;
-        c.pegs.push({ x, y: cy, r: 32, bounce: 1.12, bumper: true });
+      const cy = y + 85 + r * 150;
+      for (const x of r % 2 ? [75, 225, 375, 525] : [0, 150, 300, 450, 600]) {
+        c.pegs.push({ x, y: cy, r: 34, bounce: 1.1, bumper: true });
       }
-      wedges(c, cy - 70);
     }
     return rows * 150 + 60;
+  },
+
+  // Flipper: Schrägen von den Wänden, dazwischen Prellböcke
+  pinball(c, y) {
+    c.segs.push({ x1: 0, y1: y + 30, x2: 200, y2: y + 95 });
+    c.segs.push({ x1: WORLD_W, y1: y + 30, x2: WORLD_W - 200, y2: y + 95 });
+    c.pegs.push({ x: HALF, y: y + 120, r: 40, bounce: 1.1, bumper: true });
+    c.pegs.push({ x: 222, y: y + 255, r: 34, bounce: 1.1, bumper: true });
+    c.pegs.push({ x: WORLD_W - 222, y: y + 255, r: 34, bounce: 1.1, bumper: true });
+    wedges(c, y + 200, 58);
+    return 340;
+  },
+
+  // Trampolin: federnde Schrägen zur Mitte, darunter ein Prellbock
+  trampoline(c, y) {
+    c.segs.push({ x1: 0, y1: y + 60, x2: 248, y2: y + 135, bounce: 0.92, springy: true });
+    c.segs.push({ x1: WORLD_W, y1: y + 60, x2: WORLD_W - 248, y2: y + 135, bounce: 0.92, springy: true });
+    c.pegs.push({ x: HALF, y: y + 255, r: 42, bounce: 1.1, bumper: true });
+    return 330;
+  },
+
+  // Dächer: versetzte Reihen kleiner Giebel, an denen sich der Strom teilt
+  roofs(c, y, rng) {
+    const rows = 4 + Math.floor(rng() * 2);
+    staggered(rows, 150, (x, r) => {
+      const py = y + 40 + r * 115;
+      c.segs.push({ x1: x, y1: py, x2: x - 48, y2: py + 34 });
+      c.segs.push({ x1: x, y1: py, x2: x + 48, y2: py + 34 });
+    });
+    return rows * 115 + 50;
+  },
+
+  // Rauten: versetzte Reihen auf der Spitze stehender Vierecke
+  diamonds(c, y, rng) {
+    const rows = 3 + Math.floor(rng() * 2);
+    const h = 30;
+    staggered(rows, 120, (x, r) => {
+      const py = y + 60 + r * 125;
+      c.segs.push({ x1: x, y1: py - h, x2: x + h, y2: py });
+      c.segs.push({ x1: x + h, y1: py, x2: x, y2: py + h });
+      c.segs.push({ x1: x, y1: py + h, x2: x - h, y2: py });
+      c.segs.push({ x1: x - h, y1: py, x2: x, y2: py - h });
+    });
+    return rows * 125 + 50;
+  },
+
+  // Rost: Reihen kurzer, schräger Leisten mit Lücken dazwischen
+  grate(c, y, rng) {
+    const rows = 4;
+    for (let r = 0; r < rows; r++) {
+      const py = y + 40 + r * 95;
+      const rowTilt = r % 2 ? 11 : -11;
+      const shift = (r * 50 + Math.floor(rng() * 4) * 25) % 100;
+      for (let x = shift - 100; x < WORLD_W; x += 100) {
+        // Leisten nahe der Wand reichen bis an sie heran: ein Spalt unter
+        // Murmelbreite wäre eine Falle
+        const x1 = x < 40 ? 0 : x;
+        const x2 = x + 56 > WORLD_W - 40 ? WORLD_W : x + 56;
+        if (x2 - x1 < 24) continue;
+        // An der Wand immer von ihr weg geneigt — zur Wand hin wäre es eine
+        // Ecke, in der Murmeln liegen bleiben
+        const tilt = x1 === 0 ? 11 : (x2 === WORLD_W ? -11 : rowTilt);
+        c.segs.push({ x1, y1: py - tilt, x2, y2: py + tilt });
+      }
+    }
+    // Zwei Reihen direkt übereinander decken sich nicht immer — die Nagelreihe
+    // darunter schließt, was durchrutscht
+    staggered(2, 75, (x, r) => c.pegs.push({ x, y: y + 40 + rows * 95 + r * 60, r: 9, bounce: 0.55 }));
+    return rows * 95 + 150;
   },
 
   // Schieber: je Reihe zwei Balken, die in ihrer Hälfte hin und her fahren
   sliders(c, y, rng) {
     const rows = 3;
     const half = 72;
-    const mid = WORLD_W / 2;
     for (let r = 0; r < rows; r++) {
       const sy = y + 60 + r * 140;
       for (let side = 0; side < 2; side++) {
-        const min = (side ? mid : 0) + half + 12;
-        const max = (side ? WORLD_W : mid) - half - 12;
+        const min = (side ? HALF : 0) + half + 12;
+        const max = (side ? WORLD_W : HALF) - half - 12;
         const speed = 110 + rng() * 100;
         c.sliders.push({
           x: min + rng() * (max - min),
           y: sy,
           half,
+          // Leicht schräg, sonst fährt eine Murmel ewig obenauf mit
+          tilt: (r + side) % 2 ? 9 : -9,
           v: (r + side) % 2 ? speed : -speed,
           min,
           max,
@@ -175,6 +308,30 @@ const SECTIONS = {
       }
     }
     return rows * 140 + 60;
+  },
+
+  // Stempel: schräge Platten, die auf und ab fahren — zwei Reihen auf Lücke
+  pistons(c, y, rng) {
+    const rows = 2;
+    for (let r = 0; r < rows; r++) {
+      const base = y + 90 + r * 190;
+      let k = 0;
+      for (let x = r % 2 ? 0 : 60; x <= WORLD_W + 0.5; x += 120) {
+        const speed = 80 + rng() * 80;
+        c.pistons.push({
+          x,
+          y: base + (rng() - 0.5) * 80,
+          half: 42,
+          // Immer zur Mitte hin geneigt: zur Wand hin bliebe zwischen Platte und
+          // Wand ein Spalt, in dem Murmeln festsitzen. Nur die mittlere wechselt.
+          tilt: x < HALF - 1 ? 13 : (x > HALF + 1 ? -13 : (k++ % 2 ? 13 : -13)),
+          v: rng() < 0.5 ? speed : -speed,
+          min: base - 45,
+          max: base + 45,
+        });
+      }
+    }
+    return rows * 190 + 70;
   },
 
   // Treppe: geneigte Böden mit je einer Lücke — davor staut es sich
@@ -189,17 +346,61 @@ const SECTIONS = {
       const top = y + 20 + r * 175;
       const left = gap - 50;
       const right = gap + 50;
-      c.segs.push({ x1: 0, y1: top, x2: left, y2: top + 30 + left * 0.17 });
-      c.segs.push({ x1: WORLD_W, y1: top, x2: right, y2: top + 30 + (WORLD_W - right) * 0.17 });
+      c.segs.push({ x1: 0, y1: top, x2: left, y2: top + 30 + left * 0.25 });
+      c.segs.push({ x1: WORLD_W, y1: top, x2: right, y2: top + 30 + (WORLD_W - right) * 0.25 });
     }
-    return rows * 175 + 40;
+    return rows * 175 + 80;
   },
 
-  // Mühle: ein großes, langsames Kreuz über fast die ganze Breite
-  mill(c, y, rng) {
+  // Schächte: fünf Röhren mit unterschiedlichem Inhalt — Glückssache, welche man
+  // erwischt. Zwei Nagelreihen davor verteilen das Feld und schließen die Gassen.
+  chutes(c, y, rng) {
+    staggered(2, 60, (x, r) => c.pegs.push({ x, y: y + 30 + r * 52, r: 9, bounce: 0.55 }));
+    const top = y + 130;
+    const len = 290;
+    for (let x = 120; x < WORLD_W; x += 120) c.segs.push({ x1: x, y1: top, x2: x, y2: top + len });
+    // Genau eine Röhre ist frei, der Rest hält auf
+    const free = Math.floor(rng() * 5);
+    for (let i = 0; i < 5; i++) {
+      if (i === free) continue;
+      const cx = 60 + i * 120;
+      const kind = Math.floor(rng() * 3);
+      if (kind === 0) {
+        for (let k = 0; k < 4; k++) c.pegs.push({ x: cx + (k % 2 ? 20 : -20), y: top + 45 + k * 62, r: 9, bounce: 0.5 });
+      } else if (kind === 1) {
+        c.pegs.push({ x: cx, y: top + 90, r: 22, bounce: 1.05, bumper: true });
+        c.pegs.push({ x: cx, y: top + 215, r: 22, bounce: 1.05, bumper: true });
+      } else {
+        c.segs.push({ x1: cx - 60, y1: top + 50, x2: cx + 14, y2: top + 86 });
+        c.segs.push({ x1: cx + 60, y1: top + 150, x2: cx - 14, y2: top + 186 });
+      }
+    }
+    return 130 + len + 40;
+  },
+
+  // Windkanal: oben bläst es in die eine Richtung, unten in die andere; dicke
+  // Nägel stehen im Weg
+  wind(c, y, rng) {
+    const rows = 4;
     const dir = rng() < 0.5 ? 1 : -1;
-    c.spinners.push({ x: WORLD_W / 2, y: y + 220, len: 185, ux: 1, uy: 0, w: (0.8 + rng() * 0.5) * dir });
-    return 440;
+    const rowDir = (r) => (r < 2 ? dir : -dir);
+    staggered(rows, 120, (x, r) => {
+      // Kein Nagel an der Wand, GEGEN die der Wind drückt: dort hielte er die
+      // Murmel in der Ecke fest (nachgemessen: bis zu 22 s)
+      const lee = rowDir(r) > 0 ? WORLD_W : 0;
+      if (x > lee - 1 && x < lee + 1) return;
+      c.pegs.push({ x, y: y + 60 + r * 105, r: 20, bounce: 0.7 });
+    });
+    c.zones.push({ y0: y + 10, y1: y + 218, ax: dir * 420, drag: 0 });
+    c.zones.push({ y0: y + 218, y1: y + 430, ax: -dir * 420, drag: 0 });
+    return 460;
+  },
+
+  // Honig: ein zäher Streifen, in dem alles langsam sinkt — das Feld rückt zusammen
+  honey(c, y) {
+    c.zones.push({ y0: y + 30, y1: y + 190, ax: 0, drag: 9 });
+    staggered(2, 150, (x, r) => c.pegs.push({ x, y: y + 80 + r * 70, r: 12, bounce: 0.3 }));
+    return 230;
   },
 };
 
@@ -208,6 +409,8 @@ const SECTION_KEYS = Object.keys(SECTIONS);
 const SECTION_COUNT = 12;
 /** Abstand zwischen zwei Abschnitten. Bewusst knapp: Freiflug zieht das Feld auseinander. */
 const SECTION_GAP = 30;
+/** Abprall einer gewöhnlichen Wand. */
+const SEG_BOUNCE = 0.35;
 
 /** Sortiert ein Hindernis in alle Fächer ein, die es berührt. */
 function bucket(cells, item, yMin, yMax) {
@@ -218,20 +421,49 @@ function bucket(cells, item, yMin, yMax) {
   }
 }
 
-export function buildCourse(seed, sections = SECTION_COUNT) {
+/**
+ * Reihenfolge der Abschnitte. Gezogen wird wie aus einem Beutel: erst wenn alle
+ * Typen einmal dran waren, kommt einer zum zweiten Mal. So sieht keine Bahn aus
+ * wie die vorige, und nichts wiederholt sich innerhalb einer Bahn unnötig.
+ */
+function drawSections(rng, count, pool) {
+  const out = [];
+  let bag = [];
+  while (out.length < count) {
+    if (!bag.length) {
+      bag = pool.slice();
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        const t = bag[i];
+        bag[i] = bag[j];
+        bag[j] = t;
+      }
+      // Beim Nachfüllen nicht denselben Typ zweimal hintereinander
+      if (out.length && bag.length > 1 && bag[bag.length - 1] === out[out.length - 1]) {
+        const t = bag[0];
+        bag[0] = bag[bag.length - 1];
+        bag[bag.length - 1] = t;
+      }
+    }
+    out.push(bag.pop());
+  }
+  return out;
+}
+
+/**
+ * @param {number}   seed
+ * @param {number}   sections  Länge der Bahn in Abschnitten
+ * @param {string[]} pool      nur diese Abschnittstypen (zum Prüfen einzelner Typen)
+ */
+export function buildCourse(seed, sections = SECTION_COUNT, pool = SECTION_KEYS) {
   const rng = makeRng(seed);
   const course = {
-    segs: [], pegs: [], spinners: [], sliders: [],
+    segs: [], pegs: [], spinners: [], sliders: [], pistons: [], zones: [],
     height: 0, finishY: 0, pegCells: [], segCells: [],
   };
 
   let y = 120;
-  let last = '';
-  for (let i = 0; i < sections; i++) {
-    let key = SECTION_KEYS[Math.floor(rng() * SECTION_KEYS.length)];
-    // Nie zweimal dasselbe hintereinander
-    if (key === last) key = SECTION_KEYS[(SECTION_KEYS.indexOf(key) + 1) % SECTION_KEYS.length];
-    last = key;
+  for (const key of drawSections(rng, sections, pool)) {
     y += SECTIONS[key](course, y, rng) + SECTION_GAP;
   }
 
@@ -239,7 +471,10 @@ export function buildCourse(seed, sections = SECTION_COUNT) {
   course.height = course.finishY + 260;
 
   for (const p of course.pegs) bucket(course.pegCells, p, p.y - p.r, p.y + p.r);
-  for (const s of course.segs) bucket(course.segCells, s, Math.min(s.y1, s.y2), Math.max(s.y1, s.y2));
+  for (const s of course.segs) {
+    if (s.bounce === undefined) s.bounce = SEG_BOUNCE;
+    bucket(course.segCells, s, Math.min(s.y1, s.y2), Math.max(s.y1, s.y2));
+  }
   return course;
 }
 
@@ -249,9 +484,10 @@ export function buildCourse(seed, sections = SECTION_COUNT) {
  * @param {number} seed      Startwert vom Server
  * @param {number} count     Zahl der Murmeln — Reihenfolge wie in der Spielerliste
  * @param {number} sections  Länge der Bahn in Abschnitten
+ * @param {string[]} pool    nur diese Abschnittstypen (zum Prüfen einzelner Typen)
  */
-export function createRace(seed, count, sections = SECTION_COUNT) {
-  const course = buildCourse(seed, sections);
+export function createRace(seed, count, sections = SECTION_COUNT, pool = undefined) {
+  const course = buildCourse(seed, sections, pool);
   // Eigener Generator für die Startaufstellung, damit die Bahn nicht von der
   // Teilnehmerzahl abhängt
   const rng = makeRng(seed ^ 0x5bd1e995);
@@ -283,7 +519,12 @@ export function createRace(seed, count, sections = SECTION_COUNT) {
     };
   }
 
-  return { course, marbles, step: 0, winStep: 0, winner: -1, finished: [], kick: makeRng(seed ^ 0x27d4eb2f) };
+  return {
+    course, marbles, step: 0, winStep: 0, winner: -1, finished: [],
+    kick: makeRng(seed ^ 0x27d4eb2f),
+    // Wie oft eine festliegende Murmel angeschubst wurde — Messwert für neue Abschnitte
+    kicks: 0,
+  };
 }
 
 /** Stößt eine Murmel von einem Punkt ab (Nagel, Rampenende, Drehkreuz). */
@@ -325,11 +566,13 @@ function collideSegment(m, x1, y1, x2, y2, bounce, wx, wy, w) {
   resolve(m, px, py, 0, bounce, svx, svy);
 }
 
-/** Waagerechter Balken, der sich mit vx seitlich bewegt (Schieber). */
-function collideMoving(m, x1, y1, x2, bounce, vx) {
-  let px = m.x;
-  if (px < x1) px = x1; else if (px > x2) px = x2;
-  resolve(m, px, y1, 0, bounce, vx, 0);
+/** Balken, der sich als Ganzes mit (vx, vy) bewegt (Schieber, Stempel). */
+function collideMoving(m, x1, y1, x2, y2, bounce, vx, vy) {
+  const ex = x2 - x1;
+  const ey = y2 - y1;
+  let t = ((m.x - x1) * ex + (m.y - y1) * ey) / (ex * ex + ey * ey);
+  if (t < 0) t = 0; else if (t > 1) t = 1;
+  resolve(m, x1 + ex * t, y1 + ey * t, 0, bounce, vx, vy);
 }
 
 /** Ein fester Zeitschritt. */
@@ -343,6 +586,13 @@ export function stepRace(race) {
     s.x += s.v * DT;
     if (s.x > s.max) { s.x = s.max; s.v = -s.v; }
     else if (s.x < s.min) { s.x = s.min; s.v = -s.v; }
+  }
+
+  // Stempel fahren auf und ab
+  for (const p of course.pistons) {
+    p.y += p.v * DT;
+    if (p.y > p.max) { p.y = p.max; p.v = -p.v; }
+    else if (p.y < p.min) { p.y = p.min; p.v = -p.v; }
   }
 
   // Drehkreuze weiterdrehen: kleine Drehung, danach auf Länge 1 zurückholen
@@ -375,6 +625,16 @@ export function stepRace(race) {
     m.vy += GRAVITY * (1 - CATCHUP * ahead) * DT;
     m.vx *= damp;
     m.vy *= damp;
+    // Windkanal und Honig
+    for (const z of course.zones) {
+      if (m.y < z.y0 || m.y > z.y1) continue;
+      m.vx += z.ax * DT;
+      if (z.drag) {
+        const slow = 1 - z.drag * DT;
+        m.vx *= slow;
+        m.vy *= slow;
+      }
+    }
     const sp2 = m.vx * m.vx + m.vy * m.vy;
     if (sp2 > MAX_SPEED * MAX_SPEED) {
       const k = MAX_SPEED / Math.sqrt(sp2);
@@ -392,21 +652,26 @@ export function stepRace(race) {
       const pegs = course.pegCells[cell];
       if (pegs) for (const p of pegs) resolve(m, p.x, p.y, p.r, p.bounce, 0, 0);
       const segs = course.segCells[cell];
-      if (segs) for (const s of segs) collideSegment(m, s.x1, s.y1, s.x2, s.y2, 0.35, 0, 0, 0);
+      if (segs) for (const s of segs) collideSegment(m, s.x1, s.y1, s.x2, s.y2, s.bounce, 0, 0, 0);
     }
     for (const s of course.spinners) {
       const dy = m.y - s.y;
       if (dy > s.len + MARBLE_R || dy < -s.len - MARBLE_R) continue;
       const ax = s.ux * s.len;
       const ay = s.uy * s.len;
-      // Zwei Balken über Kreuz
+      // Ein Balken (Propeller) oder zwei über Kreuz
       collideSegment(m, s.x - ax, s.y - ay, s.x + ax, s.y + ay, 0.5, s.x, s.y, s.w);
-      collideSegment(m, s.x + ay, s.y - ax, s.x - ay, s.y + ax, 0.5, s.x, s.y, s.w);
+      if (s.arms === 2) collideSegment(m, s.x + ay, s.y - ax, s.x - ay, s.y + ax, 0.5, s.x, s.y, s.w);
     }
     for (const s of course.sliders) {
       const dy = m.y - s.y;
-      if (dy > MARBLE_R || dy < -MARBLE_R) continue;
-      collideMoving(m, s.x - s.half, s.y, s.x + s.half, 0.3, s.v);
+      if (dy > 30 || dy < -30) continue;
+      collideMoving(m, s.x - s.half, s.y - s.tilt, s.x + s.half, s.y + s.tilt, 0.3, s.v, 0);
+    }
+    for (const p of course.pistons) {
+      const dy = m.y - p.y;
+      if (dy > 30 || dy < -30) continue;
+      collideMoving(m, p.x - p.half, p.y - p.tilt, p.x + p.half, p.y + p.tilt, 0.3, 0, p.v);
     }
   }
 
@@ -448,6 +713,7 @@ export function stepRace(race) {
     if (m.vx * m.vx + m.vy * m.vy < 400) m.still++; else m.still = 0;
     if (m.still > STUCK_STEPS) {
       m.still = 0;
+      race.kicks++;
       m.vx = (race.kick() < 0.5 ? -1 : 1) * 160;
       m.vy = -220;
     }

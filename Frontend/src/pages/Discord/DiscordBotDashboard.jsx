@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
     Settings, UserPlus, LogOut, Gamepad2, Tag, CheckSquare,
-    Volume2, Users, Tv, Image, Globe, BarChart2, ChevronLeft,
-    Radio, Ticket, Bot, ArrowRight,
+    Volume2, Users, Tv, Image, Globe, BarChart2,
+    Radio, Ticket, Bot, ArrowRight, ArrowLeft, ChevronDown,
 } from 'lucide-react';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 
@@ -23,6 +24,7 @@ function DiscordGlyph({ className }) {
   );
 }
 import SEO from '../../components/SEO';
+import './discord.css';
 import GeneralTab from './tabs/GeneralTab';
 import WelcomeTab from './tabs/WelcomeTab';
 import LeaveTab from './tabs/LeaveTab';
@@ -52,43 +54,45 @@ const GROUPS = [
     {
         label: 'Server',
         tabs: [
-            { id: 'general',      label: 'Allgemein',      icon: <Settings size={16} /> },
-            { id: 'stats',        label: 'Statistiken',    icon: <BarChart2 size={16} /> },
+            { id: 'general',      label: 'Allgemein',      icon: <Settings size={15} /> },
+            { id: 'stats',        label: 'Statistiken',    icon: <BarChart2 size={15} /> },
         ],
     },
     {
         label: 'Mitglieder',
         tabs: [
-            { id: 'welcome',      label: 'Eintritt',       icon: <UserPlus size={16} /> },
-            { id: 'leave',        label: 'Austritt',       icon: <LogOut size={16} /> },
+            { id: 'welcome',      label: 'Eintritt',       icon: <UserPlus size={15} /> },
+            { id: 'leave',        label: 'Austritt',       icon: <LogOut size={15} /> },
         ],
     },
     {
         label: 'Rollen',
         tabs: [
-            { id: 'reactionroles',label: 'Rollen-Buttons', icon: <Tag size={16} /> },
-            { id: 'approval',     label: 'Genehmigung',    icon: <CheckSquare size={16} /> },
-            { id: 'autoroles',    label: 'Auto Roles',     icon: <Users size={16} /> },
-            { id: 'liverole',     label: 'Live Rolle',     icon: <Radio size={16} /> },
+            { id: 'reactionroles',label: 'Rollen-Buttons', icon: <Tag size={15} /> },
+            { id: 'approval',     label: 'Genehmigung',    icon: <CheckSquare size={15} /> },
+            { id: 'autoroles',    label: 'Auto Roles',     icon: <Users size={15} /> },
+            { id: 'liverole',     label: 'Live Rolle',     icon: <Radio size={15} /> },
         ],
     },
     {
         label: 'Kanäle',
         tabs: [
-            { id: 'voice',        label: 'Voice Channels', icon: <Volume2 size={16} /> },
-            { id: 'imageonly',    label: 'Image Only',     icon: <Image size={16} /> },
-            { id: 'syncchat',     label: 'Taverne',        icon: <Globe size={16} /> },
+            { id: 'voice',        label: 'Voice Channels', icon: <Volume2 size={15} /> },
+            { id: 'imageonly',    label: 'Image Only',     icon: <Image size={15} /> },
+            { id: 'syncchat',     label: 'Taverne',        icon: <Globe size={15} /> },
         ],
     },
     {
         label: 'Features',
         tabs: [
-            { id: 'funcommands',  label: 'Fun Commands',   icon: <Gamepad2 size={16} /> },
-            { id: 'twitchnotif',  label: 'Twitch Notif.',  icon: <Tv size={16} /> },
-            { id: 'tickets',      label: 'Tickets',        icon: <Ticket size={16} /> },
+            { id: 'funcommands',  label: 'Fun Commands',   icon: <Gamepad2 size={15} /> },
+            { id: 'twitchnotif',  label: 'Twitch Notif.',  icon: <Tv size={15} /> },
+            { id: 'tickets',      label: 'Tickets',        icon: <Ticket size={15} /> },
         ],
     },
 ];
+
+const ALL_TABS = GROUPS.flatMap(g => g.tabs);
 
 export default function DiscordBotDashboard() {
     const { user, login } = useContext(TwitchAuthContext);
@@ -99,6 +103,9 @@ export default function DiscordBotDashboard() {
     const [selectedServer, setSelectedServer] = useState(null);
     const [activeTab, setActiveTab] = useState('general');
     const [loginUrl, setLoginUrl] = useState('');
+    // Störung beim Laden der Server (Discord gedrosselt/nicht erreichbar) — KEIN „abgemeldet“
+    const [discordDown, setDiscordDown] = useState('');
+    const [switcherOpen, setSwitcherOpen] = useState(false);
 
     // Shared data fetched per server
     const [channels, setChannels] = useState([]);
@@ -114,24 +121,97 @@ export default function DiscordBotDashboard() {
     const [leaveChannel, setLeaveChannel] = useState('');
     const [leaveMessage, setLeaveMessage] = useState('Schade, [USER] hat [SERVER] verlassen. Noch [MEMBER] Mitglieder übrig.');
     const [funChannel, setFunChannel] = useState('');
+    const [welcomeStyle, setWelcomeStyle] = useState('text');
+    const [leaveStyle, setLeaveStyle] = useState('text');
     const [disabledCommands, setDisabledCommands] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
 
+    // Zuletzt gespeicherter Stand der gemeinsamen Einstellungen (Allgemein,
+    // Eintritt, Austritt, Fun Commands). Der Unterschied dazu ist "ungespeichert".
+    const [saved, setSaved] = useState(null);
+    // Unterseiten mit eigenem Speichern (Voice) melden ihren Stand hierher
+    const [tabDirty, setTabDirty] = useState(false);
+    // Welche Bereiche eingerichtet sind — für die Punkte in der Bereichsliste
+    const [overview, setOverview] = useState({});
+
+    const current = {
+        prefix, botNickname, welcomeChannel, welcomeMessage, welcomeStyle,
+        leaveChannel, leaveMessage, leaveStyle, funChannel, disabledCommands,
+    };
+    const currentJson = JSON.stringify(current);
+    const sharedDirty = !!saved && currentJson !== JSON.stringify(saved);
+    const dirty = sharedDirty || tabDirty;
+
+    const applySettings = (d) => {
+        setPrefix(d.prefix); setBotNickname(d.botNickname);
+        setWelcomeChannel(d.welcomeChannel); setWelcomeMessage(d.welcomeMessage); setWelcomeStyle(d.welcomeStyle);
+        setLeaveChannel(d.leaveChannel); setLeaveMessage(d.leaveMessage); setLeaveStyle(d.leaveStyle);
+        setFunChannel(d.funChannel); setDisabledCommands(d.disabledCommands);
+    };
+
+    const loadOverview = (serverId) => {
+        fetch(`/api/discord/settings/${serverId}/overview`).then(r => r.json()).then(d => setOverview(d || {})).catch(() => {});
+    };
+
+    /** Vor dem Verlassen eines Bereichs: offene Änderungen bestätigen lassen und verwerfen. */
+    const leaveGuard = (go) => {
+        if (dirty && !window.confirm('Du hast ungespeicherte Änderungen. Verwerfen und weitergehen?')) return;
+        if (sharedDirty) applySettings(saved);
+        setTabDirty(false);
+        go();
+    };
+    const switchTab = (id) => { if (id !== activeTab) leaveGuard(() => setActiveTab(id)); };
+    const switchServer = (server) => leaveGuard(() => { setSelectedServer(server); setSwitcherOpen(false); });
+
+    // Auch beim Schließen oder Neuladen des Fensters warnen
+    useEffect(() => {
+        if (!dirty) return undefined;
+        const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [dirty]);
+
+    // Punkte auffrischen, wenn man den Bereich wechselt — dort wurde evtl. etwas eingerichtet
+    const serverId = selectedServer?.id;
+    useEffect(() => {
+        if (serverId) loadOverview(serverId);
+    }, [serverId, activeTab]);
+
     useEffect(() => {
         if (!user) { setLoading(false); return; }
-        fetch('/api/discord/guilds')
-            .then(r => r.json())
-            .then(data => {
-                if (data.guilds) {
-                    setServers(data.guilds);
-                    setIsDiscordLoggedIn(true);
-                } else {
-                    fetch('/api/discord/login-url').then(r => r.json()).then(d => setLoginUrl(d.url));
-                    setIsDiscordLoggedIn(false);
-                }
-            })
-            .finally(() => setLoading(false));
+        let alive = true;
+        let retry = 0;
+        const load = () => {
+            fetch('/api/discord/guilds')
+                .then(async (r) => ({ status: r.status, data: await r.json().catch(() => ({})) }))
+                .then(({ status, data }) => {
+                    if (!alive) return;
+                    if (data.guilds) {
+                        setServers(data.guilds);
+                        setIsDiscordLoggedIn(true);
+                        setDiscordDown('');
+                    } else if (status === 401) {
+                        // Nur das heißt wirklich „nicht verknüpft“
+                        fetch('/api/discord/login-url').then(r => r.json()).then(d => { if (alive) setLoginUrl(d.url); });
+                        setIsDiscordLoggedIn(false);
+                        setDiscordDown('');
+                    } else {
+                        // Discord oder das Backend antwortet gerade nicht: nicht zur Anmeldung schicken,
+                        // sondern melden und von selbst noch einmal versuchen
+                        setDiscordDown(data.error || 'Discord antwortet gerade nicht.');
+                        retry = setTimeout(load, 8000);
+                    }
+                })
+                .catch(() => {
+                    if (!alive) return;
+                    setDiscordDown('Keine Verbindung zum Server.');
+                    retry = setTimeout(load, 8000);
+                })
+                .finally(() => { if (alive) setLoading(false); });
+        };
+        load();
+        return () => { alive = false; clearTimeout(retry); };
     }, [user]);
 
     useEffect(() => {
@@ -141,15 +221,24 @@ export default function DiscordBotDashboard() {
         fetch(`/api/discord/guilds/${selectedServer.id}/roles`).then(r => r.json()).then(d => setServerRoles(d.roles || []));
         fetch(`/api/discord/guilds/${selectedServer.id}/emojis`).then(r => r.json()).then(d => setServerEmojis(d.emojis || []));
         fetch(`/api/discord/settings/${selectedServer.id}`).then(r => r.json()).then(d => {
-            setPrefix(d.prefix || '!');
-            setBotNickname(d.botNickname || '');
-            setWelcomeChannel(d.welcomeChannel || '');
-            setWelcomeMessage(d.welcomeMessage || 'Willkommen [USER] auf [SERVER]! Du bist unser Mitglied #[MEMBER]');
-            setLeaveChannel(d.leaveChannel || '');
-            setLeaveMessage(d.leaveMessage || 'Schade, [USER] hat [SERVER] verlassen. Noch [MEMBER] Mitglieder übrig.');
-            setFunChannel(d.funChannel || '');
-            setDisabledCommands(d.disabledCommands || []);
+            const loaded = {
+                prefix: d.prefix || '!',
+                botNickname: d.botNickname || '',
+                welcomeChannel: d.welcomeChannel || '',
+                welcomeMessage: d.welcomeMessage || 'Willkommen [USER] auf [SERVER]! Du bist unser Mitglied #[MEMBER]',
+                welcomeStyle: ['card', 'image'].includes(d.welcomeStyle) ? d.welcomeStyle : 'text',
+                leaveChannel: d.leaveChannel || '',
+                leaveMessage: d.leaveMessage || 'Schade, [USER] hat [SERVER] verlassen. Noch [MEMBER] Mitglieder übrig.',
+                leaveStyle: ['card', 'image'].includes(d.leaveStyle) ? d.leaveStyle : 'text',
+                funChannel: d.funChannel || '',
+                disabledCommands: d.disabledCommands || [],
+            };
+            applySettings(loaded);
+            setSaved(loaded);
         });
+        setSaved(null);
+        setTabDirty(false);
+        setOverview({});
         setActiveTab('general');
     }, [selectedServer]);
 
@@ -160,14 +249,13 @@ export default function DiscordBotDashboard() {
             const res = await fetch(`/api/discord/settings/${selectedServer.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prefix, botNickname,
-                    welcomeChannel, welcomeMessage,
-                    leaveChannel, leaveMessage,
-                    funChannel, disabledCommands,
-                }),
+                body: currentJson,
             });
             setSaveStatus(res.ok ? 'Gespeichert!' : 'Fehler.');
+            if (res.ok) {
+                setSaved(current);
+                loadOverview(selectedServer.id);
+            }
         } catch {
             setSaveStatus('Netzwerkfehler.');
         } finally {
@@ -176,18 +264,20 @@ export default function DiscordBotDashboard() {
         }
     };
 
+    const seo = (title, description) => <SEO title={title} description={description} path="/discord-bot" />;
+
+    /* ── Vor der Anmeldung: bleibt im normalen Layout der Website ───────────────
+       Diese Fassungen sehen Besucher und Suchmaschinen. */
     if (!user) return (
         <div className="page-fade h-full flex items-center justify-center p-6">
-            <SEO title="Discord Bot" description="Verwalte deinen Discord Bot." path="/discord-bot" />
-            <div className="panel p-10 max-w-md w-full flex flex-col items-center gap-5 text-center">
-                <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
-                    <Bot size={26} />
-                </span>
+            {seo('Discord Bot', 'Verwalte deinen Discord Bot.')}
+            <div className="dc-root dc-card p-8 max-w-sm w-full flex flex-col items-center gap-5 text-center">
+                <Bot size={26} className="text-white/60" />
                 <div>
-                    <h1 className="font-display text-2xl font-bold text-white mb-2">Discord-Bot</h1>
+                    <h1 className="text-xl font-bold text-white mb-1.5">Discord-Bot</h1>
                     <p className="text-sm text-white/50">Melde dich mit Twitch an, um den Bot zu verwalten.</p>
                 </div>
-                <button onClick={() => login(false)} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+                <button onClick={() => login(false)} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-5 h-10 rounded-md text-sm font-semibold transition-colors">
                     <TwitchGlyph className="w-4 h-4" /> Mit Twitch anmelden
                 </button>
                 <LegalLinks />
@@ -196,23 +286,32 @@ export default function DiscordBotDashboard() {
     );
     if (loading) return (
         <div className="page-fade h-full flex items-center justify-center">
-            <SEO title="Discord Bot" description="Verwalte deinen Discord Bot." path="/discord-bot" />
-            <p className="text-white/40 animate-pulse font-medium text-sm">Lade Dashboard...</p>
+            {seo('Discord Bot', 'Verwalte deinen Discord Bot.')}
+            <p className="text-white/40 font-medium text-sm">Lade Dashboard…</p>
+        </div>
+    );
+
+    if (!isDiscordLoggedIn && discordDown) return (
+        <div className="page-fade h-full flex items-center justify-center p-6">
+            {seo('Discord Bot', 'Verwalte deinen Discord Bot.')}
+            <div className="dc-root dc-card p-8 max-w-sm w-full flex flex-col items-center gap-3 text-center">
+                <DiscordGlyph className="w-7 h-7 text-[#7984f5]" />
+                <h1 className="text-xl font-bold text-white">Discord antwortet gerade nicht</h1>
+                <p className="text-sm text-white/50">{discordDown} Deine Verknüpfung bleibt bestehen — die Seite versucht es von selbst erneut.</p>
+            </div>
         </div>
     );
 
     if (!isDiscordLoggedIn) return (
         <div className="page-fade h-full flex items-center justify-center p-6">
-            <SEO title="Discord Bot" description="Verwalte deinen Discord Bot." path="/discord-bot" />
-            <div className="panel p-10 max-w-md w-full flex flex-col items-center gap-5 text-center">
-                <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#5865F2]/10 border border-[#5865F2]/30 text-[#7984f5]">
-                    <DiscordGlyph className="w-6 h-6" />
-                </span>
+            {seo('Discord Bot', 'Verwalte deinen Discord Bot.')}
+            <div className="dc-root dc-card p-8 max-w-sm w-full flex flex-col items-center gap-5 text-center">
+                <DiscordGlyph className="w-7 h-7 text-[#7984f5]" />
                 <div>
-                    <h1 className="font-display text-2xl font-bold text-white mb-2">Discord verknüpfen</h1>
+                    <h1 className="text-xl font-bold text-white mb-1.5">Discord verknüpfen</h1>
                     <p className="text-sm text-white/50">Verbinde deinen Discord-Account, um deine Server zu verwalten.</p>
                 </div>
-                <a href={loginUrl} className="flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+                <a href={loginUrl} className="dc-btn !min-h-[40px] !px-5">
                     <DiscordGlyph className="w-4 h-4" /> Mit Discord anmelden
                 </a>
                 <LegalLinks />
@@ -220,103 +319,166 @@ export default function DiscordBotDashboard() {
         </div>
     );
 
-    if (!selectedServer) return (
-        <div className="page-fade h-full overflow-y-auto p-4 md:p-8 custom-scrollbar">
-            <SEO title="Discord Bot" description="Wähle einen Server aus um deinen Discord Bot zu verwalten." path="/discord-bot" />
-            <div className="max-w-6xl mx-auto">
-                <h1 className="font-display text-3xl font-bold text-white tracking-tight mb-8">Deine Server</h1>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                    {servers.map(server => (
-                        <div key={server.id} className="panel p-6 flex flex-col items-center group">
-                            <div className="w-20 h-20 rounded-2xl bg-[#0e0e1a]/85 mb-4 overflow-hidden border border-white/10 group-hover:border-violet-400/30 transition-colors">
-                                {server.icon
-                                    ? <img src={server.icon} className="w-full h-full object-cover " alt={server.name} />
-                                    : <div className="text-3xl text-white/40 w-full h-full flex items-center justify-center">{server.name.charAt(0)}</div>}
-                            </div>
-                            <h3 className="text-white font-semibold mb-4 text-base text-center">{server.name}</h3>
-                            {server.botPresent ? (
-                                <button onClick={() => setSelectedServer(server)}
-                                    className="w-full bg-violet-600 hover:bg-violet-500 text-white py-2.5 rounded-lg font-semibold transition-colors text-sm flex items-center justify-center gap-1.5">
-                                    Dashboard öffnen <ArrowRight size={14} />
-                                </button>
-                            ) : (
-                                <a href={server.inviteUrl} target="_blank" rel="noopener noreferrer"
-                                    className="block w-full text-center bg-white/5 hover:bg-[#5865F2] text-white py-2.5 rounded-lg font-semibold transition-colors text-sm">
-                                    Bot einladen
-                                </a>
-                            )}
-                        </div>
-                    ))}
-                </div>
-                <LegalLinks className="justify-center mt-10" />
-            </div>
-        </div>
+    const serverIcon = (server, size) => (
+        <span className="shrink-0 rounded-md overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center text-white/50 font-bold"
+            style={{ width: size, height: size, fontSize: size * 0.42 }}>
+            {server.icon
+                ? <img src={server.icon} className="w-full h-full object-cover" alt="" />
+                : server.name.charAt(0)}
+        </span>
     );
 
-    // ── App-like layout: fixed header + sidebar + scrollable content ──────────
-    return (
-        <div className="h-full flex flex-col overflow-hidden">
-            <SEO
-                title={`${selectedServer.name} – Discord Bot`}
-                description={`Discord Bot Dashboard für den Server ${selectedServer.name}.`}
-                path="/discord-bot"
-            />
+    const activeItem = ALL_TABS.find(t => t.id === activeTab) || ALL_TABS[0];
+    const managed = servers.filter(s => s.botPresent);
+    const inviteable = servers.filter(s => !s.botPresent);
 
-            {/* Top bar — fixed, never scrolls */}
-            <div className="shrink-0 h-14 bg-[#0e0e1a]/80 border-b border-white/10 flex items-center px-4 gap-3">
-                <button onClick={() => setSelectedServer(null)}
-                    className="text-white/40 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5 shrink-0">
-                    <ChevronLeft size={20} />
-                </button>
-                <div className="w-8 h-8 rounded-lg bg-[#0e0e1a]/90 overflow-hidden border border-white/10 shrink-0">
-                    {selectedServer.icon
-                        ? <img src={selectedServer.icon} className="w-full h-full object-cover" alt={selectedServer.name} />
-                        : <div className="text-sm text-white/50 w-full h-full flex items-center justify-center font-bold">{selectedServer.name.charAt(0)}</div>}
-                </div>
-                <span className="text-white font-semibold truncate">{selectedServer.name}</span>
-                <span className="text-violet-300 text-xs font-semibold shrink-0 bg-violet-500/10 border border-violet-400/20 px-2 py-0.5 rounded-md">Dashboard</span>
-            </div>
+    // Ab hier eine eigene Oberfläche über das ganze Fenster — ohne die Kopfzeile
+    // der Website. Als Portal, weil der Inhaltsbereich des Layouts einen eigenen
+    // Stapelkontext hat und die Kopfzeile sonst darüber läge.
+    return createPortal(
+        <div className="dc-root fixed inset-0 z-[200] flex flex-col">
+            {seo(
+                selectedServer ? `${selectedServer.name} – Discord Bot` : 'Discord Bot',
+                selectedServer ? `Discord Bot Dashboard für den Server ${selectedServer.name}.` : 'Wähle einen Server aus um deinen Discord Bot zu verwalten.',
+            )}
 
-            {/* Body — sidebar + content */}
-            <div className="flex-1 flex overflow-hidden">
+            {/* ══════════ Kopfleiste ══════════ */}
+            <header className="relative z-30 shrink-0 h-12 flex items-center gap-2 px-3 border-b border-[var(--dc-line)] bg-[var(--dc-rail)]">
+                <Link to="/tools" title="Zurück zur Website"
+                    className="w-8 h-8 inline-flex items-center justify-center rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors">
+                    <ArrowLeft size={16} />
+                </Link>
+                <DiscordGlyph className="w-4 h-4 text-[#7984f5] shrink-0" />
+                <h1 className="text-[14px] font-bold text-white whitespace-nowrap">Discord-Bot</h1>
 
-                {/* Sidebar — fixed, never scrolls */}
-                <div className="w-56 shrink-0 bg-[#0e0e1a]/75 border-r border-white/10 flex flex-col py-2 px-2 overflow-y-auto custom-scrollbar">
-                    {GROUPS.map(group => (
-                        <div key={group.label} className="mb-1">
-                            <p className="text-white/30 text-[10px] font-semibold uppercase tracking-wider px-3 pt-3 pb-1">{group.label}</p>
-                            {group.tabs.map(item => (
-                                <button key={item.id} onClick={() => setActiveTab(item.id)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-2.5 mb-0.5 ${
-                                        activeTab === item.id
-                                            ? 'bg-violet-600 text-white'
-                                            : 'text-white/50 hover:bg-white/5 hover:text-white'
-                                    }`}>
-                                    <span className="shrink-0">{item.icon}</span>
-                                    <span className="text-sm">{item.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    ))}
-                    <div className="mt-auto pt-3 px-3">
-                        <LegalLinks />
+                {selectedServer && (
+                    <div className="relative ml-2 min-w-0">
+                        <button type="button" onClick={() => setSwitcherOpen(v => !v)} aria-expanded={switcherOpen}
+                            className="h-8 pl-1.5 pr-2 inline-flex items-center gap-2 rounded-md border border-white/10 hover:border-white/25 text-[13px] font-semibold text-white max-w-[52vw] transition-colors">
+                            {serverIcon(selectedServer, 22)}
+                            <span className="truncate">{selectedServer.name}</span>
+                            <ChevronDown size={13} className="text-white/40 shrink-0" />
+                        </button>
+                        {switcherOpen && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setSwitcherOpen(false)} />
+                                <div className="absolute left-0 top-full mt-1.5 z-20 w-72 max-w-[calc(100vw-16px)] max-h-[70dvh] overflow-y-auto custom-scrollbar rounded-md border border-white/10 bg-[#14151f] shadow-xl py-1">
+                                    {managed.map(server => (
+                                        <button key={server.id} type="button"
+                                            onClick={() => switchServer(server)}
+                                            className={`w-full flex items-center gap-2.5 px-2.5 h-10 text-left text-[13px] font-semibold transition-colors ${
+                                                server.id === selectedServer.id ? 'bg-[#5865f2]/20 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'
+                                            }`}>
+                                            {serverIcon(server, 24)}
+                                            <span className="truncate">{server.name}</span>
+                                        </button>
+                                    ))}
+                                    <button type="button" onClick={() => switchServer(null)}
+                                        className="w-full px-3 h-9 mt-1 border-t border-white/10 text-left text-[12px] font-semibold text-white/50 hover:text-white transition-colors">
+                                        Alle Server anzeigen
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {dirty && selectedServer && <span className="dc-unsaved ml-3 hidden md:inline-flex">Ungespeichert</span>}
+                <LegalLinks className="ml-auto hidden sm:flex" />
+            </header>
+
+            {/* ══════════ Serverauswahl ══════════ */}
+            {!selectedServer && (
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-8">
+                    <div className="max-w-2xl mx-auto">
+                        <h2 className="dc-h2">Deine Server</h2>
+                        <p>Wähle den Server, den du einrichten möchtest.</p>
+
+                        {[['Mit Bot', managed], ['Bot noch nicht eingeladen', inviteable]].map(([title, list]) => list.length > 0 && (
+                            <section key={title} className="mt-6">
+                                <h3 className="text-[10.5px] font-bold uppercase tracking-wider text-white/40 mb-2">{title}</h3>
+                                <div className="dc-card divide-y divide-white/[0.07]">
+                                    {list.map(server => (
+                                        <div key={server.id} className="flex items-center gap-3 p-2.5 pl-3">
+                                            {serverIcon(server, 36)}
+                                            <span className="flex-1 min-w-0 truncate text-[14px] font-semibold text-white">{server.name}</span>
+                                            {server.botPresent ? (
+                                                <button onClick={() => setSelectedServer(server)} className="dc-btn">
+                                                    Einrichten <ArrowRight size={14} />
+                                                </button>
+                                            ) : (
+                                                <a href={server.inviteUrl} target="_blank" rel="noopener noreferrer"
+                                                    className="h-9 px-4 inline-flex items-center rounded-md border border-white/10 hover:border-white/25 text-[13px] font-bold text-white/80 hover:text-white transition-colors">
+                                                    Bot einladen
+                                                </a>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        ))}
+                        {servers.length === 0 && <p className="mt-6">Auf keinem deiner Server hast du Verwaltungsrechte.</p>}
                     </div>
                 </div>
+            )}
 
-                {/* Content — only this scrolls */}
-                <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+            {/* ══════════ Dashboard: Bereiche links, Unterseite rechts ══════════ */}
+            {selectedServer && (
+                <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+                    {/* Schmale Fenster: Auswahl als Feld statt als Leiste */}
+                    <div className="lg:hidden shrink-0 p-3 border-b border-[var(--dc-line)] bg-[var(--dc-rail)]">
+                        <select value={activeTab} onChange={e => switchTab(e.target.value)} className="dc-input w-full" aria-label="Bereich">
+                            {GROUPS.map(group => (
+                                <optgroup key={group.label} label={group.label}>
+                                    {group.tabs.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+                                </optgroup>
+                            ))}
+                        </select>
+                    </div>
+
+                    <nav className="hidden lg:block w-[212px] shrink-0 overflow-y-auto custom-scrollbar border-r border-[var(--dc-line)] bg-[var(--dc-rail)] pb-3">
+                        {GROUPS.map(group => (
+                            <section key={group.label}>
+                                <p className="text-[10.5px] font-bold uppercase tracking-wider text-white/35 px-3.5 pt-3.5 pb-1.5">{group.label}</p>
+                                {group.tabs.map(item => {
+                                    const isActive = activeTab === item.id;
+                                    return (
+                                        <button key={item.id} type="button" onClick={() => switchTab(item.id)} aria-pressed={isActive}
+                                            className={`relative w-full flex items-center gap-2.5 h-9 pl-3.5 pr-3 text-left text-[13px] font-semibold transition-colors ${
+                                                isActive ? 'bg-[#5865f2]/[0.16] text-white' : 'text-white/55 hover:bg-white/[0.04] hover:text-white'
+                                            }`}>
+                                            <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-[2px] ${isActive ? 'bg-[#5865f2]' : 'bg-transparent'}`} />
+                                            <span className={`shrink-0 ${isActive ? 'text-[#8f98f8]' : 'text-white/35'}`}>{item.icon}</span>
+                                            <span className="truncate">{item.label}</span>
+                                            {/* Nur Bereiche, die man ein- und ausschalten kann, haben einen Punkt */}
+                                            {item.id in overview && (
+                                                <span className={`dc-dot${overview[item.id] ? ' is-on' : ''}`}
+                                                    title={overview[item.id] ? 'Eingerichtet' : 'Noch nicht eingerichtet'} />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </section>
+                        ))}
+                    </nav>
+
+                    {/* Nur dieser Bereich blättert */}
+                    <main key={activeItem.id} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6">
                     {activeTab === 'general' && (
                         <GeneralTab
                             prefix={prefix} setPrefix={setPrefix}
                             botNickname={botNickname} setBotNickname={setBotNickname}
                             isSaving={isSaving} saveStatus={saveStatus}
                             handleSaveSettings={handleSaveSettings}
+                            dirty={sharedDirty}
                         />
                     )}
                     {activeTab === 'welcome' && (
                         <WelcomeTab
                             welcomeChannel={welcomeChannel} setWelcomeChannel={setWelcomeChannel}
                             welcomeMessage={welcomeMessage} setWelcomeMessage={setWelcomeMessage}
+                            welcomeStyle={welcomeStyle} setWelcomeStyle={setWelcomeStyle}
+                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} dirty={sharedDirty}
                             channels={channels}
                             isSaving={isSaving} saveStatus={saveStatus}
                             handleSaveSettings={handleSaveSettings}
@@ -326,6 +488,8 @@ export default function DiscordBotDashboard() {
                         <LeaveTab
                             leaveChannel={leaveChannel} setLeaveChannel={setLeaveChannel}
                             leaveMessage={leaveMessage} setLeaveMessage={setLeaveMessage}
+                            leaveStyle={leaveStyle} setLeaveStyle={setLeaveStyle}
+                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} dirty={sharedDirty}
                             channels={channels}
                             isSaving={isSaving} saveStatus={saveStatus}
                             handleSaveSettings={handleSaveSettings}
@@ -339,6 +503,7 @@ export default function DiscordBotDashboard() {
                             handleSaveSettings={handleSaveSettings}
                             disabledCommands={disabledCommands}
                             setDisabledCommands={setDisabledCommands}
+                            dirty={sharedDirty}
                         />
                     )}
                     {activeTab === 'reactionroles' && (
@@ -362,6 +527,7 @@ export default function DiscordBotDashboard() {
                         <VoiceTab
                             selectedServer={selectedServer}
                             voiceChannels={voiceChannels}
+                            onDirty={setTabDirty}
                         />
                     )}
                     {activeTab === 'autoroles' && (
@@ -407,9 +573,11 @@ export default function DiscordBotDashboard() {
                             serverRoles={serverRoles}
                         />
                     )}
+                    </main>
                 </div>
-            </div>
-        </div>
+            )}
+        </div>,
+        document.body,
     );
 }
 

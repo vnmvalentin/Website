@@ -1,6 +1,6 @@
 // ui/GameScreen.jsx — Rahmen eines laufenden Matches: Animations-Queue, Effekte (Sound, Partikel, Shake, Spannung)
 // und Umschaltung zwischen den Phasen (Draft, Extras, Kampf, Pfad, Rast, Ergebnis).
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FastForward, Flag, Wifi, WifiOff } from "lucide-react";
 import { useAnimationQueue } from "./anim/useAnimationQueue.js";
 import { EVENT_TIMING } from "./anim/timing.js";
@@ -15,6 +15,10 @@ import ExtrasScreen from "./screens/ExtrasScreen.jsx";
 import PathScreen from "./path/PathScreen.jsx";
 import InterludeScreen from "./screens/InterludeScreen.jsx";
 import ResultScreen from "./screens/ResultScreen.jsx";
+import { TableStage } from "./battle/table3d/tableStage.js";
+
+/** Phase → Ansicht des 3D-Tischs (Kampf und Pfad melden sich selbst, mit mehr Angaben). */
+const TABLE_STAGE = { draft: "draft", extras: "totem", interlude: "rest", over: "rest" };
 
 /**
  * @param {{ game: any, extra?: any, onBattleAction?: (a: any) => void, onExit?: () => void, bar?: React.ReactNode }} props
@@ -150,6 +154,7 @@ export default function GameScreen({ game, extra, onBattleAction, onExit, bar })
   useEffect(() => () => setTension(0), [setTension]);
 
   const [confirmSurrender, setConfirmSurrender] = useState(false);
+  const phaseRef = useRef(/** @type {HTMLDivElement|null} */ (null));
   const view = q.view;
   // Farbthema des Zirkels am äußeren Spielrahmen (Tisch, Holz, Messing): Gezeiten = nasses Treibholz im Sturmlicht
   const zirkelTheme = view?.settings?.zirkel || "moor";
@@ -198,6 +203,8 @@ export default function GameScreen({ game, extra, onBattleAction, onExit, bar })
       </div>}
       {game.notice && <div className="ss-toast ss-paper" role="status">{game.notice}</div>}
 
+      {/* Neu pro Phase: blendet nach dem Wechsel weich ein, während der 3D-Tisch die Kamera umsetzt */}
+      <div key={phase} ref={phaseRef} className="ss-phase">
       {phase === "draft" && <DraftScreen {...common} timers={game.timers} clockOffset={game.clockOffset} />}
       {phase === "extras" && <ExtrasScreen {...common} timers={game.timers} clockOffset={game.clockOffset} />}
       {phase === "battle" && q.display && (
@@ -206,6 +213,9 @@ export default function GameScreen({ game, extra, onBattleAction, onExit, bar })
       {phase === "path" && <PathScreen {...common} timers={game.timers} clockOffset={game.clockOffset} events={game.batches} />}
       {phase === "interlude" && <InterludeScreen {...common} />}
       {phase === "over" && <ResultScreen {...common} onRematch={game.lobby?.rematch} onExit={onExit} rematchState={game.room} />}
+      </div>
+      {/* nach dem Rahmen, damit dessen ref beim Melden schon gesetzt ist */}
+      {TABLE_STAGE[phase] && <TableStage stage={TABLE_STAGE[phase]} zirkel={zirkelTheme} anchor={phaseRef} />}
     </div>
   );
 }

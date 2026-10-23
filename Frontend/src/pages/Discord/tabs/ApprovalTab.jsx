@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { X, Smile, Search, Pencil, Trash2 } from 'lucide-react';
+import { DcAddTile } from '../ui';
 
 const EMPTY_FORM = {
     title: '',
@@ -113,15 +115,15 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                 body: JSON.stringify(form),
             });
             if (res.ok) {
-                setSaveStatus(editingId ? '✅ Aktualisiert!' : '✅ Embed erstellt!');
+                setSaveStatus(editingId ? 'Aktualisiert!' : 'Embed erstellt!');
                 loadConfigs();
                 setTimeout(() => setView('list'), 1500);
             } else {
                 const data = await res.json().catch(() => ({}));
-                setSaveStatus(`❌ ${data.error || 'Fehler.'}`);
+                setSaveStatus(`Fehler: ${data.error || 'Fehler.'}`);
             }
         } catch {
-            setSaveStatus('❌ Netzwerkfehler.');
+            setSaveStatus('Fehler: keine Verbindung zum Server.');
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 4000);
@@ -151,33 +153,33 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
         return (
             <div className="">
                 <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-4">
-                    <button onClick={() => setView('list')} className="text-white/40 hover:text-white transition-colors text-xl">✕</button>
-                    <h2 className="text-2xl text-white font-bold">
-                        {editingId ? '✏️ Genehmigung bearbeiten' : '➕ Neues Genehmigungsverfahren'}
+                    <button onClick={() => setView('list')} className="text-white/40 hover:text-white transition-colors text-xl"><X size={14} /></button>
+                    <h2 className="dc-h2">
+                        {editingId ? 'Genehmigung bearbeiten' : 'Neues Genehmigungsverfahren'}
                     </h2>
                 </div>
 
                 <div className="space-y-6 max-w-2xl">
-                    {/* ① Allgemein */}
-                    <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-4">
-                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">① Allgemein</h3>
+                    {/* 1. Allgemein */}
+                    <div className="dc-card p-5 space-y-4">
+                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">1. Allgemein</h3>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Interner Name (nur im Dashboard)</label>
+                            <label className="dc-label">Interner Name (nur im Dashboard)</label>
                             <input
                                 type="text"
                                 value={form.title}
                                 onChange={e => setField('title', e.target.value)}
                                 placeholder="z.B. Mitglieder-Bewerbung"
-                                className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+                                className="dc-input w-full"
                             />
                         </div>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Kanal für das Embed</label>
+                            <label className="dc-label">Kanal für das Embed</label>
                             <select
                                 value={form.channelId}
                                 onChange={e => setField('channelId', e.target.value)}
                                 disabled={!!editingId}
-                                className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none disabled:opacity-50"
+                                className="dc-input w-full"
                             >
                                 <option value="">-- Kanal wählen --</option>
                                 {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
@@ -186,55 +188,53 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                         </div>
                     </div>
 
-                    {/* ② Embed Inhalt */}
-                    <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-4">
-                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">② Embed Inhalt</h3>
+                    {/* 2. Embed Inhalt */}
+                    <div className="dc-card p-5 space-y-4">
+                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">2. Embed Inhalt</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-white text-sm font-medium mb-2">Embed Titel</label>
+                                <label className="dc-label">Embed Titel</label>
                                 <input
                                     type="text"
                                     value={form.embedTitle}
                                     onChange={e => setField('embedTitle', e.target.value)}
                                     placeholder="📩 Mitgliedschaft beantragen"
-                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+                                    className="dc-input w-full"
                                 />
                             </div>
                             <div>
-                                <label className="block text-white text-sm font-medium mb-2">Embed Farbe</label>
-                                <div className="flex gap-2 items-center bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-1.5 pr-4">
+                                <label className="dc-label">Embed Farbe</label>
+                                <div className="dc-card flex gap-2 items-center p-1.5 pr-4">
                                     <input
                                         type="color"
                                         value={form.embedColor}
                                         onChange={e => setField('embedColor', e.target.value)}
                                         className="w-10 h-10 rounded cursor-pointer border-0 bg-transparent p-0"
                                     />
-                                    <span className="text-white/60 font-mono text-sm uppercase">{form.embedColor}</span>
+                                    <span className="text-white/60 text-sm uppercase">{form.embedColor}</span>
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Embed Text</label>
+                            <label className="dc-label">Embed Text</label>
                             <div className="relative" ref={emojiRef}>
                                 <textarea
                                     value={form.embedText}
                                     onChange={e => setField('embedText', e.target.value)}
                                     rows="4"
                                     placeholder="Beschreibe hier wie der Bewerbungsprozess abläuft..."
-                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-4 pr-12 text-white focus:border-violet-500 outline-none resize-y"
+                                    className="dc-input w-full pr-12 resize-y"
                                 />
                                 {serverEmojis.length > 0 && (
                                     <button
                                         onClick={() => setShowEmbedEmojiPicker(v => !v)}
-                                        className="absolute right-3 top-3 p-2 text-white/50 hover:text-violet-400 bg-[#0e0e1a]/75 rounded-lg border border-white/5 transition-colors"
+                                        className="absolute right-3 top-3 p-2 text-white/50 hover:text-indigo-400 bg-[#0e0e1a]/75 rounded-md border border-white/5 transition-colors"
                                         title="Server Emoji einfügen"
                                         type="button"
-                                    >
-                                        😀
-                                    </button>
+                                    ><Smile size={14} /></button>
                                 )}
                                 {showEmbedEmojiPicker && (
-                                    <div className="absolute right-0 top-14 w-64 bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 z-50">
+                                    <div className="dc-card absolute right-0 top-14 w-64 p-3 z-50">
                                         <div className="text-xs text-white/50 mb-2 font-medium">Server Emoji einfügen</div>
                                         <div
                                             className="grid grid-cols-5 gap-1.5 max-h-48 overflow-y-auto pr-1"
@@ -244,7 +244,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                                 <button
                                                     key={e.id}
                                                     onClick={() => insertEmoji(e)}
-                                                    className="p-1.5 hover:bg-white/10 rounded-lg flex justify-center items-center transition-colors"
+                                                    className="p-1.5 hover:bg-white/10 rounded-md flex justify-center items-center transition-colors"
                                                     title={e.name}
                                                     type="button"
                                                 >
@@ -258,9 +258,9 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                         </div>
                     </div>
 
-                    {/* ③ Genehmiger */}
-                    <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-4">
-                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">③ Genehmiger</h3>
+                    {/* 3. Genehmiger */}
+                    <div className="dc-card p-5 space-y-4">
+                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">3. Genehmiger</h3>
                         <p className="text-white/50 text-xs">Diese Mitglieder erhalten Zugriff auf den privaten Thread und können genehmigen/ablehnen.</p>
 
                         {form.approverIds.length > 0 && (
@@ -268,7 +268,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 {form.approverIds.map(id => {
                                     const m = members.find(m => m.id === id);
                                     return (
-                                        <span key={id} className="flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs px-2 py-1.5 rounded-full">
+                                        <span key={id} className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs px-2 py-1.5 rounded-full">
                                             {m?.avatar
                                                 ? <img src={m.avatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
                                                 : <span className="w-5 h-5 rounded-full bg-[#5865F2] flex items-center justify-center text-white font-bold shrink-0" style={{ fontSize: 10 }}>{(m?.displayName || id).charAt(0).toUpperCase()}</span>
@@ -276,7 +276,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                             {getApproverName(id)}
                                             <button
                                                 onClick={() => toggleApprover(id)}
-                                                className="text-violet-400/60 hover:text-red-400 ml-0.5 transition-colors"
+                                                className="text-indigo-400/60 hover:text-red-400 ml-0.5 transition-colors"
                                                 type="button"
                                             >×</button>
                                         </span>
@@ -287,14 +287,14 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
 
                         <div className="relative" ref={memberRef}>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm pointer-events-none">🔍</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm pointer-events-none"><Search size={14} /></span>
                                 <input
                                     type="text"
                                     value={memberSearch}
                                     onChange={e => { setMemberSearch(e.target.value); setShowMemberDropdown(true); }}
                                     onFocus={() => setShowMemberDropdown(true)}
                                     placeholder="Mitglied suchen..."
-                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg py-3 pl-9 pr-4 text-white focus:border-violet-500 outline-none"
+                                    className="dc-input w-full pl-9 pr-4"
                                 />
                                 {memberSearch && (
                                     <button
@@ -306,7 +306,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                             </div>
 
                             {showMemberDropdown && (
-                                <div className="absolute z-50 w-full mt-1 bg-[#0e0e1a]/85 border border-white/10 rounded-lg overflow-hidden">
+                                <div className="dc-card absolute z-50 w-full mt-1 overflow-hidden">
                                     {filteredMembers.length === 0 ? (
                                         <div className="px-4 py-3 text-white/40 text-sm text-center">
                                             {memberSearch ? `Kein Mitglied gefunden für "${memberSearch}"` : 'Alle Mitglieder bereits ausgewählt'}
@@ -343,20 +343,20 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                         </div>
                     </div>
 
-                    {/* ④ Freischaltung */}
-                    <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-4">
-                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">④ Freischaltung bei Genehmigung</h3>
+                    {/* 4. Freischaltung */}
+                    <div className="dc-card p-5 space-y-4">
+                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">4. Freischaltung bei Genehmigung</h3>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Art der Freischaltung</label>
+                            <label className="dc-label">Art der Freischaltung</label>
                             <div className="flex gap-3">
-                                {[['role', '🎖️ Rolle vergeben'], ['channel', '📢 Kanal freischalten']].map(([val, label]) => (
+                                {[['role', 'Rolle vergeben'], ['channel', 'Kanal freischalten']].map(([val, label]) => (
                                     <button
                                         key={val}
                                         type="button"
                                         onClick={() => { setField('accessType', val); setField('accessId', ''); }}
-                                        className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors border ${
+                                        className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors border ${
                                             form.accessType === val
-                                                ? 'bg-violet-500/20 border-violet-500/50 text-violet-400'
+                                                ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400'
                                                 : 'bg-[#0e0e1a]/85 border-white/10 text-white/50 hover:border-white/20'
                                         }`}
                                     >
@@ -366,13 +366,13 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                             </div>
                         </div>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">
+                            <label className="dc-label">
                                 {form.accessType === 'role' ? 'Rolle auswählen' : 'Kanal auswählen'}
                             </label>
                             <select
                                 value={form.accessId}
                                 onChange={e => setField('accessId', e.target.value)}
-                                className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none"
+                                className="dc-input w-full"
                             >
                                 <option value="">-- {form.accessType === 'role' ? 'Rolle' : 'Kanal'} wählen --</option>
                                 {form.accessType === 'role'
@@ -382,14 +382,14 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                             </select>
                         </div>
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Cooldown bei Ablehnung (Stunden)</label>
+                            <label className="dc-label">Cooldown bei Ablehnung (Stunden)</label>
                             <input
                                 type="number"
                                 min="0"
                                 max="8760"
                                 value={form.cooldownHours}
                                 onChange={e => setField('cooldownHours', parseInt(e.target.value) || 0)}
-                                className="w-32 bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+                                className="dc-input w-32"
                             />
                             <p className="text-white/40 text-xs mt-1">
                                 {form.cooldownHours === 0
@@ -406,14 +406,14 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                         </button>
                         <div className="flex items-center gap-4">
                             {saveStatus && (
-                                <span className={`text-sm font-medium ${saveStatus.includes('❌') ? 'text-red-400' : 'text-green-400'}`}>
+                                <span className={`text-sm font-medium ${saveStatus.startsWith('Fehler') ? 'text-red-400' : 'text-green-400'}`}>
                                     {saveStatus}
                                 </span>
                             )}
                             <button
                                 onClick={handleSave}
                                 disabled={isSaving}
-                                className="bg-violet-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                                className="dc-btn"
                             >
                                 {isSaving ? 'Speichere...' : (editingId ? 'Änderungen speichern' : 'Embed erstellen')}
                             </button>
@@ -426,26 +426,16 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
 
     // List view
     return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-end">
-                <div>
-                    <h2 className="text-2xl text-white font-bold mb-1">Genehmigungsverfahren</h2>
-                    <p className="text-white/50 text-sm">Nutzer klicken auf den "Anfragen"-Button im Embed — ein privater Thread wird erstellt.</p>
-                </div>
-                <button
-                    onClick={() => openEditor()}
-                    className="bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-black font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
-                >
-                    ➕ Neues Verfahren
-                </button>
+        <div className="dc-page">
+            <div>
+                <h2 className="dc-h2">Genehmigungsverfahren</h2>
+                <p className="text-white/50 text-sm">Nutzer klicken auf den "Anfragen"-Button im Embed — ein privater Thread wird erstellt.</p>
             </div>
 
-            {configs.length === 0 ? (
-                <div className="text-center py-16 border border-white/5 border-dashed rounded-lg">
-                    <p className="text-white/40 mb-2">Noch kein Genehmigungsverfahren erstellt.</p>
-                    <p className="text-white/30 text-sm">Klicke auf "Neues Verfahren" um zu starten.</p>
-                </div>
-            ) : (
+            <DcAddTile label="Neues Verfahren" onClick={() => openEditor()} large={configs.length === 0}
+                hint={configs.length === 0 ? 'Noch kein Genehmigungsverfahren erstellt. Lege das erste an.' : undefined} />
+
+            {configs.length === 0 ? null : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     {configs.map(cfg => {
                         const approverIds = Array.isArray(cfg.approverIds)
@@ -458,20 +448,20 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                         return (
                             <div
                                 key={cfg.id}
-                                className="bg-[#0e0e1a]/75 border-l-4 rounded-lg p-5 relative group transition-colors"
+                                className="dc-inset border-l-4 p-5 relative group transition-colors"
                                 style={{ borderLeftColor: cfg.embedColor || '#06b6d4' }}
                             >
                                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => openEditor(cfg)}
-                                        className="bg-white/5 hover:bg-violet-500 hover:text-black text-white/50 p-2 rounded-lg transition-colors"
+                                        className="bg-white/5 hover:bg-indigo-500 hover:text-white text-white/50 p-2 rounded-md transition-colors"
                                         title="Bearbeiten"
-                                    >✏️</button>
+                                    ><Pencil size={14} /></button>
                                     <button
                                         onClick={() => handleDelete(cfg.id)}
-                                        className="bg-white/5 hover:bg-red-500 text-white/50 p-2 rounded-lg transition-colors"
+                                        className="bg-white/5 hover:bg-red-500 text-white/50 p-2 rounded-md transition-colors"
                                         title="Löschen"
-                                    >🗑️</button>
+                                    ><Trash2 size={14} /></button>
                                 </div>
 
                                 <h3 className="text-lg font-bold text-white mb-1 pr-20 truncate">{cfg.title || 'Unbenannt'}</h3>
@@ -487,11 +477,11 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                         <span className="text-white/40">Freischaltung:</span>
                                         {cfg.accessType === 'role' && accessRole && (
                                             <span className="font-medium" style={{ color: accessRole.color !== '#000000' ? accessRole.color : '#9ca3af' }}>
-                                                🎖️ {accessRole.name}
+                                                @{accessRole.name}
                                             </span>
                                         )}
                                         {cfg.accessType === 'channel' && accessChannel && (
-                                            <span className="text-violet-400">📢 #{accessChannel.name}</span>
+                                            <span className="text-indigo-400">#{accessChannel.name}</span>
                                         )}
                                         {!accessRole && !accessChannel && (
                                             <span className="text-red-400">Nicht konfiguriert</span>
@@ -504,8 +494,8 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                 </div>
             )}
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-2">
-                <h3 className="text-white font-semibold text-sm">ℹ️ Ablauf</h3>
+            <details className="dc-help">
+                <summary>Ablauf</summary>
                 <ol className="text-white/50 text-sm space-y-1 list-decimal list-inside">
                     <li>Nutzer klickt auf "📩 Anfragen" im Embed</li>
                     <li>Bot erstellt privaten Thread mit Nutzer + Genehmigern</li>
@@ -513,7 +503,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                     <li>Bei Genehmigung: Rolle/Kanal wird freigeschaltet, Nutzer erhält DM</li>
                     <li>Bei Ablehnung: Nutzer erhält DM, Cooldown wird gesetzt</li>
                 </ol>
-            </div>
+            </details>
         </div>
     );
 }

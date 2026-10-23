@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { sparkBurst, ringPulse, floatText, bigBanner, confetti, stamp, shake } from '../ui/juice';
+import { playSound } from '../ui/sound';
 import CardFace from '../ui/CardFace';
 import { ArrowRight } from 'lucide-react';
 import { CrCancel, CrCheck, CrChest, CrClock, CrClose, CrEye, CrRandom, CrSearch } from '../ui/CrIcons';
@@ -21,6 +23,7 @@ const BINGO_I18N = {
     you: 'Du',
     roundLabel: 'Runde',
     tokensCount: (n) => `${n} Token`,
+    bingoBannerSub: (n) => (n > 1 ? `${n} Reihen auf einmal!` : 'Reihe komplett — Token verdient!'),
     actingNow: 'am Zug',
     draftDone: 'Draft abgeschlossen!',
     yourTurn: 'Du bist dran',
@@ -73,7 +76,6 @@ const BINGO_I18N = {
     blockConfirmSuffix: '— oder wähle ein anderes Feld bzw. oben eine andere Karte.',
     blockGenericBody: 'Egal wo du sie ablegst: Das Feld wird dauerhaft blockiert und zählt für kein Bingo mehr. Orange markierte Felder sind wählbar — zweimal klicken zum Bestätigen. Wenn du kein Feld opfern willst, wähle oben eine andere Karte.',
     matchesHint: (name) => `„${name}" passt — lege sie auf eines der blau markierten Felder.`,
-    yourBingoCard: 'Deine Bingo-Karte',
     rowsOf10: (n) => `${n}/10 Reihen`,
     watchingBoardOf: (name) => `Board von ${name}`,
     pickPlayerToWatch: 'Wähle links einen Spieler, um sein Board zu sehen.',
@@ -83,6 +85,7 @@ const BINGO_I18N = {
     you: 'You',
     roundLabel: 'Round',
     tokensCount: (n) => `${n} token${n === 1 ? '' : 's'}`,
+    bingoBannerSub: (n) => (n > 1 ? `${n} lines at once!` : 'Line complete — token earned!'),
     actingNow: 'acting now',
     draftDone: 'Draft complete!',
     yourTurn: "You're up",
@@ -135,7 +138,6 @@ const BINGO_I18N = {
     blockConfirmSuffix: '— or choose a different cell, or a different card above.',
     blockGenericBody: "No matter where you place it: the cell will be permanently blocked and won't count for any bingo. Orange-marked cells are selectable — click twice to confirm. If you don't want to sacrifice a cell, choose a different card above.",
     matchesHint: (name) => `"${name}" fits — place it on one of the blue-marked cells.`,
-    yourBingoCard: 'Your bingo card',
     rowsOf10: (n) => `${n}/10 lines`,
     watchingBoardOf: (name) => `${name}'s board`,
     pickPlayerToWatch: 'Pick a player on the left to see their board.',
@@ -145,6 +147,7 @@ const BINGO_I18N = {
     you: 'Tú',
     roundLabel: 'Ronda',
     tokensCount: (n) => `${n} ficha${n === 1 ? '' : 's'}`,
+    bingoBannerSub: (n) => (n > 1 ? `¡${n} líneas a la vez!` : '¡Línea completa — ficha ganada!'),
     actingNow: 'en su turno',
     draftDone: '¡Draft completado!',
     yourTurn: 'Es tu turno',
@@ -197,7 +200,6 @@ const BINGO_I18N = {
     blockConfirmSuffix: '— o elige otra casilla, o arriba otra carta.',
     blockGenericBody: 'No importa dónde la coloques: la casilla se bloqueará de forma permanente y no contará para ningún bingo. Las casillas marcadas en naranja se pueden elegir — haz doble clic para confirmar. Si no quieres sacrificar una casilla, elige otra carta arriba.',
     matchesHint: (name) => `"${name}" encaja — colócala en una de las casillas marcadas en azul.`,
-    yourBingoCard: 'Tu cartón de bingo',
     rowsOf10: (n) => `${n}/10 líneas`,
     watchingBoardOf: (name) => `Tablero de ${name}`,
     pickPlayerToWatch: 'Elige un jugador a la izquierda para ver su tablero.',
@@ -343,6 +345,7 @@ function BingoSidebar({ state, myPlayerId, t, amSpectator = false, watchPlayerId
             }`}
             header={
               <div onClick={amSpectator ? () => onWatchSelect?.(p.id) : undefined}
+                data-bingo-player={p.id}
                 className="flex items-center gap-2.5 min-w-0">
                 <AvatarCircle id={p.avatar} color={p.color} size={28} />
                 <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
@@ -423,7 +426,7 @@ function TurnBanner({ state, myPlayerId, selectedCard, freePlace, amSpectator, t
 }
 
 // ── Die eigene Bingo-Karte — als abgehobenes Panel mit großen Feldern ──────
-function MyBingoCard({ grid, completedLines = [], validCells, matchingCells, freePlace, pendingBlockCell, onCellClick, isMyTurn, t, lang = 'de' }) {
+function MyBingoCard({ grid, completedLines = [], validCells, matchingCells, freePlace, pendingBlockCell, onCellClick, isMyTurn, t, lang = 'de', sweepCells }) {
   const completedCells = useMemo(() => getCompletedCellSet(completedLines), [completedLines]);
   if (!grid?.length) return null;
 
@@ -463,11 +466,12 @@ function MyBingoCard({ grid, completedLines = [], validCells, matchingCells, fre
 
         return (
           <div key={ci}
+            data-bingo-cell={ci}
             onClick={() => isValid && isMyTurn && !isFilled && onCellClick(ci)}
             title={isFilled ? `${cell.card.name}${isBlocking ? t.blockedSuffix : ''}` : label}
             className={`relative rounded-sm border-2 overflow-hidden transition-colors duration-100 select-none ${
               isValid && isMyTurn ? 'cursor-pointer' : 'cursor-default'
-            }`}
+            } ${sweepCells?.has(ci) ? 'cr-bingo-sweep' : ''}`}
             style={{
               aspectRatio: '1',
               borderColor: isBingo
@@ -494,7 +498,7 @@ function MyBingoCard({ grid, completedLines = [], validCells, matchingCells, fre
 
             {isFilled ? (
               <>
-                <CardImg id={cell.card.id} name={cell.card.name} rarity={cell.card.rarity} />
+                <div key={cell.card.id} className="cr-card-pop w-full h-full"><CardImg id={cell.card.id} name={cell.card.name} rarity={cell.card.rarity} /></div>
                 {isBingo && <div className="absolute inset-0 bg-amber-400/15 pointer-events-none" />}
                 {/* Blockierte Felder klar kennzeichnen */}
                 {isBlocking && (
@@ -562,6 +566,13 @@ function CardCompare({ left, right, leftLabel, rightLabel, leftColor, rightColor
 
 // ── Power-Up-Auflösung ─────────────────────────────────────────────────────
 function PowerupReveal({ result, players, t, lang = 'de' }) {
+  const boxRef = useRef(null);
+  useEffect(() => {
+    if (!result || !boxRef.current) return;
+    sparkBurst(boxRef.current, { colors: ['#fbbf24', '#f59e0b', '#fde68a', '#ffffff'], count: 28, spread: 220 });
+    shake(boxRef.current, { intensity: 6 });
+    playSound('magic');
+  }, [result]);
   if (!result) return null;
   const actor = players.find(p => p.id === result.playerId);
   const meta  = (POWERUP_META_I18N[lang] || POWERUP_META_I18N.de)[result.type] || (POWERUP_META_I18N[lang] || POWERUP_META_I18N.de).joker;
@@ -569,7 +580,7 @@ function PowerupReveal({ result, players, t, lang = 'de' }) {
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 backdrop-blur-sm pointer-events-none">
-      <div className="bg-[#16161a] border border-amber-400/30 rounded-md p-6 max-w-sm w-full mx-4 shadow-2xl">
+      <div ref={boxRef} className="cr-win-pop bg-[#16161a] border border-amber-400/30 rounded-md p-6 max-w-sm w-full mx-4 shadow-2xl">
         <div className="flex items-center gap-3 mb-4">
           <AvatarCircle id={actor?.avatar} color={actor?.color} size={36} />
           <div>
@@ -622,6 +633,10 @@ function PowerupReveal({ result, players, t, lang = 'de' }) {
 }
 
 // ── Live-Ansicht: was macht der aktive Token-Spieler gerade? ───────────────
+// Gemeinsame Hülle des Token-Shops im CR-Look: Comic-Panel, Titel mit Kontur, große Karten.
+const SHOP_TILE = 'rounded-2xl border-[3px] border-[var(--cr-panel-edge)] bg-gradient-to-b from-[#1d3a62] to-[#11243f] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_4px_0_rgba(2,8,20,0.5)]';
+const CR_TEXT = { textShadow: 'var(--cr-text-outline)' };
+
 function TokenShopLive({ state, t, lang = 'de' }) {
   const live  = state.tokenShopLiveAction;
   const actor = state.players.find(p => p.id === state.tokenShopCurrentPlayerId);
@@ -634,52 +649,51 @@ function TokenShopLive({ state, t, lang = 'de' }) {
   const remaining = (state.tokenShopQueue?.length ?? 0) - (state.tokenShopIdx ?? 0);
 
   return (
-    <div className="h-full flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-[#111018] border border-amber-400/25 rounded-md shadow-[0_16px_40px_rgba(0,0,0,0.55)] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 bg-amber-400/10 border-b border-amber-400/20">
-          <p className="text-amber-300 text-xs font-bold uppercase tracking-widest">{t.tokenShopTitle}</p>
-          {state.tokenShopSubPhase !== 'revealing' && <TimerChip remaining={state.timerRemaining} />}
+    <div className="h-full overflow-y-auto custom-scrollbar cr-arcade-bg flex items-center justify-center p-4 sm:p-8">
+      <div className="w-full max-w-xl cr-arcade-panel p-5 sm:p-7 space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="cr-arcade-title text-2xl sm:text-3xl">{t.tokenShopTitle}</h2>
+          {state.tokenShopSubPhase !== 'revealing' && <TimerChip remaining={state.timerRemaining} size="lg" />}
         </div>
-        <div className="p-6 space-y-5">
-          <div className="flex items-center gap-3">
-            <AvatarCircle id={actor?.avatar} color={actor?.color} size={44} />
-            <div className="min-w-0">
-              <p className="text-white font-black text-base truncate">{actor?.name || '?'}</p>
-              <p className="text-gray-500 text-xs">{t.ownTokensLeft(actor?.bingoTokensLeft ?? 0)}</p>
+
+        <div className="flex items-center gap-4">
+          <AvatarCircle id={actor?.avatar} color={actor?.color} size={60} />
+          <div className="min-w-0">
+            <p className="font-cr text-white text-2xl truncate" style={CR_TEXT}>{actor?.name || '?'}</p>
+            <p className="text-white/60 text-sm">{t.ownTokensLeft(actor?.bingoTokensLeft ?? 0)}</p>
+          </div>
+          <span className="ml-auto flex items-center gap-1.5 font-cr text-base text-red-400 shrink-0" style={CR_TEXT}>
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" /> {t.live}
+          </span>
+        </div>
+
+        <div className={`${SHOP_TILE} p-5 space-y-4`}>
+          {meta ? (
+            <div className="flex items-center gap-3">
+              <MetaIcon size={44} className="text-amber-400 shrink-0" />
+              <span className="font-cr text-amber-300 text-2xl" style={CR_TEXT}>{meta.label}</span>
             </div>
-            <span className="ml-auto flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-red-400 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> {t.live}
-            </span>
-          </div>
-
-          <div className="bg-[#0c0b12] border border-white/5 rounded-sm p-4 space-y-3">
-            {meta ? (
-              <div className="flex items-center gap-2">
-                <MetaIcon size={15} className="text-amber-400" />
-                <span className="text-amber-300 font-bold text-sm">{meta.label}</span>
+          ) : (
+            <div className="flex items-center gap-3">
+              <CrChest size={44} className="text-white/40 shrink-0" />
+              <span className="font-cr text-white/60 text-xl" style={CR_TEXT}>{t.noPowerupChosen}</span>
+            </div>
+          )}
+          <p className="text-white/85 text-base leading-relaxed">{actor?.name || '?'} {stepText}</p>
+          {liveCard && (
+            <div className="flex items-center gap-4 pt-1">
+              <div className="w-28 aspect-[4/5] rounded-xl overflow-hidden border-[3px] border-[var(--cr-panel-edge)] shrink-0">
+                <CardImg id={liveCard.id} name={liveCard.name} />
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <CrChest size={22} className="text-gray-600" />
-                <span className="text-gray-500 font-semibold text-sm">{t.noPowerupChosen}</span>
+              <div className="min-w-0">
+                <p className="font-cr text-white text-xl truncate" style={CR_TEXT}>{liveCard.name}</p>
+                <p className="text-white/55 text-sm">{t.selectedCardLabel}</p>
               </div>
-            )}
-            <p className="text-gray-300 text-sm leading-relaxed">{actor?.name || '?'} {stepText}</p>
-            {liveCard && (
-              <div className="flex items-center gap-3 pt-1">
-                <div className="w-16 h-16 rounded-sm overflow-hidden border border-white/15 shrink-0">
-                  <CardImg id={liveCard.id} name={liveCard.name} rarity={liveCard.rarity} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-white text-sm font-semibold truncate">{liveCard.name}</p>
-                  <p className="text-gray-500 text-xs">{t.selectedCardLabel}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <p className="text-gray-600 text-xs text-center">{t.tokensRemainingTotal(remaining)}</p>
+            </div>
+          )}
         </div>
+
+        <p className="text-white/50 text-sm text-center">{t.tokensRemainingTotal(remaining)}</p>
       </div>
     </div>
   );
@@ -716,33 +730,42 @@ function TokenShop({ state, myPlayerId, onPowerup, onTokenAction, t, lang = 'de'
 
   const remaining = (state.tokenShopQueue || []).slice(state.tokenShopIdx ?? 0).filter(id => id === myPlayerId).length;
 
+  const opponentDecks = (onSelect) => opponents.map(op => (
+    <div key={op.id} className={`${SHOP_TILE} p-4 space-y-3`}>
+      <div className="flex items-center gap-3">
+        <AvatarCircle id={op.avatar} color={op.color} size={36} />
+        <span className="font-cr text-xl truncate" style={{ ...CR_TEXT, color: op.color || '#fff' }}>{op.name}</span>
+      </div>
+      <DeckPicker deck={op.deck || []} onSelect={i => onSelect(op.id, i)} t={t} />
+    </div>
+  ));
+
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="h-full overflow-y-auto custom-scrollbar cr-arcade-bg p-4 sm:p-8">
+      <div className="max-w-5xl mx-auto cr-arcade-panel p-5 sm:p-7 space-y-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <h2 className="text-white font-black text-lg">{t.yourTokenShopTurn}</h2>
-            <span className="text-amber-400 text-sm font-bold">{t.tokensLeftBadge(remaining)}</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="cr-arcade-title text-2xl sm:text-3xl">{t.yourTokenShopTurn}</h2>
+            <span className="font-cr text-lg text-amber-300 bg-black/30 border-2 border-amber-400/50 rounded-xl px-3 py-0.5" style={CR_TEXT}>
+              {t.tokensLeftBadge(remaining)}
+            </span>
           </div>
           {state.tokenShopSubPhase !== 'revealing' && <TimerChip remaining={state.timerRemaining} size="lg" />}
         </div>
-        <p className="text-gray-500 text-sm -mt-3">
-          {t.tokenShopIntro}
-        </p>
+        <p className="text-white/75 text-base -mt-2">{t.tokenShopIntro}</p>
 
         {step === 'choose' && (
-          <div className={`grid gap-4 ${myAbilities.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
+          <div className={`grid gap-5 ${myAbilities.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
             {myAbilities.map(id => {
               const Icon = POWERUP_ICONS[id];
               const { label, desc } = metaDict[id];
               return (
                 <button key={id}
                   onClick={() => goto(id === 'swap' ? 'swap_mine' : id === 'reroll' ? 'reroll' : 'joker_mine', { ability: id })}
-                  className="bg-[#0f0f13] hover:bg-[#1a1a20] border border-white/10 hover:border-amber-400/50 rounded-sm p-5 text-left transition-colors">
-                  <Icon size={22} className="text-amber-400 mb-3" />
-                  <p className="text-white font-bold text-base mb-1">{label}</p>
-                  <p className="text-gray-400 text-sm leading-relaxed">{desc}</p>
+                  className={`${SHOP_TILE} p-6 text-left transition-colors hover:border-[var(--cr-arcade-gold)] flex flex-col items-center sm:items-start gap-3`}>
+                  <Icon size={72} className="text-amber-400" />
+                  <p className="font-cr text-white text-3xl" style={CR_TEXT}>{label}</p>
+                  <p className="text-white/80 text-base leading-relaxed text-center sm:text-left">{desc}</p>
                 </button>
               );
             })}
@@ -750,7 +773,7 @@ function TokenShop({ state, myPlayerId, onPowerup, onTokenAction, t, lang = 'de'
         )}
 
         {step === 'swap_mine' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <BackBtn onClick={backToChoose} label={t.pickOwnCardSwap} />
             <DeckPicker deck={me?.deck || []} t={t}
               onSelect={i => { setMyDeckIdx(i); goto('swap_target', { ability: 'swap', cardId: me?.deck?.[i]?.id }); }} />
@@ -760,36 +783,20 @@ function TokenShop({ state, myPlayerId, onPowerup, onTokenAction, t, lang = 'de'
         {step === 'swap_target' && (
           <div className="space-y-4">
             <BackBtn onClick={() => goto('swap_mine', { ability: 'swap', cardId: null })}
-              label={<>{t.tradePrefix} <span className="text-cyan-400">{me?.deck[myDeckIdx]?.name}</span> {t.tradeSuffix}</>} />
-            {opponents.map(op => (
-              <div key={op.id} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <AvatarCircle id={op.avatar} color={op.color} size={22} />
-                  <span className="text-gray-300 text-sm font-semibold">{op.name}</span>
-                </div>
-                <DeckPicker deck={op.deck || []} onSelect={i => doSwap(op.id, i)} t={t} />
-              </div>
-            ))}
+              label={<>{t.tradePrefix} <span className="text-cyan-300">{me?.deck[myDeckIdx]?.name}</span> {t.tradeSuffix}</>} />
+            {opponentDecks(doSwap)}
           </div>
         )}
 
         {step === 'reroll' && (
           <div className="space-y-4">
             <BackBtn onClick={backToChoose} label={t.pickOpponentCardReroll} />
-            {opponents.map(op => (
-              <div key={op.id} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <AvatarCircle id={op.avatar} color={op.color} size={22} />
-                  <span className="text-gray-300 text-sm font-semibold">{op.name}</span>
-                </div>
-                <DeckPicker deck={op.deck || []} onSelect={i => doReroll(op.id, i)} t={t} />
-              </div>
-            ))}
+            {opponentDecks(doReroll)}
           </div>
         )}
 
         {step === 'joker_mine' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <BackBtn onClick={backToChoose} label={t.pickOwnCardJoker} />
             <DeckPicker deck={me?.deck || []} t={t}
               onSelect={i => { setMyDeckIdx(i); goto('joker_pick', { ability: 'joker', cardId: me?.deck?.[i]?.id }); }} />
@@ -797,22 +804,22 @@ function TokenShop({ state, myPlayerId, onPowerup, onTokenAction, t, lang = 'de'
         )}
 
         {step === 'joker_pick' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <BackBtn onClick={() => goto('joker_mine', { ability: 'joker', cardId: null })}
-              label={<>{t.replacePrefix} <span className="text-cyan-400">{me?.deck[myDeckIdx]?.name}</span> {t.replaceSuffix}</>} />
+              label={<>{t.replacePrefix} <span className="text-cyan-300">{me?.deck[myDeckIdx]?.name}</span> {t.replaceSuffix}</>} />
             <div className="relative">
-              <CrSearch size={19} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <CrSearch size={24} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
               <input value={jokerSearch} onChange={e => setJokerSearch(e.target.value)} placeholder={t.searchCardPlaceholder}
-                className="w-full bg-[#1a1a20] border border-white/10 rounded-sm pl-8 pr-4 py-2 text-white text-sm placeholder-gray-600 focus:border-cyan-500 outline-none" />
+                className="w-full bg-[#0d1b31] border-[3px] border-[var(--cr-panel-edge)] rounded-xl pl-12 pr-4 py-3 text-white text-base placeholder-white/35 focus:border-cyan-400 outline-none" />
             </div>
-            <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2.5 max-h-[28rem] overflow-y-auto custom-scrollbar pr-1">
               {unpickedCards.map(card => (
                 <button key={card.id} onClick={() => doJoker(card.id)} title={card.name}
-                  className="cr-card-hover aspect-[4/5] rounded-sm overflow-hidden border border-white/10 hover:border-cyan-400/60">
-                  <CardImg id={card.id} name={card.name} rarity={card.rarity} />
+                  className="cr-card-hover aspect-[4/5] rounded-xl overflow-hidden border-[3px] border-[var(--cr-panel-edge)] hover:border-cyan-400">
+                  <CardImg id={card.id} name={card.name} />
                 </button>
               ))}
-              {unpickedCards.length === 0 && <p className="text-gray-600 text-xs col-span-full py-4 text-center">{t.noCardsFound}</p>}
+              {unpickedCards.length === 0 && <p className="text-white/50 text-sm col-span-full py-6 text-center">{t.noCardsFound}</p>}
             </div>
           </div>
         )}
@@ -823,26 +830,27 @@ function TokenShop({ state, myPlayerId, onPowerup, onTokenAction, t, lang = 'de'
 
 function BackBtn({ onClick, label }) {
   return (
-    <div className="flex items-center gap-2">
-      <button onClick={onClick} className="text-gray-500 hover:text-white transition-colors shrink-0"><CrClose size={22} /></button>
-      <p className="text-white font-semibold text-sm">{label}</p>
+    <div className="flex items-center gap-3">
+      <button onClick={onClick} className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-11 h-11 shrink-0"><CrClose size={24} /></button>
+      <p className="font-cr text-white text-xl" style={CR_TEXT}>{label}</p>
     </div>
   );
 }
 
+// Deck zum Auswählen — große Karten im Kartenformat 4:5 (vorher 64-px-Quadrate)
 function DeckPicker({ deck, onSelect, t }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5 sm:gap-3">
       {deck.map((card, i) => (
         <button key={i} disabled={card?.protected} onClick={() => !card?.protected && onSelect(i)}
           title={card?.name + (card?.protected ? t.protectedSuffix : '')}
-          className={`relative w-16 h-16 rounded-sm overflow-hidden border-2 transition-colors ${
-            card?.protected ? 'border-white/5 opacity-30 cursor-not-allowed' : 'border-white/15 hover:border-cyan-400/70 cursor-pointer'
+          className={`relative aspect-[4/5] rounded-xl overflow-hidden border-[3px] transition-colors ${
+            card?.protected ? 'border-[var(--cr-panel-edge)] opacity-35 cursor-not-allowed' : 'border-[var(--cr-panel-edge)] hover:border-cyan-400 cursor-pointer cr-card-hover'
           }`}>
-          {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
+          {card && <CardImg id={card.id} name={card.name} />}
           {card?.protected && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <CrCheck size={19} className="text-green-400" />
+              <CrCheck size={32} className="text-green-400" />
             </div>
           )}
         </button>
@@ -894,6 +902,68 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
 
   // Kartenwechsel oder neue Runde → offene Blockier-Bestätigung verwerfen
   useEffect(() => { setPendingBlockCell(null); }, [selectedCardIdx, state?.round]);
+
+  // ── Effekte ─────────────────────────────────────────────────────────────
+  // Eigene neue Linie: BINGO!-Banner, Konfetti und eine goldene Welle über die Linie;
+  // Mitspieler: "BINGO!" steigt über seinem Eintrag in der Seitenleiste auf.
+  // Gelegte Karte: Funken in der Farbe des Feld-Attributs.
+  const [sweepCells, setSweepCells] = useState(null);
+  const prevLinesRef = useRef(null);
+  const prevGridRef = useRef(null);
+  const prevPickedRef = useRef({});
+  useEffect(() => {
+    if (!state?.players) return;
+    const now = Object.fromEntries(state.players.map(pl => [pl.id, (pl.completedLines || []).slice()]));
+    const prev = prevLinesRef.current;
+    prevLinesRef.current = now;
+    if (!prev) return;
+    for (const pl of state.players) {
+      const before = prev[pl.id] || [];
+      const added = (now[pl.id] || []).filter(id => !before.includes(id));
+      if (!added.length) continue;
+      if (pl.id === myPlayerId) {
+        bigBanner('BINGO!', { color: '#fbbf24', sub: t.bingoBannerSub(added.length) });
+        confetti();
+        playSound('win');
+        const cells = new Set();
+        BINGO_LINE_IDS.forEach((id, li) => { if (added.includes(id)) BINGO_LINES[li].forEach(ci => cells.add(ci)); });
+        setSweepCells(cells);
+        setTimeout(() => setSweepCells(null), 1600);
+      } else {
+        const anchor = document.querySelector(`[data-bingo-player="${pl.id}"]`);
+        floatText(anchor, 'BINGO!', { color: pl.color || '#fbbf24', size: 22 });
+        sparkBurst(anchor, { color: pl.color || '#fbbf24', count: 12, spread: 70 });
+      }
+    }
+  }, [state?.players, myPlayerId, t]);
+  useEffect(() => {
+    const grid = me?.bingoGrid;
+    if (!grid) return;
+    const prev = prevGridRef.current;
+    prevGridRef.current = grid.map(c => c.card?.id || null);
+    if (!prev) return;
+    grid.forEach((cell, ci) => {
+      if (!cell.card || prev[ci]) return;
+      const el = document.querySelector(`[data-bingo-cell="${ci}"]`);
+      const color = BINGO_ATTR_COLOR[cell.attrKey] || '#22d3ee';
+      sparkBurst(el, { color, count: 16, spread: 80 });
+      ringPulse(el, { color });
+    });
+  }, [me?.bingoGrid]);
+  useEffect(() => {
+    const picked = state?.pickedThisRound || {};
+    const prev = prevPickedRef.current;
+    prevPickedRef.current = { ...picked, __round: state?.round };
+    if (prev.__round !== state?.round) return;
+    Object.entries(picked).forEach(([idx, pid]) => {
+      if (prev[idx] || !pid || pid === myPlayerId) return;
+      const pl = state.players.find(x => x.id === pid);
+      const el = document.querySelector(`[data-bingo-offer="${idx}"]`);
+      stamp(el, pl?.name || '?', { color: pl?.color || '#fbbf24' });
+      sparkBurst(el, { color: pl?.color || '#fbbf24', count: 12, spread: 70 });
+      playSound('pick');
+    });
+  }, [state?.pickedThisRound, state?.round, state?.players, myPlayerId]);
 
   if (!state) return (
     <div className="h-full flex items-center justify-center">
@@ -947,8 +1017,6 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
     );
   }
 
-  const myTokens = me?.bingoTokensLeft ?? me?.bingoTokens ?? 0;
-
   const watchedPlayer = amSpectator ? state.players.find(p => p.id === watchPlayerId) : null;
 
   return (
@@ -991,10 +1059,11 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
               const isClickable  = isMyTurn && !amSpectator && !isPicked && !champLocked;
 
               return (
-                <div key={idx} className="group">
+                <div key={`${round}-${idx}`} className="group cr-auction-deal" style={{ animationDelay: `${idx * 0.09}s` }}>
                   {/* Deutlich größer als die früheren 96px und mit innerem Ring statt
                       Rahmen — so verspringt die Reihe beim Überfahren nicht. */}
                   <div onClick={() => isClickable && handleCardClick(idx)}
+                    data-bingo-offer={idx}
                     title={card.name + (champLocked ? t.championLimitSuffix : '')}
                     className={`relative rounded-2xl overflow-hidden shadow-[0_10px_28px_rgba(0,0,0,0.45)] w-24 h-24 sm:w-32 sm:h-32 ${
                       isPicked ? 'opacity-40 cursor-default' :
@@ -1058,25 +1127,13 @@ export default function BingoRoyale({ bingoState, myPlayerId, onPick, onPowerup,
                   mehr, das maxHeight:100% des Bingofelds greift ins Leere und die
                   unteren Reihen laufen aus dem Bild. */}
               <div className="min-w-0 min-h-0 h-full flex-1 landscape:sm:flex-none lg:flex-none overflow-hidden flex flex-col gap-3">
-                {/* Blickdichte Plakette statt bloßen Fließtexts — sitzt auf dem Diamant-Karo
-                    der Spielfläche und braucht dafür einen eigenen Untergrund. */}
-                <div className="shrink-0 flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg bg-[#111d2c]">
-                  <p className="text-white/60 text-xs font-semibold uppercase tracking-wider">{t.yourBingoCard}</p>
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-[11px] text-white/40">{t.rowsOf10((me.completedLines || []).length)}</span>
-                    {myTokens > 0 && (
-                      <span className="text-amber-300 text-xs font-semibold bg-amber-400/20 px-2 py-0.5 rounded-lg">
-                        {t.tokensCount(myTokens)}
-                      </span>
-                    )}
-                  </div>
-                </div>
                 {/* container-type: size macht die eigene Größe für 100cqh im Bingofeld
                     messbar — siehe Erklärung in MyBingoCard. */}
                 <div className="flex-1 min-h-0 flex items-center justify-center"
                   style={{ containerType: 'size' }}>
                   <MyBingoCard
                     grid={me.bingoGrid}
+                    sweepCells={sweepCells}
                     completedLines={me.completedLines || []}
                     validCells={placement.validCells}
                     matchingCells={placement.matchingCells}

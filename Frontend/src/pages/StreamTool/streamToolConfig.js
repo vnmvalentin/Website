@@ -241,6 +241,16 @@ export const MODULE_DEFAULTS = {
     // Öffnung und Sieger im Chat ansagen
     announce: true,
     showNames: true,
+    // Bahn in 3D zeichnen (three.js); ohne WebGL bleibt es bei 2D
+    view3d: false,
+    // ID einer Kanalpunkte-Belohnung, die die Anmeldung öffnet ('' = aus)
+    rewardId: '',
+    // true = die Seite hat die Belohnung selbst angelegt und fragt die Einlösungen
+    // bei Twitch ab (kein Textfeld nötig); false = erkannt über den Chat-Bot
+    rewardManaged: false,
+    rewardTitle: '',
+    // Die drei Besten auf der Anmeldekarte zeigen
+    showTop: true,
   },
 };
 

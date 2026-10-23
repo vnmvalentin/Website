@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import CardFace from '../ui/CardFace';
 import { useServerClock } from '../ui/serverClock';
 import { CrCheck, CrRage, CrRandom, CrStar } from '../ui/CrIcons';
@@ -7,6 +7,8 @@ import { RARITY_COLOR } from '../data/cards';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';
 import ModeShell from './ModeShell';
+import { sparkBurst, ringPulse, bigBanner, shake, stamp } from '../ui/juice';
+import { playSound } from '../ui/sound';
 
 /** Akzentfarbe des Modus. */
 const ACCENT = '#f59e0b';
@@ -22,6 +24,7 @@ const TRAP_I18N = {
     pickBadCard: 'Wähle eine deiner Trap-Karten, um sie zu tarnen.',
     pickTarget: 'Als welche Karte soll sie getarnt werden?',
     disguisingAs: 'wird getarnt als',
+    trapSetStamp: 'GETARNT!',
     trapsPlaced: (done, total) => `${done}/${total} Fallen gesetzt`,
     readyStatus: (ready, total) => `${ready}/${total} Spieler bereit`,
     waitingForOthers: 'Warte auf die anderen Spieler…',
@@ -48,6 +51,7 @@ const TRAP_I18N = {
     pickBadCard: 'Pick one of your trap cards to disguise.',
     pickTarget: 'What should it be disguised as?',
     disguisingAs: 'disguised as',
+    trapSetStamp: 'DISGUISED!',
     trapsPlaced: (done, total) => `${done}/${total} traps set`,
     readyStatus: (ready, total) => `${ready}/${total} players ready`,
     waitingForOthers: 'Waiting for the other players…',
@@ -74,6 +78,7 @@ const TRAP_I18N = {
     pickBadCard: 'Elige una de tus cartas trampa para disfrazarla.',
     pickTarget: '¿Como qué carta debería disfrazarse?',
     disguisingAs: 'disfrazada de',
+    trapSetStamp: '¡DISFRAZADA!',
     trapsPlaced: (done, total) => `${done}/${total} trampas colocadas`,
     readyStatus: (ready, total) => `${ready}/${total} jugadores listos`,
     waitingForOthers: 'Esperando a los demás jugadores…',
@@ -157,20 +162,25 @@ const TrapSidebar = React.memo(function TrapSidebar({ state, myPlayerId, t }) {
 // Ursache eines früheren Bugs behoben: bei einem nicht-quadratischen Raster (4×3) stimmten
 // Spaltenbreite und Zeilenhöhe der `1fr`-Tracks nicht exakt überein, ein erzwungenes
 // Seitenverhältnis pro Kachel lief dadurch unten aus ihrer Zeile heraus.
-function TrapCell({ cell, cellWidth, cellHeight, isRedirectTarget, onClick, clickable, isClicked, t }) {
+function TrapCell({ cell, cellWidth, cellHeight, isRedirectTarget, onClick, clickable, isClicked, dealDelay, t }) {
   const showBack = cell.revealed && cell.kind === 'trap';
   const shownCard = showBack ? cell.realCard : cell.display;
   const rarity = shownCard?.rarity;
 
   return (
-    <button type="button" disabled={!clickable} onClick={onClick} title={shownCard?.name}
+    <button type="button" disabled={!clickable} onClick={onClick} title={shownCard?.name} data-trap-cell={cell.index}
       className={`group relative rounded-xl overflow-hidden shadow-[0_8px_20px_rgba(0,0,0,0.45)] transition-transform ${
         clickable ? 'cursor-pointer hover:scale-[1.04] active:scale-95' : 'cursor-default'
-      } ${isClicked ? 'ring-2 ring-amber-400' : ''} ${isRedirectTarget ? 'trap-redirected' : ''}`}
+      } ${isRedirectTarget ? 'trap-redirected' : ''} ${dealDelay != null ? 'cr-deal-card' : ''}`}
       style={{
         width: cellWidth, height: cellHeight,
+        animationDelay: dealDelay != null ? `${dealDelay}s` : undefined,
         border: '2.5px solid var(--cr-panel-edge)',
-        boxShadow: rarity ? `0 0 0 1.5px ${RARITY_COLOR[rarity]}55, 0 8px 20px rgba(0,0,0,0.45)` : undefined,
+        // Eigener Klick als Inline-Schatten: Tailwinds ring-2 ist selbst ein box-shadow und
+        // wurde vom Seltenheitsrand hier überschrieben — die Markierung war unsichtbar.
+        boxShadow: isClicked
+          ? '0 0 0 3px #fbbf24, 0 8px 20px rgba(0,0,0,0.45)'
+          : rarity ? `0 0 0 1.5px ${RARITY_COLOR[rarity]}55, 0 8px 20px rgba(0,0,0,0.45)` : undefined,
       }}>
       {shownCard
         // w-full h-full ist Pflicht: CardFace füllt die Höhe seines Elternelements — ohne feste
@@ -202,6 +212,17 @@ function DisguisePhase({ state, onChooseBadCard, onChooseTarget, t }) {
   const pct = state.timerSeconds > 0 ? (state.timerRemaining / state.timerSeconds) * 100 : 0;
   const done = state.myTrapsPlaced >= state.disguiseCount;
 
+  const panelRef = useRef(null);
+  const prevPlacedRef = useRef(state.myTrapsPlaced);
+  useEffect(() => {
+    if (state.myTrapsPlaced > prevPlacedRef.current) {
+      stamp(panelRef.current, t.trapSetStamp, { color: ACCENT });
+      sparkBurst(panelRef.current, { colors: [ACCENT, '#fde68a', '#78350f'], count: 18, spread: 160 });
+      playSound('stamp');
+    }
+    prevPlacedRef.current = state.myTrapsPlaced;
+  }, [state.myTrapsPlaced, t]);
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Gemeinsame Kopfzeile (GameChrome) statt eigener Kopie — gleicher CR-Look wie die übrigen Modi */}
@@ -216,7 +237,7 @@ function DisguisePhase({ state, onChooseBadCard, onChooseTarget, t }) {
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-10 py-6 sm:py-8">
         {/* Ein gemeinsames Fenster statt drei einzeln schwebender Plaketten (Status,
             Hinweis, Kartenreihe) — dieselbe Comic-Panel-Fläche wie im Hub. */}
-        <div className="max-w-2xl mx-auto cr-arcade-panel p-5 sm:p-6 flex flex-col items-center gap-5">
+        <div ref={panelRef} className="max-w-2xl mx-auto cr-arcade-panel p-5 sm:p-6 flex flex-col items-center gap-5">
           <div className="flex items-center gap-4 text-sm">
             <span className="text-amber-300 font-semibold">{t.trapsPlaced(state.myTrapsPlaced, state.disguiseCount)}</span>
             <span className="text-white/30">·</span>
@@ -300,12 +321,12 @@ function ResultsPanel({ state, myPlayerId, t }) {
           <p className="text-amber-200 text-sm font-semibold mb-3">{t.youRedirected}</p>
         )}
         <div className="flex flex-col gap-1.5">
-          {results.map(r => {
+          {results.map((r, i) => {
             const player = state.players.find(p => p.id === r.playerId);
             const isMe = r.playerId === myPlayerId;
             return (
-              <div key={r.playerId}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 ${isMe ? 'bg-white/[0.08]' : 'bg-white/[0.04]'}`}>
+              <div key={r.playerId} style={{ animationDelay: `${0.35 + i * 0.12}s` }}
+                className={`cr-join-in flex items-center gap-3 rounded-lg px-3 py-2 ${isMe ? 'bg-white/[0.08]' : 'bg-white/[0.04]'}`}>
                 {/* aspect-[5/6] statt eines Quadrats — dasselbe native Kartenformat wie im
                     Raster darüber, sonst wäre hier derselbe Beschnitt am unteren Rand. */}
                 <div className="w-10 aspect-[4/5] rounded-md overflow-hidden shrink-0 bg-white/[0.04]">
@@ -346,7 +367,54 @@ function GridPhase({ state, now, myPlayerId, onClick, t }) {
   const [optimisticClick, setOptimisticClick] = useState(null);
   useEffect(() => { setOptimisticClick(null); }, [state.round]);
   const myClickedCellIndex = state.myClickedCellIndex ?? optimisticClick;
-  const handleClick = (cellIndex) => { setOptimisticClick(cellIndex); onClick(cellIndex); };
+  const gridRef = useRef(null);
+  const cellEl = (i) => gridRef.current?.querySelector(`[data-trap-cell="${i}"]`);
+  const handleClick = (cellIndex) => {
+    const el = cellEl(cellIndex);
+    sparkBurst(el, { color: ACCENT, count: 18, spread: 100 });
+    ringPulse(el, { color: ACCENT });
+    playSound('pick');
+    setOptimisticClick(cellIndex);
+    onClick(cellIndex);
+  };
+
+  // ── Effekte ──
+  // Countdown tickt; beim Rennstart wird das Raster von oben links her ausgeteilt.
+  // Auflösung: jede Falle schnappt nacheinander zu (Wackeln + Splitter), Umleitung als Banner.
+  const prevCountRef = useRef(countdownRemaining);
+  useEffect(() => {
+    if (countdownRemaining > 0 && countdownRemaining !== prevCountRef.current) playSound('count');
+    prevCountRef.current = countdownRemaining;
+  }, [countdownRemaining]);
+  const [dealing, setDealing] = useState(false);
+  const prevPhaseRef = useRef(state.phase);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = state.phase;
+    if (prev === state.phase) return undefined;
+    if (state.phase === 'racing') {
+      playSound('start');
+      setDealing(true);
+      const tm = setTimeout(() => setDealing(false), 900);
+      return () => clearTimeout(tm);
+    }
+    if (state.phase !== 'reveal') return undefined;
+    const traps = state.grid.filter(c => c.revealed && c.kind === 'trap');
+    const timers = traps.map((c, i) => setTimeout(() => {
+      const el = cellEl(c.index);
+      shake(el, { intensity: 7 });
+      sparkBurst(el, { colors: ['#f59e0b', '#ef4444', '#1f2937'], count: 16, spread: 90 });
+      playSound('stamp');
+    }, 280 + i * 170));
+    if (myRedirect) {
+      timers.push(setTimeout(() => {
+        bigBanner(t.youRedirected, { color: ACCENT });
+        playSound('error');
+      }, 280 + traps.length * 170));
+    }
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
 
   // Feste Lücke statt responsiver `gap-2 sm:gap-3`-Klassen: die Kachelgröße unten wird aus
   // cqw/cqh UND dieser Lücke berechnet — ein Klassenwechsel bei `sm` hätte diese Rechnung
@@ -394,7 +462,7 @@ function GridPhase({ state, now, myPlayerId, onClick, t }) {
         <div className={`overflow-y-auto custom-scrollbar flex items-center justify-center p-3 sm:p-6 ${
           revealing ? 'shrink-0' : 'flex-1 min-h-0'}`}
           style={{ containerType: 'size', height: revealing ? 'clamp(240px, 46vh, 460px)' : undefined }}>
-          <div className="grid" style={{
+          <div ref={gridRef} className="grid" style={{
             gap: GAP_PX,
             gridTemplateColumns: `repeat(${cols}, ${cellWidth})`,
             gridTemplateRows: `repeat(${rows}, ${cellHeight})`,
@@ -404,6 +472,7 @@ function GridPhase({ state, now, myPlayerId, onClick, t }) {
                 isRedirectTarget={myRedirect?.cellIndex === cell.index}
                 clickable={racing && myClickedCellIndex == null}
                 isClicked={myClickedCellIndex === cell.index}
+                dealDelay={dealing ? ((cell.index % cols) + Math.floor(cell.index / cols)) * 0.05 : null}
                 onClick={() => handleClick(cell.index)} />
             ))}
           </div>
@@ -416,7 +485,7 @@ function GridPhase({ state, now, myPlayerId, onClick, t }) {
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#0a0a0d]">
           <div className="text-center">
             <p className="text-amber-300 text-sm font-bold uppercase tracking-widest mb-3">{t.countdownGetReady}</p>
-            <p className="text-white font-black text-7xl tabular-nums leading-none">{countdownRemaining}</p>
+            <p key={countdownRemaining} className="cr-count-in text-white font-black text-7xl tabular-nums leading-none">{countdownRemaining}</p>
             <p className="text-gray-400 text-xs mt-3">{t.countdownSub}</p>
           </div>
         </div>

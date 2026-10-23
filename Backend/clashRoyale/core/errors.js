@@ -22,6 +22,13 @@ const MESSAGES = {
   lobbyFull: ({ max }) => `Lobby voll (max. ${max})`,
   noPermission: () => 'Keine Berechtigung',
 
+  // ── Lobby-Turnier ─────────────────────────────────────────────────────────
+  ltourSoloOnly: () => 'Lobby-Turniere gibt es nur im Solo-Modus',
+  ltourMatchNotPlayable: () => 'Diese Begegnung kann gerade nicht gespielt werden',
+  ltourPlayerMissing: () => 'Beide Spieler der Begegnung müssen in der Lobby sein',
+  ltourRoundOpen: () => 'Erst alle Begegnungen dieser Runde entscheiden',
+  ltourResetBlocked: () => 'Das nächste Match dieses Spielers ist schon entschieden — erst das zurücknehmen',
+
   // ── Spielstart ────────────────────────────────────────────────────────────
   needTwoPlayers: () => 'Mindestens 2 Spieler benötigt',
   unknownMode: () => 'Unbekannter Spielmodus',

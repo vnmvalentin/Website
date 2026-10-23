@@ -1,13 +1,14 @@
 // Freundesliste im Hauptmenü — rechte Spalte, gegenüber von "Benutzt von" (UsedByPanel.jsx).
 //
-// Aufbau wie die Freundesliste in Valorant: oben das eigene Profil mit Status, darunter
-// "Freund hinzufügen" + Anfragen-Fach, dann die Freunde nach Status gruppiert (in einer Lobby,
-// online, offline). Wer in einer offenen Lobby sitzt, bekommt einen "Beitreten"-Knopf —
-// ohne Code, der Server gibt ihn nur an Freunde und nur für beitretbare Lobbys heraus.
+// Aufbau: oben das eigene Profil mit Status, darunter zwei Reiter (Freunde | Anfragen) im
+// CR-Reiterlook (.cr-tabs), ganz unten ein grüner "Freund hinzufügen"-Knopf, der das
+// Eingabefeld aufklappt. Freunde sind nach Status gruppiert (in einer Lobby, online, offline).
+// Wer in einer offenen Lobby sitzt, bekommt einen "Beitreten"-Knopf — ohne Code, der Server
+// gibt ihn nur an Freunde und nur für beitretbare Lobbys heraus.
 //
 // Daten und Aktionen kommen aus useFriends.js. Ohne Twitch-Login nur ein Hinweis mit Login-Knopf.
 import React, { useState } from 'react';
-import { Check, Plus, X, Inbox, UserMinus } from 'lucide-react';
+import { Check, X, UserMinus, UserPlus, Send } from 'lucide-react';
 import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import PlayerAvatar from '../components/PlayerAvatar';
 import ChunkyButton from '../ui/ChunkyButton';
@@ -83,19 +84,32 @@ function RequestRow({ person, children }) {
   );
 }
 
+/** Kleine Zahl im Reiter (rot bei offenen Anfragen, sonst gedämpft). */
+function TabCount({ n, alert = false }) {
+  if (alert) {
+    return (
+      <span className="min-w-[18px] h-[18px] px-1 rounded-[4px] bg-[var(--cr-arcade-red,#e5484d)] text-white text-[11px] font-bold leading-[18px] text-center tabular-nums">
+        {n}
+      </span>
+    );
+  }
+  return <span className="text-white/45 text-sm tabular-nums">{n}</span>;
+}
+
 /**
  * @param {object}   friends   Ergebnis von useFriends()
  * @param {object}   user      Twitch-Nutzer oder null
  * @param {Function} login     Twitch-Login starten
  * @param {Function} onJoin    einer Lobby per Code beitreten
- * @param {number}   [maxListHeight]  Höhe der Freundesliste deckeln (eigenes Scrollen)
+ * @param {number}   [maxListHeight]  Höhe der Liste deckeln (eigenes Scrollen)
  */
 export default function FriendsPanel({ lang, friends, user, login, onJoin, maxListHeight }) {
   const ft = friendsDict(lang);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null); // { ok, text }
-  const [inboxOpen, setInboxOpen] = useState(false);
+  const [tab, setTab] = useState('friends'); // 'friends' | 'requests'
+  const [adding, setAdding] = useState(false);
   const state = friends.state;
 
   const flash = (ok, text) => {
@@ -112,6 +126,7 @@ export default function FriendsPanel({ lang, friends, user, login, onJoin, maxLi
     setBusy(false);
     if (!res.ok) return flash(false, errorText(res.key));
     setName('');
+    setAdding(false);
     flash(true, res.accepted ? ft.nowFriends(login) : ft.requestSent(login));
   };
 
@@ -157,6 +172,9 @@ export default function FriendsPanel({ lang, friends, user, login, onJoin, maxLi
     { key: 'offline', label: ft.groupOffline, items: list.filter(f => f.status === 'offline') },
   ].filter(g => g.items.length);
   const onlineCount = list.length - (groups.find(g => g.key === 'offline')?.items.length || 0);
+  const scrollProps = maxListHeight
+    ? { className: 'overflow-y-auto custom-scrollbar', style: { maxHeight: maxListHeight } }
+    : {};
 
   return (
     <div className="cr-arcade-panel overflow-hidden">
@@ -165,112 +183,121 @@ export default function FriendsPanel({ lang, friends, user, login, onJoin, maxLi
       )}
 
       {/* ── Eigenes Profil ─────────────────────────────────────────────────── */}
-      <div className="cr-section--rule px-3 py-3 flex items-center gap-2.5">
-        {me ? (
-          <>
-            <StatusAvatar person={me} size={40} />
-            <div className="min-w-0 flex-1">
-              <p className="font-cr text-[15px] text-white truncate">{me.name}</p>
-              <p className="text-[11px] text-white/45 truncate">
-                {me.login ? `@${me.login}` : ''}{me.login ? ' · ' : ''}
-                {me.status === 'game' ? ft.statusGame : me.status === 'lobby' ? ft.statusLobby : ft.statusOnline}
-              </p>
-            </div>
-          </>
-        ) : (
-          <div className="h-10" />
-        )}
-        <button type="button" onClick={() => setInboxOpen(o => !o)} aria-expanded={inboxOpen}
-          title={ft.inbox} aria-label={ft.inbox}
-          className={`cr-arcade-icon-btn w-9 h-9 shrink-0 ${inboxOpen ? '!border-[var(--cr-arcade-gold)] !text-[var(--cr-arcade-gold)]' : ''}`}>
-          <Inbox size={16} />
-          {incoming.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-[4px] bg-[var(--cr-arcade-red,#e5484d)] border-2 border-[#071225] text-white text-[10px] font-bold leading-[14px] text-center tabular-nums">
-              {incoming.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* ── Freund hinzufügen ──────────────────────────────────────────────── */}
-      <div className="cr-section--rule px-3 py-3 space-y-2">
-        <div className="flex items-stretch gap-1.5">
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && submit()}
-            placeholder={ft.addPlaceholder}
-            maxLength={26}
-            aria-label={ft.addBtn}
-            className="cr-input min-w-0 flex-1 px-3 py-2 text-sm"
-          />
-          <button type="button" onClick={submit} disabled={busy || !name.trim()}
-            title={ft.addBtn} aria-label={ft.addAria}
-            className="cr-arcade-icon-btn w-10 shrink-0">
-            <Plus size={16} />
-          </button>
-        </div>
-        {notice && (
-          <p className={`text-[11px] leading-snug ${notice.ok ? 'text-emerald-300' : 'text-red-300'}`} role="status">{notice.text}</p>
-        )}
-      </div>
-
-      {/* ── Anfragen-Fach ──────────────────────────────────────────────────── */}
-      {inboxOpen && (
-        <div className="cr-section--rule px-1.5 py-2 bg-[#081426]/50">
-          {incoming.length === 0 && outgoing.length === 0 ? (
-            <p className="text-white/40 text-xs px-2 py-2">{ft.inboxEmpty}</p>
-          ) : (
-            <>
-              {incoming.length > 0 && (
-                <>
-                  <p className="cr-eyebrow px-2 pt-1 pb-0.5">{ft.incoming}</p>
-                  <ul>
-                    {incoming.map(p => (
-                      <RequestRow key={p.id} person={p}>
-                        <button type="button" onClick={() => act(friends.accept, p.id)} title={ft.accept} aria-label={ft.accept}
-                          className="cr-arcade-icon-btn w-8 h-8 !text-emerald-300"><Check size={15} /></button>
-                        <button type="button" onClick={() => act(friends.decline, p.id)} title={ft.decline} aria-label={ft.decline}
-                          className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-8 h-8"><X size={15} /></button>
-                      </RequestRow>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {outgoing.length > 0 && (
-                <>
-                  <p className="cr-eyebrow px-2 pt-2 pb-0.5">{ft.outgoing}</p>
-                  <ul>
-                    {outgoing.map(p => (
-                      <RequestRow key={p.id} person={p}>
-                        <button type="button" onClick={() => act(friends.cancel, p.id)} title={ft.cancel} aria-label={ft.cancel}
-                          className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-8 h-8"><X size={15} /></button>
-                      </RequestRow>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </>
-          )}
+      {me && (
+        <div className="cr-section--rule px-3 py-3 flex items-center gap-2.5">
+          <StatusAvatar person={me} size={40} />
+          <div className="min-w-0 flex-1">
+            <p className="font-cr text-[15px] text-white truncate">{me.name}</p>
+            <p className="text-[11px] text-white/45 truncate">
+              {me.login ? `@${me.login}` : ''}{me.login ? ' · ' : ''}
+              {me.status === 'game' ? ft.statusGame : me.status === 'lobby' ? ft.statusLobby : ft.statusOnline}
+            </p>
+          </div>
         </div>
       )}
 
-      {/* ── Freunde ────────────────────────────────────────────────────────── */}
-      <div className={`cr-section--rule p-1.5 ${maxListHeight ? 'overflow-y-auto custom-scrollbar' : ''}`}
-        style={maxListHeight ? { maxHeight: maxListHeight } : undefined}>
-        {state && list.length === 0 && (
-          <p className="text-white/40 text-xs leading-relaxed px-2 py-2">{ft.empty}</p>
-        )}
-        {groups.map(g => (
-          <div key={g.key} className="mb-1 last:mb-0">
-            <p className="cr-eyebrow px-2 pt-1.5 pb-0.5">{g.label} <span className="tabular-nums">({g.items.length})</span></p>
-            <ul>
-              {g.items.map(f => (
-                <FriendRow key={f.id} f={f} ft={ft} lang={lang} onJoin={onJoin} onRemove={remove} />
-              ))}
-            </ul>
+      {/* ── Reiter: Freunde | Anfragen ─────────────────────────────────────── */}
+      <div className="cr-section--rule px-2.5 pt-2.5">
+        <div className="cr-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'friends'} onClick={() => setTab('friends')}
+            className="!px-2 !py-1.5 !text-[15px] !flex-1">
+            {ft.title} <TabCount n={list.length} />
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'requests'} onClick={() => setTab('requests')}
+            className="!px-2 !py-1.5 !text-[15px] !flex-1">
+            {ft.inbox} {incoming.length > 0 ? <TabCount n={incoming.length} alert /> : <TabCount n={outgoing.length} />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Inhalt des Reiters ─────────────────────────────────────────────── */}
+      <div role="tabpanel" {...scrollProps}>
+        {tab === 'friends' ? (
+          <div className="p-1.5">
+            {state && list.length === 0 && (
+              <p className="text-white/40 text-xs leading-relaxed px-2 py-2">{ft.empty}</p>
+            )}
+            {groups.map(g => (
+              <div key={g.key} className="mb-1 last:mb-0">
+                <p className="cr-eyebrow px-2 pt-1.5 pb-0.5">{g.label} <span className="tabular-nums">({g.items.length})</span></p>
+                <ul>
+                  {g.items.map(f => (
+                    <FriendRow key={f.id} f={f} ft={ft} lang={lang} onJoin={onJoin} onRemove={remove} />
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          <div className="p-1.5">
+            {incoming.length === 0 && outgoing.length === 0 && (
+              <p className="text-white/40 text-xs px-2 py-2">{ft.inboxEmpty}</p>
+            )}
+            {incoming.length > 0 && (
+              <>
+                <p className="cr-eyebrow px-2 pt-1.5 pb-0.5">{ft.incoming}</p>
+                <ul>
+                  {incoming.map(p => (
+                    <RequestRow key={p.id} person={p}>
+                      <button type="button" onClick={() => act(friends.accept, p.id)} title={ft.accept} aria-label={ft.accept}
+                        className="cr-arcade-icon-btn w-8 h-8 !text-emerald-300"><Check size={15} /></button>
+                      <button type="button" onClick={() => act(friends.decline, p.id)} title={ft.decline} aria-label={ft.decline}
+                        className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-8 h-8"><X size={15} /></button>
+                    </RequestRow>
+                  ))}
+                </ul>
+              </>
+            )}
+            {outgoing.length > 0 && (
+              <>
+                <p className="cr-eyebrow px-2 pt-2 pb-0.5">{ft.outgoing}</p>
+                <ul>
+                  {outgoing.map(p => (
+                    <RequestRow key={p.id} person={p}>
+                      <button type="button" onClick={() => act(friends.cancel, p.id)} title={ft.cancel} aria-label={ft.cancel}
+                        className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-8 h-8"><X size={15} /></button>
+                    </RequestRow>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Freund hinzufügen: grüner CR-Knopf, klappt das Eingabefeld auf ──── */}
+      <div className="cr-section--rule px-3 py-3 space-y-2">
+        {adding ? (
+          <div className="flex items-stretch gap-1.5">
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') submit();
+                if (e.key === 'Escape') { setAdding(false); setName(''); }
+              }}
+              placeholder={ft.addPlaceholder}
+              maxLength={26}
+              aria-label={ft.addBtn}
+              className="cr-input min-w-0 flex-1 px-3 py-2 text-sm"
+            />
+            <ChunkyButton variant="green" size="sm" className="shrink-0 !px-3" icon={Send}
+              onClick={submit} disabled={busy || !name.trim()} title={ft.addAria} aria-label={ft.addAria} />
+            <button type="button" onClick={() => { setAdding(false); setName(''); }}
+              title={ft.cancel} aria-label={ft.cancel}
+              className="cr-arcade-icon-btn cr-arcade-icon-btn--red w-9 shrink-0">
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <ChunkyButton variant="green" size="sm" block icon={UserPlus} onClick={() => setAdding(true)}>
+            {ft.addBtn}
+          </ChunkyButton>
+        )}
+        {notice && (
+          <p className={`text-[11px] leading-snug ${notice.ok ? 'text-emerald-300' : 'text-red-300'}`} role="status">{notice.text}</p>
+        )}
       </div>
     </div>
   );

@@ -197,6 +197,23 @@ function drawBonusCard(lobby, alreadyGiven = []) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// Dauer der Auflösung — Kopie des Zeitplans aus Frontend/src/pages/ClashRoyale/modes/auction/
+// revealTiming.js (Karten drehen sich auf, dann Karte für Karte: Gebote steigen auf, Stempel).
+// Dazu Ruhezeit am Ende und Puffer für den Tropfenflug des letzten Bieters, den der Client
+// noch abwartet. Zahlen dort und hier gemeinsam ändern.
+const REVEAL_END_HOLD_S = 1.8;
+const REVEAL_FLIGHT_SLACK_S = 1.2;
+function revealDurationMs(bidCounts, swap) {
+  const base = swap ? 0.95 : 0.25;
+  let t = base + bidCounts.length * 0.12 + 0.45;
+  for (const n of bidCounts) {
+    const step = n > 1 ? Math.min(0.5, 1.4 / (n - 1)) : 0;
+    if (n > 0) t += 0.8 + (n - 1) * step + 0.45 + 0.3 + 1.3; // Karten ohne Gebot: erst im Finale
+  }
+  t += 2.4; // Finale: alle Karten zusammen
+  return Math.max(7000, Math.round((t + REVEAL_END_HOLD_S + REVEAL_FLIGHT_SLACK_S) * 1000));
+}
+
 function resolveAuction(lobby, io) {
   const g = lobby.game;
   clearTurnTimer(lobby);
@@ -301,6 +318,9 @@ function resolveAuction(lobby, io) {
     swapMap: effect.ability === 'swap' ? mw.swapMap : null,
   } : null;
 
+  const revealMs = revealDurationMs(g.currentCards.map((_, i) => cardBids[i].length), effect?.ability === 'swap');
+  state.revealMs = revealMs;
+
   if (effect) mw.activeEffect = null;
 
   io.to(lobby.code).emit('clash:auctionReveal', state);
@@ -309,7 +329,7 @@ function resolveAuction(lobby, io) {
   setTimeout(() => {
     if (!lobby.game || lobby.game.finished) return;
     nextAuctionRound(lobby, io);
-  }, 7000);
+  }, revealMs);
 }
 
 function endAuctionGame(lobby, io) {

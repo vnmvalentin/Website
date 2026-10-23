@@ -20,6 +20,45 @@ export const WT_I18N = {
     loginButton: 'Mit Twitch einloggen',
     tabAccounts: 'Accounts',
     tabSettings: 'Einstellungen',
+    tabRecap: 'Rückblick',
+    recapTitle: 'Saisonrückblick',
+    recapHint: 'Deine Saison in Zahlen — aus allen Matches, die der Win Tracker für deinen aktiven Account gesammelt hat. Als Bild herunterladen und im Stream zeigen oder posten.',
+    recapSeason: 'Saison',
+    recapRunning: 'läuft noch',
+    recapDownload: 'Bild herunterladen',
+    recapEmpty: 'In dieser Saison hat der Win Tracker noch keine Matches gesammelt.',
+    recapNoAccount: 'Füge zuerst einen Account hinzu — dann sammelt der Win Tracker deine Matches.',
+    recapWins: 'Siege', recapWinRate: 'Siegquote', recapStreak: 'längste Siegesserie', recapThreeCrowns: 'Siege mit 3 Kronen',
+    recapRecord: 'Bilanz', recapMatches: '{n} Matches', recapBestDay: 'Bester Tag', recapBestDayValue: '{date} · {n} Siege',
+    recapMostPlayed: 'Meistgespielt', recapFavTime: 'Lieblingszeit', recapHours: '{a}–{b} Uhr', recapMedals: 'Ranked-Medaillen',
+    recapModes: { ranked: 'Ranked', ladder: 'Trophäenstraße', '2v2': '2v2 (locker)', friendly: 'Freundschaftskämpfe', tournament: 'Turniere im Spiel', party: 'Partymodi', challenge: 'Challenges', clanwar: 'Clankrieg', events: 'Events', 's:2v2league': '2v2 Ranked' },
+    recapOpenPage: 'Ganzen Rückblick öffnen',
+    recapBanner: 'Dein Saisonrückblick für {season} ist fertig',
+    recapBannerCta: 'Ansehen',
+    // ── Rückblick-Seite (WinTrackerRecapPage.jsx) ──
+    rp: {
+      kicker: 'Saisonrückblick', back: 'Zum Win Tracker', loading: 'Lade deinen Rückblick …',
+      losses: 'Niederlagen', matches: 'Matches', peakTitle: 'Höchststände',
+      peakMedals: 'höchste Medaillen', peakRank: 'bester Platz', peakLeague: 'höchste Liga',
+      chartTitle: { medals: 'Medaillen über die Saison', trophies: 'Trophäen über die Saison', record: 'Siege minus Niederlagen', points: 'Punkte über die Saison' },
+      tabOverview: 'Übersicht', peakPoints: 'höchste Punkte', pointsStartEnd: 'Start → Ende', unitPoints: 'Punkte',
+      subsMore: '{n} weitere', subsLess: 'weniger',
+      subNames: { clanMate: 'Clan-Freundschaftskampf', Classic: 'Klassisch' },
+      modesHint: 'Freundschaftskämpfe schließen Clan-Kämpfe und die Turniere hier auf der Seite ein (die laufen im Spiel als Freundschaftskampf). Die genaue Spielart speichert der Tracker seit Oktober 2026 — ältere Matches sind nach Modusname einsortiert.',
+      chartEnd: 'Ende', chartMax: 'Hoch', chartMin: 'Tief',
+      ucStartEnd: 'Start in Ultimate Champion → Ende', climbLabel: 'Aufstieg Liga 1–6',
+      tipWin: 'Sieg', tipLoss: 'Niederlage', tipDraw: 'Remis', tipStart: 'Einstieg',
+      approxHint: 'Der Startstand ist vom aktuellen Stand zurückgerechnet. War der Tracker zwischendurch aus, fehlen Matches und er weicht ab — ab jetzt speichert der Tracker den Verlauf mit.',
+      modesTitle: 'Alle Modi', decksTitle: 'Beste Decks', deckMatches: '{n} Matches',
+      decksNone: 'Decks speichert der Win Tracker seit Oktober 2026 pro Match — ab dem nächsten Rückblick stehen hier deine besten Decks mit Siegquote.',
+      decksFew: 'Noch kein Deck mit mindestens 3 Matches in dieser Saison.',
+      gainsTitle: 'Gains & Tilts', bestDayGain: 'Größter Anstieg', worstDay: 'Größter Tilt',
+      lossStreak: 'längste Niederlagenserie', spanRecord: '{w}–{l}{scope}', scope: { medals: ' in Ranked', trophies: ' auf der Trophäenstraße', record: '' },
+      unitMedals: 'Medaillen', unitTrophies: 'Trophäen', unitRecord: 'Bilanz',
+      noAccount: 'Für den Rückblick braucht der Win Tracker einen Account.',
+      waitTitle: 'Dein Rückblick kommt zum Saisonende',
+      waitText: 'Die Saison {season} endet am {date} (noch {days} Tage). Dann steht hier alles: Bilanz, Medaillenkurve, beste Decks, größte Gains und Tilts — und das Bild zum Teilen.',
+    },
     loadingAccounts: 'Lade Accounts…',
     // ── Arcade-Rahmen (seit dem Umbau im Minigame-Look) ─────────────────────
     backToWebsite: 'Website',
@@ -27,10 +66,16 @@ export const WT_I18N = {
     tagLabel: 'Spieler-Kürzel',
     // Generische Saison-Modi (Spooky Chess League & alles, was künftig kommt)
     seasonalBestLabel: (p) => (p.tier ? `${p.tier} · Beste ${p.n}` : `Beste ${p.n}`),
-    seasonalModesHint: 'Neue Ranked-Modi einer Season (z.B. Spooky Chess League) tauchen hier automatisch auf, sobald du sie spielst — das Overlay schaltet dann selbst um.',
+    seasonalModesHint: 'Neue Ranked-Modi einer Season (z.B. Spooky Chess League) tauchen hier automatisch auf, sobald du sie spielst — das Overlay schaltet dann selbst um. Classic-, Grand- und 20-Win-Challenge werden genauso erkannt.',
     trackingNow: (p) => `Overlay zeigt: ${p.mode}`,
     // Qualifikationsphase (z.B. Spooky Chess League: 15 Siege in "Casual" bis zum Rang)
     qualifyLabel: (p) => (p.left > 0 ? `${p.tier} · noch ${p.left} ${p.left === 1 ? 'Sieg' : 'Siege'} bis zum Rang` : `${p.tier} · Rang erreicht`),
+    // Challenges (trackMode "c:<key>"): Name je Challenge, Versuch in der Session, Zusatzzeile im Editor
+    challengeLabels: { '20win': '20 Win Challenge', classic: 'Classic Challenge', grand: 'Grand Challenge' },
+    challengeAttempt: (p) => `Versuch ${p.n}`,
+    challengeAttemptWord: 'Versuch',
+    challengeNote: (p) => `Versuch ${p.attempt} · ${p.losses}/${p.maxLosses} Niederlagen · bester Run ${p.best}`,
+    statBestRun: 'Bester Run',
     alsoRunning: 'Laufende Saison-Modi',
 
     // ── AddAccountModal ────────────────────────────────────────────────────
@@ -228,6 +273,45 @@ export const WT_I18N = {
     loginButton: 'Log in with Twitch',
     tabAccounts: 'Accounts',
     tabSettings: 'Settings',
+    tabRecap: 'Recap',
+    recapTitle: 'Season recap',
+    recapHint: 'Your season in numbers — from every match the Win Tracker has collected for your active account. Download it as an image to show on stream or post.',
+    recapSeason: 'Season',
+    recapRunning: 'in progress',
+    recapDownload: 'Download image',
+    recapEmpty: 'The Win Tracker has not collected any matches this season yet.',
+    recapNoAccount: 'Add an account first — then the Win Tracker starts collecting your matches.',
+    recapWins: 'Wins', recapWinRate: 'Win rate', recapStreak: 'longest win streak', recapThreeCrowns: 'three-crown wins',
+    recapRecord: 'Record', recapMatches: '{n} matches', recapBestDay: 'Best day', recapBestDayValue: '{date} · {n} wins',
+    recapMostPlayed: 'Most played', recapFavTime: 'Favourite time', recapHours: '{a}:00–{b}:00', recapMedals: 'Ranked medals',
+    recapModes: { ranked: 'Ranked', ladder: 'Trophy Road', '2v2': '2v2 (casual)', friendly: 'Friendly battles', tournament: 'In-game tournaments', party: 'Party modes', challenge: 'Challenges', clanwar: 'Clan war', events: 'Events', 's:2v2league': '2v2 Ranked' },
+    recapOpenPage: 'Open full recap',
+    recapBanner: 'Your season recap for {season} is ready',
+    recapBannerCta: 'View',
+    // ── Recap page (WinTrackerRecapPage.jsx) ──
+    rp: {
+      kicker: 'Season recap', back: 'Back to Win Tracker', loading: 'Loading your recap …',
+      losses: 'Losses', matches: 'Matches', peakTitle: 'Season highs',
+      peakMedals: 'highest medals', peakRank: 'best rank', peakLeague: 'highest league',
+      chartTitle: { medals: 'Medals over the season', trophies: 'Trophies over the season', record: 'Wins minus losses', points: 'Points over the season' },
+      tabOverview: 'Overview', peakPoints: 'highest points', pointsStartEnd: 'Start → end', unitPoints: 'points',
+      subsMore: '{n} more', subsLess: 'less',
+      subNames: { clanMate: 'Clan friendly', Classic: 'Classic' },
+      modesHint: 'Friendly battles include clan battles and the tournaments on this site (they are played as friendly battles in-game). The tracker saves the exact battle type since October 2026 — older matches are sorted by mode name.',
+      chartEnd: 'End', chartMax: 'High', chartMin: 'Low',
+      ucStartEnd: 'Start in Ultimate Champion → end', climbLabel: 'Climb league 1–6',
+      tipWin: 'Win', tipLoss: 'Loss', tipDraw: 'Draw', tipStart: 'Entry',
+      approxHint: 'The starting value is calculated back from your current medals. If the tracker was offline at times, matches are missing and it can be off — from now on the tracker also saves your history.',
+      modesTitle: 'All modes', decksTitle: 'Best decks', deckMatches: '{n} matches',
+      decksNone: 'Since October 2026 the Win Tracker saves your deck for every match — from your next recap on, your best decks with win rate show up here.',
+      decksFew: 'No deck with at least 3 matches this season yet.',
+      gainsTitle: 'Gains & tilts', bestDayGain: 'Biggest climb', worstDay: 'Biggest tilt',
+      lossStreak: 'longest losing streak', spanRecord: '{w}–{l}{scope}', scope: { medals: ' in Ranked', trophies: ' on Trophy Road', record: '' },
+      unitMedals: 'medals', unitTrophies: 'trophies', unitRecord: 'record',
+      noAccount: 'The recap needs an account in the Win Tracker.',
+      waitTitle: 'Your recap arrives at season end',
+      waitText: 'The {season} season ends on {date} ({days} days left). Then everything shows up here: record, medal curve, best decks, biggest gains and tilts — plus the image to share.',
+    },
     loadingAccounts: 'Loading accounts…',
     // ── Arcade frame ─────────────────────────────────────────────────────────
     backToWebsite: 'Website',
@@ -235,10 +319,15 @@ export const WT_I18N = {
     tagLabel: 'Player tag',
     // Generic seasonal modes (Spooky Chess League and whatever comes next)
     seasonalBestLabel: (p) => (p.tier ? `${p.tier} · Best ${p.n}` : `Best ${p.n}`),
-    seasonalModesHint: 'New ranked modes of a season (e.g. Spooky Chess League) show up here automatically as soon as you play them — the overlay then switches on its own.',
+    seasonalModesHint: 'New ranked modes of a season (e.g. Spooky Chess League) show up here automatically as soon as you play them — the overlay then switches on its own. Classic, Grand and 20 Win Challenges are detected the same way.',
     trackingNow: (p) => `Overlay shows: ${p.mode}`,
     // Qualification phase (e.g. Spooky Chess League: 15 wins in "Casual" to get ranked)
     qualifyLabel: (p) => (p.left > 0 ? `${p.tier} · ${p.left} ${p.left === 1 ? 'win' : 'wins'} to rank` : `${p.tier} · rank reached`),
+    challengeLabels: { '20win': '20 Win Challenge', classic: 'Classic Challenge', grand: 'Grand Challenge' },
+    challengeAttempt: (p) => `Try ${p.n}`,
+    challengeAttemptWord: 'Try',
+    challengeNote: (p) => `Try ${p.attempt} · ${p.losses}/${p.maxLosses} losses · best run ${p.best}`,
+    statBestRun: 'Best run',
     alsoRunning: 'Running seasonal modes',
 
     // ── AddAccountModal ────────────────────────────────────────────────────
@@ -423,6 +512,9 @@ export const WT_I18N = {
     eyeHide: 'Hide',
   },
 };
+
+/** Anzeigename einer Challenge (Schlüssel aus Backend lib/challengeModes.js). */
+export const challengeLabel = (key, t) => t.challengeLabels?.[key] || 'Challenge';
 
 /** Wörterbuch zu einer Sprache; unbekannte Kürzel fallen auf Deutsch zurück. */
 export const dictForWt = (lang) => WT_I18N[lang] || WT_I18N.de;

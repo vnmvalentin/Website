@@ -7,7 +7,7 @@ const SETTINGS_VERSION = 2;
 export const SPEED_OPTIONS = [1, 1.5, 2];
 /** Wünscht das Betriebssystem weniger Bewegung? Dann einmalig ein Hinweis – die Animationen bleiben aber an. */
 export const systemPrefersReducedMotion = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-const DEFAULTS = { v: SETTINGS_VERSION, reduceMotion: false, motionHintSeen: false, speed: 1, tipsOff: false, seenTips: /** @type {string[]} */ ([]), name: "" };
+const DEFAULTS = { v: SETTINGS_VERSION, reduceMotion: false, motionHintSeen: false, speed: 1, tipsOff: false, table3d: true, seenTips: /** @type {string[]} */ ([]), name: "" };
 
 let state = load();
 const listeners = new Set();

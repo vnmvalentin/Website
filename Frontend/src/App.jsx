@@ -5,6 +5,8 @@ import Layout from "./pages/Layout";
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import TwitchAuthProvider from "./components/TwitchAuthProvider";
+import AnalyticsTracker from "./components/AnalyticsTracker";
+import { VisitMemory } from "./utils/visitMemory";
 
 // ── Nachgeladene Routen ─────────────────────────────────────────────────────
 // Eager importiert bleibt nur, was auf JEDER Seite gebraucht wird (Layout, die
@@ -38,6 +40,7 @@ const DiscordBotDashboard = lazy(() => import("./pages/Discord/DiscordBotDashboa
 const Abstimmung = lazy(() => import("./pages/Abstimmung/Abstimmung"));
 const AbstimmungDetail = lazy(() => import("./pages/Abstimmung/AbstimmungDetail"));
 const AuthTwitch = lazy(() => import("./pages/AuthTwitch"));
+const WcShell = lazy(() => import("./pages/WinChallenge/ui/WcShell.jsx"));
 const WinChallenge = lazy(() => import("./pages/WinChallenge/WinChallenge"));
 const WinChallengeOverlay = lazy(() => import("./pages/WinChallenge/WinChallengeOverlay"));
 const WinChallengeControl = lazy(() => import("./pages/WinChallenge/WinChallengeControl"));
@@ -50,6 +53,10 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const YTMBotPage = lazy(() => import("./pages/YTM/YTMBotPage"));
 const Updates = lazy(() => import("./pages/Updates"));
 const StreamCredits = lazy(() => import("./pages/StreamCredits"));
+const StreamStarting = lazy(() => import("./pages/StreamScenes/StreamStarting"));
+const StreamEnding = lazy(() => import("./pages/StreamScenes/StreamEnding"));
+const StreamScenesControlPage = lazy(() => import("./pages/StreamScenes/StreamScenesControlPage"));
+const AvatarBuilderPage = lazy(() => import("./pages/StreamScenes/AvatarBuilderPage"));
 const DiscordBotPrivacyPage = lazy(() => import("./pages/Discord/DiscordBotPrivacyPage"));
 const DiscordBotTermsPage = lazy(() => import("./pages/Discord/DiscordBotTermsPage"));
 const BannedCardsOverlayPage = lazy(() => import("./pages/ClashRoyale/BannedCards/BannedCardsOverlayPage"));
@@ -57,11 +64,20 @@ const DeckOverlayPage = lazy(() => import("./pages/ClashRoyale/streamer/DeckOver
 const LobbyDeckOverlayPage = lazy(() => import("./pages/ClashRoyale/streamer/LobbyDeckOverlayPage"));
 const NuzlockePage = lazy(() => import("./pages/ClashRoyale/Nuzlocke/NuzlockePage"));
 const WinTrackerPage = lazy(() => import("./pages/ClashRoyale/WinTracker/WinTrackerPage"));
+const WinTrackerRecapPage = lazy(() => import("./pages/ClashRoyale/WinTracker/WinTrackerRecapPage"));
 const WinTrackerOverlayPage = lazy(() => import("./pages/ClashRoyale/WinTracker/WinTrackerOverlayPage"));
 const PollsPredictionsPage = lazy(() => import("./pages/StreamTool/PollsPredictionsPage"));
+const Abo = lazy(() => import("./pages/Abo"));
+const Impressum = lazy(() => import("./pages/Legal/Impressum"));
+const Datenschutz = lazy(() => import("./pages/Legal/Datenschutz"));
+const Agb = lazy(() => import("./pages/Legal/Agb"));
+const Widerruf = lazy(() => import("./pages/Legal/Widerruf"));
 const PollsPredictionsOverlay = lazy(() => import("./pages/StreamTool/PollsPredictionsOverlay"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
+const StreamerToolsPage = lazy(() => import("./pages/StreamerTools/StreamerToolsPage"));
+const OverlayGalleryPage = lazy(() => import("./pages/StreamerTools/OverlayGalleryPage"));
 const Profile = lazy(() => import("./pages/Profile"));
+const PublicProfilePage = lazy(() => import("./pages/PublicProfile/PublicProfilePage"));
 const Connect4Page = lazy(() => import("./pages/Connect4/Connect4Page"));
 const Connect4Room = lazy(() => import("./pages/Connect4/Connect4Room"));
 const BlobbyShell = lazy(() => import("./pages/Blobby/ui/Shell.jsx"));
@@ -83,6 +99,7 @@ const FlickShell = lazy(() => import("./pages/FlickSoccer/ui/Shell.jsx"));
 const FlickMenu = lazy(() => import("./pages/FlickSoccer/FlickMenu.jsx"));
 const FlickLocal = lazy(() => import("./pages/FlickSoccer/FlickLocal.jsx"));
 const FlickRoom = lazy(() => import("./pages/FlickSoccer/FlickRoom.jsx"));
+const LightsOut = lazy(() => import("./pages/LightsOut/LightsOut.jsx"));
 const SigilsShell = lazy(() => import("./pages/SacrificeSigils/ui/Shell.jsx"));
 const SigilsHome = lazy(() => import("./pages/SacrificeSigils/ui/screens/HomeScreen.jsx"));
 const SigilsRoom = lazy(() => import("./pages/SacrificeSigils/ui/pages/RoomPage.jsx"));
@@ -146,12 +163,18 @@ class LazyRouteBoundary extends Component {
 export default function App() {
   return (
     <TwitchAuthProvider>
+      <AnalyticsTracker />
+      {/* "Schnell weiter" auf der Startseite: meistbesuchte Bereiche, nur im Browser gespeichert */}
+      <VisitMemory />
       <LazyRouteBoundary>
       <Suspense fallback={<PageFallback />}>
         <Routes>
           {/* Overlay separat, ohne Layout */}
           <Route path="/WinChallengeOverlay/:overlayKey" element={<WinChallengeOverlay />}/>
           <Route path="/overlay/credits" element={<StreamCredits />} />
+          {/* 3D-Szenen: Streamer-Zimmer vor dem Stream, Kino mit den Credits danach */}
+          <Route path="/overlay/stream-starting" element={<StreamStarting />} />
+          <Route path="/overlay/stream-ending" element={<StreamEnding />} />
 
           <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
           <Route path="/banned-cards/overlay/:overlayKey" element={<BannedCardsOverlayPage />} />
@@ -159,6 +182,13 @@ export default function App() {
           <Route path="/clash-royale/overlay/lobby-decks/:overlayKey" element={<LobbyDeckOverlayPage />} />
           <Route path="/clash-royale/win-tracker/overlay/:overlayKey" element={<WinTrackerOverlayPage />} />
           <Route path="/twitch-tools/overlay/:overlayKey" element={<PollsPredictionsOverlay />} />
+
+          {/* Win Challenge: Editor, öffentliche Beschreibung und Moderator-Ansicht in eigener Hülle
+              (ui/WcShell.jsx) statt im Website-Layout; das OBS-Overlay oben bleibt ohne Hülle */}
+          <Route element={<WcShell />}>
+            <Route path="/WinChallenge-Overlay" element={<WinChallenge />} />
+            <Route path="/WinChallengeControl/:controlKey" element={<WinChallengeControl />} />
+          </Route>
 
           {/* Seed Runners als eigenes Spiel: eigene Hülle statt Website-Layout (ui/GameShell.jsx) */}
           <Route path="/seed-runners" element={<SeedRunnersShell />}>
@@ -208,6 +238,8 @@ export default function App() {
             <Route path="turnier/:id/bearbeiten" element={<TournamentForm />} />
             {/* Win-Tracker-Editor seit Okt. 2026 im selben Arcade-Look (das OBS-Overlay oben bleibt ohne Hülle) */}
             <Route path="win-tracker" element={<WinTrackerPage />} />
+            {/* Saisonrückblick als eigene Seite (Backend: lib/winTrackerRecap.js) */}
+            <Route path="win-tracker/rueckblick" element={<WinTrackerRecapPage />} />
           </Route>
           {/* Nuzlocke: seit Okt. 2026 ebenfalls im Arcade-Look, URL bleibt /nuzlocke (SEO) */}
           <Route path="/nuzlocke" element={<CrShell />}>
@@ -231,6 +263,9 @@ export default function App() {
             <Route path=":code" element={<FlickRoom/>} />
           </Route>
 
+          {/* Lights Out: Horror-Labyrinth in der Ego-Perspektive, eigene Hülle (LightsOut/LightsOut.jsx) */}
+          <Route path="/lights-out" element={<LightsOut />} />
+
           {/* Alle “normalen” Seiten unter Layout */}
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
@@ -239,19 +274,20 @@ export default function App() {
             <Route path="fun" element={<CategoryPage categoryKey="fun" />} />
             <Route path="community" element={<CategoryPage categoryKey="community" />} />
             <Route path="clash" element={<CategoryPage categoryKey="clash-royale" />} />
-            <Route path="tools" element={<CategoryPage categoryKey="tools" />} />
+            {/* „Für Streamer": Live-Vorschau aller Overlays statt der Kachel-Übersicht (gleiche Adresse) */}
+            <Route path="tools" element={<StreamerToolsPage />} />
+            {/* Overlay-Galerie mit Reitern je Overlay (Vorlagen übernehmen per ?vorlage=) */}
+            <Route path="tools/vorlagen" element={<OverlayGalleryPage />} />
             <Route path="contact" element={<CategoryPage categoryKey="contact" />} />
 
             <Route path="profile" element={<Profile />} />
+            {/* Öffentliches Profil (opt-in unter /profile), Backend/profile */}
+            <Route path="u/:login" element={<PublicProfilePage />} />
 
             <Route path="Abstimmungen" element={<Abstimmung />} />
             <Route path="Abstimmungen/:id" element={<AbstimmungDetail />} />
             <Route path="auth/twitch" element={<AuthTwitch />} />
-            <Route path="WinChallenge-Overlay" element={<WinChallenge />} />
-            <Route
-              path="WinChallengeControl/:controlKey"
-              element={<WinChallengeControl />}
-            />
+
             <Route path="Giveaways" element={<GiveawaysPage />} />
             <Route path="Bingo" element={<BingoPage/>} />
             <Route path="Bingo/:sessionId" element={<BingoEditorPage/>} />
@@ -271,6 +307,16 @@ export default function App() {
             <Route path="/discord-bot/privacy" element={<DiscordBotPrivacyPage />} />
             <Route path="/discord-bot/terms" element={<DiscordBotTermsPage />} />
             <Route path="/twitch-tools" element={<PollsPredictionsPage />} />
+            {/* 3D-Stream-Szenen: Steuerpult (Streamer) und Figurbaukasten (Zuschauer) */}
+            <Route path="/stream-szenen" element={<StreamScenesControlPage />} />
+            <Route path="/tanzfigur" element={<AvatarBuilderPage />} />
+            {/* Premium-Abo ansehen, verwalten, kündigen (Backend/billing) */}
+            <Route path="/abo" element={<Abo />} />
+            {/* Rechtsseiten — die Angaben des Betreibers stehen in config/legal.js */}
+            <Route path="/impressum" element={<Impressum />} />
+            <Route path="/datenschutz" element={<Datenschutz />} />
+            <Route path="/agb" element={<Agb />} />
+            <Route path="/widerruf" element={<Widerruf />} />
 
             {/* Entfernte Seiten sanft umleiten */}
             <Route path="Casino" element={<Navigate to="/fun" replace />} />

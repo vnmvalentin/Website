@@ -8,11 +8,17 @@
 // Die Widgets kommen aus OverlayWidgets.jsx und sind identisch mit dem, was die
 // OBS-Quelle rendert.
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import {
   Copy, Check, Eye, EyeOff, RefreshCw, BarChart3, Scale, Crosshair, Grid3x3,
   LogOut, TriangleAlert, Info, Users, Star, ArrowRight, Clapperboard, Play, Square,
   Activity, RotateCcw, TrainFront, Plane, UsersRound, CircleDot,
+  ChevronDown, FlaskConical, Link2, ArrowLeft, Lock,
 } from 'lucide-react';
+import PremiumDialog from '../../components/PremiumDialog';
+import { PREMIUM_INCLUDES, openPortal, untilText } from '../../utils/billingApi';
+import { salesVisible } from '../../config/legal';
 import { TwitchGlyph } from '../../components/BrandGlyphs';
 import SEO from '../../components/SEO';
 import StreamToolSeoContent from './seoContent';
@@ -20,7 +26,7 @@ import { ST_TITLE, ST_DESCRIPTION, ST_KEYWORDS } from './seoData';
 import { buildStreamToolJsonLd } from './jsonLd';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 import * as api from './streamToolApi';
-import { STREAM_TOOL_SCOPES } from './streamToolApi';
+import { STREAM_TOOL_SCOPES, MARBLE_REWARD_SCOPE } from './streamToolApi';
 import {
   defaultConfig, mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
   useDemoSim, useLinger, paintDemo, MODULE_DEFAULTS, TWITCH_GOAL_TYPES, TWITCH_GOAL_FAMILY,
@@ -36,20 +42,6 @@ import {
 
 const LIVE_POLL_MS = 2500;
 const SAVE_DEBOUNCE_MS = 700;
-
-/**
- * Aufteilung der Spaltenhöhe zwischen Bühne und Einstellungen.
- *
- * Vorher war die Leinwand immer so breit wie die Spalte. Auf 2560x1440 passte
- * darunter noch alles, auf 1920x1080 lagen die Einstellungen aber unterhalb des
- * sichtbaren Bereichs — man musste blind scrollen. Jetzt bekommt die Bühne einen
- * Anteil der Bildhöhe, der Rest gehört den Einstellungen (mit eigenem Bildlauf).
- */
-const STAGE_HEIGHT_SHARE = 0.48;
-/** So viel von den Einstellungen bleibt immer sichtbar. */
-const SETTINGS_MIN_H = 190;
-/** Kleiner soll die Bühne nicht werden, auch nicht auf flachen Fenstern. */
-const STAGE_MIN_H = 260;
 
 /**
  * Registrierung der Overlay-Module. Ein neues Modul braucht hier eine Zeile,
@@ -270,13 +262,16 @@ function MiniButton({ icon: Icon, children, spin, ...props }) {
  * was das Modul zeigt, dann wie es aussieht — sonst sucht man dieselbe Sache
  * bei jedem Modul woanders.
  */
-const SECTION_COLS = { 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-2 xl:grid-cols-3', 4: 'sm:grid-cols-2 xl:grid-cols-4' };
-
-function Section({ title, cols = 4, children }) {
+// Die Einstellungen stehen in einer schmalen Spalte rechts neben der Bühne:
+// eine Gruppe unter der anderen, jede in ihrem eigenen Kasten. Abschnitte
+// trennt nur eine Linie.
+function Section({ title, children }) {
   return (
-    <section className="border-t border-white/5 pt-4">
-      <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-3">{title}</h3>
-      <div className={`grid gap-x-5 gap-y-4 ${SECTION_COLS[cols]}`}>{children}</div>
+    <section className="border-t border-white/[0.08] pt-3.5">
+      <h3 className="text-[10.5px] font-bold uppercase tracking-wider text-gray-500 mb-2.5">{title}</h3>
+      <div className="grid gap-2 [&>*]:min-w-0 [&>*]:rounded-md [&>*]:border [&>*]:border-white/10 [&>*]:bg-white/[0.03] [&>*]:p-3">
+        {children}
+      </div>
     </section>
   );
 }
@@ -294,6 +289,8 @@ function ChatWatchNote({ watch, enabled, what }) {
     return <Callout>Schalte das Modul oben ein — danach wertet der Chat-Bot {what} in deinem Kanal aus.</Callout>;
   }
   if (watch.watching) return <Callout tone="ok">{what} in {watch.channel} werden erkannt.</Callout>;
+  // Fehlt der Bot ganz, steht das schon als Warnung über dem Modul — nicht doppelt sagen
+  if (!watch.botConfigured) return null;
   return (
     <Callout>
       {!watch.botConfigured
@@ -306,8 +303,6 @@ function ChatWatchNote({ watch, enabled, what }) {
 /* ── Clip des Raiders: eigene Einstellungen ───────────────────────────────── */
 
 function RaidSettings({ meta, module, set, tools }) {
-  const [login, setLogin] = useState('');
-
   return (
     <>
       <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="Raids" />
@@ -367,22 +362,6 @@ function RaidSettings({ meta, module, set, tools }) {
           )}
         </div>
 
-        <div>
-          <Label htmlFor={`${meta.id}-test`}>Probelauf</Label>
-          <Field id={`${meta.id}-test`} className="mt-1.5" maxLength={30} value={login} placeholder="twitch-kanal"
-            onChange={(e) => setLogin(e.target.value)} />
-          <div className="flex items-center gap-2 mt-2">
-            <MiniButton icon={Play} onClick={() => tools?.onTest(login)} disabled={tools?.busy || !login.trim()}>
-              {tools?.busy ? 'Startet…' : 'Im Overlay abspielen'}
-            </MiniButton>
-            <button onClick={() => tools?.onStop()} title="Laufenden Clip beenden"
-              className="p-2 rounded-lg border border-white/10 text-gray-500 hover:text-white hover:border-white/25 transition-colors">
-              <Square size={13} />
-            </button>
-          </div>
-          <Note>Spielt einen Clip dieses Kanals in deiner OBS-Quelle ab, samt Vorlauf. In der Vorschau läuft er stumm mit.</Note>
-          {tools?.note && <p className="text-[11px] font-semibold text-green-400 mt-1.5">{tools.note}</p>}
-        </div>
       </Section>
     </>
   );
@@ -428,31 +407,24 @@ function ColorRow({ meta, module, set, labels }) {
   );
 }
 
-/** Probelauf-Knopf samt Abbruch. Der Lauf erscheint in der Vorschau UND in OBS. */
-function TestRow({ label, onTest, onStop, busy, disabled }) {
-  return (
-    <div className="flex items-center gap-2 mt-2">
-      <MiniButton icon={Play} onClick={onTest} disabled={busy || disabled}>{label}</MiniButton>
-      {onStop && (
-        <button onClick={onStop} title="Beenden"
-          className="p-2 rounded-lg border border-white/10 text-gray-500 hover:text-white hover:border-white/25 transition-colors">
-          <Square size={13} />
-        </button>
-      )}
-    </div>
-  );
-}
-
 const DIRECTION_OPTIONS = [['right', 'Nach rechts'], ['left', 'Nach links']];
 
 /* ── Hype Train ───────────────────────────────────────────────────────────── */
 
-function HypeSettings({ meta, module, set, tools }) {
+function HypeSettings({ meta, module, set, tools, tab }) {
+  if (tab === 'look') {
+    return (
+      <Section title="Platz und Farben">
+        <LaneFields meta={meta} module={module} set={set} yNote="Oberkante des Zugs. 850 stellt ihn an den unteren Rand." />
+        <ColorRow meta={meta} module={module} set={set} labels={['Lok', 'Wagen']} />
+      </Section>
+    );
+  }
   return (
     <>
       <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="Cheers und Abos" />
 
-      <Section title="Zug" cols={4}>
+      <Section title="Zug">
         <div>
           <Label>Fährt ein</Label>
           <Choice value={module.from} options={[['left', 'Von links'], ['right', 'Von rechts']]}
@@ -468,18 +440,6 @@ function HypeSettings({ meta, module, set, tools }) {
           <ToggleRow label="Namen unter den Bildern" description="Macht die Bilder etwas kleiner."
             checked={!!module.showNames} onChange={(v) => set({ showNames: v })} />
         </div>
-
-        <LaneFields meta={meta} module={module} set={set} yNote="Oberkante des Zugs. 850 stellt ihn an den unteren Rand." />
-
-        <div>
-          <ColorRow meta={meta} module={module} set={set} labels={['Lok', 'Wagen']} />
-          <div className="mt-4">
-            <Label>Probelauf</Label>
-            <TestRow label={tools?.busy ? 'Startet…' : 'Probezug schicken'} busy={tools?.busy}
-              onTest={() => tools?.onTest('hype')} onStop={() => tools?.onStop('hype')} />
-            <Note>Fährt ein, steigt alle zehn Sekunden ein Level auf (bis Level 4) und fährt wieder ab.</Note>
-          </div>
-        </div>
       </Section>
 
       <Section title="Wer mitfährt" cols={2}>
@@ -494,9 +454,26 @@ function HypeSettings({ meta, module, set, tools }) {
 
 /* ── Raid-Ansturm ─────────────────────────────────────────────────────────── */
 
-function StormSettings({ meta, module, set, tools }) {
-  const [viewers, setViewers] = useState(40);
+function StormSettings({ meta, module, set, tools, tab }) {
   const guess = module.guessNames !== false;
+
+  if (tab === 'look') {
+    return (
+      <Section title="Platz und Farben">
+        <LaneFields meta={meta} module={module} set={set} yNote="Oberkante der Laufspur. 760 legt sie an den unteren Rand." />
+        <ColorRow meta={meta} module={module} set={set} />
+        <div>
+          <Label htmlFor={`${meta.id}-accent`}>Farbe der Fahne</Label>
+          <div className="flex items-center gap-2 mt-1.5">
+            <input id={`${meta.id}-accent`} type="color" value={module.accent}
+              onChange={(e) => set({ accent: e.target.value })}
+              className="w-9 h-9 shrink-0 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
+            <Note>Auch das Oberteil des Anführers.</Note>
+          </div>
+        </div>
+      </Section>
+    );
+  }
 
   return (
     <>
@@ -538,29 +515,6 @@ function StormSettings({ meta, module, set, tools }) {
           )}
         </div>
 
-        <div className="space-y-4">
-          <LaneFields meta={meta} module={module} set={set} yNote="Oberkante der Laufspur. 760 legt sie an den unteren Rand." />
-        </div>
-      </Section>
-
-      <Section title="Aussehen und Probelauf" cols={3}>
-        <ColorRow meta={meta} module={module} set={set} />
-        <div>
-          <Label htmlFor={`${meta.id}-accent`}>Farbe der Fahne</Label>
-          <div className="flex items-center gap-2 mt-1.5">
-            <input id={`${meta.id}-accent`} type="color" value={module.accent}
-              onChange={(e) => set({ accent: e.target.value })}
-              className="w-9 h-9 shrink-0 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
-            <Note>Auch das Oberteil des Anführers.</Note>
-          </div>
-        </div>
-        <div>
-          <Label htmlFor={`${meta.id}-test`}>Probelauf mit Zuschauern</Label>
-          <Field id={`${meta.id}-test`} type="number" min={1} max={5000} className="mt-1.5" value={viewers}
-            onChange={(e) => setViewers(Math.max(1, Number(e.target.value) || 1))} />
-          <TestRow label={tools?.busy ? 'Startet…' : 'Ansturm auslösen'} busy={tools?.busy}
-            onTest={() => tools?.onTest('storm', viewers)} onStop={() => tools?.onStop('storm')} />
-        </div>
       </Section>
     </>
   );
@@ -568,10 +522,18 @@ function StormSettings({ meta, module, set, tools }) {
 
 /* ── Flugzeug mit Banner ──────────────────────────────────────────────────── */
 
-function PlaneSettings({ meta, module, set, tools }) {
+function PlaneSettings({ meta, module, set, tab }) {
   const count = planeMessages(module).length;
+  if (tab === 'look') {
+    return (
+      <Section title="Platz und Farben">
+        <LaneFields meta={meta} module={module} set={set} yNote="Oberkante des Flugzeugs." />
+        <ColorRow meta={meta} module={module} set={set} labels={['Flugzeug', 'Banner', 'Schrift']} />
+      </Section>
+    );
+  }
   return (
-    <Section title="Flug" cols={4}>
+    <Section title="Flug">
       <div className="sm:col-span-2 xl:col-span-1">
         <Label htmlFor={`${meta.id}-msg`}>Nachricht</Label>
         <textarea id={`${meta.id}-msg`} rows={4} maxLength={1500} value={module.messages}
@@ -599,19 +561,6 @@ function PlaneSettings({ meta, module, set, tools }) {
       <div>
         <Label>Flugrichtung</Label>
         <Choice value={module.direction} options={DIRECTION_OPTIONS} onChange={(v) => set({ direction: v })} />
-        <div className="mt-4">
-          <LaneFields meta={meta} module={module} set={set} yNote="Oberkante des Flugzeugs." />
-        </div>
-      </div>
-
-      <div>
-        <ColorRow meta={meta} module={module} set={set} labels={['Flugzeug', 'Banner', 'Schrift']} />
-        <div className="mt-4">
-          <Label>Probeflug</Label>
-          <TestRow label={tools?.busy ? 'Startet…' : 'Jetzt fliegen'} busy={tools?.busy} disabled={!count}
-            onTest={() => tools?.onTest('plane')} />
-          <Note>Startet sofort in der Vorschau und in deiner OBS-Quelle.</Note>
-        </div>
       </div>
     </Section>
   );
@@ -625,51 +574,171 @@ const MARBLE_PHASE_TEXT = {
   done: 'Entschieden',
 };
 
-function MarbleSettings({ meta, module, set, tools }) {
-  const state = tools?.state;
-  const phase = state?.phase;
-  const command = module.joinCommand || '!murmel';
+/**
+ * Start per Kanalpunkte. Zwei Wege:
+ *
+ * 1. Die Seite legt die Belohnung selbst an (empfohlen). Dann darf sie die
+ *    Einlösungen bei Twitch abfragen — ohne Textfeld — und kann sie erstatten,
+ *    wenn kein Rennen zustande kommt. Braucht ein Schreibrecht.
+ * 2. Eine vorhandene Belohnung über den Chat-Bot erkennen. Geht ohne
+ *    zusätzliches Recht, die Belohnung braucht dafür aber ein Textfeld — nur
+ *    dann schickt Twitch die Einlösung in den Chat.
+ */
+function RewardSettings({ module, tools }) {
+  const [title, setTitle] = useState('Murmelrennen starten');
+  const [cost, setCost] = useState(500);
+  const setup = tools?.setup;
+  const hasScope = !!tools?.status?.rewardScope;
+  const active = !!module.rewardId;
+
+  if (active) {
+    return (
+      <Section title="Start per Kanalpunkte">
+        <div>
+          <p className="text-[13px] font-semibold text-white">
+            Aktiv{module.rewardTitle ? `: „${module.rewardTitle}“` : ''}
+          </p>
+          <p className="text-[12px] text-gray-500 leading-relaxed mt-1">
+            Die Einlösung öffnet die Anmeldung und meldet den Einlösenden gleich an.
+            Ist die Anmeldung schon offen, tritt er nur bei.
+          </p>
+          {module.rewardManaged ? (
+            <>
+              {!hasScope && (
+                <div className="mt-2.5">
+                  <Callout>Das Recht für Kanalpunkte fehlt gerade — ohne es kommen keine Einlösungen an.</Callout>
+                  <div className="mt-2"><MiniButton icon={ArrowRight} onClick={() => tools?.onGrantReward()}>Recht erneut erteilen</MiniButton></div>
+                </div>
+              )}
+              <Note>
+                Startet das Rennen, werden die Einlösungen abgeschlossen. Fällt es aus oder läuft schon
+                eines, bekommen die Zuschauer ihre Punkte automatisch zurück.
+              </Note>
+              <Note>Preis, Bild und Abklingzeit stellst du wie gewohnt in Twitch ein. Einlösungen kommen an, solange das Overlay in OBS läuft.</Note>
+            </>
+          ) : (
+            <Note>
+              Erkannt über den Chat-Bot — die Belohnung braucht dafür ein Textfeld. Läuft schon ein Rennen,
+              verfällt die Einlösung; erstatten kannst nur du in Twitch.
+            </Note>
+          )}
+          <div className="mt-2.5">
+            <MiniButton icon={Square} onClick={() => tools?.onRemoveReward()} disabled={tools?.busy}>
+              {module.rewardManaged ? 'Ausschalten und Belohnung löschen' : 'Ausschalten'}
+            </MiniButton>
+          </div>
+        </div>
+      </Section>
+    );
+  }
 
   return (
     <>
+      <Section title="Belohnung von hier anlegen">
+        <div>
+          <p className="text-[12px] text-gray-400 leading-relaxed">
+            Die Seite legt die Belohnung in deinem Kanal an. Zuschauer lösen sie einfach ein — ohne
+            etwas einzutippen — und bekommen ihre Punkte zurück, wenn kein Rennen zustande kommt.
+          </p>
+          {hasScope ? (
+            <>
+              <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-2 mt-3">
+                <div>
+                  <Label htmlFor="reward-title">Name</Label>
+                  <Field id="reward-title" className="mt-1.5" maxLength={45} value={title} onChange={(e) => setTitle(e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="reward-cost">Preis</Label>
+                  <Field id="reward-cost" type="number" min={1} className="mt-1.5" value={cost}
+                    onChange={(e) => setCost(Math.max(1, Number(e.target.value) || 1))} />
+                </div>
+              </div>
+              <div className="mt-2.5">
+                <MiniButton icon={Play} onClick={() => tools?.onCreateReward(title, cost)} disabled={tools?.busy || !module.enabled || !title.trim()}>
+                  Belohnung anlegen
+                </MiniButton>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-2.5">
+                <MiniButton icon={ArrowRight} onClick={() => tools?.onGrantReward()}>Recht für Kanalpunkte erteilen</MiniButton>
+              </div>
+              <Note>
+                Dafür braucht die Seite einmalig das Recht, Kanalpunkte-Belohnungen zu verwalten — das einzige
+                Schreibrecht dieses Tools. Twitch gibt Einlösungen nur der Anwendung heraus, die die Belohnung angelegt hat.
+              </Note>
+            </>
+          )}
+        </div>
+      </Section>
+
+      <Section title="Oder: vorhandene Belohnung erkennen">
+        <div>
+          <p className="text-[12px] text-gray-400 leading-relaxed">
+            Ohne zusätzliches Recht, über den Chat-Bot. Die Belohnung braucht dafür in Twitch die Einstellung
+            „Zuschauer muss Text eingeben“ — was die Zuschauer hineinschreiben, ist egal.
+          </p>
+          {setup?.learning ? (
+            <div className="mt-2.5"><Callout>Löse die Belohnung jetzt einmal in deinem Kanal ein. Die nächste Einlösung wird übernommen.</Callout></div>
+          ) : (
+            <div className="mt-2.5">
+              <MiniButton icon={Crosshair} onClick={() => tools?.onLearn()} disabled={tools?.busy || !module.enabled}>
+                Belohnung erkennen
+              </MiniButton>
+            </div>
+          )}
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function MarbleSettings({ meta, module, set, tools, tab }) {
+  const state = tools?.state;
+  const phase = state?.phase;
+  const command = module.joinCommand || '!murmel';
+  const setup = tools?.setup;
+  const top = setup?.top || [];
+  const cmd = 'text-gray-300 font-semibold';
+
+  return (
+    <>
+      {tab === 'main' && (
+      <>
       <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="Anmeldungen" />
 
-      <Section title="Rennen" cols={4}>
-        <div className="sm:col-span-2">
-          <Label>Steuerung</Label>
-          <p className="text-[13px] font-semibold text-white mt-1.5">
+      <Section title="Rennen">
+        <div>
+          <p className="text-[13px] font-semibold text-white">
             {phase
               ? `${MARBLE_PHASE_TEXT[phase]} · ${state.players.length} ${state.players.length === 1 ? 'Murmel' : 'Murmeln'}`
               : 'Kein Rennen offen'}
             {state?.winner && <span className="text-violet-300"> · Sieger: {state.winner.name}</span>}
           </p>
-          <div className="flex flex-wrap items-center gap-2 mt-2">
+          <div className="grid grid-cols-3 gap-1.5 mt-2.5">
             <MiniButton icon={Play} onClick={() => tools?.onAction('open')} disabled={tools?.busy || phase === 'race'}>
-              {phase === 'join' ? 'Neu öffnen' : 'Anmeldung öffnen'}
+              {phase === 'join' ? 'Neu öffnen' : 'Öffnen'}
             </MiniButton>
             <MiniButton icon={ArrowRight} onClick={() => tools?.onAction('start')}
               disabled={tools?.busy || phase !== 'join' || state.players.length < 2}>
-              Rennen starten
-            </MiniButton>
-            <MiniButton icon={Users} onClick={() => tools?.onAction('bots')} disabled={tools?.busy || phase !== 'join'}>
-              8 Testmurmeln
+              Starten
             </MiniButton>
             <MiniButton icon={Square} onClick={() => tools?.onAction('cancel')} disabled={tools?.busy || !phase}>
-              Abbrechen
+              Abbruch
             </MiniButton>
           </div>
           <Note>
-            Im Chat geht dasselbe für dich und deine Mods: <span className="font-mono text-gray-400">{command} open</span>,{' '}
-            <span className="font-mono text-gray-400">{command} start</span> und{' '}
-            <span className="font-mono text-gray-400">{command} stop</span>. Zuschauer treten mit{' '}
-            <span className="font-mono text-gray-400">{command}</span> bei.
+            Im Chat für dich und deine Mods: <span className={cmd}>{command} open</span>,{' '}
+            <span className={cmd}>{command} start</span>, <span className={cmd}>{command} stop</span>.
+            Zuschauer treten mit <span className={cmd}>{command}</span> bei.
           </Note>
         </div>
 
         <div className="space-y-4">
           <div>
             <Label htmlFor={`${meta.id}-cmd`}>Befehl zum Beitreten</Label>
-            <Field id={`${meta.id}-cmd`} className="mt-1.5 font-mono" maxLength={25} value={module.joinCommand}
+            <Field id={`${meta.id}-cmd`} className="mt-1.5" maxLength={25} value={module.joinCommand}
               onChange={(e) => set({ joinCommand: e.target.value.replace(/\s/g, '') })} />
           </div>
           <Slider label="Anmeldezeit" value={module.joinSeconds ?? 60} min={0} max={300} step={15} unit=" s"
@@ -686,15 +755,58 @@ function MarbleSettings({ meta, module, set, tools }) {
             onChange={(v) => set({ winnerSeconds: v })} />
         </div>
       </Section>
+      </>
+      )}
 
-      <Section title="Anzeige" cols={3}>
+      {tab === 'reward' && (
+        <RewardSettings module={module} tools={tools} />
+      )}
+
+      {tab === 'top' && (
+      <Section title="Bestenliste">
+        <div>
+          {top.length ? (
+            <ol className="divide-y divide-white/[0.06]">
+              {top.map((e, i) => (
+                <li key={`${i}-${e.name}`} className="flex items-center gap-2.5 py-1.5 text-[13px]">
+                  <span className="w-5 text-gray-500 tabular-nums">{i + 1}</span>
+                  <span className="flex-1 min-w-0 truncate font-semibold text-white">{e.name}</span>
+                  <span className="tabular-nums text-gray-300">{e.wins} {e.wins === 1 ? 'Sieg' : 'Siege'}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-[12px] text-gray-500">Noch hat niemand gewonnen. Testmurmeln zählen nicht.</p>
+          )}
+          <Note>
+            Im Chat zeigt <span className={cmd}>!murmeltop</span> die besten fünf — für alle, höchstens alle 15 Sekunden.
+          </Note>
+          {top.length > 0 && (
+            <div className="mt-2.5">
+              <MiniButton icon={RotateCcw} disabled={tools?.busy}
+                onClick={() => { if (window.confirm('Bestenliste wirklich leeren?')) tools?.onResetTop(); }}>
+                Liste leeren
+              </MiniButton>
+            </div>
+          )}
+        </div>
+        <ToggleRow label="Auf der Anmeldekarte zeigen" description="Die drei Besten stehen im Overlay, solange die Anmeldung offen ist."
+          checked={module.showTop !== false} onChange={(v) => set({ showTop: v })} />
+      </Section>
+      )}
+
+      {tab === 'look' && (
+      <Section title="Anzeige">
         <ToggleRow label="Im Chat ansagen" description="Der Bot meldet die Öffnung und den Sieger."
           checked={module.announce !== false} onChange={(v) => set({ announce: v })} />
+        <ToggleRow label="3D-Darstellung" description="Bahn mit Tiefe, Licht und Schatten. Braucht WebGL — ohne läuft sie in 2D."
+          checked={module.view3d === true} onChange={(v) => set({ view3d: v })} />
         <ToggleRow label="Namen an den Murmeln" description="Bei den sechs vordersten."
           checked={module.showNames !== false} onChange={(v) => set({ showNames: v })} />
         <ToggleRow label="Countdown der Anmeldung" checked={module.timer !== false}
           onChange={(v) => set({ timer: v })} />
       </Section>
+      )}
     </>
   );
 }
@@ -992,27 +1104,53 @@ function FeedSettings({ meta, module, set }) {
 
 /* ── Einstellungen eines Moduls ───────────────────────────────────────────── */
 
+/** Reiter der Einstellungen. Ohne eigenen Eintrag: was das Modul tut / wie es aussieht. */
+const SETTING_TABS = {
+  marbles: [['main', 'Rennen'], ['reward', 'Kanalpunkte'], ['top', 'Bestenliste'], ['look', 'Aussehen']],
+};
+const DEFAULT_SETTING_TABS = [['main', 'Verhalten'], ['look', 'Aussehen']];
+
+/**
+ * Der Aufrufer hängt die Komponente per key ans Modul — beim Wechsel beginnt
+ * sie also wieder auf dem ersten Reiter.
+ */
 function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools, statsTools, sceneTools }) {
   const set = (patch) => onChange(patch);
+  const tabs = SETTING_TABS[meta.kind] || DEFAULT_SETTING_TABS;
+  const [tab, setTab] = useState('main');
+  const main = tab === 'main';
 
   return (
+    <div>
+      {/* Unterstrich-Reiter, bleiben beim Blättern oben stehen */}
+      <div className="sticky top-0 z-10 flex gap-5 px-4 border-b border-white/10 bg-[#0f0f16]" role="tablist">
+        {tabs.map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            className={`h-10 -mb-px border-b-2 text-[12.5px] font-bold transition-colors ${
+              tab === id ? 'border-violet-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-200'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
     <div className="p-4 space-y-4">
-      <p className="text-[11.5px] text-gray-500 leading-relaxed max-w-3xl">{meta.hint}</p>
+      {main && <p className="text-[11.5px] text-gray-500 leading-relaxed max-w-3xl">{meta.hint}</p>}
       {warning && <Callout>{warning}</Callout>}
 
-      {meta.kind === 'feed' && <FeedSettings meta={meta} module={module} set={set} />}
-      {meta.kind === 'goal' && <GoalSettings meta={meta} module={module} set={set} tools={goalTools} />}
-      {meta.kind === 'stats' && <StatsSettings meta={meta} module={module} set={set} tools={statsTools} />}
-      {meta.kind === 'raid' && <RaidSettings meta={meta} module={module} set={set} tools={raidTools} />}
-      {meta.kind === 'hype' && <HypeSettings meta={meta} module={module} set={set} tools={sceneTools} />}
-      {meta.kind === 'storm' && <StormSettings meta={meta} module={module} set={set} tools={sceneTools} />}
-      {meta.kind === 'plane' && <PlaneSettings meta={meta} module={module} set={set} tools={sceneTools} />}
-      {meta.kind === 'marbles' && <MarbleSettings meta={meta} module={module} set={set} tools={sceneTools} />}
+      {main && meta.kind === 'feed' && <FeedSettings meta={meta} module={module} set={set} />}
+      {main && meta.kind === 'goal' && <GoalSettings meta={meta} module={module} set={set} tools={goalTools} />}
+      {main && meta.kind === 'stats' && <StatsSettings meta={meta} module={module} set={set} tools={statsTools} />}
+      {main && meta.kind === 'raid' && <RaidSettings meta={meta} module={module} set={set} tools={raidTools} />}
+      {meta.kind === 'hype' && <HypeSettings meta={meta} module={module} set={set} tools={sceneTools} tab={tab} />}
+      {meta.kind === 'storm' && <StormSettings meta={meta} module={module} set={set} tools={sceneTools} tab={tab} />}
+      {meta.kind === 'plane' && <PlaneSettings meta={meta} module={module} set={set} tools={sceneTools} tab={tab} />}
+      {meta.kind === 'marbles' && <MarbleSettings meta={meta} module={module} set={set} tools={sceneTools} tab={tab} />}
 
-      {/* Aussehen und Platzierung — bei jeder Karte dieselben vier Spalten.
-          Szenen bringen Höhe, Größe und Farben oben selbst mit. */}
-      {!meta.scene && (
-      <Section title="Aussehen" cols={4}>
+      {/* Aussehen und Platzierung — bei jeder Karte dasselbe. Szenen bringen
+          Höhe, Größe und Farben in ihrem eigenen Reiter mit. */}
+      {!meta.scene && tab === 'look' && (
+      <Section title="Platz und Farben">
         <div>
           <Label>Position</Label>
           <div className="grid grid-cols-2 gap-2 mt-1.5">
@@ -1037,7 +1175,7 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
             <input id={`${meta.id}-accent`} type="color" value={module.accent}
               onChange={(e) => set({ accent: e.target.value })}
               className="w-9 h-9 shrink-0 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
-            <Field value={module.accent} maxLength={7} className="font-mono !text-xs"
+            <Field value={module.accent} maxLength={7} className="!text-xs tabular-nums"
               onChange={(e) => /^#[0-9a-fA-F]{0,6}$/.test(e.target.value) && set({ accent: e.target.value })} />
           </div>
 
@@ -1082,40 +1220,132 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
       </Section>
       )}
     </div>
+    </div>
   );
 }
 
-/* ── Twitch-Verbindung ────────────────────────────────────────────────────── */
+/* ── Kopfleiste: Knöpfe und Aufklapp-Menüs ────────────────────────────────── */
 
-function ConnectSection({ connected, twitchLogin, onConnect, onDisconnect, busy }) {
-  if (connected) {
-    return (
-      <div className="p-4 flex items-center gap-3">
-        <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
+const BAR_BUTTON =
+  'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-bold transition-colors';
+const barButton = (active) =>
+  `${BAR_BUTTON} ${active
+    ? 'border-violet-400/40 bg-violet-500/15 text-white'
+    : 'border-white/10 text-gray-300 hover:text-white hover:border-white/25'}`;
+
+/** Knopf in der Kopfleiste, der ein Menü darunter aufklappt. */
+function BarMenu({ label, icon: Icon, width = 340, mark, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className={barButton(open)}>
+        <Icon size={14} />
+        <span className="hidden md:inline">{label}</span>
+        {mark && <span className="w-1.5 h-1.5 rounded-sm bg-amber-400" />}
+        <ChevronDown size={12} className="text-gray-500" />
+      </button>
+      {open && (
+        <>
+          {/* Klick daneben schließt */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div
+            className="absolute right-0 top-full mt-1.5 z-20 rounded-md border border-white/10 bg-[#14141c] shadow-xl max-h-[80dvh] overflow-y-auto custom-scrollbar"
+            style={{ width, maxWidth: 'calc(100vw - 16px)' }}
+          >
+            {children}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Eine Zeile im Test-Menü: was passiert, Start, Stopp. */
+function TestItem({ title, text, off, busy, onStart, onStop, children }) {
+  return (
+    <div className="px-3.5 py-3">
+      <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-bold text-white truncate">Twitch verbunden</p>
-          <p className="text-[11px] text-gray-500 truncate">{twitchLogin ? `als ${twitchLogin}` : 'Kanal aktiv'}</p>
+          <p className="text-[13px] font-bold text-white">{title}</p>
+          <p className="text-[11px] text-gray-500 leading-snug">{off ? 'Modul ist ausgeschaltet.' : text}</p>
         </div>
-        <button onClick={onDisconnect} title="Verbindung trennen"
-          className="p-2 border border-white/10 rounded-lg text-gray-500 hover:text-red-400 hover:border-red-500/40 transition-colors shrink-0">
-          <LogOut size={14} />
+        {onStop && (
+          <button type="button" onClick={onStop} title="Beenden" disabled={off}
+            className="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-md border border-white/10 text-gray-500 hover:text-white hover:border-white/25 disabled:opacity-40 transition-colors">
+            <Square size={12} />
+          </button>
+        )}
+        <button type="button" onClick={onStart} disabled={off || busy}
+          className="h-8 px-3 shrink-0 inline-flex items-center gap-1.5 rounded-md bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white text-[12px] font-bold transition-colors">
+          <Play size={12} />
+          Start
         </button>
       </div>
-    );
-  }
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Alle Probeläufe an einem Ort. Vorher saß jeder beim eigenen Modul zwischen
+ * den Einstellungen — zum Ausprobieren musste man sich durchklicken.
+ * Jeder Probelauf erscheint in der Vorschau UND in der OBS-Quelle.
+ */
+function TestMenu({ modules, busy, note, demoOn, setDemoOn, demoOutcomes, setDemoOutcomes, onScene, onStopScene, onRaid, onStopRaid, onMarbles }) {
+  const [viewers, setViewers] = useState(40);
+  const [channel, setChannel] = useState('');
+  const small = 'mt-2 w-full bg-[#1a1a22] border border-white/10 rounded-md px-2.5 py-1.5 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-[12px]';
+
   return (
-    <div className="p-4 space-y-3">
-      <div>
-        <p className="text-[13px] font-bold text-white">Twitch verbinden</p>
-        <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-          Einmal verbinden, damit die Overlays deinen Kanal mitlesen können. Es werden nur Leserechte angefragt.
-        </p>
+    <div className="divide-y divide-white/[0.08]">
+      <div className="px-3.5 py-3">
+        <ToggleRow label="Demo-Daten in der Vorschau"
+          description="Beispielwerte, solange in deinem Kanal nichts läuft. Nur hier, nie in OBS."
+          checked={demoOn} onChange={setDemoOn} />
+        {demoOn && (
+          <div className="flex items-center gap-2 mt-2 pl-12">
+            <span className="text-[11px] text-gray-500">Vorhersage mit</span>
+            {[2, 4].map((n) => (
+              <button key={n} type="button" onClick={() => setDemoOutcomes(n)}
+                className={`h-6 px-2 rounded-sm border text-[11px] font-bold transition-colors ${
+                  demoOutcomes === n ? 'border-violet-400/40 bg-violet-500/15 text-white' : 'border-white/10 text-gray-500 hover:text-white'
+                }`}>
+                {n} Optionen
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-      <button onClick={onConnect} disabled={busy}
-        className="w-full inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white font-bold px-4 py-2.5 rounded-lg text-[13px] transition-colors">
-        <TwitchGlyph size={14} />
-        {busy ? 'Verbinde…' : 'Kanal verbinden'}
-      </button>
+
+      <TestItem title="Hype Train" text="Fährt ein, steigt alle 10 s ein Level auf (bis Level 4), fährt ab."
+        off={!modules.hypeTrain.enabled} busy={busy}
+        onStart={() => onScene('hype')} onStop={() => onStopScene('hype')} />
+
+      <TestItem title="Raid-Ansturm" text="Eine Menge rennt durchs Bild, vorneweg dein eigener Kanal."
+        off={!modules.raidStorm.enabled} busy={busy}
+        onStart={() => onScene('storm', viewers)} onStop={() => onStopScene('storm')}>
+        <label className="flex items-center gap-2 text-[11px] text-gray-500">
+          <span className="mt-2 shrink-0">Zuschauer</span>
+          <input type="number" min={1} max={5000} value={viewers} className={small}
+            onChange={(e) => setViewers(Math.max(1, Number(e.target.value) || 1))} />
+        </label>
+      </TestItem>
+
+      <TestItem title="Flugzeug mit Banner" text="Startet sofort einen Überflug mit der nächsten Nachricht."
+        off={!modules.planeBanner.enabled || !planeMessages(modules.planeBanner).length} busy={busy}
+        onStart={() => onScene('plane')} />
+
+      <TestItem title="Murmelbahn" text="Probe-Rennen mit zwölf Testmurmeln. Zählt nicht für die Bestenliste."
+        off={!modules.marbleRun.enabled} busy={busy}
+        onStart={onMarbles} onStop={() => onStopScene('marbles')} />
+
+      <TestItem title="Clip des Raiders" text="Spielt einen Clip des angegebenen Kanals ab, samt Vorlauf."
+        off={!modules.raidClip.enabled} busy={busy || !channel.trim()}
+        onStart={() => onRaid(channel)} onStop={onStopRaid}>
+        <input value={channel} maxLength={30} placeholder="twitch-kanal" className={small}
+          onChange={(e) => setChannel(e.target.value)} />
+        {note && <p className="text-[11px] font-semibold text-green-400 mt-1.5">{note}</p>}
+      </TestItem>
     </div>
   );
 }
@@ -1135,35 +1365,37 @@ function ObsLinkSection({ overlayKey, onRegenerate }) {
     }).catch(() => {});
   };
 
+  const iconButton = 'w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-md border border-white/10 text-gray-500 hover:text-white hover:border-white/25 transition-colors';
+
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-3.5 space-y-3">
       <div>
         <p className="text-[13px] font-bold text-white">OBS-Browserquelle</p>
         <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-          Eine Quelle für alle Module, Breite 1920 und Höhe 1080. Nicht im Stream zeigen.
+          Eine Quelle für alle Module, Breite 1920 und Höhe 1080. Den Link nicht im Stream zeigen.
         </p>
       </div>
-      <div className="flex items-center gap-2">
-        <div className={`flex-1 bg-[#1a1a20] border border-white/5 rounded-lg px-3 py-2.5 text-gray-400 text-[11px] font-mono truncate ${hidden ? 'blur-sm select-none' : ''}`}>
-          {link || 'Lade…'}
+      <div className="flex items-center gap-1.5">
+        <div className={`flex-1 min-w-0 h-8 flex items-center bg-[#1a1a22] border border-white/10 rounded-md px-2.5 text-gray-400 text-[11px] truncate ${hidden ? 'blur-sm select-none' : ''}`}>
+          <span className="truncate">{link || 'Lade…'}</span>
         </div>
-        <button onClick={copy} title="Kopieren" disabled={!link}
-          className="p-2.5 border border-white/10 rounded-lg hover:border-white/30 text-gray-500 hover:text-white transition-colors shrink-0">
-          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-        </button>
-        <button onClick={() => setHidden((v) => !v)} title={hidden ? 'Anzeigen' : 'Verbergen'}
-          className="p-2.5 border border-white/10 rounded-lg hover:border-white/30 text-gray-500 hover:text-white transition-colors shrink-0">
+        <button type="button" onClick={() => setHidden((v) => !v)} title={hidden ? 'Anzeigen' : 'Verbergen'} className={iconButton}>
           {hidden ? <Eye size={14} /> : <EyeOff size={14} />}
         </button>
       </div>
-      <p className="text-[11px] text-gray-500 leading-relaxed">
-        Zum Ausrichten <span className="text-violet-300 font-mono">?demo=1</span> anhängen.
-      </p>
-      <button onClick={onRegenerate} disabled={!overlayKey}
-        className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 border border-white/10 px-3 py-1.5 rounded-lg hover:text-red-400 hover:border-red-500/40 transition-colors">
-        <RefreshCw size={12} />
-        Link neu generieren
+      <button type="button" onClick={copy} disabled={!link}
+        className="w-full h-8 inline-flex items-center justify-center gap-2 rounded-md bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white text-[12px] font-bold transition-colors">
+        {copied ? <Check size={13} /> : <Copy size={13} />}
+        {copied ? 'Kopiert' : 'Link kopieren'}
       </button>
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <p className="text-[11px] text-gray-500">Zum Ausrichten <span className="text-gray-300">?demo=1</span> anhängen.</p>
+        <button type="button" onClick={onRegenerate} disabled={!overlayKey}
+          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 hover:text-red-400 transition-colors">
+          <RefreshCw size={11} />
+          Neuen Link erzeugen
+        </button>
+      </div>
     </div>
   );
 }
@@ -1188,7 +1420,12 @@ export default function PollsPredictionsPage() {
   const [statsBusy, setStatsBusy] = useState(false);
   const [statsNote, setStatsNote] = useState('');
   const [sceneStatus, setSceneStatus] = useState(null);
+  // Abo: Stand des Nutzers und welche Module dazugehören (kommt mit /me vom Backend)
+  const [premium, setPremium] = useState(null);
+  const [premiumModules, setPremiumModules] = useState([]);
+  const [premiumOpen, setPremiumOpen] = useState(false);
   const [sceneBusy, setSceneBusy] = useState(false);
+  const [marbleSetup, setMarbleSetup] = useState(null);
   const [selected, setSelected] = useState('poll'); // hervorgehoben auf der Leinwand
   const [demoOn, setDemoOn] = useState(true);
   const [demoOutcomes, setDemoOutcomes] = useState(2);
@@ -1201,6 +1438,15 @@ export default function PollsPredictionsPage() {
   const [, tick] = useState(0);
 
   const flash = (msg) => { setError(msg); setTimeout(() => setError(''), 5000); };
+
+  // Wer die Start-Belohnung von der Seite anlegen lässt, braucht ein Recht mehr.
+  // Es muss bei JEDER späteren Anmeldung wieder mit angefragt werden — sonst
+  // kommt ein Token ohne es zurück und die Einlösungen bleiben aus.
+  const REWARD_FLAG = 'stWantsRewardScope';
+  const wantsRewardScope = (() => { try { return sessionStorage.getItem(REWARD_FLAG) === '1'; } catch { return false; } })();
+  const loginScopes = config.modules.marbleRun.rewardManaged || wantsRewardScope
+    ? [...STREAM_TOOL_SCOPES, MARBLE_REWARD_SCOPE]
+    : STREAM_TOOL_SCOPES;
 
   const configRef = useRef(config);
   useEffect(() => { configRef.current = config; }, [config]);
@@ -1218,11 +1464,46 @@ export default function PollsPredictionsPage() {
         setHasTwitchGoalScope(d.hasTwitchGoalScope !== false);
         setChatWatch(d.chatWatch || null);
         setSceneStatus(d.sceneStatus || null);
+        setPremium(d.premium || null);
+        setPremiumModules(d.premiumModules || []);
         if (d.config) setConfig(mergeConfig(d.config));
         clockOffset.current = d.serverNow - Date.now();
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
+  }, [user]);
+
+  /* ── Rückkehr von der Bezahlseite ───────────────────────────────────────── */
+  // Stripe meldet das Abo per Webhook ans Backend — das kann ein paar Sekunden nach der
+  // Rückkehr sein. Deshalb wird der Stand kurz nachgefragt, bis das Abo da ist.
+  const [aboNote, setAboNote] = useState('');
+  useEffect(() => {
+    if (!user) return undefined;
+    const params = new URLSearchParams(window.location.search);
+    const abo = params.get('abo');
+    if (!abo) return undefined;
+    params.delete('abo');
+    window.history.replaceState(null, '', window.location.pathname + (params.toString() ? `?${params}` : ''));
+    if (abo !== 'ok') return undefined;
+    setAboNote('Danke! Dein Abo wird gerade freigeschaltet …');
+    let tries = 0;
+    const id = setInterval(() => {
+      tries += 1;
+      api.getMe()
+        .then((d) => {
+          if (d.premium?.active) {
+            setPremium(d.premium);
+            setAboNote('Dein Abo ist aktiv — die Szenen sind freigeschaltet.');
+            clearInterval(id);
+            setTimeout(() => setAboNote(''), 8000);
+          } else if (tries >= 10) {
+            setAboNote('Die Zahlung ist noch nicht bestätigt. Lade die Seite in einer Minute neu.');
+            clearInterval(id);
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(id);
   }, [user]);
 
   /* ── Speichern (gebündelt) ──────────────────────────────────────────────── */
@@ -1254,6 +1535,7 @@ export default function PollsPredictionsPage() {
           if (!alive) return;
           clockOffset.current = d.serverNow - Date.now();
           setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, scenes: d.scenes, notice: d.notice });
+          setMarbleSetup(d.marbleSetup || null);
           if (d.chatWatch) setChatWatch(d.chatWatch);
           if (!d.connected) setConnected(false);
         })
@@ -1338,6 +1620,7 @@ export default function PollsPredictionsPage() {
     const d = await api.getLive();
     clockOffset.current = d.serverNow - Date.now();
     setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, scenes: d.scenes, notice: d.notice });
+    setMarbleSetup(d.marbleSetup || null);
   }, []);
 
   /** Führt eine Szenen-Aktion aus und holt den Stand sofort nach, statt auf den Takt zu warten. */
@@ -1363,12 +1646,43 @@ export default function PollsPredictionsPage() {
 
   const stopScene = useCallback((key) => runScene(() => api.stopScene(key)), [runScene]);
 
-  const marbleAction = useCallback((action) => runScene(() => {
+  const marbleAction = useCallback((action) => runScene(async () => {
     if (action === 'open') return api.openMarbles();
     if (action === 'start') return api.startMarbles();
-    if (action === 'bots') return api.addMarbleBots(8);
+    // Probe-Rennen aus dem Test-Menü: öffnen, mit Testmurmeln füllen, starten
+    if (action === 'test') {
+      await api.openMarbles();
+      await api.addMarbleBots(12);
+      return api.startMarbles();
+    }
     return api.stopScene('marbles');
   }), [runScene]);
+
+  const learnReward = useCallback(() => runScene(() => api.learnMarbleReward()), [runScene]);
+
+  const grantReward = () => {
+    try { sessionStorage.setItem(REWARD_FLAG, '1'); } catch { /* dann eben ohne Merker */ }
+    login(false, [...STREAM_TOOL_SCOPES, MARBLE_REWARD_SCOPE]);
+  };
+  const createReward = (title, cost) => runScene(async () => {
+    const r = await api.createMarbleReward(title, cost);
+    patchModule('marbleRun', { rewardId: r.reward.id, rewardManaged: true, rewardTitle: r.reward.title });
+  });
+  const removeReward = () => runScene(async () => {
+    const mod = configRef.current.modules.marbleRun;
+    if (mod.rewardManaged && mod.rewardId) await api.deleteMarbleReward(mod.rewardId);
+    patchModule('marbleRun', { rewardId: '', rewardManaged: false, rewardTitle: '' });
+  });
+  const resetTop = useCallback(() => runScene(() => api.resetMarbleTop()), [runScene]);
+
+  // Frisch erkannte Kanalpunkte-Belohnung in die Einstellungen übernehmen. Das
+  // Backend merkt sich nur die ID der Einlösung — gespeichert wird sie hier,
+  // weil die Konfiguration als Ganzes vom Dashboard kommt.
+  const learnedAt = marbleSetup?.reward?.at;
+  useEffect(() => {
+    const id = marbleSetup?.reward?.id;
+    if (id && id !== configRef.current.modules.marbleRun.rewardId) patchModule('marbleRun', { rewardId: id });
+  }, [learnedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auch die Vorschau rechnet das Rennen und darf den Sieger melden — so gibt
   // es ein Ergebnis, selbst wenn gerade keine OBS-Quelle offen ist.
@@ -1384,7 +1698,7 @@ export default function PollsPredictionsPage() {
 
   /* ── Twitch verbinden ───────────────────────────────────────────────────── */
   const connect = useCallback(async () => {
-    if (!accessToken) { login(false, STREAM_TOOL_SCOPES); return; }
+    if (!accessToken) { login(false, loginScopes); return; }
     setBusy(true);
     try {
       const r = await api.connectTwitch(accessToken);
@@ -1396,7 +1710,7 @@ export default function PollsPredictionsPage() {
     } catch (e) {
       if (e.status === 403 && e.missingScopes) {
         // Vorhandener Login reicht nicht — erneut mit den Leserechten anfragen
-        login(false, STREAM_TOOL_SCOPES);
+        login(false, loginScopes);
         return;
       }
       flash(e.message);
@@ -1420,7 +1734,8 @@ export default function PollsPredictionsPage() {
   useEffect(() => {
     if (!loaded || !accessToken || autoTried.current === accessToken) return;
     // Schon verbunden und nichts zu gewinnen? Dann sparen wir uns den Aufruf.
-    if (connected && missingGoalScopes.length === 0 && hasTwitchGoalScope && !sceneScopeMissing) return;
+    const rewardPending = wantsRewardScope && !sceneStatus?.rewardScope;
+    if (connected && missingGoalScopes.length === 0 && hasTwitchGoalScope && !sceneScopeMissing && !rewardPending) return;
 
     autoTried.current = accessToken;
     api.connectTwitch(accessToken)
@@ -1430,8 +1745,16 @@ export default function PollsPredictionsPage() {
         setMissingGoalScopes(r.missingGoalScopes || []);
         setHasTwitchGoalScope(r.hasTwitchGoalScope !== false);
         setSceneStatus(r.sceneStatus || null);
+        if (rewardPending) {
+          if (r.sceneStatus?.rewardScope === undefined) {
+            flash('Der Server kennt das Kanalpunkte-Recht noch nicht — das Backend läuft mit einem älteren Stand und muss neu gestartet bzw. neu ausgeliefert werden.');
+          } else if (!r.sceneStatus.rewardScope) {
+            flash('Twitch hat das Recht für Kanalpunkte nicht mitgegeben. Bitte noch einmal erteilen.');
+          }
+        }
+        try { sessionStorage.removeItem(REWARD_FLAG); } catch { /* egal */ }
       })
-      .catch(() => {});
+      .catch((e) => { if (rewardPending) flash(`Verbinden fehlgeschlagen: ${e.message}`); });
   }, [loaded, connected, accessToken, missingGoalScopes.length, hasTwitchGoalScope, sceneScopeMissing]);
 
   const disconnect = async () => {
@@ -1439,57 +1762,34 @@ export default function PollsPredictionsPage() {
       await api.disconnectTwitch();
       setConnected(false);
       setLive({ poll: null, prediction: null, goals: null, raid: null, stats: null, scenes: null, notice: null });
-      autoTried.current = '';
+      // Mit dem aktuellen Token NICHT von selbst wieder verbinden — sonst wäre
+      // das Trennen nach einer Sekunde rückgängig. Von Hand ("Kanal verbinden")
+      // oder mit einem neuen Token nach einer Anmeldung geht es weiter.
+      autoTried.current = accessToken || '';
+      setSceneStatus(null);
     } catch (e) { flash(e.message); }
   };
 
   /* ── Bühne skalieren ────────────────────────────────────────────────────── */
-  // Die Bühne richtet sich nach Breite UND Höhe: Auf einem 1080p-Schirm wird sie
-  // kleiner, damit die Einstellungen darunter im Bild bleiben. Auf hohen
-  // Schirmen bleibt sie so groß wie die Spalte breit ist — dort war nie etwas
-  // abgeschnitten. Ohne Höhenbegrenzung (unter lg) zählt nur die Breite.
-  const colRef = useRef(null);
+  // Die Bühne nimmt, was die Mitte hergibt — begrenzt von Breite UND Höhe des
+  // freien Bereichs zwischen Modul-Liste und Einstellungen.
   const hostRef = useRef(null);
-  const toolbarRef = useRef(null);
-  const hintRef = useRef(null);
-  const wrapRef = useRef(null);
   const [scale, setScale] = useState(0.4);
   const scaleRef = useRef(0.4);
 
   useEffect(() => {
     const host = hostRef.current;
-    const col = colRef.current;
-    if (!host || !col) return undefined;
-
+    if (!host) return undefined;
     const fit = () => {
-      const availW = host.clientWidth || 0;
-      const tall = window.matchMedia('(min-width: 1024px)').matches;
-      const colH = col.clientHeight || 0;
-
-      let availH = Infinity;
-      if (tall && colH > 0) {
-        const around =
-          (toolbarRef.current?.offsetHeight || 0) +
-          (hintRef.current?.offsetHeight || 0) +
-          45; // gap-3 zwischen Bühne und Hinweis (12) + p-4 oben/unten (32) + Trennlinie (1)
-        // Anteil der Höhe, aber nie so viel, dass von den Einstellungen nichts
-        // mehr übrig bleibt — und nie kleiner als STAGE_MIN_H.
-        const room = Math.max(0, colH - around - SETTINGS_MIN_H);
-        availH = Math.max(STAGE_MIN_H, Math.min(colH * STAGE_HEIGHT_SHARE, room));
-      }
-
-      const s = Math.max(0.05, Math.min(availW / STAGE_W, availH / STAGE_H));
+      const s = Math.max(0.05, Math.min(host.clientWidth / STAGE_W, host.clientHeight / STAGE_H));
       scaleRef.current = s;
       setScale(s);
     };
-
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(host);
-    ro.observe(col);
-    window.addEventListener('resize', fit);
-    return () => { ro.disconnect(); window.removeEventListener('resize', fit); };
-  }, [loaded]);
+    return () => ro.disconnect();
+  }, [loaded, user]);
 
   /* ── Drag & Drop ────────────────────────────────────────────────────────── */
   const dragRef = useRef(null);
@@ -1696,7 +1996,7 @@ export default function PollsPredictionsPage() {
         />
         <StreamToolSeoContent>
           <div className="flex flex-col items-center gap-2">
-            <button onClick={() => login(false, STREAM_TOOL_SCOPES)}
+            <button onClick={() => login(false, loginScopes)}
               className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white font-bold px-6 py-3 rounded-lg text-sm transition-colors">
               <TwitchGlyph size={15} />
               Mit Twitch anmelden und Overlay einrichten
@@ -1708,268 +2008,260 @@ export default function PollsPredictionsPage() {
     );
   }
 
-  return (
-    // Auf großen Schirmen ein Editor, der in die Bildhöhe passt: Leinwand oben,
-    // Einstellungen unten mit eigenem Bildlauf. Sonst müsste man auf 1080p unter
-    // die Bildkante scrollen, um überhaupt an die Einstellungen zu kommen.
-    // 8.5rem = Kopfzeile der Seite (68px) + Innenabstand des Inhaltsbereichs.
-    <div className="page-fade max-w-[1600px] mx-auto flex flex-col lg:h-[calc(100dvh-8.5rem)] lg:min-h-[540px]">
+  const needsRights = connected && (missingGoalScopes.length > 0 || !hasTwitchGoalScope || sceneScopeMissing);
+  const iconToggle = (on) =>
+    `w-8 h-8 inline-flex items-center justify-center rounded-md border transition-colors ${
+      on ? 'border-violet-400/40 bg-violet-500/15 text-violet-200' : 'border-white/10 text-gray-500 hover:text-white hover:border-white/25'
+    }`;
+
+  /** Eine Zeile der Modul-Liste. */
+  const railItem = (meta) => {
+    const module = config.modules[meta.id];
+    const isActive = selected === meta.id;
+    const Icon = meta.icon;
+    const hint = moduleWarning(meta.id);
+    // Gehört zum Abo und der Nutzer hat keins: Schloss statt Schalter. Die Einstellungen
+    // bleiben einsehbar, nur einschalten lässt sich das Modul nicht (das Backend sperrt mit).
+    const locked = premiumModules.includes(meta.id) && premium && !premium.active;
+    return (
+      <div key={meta.id}
+        className={`relative flex items-center transition-colors ${isActive ? 'bg-violet-500/[0.12]' : 'hover:bg-white/[0.04]'}`}>
+        <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-[2px] ${isActive ? 'bg-violet-400' : 'bg-transparent'}`} />
+        <button type="button" onClick={() => setSelected(meta.id)} aria-pressed={isActive}
+          className="flex items-center gap-2.5 flex-1 min-w-0 text-left h-10 pl-3.5 pr-1">
+          <Icon size={15} className={`shrink-0 ${isActive ? 'text-violet-300' : (module.enabled ? 'text-gray-300' : 'text-gray-600')}`} />
+          <span className={`text-[13px] font-semibold truncate ${isActive ? 'text-white' : (module.enabled ? 'text-gray-200' : 'text-gray-500')}`}>
+            {meta.label}
+          </span>
+          {hint && <span title="Aktion nötig" className="w-1.5 h-1.5 shrink-0 rounded-sm bg-amber-400" />}
+        </button>
+        {locked ? (
+          // Solange noch nicht verkauft wird (config/legal.js), ist das Schloss nur ein Hinweis
+          <button type="button" onClick={() => setPremiumOpen(true)} disabled={!salesVisible()}
+            title={salesVisible() ? 'Gehört zum Abo' : 'Bald verfügbar'}
+            className="shrink-0 mx-2 w-9 h-7 inline-flex items-center justify-center rounded-sm text-violet-300 bg-violet-500/10 enabled:hover:bg-violet-500/20 disabled:text-gray-600 disabled:bg-white/5 transition-colors">
+            <Lock size={13} />
+          </button>
+        ) : (
+          <label className="relative shrink-0 cursor-pointer px-3 py-2.5" title={module.enabled ? 'Ausschalten' : 'Einschalten'}>
+            <input type="checkbox" checked={module.enabled} className="peer sr-only"
+              onChange={(e) => patchModule(meta.id, { enabled: e.target.checked })} />
+            <span className="block w-8 h-[18px] rounded-full bg-white/10 peer-checked:bg-violet-500/50 transition-colors" />
+            <span className="absolute top-[13px] left-[15px] w-3 h-3 rounded-full bg-gray-400 peer-checked:bg-white peer-checked:translate-x-[14px] transition-transform" />
+          </label>
+        )}
+      </div>
+    );
+  };
+
+  const railGroup = (title, list) => (
+    <section>
+      <p className="text-[10.5px] font-bold uppercase tracking-wider text-gray-500 px-3.5 pt-3.5 pb-1.5">{title}</p>
+      {list.map(railItem)}
+    </section>
+  );
+
+  // Die Seite legt sich als eigene Oberfläche über das ganze Fenster — ohne die
+  // Kopfzeile der Website, damit die Bühne den Platz bekommt. Als Portal, weil
+  // der Inhaltsbereich des Layouts einen eigenen Stapelkontext hat und die
+  // Kopfzeile sonst darüber läge. Die Anmelde-Fassung oben bleibt bewusst im
+  // normalen Layout: sie ist die Seite, die Besucher und Suchmaschinen sehen.
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex flex-col bg-[#0b0b11] text-white overflow-y-auto lg:overflow-hidden">
       {seo}
 
-      <header className="mb-4 flex items-end justify-between gap-4 flex-wrap shrink-0">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black text-white">Twitch-Overlay-Tools</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Modul links wählen, Aussehen hier festlegen. Abstimmungen und Vorhersagen startest du wie gewohnt in Twitch.
-          </p>
+      {/* ══════════ Kopfleiste ══════════ */}
+      <header className="relative z-30 shrink-0 h-12 flex items-center gap-2 px-3 border-b border-white/10 bg-[#0f0f16]">
+        <Link to="/tools" title="Zurück zur Website"
+          className="w-8 h-8 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
+          <ArrowLeft size={16} />
+        </Link>
+        <h1 className="text-[14px] font-bold text-white whitespace-nowrap">Twitch-Overlays</h1>
+
+        {connected ? (
+          <span className="hidden sm:inline-flex items-center gap-1.5 ml-2 text-[12px] text-gray-400 min-w-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+            <span className="truncate">{twitchLogin || 'verbunden'}</span>
+            <button type="button" onClick={disconnect} title="Verbindung trennen"
+              className="p-1 rounded-sm text-gray-600 hover:text-red-400 transition-colors">
+              <LogOut size={12} />
+            </button>
+          </span>
+        ) : (
+          <button type="button" onClick={connect} disabled={busy}
+            className="ml-2 h-8 px-3 inline-flex items-center gap-2 rounded-md bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white text-[12px] font-bold transition-colors">
+            <TwitchGlyph size={13} />
+            {busy ? 'Verbinde…' : 'Kanal verbinden'}
+          </button>
+        )}
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <button type="button" onClick={() => setGridOn((v) => !v)} title="Raster" className={`hidden sm:inline-flex ${iconToggle(gridOn)}`}>
+            <Grid3x3 size={14} />
+          </button>
+          <button type="button" onClick={() => setSnapOn((v) => !v)} title="Magnet (an Mitte und Rändern einrasten)"
+            className={`hidden sm:inline-flex ${iconToggle(snapOn)}`}>
+            <Crosshair size={14} />
+          </button>
+
+          <BarMenu label="Testen" icon={FlaskConical} width={360}>
+            <TestMenu
+              modules={m}
+              busy={sceneBusy || raidBusy}
+              note={raidNote}
+              demoOn={demoOn}
+              setDemoOn={setDemoOn}
+              demoOutcomes={demoOutcomes}
+              setDemoOutcomes={setDemoOutcomes}
+              onScene={testScene}
+              onStopScene={stopScene}
+              onRaid={testRaid}
+              onStopRaid={stopRaid}
+              onMarbles={() => marbleAction('test')}
+            />
+          </BarMenu>
+
+          <BarMenu label="OBS-Link" icon={Link2} width={340}>
+            <ObsLinkSection overlayKey={overlayKey} onRegenerate={async () => {
+              try { setOverlayKey((await api.regenerateOverlayKey()).overlayKey); } catch (e) { flash(e.message); }
+            }} />
+          </BarMenu>
         </div>
-        <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${connected ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-gray-500'}`}>
-          {connected ? 'Live' : 'Nicht verbunden'}
-        </span>
       </header>
 
-      {error && (
-        <div className="mb-4 shrink-0 flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
-          <TriangleAlert size={15} className="text-red-400 shrink-0 mt-0.5" />
-          <p className="text-red-300 text-sm">{error}</p>
+      {/* Meldungen: eine schmale Zeile je Sache, nur wenn es etwas zu sagen gibt */}
+      {(error || live.notice || needsRights || aboNote) && (
+        <div className="shrink-0 border-b border-white/10 divide-y divide-white/[0.06]">
+          {aboNote && (
+            <p className="flex items-center gap-2 px-4 py-2 text-[12px] text-violet-200 bg-violet-500/10">{aboNote}</p>
+          )}
+          {error && (
+            <p className="flex items-center gap-2 px-4 py-2 text-[12px] text-red-300 bg-red-500/10">
+              <TriangleAlert size={13} className="shrink-0" />
+              {error}
+            </p>
+          )}
+          {live.notice && (
+            <p className="flex items-center gap-2 px-4 py-2 text-[12px] text-amber-200 bg-amber-500/10">
+              <Info size={13} className="shrink-0" />
+              {live.notice}
+            </p>
+          )}
+          {needsRights && (
+            <p className="flex items-center gap-2 px-4 py-2 text-[12px] text-amber-200 bg-amber-500/10">
+              <Info size={13} className="shrink-0" />
+              <span>
+                {sceneScopeMissing && missingGoalScopes.length === 0 && hasTwitchGoalScope
+                  ? 'Für Hype Train oder Raid-Ansturm fehlt noch ein Leserecht.'
+                  : 'Für einige Module fehlen noch Leserechte (Follower, Abos, Hype Train oder Zuschauerliste).'}{' '}
+                <button type="button" onClick={() => login(false, loginScopes)} className="underline font-semibold hover:text-white">
+                  Rechte jetzt erteilen
+                </button>
+              </span>
+            </p>
+          )}
         </div>
       )}
-      {live.notice && (
-        <div className="mb-4 shrink-0 flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3">
-          <Info size={15} className="text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-amber-200 text-sm">{live.notice}</p>
-        </div>
-      )}
-      {connected && (missingGoalScopes.length > 0 || !hasTwitchGoalScope || sceneScopeMissing) && (
-        <div className="mb-4 shrink-0 flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3">
-          <Info size={15} className="text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-amber-200 text-sm">
-            {sceneScopeMissing && missingGoalScopes.length === 0 && hasTwitchGoalScope
-              ? 'Für Hype Train oder Raid-Ansturm fehlt noch ein Leserecht.'
-              : 'Für einige Module fehlen noch Leserechte (Follower, Abos, Hype Train oder Zuschauerliste).'}{' '}
-            <button onClick={() => login(false, STREAM_TOOL_SCOPES)} className="underline font-semibold hover:text-white">
-              Rechte jetzt erteilen
+
+      {/* ══════════ Arbeitsbereich: Module | Bühne | Einstellungen ══════════ */}
+      <div className="lg:flex-1 lg:min-h-0 grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)_340px] xl:grid-cols-[224px_minmax(0,1fr)_388px]">
+
+        {/* Modul-Liste */}
+        <aside className="min-w-0 lg:min-h-0 lg:overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r border-white/10 bg-[#0f0f16] pb-3">
+          {railGroup('Karten', MODULES.filter((x) => !x.scene))}
+          {railGroup('Szenen', MODULES.filter((x) => x.scene))}
+          {/* Abo: Hinweis unter den Szenen — abschließen oder verwalten */}
+          {premium && !premium.active && salesVisible() && (
+            <button type="button" onClick={() => setPremiumOpen(true)}
+              className="mx-3 mt-3 w-[calc(100%-1.5rem)] h-9 inline-flex items-center justify-center gap-2 rounded-md bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold transition-colors">
+              <Lock size={13} /> Szenen freischalten
             </button>
-          </p>
-        </div>
-      )}
-
-      {/* Der ganze Editor liegt auf EINER Fläche: Seitenleiste und Arbeitsfläche
-          teilen sich denselben Hintergrund und werden nur durch Linien
-          getrennt. Einzelne schwebende Karten gab es vorher — das wirkte
-          zerstückelt. Hover- und Auswahlfarben bleiben flache Tönungen. */}
-      <div className="panel overflow-hidden grid grid-cols-1 lg:grid-cols-[360px_1fr] lg:grid-rows-[minmax(0,1fr)] lg:flex-1 lg:min-h-0">
-
-        {/* ══════════ Seitenleiste ══════════ */}
-        <aside className="min-w-0 lg:min-h-0 lg:overflow-y-auto custom-scrollbar divide-y divide-white/[0.08] border-b border-white/[0.08] lg:border-b-0 lg:border-r">
-          <ConnectSection
-            connected={connected}
-            twitchLogin={twitchLogin}
-            onConnect={connect}
-            onDisconnect={disconnect}
-            busy={busy}
-          />
-
-          {/* Reine Auswahl-Liste. Die Einstellungen des gewählten Moduls stehen
-              unter der Leinwand — dort ist Platz für mehrere Spalten, und man
-              muss nicht zwischen Formular und Vorschau hin und her scrollen. */}
-          <section className="divide-y divide-white/5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 px-4 py-2.5">Module</p>
-
-            {MODULES.map((meta) => {
-              const module = config.modules[meta.id];
-              const isActive = selected === meta.id;
-              const Icon = meta.icon;
-              const hint = moduleWarning(meta.id);
-              return (
-                <div key={meta.id}
-                  className={`relative flex items-center transition-colors ${
-                    isActive ? 'bg-violet-500/[0.10]' : 'hover:bg-white/[0.04]'
-                  }`}>
-                  {/* Akzentbalken links — macht das gewählte Modul auf einen Blick klar */}
-                  <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-[3px] transition-colors ${
-                    isActive ? 'bg-violet-400' : 'bg-transparent'
-                  }`} />
-
-                  <button
-                    type="button"
-                    onClick={() => setSelected(meta.id)}
-                    aria-pressed={isActive}
-                    title={`Einstellungen für ${meta.label} anzeigen`}
-                    className="group flex items-center gap-3 flex-1 min-w-0 text-left p-3 pl-4"
-                  >
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                      isActive
-                        ? 'bg-violet-500/25 text-violet-200'
-                        : module.enabled
-                          ? 'bg-violet-500/15 text-violet-300 group-hover:bg-violet-500/25'
-                          : 'bg-white/5 text-gray-600 group-hover:bg-white/10'
-                    }`}>
-                      <Icon size={15} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className={`block text-[13.5px] font-bold truncate transition-colors ${
-                        isActive ? 'text-white' : 'text-gray-200 group-hover:text-white'
-                      }`}>
-                        {meta.label}
-                      </span>
-                      <span className={`block text-[11px] truncate ${hint ? 'text-amber-400/80' : 'text-gray-500'}`}>
-                        {hint
-                          ? 'Aktion nötig'
-                          : !module.enabled
-                            ? 'Ausgeblendet'
-                            : meta.scene ? 'Über die ganze Breite' : `${Math.round(module.x)} × ${Math.round(module.y)}`}
-                      </span>
-                    </span>
-                    {/* Pfeil zeigt auf die Einstellungen — dasselbe Muster wie in den Abstimmungs-Karten */}
-                    <ArrowRight
-                      size={16}
-                      className={`ml-auto shrink-0 transition-all ${
-                        isActive
-                          ? 'text-violet-300'
-                          : 'text-white/15 group-hover:text-violet-300 group-hover:translate-x-0.5'
-                      }`}
-                    />
-                  </button>
-
-                  <label className="relative shrink-0 cursor-pointer pr-4 py-3" title={module.enabled ? 'Ausblenden' : 'Einblenden'}>
-                    <input type="checkbox" checked={module.enabled} className="peer sr-only"
-                      onChange={(e) => patchModule(meta.id, { enabled: e.target.checked })} />
-                    <span className="block w-9 h-5 rounded-full bg-white/10 peer-checked:bg-violet-500/40 transition-colors" />
-                    <span className="absolute top-[15px] left-[3px] w-3.5 h-3.5 rounded-full bg-gray-400 peer-checked:bg-violet-400 peer-checked:translate-x-4 transition-transform" />
-                  </label>
-                </div>
-              );
-            })}
-          </section>
-
-          <ObsLinkSection overlayKey={overlayKey} onRegenerate={async () => {
-            try { setOverlayKey((await api.regenerateOverlayKey()).overlayKey); } catch (e) { flash(e.message); }
-          }} />
+          )}
+          {premium?.source === 'subscription' && (
+            <p className="px-3.5 mt-3 text-[11px] text-gray-500">
+              {premium.cancelAtPeriodEnd ? `Abo läuft bis ${untilText(premium.until)}.` : `Abo aktiv bis ${untilText(premium.until)}.`}{' '}
+              <button type="button" onClick={() => openPortal('/twitch-tools').catch((e) => flash(e.message))} className="text-violet-300 hover:text-violet-200">Verwalten</button>
+            </p>
+          )}
+          <PremiumDialog open={premiumOpen} onClose={() => setPremiumOpen(false)} includes={PREMIUM_INCLUDES} returnPath="/twitch-tools" />
         </aside>
 
-        {/* ══════════ Arbeitsfläche: Leinwand oben, Einstellungen darunter ══════════ */}
-        <div ref={colRef} className="min-w-0 flex flex-col lg:min-h-0">
-          <div ref={toolbarRef} className="flex items-center gap-2 flex-wrap shrink-0 px-4 py-2.5 border-b border-white/[0.08]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Leinwand</span>
-            <span className="text-[11px] text-gray-600 font-mono">1920 × 1080 · {Math.round(scale * 100)} %</span>
+        {/* Bühne */}
+        <main className="min-w-0 lg:min-h-0 flex flex-col">
+          <div ref={hostRef} className="relative aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 m-3 lg:m-4">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md overflow-hidden border border-white/10 stw-checker"
+              style={{ width: Math.round(STAGE_W * scale), height: Math.round(STAGE_H * scale) }}>
+              {/* zoom statt transform: scale — nur so startet der Raid-Clip in
+                  der Vorschau von allein (siehe WidgetFrame) */}
+              <div className="stw-stage" style={{ zoom: scale }}>
+                {gridOn && <div className="stw-thirds" />}
+                {guides.v && <div className="stw-guide v" style={{ left: STAGE_W / 2 }} />}
+                {guides.h && <div className="stw-guide h" style={{ top: STAGE_H / 2 }} />}
 
-            <div className="ml-auto flex items-center gap-2">
-              <label className="flex items-center gap-2 text-[11px] font-bold text-gray-400 cursor-pointer select-none">
-                <input type="checkbox" checked={demoOn} onChange={(e) => setDemoOn(e.target.checked)}
-                  className="accent-violet-500" />
-                Demo-Daten
-              </label>
+                {MODULES.filter((meta) => !meta.scene).map((meta) => (
+                  <WidgetFrame
+                    key={meta.id}
+                    id={meta.id}
+                    module={m[meta.id]}
+                    visible={hasData[meta.id] && m[meta.id].enabled}
+                    editable
+                    selected={selected === meta.id}
+                    onPointerDown={startDrag(meta.id)}
+                  >
+                    {rendered[meta.id]}
+                  </WidgetFrame>
+                ))}
 
-              {demoOn && (
-                <div className="flex items-center rounded-lg border border-white/10 overflow-hidden">
-                  {[2, 4].map((n) => (
-                    <button key={n} onClick={() => setDemoOutcomes(n)}
-                      className={`px-2 py-1.5 text-[11px] font-bold transition-colors ${
-                        demoOutcomes === n ? 'bg-violet-500/15 text-violet-300' : 'text-gray-500 hover:text-white'
-                      }`}>
-                      {n} Optionen
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button onClick={() => setGridOn((v) => !v)} title="Raster"
-                className={`p-2 rounded-lg border transition-colors ${gridOn ? 'border-violet-400/40 text-violet-300 bg-violet-500/10' : 'border-white/10 text-gray-500 hover:text-white'}`}>
-                <Grid3x3 size={13} />
-              </button>
-              <button onClick={() => setSnapOn((v) => !v)} title="Magnet (an Mitte und Rändern einrasten)"
-                className={`p-2 rounded-lg border transition-colors ${snapOn ? 'border-violet-400/40 text-violet-300 bg-violet-500/10' : 'border-white/10 text-gray-500 hover:text-white'}`}>
-                <Crosshair size={13} />
-              </button>
+                {/* Szenen: laufen über die ganze Bühne und lassen sich nicht
+                    greifen. Ist eine ausgewählt, zeigt ein Rahmen ihre Spur. */}
+                {selected === 'raidStorm' && m.raidStorm.enabled && (
+                  <div className="stw-lane" style={{ top: Math.round(m.raidStorm.y), height: Math.round(STORM_LANE_H * m.raidStorm.scale) }} />
+                )}
+                {m.hypeTrain.enabled && (
+                  <HypeTrainScene data={hypeView} module={m.hypeTrain} offsetRef={clockOffset} still={!scenes.hype} />
+                )}
+                {m.raidStorm.enabled && (
+                  <RaidStormScene data={scenes.storm} module={m.raidStorm} offsetRef={clockOffset} />
+                )}
+                <PlaneBannerScene module={m.planeBanner} test={scenes.plane} offsetRef={clockOffset} />
+                {/* Standbild nur, solange das Flugzeug ausgewählt ist — sonst stünde es dauerhaft im Bild */}
+                {selected === 'planeBanner' && demoOn && (
+                  <PlaneBannerScene module={m.planeBanner} offsetRef={clockOffset} still />
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="p-4 flex flex-col gap-3 shrink-0">
-            {/* Bühne: 16:9, so groß wie Breite UND Höhe es zulassen */}
-            <div ref={hostRef} className="shrink-0">
-              <div ref={wrapRef} className="relative mx-auto rounded-xl overflow-hidden border border-white/10 stw-checker"
-                style={{ width: Math.round(STAGE_W * scale), height: Math.round(STAGE_H * scale) }}>
-                {/* zoom statt transform: scale — nur so startet der Raid-Clip in
-                    der Vorschau von allein (siehe WidgetFrame) */}
-                <div className="stw-stage" style={{ zoom: scale }}>
-                  {gridOn && <div className="stw-thirds" />}
-                  {guides.v && <div className="stw-guide v" style={{ left: STAGE_W / 2 }} />}
-                  {guides.h && <div className="stw-guide h" style={{ top: STAGE_H / 2 }} />}
+          <p className="shrink-0 px-4 pb-3 text-[11px] text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+            <span className="tabular-nums">1920 × 1080 · {Math.round(scale * 100)} %</span>
+            <span>Karten mit der Maus verschieben. Das Karomuster bleibt im Stream durchsichtig.</span>
+            {!connected && <span className="text-amber-300/80">Kanal verbinden, damit echte Daten erscheinen.</span>}
+          </p>
+        </main>
 
-                  {MODULES.filter((meta) => !meta.scene).map((meta) => (
-                    <WidgetFrame
-                      key={meta.id}
-                      id={meta.id}
-                      module={m[meta.id]}
-                      visible={hasData[meta.id] && m[meta.id].enabled}
-                      editable
-                      selected={selected === meta.id}
-                      onPointerDown={startDrag(meta.id)}
-                    >
-                      {rendered[meta.id]}
-                    </WidgetFrame>
-                  ))}
-
-                  {/* Szenen: laufen über die ganze Bühne und lassen sich nicht
-                      greifen. Ist eine ausgewählt, zeigt ein Rahmen ihre Spur. */}
-                  {selected === 'raidStorm' && m.raidStorm.enabled && (
-                    <div className="stw-lane" style={{ top: Math.round(m.raidStorm.y), height: Math.round(STORM_LANE_H * m.raidStorm.scale) }} />
-                  )}
-                  {m.hypeTrain.enabled && (
-                    <HypeTrainScene data={hypeView} module={m.hypeTrain} offsetRef={clockOffset} still={!scenes.hype} />
-                  )}
-                  {m.raidStorm.enabled && (
-                    <RaidStormScene data={scenes.storm} module={m.raidStorm} offsetRef={clockOffset} />
-                  )}
-                  <PlaneBannerScene module={m.planeBanner} test={scenes.plane} offsetRef={clockOffset} />
-                  {/* Standbild nur, solange das Flugzeug ausgewählt ist — sonst stünde es dauerhaft im Bild */}
-                  {selected === 'planeBanner' && demoOn && (
-                    <PlaneBannerScene module={m.planeBanner} offsetRef={clockOffset} still />
-                  )}
-                </div>
+        {/* Einstellungen des gewählten Moduls */}
+        {activeMeta && (
+          <aside className="min-w-0 lg:min-h-0 flex flex-col border-t lg:border-t-0 lg:border-l border-white/10 bg-[#0f0f16]">
+            <div className="shrink-0 h-12 flex items-center gap-2.5 px-3.5 border-b border-white/10">
+              <activeMeta.icon size={15} className="text-violet-300 shrink-0" />
+              <p className="text-[13.5px] font-bold text-white truncate">{activeMeta.label}</p>
+              <div className="ml-auto flex items-center gap-1.5">
+                {/* Eine Szene hat keine Karte, die sich mittig setzen ließe */}
+                {!activeMeta.scene && (
+                  <button type="button" onClick={() => centerWidget(activeMeta.id)} title="Auf der Bühne zentrieren" className={iconToggle(false)}>
+                    <Crosshair size={14} />
+                  </button>
+                )}
+                <button type="button" title="Auf Standard zurücksetzen" className={iconToggle(false)}
+                  onClick={() => patchModule(activeMeta.id, { ...MODULE_DEFAULTS[activeMeta.id] })}>
+                  <RefreshCw size={14} />
+                </button>
               </div>
             </div>
 
-            <p ref={hintRef} className="text-[11px] text-gray-500 leading-relaxed shrink-0">
-              Widgets mit der Maus verschieben — ausgeblendete lassen sich nicht greifen.
-              Das Karomuster zeigt, was im Stream transparent bleibt.
-              {connected
-                ? ' Läuft gerade etwas in deinem Kanal, ersetzt es automatisch die Demo-Daten.'
-                : ' Verbinde deinen Kanal, damit hier deine echten Abstimmungen erscheinen.'}
-            </p>
-          </div>
-
-          {/* Einstellungen des gewählten Moduls — direkt unter der Vorschau,
-              mit eigenem Bildlauf, damit die Seite selbst nicht wandert */}
-          {activeMeta && (
-            <div className="border-t border-white/[0.08] lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scrollbar">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-                <span className="w-8 h-8 rounded-lg bg-violet-500/15 text-violet-300 flex items-center justify-center shrink-0">
-                  <activeMeta.icon size={15} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[13.5px] font-bold text-white leading-tight">{activeMeta.label}</p>
-                  <p className="text-[11px] text-gray-500 leading-tight">Einstellungen</p>
-                </div>
-                <div className="ml-auto flex gap-2">
-                  {/* Eine Szene hat keine Karte, die sich mittig setzen ließe */}
-                  {!activeMeta.scene && (
-                  <button onClick={() => centerWidget(activeMeta.id)}
-                    className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-gray-300 hover:text-white transition-colors">
-                    <Crosshair size={13} />
-                    Zentrieren
-                  </button>
-                  )}
-                  <button onClick={() => patchModule(activeMeta.id, { ...MODULE_DEFAULTS[activeMeta.id] })}
-                    className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-gray-300 hover:text-white transition-colors">
-                    <RefreshCw size={13} />
-                    Zurücksetzen
-                  </button>
-                </div>
-              </div>
-
+            <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scrollbar">
               <ModuleSettings
+                key={activeMeta.id}
                 meta={activeMeta}
                 module={config.modules[activeMeta.id]}
                 warning={moduleWarning(activeMeta.id)}
@@ -1981,13 +2273,7 @@ export default function PollsPredictionsPage() {
                   connected,
                   detected: detectedGoalTypes(activeMeta.id),
                 } : null}
-                raidTools={activeMeta.kind === 'raid' ? {
-                  onTest: testRaid,
-                  onStop: stopRaid,
-                  busy: raidBusy,
-                  note: raidNote,
-                  watch: chatWatch,
-                } : null}
+                raidTools={activeMeta.kind === 'raid' ? { watch: chatWatch } : null}
                 statsTools={activeMeta.kind === 'stats' ? {
                   onReset: resetStats,
                   busy: statsBusy,
@@ -1996,18 +2282,24 @@ export default function PollsPredictionsPage() {
                   stats: live.stats,
                 } : null}
                 sceneTools={SCENE_IDS.includes(activeMeta.id) || activeMeta.kind === 'marbles' ? {
-                  onTest: testScene,
-                  onStop: stopScene,
                   onAction: marbleAction,
+                  onLearn: learnReward,
+                  onGrantReward: grantReward,
+                  onCreateReward: createReward,
+                  onRemoveReward: removeReward,
+                  status: sceneStatus,
+                  onResetTop: resetTop,
                   busy: sceneBusy,
                   watch: chatWatch,
                   state: live.scenes?.marbles || null,
+                  setup: marbleSetup,
                 } : null}
               />
             </div>
-          )}
-        </div>
+          </aside>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

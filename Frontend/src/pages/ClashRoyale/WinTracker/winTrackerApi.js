@@ -41,3 +41,6 @@ export const regenerateOverlayKey = () =>
   apiFetch("/api/cr-wintracker/overlay/regenerate", { method: "POST" });
 
 export const getOverlayData = (overlayKey) => apiFetch(`/api/cr-wintracker/overlay/${overlayKey}`);
+// Saisonrückblick des aktiven Accounts (season = "JJJJ-MM", leer = laufende Saison); das Bild lädt der Browser direkt
+export const getRecap = (season) => apiFetch(`/api/cr-wintracker/recap${season ? `?season=${encodeURIComponent(season)}` : ""}`);
+export const recapImageUrl = (season) => `/api/cr-wintracker/recap.png?season=${encodeURIComponent(season)}`;

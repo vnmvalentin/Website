@@ -19,13 +19,21 @@
     "flick:spiegel": "node flickSoccer/tools/spiegel.js",
     "flick:spiegel:pruefen": "node flickSoccer/tools/spiegel.js --pruefen",
     "test:flick": "node --test \"flickSoccer/**/*.test.js\"",
-    "test:cr-turnier": "node --test \"clashRoyale/tournament/__tests__/*.test.js\""
+    "test:cr-turnier": "node --test \"clashRoyale/tournament/__tests__/*.test.js\"",
+    "test:billing": "node --test \"billing/__tests__/*.test.js\"",
+    "test:og": "node --test \"og/__tests__/*.test.js\"",
+    "test:activity": "node --test \"activity/__tests__/*.test.js\"",
+    "test:adventure": "node --test \"adventure/__tests__/*.test.js\"",
+    "test:profile": "node --test \"profile/__tests__/*.test.js\"",
+    "test:wt-recap": "node --test \"clashRoyale/lib/__tests__/*.test.js\"",
+    "billing:setup": "node billing/tools/setupStripe.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.11",
     "better-sqlite3": "^12.10.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -37,6 +45,7 @@
     "nanoid": "^5.1.6",
     "node-fetch": "^3.3.2",
     "socket.io": "^4.8.3",
+    "stripe": "^23.0.0",
     "tmi.js": "^1.8.5",
     "uuid": "^14.0.0"
   },

@@ -97,4 +97,9 @@ function createUsedByRouter() {
   return router;
 }
 
-module.exports = { createUsedByRouter };
+/** Für andere Routen mit App-Token (z. B. chatAvatarRoutes): Token verwerfen nach 401. */
+function resetAppToken() {
+  appToken = null;
+}
+
+module.exports = { createUsedByRouter, getAppToken, resetAppToken };

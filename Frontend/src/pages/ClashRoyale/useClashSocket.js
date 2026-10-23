@@ -317,6 +317,10 @@ export function useClashSocket(user) {
 
     // ── Pyramidendraft ──────────────────────────────────────────────────────
     socket.on('clash:pyramid:state', (data) => setPyramidState({ ...data, clientReceivedAt: Date.now() }));
+    // Live-Stand der Twitch-Chat-Abstimmung — nur Zahlen, passt nur zur gerade offenen Abstimmung
+    socket.on('clash:chatVote:tally', ({ voteId, counts, total }) =>
+      setPyramidState(prev => (prev?.chatVote?.voteId === voteId
+        ? { ...prev, chatVote: { ...prev.chatVote, counts, total } } : prev)));
 
     // ── Sitzungsereignisse ──────────────────────────────────────────────────
     socket.on('clash:kicked', () => {

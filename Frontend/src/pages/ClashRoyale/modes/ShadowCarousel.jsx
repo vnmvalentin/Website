@@ -1,14 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import CardFace from '../ui/CardFace';
 import { CrCheck, CrReplay, CrStopwatch, CrTv } from '../ui/CrIcons';
-import unknownCardImg from '../../../assets/clashRoyale/UnknownCard.png';
+import unknownCardImg from '../../../assets/clashRoyale/ui/UnknownCard.webp';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import telescopeIcon from '../../../assets/clashRoyale/ui/equip_icons_thrower_telescope.png';
 import ModeShell from './ModeShell';
 import ChunkyButton from '../ui/ChunkyButton';
 import { CARD_CROP } from './cardCrop';
-import { GameHeader, ProgressHairline, GameSurface, GameFooter, PlayerPanel, DeckGrid } from './GameChrome';
+import { GameHeader, ProgressHairline, GameSurface, GameFooter, PlayerPanel, DeckGrid, ViewToggle } from './GameChrome';
+import { useCrPrefs } from '../ui/crPrefs';
 import { avatarUrl } from '../components/avatars';
+import { RARITY_COLOR } from '../data/cards';
+import { sparkBurst, ringPulse, floatText } from '../ui/juice';
+import { playSound } from '../ui/sound';
+
+// 3D-Karussell nur bei Bedarf laden (three.js); ohne WebGL oder mit 2D-Einstellung bleiben die 2D-Tische
+const Carousel3D = lazy(() => import('./carousel/Carousel3D'));
 
 /** Akzentfarbe des Modus. */
 const ACCENT = '#22d3ee';
@@ -51,6 +58,7 @@ const CAROUSEL_I18N = {
     yourChoicePrefix: 'Deine Wahl:',
     choiceSavedPlain: 'Wahl gespeichert',
     championLimitGotReplacement: 'Champion-Limit — du hast eine Ersatzkarte erhalten.',
+    viewMode: 'Ansicht',
   },
   en: {
     you: 'You',
@@ -88,6 +96,7 @@ const CAROUSEL_I18N = {
     yourChoicePrefix: 'Your choice:',
     choiceSavedPlain: 'Choice saved',
     championLimitGotReplacement: 'Champion limit — you received a replacement card.',
+    viewMode: 'View',
   },
   es: {
     you: 'Tú',
@@ -125,6 +134,7 @@ const CAROUSEL_I18N = {
     yourChoicePrefix: 'Tu elección:',
     choiceSavedPlain: 'Elección guardada',
     championLimitGotReplacement: 'Límite de campeones — recibiste una carta de reemplazo.',
+    viewMode: 'Vista',
   },
 };
 
@@ -132,10 +142,18 @@ const CAROUSEL_I18N = {
 // Der Server hält die Übergangsphase 4s: ~2.8s Picks zeigen, dann fährt der alte Tisch
 // raus (0.55s) und der neue Tisch der Folgerunde fährt rein.
 const CAROUSEL_STYLE = `
-@keyframes crslIn  { from { transform: translateX(70%);  opacity: 0; } to { transform: translateX(0);     opacity: 1; } }
-@keyframes crslOut { from { transform: translateX(0);    opacity: 1; } to { transform: translateX(-70%);  opacity: 0; } }
-.crsl-in  { animation: crslIn  0.55s cubic-bezier(0.22, 0.8, 0.3, 1)   both; }
-.crsl-out { animation: crslOut 0.55s cubic-bezier(0.55, 0.1, 0.8, 0.4) both; animation-delay: 2.8s; }
+@keyframes crslIn {
+  from { transform: perspective(1400px) translateX(75%) rotateY(-42deg) scale(0.82); opacity: 0; }
+  70% { transform: perspective(1400px) translateX(-3%) rotateY(4deg) scale(1.01); opacity: 1; }
+  to { transform: perspective(1400px) translateX(0) rotateY(0deg) scale(1); opacity: 1; }
+}
+@keyframes crslOut {
+  from { transform: perspective(1400px) translateX(0) rotateY(0deg) scale(1); opacity: 1; }
+  to { transform: perspective(1400px) translateX(-75%) rotateY(42deg) scale(0.82); opacity: 0; }
+}
+.crsl-in  { animation: crslIn  0.7s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+.crsl-out { animation: crslOut 0.6s cubic-bezier(0.55, 0.1, 0.8, 0.4) both; animation-delay: 2.8s; }
+html[data-cr-anim="off"] .crsl-in, html[data-cr-anim="off"] .crsl-out { animation: none; }
 `;
 
 function AvatarCircle({ id, color, size = 28 }) {
@@ -270,7 +288,7 @@ function TableSlot({ slot, flippedCard, isSelected, clickable, onClick, takerCol
   if (slot.taken) {
     return (
       <div title={takerName ? t.takenBy(takerName, slot.takenRound) : t.cardTaken}
-        className="aspect-[4/5] rounded-xl bg-[#0d0d14] flex items-center justify-center"
+        className="w-full aspect-[4/5] rounded-xl bg-[#0d0d14] flex items-center justify-center"
         style={{ border: '1.5px solid rgba(0,0,0,0.5)' }}>
         <span className="w-2 h-2 rounded-full" style={{ background: (takerColor || '#3a3a42') + 'cc' }} />
       </div>
@@ -281,7 +299,7 @@ function TableSlot({ slot, flippedCard, isSelected, clickable, onClick, takerCol
     // lässt den ganzen Tisch beim Zeigen zucken.
     <button onClick={onClick} disabled={!clickable}
       title={flippedCard ? flippedCard.name : t.faceDownCard}
-      className={`group relative aspect-[4/5] rounded-xl overflow-hidden shadow-[0_8px_22px_rgba(0,0,0,0.45)] ${
+      className={`group relative w-full block aspect-[4/5] rounded-xl overflow-hidden shadow-[0_8px_22px_rgba(0,0,0,0.45)] ${
         clickable ? 'cursor-pointer cr-card-hover' : 'cursor-default'
       }`}>
       {flippedCard ? (
@@ -343,7 +361,10 @@ function CarouselTable({ table, tableNumber, flipMap, selectedSlot, canAct, onSl
       </div>
       <div className={`grid grid-cols-4 ${smCols} ${lgCols} gap-2.5 sm:gap-4`}>
         {table.slots.map((slot, si) => (
-          <TableSlot key={si} slot={slot}
+          // w-full am Platz darunter ist Pflicht: der Knopf ist nicht mehr selbst Rasterelement
+          // und würde sonst auf Inhaltsbreite schrumpfen — aufgedeckte Karten hatten dann 0 px
+          <div key={si} data-carousel-slot={si}>
+          <TableSlot slot={slot}
             flippedCard={flipMap[si] || null}
             isSelected={selectedSlot === si}
             clickable={canAct && !slot.taken}
@@ -351,6 +372,7 @@ function CarouselTable({ table, tableNumber, flipMap, selectedSlot, canAct, onSl
             takerColor={taker(slot.takenBy)?.color}
             takerName={taker(slot.takenBy)?.name}
             t={t} />
+          </div>
         ))}
       </div>
       {seatStatus}
@@ -431,9 +453,42 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
   const t = CAROUSEL_I18N[lang] || CAROUSEL_I18N.de;
   const [selectedSlot, setSelectedSlot] = useState(null);
   const state = carouselState;
+  // 3D nur, wenn gewünscht (Einstellung / Umschalter in der Kopfzeile) UND WebGL läuft
+  const { prefs } = useCrPrefs();
+  const [webglFailed, setWebglFailed] = useState(false);
+  const show3d = prefs.scene3d && !webglFailed;
+  const stage3dRef = useRef(null);
+  // Effekt-Ziel eines eigenen Platzes: in 3D das projizierte Rechteck, sonst das DOM-Element
+  const slotEl = (si) => (show3d
+    ? stage3dRef.current?.getSlotRect(si)
+    : document.querySelector(`[data-carousel-slot="${si}"]`));
 
   // Neue Runde → Auswahl zurücksetzen
   useEffect(() => { setSelectedSlot(null); }, [state?.round]);
+
+  // ── Effekte: Aufdecken knallt in der Seltenheitsfarbe, Drehung mit Rausch-Ton ──
+  const prevFlipsRef = useRef({ round: null, ids: [] });
+  useEffect(() => {
+    const flips = state?.myFlips || [];
+    const prev = prevFlipsRef.current;
+    prevFlipsRef.current = { round: state?.round, ids: flips.map(f => f.slotIdx) };
+    if (prev.round !== state?.round) return;
+    flips.filter(f => !prev.ids.includes(f.slotIdx)).forEach(f => {
+      const el = slotEl(f.slotIdx);
+      const color = RARITY_COLOR[f.card?.rarity] || '#c4b5fd';
+      sparkBurst(el, { color, count: f.card?.rarity === 'Legendary' || f.card?.rarity === 'Champion' ? 30 : 16, spread: 100 });
+      ringPulse(el, { color });
+      floatText(el, f.card?.name || '', { color, size: 18, rise: 40 });
+      playSound('open');
+    });
+    // slotEl hängt nur an show3d — bewusst nicht als Abhängigkeit, der Effekt soll nur bei neuen Aufdeckungen laufen
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.myFlips, state?.round]);
+  useEffect(() => {
+    if (state?.phase !== 'transition') return undefined;
+    const tm = setTimeout(() => playSound('start'), 2800);
+    return () => clearTimeout(tm);
+  }, [state?.phase, state?.round]);
 
   if (!state) return (
     <div className="h-full flex items-center justify-center">
@@ -474,6 +529,10 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
   };
   const handleTake = () => {
     if (selectedSlot == null || !canPick) return;
+    const el = slotEl(selectedSlot);
+    sparkBurst(el, { color: '#fbbf24', count: 20, spread: 110 });
+    ringPulse(el, { color: '#fbbf24' });
+    playSound('pick');
     onPick(selectedSlot);
     setSelectedSlot(null);
   };
@@ -498,12 +557,15 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
           badge={!amSpectator && myTable && (
             <span className="text-white/40 text-sm">{t.tableN(myTableIndex + 1)}</span>
           )}
-          right={canAct && (
-            <span className="flex items-center gap-1.5 shrink-0" title={t.revealsRemainingTitle}>
-              <img src={telescopeIcon} alt="" width={16} height={16} className={flipsLeft > 0 ? '' : 'opacity-30 grayscale'} />
-              <span className="text-sm font-semibold text-white/60 tabular-nums">{flipsLeft}/{flipLimit}</span>
-            </span>
-          )}
+          right={<>
+            {canAct && (
+              <span className="flex items-center gap-1.5 shrink-0" title={t.revealsRemainingTitle}>
+                <img src={telescopeIcon} alt="" width={16} height={16} className={flipsLeft > 0 ? '' : 'opacity-30 grayscale'} />
+                <span className="text-sm font-semibold text-white/60 tabular-nums">{flipsLeft}/{flipLimit}</span>
+              </span>
+            )}
+            <ViewToggle available={!webglFailed} label={t.viewMode} />
+          </>}
           timerRemaining={!finished && phase === 'picking' ? timerRemaining : undefined}
           timerUrgent={timerUrgent}
         />
@@ -515,6 +577,21 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
         <CarouselStatusBanner state={state} amSpectator={amSpectator} iPicked={iPicked}
           waitingFor={waitingFor} selectedCard={selectedCard} selectedSlot={selectedSlot} t={t} />
 
+        {show3d ? (
+          <div className="flex-1 min-h-0 relative overflow-hidden bg-[#9fd6f2]">
+            <Suspense fallback={null}>
+              <Carousel3D ref={stage3dRef}
+                state={state}
+                myPlayerId={myPlayerId}
+                selectedSlot={selectedSlot}
+                canAct={canAct}
+                onSlotClick={handleSlotClick}
+                unknownImg={unknownCardImg}
+                youLabel={t.you}
+                onUnsupported={() => setWebglFailed(true)} />
+            </Suspense>
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-10 py-6 sm:py-8">
           {/* Breiter als vorher (max-w-3xl): Bei 16 Karten pro Tisch waren die Kacheln
               auf einem 1440p-Schirm nur noch briefmarkengroß.
@@ -561,13 +638,16 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
 
           </div>
         </div>
+        )}
 
         {/* Aktionsleiste unten festgesetzt: Vorher stand sie unter dem Tisch im
             scrollenden Bereich — bei 16 Karten musste man auf dem Handy erst scrollen,
             um überhaupt „Aufdecken" zu finden, während der Timer lief. */}
         {canAct && (
           <GameFooter>
-            <div className="max-w-4xl mx-auto">
+            {/* Feste Mindesthöhe = Höhe mit ausgewählter Karte (Bild h-16): sonst wuchs die
+                Leiste beim Anwählen, die 3D-Szene darüber schrumpfte mit und sprang */}
+            <div className="max-w-4xl mx-auto min-h-16 flex flex-col justify-center">
               {selectedSlot == null ? (
                 <p className="text-white/40 text-sm text-center">
                   {canPick ? t.clickCardHint(flipsLeft) : t.mustRevealHint(flipsStillRequired)}
@@ -613,7 +693,7 @@ export default function ShadowCarousel({ carouselState, myPlayerId, onFlip, onPi
         {/* Nach dem eigenen Pick: die eigene Wahl bleibt sichtbar */}
         {!amSpectator && iPicked && phase === 'picking' && (
           <GameFooter>
-            <div className="max-w-4xl mx-auto flex items-center gap-3">
+            <div className="max-w-4xl mx-auto min-h-16 flex items-center gap-3">
               {myPick?.card && (
                 <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 shadow-[0_8px_22px_rgba(0,0,0,0.45)]">
                   <CardImg id={myPick.card.id} name={myPick.card.name} />

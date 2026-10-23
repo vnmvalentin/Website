@@ -23,6 +23,9 @@ const streamToolRaids = require("../streamTool/lib/streamToolRaids");
 const streamToolStats = require("../streamTool/lib/streamToolStats");
 const streamToolScenes = require("../streamTool/lib/streamToolScenes");
 const winTrackerChat = require("../clashRoyale/lib/winTrackerChat");
+// CR-Minigames: Chat stimmt im Pyramidendraft für den Streamer ab
+const crTwitchChat = require("../clashRoyale/core/twitchChat");
+const { healRenamedChannel } = require("./twitchRenameHeal");
 const { step } = require("./startupLog");
 
 let client = null;
@@ -419,6 +422,12 @@ function getChannelList() {
   } catch (e) {
     console.warn("[win-tracker] Chat-Kanäle nicht lesbar:", e.message);
   }
+  // CR-Minigame-Lobbys mit eingeschaltetem Chat (nur aus dem Speicher, kein DB-Zugriff)
+  try {
+    for (const c of crTwitchChat.getChatChannels()) set.add(normalizeChannel(c));
+  } catch (e) {
+    console.warn("[clash] Chat-Kanäle nicht lesbar:", e.message);
+  }
   return [...set];
 }
 
@@ -509,18 +518,65 @@ function msToClock(ms) {
   return `${hh}:${mm}:${ss}`;
 }
 
+// Antworten des Bots im Chat, in der Sprache des Overlays (doc.language, gewählt im Editor).
+const CHAT_REPLIES = {
+  de: {
+    notFound: (q) => `Keine Challenge gefunden für "${q}".`,
+    ambiguous: (q, names) => `Mehrere Treffer für "${q}": ${names} — bitte genauer angeben.`,
+    alreadyPinned: (n) => `"${n}" ist bereits angepinnt.`,
+    pinned: (n) => `"${n}" angepinnt.`,
+    notPinned: (n) => `"${n}" ist nicht angepinnt.`,
+    unpinned: (n) => `"${n}" gelöst.`,
+    completedSuffix: " — abgeschlossen!",
+    alreadyDone: (n) => `"${n}" ist bereits abgeschlossen.`,
+    completed: (n) => `"${n}" abgeschlossen!`,
+    alreadyZero: (n) => `"${n}" steht bereits bei 0.`,
+    stillOpen: (n) => `"${n}" ist noch offen.`,
+    reopened: (n) => `"${n}" wieder offen.`,
+    timerStarted: "Timer wurde gestartet.",
+    timerPaused: "Timer wurde pausiert.",
+    timerReset: "Timer wurde zurückgesetzt.",
+    timerHidden: "Timer ausgeblendet.",
+    timerShown: "Timer eingeblendet.",
+    timerFormat: "Format: !settimer HH:MM:SS (oder MM:SS)",
+    timerSet: (clock) => `Timer auf ${clock} gesetzt.`,
+  },
+  en: {
+    notFound: (q) => `No challenge found for "${q}".`,
+    ambiguous: (q, names) => `Several matches for "${q}": ${names} — please be more specific.`,
+    alreadyPinned: (n) => `"${n}" is already pinned.`,
+    pinned: (n) => `"${n}" pinned.`,
+    notPinned: (n) => `"${n}" is not pinned.`,
+    unpinned: (n) => `"${n}" unpinned.`,
+    completedSuffix: " — completed!",
+    alreadyDone: (n) => `"${n}" is already completed.`,
+    completed: (n) => `"${n}" completed!`,
+    alreadyZero: (n) => `"${n}" is already at 0.`,
+    stillOpen: (n) => `"${n}" is still open.`,
+    reopened: (n) => `"${n}" reopened.`,
+    timerStarted: "Timer started.",
+    timerPaused: "Timer paused.",
+    timerReset: "Timer reset.",
+    timerHidden: "Timer hidden.",
+    timerShown: "Timer shown.",
+    timerFormat: "Format: !settimer HH:MM:SS (or MM:SS)",
+    timerSet: (clock) => `Timer set to ${clock}.`,
+  },
+};
+const repliesFor = (lang) => CHAT_REPLIES[lang] || CHAT_REPLIES.de;
+
 /**
  * !pin / !unpin / !+ / !- auf eine Challenge anwenden.
  * @returns {{ itemId: string|null, patch: object|null, reply: string|null, changed: boolean }}
  */
-function resolveChallengeCommand(items, kind, query) {
+function resolveChallengeCommand(items, kind, query, r = CHAT_REPLIES.de) {
   const matches = findChallengeMatches(items, query);
   if (matches.length === 0) {
     return {
       itemId: null,
       patch: null,
       changed: false,
-      reply: `Keine Challenge gefunden für "${query}".`,
+      reply: r.notFound(query),
     };
   }
   if (matches.length > 1) {
@@ -529,20 +585,20 @@ function resolveChallengeCommand(items, kind, query) {
       itemId: null,
       patch: null,
       changed: false,
-      reply: `Mehrere Treffer für "${query}": ${names} — bitte genauer angeben.`,
+      reply: r.ambiguous(query, names),
     };
   }
   const it = matches[0];
 
   if (kind === "pin") {
     if (it.pinned)
-      return { itemId: null, patch: null, changed: false, reply: `"${it.name}" ist bereits angepinnt.` };
-    return { itemId: it.id, patch: { pinned: true }, changed: true, reply: `"${it.name}" angepinnt.` };
+      return { itemId: null, patch: null, changed: false, reply: r.alreadyPinned(it.name) };
+    return { itemId: it.id, patch: { pinned: true }, changed: true, reply: r.pinned(it.name) };
   }
   if (kind === "unpin") {
     if (!it.pinned)
-      return { itemId: null, patch: null, changed: false, reply: `"${it.name}" ist nicht angepinnt.` };
-    return { itemId: it.id, patch: { pinned: false }, changed: true, reply: `"${it.name}" gelöst.` };
+      return { itemId: null, patch: null, changed: false, reply: r.notPinned(it.name) };
+    return { itemId: it.id, patch: { pinned: false }, changed: true, reply: r.unpinned(it.name) };
   }
   if (kind === "plus") {
     if (it.useWins) {
@@ -552,18 +608,18 @@ function resolveChallengeCommand(items, kind, query) {
         itemId: it.id,
         patch: { progress: next },
         changed: true,
-        reply: `"${it.name}": ${next}/${it.target || 0}${doneNow ? " — abgeschlossen!" : ""}`,
+        reply: `"${it.name}": ${next}/${it.target || 0}${doneNow ? r.completedSuffix : ""}`,
       };
     }
     if (it.done)
-      return { itemId: null, patch: null, changed: false, reply: `"${it.name}" ist bereits abgeschlossen.` };
-    return { itemId: it.id, patch: { done: true }, changed: true, reply: `"${it.name}" abgeschlossen!` };
+      return { itemId: null, patch: null, changed: false, reply: r.alreadyDone(it.name) };
+    return { itemId: it.id, patch: { done: true }, changed: true, reply: r.completed(it.name) };
   }
   if (kind === "minus") {
     if (it.useWins) {
       const next = Math.max(0, (it.progress || 0) - 1);
       if (next === (it.progress || 0))
-        return { itemId: null, patch: null, changed: false, reply: `"${it.name}" steht bereits bei 0.` };
+        return { itemId: null, patch: null, changed: false, reply: r.alreadyZero(it.name) };
       return {
         itemId: it.id,
         patch: { progress: next },
@@ -572,8 +628,8 @@ function resolveChallengeCommand(items, kind, query) {
       };
     }
     if (!it.done)
-      return { itemId: null, patch: null, changed: false, reply: `"${it.name}" ist noch offen.` };
-    return { itemId: it.id, patch: { done: false }, changed: true, reply: `"${it.name}" wieder offen.` };
+      return { itemId: null, patch: null, changed: false, reply: r.stillOpen(it.name) };
+    return { itemId: it.id, patch: { done: false }, changed: true, reply: r.reopened(it.name) };
   }
   return { itemId: null, patch: null, changed: false, reply: null };
 }
@@ -588,6 +644,7 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
   if (!stored) return { changed: false, reply: null };
   let doc = createWinchallengeRouter.ensureDocShape(stored);
   const perms = doc.controlPermissions || {};
+  const r = repliesFor(doc.language);
   const canTimer = isOwner || !!perms.allowModsTimer;
   const canChallenges = isOwner || !!perms.allowModsChallenges;
 
@@ -602,7 +659,7 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
       doc.timer.running = true;
       doc.timer.startedAt = Date.now() - (doc.timer.elapsedMs || 0);
       changed = true;
-      reply = "Timer wurde gestartet.";
+      reply = r.timerStarted;
     }
   } else if (lower === "!stoptimer" || lower === "!pausetimer") {
     if (!canTimer) return { changed: false, reply: null };
@@ -610,7 +667,7 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
       doc.timer.running = false;
       doc.timer.elapsedMs = Date.now() - (doc.timer.startedAt || Date.now());
       changed = true;
-      reply = "Timer wurde pausiert.";
+      reply = r.timerPaused;
     }
   } else if (lower === "!resettimer") {
     if (!canTimer) return { changed: false, reply: null };
@@ -618,31 +675,31 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
     doc.timer.startedAt = 0;
     doc.timer.elapsedMs = 0;
     changed = true;
-    reply = "Timer wurde zurückgesetzt.";
+    reply = r.timerReset;
   } else if (lower === "!hidetimer" || lower === "!timerhide") {
     if (!canTimer) return { changed: false, reply: null };
     if (doc.timer.visible !== false) {
       doc.timer.visible = false;
       changed = true;
-      reply = "Timer ausgeblendet.";
+      reply = r.timerHidden;
     }
   } else if (lower === "!showtimer" || lower === "!timershow") {
     if (!canTimer) return { changed: false, reply: null };
     if (doc.timer.visible !== true) {
       doc.timer.visible = true;
       changed = true;
-      reply = "Timer eingeblendet.";
+      reply = r.timerShown;
     }
   } else if (setMatch) {
     if (!canTimer) return { changed: false, reply: null };
     const ms = parseClockToMs(setMatch[1]);
     if (ms == null) {
-      reply = "Format: !settimer HH:MM:SS (oder MM:SS)";
+      reply = r.timerFormat;
     } else {
       doc.timer.elapsedMs = ms;
       if (doc.timer.running) doc.timer.startedAt = Date.now() - ms;
       changed = true;
-      reply = `Timer auf ${msToClock(ms)} gesetzt.`;
+      reply = r.timerSet(msToClock(ms));
     }
   } else {
     // ---- Challenge-Befehle: !pin / !unpin / !+ / !- mit unscharfer Suche ----
@@ -665,7 +722,7 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
     if (!kind) return { changed: false, reply: null };
     if (!canChallenges) return { changed: false, reply: null };
 
-    const result = resolveChallengeCommand(doc.items || [], kind, query.trim());
+    const result = resolveChallengeCommand(doc.items || [], kind, query.trim(), r);
     reply = result.reply;
     changed = result.changed;
     if (result.changed && result.itemId) {
@@ -684,6 +741,14 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
 
 async function onChatMessage(channel, tags, message, self) {
   if (self) return;
+
+  // CR-Minigames: Chat-Abstimmung. Stimmen sind reine Zahlen ("3"), deshalb VOR der
+  // Befehlsprüfung — alles andere fällt dort sofort an einer Regex heraus.
+  try {
+    crTwitchChat.onChatMessage(channel, tags || {}, message);
+  } catch (e) {
+    console.warn("[clash] Chat-Stimme:", e.message);
+  }
 
   // Billigste Prüfung zuerst. Praktisch jede Chatzeile ist kein Befehl, und
   // für die darf hier nichts weiter passieren — kein DB-Zugriff, kein
@@ -777,16 +842,81 @@ const JOIN_DELAY_MS = 600;
 // Versuch.
 const JOIN_RETRY_DELAY_MS = 1500;
 
+// Kanäle, deren Beitritt scheitert (meist: Streamer hat sich umbenannt, den alten Login gibt
+// es nicht mehr). Statt alle 30 s erneut zu versuchen und jedes Mal zu loggen, wird mit
+// wachsendem Abstand probiert (5 min, 10, 20 … bis 6 h). Nach dem ERSTEN Fehlschlag wird
+// außerdem versucht, den Kanal auf den neuen Login umzuschreiben (lib/twitchRenameHeal.js).
+const JOIN_BACKOFF_BASE_MS = 5 * 60_000;
+const JOIN_BACKOFF_MAX_MS = 6 * 60 * 60_000;
+/** @type {Map<string, {fails: number, retryAt: number}>} */
+const joinFailures = new Map();
+
+// tmi.js lehnt join() mit einem nackten String ab ("No response from Twitch." u. ä.), nicht mit
+// einem Error — vorher stand deshalb nur "undefined" im Log.
+const reasonOf = (e) => (e && e.message) || (typeof e === "string" ? e : JSON.stringify(e));
+
+/** Helix-GET mit dem Bot-Token; null bei fehlender Konfiguration oder Fehler. */
+async function helixGet(pathAndQuery) {
+  const clientId = helixClientIdFromEnv();
+  const bearer = bearerTokenFromEnv();
+  if (!clientId || !bearer) return null;
+  try {
+    const fetch = await getFetch();
+    const res = await fetch(`https://api.twitch.tv/helix/${pathAndQuery}`, {
+      headers: { "Client-Id": clientId, Authorization: `Bearer ${bearer}` },
+    });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function tryHealRenamed(c) {
+  try {
+    const result = await healRenamedChannel(c, {
+      helixGet,
+      streamToolDb: require("../streamTool/lib/streamToolStore").db,
+      winTrackerDb: require("../clashRoyale/lib/winTrackerStore"),
+      winchallenge: { loadDb: createWinchallengeRouter.loadDb, saveDb: createWinchallengeRouter.saveDb },
+    });
+    if (result.healed.length) {
+      for (const h of result.healed) {
+        console.log(`[winchallenge irc] Kanal umbenannt: ${h.from} → ${h.to} (${h.source}, Nutzer ${h.userId})`);
+      }
+      joinFailures.delete(c);
+      // Neuer Kanal sofort betreten, alter fällt beim Abgleich heraus
+      syncChannels().catch(() => {});
+    } else if (!result.exists) {
+      console.warn(
+        `[winchallenge irc] Kanal "${c}" gibt es auf Twitch nicht mehr (umbenannt?) und gehört keinem ` +
+          `Nutzer als eigener Login — bitte im jeweiligen Editor neu eintragen.`
+      );
+    }
+  } catch (e) {
+    console.warn("[winchallenge irc] Umbenennung prüfen fehlgeschlagen:", c, reasonOf(e));
+  }
+}
+
 async function joinChannelResilient(c) {
   try {
     await client.join("#" + c);
-  } catch (e) {
+    joinFailures.delete(c);
+    return;
+  } catch {
     await sleep(JOIN_RETRY_DELAY_MS);
-    try {
-      await client.join("#" + c);
-    } catch (e2) {
-      console.warn("[winchallenge irc] join failed (2x)", c, e2.message);
-    }
+  }
+  try {
+    await client.join("#" + c);
+    joinFailures.delete(c);
+  } catch (e2) {
+    const prev = joinFailures.get(c);
+    const fails = (prev?.fails || 0) + 1;
+    const wait = Math.min(JOIN_BACKOFF_MAX_MS, JOIN_BACKOFF_BASE_MS * 2 ** (fails - 1));
+    joinFailures.set(c, { fails, retryAt: Date.now() + wait });
+    console.warn(
+      `[winchallenge irc] join failed (2x) ${c}: ${reasonOf(e2)} — nächster Versuch in ${Math.round(wait / 60_000)} min`
+    );
+    if (fails === 1) tryHealRenamed(c);
   }
 }
 
@@ -798,8 +928,11 @@ async function syncChannels() {
     (raw || []).map((c) => normalizeChannel(String(c)))
   );
   let joinedAny = false;
+  const now = Date.now();
   for (const c of want) {
     if (!current.has(c)) {
+      // Kürzlich gescheiterter Kanal: erst nach Ablauf des Backoffs wieder probieren
+      if ((joinFailures.get(c)?.retryAt || 0) > now) continue;
       if (joinedAny) await sleep(JOIN_DELAY_MS);
       joinedAny = true;
       await joinChannelResilient(c);
@@ -870,6 +1003,16 @@ async function initWinchallengeIrc() {
     streamToolScenes
       .onRaid(ircChannel, raiderName, viewers, tags || {})
       .catch((e) => console.warn("[stream-tool] Raid-Ansturm:", e.message));
+  });
+  // Kanalpunkte-Belohnung mit Textfeld: startet auf Wunsch die Murmelbahn.
+  // tmi meldet hier auch "highlighted-message" & Co. — die haben keine
+  // custom-reward-id und fallen in onRedeem von selbst heraus.
+  client.on("redeem", (ircChannel, username, rewardType, tags) => {
+    try {
+      if (tags && tags["custom-reward-id"]) streamToolScenes.onRedeem(ircChannel, tags, tags["custom-reward-id"]);
+    } catch (e) {
+      console.warn("[stream-tool] Kanalpunkte-Einlösung:", e.message);
+    }
   });
   // Stream-Statistik: Cheers und Abos mitzählen. Alle Handler bekommen den
   // Kanal als erstes Argument — mehr braucht das Modul nicht.
@@ -1017,6 +1160,13 @@ function getIrcStatus() {
       : [];
   return { configured, connected: !!client, joined };
 }
+
+// CR-Minigames kennen die Verbindung nur über diese drei Funktionen (core/ bleibt ohne lib/-Import)
+crTwitchChat.attachIrc({
+  refresh: () => (client ? syncChannels() : Promise.resolve()),
+  status: getIrcStatus,
+  say: queueChatReply,
+});
 
 module.exports = {
   initWinchallengeIrc,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import CardFace from '../ui/CardFace';
 import { CrCheck, CrFisherman, CrStopwatch, CrTv } from '../ui/CrIcons';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
@@ -6,34 +6,20 @@ import { RARITY_COLOR, cardImageUrl } from '../data/cards';
 import ModeShell from './ModeShell';
 import { drawCardFrame } from './cardCrop';
 import { useServerClock } from '../ui/serverClock';
-import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid } from './GameChrome';
+import { GameHeader, ProgressHairline, GameSurface, PlayerPanel, DeckGrid, ViewToggle } from './GameChrome';
+import { useCrPrefs } from '../ui/crPrefs';
 import { avatarUrl } from '../components/avatars';
+import { flyInto } from '../ui/flyToDeck';
+import { sparkBurst, ringPulse, bigBanner, shake } from '../ui/juice';
+import { playSound } from '../ui/sound';
+import { FISH_W, FISH_H, CAUGHT_LINGER_MS, DECK_BAR_PX, fishScale, fishPos, diveFactor, isHardDiving, sprintFactor } from './angel/riverMath';
+
+// 3D-Fluss nur bei Bedarf laden (three.js); ohne WebGL oder mit 2D-Einstellung bleibt der Canvas-Fluss
+const Angel3D = lazy(() => import('./angel/Angel3D'));
 
 /** Akzentfarbe des Modus. */
 const ACCENT = '#38bdf8';
 
-
-// Kartengröße im Fluss (Seitenverhältnis der CDN-Bilder ist 150×180).
-// Diese Werte gelten in REFERENZEINHEITEN, nicht in Bildschirmpixeln — der Fluss wird
-// immer in dieser gedachten Größe gezeichnet und danach auf die echte Fläche skaliert.
-const FISH_W = 66;
-const FISH_H = 79;
-const CAUGHT_LINGER_MS = 1100;
-// Höhe der Deck-Leiste am unteren Rand; darunter dürfen keine Karten treiben.
-// Sie ist ein DOM-Element mit fester Pixelhöhe und wird deshalb NICHT mitskaliert.
-const DECK_BAR_PX = 96;
-
-// Referenzfläche, für die Kartengröße und Abstände entworfen sind (1360×822).
-const REF_AREA = 1360 * 822;
-
-// Maßstab aus der FLÄCHE, nicht aus Breite oder Höhe allein. Dadurch bleibt das Verhältnis
-// von Kartenfläche zu Spielfeldfläche konstant — und damit auch, wie häufig sich Karten
-// gegenseitig überdecken. Bei 16:9 ist zusätzlich das Tempo in Kartenbreiten pro Sekunde
-// überall gleich, egal ob 1366×768 oder 4K. So bleibt das Spiel fair, ohne dass wir
-// schwarze Balken brauchen: die Fläche wird weiterhin voll ausgenutzt.
-function fishScale(W, H) {
-  return Math.max(0.55, Math.min(2.2, Math.sqrt((W * H) / REF_AREA)));
-}
 
 const ANGEL_I18N = {
   de: {
@@ -48,7 +34,9 @@ const ANGEL_I18N = {
     yourDeckFull: 'Dein Deck ist voll! Warte, bis die anderen fertig sind…',
     catchHint: 'Klicke auf vorbeischwimmende Karten, um sie zu angeln — abgetauchte Karten sind nicht fangbar.',
     getReady: 'Angeln bereit machen…',
+    goBanner: 'AUSWERFEN!',
     riverOpens: 'Der Fluss öffnet für alle gleichzeitig',
+    viewMode: 'Ansicht',
     yourDeck: 'Dein Deck',
     rodReady: 'Angel bereit',
     reelingIn: (s) => `Angel wird eingeholt… ${s}s`,
@@ -77,7 +65,9 @@ const ANGEL_I18N = {
     yourDeckFull: 'Your deck is full! Wait for the others to finish…',
     catchHint: 'Click cards drifting by to reel them in — submerged cards can\'t be caught.',
     getReady: 'Get your rods ready…',
+    goBanner: 'CAST!',
     riverOpens: 'The river opens for everyone at the same time',
+    viewMode: 'View',
     yourDeck: 'Your deck',
     rodReady: 'Rod ready',
     reelingIn: (s) => `Reeling in… ${s}s`,
@@ -106,7 +96,9 @@ const ANGEL_I18N = {
     yourDeckFull: '¡Tu mazo está completo! Espera a que los demás terminen…',
     catchHint: 'Haz clic en las cartas que pasan flotando para pescarlas — las cartas sumergidas no se pueden atrapar.',
     getReady: 'Preparad las cañas…',
+    goBanner: '¡A PESCAR!',
     riverOpens: 'El río se abre para todos al mismo tiempo',
+    viewMode: 'Vista',
     yourDeck: 'Tu mazo',
     rodReady: 'Caña lista',
     reelingIn: (s) => `Recogiendo el sedal… ${s}s`,
@@ -228,66 +220,18 @@ const AngelSidebar = React.memo(function AngelSidebar({ state, myPlayerId, t }) 
   );
 });
 
-// Fortschritt 0..1 entlang der Bahn. Ohne Sprint-Fenster ist das schlicht age/travelMs.
-// Mit Sprints wird jedes Fenster mit sprintMult-facher Geschwindigkeit durchflogen; die
-// Grundgeschwindigkeit sinkt entsprechend, sodass die Karte trotzdem exakt nach travelMs
-// am anderen Ufer ankommt. Damit bleibt die Lebenszeit-Prüfung des Servers gültig.
-function fishProgress(f, age) {
-  const mult = f.sprintMult || 1;
-  if (mult === 1 || !f.sprints?.length) return age / f.travelMs;
-  let sprintTotal = 0, sprinted = 0;
-  for (const s of f.sprints) {
-    const len = s.end - s.start;
-    sprintTotal += len;
-    sprinted += Math.max(0, Math.min(len, age - s.start));
+const animOff = () => document.documentElement.dataset.crAnim === 'off';
+const DROP_MS = 750;
+
+// Wasserfontäne beim Fang: Tropfen spritzen in einem Fächer nach oben und fallen zurück
+function spawnDrops(list, x, y, color) {
+  if (animOff()) return;
+  const born = performance.now();
+  for (let i = 0; i < 22; i++) {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+    const v = 0.12 + Math.random() * 0.22;
+    list.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 1.5 + Math.random() * 2.5, born, color: i % 3 === 0 ? color : '#bfe6ff' });
   }
-  return (age + (mult - 1) * sprinted) / (f.travelMs + (mult - 1) * sprintTotal);
-}
-
-// Position einer Karte im Fluss — deterministisch aus den Spawn-Parametern des Servers.
-// serverTime läuft in Server-Uhrzeit; W/H sind CSS-Pixel der Zeichenfläche.
-function fishPos(f, serverTime, W, H, padBottom) {
-  const age = serverTime - f.spawnedAt;
-  const progress = fishProgress(f, age);
-  const xNorm = f.dir === 1 ? progress : 1 - progress;
-  const x = xNorm * (W + 2 * FISH_W) - FISH_W;
-  const padTop = 14;
-  const usable = Math.max(60, H - padTop - padBottom - FISH_H);
-  let y = padTop + f.laneY * usable;
-  if (f.waveAmp) y += f.waveAmp * usable * Math.sin(f.waveFreq * (age / 1000) + f.wavePhase);
-  return { x, y: Math.max(padTop, Math.min(padTop + usable, y)), age };
-}
-
-// Weicher Abtauch-Faktor 0..1 (mit 250ms Ein-/Ausblendung an den Fensterkanten)
-function diveFactor(f, age) {
-  const FADE = 250;
-  let factor = 0;
-  for (const d of f.dives) {
-    if (age < d.start - FADE || age > d.end + FADE) continue;
-    if (age < d.start) factor = Math.max(factor, 1 - (d.start - age) / FADE);
-    else if (age > d.end) factor = Math.max(factor, 1 - (age - d.end) / FADE);
-    else factor = 1;
-  }
-  return factor;
-}
-
-function isHardDiving(f, age) {
-  return f.dives.some(d => age >= d.start && age <= d.end);
-}
-
-// Sprint-Intensität 0..1 (mit 140ms Ein-/Ausblendung, damit Schlieren nicht hart aufpoppen).
-// Nur für die Optik — die Bewegung selbst schaltet in fishProgress() hart um.
-function sprintFactor(f, age) {
-  if (!f.sprints?.length) return 0;
-  const FADE = 140;
-  let factor = 0;
-  for (const s of f.sprints) {
-    if (age < s.start - FADE || age > s.end + FADE) continue;
-    if (age < s.start) factor = Math.max(factor, 1 - (s.start - age) / FADE);
-    else if (age > s.end) factor = Math.max(factor, 1 - (age - s.end) / FADE);
-    else factor = 1;
-  }
-  return factor;
 }
 
 function roundRectPath(ctx, x, y, w, h, r) {
@@ -311,6 +255,8 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
   const mouseRef = useRef({ x: -1, y: -1 });
   const hoverRef = useRef(null);
   const splashesRef = useRef([]); // Klick-Ringe (Angel-Platscher)
+  const dropsRef = useRef([]);    // Wassertropfen beim Fang
+  const seenCaughtRef = useRef(new Set());
   const dprRef = useRef(1);       // Pixel pro Bühnenpixel (Gerät × Bühnen-Skalierung)
   const canInteractRef = useRef(canInteract);
   stateRef.current = state;
@@ -340,7 +286,10 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
       if (age < 0 || age > f.travelMs) continue;
       if (mx >= x && mx <= x + FISH_W && my >= y && my <= y + FISH_H) {
         if (isHardDiving(f, age)) return; // klick-immun während des Abtauchens
-        onCatch(f.fishId);
+        onCatch(f.fishId, {
+          card: f.card,
+          rect: new DOMRect(rect.left + x * k, rect.top + y * k, FISH_W * k, FISH_H * k),
+        });
         return;
       }
     }
@@ -425,9 +374,25 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
         if (f.caughtBy) {
           const e = Math.min(1, (serverTime - f.caughtAt) / CAUGHT_LINGER_MS);
           const capped = Math.max(0, e);
+          if (!seenCaughtRef.current.has(f.fishId)) {
+            seenCaughtRef.current.add(f.fishId);
+            if (capped < 0.35) spawnDrops(dropsRef.current, x + FISH_W / 2, y + FISH_H / 2, f.caughtColor || '#22c55e');
+          }
           ctx.save();
           ctx.globalAlpha = 1 - capped;
-          const cy = y - capped * 46;
+          // Einholen: erst kurz ruckeln, dann schnell nach oben (ease-in)
+          const cy = y - (capped * capped * 150 + capped * 20);
+          // Angelschnur von oben bis zum Haken an der Kartenoberkante
+          const lineX = x + FISH_W / 2 + Math.sin(nowPerf / 70) * 2 * (1 - capped);
+          ctx.strokeStyle = f.caughtColor || '#22c55e';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(lineX + (1 - capped) * 30, 0);
+          ctx.quadraticCurveTo(lineX + 8, cy * 0.5, lineX, cy - 4);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(lineX, cy - 1, 4, Math.PI, Math.PI * 2.4);
+          ctx.stroke();
           roundRectPath(ctx, x, cy, FISH_W, FISH_H, 7);
           ctx.save();
           ctx.clip();
@@ -605,6 +570,20 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
         ctx.restore();
       }
 
+      // Tropfen: ballistisch mit Schwerkraft, verblassen zum Ende
+      dropsRef.current = dropsRef.current.filter(d => nowPerf - d.born < DROP_MS);
+      for (const d of dropsRef.current) {
+        const tt = nowPerf - d.born;
+        ctx.save();
+        ctx.globalAlpha = 1 - tt / DROP_MS;
+        ctx.fillStyle = d.color;
+        ctx.beginPath();
+        ctx.arc(d.x + d.vx * tt, d.y + d.vy * tt + 0.00045 * tt * tt, d.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      if (seenCaughtRef.current.size > 400) seenCaughtRef.current.clear();
+
       hoverRef.current = hovered;
       canvas.style.cursor = !canInteractRef.current
         ? 'not-allowed'
@@ -637,20 +616,78 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
   );
 }
 
+// ── Platz in der Deck-Leiste ────────────────────────────────────────────────
+// Der eigene Fang fliegt aus dem Fluss hierher. Der Klick wird lokal gemerkt (pendingFlyRef),
+// nicht über ui/flyToDeck.js' globalen Merker — sonst holt sich die Seitenleiste den Flug.
+const FLY_MAX_AGE_MS = 2500;
+function AngelDeckSlot({ card, pendingFlyRef }) {
+  const ref = useRef(null);
+  const mounted = useRef(false);
+  const [phase, setPhase] = useState('pop'); // 'pop' | 'flying' | 'landed'
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useLayoutEffect(() => {
+    const pending = pendingFlyRef.current;
+    if (!pending || pending.card.id !== card.id || performance.now() - pending.at > FLY_MAX_AGE_MS) return;
+    pendingFlyRef.current = null;
+    const node = document.createElement('img');
+    node.src = cardImageUrl(card.id);
+    node.alt = '';
+    node.style.objectFit = 'cover';
+    node.style.borderRadius = '7px';
+    const flight = flyInto({ rect: pending.rect, node }, ref.current);
+    if (!flight) return;
+    setPhase('flying');
+    flight.then(() => {
+      if (!mounted.current) return;
+      setPhase('landed');
+      const color = RARITY_COLOR[card.rarity] || ACCENT;
+      sparkBurst(ref.current, { color, count: 18, spread: 90 });
+      ringPulse(ref.current, { color });
+      playSound('land');
+    });
+  }, [card.id, card.rarity, pendingFlyRef]);
+  return (
+    <div ref={ref} className={`w-full h-full ${phase === 'landed' ? 'cr-card-land' : phase === 'pop' ? 'cr-card-pop' : ''}`}
+      style={phase === 'flying' ? { visibility: 'hidden' } : undefined}>
+      <CardImg id={card.id} name={card.name} />
+    </div>
+  );
+}
+
 // ── Hauptkomponente ─────────────────────────────────────────────────────────
-export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, autoCatch, lang = 'de' }) {
+export default function AngelRoyale(props) {
+  if (!props.fishState) {
+    const t = ANGEL_I18N[props.lang] || ANGEL_I18N.de;
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-gray-500 text-sm">{t.loading}</p>
+      </div>
+    );
+  }
+  return <AngelGame {...props} />;
+}
+
+function AngelGame({ fishState, myPlayerId, onCatch, denied, autoCatch, lang = 'de' }) {
   const t = ANGEL_I18N[lang] || ANGEL_I18N.de;
   const state = fishState;
   const deniedRef = useRef(null);
   useEffect(() => { deniedRef.current = denied; }, [denied]);
 
   const now = useNow(100);
-
-  if (!state) return (
-    <div className="h-full flex items-center justify-center">
-      <p className="text-gray-500 text-sm">{t.loading}</p>
-    </div>
-  );
+  // 3D nur, wenn gewünscht (Einstellung / Umschalter in der Kopfzeile) UND WebGL läuft
+  const { prefs } = useCrPrefs();
+  const [webglFailed, setWebglFailed] = useState(false);
+  const show3d = prefs.scene3d && !webglFailed;
+  const pendingFlyRef = useRef(null);
+  const deckBarRef = useRef(null);
+  const rodRef = useRef(null);
+  const handleCatch = useCallback((fishId, info) => {
+    if (info) pendingFlyRef.current = { ...info, at: performance.now() };
+    onCatch(fishId);
+  }, [onCatch]);
 
   const clientOffset = state.clientReceivedAt - state.serverNow;
   const me = state.players.find(p => p.id === myPlayerId);
@@ -682,6 +719,39 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
 
   const activePlayers = state.players.filter(p => !p.isSpectator);
   const doneCount = activePlayers.filter(p => (p.deck || []).length >= state.deckSize).length;
+
+  // ── Effekte ──
+  // Countdown: jede Zahl tickt, zum Start ein Banner über dem Fluss
+  const prevCountRef = useRef(countdownRemaining);
+  useEffect(() => {
+    const prev = prevCountRef.current;
+    prevCountRef.current = countdownRemaining;
+    if (countdownRemaining > 0 && countdownRemaining !== prev) playSound('count');
+    if (prev > 0 && countdownRemaining === 0 && !state.finished) {
+      bigBanner(t.goBanner, { color: ACCENT });
+      playSound('start');
+    }
+  }, [countdownRemaining, state.finished, t]);
+  // Abgelehnt / Zwangs-Angel: Deck-Leiste wackelt
+  useEffect(() => {
+    if (!denied?.ts) return;
+    shake(deckBarRef.current, { intensity: 6 });
+    playSound('error');
+  }, [denied?.ts]);
+  useEffect(() => {
+    if (!autoCatch?.ts) return;
+    shake(deckBarRef.current, { intensity: 5 });
+    sparkBurst(deckBarRef.current, { colors: ['#f59e0b', '#fbbf24'], count: 12, spread: 120 });
+  }, [autoCatch?.ts]);
+  // Angel wieder bereit: kurzer Ring um die Statusanzeige
+  const prevCoolingRef = useRef(isCooling);
+  useEffect(() => {
+    if (prevCoolingRef.current && !isCooling && !myDeckFull) {
+      ringPulse(rodRef.current, { color: ACCENT, scale: 1.6 });
+      playSound('tick');
+    }
+    prevCoolingRef.current = isCooling;
+  }, [isCooling, myDeckFull]);
 
   const showDeniedToast = denied && (now - denied.ts) < 1600;
   const showAutoToast = autoCatch && (now - autoCatch.ts) < 2400;
@@ -719,6 +789,7 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
             )
           }
           meta={t.decksDone(doneCount, activePlayers.length)}
+          right={<ViewToggle available={!webglFailed} label={t.viewMode} />}
         />
         <ProgressHairline
           pct={amSpectator ? 0 : (myDeck.length / state.deckSize) * 100}
@@ -727,12 +798,24 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
         {/* Fluss — Grundfarbe als Fallback, bis der Canvas beim ersten Resize das Wasser
             zeichnet (siehe RiverCanvas), damit dort nie kurz das Diamant-Karo durchschlägt. */}
         <div className="flex-1 relative overflow-hidden bg-[#0d2a3d]">
-          <RiverCanvas
-            state={state}
-            canInteract={canInteract}
-            onCatch={onCatch}
-            deniedRef={deniedRef}
-          />
+          {show3d ? (
+            <Suspense fallback={null}>
+              <Angel3D
+                state={state}
+                canInteract={canInteract}
+                onCatch={handleCatch}
+                deniedRef={deniedRef}
+                myPlayerId={myPlayerId}
+                onUnsupported={() => setWebglFailed(true)} />
+            </Suspense>
+          ) : (
+            <RiverCanvas
+              state={state}
+              canInteract={canInteract}
+              onCatch={handleCatch}
+              deniedRef={deniedRef}
+            />
+          )}
 
           {/* Abgelehnt-Toast */}
           {showDeniedToast && (
@@ -756,14 +839,14 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
               {/* Deckbalken schwimmt über dem Fluss (Diamant-Karo, siehe GameSurface) — bei
                   40% Deckkraft war die Schrift darauf kaum noch zu lesen, jetzt deutlich
                   dunkler (backdrop-blur bleibt für den Glas-Effekt). */}
-              <div className={`rounded-2xl backdrop-blur-md px-4 py-3 transition-colors ${
+              <div ref={deckBarRef} className={`rounded-2xl backdrop-blur-md px-4 py-3 transition-colors ${
                 isCooling ? 'bg-red-950/85'
                 : idleUrgent ? 'bg-amber-950/85'
                 : 'bg-black/80'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">{t.yourDeck}</span>
                   {showRodStatus && (
-                    <span className={`flex items-center gap-1.5 text-[11px] font-bold tabular-nums ${
+                    <span ref={rodRef} className={`flex items-center gap-1.5 text-[11px] font-bold tabular-nums ${
                       isCooling ? 'text-red-300' : idleUrgent ? 'text-amber-300' : idleActive ? 'text-amber-200/70' : 'text-sky-300'}`}>
                       {isCooling
                         ? <><CrStopwatch size={16} className="shrink-0" /> {t.reelingIn((coolingMs / 1000).toFixed(1))}</>
@@ -779,7 +862,7 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
                     return (
                       <div key={i} title={card?.name}
                         className={`aspect-[4/5] rounded-md overflow-hidden ${card ? '' : 'bg-[#0d0d14]'}`}>
-                        {card && <CardImg id={card.id} name={card.name} rarity={card.rarity} />}
+                        {card && <AngelDeckSlot key={card.id} card={card} pendingFlyRef={pendingFlyRef} />}
                       </div>
                     );
                   })}
@@ -798,13 +881,15 @@ export default function AngelRoyale({ fishState, myPlayerId, onCatch, denied, au
             </div>
           )}
 
-          {/* Start-Countdown deckt den Fluss ab, damit niemand einen Klick-Vorsprung hat */}
+          {/* Start-Countdown deckt den Fluss ab, damit niemand einen Klick-Vorsprung hat. In 3D
+              bleibt er durchsichtig: Dahinter läuft die Intro-Kamerafahrt, und Karten gibt es
+              vor dem Start ohnehin keine (der Server lässt erst danach welche schwimmen). */}
           {inCountdown && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#081220]">
-              <div className="text-center">
-                <p className="text-sky-300 text-sm font-bold uppercase tracking-widest mb-3">{t.getReady}</p>
-                <p className="text-white font-black text-7xl tabular-nums leading-none">{countdownRemaining}</p>
-                <p className="text-gray-400 text-xs mt-3">{t.riverOpens}</p>
+            <div className={`absolute inset-0 z-20 flex items-center justify-center ${show3d ? '' : 'bg-[#081220]'}`}>
+              <div className="text-center" style={show3d ? { textShadow: 'var(--cr-text-outline)' } : undefined}>
+                <p className={`text-sm font-bold uppercase tracking-widest mb-3 ${show3d ? 'text-white' : 'text-sky-300'}`}>{t.getReady}</p>
+                <p key={countdownRemaining} className="cr-count-in text-white font-black text-7xl tabular-nums leading-none">{countdownRemaining}</p>
+                <p className={`text-xs mt-3 ${show3d ? 'text-white/85' : 'text-gray-400'}`}>{t.riverOpens}</p>
               </div>
             </div>
           )}

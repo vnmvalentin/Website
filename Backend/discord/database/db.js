@@ -165,33 +165,52 @@ try { db.exec("ALTER TABLE guild_settings ADD COLUMN fun_channel TEXT DEFAULT ''
 try { db.exec("ALTER TABLE guild_settings ADD COLUMN disabled_commands TEXT DEFAULT '[]'"); } catch (e) {}
 try { db.exec("CREATE INDEX IF NOT EXISTS idx_voice_activity ON voice_activity(guild_id, date)"); } catch (e) {}
 try { db.exec("ALTER TABLE active_voice_channels ADD COLUMN pin_message_id TEXT DEFAULT ''"); } catch (e) {}
+// Ein-/Austrittsnachricht als schlichter Text ('text') oder als Karte mit Profilbild ('card')
+try { db.exec("ALTER TABLE guild_settings ADD COLUMN welcome_style TEXT DEFAULT 'text'"); } catch (e) {}
+try { db.exec("ALTER TABLE guild_settings ADD COLUMN leave_style TEXT DEFAULT 'text'"); } catch (e) {}
+// Nachrichten je Nutzer und Tag. Eigene Tabelle neben message_stats (je Kanal):
+// beides in einer Tabelle hieße eine Zeile je Nutzer UND Kanal und Tag.
+db.exec(`CREATE TABLE IF NOT EXISTS user_message_stats (
+    guild_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    msg_count INTEGER DEFAULT 0,
+    PRIMARY KEY (guild_id, date, user_id)
+)`);
 
 step("Discord-DB", true);
+
+/** Darstellung der Ein-/Austrittsnachricht: schlichter Text, Karte (Embed) oder gezeichnetes Bild. */
+const messageStyle = (v) => (v === 'card' || v === 'image' ? v : 'text');
 
 // ── GUILD SETTINGS ─────────────────────────────────────────────────────────────
 function getSettings(guildId) {
     const row = db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId);
-    if (!row) return { welcomeChannel: "", welcomeMessage: "", leaveChannel: "", leaveMessage: "", funChannel: "", prefix: "!", botNickname: "", disabledCommands: [] };
+    if (!row) return { welcomeChannel: "", welcomeMessage: "", welcomeStyle: "text", leaveChannel: "", leaveMessage: "", leaveStyle: "text", funChannel: "", prefix: "!", botNickname: "", disabledCommands: [] };
     return {
         welcomeChannel: row.welcome_channel || "", welcomeMessage: row.welcome_message || "",
+        welcomeStyle: messageStyle(row.welcome_style),
         leaveChannel: row.leave_channel || "", leaveMessage: row.leave_message || "",
+        leaveStyle: messageStyle(row.leave_style),
         funChannel: row.fun_channel || "",
         prefix: row.prefix || "!", botNickname: row.bot_nickname || "",
         disabledCommands: (() => { try { return JSON.parse(row.disabled_commands || '[]'); } catch { return []; } })(),
     };
 }
 
-function saveSettings(guildId, { welcomeChannel, welcomeMessage, leaveChannel, leaveMessage, funChannel, prefix, botNickname, disabledCommands }) {
+function saveSettings(guildId, { welcomeChannel, welcomeMessage, welcomeStyle, leaveChannel, leaveMessage, leaveStyle, funChannel, prefix, botNickname, disabledCommands }) {
     db.prepare(`
-        INSERT INTO guild_settings (guild_id, welcome_channel, welcome_message, leave_channel, leave_message, fun_channel, prefix, bot_nickname, disabled_commands)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO guild_settings (guild_id, welcome_channel, welcome_message, leave_channel, leave_message, fun_channel, prefix, bot_nickname, disabled_commands, welcome_style, leave_style)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(guild_id) DO UPDATE SET
         welcome_channel = excluded.welcome_channel, welcome_message = excluded.welcome_message,
         leave_channel = excluded.leave_channel, leave_message = excluded.leave_message,
         fun_channel = excluded.fun_channel, prefix = excluded.prefix,
-        bot_nickname = excluded.bot_nickname, disabled_commands = excluded.disabled_commands
+        bot_nickname = excluded.bot_nickname, disabled_commands = excluded.disabled_commands,
+        welcome_style = excluded.welcome_style, leave_style = excluded.leave_style
     `).run(guildId, welcomeChannel || "", welcomeMessage || "", leaveChannel || "", leaveMessage || "",
-        funChannel || "", prefix || "!", botNickname || "", JSON.stringify(disabledCommands || []));
+        funChannel || "", prefix || "!", botNickname || "", JSON.stringify(disabledCommands || []),
+        messageStyle(welcomeStyle), messageStyle(leaveStyle));
 }
 
 // ── REAKTIONSROLLEN ────────────────────────────────────────────────────────────
@@ -281,6 +300,7 @@ function getActiveVoiceChannel(voiceChannelId) { return db.prepare('SELECT * FRO
 function getActiveVoiceChannelByText(textChannelId) { return db.prepare('SELECT * FROM active_voice_channels WHERE text_channel_id=?').get(textChannelId); }
 function getAllActiveVoiceChannels() { return db.prepare('SELECT * FROM active_voice_channels').all(); }
 function updateVoiceOwner(voiceChannelId, newOwnerId) { db.prepare('UPDATE active_voice_channels SET owner_id=? WHERE voice_channel_id=?').run(newOwnerId, voiceChannelId); }
+function updateVoicePinMessage(voiceChannelId, pinMessageId) { db.prepare('UPDATE active_voice_channels SET pin_message_id=? WHERE voice_channel_id=?').run(pinMessageId || '', voiceChannelId); }
 function deleteActiveVoiceChannel(voiceChannelId) { db.prepare('DELETE FROM active_voice_channels WHERE voice_channel_id=?').run(voiceChannelId); }
 
 // ── TWITCH NOTIFICATIONS ───────────────────────────────────────────────────────
@@ -395,6 +415,19 @@ function incrementMessageStat(guildId, channelId) {
     db.prepare(`INSERT INTO message_stats (guild_id, date, channel_id, msg_count) VALUES (?, ?, ?, 1) ON CONFLICT(guild_id, date, channel_id) DO UPDATE SET msg_count = msg_count + 1`).run(guildId, date, channelId);
 }
 const trackMessage = incrementMessageStat;
+function incrementUserMessageStat(guildId, userId) {
+    const date = new Date().toISOString().split('T')[0];
+    db.prepare(`INSERT INTO user_message_stats (guild_id, date, user_id, msg_count) VALUES (?, ?, ?, 1) ON CONFLICT(guild_id, date, user_id) DO UPDATE SET msg_count = msg_count + 1`).run(guildId, date, userId);
+}
+function getUserMessageStats(guildId, days = 30, limit = 20) {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return db.prepare(`SELECT user_id as userId, SUM(msg_count) as total FROM user_message_stats WHERE guild_id=? AND date>=? GROUP BY user_id ORDER BY total DESC LIMIT ?`).all(guildId, since, limit);
+}
+/** Wie viele verschiedene Nutzer im Zeitraum geschrieben haben. */
+function getChatterCount(guildId, days = 30) {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return db.prepare('SELECT COUNT(DISTINCT user_id) as n FROM user_message_stats WHERE guild_id=? AND date>=?').get(guildId, since).n;
+}
 function trackVoiceActivity(guildId, userId, channelId, durationSeconds) {
     db.prepare('INSERT INTO voice_activity (guild_id, user_id, channel_id, duration_seconds, date) VALUES (?, ?, ?, ?, ?)').run(guildId, userId, channelId, durationSeconds, new Date().toISOString().split('T')[0]);
 }
@@ -457,7 +490,7 @@ module.exports = {
     saveApprovalRequest, getApprovalRequest, getPendingRequest, getLatestRejectedRequest, updateApprovalRequest,
     getVoiceConfig, saveVoiceConfig,
     saveActiveVoiceChannel, getActiveVoiceChannel, getActiveVoiceChannelByText,
-    getAllActiveVoiceChannels, updateVoiceOwner, deleteActiveVoiceChannel,
+    getAllActiveVoiceChannels, updateVoiceOwner, updateVoicePinMessage, deleteActiveVoiceChannel,
     getTwitchNotifications, getAllEnabledTwitchNotifications, updateLastAnnouncedStreamId,
     saveTwitchNotification, updateTwitchNotification, deleteTwitchNotification,
     getLiveRole, getAllEnabledLiveRoles, saveLiveRole, deleteLiveRole,
@@ -468,5 +501,6 @@ module.exports = {
     getTicketFields, saveTicketFields, getTicketHistory, saveTicketHistoryEntry, closeTicketHistoryEntry,
     incrementMessageStat, trackMessage, trackVoiceActivity, getMessageStats, getVoiceStats,
     getMessageTotal, getVoiceTotalsByUser,
+    incrementUserMessageStat, getUserMessageStats, getChatterCount,
     getSeedRunnersBoard, getAllSeedRunnersBoards, saveSeedRunnersBoard, deleteSeedRunnersBoard,
 };

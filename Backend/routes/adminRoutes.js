@@ -10,6 +10,7 @@ const {
     notifyAdminUpdate, notifyPlotChanged, istOnline, weltUebersicht, notifyWelt,
 } = require("../garden/world/lobby");
 const ereignisse = require("../garden/world/ereignisse");
+const analytics = require("../analytics/analyticsStore");
 
 const ROOT_DIR = process.cwd();
 
@@ -71,6 +72,17 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
         advPlayers, activeBingoSessions, activeChallenges, activeCodes,
         gardenPlayers: farmStates.size, gardenOnline, gardenWorlds: welten.length,
       });
+  });
+
+  // --- BESUCHERSTATISTIK ---
+  // GET /api/admin/analytics?days=30 — Tagessummen aus analytics/analyticsStore.js
+  router.get("/analytics", (req, res) => {
+    try {
+      res.json(analytics.getReport(req.query.days));
+    } catch (e) {
+      console.error("[admin] Besucherstatistik nicht lesbar:", e.message);
+      res.status(500).json({ error: "Statistik nicht lesbar" });
+    }
   });
 
   // --- GENERIC GETTER ---

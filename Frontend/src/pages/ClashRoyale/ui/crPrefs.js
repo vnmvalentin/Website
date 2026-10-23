@@ -41,7 +41,8 @@ export const backgroundUrl = (id) => BACKGROUNDS.find(b => b.id === id)?.url || 
 const STORAGE_KEY = 'crMinigamesPrefs';
 // animations: eigene Einstellung (Standard an) — bewusst NICHT an die System-Einstellung
 // "Bewegung reduzieren" gekoppelt, siehe index.css (html[data-cr-anim="off"]).
-export const DEFAULT_PREFS = { background: DEFAULT_BACKGROUND, volume: 0.5, animations: true };
+// scene3d: 3D-Ansicht in Elixir Auction, Pyramidendraft, Angel Royale und Blindes Karussell (aus = alte 2D-Darstellung).
+export const DEFAULT_PREFS = { background: DEFAULT_BACKGROUND, volume: 0.5, animations: true, scene3d: true };
 
 export function loadPrefs() {
   try {
@@ -51,7 +52,8 @@ export function loadPrefs() {
     const volume = typeof raw.volume === 'number' && raw.volume >= 0 && raw.volume <= 1
       ? raw.volume : DEFAULT_PREFS.volume;
     const animations = typeof raw.animations === 'boolean' ? raw.animations : DEFAULT_PREFS.animations;
-    return { background, volume, animations };
+    const scene3d = typeof raw.scene3d === 'boolean' ? raw.scene3d : DEFAULT_PREFS.scene3d;
+    return { background, volume, animations, scene3d };
   } catch {
     return { ...DEFAULT_PREFS };
   }

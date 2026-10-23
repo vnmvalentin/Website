@@ -1,9 +1,10 @@
 // Bilder für die Mutterhexen-Besuche im Elixir-Auction-Modus.
-// Dateien ablegen unter: Frontend/src/assets/clashRoyale/
-//   - motherwitch.jpg (oder .png/.jpeg/.webp) — Portrait der Mutterhexe
-//   - pig.jpg (oder .png/.jpeg/.webp) — Schwein-Platzhalter für den Schweinezauber
+// Dateien ablegen unter: Frontend/src/assets/clashRoyale/ui/ (Endung egal: jpg/png/webp)
+//   - motherwitch — Portrait der Mutterhexe
+//   - pig — Schwein-Platzhalter für den Schweinezauber
+// Nur diese Namen im Glob — ui/ enthält ~100 weitere Bilder, die hier nicht mitgeladen werden sollen.
 const _mwGlob = import.meta.glob(
-  '/src/assets/clashRoyale/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}',
+  '/src/assets/clashRoyale/ui/{motherwitch,pig}.{jpg,jpeg,png,webp}',
   { eager: true }
 );
 const MW_MAP = Object.fromEntries(

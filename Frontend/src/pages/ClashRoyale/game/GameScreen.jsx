@@ -17,6 +17,8 @@ import ChunkyButton from '../ui/ChunkyButton';
 import AdminControlPanel from './AdminControlPanel';
 import GameOverScreen from './GameOverScreen';
 import { modeInfo, modeNameFor } from '../modesConfig';
+import { ltDict, tournamentRunning } from '../lobby/ltourI18n';
+import TournamentStrip from './TournamentStrip';
 
 const SnakeRoyale = lazy(() => import('../modes/SnakeRoyale'));
 const ElixirAuction = lazy(() => import('../modes/ElixirAuction'));
@@ -122,6 +124,9 @@ const MODE_VIEWS = {
     props: (s, a) => ({
       pyramidState: s.pyramidState,
       onPick: a.pyramidPick,
+      // Twitch-Chat-Abstimmung vorzeitig auswerten (Streamer selbst oder Host)
+      onChatVoteEnd: a.pyramidChatVoteEnd,
+      canControl: s.canControlLobby,
     }),
   },
   'elixir-auction-2v2': {
@@ -263,6 +268,9 @@ export default function GameScreen({
         />
       )}
 
+      {/* Lobby-Turnier: wer gegen wen draftet bzw. die Paarungen der ersten Runde */}
+      {!gameOver && tournamentRunning(lobbyData) && <TournamentStrip lobbyData={lobbyData} myId={myId} lang={lang} />}
+
       <div className="cr-anim-rise flex-1 overflow-hidden">
         {/* Fallback bewusst derselbe Platzhalter wie unten für "Spiel lädt" — dann sieht
             der Übergang gleich aus, egal ob auf den Chunk oder auf den Server gewartet wird. */}
@@ -277,6 +285,8 @@ export default function GameScreen({
               onSwapCard={actions.adminSwapCard}
               onLeave={onLeave}
               onRestart={actions.restartLobby}
+              // Lobby-Turnier: nach dem Draft geht es zurück zum Turnierbaum, nicht in eine neue Runde
+              restartLabel={socket.lobbyData?.ltour && socket.lobbyData.ltour.phase !== 'setup' ? ltDict(lang).toBracket : null}
               lang={lang}
               t={t}
               // Punktestände kommen aus dem laufenden Lobby-Zustand, nicht aus gameOver —
@@ -284,6 +294,7 @@ export default function GameScreen({
               lobbyPlayers={lobbyData?.players || []}
               trackingEnabled={!!lobbyData?.trackingEnabled}
               overlayKey={lobbyData?.overlayKey}
+              tournamentView={tournamentRunning(lobbyData) ? { lobbyData, myId, canControl: canControlLobby, actions } : null}
             />
           ) : modeReady ? (
             <ModeComponent myPlayerId={myId} lang={lang} {...view.props(socket, actions)} />

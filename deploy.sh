@@ -135,7 +135,11 @@ deploy_backend() {
   #   node_modules/   nativ kompiliert (better-sqlite3), zieht sich der Server per npm selbst
   #   sessions.json   eingeloggte Nutzer — sonst wirft jeder Deploy alle raus
   #   .env / .env.*   Server-Zugangsdaten, dürfen nie vom lokalen Dev-.env überschrieben werden
-  local excludes=(--exclude='./data' --exclude='./garden/data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
+  #   analytics/data/                              Besucherstatistik (analytics/analyticsStore.js) — entsteht
+  #                                                erst auf dem Server und gehört nur dorthin.
+  #   streamScenes/data/                           Figuren der Zuschauer + Steuerpult der 3D-Stream-Szenen
+  #                                                (streamScenes/lib/sceneStore.js) — nur auf dem Server echt.
+  local excludes=(--exclude='./data' --exclude='./garden/data' --exclude='./analytics/data' --exclude='./streamScenes/data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
 
   tar -cz "${excludes[@]}" -C . . | ssh "$SERVER" "set -e
     rm -rf '$BACKEND_DEST.new'
@@ -144,7 +148,7 @@ deploy_backend() {
     test -f '$BACKEND_DEST.new/index.js'
     rsync -a --delete \
       --include '/clashRoyale/data/cardIconUrls.json' \
-      --exclude '/data/' --exclude '/clashRoyale/data/*' --exclude '/streamTool/data/' --exclude '/garden/data/' \
+      --exclude '/data/' --exclude '/clashRoyale/data/*' --exclude '/streamTool/data/' --exclude '/garden/data/' --exclude '/analytics/data/' --exclude '/streamScenes/data/' \
       --exclude 'node_modules/' --exclude 'sessions.json' \
       --exclude '.env' --exclude '.env.*' \
       '$BACKEND_DEST.new/' '$BACKEND_DEST/'

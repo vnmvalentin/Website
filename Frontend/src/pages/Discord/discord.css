@@ -1,0 +1,421 @@
+/* ===================================================================
+   Discord-Bot-Dashboard
+   Eigene Oberfläche über das ganze Fenster (ohne Kopfzeile der Website) und
+   die gemeinsamen Bausteine der Unterseiten. Vorher trug jede Unterseite ihre
+   eigenen Tailwind-Ketten für Felder, Kästen und Knöpfe — sie sahen ähnlich
+   aus, aber nie gleich. Akzent ist Discords Blau statt des Violetts der Website.
+   =================================================================== */
+
+.dc-root {
+  --dc-bg: #0b0c12;
+  --dc-rail: #0f1018;
+  --dc-line: rgba(255, 255, 255, 0.09);
+  --dc-field: #171925;
+  --dc-accent: #5865f2;
+  --dc-accent-hover: #6d78f5;
+  background: var(--dc-bg);
+  color: #fff;
+}
+
+/* ── Unterseite ───────────────────────────────────────────────────────────── */
+.dc-page {
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+/* Der Abstand kommt vom Raster — eigene Abstände der Kinder würden doppeln */
+.dc-page > * { margin-top: 0 !important; }
+
+.dc-h2 {
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 4px;
+}
+.dc-h2 + p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 640px;
+}
+
+/* ── Kästen ───────────────────────────────────────────────────────────────── */
+.dc-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--dc-line);
+  border-radius: 6px;
+}
+/* Fläche IN einem Kasten: eine Stufe dunkler, ohne zweiten Rahmen */
+.dc-inset {
+  background: rgba(0, 0, 0, 0.26);
+  border-radius: 4px;
+}
+/* Überschrift eines Kastens */
+.dc-card > h3,
+.dc-card > div > h3 {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ── Felder ───────────────────────────────────────────────────────────────── */
+.dc-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+}
+.dc-input {
+  background: var(--dc-field);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  padding: 8px 11px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.dc-input::placeholder { color: rgba(255, 255, 255, 0.28); }
+.dc-input:hover { border-color: rgba(255, 255, 255, 0.18); }
+.dc-input:focus { border-color: var(--dc-accent); }
+select.dc-input {
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8fa3' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+select.dc-input option { background: #171925; }
+
+/* ── Knöpfe ───────────────────────────────────────────────────────────────── */
+.dc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 5px;
+  background: var(--dc-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background-color 0.15s ease;
+}
+.dc-btn:hover { background: var(--dc-accent-hover); }
+.dc-btn:disabled {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.35);
+  cursor: default;
+}
+
+/* Speicherzeile: bleibt am unteren Rand stehen, damit man bei langen Seiten
+   nicht zum Knopf blättern muss */
+.dc-savebar {
+  position: sticky;
+  bottom: -24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 -4px;
+  padding: 12px 4px;
+  border-top: 1px solid var(--dc-line);
+  background: var(--dc-bg);
+}
+
+/* ── Hilfetext zum Aufklappen ─────────────────────────────────────────────── */
+.dc-help {
+  border: 1px solid var(--dc-line);
+  border-radius: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.dc-help > summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.78);
+  user-select: none;
+}
+.dc-help > summary::-webkit-details-marker { display: none; }
+.dc-help > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+.dc-help[open] > summary::before { transform: rotate(45deg); }
+.dc-help > summary:hover { color: #fff; }
+.dc-help > :not(summary) { padding: 0 14px 14px; }
+
+/* ── Reiter innerhalb einer Unterseite ────────────────────────────────────── */
+.dc-tabs {
+  display: flex;
+  gap: 20px;
+  border-bottom: 1px solid var(--dc-line);
+  overflow-x: auto;
+}
+.dc-tabs > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.45);
+  transition: color 0.15s ease;
+}
+.dc-tabs > button:hover { color: rgba(255, 255, 255, 0.85); }
+.dc-tabs > button.is-active { border-bottom-color: var(--dc-accent); color: #fff; }
+.dc-tabs > button > i {
+  font-style: normal;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Umschalter aus wenigen festen Werten (Zeitraum) */
+.dc-seg {
+  display: inline-flex;
+  border: 1px solid var(--dc-line);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.dc-seg > button {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.dc-seg > button + button { border-left: 1px solid var(--dc-line); }
+.dc-seg > button:hover { color: #fff; }
+.dc-seg > button.is-active { background: rgba(88, 101, 242, 0.22); color: #fff; }
+
+/* Platzhalter zum Anklicken */
+.dc-chip {
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(88, 101, 242, 0.35);
+  background: rgba(88, 101, 242, 0.12);
+  font-size: 12px;
+  font-weight: 600;
+  color: #aab1fa;
+  transition: background-color 0.15s ease;
+}
+.dc-chip:hover { background: rgba(88, 101, 242, 0.28); color: #fff; }
+
+/* Auswahl zwischen zwei, drei Möglichkeiten mit Erklärung */
+.dc-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.dc-choice:hover { border-color: rgba(255, 255, 255, 0.22); }
+.dc-choice.is-active { border-color: var(--dc-accent); background: rgba(88, 101, 242, 0.12); }
+.dc-choice > b { font-size: 13px; font-weight: 700; color: #fff; }
+.dc-choice > span { font-size: 12px; line-height: 1.4; color: rgba(255, 255, 255, 0.5); }
+
+.dc-unsaved {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f0b232;
+}
+.dc-unsaved::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* Statuspunkt in der Bereichsliste: gefüllt = eingerichtet, Ring = noch nicht */
+.dc-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+}
+.dc-dot.is-on { border-color: #3ba55d; background: #3ba55d; }
+
+/* ── Vorschau: so sieht die Nachricht in Discord aus ──────────────────────── */
+/* Farben und Maße sind die von Discords dunklem Design, nicht die des Dashboards. */
+.dc-preview {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px 16px;
+  border-radius: 6px;
+  background: #313338;
+  font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.dc-preview-avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #5865f2;
+  color: #fff;
+}
+.dc-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.dc-preview-head b { font-size: 15px; font-weight: 500; color: #f2f3f5; }
+.dc-preview-app {
+  padding: 0 5px;
+  border-radius: 3px;
+  background: #5865f2;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  color: #fff;
+}
+.dc-preview-head time { font-size: 12px; color: #949ba4; }
+.dc-preview-text {
+  font-size: 15px;
+  line-height: 1.375;
+  color: #dbdee1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.dc-preview-text.is-empty { color: #949ba4; font-style: italic; }
+.dc-mention {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: rgba(88, 101, 242, 0.3);
+  font-weight: 500;
+  color: #c9cdfb;
+}
+.dc-embed {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  padding: 10px 14px 12px 12px;
+  border-left: 4px solid #5865f2;
+  border-radius: 4px;
+  background: #2b2d31;
+}
+.dc-embed.is-leave { border-left-color: #747f8d; }
+.dc-embed-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f2f3f5;
+}
+.dc-embed-face,
+.dc-embed-thumb {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #d95926;
+  font-weight: 700;
+  color: #fff;
+}
+.dc-embed-face { width: 24px; height: 24px; border-radius: 50%; font-size: 12px; }
+.dc-embed-thumb { width: 80px; height: 80px; border-radius: 4px; font-size: 34px; }
+.dc-embed-text {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.3;
+  color: #dbdee1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.dc-embed-foot { margin-top: 8px; font-size: 12px; color: #b5bac1; }
+
+/* Gezeichnetes Bild als Anhang in der Vorschau */
+.dc-preview-image {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 6px;
+  border-radius: 8px;
+  background: #2b2d31;
+  aspect-ratio: 1000 / 320;
+}
+
+/* ── Kachel "Neu anlegen" ─────────────────────────────────────────────────── */
+/* Gestrichelt wie ein leerer Platz. Mittig über der Liste; groß, solange es
+   noch keinen Eintrag gibt. */
+.dc-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.dc-add:hover {
+  border-color: var(--dc-accent);
+  background: rgba(88, 101, 242, 0.1);
+  color: #fff;
+}
+.dc-add-plus {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--dc-accent);
+  color: #fff;
+}
+.dc-add b { display: block; font-size: 14px; font-weight: 700; }
+.dc-add i {
+  display: block;
+  margin-top: 3px;
+  font-style: normal;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+}
+.dc-add.is-large {
+  flex-direction: column;
+  gap: 14px;
+  padding: 44px 24px;
+  text-align: center;
+}
+.dc-add.is-large .dc-add-plus { width: 46px; height: 46px; }
+.dc-add.is-large b { font-size: 16px; }

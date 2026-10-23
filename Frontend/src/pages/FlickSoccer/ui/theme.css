@@ -211,6 +211,13 @@
 .fk-hud-menu .state { margin-left: auto; font-stretch: 85%; font-weight: 700; font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fk-faint); }
 .fk-hud-menu button[aria-pressed="true"] .state { color: var(--fk-lime); }
 
+/* Hinweis zum Drehen (GameStage.jsx, nur Touch im Hochformat) */
+.fk-stage-rotate {
+  flex: none; display: flex; align-items: center; gap: 10px; margin: 8px 10px 0; padding: 10px 12px;
+  border: 1px solid var(--fk-line); border-radius: 6px; background: var(--fk-bg); color: inherit;
+  font-size: 14px; text-align: left;
+}
+.fk-stage-rotate > span { flex: 1; }
 .fk-stage-power { flex: none; padding: 8px 10px 0; }
 .fk-stage-power > .fk-power { max-width: 920px; margin: 0 auto; }
 .fk-stage-field {

@@ -95,7 +95,7 @@ function PlayerRow({
 
   return (
     <div
-      className={`cr-row cr-banner overflow-hidden ${p.isAdmin ? 'cr-row--admin' : isMe ? 'cr-row--me' : ''}`}
+      className={`cr-row cr-banner cr-join-in overflow-hidden ${p.isAdmin ? 'cr-row--admin' : isMe ? 'cr-row--me' : ''}`}
       // Spieler-Banner: die Spielerfarbe (dieselbe wie im Spiel) als Streifen links und
       // auslaufender Schimmer — so erkennt man die eigene Farbe schon vor dem Start.
       style={!p.isAdmin && p.color ? { '--cr-banner': p.color } : undefined}>

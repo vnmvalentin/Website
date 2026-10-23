@@ -1,5 +1,7 @@
 // discord/bot/events/guildMemberAdd.js
 const { getSettings } = require('../../database/db');
+const { memberCard } = require('../memberCard');
+const { memberImageFile } = require('../memberImage');
 
 module.exports = {
     name: 'guildMemberAdd',
@@ -22,7 +24,17 @@ module.exports = {
             .replace(/\[MEMBER\]/g, member.guild.memberCount);
 
         try {
-            await channel.send(finalMessage);
+            if (serverSettings.welcomeStyle === 'image') {
+                // Der Text steht als gewöhnliche Nachricht über dem Bild — so pingt [USER] wie gewohnt
+                await channel.send({ content: finalMessage, files: [await memberImageFile(member, 'welcome')] });
+            } else if (serverSettings.welcomeStyle === 'card') {
+                // Eine Erwähnung IN der Karte pingt nicht — deshalb steht sie
+                // zusätzlich als Text darüber, wenn die Nachricht [USER] nutzt.
+                const ping = /\[USER\]/.test(serverSettings.welcomeMessage) ? `<@${member.id}>` : undefined;
+                await channel.send({ content: ping, embeds: [memberCard(member, finalMessage, 'welcome')] });
+            } else {
+                await channel.send(finalMessage);
+            }
         } catch (err) {
             console.error(`[DEBUG] ❌ Fehler beim Senden der Willkommensnachricht:`, err);
         }

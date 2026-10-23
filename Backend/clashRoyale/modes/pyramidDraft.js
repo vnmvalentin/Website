@@ -13,6 +13,7 @@ const { clearTurnTimer, startTurnTimer } = require('../core/timers');
 const { notifyDraftComplete } = require('../core/streamerFeed');
 const { registerMode } = require('../core/registry');
 const { emitClashError } = require('../core/errors');
+const twitchChat = require('../core/twitchChat');
 
 const PYRAMID_MAX_ROUNDS = 8;
 const PYRAMID_BLOCK_OPTIONS = [0, 1, 2, 3];
@@ -23,6 +24,41 @@ const PYRAMID_ROWS_HEADROOM = 8;
 // Pause zwischen dem letzten Pick einer Runde und der Blockade, damit sich beide Animationen
 // (Aufdecken durch den Pick, dann die Blockade) nicht überlagern.
 const PYRAMID_BLOCK_DELAY_MS = 1300;
+// Zeitgutschrift für den ersten Zug: die 3D-Ansicht zeigt zum Start eine Kamerafahrt (~3 s,
+// Frontend modes/pyramid/Pyramid3D.jsx INTRO_S) plus Ladezeit der Texturen.
+const PYRAMID_INTRO_BONUS_S = 4;
+
+// ── Twitch-Chat draftet für den Streamer (core/twitchChat.js) ──────────────────
+// Abstimmzeit bewusst länger als ein normaler Zug: der Chat sieht das Brett erst mit der
+// Stream-Verzögerung (2–10 s), danach muss noch getippt werden.
+const CHAT_VOTE_SECONDS = [15, 20, 30, 45, 60];
+const CHAT_VOTE_DEFAULT = 30;
+// 'all' = jeder Pick des Streamers gehört dem Chat; 'alternate' = Chat und Streamer im Wechsel
+// (Chat beginnt, damit der erste Pick gleich zeigt, dass es läuft)
+const CHAT_SHARES = ['all', 'alternate'];
+const CHAT_VOTERS = ['all', 'subs'];
+
+const CHAT_TEXT = {
+  de: {
+    open: (name, max, s) => `Chat-Pick für ${name}: Tippe eine Zahl von 1 bis ${max} in den Chat! (${s}s)`,
+    result: (name, card, votes, total) => (total
+      ? `Der Chat hat für ${name} ${card} gewählt (${votes} von ${total} Stimmen).`
+      : `Keine Stimmen — ${name} bekommt per Zufall ${card}.`),
+  },
+  en: {
+    open: (name, max, s) => `Chat pick for ${name}: type a number from 1 to ${max} in chat! (${s}s)`,
+    result: (name, card, votes, total) => (total
+      ? `Chat picked ${card} for ${name} (${votes} of ${total} votes).`
+      : `No votes — ${name} gets a random ${card}.`),
+  },
+  es: {
+    open: (name, max, s) => `Elección del chat para ${name}: ¡escribe un número del 1 al ${max} en el chat! (${s}s)`,
+    result: (name, card, votes, total) => (total
+      ? `El chat eligió ${card} para ${name} (${votes} de ${total} votos).`
+      : `Sin votos — ${name} recibe ${card} al azar.`),
+  },
+};
+const chatText = (lobby) => CHAT_TEXT[lobby.twitchChat?.lang] || CHAT_TEXT.de;
 
 // Kleinste Dreieckszahl n(n+1)/2, die für die ganze Partie reicht: pro Runde werden `active`
 // Karten gepickt PLUS `blocksPerRound` blockiert, macht 8 × (active + blocksPerRound) Felder
@@ -143,9 +179,15 @@ function buildPyramidState(lobby) {
     lastEvent: g.lastEvent || null,
     currentPlayerId: (g.finished || g.phase === 'blocking') ? null : (currentPlayer?.id ?? null),
     timerRemaining: g.timerRemaining,
-    timerSeconds: lobby.timerSeconds,
+    // Zugzeit DIESES Zugs — bei einer Chat-Abstimmung die eigene, längere Zeit
+    timerSeconds: g.turnSeconds ?? lobby.timerSeconds,
     finished: g.finished,
     deckSize: 8,
+    // Laufende Chat-Abstimmung: Wahlmöglichkeiten (Nummer = Index + 1) und Stand. Live-Stände
+    // kommen danach leichtgewichtig per clash:chatVote:tally, nicht als ganzer Spielzustand.
+    chatVote: g.chatVote
+      ? { ...twitchChat.publicTally(g.chatVote), playerId: g.chatVote.playerId, options: g.chatVote.options }
+      : null,
     rows: g.pyramid.map(row => row.map(cell => ({
       cardId: cell.revealed ? cell.card.id : null,
       name: cell.revealed ? cell.card.name : null,
@@ -169,6 +211,7 @@ function broadcastPyramidState(lobby, io) {
 function endPyramidGame(lobby, io) {
   clearTurnTimer(lobby);
   const g = lobby.game;
+  closeChatVote(g);
   g.finished = true;
   if (!lobby.history) lobby.history = [];
   lobby.history.push({
@@ -196,7 +239,7 @@ function pickableCells(pyramid, player) {
   return out;
 }
 
-function applyPick(lobby, io, player, r, c) {
+function applyPick(lobby, io, player, r, c, extra = null) {
   const g = lobby.game;
   const cell = g.pyramid[r][c];
   cell.pickedBy = player.id;
@@ -204,7 +247,60 @@ function applyPick(lobby, io, player, r, c) {
   const lobbyPlayer = lobby.players.find(p => p.id === player.id);
   if (lobbyPlayer) lobbyPlayer.deck = player.deck;
   const revealed = recomputeRevealsTracked(g.pyramid);
-  advanceTurn(lobby, io, { type: 'pick', cells: [{ r, c }], playerId: player.id, revealed });
+  advanceTurn(lobby, io, { type: 'pick', cells: [{ r, c }], playerId: player.id, revealed, ...(extra || {}) });
+}
+
+// Gehört dieser Zug dem Chat? Nur der Streamer selbst, nur solange der Chat aktiv ist, und
+// bei 'alternate' jeder zweite seiner Picks (gerade Deckgröße = Chat ist dran).
+function chatOwnsTurn(lobby, player) {
+  if (!player || player.left || !twitchChat.chatActive(lobby)) return false;
+  if (twitchChat.chatOwner(lobby)?.id !== player.id) return false;
+  if (lobby.chatShare === 'alternate') return (player.deck || []).length % 2 === 0;
+  return true;
+}
+
+function closeChatVote(g) {
+  if (!g?.chatVote) return;
+  twitchChat.clearVote(g.chatVote);
+  g.chatVote = null;
+}
+
+// Nächsten Zug vorbereiten: ist der Chat dran, Abstimmung über alle pickbaren Felder öffnen.
+// Liefert die Zugzeit. Die Nummerierung folgt pickableCells (unten nach oben, links nach
+// rechts) — der Client nummeriert anhand derselben options-Liste, nicht selbst.
+function prepareTurn(lobby) {
+  const g = lobby.game;
+  closeChatVote(g);
+  g.turnSeconds = lobby.timerSeconds;
+  const player = lobby.players[g.turnOrder[g.currentTurn]];
+  if (!chatOwnsTurn(lobby, player)) return g.turnSeconds;
+  const options = pickableCells(g.pyramid, player).map(({ r, c }) => ({ r, c }));
+  if (!options.length) return g.turnSeconds;
+  g.chatVote = twitchChat.createVote(options.length, { playerId: player.id, options });
+  g.turnSeconds = CHAT_VOTE_SECONDS.includes(lobby.chatVoteSeconds) ? lobby.chatVoteSeconds : CHAT_VOTE_DEFAULT;
+  twitchChat.announce(lobby, chatText(lobby).open(player.name, options.length, g.turnSeconds));
+  return g.turnSeconds;
+}
+
+// Abstimmung auswerten (Timer abgelaufen oder Streamer drückt "Jetzt auswerten") und den
+// Gewinner-Pick ausführen. Das Ereignis trägt den Stand mit, damit der Client zeigen kann,
+// mit wie vielen Stimmen die Karte gewählt wurde.
+function resolveChatVote(lobby, io) {
+  const g = lobby.game;
+  const vote = g.chatVote;
+  clearTurnTimer(lobby);
+  closeChatVote(g);
+  const player = lobby.players.find(p => p.id === vote.playerId);
+  const n = twitchChat.winningOption(vote);
+  const opt = vote.options[n - 1];
+  const cell = opt && g.pyramid[opt.r]?.[opt.c];
+  if (!player || !cell || !cell.revealed || cell.pickedBy !== null || cell.blocked) {
+    autoAdvance(lobby, io);
+    return;
+  }
+  const votes = vote.counts[n - 1];
+  twitchChat.announce(lobby, chatText(lobby).result(player.name, cell.card.name, votes, vote.total));
+  applyPick(lobby, io, player, opt.r, opt.c, { chat: { n, votes, total: vote.total } });
 }
 
 // Zug weiterschalten. Am Rundenende: sofort den Pick zeigen (Phase 'blocking' friert die
@@ -221,18 +317,20 @@ function advanceTurn(lobby, io, pickEvent) {
 
   g.phase = roundOver ? 'blocking' : 'picking';
   g.lastEvent = pickEvent;
+  const seconds = roundOver ? null : prepareTurn(lobby);
   broadcastPyramidState(lobby, io);
 
-  if (!roundOver) { startTurnTimer(lobby, io); return; }
+  if (!roundOver) { startTurnTimer(lobby, io, seconds); return; }
 
   setTimeout(() => {
     const l = lobbies.get(lobby.code);
     if (!l?.game || l.game !== g || g.finished) return;
     g.lastEvent = blockCellsWithEvent(g.pyramid, g.blocksPerRound);
     g.phase = 'picking';
+    const nextSeconds = gameOver ? null : prepareTurn(lobby);
     broadcastPyramidState(lobby, io);
     if (gameOver) endPyramidGame(lobby, io);
-    else startTurnTimer(lobby, io);
+    else startTurnTimer(lobby, io, nextSeconds);
   }, PYRAMID_BLOCK_DELAY_MS);
 }
 
@@ -240,6 +338,7 @@ function advanceTurn(lobby, io, pickEvent) {
 // überspringen (z.B. nur noch Champions bei vollem Limit übrig) — wie Snake Royale.
 function autoAdvance(lobby, io) {
   const g = lobby.game;
+  if (g.chatVote) { resolveChatVote(lobby, io); return; }
   const idx = g.turnOrder[g.currentTurn];
   const player = lobby.players[idx];
   if (!player) { advanceTurn(lobby, io, null); return; }
@@ -276,11 +375,15 @@ function startPyramidDraft(lobby, io) {
     timerRemaining: lobby.timerSeconds,
     timerInterval: null,
     finished: false,
+    chatVote: null,
+    turnSeconds: lobby.timerSeconds,
   };
 
+  const seconds = prepareTurn(lobby) + PYRAMID_INTRO_BONUS_S;
+  lobby.game.turnSeconds = seconds;
   io.to(lobby.code).emit('clash:gameStart', { mode: 'pyramid-draft' });
   broadcastPyramidState(lobby, io);
-  startTurnTimer(lobby, io);
+  startTurnTimer(lobby, io, seconds);
 }
 
 registerMode({
@@ -306,6 +409,27 @@ registerMode({
         return Math.max(minRows, Math.min(minRows + PYRAMID_ROWS_HEADROOM, n));
       },
     },
+    // Twitch-Chat (wirken nur, wenn der Streamer den Chat eingeschaltet hat — clash:setTwitchChat)
+    chatVoteSeconds: {
+      default: CHAT_VOTE_DEFAULT,
+      event: 'clash:setChatVoteSeconds',
+      sanitize: (v) => (CHAT_VOTE_SECONDS.includes(Number(v)) ? Number(v) : undefined),
+    },
+    chatShare: {
+      default: 'all',
+      event: 'clash:setChatShare',
+      sanitize: (v) => (CHAT_SHARES.includes(v) ? v : undefined),
+    },
+    chatVoters: {
+      default: 'all',
+      event: 'clash:setChatVoters',
+      sanitize: (v) => (CHAT_VOTERS.includes(v) ? v : undefined),
+    },
+    chatAnnounce: {
+      default: true,
+      event: 'clash:setChatAnnounce',
+      sanitize: (v) => !!v,
+    },
   },
   requiredPool: (lobby, active) => {
     const n = resolvedPyramidRows(lobby, active);
@@ -315,6 +439,7 @@ registerMode({
   buildState: (lobby) => ({ event: 'clash:pyramid:state', payload: buildPyramidState(lobby) }),
   remapPlayerId: (game, oldId, newId) => {
     (game.pyramid || []).forEach(row => row.forEach(cell => { if (cell.pickedBy === oldId) cell.pickedBy = newId; }));
+    if (game.chatVote?.playerId === oldId) game.chatVote.playerId = newId;
   },
   onTimerExpire: (lobby, io) => autoAdvance(lobby, io),
   onPlayerLeft: (lobby, io, playerId) => {
@@ -322,6 +447,8 @@ registerMode({
     if (idx !== undefined && lobby.players[idx]?.id === playerId && lobby.game.phase === 'picking') autoAdvance(lobby, io);
   },
   onPlayerDisconnected: (lobby, io, playerId) => {
+    // Der Streamer hat nur kurz die Verbindung verloren — der Chat stimmt trotzdem weiter ab
+    if (lobby.game.chatVote?.playerId === playerId) return;
     const idx = lobby.game.turnOrder?.[lobby.game.currentTurn];
     if (idx !== undefined && lobby.players[idx]?.id === playerId && lobby.game.phase === 'picking') autoAdvance(lobby, io);
   },
@@ -334,12 +461,22 @@ registerMode({
       const idx = g.turnOrder[g.currentTurn];
       const currentPlayer = lobby.players[idx];
       if (currentPlayer?.id !== socket.id) return;
+      // Diesen Zug macht der Chat — der Streamer kann nur vorzeitig auswerten (chatVoteEnd)
+      if (g.chatVote) return;
       const r = Number(row), c = Number(col);
       const cell = g.pyramid[r]?.[c];
       if (!cell || !cell.revealed || cell.pickedBy !== null || cell.blocked) return;
       const champCount = (currentPlayer.deck || []).filter(card => card.isChampion).length;
       if (cell.card.isChampion && champCount >= 2) return emitClashError(socket, 'championLimit');
       applyPick(lobby, io, currentPlayer, r, c);
+    },
+    // Streamer (oder Host) beendet die Abstimmung vorzeitig — z.B. wenn das Ergebnis eindeutig ist
+    'clash:pyramid:chatVoteEnd': ({ socket, io, canControl }, { code }) => {
+      const lobby = lobbies.get(code);
+      const g = lobby?.game;
+      if (!g || g.type !== 'pyramid-draft' || g.finished || g.phase !== 'picking' || !g.chatVote) return;
+      if (g.chatVote.playerId !== socket.id && !canControl(lobby)) return;
+      resolveChatVote(lobby, io);
     },
   },
 });

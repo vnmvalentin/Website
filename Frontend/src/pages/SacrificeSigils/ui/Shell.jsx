@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { ArrowLeftToLine, Volume2, VolumeX, Settings2 } from "lucide-react";
 import { ShellContext } from "./shellContext.js";
+import Table3DLayer from "./battle/table3d/Table3DLayer.jsx";
 import { sound } from "../audio/sound.js";
 import { particles } from "./anim/particles.js";
 import { usePrefs, setPrefs, SPEED_OPTIONS, systemPrefersReducedMotion } from "./prefs.js";
@@ -77,6 +78,9 @@ function SettingsPopover({ onClose }) {
           <button key={v} type="button" onClick={() => setPrefs({ speed: v })} aria-pressed={prefs.speed === v} className={`px-3 py-1 min-h-[44px] min-w-[44px] border ${prefs.speed === v ? "bg-[#8e1b1b] text-[#f7e6d0] border-[#5c0f0f]" : "border-[#a8966c]"}`}>{String(v).replace(".", ",")}×</button>
         ))}
       </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={prefs.table3d !== false} onChange={(e) => setPrefs({ table3d: e.target.checked })} /> Tisch in 3D (Kerzenlicht)
+      </label>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={prefs.tipsOff} onChange={(e) => setPrefs({ tipsOff: e.target.checked })} /> Tutorial-Hinweise ausblenden
       </label>
@@ -184,6 +188,8 @@ export default function Shell() {
     <ShellContext.Provider value={ctx}>
       <div ref={rootRef} className={`ss-game ${prefs.reduceMotion ? "ss-reduced" : ""} ${tension >= 4 ? "ss-tense" : ""}`}>
         <div ref={bgRef} className="ss-table-bg" aria-hidden />
+        {/* 3D-Tisch für alle Spielphasen; die Bildschirme melden per useTableStage, was sie zeigen */}
+        {prefs.table3d !== false && <Table3DLayer reduced={prefs.reduceMotion} />}
         <header className="ss-content ss-topbar">
           <div className="max-w-[1500px] mx-auto px-3 md:px-5 h-14 flex items-center gap-3 md:gap-6">
             <Link to="/sacrifice-and-sigils" className="ss-title text-lg md:text-xl whitespace-nowrap" title="Hauptmenü">

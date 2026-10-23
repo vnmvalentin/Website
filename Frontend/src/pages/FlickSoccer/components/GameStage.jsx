@@ -2,7 +2,7 @@
 // die Kopfleiste der Hülle ist währenddessen weg (theme.css). Oben eine schmale Spielleiste mit Verlassen, Spielstand
 // und dem Zahnrad (Ton, Vollbild, Regeln, Profil); darunter bekommt das Feld allen Platz, der übrig bleibt.
 import React, { useEffect, useRef, useState } from "react";
-import { BookOpen, LogOut, Maximize, Minimize, Settings, UserRound, Volume2, VolumeX } from "lucide-react";
+import { BookOpen, LogOut, Maximize, Minimize, Settings, Smartphone, UserRound, Volume2, VolumeX, X } from "lucide-react";
 import { useFlickShell } from "../ui/shellContext.js";
 
 const CONFIRM_MS = 3000;
@@ -116,6 +116,29 @@ function GameMenu({ info }) {
   );
 }
 
+// Handy im Hochformat: Das Feld ist quer und wird dort winzig (zwei Drittel des Bildschirms bleiben leer).
+// Ein Hinweis zum Drehen, wegtippbar; er verschwindet von selbst, sobald das Handy quer liegt.
+const PORTRAIT_TOUCH = "(orientation: portrait) and (pointer: coarse)";
+function RotateHint() {
+  const [portrait, setPortrait] = useState(() => typeof window.matchMedia === "function" && window.matchMedia(PORTRAIT_TOUCH).matches);
+  const [closed, setClosed] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return undefined;
+    const mq = window.matchMedia(PORTRAIT_TOUCH);
+    const sync = () => setPortrait(mq.matches);
+    mq.addEventListener?.("change", sync);
+    return () => mq.removeEventListener?.("change", sync);
+  }, []);
+  if (!portrait || closed) return null;
+  return (
+    <button type="button" className="fk-stage-rotate" onClick={() => setClosed(true)}>
+      <Smartphone size={16} className="rotate-90" aria-hidden="true" />
+      <span>Dreh dein Handy — quer ist das Feld viel größer.</span>
+      <X size={15} aria-hidden="true" />
+    </button>
+  );
+}
+
 /**
  * board: Spielstand (Scoreboard) · power: Power-up-Leiste des Chaos-Modus oder null · foot: Hinweiszeile, Emotes
  * leaveLabel/confirmLeave/onLeave: Knopf oben links · info: eine Zeile zu den Regeln der Partie fürs Zahnrad-Menü
@@ -133,6 +156,7 @@ export default function GameStage({ board, power = null, foot = null, leaveLabel
           <GameMenu info={info} />
         </div>
       </header>
+      <RotateHint />
       {power && <div className="fk-stage-power">{power}</div>}
       <div className="fk-stage-field">{children}</div>
       {foot && <div className="fk-stage-foot">{foot}</div>}

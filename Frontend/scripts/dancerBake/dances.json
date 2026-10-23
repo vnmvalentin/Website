@@ -1,0 +1,166 @@
+[
+ {
+  "name": "salsa",
+  "file": "60_01.bvh",
+  "from": 1,
+  "to": 18,
+  "minLen": 3,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "salsa2",
+  "file": "61_03.bvh",
+  "from": 1,
+  "to": 15,
+  "minLen": 3,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "charleston",
+  "file": "93_03.bvh",
+  "from": 0.2,
+  "to": 3.6,
+  "minLen": 1.5,
+  "maxLen": 3.3,
+  "travel": 0.3
+ },
+ {
+  "name": "charleston2",
+  "file": "93_08.bvh",
+  "from": 0.2,
+  "to": 4.5,
+  "minLen": 1.5,
+  "maxLen": 4.2,
+  "travel": 0.3
+ },
+ {
+  "name": "lambada",
+  "file": "55_02.bvh",
+  "from": 1,
+  "to": 18,
+  "minLen": 3,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "whirl",
+  "file": "55_01.bvh",
+  "from": 1,
+  "to": 15,
+  "minLen": 3,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "russian",
+  "file": "90_30.bvh",
+  "from": 0.5,
+  "to": 11.8,
+  "minLen": 2.5,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "mickey",
+  "file": "120_05.bvh",
+  "from": 0.5,
+  "to": 11,
+  "minLen": 2.5,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "groove",
+  "file": "111_05.bvh",
+  "from": 0.3,
+  "to": 7.6,
+  "minLen": 2.5,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "groove2",
+  "file": "113_04.bvh",
+  "from": 0.3,
+  "to": 8,
+  "minLen": 2.5,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "chicken",
+  "file": "18_15.bvh",
+  "from": 0.5,
+  "to": 12.7,
+  "minLen": 3,
+  "maxLen": 8,
+  "travel": 0.3
+ },
+ {
+  "name": "modern",
+  "file": "05_02.bvh",
+  "from": 0.5,
+  "to": 9,
+  "minLen": 3,
+  "maxLen": 8,
+  "travel": 0.3
+ },
+ {
+  "name": "bhangra",
+  "file": "94_01.bvh",
+  "from": 2,
+  "to": 29,
+  "minLen": 3,
+  "maxLen": 8,
+  "travel": 0.3,
+  "floorQ": 0.03
+ },
+ {
+  "name": "jacks",
+  "file": "22_16.bvh",
+  "from": 0.3,
+  "to": 3.5,
+  "minLen": 1.2,
+  "maxLen": 3,
+  "travel": 0.2
+ },
+ {
+  "name": "hop",
+  "file": "49_02.bvh",
+  "from": 1,
+  "to": 8,
+  "minLen": 2,
+  "maxLen": 6,
+  "travel": 0.2
+ },
+ {
+  "name": "footwork",
+  "file": "85_04.bvh",
+  "from": 5,
+  "to": 21,
+  "minLen": 3,
+  "maxLen": 7,
+  "travel": 0.3
+ },
+ {
+  "name": "sideflip",
+  "file": "90_08.bvh",
+  "shot": [
+   1.25,
+   2.75
+  ],
+  "travel": 0,
+  "floorQ": 0.3
+ },
+ {
+  "name": "moonwalk",
+  "file": "90_32.bvh",
+  "from": 1.5,
+  "to": 6,
+  "minLen": 1.5,
+  "maxLen": 4,
+  "travel": 0
+ }
+]

@@ -13,6 +13,7 @@ import { SealBreak, DuelAnnounce } from "./RunFx.jsx";
 import { BIOMES } from "../../data/modes/moorwanderung/biomes.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
+import { TableStage } from "../battle/table3d/tableStage.js";
 import "./run.css";
 
 /** @param {{ game: any, onExit: () => void }} props */
@@ -21,6 +22,7 @@ export default function RunGame({ game, onExit }) {
   const you = game.you;
   const { setTension } = useShell();
   const [battleBusy, setBattleBusy] = useState(false);
+  const phaseRef = useRef(/** @type {HTMLDivElement|null} */ (null));
   const [shownKey, setShownKey] = useState(/** @type {string|null} */ (null));
   const [showPlayer, setShowPlayer] = useState(/** @type {number|null} */ (null));
   const liveKey = view?.battleInfo?.key || null;
@@ -74,18 +76,24 @@ export default function RunGame({ game, onExit }) {
   const me = you !== null ? view.players[you] : null;
 
   let content;
+  // Ansicht des 3D-Tischs: Kampf und Pfad melden sich selbst, alles andere hier
+  let kind = "camp";
   if (shownKey) {
     content = <RunBattle game={game} battleKey={shownKey} onBusy={onBusy} onSurrender={surrender} />;
+    kind = "battle";
   } else if (view.phase === "over") {
     content = <RunResult game={game} onExit={onExit} />;
+    kind = "over";
   } else if (view.phase === "starter") {
     content = <StarterScreen view={view} you={you} send={game.send} timers={game.timers} clockOffset={game.clockOffset} />;
+    kind = "starter";
   } else if (!me) {
     content = view.phase === "duels" ? <DuelBoard game={game} /> : <CampScreen game={game} spectator />;
   } else if (me && !me.alive) {
     content = view.phase === "duels" ? <DuelBoard game={game} /> : <CampScreen game={game} eliminated />;
   } else if (view.phase === "path" && view.path?.me && !view.path.me.done) {
     content = <RunPath game={game} />;
+    kind = "path";
   } else if (view.phase === "duels") {
     content = <DuelBoard game={game} />;
   } else {
@@ -96,7 +104,8 @@ export default function RunGame({ game, onExit }) {
     <div className="relative">
       {game.notice && <div className="ss-toast ss-paper" role="status">{game.notice}</div>}
       {!shownKey && <RunProgressBar view={view} you={you} timers={game.timers} clockOffset={game.clockOffset} onShowPlayer={setShowPlayer} />}
-      {content}
+      <div key={kind} ref={phaseRef} className="ss-phase">{content}</div>
+      {kind !== "battle" && kind !== "path" && <TableStage stage={kind === "starter" ? "draft" : "rest"} zirkel={zirkel} anchor={phaseRef} />}
       {view.phase === "path" && (
         <BudgetWarning timer={game.timers?.path} pathNo={view.pathNo} active={!!me?.alive && !!view.path?.me && !view.path.me.done} clockOffset={game.clockOffset} />
       )}

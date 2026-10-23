@@ -1,5 +1,7 @@
 // discord/bot/events/guildMemberRemove.js
 const { getSettings } = require('../../database/db');
+const { memberCard } = require('../memberCard');
+const { memberImageFile } = require('../memberImage');
 
 module.exports = {
     name: 'guildMemberRemove',
@@ -17,7 +19,9 @@ module.exports = {
             .replace(/\[MEMBER\]/g, member.guild.memberCount);
 
         try {
-            await channel.send(finalMessage);
+            if (settings.leaveStyle === 'image') await channel.send({ content: finalMessage, files: [await memberImageFile(member, 'leave')] });
+            else if (settings.leaveStyle === 'card') await channel.send({ embeds: [memberCard(member, finalMessage, 'leave')] });
+            else await channel.send(finalMessage);
         } catch (err) {
             console.error('❌ Fehler beim Senden der Austrittsnachricht:', err);
         }

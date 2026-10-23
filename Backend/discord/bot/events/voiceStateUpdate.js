@@ -2,7 +2,7 @@
 const { ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const {
     getVoiceConfig, saveActiveVoiceChannel,
-    getActiveVoiceChannel, deleteActiveVoiceChannel, updateVoiceOwner,
+    getActiveVoiceChannel, deleteActiveVoiceChannel, updateVoiceOwner, updateVoicePinMessage,
     trackVoiceActivity,
 } = require('../../database/db');
 
@@ -108,6 +108,15 @@ async function createPrivateVC(guild, member, triggerChannel) {
         userLimit: 0,
     });
 
+    // Sofort verschieben – Text-Kanal und Pin-Nachricht folgen danach, sonst wartet der Nutzer
+    // auf mehrere (ratenbegrenzte) API-Aufrufe im Trigger-Kanal
+    const moved = await guild.members.cache.get(member.id)?.voice.setChannel(voiceChannel).then(() => true).catch(() => false);
+    if (!moved) {
+        // Nutzer hat den Trigger-Kanal schon wieder verlassen → nichts zurücklassen
+        await voiceChannel.delete().catch(() => {});
+        return;
+    }
+
     const textChannel = await guild.channels.create({
         name: `voice-${member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
         type: ChannelType.GuildText,
@@ -115,20 +124,39 @@ async function createPrivateVC(guild, member, triggerChannel) {
         permissionOverwrites: [
             { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
             { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+            { id: guild.client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
         ],
+    }).catch(async (e) => {
+        await voiceChannel.delete().catch(() => {});
+        throw e;
     });
 
-    // Commands-Übersicht (inkl. Besitzer-Zeile) anpinnen
-    let pinMessageId = '';
+    // Direkt speichern, damit Verlassen/Beitreten ab jetzt greift (auch während die Pin-Nachricht noch läuft)
+    saveActiveVoiceChannel(voiceChannel.id, textChannel.id, member.id, guild.id);
+
+    // Alle schon wieder weg, während der Text-Kanal entstand? Das Leave-Event kam vor dem Speichern → hier aufräumen
+    if (voiceChannel.members.filter(m => !m.user.bot).size === 0) {
+        await handleVCEmpty(guild, getActiveVoiceChannel(voiceChannel.id));
+        return;
+    }
+
+    // Commands-Übersicht (inkl. Besitzer-Zeile) senden und anpinnen – mit einem zweiten Versuch bei
+    // vorübergehenden Fehlern; Senden und Anpinnen getrennt, damit ein fehlgeschlagener Pin die Nachricht nicht verliert
+    const withRetry = async (label, fn) => {
+        try { return await fn(); } catch (e) {
+            console.warn(`[Voice] ${label} fehlgeschlagen, neuer Versuch:`, e?.message || e);
+            await new Promise(r => setTimeout(r, 1500));
+            return fn();
+        }
+    };
     try {
-        const pinMsg = await textChannel.send({ embeds: [buildCommandsEmbed(member.displayName)], components: buildVoiceControls() });
-        await pinMsg.pin();
-        pinMessageId = pinMsg.id;
-    } catch (e) {}
-
-    await guild.members.cache.get(member.id)?.voice.setChannel(voiceChannel).catch(() => {});
-
-    saveActiveVoiceChannel(voiceChannel.id, textChannel.id, member.id, guild.id, pinMessageId);
+        const pinMsg = await withRetry('Commands-Nachricht senden', () =>
+            textChannel.send({ embeds: [buildCommandsEmbed(member.displayName)], components: buildVoiceControls() }));
+        updateVoicePinMessage(voiceChannel.id, pinMsg.id);
+        await withRetry('Commands-Nachricht anpinnen', () => pinMsg.pin());
+    } catch (e) {
+        console.error('[Voice] Commands-Nachricht konnte nicht gesendet/angepinnt werden:', e?.message || e);
+    }
 }
 
 async function addMemberToText(guild, memberId, vcRecord) {

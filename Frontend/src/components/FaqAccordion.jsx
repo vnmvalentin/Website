@@ -19,13 +19,16 @@ import { ChevronDown } from 'lucide-react';
 
 // headingClassName: optionaler Überschriften-Stil der einbettenden Seite (z.B. die Titelschrift
 // der CR-Minigames) — ohne Angabe bleibt der bisherige schlichte Stil.
-export default function FaqAccordion({ items = [], heading, headingClassName = 'text-white font-semibold text-sm mb-3' }) {
+// listClassName: dasselbe für den Rahmen der Liste (die Win-Challenge-Seiten haben eckigere Flächen).
+export default function FaqAccordion({ items = [], heading, headingClassName = 'text-white font-semibold text-sm mb-3',
+  listClassName = 'divide-y divide-white/5 rounded-xl border border-white/5 bg-black/20 overflow-hidden',
+}) {
   if (items.length === 0) return null;
 
   return (
     <section>
       <h2 className={headingClassName}>{heading}</h2>
-      <div className="divide-y divide-white/5 rounded-xl border border-white/5 bg-black/20 overflow-hidden">
+      <div className={listClassName}>
         {items.map((item, i) => (
           <details key={i} className="group">
             <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer list-none text-white/80 hover:text-white text-sm font-medium transition-colors">

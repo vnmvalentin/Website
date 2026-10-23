@@ -19,6 +19,7 @@ import { ITEM_BY_ID } from "../../data/items.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell, useTipHandlers } from "../shellContext.js";
+import { useTableStage } from "./table3d/tableStage.js";
 import { baseDesc, baseName, headLabel, headName, headTarget, totemText } from "../common/totemText.js";
 import "./battle.css";
 
@@ -234,6 +235,16 @@ export default function BattleScreen({ view, display, anim, hold, you, send, tim
   const wideLayout = layout === "desktop" || layout === "tablet";
   // Der Kampf füllt genau den Rest des Fensters (dvh), nichts scrollt; die Kartengröße folgt dem Platz des Tischs
   const rootRef = useRef(/** @type {HTMLDivElement|null} */ (null));
+  // 3D-Tisch: Kampfansicht, Brennhöhe nach Zug, Waage und die beiden Totems (eigenes zuerst) als Gegenstände
+  const totemOf = (p) => {
+    // Haupt-Totem (Stamm- oder Lanenkopf); der Nebendeck-Totem bleibt nur im Text
+    const tot = view.players[p]?.totems;
+    const t = tot ? tot.tribe || tot.lane || tot.side : null;
+    return t ? { kind: t.head.kind, label: headName(t.head, live.zirkel) } : null;
+  };
+  const totemKey = JSON.stringify([totemOf(bottom), totemOf(top)]);
+  const tableTotems = useMemo(() => JSON.parse(totemKey), [totemKey]);
+  useTableStage("battle", { zirkel: live.zirkel || "moor", anchor: rootRef, turn: b.turn, scale: bottom === 0 ? b.scale : -b.scale, totems: tableTotems });
   const boardRef = useRef(/** @type {HTMLDivElement|null} */ (null));
   const [topOff, setTopOff] = useState(100);
   const [boardBox, setBoardBox] = useState({ w: 520, h: 520 });

@@ -96,6 +96,33 @@
 }
 .ss-game.ss-tense .ss-table-bg { --flicker: 0.55 !important; }
 
+/* 3D-Tisch im Kampf (battle/table3d): das Canvas ersetzt Holz und Lichtfleck, die Vignette bleibt darüber */
+.ss-game .ss-table-bg.ss-bg-3d { background: #070402; }
+.ss-game .ss-table-bg.ss-bg-3d::before { display: none; }
+.ss-table-3d { position: absolute; inset: 0; display: block; }
+
+/* Ein 3D-Tisch für das ganze Match (Table3DLayer): zum Einstieg fährt die Kamera aus dem Dunkeln heran,
+   das Spielfeld blendet erst danach ein; bei jedem Phasenwechsel blendet der neue Bildschirm weich ein,
+   während die Kamera zur neuen Ansicht fährt. Nur Deckkraft — transform würde fixierte Ebenen im Kampf verschieben. */
+.ss-game[data-table3d] > main.ss-content { transition: opacity 0.7s ease; }
+.ss-game[data-table3d="intro"] > main.ss-content { opacity: 0; pointer-events: none; }
+.ss-game[data-table3d="on"] .ss-phase { animation: ss-phase-in 0.6s ease 0.3s backwards; }
+@keyframes ss-phase-in { from { opacity: 0; } }
+/* Waage steht in 3D neben dem Feld: im Statusfeld bleiben nur Zahl und Namen */
+.ss-game[data-scale3d="on"] .ss-b-status .ss-scale svg { display: none; }
+
+/* Pfadkarte in 3D (PathMap3D): die Fläche ist nur Bedienebene über dem Pergament auf dem Tisch */
+.ss-map3d {
+  position: relative;
+  height: min(calc(100dvh - 190px), 820px);
+  min-height: 300px;
+  touch-action: manipulation;
+}
+.ss-map3d.ss-map3d-pick { cursor: pointer; }
+/* kein Aufklapp-Effekt der Hülle: sie wird vermessen, um die 3D-Karte hineinzulegen (transform verfälscht das) */
+.ss-game[data-table3d] .ss-map-in { animation: none; }
+.ss-map3d .ss-map-preview { position: absolute; transform: translate(-50%, calc(-100% - 14px)); bottom: auto; right: auto; pointer-events: auto; }
+
 .ss-content { position: relative; z-index: 1; }
 
 /* ───────── Typografie ───────── */

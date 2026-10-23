@@ -28,12 +28,12 @@ export default function SyncChatTab({ selectedServer, channels }) {
             if (res.ok) {
                 setTaverne({ id: data.id, channelId });
                 setChannelId('');
-                setStatus('✅ Taverne aktiviert!');
+                setStatus('Taverne aktiviert!');
             } else {
-                setStatus(`❌ ${data.error}`);
+                setStatus(`Fehler: ${data.error}`);
             }
         } catch {
-            setStatus('❌ Netzwerkfehler.');
+            setStatus('Fehler: keine Verbindung zum Server.');
         } finally {
             setIsAdding(false);
             setTimeout(() => setStatus(''), 4000);
@@ -51,9 +51,9 @@ export default function SyncChatTab({ selectedServer, channels }) {
     const channelName = (id) => channels.find(c => c.id === id)?.name || id;
 
     return (
-        <div className="space-y-8">
+        <div className="dc-page">
             <div>
-                <h2 className="text-2xl text-white font-bold mb-1">Taverne</h2>
+                <h2 className="dc-h2">Taverne</h2>
                 <p className="text-white/50 text-sm">
                     Wähle einen Kanal als Taverne. Alle Server mit dem Bot sind automatisch verbunden —
                     Mitglieder können serverübergreifend miteinander schreiben.
@@ -61,20 +61,20 @@ export default function SyncChatTab({ selectedServer, channels }) {
             </div>
 
             {taverne ? (
-                <div className="max-w-lg bg-[#0e0e1a]/75 border border-violet-500/20 rounded-lg p-6 space-y-4">
+                <div className="dc-card max-w-lg border-indigo-500/20 p-6 space-y-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                            <Globe size={20} className="text-violet-400" />
+                        <div className="w-10 h-10 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
+                            <Globe size={20} className="text-indigo-400" />
                         </div>
                         <div>
                             <div className="text-white font-semibold flex items-center gap-2">
                                 <Hash size={14} className="text-white/50" />
                                 {channelName(taverne.channelId)}
                             </div>
-                            <div className="text-xs text-violet-400 mt-0.5">Taverne aktiv</div>
+                            <div className="text-xs text-indigo-400 mt-0.5">Taverne aktiv</div>
                         </div>
                         <button onClick={handleRemove}
-                            className="ml-auto text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-lg transition-colors">
+                            className="ml-auto text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-md transition-colors">
                             <Trash2 size={16} />
                         </button>
                     </div>
@@ -83,18 +83,18 @@ export default function SyncChatTab({ selectedServer, channels }) {
                     </p>
                 </div>
             ) : (
-                <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-lg">
+                <div className="dc-card p-6 space-y-4 max-w-lg">
                     <h3 className="text-white font-semibold flex items-center gap-2">
                         <Plus size={16} /> Taverne einrichten
                     </h3>
                     <div className="flex gap-3">
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
-                            className="flex-1 bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                            className="dc-input flex-1">
                             <option value="">-- Kanal auswählen --</option>
                             {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                         </select>
                         <button onClick={handleSet} disabled={isAdding || !channelId}
-                            className="bg-violet-600 text-white font-bold py-3 px-5 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors whitespace-nowrap">
+                            className="dc-btn whitespace-nowrap">
                             {isAdding ? '...' : 'Aktivieren'}
                         </button>
                     </div>
@@ -102,16 +102,16 @@ export default function SyncChatTab({ selectedServer, channels }) {
                 </div>
             )}
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 max-w-lg space-y-2">
-                <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
+            <details className="dc-help">
+                <summary>So funktioniert es</summary>
                 <ul className="text-white/50 text-sm space-y-1">
                     <li>• Jeder Server hat genau einen Taverne-Kanal</li>
                     <li>• Alle Taverne-Kanäle aller Server sind miteinander verbunden</li>
-                    <li>• Nachrichten erscheinen als <span className="text-white font-mono text-xs">Nutzername (Servername)</span></li>
+                    <li>• Nachrichten erscheinen als <span className="text-white text-xs">Nutzername (Servername)</span></li>
                     <li>• @everyone / @here und Befehle werden blockiert</li>
-                    <li>• Der Bot benötigt <span className="text-violet-400">Webhooks verwalten</span> im Kanal</li>
+                    <li>• Der Bot benötigt <span className="text-indigo-400">Webhooks verwalten</span> im Kanal</li>
                 </ul>
-            </div>
+            </details>
         </div>
     );
 }

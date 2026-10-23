@@ -93,6 +93,11 @@ function notifyDraftComplete(lobby, io) {
   updateDeckFeeds(lobby, io);
   // Turnier-Spiel: Decks in den Match-Raum übernehmen (lazy require gegen Zirkelbezug)
   if (lobby.tournament) require('../tournament/matchRoom').onDraftComplete(lobby);
+  // Lobby-Turnier: Decks übernehmen, Zuschauer zurücksetzen, Stand an alle (lazy wie oben)
+  if (lobby.ltour?.enabled) {
+    require('./lobbyTournament').onDraftComplete(lobby);
+    io.to(lobby.code).emit('clash:lobbyUpdate', require('./lobbies').sanitizeLobby(lobby));
+  }
 }
 
 module.exports = {

@@ -4,6 +4,7 @@ import { Link, useOutletContext } from "react-router-dom";
 import { ArrowRight, ExternalLink, Lock } from "lucide-react";
 import { getCategory } from "../config/navigation";
 import SEO from "../components/SEO";
+import TileCard from "../components/TileCard";
 
 function CategoryCard({ link, openFeedback }) {
   const Icon = link.icon;
@@ -110,7 +111,7 @@ export default function CategoryPage({ categoryKey }) {
             itemListElement: category.links
               // Gesperrte Unterpunkte tauchen hier nicht auf — die Kachel zeigt sie als
               // nicht nutzbar, dann sollen sie auch nicht als Angebot ausgezeichnet werden.
-              .filter((l) => l.to && !l.locked)
+              .filter((l) => l.to && !l.locked && !l.soon)
               .map((l, i) => ({
                 '@type': 'ListItem',
                 position: i + 1,
@@ -136,10 +137,25 @@ export default function CategoryPage({ categoryKey }) {
         </div>
       </div>
 
-      {/* Unterpunkte */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {category.links.map((link) => (
-          <CategoryCard key={link.label} link={link} openFeedback={openFeedback} />
+      {/* Unterpunkte: Vorschau-Karten (components/TileCard.jsx). Gesperrte bleiben als tote Kachel stehen, noch
+          nicht fertige (soon) erscheinen hier gar nicht. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
+        {category.links.filter((l) => !l.soon).map((link, i) => (
+          link.locked
+            ? <CategoryCard key={link.label} link={link} openFeedback={openFeedback} />
+            : (
+              <TileCard
+                key={link.label}
+                index={i}
+                to={link.to}
+                href={link.href}
+                onClick={link.action === "feedback" ? openFeedback : undefined}
+                title={link.label}
+                text={link.description}
+                images={link.previews || []}
+                icon={link.icon}
+              />
+            )
         ))}
       </div>
     </div>

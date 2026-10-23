@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { LayoutGrid, Rows, LogOut, Copy } from 'lucide-react';
-import { CrCheck, CrReplay, CrSwap, CrTv } from '../ui/CrIcons';
+import { CrCheck, CrReplay, CrSwap, CrTv, CrCards, CrTourneyTrophy } from '../ui/CrIcons';
 import CardTile from '../ui/CardTile';
 import ChunkyButton from '../ui/ChunkyButton';
 import PlayerAvatar from '../components/PlayerAvatar';
@@ -15,6 +15,9 @@ import { BackToTournamentButton } from '../tournament/TournamentLobbyBits';
 import { SIZE_COLS } from '../constants';
 import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
 import { TEAM_IDS, teamStyle, teamChipClass } from '../lobby/teamStyle';
+import ViewTabs from '../lobby/ViewTabs';
+import LobbyTournamentPanel from '../lobby/LobbyTournamentPanel';
+import { ltDict } from '../lobby/ltourI18n';
 
 /** Deck-Karte im Endscreen — für Admins klickbar, um sie auszutauschen. */
 function DeckCardTile({ card, canSwap, onSwap, t }) {
@@ -34,9 +37,13 @@ function DeckCardTile({ card, canSwap, onSwap, t }) {
 }
 
 export default function GameOverScreen({
-  gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, onRestart, lang = 'de', t, tournament = null,
+  gameOver, myId, isHost, isAdmin, onSwapCard, onLeave, onRestart, lang = 'de', t, tournament = null, restartLabel = null,
   lobbyPlayers, trackingEnabled, overlayKey,
+  // Laufendes Lobby-Turnier: { lobbyData, myId, canControl, actions } — dann Reiter Decks | Turnier
+  tournamentView = null,
 }) {
+  const [tab, setTab] = useState('decks');
+  const lt = ltDict(lang);
   const [size, setSize] = useState('m');
   const [layout, setLayout] = useState('grid'); // 'grid' | 'list'
   const [swapTarget, setSwapTarget] = useState(null); // { player, deckIndex }
@@ -71,7 +78,7 @@ export default function GameOverScreen({
   };
 
   const playerCard = (p, i, deckCols) => (
-    <div key={p.id || i} className="cr-game-card p-4 space-y-3">
+    <div key={p.id || i} className="cr-game-card cr-deal-card p-4 space-y-3" style={{ animationDelay: `${(0.15 + i * 0.12).toFixed(2)}s` }}>
       <div className="flex items-center gap-2.5">
         <PlayerAvatar avatarId={p.avatar} size={layout === 'grid' ? 36 : 32} />
         <span className="text-white font-bold text-sm truncate flex-1">{p.name}</span>
@@ -81,8 +88,10 @@ export default function GameOverScreen({
       </div>
       <div className={`grid ${deckCols} gap-1.5`}>
         {p.deck.map((card, ci) => (
-          <DeckCardTile key={ci} card={card} canSwap={isAdmin} t={t}
-            onSwap={() => setSwapTarget({ player: p, deckIndex: ci })} />
+          <div key={ci} className="cr-deal-card" style={{ animationDelay: `${(0.3 + i * 0.12 + ci * 0.045).toFixed(3)}s` }}>
+            <DeckCardTile card={card} canSwap={isAdmin} t={t}
+              onSwap={() => setSwapTarget({ player: p, deckIndex: ci })} />
+          </div>
         ))}
       </div>
     </div>
@@ -110,7 +119,7 @@ export default function GameOverScreen({
       <div className="max-w-6xl mx-auto space-y-5">
         <div className="cr-arcade-panel px-4 sm:px-5 py-4 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <img src={trophyIcon} alt="" width={30} height={30} className="shrink-0" />
+            <img src={trophyIcon} alt="" width={30} height={30} className="shrink-0 cr-trophy-hop" />
             <div>
               <h2 className="font-arcade text-lg font-bold text-white">{t.draftDone}</h2>
               <p className="text-white/40 text-xs">{isAdmin ? t.adminSwapHint : t.allDecksReady}</p>
@@ -154,7 +163,7 @@ export default function GameOverScreen({
                   {/* "Erneut spielen" ist die Hauptaktion — es führt zurück in die Lobby.
                       Das Verlassen daneben ist bewusst zurückhaltend und fragt nach. */}
                   <ChunkyButton variant="green" size="sm" icon={CrReplay} onClick={onRestart}>
-                    {t.playAgain}
+                    {restartLabel || t.playAgain}
                   </ChunkyButton>
                   <ChunkyButton variant="red" size="sm" icon={LogOut} onClick={confirmLeave}>
                     <span className="hidden sm:inline">{t.leaveLobbyBtn}</span>
@@ -172,6 +181,17 @@ export default function GameOverScreen({
           </div>
         </div>
 
+        {tournamentView && (
+          <ViewTabs active={tab} onSelect={setTab} tabs={[
+            { id: 'decks', icon: CrCards, label: lt.tabDecks },
+            { id: 'tournament', icon: CrTourneyTrophy, label: lt.tabTournament },
+          ]} />
+        )}
+
+        {tournamentView && tab === 'tournament' ? (
+          // Sieger eintragen geht hier schon; Draft starten erst zurück in der Lobby
+          <LobbyTournamentPanel {...tournamentView} lang={lang} inGame />
+        ) : (<>
         {teamGroups.length > 0 ? (
           <div className={`grid gap-4 ${layout === 'grid' ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
             {teamGroups.map(({ letter, members }) => (
@@ -217,6 +237,7 @@ export default function GameOverScreen({
         {/* Unter dem Deck-Overlay-Panel statt darüber — bei sehr vielen Spielern würde die
             Tabelle sonst die Decks so weit nach unten schieben, dass man sie kaum noch sieht. */}
         <Leaderboard lobbyPlayers={lobbyPlayers} trackingEnabled={trackingEnabled} t={t} />
+        </>)}
       </div>
     </div>
   );

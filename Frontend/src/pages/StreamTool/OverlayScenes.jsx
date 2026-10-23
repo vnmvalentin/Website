@@ -697,20 +697,55 @@ const MARBLE_PIXEL = 1.5;
 const MARBLE_MAX_CATCHUP = 900;
 const MARBLE_NAMES_SHOWN = 6;
 
-function drawCourse(ctx, course, cam, accent) {
+function drawCourse(ctx, course, cam, accent, time) {
   const top = cam - 80;
   const bottom = cam + MARBLE_VIEW_H + 80;
 
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.82)';
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  for (const s of course.segs) {
-    if (Math.max(s.y1, s.y2) < top || Math.min(s.y1, s.y2) > bottom) continue;
-    ctx.moveTo(s.x1, s.y1);
-    ctx.lineTo(s.x2, s.y2);
+  // Zonen liegen unter allem anderen
+  for (const z of course.zones) {
+    if (z.y1 < top || z.y0 > bottom) continue;
+    if (z.drag) {
+      // Honig: zäher Streifen
+      ctx.fillStyle = 'rgba(214, 150, 20, 0.34)';
+      ctx.fillRect(0, z.y0, WORLD_W, z.y1 - z.y0);
+      ctx.fillStyle = 'rgba(240, 180, 50, 0.75)';
+      ctx.fillRect(0, z.y0, WORLD_W, 5);
+    } else {
+      // Wind: Striche, die in Blasrichtung durchs Feld ziehen
+      const dir = z.ax > 0 ? 1 : -1;
+      ctx.fillStyle = 'rgba(120, 190, 255, 0.07)';
+      ctx.fillRect(0, z.y0, WORLD_W, z.y1 - z.y0);
+      ctx.strokeStyle = 'rgba(160, 210, 255, 0.5)';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      const rows = Math.floor((z.y1 - z.y0) / 42);
+      for (let r = 0; r < rows; r++) {
+        const y = z.y0 + 24 + r * 42;
+        const drift = ((time * 0.32 * dir + r * 137) % (WORLD_W + 120) + WORLD_W + 120) % (WORLD_W + 120) - 60;
+        for (const x of [drift, (drift + 330) % (WORLD_W + 120) - 60]) {
+          ctx.moveTo(x - 28 * dir, y);
+          ctx.lineTo(x + 28 * dir, y);
+        }
+      }
+      ctx.stroke();
+    }
   }
-  ctx.stroke();
+
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 8;
+  // Gewöhnliche Wände hell, federnde (Trampolin) in der Akzentfarbe
+  for (const springy of [false, true]) {
+    ctx.strokeStyle = springy ? accent : 'rgba(255, 255, 255, 0.82)';
+    ctx.beginPath();
+    for (const s of course.segs) {
+      if (!!s.springy !== springy) continue;
+      if (Math.max(s.y1, s.y2) < top || Math.min(s.y1, s.y2) > bottom) continue;
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+    }
+    ctx.stroke();
+  }
 
   for (const p of course.pegs) {
     if (p.y < top || p.y > bottom) continue;
@@ -728,7 +763,7 @@ function drawCourse(ctx, course, cam, accent) {
     const ay = s.uy * s.len;
     ctx.beginPath();
     ctx.moveTo(s.x - ax, s.y - ay); ctx.lineTo(s.x + ax, s.y + ay);
-    ctx.moveTo(s.x + ay, s.y - ax); ctx.lineTo(s.x - ay, s.y + ax);
+    if (s.arms === 2) { ctx.moveTo(s.x + ay, s.y - ax); ctx.lineTo(s.x - ay, s.y + ax); }
     ctx.stroke();
     ctx.fillStyle = '#fff';
     ctx.beginPath();
@@ -742,8 +777,25 @@ function drawCourse(ctx, course, cam, accent) {
   for (const s of course.sliders) {
     if (s.y < top || s.y > bottom) continue;
     ctx.beginPath();
-    ctx.moveTo(s.x - s.half, s.y);
-    ctx.lineTo(s.x + s.half, s.y);
+    ctx.moveTo(s.x - s.half, s.y - s.tilt);
+    ctx.lineTo(s.x + s.half, s.y + s.tilt);
+    ctx.stroke();
+  }
+
+  // Stempel: Platte auf einer Führungsstange
+  for (const p of course.pistons) {
+    if (p.max < top || p.min > bottom) continue;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.min - 6);
+    ctx.lineTo(p.x, p.max + 6);
+    ctx.stroke();
+    ctx.strokeStyle = '#f2f2f5';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(p.x - p.half, p.y - p.tilt);
+    ctx.lineTo(p.x + p.half, p.y + p.tilt);
     ctx.stroke();
   }
 
@@ -798,23 +850,48 @@ function drawMarble(ctx, m, player, image, color, label) {
   }
 }
 
+/** 3D-Darstellung: eigener Chunk mit three.js, nur geladen, wenn eingeschaltet. */
+const loadMarble3d = () => import('./marble3d');
+
 function MarbleRace({ data, module, offsetRef, onResult }) {
   const canvasRef = useRef(null);
+  const layerRef = useRef(null);
   const [top, setTop] = useState([]);
   const [count, setCount] = useState(0);
   const [localWinner, setLocalWinner] = useState(null);
+  const [three, setThree] = useState(null);
+  const [no3d, setNo3d] = useState(false);
   const live = useRef({ module, onResult });
   live.current = { module, onResult };
+
+  const want3d = module.view3d === true && !no3d;
+  useEffect(() => {
+    if (!want3d || three) return;
+    loadMarble3d().then((mod) => setThree(mod)).catch(() => setNo3d(true));
+  }, [want3d, three]);
+  // Bis der Chunk da ist, läuft das Rennen in 2D — ein Wechsel rechnet das Rennen
+  // im neuen Effekt einfach bis zum aktuellen Schritt nach
+  const use3d = want3d && !!three;
 
   const { id, seed, startsAt, sections, players } = data;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !seed || !players.length) return undefined;
-    const ctx = canvas.getContext('2d');
     const race = createRace(seed, players.length, sections || undefined);
-    const images = players.map((p) => loadImage(p.avatar));
     const maxCam = race.course.height - MARBLE_VIEW_H;
+
+    let view = null;
+    if (use3d) {
+      const mod = live.current.module;
+      view = three.createMarbleView(canvas, layerRef.current, race, players, {
+        width: WORLD_W, height: MARBLE_VIEW_H, pixel: MARBLE_PIXEL,
+        colors: mod.colors?.length ? mod.colors : ['#9146ff'], accent: mod.accent,
+      });
+      if (!view) { setNo3d(true); return undefined; }
+    }
+    const ctx = view ? null : canvas.getContext('2d');
+    const images = view ? [] : players.map((p) => loadImage(p.avatar));
 
     let cam = -150;
     let camSet = false;
@@ -851,22 +928,31 @@ function MarbleRace({ data, module, offsetRef, onResult }) {
 
       const mod = live.current.module;
       const colors = mod.colors?.length ? mod.colors : ['#9146ff'];
-      ctx.setTransform(MARBLE_PIXEL, 0, 0, MARBLE_PIXEL, 0, 0);
-      ctx.clearRect(0, 0, WORLD_W, MARBLE_VIEW_H);
-      ctx.save();
-      ctx.translate(0, -cam);
-      drawCourse(ctx, race.course, cam, mod.accent);
+      const labelledList = mod.showNames === false ? [] : order.filter((i) => !race.marbles[i].done).slice(0, MARBLE_NAMES_SHOWN);
 
-      const labelled = new Set(mod.showNames === false ? [] : order.filter((i) => !race.marbles[i].done).slice(0, MARBLE_NAMES_SHOWN));
-      for (let i = 0; i < race.marbles.length; i++) {
-        const m = race.marbles[i];
-        if (m.done || m.y < cam - 40 || m.y > cam + MARBLE_VIEW_H + 40) continue;
-        drawMarble(ctx, m, players[i], images[i], colors[i % colors.length], labelled.has(i));
+      if (view) {
+        view.draw({
+          cam, now, labelled: labelledList, accent: mod.accent,
+          countdown: target < 0 ? clamp(Math.ceil((startsAt - now) / 1000), 1, 9) : null,
+        });
+      } else {
+        ctx.setTransform(MARBLE_PIXEL, 0, 0, MARBLE_PIXEL, 0, 0);
+        ctx.clearRect(0, 0, WORLD_W, MARBLE_VIEW_H);
+        ctx.save();
+        ctx.translate(0, -cam);
+        drawCourse(ctx, race.course, cam, mod.accent, now);
+
+        const labelled = new Set(labelledList);
+        for (let i = 0; i < race.marbles.length; i++) {
+          const m = race.marbles[i];
+          if (m.done || m.y < cam - 40 || m.y > cam + MARBLE_VIEW_H + 40) continue;
+          drawMarble(ctx, m, players[i], images[i], colors[i % colors.length], labelled.has(i));
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
       // Countdown vor dem Start
-      if (target < 0) {
+      if (!view && target < 0) {
         const left = Math.ceil((startsAt - now) / 1000);
         ctx.fillStyle = '#fff';
         ctx.font = `900 150px ${FONT}`;
@@ -884,17 +970,22 @@ function MarbleRace({ data, module, offsetRef, onResult }) {
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      view?.dispose();
+    };
     // Die Spielerliste steht ab dem Start fest — id und seed kennzeichnen das Rennen
-  }, [id, seed, startsAt, sections]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, seed, startsAt, sections, use3d]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const winner = data.winner || localWinner;
   const winnerFull = winner && players.find((p) => p.id === winner.id);
 
   return (
     <div className="sts-race">
-      <canvas ref={canvasRef} width={WORLD_W * MARBLE_PIXEL} height={MARBLE_VIEW_H * MARBLE_PIXEL}
+      {/* Neuer Canvas beim Umschalten: ein 2D- und ein WebGL-Kontext gehen nicht auf demselben */}
+      <canvas key={use3d ? '3d' : '2d'} ref={canvasRef} width={WORLD_W * MARBLE_PIXEL} height={MARBLE_VIEW_H * MARBLE_PIXEL}
         style={{ width: WORLD_W, height: MARBLE_VIEW_H }} />
+      {use3d && <div ref={layerRef} className="sts-m3-layer" />}
 
       <ol className="sts-rank">
         {top.map((name, i) => (
@@ -907,7 +998,9 @@ function MarbleRace({ data, module, offsetRef, onResult }) {
         <div className="sts-winner">
           <Face person={winnerFull || winner} color={module.accent} className="is-big" />
           <div>
-            <span className="stw-kicker" style={{ color: module.accent }}>Sieger</span>
+            <span className="stw-kicker" style={{ color: module.accent }}>
+              Sieger{winner.wins > 1 ? ` · ${winner.wins}. Sieg` : ''}
+            </span>
             <strong>{winner.name}</strong>
           </div>
         </div>
@@ -938,6 +1031,14 @@ function MarbleLobby({ data, module, offsetRef }) {
         <span>{data.players.length} {data.players.length === 1 ? 'Murmel' : 'Murmeln'} dabei</span>
         {timed && module.timer !== false && <span className="sts-lobby-time">Start in {mmss(left)}</span>}
       </div>
+      {data.top?.length > 0 && (
+        <div className="sts-lobby-top">
+          <b>Bestenliste</b>
+          {data.top.map((e, i) => (
+            <span key={`${i}-${e.name}`}>{i + 1}. {e.name} <i>{e.wins}</i></span>
+          ))}
+        </div>
+      )}
       <div className="sts-lobby-grid">
         {shown.map((p, i) => (
           <span key={p.id} className="sts-lobby-player">

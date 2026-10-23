@@ -14,9 +14,13 @@ const {
 const {
   normalizeSeasonalPrefix, trackableEntries, matchBattle, labelFromEvents, humanizeKey, qualifyGoal, hasQualifyPhase,
 } = require("../lib/seasonalModes");
+// Classic/Grand/20-Win-Challenge — Erkennung am Battle + Runs (Siege/Niederlagen je Versuch).
+const { classifyBattle, buildRuns, challengeState, isChallengeKey } = require("../lib/challengeModes");
 // Kartenpool fürs Deck-Modul — dieselbe Liste, aus der auch die Icon-URLs im Frontend
 // entstehen (1:1 synchron gehalten, siehe Kommentar dort).
 const { ALL_CARDS } = require("../core/cards");
+const Recap = require("../lib/winTrackerRecap");
+const { renderRecap } = require("../lib/recapImage");
 
 const MIN_SYNC_INTERVAL_MS = 30 * 1000;
 
@@ -110,8 +114,8 @@ const updateLeague2v2DeckStmt = db.prepare("UPDATE cr_wintracker_accounts SET le
 // UPSERT lässt jeden späteren, besser informierten Sync das schon gespeicherte Match korrigieren,
 // solange es noch in den letzten ~25 Battlelog-Einträgen auftaucht.
 const upsertBattleStmt = db.prepare(`INSERT INTO cr_wintracker_battles
-  (account_id, battle_time, battle_time_ms, result, trophy_change, crowns_for, crowns_against, opponent_name, game_mode, battle_arena, seasonal_prefix)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (account_id, battle_time, battle_time_ms, result, trophy_change, crowns_for, crowns_against, opponent_name, game_mode, battle_arena, seasonal_prefix, deck, starting_trophies, battle_type, challenge_key, challenge_wins_before)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(account_id, battle_time) DO UPDATE SET
     result = excluded.result,
     trophy_change = excluded.trophy_change,
@@ -120,12 +124,36 @@ const upsertBattleStmt = db.prepare(`INSERT INTO cr_wintracker_battles
     opponent_name = excluded.opponent_name,
     game_mode = excluded.game_mode,
     battle_arena = excluded.battle_arena,
-    seasonal_prefix = excluded.seasonal_prefix`);
+    seasonal_prefix = excluded.seasonal_prefix,
+    deck = CASE WHEN excluded.deck <> '' THEN excluded.deck ELSE cr_wintracker_battles.deck END,
+    starting_trophies = COALESCE(excluded.starting_trophies, cr_wintracker_battles.starting_trophies),
+    battle_type = CASE WHEN excluded.battle_type <> '' THEN excluded.battle_type ELSE cr_wintracker_battles.battle_type END,
+    challenge_key = CASE WHEN excluded.challenge_key <> '' THEN excluded.challenge_key ELSE cr_wintracker_battles.challenge_key END,
+    challenge_wins_before = COALESCE(excluded.challenge_wins_before, cr_wintracker_battles.challenge_wins_before)`);
+// Deck fürs Match speichern (Saisonrückblick: beste Decks) — nur, was zum Wiedererkennen und Anzeigen nötig ist
+const battleDeckJson = (cards) => {
+  const deck = mapDeckCards(cards).map((c) => ({ id: c.id, name: c.name, variant: c.variant || null }));
+  return deck.length === 8 ? JSON.stringify(deck) : "";
+};
 const insertBattles = db.transaction((accountId, battles) => {
   for (const b of battles) {
-    upsertBattleStmt.run(accountId, b.battleTime, b.battleTimeMs, b.result, b.trophyChange, b.crownsFor, b.crownsAgainst, b.opponentName, b.gameMode, b.arenaRawName || "", b.seasonalPrefix || "");
+    upsertBattleStmt.run(accountId, b.battleTime, b.battleTimeMs, b.result, b.trophyChange, b.crownsFor, b.crownsAgainst, b.opponentName, b.gameMode, b.arenaRawName || "", b.seasonalPrefix || "", battleDeckJson(b.cards),
+      Number.isFinite(b.startingTrophies) ? b.startingTrophies : null, String(b.type || "").slice(0, 40),
+      b.challengeKey || "", Number.isInteger(b.challengeWinsBefore) ? b.challengeWinsBefore : null);
   }
 });
+
+// Verlauf von Medaillen/Liga/Platz/Trophäen (Saisonrückblick: höchste Medaillen, bester Platz) — nur bei Änderung
+const lastSnapshotStmt = db.prepare("SELECT * FROM cr_wintracker_snapshots WHERE account_id = ? ORDER BY at DESC LIMIT 1");
+const insertSnapshotStmt = db.prepare(`INSERT OR IGNORE INTO cr_wintracker_snapshots
+  (account_id, at, trophies, season_medals, league_number, pol_rank) VALUES (?, ?, ?, ?, ?, ?)`);
+function recordSnapshot(accountId, player, leagueNumber) {
+  const last = lastSnapshotStmt.get(accountId);
+  const same = last && last.trophies === (player.trophies || 0) && last.season_medals === (player.seasonMedals || 0)
+    && last.league_number === (Number(leagueNumber) || 0) && (last.pol_rank ?? null) === (player.polRank ?? null);
+  if (same) return;
+  insertSnapshotStmt.run(accountId, Date.now(), player.trophies || 0, player.seasonMedals || 0, Number(leagueNumber) || 0, player.polRank ?? null);
+}
 
 // 2v2 Ranked ("2v2League_<season>Arena…") teilt sich den gameMode-Namen "TeamVsTeam" mit einem
 // gewöhnlichen 2v2-Freundschaftsspiel — nur arena.rawName verrät die laufende Ranked-Season.
@@ -369,8 +397,76 @@ function seasonalInfo(r) {
   };
 }
 
+// ── Challenges (Classic, Grand, 20 Win) ──────────────────────────────────────────────────────
+// trackMode "c:<key>" (key aus lib/challengeModes.js). Kein Profil-Eintrag wie bei den Saison-Modi:
+// ein Battle wird beim Sync per Name erkannt (challenge_key), das Overlay baut daraus die Runs nach.
+// Verfügbar ist ein Challenge-Modus, solange er in den letzten CHALLENGE_ACTIVE_MS gespielt wurde —
+// danach schaltet die Auto-Umschaltung ohnehin auf den zuletzt gespielten anderen Modus.
+const CHALLENGE_MODE_PREFIX = "c:";
+const CHALLENGE_ACTIVE_MS = 7 * 24 * 60 * 60 * 1000;
+// Runs reichen höchstens so weit zurück — ein Run, der länger ruht, zählt als vorbei.
+const CHALLENGE_RUN_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+const challengeKeyOf = (mode) => (typeof mode === "string" && mode.startsWith(CHALLENGE_MODE_PREFIX)
+  && isChallengeKey(mode.slice(CHALLENGE_MODE_PREFIX.length)) ? mode.slice(CHALLENGE_MODE_PREFIX.length) : null);
+
+const challengeLastPlayedStmt = db.prepare(`SELECT challenge_key AS key, MAX(battle_time_ms) AS ms FROM cr_wintracker_battles
+  WHERE account_id = ? AND challenge_key <> '' AND battle_time_ms >= ? GROUP BY challenge_key`);
+const challengeBattlesAscStmt = db.prepare(`SELECT battle_time_ms, result, challenge_wins_before FROM cr_wintracker_battles
+  WHERE account_id = ? AND challenge_key = ? AND battle_time_ms >= ? ORDER BY battle_time_ms ASC`);
+const challengeSessionDescStmt = db.prepare(`SELECT battle_time_ms FROM cr_wintracker_battles
+  WHERE account_id = ? AND challenge_key = ? AND battle_time_ms >= ? ORDER BY battle_time_ms DESC`);
+const dailyChallengeStmt = db.prepare(`SELECT
+    COALESCE(SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END), 0) AS wins,
+    COALESCE(SUM(CASE WHEN result <> 'win' THEN 1 ELSE 0 END), 0) AS losses
+  FROM cr_wintracker_battles WHERE account_id = ? AND challenge_key = ? AND battle_time_ms >= ?`);
+const last5ChallengeStmt = db.prepare(`SELECT * FROM cr_wintracker_battles
+  WHERE account_id = ? AND challenge_key = ? AND battle_time_ms >= ? ORDER BY battle_time_ms DESC LIMIT 5`);
+const lastChallengeDeckStmt = db.prepare(`SELECT deck, battle_time_ms FROM cr_wintracker_battles
+  WHERE account_id = ? AND challenge_key = ? AND deck <> '' ORDER BY battle_time_ms DESC LIMIT 1`);
+const setChallengeSessionResetStmt = db.prepare("UPDATE cr_wintracker_accounts SET challenge_session_reset_at = ? WHERE account_id = ?");
+
+/** Markiert jedes Battle mit seiner Challenge (b.challengeKey, "" = keine). Ranked/2v2/Trophäen und
+ *  Saison-Modi haben eigene Zuordnungen und bleiben außen vor. */
+function tagChallengeBattles(battles, events) {
+  for (const b of battles || []) {
+    b.challengeKey = gameModeGroup(b) || b.seasonalPrefix ? "" : (classifyBattle(b, events) || "");
+  }
+}
+
+/** Zuletzt gespielt je Challenge-Modus (nur innerhalb von CHALLENGE_ACTIVE_MS): { "c:classic": ms, … } */
+function challengeLastPlayed(accountId, nowMs = Date.now()) {
+  const out = {};
+  for (const r of challengeLastPlayedStmt.all(accountId, nowMs - CHALLENGE_ACTIVE_MS)) {
+    if (isChallengeKey(r.key)) out[CHALLENGE_MODE_PREFIX + r.key] = r.ms;
+  }
+  return out;
+}
+
+/** Session-Beginn einer Challenge: dieselbe 4h-Pausen-Regel wie bei den anderen Modi. */
+function computeChallengeSessionStartMs(row, key, nowMs = Date.now()) {
+  const rows = challengeSessionDescStmt.all(row.account_id, key, nowMs - SESSION_LOOKBACK_MS);
+  let start;
+  if (!rows.length || nowMs - rows[0].battle_time_ms > SESSION_GAP_MS) {
+    start = nowMs;
+  } else {
+    start = rows[0].battle_time_ms;
+    for (let i = 1; i < rows.length; i++) {
+      if (start - rows[i].battle_time_ms > SESSION_GAP_MS) break;
+      start = rows[i].battle_time_ms;
+    }
+  }
+  return Math.max(start, row.challenge_session_reset_at || 0);
+}
+
+/** Stand der Challenge fürs Overlay/den Editor (siehe challengeState in lib/challengeModes.js). */
+function challengeInfo(row, key, sessionStartMs = computeChallengeSessionStartMs(row, key)) {
+  const runs = buildRuns(challengeBattlesAscStmt.all(row.account_id, key, Date.now() - CHALLENGE_RUN_LOOKBACK_MS), key);
+  return { mode: CHALLENGE_MODE_PREFIX + key, ...challengeState(runs, key, sessionStartMs) };
+}
+
 // Welche trackModes für diesen Account gerade existieren: medals/trophies immer, saisonale
-// Modi (SEASONAL_TRACK_MODES + generische) nur, solange ihr progress-Eintrag beim letzten Abruf da war.
+// Modi (SEASONAL_TRACK_MODES + generische) nur, solange ihr progress-Eintrag beim letzten Abruf da war,
+// Challenges nur, solange sie kürzlich gespielt wurden (siehe CHALLENGE_ACTIVE_MS).
 function availableTrackModes(row, seasonalRows = row ? getSeasonalRowsStmt.all(row.account_id) : []) {
   let prefixes = null;
   try { prefixes = JSON.parse(row?.seasonal_prefixes || "null"); } catch { prefixes = null; }
@@ -378,7 +474,8 @@ function availableTrackModes(row, seasonalRows = row ? getSeasonalRowsStmt.all(r
     .filter(([prefix]) => !Array.isArray(prefixes) || prefixes.includes(prefix))
     .map(([, mode]) => mode);
   const generic = activeSeasonalRows(row, seasonalRows).map((r) => SEASONAL_MODE_PREFIX + r.prefix);
-  return ["medals", "trophies", ...seasonal, ...generic];
+  const challenges = row ? Object.keys(challengeLastPlayed(row.account_id)) : [];
+  return ["medals", "trophies", ...seasonal, ...generic, ...challenges];
 }
 
 // 2v2-Ranked-Matches liefern in der API kein trophyChange (das Feld fehlt schlicht) — anders als
@@ -805,7 +902,7 @@ function resolveManualLadderStep(league, step) {
 
 // ── Getrackter Wert ───────────────────────────────────────────────────────────
 const normalizeTrackMode = (raw) =>
-  (raw === "trophies" || raw === "2v2" || /^s:[a-z0-9_-]{1,60}$/.test(String(raw || "")) ? raw : "medals");
+  (raw === "trophies" || raw === "2v2" || /^s:[a-z0-9_-]{1,60}$/.test(String(raw || "")) || challengeKeyOf(raw) ? raw : "medals");
 // Jeder Account entscheidet selbst, ob Medaillen, Trophäen oder 2v2 Ranked getrackt werden
 // (Umschalter im Tab "Accounts"). Es gibt bewusst keine globale Voreinstellung mehr dafür — neue
 // Accounts starten immer mit Ranked/Medaillen, wer etwas anderes will, stellt es am Account
@@ -956,6 +1053,14 @@ function parseDeckJson(raw) {
 /** Deck passend zum getrackten Wert: Ranked-Deck bei "medals", Trophy-Road-Deck bei "trophies",
  *  eigenes 2v2-Ranked-Deck bei "2v2". */
 function resolveDeck(row, trackMode) {
+  // Challenge: Deck des neuesten Challenge-Matches (je Battle gespeichert, siehe battleDeckJson)
+  const challengeKey = challengeKeyOf(trackMode);
+  if (challengeKey) {
+    const last = lastChallengeDeckStmt.get(row.account_id, challengeKey);
+    const cards = parseDeckJson(last?.deck);
+    if (!cards.length) return null;
+    return { mode: trackMode, cards, updatedAt: last.battle_time_ms || 0 };
+  }
   const seasonalPrefix = seasonalPrefixOf(trackMode);
   if (seasonalPrefix) {
     const sRow = getSeasonalRowStmt.get(row.account_id, seasonalPrefix);
@@ -998,6 +1103,8 @@ function accountSummary(row) {
     // Stufe) — und der davon gerade getrackte, falls trackMode einer ist.
     seasonalModes: activeSeasonal.map(seasonalInfo),
     seasonal: currentSeasonal ? seasonalInfo(currentSeasonal) : null,
+    // Getrackte Challenge (Siege/Niederlagen des aktuellen Runs, Versuch in der Session) — sonst null
+    challenge: challengeKeyOf(resolveTrackMode(row)) ? challengeInfo(row, challengeKeyOf(resolveTrackMode(row))) : null,
     // In den Ligen 1-6 gibt es Stufen statt Medaillen — null ab Ultimate Champion
     ladder: computeLadder(row),
     // Deck des getrackten Modus (Ranked-, Trophy-Road- oder 2v2-Ranked-Deck) — null, solange noch
@@ -1042,6 +1149,8 @@ function autoSwitchTrackMode(row) {
   // Generische saisonale Modi: deck_at ist auch dort der Zeitstempel des neuesten zugeordneten Matches.
   const seasonalRows = getSeasonalRowsStmt.all(row.account_id);
   for (const r of seasonalRows) at[SEASONAL_MODE_PREFIX + r.prefix] = r.deck_at || 0;
+  // Challenges: Zeitpunkt des neuesten Matches je Challenge
+  Object.assign(at, challengeLastPlayed(row.account_id));
   // Beendete saisonale Modi (siehe availableTrackModes) scheiden aus — sonst bliebe ein Account nach
   // dem Ende von 2v2 Ranked ewig auf "2v2" stehen, weil das zuletzt gespielte Match eines war.
   const available = availableTrackModes(row, seasonalRows);
@@ -1064,6 +1173,7 @@ async function syncAccount(row) {
   const seasonalEntries = playerOk ? trackableEntries(player.seasonalProgress) : storedSeasonalEntries(row.account_id);
   tagSeasonalBattles(battles, seasonalEntries);
   fillSeasonalDeltas(battles, playerOk ? player.seasonalProgress : null);
+  tagChallengeBattles(battles, await getEvents());
   // 2v2-Ranked-Matches liefern kein trophyChange — vor dem Wegschreiben aus dem aktuellen
   // Kontostand (frisch vom Profil, sonst der zuletzt gespeicherte) nachrechnen.
   const currentLeague2v2Trophies = player && !player.notFound && player.league2v2
@@ -1174,6 +1284,7 @@ async function syncAccount(row) {
     const fetchedAt = (league2v2Stale || battlelogStale || promotionPending) ? (row.last_fetched || 0) : Date.now();
     const leagueNumber = promotionPending ? row.league_number : player.leagueNumber;
     updatePlayerData.run(player.name || row.player_name, player.trophies, player.bestTrophies, player.seasonMedals, leagueNumber, player.polRank, player.clan?.name || "", player.clan?.badgeId ?? null, fetchedAt, row.account_id);
+    try { recordSnapshot(row.account_id, player, leagueNumber); } catch (e) { console.error("[WinTracker] Verlauf:", e.message); }
     recordDiscoveredModes(player.seasonalProgress);
     recordSeasonalPrefixes(row.account_id, player.seasonalProgress);
     // battlelogStale zurückhalten statt schreiben: der Overlay-Trophäenwert (league2v2_trophies)
@@ -1287,6 +1398,7 @@ async function addAccountForUser(userId, twitchLogin, rawTag) {
       const seasonalEntries = trackableEntries(seasonalProgress);
       tagSeasonalBattles(battles, seasonalEntries);
       fillSeasonalDeltas(battles, seasonalProgress);
+      tagChallengeBattles(battles, await getEvents());
       if (battles.length) insertBattles(accountId, battles);
       // Deck-Erstbefüllung — sonst bliebe das Deck-Modul bis zum nächsten Sync leer.
       applyDeckUpdates(accountId, { ranked_deck_at: 0, trophy_deck_at: 0, league2v2_deck_at: 0 }, battles);
@@ -1414,6 +1526,69 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     });
   });
 
+  // ── Saisonrückblick (lib/winTrackerRecap.js): Kennzahlen einer Saison des aktiven Accounts + Bild zum Teilen ──
+  // Der aktuelle Stand (Liga/Medaillen) steht nur bei der laufenden Saison dabei — für eine vergangene wäre er falsch.
+  // Den Rückblick gibt es erst, wenn die Saison vorbei ist — mittendrin wäre er nichts Besonderes. Ohne fertige Saison
+  // kommt nur, wann der erste fertig ist (next).
+  function recapFor(req, res) {
+    const userId = String(req.twitchId);
+    const acc = getActiveAccountByUser.get(userId);
+    if (!acc) { res.status(404).json({ error: "Kein Account im Win Tracker." }); return null; }
+    const settings = getOrCreateSettings(userId);
+    const lang = normalizeLanguage(settings.language);
+    const now = Date.now();
+    const firstMs = db.prepare("SELECT MIN(battle_time_ms) AS m FROM cr_wintracker_battles WHERE account_id = ?").get(acc.account_id)?.m || acc.created_at;
+    const seasons = Recap.seasonKeysSince(firstMs, now).filter((k) => Recap.seasonWindow(k).end <= now);
+    const runningKey = Recap.seasonKeyAt(now);
+    const next = { key: runningKey, label: Recap.seasonLabel(runningKey, lang), end: Recap.seasonWindow(runningKey).end };
+    if (!seasons.length && !req.query.season) return { playerName: acc.player_name, seasons, lang, next, season: null, recap: null };
+    const key = req.query.season ? String(req.query.season) : seasons[0];
+    const win = Recap.seasonWindow(key);
+    if (!win || !seasons.includes(key)) {
+      res.status(400).json({ error: key === runningKey ? "Der Rückblick dieser Saison kommt erst zum Saisonende." : "Diese Saison gibt es für deinen Account nicht." });
+      return null;
+    }
+    const battles = db.prepare(`SELECT battle_time_ms, result, trophy_change, crowns_for, game_mode, deck, starting_trophies,
+      battle_type, battle_arena, seasonal_prefix FROM cr_wintracker_battles
+      WHERE account_id = ? AND battle_time_ms >= ? AND battle_time_ms < ?`).all(acc.account_id, win.start, win.end);
+    // Sondermodi: Name (z.B. "Spooky Chess League") und Höchststand aus dem Modus-Fortschritt — den Höchststand nur,
+    // wenn der Modus in dieser Saison zuletzt lief (die Zeile wird sonst von späteren Saisons weitergeschrieben)
+    const specials = { "s:2v2league": { label: null } };
+    for (const row of db.prepare("SELECT prefix, label, trophies, best_trophies, updated_at FROM cr_wintracker_seasonal WHERE account_id = ?").all(acc.account_id)) {
+      const endedHere = row.updated_at >= win.start && row.updated_at <= win.end + 3 * 24 * 60 * 60 * 1000;
+      // Endstand des Modus = letzter bekannter Stand → daraus rechnet die Kurve rückwärts (wie bei Ranked)
+      specials[`s:${row.prefix}`] = { label: row.label || null, best: endedHere ? row.best_trophies : null, end: endedHere ? row.trophies : null };
+    }
+    const snapshots = db.prepare(`SELECT at, trophies, season_medals, league_number, pol_rank FROM cr_wintracker_snapshots
+      WHERE account_id = ? AND at >= ? AND at < ?`).all(acc.account_id, win.start, win.end);
+    return {
+      playerName: acc.player_name, seasons, lang, next,
+      season: { key, label: Recap.seasonLabel(key, lang), start: win.start, end: win.end },
+      // Medaillenstände: aus starting_trophies je Match und dem gespeicherten Verlauf (Endstand der Saison)
+      recap: Recap.computeRecap(battles, { snapshots, specials }),
+    };
+  }
+
+  router.get("/recap", requireAuth, (req, res) => {
+    const r = recapFor(req, res);
+    if (r) res.json(r);
+  });
+
+  router.get("/recap.png", requireAuth, async (req, res) => {
+    const r = recapFor(req, res);
+    if (!r) return;
+    if (!r.recap) { res.status(400).json({ error: "Noch keine fertige Saison." }); return; }
+    try {
+      const png = await renderRecap({ playerName: r.playerName, seasonLabel: r.season.label, recap: r.recap, lang: r.lang });
+      res.set("Cache-Control", "private, no-store");
+      res.set("Content-Disposition", `attachment; filename="saisonrueckblick-${r.season.key}.png"`);
+      res.type("png").send(png);
+    } catch (e) {
+      console.error("[WinTracker] Rückblick-Bild:", e.message);
+      res.status(500).json({ error: "Bild konnte nicht erstellt werden." });
+    }
+  });
+
   // Beobachtungsliste künftiger Ranked-Modi (siehe recordDiscoveredModes) — rein informativ,
   // account-unabhängig (die Daten stammen aus JEDEM Sync über alle Nutzer hinweg, nicht nur die
   // eigenen). Kein eigener Login-Zwang wäre technisch nötig, requireAuth bleibt trotzdem dran,
@@ -1484,6 +1659,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     if (!row) return;
     deleteBattlesForAccount.run(row.account_id);
     deleteSeasonalForAccount.run(row.account_id);
+    db.prepare("DELETE FROM cr_wintracker_snapshots WHERE account_id = ?").run(row.account_id);
     deleteAccountStmt.run(row.account_id);
     if (row.is_active) {
       const rest = getAccountsByUser.all(row.user_id);
@@ -1555,7 +1731,8 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     const seasonalPrefix = seasonalPrefixOf(normalizeTrackMode(rawScope));
     const scope = rawScope === "2v2" || rawScope === "trophies" ? rawScope : "ranked";
     const now = Date.now();
-    if (seasonalPrefix) setSeasonalSessionResetStmt.run(now, row.account_id, seasonalPrefix);
+    if (challengeKeyOf(rawScope)) setChallengeSessionResetStmt.run(now, row.account_id);
+    else if (seasonalPrefix) setSeasonalSessionResetStmt.run(now, row.account_id, seasonalPrefix);
     else if (scope === "2v2") setSessionReset2v2Stmt.run(now, row.account_id);
     else if (scope === "trophies") setSessionResetTrophyStmt.run(now, row.account_id);
     else setSessionResetStmt.run(now, row.account_id);
@@ -1583,6 +1760,8 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     const seasonalPrefix = seasonalPrefixOf(trackMode);
     const seasonalRow = seasonalPrefix ? getSeasonalRowStmt.get(active.account_id, seasonalPrefix) : null;
     if (seasonalPrefix && !seasonalRow) trackMode = "medals";
+    // Challenge: Statistik über challenge_key, Kopf zeigt den aktuellen Run (siehe challengeInfo)
+    const challengeKey = challengeKeyOf(trackMode);
     const is2v2 = trackMode === "2v2";
     const isTrophyMode = trackMode === "trophies";
     // Jeder Modus hat seine eigene Session/Statistik (siehe daily2v2Stmt/last5_2v2Stmt bzw.
@@ -1605,15 +1784,17 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
     // (+1): mit ">=" zählte das Aufstiegsspiel als erstes UC-Spiel mit (direkt "+30", obwohl man
     // gerade erst angekommen war). Win/Loss + letzte 5 laufen über die ganze Session weiter — der
     // Aufstieg ist kein Session-Ende; nur die Stufen-Anzeige wird durch den Medaillen-Profit ersetzt.
-    const sessionStart = seasonalRow ? computeSeasonalSessionStartMs(active.account_id, seasonalPrefix, seasonalRow)
+    const sessionStart = challengeKey ? computeChallengeSessionStartMs(active, challengeKey)
+      : seasonalRow ? computeSeasonalSessionStartMs(active.account_id, seasonalPrefix, seasonalRow)
       : is2v2 ? compute2v2SessionStartMs(active.account_id)
       : isTrophyMode ? computeTrophySessionStartMs(active.account_id)
       : computeSessionStartMs(active.account_id);
-    const ucProfitStart = !seasonalRow && !is2v2 && !isTrophyMode && ladderStepCount(active.league_number) === 0
+    const ucProfitStart = !challengeKey && !seasonalRow && !is2v2 && !isTrophyMode && ladderStepCount(active.league_number) === 0
       && (active.ladder_anchor_ms || 0) >= sessionStart
       ? active.ladder_anchor_ms + 1
       : null;
-    const daily = seasonalRow ? dailySeasonalStmt.get(active.account_id, seasonalPrefix, sessionStart)
+    const daily = challengeKey ? dailyChallengeStmt.get(active.account_id, challengeKey, sessionStart)
+      : seasonalRow ? dailySeasonalStmt.get(active.account_id, seasonalPrefix, sessionStart)
       : is2v2 ? daily2v2Stmt.get(active.account_id, sessionStart)
       : isTrophyMode ? dailyTrophyStmt.get(active.account_id, sessionStart)
       : dailyStatsStmt.get(active.account_id, sessionStart);
@@ -1645,6 +1826,9 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       league2v2BestTrophies: active.league2v2_best_trophies || 0,
       // Generischer saisonaler Modus (Name, Stand, Stufe) — null bei medals/trophies/2v2.
       seasonal: seasonalRow ? seasonalInfo(seasonalRow) : null,
+      // Challenge (Classic/Grand/20 Win): Siege + Niederlagen des aktuellen Runs, Versuch in der
+      // Session, bester Run der Session — null bei allen anderen Modi.
+      challenge: challengeKey ? challengeInfo(active, challengeKey, sessionStart) : null,
       // Ligen 1-6: Stufen statt Medaillen (null ab Ultimate Champion) — computeLadder ist
       // 1v1-Ranked-spezifisch (greift nur bei league_number 1-6) und braucht daher IMMER den
       // Ranked1v1-Sessionbeginn, unabhängig davon, welchen Modus der aktive Account gerade trackt
@@ -1664,7 +1848,9 @@ module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
       // drückt den Rest nach rechts) oder umdreht (newestRight: chronologisch, neuestes rechts).
       last5: (() => {
         const stmt = is2v2 ? last5_2v2Stmt : isTrophyMode ? last5TrophyStmt : last5Stmt;
-        const rows = (seasonalRow
+        const rows = (challengeKey
+          ? last5ChallengeStmt.all(active.account_id, challengeKey, sessionStart)
+          : seasonalRow
           ? last5SeasonalStmt.all(active.account_id, seasonalPrefix, sessionStart)
           : stmt.all(active.account_id, sessionStart)).map((r) => {
             const pub = battleRowToPublic(r);

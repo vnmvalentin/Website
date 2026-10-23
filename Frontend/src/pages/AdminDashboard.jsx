@@ -4,13 +4,14 @@ import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import {
   Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout, Ticket,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Plus, Infinity as InfinityIcon, Users, SlidersHorizontal, Globe, Lock, Flag,
+  Plus, Infinity as InfinityIcon, Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../components/SEO";
 import GardenAdminPanel from "./GardenGame/GardenAdminPanel";
 import ModerationPanel from "./SeedRunners/mod/ModerationPanel.jsx";
 import TournamentCreatorsPanel from "./ClashRoyale/tournament/TournamentCreatorsPanel.jsx";
+import AnalyticsPanel from "./Admin/AnalyticsPanel.jsx";
 
 // DEINE ID
 const STREAMER_ID = "160224748";
@@ -19,6 +20,7 @@ const STREAMER_ID = "160224748";
 // schalten nur noch adVentures-Kits frei.
 const SECTIONS = [
   { id: "overview", label: "Übersicht", icon: LayoutDashboard },
+  { id: "analytics", label: "Besucher", icon: BarChart3 },
   { id: "adventures", label: "adVentures", icon: Swords },
   { id: "garden", label: "Virtual Farm", icon: Sprout },
   { id: "codes", label: "Promo-Codes", icon: Ticket },
@@ -314,6 +316,9 @@ export default function AdminDashboard() {
   const activeSection = SECTIONS.find(s => s.id === activeTab) || SECTIONS[0];
 
   const renderContent = () => {
+      // BESUCHER TAB — holt sich seine Daten selbst und steht deshalb vor den Prüfungen auf `data`
+      if (activeTab === "analytics") return <AnalyticsPanel />;
+
       if (fetchLoading) return <div className="p-8 text-center animate-pulse text-violet-300 font-semibold">Lade Daten aus der Datenbank...</div>;
 
       if (!data && activeTab === "overview") return <div className="p-8 text-center text-red-400">Keine Statistik-Daten empfangen. (Backend prüfen)</div>;
@@ -911,7 +916,7 @@ export default function AdminDashboard() {
       // CLASH ROYALE TAB
       if (activeTab === "clashroyale") {
           const modeLabel = {
-              snake: "Snake Royale", auction: "Elixir Auction", bingo: "Bingo Royale",
+              snake: "Snake Royale", auction: "Elixier Auktion", bingo: "Bingo Royale",
               "shadow-carousel": "Blindes Karussel", "elixir-rush": "Elixir Rush",
               "card-evolution": "Karten-Evolution", "angel-royale": "Angel Royale", "dark-maze": "Dunkles Labyrinth",
           };
@@ -1007,7 +1012,7 @@ export default function AdminDashboard() {
                       <activeSection.icon size={18} className="text-violet-300" /> {activeSection.label}
                   </h2>
 
-                  {!["codes", "broadcast", "seedrunners"].includes(activeTab) && (
+                  {!["codes", "broadcast", "seedrunners", "analytics"].includes(activeTab) && (
                       <div className="relative w-full sm:w-72">
                           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
                           <input

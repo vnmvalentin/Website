@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Image as ImageIcon, Trash2 } from 'lucide-react';
 
 const SLOWMODE_OPTIONS = [
     { value: 0, label: 'Kein Slowmode' },
@@ -40,12 +41,12 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                 setConfigs(prev => [...prev, { channelId, slowmode, enabled: 1 }]);
                 setChannelId('');
                 setSlowmode(0);
-                setSaveStatus('✅ Gespeichert!');
+                setSaveStatus('Gespeichert!');
             } else {
-                setSaveStatus(`❌ ${data.error}`);
+                setSaveStatus(`Fehler: ${data.error}`);
             }
         } catch {
-            setSaveStatus('❌ Netzwerkfehler.');
+            setSaveStatus('Fehler: keine Verbindung zum Server.');
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 3000);
@@ -63,19 +64,19 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
     const usedChannelIds = configs.map(c => c.channelId);
 
     return (
-        <div className="space-y-8">
+        <div className="dc-page">
             <div>
-                <h2 className="text-2xl text-white font-bold mb-1">Image-Only Kanäle</h2>
+                <h2 className="dc-h2">Image-Only Kanäle</h2>
                 <p className="text-white/50 text-sm">Nachrichten ohne Bild werden in diesen Kanälen automatisch gelöscht.</p>
             </div>
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-2xl">
-                <h3 className="text-white font-semibold flex items-center gap-2">➕ Kanal hinzufügen</h3>
+            <div className="dc-card p-6 space-y-4 max-w-2xl">
+                <h3 className="text-white font-semibold flex items-center gap-2">Kanal hinzufügen</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-white text-sm font-medium mb-2">Kanal</label>
+                        <label className="dc-label">Kanal</label>
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
-                            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                            className="dc-input w-full">
                             <option value="">-- Kanal auswählen --</option>
                             {channels.filter(c => !usedChannelIds.includes(c.id)).map(c => (
                                 <option key={c.id} value={c.id}># {c.name}</option>
@@ -83,9 +84,9 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-white text-sm font-medium mb-2">Slowmode</label>
+                        <label className="dc-label">Slowmode</label>
                         <select value={slowmode} onChange={e => setSlowmode(Number(e.target.value))}
-                            className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                            className="dc-input w-full">
                             {SLOWMODE_OPTIONS.map(o => (
                                 <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
@@ -94,7 +95,7 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                 </div>
                 <div className="flex items-center gap-4 pt-1">
                     <button onClick={handleAdd} disabled={isSaving || !channelId}
-                        className="bg-violet-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
+                        className="dc-btn">
                         {isSaving ? 'Speichere...' : 'Hinzufügen'}
                     </button>
                     {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
@@ -105,8 +106,8 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                 <div className="max-w-2xl space-y-3">
                     <h3 className="text-white font-semibold text-lg">Aktive Kanäle</h3>
                     {configs.map(cfg => (
-                        <div key={cfg.channelId} className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-4 flex items-center gap-4">
-                            <div className="text-xl shrink-0">🖼️</div>
+                        <div key={cfg.channelId} className="dc-card p-4 flex items-center gap-4">
+                            <ImageIcon size={18} className="text-white/40 shrink-0" />
                             <div className="flex-1">
                                 <div className="text-white font-semibold">#{channelName(cfg.channelId)}</div>
                                 <div className="text-white/40 text-xs mt-0.5">
@@ -114,23 +115,21 @@ export default function ImageOnlyTab({ selectedServer, channels }) {
                                 </div>
                             </div>
                             <button onClick={() => handleDelete(cfg.channelId)}
-                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-lg transition-colors shrink-0">
-                                🗑️
-                            </button>
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-md transition-colors shrink-0"><Trash2 size={14} /></button>
                         </div>
                     ))}
                 </div>
             )}
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 max-w-2xl space-y-2">
-                <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
+            <details className="dc-help">
+                <summary>So funktioniert es</summary>
                 <ul className="text-white/50 text-sm space-y-1">
                     <li>• Nachrichten ohne Bild/GIF werden sofort gelöscht</li>
                     <li>• Der User bekommt eine kurze Warnung (verschwindet nach 5 Sek.)</li>
                     <li>• Bilder als Link oder Embed werden ebenfalls erkannt</li>
-                    <li>• Der Bot benötigt <span className="text-violet-400">Nachrichten verwalten</span> Berechtigung im Kanal</li>
+                    <li>• Der Bot benötigt <span className="text-indigo-400">Nachrichten verwalten</span> Berechtigung im Kanal</li>
                 </ul>
-            </div>
+            </details>
         </div>
     );
 }

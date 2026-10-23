@@ -24,7 +24,7 @@ export const MODES = [
   },
   {
     id: 'auction',
-    name: 'Elixir Auction',
+    name: 'Elixier Auktion',
     icon: CrElixir,
     desc: 'Starte mit 100 Elixier und biete in jeder Runde auf angezeigte Karten. Der Höchstbietende gewinnt – Verlierer erhalten einen Trostpreis!',
     available: true,
@@ -84,7 +84,6 @@ export const MODES = [
     icon: CrSkull,
     desc: 'Tarne eine deiner Trap-Karten als etwas Attraktives und lege sie zu echten Karten in ein gemeinsames Raster. Nach kurzem Countdown klicken alle so schnell wie möglich — der Langsamere bei einer Kollision wird zufällig umgeleitet und tappt vielleicht in eine fremde Falle.',
     available: true,
-    isNew: true,
     partyModes: ['solo'],
   },
   {
@@ -93,16 +92,14 @@ export const MODES = [
     icon: CrTripleDraft,
     desc: 'Nur die unterste Reihe der Kartenpyramide liegt offen — der Rest ist verdeckt. Eine Karte wird erst sichtbar, wenn beide Karten direkt darunter vergeben sind. Reihum draften, jede Runde in anderer Reihenfolge; am Rundenende wird zusätzlich eine offene Karte zufällig blockiert.',
     available: true,
-    isNew: true,
     partyModes: ['solo'],
   },
   {
     id: 'elixir-auction-2v2',
-    name: 'Elixir Auction 2v2',
+    name: 'Elixier Auktion 2v2',
     icon: CrElixirPair,
     desc: 'Zwei bis vier Teams, jedes mit eigenem Elixier-Pool. Jede Runde siehst du eine Karte und schickst 2 Merkmale davon an deinen Partner — danach bietet ihr blind auf die Karte des jeweils anderen. Wer mehr bietet, bekommt sie fürs eigene Deck.',
     available: true,
-    isNew: true,
     partyModes: ['duo'],
   },
   {
@@ -111,13 +108,14 @@ export const MODES = [
     icon: CrTwoVsTwo,
     desc: 'Getrennte Marktplätze, eine gemeinsame Elixierleiste. Du und dein Partner kaufen unabhängig voneinander vom Team-Elixier — das lädt schneller auf und fasst mehr als im Solo-Modus.',
     available: true,
-    isNew: true,
     partyModes: ['duo'],
   },
 ];
 
 /** Nur die Modi, deren Name sich im Englischen wirklich ändert. */
 const MODE_NAME_EN = {
+  auction: 'Elixir Auction',
+  'elixir-auction-2v2': 'Elixir Auction 2v2',
   'shadow-carousel': 'Shadow Carousel',
   'card-evolution': 'Card Evolution',
   'angel-royale': 'Fishing Royale',
@@ -145,6 +143,8 @@ const MODE_DESC_EN = {
 // Eigennamen, der weder im Englischen (siehe oben) noch im Spanischen wörtlich funktioniert
 // — deshalb hier wie dort ein eigener, sinngemäßer Name statt einer 1:1-Übersetzung.
 const MODE_NAME_ES = {
+  auction: 'Elixir Auction',
+  'elixir-auction-2v2': 'Elixir Auction 2v2',
   'shadow-carousel': 'Carrusel de Sombras',
   'card-evolution': 'Evolución de Cartas',
   'angel-royale': 'Pesca Royale',

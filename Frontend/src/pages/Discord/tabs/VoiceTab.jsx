@@ -6,11 +6,18 @@ const COMMANDS = [
     { cmd: '/voice_rename [name]', desc: 'Channel umbenennen' },
     { cmd: '/voice_hide', desc: 'Channel für andere unsichtbar machen (aktuelle Mitglieder sehen ihn weiter)' },
     { cmd: '/voice_unhide', desc: 'Channel wieder für alle sichtbar machen' },
+    { cmd: '/voice_kick [user]', desc: 'Nutzer aus dem Channel werfen' },
+    { cmd: '/voice_ban [user]', desc: 'Nutzer werfen und am erneuten Beitreten hindern' },
+    { cmd: '/voice_unban [user]', desc: 'Bann wieder aufheben' },
     { cmd: '/voice_transfer [user]', desc: 'Besitzer-Status übergeben (nur der Besitzer, Ziel muss im Voice sein)' },
 ];
 
-export default function VoiceTab({ selectedServer, voiceChannels }) {
+export default function VoiceTab({ selectedServer, voiceChannels, onDirty }) {
     const [triggerChannelId, setTriggerChannelId] = useState('');
+    // Zuletzt gespeicherter Stand — der Unterschied dazu ist "ungespeichert"
+    const [savedId, setSavedId] = useState('');
+    const dirty = triggerChannelId !== savedId;
+    useEffect(() => { onDirty?.(dirty); }, [dirty, onDirty]);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
 
@@ -18,7 +25,7 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
         if (!selectedServer) return;
         fetch(`/api/discord/settings/${selectedServer.id}/voice`)
             .then(r => r.json())
-            .then(data => setTriggerChannelId(data?.triggerChannelId || ''));
+            .then(data => { setTriggerChannelId(data?.triggerChannelId || ''); setSavedId(data?.triggerChannelId || ''); });
     }, [selectedServer]);
 
     const handleSave = async () => {
@@ -30,9 +37,10 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ triggerChannelId }),
             });
-            setSaveStatus(res.ok ? '✅ Gespeichert!' : '❌ Fehler.');
+            setSaveStatus(res.ok ? 'Gespeichert!' : 'Fehler.');
+            if (res.ok) setSavedId(triggerChannelId);
         } catch {
-            setSaveStatus('❌ Netzwerkfehler.');
+            setSaveStatus('Fehler: keine Verbindung zum Server.');
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 3000);
@@ -42,67 +50,69 @@ export default function VoiceTab({ selectedServer, voiceChannels }) {
     const triggerName = voiceChannels.find(c => c.id === triggerChannelId)?.name;
 
     return (
-        <div className="space-y-8 max-w-2xl">
+        <div className="dc-page">
             <div>
-                <h2 className="text-2xl text-white font-bold mb-1">Custom Voice Channels</h2>
+                <h2 className="dc-h2">Custom Voice Channels</h2>
                 <p className="text-white/50 text-sm">Jeder der den Trigger-Channel betritt bekommt automatisch einen eigenen Voice-Channel.</p>
             </div>
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4">
-                <h3 className="text-white font-semibold flex items-center gap-2">🔊 Trigger Channel</h3>
+            <div className="dc-card p-6 space-y-4">
+                <h3 className="text-white font-semibold flex items-center gap-2">Trigger Channel</h3>
                 <div>
-                    <label className="block text-white text-sm font-medium mb-2">Voice Channel auswählen</label>
+                    <label className="dc-label">Voice Channel auswählen</label>
                     <select
                         value={triggerChannelId}
                         onChange={e => setTriggerChannelId(e.target.value)}
-                        className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none"
+                        className="dc-input w-full"
                     >
                         <option value="">-- Deaktiviert --</option>
                         {voiceChannels.map(c => (
-                            <option key={c.id} value={c.id}>🔊 {c.name}</option>
+                            <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                     </select>
                     <p className="text-white/40 text-xs mt-2">
                         {triggerChannelId
-                            ? `Wenn jemand "🔊 ${triggerName}" beitritt, wird automatisch ein eigener Channel erstellt.`
+                            ? `Wenn jemand „${triggerName}“ beitritt, wird automatisch ein eigener Channel erstellt.`
                             : 'Custom Voice Channels sind deaktiviert.'}
                     </p>
                 </div>
             </div>
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-3">
-                <h3 className="text-white font-semibold text-sm">ℹ️ So funktioniert es</h3>
+            <details className="dc-help">
+                <summary>So funktioniert es</summary>
                 <ul className="text-white/50 text-sm space-y-2">
-                    <li>• Bot erstellt <span className="text-violet-400 font-mono">🔊 Usernames Kanal</span> in der gleichen Kategorie</li>
+                    <li>• Bot erstellt <span className="text-indigo-400">Usernames Kanal</span> in der gleichen Kategorie</li>
                     <li>• Ein privater Text-Channel wird erstellt (nur für Mitglieder des VCs sichtbar)</li>
                     <li>• Im Text-Channel werden die verfügbaren Commands angepinnt — inkl. aktuellem Channel-Besitzer</li>
                     <li>• Mitglieder werden beim Beitreten/Verlassen automatisch hinzugefügt/entfernt</li>
-                    <li>• Bei Besitzer-Verlassen oder <span className="text-violet-400 font-mono">/voice_transfer</span> wird Ownership übertragen und die angepinnte Nachricht aktualisiert</li>
+                    <li>• Bei Besitzer-Verlassen oder <span className="text-indigo-400">/voice_transfer</span> wird Ownership übertragen und die angepinnte Nachricht aktualisiert</li>
                     <li>• Wenn alle den Channel verlassen, werden Voice- und Text-Channel automatisch gelöscht</li>
                 </ul>
-            </div>
+            </details>
 
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-5 space-y-3">
-                <h3 className="text-white font-semibold text-sm">🎮 Commands (nur im dedizierten Text-Channel)</h3>
+            <details className="dc-help">
+                <summary>Commands (nur im dedizierten Text-Channel)</summary>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {COMMANDS.map(item => (
-                        <div key={item.cmd} className="bg-[#0e0e1a]/85 rounded-lg p-3">
-                            <div className="text-violet-400 font-mono text-xs mb-1">{item.cmd}</div>
+                        <div key={item.cmd} className="dc-inset p-3">
+                            <div className="text-indigo-400 text-xs mb-1">{item.cmd}</div>
                             <div className="text-white/50 text-xs">{item.desc}</div>
                         </div>
                     ))}
                 </div>
-            </div>
+            </details>
 
             <div className="pt-2 flex items-center gap-4">
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="bg-violet-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                    className="dc-btn"
                 >
                     {isSaving ? 'Speichere...' : 'Speichern'}
                 </button>
-                {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
+                {saveStatus
+                    ? <span className="text-sm font-medium text-white">{saveStatus}</span>
+                    : dirty && <span className="dc-unsaved">Ungespeicherte Änderungen</span>}
             </div>
         </div>
     );

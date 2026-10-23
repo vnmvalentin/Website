@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { sparkBurst, ringPulse, floatText } from '../ui/juice';
+import { playSound } from '../ui/sound';
 import CardFace from '../ui/CardFace';
 import { useServerClock } from '../ui/serverClock';
 import { CrCheck, CrRage, CrStopwatch, CrTv } from '../ui/CrIcons';
-import unknownCardImg from '../../../assets/clashRoyale/UnknownCard.png';
+import unknownCardImg from '../../../assets/clashRoyale/ui/UnknownCard.webp';
 import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
 import marketEmblem from '../../../assets/clashRoyale/ui/icon_menu_shop.png';
 import ModeShell from './ModeShell';
@@ -304,6 +306,7 @@ export function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCou
   const [phase, setPhase] = useState('idle'); // idle | bought | out | unknown | unknownOut | in
   const prevSeqRef = useRef(null);
   const timersRef = useRef([]);
+  const padRef = useRef(null);
 
   useEffect(() => {
     if (prevSeqRef.current !== null && slot && slot.seq !== prevSeqRef.current) {
@@ -313,6 +316,13 @@ export function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCou
       const later = (fn, ms) => timersRef.current.push(setTimeout(fn, ms));
       if (lc.type === 'buy') {
         setPhase('bought');
+        // Kauf knallt in der Farbe des Käufers; der eigene Kauf zeigt die Elixierkosten
+        const mine = lc.buyerId === myPlayerId;
+        const color = lc.buyerColor || '#22c55e';
+        sparkBurst(padRef.current, { color, count: mine ? 22 : 12, spread: mine ? 120 : 80 });
+        ringPulse(padRef.current, { color });
+        if (mine && lc.prevCard?.cost) floatText(padRef.current, `−${lc.prevCard.cost}`, { color: '#e879f9', size: 30 });
+        else if (!mine) { floatText(padRef.current, lc.buyerName || '?', { color, size: 18, rise: 40 }); playSound('pick'); }
         later(() => setPhase('in'), 900);
         later(() => setPhase('idle'), 1150);
       } else {
@@ -328,6 +338,8 @@ export function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCou
       }
     }
     prevSeqRef.current = slot?.seq ?? null;
+    // Bewusst nur an seq gebunden: jede Änderung des Slots erhöht seq, alles andere sind Lesewerte
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot?.seq]);
 
   useEffect(() => () => timersRef.current.forEach(clearTimeout), []);
@@ -356,8 +368,10 @@ export function MarketSlot({ slot, myPlayerId, canInteract, myElixir, myChampCou
     // stand unter dem sichtbaren Bereich. In einem Spiel, in dem der Erste gewinnt, ist
     // eine Karte, die man erst herunterscrollen muss, wertlos. Bei 96px passen drei in
     // eine Reihe und der ganze Markt bleibt ohne Scrollen sichtbar.
-    <div className={`rush-pad group w-[6.25rem] sm:w-[11rem] select-none ${isDenied ? 'rush-shake' : ''}`}>
+    <div ref={padRef} className={`rush-pad group w-[6.25rem] sm:w-[11rem] select-none ${isDenied ? 'rush-shake' : ''}`}>
       <div
+        // role=button: so fliegt die gekaufte Karte ins eigene Deck (ui/flyToDeck.js)
+        role={clickable ? 'button' : undefined}
         onClick={() => clickable && onBuy(slot.seq)}
         title={card ? t.costElixir(card.name, card.cost) : t.empty}
         className={`relative rounded-2xl aspect-[4/5] shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${

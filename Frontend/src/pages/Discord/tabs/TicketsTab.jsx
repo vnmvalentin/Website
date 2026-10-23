@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Plus, ChevronUp, ChevronDown, X, ChevronRight, Settings2 } from 'lucide-react';
+import { Trash2, Plus, ChevronUp, ChevronDown, X, ChevronRight } from 'lucide-react';
+import { DcTabs } from '../ui';
 
 function formatDate(ms) {
     if (!ms) return '—';
@@ -9,7 +10,7 @@ function formatDate(ms) {
 function Accordion({ title, subtitle, children, defaultOpen = false }) {
     const [open, setOpen] = useState(defaultOpen);
     return (
-        <div className="border border-white/5 rounded-lg overflow-hidden">
+        <div className="border border-white/5 rounded-md overflow-hidden">
             <button onClick={() => setOpen(o => !o)}
                 className="w-full flex items-center justify-between px-5 py-4 bg-[#0e0e1a]/85 hover:bg-white/5 transition-colors text-left">
                 <div>
@@ -18,7 +19,7 @@ function Accordion({ title, subtitle, children, defaultOpen = false }) {
                 </div>
                 <ChevronDown size={16} className={`text-white/40 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
             </button>
-            {open && <div className="p-5 pt-4 bg-[#0e0e1a]/75 space-y-4">{children}</div>}
+            {open && <div className="dc-inset p-5 pt-4 space-y-4">{children}</div>}
         </div>
     );
 }
@@ -39,7 +40,9 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
     const [history, setHistory] = useState([]);
     const [historyDays, setHistoryDays] = useState(7);
     const [expandedTicket, setExpandedTicket] = useState(null);
-    const [settingsOpen, setSettingsOpen] = useState(false);
+    // Einrichtung und Verlauf sind zwei Reiter — vorher lag die Einrichtung hinter
+    // einem Knopf und der Verlauf stand immer darunter
+    const [view, setView] = useState('setup');
     const [isSavingConfig, setIsSavingConfig] = useState(false);
     const [isSavingFields, setIsSavingFields] = useState(false);
     const [configStatus, setConfigStatus] = useState('');
@@ -60,8 +63,10 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                     setCategoryId(d.config.categoryId || '');
                     setHandlerRoleIds(d.config.handlerRoleIds || []);
                     setHasConfig(true);
+                    // Ist das System eingerichtet, will man meist den Verlauf sehen
+                    setView('history');
                 } else {
-                    setSettingsOpen(true);
+                    setView('setup');
                 }
                 if (d.fields?.length > 0) setFields(d.fields);
             });
@@ -91,7 +96,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
     const handleDeleteConfig = async () => {
         await fetch(`/api/discord/settings/${selectedServer.id}/ticket-config`, { method: 'DELETE' });
         setHasConfig(false); setSetupChannelId('');
-        setConfigStatus('Setup entfernt.'); setSettingsOpen(true);
+        setConfigStatus('Setup entfernt.'); setView('setup');
         setTimeout(() => setConfigStatus(''), 3000);
     };
 
@@ -120,33 +125,26 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
     const toggleHandlerRole = id => setHandlerRoleIds(p => p.includes(id) ? p.filter(r => r !== id) : [...p, id]);
 
     const statusBadge = s => ({
-        open:    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-lg font-medium">Offen</span>,
-        closed:  <span className="text-xs bg-gray-500/20 text-white/50 px-2 py-0.5 rounded-lg font-medium">Geschlossen</span>,
-        deleted: <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-lg font-medium">Gelöscht</span>,
+        open:    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-md font-medium">Offen</span>,
+        closed:  <span className="text-xs bg-gray-500/20 text-white/50 px-2 py-0.5 rounded-md font-medium">Geschlossen</span>,
+        deleted: <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-md font-medium">Gelöscht</span>,
     }[s] || null);
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-start justify-between flex-wrap gap-4">
-                <div>
-                    <h2 className="text-2xl text-white font-bold mb-1">Ticket-System</h2>
-                    <p className="text-white/50 text-sm">Nutzer erstellen Tickets per Button — der Bot öffnet automatisch einen privaten Kanal.</p>
-                </div>
-                <button onClick={() => setSettingsOpen(o => !o)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors border ${
-                        settingsOpen
-                            ? 'bg-violet-500/15 border-violet-500/40 text-violet-300'
-                            : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20 hover:text-white'
-                    }`}>
-                    <Settings2 size={15} />
-                    Einstellungen
-                    <ChevronDown size={14} className={`transition-transform duration-200 ${settingsOpen ? 'rotate-180' : ''}`} />
-                </button>
+            <div>
+                <h2 className="dc-h2">Ticket-System</h2>
+                <p>Nutzer erstellen Tickets per Button — der Bot öffnet automatisch einen privaten Kanal.</p>
             </div>
 
+            <DcTabs value={view} onChange={setView} tabs={[
+                ['setup', 'Einrichtung'],
+                ['history', 'Verlauf', history.length || undefined],
+            ]} />
+
             {/* Einstellungen (aufklappbar) */}
-            {settingsOpen && (
+            {view === 'setup' && (
                 <div className="space-y-3 max-w-2xl">
                     <Accordion
                         title="Nachricht & Einrichtung"
@@ -154,17 +152,17 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                         defaultOpen={!hasConfig}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-white text-sm font-medium mb-2">Kanal für Setup-Nachricht <span className="text-red-400">*</span></label>
+                                <label className="dc-label">Kanal für Setup-Nachricht <span className="text-red-400">*</span></label>
                                 <select value={setupChannelId} onChange={e => setSetupChannelId(e.target.value)}
-                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                                    className="dc-input w-full">
                                     <option value="">-- Kanal auswählen --</option>
                                     {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-white text-sm font-medium mb-2">Kategorie für Ticket-Kanäle <span className="text-white/40 font-normal">(optional)</span></label>
+                                <label className="dc-label">Kategorie für Ticket-Kanäle <span className="text-white/40 font-normal">(optional)</span></label>
                                 <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
-                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none appearance-none">
+                                    className="dc-input w-full">
                                     <option value="">-- Keine Kategorie --</option>
                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
@@ -173,35 +171,35 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-white text-sm font-medium mb-2">Embed-Titel</label>
+                                <label className="dc-label">Embed-Titel</label>
                                 <input value={embedTitle} onChange={e => setEmbedTitle(e.target.value)}
-                                    className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none" />
+                                    className="dc-input w-full" />
                             </div>
                             <div>
-                                <label className="block text-white text-sm font-medium mb-2">Farbe</label>
+                                <label className="dc-label">Farbe</label>
                                 <div className="flex gap-2">
                                     <input type="color" value={embedColor} onChange={e => setEmbedColor(e.target.value)}
-                                        className="h-[46px] w-14 bg-[#0e0e1a]/85 border border-white/10 rounded-lg cursor-pointer p-1 shrink-0" />
+                                        className="dc-card h-[46px] w-14 cursor-pointer p-1 shrink-0" />
                                     <input value={embedColor} onChange={e => setEmbedColor(e.target.value)}
-                                        className="flex-1 bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none font-mono text-sm" />
+                                        className="dc-input flex-1" />
                                 </div>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Embed-Beschreibung</label>
+                            <label className="dc-label">Embed-Beschreibung</label>
                             <textarea value={embedDescription} onChange={e => setEmbedDescription(e.target.value)} rows={3}
-                                className="w-full bg-[#0e0e1a]/85 border border-white/10 rounded-lg p-3 text-white focus:border-violet-500 outline-none resize-none" />
+                                className="dc-input w-full resize-none" />
                         </div>
 
                         <div>
-                            <label className="block text-white text-sm font-medium mb-2">Bearbeiter-Rollen <span className="text-white/40 font-normal">(sehen alle Ticket-Kanäle)</span></label>
+                            <label className="dc-label">Bearbeiter-Rollen <span className="text-white/40 font-normal">(sehen alle Ticket-Kanäle)</span></label>
                             <div className="flex flex-wrap gap-2">
                                 {serverRoles.map(r => (
                                     <button key={r.id} onClick={() => toggleHandlerRole(r.id)}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
                                             handlerRoleIds.includes(r.id)
-                                                ? 'border-violet-500/60 bg-violet-500/10 text-violet-300'
+                                                ? 'border-indigo-500/60 bg-indigo-500/10 text-indigo-300'
                                                 : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20'
                                         }`}>
                                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: r.color || '#ffffff' }} />
@@ -213,12 +211,12 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
 
                         <div className="flex items-center gap-3 pt-1">
                             <button onClick={handleSaveConfig} disabled={isSavingConfig || !setupChannelId}
-                                className="bg-violet-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
+                                className="dc-btn">
                                 {isSavingConfig ? 'Sende...' : hasConfig ? 'Aktualisieren & neu senden' : 'Setup senden'}
                             </button>
                             {hasConfig && (
                                 <button onClick={handleDeleteConfig}
-                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-2.5 px-5 rounded-lg transition-colors">
+                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-2.5 px-5 rounded-md transition-colors">
                                     Entfernen
                                 </button>
                             )}
@@ -231,9 +229,9 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                         subtitle="Was der User beim Erstellen eines Tickets ausfüllt (max. 5 Felder)">
                         <div className="space-y-3">
                             {fields.map((f, i) => (
-                                <div key={i} className="bg-[#0e0e1a]/85 border border-white/5 rounded-lg p-4 space-y-3">
+                                <div key={i} className="dc-card p-4 space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-white/40 text-xs font-mono">Feld {i + 1}</span>
+                                        <span className="text-white/40 text-xs">Feld {i + 1}</span>
                                         <div className="flex items-center gap-1">
                                             <button onClick={() => moveField(i, -1)} disabled={i === 0} className="p-1 text-white/40 hover:text-white disabled:opacity-30"><ChevronUp size={13} /></button>
                                             <button onClick={() => moveField(i, 1)} disabled={i === fields.length - 1} className="p-1 text-white/40 hover:text-white disabled:opacity-30"><ChevronDown size={13} /></button>
@@ -244,37 +242,37 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                                         <div>
                                             <label className="block text-white/50 text-xs mb-1">Label <span className="text-red-400">*</span></label>
                                             <input value={f.label} onChange={e => updateField(i, 'label', e.target.value)} placeholder="z.B. Name"
-                                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-violet-500 outline-none" />
+                                                className="dc-input w-full" />
                                         </div>
                                         <div>
                                             <label className="block text-white/50 text-xs mb-1">Platzhalter</label>
                                             <input value={f.placeholder} onChange={e => updateField(i, 'placeholder', e.target.value)} placeholder="z.B. Dein Name..."
-                                                className="w-full bg-[#0e0e1a]/75 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-violet-500 outline-none" />
+                                                className="dc-input w-full" />
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-5">
                                         <label className="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" checked={f.required} onChange={e => updateField(i, 'required', e.target.checked)} className="rounded accent-violet-500" />
+                                            <input type="checkbox" checked={f.required} onChange={e => updateField(i, 'required', e.target.checked)} className="rounded accent-indigo-500" />
                                             <span className="text-white/60 text-sm">Pflichtfeld</span>
                                         </label>
                                         <div className="flex items-center gap-2">
                                             <span className="text-white/40 text-xs">Typ:</span>
                                             <button onClick={() => updateField(i, 'style', 1)}
-                                                className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${f.style === 1 ? 'bg-violet-600 text-white font-bold' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>Kurz</button>
+                                                className={`text-xs px-2.5 py-1 rounded-md transition-colors ${f.style === 1 ? 'bg-indigo-600 text-white font-bold' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>Kurz</button>
                                             <button onClick={() => updateField(i, 'style', 2)}
-                                                className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${f.style === 2 ? 'bg-violet-600 text-white font-bold' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>Absatz</button>
+                                                className={`text-xs px-2.5 py-1 rounded-md transition-colors ${f.style === 2 ? 'bg-indigo-600 text-white font-bold' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>Absatz</button>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                             <button onClick={addField} disabled={fields.length >= 5}
-                                className="flex items-center gap-1.5 text-sm bg-white/5 hover:bg-white/10 text-white/60 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 w-full justify-center">
+                                className="flex items-center gap-1.5 text-sm bg-white/5 hover:bg-white/10 text-white/60 px-4 py-2 rounded-md transition-colors disabled:opacity-40 w-full justify-center">
                                 <Plus size={14} /> Feld hinzufügen {fields.length < 5 && `(${5 - fields.length} verbleibend)`}
                             </button>
                         </div>
                         <div className="flex items-center gap-3 pt-1">
                             <button onClick={handleSaveFields} disabled={isSavingFields || fields.some(f => !f.label.trim())}
-                                className="bg-violet-600 text-white font-bold py-2.5 px-6 rounded-lg hover:bg-violet-500 disabled:opacity-50 transition-colors">
+                                className="dc-btn">
                                 {isSavingFields ? 'Speichere...' : 'Felder speichern'}
                             </button>
                             {fieldsStatus && <span className="text-sm font-medium text-white">{fieldsStatus}</span>}
@@ -284,7 +282,8 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
             )}
 
             {/* Ticket-Verlauf */}
-            <div className="bg-[#0e0e1a]/75 border border-white/5 rounded-lg p-6 space-y-4 max-w-4xl">
+            {view === 'history' && (
+            <div className="dc-card p-6 space-y-4 max-w-4xl">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
                         <h3 className="text-white font-semibold">Ticket-Verlauf</h3>
@@ -293,7 +292,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                     <div className="flex gap-2">
                         {[7, 14, 30].map(d => (
                             <button key={d} onClick={() => setHistoryDays(d)}
-                                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${historyDays === d ? 'bg-violet-600 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
+                                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${historyDays === d ? 'bg-indigo-600 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
                                 {d} Tage
                             </button>
                         ))}
@@ -307,17 +306,17 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                 ) : (
                     <div className="space-y-1.5">
                         {history.map(t => (
-                            <div key={t.id} className="border border-white/5 rounded-lg overflow-hidden">
+                            <div key={t.id} className="border border-white/5 rounded-md overflow-hidden">
                                 <button onClick={() => setExpandedTicket(expandedTicket === t.id ? null : t.id)}
                                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/3 transition-colors text-left">
                                     <ChevronRight size={14} className={`text-white/30 shrink-0 transition-transform duration-150 ${expandedTicket === t.id ? 'rotate-90' : ''}`} />
-                                    <span className="text-white/30 text-xs font-mono w-8 shrink-0">#{t.id}</span>
+                                    <span className="text-white/30 text-xs w-8 shrink-0">#{t.id}</span>
                                     <span className="text-white text-sm font-medium flex-1 truncate">{t.creatorName || t.creatorId}</span>
                                     {statusBadge(t.status)}
                                     <span className="text-white/30 text-xs shrink-0 hidden sm:block">{formatDate(t.createdAt)}</span>
                                 </button>
                                 {expandedTicket === t.id && (
-                                    <div className="border-t border-white/5 px-4 py-3 bg-[#0e0e1a]/75 space-y-2.5">
+                                    <div className="dc-inset border-t px-4 py-3 space-y-2.5">
                                         <div className="flex flex-wrap gap-4 text-xs text-white/40 mb-2">
                                             <span>Erstellt: {formatDate(t.createdAt)}</span>
                                             {t.closedAt && <span>Geschlossen: {formatDate(t.closedAt)}</span>}
@@ -335,6 +334,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                     </div>
                 )}
             </div>
+            )}
         </div>
     );
 }

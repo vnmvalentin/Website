@@ -2,6 +2,7 @@
 // Knoten wählen, dann die Szene des Knotens. Vom Gegner sieht man nur „denkt …“ bzw. „hat gewählt“.
 import React, { useEffect, useRef, useState } from "react";
 import PathMap from "./PathMap.jsx";
+import PathMap3D from "./PathMap3D.jsx";
 import SigilIcon from "../icons/SigilIcon.jsx";
 import Card from "../card/Card.jsx";
 import TurnTimer from "../common/TurnTimer.jsx";
@@ -12,6 +13,7 @@ import { usePrefs } from "../prefs.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { particles } from "../anim/particles.js";
+import { useTableStage, useActiveTableScene } from "../battle/table3d/tableStage.js";
 
 const SCENES = {
   cardChoice: CardChoiceScene, fuse: FuseScene, transfer: TransferScene, campfire: CampfireScene, remove: RemoveScene,
@@ -102,9 +104,14 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
   }, [inScene]);
 
   const Scene = pp?.scene ? (extraScenes?.[pp.scene.kind] || SCENES[pp.scene.kind]) : null;
+  // 3D-Tisch: die Karte liegt als eigenes Pergament mit Holzmarken auf dem Tisch (bleibt auch hinter einer Szene liegen)
+  const rootRef = useRef(/** @type {HTMLDivElement|null} */ (null));
+  useTableStage(Scene ? "scene" : "map", { zirkel: view.settings.zirkel || "moor", anchor: rootRef, mapKey: `${map.pathNo}-${biome?.id || ""}-${cycle}` });
+  const table = useActiveTableScene();
+  useEffect(() => () => table?.setPathMap(null), [table]);
 
   return (
-    <div className="max-w-[1600px] mx-auto px-3 py-4 grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
+    <div ref={rootRef} className="max-w-[1600px] mx-auto px-3 py-4 grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
       <section className="space-y-4">
         {Scene ? (
           <div className="ss-scene-in" key={`scene-${pp.level}-${pp.scene.kind}`}><Scene scene={pp.scene} deck={deck} player={player} act={act} zirkel={view.settings.zirkel} others={view.others} /></div>
@@ -114,7 +121,9 @@ export default function PathScreen({ view, you, send, names, timers, clockOffset
               <p className="ss-dim">{pp?.done ? "Dein Weg ist gegangen. Warte auf die anderen Zeichner …" : you === null ? "Die Zeichner wandern." : "Wähle einen erreichbaren Ort – die Vorschau zeigt, was dort wartet."}</p>
               {you !== null && timers?.[you] && <TurnTimer timer={timers[you]} clockOffset={clockOffset} />}
             </div>
-            <PathMap map={map} pp={pp} onChoose={choose} biome={biome} cycle={cycle} subtitle={`Pfad ${map.pathNo} · Ebene ${Math.min((pp?.level ?? 0) + 1, map.levels)}/${map.levels}`} reduced={prefs.reduceMotion} />
+            {table
+              ? <PathMap3D scene={table} map={map} pp={pp} onChoose={choose} biome={biome} cycle={cycle} subtitle={`Pfad ${map.pathNo} · Ebene ${Math.min((pp?.level ?? 0) + 1, map.levels)}/${map.levels}`} reduced={prefs.reduceMotion} />
+              : <PathMap map={map} pp={pp} onChoose={choose} biome={biome} cycle={cycle} subtitle={`Pfad ${map.pathNo} · Ebene ${Math.min((pp?.level ?? 0) + 1, map.levels)}/${map.levels}`} reduced={prefs.reduceMotion} />}
           </div>
         )}
         {err && <p className="text-center text-[var(--wax-red-light)]" role="alert">{err}</p>}

@@ -20,7 +20,7 @@
     "preview": "vite preview",
     "tailwind:init": "tailwindcss init -p",
     "test:flick": "node --test \"src/pages/FlickSoccer/**/*.test.js\"",
-    "test:adventure":"node --test \"src/pages/Adventure/**/*.test.js\""
+    "test:adventure": "node --test \"src/pages/Adventure/**/*.test.js\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.13",
@@ -30,7 +30,8 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.9.1",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "three": "0.186.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
