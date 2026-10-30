@@ -178,10 +178,37 @@ export function createAssets(renderer, { timeoutMs = 9000 } = {}) {
 }
 
 /**
+ * Instanzen räumlich in Felder (chunk × chunk Meter) aufteilen: je Feld ein eigenes InstancedMesh mit
+ * eigener Hüllkugel. So schneidet das Sichtfeld ganze Felder weg — ein einziges InstancedMesh über die
+ * ganze Karte wird sonst immer komplett gezeichnet (auch hinter der Kamera und im Schattendurchgang).
+ * matrices: Matrix4[]; liefert die Meshes (bereits mit Hüllkugel).
+ */
+export function instancedChunks(geometry, material, matrices, chunk = 20) {
+  const cells = new Map();
+  const p = new THREE.Vector3();
+  for (const m of matrices) {
+    p.setFromMatrixPosition(m);
+    const k = `${Math.floor(p.x / chunk)},${Math.floor(p.z / chunk)}`;
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push(m);
+  }
+  const out = [];
+  for (const list of cells.values()) {
+    const im = new THREE.InstancedMesh(geometry, material, list.length);
+    list.forEach((m, i) => im.setMatrixAt(i, m));
+    im.computeBoundingSphere();
+    out.push(im);
+  }
+  return out;
+}
+
+/**
  * Viele Kopien eines Modells als InstancedMesh (ein Zeichenaufruf je Teilnetz statt je Kopie).
  * transforms: [{ x, y, z, s, ry }]. Liefert eine Gruppe, die sich füllt, sobald das Modell da ist.
+ * chunk: Kopien räumlich auf mehrere InstancedMeshes verteilen (siehe instancedChunks), damit
+ * weggeschnitten werden kann, was nicht im Bild ist.
  */
-export function scatter(holder, transforms, { castShadow = false, receiveShadow = true } = {}) {
+export function scatter(holder, transforms, { castShadow = false, receiveShadow = true, chunk = 0 } = {}) {
   const out = new THREE.Group();
   const fill = () => {
     holder.updateMatrixWorld(true);
@@ -190,20 +217,27 @@ export function scatter(holder, transforms, { castShadow = false, receiveShadow 
     holder.traverse((m) => {
       if (!m.isMesh) return;
       const local = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
-      const im = new THREE.InstancedMesh(m.geometry, m.material, transforms.length);
-      transforms.forEach((t, i) => {
+      const matrices = transforms.map((t) => {
         dummy.position.set(t.x, t.y, t.z);
         dummy.rotation.set(0, t.ry || 0, 0);
         dummy.scale.setScalar(t.s || 1);
         dummy.updateMatrix();
-        im.setMatrixAt(i, dummy.matrix.clone().multiply(local));
+        return dummy.matrix.clone().multiply(local);
       });
-      im.castShadow = castShadow;
-      im.receiveShadow = receiveShadow;
-      im.computeBoundingSphere();
-      im.userData.sharedGeometry = true; // gehört dem Modell — beim Aufräumen nicht freigeben
-      out.add(im);
+      const meshes = chunk > 0 ? instancedChunks(m.geometry, m.material, matrices, chunk) : (() => {
+        const im = new THREE.InstancedMesh(m.geometry, m.material, matrices.length);
+        matrices.forEach((mx, i) => im.setMatrixAt(i, mx));
+        im.computeBoundingSphere();
+        return [im];
+      })();
+      for (const im of meshes) {
+        im.castShadow = castShadow;
+        im.receiveShadow = receiveShadow;
+        im.userData.sharedGeometry = true; // gehört dem Modell — beim Aufräumen nicht freigeben
+        out.add(im);
+      }
     });
+    out.dispatchEvent({ type: 'filled' });
   };
   if (holder.userData.loaded) fill();
   else holder.addEventListener('loaded', fill);
@@ -248,7 +282,7 @@ const VignetteShader = {
  */
 export function createPostFX(renderer, scene, camera, opts = {}) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-  const target = new THREE.WebGLRenderTarget(size.x || 1, size.y || 1, { type: THREE.HalfFloatType, samples: 4 });
+  const target = new THREE.WebGLRenderTarget(size.x || 1, size.y || 1, { type: THREE.HalfFloatType, samples: opts.samples ?? 4 });
   const composer = new EffectComposer(renderer, target);
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
@@ -259,10 +293,14 @@ export function createPostFX(renderer, scene, camera, opts = {}) {
     composer.addPass(bloom);
   }
   composer.addPass(new OutputPass());
-  const vignette = new ShaderPass(VignetteShader);
-  vignette.uniforms.uAmount.value = opts.vignette ?? 0.3;
-  if (opts.warm) vignette.uniforms.uWarm.value.set(...opts.warm);
-  composer.addPass(vignette);
+  // vignette: 0 (ohne warm) spart den ganzen Durchgang — z. B. wenn die Seite die Vignette per CSS malt
+  let vignette = null;
+  if (opts.vignette !== 0 || opts.warm) {
+    vignette = new ShaderPass(VignetteShader);
+    vignette.uniforms.uAmount.value = opts.vignette ?? 0.3;
+    if (opts.warm) vignette.uniforms.uWarm.value.set(...opts.warm);
+    composer.addPass(vignette);
+  }
   return {
     composer, bloom, vignette, renderPass,
     setSize(w, h) {

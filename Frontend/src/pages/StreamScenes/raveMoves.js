@@ -249,6 +249,107 @@ const MOVES = {
 /** Namen der Tänze (inkl. Spiegelung) — für die Tanzlisten der Szene. */
 export const RAVE_MOVES = Object.keys(MOVES).flatMap((n) => [n, `${n}_m`]);
 
+/**
+ * Hände auf dem Mischpult, relativ zum Schultergelenk (Rumpf-Rahmen). Der Rumpf ist dabei nach
+ * vorn geneigt (DJ_LEAN). Passt zum Pult in partyProps.js, wenn die Figur so steht wie in partyDj.js.
+ */
+const DJ_HAND = { x: 0.1, y: -0.62, z: 0.52 };
+const DJ_LEAN = 0.3;
+
+/** Einzelbewegungen außerhalb der Tanzlisten: DJ-Pult (Starting), Winken + Kopfkratzen (BRB-Planet). */
+const DJ_MOVES = {
+  /**
+   * 16 Schläge: Hände am Pult mit kleinen Dreh-/Schiebebewegungen, Kopfnicken auf jeden Schlag,
+   * Knie federn leicht. Im letzten Takt geht eine Hand hoch (Faust im Takt) und wieder zurück.
+   */
+  djdesk: {
+    beats: 16,
+    pose(b) {
+      const f = b % 1;
+      const dip = bounce(f, 0.035);
+      // Faust hoch: Schlag 12 → 16 rauf, halten, runter
+      const up = b >= 12 ? Math.sin(PI * clamp01((b - 12) / 4)) : 0;
+      const raise = ease(Math.min(1, up * 1.6));
+      const onDesk = (s, ph) => {
+        const a = PI * b / 2 + ph;
+        // Hand bleibt auf Pulthöhe, auch wenn die Knie federn (dip wieder abziehen)
+        return hand(s, DJ_HAND.x + 0.035 * Math.sin(a), DJ_HAND.y - dip + 0.025 * Math.max(0, Math.sin(2 * a)), DJ_HAND.z + 0.03 * Math.cos(a), [1, -0.5, -0.7]);
+      };
+      const armL = onDesk(1, 0);
+      let armR = onDesk(-1, PI * 0.7);
+      if (raise > 0) {
+        const pump = 0.08 * thrust(f) * raise;
+        // seitlich neben den Kopf (vor dem Gesicht verdeckte die Faust das Gesicht — der Kopf ist groß)
+        const top = hand(-1, 0.55, 0.55 + pump, 0.1, [1, -0.6, -0.3]);
+        armR = {
+          pos: armR.pos.map((v, i) => lerp(v, top.pos[i], raise)),
+          pole: armR.pole.map((v, i) => lerp(v, top.pole[i], raise)),
+        };
+      }
+      return {
+        hip: [0.02 * Math.sin(PI * b / 4), -0.05 + dip, -0.03],
+        hipRot: [0, 0.05 * Math.sin(PI * b / 4), 0],
+        spine: [DJ_LEAN + 0.03 * snap(f) - 0.12 * raise, 0.05 * Math.sin(PI * b / 8), 0],
+        head: [0.02 + 0.16 * snap(f), 0.14 * Math.sin(PI * b / 8), 0],
+        armL,
+        armR,
+        legL: foot(1, 0.24, 0, 0, 0.15),
+        legR: foot(-1, 0.24, 0, 0, 0.15),
+      };
+    },
+  },
+  /**
+   * BRB-Planet: Winken am Gartenzaun. 4 Schläge: rechte Hand seitlich neben dem Kopf, schwingt
+   * zweimal je Schlag hin und her; linke Hand locker an der Seite, leichtes Wippen.
+   */
+  wave: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const sw = Math.sin(2 * PI * b);
+      return {
+        hip: [0, -0.03 + bounce(f, 0.02), 0],
+        hipRot: [0, 0.04 * Math.sin(PI * b / 2), 0],
+        spine: [0.02, 0.05 * sw, -0.05],
+        head: [0, 0.08 * Math.sin(PI * b / 2), 0.06],
+        armR: hand(-1, 0.5 + 0.14 * sw, 0.5 - 0.05 * Math.abs(sw), 0.12, [1, -0.6, -0.2]),
+        armL: hand(1, 0.16, -0.62, 0.06, [0, 0, -1]),
+        legL: foot(1, 0.24, 0, 0, 0.12),
+        legR: foot(-1, 0.24, 0, 0, 0.12),
+      };
+    },
+  },
+  /**
+   * BRB-Planet, Modus „Störung“: ratlos am Kopf kratzen, linke Hand in der Hüfte, Kopf schief.
+   * 8 Schläge: die ersten vier kratzen, dann kurz in die Ferne schauen.
+   */
+  scratch: {
+    beats: 8,
+    pose(b) {
+      const f = b % 1;
+      // Hand am Kopf: Schlag 0–0,6 hoch, bis 4 kratzen, 4–4,8 runter in die Hüfte; Rest schauen
+      const up = b < 4 ? ease(b / 0.6) : 1 - ease((b - 4) / 0.8);
+      const look = b >= 4 ? Math.sin(PI * (b - 4) / 4) : 0;
+      const rub = 0.04 * Math.sin(4 * PI * b) * up;
+      const hipHand = hand(-1, 0.36, -0.3, -0.02, [1, 0.2, -0.8]);
+      const headHand = hand(-1, 0.34 + rub, 0.6, 0.02, [1, -0.3, -0.4]);
+      return {
+        hip: [0.03, -0.03 + bounce(f, 0.01), 0],
+        hipRot: [0, -0.06, 0],
+        spine: [0.04, -0.06, 0.04],
+        head: [lerp(-0.04, 0.1, up), lerp(0.35 * look, -0.1, up), lerp(0.05, 0.2, up)],
+        armR: {
+          pos: hipHand.pos.map((v, i) => lerp(v, headHand.pos[i], up)),
+          pole: hipHand.pole.map((v, i) => lerp(v, headHand.pole[i], up)),
+        },
+        armL: hand(1, 0.36, -0.3, -0.02, [1, 0.2, -0.8]),
+        legL: foot(1, 0.26, 0, 0.02, 0.18),
+        legR: foot(-1, 0.22, 0, -0.03, 0.1),
+      };
+    },
+  },
+};
+
 /** Pose spiegeln: links ↔ rechts, x und Drehen/Neigen umkehren. */
 function mirror(p) {
   const mx = (v) => [-v[0], v[1], v[2]];
@@ -379,8 +480,9 @@ export function buildRaveClips(restScene) {
   const ROT = NEED;
   const POS = ['Body', 'FootL', 'FootR'];
   const out = new Map();
-  for (const [name, move] of Object.entries(MOVES)) {
-    for (const mirrored of [false, true]) {
+  const all = [...Object.entries(MOVES).map(([n, m]) => [n, m, true]), ...Object.entries(DJ_MOVES).map(([n, m]) => [n, m, false])];
+  for (const [name, move, withMirror] of all) {
+    for (const mirrored of withMirror ? [false, true] : [false]) {
       const n = move.beats * SAMPLES_PER_BEAT + 1;
       const times = new Float32Array(n);
       const q = Object.fromEntries(ROT.map((b) => [b, new Float32Array(n * 4)]));

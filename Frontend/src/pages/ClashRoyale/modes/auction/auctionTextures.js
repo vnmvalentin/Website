@@ -213,7 +213,7 @@ export function cardBackTexture() {
  * 'brass' (Standard), 'mine' (eigenes Gebot, Magenta), 'locked' (Champion-Limit, Rot) oder
  * eine Spielerfarbe als CSS-Farbe für den Gewinner.
  */
-export function plaqueTexture(text, tone = 'brass') {
+export function plaqueTexture(text, tone = 'brass', icons = {}) {
   const w = 512, h = 112;
   const c = canvas(w, h);
   const ctx = c.getContext('2d');
@@ -247,16 +247,30 @@ export function plaqueTexture(text, tone = 'brass') {
     size -= 2;
     ctx.font = `${size}px "Lilita One", system-ui, sans-serif`;
   }
-  ctx.textAlign = 'center';
+  // Symbole links/rechts (CR-Grafiken statt Zeichen wie „✓“): Gesamtbreite messen, alles zusammen mittig
+  const ok = (img) => img && img.complete && img.naturalWidth > 0;
+  const iconH = Math.round(size * 1.2);
+  const iconW = (img) => (ok(img) ? Math.round(iconH * (img.naturalWidth / img.naturalHeight)) : 0);
+  const gap = 12;
+  const bw = iconW(icons.before), aw = iconW(icons.after);
+  const tw = text ? ctx.measureText(text).width : 0;
+  const total = bw + (bw && tw ? gap : 0) + tw + (aw && tw ? gap : 0) + aw;
+  let x = (w - total) / 2;
+  if (bw) { ctx.drawImage(icons.before, x, (h - iconH) / 2, bw, iconH); x += bw + (tw ? gap : 0); }
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 9;
   // Runde Ecken an der Kontur: mit spitzen Ecken (Standard „miter“) standen an Buchstaben wie
   // dem „w“ in „Bowler“ dunkle Zacken unter der Schrift heraus
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(10,5,0,0.85)';
-  ctx.strokeText(text, w / 2, h / 2 + 3);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(text, w / 2, h / 2 + 3);
+  if (tw) {
+    ctx.strokeStyle = 'rgba(10,5,0,0.85)';
+    ctx.strokeText(text, x, h / 2 + 3);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, x, h / 2 + 3);
+    x += tw + (aw ? gap : 0);
+  }
+  if (aw) ctx.drawImage(icons.after, x, (h - iconH) / 2, aw, iconH);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;

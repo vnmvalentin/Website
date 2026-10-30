@@ -74,3 +74,6 @@ Backend/analytics/data/
 
 # 3D-Stream-Szenen: Figuren der Zuschauer + Steuerpult (nur auf dem Server echt, siehe deploy.sh)
 Backend/streamScenes/data/
+
+# Discord-Status/Updates (statusWatch/): Nachrichten-ID, Störungsverlauf — nur auf dem Server echt
+Backend/statusWatch/data/

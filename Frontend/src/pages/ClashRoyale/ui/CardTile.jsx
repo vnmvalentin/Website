@@ -55,7 +55,9 @@ export default function CardTile({
       {card && (
         // Nur der sichtbare Kartenrahmen, ohne transparenten Rand (ui/CardFace.jsx). Fehlt das
         // Bild, wird es ausgeblendet — die dunkle Fläche der Kachel bleibt als Platzhalter.
-        <CardFace id={card.id} alt={card.name || ''} rarity={card.rarity} />
+        // cr-card-face: Ziel der Ausgrau-Regel (.cr-card--disabled in index.css) — so trifft sie
+        // nur das Kartenbild, nicht die Symbole im overlay (z. B. das rote X im Kartenpool).
+        <CardFace id={card.id} alt={card.name || ''} rarity={card.rarity} className="cr-card-face" />
       )}
       {overlay}
     </>

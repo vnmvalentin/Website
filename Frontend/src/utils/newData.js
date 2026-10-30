@@ -1,5 +1,221 @@
 export const NEWS_UPDATES = [
   {
+    date: "30.10.2026",
+    version: "v6.13: Blobby Volley: Beach 3D leichter, Neue Startseite und Clash Royale Minigames",
+    sections: [
+      {
+        title: "Blobby Volley: Beach 3D leichter",
+        items: [
+          "Der Ring im Sand läuft jetzt direkt unter dem Ball mit, statt schon an der Landestelle zu warten. Der Kreis darum wird kleiner und rot, je tiefer der Ball kommt.",
+          "Der Ball ist größer und lässt sich deutlich leichter treffen — auch knapp danebengehende Schläge zählen jetzt.",
+        ]
+      },
+      {
+        title: "Neue Startseite",
+        items: [
+          "Die Startseite zeigt jetzt die Favoriten groß: die Clash-Royale-Minigames im Clash-Royale-Look, darunter Win Tracker und Win Challenge als echte, laufende Overlays. Die verschiedenen Looks lassen sich direkt dort durchklicken.",
+          "Die drei Türen sind weg — alle anderen Bereiche erreichst du über eine schlanke Zeile darunter.",
+        ]
+      },
+      {
+        title: "Clash Royale Minigames",
+        items: [
+          "Elixier Auktion: Das grelle Licht über der Tafel ist weg, der Saal wirkt ruhiger.",
+          "Elixier Auktion: Auf dem Schild deines Gebots stehen jetzt der Clash-Royale-Haken und ein Elixiertropfen statt eines einfachen Häkchens.",
+          "Freundesliste: Annehmen, Ablehnen, Hinzufügen und Entfernen zeigen jetzt Clash-Royale-Symbole.",
+        ]
+      },
+      {
+        title: "Weitere Neuerungen",
+        items: [
+          "Discord-Dashboard: Die Auswahllisten für Mitglieder und Rollen sind nicht mehr durchsichtig und lassen sich wieder gut lesen.",
+        ]
+      },
+      {
+        title: "Hype Train in 3D",
+        items: [
+          "Der Hype Train ist jetzt eine echte 3D-Dampflok mit Rauch, drehenden Rädern und Schatten — in deinen Farben, beim goldenen Hype Train ganz in Gold.",
+          "Die Teilnehmer sind deutlich besser zu sehen: große Profilbilder in den Fenstern und auf dem Dach, auf Wunsch mit Namen. Wer neu zusteigt, ploppt herein und wird kurz angesagt.",
+          "Über der Lok steht eine klare Anzeige mit Level, Fortschritt, Restzeit und Anzahl der Fahrgäste.",
+          "Der bisherige flache Zug bleibt als Einstellung erhalten und springt automatisch ein, wenn der Browser kein 3D kann.",
+        ]
+      },
+      {
+        title: "Clash Royale: neue Zentrale und Kartenspiele",
+        items: [
+          "Die Clash-Royale-Seite hat ein eigenes Design im Clash-Royale-Look: Minigames, Turniere, Nuzlocke und Win Tracker sind als große Kacheln direkt erreichbar.",
+          "Neu: Kartenraten — 24 Karten liegen vor dir, pro Runde kommt ein Hinweis. Klapp um, was es nicht sein kann, und tippe die gesuchte Karte. Mit Tagesrunde für alle.",
+          "Neu: Wer bin ich? zu zweit — wie das Klappbrett-Spiel: Jeder wählt geheim eine Karte aus seinen eigenen Karten, danach liegen die Karten des Gegners vor dir. Abwechselnd Ja/Nein-Fragen stellen (Chat im Raum oder Voice), umklappen und raten. Das Raster ist einstellbar, von 4 × 4 bis 7 × 7.",
+          "Neu: Stats-Duell — höher oder tiefer mit echten Kampfwerten aller Karten: Leben, Schaden, Schaden pro Sekunde, Angriffstempo, Laufgeschwindigkeit, Reichweite und Anzahl. Unter jeder Karte steht, zu welcher Einheit der Wert gehört (z. B. beim Busch) und wann sie zuletzt geändert wurde.",
+          "Neu: Zoom-Raten — erkenne die Karte an einem winzigen, extrem vergrößerten Ausschnitt. Alle zwei Versuche zoomt das Bild ein Stück heraus.",
+          "Neu: Pixel-Raten — die Karte ist extrem verpixelt und wird alle zwei Versuche schärfer. Beide mit Tagesrunde.",
+          "Die Clash-Royale-Seite und alle neuen Kartenspiele gibt es auch auf Englisch.",
+        ]
+      },
+      {
+        title: "Viewer Games: Chat-Quiz für deinen Stream",
+        items: [
+          "Neu im Clash-Royale-Bereich: Viewer Games — ein OBS-Overlay, das eine verpixelte oder stark herangezoomte Clash-Royale-Karte zeigt. Dein Chat rät mit „!tipp Kartenname“, wer zuerst trifft, bekommt Punkte.",
+          "Einstellbar: Pixel-Raten, Zoom-Raten oder beide im zufälligen Wechsel; das Bild wird nach Zeit (mit Zeitbalken) oder nach einer Anzahl falscher Tipps deutlicher; Pause zwischen Runden, Gewinner-Ansage im Chat, Bestenliste, Sprache Deutsch oder Englisch.",
+          "Kleine Tippfehler und gängige Kürzel wie „hog“ oder „mk“ werden erkannt.",
+        ]
+      },
+      {
+        title: "Karten-Wordle",
+        items: [
+          "Neu: Karten-Wordle — rate die Karte des Tages. Jede Eigenschaft (Elixier, Seltenheit, Art, Bewegung, Ziele, Tempo, Leben) zeigt dir, ob sie passt oder ob die gesuchte Karte mehr bzw. weniger hat.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "29.10.2026",
+    version: "v6.12: Blobby Volley: Beach 3D",
+    sections: [
+      {
+        title: "Blobby Volley: Beach 3D",
+        items: [
+          "Neues Spielfeld „Beach 3D\" beim Erstellen einer Partie: ein richtiges Volleyballfeld mit Netz und Bande, du läufst mit W A S D in alle Richtungen und springst mit der Leertaste (halten = höher).",
+          "Die Kamera steht weit hinter deinem Blob, so siehst du auch hohe Bälle. Ein Ring im Sand zeigt dir, wo der Ball gleich landet, und ein Kreis darum zieht sich zusammen und färbt sich rot, je näher der Aufprall kommt.",
+          "Mitspieler verbinden sich direkt mit dem Browser des Gastgebers, das macht das Spiel flüssiger. Klappt die direkte Verbindung nicht, läuft es automatisch über unseren Server weiter. Unten rechts im Feld steht, wie du gerade verbunden bist.",
+          "Großes Feld, leichter Ball: Er schwebt länger, und dein Schlag wird sanft Richtung gegnerisches Feld gelenkt — so gelingen auch längere Ballwechsel.",
+          "Powerups gibt es auch in Beach 3D: über dem Netz anspringen, mit E einsetzen.",
+          "Beach 3D braucht im Moment eine Tastatur.",
+          "Auch das klassische Spielfeld lässt sich jetzt in 3D ansehen: Knopf „3D\" oben im Spielraum. Die Kamera steht schräg hinter deinem Blob, Schatten am Boden zeigen, wo Ball und Blobs gerade sind. Spielgefühl und Regeln bleiben gleich.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "28.10.2026",
+    version: "v6.11: Win Challenge Overlay und Discord-Bot",
+    sections: [
+      {
+        title: "Win Challenge Overlay",
+        items: [
+          "Jede Challenge hat jetzt weniger Knöpfe: ein klarer Umschalter „Abhaken / Zähler“, dazu nur noch Anpinnen und Löschen.",
+          "Die Pfeile zum Verschieben sind weg — sortiert wird per Ziehen am Griff (oder Griff anklicken und Pfeiltasten).",
+          "Ruhigerer Hintergrund im Editor statt der schrägen Farbbänder.",
+        ]
+      },
+      {
+        title: "Discord-Bot",
+        items: [
+          "Rollen-Buttons sind übersichtlicher: alles in einer Fläche, Vorschau daneben, jeder Button in einer Zeile mit Emoji, Text, Rolle und Farbe.",
+          "In Nachrichtentexten stehen Server-Emojis jetzt direkt als Bild im Feld statt als Zahlenfolge. „:name:“ tippen wird automatisch zum Emoji.",
+          "Für das gezeichnete Bild bei Ein- und Austritt gibt es fünf Designs: Klassisch, Zentriert, Plakat, Hell und Ausweis.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "28.10.2026",
+    version: "v6.10: BRB-Planet und schönere Tanzfiguren",
+    sections: [
+      {
+        title: "Neue BRB-Szene: Mini-Planet",
+        items: [
+          "Neue „Bin gleich zurück“-Szene: ein kleiner 3D-Planet, der sich langsam dreht",
+          "Wer im Chat schreibt, bekommt ein eigenes Haus auf dem Planeten — es wächst aus dem Boden, die eigene Tanzfigur kommt aus der Tür und winkt",
+          "Mit !rennen startet ein Wettlauf einmal um den ganzen Planeten gegen den Streamer und die anderen Zuschauer",
+          "Eigenes Aussehen für Tag, Halloween und Winter sowie ein Modus für technische Probleme",
+        ]
+      },
+      {
+        title: "Tanzfigur sieht besser aus",
+        items: [
+          "Keine Lücken mehr zwischen Oberteil und Hose oder am Hals",
+          "Hüte sitzen richtig auf dem Kopf, Haare schauen nicht mehr durch",
+          "Neue Kleidung: Hoodies, Shirts und Jogginghosen mit eigenen Designs",
+          "Die Vorschau dreht sich nicht mehr von selbst; ein Knopf stellt die Figur wieder nach vorn",
+        ]
+      },
+      {
+        title: "Weitere Neuerungen",
+        items: [
+          "Twitch-Overlay Murmelbahn: Der Sieger wird im Chat erst ein paar Sekunden später verkündet, damit die Stream-Verzögerung nichts verrät",
+        ]
+      },
+    ]
+  },
+  {
+    date: "26.10.2026",
+    version: "v6.9: 3D-Minigames, zwei neue Spiele und Challenges im Win Tracker",
+    sections: [
+      {
+        title: "3D UI in manchen Clash Royale Minigames",
+        items: [
+          "Dunkles Labyrinth ist jetzt ein Dungeon-Crawler in Ego-Perspektive: W/S für einen Schritt, A/D zum Drehen, Q/E seitwärts, Leertaste zum Aufheben. Der Nebel endet am Lichtradius, die Minikarte zeigt nur, was du schon erkundet hast",
+          "Elixir Auction spielt in einem Auktionssaal: Karten werden per Klick auf die Tafel geboten, bebotene Karten fliegen nach vorne und bekommen ihren Stempel, die Mutterhexe erscheint im Spiegel",
+          "Pyramidendraft mit drehbaren Steinquadern statt flacher Karten, Angel Royale mit Kamerafahrt den Fluss hinab und Blindes Karussell als Jahrmarkt-Karussell, das sich bei jedem Rundenwechsel weiterdreht",
+          "Alle übrigen Modi haben neue Animationen bekommen. Ohne WebGL läuft automatisch die bisherige 2D-Ansicht",
+          "Deck-Overlays können jetzt automatisch durchblättern: wenige Decks groß statt vieler kleiner, Takt und Decks pro Seite einstellbar",
+        ]
+      },
+      {
+        title: "Buttons für Discord Sprachkanäle",
+        items: [
+          "Unter der Übersicht im Text-Kanal eines eigenen Sprachkanals gibt es jetzt Knöpfe: Sperren/Entsperren, Verstecken/Zeigen, Limit, Umbenennen, Kicken, Bannen, Entbannen und Besitzer übergeben. Die Slash-Commands funktionieren weiterhin",
+          "Wer im Dashboard des Discord-Bots angemeldet ist, muss Discord nicht mehr ständig neu verknüpfen — die Verknüpfung hängt jetzt am Twitch-Konto und wird automatisch erneuert",
+        ]
+      },
+      {
+        title: "Neue Games: Lights Out, Flick Soccer",
+        items: [
+          "Lights Out (unter Fun): ein 3D-Horrorspiel mit Taschenlampe über vier Ebenen — Wald, Anstalt, Keller und Garten. Jede Ebene hat ihr eigenes Monster: eins bewegt sich nur, wenn du nicht hinsiehst, eins sieht dein Licht, eins ist blind und hört jeden Schritt, eins folgt deiner Spur",
+          "Lights Out lässt sich allein oder im Koop mit bis zu vier Spielern per Raum-Code spielen",
+          "Flick Soccer (unter Fun): Scheiben-Fußball zum Schnipsen gegen die KI in drei Stufen, zu zweit an einem Gerät oder online per Link. Zehn Aufstellungen zur Auswahl, Tor-Einblendungen und Flutlicht-Look",
+          "Flick Soccer ersetzt die Daily Games",
+        ]
+      },
+      {
+        title: "Clash Royale Win Tracker jetzt mit Challenges + 20 Win Challenge",
+        items: [
+          "Classic Challenge, Grand Challenge und die neue 20-Win-Challenge werden automatisch erkannt und können als getrackter Wert gewählt werden",
+          "Das Overlay zeigt die Challenge wie im Spiel: Siegzahl im Kranz, darunter die drei Niederlagen-Felder, dazu der wievielte Versuch in dieser Session und der beste Run",
+          "Das Deck zeigt automatisch das Deck aus der zuletzt gespielten Challenge",
+          "Neue saisonale Ranked-Modi (z. B. Spooky Chess League) werden ebenfalls automatisch getrackt",
+          "Neuer Overlay-Look im Clash-Royale-Stil (Royale) mit wählbarer Farbe und Rautenmuster; der Editor hat den Arcade-Look der Minigames",
+        ]
+      },
+      {
+        title: "Tanzfigur auswählbar für Stream Starting und Ending Szene",
+        items: [
+          "Unter /tanzfigur stellst du dir deine eigene Figur zusammen. Mit der tanzt du in der Starting-Szene auf der Tanzfläche mit und tauchst in der Ending-Szene auf",
+          "Neue Party-Szene mit Tänzen im Takt der Musik, DJ am Pult und einem Halloween-Look",
+        ]
+      },
+      {
+        title: "Alle Änderungen bei Win Challenge Overlay (neue Designs und neue UI)",
+        items: [
+          "Neuer Editor mit vier Reitern (Challenges, Design, Twitch-Chat, Einrichtung) und Live-Vorschau daneben",
+          "Neue Overlay-Designs: Klassisch, Broadcast und eine Leiste mit Laufband",
+          "Fertige Vorlagen zum Übernehmen mit einem Klick",
+          "Editor, öffentliche Seite und Chat-Antworten gibt es jetzt auch auf Englisch",
+        ]
+      },
+      {
+        title: "Recap bei Win Tracker",
+        items: [
+          "Nach jeder Saison gibt es einen Rückblick: Medaillenverlauf, Bilanz je Modus, beste Decks, größter Anstieg und größter Absturz an einem Tag, längste Niederlagenserie",
+          "Der Rückblick lässt sich als Bild herunterladen und teilen, auf Deutsch oder Englisch",
+        ]
+      },
+      {
+        title: "Weitere Neuerungen",
+        items: [
+          "Clash Royale Minigames: Zufallsmodus für Lobbys, Duo-Lobbys mit bis zu vier Teams, Freundesliste (Freunde treten ohne Code bei), Lobby-Turniere und Lobbys überstehen einen Server-Neustart",
+          "Seed Runners ist auf dem Handy spielbar, mit Touch-Steuerung und Vollbild",
+          "Twitch-Overlay: neue Szenen Hype Train, Raid-Ansturm, Flugzeug-Banner und Murmelbahn",
+          "Öffentliches Profil unter /u/<Twitch-Name> mit Statistiken aus den Spielen (nur, wenn du es im Profil einschaltest)",
+          "Neue Startseite und neue Seite für Streamer-Tools mit Live-Vorschau der Overlays",
+          "Geteilte Links zeigen in Discord und Co. jetzt eine passende Vorschau je Seite",
+          "Discord-Server: Status-Kanal zeigt live, ob die Website läuft, und neue Updates werden automatisch gepostet",
+        ]
+      },
+    ]
+  },
+  {
     date: "03.10.2026",
     version: "v6.8: adVentures komplett neu",
     sections: [

@@ -13,7 +13,8 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.75) 100%);
+  /* trägt die ganze Vignette (früher zusätzlich ein Durchgang in der Nachbearbeitung) */
+  background: radial-gradient(ellipse at center, transparent 38%, rgba(0, 0, 0, 0.55) 72%, rgba(0, 0, 0, 0.9) 100%);
 }
 
 /* ── Hauptmenü ─────────────────────────────────────────────────────── */
@@ -150,6 +151,7 @@
 .lo-lead { margin: 0 0 18px; font-size: 15px; line-height: 1.55; color: rgba(217, 212, 199, 0.8); }
 .lo-actions { display: flex; gap: 10px; margin-top: 18px; }
 .lo-note { margin: 14px 0 0; font-size: 12px; color: rgba(217, 212, 199, 0.45); }
+.lo-hint { margin: 2px 0 0; font-size: 12px; line-height: 1.45; color: rgba(217, 212, 199, 0.45); }
 .lo-loading { font-family: 'Special Elite', Georgia, serif; font-size: 22px; color: rgba(217, 212, 199, 0.6); }
 
 .lo-keys {
@@ -176,6 +178,41 @@
   text-shadow: 0 1px 2px #000;
 }
 .lo-goal i { font-style: normal; font-size: 12px; font-weight: 500; color: rgba(217, 212, 199, 0.6); }
+
+/* Zahlenschloss: gefundene Schnitzereien unter dem Ziel, Eingabefeld unter dem Fadenkreuz */
+.lo-sym { width: 16px; height: 16px; flex: none; }
+.lo-notes { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 4px; font-size: 13px; color: rgba(217, 212, 199, 0.8); }
+.lo-notes span { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.lo-code {
+  position: absolute;
+  top: calc(50% + 78px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  pointer-events: none;
+  background: rgba(10, 9, 8, 0.78);
+  border: 1px solid rgba(217, 212, 199, 0.18);
+  border-radius: 4px;
+}
+.lo-code-row { display: flex; gap: 10px; }
+.lo-code-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 52px;
+  padding: 8px 0;
+  border: 1px solid rgba(217, 212, 199, 0.22);
+  border-radius: 3px;
+  color: #d9d4c7;
+}
+.lo-code-cell .lo-sym { width: 24px; height: 24px; }
+.lo-code-cell b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.lo-code small { font-size: 11px; color: rgba(217, 212, 199, 0.5); }
 .lo-time {
   position: absolute;
   top: 18px;
@@ -328,3 +365,137 @@
   border-radius: 3px;
   font: 600 11px Inter, system-ui, sans-serif;
 }
+
+/* ── Koop ─────────────────────────────────────────────────────────── */
+button.lo-back { background: transparent; font: inherit; cursor: pointer; }
+.lo-title.is-small { font-size: clamp(40px, 7vw, 64px); }
+.lo-coop .lo-tagline { margin-bottom: 22px; }
+.lo-coop-form { display: flex; flex-direction: column; gap: 16px; }
+.lo-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: rgba(217, 212, 199, 0.7); }
+.lo-field input,
+.lo-join input {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #e9e4d6;
+  font: inherit;
+  font-size: 15px;
+}
+.lo-field input:focus,
+.lo-join input:focus { outline: none; border-color: rgba(255, 255, 255, 0.45); }
+.lo-join { display: flex; gap: 10px; }
+.lo-join input { width: 9ch; letter-spacing: 0.2em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.lo-btn.is-small { padding: 4px 10px; font-size: 12px; }
+.lo-btn:disabled { opacity: 0.5; cursor: default; }
+.lo-room-code { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; font-size: 14px; color: rgba(217, 212, 199, 0.7); }
+.lo-room-code b { font-size: 26px; letter-spacing: 0.18em; color: #e9e4d6; font-variant-numeric: tabular-nums; }
+.lo-players { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; padding: 0; list-style: none; }
+.lo-players li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  font-size: 14px;
+}
+.lo-players i { width: 12px; height: 12px; border-radius: 2px; flex: none; }
+.lo-players em { font-style: normal; font-size: 11px; padding: 1px 6px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 3px; color: rgba(217, 212, 199, 0.6); }
+.lo-players span { flex: 1; }
+.lo-seg.is-wrap { flex-wrap: wrap; }
+.lo-seg.is-wrap button { border-radius: 0; border-left: 1px solid rgba(255, 255, 255, 0.15); }
+.lo-lead.is-warn { font-size: 13px; color: #e8b2a6; }
+
+/* Team-Liste im Spiel, Zuschauer-Hinweis */
+.lo-team {
+  position: absolute;
+  top: 42px;
+  right: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(217, 212, 199, 0.7);
+  text-shadow: 0 1px 2px #000;
+}
+.lo-team li.is-out { color: rgba(232, 120, 100, 0.75); }
+.lo-spectate {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  pointer-events: none;
+  background: rgba(10, 9, 8, 0.7);
+  border: 1px solid rgba(217, 212, 199, 0.18);
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.lo-spectate kbd { padding: 1px 5px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; font-size: 11px; }
+
+/* ── Hauptmenü mit Glühbirne ──────────────────────────────────────── */
+.lo-menu { overflow: hidden; }
+.lo-menu-inner.is-center { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.lo-menu-inner.is-center .lo-tagline { max-width: 460px; }
+.lo-menu-list { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(340px, 100%); }
+.lo-menu-row { display: flex; gap: 10px; }
+.lo-menu-row .lo-btn { flex: 1; }
+/* Birne hängt an einem Kabel, das bis zum oberen Bildrand reicht */
+.lo-bulb { position: relative; margin-bottom: 18px; }
+.lo-bulb::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: 100vh;
+  transform: translateX(-50%);
+  background: #1d1a16;
+}
+.lo-bulb svg { display: block; }
+.lo-bulb-lit { animation: lo-flicker 6s infinite steps(1); }
+/* Licht der Birne auf der Wand dahinter — flackert mit */
+.lo-menu-light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 46% 40% at 50% 30%, rgba(255, 214, 150, 0.13) 0%, rgba(255, 190, 110, 0.04) 45%, transparent 75%);
+  animation: lo-flicker 6s infinite steps(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lo-bulb-lit, .lo-menu-light { animation: none; }
+}
+@media (max-height: 700px) {
+  .lo-bulb svg { width: 56px; height: 92px; }
+  .lo-bulb { margin-bottom: 10px; }
+}
+
+/* ── Fenster über dem Menü ─────────────────────────────────────────── */
+.lo-dialog { z-index: 5; }
+.lo-dialog .lo-panel { width: min(560px, 100%); text-align: left; }
+.lo-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.lo-dialog-head h2 { margin: 0; font-size: 32px; }
+.lo-close {
+  display: inline-flex;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(217, 212, 199, 0.75);
+  cursor: pointer;
+}
+.lo-close:hover { color: #fff; border-color: rgba(255, 255, 255, 0.4); }
+.lo-dialog .lo-settings { margin: 0; }
+
+/* Hinweis: Browser zeichnet nicht auf der Grafikkarte */
+.lo-gpu { margin: 4px 0 10px; font-size: 13px; line-height: 1.5; text-align: left; }
+.lo-gpu ul { margin: 8px 0 0; padding-left: 18px; }
+.lo-gpu li { margin: 4px 0; }
+.lo-gpu code { font-size: 12px; color: #f0d2c8; }
+.lo-menu-inner.is-center .lo-gpu { max-width: 440px; }
+.lo-gpu-name { font-weight: 600; color: rgba(217, 212, 199, 0.85); }

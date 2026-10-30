@@ -11,6 +11,7 @@
 //   { hat: 'Cowboy_Male', head: 'Pug', body: 'Suit_Male', legs: 'Worker_Male', shoes: 'sneakerWhite', skin: 3 }
 // Unbekannte Werte fallen auf die Standardteile zurück (normalizeLook).
 import * as THREE from 'three';
+import { DESIGNS } from './avatarDesigns.js';
 
 export const SKIN_TONES = ['#f3cfb3', '#e8b48f', '#d49a72', '#b97a52', '#8d5a3b', '#62402b', '#f6dcc8', '#c98e66'];
 
@@ -31,6 +32,19 @@ const HAT_MATS = {
   VikingHelmet: /^(Helmet|Horns)$/,
   Pirate_Male: /^(Black|Red|Gold)$/,
   Knight_Golden_Male: /^(Armor|Armor_Dark|Red)$/,
+};
+
+function designParts(slot) {
+  return Object.entries(DESIGNS).filter(([, d]) => d.slot === slot).map(([id, d]) => ({ id, label: d.label }));
+}
+
+/** Hut-Material reicht tiefer als der Hut: beim Cowboy ist auch der Schnurrbart „HatBrown“ (liegt bei 2,2–2,4). */
+const HAT_MIN_Y = { Cowboy_Male: 2.6, Cowboy_Female: 2.6 };
+
+/** Borten am Mantelsaum, die nach Knochen bei den Beinen landen würden (darunter: Stiefel-Beschläge). */
+const COAT_TRIM = {
+  Pirate_Male: { re: /^Gold$/, minY: 0.5 },
+  Pirate_Female: { re: /^Gold$/, minY: 0.5 },
 };
 
 /** Auswahl je Bereich. id = Figur-Datei, aus der das Teil stammt (Schuhe: eigene Bauarten). */
@@ -57,16 +71,23 @@ export const PARTS = {
     'Viking_Male', 'Viking_Female', 'VikingHelmet', 'Kimono_Male', 'Kimono_Female', 'Wizard', 'Witch', 'Elf',
     'Goblin_Male', 'Goblin_Female', 'Zombie_Male', 'Zombie_Female', 'Cow', 'Pug',
   ].map((id) => ({ id })),
+  // eigene Designs (avatarDesigns.js) stehen vorn, danach die Paket-Teile
   body: [
-    'Casual_Male', 'Casual2_Male', 'Casual3_Male', 'Casual_Bald', 'Suit_Male', 'OldClassy_Male', 'Worker_Male',
-    'Doctor_Male_Young', 'Chef_Hat', 'Cowboy_Male', 'Pirate_Male', 'Viking_Male', 'Kimono_Male', 'Knight_Golden_Male',
-    'Wizard', 'Witch', 'Elf', 'Goblin_Female', 'Goblin_Male', 'Zombie_Male',
-  ].map((id) => ({ id })),
+    ...designParts('body'),
+    ...[
+      'Casual_Male', 'Casual2_Male', 'Casual3_Male', 'Casual_Bald', 'Suit_Male', 'OldClassy_Male', 'Worker_Male',
+      'Doctor_Male_Young', 'Chef_Hat', 'Cowboy_Male', 'Pirate_Male', 'Viking_Male', 'Kimono_Male', 'Knight_Golden_Male',
+      'Wizard', 'Witch', 'Elf', 'Goblin_Female', 'Goblin_Male', 'Zombie_Male',
+    ].map((id) => ({ id })),
+  ],
   legs: [
-    'Casual_Male', 'Casual2_Male', 'Casual3_Male', 'Suit_Male', 'OldClassy_Male', 'Worker_Male', 'Doctor_Male_Young',
-    'Chef_Hat', 'Cowboy_Male', 'Pirate_Male', 'Viking_Male', 'Kimono_Male', 'Knight_Golden_Male', 'Wizard', 'Witch',
-    'Elf', 'Goblin_Female', 'Goblin_Male', 'Zombie_Male',
-  ].map((id) => ({ id })),
+    ...designParts('legs'),
+    ...[
+      'Casual_Male', 'Casual2_Male', 'Casual3_Male', 'Suit_Male', 'OldClassy_Male', 'Worker_Male', 'Doctor_Male_Young',
+      'Chef_Hat', 'Cowboy_Male', 'Pirate_Male', 'Viking_Male', 'Kimono_Male', 'Knight_Golden_Male', 'Wizard', 'Witch',
+      'Elf', 'Goblin_Female', 'Goblin_Male', 'Zombie_Male',
+    ].map((id) => ({ id })),
+  ],
   shoes: [
     { id: 'none', label: 'Barfuß' },
     { id: 'sneakerWhite', label: 'Sneaker weiß' },
@@ -81,14 +102,15 @@ export const PARTS = {
 export const SLOTS = ['hat', 'head', 'body', 'legs', 'shoes'];
 
 /** Fußstummel: Haut-Dreiecke unterhalb dieser Höhe (Ruhelage, Weltmaß der Datei ≈ 3,2 hoch).
- *  Mit Schuhen fallen sie weg; die Schuhe reichen deshalb bis über diese Höhe. */
+ *  Mit Schuhen bleibt er im Schuh (schließt das Bein), nur seine Unterseite unter SOLE_Y fällt weg. */
 const FOOT_Y = 0.2;
+const SOLE_Y = 0.07;
 const boneRegion = (b) => (/^(Head|Neck)/.test(b) ? 'head' : /^(UpperLeg|LowerLeg|Hips|Body|Foot)/.test(b) ? 'legs' : 'body');
 const isSkin = (name) => /^(skin|face)/i.test(name || '');
 
 /**
  * Dreiecke einer geladenen Figur (Szene in Ruhelage) den Bereichen zuordnen.
- * @returns {Map<THREE.SkinnedMesh, { hat: number[], head: number[], body: number[], legs: number[], feet: number[] }>}
+ * @returns {Map<THREE.SkinnedMesh, { hat: number[], head: number[], body: number[], legs: number[], feet: number[], sole: number[] }>}
  *          je Mesh die Dreiecksnummern (Index ins index-Array / 3) pro Bereich
  */
 export function classifyCharacter(charName, scene) {
@@ -137,7 +159,7 @@ export function classifyCharacter(charName, scene) {
   // 2. Kleidung bleibt ganz: Material ohne Haut → Bereich mit den meisten Dreiecken (Kopf bleibt Kopf)
   const out = new Map();
   for (const [m, { name, tris }] of perMesh) {
-    const sets = { hat: [], head: [], body: [], legs: [], feet: [] };
+    const sets = { hat: [], head: [], body: [], legs: [], feet: [], sole: [] };
     const votes = matVotes.get(name);
     // nur wenn der Rest klein ist (Hemdsaum an der Hüfte) — Anzug/Kimono/Rüstung: Jacke und Hose
     // sind ein Material und werden nach Knochen geteilt
@@ -145,9 +167,12 @@ export function classifyCharacter(charName, scene) {
       ? (votes.body >= votes.legs ? 'body' : 'legs') : null;
     tris.forEach(({ region, cy }, t) => {
       let r = region;
-      if (r === 'head' && hatRe && hatRe.test(name)) r = 'hat';
+      if (r === 'head' && hatRe && hatRe.test(name) && cy >= (HAT_MIN_Y[charName] ?? -Infinity)) r = 'hat';
       else if (r !== 'head' && major && !isSkin(name)) r = major;
-      if (r === 'legs' && isSkin(name) && cy < FOOT_Y) r = 'feet';
+      // Mantelborte gehört zum Mantel (sonst schwebt sie mit fremdem Oberteil um die Beine)
+      else if (r === 'legs' && COAT_TRIM[charName]?.re.test(name) && cy > COAT_TRIM[charName].minY) r = 'body';
+      // Fußstummel; seine Unterseite (sole) sticht durch Schuhsohlen und fällt mit Schuhen weg
+      if (r === 'legs' && isSkin(name) && cy < FOOT_Y) r = cy < SOLE_Y ? 'sole' : 'feet';
       sets[r].push(t);
     });
     out.set(m, sets);
@@ -170,7 +195,7 @@ export function normalizeLook(look) {
 }
 
 export function defaultLook() {
-  return { hat: 'none', head: PARTS.head[0]?.id || 'Casual_Male', body: PARTS.body[0]?.id || 'Casual_Male', legs: PARTS.legs[0]?.id || 'Casual_Male', shoes: 'sneakerWhite', skin: 1 };
+  return { hat: 'none', head: 'Casual_Male', body: 'Casual_Male', legs: 'Casual_Male', shoes: 'sneakerWhite', skin: 1 };
 }
 
 // ── Schuhe ──────────────────────────────────────────────────────────────────

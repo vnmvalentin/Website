@@ -35,3 +35,20 @@ Standard-Figuren beider Szenen seit 21.10.2026 (Roboter weiter per `?figuren=rob
 `dancer.glb` ist seit 21.10.2026 zugleich die Grundlage der drei Monster in Lights Out
 (`src/pages/LightsOut/monsterModel.js`: ausgedünnt, Glieder verlängert, eigene Köpfe; genutzt werden
 nur die Clips idle/walk/jog). Datei also nicht als „nur Stream“ entfernen oder umbenennen.
+
+## Halloween-Deko (`halloween/`)
+
+`halloween.glb` — Thema „Halloween“ von Stream Starting (Steuerpult → Aussehen), geladen über
+`src/pages/StreamScenes/halloweenDecor.js` (erst beim ersten Einschalten).
+
+- **Modelle:** KayKit „Halloween Bits 1.0“ von Kay Lousberg, **CC0** (`LICENSE_KayKit.txt`; Quelle:
+  github.com/KayKit-Game-Assets/KayKit-Halloween-Bits-1.0). 25 der .gltf-Dateien mit einem kleinen
+  Skript zu einer GLB zusammengefügt (jedes Modell = Wurzelknoten `HW_<dateiname>`, ein gemeinsamer
+  Farbatlas eingebettet). Leuchtende Felder des Atlas (Kürbisgesicht innen, Laternenglas) setzt der Code
+  über eine eigene Maske.
+
+## Hype-Train-Zug (`train/`)
+
+Kenney „Train Kit“ 1.1, **CC0** (kenney.nl). Genutzt: `train-locomotive-b` (Lok), `train-locomotive-passenger-a`
+(Personenwagen), `track-detailed` (Gleis), Farbpalette `Textures/colormap.png`. Unverändert übernommen; eingefärbt
+wird zur Laufzeit über eine umgefärbte Kopie der Palette (`src/pages/StreamTool/hypeTrain3d.js`).

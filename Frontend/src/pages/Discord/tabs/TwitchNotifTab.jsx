@@ -226,7 +226,7 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                         rows={3}
                         className="dc-input w-full resize-none" />
                     {mentionOpen && (
-                        <div className="dc-card absolute z-50 left-0 right-0 top-full mt-1 shadow-2xl max-h-48 overflow-y-auto">
+                        <div className="dc-popover absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto">
                             {mentionMatches.length > 0 ? mentionMatches.map((r, i) => (
                                 <div key={r.id}
                                     onMouseDown={e => { e.preventDefault(); insertRoleMention(r); }}

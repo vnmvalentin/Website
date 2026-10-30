@@ -33,6 +33,14 @@ const AdventureShell = lazy(() => import("./pages/Adventure/ui/Shell.jsx"));
 const AdventureGame = lazy(() => import("./pages/Adventure/AdventureGame"));
 const CrShell = lazy(() => import("./pages/ClashRoyale/ui/CrShell.jsx"));
 const ClashRoyalePage = lazy(() => import("./pages/ClashRoyale/ClashRoyalePage"));
+const ClashHubPage = lazy(() => import("./pages/ClashRoyale/clash/ClashHubPage"));
+const CardGuesser = lazy(() => import("./pages/ClashRoyale/clash/CardGuesser"));
+const WhoAmI = lazy(() => import("./pages/ClashRoyale/clash/WhoAmI"));
+const StatsDuel = lazy(() => import("./pages/ClashRoyale/clash/StatsDuel"));
+const ImageGuess = lazy(() => import("./pages/ClashRoyale/clash/ImageGuess"));
+const CardWordle = lazy(() => import("./pages/ClashRoyale/clash/CardWordle"));
+const ViewerGamesPage = lazy(() => import("./pages/ClashRoyale/clash/ViewerGamesPage"));
+const ViewerGamesOverlay = lazy(() => import("./pages/ClashRoyale/clash/ViewerGamesOverlay"));
 const TournamentPage = lazy(() => import("./pages/ClashRoyale/tournament/TournamentPage"));
 const TournamentForm = lazy(() => import("./pages/ClashRoyale/tournament/TournamentForm"));
 const DiscordBotDashboard = lazy(() => import("./pages/Discord/DiscordBotDashboard"));
@@ -55,6 +63,7 @@ const Updates = lazy(() => import("./pages/Updates"));
 const StreamCredits = lazy(() => import("./pages/StreamCredits"));
 const StreamStarting = lazy(() => import("./pages/StreamScenes/StreamStarting"));
 const StreamEnding = lazy(() => import("./pages/StreamScenes/StreamEnding"));
+const StreamBrb = lazy(() => import("./pages/StreamScenes/StreamBrb"));
 const StreamScenesControlPage = lazy(() => import("./pages/StreamScenes/StreamScenesControlPage"));
 const AvatarBuilderPage = lazy(() => import("./pages/StreamScenes/AvatarBuilderPage"));
 const DiscordBotPrivacyPage = lazy(() => import("./pages/Discord/DiscordBotPrivacyPage"));
@@ -175,6 +184,7 @@ export default function App() {
           {/* 3D-Szenen: Streamer-Zimmer vor dem Stream, Kino mit den Credits danach */}
           <Route path="/overlay/stream-starting" element={<StreamStarting />} />
           <Route path="/overlay/stream-ending" element={<StreamEnding />} />
+          <Route path="/overlay/brb" element={<StreamBrb />} />
 
           <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
           <Route path="/banned-cards/overlay/:overlayKey" element={<BannedCardsOverlayPage />} />
@@ -241,6 +251,20 @@ export default function App() {
             {/* Saisonrückblick als eigene Seite (Backend: lib/winTrackerRecap.js) */}
             <Route path="win-tracker/rueckblick" element={<WinTrackerRecapPage />} />
           </Route>
+          {/* Viewer Games: OBS-Overlay ohne Hülle (transparenter Hintergrund) */}
+          <Route path="/clash/viewer-games/overlay/:overlayKey" element={<ViewerGamesOverlay />} />
+          {/* /clash: Clash-Royale-Hub im Arcade-Look + Kartenrätsel (statt der allgemeinen Kategorieseite) */}
+          <Route path="/clash" element={<CrShell />}>
+            <Route index element={<ClashHubPage />} />
+            <Route path="kartenraten" element={<CardGuesser />} />
+            <Route path="wer-bin-ich" element={<WhoAmI />} />
+            <Route path="wer-bin-ich/:code" element={<WhoAmI />} />
+            <Route path="stats-duell" element={<StatsDuel />} />
+            <Route path="zoom" element={<ImageGuess key="zoom" mode="zoom" />} />
+            <Route path="pixel" element={<ImageGuess key="pixel" mode="pixel" />} />
+            <Route path="wordle" element={<CardWordle />} />
+            <Route path="viewer-games" element={<ViewerGamesPage />} />
+          </Route>
           {/* Nuzlocke: seit Okt. 2026 ebenfalls im Arcade-Look, URL bleibt /nuzlocke (SEO) */}
           <Route path="/nuzlocke" element={<CrShell />}>
             <Route index element={<NuzlockePage />} />
@@ -273,7 +297,6 @@ export default function App() {
             {/* Kategorie-Übersichten */}
             <Route path="fun" element={<CategoryPage categoryKey="fun" />} />
             <Route path="community" element={<CategoryPage categoryKey="community" />} />
-            <Route path="clash" element={<CategoryPage categoryKey="clash-royale" />} />
             {/* „Für Streamer": Live-Vorschau aller Overlays statt der Kachel-Übersicht (gleiche Adresse) */}
             <Route path="tools" element={<StreamerToolsPage />} />
             {/* Overlay-Galerie mit Reitern je Overlay (Vorlagen übernehmen per ?vorlage=) */}

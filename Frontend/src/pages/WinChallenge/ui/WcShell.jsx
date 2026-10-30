@@ -25,9 +25,8 @@ export default function WcShell() {
   );
 
   return (
-    // Der Grund (Raster, Bänder, Schriftzug) steht in wcTheme.css
+    // Der Grund (feines Raster) steht in wcTheme.css
     <div className="wc-shell h-dvh flex flex-col text-white overflow-hidden" lang={lang}>
-      <div aria-hidden="true" className="wc-mark">WIN</div>
       <header className="relative h-14 shrink-0 flex items-center gap-3 px-3 sm:px-5 border-b border-white/10 bg-[#0d0d14]">
         <Link
           to="/tools"

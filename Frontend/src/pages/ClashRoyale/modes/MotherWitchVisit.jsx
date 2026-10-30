@@ -6,8 +6,8 @@ import elixirIcon from '../../../assets/clashRoyale/ui/elixir_1.png';
 
 const MOTHER_WITCH_VISIT_I18N = {
   de: {
-    alt: 'Mutterhexe',
-    appears: 'Die Mutterhexe erscheint…',
+    alt: 'Hexenmutter',
+    appears: 'Die Hexenmutter erscheint…',
     cost: 'Kosten',
     accept: 'Akzeptieren',
     decline: 'Ablehnen',

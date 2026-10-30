@@ -28,6 +28,14 @@ const I18N = {
     editNote: 'Klicke auf eine Karte, um sie aus dem Draft zu entfernen — gilt für alle Spielmodi dieser Lobby.',
     readOnlyNote: 'Nur der Host (oder Admin) kann den Kartenpool ändern.',
     noneFound: 'Keine Karte gefunden.',
+    filterAll: 'Alle',
+    filterInDraft: 'Im Draft',
+    filterRemoved: 'Entfernt',
+    filterLabel: 'Karten filtern',
+    removedEmpty: 'Noch keine Karten entfernt — alle sind im Draft.',
+    inDraftEmpty: 'Keine Karte mehr im Draft.',
+    trimPresetDesc: 'Behält nur Karten, die alle verbundenen Spieler im echten Spiel freigeschaltet haben. Dafür muss ein Clash-Royale-Account verknüpft sein.',
+    trimApply: 'Prüfen & anwenden',
     presetsIntro: 'Ein Preset setzt den Kartenpool auf eine feste Kartenauswahl — alle übrigen Karten werden ausgeschlossen.',
     presetsEmpty: 'Noch keine eigenen Presets gespeichert.',
     presetsLoading: 'Lade Presets…',
@@ -72,6 +80,14 @@ const I18N = {
     editNote: 'Click a card to remove it from the draft — applies to every game mode in this lobby.',
     readOnlyNote: 'Only the host (or an admin) can change the card pool.',
     noneFound: 'No cards found.',
+    filterAll: 'All',
+    filterInDraft: 'In draft',
+    filterRemoved: 'Removed',
+    filterLabel: 'Filter cards',
+    removedEmpty: 'No cards removed yet — all of them are in the draft.',
+    inDraftEmpty: 'No cards left in the draft.',
+    trimPresetDesc: 'Keeps only cards that every linked player has unlocked in the real game. Requires a linked Clash Royale account.',
+    trimApply: 'Check & apply',
     presetsIntro: 'A preset sets the card pool to a fixed selection — every other card is excluded.',
     presetsEmpty: 'No presets saved yet.',
     presetsLoading: 'Loading presets…',
@@ -116,6 +132,14 @@ const I18N = {
     editNote: 'Haz clic en una carta para quitarla del draft — aplica a todos los modos de juego de esta sala.',
     readOnlyNote: 'Solo el host (o un admin) puede cambiar el pool de cartas.',
     noneFound: 'No se encontró ninguna carta.',
+    filterAll: 'Todas',
+    filterInDraft: 'En el draft',
+    filterRemoved: 'Quitadas',
+    filterLabel: 'Filtrar cartas',
+    removedEmpty: 'Todavía no se ha quitado ninguna carta — todas están en el draft.',
+    inDraftEmpty: 'No queda ninguna carta en el draft.',
+    trimPresetDesc: 'Mantiene solo las cartas que todos los jugadores vinculados han desbloqueado en el juego real. Requiere una cuenta de Clash Royale vinculada.',
+    trimApply: 'Comprobar y aplicar',
     presetsIntro: 'Un preset fija el pool de cartas a una selección concreta — el resto de cartas quedan excluidas.',
     presetsEmpty: 'Todavía no hay presets guardados.',
     presetsLoading: 'Cargando presets…',
@@ -201,7 +225,7 @@ function SavePresetForm({ onSave, onCancel, L }) {
 
 // Presets-Tab: die eigenen, privaten Presets laden/speichern/löschen — plus der feste
 // "Alle Karten"-Eintrag als schneller Reset (kein echtes Preset, braucht kein Login).
-function PresetsTab({ excluded, canEdit, onApplyPreset, L }) {
+function PresetsTab({ excluded, canEdit, onApplyPreset, trim, L }) {
   const { user, login } = useContext(TwitchAuthContext);
   const [state, setState] = useState({ status: 'idle', presets: [] });
   const [saveOpen, setSaveOpen] = useState(false);
@@ -294,6 +318,27 @@ function PresetsTab({ excluded, canEdit, onApplyPreset, L }) {
         <p className="text-white/30 text-xs mb-3">{L.presetsIntro}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {renderPresetCard(allCardsEntry)}
+          {/* Fester Eintrag wie "Alle Karten": setzt den Pool ebenfalls auf eine Auswahl —
+              stand vorher als einzelner Knopf in der Suchleiste des Karten-Reiters. */}
+          {trim && (
+            <div className="panel p-4 flex flex-col gap-2.5">
+              <div className="flex items-start gap-2.5">
+                <CrKingBlue size={26} className="shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-white font-semibold text-sm">{L.trimToUnlocked}</p>
+                  <p className="text-white/40 text-xs leading-relaxed mt-0.5">{L.trimPresetDesc}</p>
+                </div>
+              </div>
+              {trim.message && (
+                <p className={`text-xs ${trim.state === 'error' ? 'text-red-400' : 'text-green-400'}`}>{trim.message}</p>
+              )}
+              <button onClick={trim.run} disabled={!canEdit || trim.state === 'checking'}
+                className="mt-auto flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-lg border border-white/10 text-white/60 hover:text-white hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                {trim.state === 'checking' && <Loader2 size={12} className="animate-spin" />}
+                {trim.state === 'checking' ? L.trimChecking : L.trimApply}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -345,6 +390,7 @@ export default function CardExclusionModal({
 }) {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState('cards'); // 'cards' | 'presets'
+  const [cardFilter, setCardFilter] = useState('all'); // 'all' | 'in' | 'out'
   const [trimState, setTrimState] = useState('idle'); // 'idle' | 'checking' | 'error'
   const [trimMessage, setTrimMessage] = useState('');
   const L = I18N[lang] || I18N.de;
@@ -397,7 +443,8 @@ export default function CardExclusionModal({
 
       {tab === 'presets' ? (
         <div className="overflow-y-auto custom-scrollbar p-5">
-          <PresetsTab excluded={excluded} canEdit={canEdit} onApplyPreset={applyPreset} L={L} />
+          <PresetsTab excluded={excluded} canEdit={canEdit} onApplyPreset={applyPreset} L={L}
+            trim={onTrimToUnlocked ? { run: runTrim, state: trimState, message: trimMessage } : null} />
         </div>
       ) : (
         <>
@@ -407,16 +454,6 @@ export default function CardExclusionModal({
               <input value={query} onChange={e => setQuery(e.target.value)} placeholder={L.searchPlaceholder}
                 className="bg-transparent text-white text-sm placeholder-gray-600 outline-none w-full" />
             </div>
-            <span className="text-white/40 text-xs shrink-0">
-              {L.excludedInDraft(excluded.length, ALL_CARDS.length - excluded.length)}
-            </span>
-            {canEdit && onTrimToUnlocked && (
-              <button onClick={runTrim} disabled={trimState === 'checking'} title={L.trimToUnlockedTitle}
-                className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-violet-500/50 hover:bg-violet-500/10 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
-                {trimState === 'checking' ? <Loader2 size={12} className="animate-spin" /> : <CrKingBlue size={18} />}
-                {trimState === 'checking' ? L.trimChecking : L.trimToUnlocked}
-              </button>
-            )}
             {canEdit && excluded.length > 0 && (
               <button onClick={onReset}
                 className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/30 transition-colors shrink-0">
@@ -425,18 +462,39 @@ export default function CardExclusionModal({
             )}
           </div>
 
-          <p className="px-5 pt-3 text-white/30 text-xs shrink-0">{canEdit ? L.editNote : L.readOnlyNote}</p>
-          {trimMessage && (
-            <p className={`px-5 pt-1.5 text-xs shrink-0 ${trimState === 'error' ? 'text-red-400' : 'text-green-400'}`}>
-              {trimMessage}
-            </p>
-          )}
+          {/* Filter statt Zähler-Text: "Entfernt" zeigt auf einen Blick, was rausfliegt. */}
+          <div role="radiogroup" aria-label={L.filterLabel} className="flex items-center gap-1.5 px-5 pt-3 shrink-0 flex-wrap">
+            {[
+              { id: 'all', label: L.filterAll, count: ALL_CARDS.length, tone: 'text-white' },
+              { id: 'in', label: L.filterInDraft, count: ALL_CARDS.length - excluded.length, tone: 'text-green-400' },
+              { id: 'out', label: L.filterRemoved, count: excluded.length, tone: 'text-red-400' },
+            ].map(f => {
+              const active = cardFilter === f.id;
+              return (
+                <button key={f.id} type="button" role="radio" aria-checked={active} onClick={() => setCardFilter(f.id)}
+                  className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+                    active ? 'border-violet-400/60 bg-violet-500/15 text-white' : 'border-white/10 text-white/50 hover:text-white hover:border-white/25'
+                  }`}>
+                  {f.label}
+                  <span className={`tabular-nums ${active ? f.tone : 'text-white/35'}`}>{f.count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="px-5 pt-2.5 text-white/30 text-xs shrink-0">{canEdit ? L.editNote : L.readOnlyNote}</p>
 
           <div className="overflow-y-auto custom-scrollbar p-5">
             <CardGrid
               query={query}
               lang={lang}
-              emptyText={L.noneFound}
+              filter={cardFilter === 'all' ? undefined
+                : cardFilter === 'out' ? (c) => excludedSet.has(c.id)
+                : (c) => !excludedSet.has(c.id)}
+              emptyText={query.trim() ? L.noneFound
+                : cardFilter === 'out' ? L.removedEmpty
+                : cardFilter === 'in' ? L.inDraftEmpty
+                : L.noneFound}
               renderCard={(card) => {
                 const isExcluded = excludedSet.has(card.id);
                 return {
@@ -448,8 +506,8 @@ export default function CardExclusionModal({
                   // Gesperrte Karten sind ausgegraut — das Verbotszeichen macht
                   // eindeutig, dass das Absicht ist und nicht ein fehlendes Bild.
                   overlay: isExcluded ? (
-                    <span className="absolute inset-0 flex items-center justify-center bg-red-500/5">
-                      <CrCancel size={23} className="text-red-400" />
+                    <span className="absolute inset-0 flex items-center justify-center bg-red-950/30 rounded-[8px] ring-2 ring-inset ring-red-500/70">
+                      <CrCancel size={40} style={{ width: '42%', height: 'auto' }} />
                     </span>
                   ) : null,
                 };

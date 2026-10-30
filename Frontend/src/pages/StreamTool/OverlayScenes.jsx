@@ -281,13 +281,152 @@ function Train({ data, module, offsetRef, still }) {
   );
 }
 
+/* ── Hype Train in 3D (hypeTrain3d.js, eigener Chunk mit three.js) ───────── */
+
+const loadTrain3d = () => import('./hypeTrain3d');
+/** Höhe der 3D-Zeichenfläche bei Größe 100 % — Unterkante wie beim 2D-Zug (y + 200). */
+const TRAIN3D_H = 360;
+
+function Train3D({ data, module, offsetRef, still, onFail }) {
+  const canvasRef = useRef(null);
+  const hudRef = useRef(null);
+  const viewRef = useRef(null);
+  const ended = !!data.endedAt;
+  const liveLevel = clamp(Math.round(data.level) || 1, 1, 60);
+  const [shownLevel, setShownLevel] = useState(liveLevel);
+  const [phase, setPhase] = useState('pre'); // pre | in | parked | out | gone
+  const [levelUp, setLevelUp] = useState(0);
+  const [joined, setJoined] = useState(null);
+  const [, tick] = useState(0);
+  const size = clamp(Number(module.scale) || 1, 0.3, 2);
+  const H = Math.round(TRAIN3D_H * size);
+  const people = data.people || [];
+  const golden = data.kind === 'golden_kappa';
+  const live = useRef({});
+  live.current = { people, showNames: !!module.showNames, liveLevel, ended };
+
+  // Zeichenfläche + Zug anlegen (einmal je Größe)
+  useEffect(() => {
+    let cancelled = false;
+    let raf = 0;
+    loadTrain3d().then((mod) => {
+      if (cancelled || !canvasRef.current) return;
+      const view = mod.createHypeTrainView(canvasRef.current, {
+        width: STAGE_W, height: H, size, from: module.from, colors: module.colors, golden,
+      });
+      if (!view) { onFail(); return; }
+      viewRef.current = view;
+      const L = live.current;
+      if (still) { view.park(L.liveLevel, L.people, L.showNames); setPhase('parked'); }
+      else { view.enter(L.liveLevel, L.people, L.showNames, () => setPhase('parked')); setPhase('in'); }
+      const loop = () => {
+        const r = view.draw();
+        if (view.failed) { onFail(); return; }
+        const hud = hudRef.current;
+        if (hud && r) {
+          hud.style.transform = `translate(${Math.round(r.locoX)}px, ${Math.round(r.locoTop)}px)`;
+          hud.style.opacity = r.visible ? '1' : '0';
+        }
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+    }).catch(() => { if (!cancelled) onFail(); });
+    return () => { cancelled = true; cancelAnimationFrame(raf); viewRef.current?.dispose(); viewRef.current = null; };
+  }, [H]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Farben/Richtung/Größe live übernehmen (Editor)
+  useEffect(() => {
+    viewRef.current?.setStyle({ from: module.from, colors: module.colors, golden, size });
+  }, [module.from, module.colors?.join(), golden, size]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Level gestiegen oder Train vorbei: hinaus, dann mit einem Wagen mehr wieder herein
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || still) return;
+    if (phase !== 'parked' || (!ended && liveLevel === shownLevel)) return;
+    setPhase('out');
+    view.exit(() => {
+      const L = live.current;
+      if (L.ended) { setPhase('gone'); return; }
+      setShownLevel(L.liveLevel);
+      setLevelUp((n) => n + 1);
+      setPhase('in');
+      view.enter(L.liveLevel, L.people, L.showNames, () => setPhase('parked'));
+    });
+  }, [phase, liveLevel, shownLevel, ended, still]);
+
+  // Fahrgäste nachziehen + "steigt ein"-Hinweis für den Neuesten
+  const peopleSig = people.map((p) => p.id).join(',');
+  const prevIds = useRef(null);
+  useEffect(() => {
+    viewRef.current?.updatePeople(people, !!module.showNames);
+    const before = prevIds.current;
+    prevIds.current = new Set(people.map((p) => p.id));
+    if (!before || still) return undefined;
+    const fresh = people.filter((p) => !before.has(p.id));
+    if (!fresh.length) return undefined;
+    setJoined({ key: Date.now(), name: fresh[fresh.length - 1].name, more: fresh.length - 1 });
+    const t = setTimeout(() => setJoined(null), 3200);
+    return () => clearTimeout(t);
+  }, [peopleSig, module.showNames]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restzeit — eigener Sekundentakt, nur solange ein Zug fährt
+  const showTimer = module.timer !== false && !ended && !still;
+  useEffect(() => {
+    if (!showTimer) return undefined;
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [showTimer]);
+
+  const pct = clamp((data.progress / Math.max(1, data.goal)) * 100, 0, 100);
+  const remaining = data.expiresAt ? (data.expiresAt - (Date.now() + (offsetRef?.current || 0))) / 1000 : 0;
+  const from = module.from === 'right' ? 'right' : 'left';
+
+  return (
+    <div className={`sts3-train from-${from}${phase === 'gone' ? ' is-gone' : ''}`}
+      style={{ top: Math.round(module.y + 200 * size - H), height: H, '--sts3-a': golden ? '#f5b82e' : module.colors[0] }}>
+      <canvas ref={canvasRef} style={{ width: STAGE_W, height: H }} />
+      <div ref={hudRef} className="sts3-hud-anchor" style={{ opacity: 0 }}>
+        <div className="sts3-hud" style={{ zoom: Math.max(0.7, size) }}>
+          {joined && (
+            <div key={joined.key} className="sts3-joined">
+              <b>{joined.name}</b> steigt ein{joined.more > 0 ? ` (+${joined.more})` : ''}
+            </div>
+          )}
+          {levelUp > 0 && !still && <div key={levelUp} className="sts3-levelup">Level {shownLevel}!</div>}
+          <div className="sts3-hud-card">
+            <div className="sts3-hud-row">
+              <span className="sts3-hud-kicker">{golden ? 'Goldener Hype Train' : 'Hype Train'}</span>
+              {showTimer && remaining > 0 && <span className="sts3-hud-timer">{mmss(remaining)}</span>}
+            </div>
+            <div className="sts3-hud-row">
+              <b className="sts3-hud-level">Level {shownLevel}</b>
+              <span className="sts3-hud-people">{people.length} {people.length === 1 ? 'Fahrgast' : 'Fahrgäste'}</span>
+            </div>
+            {module.showProgress !== false && (
+              <div className="sts3-prog"><i style={{ width: `${pct.toFixed(1)}%` }} /><span>{Math.round(pct)} %</span></div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * @param {object}  data    Zugdaten vom Server (oder Demo)
  * @param {boolean} still   Dashboard-Vorschau zum Ausrichten: steht sofort, fährt nie
+ *
+ * Standard ist der 3D-Zug; ohne WebGL (oder ausgeschaltet) fährt der flache Zug.
  */
 export function HypeTrainScene({ data, module, offsetRef, still = false }) {
+  const [no3d, setNo3d] = useState(false);
   if (!data) return null;
-  return <Train key={`${data.id}-${still ? 's' : 'l'}`} data={data} module={module} offsetRef={offsetRef} still={still} />;
+  const key = `${data.id}-${still ? 's' : 'l'}`;
+  if (module.view3d !== false && !no3d) {
+    return <Train3D key={key} data={data} module={module} offsetRef={offsetRef} still={still} onFail={() => setNo3d(true)} />;
+  }
+  return <Train key={key} data={data} module={module} offsetRef={offsetRef} still={still} />;
 }
 
 /* ── Raid-Ansturm ───────────────────────────────────────────────────────── */

@@ -459,7 +459,7 @@ function drawBallMarker(ctx, ball, width) {
   ctx.restore();
 }
 
-function drawGlyph(ctx, type, r) {
+export function drawGlyph(ctx, type, r) {
   ctx.strokeStyle = "#ffffff";
   ctx.fillStyle = "#ffffff";
   ctx.lineWidth = r * 0.16;

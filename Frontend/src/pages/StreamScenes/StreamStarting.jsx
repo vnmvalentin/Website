@@ -21,6 +21,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { hasWebGL, fontsReady } from './sceneKit';
 import { useTwitchChat } from './twitchChat';
 import { createControlLink, createMusicFeed } from './sceneLink';
+import { reloadOverlay } from './selfHeal';
 import './streamScenes.css';
 
 const CHAT_TTL_MS = 120000;
@@ -124,6 +125,7 @@ export default function StreamStarting() {
   const [song, setSong] = useState(null);
   const [linkError, setLinkError] = useState('');
   const settingsRef = useRef(null);
+  const channelRef = useRef(channel);
   const chatSide = ['left', 'right'].includes(params.get('chat')) ? params.get('chat') : null;
   const demo = params.get('demo') === '1' || !!settings?.demo;
   const forceHype = params.get('hype') === '1';
@@ -145,6 +147,7 @@ export default function StreamStarting() {
         sceneRef.current?.applySettings(st);
       },
       onCommand: (type) => sceneRef.current?.command(type),
+      onLooks: (list) => { for (const c of list) sceneRef.current?.refreshLook?.(c); },
       onError: setLinkError,
     });
     return () => link.stop();
@@ -166,6 +169,12 @@ export default function StreamStarting() {
     return () => feed.stop();
   }, [musicPort]);
 
+  // Kanal = Streamer hinter dem DJ-Pult
+  useEffect(() => {
+    channelRef.current = channel;
+    sceneRef.current?.setChannel(channel);
+  }, [channel]);
+
   const messages = useTwitchChat(channel, {
     max: 30,
     onEvent: (e) => {
@@ -181,6 +190,9 @@ export default function StreamStarting() {
     document.body.style.background = '#000';
     if (!hasWebGL()) { setFailed(true); return undefined; }
     let disposed = false;
+    // Hängt der Start (Code-Teil lädt nicht, Szene wird nie fertig), neu laden statt schwarz zu bleiben
+    const watchdog = setTimeout(() => { if (!disposed) reloadOverlay('Party nach 90 s nicht fertig'); }, 90000);
+    const fatal = (reason) => { if (!disposed && !reloadOverlay(reason)) setFailed(true); };
     const getInfo = () => {
       const { target, title } = info.current;
       const left = target ? target - Date.now() : 0;
@@ -188,24 +200,34 @@ export default function StreamStarting() {
     };
     (async () => {
       await fontsReady();
-      const { createPartyScene } = await import('./partyScene');
+      let createPartyScene;
+      try {
+        ({ createPartyScene } = await import('./partyScene'));
+      } catch (err) {
+        console.error('Starting-Szene nicht geladen', err);
+        fatal('Code der Party-Szene nicht geladen');
+        return;
+      }
       if (disposed || !canvasRef.current) return;
       try {
-        sceneRef.current = createPartyScene(canvasRef.current, overlayRef.current, { getInfo, forceHype, figures });
+        sceneRef.current = createPartyScene(canvasRef.current, overlayRef.current, { getInfo, forceHype, figures, onFatal: fatal });
+        sceneRef.current.setChannel(channelRef.current);
         if (settingsRef.current) sceneRef.current.applySettings(settingsRef.current);
       } catch (err) {
         console.error('Starting-Szene konnte nicht starten', err);
-        setFailed(true);
+        fatal('Party-Szene konnte nicht starten');
         return;
       }
       // Erst einblenden, wenn Texturen und Figuren geladen sind
       await sceneRef.current.ready;
       if (disposed) return;
+      clearTimeout(watchdog);
       requestAnimationFrame(() => setVisible(true));
       setSceneReady(true);
     })();
     return () => {
       disposed = true;
+      clearTimeout(watchdog);
       setSceneReady(false);
       sceneRef.current?.dispose();
       sceneRef.current = null;

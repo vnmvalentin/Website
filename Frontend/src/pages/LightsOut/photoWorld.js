@@ -73,8 +73,11 @@ const PROPS = {
     { id: 'old_bed_frame', h: 0.85 },
     { id: 'wheelchair_01', h: 0.95 },
     { id: 'drawer_cabinet', h: 1.15 },
+    { id: 'tool_cart', h: 0.9 },
+    { id: 'wheelchair_01', h: 0.95 },
     { id: 'metal_trash_can', h: 0.75 },
     { id: 'old_bed_frame', h: 0.85 },
+    { id: 'metal_stool_01', h: 0.55 },
     { id: 'medical_box', h: 0.35 },
   ],
   cellar: [
@@ -82,6 +85,7 @@ const PROPS = {
     { id: 'wooden_crate_02', h: 0.7 },
     { id: 'worn_metal_rack', h: 1.9 },
     { id: 'barrel_03', h: 0.95, tint: 0x6a4a38 },
+    { id: 'wooden_bucket_01', h: 0.4 },
     { id: 'wooden_crate_02', h: 0.9 },
   ],
 };
@@ -123,20 +127,6 @@ export function placeRoomProps({ scene, assets, kind, spots, S, addProp, rng }) 
     };
     if (holder.userData.loaded) place(); else holder.addEventListener('loaded', place);
   });
-}
-
-/**
- * Deckenlampen als Kulisse (ohne Kollision): Neonröhren (Anstalt) bzw. Käfiglampen (Keller).
- * @param {{ scene: THREE.Scene, assets: any, kind: string, cells: number[][], S: number, wallH: number }} p
- */
-export function placeCeilingLamps({ scene, assets, kind, cells, S, wallH }) {
-  const id = kind === 'halls' ? 'mounted_fluorescent_lights' : 'caged_hanging_light';
-  const h = kind === 'halls' ? 0.12 : 0.5;
-  for (const cell of cells) {
-    const holder = assets.model(id, h, { castShadow: false });
-    holder.position.set(cell[0] * S, wallH - h - 0.01, cell[1] * S);
-    scene.add(holder);
-  }
 }
 
 /**

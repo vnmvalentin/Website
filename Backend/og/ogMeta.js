@@ -29,7 +29,7 @@ const STATIC_PAGES = {
   '/garden': { section: 'garden', title: 'Virtual Farm', description: 'Deine eigene Farm im Browser: pflanzen, ernten, Tiere halten und den Hof mit Deko gestalten — mit Nachbarn auf derselben Insel.' },
   '/adventures': { section: 'games', title: 'adVentures', description: 'Roguelite-Dungeon im Browser: Waffen, Talente, Bosse — jeder Lauf anders.' },
   '/blobby': { section: 'games', title: 'Blobby Volley', description: 'Blobby Volley online: Volleyball im Browser, 1v1 oder 2v2. Link teilen, losspielen, kein Download.' },
-  '/lights-out': { section: 'games', title: 'Lights Out', description: 'Horror im Browser in drei Ebenen: ein Wald, eine Anstalt, ein Keller — und in jeder ein anderes Ding im Dunkeln.' },
+  '/lights-out': { section: 'games', title: 'Lights Out', description: 'Horror im Browser in vier Ebenen: Wald, Anstalt, Keller, Garten — in jeder ein anderes Ding im Dunkeln. Allein oder zu viert im Koop.' },
   '/flick-soccer': { section: 'games', title: 'Flick Soccer', description: 'Scheiben-Fußball im Browser: Formation wählen, zurückziehen, abschießen. Gegen den Computer, zu zweit oder online per Link.' },
   '/connect4': { section: 'games', title: 'Connect 4', description: 'Vier Gewinnt gegen einen Freund: Link teilen und direkt loslegen, kein Download nötig.' },
   '/sacrifice-and-sigils/kartenbuch': { section: 'sigils', title: 'Kartenbuch', description: 'Alle Karten, Sigils, Items und Ereignisse von Sacrifice & Sigils.' },

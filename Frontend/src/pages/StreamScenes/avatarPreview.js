@@ -1,8 +1,8 @@
 // avatarPreview.js — 3D-Vorschau für den Figurbaukasten (/tanzfigur).
 //
 // Eine Figur auf einer kleinen Bühne, tanzt im Takt (gleiche Tänze wie im Stream). Ziehen dreht
-// die Figur, losgelassen dreht sie sich langsam weiter. setLook baut die Figur um, ohne den Tanz
-// zu unterbrechen.
+// die Figur, losgelassen bleibt sie so stehen (resetView: wieder von vorn). setLook baut die Figur
+// um, ohne den Tanz zu unterbrechen.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { loadPeopleKit, buildPersonFigure, personBeatScale, PERSON_H } from './peopleFigure';
@@ -21,7 +21,7 @@ export const PREVIEW_DANCES = [
 
 /**
  * @param {HTMLCanvasElement} canvas
- * @returns {{ ready: Promise<boolean>, setLook(look): void, setDance(id): void, dispose(): void }}
+ * @returns {{ ready: Promise<boolean>, setLook(look): void, setDance(id): void, resetView(): void, dispose(): void }}
  */
 export function createAvatarPreview(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -62,15 +62,15 @@ export function createAvatarPreview(canvas) {
   let disposed = false;
   const clock = createBeatClock(140);
 
-  // Drehen per Ziehen
-  let yaw = 0.35, yawVel = 0.25, dragging = false, lastX = 0;
+  // Drehen nur per Ziehen — von selbst bleibt die Figur stehen (Blick nach vorn), damit man sie
+  // beim Bearbeiten nicht ständig von der Seite sieht
+  let yaw = 0, dragging = false, lastX = 0;
   const down = (e) => { dragging = true; lastX = e.clientX; canvas.setPointerCapture?.(e.pointerId); };
   const move = (e) => {
     if (!dragging) return;
     const dx = e.clientX - lastX;
     lastX = e.clientX;
     yaw += dx * 0.012;
-    yawVel = dx * 0.6;
   };
   const up = () => { dragging = false; };
   canvas.addEventListener('pointerdown', down);
@@ -108,10 +108,6 @@ export function createAvatarPreview(canvas) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     const beat = clock.step(dt);
-    if (!dragging) {
-      yawVel += (0.25 - yawVel) * Math.min(1, dt * 1.5);
-      yaw += yawVel * dt;
-    }
     holder.rotation.y = yaw;
     ring.material.color.setHSL(0.72 + 0.05 * Math.sin(beat * Math.PI / 2), 0.8, 0.45 + 0.15 * Math.max(0, 1 - (beat % 1) * 3));
     fig?.update(dt, beat);
@@ -129,6 +125,8 @@ export function createAvatarPreview(canvas) {
       dance = id;
       play();
     },
+    /** Wieder von vorn ansehen. */
+    resetView() { yaw = 0; },
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);

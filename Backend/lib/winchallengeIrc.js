@@ -25,6 +25,8 @@ const streamToolScenes = require("../streamTool/lib/streamToolScenes");
 const winTrackerChat = require("../clashRoyale/lib/winTrackerChat");
 // CR-Minigames: Chat stimmt im Pyramidendraft für den Streamer ab
 const crTwitchChat = require("../clashRoyale/core/twitchChat");
+// Viewer Games (Chat-Quiz-Overlay): Kanäle nur, solange das Overlay offen ist; Tipps per "!tipp <Karte>"
+const crViewerGames = require("../clashRoyale/viewerGames/viewerGames");
 const { healRenamedChannel } = require("./twitchRenameHeal");
 const { step } = require("./startupLog");
 
@@ -428,6 +430,11 @@ function getChannelList() {
   } catch (e) {
     console.warn("[clash] Chat-Kanäle nicht lesbar:", e.message);
   }
+  try {
+    for (const c of crViewerGames.getChannels()) set.add(normalizeChannel(c));
+  } catch (e) {
+    console.warn("[viewer-games] Kanäle nicht lesbar:", e.message);
+  }
   return [...set];
 }
 
@@ -757,6 +764,13 @@ async function onChatMessage(channel, tags, message, self) {
   if (!startsWithCommandChar(message)) return;
 
   const ch = normalizeChannel(channel.replace(/^#/, ""));
+
+  // Viewer Games: "!tipp <Karte>" — synchron, für Kanäle ohne offenes Overlay sofort wieder draußen
+  try {
+    crViewerGames.onChatMessage(ch, tags || {}, message);
+  } catch (e) {
+    console.warn("[viewer-games] Tipp:", e.message);
+  }
 
   // Murmelbahn: Beitritt und Steuerung. Synchron und für fremde Kanäle sofort
   // wieder draußen (Nachschlagen in einer Map).
@@ -1165,6 +1179,10 @@ function getIrcStatus() {
 crTwitchChat.attachIrc({
   refresh: () => (client ? syncChannels() : Promise.resolve()),
   status: getIrcStatus,
+  say: queueChatReply,
+});
+crViewerGames.attachIrc({
+  refresh: () => (client ? syncChannels() : Promise.resolve()),
   say: queueChatReply,
 });
 

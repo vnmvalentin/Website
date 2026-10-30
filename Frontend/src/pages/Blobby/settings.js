@@ -17,17 +17,28 @@ export const POWERUP_LABELS = {
 };
 
 export function normalizeSettings(raw) {
+  // "beach" = 3D-Feld mit WASD (beach/), gerechnet beim Host statt auf dem Server
+  const field = raw?.field === "beach" ? "beach" : "classic";
   return {
     mode: raw?.mode === "2v2" ? "2v2" : "1v1",
     crossNet: raw?.crossNet !== false,
     maxTouches: Number(raw?.maxTouches) === 3 ? 3 : 0,
     powerups: !!raw?.powerups,
+    field,
   };
 }
 
 // Kurzfassung für die Kopfzeile im Raum
 export function settingsSummary(s) {
   const n = normalizeSettings(s);
+  if (n.field === "beach") {
+    return [
+      "Beach 3D",
+      n.mode === "2v2" ? "2 gegen 2" : "1 gegen 1",
+      n.maxTouches === 3 ? "max. 3 Berührungen" : "Berührungen frei",
+      n.powerups ? "Powerups an" : "Powerups aus",
+    ];
+  }
   return [
     n.mode === "2v2" ? "2 gegen 2" : "1 gegen 1",
     n.crossNet ? "Pfeiler überspringbar" : "Hälften getrennt",

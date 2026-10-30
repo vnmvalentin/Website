@@ -136,7 +136,7 @@ export default function DeckOverlayPage() {
 
   return (
     <>
-      <DeckOverlayGrid players={players} viewport={viewport} />
+      <DeckOverlayGrid players={players} viewport={viewport} feedKey={decks?.at} />
 
       {isDebug && (
         <div

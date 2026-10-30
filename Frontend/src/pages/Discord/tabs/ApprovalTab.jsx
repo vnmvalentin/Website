@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Smile, Search, Pencil, Trash2 } from 'lucide-react';
+import { X, Search, Pencil, Trash2 } from 'lucide-react';
 import { DcAddTile } from '../ui';
+import EmojiTextField from '../EmojiTextField';
 
 const EMPTY_FORM = {
     title: '',
@@ -24,9 +25,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
     const [saveStatus, setSaveStatus] = useState('');
     const [memberSearch, setMemberSearch] = useState('');
     const [showMemberDropdown, setShowMemberDropdown] = useState(false);
-    const [showEmbedEmojiPicker, setShowEmbedEmojiPicker] = useState(false);
     const memberRef = useRef(null);
-    const emojiRef = useRef(null);
 
     useEffect(() => {
         if (!selectedServer) return;
@@ -40,8 +39,6 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
         const handler = (e) => {
             if (memberRef.current && !memberRef.current.contains(e.target))
                 setShowMemberDropdown(false);
-            if (emojiRef.current && !emojiRef.current.contains(e.target))
-                setShowEmbedEmojiPicker(false);
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
@@ -57,7 +54,6 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
         setSaveStatus('');
         setMemberSearch('');
         setShowMemberDropdown(false);
-        setShowEmbedEmojiPicker(false);
         if (config) {
             setEditingId(config.id);
             const approverIds = Array.isArray(config.approverIds)
@@ -92,11 +88,6 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
         }));
     };
 
-    const insertEmoji = (emoji) => {
-        const format = emoji.animated ? `<a:${emoji.name}:${emoji.id}>` : `<:${emoji.name}:${emoji.id}>`;
-        setField('embedText', form.embedText + format + ' ');
-        setShowEmbedEmojiPicker(false);
-    };
 
     const handleSave = async () => {
         if (!form.channelId) return alert('Bitte einen Kanal auswählen!');
@@ -217,44 +208,15 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                         </div>
                         <div>
                             <label className="dc-label">Embed Text</label>
-                            <div className="relative" ref={emojiRef}>
-                                <textarea
-                                    value={form.embedText}
-                                    onChange={e => setField('embedText', e.target.value)}
-                                    rows="4"
-                                    placeholder="Beschreibe hier wie der Bewerbungsprozess abläuft..."
-                                    className="dc-input w-full pr-12 resize-y"
-                                />
-                                {serverEmojis.length > 0 && (
-                                    <button
-                                        onClick={() => setShowEmbedEmojiPicker(v => !v)}
-                                        className="absolute right-3 top-3 p-2 text-white/50 hover:text-indigo-400 bg-[#0e0e1a]/75 rounded-md border border-white/5 transition-colors"
-                                        title="Server Emoji einfügen"
-                                        type="button"
-                                    ><Smile size={14} /></button>
-                                )}
-                                {showEmbedEmojiPicker && (
-                                    <div className="dc-card absolute right-0 top-14 w-64 p-3 z-50">
-                                        <div className="text-xs text-white/50 mb-2 font-medium">Server Emoji einfügen</div>
-                                        <div
-                                            className="grid grid-cols-5 gap-1.5 max-h-48 overflow-y-auto pr-1"
-                                            style={{ scrollbarWidth: 'thin', scrollbarColor: '#06b6d4 transparent' }}
-                                        >
-                                            {serverEmojis.map(e => (
-                                                <button
-                                                    key={e.id}
-                                                    onClick={() => insertEmoji(e)}
-                                                    className="p-1.5 hover:bg-white/10 rounded-md flex justify-center items-center transition-colors"
-                                                    title={e.name}
-                                                    type="button"
-                                                >
-                                                    <img src={e.url} alt={e.name} className="w-7 h-7 object-contain" />
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            <EmojiTextField
+                                value={form.embedText}
+                                onChange={v => setField('embedText', v)}
+                                rows={4}
+                                emojis={serverEmojis}
+                                roles={serverRoles}
+                                channels={channels}
+                                placeholder="Beschreibe hier wie der Bewerbungsprozess abläuft..."
+                            />
                         </div>
                     </div>
 
@@ -306,7 +268,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                             </div>
 
                             {showMemberDropdown && (
-                                <div className="dc-card absolute z-50 w-full mt-1 overflow-hidden">
+                                <div className="dc-popover absolute z-50 w-full mt-1 overflow-hidden">
                                     {filteredMembers.length === 0 ? (
                                         <div className="px-4 py-3 text-white/40 text-sm text-center">
                                             {memberSearch ? `Kein Mitglied gefunden für "${memberSearch}"` : 'Alle Mitglieder bereits ausgewählt'}

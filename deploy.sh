@@ -15,6 +15,9 @@ FRONTEND_DEST="${FRONTEND_DEST:-/var/www/mywebsite/dist}"
 # per systemd verwaltet).
 BACKEND_DEST="${BACKEND_DEST:-/var/www/admin-api}"
 BACKEND_SERVICE="${BACKEND_SERVICE:-admin-api}"
+# Blobby läuft als eigener Prozess (Backend/blobbyServer.js) aus demselben Ordner, aber
+# mit eigener systemd-Unit — ohne eigenen Neustart liefe dort nach jedem Deploy der alte Code.
+BLOBBY_SERVICE="${BLOBBY_SERVICE:-blobby}"
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 TARGET="${1:-all}"
@@ -73,6 +76,10 @@ deploy_frontend() {
   echo "=== Frontend ==="
   check_sim_mirror
   fix_vulnerabilities Frontend
+  # Gesammelte Änderungen (UPDATES_OFFEN.md) als neue Version in Frontend/src/utils/newData.js eintragen und die
+  # Sammeldatei leeren — VOR dem Build, damit /updates sie zeigt; post_updates postet sie danach nach Discord.
+  # Bricht der Deploy später ab, steht die Version schon in newData.js und geht beim nächsten Deploy mit raus.
+  node "$ROOT/Backend/statusWatch/tools/releaseUpdates.mjs"
   cd "$ROOT/Frontend"
 
   npm run build
@@ -139,7 +146,12 @@ deploy_backend() {
   #                                                erst auf dem Server und gehört nur dorthin.
   #   streamScenes/data/                           Figuren der Zuschauer + Steuerpult der 3D-Stream-Szenen
   #                                                (streamScenes/lib/sceneStore.js) — nur auf dem Server echt.
-  local excludes=(--exclude='./data' --exclude='./garden/data' --exclude='./analytics/data' --exclude='./streamScenes/data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
+  #   statusWatch/data/                            ID der #status-Nachricht, Störungsverlauf, gepostete Updates
+  #                                                (statusWatch/) — sonst postet jeder Deploy alles neu.
+  local excludes=(--exclude='./data' --exclude='./garden/data' --exclude='./analytics/data' --exclude='./streamScenes/data' --exclude='./statusWatch/data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
+  # Wartungsfenster für #status: während der Neustart läuft, zeigt der Prüfer Gelb "Wartung" statt Rot.
+  # Läuft von selbst ab — bricht der Deploy mittendrin ab, bleibt der Status nicht ewig auf Wartung.
+  local maintenance_until=$(( ($(date +%s) + 180) * 1000 ))
 
   tar -cz "${excludes[@]}" -C . . | ssh "$SERVER" "set -e
     rm -rf '$BACKEND_DEST.new'
@@ -148,19 +160,39 @@ deploy_backend() {
     test -f '$BACKEND_DEST.new/index.js'
     rsync -a --delete \
       --include '/clashRoyale/data/cardIconUrls.json' \
-      --exclude '/data/' --exclude '/clashRoyale/data/*' --exclude '/streamTool/data/' --exclude '/garden/data/' --exclude '/analytics/data/' --exclude '/streamScenes/data/' \
+      --exclude '/data/' --exclude '/clashRoyale/data/*' --exclude '/streamTool/data/' --exclude '/garden/data/' --exclude '/analytics/data/' --exclude '/streamScenes/data/' --exclude '/statusWatch/data/' \
       --exclude 'node_modules/' --exclude 'sessions.json' \
       --exclude '.env' --exclude '.env.*' \
       '$BACKEND_DEST.new/' '$BACKEND_DEST/'
     rm -rf '$BACKEND_DEST.new'
     cd '$BACKEND_DEST'
     npm install --omit=dev
+    mkdir -p statusWatch/data
+    echo '{\"until\": $maintenance_until}' > statusWatch/data/maintenance.json
     chown -R www-data:www-data '$BACKEND_DEST'
     systemctl restart '$BACKEND_SERVICE'
     sleep 2
-    systemctl is-active --quiet '$BACKEND_SERVICE'"
+    systemctl is-active --quiet '$BACKEND_SERVICE'
+    # Blobby (eigener Prozess, Port 3002): neu starten, damit der neue Spielcode läuft. Beendet laufende
+    # Partien — der Zustand liegt nur im Speicher. Nur warnen statt abbrechen: der Hauptdienst läuft ja schon.
+    if systemctl list-unit-files '$BLOBBY_SERVICE.service' >/dev/null 2>&1 && systemctl cat '$BLOBBY_SERVICE' >/dev/null 2>&1; then
+      systemctl restart '$BLOBBY_SERVICE' || echo 'Warnung: Blobby ($BLOBBY_SERVICE) startet nicht — journalctl -u $BLOBBY_SERVICE'
+    else
+      echo 'Hinweis: keine systemd-Unit $BLOBBY_SERVICE gefunden — Blobby wurde nicht neu gestartet.'
+    fi
+    # Status-Prüfer (#status): Unit aus dem Repo einspielen und neu starten. Fehler hier sollen den
+    # schon erfolgreichen Backend-Deploy nicht als gescheitert melden — nur warnen.
+    if sed \"s#@NODE@#\$(command -v node)#\" deploy/admin-status.service > /tmp/admin-status.service.new; then
+      if ! cmp -s /tmp/admin-status.service.new /etc/systemd/system/admin-status.service; then
+        mv /tmp/admin-status.service.new /etc/systemd/system/admin-status.service
+        systemctl daemon-reload
+        systemctl enable admin-status >/dev/null 2>&1 || true
+      fi
+      rm -f /tmp/admin-status.service.new
+      systemctl restart admin-status || echo 'Warnung: Status-Prüfer (admin-status) startet nicht — journalctl -u admin-status'
+    fi"
 
-  echo "Backend fertig, $BACKEND_SERVICE neugestartet (kurze Auszeit durch den Neustart selbst —"
+  echo "Backend fertig, $BACKEND_SERVICE und $BLOBBY_SERVICE neugestartet (kurze Auszeit durch den Neustart selbst —"
   echo "Discord-Bot/Twitch-IRC brauchen danach wieder ein paar Sekunden zum Verbinden)."
   echo "Rollback: letzten funktionierenden Commit auschecken und erneut deployen — Server-seitig"
   echo "gibt es hierfür bewusst kein .old (data/ hängt sonst am falschen Stand)."
@@ -192,10 +224,30 @@ deploy_levels() {
   echo "Level-Übertragung fertig (kein Neustart nötig — der Server liest die Level direkt aus der Datenbank)."
 }
 
+# Neue Einträge aus Frontend/src/utils/newData.js nach #updates in Discord posten — erst, wenn das Frontend mit
+# ihnen live ist. Export hier, Posten dort (Webhook steht nur in der Server-.env), wie bei den Leveln.
+# Was schon gepostet ist, merkt sich der Server (statusWatch/data/updates_state.json). Ein Fehler hier lässt den
+# Deploy gelingen: die Seite ist ja schon online, beim nächsten Frontend-Deploy wird es erneut versucht.
+post_updates() {
+  echo "=== Discord #updates ==="
+  local json
+  if ! json="$(node "$ROOT/Backend/statusWatch/tools/exportUpdates.mjs")"; then
+    echo "Warnung: Updates konnten nicht gelesen werden — nichts gepostet."
+    return
+  fi
+  printf '%s' "$json" | ssh "$SERVER" "cd '$BACKEND_DEST'
+    if [ ! -f statusWatch/postUpdates.js ]; then
+      echo 'Auf dem Server fehlt statusWatch/postUpdates.js — erst ./deploy.sh backend, dann werden Updates gepostet.'
+      exit 0
+    fi
+    runuser -u www-data -- node statusWatch/postUpdates.js" \
+    || echo "Warnung: Updates nicht gepostet (siehe Meldung oben)."
+}
+
 case "$TARGET" in
-  frontend) deploy_frontend ;;
+  frontend) deploy_frontend; post_updates ;;
   backend)  deploy_backend ;;
-  all)      deploy_frontend; deploy_backend ;;
+  all)      deploy_frontend; deploy_backend; post_updates ;;
   level)    shift; deploy_levels "$@" ;;
   *)
     echo "Unbekanntes Ziel: $TARGET (erwartet: frontend | backend | level | keins = beides)" >&2

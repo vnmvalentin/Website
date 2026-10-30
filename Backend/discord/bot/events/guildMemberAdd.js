@@ -26,7 +26,7 @@ module.exports = {
         try {
             if (serverSettings.welcomeStyle === 'image') {
                 // Der Text steht als gewöhnliche Nachricht über dem Bild — so pingt [USER] wie gewohnt
-                await channel.send({ content: finalMessage, files: [await memberImageFile(member, 'welcome')] });
+                await channel.send({ content: finalMessage, files: [await memberImageFile(member, 'welcome', serverSettings.welcomeImageLayout)] });
             } else if (serverSettings.welcomeStyle === 'card') {
                 // Eine Erwähnung IN der Karte pingt nicht — deshalb steht sie
                 // zusätzlich als Text darüber, wenn die Nachricht [USER] nutzt.

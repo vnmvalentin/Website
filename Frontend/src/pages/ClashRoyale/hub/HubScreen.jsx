@@ -138,7 +138,11 @@ export default function HubScreen({
   friends, user, login, onJoinFriend,
 }) {
   // 'menu' | 'create' | 'join' | 'tournaments' | 'minigames' | 'faq' | 'support'
-  const [view, setView] = useState('menu');
+  // Direktsprung von außen (z. B. /clash → Turniere): ?ansicht=turniere|minigames
+  const [view, setView] = useState(() => {
+    const want = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ansicht') : null;
+    return ({ turniere: 'tournaments', minigames: 'minigames' })[want] || 'menu';
+  });
   const [joinCode, setJoinCode] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
   const [tutorialMode, setTutorialMode] = useState(null);

@@ -1,0 +1,1634 @@
+{
+ "source": "clashroyale.fandom.com (Level 11)",
+ "fetchedAt": "2026-10-29",
+ "cards": {
+  "skeletons": {
+   "hp": 81,
+   "damage": 81,
+   "hitSpeed": 1.1,
+   "speed": 90,
+   "range": 0.5,
+   "deployTime": 1,
+   "count": 3,
+   "dps": 74,
+   "changed": "2025-10-06"
+  },
+  "fire-spirit": {
+   "hp": 215,
+   "damage": 207,
+   "speed": 120,
+   "range": 2.5,
+   "deployTime": 1,
+   "count": 1,
+   "changed": "2026-08-04"
+  },
+  "electro-spirit": {
+   "hp": 215,
+   "damage": 99,
+   "speed": 120,
+   "range": 2.5,
+   "deployTime": 1,
+   "count": 1,
+   "changed": "2026-08-04"
+  },
+  "ice-spirit": {
+   "hp": 215,
+   "damage": 110,
+   "speed": 120,
+   "range": 2.5,
+   "deployTime": 1,
+   "changed": "2026-08-04"
+  },
+  "goblins": {
+   "hp": 202,
+   "damage": 125,
+   "hitSpeed": 1.1,
+   "speed": 120,
+   "range": 0.5,
+   "deployTime": 1,
+   "count": 4,
+   "dps": 114,
+   "changed": "2026-08-04"
+  },
+  "spear-goblins": {
+   "hp": 133,
+   "damage": 81,
+   "hitSpeed": 1.6,
+   "speed": 120,
+   "range": 5,
+   "deployTime": 1,
+   "count": 3,
+   "dps": 51,
+   "changed": "2026-08-04"
+  },
+  "bomber": {
+   "hp": 304,
+   "damage": 225,
+   "hitSpeed": 1.8,
+   "speed": 60,
+   "range": 4.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 125,
+   "changed": "2026-09-06"
+  },
+  "bats": {
+   "hp": 81,
+   "damage": 81,
+   "hitSpeed": 1.3,
+   "speed": 120,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 5,
+   "dps": 62,
+   "changed": "2026-03-02"
+  },
+  "zap": {
+   "damage": 192,
+   "radius": 2.5,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "giant-snowball": {
+   "damage": 179,
+   "radius": 2.5,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "berserker": {
+   "hp": 896,
+   "damage": 102,
+   "hitSpeed": 0.6,
+   "speed": 90,
+   "range": 0.8,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 170,
+   "changed": "2025-10-06"
+  },
+  "knight": {
+   "hp": 1766,
+   "damage": 202,
+   "hitSpeed": 1.2,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 168,
+   "changed": "2025-12-01"
+  },
+  "archers": {
+   "hitSpeed": 0.9,
+   "speed": 60,
+   "range": 5,
+   "deployTime": 1,
+   "count": 2,
+   "changed": "2025-11-24"
+  },
+  "minions": {
+   "hitSpeed": 1.2,
+   "speed": 90,
+   "range": 2.5,
+   "deployTime": 1,
+   "count": 3,
+   "changed": "2026-02-02"
+  },
+  "goblin-gang": {
+   "hp": 202,
+   "damage": 120,
+   "hitSpeed": 1.1,
+   "speed": 120,
+   "range": 0.5,
+   "dps": 109,
+   "of": {
+    "hp": [
+     "Messer-Kobold",
+     "Goblin"
+    ],
+    "damage": [
+     "Messer-Kobold",
+     "Goblin"
+    ],
+    "dps": [
+     "Messer-Kobold",
+     "Goblin"
+    ]
+   },
+   "changed": "2025-08-04"
+  },
+  "arrows": {
+   "damage": 122,
+   "radius": 3.5,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden, pro Welle (×3)",
+     "Damage to troops, not crown towers, per wave (×3)"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "cannon": {
+   "hp": 824,
+   "damage": 212,
+   "hitSpeed": 1,
+   "range": 5.5,
+   "deployTime": 1,
+   "lifetime": 30,
+   "dps": 212,
+   "changed": "2026-04-06"
+  },
+  "skeleton-barrel": {
+   "hp": 532,
+   "damage": 81,
+   "hitSpeed": 1.1,
+   "speed": 90,
+   "range": 0.35,
+   "deployTime": 1,
+   "dps": 74,
+   "of": {
+    "hp": [
+     "Fass",
+     "Barrel"
+    ],
+    "damage": [
+     "Skelette",
+     "Skeletons"
+    ],
+    "dps": [
+     "Skelette",
+     "Skeletons"
+    ],
+    "hitSpeed": [
+     "Skelette",
+     "Skeletons"
+    ],
+    "speed": [
+     "Skelette",
+     "Skeletons"
+    ],
+    "range": [
+     "Skelette",
+     "Skeletons"
+    ]
+   },
+   "changed": "2025-10-06"
+  },
+  "firecracker": {
+   "hp": 304,
+   "damage": 64,
+   "hitSpeed": 3,
+   "speed": 90,
+   "range": 6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 107,
+   "of": {
+    "damage": [
+     "pro Treffer, ×5 je Angriff",
+     "per hit, ×5 per attack"
+    ]
+   },
+   "changed": "2026-04-06"
+  },
+  "royal-delivery": {
+   "hp": 547,
+   "damage": 133,
+   "hitSpeed": 1.3,
+   "deployTime": 3,
+   "radius": 3,
+   "dps": 102,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "skeleton-dragons": {
+   "hp": 560,
+   "damage": 161,
+   "hitSpeed": 2,
+   "speed": 90,
+   "range": 3.5,
+   "deployTime": 1,
+   "count": 2,
+   "dps": 81,
+   "changed": "2026-05-04"
+  },
+  "mortar": {
+   "hp": 1369,
+   "damage": 266,
+   "hitSpeed": 5,
+   "range": 3.5,
+   "deployTime": 3.5,
+   "lifetime": 30,
+   "dps": 53,
+   "changed": "2026-08-04"
+  },
+  "tesla": {
+   "hp": 1152,
+   "damage": 220,
+   "hitSpeed": 1.1,
+   "range": 5.5,
+   "deployTime": 1,
+   "lifetime": 25,
+   "dps": 200,
+   "changed": "2026-06-01"
+  },
+  "barbarians": {
+   "hp": 716,
+   "damage": 192,
+   "hitSpeed": 1.4,
+   "speed": 60,
+   "range": 0.7,
+   "deployTime": 1,
+   "count": 5,
+   "dps": 137,
+   "changed": "2026-08-04"
+  },
+  "minion-horde": {
+   "hitSpeed": 1.1,
+   "speed": 90,
+   "range": 2.5,
+   "deployTime": 1,
+   "count": 6,
+   "changed": "2025-08-07"
+  },
+  "rascals": {
+   "hp": 1868,
+   "damage": 217,
+   "hitSpeed": 1.5,
+   "speed": 60,
+   "range": 0.8,
+   "dps": 145,
+   "of": {
+    "hp": [
+     "Rabauken-Junge",
+     "Rascal Boy"
+    ],
+    "damage": [
+     "Rabauken-Junge",
+     "Rascal Boy"
+    ],
+    "dps": [
+     "Rabauken-Junge",
+     "Rascal Boy"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "royal-giant": {
+   "hp": 3164,
+   "damage": 307,
+   "hitSpeed": 1.8,
+   "speed": 45,
+   "range": 5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 171,
+   "changed": "2026-03-02"
+  },
+  "elite-barbarians": {
+   "hp": 1341,
+   "damage": 384,
+   "hitSpeed": 1.4,
+   "speed": 90,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 2,
+   "dps": 274,
+   "changed": "2023-06-19"
+  },
+  "royal-recruits": {
+   "hp": 547,
+   "damage": 133,
+   "hitSpeed": 1.3,
+   "speed": 60,
+   "range": 1.6,
+   "deployTime": 1,
+   "count": 6,
+   "dps": 102,
+   "changed": "2025-03-31"
+  },
+  "heal-spirit": {
+   "hp": 215,
+   "damage": 110,
+   "speed": 120,
+   "range": 2.5,
+   "deployTime": 1,
+   "changed": "2026-08-04"
+  },
+  "ice-golem": {
+   "hp": 1315,
+   "damage": 84,
+   "hitSpeed": 2.5,
+   "speed": 45,
+   "range": 0.75,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 34,
+   "changed": "2025-10-06"
+  },
+  "suspicious-bush": {
+   "hp": 81,
+   "damage": 256,
+   "hitSpeed": 1.4,
+   "speed": 60,
+   "range": 0.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 183,
+   "of": {
+    "hp": [
+     "Busch",
+     "Bush"
+    ],
+    "damage": [
+     "Busch-Kobolde",
+     "Bush Goblins"
+    ],
+    "dps": [
+     "Busch-Kobolde",
+     "Bush Goblins"
+    ],
+    "hitSpeed": [
+     "Busch-Kobolde",
+     "Bush Goblins"
+    ],
+    "speed": [
+     "Busch-Kobolde",
+     "Bush Goblins"
+    ],
+    "range": [
+     "Busch-Kobolde",
+     "Bush Goblins"
+    ],
+    "count": [
+     "Busch-Kobolde",
+     "Bush Goblins"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "mega-minion": {
+   "hp": 837,
+   "damage": 312,
+   "hitSpeed": 1.5,
+   "speed": 60,
+   "range": 1.6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 208,
+   "changed": "2026-02-02"
+  },
+  "dart-goblin": {
+   "hp": 261,
+   "damage": 156,
+   "hitSpeed": 0.8,
+   "speed": 120,
+   "range": 6.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 195,
+   "changed": "2026-03-02"
+  },
+  "earthquake": {
+   "damage": 84,
+   "radius": 3.5,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden, pro Welle (×3)",
+     "Damage to troops, not crown towers, per wave (×3)"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "elixir-golem": {
+   "hp": 1569,
+   "damage": 253,
+   "hitSpeed": 1.1,
+   "speed": 45,
+   "range": 0.8,
+   "deployTime": 1,
+   "dps": 230,
+   "of": {
+    "hp": [
+     "Golem, ohne Teilstücke",
+     "Golem, without splits"
+    ],
+    "damage": [
+     "Golem",
+     "Golem"
+    ],
+    "dps": [
+     "Golem",
+     "Golem"
+    ]
+   },
+   "changed": "2025-03-31"
+  },
+  "tombstone": {
+   "hp": 529,
+   "damage": 81,
+   "hitSpeed": 1.1,
+   "deployTime": 1,
+   "lifetime": 30,
+   "dps": 74,
+   "of": {
+    "hp": [
+     "Grabstein",
+     "Tombstone"
+    ],
+    "damage": [
+     "Skelette",
+     "Skeletons"
+    ],
+    "dps": [
+     "Skelette",
+     "Skeletons"
+    ],
+    "hitSpeed": [
+     "Skelette",
+     "Skeletons"
+    ]
+   },
+   "changed": "2025-10-06"
+  },
+  "musketeer": {
+   "hp": 721,
+   "damage": 217,
+   "hitSpeed": 1,
+   "speed": 60,
+   "range": 6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 217,
+   "changed": "2025-12-01"
+  },
+  "mini-pekka": {
+   "hitSpeed": 1.6,
+   "speed": 90,
+   "range": 0.8,
+   "deployTime": 1,
+   "count": 1,
+   "changed": "2026-01-12"
+  },
+  "goblin-hut": {
+   "hp": 1228,
+   "damage": 81,
+   "hitSpeed": 1.7,
+   "deployTime": 1,
+   "lifetime": 30,
+   "dps": 48,
+   "of": {
+    "hp": [
+     "Hütte",
+     "Hut"
+    ],
+    "damage": [
+     "Speerkobolde",
+     "Spear Goblins"
+    ],
+    "dps": [
+     "Speerkobolde",
+     "Spear Goblins"
+    ],
+    "hitSpeed": [
+     "Speerkobolde",
+     "Spear Goblins"
+    ]
+   },
+   "changed": "2026-04-06"
+  },
+  "goblin-cage": {
+   "hp": 780,
+   "damage": 337,
+   "hitSpeed": 1.1,
+   "deployTime": 1,
+   "lifetime": 20,
+   "dps": 306,
+   "of": {
+    "hp": [
+     "Käfig",
+     "Cage"
+    ],
+    "damage": [
+     "Kobold-Schläger",
+     "Goblin Brawler"
+    ],
+    "dps": [
+     "Kobold-Schläger",
+     "Goblin Brawler"
+    ],
+    "hitSpeed": [
+     "Kobold-Schläger",
+     "Goblin Brawler"
+    ]
+   },
+   "changed": "2025-03-31"
+  },
+  "fireball": {
+   "damage": 688,
+   "radius": 2.5,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "valkyrie": {
+   "hp": 1907,
+   "damage": 266,
+   "hitSpeed": 1.5,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 177,
+   "changed": "2025-03-31"
+  },
+  "battle-ram": {
+   "hp": 967,
+   "damage": 286,
+   "hitSpeed": 1.3,
+   "speed": 60,
+   "range": 0.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 220,
+   "of": {
+    "hp": [
+     "Rammbock",
+     "Ram"
+    ],
+    "damage": [
+     "Rammbock, ohne Sturmangriff",
+     "Ram, without charge"
+    ],
+    "dps": [
+     "Rammbock, ohne Sturmangriff",
+     "Ram, without charge"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "bomb-tower": {
+   "hp": 1356,
+   "damage": 222,
+   "hitSpeed": 1.8,
+   "range": 6,
+   "deployTime": 1,
+   "lifetime": 30,
+   "dps": 123,
+   "changed": "2023-10-03"
+  },
+  "hog-rider": {
+   "hp": 1697,
+   "damage": 317,
+   "hitSpeed": 1.6,
+   "speed": 120,
+   "range": 0.8,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 198,
+   "changed": "2025-03-31"
+  },
+  "flying-machine": {
+   "hp": 614,
+   "damage": 171,
+   "hitSpeed": 1.1,
+   "speed": 90,
+   "range": 6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 155,
+   "changed": "2023-06-19"
+  },
+  "minion-giant": {
+   "hitSpeed": 1.7,
+   "speed": 60,
+   "range": 4,
+   "deployTime": 1,
+   "count": 1
+  },
+  "battle-healer": {
+   "hp": 1920,
+   "damage": 268,
+   "hitSpeed": 2,
+   "speed": 60,
+   "range": 1.6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 134,
+   "changed": "2026-08-04"
+  },
+  "zappies": {
+   "hp": 529,
+   "damage": 117,
+   "hitSpeed": 2.2,
+   "speed": 60,
+   "range": 4.5,
+   "deployTime": 1,
+   "count": 3,
+   "dps": 53,
+   "changed": "2026-08-04"
+  },
+  "furnace": {
+   "hp": 727,
+   "hitSpeed": 1.8,
+   "speed": 60,
+   "range": 6,
+   "deployTime": 1,
+   "count": 1,
+   "of": {
+    "hp": [
+     "Ofen",
+     "Furnace"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "goblin-demolisher": {
+   "hp": 1300,
+   "damage": 186,
+   "hitSpeed": 1.2,
+   "speed": 60,
+   "range": 5,
+   "deployTime": 1,
+   "count": 1,
+   "lifetime": 10,
+   "dps": 155,
+   "changed": "2025-12-01"
+  },
+  "giant": {
+   "hp": 3968,
+   "damage": 253,
+   "hitSpeed": 1.5,
+   "speed": 45,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 169,
+   "changed": "2026-02-02"
+  },
+  "wizard": {
+   "hp": 832,
+   "damage": 281,
+   "hitSpeed": 1.4,
+   "speed": 60,
+   "range": 5.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 201,
+   "changed": "2025-03-31"
+  },
+  "inferno-tower": {
+   "hp": 1748,
+   "hitSpeed": 0.4,
+   "range": 6,
+   "deployTime": 1,
+   "lifetime": 30,
+   "changed": "2025-03-31"
+  },
+  "royal-hogs": {
+   "hp": 837,
+   "damage": 74,
+   "hitSpeed": 1.2,
+   "speed": 120,
+   "range": 0.7,
+   "deployTime": 1,
+   "count": 4,
+   "dps": 62,
+   "changed": "2025-11-03"
+  },
+  "rocket": {
+   "damage": 1484,
+   "radius": 2,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "barbarian-hut": {
+   "hp": 1164,
+   "damage": 192,
+   "hitSpeed": 1.3,
+   "deployTime": 1,
+   "lifetime": 30,
+   "dps": 148,
+   "of": {
+    "hp": [
+     "Hütte",
+     "Hut"
+    ],
+    "damage": [
+     "Barbaren",
+     "Barbarians"
+    ],
+    "dps": [
+     "Barbaren",
+     "Barbarians"
+    ],
+    "hitSpeed": [
+     "Barbaren",
+     "Barbarians"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "elixir-collector": {
+   "hp": 1070,
+   "deployTime": 1,
+   "lifetime": 93,
+   "changed": "2025-11-03"
+  },
+  "three-musketeers": {
+   "hp": 883,
+   "hitSpeed": 1.3,
+   "speed": 60,
+   "deployTime": 1,
+   "count": 3,
+   "changed": "2026-02-02"
+  },
+  "mirror": {
+   "changed": "2025-09-29"
+  },
+  "barbarian-barrel": {
+   "hp": 670,
+   "damage": 191,
+   "hitSpeed": 1.3,
+   "range": 4.5,
+   "dps": 147,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-02-02"
+  },
+  "wall-breakers": {
+   "hp": 330,
+   "damage": 391,
+   "speed": 120,
+   "range": 0.5,
+   "deployTime": 1,
+   "count": 2,
+   "changed": "2026-08-04"
+  },
+  "rage": {
+   "damage": 179,
+   "deployTime": 0.5,
+   "radius": 3,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "goblin-curse": {
+   "hitSpeed": 1.1,
+   "radius": 3,
+   "changed": "2026-08-04"
+  },
+  "skeleton-army": {
+   "hp": 81,
+   "damage": 81,
+   "hitSpeed": 1.1,
+   "speed": 90,
+   "range": 0.5,
+   "deployTime": 1,
+   "count": 15,
+   "dps": 74,
+   "changed": "2025-10-06"
+  },
+  "guards": {
+   "hp": 81,
+   "damage": 117,
+   "hitSpeed": 1,
+   "speed": 90,
+   "range": 1.6,
+   "deployTime": 1,
+   "count": 3,
+   "dps": 117,
+   "changed": "2025-10-06"
+  },
+  "vines": {
+   "damage": 153,
+   "deployTime": 0.9,
+   "count": 3,
+   "radius": 2.5,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden, pro Welle (×2)",
+     "Damage to troops, not crown towers, per wave (×2)"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "tornado": {
+   "damage": 84,
+   "radius": 5.5,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2025-04-09"
+  },
+  "goblin-barrel": {
+   "hp": 202,
+   "damage": 120,
+   "hitSpeed": 1.1,
+   "radius": 1.5,
+   "dps": 109,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2024-06-17"
+  },
+  "clone": {
+   "radius": 3,
+   "changed": "2025-04-01"
+  },
+  "void": {
+   "radius": 2.5,
+   "changed": "2026-08-04"
+  },
+  "baby-dragon": {
+   "hp": 1152,
+   "damage": 168,
+   "hitSpeed": 1.5,
+   "speed": 90,
+   "range": 3.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 112,
+   "changed": "2026-07-06"
+  },
+  "dark-prince": {
+   "hp": 1200,
+   "damage": 266,
+   "hitSpeed": 1.4,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 190,
+   "changed": "2026-05-04"
+  },
+  "freeze": {
+   "damage": 115,
+   "radius": 3,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "rune-giant": {
+   "hp": 2662,
+   "damage": 120,
+   "hitSpeed": 1.5,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 80,
+   "changed": "2026-08-04"
+  },
+  "poison": {
+   "damage": 92,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden, pro Welle (×8)",
+     "Damage to troops, not crown towers, per wave (×8)"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "hunter": {
+   "hp": 885,
+   "damage": 84,
+   "hitSpeed": 2.2,
+   "speed": 60,
+   "range": 4,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 382,
+   "of": {
+    "damage": [
+     "pro Treffer, ×10 je Angriff",
+     "per hit, ×10 per attack"
+    ]
+   },
+   "changed": "2025-06-03"
+  },
+  "goblin-drill": {
+   "hp": 1313,
+   "damage": 120,
+   "hitSpeed": 1.1,
+   "deployTime": 1,
+   "lifetime": 10,
+   "dps": 109,
+   "of": {
+    "hp": [
+     "Bohrer",
+     "Drill"
+    ],
+    "damage": [
+     "Kobolde",
+     "Goblins"
+    ],
+    "dps": [
+     "Kobolde",
+     "Goblins"
+    ],
+    "hitSpeed": [
+     "Kobolde",
+     "Goblins"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "witch": {
+   "hp": 839,
+   "damage": 135,
+   "hitSpeed": 1.1,
+   "speed": 60,
+   "range": 5.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 123,
+   "of": {
+    "hp": [
+     "Hexe, ohne Skelette",
+     "Witch, without Skeletons"
+    ],
+    "damage": [
+     "Hexe",
+     "Witch"
+    ],
+    "dps": [
+     "Hexe",
+     "Witch"
+    ]
+   },
+   "changed": "2025-10-06"
+  },
+  "balloon": {
+   "hp": 1679,
+   "damage": 640,
+   "hitSpeed": 2,
+   "speed": 60,
+   "range": 0.1,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 320,
+   "changed": "2026-02-02"
+  },
+  "prince": {
+   "hp": 1920,
+   "damage": 391,
+   "hitSpeed": 1.4,
+   "speed": 60,
+   "range": 1.6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 279,
+   "changed": "2025-10-06"
+  },
+  "electro-dragon": {
+   "hp": 1049,
+   "damage": 192,
+   "hitSpeed": 2.3,
+   "speed": 60,
+   "range": 3.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 250,
+   "of": {
+    "damage": [
+     "pro Treffer, ×3 je Angriff",
+     "per hit, ×3 per attack"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "bowler": {
+   "hp": 2081,
+   "damage": 289,
+   "hitSpeed": 2.5,
+   "speed": 45,
+   "range": 4,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 116,
+   "changed": "2026-08-04"
+  },
+  "executioner": {
+   "hp": 1280,
+   "damage": 168,
+   "hitSpeed": 0.9,
+   "speed": 60,
+   "range": 4.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 373,
+   "of": {
+    "damage": [
+     "pro Treffer, ×2 je Angriff",
+     "per hit, ×2 per attack"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "cannon-cart": {
+   "hp": 1809,
+   "damage": 212,
+   "hitSpeed": 0.9,
+   "speed": 60,
+   "range": 5.5,
+   "deployTime": 1,
+   "count": 1,
+   "lifetime": 15,
+   "dps": 236,
+   "changed": "2025-06-30"
+  },
+  "giant-skeleton": {
+   "hp": 3361,
+   "damage": 276,
+   "hitSpeed": 1.3,
+   "speed": 60,
+   "range": 0.8,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 212,
+   "changed": "2026-05-04"
+  },
+  "lightning": {
+   "damage": 1057,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "goblin-giant": {
+   "hp": 3022,
+   "damage": 176,
+   "hitSpeed": 1.5,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "dps": 117,
+   "of": {
+    "hp": [
+     "Riese, ohne Speerkobolde",
+     "Giant, without Spear Goblins"
+    ],
+    "damage": [
+     "Riese",
+     "Giant"
+    ],
+    "dps": [
+     "Riese",
+     "Giant"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "x-bow": {
+   "hp": 1600,
+   "damage": 43,
+   "hitSpeed": 0.4,
+   "range": 11.5,
+   "deployTime": 3.5,
+   "lifetime": 30,
+   "dps": 108,
+   "changed": "2026-10-08"
+  },
+  "pekka": {
+   "hp": 3760,
+   "damage": 842,
+   "hitSpeed": 1.8,
+   "speed": 45,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 468,
+   "changed": "2026-07-06"
+  },
+  "electro-giant": {
+   "hp": 3952,
+   "damage": 163,
+   "hitSpeed": 1.8,
+   "speed": 45,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 91,
+   "changed": "2026-07-06"
+  },
+  "golem": {
+   "hp": 5120,
+   "damage": 312,
+   "hitSpeed": 2.5,
+   "speed": 45,
+   "range": 0.75,
+   "deployTime": 3,
+   "dps": 125,
+   "of": {
+    "hp": [
+     "Golem, ohne Golemites",
+     "Golem, without Golemites"
+    ],
+    "damage": [
+     "Golem",
+     "Golem"
+    ],
+    "dps": [
+     "Golem",
+     "Golem"
+    ]
+   },
+   "changed": "2025-08-04"
+  },
+  "the-log": {
+   "damage": 266,
+   "range": 10.1,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "miner": {
+   "hp": 1210,
+   "damage": 194,
+   "hitSpeed": 1.3,
+   "speed": 90,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 149,
+   "changed": "2026-07-06"
+  },
+  "ice-wizard": {
+   "hp": 688,
+   "damage": 89,
+   "hitSpeed": 1.7,
+   "speed": 60,
+   "range": 5.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 52,
+   "changed": "2025-10-06"
+  },
+  "princess": {
+   "hp": 261,
+   "damage": 168,
+   "hitSpeed": 3,
+   "speed": 60,
+   "range": 9,
+   "deployTime": 1.2,
+   "count": 1,
+   "dps": 56,
+   "changed": "2025-03-31"
+  },
+  "royal-ghost": {
+   "hp": 1210,
+   "damage": 261,
+   "hitSpeed": 1.8,
+   "speed": 90,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 145,
+   "changed": "2026-03-02"
+  },
+  "bandit": {
+   "hp": 906,
+   "damage": 194,
+   "hitSpeed": 1,
+   "speed": 90,
+   "range": 0.75,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 194,
+   "changed": "2025-03-31"
+  },
+  "fisherman": {
+   "hp": 870,
+   "damage": 194,
+   "hitSpeed": 1.3,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 149,
+   "changed": "2026-04-06"
+  },
+  "inferno-dragon": {
+   "hp": 1295,
+   "hitSpeed": 0.4,
+   "speed": 60,
+   "range": 3.5,
+   "deployTime": 1,
+   "count": 1,
+   "changed": "2025-06-02"
+  },
+  "electro-wizard": {
+   "hp": 714,
+   "damage": 115,
+   "hitSpeed": 1.8,
+   "speed": 90,
+   "range": 5,
+   "deployTime": 1,
+   "dps": 128,
+   "of": {
+    "damage": [
+     "pro Treffer, ×2 je Angriff",
+     "per hit, ×2 per attack"
+    ]
+   },
+   "changed": "2025-04-01"
+  },
+  "phoenix": {
+   "hp": 1052,
+   "damage": 217,
+   "hitSpeed": 1,
+   "speed": 60,
+   "range": 1.6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 217,
+   "changed": "2026-03-02"
+  },
+  "magic-archer": {
+   "hp": 529,
+   "damage": 133,
+   "hitSpeed": 1.1,
+   "speed": 60,
+   "range": 7,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 121,
+   "changed": "2026-08-04"
+  },
+  "lumberjack": {
+   "hp": 1282,
+   "damage": 256,
+   "hitSpeed": 0.8,
+   "speed": 120,
+   "range": 0.7,
+   "deployTime": 1,
+   "dps": 320,
+   "changed": "2025-10-06"
+  },
+  "night-witch": {
+   "hp": 906,
+   "damage": 314,
+   "hitSpeed": 1.3,
+   "speed": 60,
+   "range": 1.6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 242,
+   "of": {
+    "hp": [
+     "Nachthexe, ohne Fledermäuse",
+     "Night Witch, without Bats"
+    ],
+    "damage": [
+     "Nachthexe",
+     "Night Witch"
+    ],
+    "dps": [
+     "Nachthexe",
+     "Night Witch"
+    ]
+   },
+   "changed": "2025-03-31"
+  },
+  "mother-witch": {
+   "hp": 529,
+   "damage": 133,
+   "hitSpeed": 1,
+   "speed": 60,
+   "range": 5.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 133,
+   "of": {
+    "hp": [
+     "Mutterhexe",
+     "Mother Witch"
+    ],
+    "damage": [
+     "Mutterhexe",
+     "Mother Witch"
+    ],
+    "dps": [
+     "Mutterhexe",
+     "Mother Witch"
+    ]
+   },
+   "changed": "2025-03-31"
+  },
+  "ram-rider": {
+   "hp": 1766,
+   "damage": 250,
+   "hitSpeed": 1.8,
+   "speed": 60,
+   "range": 0.8,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 139,
+   "of": {
+    "hp": [
+     "Widder",
+     "Ram"
+    ],
+    "damage": [
+     "Widder, ohne Reiterin",
+     "Ram, without Rider"
+    ],
+    "dps": [
+     "Widder, ohne Reiterin",
+     "Ram, without Rider"
+    ]
+   },
+   "changed": "2026-07-06"
+  },
+  "graveyard": {
+   "hp": 81,
+   "damage": 81,
+   "hitSpeed": 1.1,
+   "radius": 4,
+   "dps": 74,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "changed": "2026-06-01"
+  },
+  "goblin-machine": {
+   "hp": 2150,
+   "damage": 212,
+   "hitSpeed": 1.2,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 177,
+   "changed": "2026-08-04"
+  },
+  "ronin": {
+   "hitSpeed": 1.3,
+   "speed": 90,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "changed": "2026-09-08"
+  },
+  "sparky": {
+   "hp": 1451,
+   "damage": 1331,
+   "hitSpeed": 4,
+   "speed": 45,
+   "range": 5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 333,
+   "changed": "2025-03-31"
+  },
+  "spirit-empress": {
+   "hp": 1798,
+   "damage": 309,
+   "hitSpeed": 1.6,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 193,
+   "changed": "2026-09-08"
+  },
+  "mega-knight": {
+   "hp": 3993,
+   "damage": 268,
+   "hitSpeed": 1.7,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 158,
+   "changed": "2025-03-31"
+  },
+  "lava-hound": {
+   "hp": 3581,
+   "damage": 53,
+   "hitSpeed": 1.3,
+   "speed": 45,
+   "range": 3.5,
+   "deployTime": 1,
+   "dps": 41,
+   "of": {
+    "hp": [
+     "Lavahund, ohne Welpen",
+     "Hound, without Pups"
+    ],
+    "damage": [
+     "Lavahund",
+     "Hound"
+    ],
+    "dps": [
+     "Lavahund",
+     "Hound"
+    ]
+   },
+   "changed": "2025-03-31"
+  },
+  "little-prince": {
+   "hp": 698,
+   "damage": 104,
+   "hitSpeed": 1.2,
+   "speed": 60,
+   "range": 5.5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 87,
+   "of": {
+    "hp": [
+     "Prinz, ohne Wächter",
+     "Prince, without Guardienne"
+    ],
+    "damage": [
+     "Prinz",
+     "Prince"
+    ],
+    "dps": [
+     "Prinz",
+     "Prince"
+    ]
+   },
+   "changed": "2026-08-04"
+  },
+  "skeleton-king": {
+   "hp": 2298,
+   "damage": 204,
+   "hitSpeed": 1.6,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 128,
+   "changed": "2025-10-06"
+  },
+  "golden-knight": {
+   "hp": 1799,
+   "damage": 161,
+   "hitSpeed": 0.9,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 179,
+   "changed": "2026-01-12"
+  },
+  "mighty-miner": {
+   "hp": 2250,
+   "hitSpeed": 0.4,
+   "speed": 60,
+   "range": 1.6,
+   "deployTime": 1,
+   "count": 1,
+   "changed": "2026-08-04"
+  },
+  "archer-queen": {
+   "hp": 1000,
+   "damage": 225,
+   "hitSpeed": 1.2,
+   "speed": 60,
+   "range": 5,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 188,
+   "changed": "2025-11-24"
+  },
+  "monk": {
+   "hp": 2214,
+   "damage": 140,
+   "hitSpeed": 0.8,
+   "speed": 60,
+   "range": 1.2,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 175,
+   "changed": "2025-12-12"
+  },
+  "goblinstein": {
+   "hp": 2393,
+   "damage": 128,
+   "hitSpeed": 1.8,
+   "speed": 60,
+   "range": 5.5,
+   "count": 1,
+   "dps": 71,
+   "of": {
+    "hp": [
+     "Monster",
+     "Monster"
+    ],
+    "damage": [
+     "Monster",
+     "Monster"
+    ],
+    "dps": [
+     "Monster",
+     "Monster"
+    ]
+   },
+   "changed": "2026-09-16"
+  },
+  "boss-bandit": {
+   "hp": 2624,
+   "damage": 244,
+   "hitSpeed": 1.1,
+   "speed": 90,
+   "range": 0.8,
+   "deployTime": 1,
+   "count": 1,
+   "dps": 222,
+   "changed": "2026-01-12"
+  }
+ }
+}

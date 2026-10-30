@@ -53,6 +53,14 @@ const DEFAULT_SETTINGS = {
   title: '',
   countdownTo: null,         // Zeitpunkt (ms), auf den der Countdown zählt
   demo: false,               // Testmodus: simulierte Zuschauer tanzen (zum Ausprobieren, vor dem Stream ausschalten)
+  theme: 'party',            // party | halloween (Deko, Lichtfarben, verkleidete Tänzer)
+  dj: true,                  // Streamer steht als Figur hinter dem DJ-Pult
+  // BRB-Planet (/overlay/brb): Modus, Thema (auto = Halloween-Thema oder Jahreszeit), Rückkehr-Zeitpunkt, eigene Zeile
+  // showCard: Tafel unten links; race: Planetenlauf per !rennen (Anmeldezeit s, Pause zwischen Läufen min)
+  brb: {
+    mode: 'brb', theme: 'auto', backAt: null, text: '', showCard: true,
+    race: { enabled: true, modsOnly: false, joinSec: 30, cooldownMin: 3 },
+  },
 };
 
 const clampNum = (v, lo, hi, def) => {
@@ -68,6 +76,11 @@ function sanitizeSettings(input, base = DEFAULT_SETTINGS) {
   const m = s.music && typeof s.music === 'object' ? s.music : {};
   const e = s.effects && typeof s.effects === 'object' ? s.effects : {};
   const cd = s.countdownTo == null ? null : clampNum(s.countdownTo, 0, Date.now() + 24 * 3600e3, null);
+  const brbIn = s.brb && typeof s.brb === 'object' ? s.brb : {};
+  const brbBase = base.brb || DEFAULT_SETTINGS.brb;
+  const raceIn = brbIn.race && typeof brbIn.race === 'object' ? brbIn.race : {};
+  const raceBase = brbBase.race || DEFAULT_SETTINGS.brb.race;
+  const backAt = brbIn.backAt == null ? null : clampNum(brbIn.backAt, 0, Date.now() + 24 * 3600e3, null);
   return {
     hypeMode: oneOf(s.hypeMode, ['auto', 'on', 'off'], base.hypeMode),
     hypeDancers: Math.round(clampNum(s.hypeDancers, 3, 60, base.hypeDancers)),
@@ -92,6 +105,21 @@ function sanitizeSettings(input, base = DEFAULT_SETTINGS) {
     title: typeof s.title === 'string' ? s.title.slice(0, 120) : base.title,
     countdownTo: s.countdownTo === undefined ? base.countdownTo : cd,
     demo: bool(s.demo, base.demo ?? false),
+    theme: oneOf(s.theme, ['party', 'halloween'], base.theme ?? 'party'),
+    dj: bool(s.dj, base.dj ?? true),
+    brb: {
+      mode: oneOf(brbIn.mode, ['brb', 'difficulties'], brbBase.mode),
+      theme: oneOf(brbIn.theme, ['auto', 'day', 'halloween', 'winter'], brbBase.theme),
+      backAt: brbIn.backAt === undefined ? brbBase.backAt : backAt,
+      text: typeof brbIn.text === 'string' ? brbIn.text.slice(0, 80) : brbBase.text,
+      showCard: bool(brbIn.showCard, brbBase.showCard ?? true),
+      race: {
+        enabled: bool(raceIn.enabled, raceBase.enabled),
+        modsOnly: bool(raceIn.modsOnly, raceBase.modsOnly),
+        joinSec: Math.round(clampNum(raceIn.joinSec, 10, 120, raceBase.joinSec)),
+        cooldownMin: Math.round(clampNum(raceIn.cooldownMin, 0, 30, raceBase.cooldownMin)),
+      },
+    },
   };
 }
 
@@ -99,7 +127,7 @@ function parseSettings(text) {
   try { return sanitizeSettings(JSON.parse(text)); } catch { return { ...DEFAULT_SETTINGS }; }
 }
 
-const COMMANDS = new Set(['drop', 'fire', 'clearFloor']);
+const COMMANDS = new Set(['drop', 'fire', 'clearFloor', 'brbRace', 'brbRaceStop']);
 
 function getOrCreateControl(userId, login) {
   let row = db.prepare('SELECT * FROM scene_controls WHERE user_id = ?').get(userId);
@@ -114,6 +142,19 @@ function getOrCreateControl(userId, login) {
   return row;
 }
 
+// ── Geänderte Figuren (nur im Speicher) ─────────────────────────────────────
+// Die OBS-Quellen fragen /live alle 1,5 s ab; darüber erfahren sie, wer gerade im Figurbaukasten
+// gespeichert hat, und bauen genau diese Figur live um. Nach einem Neustart beginnt der Zähler bei 0
+// (die Szenen erkennen das am kleineren Wert und fangen neu an).
+let lookSeq = 0;
+const lookChanges = [];          // { seq, id, login, at }
+const LOOK_CHANGE_KEEP_MS = 5 * 60e3;
+
+function noteLookChange(twitchId, login) {
+  lookChanges.push({ seq: ++lookSeq, id: String(twitchId), login: String(login || '').toLowerCase(), at: Date.now() });
+  while (lookChanges.length > 100 || (lookChanges.length && Date.now() - lookChanges[0].at > LOOK_CHANGE_KEEP_MS)) lookChanges.shift();
+}
+
 const controlView = (row) => ({
   overlayKey: row.overlay_key,
   channel: row.twitch_login,
@@ -121,6 +162,8 @@ const controlView = (row) => ({
   settingsSeq: row.settings_seq,
   command: row.command ? JSON.parse(row.command) : null,
   commandSeq: row.command_seq,
+  lookSeq,
+  lookChanges: lookChanges.slice(-50).map(({ seq, id, login }) => ({ seq, id, login })),
 });
 
 function getControl(userId, login) {
@@ -155,7 +198,12 @@ function rotateKey(userId, login) {
  */
 function getLiveForUser(userId) {
   const row = userId ? db.prepare('SELECT * FROM scene_controls WHERE user_id = ?').get(String(userId)) : null;
-  if (!row) return { overlayKey: '', channel: '', settings: { ...DEFAULT_SETTINGS }, settingsSeq: 0, command: null, commandSeq: 0 };
+  if (!row) {
+    return {
+      overlayKey: '', channel: '', settings: { ...DEFAULT_SETTINGS }, settingsSeq: 0, command: null, commandSeq: 0,
+      lookSeq, lookChanges: lookChanges.slice(-50).map(({ seq, id, login }) => ({ seq, id, login })),
+    };
+  }
   return controlView(row);
 }
 
@@ -196,11 +244,14 @@ function saveLook(twitchId, login, look) {
   db.prepare(`INSERT INTO avatar_looks (twitch_id, twitch_login, look, updated_at) VALUES (?, ?, ?, ?)
     ON CONFLICT(twitch_id) DO UPDATE SET twitch_login = excluded.twitch_login, look = excluded.look, updated_at = excluded.updated_at`)
     .run(String(twitchId), login || '', JSON.stringify(clean), Date.now());
+  noteLookChange(twitchId, login);
   return getLook(twitchId);
 }
 
 function deleteLook(twitchId) {
+  const row = db.prepare('SELECT twitch_login FROM avatar_looks WHERE twitch_id = ?').get(String(twitchId));
   db.prepare('DELETE FROM avatar_looks WHERE twitch_id = ?').run(String(twitchId));
+  if (row) noteLookChange(twitchId, row.twitch_login);
 }
 
 /** Viele Looks auf einmal (für die Szenen). ids: Twitch-IDs als Strings. */

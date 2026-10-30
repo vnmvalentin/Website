@@ -64,10 +64,84 @@ export const LED_H = 1080;
  * Equalizer im Takt. `pal` = [Farbe A, Farbe B] der aktuellen Lichtstimmung.
  * @param {{ countdown: string|null, title: string, dancers: number, pal: string[], beat: number, hype?: boolean }} s
  */
+/** Fledermaus-Silhouette (Mitte x/y, Spannweite sz, Flügelschlag 0 … 1). */
+function batShape(ctx, x, y, sz, flap) {
+  const up = (flap - 0.5) * sz * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  for (const side of [-1, 1]) {
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + side * sz * 0.25, y - up - sz * 0.12, x + side * sz * 0.5, y - up);
+    ctx.quadraticCurveTo(x + side * sz * 0.4, y - up * 0.4 + sz * 0.05, x + side * sz * 0.33, y + sz * 0.06);
+    ctx.quadraticCurveTo(x + side * sz * 0.22, y + sz * 0.0, x + side * sz * 0.14, y + sz * 0.08);
+    ctx.quadraticCurveTo(x + side * sz * 0.08, y + sz * 0.02, x, y + sz * 0.06);
+  }
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x, y + sz * 0.02, sz * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Halloween-Hintergrund der LED-Wand: Nachthimmel, Vollmond, Fledermäuse, Grabsteine. */
+function drawHalloweenSky(ctx, t, w, h) {
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#120624');
+  g.addColorStop(0.65, '#1c0a1e');
+  g.addColorStop(1, '#2a0d08');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  // Mond mit Hof
+  const mx = 1640, my = 190;
+  const halo = ctx.createRadialGradient(mx, my, 60, mx, my, 330);
+  halo.addColorStop(0, 'rgba(255,214,150,0.35)');
+  halo.addColorStop(1, 'rgba(255,214,150,0)');
+  ctx.fillStyle = halo;
+  ctx.fillRect(mx - 340, my - 340, 680, 680);
+  ctx.fillStyle = '#ffe2a8';
+  ctx.beginPath();
+  ctx.arc(mx, my, 118, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(200,150,90,0.35)';
+  for (const [dx, dy, r] of [[-38, -22, 26], [30, 36, 18], [44, -40, 12], [-10, 52, 10]]) {
+    ctx.beginPath();
+    ctx.arc(mx + dx, my + dy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Fledermäuse ziehen über den Himmel
+  ctx.fillStyle = '#0a0410';
+  for (let i = 0; i < 7; i++) {
+    const sp = 70 + i * 23;
+    const x = ((t * sp + i * 413) % (w + 400)) - 200;
+    const y = 120 + ((i * 97) % 260) + Math.sin(t * 1.7 + i) * 26;
+    batShape(ctx, x, y, 70 + (i % 3) * 26, 0.5 + 0.5 * Math.sin(t * 12 + i * 2));
+  }
+  // Friedhof-Silhouette unten
+  ctx.fillStyle = '#07030a';
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  ctx.lineTo(0, h - 70);
+  ctx.quadraticCurveTo(w * 0.25, h - 120, w * 0.5, h - 80);
+  ctx.quadraticCurveTo(w * 0.75, h - 40, w, h - 95);
+  ctx.lineTo(w, h);
+  ctx.fill();
+  for (const [x, gw, gh] of [[150, 70, 110], [330, 56, 80], [1560, 64, 120], [1770, 80, 96]]) {
+    ctx.beginPath();
+    ctx.moveTo(x - gw / 2, h);
+    ctx.lineTo(x - gw / 2, h - gh + gw / 2);
+    ctx.arc(x, h - gh + gw / 2, gw / 2, Math.PI, 0);
+    ctx.lineTo(x + gw / 2, h);
+    ctx.fill();
+  }
+}
+
 export function drawLedWall(ctx, t, s) {
   const w = LED_W, h = LED_H;
-  ctx.fillStyle = '#05050a';
-  ctx.fillRect(0, 0, w, h);
+  const spooky = s.theme === 'halloween';
+  if (spooky) drawHalloweenSky(ctx, t, w, h);
+  else {
+    ctx.fillStyle = '#05050a';
+    ctx.fillRect(0, 0, w, h);
+  }
 
   // Equalizer: 48 Balken von unten, Höhe aus überlagerten Wellen + Taktschlag
   const bars = 48;
@@ -97,11 +171,11 @@ export function drawLedWall(ctx, t, s) {
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillStyle = spooky ? 'rgba(255,190,110,0.85)' : 'rgba(255,255,255,0.6)';
   ctx.font = `800 36px ${FONT}`;
   spacing(ctx, 16);
-  ctx.fillText('GLEICH LIVE', w / 2, 250);
-  ctx.fillStyle = '#fff';
+  ctx.fillText(spooky ? 'HAPPY HALLOWEEN' : 'GLEICH LIVE', w / 2, 250);
+  ctx.fillStyle = spooky ? '#ff8a1e' : '#fff';
   ctx.font = `900 168px ${FONT}`;
   spacing(ctx, 10);
   ctx.fillText('STREAM STARTING', w / 2, 380);

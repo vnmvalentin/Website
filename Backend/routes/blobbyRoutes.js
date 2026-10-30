@@ -128,6 +128,9 @@ const STALE_AFTER_MS = 30 * 60 * 1000;
 
 const games = new Map();       // code -> game
 const socketIndex = new Map(); // socket.id -> { code, role, slot }
+// Zählt jede (Wieder-)Verbindung eines Sitzplatzes hoch. Der Host einer Beach-Partie sieht
+// daran, dass ein Mitspieler neu verbunden ist und die direkte Leitung neu aufbauen muss.
+let connCounter = 0;
 
 function generateCode() {
   let code;
@@ -142,19 +145,26 @@ function generateCode() {
 const teamOf = (slot) => (slot % 2 === 1 ? 1 : 2);
 const otherTeam = (team) => (team === 1 ? 2 : 1);
 
+// field: "classic" = Original von der Seite, Physik hier auf dem Server.
+//        "beach"   = 3D-Feld (Frontend/src/pages/Blobby/beach/). Die Physik rechnet der
+//                    Browser des Hosts; dieser Prozess verwaltet nur Raum, Plätze und
+//                    Punktestand und vermittelt die direkte Verbindung (bb:*-Ereignisse).
 function defaultSettings() {
-  return { mode: "1v1", crossNet: true, maxTouches: 0, powerups: false };
+  return { mode: "1v1", crossNet: true, maxTouches: 0, powerups: false, field: "classic" };
 }
 
 function sanitizeSettings(raw = {}, prev = defaultSettings()) {
   const mode = raw.mode === "2v2" || raw.mode === "1v1" ? raw.mode : prev.mode;
+  const field = raw.field === "beach" || raw.field === "classic" ? raw.field : (prev.field || "classic");
   return {
     mode,
     crossNet: typeof raw.crossNet === "boolean" ? raw.crossNet : prev.crossNet,
     maxTouches: Number(raw.maxTouches) === 3 ? 3 : 0,   // 0 = unbegrenzt
     powerups: typeof raw.powerups === "boolean" ? raw.powerups : prev.powerups,
+    field,
   };
 }
+const isBeach = (game) => game.settings.field === "beach";
 
 const slotsFor = (settings) => (settings.mode === "2v2" ? [1, 2, 3, 4] : [1, 2]);
 
@@ -752,7 +762,7 @@ function sanitize(game) {
     // rtt/jit werden vom Client gemeldet (bv:rtt) und nur weiterverteilt — beide Seiten
     // sollen die Verbindungsqualität des jeweils anderen sehen.
     players[slot] = p
-      ? { name: p.name, connected: p.connected, rtt: p.rtt ?? null, jit: p.jit ?? null }
+      ? { name: p.name, connected: p.connected, rtt: p.rtt ?? null, jit: p.jit ?? null, conn: p.conn ?? 0 }
       : null;
   }
   return {
@@ -767,6 +777,10 @@ function sanitize(game) {
     rematch: { ...game.rematch },
     spectatorCount: game.spectators.size,
     scoreToWin: SCORE_TO_WIN,
+    // Beach: Jede neue Partie (Start, Revanche, Zurück in die Lobby) bekommt eine neue
+    // Nummer — daran erkennt der Host, dass er die Welt neu aufsetzen muss.
+    matchId: game.matchId,
+    serveTeam: game.world.serveTeam,
   };
 }
 
@@ -892,7 +906,9 @@ function stopLagProbe() {
   lagProbe = null;
 }
 
+// Beach-Partien laufen nie in dieser Schleife — gerechnet wird beim Host
 const isLive = (game) =>
+  !isBeach(game) &&
   game.status === "playing" && slotsFor(game.settings).every((s) => game.players[s]?.connected);
 
 function ensureLoop(io) {
@@ -985,6 +1001,7 @@ function newGame(code, settings) {
     rematch: { 1: false, 2: false, 3: false, 4: false },
     pendingFinish: 0,
     lastSentScore: { 1: 0, 2: 0 },
+    matchId: 0,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -994,6 +1011,7 @@ function startIfReady(game, io) {
   if (game.status !== "waiting") return;
   if (!slotsFor(game.settings).every((s) => game.players[s])) return;
   game.status = "playing";
+  game.matchId += 1;
   resetForServe(game.world, game.settings, game.world.serveTeam);
   ensureLoop(io);
 }
@@ -1004,6 +1022,7 @@ function resetForRematch(game, io) {
   game.rematch = { 1: false, 2: false, 3: false, 4: false };
   game.pendingFinish = 0;
   game.lastSentScore = { 1: 0, 2: 0 };
+  game.matchId += 1;
   game.status = slotsFor(game.settings).every((s) => game.players[s]) ? "playing" : "waiting";
   if (game.status === "playing") ensureLoop(io);
 }
@@ -1056,7 +1075,7 @@ function registerBlobbySocket(socket, io) {
     const settings = sanitizeSettings(payload.settings);
     const code = generateCode();
     const game = newGame(code, settings);
-    game.players[1] = { name, connected: true, socketId: socket.id, disconnectTimer: null };
+    game.players[1] = { name, connected: true, socketId: socket.id, disconnectTimer: null, conn: ++connCounter };
     games.set(code, game);
     socket.join(code);
     socketIndex.set(socket.id, { code, role: "player", slot: 1 });
@@ -1083,6 +1102,7 @@ function registerBlobbySocket(socket, io) {
         clearDisconnectTimer(p);
         p.connected = true;
         p.socketId = socket.id;
+        p.conn = ++connCounter;
         socket.join(code);
         socketIndex.set(socket.id, { code, role: "player", slot });
         game.world.inputs[slot] = blankInput(game.world.frame);
@@ -1096,7 +1116,7 @@ function registerBlobbySocket(socket, io) {
     const slot = seats.find((s) => !game.players[s]);
 
     if (slot) {
-      game.players[slot] = { name, connected: true, socketId: socket.id, disconnectTimer: null };
+      game.players[slot] = { name, connected: true, socketId: socket.id, disconnectTimer: null, conn: ++connCounter };
       socket.join(code);
       socketIndex.set(socket.id, { code, role: "player", slot });
       startIfReady(game, io);
@@ -1206,6 +1226,73 @@ function registerBlobbySocket(socket, io) {
     if (!game || game.status !== "finished") return;
     game.rematch[entry.slot] = true;
     if (slotsFor(game.settings).every((s) => game.rematch[s])) resetForRematch(game, io);
+    broadcast(io, game);
+  });
+
+  // ── Beach 3D ──────────────────────────────────────────────────────────────
+  // Hier wird nichts gerechnet. Der Server reicht nur weiter — Verbindungsaufbau für die
+  // direkte Leitung (bb:signal) und, solange die nicht steht oder nie zustande kommt, die
+  // Spieldaten selbst (bb:relay). Den Punktestand meldet der Host (bb:score).
+  const beachEntry = () => {
+    const entry = socketIndex.get(socket.id);
+    if (!entry) return null;
+    const game = games.get(entry.code);
+    if (!game || !isBeach(game)) return null;
+    return { entry, game };
+  };
+  const socketOfSlot = (game, slot) => game.players[slot]?.connected ? game.players[slot].socketId : null;
+
+  socket.on("bb:signal", (payload = {}) => {
+    const ctx = beachEntry();
+    if (!ctx || ctx.entry.role !== "player") return;
+    const target = socketOfSlot(ctx.game, Number(payload.to));
+    if (!target || target === socket.id) return;
+    // SDP-Angebote sind ein paar KB groß; alles deutlich darüber ist kein Verbindungsaufbau
+    const data = payload.data;
+    if (!data || JSON.stringify(data).length > 20000) return;
+    io.to(target).emit("bb:signal", { from: ctx.entry.slot, data });
+  });
+
+  socket.on("bb:relay", (payload = {}) => {
+    const ctx = beachEntry();
+    if (!ctx) return;
+    const { entry, game } = ctx;
+    const msg = payload.msg;
+    if (!msg || typeof msg !== "object") return;
+    const from = entry.role === "player" ? entry.slot : 0;
+    if (payload.to === "host") {
+      if (entry.role !== "player") return;   // Zuschauer schicken nichts an den Host
+      const target = socketOfSlot(game, game.hostSlot);
+      if (target && target !== socket.id) io.to(target).emit("bb:relay", { from, msg });
+      return;
+    }
+    // Ab hier sendet nur der Host — er verteilt den Spielstand
+    if (entry.role !== "player" || entry.slot !== game.hostSlot) return;
+    if (payload.to === "spectators") {
+      for (const id of game.spectators.keys()) io.to(id).emit("bb:relay", { from, msg });
+      return;
+    }
+    const target = socketOfSlot(game, Number(payload.to));
+    if (target && target !== socket.id) io.to(target).emit("bb:relay", { from, msg });
+  });
+
+  socket.on("bb:score", (payload = {}) => {
+    const ctx = beachEntry();
+    if (!ctx) return;
+    const { entry, game } = ctx;
+    if (entry.role !== "player" || entry.slot !== game.hostSlot || game.status !== "playing") return;
+    // Meldung aus einer älteren Partie (vor Revanche/Lobby) verwerfen
+    if (Number(payload.matchId) !== game.matchId) return;
+    const sc = Array.isArray(payload.sc) ? payload.sc : [];
+    const a = Math.max(0, Math.min(99, Math.floor(Number(sc[0]) || 0)));
+    const b = Math.max(0, Math.min(99, Math.floor(Number(sc[1]) || 0)));
+    game.world.score = { 1: a, 2: b };
+    game.lastSentScore = { 1: a, 2: b };
+    const winner = Number(payload.winner);
+    if ((winner === 1 || winner === 2) && hasWon(game.world, winner)) {
+      game.status = "finished";
+      game.winner = winner;
+    }
     broadcast(io, game);
   });
 

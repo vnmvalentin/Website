@@ -27,7 +27,7 @@ import {
 } from './chatterFigure';
 import { loadFigureKit, buildMocapFigure, beatScale, WALK_MPS } from './mocapFigure';
 import { requestChatAvatar } from './chatAvatars';
-import { loadPeopleKit, buildPersonFigure, personBeatScale, personSeed, PERSON_WALK_MPS } from './peopleFigure';
+import { loadPeopleKit, buildPersonFigure, personBeatScale, personSeed, PERSON_WALK_MPS, COSTUMES } from './peopleFigure';
 import { RAVE_MOVES } from './raveMoves';
 import { requestLook } from './sceneLink';
 
@@ -123,10 +123,11 @@ function mocapBodyFactory(kit, getBpm) {
 }
 
 // ── Figurart: Comic-Figuren ─────────────────────────────────────────────────
-function peopleBodyFactory(kit, getBpm, getLook) {
+function peopleBodyFactory(kit, getBpm, getLook, getCostumes) {
   return (msg, envMap) => {
     const seed = personSeed(msg.userId || msg.name);
-    const fig = buildPersonFigure(kit, { seed, envMap, look: getLook?.(msg.userId, msg.name) || null });
+    // Halloween: ohne eigene Figur kommt jeder verkleidet (Hexe, Zombie, Kuh …)
+    const fig = buildPersonFigure(kit, { seed, envMap, look: getLook?.(msg.userId, msg.name) || null, pool: getCostumes?.() ? COSTUMES : null });
     // Taktgekoppelte Tänze: jede Figur steigt an einer anderen Stelle der Schleife ein
     const shift = seed % 4;
     let walkScale = 1;
@@ -198,7 +199,7 @@ function hash(str) {
 }
 
 /** HTML: Sprechblase über dem Namensschild. */
-function buildLabel(name, color, withAvatar = false) {
+export function buildLabel(name, color, withAvatar = false) {
   const el = document.createElement('div');
   el.className = 'sp-tag';
   const bubble = document.createElement('div');
@@ -219,7 +220,7 @@ function buildLabel(name, color, withAvatar = false) {
   return { el, bubble, avatar };
 }
 
-function fillBubble(bubble, parts) {
+export function fillBubble(bubble, parts) {
   bubble.textContent = '';
   for (const p of parts) {
     if (p.emote) {
@@ -279,8 +280,9 @@ function turnTo(cur, goal, dt, rate) {
  * @param {{ envMap?: THREE.Texture|null, bpm?: number, figures?: 'people'|'robots', floorTop?: number, getLook?: (userId: string) => object|null }} [opts]
  *   floorTop: Oberkante der Tanzfläche (die LED-Kacheln stehen über dem Hallenboden)
  *   getLook:  selbst gebaute Figur eines Zuschauers (avatarLooks.js), sonst die feste Zufallsfigur
+ *   getCostumes: true → Neue ohne eigene Figur kommen verkleidet (Halloween)
  */
-export function createDancers(scene, overlay, floor, door, { envMap = null, bpm: startBpm = 124, figures = 'people', floorTop = 0, getLook = null } = {}) {
+export function createDancers(scene, overlay, floor, door, { envMap = null, bpm: startBpm = 124, figures = 'people', floorTop = 0, getLook = null, getCostumes = null } = {}) {
   const dancers = new Map();    // userId → Tänzer
   if (import.meta.env.DEV) window.__partyDancers = dancers;   // Prüfskripte: Tanzwechsel messen
   const M = 0.6;                // Rand der Tanzfläche
@@ -302,7 +304,7 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
     const people = figures === 'people' ? await loadPeopleKit() : null;
     const kit = people ? null : await loadFigureKit();
     if (disposed) return;
-    if (people) { style = STYLES.people; makeBody = peopleBodyFactory(people, () => bpm, getLook); }
+    if (people) { style = STYLES.people; makeBody = peopleBodyFactory(people, () => bpm, getLook, getCostumes); }
     else if (kit) { style = STYLES.mocap; makeBody = mocapBodyFactory(kit, () => bpm); }
     else { style = STYLES.pose; makeBody = poseBody; }
     for (const msg of queued.splice(0)) api.onMessage(msg);

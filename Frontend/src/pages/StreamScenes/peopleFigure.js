@@ -19,6 +19,10 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { fixLegTwist } from './legTwistFix';
 import { buildRaveClips } from './raveMoves';
 import { classifyCharacter, normalizeLook, buildShoe, SKIN_TONES as LOOK_SKIN } from './avatarParts';
+import { seamFill, hairUnderHat, hatOffset, hatHidesHair, isHairMaterial, charInfo } from './avatarSeams';
+import { DESIGNS, baseChar, designFabric, isSleeveBone, buildDesignExtras, bakeToSurface } from './avatarDesigns';
+
+const isSkinName = (mat) => /^skin/i.test([].concat(mat)[0]?.name || '');
 
 const BASE = '/media/stream3d/people';
 /** Figurhöhe (m) inkl. Haare. Die Figuren sind kopflastig (Comic-Proportionen). */
@@ -42,6 +46,12 @@ export const CHARACTERS = [
   'Viking_Male', 'Viking_Female', 'VikingHelmet', 'Pirate_Male', 'Pirate_Female', 'Wizard', 'Witch', 'Elf',
   'Goblin_Male', 'Goblin_Female', 'Zombie_Male', 'Zombie_Female', 'Cow', 'Pug',
   'Knight_Golden_Male', 'Knight_Golden_Female', 'OldClassy_Male', 'OldClassy_Female',
+];
+
+/** Halloween: wer keine eigene Figur gebaut hat, kommt verkleidet. */
+export const COSTUMES = [
+  'Witch', 'Wizard', 'Zombie_Male', 'Zombie_Female', 'Goblin_Male', 'Goblin_Female', 'Pirate_Male', 'Pirate_Female',
+  'VikingHelmet', 'Knight_Golden_Male', 'Knight_Golden_Female', 'Cow', 'Pug', 'Elf',
 ];
 
 const SKIN_TONES = ['#f3cfb3', '#e8b48f', '#d49a72', '#b97a52', '#8d5a3b', '#62402b', '#f6dcc8', '#c98e66'];
@@ -158,6 +168,30 @@ function hatInverses(m, dy, headSrc) {
   return inv;
 }
 
+/** Material einer Figur nach Namen (für Füllstücke in der Farbe des Nachbarteils). */
+function materialByName(src, name) {
+  let found = null;
+  src.traverse((o) => { if (!found && o.isMesh) found = [].concat(o.material).find((m) => m.name === name) || null; });
+  return found;
+}
+
+const seamMatCache = new Map();
+/**
+ * Material für Füllstücke: beidseitig (offene Ränder zeigen Stoff statt Durchblick) und mit
+ * polygonOffset — wo es mit dem echten Teil zusammenfällt, gewinnt das echte Teil.
+ */
+function seamMaterial(base) {
+  if (!seamMatCache.has(base)) {
+    const m = base.clone();
+    m.side = THREE.DoubleSide;
+    m.polygonOffset = true;
+    m.polygonOffsetFactor = 1;
+    m.polygonOffsetUnits = 2;
+    seamMatCache.set(base, m);
+  }
+  return seamMatCache.get(base);
+}
+
 /** Geometrie eines Teils: teilt die Vertex-Daten der Quelle, nur der Index ist eigen. */
 function partGeometry(key, mesh, tris) {
   if (partGeoCache.has(key)) return partGeoCache.get(key);
@@ -178,11 +212,14 @@ function partGeometry(key, mesh, tris) {
  * @returns {Promise<THREE.Object3D|null>}
  */
 async function assembleLook(look) {
-  const want = [['body', look.body], ['head', look.head], ['legs', look.legs]];
+  // Eigene Designs (Hoodie …) nutzen ein Paket-Teil als Schnitt
+  const bodyChar = baseChar(look.body), legsChar = baseChar(look.legs);
+  const design = { body: DESIGNS[look.body] ? look.body : null, legs: DESIGNS[look.legs] ? look.legs : null };
+  const want = [['body', bodyChar], ['head', look.head], ['legs', legsChar]];
   if (look.hat && look.hat !== 'none') want.push(['hat', look.hat]);
   const names = [...new Set(want.map(([, n]) => n))];
   const srcs = new Map(await Promise.all(names.map(async (n) => [n, await loadCharacter(n)])));
-  const base = srcs.get(look.body);
+  const base = srcs.get(bodyChar);
   if (!base) return null;
   const model = SkeletonUtils.clone(base);
   const bones = {};
@@ -197,29 +234,102 @@ async function assembleLook(look) {
   // Hut auf die Schädelhöhe des gewählten Kopfs setzen (Hüte sind für ihren eigenen Kopf gebaut)
   let hatDy = 0;
   if (look.hat !== 'none' && srcs.get(look.hat) && srcs.get(look.head)) {
-    const a = skullTop(look.head, srcs.get(look.head));
-    const b = skullTop(look.hat, srcs.get(look.hat));
-    // Menschenköpfe sind gleich hoch; abgesenkt wird nur auf die kleineren Masken (Kuh, Mops) —
-    // gedeckelt, sonst verschluckt ein hoher Hut die ganze Maske. Der Ritterhelm sitzt immer wie gebaut.
-    if (a && b && look.hat !== 'Knight_Golden_Male') hatDy = Math.max(-0.2, Math.min(0.05, a.top - b.top));
+    // Hut liegt auf dem neuen Kopf so auf wie auf seinem eigenen (Masken wie Mops/Kuh sind kleiner →
+    // er sinkt tiefer, statt zu schweben). Der Ritterhelm sitzt immer wie gebaut.
+    const hs = srcs.get(look.hat), ds = srcs.get(look.head);
+    try { hatDy = hatOffset(look.hat, hs, classified(look.hat, hs), look.head, ds, classified(look.head, ds)); } catch (err) { console.warn('[stream3d] Hut nicht angepasst', err); }
   }
+  const hatSrc = look.hat !== 'none' ? srcs.get(look.hat) : null;
+  /** Ein Teil (Dreiecke eines Quell-Meshs) auf das gemeinsame Skelett setzen. */
+  const addPart = (name, m, geo, material, inverses = m.skeleton.boneInverses) => {
+    const part = new THREE.SkinnedMesh(geo, material);
+    part.name = name;
+    part.position.copy(m.position);
+    part.quaternion.copy(m.quaternion);
+    part.scale.copy(m.scale);
+    const skel = new THREE.Skeleton(m.skeleton.bones.map((b) => bones[b.name] || b), inverses);
+    (byName[m.parent?.name] || fallbackParent).add(part);
+    part.bind(skel, m.bindMatrix);
+    return part;
+  };
+  // Nähte vermessen: Hüfte (Oberteil ↔ Beine) und Hals (Kopf ↔ Oberteil)
+  const seams = [['waist', bodyChar, legsChar, design.legs], ['neck', look.head, bodyChar, design.body]].map(([kind, upper, lower, lowerDesign]) => {
+    const uSrc = srcs.get(upper), lSrc = srcs.get(lower);
+    let fills = [];
+    if (uSrc && lSrc && upper !== lower) {
+      try { fills = seamFill(kind, upper, uSrc, classified(upper, uSrc), lower, lSrc, classified(lower, lSrc)); } catch (err) { console.warn('[stream3d] Naht nicht geschlossen', kind, err); }
+    }
+    return { kind, upper, lower, lSrc, lowerDesign, fills };
+  });
+  const legsTrim = seams[0].fills.trim;
+
   for (const [region, charName] of want) {
     const src = srcs.get(charName);
     if (!src) continue;
     for (const [m, sets] of classified(charName, src)) {
-      // Beine: Fußstummel nur barfuß (sonst stecken sie im Schuh)
-      const tris = region === 'legs' && !shoes ? sets.legs.concat(sets.feet) : sets[region];
+      // Beine immer mit Fußstummel: mit Schuhen steckt er unsichtbar im Schuh und schließt das Bein
+      // unten (ohne ihn klafft beim Anheben des Fußes ein offener Ring zwischen Hosenbein und Schuh).
+      // Nur seine Unterseite fällt mit Schuhen weg — sie sticht sonst durch die Sohle.
+      let tris = region === 'legs' ? sets.legs.concat(sets.feet, shoes ? [] : sets.sole) : sets[region];
+      // Hosenteile, die über dem Saum des Oberteils liegen, stechen sonst durch (siehe seamFill)
+      const drop = region === 'legs' ? legsTrim?.get(m) : null;
+      if (drop) tris = tris.filter((t) => !drop.has(t));
       if (!tris.length) continue;
-      const geo = partGeometry(`${charName}|${m.uuid}|${region}|${shoes ? 1 : 0}`, m, tris);
-      const part = new THREE.SkinnedMesh(geo, m.material);
-      part.name = `${region}:${m.name}`;
-      part.position.copy(m.position);
-      part.quaternion.copy(m.quaternion);
-      part.scale.copy(m.scale);
+      let geo = partGeometry(`${charName}|${m.uuid}|${region}|${shoes ? 1 : 0}${drop ? `|unter:${bodyChar}` : ''}`, m, tris);
+      // Haare unter dem Hut bleiben unter der Hut-Unterseite (geschlossener Helm: gar keine Haare)
+      if (region === 'head' && hatSrc && hatHidesHair(look.hat) && isHairMaterial(m.material)) continue;
+      if (region === 'head' && hatSrc) {
+        geo = hairUnderHat(`${charName}|${m.uuid}`, m, geo.index, look.hat, hatSrc, classified(look.hat, hatSrc), hatDy) || geo;
+      }
       const inverses = region === 'hat' ? hatInverses(m, hatDy, skullTop(charName, src)?.bone) : m.skeleton.boneInverses;
-      const skel = new THREE.Skeleton(m.skeleton.bones.map((b) => bones[b.name] || b), inverses);
-      (byName[m.parent?.name] || fallbackParent).add(part);
-      part.bind(skel, m.bindMatrix);
+      const id = design[region];
+      if (!id) { addPart(`${region}:${m.name}`, m, geo, m.material, inverses); continue; }
+      // Design: Stoff umfärben; lange Ärmel = Arm-Haut (ohne Hand) in Stofffarbe
+      const fabric = designFabric(id);
+      if (!isSkinName(m.material)) { addPart(`${region}:${m.name}`, m, geo, fabric, inverses); continue; }
+      if (!DESIGNS[id].sleeves) { addPart(`${region}:${m.name}`, m, geo, m.material, inverses); continue; }
+      const info = charInfo(charName, src, classified(charName, src)).meshes.find((x) => x.m === m);
+      const sleeve = tris.filter((t) => isSleeveBone(info?.bone[t]));
+      const bare = tris.filter((t) => !isSleeveBone(info?.bone[t]));
+      if (sleeve.length) addPart(`${region}:sleeve`, m, partGeometry(`${charName}|${m.uuid}|${region}|sleeve`, m, sleeve), fabric, inverses);
+      if (bare.length) addPart(`${region}:${m.name}`, m, partGeometry(`${charName}|${m.uuid}|${region}|bare`, m, bare), m.material, inverses);
+    }
+  }
+
+  // Nähte schließen: Lücken mit der Oberfläche der oberen Figur füllen
+  for (const { kind, upper, lower, lSrc, lowerDesign, fills } of seams) {
+    for (const { mesh: m, tris, material } of fills) {
+      // Füllstück in der Farbe des unteren Teils (bei einem Design: dessen Stoff)
+      const base = (material && lowerDesign && designFabric(lowerDesign)) || (material && materialByName(lSrc, material)) || m.material;
+      addPart(`seam-${kind}:${m.name}`, m, partGeometry(`${upper}|${m.uuid}|seam-${kind}|${lower}`, m, tris), seamMaterial(base));
+    }
+  }
+
+  // Design-Zusätze (Kapuze, Logo …) starr an ihre Knochen
+  model.updateMatrixWorld(true);
+  for (const slot of ['body', 'legs']) {
+    const id = design[slot];
+    if (!id) continue;
+    const ch = slot === 'body' ? bodyChar : legsChar;
+    const src = srcs.get(ch);
+    const info = charInfo(ch, src, classified(ch, src));
+    for (const { bone, object, skin } of buildDesignExtras(id, info)) {
+      // Aufdrucke (Logo, Tasche) verformen sich mit dem Stoff
+      const baked = skin ? bakeToSurface(object, info) : null;
+      if (baked) {
+        // name 'extra' + materials: disposeShoes räumt Geometrie und Materialien je Figur ab
+        addPart('extra', baked.mesh, baked.geometry, object.material).userData.materials = object.userData.materials;
+        object.geometry.dispose();
+        continue;
+      }
+      const b = bones[bone];
+      if (!b) continue;
+      // object steht schon in Ruhelage-Weltmaß der Datei (wie das frische Modell) → nur auf den Knochen umrechnen
+      object.updateMatrix();
+      new THREE.Matrix4().copy(b.matrixWorld).invert().multiply(object.matrix)
+        .decompose(object.position, object.quaternion, object.scale);
+      object.name = 'extra';
+      b.add(object);
     }
   }
 
@@ -243,12 +353,14 @@ async function assembleLook(look) {
 /**
  * Eine Figur bauen. Die Gruppe ist sofort da; das Modell hängt sich ein, sobald seine Datei geladen ist.
  * @param {{ clips: Map<string, THREE.AnimationClip> }} kit
- * @param {{ seed: number, popcorn?: boolean, envMap?: THREE.Texture|null, look?: object|null }} opts
+ * @param {{ seed: number, popcorn?: boolean, envMap?: THREE.Texture|null, look?: object|null, pool?: string[]|null }} opts
  *   look: selbst gebaute Figur (avatarParts.js) — sonst eine feste Figur aus dem Paket nach seed
+ *   pool: Auswahl, aus der die feste Figur kommt (z. B. COSTUMES zu Halloween) — Standard: alle
  */
-export function buildPersonFigure(kit, { seed, popcorn = false, envMap = null, look = null }) {
+export function buildPersonFigure(kit, { seed, popcorn = false, envMap = null, look = null, pool = null }) {
   const group = new THREE.Group();
-  const charName = CHARACTERS[seed % CHARACTERS.length];
+  const chars = pool?.length ? pool : CHARACTERS;
+  const charName = chars[seed % chars.length];
   let skin = new THREE.Color(SKIN_TONES[(seed >>> 8) % SKIN_TONES.length]);
   let loadSeq = 0;
   const mats = [];
@@ -321,8 +433,15 @@ export function buildPersonFigure(kit, { seed, popcorn = false, envMap = null, l
     outPos.copy(_p).add(_off.copy(offset).applyQuaternion(outQ));
   };
 
-  /** Schuhe werden je Figur gebaut (Teile-Geometrien dagegen sind geteilt und bleiben). */
-  const disposeShoes = (root) => root.traverse((o) => { if (o.name === 'shoe') o.traverse((c) => { c.geometry?.dispose(); for (const m of c.parent?.userData.materials || []) m.dispose(); }); });
+  /** Schuhe und Design-Zusätze werden je Figur gebaut (Teile-Geometrien dagegen sind geteilt und bleiben). */
+  const disposeShoes = (root) => {
+    const own = [];
+    root.traverse((o) => { if (o.name === 'shoe' || o.name === 'extra') own.push(o); });
+    for (const o of own) {
+      o.traverse((c) => c.geometry?.dispose());
+      for (const m of o.userData.materials || []) m.dispose();
+    }
+  };
 
   /** Modell einhängen (erstes Laden oder neuer Look): Materialien, Mixer, laufenden Clip übernehmen. */
   const attach = (next) => {

@@ -113,6 +113,7 @@ module.exports = function ({ requireAuth, discordClient }) {
                 serverName: guild?.name || 'Dein Server',
                 memberCount: guild?.memberCount || 128,
                 kind: req.query.kind === 'leave' ? 'leave' : 'welcome',
+                layout: req.query.layout,
             });
             res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=300' }).send(png);
         } catch (e) {

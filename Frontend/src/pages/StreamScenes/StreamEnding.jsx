@@ -14,6 +14,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { hasWebGL, fontsReady } from './sceneKit';
 import { useTwitchChat } from './twitchChat';
 import { BOTS } from './cinemaAudience';
+import { reloadOverlay } from './selfHeal';
 import './streamScenes.css';
 
 const CLIP_PARENTS = ['localhost', 'vnmvalentin.de', 'www.vnmvalentin.de'];
@@ -88,9 +89,19 @@ export default function StreamEnding() {
     document.body.style.background = '#000';
     if (!hasWebGL()) { setFailed(true); return undefined; }
     let disposed = false;
+    // Hängt der Start (Code-Teil lädt nicht, Szene wird nie fertig), neu laden statt schwarz zu bleiben
+    const watchdog = setTimeout(() => { if (!disposed) reloadOverlay('Kino nach 90 s nicht fertig'); }, 90000);
+    const fatal = (reason) => { if (!disposed && !reloadOverlay(reason)) setFailed(true); };
     (async () => {
       await fontsReady();
-      const { createCinemaScene } = await import('./cinemaScene');
+      let createCinemaScene;
+      try {
+        ({ createCinemaScene } = await import('./cinemaScene'));
+      } catch (err) {
+        console.error('Kino-Szene nicht geladen', err);
+        fatal('Code der Kino-Szene nicht geladen');
+        return;
+      }
       if (disposed || !canvasRef.current) return;
       try {
         sceneRef.current = createCinemaScene(canvasRef.current, {
@@ -99,10 +110,11 @@ export default function StreamEnding() {
           skipIntro: skip,
           onClip: (c, rect) => setClip(c ? { clip: c, rect } : null),
           figures,
+          onFatal: fatal,
         });
       } catch (err) {
         console.error('Kino-Szene konnte nicht starten', err);
-        setFailed(true);
+        fatal('Kino-Szene konnte nicht starten');
         return;
       }
       if (queued.current) sceneRef.current.setCredits(queued.current);
@@ -114,10 +126,12 @@ export default function StreamEnding() {
       // Erst einblenden, wenn Texturen/Figuren geladen sind — sonst sieht man Platzhalter mitten in der Fahrt
       await sceneRef.current.ready;
       if (disposed) return;
+      clearTimeout(watchdog);
       requestAnimationFrame(() => setVisible(true));
     })();
     return () => {
       disposed = true;
+      clearTimeout(watchdog);
       sceneRef.current?.dispose();
       sceneRef.current = null;
     };

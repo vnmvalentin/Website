@@ -1,6 +1,7 @@
 // textures.js — alle Bilder des Spiels als Canvas gezeichnet (keine Dateien).
 import * as THREE from 'three';
 import { makeRng } from './maze';
+import { drawSymbol } from './symbols';
 
 function canvas(w, h) {
   const c = document.createElement('canvas');
@@ -220,6 +221,144 @@ export function writingTexture(text, seed) {
     ctx.fillRect(x, size * 0.32, 3, len);
   }
   return toTexture(c, false);
+}
+
+/* ── Zahlenschloss (Wald) ─────────────────────────────────────────────── */
+
+/**
+ * In die Rinde geschnitzt: helles, frisch freigelegtes Holz, darin das Zeichen als dunkle Kerbe und
+ * darunter die Ziffer, eingeritzt. Transparenter Rand (Rindenstücke ausgefranst).
+ */
+export function carvingTexture(symbol, digit, seed = 1) {
+  const rng = makeRng(seed * 977 + 13);
+  const [c, ctx] = canvas(256, 384);
+  // ausgefranste helle Schnittfläche
+  ctx.beginPath();
+  for (let i = 0; i <= 40; i++) {
+    const a = (i / 40) * Math.PI * 2;
+    const r = 1 + (rng() - 0.5) * 0.12;
+    const x = 128 + Math.cos(a) * 112 * r;
+    const y = 192 + Math.sin(a) * 178 * r;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  const g = ctx.createRadialGradient(128, 192, 20, 128, 192, 190);
+  g.addColorStop(0, '#b89a6e');
+  g.addColorStop(0.8, '#8a6d48');
+  g.addColorStop(1, '#4a3826');
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  // Holzfasern
+  for (let i = 0; i < 70; i++) {
+    ctx.strokeStyle = `rgba(70,48,28,${0.08 + rng() * 0.16})`;
+    ctx.lineWidth = 1 + rng() * 2;
+    const x = rng() * 256;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.bezierCurveTo(x + (rng() - 0.5) * 20, 130, x + (rng() - 0.5) * 20, 260, x + (rng() - 0.5) * 16, 384);
+    ctx.stroke();
+  }
+  ctx.restore();
+  // Kerben: dunkler Grund mit hellem Rand oben links (wirkt eingeschnitten)
+  const draw = (fn) => {
+    ctx.save(); ctx.translate(-2, -2); fn('rgba(230,210,170,0.55)'); ctx.restore();
+    fn('#20140a');
+  };
+  draw((fill) => drawSymbol(ctx, symbol, 128, 140, 150, { fill }));
+  ctx.font = 'bold 96px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  draw((fill) => { ctx.fillStyle = fill; ctx.fillText(String(digit), 128, 300); });
+  return toTexture(c, false);
+}
+
+/** Messingschild am Zahlenschloss: die Reihenfolge der Zeichen, darunter drei Rädchen. */
+export function codeLockTexture(symbols) {
+  const rng = makeRng(31);
+  const [c, ctx] = canvas(384, 256);
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#8c7442');
+  g.addColorStop(1, '#5a4826');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 384, 256);
+  grain(ctx, 384, 256, rng, 3000, 0.25);
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = 8;
+  ctx.strokeRect(8, 8, 368, 240);
+  // drei (allein) oder vier Zeichen (Koop) gleichmäßig verteilt
+  const step = 330 / symbols.length;
+  const size = Math.min(82, step - 22);
+  symbols.forEach((s, i) => {
+    const x = 27 + step * (i + 0.5);
+    drawSymbol(ctx, s, x + 1.5, 86 + 1.5, size, { fill: 'rgba(255,240,200,0.35)' });
+    drawSymbol(ctx, s, x, 86, size, { fill: '#1a1208' });
+    ctx.fillStyle = '#1c1610';
+    ctx.fillRect(x - 30, 160, 60, 64);
+    ctx.fillStyle = '#6c6458';
+    ctx.font = 'bold 44px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', x, 194);
+  });
+  for (let i = 0; i < 6; i++) stain(ctx, rng() * 384, rng() * 256, 50, 'rgba(20,30,10,0.35)');
+  return toTexture(c, false);
+}
+
+/** Jutesack als Kopf des Gärtners: grobes Gewebe, zwei schief vernähte Augenschlitze, Flecken. */
+export function sackTexture() {
+  const rng = makeRng(77);
+  const [c, ctx] = canvas(256, 256);
+  ctx.fillStyle = '#6b5a40';
+  ctx.fillRect(0, 0, 256, 256);
+  // Gewebe
+  for (let y = 0; y < 256; y += 3) {
+    ctx.fillStyle = `rgba(30,22,12,${0.12 + rng() * 0.12})`;
+    ctx.fillRect(0, y, 256, 1);
+  }
+  for (let x = 0; x < 256; x += 3) {
+    ctx.fillStyle = `rgba(200,180,140,${0.06 + rng() * 0.08})`;
+    ctx.fillRect(x, 0, 1, 256);
+  }
+  grain(ctx, 256, 256, rng, 4000, 0.3);
+  for (let i = 0; i < 7; i++) stain(ctx, rng() * 256, rng() * 256, 20 + rng() * 40, 'rgba(40,10,6,0.45)');
+  // Augenschlitze mit Kreuzstichen (vorn = Bildmitte, die Kugel-UV läuft einmal herum)
+  ctx.strokeStyle = '#120c06';
+  ctx.lineCap = 'round';
+  for (const [ex, ey, rot] of [[106, 112, -0.2], [150, 108, 0.25]]) {
+    ctx.save();
+    ctx.translate(ex, ey);
+    ctx.rotate(rot);
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(-14, 0);
+    ctx.lineTo(14, 0);
+    ctx.stroke();
+    ctx.lineWidth = 2;
+    for (let k = -12; k <= 12; k += 6) {
+      ctx.beginPath();
+      ctx.moveTo(k - 3, -6);
+      ctx.lineTo(k + 3, 6);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // vernähter Mund
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(108, 160);
+  ctx.quadraticCurveTo(128, 168, 150, 158);
+  ctx.stroke();
+  for (let k = 0; k < 6; k++) {
+    const x = 110 + k * 7.5;
+    ctx.beginPath();
+    ctx.moveTo(x, 155);
+    ctx.lineTo(x + 2, 168);
+    ctx.stroke();
+  }
+  const t = toTexture(c, true);
+  return t;
 }
 
 /* ── Wald ─────────────────────────────────────────────────────────────── */

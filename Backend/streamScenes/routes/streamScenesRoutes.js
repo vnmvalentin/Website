@@ -3,7 +3,7 @@
 // Steuerpult (nur der Kanalbetreiber, STREAMER_TWITCH_ID — die 3D-Szenen sind kein öffentliches Tool):
 //   GET  /control            Einstellungen + OBS-Key
 //   PUT  /control            Einstellungen speichern ({ settings })
-//   POST /control/command    einmaliger Befehl ({ type: 'drop' | 'fire' | 'clearFloor' })
+//   POST /control/command    einmaliger Befehl ({ type: 'drop' | 'fire' | 'clearFloor' | 'brbRace' | 'brbRaceStop' })
 //   POST /control/rotate-key neuer OBS-Link (alter Link hört auf zu wirken)
 // OBS-Quelle (ohne Login):
 //   GET  /live               Einstellungen + letzter Befehl des Kanalbetreibers, wird alle ~1,5 s abgefragt

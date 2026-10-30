@@ -1477,8 +1477,87 @@ function startBackgroundSync() {
   return true;
 }
 
-module.exports = function createCrWinTrackerRouter({ requireAuth } = {}) {
+const TWITCH_LOGIN_RE = /^[a-z0-9_]{2,25}$/;
+
+// Zuletzt bekannter Twitch-Login eines Nutzers aus den eigenen Tabellen (Konto oder Chat-Kanal)
+function knownLoginFor(userId) {
+  const acc = db.prepare("SELECT twitch_login FROM cr_wintracker_accounts WHERE user_id = ? AND twitch_login != '' ORDER BY created_at DESC LIMIT 1").get(userId);
+  if (acc?.twitch_login) return String(acc.twitch_login).toLowerCase();
+  const s = db.prepare("SELECT chat_channel FROM cr_wintracker_settings WHERE user_id = ?").get(userId);
+  return s?.chat_channel ? String(s.chat_channel).toLowerCase() : "";
+}
+
+module.exports = function createCrWinTrackerRouter({ requireAuth: requireLogin, isAdmin = () => false } = {}) {
   const router = express.Router();
+
+  // Admin-Modus: mit ?asUser=<Twitch-ID>&asLogin=<login> laufen alle Routen unten im Namen dieses
+  // Nutzers — so kann der Admin einem Streamer Accounts + Overlay einrichten und ihm nur noch den
+  // Overlay-Link schicken. Ohne asUser ändert sich nichts. req.twitchId/-Login werden ersetzt,
+  // weil jede Route ihre Identität genau daraus liest.
+  function actAsUser(req, res, next) {
+    if (req.query.asUser === undefined) return next();
+    if (!isAdmin(req)) return res.status(403).json({ error: "Nur für Admins" });
+    const id = String(req.query.asUser);
+    if (!/^\d{1,20}$/.test(id)) return res.status(400).json({ error: "Ungültige Twitch-ID" });
+    const given = String(req.query.asLogin || "").trim().toLowerCase();
+    const login = TWITCH_LOGIN_RE.test(given) ? given : knownLoginFor(id);
+    if (!login) return res.status(400).json({ error: "Twitch-Login des Nutzers unbekannt" });
+    req.wtAdminId = String(req.twitchId);
+    req.twitchId = id;
+    req.twitchLogin = login;
+    next();
+  }
+  const requireAuth = [requireLogin, actAsUser];
+
+  function requireAdmin(req, res, next) {
+    if (!isAdmin(req)) return res.status(403).json({ error: "Nur für Admins" });
+    next();
+  }
+
+  // ── Admin: alle Nutzer mit Win-Tracker-Daten ──────────────────────────────
+  router.get("/admin/users", requireLogin, requireAdmin, (req, res) => {
+    const users = new Map();
+    const entry = (userId) => {
+      if (!users.has(userId)) users.set(userId, { userId, login: "", accounts: [], hasSettings: false, updatedAt: 0 });
+      return users.get(userId);
+    };
+    for (const s of db.prepare("SELECT user_id, chat_channel, updated_at FROM cr_wintracker_settings").all()) {
+      const u = entry(String(s.user_id));
+      u.hasSettings = true;
+      u.updatedAt = Math.max(u.updatedAt, s.updated_at || 0);
+      if (!u.login && s.chat_channel) u.login = String(s.chat_channel).toLowerCase();
+    }
+    for (const a of db.prepare("SELECT user_id, twitch_login, player_tag, player_name, is_active, created_at FROM cr_wintracker_accounts ORDER BY created_at").all()) {
+      const u = entry(String(a.user_id));
+      if (a.twitch_login) u.login = String(a.twitch_login).toLowerCase();
+      u.accounts.push({ playerName: a.player_name, playerTag: a.player_tag, isActive: !!a.is_active });
+    }
+    res.json({ users: [...users.values()].sort((a, b) => (a.login || a.userId).localeCompare(b.login || b.userId)) });
+  });
+
+  // ── Admin: Twitch-Nutzer per Login finden (auch ohne bisherige Win-Tracker-Daten) ──
+  router.get("/admin/lookup", requireLogin, requireAdmin, async (req, res) => {
+    const login = String(req.query.login || "").trim().toLowerCase().replace(/^@/, "");
+    if (!TWITCH_LOGIN_RE.test(login)) return res.status(400).json({ error: "Ungültiger Twitch-Name" });
+    if (!process.env.TWITCH_CLIENT_ID || !process.env.TWITCH_CLIENT_SECRET) {
+      return res.status(503).json({ error: "Twitch-API nicht konfiguriert" });
+    }
+    try {
+      const { getAppToken, resetAppToken } = require("../../routes/usedByRoutes");
+      const token = await getAppToken();
+      const r = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(login)}`, {
+        headers: { "Client-Id": process.env.TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` },
+      });
+      if (r.status === 401) resetAppToken();
+      if (!r.ok) return res.status(502).json({ error: "Twitch nicht erreichbar" });
+      const u = (await r.json()).data?.[0];
+      if (!u) return res.status(404).json({ error: "Kein Twitch-Nutzer mit diesem Namen" });
+      res.json({ userId: String(u.id), login: String(u.login).toLowerCase(), displayName: u.display_name || u.login });
+    } catch (e) {
+      console.error("[WinTracker] Admin-Suche:", e.message);
+      res.status(502).json({ error: "Twitch nicht erreichbar" });
+    }
+  });
 
   function ownAccount(req, res) {
     const row = getAccountById.get(req.params.accountId);

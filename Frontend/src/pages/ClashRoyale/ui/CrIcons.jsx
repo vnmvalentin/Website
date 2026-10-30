@@ -81,6 +81,7 @@ import kingBlueSrc from '../../../assets/clashRoyale/ui/king_blue.webp';
 import kingRedSrc from '../../../assets/clashRoyale/ui/king_red.webp';
 import skullSrc from '../../../assets/clashRoyale/ui/sudden_death.webp';
 import fishermanSrc from '../../../assets/clashRoyale/ui/fisherman.webp';
+import motherWitchSrc from '../../../assets/clashRoyale/ui/motherwitch_icon.webp';
 import doubleElixirSrc from '../../../assets/clashRoyale/ui/double_elixir.webp';
 import classicDecksSrc from '../../../assets/clashRoyale/ui/classic_decks.webp';
 import megaDraftSrc from '../../../assets/clashRoyale/ui/mega_draft.webp';
@@ -197,6 +198,8 @@ export const CrMegaDraft = imgIcon(megaDraftSrc, 'CrMegaDraft');
 export const CrClassicDecks = imgIcon(classicDecksSrc, 'CrClassicDecks');
 export const CrTelescope = imgIcon(telescopeSrc, 'CrTelescope');
 export const CrFisherman = imgIcon(fishermanSrc, 'CrFisherman');
+// Gesichtsausschnitt aus motherwitch.webp (128px) — die ganze Figur wäre als Symbol zu klein
+export const CrMotherWitch = imgIcon(motherWitchSrc, 'CrMotherWitch');
 
 /**
  * Elixiertropfen — rund unten, spitz oben, mit Glanzpunkt.

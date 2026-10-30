@@ -1,6 +1,6 @@
 // AvatarBuilderPage.jsx — /tanzfigur: Zuschauer bauen ihre Figur für die Stream-Szenen.
 //
-// Mitte: die Figur in 3D (tanzt, lässt sich drehen). Links und rechts davon je ein Pfeil auf Höhe
+// Mitte: die Figur in 3D (tanzt, schaut nach vorn, lässt sich per Ziehen drehen). Links und rechts davon je ein Pfeil auf Höhe
 // von Hut, Kopf, Oberkörper, Beinen und Schuhen. Darunter Hautfarbe, Tanz zum Ansehen und Speichern.
 // Gespeichert wird an der Twitch-ID (Backend /api/stream-scenes/look) — die Figur tanzt dann beim
 // Stream-Start auf der Tanzfläche und sitzt im Abspann im Kino. Ohne Login bleibt ein Entwurf im Browser.
@@ -152,6 +152,15 @@ export default function AvatarBuilderPage() {
           )}
           {loading && webgl && (
             <div className="absolute inset-0 flex items-center justify-center text-white/40">Figur wird geladen …</div>
+          )}
+          {webgl && !loading && (
+            <button
+              type="button"
+              onClick={() => previewRef.current?.resetView()}
+              className="absolute bottom-1 left-1/2 -translate-x-1/2 rounded-md border border-white/10 bg-[#161622] px-2.5 py-1 text-xs text-white/60 hover:text-white"
+            >
+              Von vorn
+            </button>
           )}
           {SLOTS.map((slot) => (
             <React.Fragment key={slot}>

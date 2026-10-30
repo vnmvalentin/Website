@@ -190,12 +190,13 @@ function curtainGeometry(w, h, dir) {
  * @param {{ overlay?: HTMLElement|null, skipIntro?: boolean, skipNames?: string[], onClip?: (clip: object|null, rect: object|null) => void }} opts
  *   overlay: Ebene für die Namensschilder des Publikums; skipNames: nehmen nie Platz (Kanal, Bots)
  */
-export function createCinemaScene(canvas, { overlay = null, skipIntro = false, skipNames = [], onClip, figures = 'people' } = {}) {
+export function createCinemaScene(canvas, { overlay = null, skipIntro = false, skipNames = [], onClip, figures = 'people', onFatal } = {}) {
   let seatFov = 40;
   let viewW = 1920, viewH = 1080;
   let nowT = 0;
   const stage = createStage(canvas, {
     fov: WALK_FOV,
+    onFatal,
     onResize: (w, h) => {
       viewW = w;
       viewH = h;

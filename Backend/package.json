@@ -13,6 +13,7 @@
     "garden:spiegel": "node garden/tools/katalogSpiegel.js",
     "garden:spiegel:pruefen": "node garden/tools/katalogSpiegel.js --pruefen",
     "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js",
+    "cr:card-stats": "node clashRoyale/tools/cardStatsSpiegel.js",
     "test:sigils": "node --test \"sacrificeSigils/**/*.test.js\"",
     "sigils:spiegel": "node sacrificeSigils/tools/spiegel.js",
     "sigils:spiegel:pruefen": "node sacrificeSigils/tools/spiegel.js --pruefen",
@@ -26,7 +27,8 @@
     "test:adventure": "node --test \"adventure/__tests__/*.test.js\"",
     "test:profile": "node --test \"profile/__tests__/*.test.js\"",
     "test:wt-recap": "node --test \"clashRoyale/lib/__tests__/*.test.js\"",
-    "billing:setup": "node billing/tools/setupStripe.js"
+    "test:status": "node --test \"statusWatch/__tests__/*.test.js\"",
+    "billing:setup":"node billing/tools/setupStripe.js"
   },
   "keywords": [],
   "author": "",

@@ -4,7 +4,8 @@ import SEO from "../components/SEO";
 import { Share2, MonitorSmartphone, ArrowRight, X } from "lucide-react";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import ActivityStrip from "../components/ActivityStrip";
-import HomeDoors from "../components/HomeDoors";
+import HomeFavorites from "../components/HomeFavorites";
+import { getCategory } from "../config/navigation";
 
 // --- DATEN ---
 
@@ -223,6 +224,33 @@ function TwitchTV() {
   );
 }
 
+const MORE = [
+  { key: "tools", label: "Streamer-Tools", text: "Overlays, Bots & Helfer" },
+  { key: "clash-royale", label: "Clash Royale", text: "Minigames, Nuzlocke, Turniere" },
+  { key: "fun", label: "Browserspiele", text: "Blobby, adVentures, Seed Runners …" },
+  { key: "community", label: "Community", text: "Abstimmungen & Giveaways" },
+];
+
+function MoreLinks() {
+  return (
+    <nav aria-label="Mehr entdecken" className="grid grid-cols-2 lg:grid-cols-4 border-y border-white/10 divide-white/10 lg:divide-x">
+      {MORE.map((m) => {
+        const cat = getCategory(m.key);
+        if (!cat) return null;
+        return (
+          <Link key={m.key} to={cat.to} className="group flex items-center gap-3 px-3 py-4 lg:px-5 hover:bg-white/[0.03] transition-colors">
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-white">{m.label}</span>
+              <span className="block text-xs text-white/40 truncate">{m.text}</span>
+            </span>
+            <ArrowRight size={15} className="shrink-0 text-white/25 group-hover:text-violet-300 group-hover:translate-x-0.5 transition-all" />
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function Home() {
   const { user } = useContext(TwitchAuthContext);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -259,9 +287,9 @@ export default function Home() {
             <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">
               {user ? `Willkommen, ${user.displayName || user.login}` : "vnmvalentin.de"}
             </p>
-            <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight mb-3">Was führt dich her?</h1>
+            <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight mb-3">Spiele, Overlays & Tools vom Stream</h1>
             <p className="text-white/50 text-sm md:text-base max-w-2xl">
-              Tools für Streamer, alles rund um Clash Royale und Browserspiele — kostenlos und ohne Download.
+              Die Favoriten der Community — kostenlos, im Browser, ohne Download.
             </p>
           </div>
           <aside className="hidden lg:block">
@@ -270,8 +298,11 @@ export default function Home() {
           </aside>
         </section>
 
-        {/* Die drei Türen: je bis zu 4 Einträge, meistbesuchte zuerst (components/HomeDoors.jsx) */}
-        <HomeDoors />
+        {/* Favoriten: Minigames groß, darunter Win Tracker + Win Challenge mit Live-Vorschau (components/HomeFavorites.jsx) */}
+        <HomeFavorites />
+
+        {/* Der Rest der Seite in einer ruhigen Zeile statt eigener Kästen (Navigation oben hat alles vollständig) */}
+        <MoreLinks />
 
         {/* Echte Zahlen, nur wenn sie über ihrer Schwelle liegen (Backend/activity) */}
         <ActivityStrip />

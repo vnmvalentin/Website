@@ -16,6 +16,7 @@ Disallow: /Bingo/join/
 Disallow: /banned-cards/overlay/
 Disallow: /clash-royale/overlay/
 Disallow: /clash-royale/win-tracker/overlay/
+Disallow: /clash/viewer-games/overlay/
 Disallow: /twitch-tools/overlay/
 Disallow: /profile
 

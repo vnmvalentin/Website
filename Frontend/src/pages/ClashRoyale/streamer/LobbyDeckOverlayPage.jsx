@@ -61,5 +61,5 @@ export default function LobbyDeckOverlayPage() {
     };
   }, [overlayKey]);
 
-  return <DeckOverlayGrid players={decks?.players || []} viewport={viewport} />;
+  return <DeckOverlayGrid players={decks?.players || []} viewport={viewport} feedKey={decks?.at} />;
 }

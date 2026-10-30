@@ -16,7 +16,7 @@ import { defaultConfig, useDemoSim, paintDemo, toGoalView, toStatsView } from ".
 const noop = () => {};
 
 // Wie im Win-Tracker-Editor voreingestellt (WinTrackerPage.jsx)
-const WT_SETTINGS = {
+export const WT_SETTINGS = {
   showDailyProfit: true, showWinLossNumbers: true, showWinLossPercent: true, showLast5: true,
   bgColor: "#0c0c12", bgOpacity: 88, bgGradient: false, bgColor2: "#1a1a2e", borderColor: "",
   last5Style: "result", last5Direction: "newestLeft", last5NewBadge: true,
@@ -25,7 +25,7 @@ const WT_SETTINGS = {
   overlayTheme: "classic", royalePanel: "blue", royalePattern: true, overlayScale: 100,
 };
 
-const WC_DOC = {
+export const WC_DOC = {
   title: "Win Challenge",
   items: [
     { id: "d1", name: "3 Siege mit Zufallsdeck", useWins: true, target: 3, progress: 2 },
@@ -33,7 +33,7 @@ const WC_DOC = {
     { id: "d3", name: "Gegen einen Zuschauer", pinned: true },
   ],
 };
-const WC_TIMER_MS = (47 * 60 + 12) * 1000; // stehende Beispielzeit statt 00:00:00
+export const WC_TIMER_MS = (47 * 60 + 12) * 1000; // stehende Beispielzeit statt 00:00:00
 
 /** Verkleinert ein Overlay mit fester Pixelbreite passend in seine Kachel (nie größer als 100 %). */
 export function Fit({ children }) {

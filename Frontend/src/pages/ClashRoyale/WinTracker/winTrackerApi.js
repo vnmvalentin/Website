@@ -1,5 +1,20 @@
 // API-Client für die Win-Tracker-Seite (/api/cr-wintracker)
-async function apiFetch(path, opts = {}) {
+
+// Admin-Modus: solange gesetzt, laufen alle Aufrufe im Namen dieses Nutzers ({ userId, login })
+let actingAs = null;
+export const setActingAs = (target) => { actingAs = target?.userId ? target : null; };
+export const getActingAs = () => actingAs;
+
+function withActingAs(path) {
+  if (!actingAs || path.startsWith('/api/cr-wintracker/admin/')) return path;
+  // Das öffentliche OBS-Overlay hängt am Key, nicht am Login
+  if (path.startsWith('/api/cr-wintracker/overlay/') && !path.endsWith('/regenerate')) return path;
+  const q = `asUser=${encodeURIComponent(actingAs.userId)}&asLogin=${encodeURIComponent(actingAs.login || '')}`;
+  return path + (path.includes('?') ? '&' : '?') + q;
+}
+
+async function apiFetch(rawPath, opts = {}) {
+  const path = withActingAs(rawPath);
   const res = await fetch(path, {
     credentials: "include",
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
@@ -43,4 +58,8 @@ export const regenerateOverlayKey = () =>
 export const getOverlayData = (overlayKey) => apiFetch(`/api/cr-wintracker/overlay/${overlayKey}`);
 // Saisonrückblick des aktiven Accounts (season = "JJJJ-MM", leer = laufende Saison); das Bild lädt der Browser direkt
 export const getRecap = (season) => apiFetch(`/api/cr-wintracker/recap${season ? `?season=${encodeURIComponent(season)}` : ""}`);
-export const recapImageUrl = (season) => `/api/cr-wintracker/recap.png?season=${encodeURIComponent(season)}`;
+export const recapImageUrl = (season) => withActingAs(`/api/cr-wintracker/recap.png?season=${encodeURIComponent(season)}`);
+
+// Nur für den Admin
+export const adminListUsers = () => apiFetch('/api/cr-wintracker/admin/users');
+export const adminLookupUser = (login) => apiFetch(`/api/cr-wintracker/admin/lookup?login=${encodeURIComponent(login)}`);

@@ -1,6 +1,7 @@
 // Gemeinsame Bausteine der Discord-Unterseiten (Aussehen in discord.css).
 import React from 'react';
 import { Bot, Plus } from 'lucide-react';
+import { renderDiscordText } from './discordText';
 
 /** Unterstrich-Reiter innerhalb einer Unterseite. tabs: [[id, Beschriftung, Zähler?], …] */
 export function DcTabs({ tabs, value, onChange }) {
@@ -57,8 +58,12 @@ export function DcAddTile({ label, hint, onClick, large = false }) {
 
 const SAMPLE = { name: 'Mika', members: 128 };
 
-/** Setzt die Platzhalter ein. Beim Eintritt ist [USER] eine Erwähnung, beim Austritt nur der Name. */
+/** Setzt die Platzhalter ein und zeigt Emojis als Bild. Beim Eintritt ist [USER] eine Erwähnung, beim Austritt nur der Name. */
 function fill(text, kind, serverName) {
+    return renderDiscordText(text, {}, (chunk) => fillPlaceholders(chunk, kind, serverName));
+}
+
+function fillPlaceholders(text, kind, serverName) {
     return String(text || '').split(/(\[USER\]|\[SERVER\]|\[MEMBER\])/).map((part, i) => {
         if (part === '[USER]') {
             return kind === 'welcome'
@@ -76,7 +81,7 @@ function fill(text, kind, serverName) {
  * @param {'text'|'card'|'image'} style  schlichte Nachricht, Karte oder gezeichnetes Bild
  * @param {string} imageUrl  Vorschau des gezeichneten Bilds (kommt aus dem Backend — dieselbe Zeichnung wie im Bot)
  */
-export function DiscordPreview({ kind, style, text, serverName, botName, imageUrl }) {
+export function DiscordPreview({ kind, style, text, serverName, botName, imageUrl, imageRatio }) {
     const card = style === 'card';
     const image = style === 'image';
     const empty = !String(text || '').trim();
@@ -93,7 +98,7 @@ export function DiscordPreview({ kind, style, text, serverName, botName, imageUr
                 {empty && <p className="dc-preview-text is-empty">Ohne Text sendet der Bot nichts.</p>}
 
                 {!empty && !card && <p className="dc-preview-text">{fill(text, kind, serverName)}</p>}
-                {!empty && image && <img className="dc-preview-image" src={imageUrl} alt="Vorschau des Bilds" />}
+                {!empty && image && <img className="dc-preview-image" src={imageUrl} alt="Vorschau des Bilds" style={imageRatio ? { aspectRatio: imageRatio } : undefined} />}
 
                 {!empty && card && (
                     <>

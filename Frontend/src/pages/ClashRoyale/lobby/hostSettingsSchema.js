@@ -21,7 +21,7 @@
 // Alle Einstellungs-Symbole sind echte Clash-Royale-Grafiken — siehe ui/CrIcons.jsx.
 import {
   CrClock, CrMegaDraft, CrClassicDecks, CrCards, CrElixir, CrTrader, CrEye, CrFisherman,
-  CrStopwatch, CrTelescope, CrBoost, CrSkull, CrLock, CrTripleDraft,
+  CrStopwatch, CrTelescope, CrBoost, CrSkull, CrLock, CrTripleDraft, CrMotherWitch,
 } from '../ui/CrIcons';
 
 // Whitelists — müssen mit dem Backend übereinstimmen (Datei/Zeile als Fundstelle):
@@ -145,7 +145,7 @@ export const HOST_SETTINGS = [
   {
     key: 'motherWitchEnabled',
     modes: ['auction'],
-    control: 'toggle', icon: CrBoost, accent: 'violet',
+    control: 'toggle', icon: CrMotherWitch, accent: 'violet',
     label: ({ t }) => t.motherWitchVisits,
     note: ({ t }) => t.motherWitchNote,
     apply: (a, v) => a.setMotherWitch(v),

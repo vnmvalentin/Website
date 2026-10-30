@@ -41,10 +41,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import {
   Volleyball, Copy, Check, LogOut, RotateCcw, Loader2, Users, Settings2, ArrowLeftRight,
-  ChevronLeft, ChevronRight, ChevronUp, Zap,
+  ChevronLeft, ChevronRight, ChevronUp, Zap, Box,
 } from "lucide-react";
 import SEO from "../../components/SEO";
 import BlobbySettings from "./BlobbySettings";
+import BeachGame from "./beach/BeachGame";
 import { DEFAULT_SETTINGS, normalizeSettings, POWERUP_LABELS, settingsSummary } from "./settings";
 import { BLOBBY_SOCKET_OPTS } from "./net";
 import { SLOT_COLOR, TEAM_COLOR, POWERUP_COLOR, drawScene } from "./render";
@@ -155,8 +156,14 @@ function freshWorld(mode) {
 // Wer rechts spielt, bekommt das Feld gespiegelt: jeder sieht sich selbst links. Intern
 // bleibt alles in Weltkoordinaten — gespiegelt wird nur beim Zeichnen, und die Laufrichtung
 // der Tasten wird beim Einlesen umgedreht.
-function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, onHud }) {
+function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, onHud, view3d, onView3dFail }) {
   const canvasRef = useRef(null);
+  // 3D-Ansicht (render3d.js): eigenes Canvas über dem 2D-Canvas. Das 2D-Canvas bleibt
+  // im Layout und gibt die Größe vor; solange r3dRef leer ist, wird dort gezeichnet.
+  const canvas3dRef = useRef(null);
+  const r3dRef = useRef(null);
+  const sizeRef = useRef({ cssW: 0, cssH: 0, dpr: 1 });
+  const [ready3d, setReady3d] = useState(false);
   const wrapRef = useRef(null);
   // Lazy: `useRef(f())` wertet sein Argument bei JEDEM Render neu aus und wirft das
   // Ergebnis weg — bei der Historie unten wären das 192 Objekte pro Render.
@@ -523,6 +530,8 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
       canvas.height = Math.round(cssH * dpr);
       canvas.style.width = `${cssW}px`;
       canvas.style.height = `${cssH}px`;
+      sizeRef.current = { cssW, cssH, dpr };
+      r3dRef.current?.setSize(cssW, cssH, dpr);
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -610,6 +619,11 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
       // Blob kommt jetzt aus derselben Schleife oben. Die Tastatur schickt nur noch
       // `bv:input` an den Server und wartet auf den nächsten Schnappschuss.
 
+      const r3d = r3dRef.current;
+      if (r3d) {
+        r3d.render(w, { names: namesRef.current, slots: active, mySlot, mirror, dt });
+        return;
+      }
       const scale = canvas.width / worldW;
       if (mirror) ctx.setTransform(-scale, 0, 0, scale, canvas.width, 0);
       else ctx.setTransform(scale, 0, 0, scale, 0, 0);
@@ -618,6 +632,34 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, [mySlot, mirror, remoteDelay]);
+
+  // ── 3D-Ansicht ──────────────────────────────────────────────────────────
+  // three.js wird erst beim Einschalten geladen — wer in 2D spielt, lädt es nie.
+  useEffect(() => {
+    if (!view3d) return undefined;
+    let cancelled = false;
+    let instance = null;
+    import("./render3d")
+      .then(({ createBlobby3D }) => {
+        if (cancelled || !canvas3dRef.current) return;
+        instance = createBlobby3D(canvas3dRef.current, { width: worldRef.current.width });
+        if (!instance) {
+          onView3dFail?.();
+          return;
+        }
+        const { cssW, cssH, dpr } = sizeRef.current;
+        if (cssW > 0) instance.setSize(cssW, cssH, dpr);
+        r3dRef.current = instance;
+        setReady3d(true);
+      })
+      .catch(() => { if (!cancelled) onView3dFail?.(); });
+    return () => {
+      cancelled = true;
+      r3dRef.current = null;
+      setReady3d(false);
+      instance?.dispose();
+    };
+  }, [view3d, onView3dFail]);
 
   const padButton = (field, label, icon) => (
     <button
@@ -644,6 +686,13 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
         className="block w-full bv-field"
         style={{ touchAction: "none" }}
       />
+      {view3d && (
+        <canvas
+          ref={canvas3dRef}
+          className="absolute top-0 left-0 block w-full bv-field"
+          style={{ touchAction: "none", visibility: ready3d ? "visible" : "hidden" }}
+        />
+      )}
       {/* Detailwerte für die Fehlersuche, per ?net=1 in der Adresszeile.
           „leer" ist der wichtigste Wert: so oft pro Sekunde war der nächste Schnappschuss
           noch nicht da, als er gebraucht wurde. Alles über 0 heißt, der Puffer ist zu flach
@@ -785,6 +834,24 @@ export default function BlobbyRoom() {
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  // 2D oder 3D — reine Ansichtssache dieses Geräts, der Server weiß davon nichts
+  const [view3d, setView3d] = useState(() => {
+    try {
+      return localStorage.getItem("blobby_view") === "3d";
+    } catch {
+      return false;
+    }
+  });
+  const toggleView = useCallback(() => {
+    setView3d((v) => {
+      try { localStorage.setItem("blobby_view", v ? "2d" : "3d"); } catch { /* privates Fenster */ }
+      return !v;
+    });
+  }, []);
+  const onView3dFail = useCallback(() => {
+    setView3d(false);
+    setToast("3D wird von diesem Browser nicht unterstützt.");
+  }, []);
   const [hud, setHud] = useState({ phase: "serve", phaseFrames: 0, reason: "", touches: 0, lastHit: 0, held: null, effects: [] });
 
   // Der Tick feuert jetzt bis zu 75×/s — nur echte Änderungen dürfen ein Rendern auslösen
@@ -974,7 +1041,9 @@ export default function BlobbyRoom() {
   const winnerLabel = winnerTeam
     ? slots.filter((s) => teamOf(s) === winnerTeam).map((s) => game?.players?.[s]?.name).filter(Boolean).join(" & ")
     : "";
-  const aspect = (FIELD_W[settings.mode] || 800) / WORLD_H;
+  // Beach 3D: echtes Feld, gerechnet beim Host — eigenes Seitenverhältnis (16:9)
+  const isBeach = settings.field === "beach";
+  const aspect = isBeach ? 16 / 9 : (FIELD_W[settings.mode] || 800) / WORLD_H;
   // Jeder sieht sich selbst links — wer für Team 2 spielt, bekommt das Feld gespiegelt
   const mirror = myTeam === 2;
   const leftTeam = mirror ? 2 : 1;
@@ -1015,6 +1084,17 @@ export default function BlobbyRoom() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {!isBeach && (
+          <button
+            type="button"
+            onClick={toggleView}
+            className="bv-btn bv-btn-sm bv-btn-ghost"
+            title={view3d ? "Zur flachen Ansicht wechseln" : "Zur 3D-Ansicht wechseln"}
+          >
+            <Box size={15} />
+            {view3d ? "2D" : "3D"}
+          </button>
+          )}
           <button type="button" onClick={copyLink} className="bv-btn bv-btn-sm bv-btn-ghost">
             {copied ? <Check size={15} className="bv-sea" /> : <Copy size={15} />}
             {copied ? "Kopiert" : "Link kopieren"}
@@ -1059,17 +1139,29 @@ export default function BlobbyRoom() {
         {/* Spielfeld. Die Breite wird von der Fensterhöhe gedeckelt (oben), damit auf dem Notebook
             das ganze Feld sichtbar bleibt; der Mindestwert hält es in Querlage auf dem Handy spielbar. */}
         <div className="relative w-full">
-          <BlobbyGame
-            key={settings.mode}
-            socket={socket}
-            mySlot={mySlot}
-            status={status}
-            players={game?.players}
-            settings={settings}
-            slots={slots}
-            mirror={mirror}
-            onHud={handleHud}
-          />
+          {isBeach ? (
+            <BeachGame
+              key={`beach-${settings.mode}`}
+              socket={socket}
+              game={game}
+              mySlot={mySlot}
+              onHud={handleHud}
+            />
+          ) : (
+            <BlobbyGame
+              key={settings.mode}
+              socket={socket}
+              mySlot={mySlot}
+              status={status}
+              players={game?.players}
+              settings={settings}
+              slots={slots}
+              mirror={mirror}
+              onHud={handleHud}
+              view3d={view3d}
+              onView3dFail={onView3dFail}
+            />
+          )}
 
           {banner && missing === 0 && status !== "finished" && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-md bg-[var(--bv-paper)] border-2 border-[var(--bv-ink)] pointer-events-none whitespace-nowrap">
@@ -1119,7 +1211,8 @@ export default function BlobbyRoom() {
                     {POWERUP_LABELS[hud.held]}
                   </span>
                   <span className="text-[10px] text-white/55 border-l border-white/15 pl-2">
-                    {IS_COARSE_POINTER ? "Taste rechts" : "Leertaste"}
+                    {/* Beach: Leertaste ist dort die Sprungtaste, gezündet wird mit E */}
+                    {isBeach ? "Taste E" : IS_COARSE_POINTER ? "Taste rechts" : "Leertaste"}
                   </span>
                 </div>
               ) : (
@@ -1219,7 +1312,14 @@ export default function BlobbyRoom() {
           </div>
         )}
 
-        {mySlot && (
+        {mySlot && isBeach && (
+          <p className="text-center text-xs bv-dim mt-4">
+            W A S D oder Pfeiltasten laufen · Leertaste springen (halten = höher) · der Ring im Sand zeigt, wo der Ball gerade ist — je kleiner der Kreis, desto tiefer
+            {settings.powerups && " · Powerups über dem Netz anspringen, mit E einsetzen"}
+            {settings.maxTouches > 0 && ` · max. ${settings.maxTouches} Berührungen pro Seite`}
+          </p>
+        )}
+        {mySlot && !isBeach && (
           <p className="text-center text-xs bv-dim mt-4">
             {IS_COARSE_POINTER
               ? "Tasten unter dem Feld: laufen und springen (halten = höher)"

@@ -58,9 +58,9 @@ const Elixir = ({ size = 14, className = '' }) => (
 // In der Auflösung wird es für alle aufgedeckt.
 const MW_BADGE_MINE = {
   de: {
-    pigs: 'Mutterhexe: Gegner bieten blind (Schweine)',
-    swap: 'Mutterhexe: Gegner sehen falsche Karten',
-    halved: 'Mutterhexe: Gebote der Gegner zählen nur halb',
+    pigs: 'Hexenmutter: Gegner bieten blind (Schweine)',
+    swap: 'Hexenmutter: Gegner sehen falsche Karten',
+    halved: 'Hexenmutter: Gebote der Gegner zählen nur halb',
   },
   en: {
     pigs: 'Mother Witch: opponents bid blind (pigs)',
@@ -76,9 +76,9 @@ const MW_BADGE_MINE = {
 
 const MW_REVEAL_AFFECTED = {
   de: {
-    pigs: 'Mutterhexe war im Spiel: Du hast blind geboten',
-    swap: 'Mutterhexe war im Spiel: Deine Karten waren vertauscht',
-    halved: 'Mutterhexe war im Spiel: Dein Gebot zählte nur halb',
+    pigs: 'Hexenmutter war im Spiel: Du hast blind geboten',
+    swap: 'Hexenmutter war im Spiel: Deine Karten waren vertauscht',
+    halved: 'Hexenmutter war im Spiel: Dein Gebot zählte nur halb',
   },
   en: {
     pigs: 'The Mother Witch was in play: you bid blind',
@@ -101,7 +101,7 @@ const AUCTION_I18N = {
     allBid: 'Alle haben geboten',
     bidProgress: (n, total) => `${n} von ${total} geboten`,
     notAwarded: 'Nicht vergeben',
-    revealing: 'Mutterhexe deckt auf…',
+    revealing: 'Hexenmutter deckt auf…',
     championLimit: 'Champion-Limit',
     bidFor: (n) => `Für ${n} bieten`,
     bonusHeading: 'Bonuskarten — außerhalb des Pools',

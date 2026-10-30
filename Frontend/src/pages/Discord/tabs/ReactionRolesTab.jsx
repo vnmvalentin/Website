@@ -1,26 +1,82 @@
-import React, { useState, useEffect } from 'react';
-import { Pencil, Trash2, X, Smile } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Bot, Pencil, Plus, Smile, Trash2, X } from 'lucide-react';
 import { DcAddTile } from '../ui';
+import EmojiTextField from '../EmojiTextField';
+import { renderDiscordText } from '../discordText';
 
-const btnStyle = n => {
-    switch (Number(n)) {
-        case 1: return 'bg-[#5865F2] border-transparent';
-        case 3: return 'bg-[#248046] border-transparent';
-        case 4: return 'bg-[#DA373C] border-transparent';
-        default: return 'bg-[#2b2d31] border border-transparent';
-    }
-};
+// Discords Button-Farben (ButtonStyle 1–4)
+const BUTTON_COLORS = [
+    { value: 1, name: 'Blau', color: '#5865f2' },
+    { value: 2, name: 'Grau', color: '#4e5058' },
+    { value: 3, name: 'Grün', color: '#248046' },
+    { value: 4, name: 'Rot', color: '#da373c' },
+];
+const buttonColor = (style) => (BUTTON_COLORS.find((c) => c.value === Number(style)) || BUTTON_COLORS[1]).color;
+const roleColor = (c) => (c && c !== '#000000' ? c : '#99aab5');
+const emptyMapping = () => ({ emoji: '', label: '', style: 2, roleId: '' });
 
-const renderPreview = (text) => {
-    if (!text) return <span className="text-white/40 italic">Dein Text hier...</span>;
-    let html = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    html = html.replace(/&lt;a?:(.*?):(\d+)&gt;/g, (m, name, id) => {
-        const ext = m.startsWith('&lt;a:') ? 'gif' : 'png';
-        return `<img src="https://cdn.discordapp.com/emojis/${id}.${ext}" alt="${name}" class="inline-block w-5 h-5 align-middle mx-0.5"/>`;
-    });
-    html = html.replace(/\n/g, '<br/>');
-    return <div dangerouslySetInnerHTML={{ __html: html }} className="text-[#dbdee1] text-[15px]"/>;
-};
+/** Ein Button-Emoji: Server-Emoji (ID) oder normales Emoji (Zeichen). */
+function ButtonEmoji({ emoji, serverEmojis, size = 18 }) {
+    if (!emoji) return null;
+    const ce = /^\d+$/.test(emoji) ? serverEmojis.find((e) => e.id === emoji) : null;
+    if (ce) return <img src={ce.url} alt={ce.name} style={{ width: size, height: size }} className="object-contain" />;
+    if (/^\d+$/.test(emoji)) return null;
+    return <span style={{ fontSize: size * 0.9, lineHeight: 1 }}>{emoji}</span>;
+}
+
+/**
+ * Emoji-Wahl für einen Button: ein Knopf, der das gewählte Emoji zeigt.
+ * Aufgeklappt: Feld für normale Emojis und darunter die Server-Emojis.
+ */
+function EmojiPick({ value, onChange, serverEmojis }) {
+    const [open, setOpen] = useState(false);
+    const [typed, setTyped] = useState('');
+    const wrap = useRef(null);
+    useEffect(() => {
+        if (!open) return undefined;
+        const close = (e) => { if (!wrap.current?.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', close);
+        return () => document.removeEventListener('mousedown', close);
+    }, [open]);
+    const pick = (v) => { onChange(v); setOpen(false); setTyped(''); };
+
+    return (
+        <div ref={wrap} className="relative shrink-0">
+            <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+                title="Emoji wählen" aria-label="Emoji wählen"
+                className={`dc-input w-10 h-[38px] !p-0 flex items-center justify-center ${open ? '!border-[var(--dc-accent)]' : ''}`}>
+                {value ? <ButtonEmoji emoji={value} serverEmojis={serverEmojis} size={20} /> : <Smile size={16} className="text-white/35" />}
+            </button>
+            {open && (
+                <div className="dc-popover absolute left-0 top-full mt-1 z-50 w-72 p-2.5">
+                    <form className="flex gap-1.5" onSubmit={(e) => { e.preventDefault(); if (typed.trim()) pick(typed.trim()); }}>
+                        <input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Emoji eintippen, z. B. 🎮"
+                            className="dc-input flex-1 min-w-0 !py-1.5" />
+                        <button type="submit" className="dc-btn !min-h-0 !px-3" disabled={!typed.trim()}>OK</button>
+                    </form>
+                    {serverEmojis.length > 0 && (
+                        <>
+                            <div className="text-[11px] font-semibold text-white/40 mt-2.5 mb-1 px-0.5">Server-Emojis</div>
+                            <div className="grid grid-cols-7 gap-0.5 max-h-44 overflow-y-auto custom-scrollbar">
+                                {serverEmojis.map((e) => (
+                                    <button key={e.id} type="button" title={`:${e.name}:`} onClick={() => pick(e.id)}
+                                        className={`p-1.5 rounded flex items-center justify-center hover:bg-white/10 ${value === e.id ? 'bg-white/10' : ''}`}>
+                                        <img src={e.url} alt={e.name} className="w-6 h-6 object-contain" />
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                    {value && (
+                        <button type="button" onClick={() => pick('')} className="mt-2 w-full text-left px-1 text-xs text-white/45 hover:text-red-400">
+                            Kein Emoji
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function ReactionRolesTab({ selectedServer, channels, serverRoles, serverEmojis, botNickname }) {
     const [list, setList] = useState([]);
@@ -29,7 +85,7 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
 
-    // Editor state
+    // Editor
     const [title, setTitle] = useState('');
     const [rrChannel, setRrChannel] = useState('');
     const [rrColor, setRrColor] = useState('#06b6d4');
@@ -37,17 +93,13 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
     const [embedText, setEmbedText] = useState('');
     const [embedFooter, setEmbedFooter] = useState('');
     const [rrMode, setRrMode] = useState('multi');
-    const [mappings, setMappings] = useState([{ type: 'unicode', emoji: '', label: '', style: 2, roleId: '' }]);
-
-    const [openEmojiIdx, setOpenEmojiIdx] = useState(null);
-    const [openRoleIdx, setOpenRoleIdx] = useState(null);
-    const [showMsgEmoji, setShowMsgEmoji] = useState(false);
+    const [mappings, setMappings] = useState([emptyMapping()]);
 
     useEffect(() => { loadList(); }, [selectedServer]);
 
     const loadList = () => {
         fetch(`/api/discord/settings/${selectedServer.id}/reaction-roles`)
-            .then(r => r.json()).then(d => setList(d || []));
+            .then(r => r.json()).then(d => setList(d || [])).catch(() => setList([]));
     };
 
     const openEditor = (rr = null) => {
@@ -58,23 +110,21 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
             setEmbedText(rr.messageText || ''); setEmbedFooter(rr.embedFooter || '');
             setRrMode(rr.mode === 'single' ? 'single' : 'multi');
             const mapped = Array.isArray(rr.roleMapping)
-                ? rr.roleMapping.map(m => ({ type: m.emoji?.match(/^\d+$/) ? 'custom' : 'unicode', emoji: m.emoji || '', label: m.label || '', style: m.style || 2, roleId: m.roleId }))
-                : Object.entries(rr.roleMapping).map(([emoji, roleId]) => ({ type: emoji.match(/^\d+$/) ? 'custom' : 'unicode', emoji, label: '', style: 2, roleId }));
-            setMappings(mapped.length ? mapped : [{ type: 'unicode', emoji: '', label: '', style: 2, roleId: '' }]);
+                ? rr.roleMapping.map(m => ({ emoji: m.emoji || '', label: m.label || '', style: Number(m.style) || 2, roleId: m.roleId }))
+                : Object.entries(rr.roleMapping || {}).map(([emoji, roleId]) => ({ emoji, label: '', style: 2, roleId }));
+            setMappings(mapped.length ? mapped : [emptyMapping()]);
         } else {
             setEditingId(null); setTitle(''); setRrChannel(''); setRrColor('#06b6d4');
             setEmbedTitle(''); setEmbedText(''); setEmbedFooter(''); setRrMode('multi');
-            setMappings([{ type: 'unicode', emoji: '', label: '', style: 2, roleId: '' }]);
+            setMappings([emptyMapping()]);
         }
         setView('edit');
     };
 
-    const closeAllDropdowns = () => { setOpenEmojiIdx(null); setOpenRoleIdx(null); setShowMsgEmoji(false); };
-
     const handleSave = async () => {
         if (!rrChannel) return alert('Bitte wähle einen Kanal!');
         const valid = mappings.filter(m => (m.emoji.trim() || m.label.trim()) && m.roleId);
-        if (!valid.length) return alert('Mindestens eine Verknüpfung mit Emoji/Text + Rolle!');
+        if (!valid.length) return alert('Mindestens ein Button braucht Emoji oder Text und eine Rolle.');
         setIsSaving(true); setSaveStatus('');
         try {
             const url = editingId
@@ -84,7 +134,7 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
                 method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ channelId: rrChannel, messageText: embedText, mode: rrMode, roleMapping: valid, title, color: rrColor, embedTitle, embedFooter }),
             });
-            if (res.ok) { setSaveStatus(editingId ? 'Aktualisiert!' : 'Erstellt!'); loadList(); setTimeout(() => setView('list'), 1500); }
+            if (res.ok) { setSaveStatus(editingId ? 'Aktualisiert!' : 'Erstellt!'); loadList(); setTimeout(() => setView('list'), 1200); }
             else setSaveStatus('Fehler. Hat der Bot Rechte?');
         } catch { setSaveStatus('Fehler.'); }
         finally { setIsSaving(false); setTimeout(() => setSaveStatus(''), 4000); }
@@ -96,266 +146,210 @@ export default function ReactionRolesTab({ selectedServer, channels, serverRoles
         loadList();
     };
 
-    const updateMapping = (i, k, v) => {
-        const m = [...mappings]; m[i][k] = v;
-        if (k === 'type') m[i].emoji = '';
-        setMappings(m);
-    };
+    const updateMapping = (i, patch) => setMappings(ms => ms.map((m, j) => (j === i ? { ...m, ...patch } : m)));
 
+    /* ── Liste ─────────────────────────────────────────────────────────── */
     if (view === 'list') return (
-        <div className="space-y-6">
+        <div className="dc-page">
             <div>
                 <h2 className="dc-h2">Rollen-Buttons</h2>
-                <p className="text-white/50 text-sm">Nutzer klicken Buttons für Rollen — nur sie sehen die Antwort.</p>
+                <p>Mitglieder klicken auf Buttons und bekommen die Rolle — nur sie sehen die Antwort.</p>
             </div>
-            <DcAddTile label="Neues Embed" onClick={() => openEditor()} large={list.length === 0}
-                hint={list.length === 0 ? 'Noch keine Rollen-Buttons erstellt. Lege das erste Embed mit Buttons an.' : undefined} />
-            {list.length === 0
-                ? null
-                : <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <DcAddTile label="Neue Nachricht mit Buttons" onClick={() => openEditor()} large={list.length === 0}
+                hint={list.length === 0 ? 'Noch keine Rollen-Buttons. Lege die erste Nachricht an.' : undefined} />
+            {list.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {list.map(rr => {
-                        const btns = Array.isArray(rr.roleMapping) ? rr.roleMapping : Object.entries(rr.roleMapping).map(([e, r]) => ({ emoji: e, roleId: r, label: '', style: 2 }));
+                        const btns = Array.isArray(rr.roleMapping) ? rr.roleMapping : Object.entries(rr.roleMapping || {}).map(([e, r]) => ({ emoji: e, roleId: r, label: '', style: 2 }));
                         return (
-                            <div key={rr.id} className="dc-inset border-l-4 p-5 relative group transition-colors" style={{ borderLeftColor: rr.color || '#06b6d4' }}>
-                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => openEditor(rr)} className="bg-white/5 hover:bg-indigo-500 hover:text-white text-white/50 p-2 rounded-md transition-colors"><Pencil size={14} /></button>
-                                    <button onClick={() => handleDelete(rr.id)} className="bg-white/5 hover:bg-red-500 text-white/50 p-2 rounded-md transition-colors"><Trash2 size={14} /></button>
+                            <div key={rr.id} className="dc-card border-l-4 p-4 flex flex-col gap-3" style={{ borderLeftColor: rr.color || '#06b6d4' }}>
+                                <div className="flex items-start gap-2">
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-white font-bold truncate">{rr.title || 'Unbenannt'}</h3>
+                                        <div className="text-xs text-white/40 mt-0.5">
+                                            #{channels.find(c => c.id === rr.channelId)?.name || '?'} · {rr.mode === 'single' ? 'nur eine Rolle' : 'mehrere Rollen'} · {btns.length} Button{btns.length === 1 ? '' : 's'}
+                                        </div>
+                                    </div>
+                                    <button onClick={() => openEditor(rr)} title="Bearbeiten" aria-label="Bearbeiten"
+                                        className="p-2 rounded text-white/45 hover:text-white hover:bg-white/10 transition-colors"><Pencil size={15} /></button>
+                                    <button onClick={() => handleDelete(rr.id)} title="Löschen" aria-label="Löschen"
+                                        className="p-2 rounded text-white/45 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={15} /></button>
                                 </div>
-                                <h3 className="text-white font-bold truncate pr-20">{rr.title || 'Unbenannt'}</h3>
-                                <div className="text-xs text-white/40 mb-3">{rr.mode === 'single' ? 'Single Choice' : 'Multi Choice'} • #{channels.find(c => c.id === rr.channelId)?.name || '?'}</div>
-                                <div className="space-y-1.5">
-                                    {btns.slice(0, 3).map((b, i) => {
+                                <div className="flex flex-wrap gap-1.5">
+                                    {btns.map((b, i) => {
                                         const role = serverRoles.find(r => r.id === b.roleId);
-                                        const ce = serverEmojis.find(e => e.id === b.emoji);
                                         return (
-                                            <div key={i} className="dc-inset flex items-center justify-between text-sm px-3 py-1.5">
-                                                <div className={`px-2 py-0.5 rounded text-xs flex items-center gap-1 ${btnStyle(b.style)}`}>
-                                                    {ce ? <img src={ce.url} className="w-3 h-3"/> : <span>{b.emoji}</span>}
-                                                    {b.label && <span>{b.label}</span>}
-                                                </div>
-                                                <span className="text-xs truncate ml-2" style={{ color: role?.color || '#fff' }}>{role?.name || 'Gelöschte Rolle'}</span>
-                                            </div>
+                                            <span key={i} title={role ? `Rolle: ${role.name}` : 'Rolle gelöscht'}
+                                                className="dc-dbtn !h-7 !text-xs" style={{ background: buttonColor(b.style) }}>
+                                                <ButtonEmoji emoji={b.emoji} serverEmojis={serverEmojis} size={14} />
+                                                {b.label || role?.name || ''}
+                                            </span>
                                         );
                                     })}
-                                    {btns.length > 3 && <div className="text-xs text-white/40">... +{btns.length - 3} weitere</div>}
                                 </div>
                             </div>
                         );
                     })}
                 </div>
-            }
+            )}
         </div>
     );
 
+    /* ── Editor ────────────────────────────────────────────────────────── */
+    const shownButtons = mappings.filter(m => m.emoji || m.label);
     return (
-        <div onClick={closeAllDropdowns} className="">
-            <div className="dc-card border-indigo-500/20 p-6 md:p-8">
-                <div className="flex items-center gap-3 mb-8 pb-4 border-b border-white/5">
-                    <button onClick={() => setView('list')} className="text-white/40 hover:text-white transition-colors"><X size={14} /></button>
-                    <h3 className="text-xl font-bold text-white">{editingId ? 'Embed bearbeiten' : 'Neues Embed'}</h3>
-                </div>
+        <div className="dc-page" style={{ maxWidth: 1120 }}>
+            <div className="flex items-center gap-2">
+                <button onClick={() => setView('list')} title="Zurück zur Liste" aria-label="Zurück zur Liste"
+                    className="p-2 -ml-2 rounded text-white/45 hover:text-white hover:bg-white/10 transition-colors"><ArrowLeft size={18} /></button>
+                <h2 className="dc-h2 !m-0">{editingId ? 'Rollen-Buttons bearbeiten' : 'Neue Rollen-Buttons'}</h2>
+            </div>
 
-                {/* ── SEKTION 1: Titel + Kanal ──────────────────────────── */}
-                <div className="dc-card mb-8 p-5 space-y-4">
-                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">1. Allgemein</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px] gap-5 items-start">
+                <div className="dc-card divide-y divide-white/[0.07]">
+                    {/* Wohin */}
+                    <section className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label className="dc-label">Interner Titel</label>
-                            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="z.B. Spiele-Rollen"
-                                className="dc-input w-full"/>
-                        </div>
-                        <div>
-                            <label className="dc-label">Ziel-Kanal</label>
-                            <select value={rrChannel} onChange={e => setRrChannel(e.target.value)} disabled={!!editingId}
-                                className="dc-input w-full">
-                                <option value="">-- Wählen --</option>
+                            <label className="dc-label" htmlFor="rr-channel">Kanal</label>
+                            <select id="rr-channel" value={rrChannel} onChange={e => setRrChannel(e.target.value)} disabled={!!editingId}
+                                className="dc-input w-full disabled:opacity-60">
+                                <option value="">Kanal wählen …</option>
                                 {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                             </select>
                         </div>
-                    </div>
+                        <div>
+                            <label className="dc-label" htmlFor="rr-title">Name in deiner Liste</label>
+                            <input id="rr-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="z. B. Spiele-Rollen"
+                                className="dc-input w-full" />
+                        </div>
+                    </section>
+
+                    {/* Nachricht */}
+                    <section className="p-4 space-y-3">
+                        <div className="flex items-end gap-2">
+                            <div className="flex-1 min-w-0">
+                                <label className="dc-label" htmlFor="rr-embed-title">Überschrift</label>
+                                <input id="rr-embed-title" value={embedTitle} onChange={e => setEmbedTitle(e.target.value)} placeholder="Wähle deine Rollen!"
+                                    className="dc-input w-full" />
+                            </div>
+                            <label title="Farbe des Rands" className="shrink-0 w-[38px] h-[38px] rounded-[5px] border border-white/10 cursor-pointer overflow-hidden relative" style={{ background: rrColor }}>
+                                <span className="sr-only">Farbe</span>
+                                <input type="color" value={rrColor} onChange={e => setRrColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                            </label>
+                        </div>
+                        <div>
+                            <label className="dc-label" htmlFor="rr-text">Text</label>
+                            <EmojiTextField id="rr-text" value={embedText} onChange={setEmbedText} rows={4}
+                                emojis={serverEmojis} roles={serverRoles} channels={channels}
+                                placeholder="Klicke auf einen Button, um dir eine Rolle zu holen." />
+                        </div>
+                        <div>
+                            <label className="dc-label" htmlFor="rr-footer">Fußzeile <span className="font-normal text-white/35">(optional)</span></label>
+                            <input id="rr-footer" value={embedFooter} onChange={e => setEmbedFooter(e.target.value)} placeholder="Erneut klicken entfernt die Rolle."
+                                className="dc-input w-full" />
+                        </div>
+                    </section>
+
+                    {/* Buttons */}
+                    <section className="p-4 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="dc-label !m-0">Buttons</span>
+                            <div className="dc-seg" role="group" aria-label="Wie viele Rollen pro Mitglied">
+                                <button type="button" className={rrMode === 'multi' ? 'is-active' : ''} onClick={() => setRrMode('multi')}>Mehrere Rollen</button>
+                                <button type="button" className={rrMode === 'single' ? 'is-active' : ''} onClick={() => setRrMode('single')}>Nur eine Rolle</button>
+                            </div>
+                        </div>
+                        <p className="text-[12px] text-white/40 -mt-1">
+                            {rrMode === 'single'
+                                ? 'Ein neuer Klick tauscht die alte Rolle aus diesen Buttons gegen die neue.'
+                                : 'Mitglieder können beliebig viele Rollen nehmen; erneut klicken entfernt sie.'}
+                        </p>
+
+                        <div className="space-y-2">
+                            {mappings.map((m, i) => {
+                                const role = serverRoles.find(r => r.id === m.roleId);
+                                return (
+                                    <div key={i} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                                        <EmojiPick value={m.emoji} onChange={v => updateMapping(i, { emoji: v })} serverEmojis={serverEmojis} />
+                                        <input value={m.label} onChange={e => updateMapping(i, { label: e.target.value })} placeholder="Button-Text"
+                                            aria-label="Button-Text" className="dc-input flex-1 min-w-[8rem]" />
+                                        <div className="relative w-full sm:w-48 shrink-0 order-last sm:order-none">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full pointer-events-none"
+                                                style={{ background: role ? roleColor(role.color) : 'rgba(255,255,255,0.2)' }} />
+                                            <select value={m.roleId} onChange={e => updateMapping(i, { roleId: e.target.value })} aria-label="Rolle"
+                                                className={`dc-input w-full !pl-7 ${m.roleId ? '' : 'text-white/45'}`}>
+                                                <option value="">Rolle wählen …</option>
+                                                {serverRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0" role="radiogroup" aria-label="Button-Farbe">
+                                            {BUTTON_COLORS.map(c => (
+                                                <button key={c.value} type="button" role="radio" aria-checked={Number(m.style) === c.value}
+                                                    title={c.name} aria-label={c.name} onClick={() => updateMapping(i, { style: c.value })}
+                                                    className={`w-5 h-5 rounded-[4px] transition-shadow ${Number(m.style) === c.value ? 'ring-2 ring-white ring-offset-2 ring-offset-[#15161f]' : 'opacity-70 hover:opacity-100'}`}
+                                                    style={{ background: c.color }} />
+                                            ))}
+                                        </div>
+                                        <button type="button" onClick={() => setMappings(ms => ms.length > 1 ? ms.filter((_, j) => j !== i) : [emptyMapping()])}
+                                            title="Button entfernen" aria-label="Button entfernen"
+                                            className="shrink-0 p-2 rounded text-white/35 hover:text-red-400 hover:bg-red-500/10 transition-colors"><X size={15} /></button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {mappings.length < 25 && (
+                            <button type="button" onClick={() => setMappings(ms => [...ms, emptyMapping()])}
+                                className="flex items-center gap-1.5 text-sm font-semibold text-[#aab1fa] hover:text-white transition-colors">
+                                <Plus size={15} /> Button hinzufügen
+                            </button>
+                        )}
+                    </section>
                 </div>
 
-                {/* ── SEKTION 2: Embed ──────────────────────────────────── */}
-                <div className="dc-card mb-8 p-5 space-y-4">
-                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">2. Embed Inhalt</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="dc-label">Embed Titel</label>
-                            <input value={embedTitle} onChange={e => setEmbedTitle(e.target.value)} placeholder="Wähle deine Rollen!"
-                                className="dc-input w-full"/>
-                        </div>
-                        <div>
-                            <label className="dc-label">Footer Text</label>
-                            <input value={embedFooter} onChange={e => setEmbedFooter(e.target.value)} placeholder="Klicke auf Buttons..."
-                                className="dc-input w-full"/>
-                        </div>
-                        <div>
-                            <label className="dc-label">Farbe</label>
-                            <div className="dc-card flex items-center gap-2 p-2 pr-4">
-                                <input type="color" value={rrColor} onChange={e => setRrColor(e.target.value)} className="w-9 h-9 rounded cursor-pointer border-0 bg-transparent p-0"/>
-                                <span className="text-white/60 text-sm">{rrColor}</span>
+                {/* Vorschau */}
+                <div className="xl:sticky xl:top-0">
+                    <span className="dc-label">Vorschau</span>
+                    <div className="dc-preview">
+                        <span className="dc-preview-avatar overflow-hidden">
+                            {selectedServer.icon ? <img src={selectedServer.icon} alt="" className="w-full h-full object-cover" /> : <Bot size={20} />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <div className="dc-preview-head">
+                                <b>{botNickname || 'Bot'}</b>
+                                <span className="dc-preview-app">APP</span>
+                                <time>heute um 20:15 Uhr</time>
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="relative z-30" onClick={e => e.stopPropagation()}>
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="text-white text-sm font-medium">Nachrichtentext</label>
-                                <button onClick={() => setShowMsgEmoji(!showMsgEmoji)} className="text-white/50 hover:text-indigo-400 bg-[#0e0e1a]/75 border border-white/10 p-1.5 rounded-md text-sm"><Smile size={14} /></button>
+                            <div className="dc-embed" style={{ borderLeftColor: rrColor }}>
+                                <div className="min-w-0 flex-1">
+                                    {embedTitle && <div className="text-white font-bold text-[15px] mb-1">{embedTitle}</div>}
+                                    {embedText.trim()
+                                        ? <p className="dc-embed-text">{renderDiscordText(embedText, { roles: serverRoles, channels })}</p>
+                                        : <p className="dc-embed-text !text-[#949ba4] italic">Noch kein Text</p>}
+                                    {embedFooter && <div className="dc-embed-foot">{embedFooter}</div>}
+                                </div>
                             </div>
-                            <textarea value={embedText} onChange={e => setEmbedText(e.target.value)} rows="6"
-                                className="dc-input w-full resize-y"/>
-                            {showMsgEmoji && (
-                                <div className="dc-card absolute right-0 top-16 w-64 p-3 z-50">
-                                    <div className="text-xs text-white/50 mb-2">Server Emojis</div>
-                                    <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto">
-                                        {serverEmojis.map(e => (
-                                            <button key={e.id} onClick={() => { const fmt = e.animated ? `<a:${e.name}:${e.id}>` : `<:${e.name}:${e.id}>`; setEmbedText(t => t + fmt + ' '); setShowMsgEmoji(false); }}
-                                                className="p-1 hover:bg-white/10 rounded-md flex justify-center">
-                                                <img src={e.url} alt={e.name} className="w-7 h-7"/>
-                                            </button>
-                                        ))}
-                                    </div>
+                            {shownButtons.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {shownButtons.map((m, i) => (
+                                        <span key={i} className="dc-dbtn" style={{ background: buttonColor(m.style) }}>
+                                            <ButtonEmoji emoji={m.emoji} serverEmojis={serverEmojis} />
+                                            {m.label}
+                                        </span>
+                                    ))}
                                 </div>
                             )}
                         </div>
-                        <div>
-                            <label className="dc-label">Live Vorschau</label>
-                            <div className="bg-[#313338] rounded-md p-4 border-l-4 shadow-md" style={{ borderLeftColor: rrColor }}>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-8 h-8 bg-[#5865F2] rounded-full overflow-hidden shrink-0">
-                                        {selectedServer.icon ? <img src={selectedServer.icon} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-white text-xs">B</div>}
-                                    </div>
-                                    <span className="text-white text-sm font-medium">{botNickname || 'LynxB'}</span>
-                                    <span className="bg-[#5865F2] text-white text-[10px] px-1 rounded uppercase font-bold">BOT</span>
-                                </div>
-                                <div className="bg-[#2b2d31] rounded p-3">
-                                    {embedTitle && <div className="text-white font-bold text-sm mb-1">{embedTitle}</div>}
-                                    {renderPreview(embedText)}
-                                    {embedFooter && <div className="text-xs text-white/50 mt-3">{embedFooter}</div>}
-                                </div>
-                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {mappings.filter(m => m.emoji || m.label).map((m, i) => {
-                                        const ce = serverEmojis.find(e => e.id === m.emoji);
-                                        return (
-                                            <div key={i} className={`text-white px-2 py-1 rounded flex items-center gap-1 text-xs ${btnStyle(m.style)}`}>
-                                                {ce ? <img src={ce.url} className="w-4 h-4"/> : m.emoji ? <span>{m.emoji}</span> : null}
-                                                {m.label && <span>{m.label}</span>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
+            </div>
 
-                {/* ── SEKTION 3: Buttons ───────────────────────────────── */}
-                <div className="dc-card p-5 space-y-4">
-                    <h4 className="text-white font-semibold text-sm uppercase tracking-wider text-white/50">3. Buttons & Rollen</h4>
-
-                    {/* Auswahl-Modus: eine oder mehrere Rollen aus diesem Embed */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {[
-                            { id: 'multi', label: 'Mehrfach-Auswahl', desc: 'Nutzer können beliebig viele Rollen aus diesem Embed gleichzeitig haben. Erneuter Klick entfernt die Rolle wieder.' },
-                            { id: 'single', label: 'Single-Choice (nur 1 Rolle)', desc: 'Nutzer können nur EINE Rolle aus diesem Embed haben — beim Klick auf einen anderen Button wird die alte Rolle automatisch ausgetauscht.' },
-                        ].map(o => (
-                            <button key={o.id} onClick={() => setRrMode(o.id)}
-                                className={`text-left p-4 rounded-md border transition-colors ${
-                                    rrMode === o.id ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 bg-[#0e0e1a]/75 hover:border-white/25'}`}>
-                                <span className={`block text-sm font-bold mb-1 ${rrMode === o.id ? 'text-indigo-300' : 'text-white'}`}>{o.label}</span>
-                                <span className="block text-xs text-white/40 leading-relaxed">{o.desc}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    {mappings.map((m, i) => (
-                        <div key={i} onClick={e => e.stopPropagation()} className="flex flex-col xl:flex-row gap-3 bg-[#0e0e1a]/75 p-4 rounded-md border border-white/5 hover:border-indigo-500/20 transition-colors">
-                            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <select value={m.style} onChange={e => updateMapping(i, 'style', e.target.value)}
-                                    className="dc-input">
-                                    <option value={1}>Blau</option><option value={2}>Grau</option>
-                                    <option value={3}>Grün</option><option value={4}>Rot</option>
-                                </select>
-                                <select value={m.type} onChange={e => updateMapping(i, 'type', e.target.value)}
-                                    className="dc-input">
-                                    <option value="unicode">Std. Emoji</option>
-                                    <option value="custom">Serv. Emoji</option>
-                                </select>
-                                {m.type === 'custom' ? (
-                                    <div className="relative">
-                                        <button onClick={() => { setOpenRoleIdx(null); setOpenEmojiIdx(openEmojiIdx === i ? null : i); }}
-                                            className="dc-card w-full text-white p-3 flex items-center gap-2">
-                                            {m.emoji ? <img src={serverEmojis.find(e => e.id === m.emoji)?.url} className="w-6 h-6"/> : <span className="text-white/50 text-sm">Emoji</span>}
-                                        </button>
-                                        {openEmojiIdx === i && (
-                                            <div className="dc-card absolute z-50 top-full mt-1 w-full max-h-40 overflow-y-auto">
-                                                {serverEmojis.map(e => (
-                                                    <div key={e.id} onClick={() => { updateMapping(i, 'emoji', e.id); setOpenEmojiIdx(null); }}
-                                                        className="flex items-center gap-2 p-2 hover:bg-white/10 cursor-pointer">
-                                                        <img src={e.url} className="w-5 h-5"/><span className="text-white text-xs">{e.name}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <input type="text" value={m.emoji} onChange={e => updateMapping(i, 'emoji', e.target.value)} placeholder="👍"
-                                        className="dc-card text-center text-xl text-white p-2"/>
-                                )}
-                                <input type="text" value={m.label} onChange={e => updateMapping(i, 'label', e.target.value)} placeholder="Button Text"
-                                    className="dc-card text-white p-3"/>
-                            </div>
-                            <div className="hidden xl:flex items-center text-white/40">→</div>
-                            <div className="flex gap-3 xl:w-56">
-                                <div className="relative flex-1">
-                                    <button onClick={() => { setOpenEmojiIdx(null); setOpenRoleIdx(openRoleIdx === i ? null : i); }}
-                                        className="dc-card w-full text-white p-3 flex items-center gap-2">
-                                        {m.roleId ? (() => { const r = serverRoles.find(r => r.id === m.roleId); return r
-                                            ? <><span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: r.color !== '#000000' ? r.color : '#6b7280' }}/><span className="text-sm truncate">{r.name}</span></>
-                                            : <span className="text-white/50 text-sm">Unbekannt</span>; })()
-                                            : <span className="text-white/50 text-sm">Rolle wählen</span>}
-                                    </button>
-                                    {openRoleIdx === i && (
-                                        <div className="dc-card absolute z-50 top-full mt-1 w-full max-h-40 overflow-y-auto">
-                                            {serverRoles.map(r => (
-                                                <div key={r.id} onClick={() => { updateMapping(i, 'roleId', r.id); setOpenRoleIdx(null); }}
-                                                    className="flex items-center gap-2 p-2 hover:bg-white/10 cursor-pointer">
-                                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: r.color !== '#000000' ? r.color : '#6b7280' }}/>
-                                                    <span className="text-white text-sm">{r.name}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                {mappings.length > 1 && (
-                                    <button onClick={() => setMappings(mappings.filter((_, j) => j !== i))}
-                                        className="text-white/40 hover:text-white hover:bg-red-500/80 px-3 rounded-md transition-colors"><X size={14} /></button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                    {mappings.length < 25 && (
-                        <button onClick={() => setMappings([...mappings, { type: 'unicode', emoji: '', label: '', style: 2, roleId: '' }])}
-                            className="text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2.5 rounded-md text-sm font-bold transition-colors">
-                            + Weitere Verknüpfung
-                        </button>
-                    )}
-                </div>
-
-                <div className="mt-8 flex items-center justify-between">
-                    <button onClick={() => setView('list')} className="text-white/50 hover:text-white px-4 py-2 transition-colors">Abbrechen</button>
-                    <div className="flex items-center gap-4">
-                        {saveStatus && <span className={`text-sm font-medium ${saveStatus.startsWith('Fehler') ? 'text-red-400' : 'text-green-400'}`}>{saveStatus}</span>}
-                        <button onClick={handleSave} disabled={isSaving}
-                            className="dc-btn">
-                            {isSaving ? 'Speichere...' : editingId ? 'Änderungen senden' : 'Embed erstellen'}
-                        </button>
-                    </div>
-                </div>
+            <div className="dc-savebar">
+                <button onClick={handleSave} disabled={isSaving} className="dc-btn">
+                    {isSaving ? 'Speichere…' : editingId ? 'Änderungen senden' : 'Nachricht erstellen'}
+                </button>
+                <button onClick={() => setView('list')} className="text-sm text-white/50 hover:text-white px-2 transition-colors">Abbrechen</button>
+                {saveStatus && <span className={`text-sm font-medium ${saveStatus.startsWith('Fehler') ? 'text-red-400' : 'text-green-400'}`}>{saveStatus}</span>}
             </div>
         </div>
     );
 }
-

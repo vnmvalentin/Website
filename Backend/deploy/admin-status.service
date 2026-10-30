@@ -1,0 +1,20 @@
+# Status-Prüfer für #status in Discord (Backend/statusWatch/index.js).
+# Wird von deploy.sh (Backend-Teil) nach /etc/systemd/system/ kopiert; @NODE@ ersetzt es dort
+# durch den Pfad aus `command -v node`. Von Hand ändern bringt nichts — beim nächsten Deploy überschrieben.
+[Unit]
+Description=Status-Prüfer (Discord #status)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/admin-api
+ExecStart=@NODE@ statusWatch/index.js
+# Ohne Webhook in der .env beendet sich der Prüfer mit 0 und bleibt aus — kein Neustart-Karussell
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

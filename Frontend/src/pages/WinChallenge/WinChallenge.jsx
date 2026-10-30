@@ -52,7 +52,6 @@ import {
   X,
   Hash,
   ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 
 // --- HELPER FUNCTIONS ---
@@ -1172,12 +1171,11 @@ export default function WinChallenge() {
                       onDragEnd={endDrag}
                       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropTarget(null); }}
                     >
-                      {(doc.items || []).map((it, idx) => {
+                      {(doc.items || []).map((it) => {
                         const done = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
                         const isDragging = draggingId === it.id;
                         const dropBefore = dropTarget?.id === it.id && dropTarget.before;
                         const dropAfter = dropTarget?.id === it.id && !dropTarget.before;
-                        const isLast = idx === (doc.items || []).length - 1;
                         let tone = "border-white/10 bg-white/[0.04] hover:bg-white/[0.06] focus-within:bg-white/[0.06]";
                         if (isDragging) tone = "border-violet-500 bg-violet-500/10 opacity-40";
                         else if (done) tone = "border-green-500/70 bg-green-500/[0.06] hover:bg-green-500/[0.09] focus-within:bg-green-500/[0.09]";
@@ -1193,8 +1191,19 @@ export default function WinChallenge() {
                                 draggable
                                 onDragStart={onDragStart(it.id)}
                                 onDragEnd={endDrag}
+                                // Tastatur-Alternative zum Ziehen: Griff fokussieren, dann ↑/↓
+                                tabIndex={0}
+                                role="button"
+                                aria-label={`${t.dragToSort} (↑/↓)`}
+                                onKeyDown={(e) => {
+                                  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+                                  e.preventDefault();
+                                  const grip = e.currentTarget;
+                                  moveItem(it.id, e.key === "ArrowUp" ? -1 : 1);
+                                  requestAnimationFrame(() => grip.focus());
+                                }}
                                 title={t.dragToSort}
-                                className={`shrink-0 self-center p-1 rounded-sm transition-colors ${isDragging ? "cursor-grabbing text-violet-400" : "cursor-grab text-white/25 hover:text-white/70 hover:bg-white/5"}`}
+                                className={`shrink-0 self-center p-1 rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-violet-500 transition-colors ${isDragging ? "cursor-grabbing text-violet-400" : "cursor-grab text-white/25 hover:text-white/70 hover:bg-white/5"}`}
                               >
                                 <GripVertical size={18} />
                               </div>
@@ -1251,26 +1260,39 @@ export default function WinChallenge() {
                                   )}
                                 </div>
 
-                                {/* Zeile 2: Einstellungen links, Reihenfolge und Löschen rechts */}
-                                <div className="flex items-center gap-0.5 -ml-1.5">
-                                  <button
-                                    onClick={() => updateItem(it.id, { useWins: !it.useWins })}
-                                    aria-pressed={!!it.useWins}
-                                    className={`${ROW_ACTION} ${it.useWins ? ROW_ACTION_ON : ROW_ACTION_OFF}`}
-                                  >
-                                    <Hash size={13} /> {t.counter}
-                                  </button>
+                                {/* Zeile 2: Art der Challenge als Umschalter (Abhaken oder Zähler) —
+                                    als einzelner „# Zähler“-Knopf sah es nach Text aus. Rechts nur
+                                    Anpinnen und Löschen; sortiert wird per Ziehen am Griff. */}
+                                <div className="flex items-center gap-1.5">
+                                  <div role="radiogroup" aria-label={t.modeAria} className="flex p-0.5 rounded-sm bg-black/30">
+                                    {[
+                                      { wins: false, icon: <Check size={12} strokeWidth={3} />, label: t.modeCheck },
+                                      { wins: true, icon: <Hash size={12} strokeWidth={2.5} />, label: t.modeCounter },
+                                    ].map((m) => {
+                                      const on = !!it.useWins === m.wins;
+                                      return (
+                                        <button
+                                          key={String(m.wins)}
+                                          role="radio"
+                                          aria-checked={on}
+                                          onClick={() => { if (!on) updateItem(it.id, { useWins: m.wins }); }}
+                                          className={`h-6 px-2 flex items-center gap-1 rounded-[2px] text-[11px] font-bold transition-colors ${on ? "bg-white/15 text-white" : "text-white/40 hover:text-white"}`}
+                                        >
+                                          {m.icon} {m.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+
                                   <button
                                     onClick={() => updateItem(it.id, { pinned: !it.pinned })}
                                     aria-pressed={!!it.pinned}
-                                    className={`${ROW_ACTION} ${it.pinned ? ROW_ACTION_ON : ROW_ACTION_OFF}`}
+                                    title={it.pinned ? t.unpin : t.pin}
+                                    aria-label={it.pinned ? t.unpin : t.pin}
+                                    className={`${ROW_ACTION} ${it.pinned ? ROW_ACTION_ON : ROW_ACTION_OFF} ml-auto`}
                                   >
-                                    <Pin size={13} /> {it.pinned ? t.pinned : t.pin}
+                                    <Pin size={13} />{it.pinned && <span>{t.pinned}</span>}
                                   </button>
-
-                                  {/* Tastatur-Alternative zum Ziehen */}
-                                  <button onClick={() => moveItem(it.id, -1)} disabled={idx === 0} title={t.moveUp} aria-label={t.moveUp} className={`${ROW_ACTION} ${ROW_ACTION_OFF} ml-auto disabled:opacity-25 disabled:pointer-events-none`}><ChevronUp size={15} /></button>
-                                  <button onClick={() => moveItem(it.id, 1)} disabled={isLast} title={t.moveDown} aria-label={t.moveDown} className={`${ROW_ACTION} ${ROW_ACTION_OFF} disabled:opacity-25 disabled:pointer-events-none`}><ChevronDown size={15} /></button>
                                   <button
                                     onClick={() => removeItem(it.id)}
                                     title={t.remove}

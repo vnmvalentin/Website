@@ -49,9 +49,9 @@ const TUTORIALS = {
         'Elixier, das am Ende übrig ist, ist verschenkt. Rechne rückwärts: Was willst du dir in den letzten Runden noch leisten können?',
         'Die aufgedeckten Gebote sind bares Geld wert. Wer eben 40 gesetzt hat, kann in der nächsten Runde nicht mehr mithalten.',
         'Auf eine Karte zu bieten, die alle wollen, kann teurer sein als eine unbeachtete Karte für 1 Elixier mitzunehmen.',
-        'Ist die Mutterhexe aktiv, kann eine Runde manipuliert sein — verlass dich nicht blind auf das, was du siehst.',
+        'Ist die Hexenmutter aktiv, kann eine Runde manipuliert sein — verlass dich nicht blind auf das, was du siehst.',
       ],
-      host: 'Startelixier, Karten pro Runde, Bietzeit, sichtbares Gegner-Elixier und die Mutterhexe sind einstellbar.',
+      host: 'Startelixier, Karten pro Runde, Bietzeit, sichtbares Gegner-Elixier und die Hexenmutter sind einstellbar.',
     },
 
     bingo: {

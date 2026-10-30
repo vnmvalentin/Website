@@ -4,7 +4,7 @@ import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import {
   Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout, Ticket,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Plus, Infinity as InfinityIcon, Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3,
+  Plus, Infinity as InfinityIcon, Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3, Clapperboard,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../components/SEO";
@@ -1003,6 +1003,16 @@ export default function AdminDashboard() {
                       </button>
                   );
               })}
+              {/* Eigene Seiten, die bewusst nicht in der Navigation stehen — hier mit einem Klick erreichbar */}
+              <div className="hidden lg:block h-px bg-white/10 my-1" />
+              <button
+                  onClick={() => navigate("/stream-szenen")}
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap shrink-0 lg:shrink lg:w-full text-left text-white/50 hover:bg-white/5 hover:text-white"
+              >
+                  <Clapperboard size={16} className="shrink-0" />
+                  Stream-Szenen
+                  <ExternalLink size={12} className="ml-auto opacity-50" />
+              </button>
           </nav>
 
           {/* CONTENT */}

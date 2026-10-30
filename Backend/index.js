@@ -33,9 +33,11 @@ const { createClashRoyaleRouter, registerClashRoyaleSocket, initLobbyPersistence
 // CR-Lobbys überleben einen Neustart: vor dem ersten Socket laden, beim Beenden speichern
 initLobbyPersistence();
 const { registerConnect4Socket } = require("./routes/connect4Routes");
+const { registerGuessWhoSocket } = require("./clashRoyale/guessWhoRoutes");
 const { registerSeedRunnersSocket } = require("./routes/seedRunnersRoutes");
 const { registerSacrificeSigilsSocket } = require("./routes/sacrificeSigilsRoutes");
 const { registerFlickSoccerSocket } = require("./routes/flickSoccerRoutes");
+const { registerLightsOutSocket } = require("./routes/lightsOutRoutes");
 const { createSeedRunnersRouter } = require("./seedRunners/routes");
 const { getRuntime: getSeedRunnersRuntime } = require("./seedRunners/runtime");
 // Blobby Volley läuft NICHT hier, sondern als eigener Prozess: blobbyServer.js. Seine
@@ -71,7 +73,8 @@ const {
 const { registerGardenSocket } = require("./garden/world/lobby");
 const { runGardenMigrations } = require("./garden/migrations");
 const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./winchallenge/winchallengeStore");
-const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc } = require("./lib/winchallengeIrc");
+const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc, getIrcStatus } = require("./lib/winchallengeIrc");
+const createCrViewerGamesRouter = require("./clashRoyale/routes/crViewerGamesRoutes");
 const { step } = require("./lib/startupLog");
 const { writeJsonAtomic } = require("./lib/jsonFile");
 
@@ -223,6 +226,13 @@ function optionalAuth(req, res, next) {
 
 app.get("/api/twitch/clientid", (req, res) => res.json({ clientId: process.env.TWITCH_CLIENT_ID || null }));
 
+// Für den Status-Prüfer (statusWatch/, eigener Prozess → #status in Discord). Bewusst nur grob:
+// läuft der Prozess, wie lange schon, ist der Bot (im selben Prozess) mit Discord verbunden.
+app.get("/api/health", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, uptimeS: Math.round(process.uptime()), bot: { ready: discordClient.isReady() } });
+});
+
 app.post("/api/auth/twitch", async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: "Kein Token" });
@@ -332,8 +342,14 @@ app.use("/api/clash/tournaments", createTournamentRouter({
 app.use("/api/clash", createClashRoyaleRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/banned-cards", createBannedCardsRouter({ requireAuth }));
 app.use("/api/nuzlocke", createNuzlockeRouter({ requireAuth }));
-app.use("/api/cr-wintracker", createCrWinTrackerRouter({ requireAuth }));
+app.use("/api/cr-wintracker", createCrWinTrackerRouter({
+  requireAuth,
+  // Admin darf den Win Tracker anderer Nutzer einrichten (?asUser=…, siehe actAsUser)
+  isAdmin: (req) => !!STREAMER_TWITCH_ID && String(req.twitchId) === String(STREAMER_TWITCH_ID),
+}));
 app.use("/api/stream-tool", createStreamToolRouter({ requireAuth }));
+// Viewer Games: Chat-Quiz-Overlay (Pixel-/Zoom-Raten, Zuschauer raten mit !tipp), clashRoyale/viewerGames/
+app.use("/api/cr-viewer-games", createCrViewerGamesRouter({ requireAuth, ircStatus: getIrcStatus }));
 // Abo (Stripe): Stand, Bezahlseite, Kundenportal. Wer frei ist, entscheidet billing/entitlements.js
 app.use("/api/billing", createBillingRouter({ requireAuth }));
 app.use("/api/used-by", createUsedByRouter());
@@ -483,6 +499,9 @@ io.on("connection", (socket) => {
     // Connect4 (Vier Gewinnt) — Link-basierte 1v1-Räume
     registerConnect4Socket(socket, io);
 
+    // Clash Royale „Wer bin ich?“ — 1v1-Klappbrett per Link (clashRoyale/guessWhoRoutes.js)
+    registerGuessWhoSocket(socket, io);
+
     // Seed Runners — Räume und Rennen; die Physik läuft komplett im Browser (siehe seedRunnersRoutes.js)
     registerSeedRunnersSocket(socket, io);
 
@@ -491,6 +510,9 @@ io.on("connection", (socket) => {
 
     // Flick Soccer — rundenbasierter Scheiben-Fußball, 1v1 per Link, serverautoritativ (Engine-Spiegel)
     registerFlickSoccerSocket(socket, io);
+
+    // Lights Out (Koop) — Räume per Code; Welt aus gemeinsamem Seed, Monster rechnet der Host-Browser
+    registerLightsOutSocket(socket, io);
 
     // Abstimmungen/Giveaways: Vollpayload nur für die jeweilige Seite, sonst
     // nur der schlanke Nav-Punkt (siehe lib/liveBadges.js)

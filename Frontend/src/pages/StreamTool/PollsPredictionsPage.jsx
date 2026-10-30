@@ -433,11 +433,13 @@ function HypeSettings({ meta, module, set, tools, tab }) {
         </div>
 
         <div className="space-y-1">
+          <ToggleRow label="3D-Zug" description="Dampflok mit Rauch, Schatten und Fahrgästen in den Fenstern und auf dem Dach. Braucht WebGL — ohne fährt der flache Zug."
+            checked={module.view3d !== false} onChange={(v) => set({ view3d: v })} />
           <ToggleRow label="Fortschritt zeigen" description="Balken und Prozent bis zum nächsten Level."
             checked={module.showProgress !== false} onChange={(v) => set({ showProgress: v })} />
-          <ToggleRow label="Restzeit zeigen" description="Im Führerhaus der Lok."
+          <ToggleRow label="Restzeit zeigen" description="Wie lange der Zug noch läuft."
             checked={module.timer !== false} onChange={(v) => set({ timer: v })} />
-          <ToggleRow label="Namen unter den Bildern" description="Macht die Bilder etwas kleiner."
+          <ToggleRow label="Namen an den Bildern" description="Im flachen Zug werden die Bilder dafür etwas kleiner."
             checked={!!module.showNames} onChange={(v) => set({ showNames: v })} />
         </div>
       </Section>
@@ -799,6 +801,10 @@ function MarbleSettings({ meta, module, set, tools, tab }) {
       <Section title="Anzeige">
         <ToggleRow label="Im Chat ansagen" description="Der Bot meldet die Öffnung und den Sieger."
           checked={module.announce !== false} onChange={(v) => set({ announce: v })} />
+        {module.announce !== false && (
+          <Slider label="Siegermeldung verzögern" value={module.announceDelay ?? 6} min={0} max={30} step={1} unit=" s"
+            onChange={(v) => set({ announceDelay: v })} />
+        )}
         <ToggleRow label="3D-Darstellung" description="Bahn mit Tiefe, Licht und Schatten. Braucht WebGL — ohne läuft sie in 2D."
           checked={module.view3d === true} onChange={(v) => set({ view3d: v })} />
         <ToggleRow label="Namen an den Murmeln" description="Bei den sechs vordersten."

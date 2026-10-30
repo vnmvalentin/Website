@@ -36,8 +36,11 @@ export function fontsReady() {
  * `onResize(w, h)` wird sofort und bei jeder Größenänderung gerufen.
  * `setPost(post)`: Nachbearbeitung (createPostFX aus scene3d/kit.js) statt renderer.render.
  */
-export function createStage(canvas, { fov = 55, near = 0.05, far = 200, onResize } = {}) {
+export function createStage(canvas, { fov = 55, near = 0.05, far = 200, onResize, onFatal } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  // Grafikkontext weg (GPU-Reset, Treiber, OBS spart Speicher): sonst bleibt die Quelle schwarz
+  const onLost = () => onFatal?.('WebGL-Kontext verloren');
+  canvas.addEventListener('webglcontextlost', onLost);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -62,13 +65,21 @@ export function createStage(canvas, { fov = 55, near = 0.05, far = 200, onResize
   let start = 0;
   let last = 0;
   let frameFn = null;
+  let errors = 0;
   const loop = (now) => {
     raf = requestAnimationFrame(loop);
     if (!start) { start = now; last = now; }
     const t = (now - start) / 1000;
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    frameFn?.(t, dt);
+    try {
+      frameFn?.(t, dt);
+      errors = 0;
+    } catch (err) {
+      // Ein Fehler in jedem Bild hieße: Bild steht. Erst melden, nach ~1 s Dauerfehler neu laden.
+      if (errors === 0) console.error('[stream3d] Fehler im Bild', err);
+      if (++errors === 60) onFatal?.('Szene wirft in jedem Bild Fehler');
+    }
     // Nur Entwicklung: Prüfskripte setzen die Kamera frei ({ pos: [x,y,z], look: [x,y,z], fov? })
     const dbg = import.meta.env.DEV ? window.__stageCam : null;
     if (dbg) {
@@ -97,6 +108,7 @@ export function createStage(canvas, { fov = 55, near = 0.05, far = 200, onResize
     dispose() {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
+      canvas.removeEventListener('webglcontextlost', onLost);
       post?.dispose();
       scene.traverse((o) => {
         o.geometry?.dispose?.();
@@ -110,6 +122,27 @@ export function createStage(canvas, { fov = 55, near = 0.05, far = 200, onResize
     },
   };
 }
+
+/**
+ * Nachbearbeitung vor dem Bloom: ersetzt NaN/∞ durch Schwarz und deckelt Spitzlichter (Half-Float
+ * hört bei 65504 auf). Ein einziger ungültiger Pixel wird vom Bloom sonst zu schwarzen Vierecken verschmiert.
+ */
+export const SanitizeShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      bvec4 bad = bvec4(isnan(c.r) || isinf(c.r), isnan(c.g) || isinf(c.g), isnan(c.b) || isinf(c.b), isnan(c.a) || isinf(c.a));
+      c = vec4(bad.x ? 0.0 : c.r, bad.y ? 0.0 : c.g, bad.z ? 0.0 : c.b, bad.w ? 1.0 : c.a);
+      // Spitzlichter deckeln: weit über der Bloom-Schwelle sieht man keinen Unterschied mehr
+      gl_FragColor = vec4(clamp(c.rgb, 0.0, 64.0), c.a);
+    }`,
+};
 
 /** Canvas + daraus gebaute Textur. `draw(ctx, w, h)` malt, `update()` lädt neu hoch. */
 export function canvasTexture(w, h, draw, { repeat } = {}) {

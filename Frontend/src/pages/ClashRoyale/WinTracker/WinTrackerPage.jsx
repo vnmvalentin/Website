@@ -34,6 +34,7 @@ import * as api from './winTrackerApi';
 import { dictForWt, wt, challengeLabel } from './wtI18n';
 import checkIcon from '../../../assets/clashRoyale/ui/check.webp';
 import { ROYALE_PANELS, OVERLAY_TEMPLATES } from './overlayTheme';
+import { STREAMER_ID } from '../constants';
 
 const fmt = (n, lang) => (n || 0).toLocaleString(lang === 'en' ? 'en-US' : 'de-DE');
 const isSeasonalMode = (mode) => typeof mode === 'string' && mode.startsWith('s:');
@@ -87,6 +88,85 @@ function AddAccountModal({ t, onClose, onAdded }) {
         </ChunkyButton>
       </div>
     </Modal>
+  );
+}
+
+// ── Admin: Win Tracker eines anderen Nutzers einrichten ─────────────────────
+// Nur für den Streamer-Admin sichtbar (Backend prüft zusätzlich). Wer gewählt ist, dessen Accounts,
+// Einstellungen und Overlay-Link zeigt der Editor — der Link lässt sich dann einfach weiterschicken.
+function AdminActAsBar({ actingAs, onChange }) {
+  const [users, setUsers] = useState(null);
+  const [search, setSearch] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.adminListUsers().then((d) => setUsers(d.users)).catch((e) => setError(e.message));
+  }, [actingAs]);
+
+  const lookup = async () => {
+    const login = search.trim().replace(/^@/, '');
+    if (!login || busy) return;
+    setBusy(true); setError('');
+    try {
+      const u = await api.adminLookupUser(login);
+      onChange({ userId: u.userId, login: u.login });
+      setSearch('');
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const describe = (u) => {
+    const name = u.login || `ID ${u.userId}`;
+    if (!u.accounts.length) return `${name} — keine Accounts`;
+    return `${name} — ${u.accounts.map((a) => `${a.playerName}${a.isActive ? ' ✓' : ''}`).join(', ')}`;
+  };
+
+  return (
+    <div className="cr-row px-4 py-3 mb-4 rounded-xl border-2 border-[#f2c14e]/40 bg-black/20 space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="cr-eyebrow">Admin · Win Tracker eines Nutzers bearbeiten</span>
+        {actingAs && (
+          <button onClick={() => onChange(null)} className="text-sm text-white/70 hover:text-white underline">
+            Zurück zu meinem
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <select
+          value={actingAs?.userId || ''}
+          onChange={(e) => {
+            const u = users?.find((x) => x.userId === e.target.value);
+            onChange(u ? { userId: u.userId, login: u.login } : null);
+          }}
+          className="cr-input px-3 py-2 text-sm flex-1 min-w-0">
+          <option value="">— eigener Win Tracker —</option>
+          {actingAs && !users?.some((u) => u.userId === actingAs.userId) && (
+            <option value={actingAs.userId}>{actingAs.login} — neu</option>
+          )}
+          {(users || []).map((u) => <option key={u.userId} value={u.userId}>{describe(u)}</option>)}
+        </select>
+        <div className="flex gap-2 sm:w-72">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && lookup()}
+            placeholder="Twitch-Name suchen"
+            className="cr-input px-3 py-2 text-sm flex-1 min-w-0" />
+          <button onClick={lookup} disabled={busy || !search.trim()}
+            className="cr-chip px-3 rounded-lg font-cr text-sm text-white disabled:opacity-40">
+            {busy ? '…' : 'Öffnen'}
+          </button>
+        </div>
+      </div>
+      {error && <p className="text-red-300 text-sm">{error}</p>}
+      {actingAs && (
+        <p className="text-sm text-[var(--cr-arcade-gold)]">
+          Du bearbeitest gerade den Win Tracker von <strong>{actingAs.login}</strong>. Alle Änderungen und der Overlay-Link
+          unter „Einstellungen" gehören zu diesem Nutzer.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -479,7 +559,9 @@ function ModuleControlRow({ t, moduleKey, label, description, visible, onToggle,
 
 // ── Einstellungs-Reiter (Overlay) ───────────────────────────────────────────
 function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured, activeAccount, onResetSession, flashError }) {
-  const { user } = useContext(TwitchAuthContext);
+  const { user: authUser } = useContext(TwitchAuthContext);
+  // Im Admin-Modus gilt der Chat-Kanal des bearbeiteten Nutzers
+  const user = api.getActingAs() ? { login: api.getActingAs().login } : authUser;
   const [hidden, setHidden] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -822,6 +904,18 @@ export default function WinTrackerPage() {
 
   const flashError = (msg) => { setError(msg); setTimeout(() => setError(''), 4000); };
 
+  // Admin-Modus: Editor zeigt den Win Tracker eines anderen Nutzers (siehe AdminActAsBar)
+  const isAdmin = !!user && String(user.id) === STREAMER_ID;
+  const [actingAs, setActingAsState] = useState(null);
+  const changeActingAs = (target) => {
+    api.setActingAs(target);
+    setActingAsState(api.getActingAs());
+    setAccounts(null);
+    setOverlayKey(null);
+  };
+  // Beim Verlassen der Seite wieder auf den eigenen Tracker zurück
+  useEffect(() => () => api.setActingAs(null), []);
+
   const changeLanguage = async (language) => {
     const next = { ...settings, language };
     setSettings(next);
@@ -850,8 +944,8 @@ export default function WinTrackerPage() {
         }
         setApiConfigured(d.apiConfigured);
       })
-      .catch(() => setAccounts([]));
-  }, [user]);
+      .catch((e) => { setAccounts([]); if (actingAs) flashError(e.message); });
+  }, [user, actingAs]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -861,7 +955,8 @@ export default function WinTrackerPage() {
   const [recapReady, setRecapReady] = useState(null);
   const hasActive = !!accounts?.some((a) => a.isActive);
   useEffect(() => {
-    if (!user || !hasActive) { setRecapReady(null); setRecapAvailable(false); return undefined; }
+    // Im Admin-Modus kein Rückblick — die Rückblick-Seite zeigt immer den eigenen
+    if (!user || !hasActive || actingAs) { setRecapReady(null); setRecapAvailable(false); return undefined; }
     let alive = true;
     api.getRecap('').then((d) => {
       if (!alive) return;
@@ -872,7 +967,7 @@ export default function WinTrackerPage() {
       setRecapReady({ key: d.season.key, label });
     }).catch(() => {});
     return () => { alive = false; };
-  }, [user, hasActive, lang]);
+  }, [user, hasActive, lang, actingAs]);
 
   const handleActivate = async (acc) => {
     try {
@@ -1000,6 +1095,7 @@ export default function WinTrackerPage() {
             </div>
           ) : (
             <>
+              {isAdmin && <AdminActAsBar actingAs={actingAs} onChange={changeActingAs} />}
               <div className="flex items-center justify-center gap-2 mb-4 md:mb-5">
               <div className="cr-tabs flex-1 min-w-0 max-w-sm" role="tablist">
                 <button role="tab" aria-selected={tab === 'accounts'} onClick={() => setTab('accounts')}>

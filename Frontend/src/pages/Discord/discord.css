@@ -419,3 +419,66 @@ select.dc-input option { background: #171925; }
 }
 .dc-add.is-large .dc-add-plus { width: 46px; height: 46px; }
 .dc-add.is-large b { font-size: 16px; }
+
+/* ── Nachrichtenfeld mit Emojis (EmojiTextField.jsx) ─────────────────────── */
+.dc-richtext {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  line-height: 1.4;
+}
+.dc-richtext:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+.dc-richtext .dc-mention { cursor: default; user-select: all; }
+/* Emoji im Fließtext, wie in Discord etwas größer als die Schrift */
+.dc-emoji {
+  display: inline-block;
+  width: 1.375em;
+  height: 1.375em;
+  margin: 0 1px;
+  vertical-align: -0.3em;
+  object-fit: contain;
+}
+
+/* Aufklappfläche (Emoji-Wahl usw.): deckend, klar vom Inhalt darunter getrennt */
+.dc-popover {
+  background: #1c1e2b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Button, wie Discord ihn unter einer Nachricht zeigt */
+.dc-dbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* Layout-Wahl für das gezeichnete Bild: Vorschaubild als Knopf */
+.dc-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.dc-layout:hover { border-color: rgba(255, 255, 255, 0.24); color: #fff; }
+.dc-layout.is-active { border-color: var(--dc-accent); background: rgba(88, 101, 242, 0.12); color: #fff; }
+.dc-layout img { display: block; width: 100%; border-radius: 4px; background: #2b2d31; }

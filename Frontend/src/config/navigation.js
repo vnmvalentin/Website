@@ -27,6 +27,7 @@ import {
   Flame,
   Flashlight,
   PersonStanding,
+  HelpCircle,
 } from "lucide-react";
 import { InstagramGlyph } from "../components/BrandGlyphs";
 // Kleine Symbolbilder (thumb) — Clash-Royale-Grafiken NUR für Clash-Royale-Seiten, der Rest aus public/media/icons
@@ -34,6 +35,12 @@ import crCrownImg from "../assets/clashRoyale/ui/crown.png";
 import crTrophyImg from "../assets/clashRoyale/ui/trophy.png";
 import crKingImg from "../assets/clashRoyale/ui/king_blue.webp";
 import crSkullImg from "../assets/clashRoyale/ui/sudden_death.webp";
+import crQuestionImg from "../assets/clashRoyale/ui/question.webp";
+import crSwordImg from "../assets/clashRoyale/ui/sword.webp";
+import crTvImg from "../assets/clashRoyale/ui/tv.webp";
+import crScrollImg from "../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png";
+import crSearchImg from "../assets/clashRoyale/ui/search.webp";
+import crEyeImg from "../assets/clashRoyale/ui/eye.webp";
 
 // Vorschaubilder der Unterseiten (Startseite, Türen, Übersichtsseiten) — erzeugt mit scripts/vorschaubilder.cjs
 // fit: "cover" füllt die Karte (Spiele, Seiten), "contain" zeigt das ganze Bild (Overlays sind kleine Ausschnitte)
@@ -125,7 +132,7 @@ export const NAV_CATEGORIES = [
         thumb: icon("lights-out"),
         previews: [preview("lights-out")],
         icon: Flashlight,
-        description: "Horror in drei Ebenen: Wald, Anstalt, Keller. Mit der Taschenlampe haushalten, schleichen und drei verschiedenen Monstern entkommen.",
+        description: "Horror in vier Ebenen: Wald, Anstalt, Keller, Garten. Mit der Taschenlampe haushalten, Rätsel lösen und vier Monstern entkommen — allein oder im Koop mit bis zu vier Leuten.",
       },
     ],
   },
@@ -208,6 +215,64 @@ export const NAV_CATEGORIES = [
         previews: [preview("win-tracker", "contain")],
         icon: TrendingUp,
         description: "OBS-Overlay mit Liga, Trophäen, Tagesstatistik und den letzten Matches.",
+      },
+      // Chat-Quiz-Overlay für Streamer (pages/ClashRoyale/clash/ViewerGamesPage.jsx)
+      {
+        label: "Viewer Games",
+        to: "/clash/viewer-games",
+        id: "cr-viewer-games",
+        thumb: crTvImg,
+        icon: TrendingUp,
+        description: "Chat-Quiz als OBS-Overlay: dein Chat errät Karten mit !tipp.",
+      },
+      // Kartenrätsel (pages/ClashRoyale/clash/) — allein spielbar, mit Tageskarte
+      {
+        label: "Karten-Wordle",
+        to: "/clash/wordle",
+        id: "cr-wordle",
+        thumb: crScrollImg,
+        icon: HelpCircle,
+        description: "Rate die Karte des Tages — jede Eigenschaft zeigt, wie nah du dran bist.",
+      },
+      {
+        label: "Kartenraten",
+        to: "/clash/kartenraten",
+        id: "cr-kartenraten",
+        thumb: crQuestionImg,
+        icon: HelpCircle,
+        description: "24 Karten, ein Hinweis pro Runde — klapp aus, was es nicht sein kann.",
+      },
+      {
+        label: "Wer bin ich?",
+        to: "/clash/wer-bin-ich",
+        id: "cr-wer-bin-ich",
+        thumb: crKingImg,
+        icon: HelpCircle,
+        description: "Das Klappbrett-Spiel zu zweit mit Clash-Royale-Karten.",
+      },
+      {
+        label: "Stats-Duell",
+        to: "/clash/stats-duell",
+        id: "cr-stats-duell",
+        thumb: crSwordImg,
+        icon: TrendingUp,
+        description: "Höher oder tiefer mit echten Kampfwerten: Leben, Schaden, Tempo, Reichweite.",
+      },
+      {
+        label: "Zoom-Raten",
+        to: "/clash/zoom",
+        id: "cr-zoom",
+        thumb: crSearchImg,
+        icon: HelpCircle,
+        description: "Erkennst du die Karte an einem winzigen, stark vergrößerten Ausschnitt?",
+      },
+      {
+        label: "Pixel-Raten",
+        to: "/clash/pixel",
+        id: "cr-pixel",
+        thumb: crEyeImg,
+        icon: HelpCircle,
+        description: "Die Karte ist extrem verpixelt — alle zwei Versuche wird sie schärfer.",
       },
     ],
   },

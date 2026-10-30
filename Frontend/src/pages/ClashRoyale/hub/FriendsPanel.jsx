@@ -8,7 +8,8 @@
 //
 // Daten und Aktionen kommen aus useFriends.js. Ohne Twitch-Login nur ein Hinweis mit Login-Knopf.
 import React, { useState } from 'react';
-import { Check, X, UserMinus, UserPlus, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
+import { CrCheck as Check, CrClose as X, CrUserRemove as UserMinus, CrUserAdd as UserPlus } from '../ui/CrIcons';
 import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import PlayerAvatar from '../components/PlayerAvatar';
 import ChunkyButton from '../ui/ChunkyButton';

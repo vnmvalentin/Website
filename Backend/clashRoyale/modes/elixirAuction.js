@@ -20,7 +20,7 @@ const MOTHER_WITCH_ABILITIES = [
     id: 'pigs',
     name: 'Schweinezauber',
     costPct: 0.15,
-    greeting: 'Na, mein Täubchen... die Mutterhexe hat einen kleinen Handel für dich!',
+    greeting: 'Na, mein Täubchen... die Hexenmutter hat einen kleinen Handel für dich!',
     description: 'In der nächsten Runde sehen alle anderen Spieler statt der echten Karten nur Schweine — sie müssen blind bieten. Du siehst alles wie gewohnt.',
   },
   {

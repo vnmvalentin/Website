@@ -18,18 +18,23 @@
 // Fotolook: Boden und Wände sind Poly-Haven-Fotomaterialien (public/media/cr3d), Bloom lässt
 // LED-Wand, Lichtkegel und Feuer strahlen (createPostFX aus scene3d/kit.js). Schwelle über der
 // Kachelhelligkeit der Tanzfläche (max. 0,87), sonst überstrahlt der Boden bei weißem Licht.
+//
+// Hinter dem Pult steht der Streamer selbst (partyDj.js). Thema „halloween“ (Steuerpult) tauscht die
+// Lichtfarben, lädt die Halloween-Deko (halloweenDecor.js) und verkleidet neue Tänzer.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { createAssets, createPostFX, warmUp } from '../ClashRoyale/modes/scene3d/kit';
-import { createStage, canvasTexture, box, rng, lerp, clamp01 } from './sceneKit';
+import { createStage, canvasTexture, box, rng, lerp, clamp01, SanitizeShader } from './sceneKit';
 import {
   smokeTexture, flameTexture, trussTexture, concreteTexture,
   LED_W, LED_H, drawLedWall,
 } from './partyTextures';
 import { createDancers } from './partyDancers';
-import { createBeatClock, cachedLook } from './sceneLink';
+import { createBeatClock, cachedLook, requestLook, forgetLook } from './sceneLink';
 import { propMaterials, buildSpeakerTower, buildDjBooth, buildFogMachine, buildMovingHead, buildFlameUnit } from './partyProps';
+import { createDj } from './partyDj';
+import { createHalloweenDecor } from './halloweenDecor';
 
 const BPM = 124;
 const HX = 13;                  // Halle x ±13
@@ -57,27 +62,18 @@ const PALETTES = [
   ['#ffd23f', '#ff4fd8'],
   ['#ffffff', '#7c8cff'],
 ];
+/** Halloween: Kürbisorange, Gift-Grün, Blutrot gegen Violett. */
+const HALLOWEEN_PALETTES = [
+  ['#ff7a00', '#7b2cff'],
+  ['#39ff6a', '#8b2cff'],
+  ['#ff5a00', '#c8102e'],
+  ['#ffb000', '#5a1aff'],
+  ['#9dff00', '#ff6a00'],
+  ['#ff2a2a', '#6a00ff'],
+];
 const PATTERNS = ['sweep', 'fan', 'circle', 'cross'];
 
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
-
-/** Ersetzt NaN/∞ durch Schwarz und deckelt Spitzlichter (Half-Float hört bei 65504 auf). */
-const SanitizeShader = {
-  uniforms: { tDiffuse: { value: null } },
-  vertexShader: /* glsl */`
-    varying vec2 vUv;
-    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse;
-    varying vec2 vUv;
-    void main() {
-      vec4 c = texture2D(tDiffuse, vUv);
-      bvec4 bad = bvec4(isnan(c.r) || isinf(c.r), isnan(c.g) || isinf(c.g), isnan(c.b) || isinf(c.b), isnan(c.a) || isinf(c.a));
-      c = vec4(bad.x ? 0.0 : c.r, bad.y ? 0.0 : c.g, bad.z ? 0.0 : c.b, bad.w ? 1.0 : c.a);
-      // Spitzlichter deckeln: weit über der Bloom-Schwelle sieht man keinen Unterschied mehr
-      gl_FragColor = vec4(clamp(c.rgb, 0.0, 64.0), c.a);
-    }`,
-};
 
 const CAM_POS = [v(-6.5, 3.1, 10.5), v(0, 4.7, 12.6), v(6.8, 2.7, 10.2), v(2.2, 2.3, 8.2), v(-3.2, 3.8, 9.2)];
 const CAM_LOOK = [v(0.8, 3.2, -4), v(0, 3.4, -4), v(-0.8, 3.0, -4), v(-0.3, 2.7, -3), v(0.4, 3.1, -4)];
@@ -121,10 +117,11 @@ function beamMaterial() {
 /**
  * @param {HTMLCanvasElement} canvas
  * @param {HTMLElement} overlay
- * @param {{ getInfo: () => { countdown: string|null, title: string }, forceHype?: boolean, figures?: 'people'|'robots' }} opts
- *   forceHype: Ausraster-Stimmung erzwingen (Test); figures: Comic-Figuren (Standard) oder Roboter
+ * @param {{ getInfo: () => { countdown: string|null, title: string }, forceHype?: boolean, figures?: 'people'|'robots', onFatal?: (reason: string) => void }} opts
+ *   forceHype: Ausraster-Stimmung erzwingen (Test); figures: Comic-Figuren (Standard) oder Roboter;
+ *   onFatal: Szene kann nicht weiterlaufen (Grafikkontext weg …) — die Seite lädt dann neu
  */
-export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, figures = 'people' }) {
+export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, figures = 'people', onFatal }) {
   // Einstellungen vom Steuerpult (applySettings); ohne Steuerpult gelten diese Werte
   const cfg = {
     hypeMode: forceHype ? 'on' : 'auto',
@@ -133,6 +130,8 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     effects: { confetti: true, fire: true, strobe: true, fog: true },
     reactive: true,
     sensitivity: 1,
+    theme: 'party',            // party | halloween
+    dj: true,                  // Streamer hinter dem Pult
   };
   const clock = createBeatClock(BPM);
   let audio = null;              // letzter Musik-Rahmen (YTMusicApp)
@@ -140,7 +139,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
   let song = null;               // { title, artist }
   let bassEnv = 0;
   let viewW = 1920, viewH = 1080;
-  const stage = createStage(canvas, { fov: 50, far: 120, onResize: (w, h) => { viewW = w; viewH = h; } });
+  const stage = createStage(canvas, { fov: 50, far: 120, onFatal, onResize: (w, h) => { viewW = w; viewH = h; } });
   const { scene, camera, renderer } = stage;
   const assets = createAssets(renderer, { timeoutMs: 20000 });
   const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.55, radius: 0.55, threshold: 0.92 }, vignette: 0.35 });
@@ -209,6 +208,8 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
   const dj = buildDjBooth(pm, edgeMat);
   dj.group.position.set(0, STAGE_H, STAGE_Z - 1.6);
   scene.add(dj.group);
+  // … und dahinter der Streamer
+  const djFig = createDj(dj.group, overlay, { envMap: envTex, riserMat: pm.velvet });
 
   // Truss: zwei Türme + Querträger über der Bühne, zweiter Querträger über der Tanzfläche
   const truss = trussTexture();
@@ -611,7 +612,26 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     return l;
   });
 
-  const dancers = createDancers(scene, overlay, FLOOR, DOOR, { envMap: envTex, bpm: BPM, figures, floorTop: 0.06, getLook: cachedLook });
+  const dancers = createDancers(scene, overlay, FLOOR, DOOR, {
+    envMap: envTex, bpm: BPM, figures, floorTop: 0.06, getLook: cachedLook,
+    getCostumes: () => cfg.theme === 'halloween',
+  });
+
+  // ── Halloween (erst beim ersten Einschalten geladen) ──
+  let spooky = null;
+  const setTheme = (theme) => {
+    cfg.theme = theme === 'halloween' ? 'halloween' : 'party';
+    const on = cfg.theme === 'halloween';
+    if (on && !spooky) {
+      spooky = createHalloweenDecor(scene, { flameTex });
+      spooky.ready.then(() => {
+        if (disposed) return;
+        spooky.setVisible(cfg.theme === 'halloween');
+        // Shader jetzt übersetzen, nicht im ersten sichtbaren Bild (sonst ruckelt es einmal)
+        renderer.compile(scene, camera);
+      });
+    } else spooky?.setVisible(on);
+  };
 
   // ── Kamera ──
   const posCurve = new THREE.CatmullRomCurve3(CAM_POS, true, 'centripetal');
@@ -672,7 +692,8 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     // Lichtstimmung: normal alle 16 Schläge neu, beim Ausrasten alle 4
     const palLen = hype ? 4 : 16;
     const palIdx = Math.floor(beat / palLen);
-    const pal = PALETTES[palIdx % PALETTES.length];
+    const palettes = cfg.theme === 'halloween' ? HALLOWEEN_PALETTES : PALETTES;
+    const pal = palettes[palIdx % palettes.length];
     const pattern = PATTERNS[palIdx % PATTERNS.length];
     let kick = Math.max(0, 1 - (beat % 1) * 2.5);             // kurzer Impuls auf jedem Schlag
     // Mit Musik: der echte Bass treibt Boxen, Licht und Kacheln (schnell hoch, weich runter)
@@ -684,7 +705,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     } else bassEnv = 0;
     // Farben weich überblenden (letzter Schlag vor dem Wechsel)
     const blend = hype ? 0 : clamp01((beat % palLen) - (palLen - 1));
-    const next = PALETTES[(palIdx + 1) % PALETTES.length];
+    const next = palettes[(palIdx + 1) % palettes.length];
     colA.set(pal[0]).lerp(tint.set(next[0]), blend);
     colB.set(pal[1]).lerp(tint.set(next[1]), blend);
     confColors[0].copy(colA);
@@ -732,7 +753,12 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
         nextFog = t + lerp(11, 6, mood) + r() * 2;
       }
       if (t >= nextCo2) { if (cfg.effects.fog) co2Until = t + 1.4; nextCo2 = t + lerp(22, 12, mood) + r() * 4; }
-      if (t >= nextStageFog) { if (cfg.effects.fog) fogUntil = t + 6; nextStageFog = t + 26; }
+      // Halloween: der Bodennebel wabert öfter und länger
+      if (t >= nextStageFog) {
+        const spook = cfg.theme === 'halloween';
+        if (cfg.effects.fog) fogUntil = t + (spook ? 7 : 6);
+        nextStageFog = t + (spook ? 19 : 26);
+      }
     }
     prevT = t;
     emit(t, dt);
@@ -848,19 +874,21 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       led.redraw((ctx) => drawLedWall(ctx, t, {
         countdown: info.countdown, title: info.title, dancers: dancers.count(),
         pal: ['#' + colA.getHexString(), '#' + colB.getHexString()], beat, hype,
-        audio: live ? audio : null, song,
+        audio: live ? audio : null, song, theme: cfg.theme,
       }));
     }
     ledMat.color.setScalar(flash ? 1.6 : 1);
     ledLight.color.copy(colA).lerp(colB, 0.5).lerp(tint.set('#ffffff'), 0.5);
 
     dancers.update(beat, kick, dt, camera, viewW, viewH);
+    djFig.update(beat, dt, camera, viewW, viewH);
+    spooky?.update(t, dt, beat, kick);
   };
 
   // Erst starten, wenn Fototexturen und Figur-Datei da sind; dann alles vorab auf die Grafikkarte
   let disposed = false;
   const ready = (async () => {
-    await Promise.all([assets.ready(), dancers.ready]);
+    await Promise.all([assets.ready(), dancers.ready, djFig.ready]);
     await new Promise((r) => setTimeout(r, 0));     // pbr() setzt die Karten einen Mikrotask später
     if (disposed) return;
     stage.resize();
@@ -874,8 +902,12 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     ready,
     onMessage: (msg) => {
       msgTimes.push(prevT);
+      // Der Streamer selbst steht am Pult: seine Nachrichten erscheinen dort, nicht auf der Tanzfläche
+      if (msg.role === 'broadcaster' && cfg.dj && djFig.visible) { djFig.onMessage(msg); return; }
       dancers.onMessage(msg);
     },
+    /** Kanal = Streamer am Pult (Figur aus dem Figurbaukasten, Profilbild im Namensschild). */
+    setChannel: (ch) => djFig.setChannel(ch),
     removeMessage: (id) => dancers.removeMessage(id),
 
     /** Einstellungen vom Steuerpult (siehe Backend sceneStore.sanitizeSettings). */
@@ -891,6 +923,9 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       dancers.setMaxDancers(st.maxDancers);
       dancers.setExtras(st.extras);
       dancers.setDanceMode(st.danceStyle);
+      cfg.dj = st.dj !== false;
+      djFig.setVisible(cfg.dj);
+      setTheme(st.theme);
     },
     /** Einmaliger Befehl vom Steuerpult. */
     command(type) {
@@ -902,11 +937,19 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     music(m) { audio = m; audioAt = performance.now(); clock.music(m); },
     setSong(sg) { song = sg && sg.title ? { title: sg.title, artist: sg.artist || '' } : null; },
     applyLook: (userId, look) => dancers.applyLook(userId, look),
+    /** Figurbaukasten: { id, login } hat neu gespeichert — Tänzer und DJ sofort umbauen. */
+    refreshLook({ id, login }) {
+      forgetLook(id, login);
+      requestLook(id, (look) => dancers.applyLook(String(id), look), login);
+      djFig.refreshLook(login);
+    },
     clearDemo: () => dancers.clearDemo(),
     clearUser: (userId) => dancers.clearUser(userId),
     dispose() {
       disposed = true;
       dancers.dispose();
+      djFig.dispose();
+      spooky?.dispose();
       envTex.dispose();
       pmrem.dispose();
       assets.dispose();

@@ -38,6 +38,7 @@ import { sparkBurst, ringPulse } from '../../ui/juice';
 import { playSound } from '../../ui/sound';
 import { avatarUrl } from '../../components/avatars';
 import elixirIcon from '../../../../assets/clashRoyale/ui/elixir_1.png';
+import checkIcon from '../../../../assets/clashRoyale/ui/check.webp';
 import redCrownImg from '../../../../assets/clashRoyale/ui/red_crown_1.png';
 import blueCrownImg from '../../../../assets/clashRoyale/ui/blue_crown_1.png';
 
@@ -56,6 +57,7 @@ const ROW_H = 1.85;           // Abstand zweier Reihen (Karte + Schild)
 const BOARD_Y = 2.35;         // Mitte der Tafel über dem Boden
 const ROOM_W = 14, ROOM_D = 18, ROOM_H = 5.6;
 const FOV = 50;
+const SPOT_I = 38;            // Scheinwerfer auf die Tafel (vorher 95: oben ausgebrannt)
 const TAN = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
 const INTRO_S = 3.2;          // Kamerafahrt durch die Tür (eine durchgehende Bahn, kein Halt an der Tür)
 const CAM_SMOOTH = 0.5;       // Feder-Zeit der Kamera (Spiegel ↔ Tafel): weich los, weich an
@@ -170,18 +172,20 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
     scene.background = BG;
     scene.fog = new THREE.Fog(BG, 18, 40);
     const camera = new THREE.PerspectiveCamera(FOV, 1, 0.15, 60); // near nicht zu klein (Flackern aufliegender Flächen)
-    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.3, radius: 0.5, threshold: 1.1 }, vignette: 0.26 });
+    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.22, radius: 0.45, threshold: 1.45 }, vignette: 0.26 });
     const env = neutralEnvironment(renderer);
     scene.environment = env.texture;
     scene.environmentIntensity = 0.35;
 
     // ── Licht: warmes Grundlicht, zwei Scheinwerfer auf die Tafel, Wandleuchten ──
-    scene.add(new THREE.HemisphereLight(0xeaf2ff, 0x2a3a66, 1.5));
+    scene.add(new THREE.HemisphereLight(0xeaf2ff, 0x2a3a66, 1.8)); // etwas mehr Grundlicht statt greller Scheinwerfer
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     const spots = [-1, 1].map((side) => {
-      const s = new THREE.SpotLight(0xfff1d6, 95, 22, THREE.MathUtils.degToRad(30), 0.55, 1.6);
+      // Gedämpft (Nutzer: Lichter über der Tafel zu hell) — weicher Rand, Ziel unter der Tafelmitte, damit der
+      // Kegel nicht oben auf Goldrahmen und Wand ausbrennt
+      const s = new THREE.SpotLight(0xfff1d6, SPOT_I, 22, THREE.MathUtils.degToRad(32), 0.95, 1.6);
       s.position.set(side * 3.2, ROOM_H - 0.3, 6.5);
-      s.target.position.set(side * 0.8, BOARD_Y, 0);
+      s.target.position.set(side * 0.8, BOARD_Y - 0.9, 0);
       scene.add(s, s.target);
       return s;
     });
@@ -205,12 +209,16 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
     const floorMat = tiledMat(plankT, ROOM_W / 1.8, (ROOM_D + 6) / 1.8);
     const woodMat = own(new THREE.MeshStandardMaterial({ map: plankT, roughness: 0.8 }));
     const darkWoodMat = own(new THREE.MeshStandardMaterial({ map: plankT, color: 0x9a6c52, roughness: 0.85 }));
-    const goldMat = own(new THREE.MeshStandardMaterial({ color: 0xf2b632, roughness: 0.32, metalness: 0.75 }));
+    // Gold matter + schwächere Umgebungsspiegelung: die Oberkante des Tafelrahmens spiegelte sonst eine helle
+    // Fläche und überstrahlte als grelles Licht über der Tafel
+    const goldMat = own(new THREE.MeshStandardMaterial({ color: 0xf2b632, roughness: 0.45, metalness: 0.7, envMapIntensity: 0.55 }));
+    // Tafelrahmen + Goldleiste der Blende liegen direkt im Bild: fast ohne Spiegelung, sonst Lichtfleck oben
+    const frameGoldMat = own(new THREE.MeshStandardMaterial({ color: 0xe0a830, roughness: 0.6, metalness: 0.35, envMapIntensity: 0.25 }));
     const curtMat = own(new THREE.MeshStandardMaterial({ map: curtTex, roughness: 0.8, side: THREE.DoubleSide }));
     const ceilMat = tiledMat(plankT, ROOM_W / 2.2, ROOM_D / 2.2, { color: 0x8f6a4e });
 
     // Gemeinsame Materialien — beim Umbau der Tafel NICHT freigeben (das macht das Aufräumen am Ende)
-    const SHARED = new Set([goldMat, curtMat, woodMat, darkWoodMat]);
+    const SHARED = new Set([goldMat, frameGoldMat, curtMat, woodMat, darkWoodMat]);
     const plane = (w, h, mat) => new THREE.Mesh(own(new THREE.PlaneGeometry(w, h)), mat);
     const box = (w, h, d, mat) => new THREE.Mesh(own(new THREE.BoxGeometry(w, h, d)), mat);
     const rbox = (w, h, d, mat, r = 0.05) => new THREE.Mesh(own(new RoundedBoxGeometry(w, h, d, 2, r)), mat);
@@ -440,7 +448,7 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
         [t, height + t * 2, width / 2 + t / 2, -0.075],
       ];
       frame.forEach(([w, h, x, y]) => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.12), goldMat);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.12), frameGoldMat);
         m.position.set(x, BOARD_Y + y, 0.13);
         boardGroup.add(m);
       });
@@ -453,7 +461,7 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
       });
       const valance = new THREE.Mesh(new THREE.BoxGeometry(width + 4.6, 0.55, 0.2), curtMat);
       valance.position.set(0, ROOM_H - 0.45, 0.5);
-      const valanceTrim = new THREE.Mesh(new THREE.BoxGeometry(width + 4.7, 0.09, 0.24), goldMat);
+      const valanceTrim = new THREE.Mesh(new THREE.BoxGeometry(width + 4.7, 0.09, 0.24), frameGoldMat);
       valanceTrim.position.set(0, ROOM_H - 0.74, 0.5);
       boardGroup.add(valance, valanceTrim);
       // Wimpel mit Krone links (rot) und rechts (blau) an der Wand — wie die Banner in der Arena
@@ -576,10 +584,19 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
       return tex;
     };
 
+    // Eigenes Gebot: CR-Haken + Zahl + Elixier-Tropfen als Bilder auf dem Schild (statt „✓“)
+    let iconsReady = 0;
+    const loadIcon = (src) => {
+      const img = new Image();
+      img.onload = () => { iconsReady += 1; };
+      img.src = src;
+      return img;
+    };
+    const ICONS = { mine: { before: loadIcon(checkIcon), after: loadIcon(elixirIcon) } };
     const plaqueCache = new Map();
     const plaque = (text, tone) => {
-      const key = `${tone}|${text}`;
-      if (!plaqueCache.has(key)) plaqueCache.set(key, plaqueTexture(text, tone));
+      const key = `${tone}|${text}|${iconsReady}`;
+      if (!plaqueCache.has(key)) plaqueCache.set(key, plaqueTexture(text, tone, ICONS[tone]));
       return plaqueCache.get(key);
     };
 
@@ -971,7 +988,7 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
           if (r.receiver) { frameColor = r.stampColor; plaqueText = r.receiver.name; tone = r.stampColor; }
           else { plaqueText = P.labels?.notAwarded || '–'; tone = '#475569'; }
         } else if (rt == null && st === 'mine') {
-          frameColor = '#c026d3'; plaqueText = `✓ ${P.myBidAmount ?? ''}`; tone = 'mine';
+          frameColor = '#c026d3'; plaqueText = `${P.myBidAmount ?? ''}`; tone = 'mine';
         } else if (rt == null && st === 'locked') {
           plaqueText = P.labels?.championLimit || 'Champion'; tone = 'locked';
         }
@@ -979,7 +996,7 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
         o.frameA += ((frameColor ? 1 : (o.hover > 0.05 ? 0.6 * o.hover : 0)) - o.frameA) * kk;
         o.frameMat.opacity = o.frameA * o.vis;
         if (!frameColor && o.hover > 0.05) o.frameMat.color.set('#e879f9');
-        const pk = `${tone}|${plaqueText}`;
+        const pk = `${tone}|${plaqueText}|${iconsReady}`;
         if (pk !== o.plaqueKey) {
           o.plaqueKey = pk;
           o.plaqueMat.map = plaque(plaqueText, tone);
@@ -1009,7 +1026,7 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
       sconces.forEach((l, i) => { l.intensity = 12 + Math.sin(now / (130 + i * 37)) * 0.6 - witchAmt * 4; });
       // Während eine Karte vorne aufgelöst wird, tritt der Saal etwas zurück
       focusDim += ((focusIdx >= 0 ? 1 : 0) - focusDim) * (off ? 1 : 1 - Math.exp(-dt * 3));
-      spots.forEach((s) => { s.intensity = 95 - witchAmt * 47 - focusDim * 20; });
+      spots.forEach((s) => { s.intensity = SPOT_I * (1 - witchAmt * 0.5 - focusDim * 0.2); });
 
       chandFlames.forEach(({ flame, fm }) => { flame.quaternion.copy(camera.quaternion); fm.uniforms.uTime.value = off ? 0 : now / 1000; });
       // Staub treibt langsam nach oben

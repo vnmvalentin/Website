@@ -168,6 +168,9 @@ try { db.exec("ALTER TABLE active_voice_channels ADD COLUMN pin_message_id TEXT 
 // Ein-/Austrittsnachricht als schlichter Text ('text') oder als Karte mit Profilbild ('card')
 try { db.exec("ALTER TABLE guild_settings ADD COLUMN welcome_style TEXT DEFAULT 'text'"); } catch (e) {}
 try { db.exec("ALTER TABLE guild_settings ADD COLUMN leave_style TEXT DEFAULT 'text'"); } catch (e) {}
+// Layout des gezeichneten Bilds (bot/memberImage.js, IMAGE_LAYOUTS)
+try { db.exec("ALTER TABLE guild_settings ADD COLUMN welcome_image_layout TEXT DEFAULT 'classic'"); } catch (e) {}
+try { db.exec("ALTER TABLE guild_settings ADD COLUMN leave_image_layout TEXT DEFAULT 'classic'"); } catch (e) {}
 // Nachrichten je Nutzer und Tag. Eigene Tabelle neben message_stats (je Kanal):
 // beides in einer Tabelle hieße eine Zeile je Nutzer UND Kanal und Tag.
 db.exec(`CREATE TABLE IF NOT EXISTS user_message_stats (
@@ -182,35 +185,39 @@ step("Discord-DB", true);
 
 /** Darstellung der Ein-/Austrittsnachricht: schlichter Text, Karte (Embed) oder gezeichnetes Bild. */
 const messageStyle = (v) => (v === 'card' || v === 'image' ? v : 'text');
+// Layout des gezeichneten Bilds — dieselbe Liste wie IMAGE_LAYOUTS in bot/memberImage.js
+const imageLayout = (v) => (['classic', 'center', 'poster', 'light', 'badge'].includes(v) ? v : 'classic');
 
 // ── GUILD SETTINGS ─────────────────────────────────────────────────────────────
 function getSettings(guildId) {
     const row = db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId);
-    if (!row) return { welcomeChannel: "", welcomeMessage: "", welcomeStyle: "text", leaveChannel: "", leaveMessage: "", leaveStyle: "text", funChannel: "", prefix: "!", botNickname: "", disabledCommands: [] };
+    if (!row) return { welcomeChannel: "", welcomeMessage: "", welcomeStyle: "text", welcomeImageLayout: "classic", leaveChannel: "", leaveMessage: "", leaveStyle: "text", leaveImageLayout: "classic", funChannel: "", prefix: "!", botNickname: "", disabledCommands: [] };
     return {
         welcomeChannel: row.welcome_channel || "", welcomeMessage: row.welcome_message || "",
-        welcomeStyle: messageStyle(row.welcome_style),
+        welcomeStyle: messageStyle(row.welcome_style), welcomeImageLayout: imageLayout(row.welcome_image_layout),
         leaveChannel: row.leave_channel || "", leaveMessage: row.leave_message || "",
-        leaveStyle: messageStyle(row.leave_style),
+        leaveStyle: messageStyle(row.leave_style), leaveImageLayout: imageLayout(row.leave_image_layout),
         funChannel: row.fun_channel || "",
         prefix: row.prefix || "!", botNickname: row.bot_nickname || "",
         disabledCommands: (() => { try { return JSON.parse(row.disabled_commands || '[]'); } catch { return []; } })(),
     };
 }
 
-function saveSettings(guildId, { welcomeChannel, welcomeMessage, welcomeStyle, leaveChannel, leaveMessage, leaveStyle, funChannel, prefix, botNickname, disabledCommands }) {
+function saveSettings(guildId, { welcomeChannel, welcomeMessage, welcomeStyle, welcomeImageLayout, leaveChannel, leaveMessage, leaveStyle, leaveImageLayout, funChannel, prefix, botNickname, disabledCommands }) {
     db.prepare(`
-        INSERT INTO guild_settings (guild_id, welcome_channel, welcome_message, leave_channel, leave_message, fun_channel, prefix, bot_nickname, disabled_commands, welcome_style, leave_style)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO guild_settings (guild_id, welcome_channel, welcome_message, leave_channel, leave_message, fun_channel, prefix, bot_nickname, disabled_commands, welcome_style, leave_style, welcome_image_layout, leave_image_layout)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(guild_id) DO UPDATE SET
         welcome_channel = excluded.welcome_channel, welcome_message = excluded.welcome_message,
         leave_channel = excluded.leave_channel, leave_message = excluded.leave_message,
         fun_channel = excluded.fun_channel, prefix = excluded.prefix,
         bot_nickname = excluded.bot_nickname, disabled_commands = excluded.disabled_commands,
-        welcome_style = excluded.welcome_style, leave_style = excluded.leave_style
+        welcome_style = excluded.welcome_style, leave_style = excluded.leave_style,
+        welcome_image_layout = excluded.welcome_image_layout, leave_image_layout = excluded.leave_image_layout
     `).run(guildId, welcomeChannel || "", welcomeMessage || "", leaveChannel || "", leaveMessage || "",
         funChannel || "", prefix || "!", botNickname || "", JSON.stringify(disabledCommands || []),
-        messageStyle(welcomeStyle), messageStyle(leaveStyle));
+        messageStyle(welcomeStyle), messageStyle(leaveStyle),
+        imageLayout(welcomeImageLayout), imageLayout(leaveImageLayout));
 }
 
 // ── REAKTIONSROLLEN ────────────────────────────────────────────────────────────

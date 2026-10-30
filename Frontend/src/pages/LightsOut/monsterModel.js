@@ -6,7 +6,8 @@
 //   • Glieder länger: Knochen werden skaliert (Arme bis zu den Knien, lange Beine, langer Hals)
 //   • Haltung: nach jedem Bild werden Wirbelsäule/Hals/Kopf zusätzlich gebeugt (gebückt, Kopf schief)
 //   • eigener Kopf: Maske (Jäger), Tierschädel mit Geweih (Beobachter), augenloser Kopf mit
-//     senkrechtem Maul (Lauscher) — der Mannequin-Kopf wird dafür auf einen Punkt zusammengezogen.
+//     senkrechtem Maul (Lauscher), Jutesack mit Strick (Gärtner, dazu eine Laterne in der rechten Hand)
+//     — der Mannequin-Kopf wird dafür stark verkleinert.
 //
 // Lädt die Datei nicht, bleibt das Spiel bei den gemalten Billboards (game.js).
 import * as THREE from 'three';
@@ -14,6 +15,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { sackTexture } from './textures';
 
 const URL = '/media/stream3d/dancer.glb';
 /** Gehtempo des Clips „walk“ bei timeScale 1 und Maßstab 1 (wie mocapFigure.WALK_MPS). */
@@ -51,6 +53,27 @@ const KINDS = {
     bend: { 'spine.001': 0.45, 'spine.002': 0.45, 'spine.003': 0.35, neck: -0.35, head: -0.55, upper_arm: -1.0 },
     // (Arme nach vorn drehen — sonst hingen sie am gebeugten Rumpf entlang nach hinten)
     skin: '#4f4a42',
+  },
+  // Garten: hager, nach vorn gebeugt, Kopf schnüffelnd gesenkt, Sack über dem Kopf, Laterne in der Hand
+  tracker: {
+    height: 2.4,
+    thin: { torso: 0.72, arm: 0.52, leg: 0.6, neck: 0.6, hand: 0.8, finger: 0.6, foot: 0.85 },
+    bones: { upper_arm: 1.16, forearm: 1.16, hand: 1.1, neck: 1.15 },
+    bend: { 'spine.002': 0.2, 'spine.003': 0.16, neck: 0.38, head: -0.12 },
+    roll: -0.16,
+    skin: '#2b241c',
+    run: true,
+    lantern: true,
+  },
+  // Mitspieler (Koop): das Mannequin wie es ist, nur in Spielerfarbe — eigener Kopf bleibt
+  human: {
+    height: 1.78,
+    thin: {},
+    bones: {},
+    bend: {},
+    skin: '#3a4048',
+    run: true,
+    keepHead: true,
   },
 };
 
@@ -122,7 +145,7 @@ function thinGeometry(mesh, cfg, effScale) {
     const part = partOf(b.name);
     // Mannequin-Kopf stark verkleinern — er verschwindet im eigenen Kopf. NICHT auf 0: dann entstehen
     // Dreiecke ohne Fläche, deren Normale NaN ergibt — der Bloom macht daraus ein komplett schwarzes Bild.
-    if (part === 'head') return 0.3;
+    if (part === 'head') return cfg.keepHead ? 1 : 0.3;
     return (cfg.thin[part] ?? 1) / effScale[i];
   });
 
@@ -328,7 +351,51 @@ function buildListenerHead(skinMat, disposables) {
   return g;
 }
 
-const HEADS = { hunter: buildHunterHead, watcher: buildWatcherHead, listener: buildListenerHead };
+function buildTrackerHead(skinMat, disposables) {
+  const g = new THREE.Group();
+  // Sack: Kugel, oben zum Zipfel gerafft, unten weiter als der Kopf
+  const sackGeo = new THREE.SphereGeometry(0.13, 24, 18);
+  const p = sackGeo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i);
+    const k = y > 0.05 ? 1 - (y - 0.05) * 2.6 : 1 + Math.max(0, -y - 0.06) * 0.8;
+    p.setXYZ(i, p.getX(i) * k * (1 + Math.sin(i * 1.7) * 0.03), y * 1.08, p.getZ(i) * k * 1.05);
+  }
+  sackGeo.computeVertexNormals();
+  // UV-Mitte (u = 0.5) liegt bei der Kugel auf -z — Gesicht nach vorn (+z) drehen
+  sackGeo.rotateY(Math.PI);
+  const tex = sackTexture();
+  const sackMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, color: 0x8a7a62 });
+  // Zipfel und Strick
+  const tuft = new THREE.ConeGeometry(0.03, 0.09, 8);
+  tuft.translate(0, 0.17, 0);
+  const rope = new THREE.TorusGeometry(0.085, 0.012, 6, 20);
+  rope.rotateX(Math.PI / 2);
+  rope.translate(0, -0.1, 0);
+  const ropeMat = new THREE.MeshStandardMaterial({ color: 0x5a4a30, roughness: 1 });
+  disposables.push(sackGeo, tex, sackMat, tuft, rope, ropeMat);
+  g.add(new THREE.Mesh(sackGeo, sackMat), new THREE.Mesh(tuft, sackMat), new THREE.Mesh(rope, ropeMat));
+  return g;
+}
+
+/** Laterne für die Hand des Gärtners: Rahmen, glühendes Glas (über der Bloom-Schwelle), Bügel. */
+function buildLantern(disposables) {
+  const g = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.55, metalness: 0.7 });
+  const glassMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffa850).multiplyScalar(2.4) });
+  const top = new THREE.CylinderGeometry(0.03, 0.065, 0.05, 8);
+  top.translate(0, 0.1, 0);
+  const bottom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 8);
+  bottom.translate(0, -0.085, 0);
+  const glass = new THREE.CylinderGeometry(0.05, 0.05, 0.15, 8);
+  const handle = new THREE.TorusGeometry(0.04, 0.005, 5, 14, Math.PI);
+  handle.translate(0, 0.13, 0);
+  disposables.push(frameMat, glassMat, top, bottom, glass, handle);
+  g.add(new THREE.Mesh(top, frameMat), new THREE.Mesh(bottom, frameMat), new THREE.Mesh(glass, glassMat), new THREE.Mesh(handle, frameMat));
+  return g;
+}
+
+const HEADS = { hunter: buildHunterHead, watcher: buildWatcherHead, listener: buildListenerHead, tracker: buildTrackerHead };
 
 // ── Figur ──────────────────────────────────────────────────────────────────
 const _q = new THREE.Quaternion();
@@ -339,14 +406,14 @@ const _z = new THREE.Vector3(0, 0, 1);
  * Ein Monster bauen (kit aus loadMonsterKit). Die Gruppe steht mit den Füßen auf y = 0 und schaut nach +z.
  * update(dt, { speed, frozen, listening }) wählt den Clip passend zum Tempo.
  */
-export function buildMonsterModel(kit, kind) {
+export function buildMonsterModel(kit, kind, { color } = {}) {
   const cfg = KINDS[kind] || KINDS.hunter;
   const disposables = [];
   const group = new THREE.Group();
   const model = SkeletonUtils.clone(kit.scene);
   group.add(model);
 
-  const skinMat = new THREE.MeshStandardMaterial({ color: cfg.skin, roughness: 0.62, metalness: 0.05 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: color || cfg.skin, roughness: 0.62, metalness: 0.05 });
   disposables.push(skinMat);
 
   // Das Mannequin besteht aus zwei Netzen (Körper + Gelenkringe) mit demselben Skelett — beide umbauen
@@ -391,6 +458,23 @@ export function buildMonsterModel(kit, kind) {
     head.scale.multiplyScalar(1 / s);
   }
   head.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+
+  // Laterne in der rechten Hand (Gärtner); game.js setzt ein Punktlicht an ihre Weltposition
+  let lantern = null;
+  if (cfg.lantern) {
+    const handBone = [...bones.values()].find((b) => /DEF-?hand\.?R$/.test(b.name));
+    if (handBone) {
+      lantern = buildLantern(disposables);
+      const hp = new THREE.Vector3().setFromMatrixPosition(handBone.matrixWorld);
+      lantern.position.copy(hp).add(new THREE.Vector3(0, -0.2, 0.02));
+      model.add(lantern);
+      handBone.attach(lantern);
+      let s = 1;
+      for (let q = handBone; q && q.isBone; q = q.parent) s *= own(q);
+      lantern.scale.multiplyScalar(1 / s);
+      lantern.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+    }
+  }
 
   // Knochen verlängern
   for (const b of bones.values()) {
@@ -446,6 +530,7 @@ export function buildMonsterModel(kit, kind) {
   let posed = false;
   return {
     group,
+    lantern,
     get scale() { return scale; },
     /**
      * @param {number} dt
@@ -476,7 +561,7 @@ export function buildMonsterModel(kit, kind) {
       if (headBone) {
         let roll = cfg.roll || 0;
         // Lauscher horcht: Kopf pendelt langsam zur Seite
-        if (listening) roll += Math.sin(t * 1.3) * 0.35;
+        if (listening) roll += Math.sin(t * (kind === 'tracker' ? 3.1 : 1.3)) * (kind === 'tracker' ? 0.22 : 0.35);
         if (roll) headBone.quaternion.premultiply(_q.setFromAxisAngle(rollAxis, roll));
       }
       // Maul des Lauschers öffnet und schließt sich

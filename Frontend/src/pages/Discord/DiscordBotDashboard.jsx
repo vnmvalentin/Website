@@ -123,6 +123,9 @@ export default function DiscordBotDashboard() {
     const [funChannel, setFunChannel] = useState('');
     const [welcomeStyle, setWelcomeStyle] = useState('text');
     const [leaveStyle, setLeaveStyle] = useState('text');
+    // Layout des gezeichneten Bilds (nur bei Darstellung 'image')
+    const [welcomeImageLayout, setWelcomeImageLayout] = useState('classic');
+    const [leaveImageLayout, setLeaveImageLayout] = useState('classic');
     const [disabledCommands, setDisabledCommands] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
@@ -136,8 +139,8 @@ export default function DiscordBotDashboard() {
     const [overview, setOverview] = useState({});
 
     const current = {
-        prefix, botNickname, welcomeChannel, welcomeMessage, welcomeStyle,
-        leaveChannel, leaveMessage, leaveStyle, funChannel, disabledCommands,
+        prefix, botNickname, welcomeChannel, welcomeMessage, welcomeStyle, welcomeImageLayout,
+        leaveChannel, leaveMessage, leaveStyle, leaveImageLayout, funChannel, disabledCommands,
     };
     const currentJson = JSON.stringify(current);
     const sharedDirty = !!saved && currentJson !== JSON.stringify(saved);
@@ -145,8 +148,8 @@ export default function DiscordBotDashboard() {
 
     const applySettings = (d) => {
         setPrefix(d.prefix); setBotNickname(d.botNickname);
-        setWelcomeChannel(d.welcomeChannel); setWelcomeMessage(d.welcomeMessage); setWelcomeStyle(d.welcomeStyle);
-        setLeaveChannel(d.leaveChannel); setLeaveMessage(d.leaveMessage); setLeaveStyle(d.leaveStyle);
+        setWelcomeChannel(d.welcomeChannel); setWelcomeMessage(d.welcomeMessage); setWelcomeStyle(d.welcomeStyle); setWelcomeImageLayout(d.welcomeImageLayout);
+        setLeaveChannel(d.leaveChannel); setLeaveMessage(d.leaveMessage); setLeaveStyle(d.leaveStyle); setLeaveImageLayout(d.leaveImageLayout);
         setFunChannel(d.funChannel); setDisabledCommands(d.disabledCommands);
     };
 
@@ -227,9 +230,11 @@ export default function DiscordBotDashboard() {
                 welcomeChannel: d.welcomeChannel || '',
                 welcomeMessage: d.welcomeMessage || 'Willkommen [USER] auf [SERVER]! Du bist unser Mitglied #[MEMBER]',
                 welcomeStyle: ['card', 'image'].includes(d.welcomeStyle) ? d.welcomeStyle : 'text',
+                welcomeImageLayout: d.welcomeImageLayout || 'classic',
                 leaveChannel: d.leaveChannel || '',
                 leaveMessage: d.leaveMessage || 'Schade, [USER] hat [SERVER] verlassen. Noch [MEMBER] Mitglieder übrig.',
                 leaveStyle: ['card', 'image'].includes(d.leaveStyle) ? d.leaveStyle : 'text',
+                leaveImageLayout: d.leaveImageLayout || 'classic',
                 funChannel: d.funChannel || '',
                 disabledCommands: d.disabledCommands || [],
             };
@@ -478,7 +483,8 @@ export default function DiscordBotDashboard() {
                             welcomeChannel={welcomeChannel} setWelcomeChannel={setWelcomeChannel}
                             welcomeMessage={welcomeMessage} setWelcomeMessage={setWelcomeMessage}
                             welcomeStyle={welcomeStyle} setWelcomeStyle={setWelcomeStyle}
-                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} dirty={sharedDirty}
+                            imageLayout={welcomeImageLayout} setImageLayout={setWelcomeImageLayout}
+                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} dirty={sharedDirty} serverEmojis={serverEmojis}
                             channels={channels}
                             isSaving={isSaving} saveStatus={saveStatus}
                             handleSaveSettings={handleSaveSettings}
@@ -489,7 +495,8 @@ export default function DiscordBotDashboard() {
                             leaveChannel={leaveChannel} setLeaveChannel={setLeaveChannel}
                             leaveMessage={leaveMessage} setLeaveMessage={setLeaveMessage}
                             leaveStyle={leaveStyle} setLeaveStyle={setLeaveStyle}
-                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} dirty={sharedDirty}
+                            imageLayout={leaveImageLayout} setImageLayout={setLeaveImageLayout}
+                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} dirty={sharedDirty} serverEmojis={serverEmojis}
                             channels={channels}
                             isSaving={isSaving} saveStatus={saveStatus}
                             handleSaveSettings={handleSaveSettings}

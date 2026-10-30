@@ -18,6 +18,8 @@ import { TEAM_IDS, teamStyle, teamChipClass } from '../lobby/teamStyle';
 import ViewTabs from '../lobby/ViewTabs';
 import LobbyTournamentPanel from '../lobby/LobbyTournamentPanel';
 import { ltDict } from '../lobby/ltourI18n';
+import DeckOverlayRotationControls from '../streamer/DeckOverlayRotationControls';
+import { buildDeckOverlayUrl, loadStoredRotation, storeRotation } from '../streamer/deckOverlayOptions';
 
 /** Deck-Karte im Endscreen — für Admins klickbar, um sie auszutauschen. */
 function DeckCardTile({ card, canSwap, onSwap, t }) {
@@ -49,6 +51,8 @@ export default function GameOverScreen({
   const [swapTarget, setSwapTarget] = useState(null); // { player, deckIndex }
   const [qrTarget, setQrTarget] = useState(null);     // { player, deckLink }
   const [overlayCopied, setOverlayCopied] = useState(false);
+  const [rotation, setRotation] = useState(loadStoredRotation);
+  const changeRotation = (next) => { setRotation(next); storeRotation(next); };
 
   const activePlayers = (gameOver.players || []).filter(p => !p.isSpectator);
   // Team-Modus: sobald der Server Teams mitschickt, nach Teams gruppieren (Reihenfolge A, B, C, D)
@@ -61,7 +65,7 @@ export default function GameOverScreen({
   // die komplette Sitzung, jeder Spieler kann ihn als OBS-Browserquelle einfügen — genau wie
   // das persönliche Streamer-Setup, nur ohne Twitch-Login und an diese eine Lobby gebunden.
   const overlayUrl = overlayKey
-    ? `${window.location.origin}/clash-royale/overlay/lobby-decks/${overlayKey}`
+    ? buildDeckOverlayUrl(`${window.location.origin}/clash-royale/overlay/lobby-decks/${overlayKey}`, rotation)
     : '';
   const copyOverlayUrl = () => {
     if (!overlayUrl) return;
@@ -220,17 +224,22 @@ export default function GameOverScreen({
         {/* Für die komplette Sitzung gültig (siehe LobbyDeckOverlayPage) — jeder in der
             Lobby kann die Quelle kopieren, nicht nur der per Twitch verknüpfte Streamer. */}
         {overlayUrl && (
-          <div className="cr-arcade-panel px-4 sm:px-5 py-4 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <CrTv size={32} className="text-white/60 shrink-0" />
-              <div className="min-w-0">
-                <h3 className="font-arcade text-sm font-bold text-white">{t.deckOverlayTitle}</h3>
-                <p className="text-white/40 text-xs">{t.deckOverlayHint}</p>
+          <div className="cr-arcade-panel px-4 sm:px-5 py-4 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <CrTv size={32} className="text-white/60 shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="font-arcade text-sm font-bold text-white">{t.deckOverlayTitle}</h3>
+                  <p className="text-white/40 text-xs">{t.deckOverlayHint}</p>
+                </div>
               </div>
+              <ChunkyButton variant="blue" size="sm" icon={overlayCopied ? CrCheck : Copy} onClick={copyOverlayUrl}>
+                {overlayCopied ? t.deckOverlayCopied : t.deckOverlayBtn}
+              </ChunkyButton>
             </div>
-            <ChunkyButton variant="blue" size="sm" icon={overlayCopied ? CrCheck : Copy} onClick={copyOverlayUrl}>
-              {overlayCopied ? t.deckOverlayCopied : t.deckOverlayBtn}
-            </ChunkyButton>
+            <div className="border-t border-white/10 pt-4">
+              <DeckOverlayRotationControls value={rotation} onChange={changeRotation} lang={lang} variant="arcade" />
+            </div>
           </div>
         )}
 

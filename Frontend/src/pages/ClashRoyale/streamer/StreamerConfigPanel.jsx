@@ -7,6 +7,8 @@ import {
   X, Plug, Check, Copy, Eye, EyeOff, RefreshCw, Play, Monitor,
   Layers, AlertTriangle, Loader2,
 } from "lucide-react";
+import DeckOverlayRotationControls from "./DeckOverlayRotationControls";
+import { buildDeckOverlayUrl, loadStoredRotation, storeRotation } from "./deckOverlayOptions";
 
 const EVENT_DEFS_I18N = {
   de: [
@@ -228,6 +230,8 @@ export default function StreamerConfigPanel({ onClose, lang = "de", bare = false
   const [cfg, setCfg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [rotation, setRotation] = useState(loadStoredRotation);
+  const changeRotation = (next) => { setRotation(next); storeRotation(next); };
 
   const [obsForm, setObsForm] = useState({ host: "127.0.0.1", port: 4455, password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -384,7 +388,7 @@ export default function StreamerConfigPanel({ onClose, lang = "de", bare = false
   };
 
   const overlayUrl = cfg?.overlayKey
-    ? `${window.location.origin}/clash-royale/overlay/decks/${cfg.overlayKey}`
+    ? buildDeckOverlayUrl(`${window.location.origin}/clash-royale/overlay/decks/${cfg.overlayKey}`, rotation)
     : "";
 
   const copyOverlayUrl = () => {
@@ -476,6 +480,9 @@ export default function StreamerConfigPanel({ onClose, lang = "de", bare = false
                     {urlCopied ? <Check size={14} /> : <Copy size={14} />}
                     {urlCopied ? s.copied : s.copy}
                   </button>
+                </div>
+                <div className="bg-black/20 border border-white/5 rounded-sm p-3 mb-3">
+                  <DeckOverlayRotationControls value={rotation} onChange={changeRotation} lang={lang} variant="flat" />
                 </div>
                 <ul className="text-xs text-gray-500 space-y-1 list-disc pl-4 mb-3">
                   <li>{s.step1Bullet1}</li>

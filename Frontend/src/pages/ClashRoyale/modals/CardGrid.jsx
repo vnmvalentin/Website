@@ -14,9 +14,11 @@ import { RARITY_COLOR, ALL_CARDS } from '../data/cards';
  * @param {Function} renderCard (card) => Props für CardTile (onClick, disabled, overlay …)
  * @param {string}   emptyText  Text, wenn die Suche nichts findet
  */
-export default function CardGrid({ query = '', renderCard, emptyText, lang = 'de' }) {
+export default function CardGrid({ query = '', renderCard, emptyText, lang = 'de', filter }) {
   const q = query.trim().toLowerCase();
-  const filtered = q ? ALL_CARDS.filter(c => c.name.toLowerCase().includes(q)) : ALL_CARDS;
+  // filter (optional): zusätzliche Auswahl, z. B. nur entfernte Karten im Kartenpool
+  const filtered = ALL_CARDS.filter(c =>
+    (!q || c.name.toLowerCase().includes(q)) && (!filter || filter(c)));
 
   if (filtered.length === 0) {
     return <p className="text-white/40 text-sm text-center py-8">{emptyText}</p>;

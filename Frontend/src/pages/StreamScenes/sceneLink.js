@@ -8,11 +8,12 @@
 //   • requestLook       — selbst gebaute Figuren der Zuschauer (Figurbaukasten), gebündelt geladen.
 
 // ── Steuerpult ──────────────────────────────────────────────────────────────
-export function createControlLink(key, { onSettings, onCommand, onError } = {}) {
+export function createControlLink(key, { onSettings, onCommand, onLooks, onError } = {}) {
   let stopped = false;
   let timer = 0;
   let settingsSeq = -1;
   let commandSeq = null;           // erster Abruf: nur merken, alten Befehl nicht ausführen
+  let lookSeq = null;              // dito: geänderte Figuren erst ab jetzt
   const poll = async () => {
     try {
       const url = key ? `/api/stream-scenes/live/${encodeURIComponent(key)}` : '/api/stream-scenes/live';
@@ -26,6 +27,15 @@ export function createControlLink(key, { onSettings, onCommand, onError } = {}) 
           commandSeq = live.commandSeq;
           // Befehle, die beim Abruf schon älter als 20 s sind (Quelle war aus), verfallen
           if (live.command && Date.now() - live.command.at < 20000) onCommand?.(live.command.type);
+        }
+        // Figurbaukasten: wer neu gespeichert hat, wird live umgebaut (kleinerer Zähler = Backend neu gestartet)
+        if (typeof live.lookSeq === 'number') {
+          if (lookSeq === null || live.lookSeq < lookSeq) lookSeq = live.lookSeq;
+          else if (live.lookSeq > lookSeq) {
+            const fresh = (live.lookChanges || []).filter((c) => c.seq > lookSeq);
+            lookSeq = live.lookSeq;
+            if (fresh.length) onLooks?.(fresh);
+          }
         }
       }
     } catch { /* offline — beim nächsten Abruf wieder */ }
@@ -158,6 +168,12 @@ export function requestLook(userId, cb, login = '') {
   if (!waiting.has(id)) waiting.set(id, []);
   waiting.get(id).push(cb);
   if (!lookTimer) lookTimer = setTimeout(flushLooks, 250);
+}
+
+/** Gespeicherten Look vergessen (Zuschauer hat neu gespeichert) — der nächste requestLook lädt frisch. */
+export function forgetLook(userId, login = '') {
+  if (/^\d{1,20}$/.test(String(userId || ''))) lookCache.delete(`id:${userId}`);
+  if (login) lookCache.delete(`login:${String(login).toLowerCase()}`);
 }
 
 /** Bekannter Look ohne Laden (für den ersten Bau einer Figur). */

@@ -531,6 +531,8 @@ const MARBLES_COUNTDOWN_MS = 6000;
 const MARBLES_RACE_TIMEOUT_MS = 5 * 60 * 1000;
 /** Früher kann kein Rennen entschieden sein — schützt vor verfrühten Meldungen. */
 const MARBLES_MIN_RACE_MS = 3000;
+/** Standard-Wartezeit (s) für die Siegermeldung im Chat — gleicht die Stream-Verzögerung aus. */
+const MARBLES_ANNOUNCE_DELAY_S = 6;
 
 const maxPlayersOf = (mod) => clamp(Math.round(Number(mod.maxPlayers) || 40), 2, MARBLES_MAX_PLAYERS);
 
@@ -819,7 +821,12 @@ function marblesResult(row, raceId, winnerId) {
   });
   if (!winner) return { error: "rejected" };
   if (mod.announce !== false) {
-    say(row.twitch_login, `${winner.name} gewinnt das Murmelrennen!${winner.wins > 1 ? ` Das ist Sieg Nr. ${winner.wins}.` : ""}`);
+    // Der Sieger steht hier fest, sobald ihn die OBS-Quelle sieht — die Zuschauer sehen den Zieleinlauf
+    // aber erst mit der Stream-Verzögerung. Ohne Wartezeit verrät der Chat das Ergebnis vorher.
+    const text = `${winner.name} gewinnt das Murmelrennen!${winner.wins > 1 ? ` Das ist Sieg Nr. ${winner.wins}.` : ""}`;
+    const delay = clamp(Math.round(Number(mod.announceDelay ?? MARBLES_ANNOUNCE_DELAY_S)), 0, 30) * 1000;
+    if (delay > 0) setTimeout(() => say(row.twitch_login, text), delay).unref?.();
+    else say(row.twitch_login, text);
   }
   return { ok: true, winner };
 }

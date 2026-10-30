@@ -186,6 +186,8 @@ export const MODULE_DEFAULTS = {
     from: 'left',
     showProgress: true,
     showNames: false,
+    // Echter 3D-Zug (three.js); ohne WebGL fährt automatisch der flache Zug
+    view3d: true,
   },
   raidStorm: {
     ...BASE_MODULE,
@@ -240,6 +242,8 @@ export const MODULE_DEFAULTS = {
     winnerSeconds: 15,
     // Öffnung und Sieger im Chat ansagen
     announce: true,
+    // Siegermeldung im Chat um so viele Sekunden verzögern (Stream-Verzögerung, sonst Spoiler)
+    announceDelay: 6,
     showNames: true,
     // Bahn in 3D zeichnen (three.js); ohne WebGL bleibt es bei 2D
     view3d: false,

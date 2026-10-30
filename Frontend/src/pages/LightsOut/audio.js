@@ -113,9 +113,11 @@ export function createAudio(volume = 0.8) {
 
   // ── Dauergeräusche ──────────────────────────────────────────────────────
   let ambience = null;
-  /** theme: 'halls' (Lüftung + Brummen), 'forest' (Wind, kaum Brummen), 'cellar' (tiefer, feuchter) */
-  const startAmbience = (theme = 'halls') => {
+  /** theme: 'halls' (Lüftung + Brummen), 'forest'/'garden' (Wind, kaum Brummen), 'cellar' (tiefer, feuchter) */
+  const startAmbience = (themeName = 'halls') => {
     if (ambience) return;
+    // Der Garten klingt wie der Wald: Wind unter freiem Himmel
+    const theme = themeName === 'garden' ? 'forest' : themeName;
     const bus = out(0.9, 0.6);
     bus.gain.value = 0;
     bus.gain.linearRampToValueAtTime(1, ctx.currentTime + 3);
@@ -507,6 +509,62 @@ export function createAudio(volume = 0.8) {
       o.connect(g).connect(dest);
       o.start(t);
       o.stop(t + dur + 0.05);
+    },
+
+    /** Schnüffeln des Gärtners: kurze Atemstöße durch die Nase, an seiner Position. */
+    sniff(x, y, z) {
+      const t = ctx.currentTime;
+      const p = panner(x, y, z);
+      p.connect(master);
+      const r = ctx.createGain();
+      r.gain.value = 0.4;
+      p.connect(r).connect(reverb);
+      const n = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) noiseHit(p, t + i * 0.13 + Math.random() * 0.03, 0.09, 1300 + Math.random() * 500, 1.6, 0.42);
+      noiseHit(p, t + n * 0.13 + 0.15, 0.35, 700, 1, 0.25);
+    },
+
+    /** Steinsockel dreht sich: tiefes Mahlen mit Knirschen (an der Statue). */
+    grind(x, y, z) {
+      const t = ctx.currentTime;
+      const p = panner(x, y, z);
+      p.refDistance = 2.5;
+      p.connect(master);
+      p.connect(reverb);
+      noiseHit(p, t, 0.42, 180, 0.9, 0.7, brown);
+      noiseHit(p, t + 0.05, 0.3, 900, 2.5, 0.22);
+      tone(p, t, 'sawtooth', 48 + Math.random() * 6, 40, 0.4, 0.06);
+    },
+
+    /** Ferne Glocke — das Tor im Garten öffnet sich. */
+    bell() {
+      const t = ctx.currentTime;
+      const dest = out(0.5, 1.4);
+      for (const [f, g] of [[196, 0.18], [392, 0.08], [523, 0.05], [740, 0.03]]) tone(dest, t, 'sine', f, f * 0.995, 4.5, g);
+    },
+
+    /** Leuchtstoffröhre zündet bzw. setzt aus: kurzes Brummen mit Klick an der Lampe (decor.js). */
+    fluoro(x, y, z) {
+      const t = ctx.currentTime;
+      const p = panner(x, y, z);
+      p.refDistance = 1.2;
+      p.rolloffFactor = 1.8;
+      p.connect(master);
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = 100 + Math.random() * 20;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 600;
+      bp.Q.value = 1.2;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.05, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      o.connect(bp).connect(g).connect(p);
+      o.start(t);
+      o.stop(t + 0.15);
+      noiseHit(p, t, 0.02, 5000, 2, 0.12);
     },
 
     /** Entfernter Knall (Tür) an einer Position. */

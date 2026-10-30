@@ -6,7 +6,7 @@ export const LEVELS = [
     title: 'Der Wald',
     theme: 'forest',
     monster: 'watcher',
-    intro: 'Das Haus ist abgeschlossen. Irgendwo im Wald liegt der Schlüssel. Etwas steht zwischen den Bäumen — es bewegt sich nur, wenn du nicht hinsiehst.',
+    intro: 'Die Haustür hat zwei Schlösser: Der Schlüssel liegt irgendwo im Wald, der Code für das Zahlenschloss ist in die Bäume geritzt. Etwas steht zwischen den Bäumen — es bewegt sich nur, wenn du nicht hinsiehst.',
   },
   {
     id: 'anstalt',
@@ -21,5 +21,12 @@ export const LEVELS = [
     theme: 'cellar',
     monster: 'listener',
     intro: 'Das Ding hier unten ist blind, aber es hört jeden Schritt. Drei Ventile öffnen den Notausgang. Schleich.',
+  },
+  {
+    id: 'garten',
+    title: 'Der Garten',
+    theme: 'garden',
+    monster: 'tracker',
+    intro: 'Der Notausgang führt in den alten Garten — ein Labyrinth aus Steinmauern. Vier Statuen auf drehbaren Sockeln müssen zum roten Licht in der Mitte blicken, dann öffnet sich das Tor. Der Gärtner folgt deiner Spur. Bleib nicht stehen.',
   },
 ];

@@ -72,44 +72,51 @@ const ROYALE_RESULT = {
 export function overlayLook(base, settings = {}) {
   const opacity = settings.bgOpacity ?? 88;
   const opacityFrac = Math.max(0, Math.min(100, opacity)) / 100;
+  // Rahmen, Trennlinien und Schatten der Karte: ab 20 % Deckkraft voll wie bisher, darunter
+  // blenden sie mit aus — 0 % heißt wirklich unsichtbar, nur noch der Inhalt bleibt stehen.
+  const fade = Math.min(1, opacityFrac * 5);
+  const a = (alpha) => (alpha * fade).toFixed(3);
+  // Kräftiger Rand (min. minPct) — unter 20 % geht er linear auf 0 zurück
+  const edgePct = (minPct) => Math.min(Math.max(minPct, opacity), opacity * 3);
+  const backdropFilter = opacity > 0 ? "blur(10px)" : "none";
 
   if (settings.overlayTheme !== "royale") {
     // Interne Trennlinien bleiben IMMER die dezente, von bgOpacity abgeleitete weiße Linie — die
-    // Rahmenfarbe gilt bewusst nur für den äußeren Kartenrand. Eigene Rahmenfarbe nie
-    // hauchdünn-unsichtbar wie die automatische Linie (min. 45 % Deckkraft).
+    // Rahmenfarbe gilt bewusst nur für den äußeren Kartenrand. Eigene Rahmenfarbe nicht
+    // hauchdünn-unsichtbar wie die automatische Linie (min. 45 %, außer bei fast 0 %).
     const lineColor = `rgba(255,255,255,${(0.08 * opacityFrac).toFixed(3)})`;
     const borderColor = settings.borderColor
-      ? hexToRgba(settings.borderColor, Math.max(45, opacity))
+      ? hexToRgba(settings.borderColor, edgePct(45))
       : lineColor;
     const background = settings.bgGradient
       ? `linear-gradient(135deg, ${hexToRgba(settings.bgColor, opacity)}, ${hexToRgba(settings.bgColor2, opacity)})`
       : hexToRgba(settings.bgColor, opacity);
     return {
       royale: false,
-      styles: base,
-      cardSurface: { background, border: `1px solid ${borderColor}` },
+      styles: { ...base, headerLine: { ...base.headerLine, background: `rgba(255,255,255,${a(0.12)})` } },
+      cardSurface: { background, border: `1px solid ${borderColor}`, backdropFilter, boxShadow: `0 10px 30px rgba(0,0,0,${a(0.5)})` },
       dividerStyle: { ...base.divider, background: lineColor },
       vDividerStyle: { ...base.vDivider, background: lineColor },
       // Trennlinien zwischen den Session-Werten: etwas kräftiger als die von der Deckkraft
       // abgeleitete Linie, sonst verschwinden sie bei niedriger Deckkraft.
-      statSepStyle: { borderLeft: "1px solid rgba(255,255,255,0.12)" },
+      statSepStyle: { borderLeft: `1px solid rgba(255,255,255,${a(0.12)})` },
     };
   }
 
   const panel = ROYALE_PANELS[settings.royalePanel] || ROYALE_PANELS.blue;
   const gradient = `linear-gradient(to bottom, ${hexToRgba(panel.light, opacity)}, ${hexToRgba(panel.base, opacity)})`;
-  // Rand und Sockel nie ganz durchsichtig — ohne sie zerfällt die Tafel bei niedriger Deckkraft.
-  const edge = hexToRgba(panel.edge, Math.max(60, opacity));
+  // Rand und Sockel kräftiger als die Fläche — ohne sie zerfällt die Tafel bei niedriger Deckkraft.
+  const edge = hexToRgba(panel.edge, edgePct(60));
   const cardSurface = {
     backgroundImage: settings.royalePattern !== false ? `${PATTERN_URL}, ${gradient}` : gradient,
     backgroundColor: "transparent",
     border: `3px solid ${edge}`,
     borderRadius: 16,
     backdropFilter: "none",
-    boxShadow: `inset 0 2px 0 rgba(255,255,255,${(0.3 * opacityFrac).toFixed(2)}), inset 0 -3px 0 rgba(0,0,0,0.18), 0 5px 0 ${edge}`,
+    boxShadow: `inset 0 2px 0 rgba(255,255,255,${(0.3 * opacityFrac).toFixed(2)}), inset 0 -3px 0 rgba(0,0,0,${a(0.18)}), 0 5px 0 ${edge}`,
   };
   // Eingeprägte Fuge statt weißer Haarlinie: dunkle Linie mit hellem Lichtrand darunter.
-  const fuge = { background: "rgba(4,10,22,0.45)", boxShadow: "0 1px 0 rgba(255,255,255,0.1)" };
+  const fuge = { background: `rgba(4,10,22,${a(0.45)})`, boxShadow: `0 1px 0 rgba(255,255,255,${a(0.1)})` };
 
   const styles = {
     ...base,
@@ -123,9 +130,9 @@ export function overlayLook(base, settings = {}) {
     leagueTag: { ...base.leagueTag, fontFamily: CR_FONT, fontWeight: 400, fontSize: 17, color: "rgba(255,255,255,0.9)", textShadow: outline(1.5) },
     divider: { ...base.divider, height: 2 },
     // Linie im Kopf zwischen Name/Clan und Wert-Zeile als eingeprägte Fuge
-    headerLine: { ...base.headerLine, height: 2, background: "rgba(4,10,22,0.45)", boxShadow: "0 1px 0 rgba(255,255,255,0.1)" },
+    headerLine: { ...base.headerLine, height: 2, ...fuge },
     vDivider: { ...base.vDivider, width: 2 },
-    deckCard: { ...base.deckCard, background: "rgba(4,12,28,0.5)", boxShadow: "inset 0 2px 3px rgba(0,0,0,0.45)" },
+    deckCard: { ...base.deckCard, background: `rgba(4,12,28,${a(0.5)})`, boxShadow: `inset 0 2px 3px rgba(0,0,0,${a(0.45)})` },
     // Session-Werte: Beschriftung in Gold, Werte groß mit Kontur — ohne eingelassene Spur dahinter
     statLabel: { ...base.statLabel, fontFamily: CR_FONT, fontWeight: 400, fontSize: 11, letterSpacing: "0.06em", color: "#ffc93c", textShadow: outline(1, 0) },
     statValue: { ...base.statValue, fontFamily: CR_FONT, fontWeight: 400, fontSize: 23, letterSpacing: "0.01em", textShadow: outline(1.5) },
@@ -163,6 +170,6 @@ export function overlayLook(base, settings = {}) {
     cardSurface,
     dividerStyle: { ...styles.divider, ...fuge },
     vDividerStyle: { ...styles.vDivider, ...fuge },
-    statSepStyle: { borderLeft: "2px solid rgba(4,10,22,0.45)", boxShadow: "inset 1px 0 0 rgba(255,255,255,0.1)" },
+    statSepStyle: { borderLeft: `2px solid rgba(4,10,22,${a(0.45)})`, boxShadow: `inset 1px 0 0 rgba(255,255,255,${a(0.1)})` },
   };
 }

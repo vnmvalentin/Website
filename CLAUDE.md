@@ -36,6 +36,12 @@ Before writing code:
 
 ---
 
+## 4b. Update-Log (Pflicht)
+- Nach JEDER für Nutzer sichtbaren Änderung (neue Funktion, neues Aussehen, behobener Fehler, den man bemerkt hat) einen Punkt in `UPDATES_OFFEN.md` eintragen — in derselben Antwort, nicht erst am Ende der Sitzung.
+- Format: `## Überschrift` + `- Punkt`. Passt eine vorhandene Überschrift, dort ergänzen statt eine neue anzulegen; Kleinkram unter `## Weitere Neuerungen`.
+- Nutzersprache wie in `Frontend/src/utils/newData.js`: was man sieht oder kann, keine Dateinamen, Technik-Begriffe oder interne Werkzeuge. Rein interne Änderungen (Tests, Prüfstände, Refactoring) nicht eintragen.
+- `deploy.sh` (frontend/beides) macht daraus automatisch eine neue Version auf /updates + Discord #updates und leert die Datei (`Backend/statusWatch/tools/releaseUpdates.mjs`, Vorschau mit `--pruefen`). `newData.js` dafür nicht mehr von Hand erweitern.
+
 ## 5. Communication & Output
 - **Be Concise:** Skip unnecessary pleasantries and generic intros/outros. Focus on technical clarity.
 - **Explain 'Why':** When introducing a non-obvious change or fix, explain briefly *why* you chose this approach.

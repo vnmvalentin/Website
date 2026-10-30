@@ -8,12 +8,22 @@
 // ist (oder falls etwas fehlt), bleiben die gemalten Texturen.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { scatter } from '../ClashRoyale/modes/scene3d/kit';
+import { scatter, instancedChunks } from '../ClashRoyale/modes/scene3d/kit';
 import {
   barkTexture, forestFloorTexture, sidingTexture, doorTexture, pineCrownTexture,
   bushTexture, roadTexture, roofTexture,
 } from './textures';
 import { FIRS, firCrownGeometry, loadFirTexture } from './photoWorld';
+
+/** Feldgröße für das Aufteilen der Instanzen (Meter). */
+const CHUNK = 30;
+/**
+ * Kleinkram (Wurzeln, Stümpfe, Totholz) nur bis zu dieser Entfernung zeichnen (Meter, Feldrand → Kamera).
+ * Dahinter verschluckt ihn Nebel und Dunkelheit — gezeichnet kostete er trotzdem den Großteil der Dreiecke.
+ */
+const DETAIL = { roots: { chunk: 12, range: 24 }, debris: { chunk: 20, range: 34 } };
+/** Abstand der Sterne von der Kamera — knapp innerhalb der Sichtweite (game.js: camera.far im Wald). */
+export const STAR_R = 62;
 
 /** Mehrere senkrechte Ebenen über Kreuz — von jeder Seite sieht die Krone gleich voll aus. */
 function crossedPlanes(w, h, count, y0) {
@@ -38,6 +48,8 @@ export function buildForest(p) {
   const size = maze.size;
   const world = (t) => t * S;
   const instanced = [];
+  /** [Gruppe aus scatter, Reichweite] — deren Felder blendet tick() nach Entfernung aus */
+  const details = [];
   const m4 = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const v = new THREE.Vector3();
@@ -90,16 +102,17 @@ export function buildForest(p) {
   const trunkGeo = keep(new THREE.CylinderGeometry(0.32, 1, wallH, 10));
   trunkGeo.translate(0, wallH / 2, 0);
   const trunkMat = assets.pbr(keep(new THREE.MeshStandardMaterial({ map: barkTex, roughness: 0.95 })), 'pine_bark', 2, 7);
-  const trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, trees.length);
-  trees.forEach((t, i) => {
+  // In Felder aufgeteilt (instancedChunks): was nicht im Bild bzw. im Lichtkegel ist, wird nicht gezeichnet
+  const trunkMats = trees.map((t) => {
     t.h = 0.85 + rng() * 0.35;
-    m4.compose(v.set(t.x, 0, t.z), q.setFromAxisAngle(up, rng() * Math.PI * 2), sc.set(t.r, t.h, t.r));
-    trunkMesh.setMatrixAt(i, m4);
+    return m4.compose(v.set(t.x, 0, t.z), q.setFromAxisAngle(up, rng() * Math.PI * 2), sc.set(t.r, t.h, t.r)).clone();
   });
-  trunkMesh.castShadow = true;
-  trunkMesh.receiveShadow = true;
-  scene.add(trunkMesh);
-  instanced.push(trunkMesh);
+  for (const mesh of instancedChunks(trunkGeo, trunkMat, trunkMats, CHUNK)) {
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    instanced.push(mesh);
+  }
 
   // Kronen: Bilder der drei Fichten-Scans (bis sie geladen sind, die gemalte Fichtenkrone)
   const placeholder = keep(pineCrownTexture());
@@ -111,17 +124,14 @@ export function buildForest(p) {
   });
   for (const set of crownSets) {
     const list = trees.filter((t) => t.kind === set.kind);
-    const mesh = new THREE.InstancedMesh(set.geo, set.mat, Math.max(1, list.length));
-    list.forEach((t, i) => {
+    const mats = list.map((t) => {
       const s = 0.85 + rng() * 0.35;
-      m4.compose(v.set(t.x, 0, t.z), q.setFromAxisAngle(up, rng() * Math.PI), sc.set(s, s * (0.9 + t.h * 0.15), s));
-      mesh.setMatrixAt(i, m4);
+      return m4.compose(v.set(t.x, 0, t.z), q.setFromAxisAngle(up, rng() * Math.PI), sc.set(s, s * (0.9 + t.h * 0.15), s)).clone();
     });
-    mesh.count = list.length;
-    // Instanzen über die ganze Karte — nicht als Ganzes wegschneiden
-    mesh.frustumCulled = false;
-    scene.add(mesh);
-    instanced.push(mesh);
+    for (const mesh of instancedChunks(set.geo, set.mat, mats, CHUNK)) {
+      scene.add(mesh);
+      instanced.push(mesh);
+    }
   }
 
   // ── Wurzelteller, Stümpfe, Totholz (Scan-Modelle) ───────────────────────
@@ -130,7 +140,7 @@ export function buildForest(p) {
   {
     const inner = [...trunks.values()];
     const roots = inner.filter(() => rng() < 0.45).map((t) => ({ x: t.x, y: 0, z: t.z, s: 0.55 + rng() * 0.3, ry: rng() * Math.PI * 2 }));
-    if (roots.length) scene.add(scatter(assets.model('pine_roots', 0.35, { castShadow: false }), roots));
+    if (roots.length) details.push([scene.add(scatter(assets.model('pine_roots', 0.35, { castShadow: false }), roots, { chunk: DETAIL.roots.chunk })).children.at(-1), DETAIL.roots.range]);
     const outside = trees.filter((t) => !t.inner);
     const stumps = [];
     const logs = [];
@@ -142,24 +152,27 @@ export function buildForest(p) {
       if (Math.abs(pos.z - roadZ) < roadW / 2 + 1) continue;
       (i % 3 === 0 ? logs : stumps).push(pos);
     }
-    scene.add(scatter(assets.model('tree_stump_01', 0.55), stumps.filter((_, i) => i % 2 === 0)));
-    scene.add(scatter(assets.model('tree_stump_02', 0.6), stumps.filter((_, i) => i % 2 === 1)));
-    scene.add(scatter(assets.model('dead_tree_trunk', 0.45), logs.filter((_, i) => i % 2 === 0)));
-    scene.add(scatter(assets.model('dead_tree_trunk_02', 0.5), logs.filter((_, i) => i % 2 === 1)));
+    const debris = [
+      scatter(assets.model('tree_stump_01', 0.55), stumps.filter((_, i) => i % 2 === 0), { chunk: DETAIL.debris.chunk }),
+      scatter(assets.model('tree_stump_02', 0.6), stumps.filter((_, i) => i % 2 === 1), { chunk: DETAIL.debris.chunk }),
+      scatter(assets.model('dead_tree_trunk', 0.45), logs.filter((_, i) => i % 2 === 0), { chunk: DETAIL.debris.chunk }),
+      scatter(assets.model('dead_tree_trunk_02', 0.5), logs.filter((_, i) => i % 2 === 1), { chunk: DETAIL.debris.chunk }),
+    ];
+    for (const g of debris) { scene.add(g); details.push([g, DETAIL.debris.range]); }
   }
 
   // ── Büsche und Farne (nur Kulisse) ──────────────────────────────────────
   if (bushes.length) {
-    const bushMesh = new THREE.InstancedMesh(keep(crossedPlanes(1.8, 0.9, 2, 0)),
-      keep(new THREE.MeshLambertMaterial({ map: keep(bushTexture()), alphaTest: 0.4, side: THREE.DoubleSide })), bushes.length);
-    bushes.forEach(([x, z], i) => {
+    const bushGeo = keep(crossedPlanes(1.8, 0.9, 2, 0));
+    const bushMat = keep(new THREE.MeshLambertMaterial({ map: keep(bushTexture()), alphaTest: 0.4, side: THREE.DoubleSide }));
+    const mats = bushes.map(([x, z]) => {
       const s = 0.7 + rng() * 0.9;
-      m4.compose(v.set(world(x) + (rng() - 0.5) * 1.6, 0, world(z) + (rng() - 0.5) * 1.6), q.setFromAxisAngle(up, rng() * Math.PI), sc.set(s, s, s));
-      bushMesh.setMatrixAt(i, m4);
+      return m4.compose(v.set(world(x) + (rng() - 0.5) * 1.6, 0, world(z) + (rng() - 0.5) * 1.6), q.setFromAxisAngle(up, rng() * Math.PI), sc.set(s, s, s)).clone();
     });
-    bushMesh.frustumCulled = false;
-    scene.add(bushMesh);
-    instanced.push(bushMesh);
+    for (const mesh of instancedChunks(bushGeo, bushMat, mats, CHUNK)) {
+      scene.add(mesh);
+      instanced.push(mesh);
+    }
   }
 
   // ── Zaun am inneren Rand der Randkacheln, mit Tor unten ─────────────────
@@ -342,7 +355,7 @@ export function buildForest(p) {
     scene.add(pit);
     const logGeo = keep(new THREE.CylinderGeometry(0.07, 0.08, 0.9, 8));
     logGeo.rotateZ(Math.PI / 2);
-    const charMat = keep(new THREE.MeshStandardMaterial({ color: 0x141110, roughness: 1, emissive: 0x2a0800, emissiveIntensity: 0.4 }));
+    const charMat = keep(new THREE.MeshStandardMaterial({ color: 0x141110, roughness: 1, emissive: 0x6a1400, emissiveIntensity: 0.9 }));
     for (let i = 0; i < 3; i++) {
       const l = new THREE.Mesh(logGeo, charMat);
       l.position.set(fx, 0.08, fz);
@@ -360,9 +373,9 @@ export function buildForest(p) {
       s.castShadow = true;
       scene.add(s);
     }
-    ember = new THREE.PointLight(0xff4010, 0.5, 4, 2);
-    ember.position.set(fx, 0.3, fz);
-    scene.add(ember);
+    // Glut ohne eigenes Licht: jedes Punktlicht kostet in JEDEM Pixel des Waldes — die glimmenden Scheite
+    // (Leuchtfarbe, pulsiert in tick) reichen für die Stimmung
+    ember = charMat;
   }
 
   // ── Sterne zwischen den Kronen ──────────────────────────────────────────
@@ -371,13 +384,15 @@ export function buildForest(p) {
   for (let i = 0; i < starCount; i++) {
     const a = rng() * Math.PI * 2;
     const e = 0.25 + rng() * 1.2;
-    starPos[i * 3] = world(size / 2) + Math.cos(a) * Math.cos(e) * 140;
-    starPos[i * 3 + 1] = Math.sin(e) * 140;
-    starPos[i * 3 + 2] = world(size / 2) + Math.sin(a) * Math.cos(e) * 140;
+    starPos[i * 3] = Math.cos(a) * Math.cos(e) * STAR_R;
+    starPos[i * 3 + 1] = Math.sin(e) * STAR_R;
+    starPos[i * 3 + 2] = Math.sin(a) * Math.cos(e) * STAR_R;
   }
   const starGeo = keep(new THREE.BufferGeometry());
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
   const stars = new THREE.Points(starGeo, keep(new THREE.PointsMaterial({ color: 0x9aa4c0, size: 1.4, sizeAttenuation: false, fog: false })));
+  // Sie hängen an der Kamera (tick) — so liegen sie immer innerhalb der Sichtweite
+  stars.frustumCulled = false;
   scene.add(stars);
 
   return {
@@ -389,10 +404,21 @@ export function buildForest(p) {
     gateLeaf: leaf,
     gateX,
     gateZ: hi,
-    /** Flackern der Lichter in der Kulisse, jedes Bild. */
-    tick(t) {
+    /** Flackern der Lichter in der Kulisse, jedes Bild; die Sterne wandern mit der Kamera mit. */
+    tick(t, cam) {
+      if (cam) {
+        stars.position.set(cam.position.x, 0, cam.position.z);
+        const cx = cam.position.x;
+        const cz = cam.position.z;
+        for (const [group, range] of details) {
+          for (const im of group.children) {
+            const bs = im.boundingSphere;
+            if (bs) im.visible = Math.hypot(bs.center.x - cx, bs.center.z - cz) - bs.radius < range;
+          }
+        }
+      }
       lanternLight.intensity = 2.2 * (0.85 + Math.sin(t * 13) * 0.05 + Math.sin(t * 7.3) * 0.08);
-      if (ember) ember.intensity = 0.45 + Math.sin(t * 3.1) * 0.12 + Math.sin(t * 11.7) * 0.06;
+      if (ember) ember.emissiveIntensity = 0.9 + Math.sin(t * 3.1) * 0.3 + Math.sin(t * 11.7) * 0.15;
     },
   };
 }

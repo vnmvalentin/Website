@@ -15,6 +15,14 @@ const routesToPrerender = [
   '/fun',
   '/community',
   '/clash',
+  // Kartenrätsel unter /clash (reine Browserspiele, Text + Kartenpool sind Inhalt)
+  '/clash/kartenraten',
+  '/clash/wer-bin-ich',
+  '/clash/stats-duell',
+  '/clash/zoom',
+  '/clash/pixel',
+  '/clash/wordle',
+  '/clash/viewer-games',
   '/tools',
   '/contact',
   // Clash Royale: die Minigame-Hubseite ist die wichtigste Unterseite überhaupt und war

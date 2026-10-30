@@ -551,3 +551,120 @@
   font: 900 150px Inter, Roboto, system-ui, sans-serif;
   color: #fff;
 }
+
+/* ── Hype Train 3D (hypeTrain3d.js) ───────────────────────────────────────────
+   Die Zeichenfläche liegt über die ganze Breite; die Anzeige hängt am Anker, den
+   die Zeichenschleife jedes Bild über die Lok schiebt (translate in px). */
+.sts3-train {
+  position: absolute;
+  left: 0;
+  width: 1920px;
+  pointer-events: none;
+  font-family: Inter, Roboto, system-ui, sans-serif;
+  color: #fff;
+  transition: opacity 0.8s ease;
+}
+.sts3-train canvas { display: block; }
+.sts3-train.is-gone { opacity: 0; }
+.sts3-hud-anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transition: opacity 0.3s ease;
+  will-change: transform;
+}
+.sts3-hud {
+  position: absolute;
+  bottom: 64px;
+  left: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.sts3-hud-card {
+  min-width: 230px;
+  padding: 10px 14px 12px;
+  background: rgba(14, 14, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 3px solid var(--sts3-a);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+.sts3-hud-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.sts3-hud-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sts3-a);
+}
+.sts3-hud-timer {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.75);
+}
+.sts3-hud-level { font-size: 24px; font-weight: 900; line-height: 1.15; }
+.sts3-hud-people { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.6); white-space: nowrap; }
+.sts3-prog {
+  position: relative;
+  margin-top: 8px;
+  height: 16px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.sts3-prog i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--sts3-a);
+  transition: width 0.8s cubic-bezier(.2,.8,.2,1);
+}
+.sts3-prog span {
+  position: relative;
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.sts3-joined {
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #fff;
+  color: #14141a;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  animation: sts3-pop 3.2s cubic-bezier(.2,.8,.2,1) both;
+}
+.sts3-joined b { font-weight: 800; }
+.sts3-levelup {
+  padding: 6px 16px;
+  border-radius: 6px;
+  background: var(--sts3-a);
+  font-size: 22px;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  animation: sts3-pop 4.5s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes sts3-pop {
+  0% { opacity: 0; transform: translateY(12px) scale(0.8); }
+  8% { opacity: 1; transform: translateY(0) scale(1.06); }
+  14% { transform: scale(1); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}

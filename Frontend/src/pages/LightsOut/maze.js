@@ -21,8 +21,12 @@ export const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 /**
  * @param {number} seed
  * @param {number} cells  Zellen je Seite (Raster = 2 * cells + 1 Kacheln)
+ * @param {number} roomCount  offene 3×3-Räume (Anstalt: Behandlungsräume, Keller: Lagerräume)
+ * @returns {{ size:number, grid:Uint8Array, cells:number, rooms:number[][], blocked:Set<number> }}
+ *   rooms = Mittelkacheln der Räume; blocked = Kacheln, durch die Monster nicht laufen (Möbel in der Raummitte,
+ *   vom Spiel gefüllt) — für Sicht und Spieler-Kollision zählen sie weiter als frei
  */
-export function generateMaze(seed, cells = 10) {
+export function generateMaze(seed, cells = 10, roomCount = 2) {
   const rng = makeRng(seed);
   const size = cells * 2 + 1;
   const grid = new Uint8Array(size * size).fill(1);
@@ -60,14 +64,20 @@ export function generateMaze(seed, cells = 10) {
     n++;
   }
 
-  // Zwei kleine Hallen (3×3 Kacheln) — dort sieht man weiter, ist aber auch sichtbarer
-  for (let r = 0; r < 2; r++) {
+  // Kleine Hallen (3×3 Kacheln) — dort sieht man weiter, ist aber auch sichtbarer. Die ersten beiden
+  // werden wie früher gewürfelt (gleiche Karten für gleiche Seeds), weitere halten Abstand zu den anderen.
+  const rooms = [];
+  for (let r = 0, tries = 0; r < roomCount && tries < 200; tries++) {
     const cx = 3 + 2 * Math.floor(rng() * (cells - 2));
     const cz = 3 + 2 * Math.floor(rng() * (cells - 2));
+    if (r >= 2 && rooms.some(([x, z]) => Math.abs(x - cx) + Math.abs(z - cz) < 6)) continue;
     for (let z = cz - 1; z <= cz + 1; z++) for (let x = cx - 1; x <= cx + 1; x++) set(x, z, 0);
+    // Zwei gleiche Räume übereinander zählen einmal
+    if (!rooms.some(([x, z]) => x === cx && z === cz)) rooms.push([cx, cz]);
+    r++;
   }
 
-  return { size, grid, cells };
+  return { size, grid, cells, rooms, blocked: new Set() };
 }
 
 export function isOpen(maze, x, z) {
@@ -97,9 +107,13 @@ export function distances(maze, sx, sz) {
   return dist;
 }
 
-/** Kürzester Weg als Kachelliste [[x,z], ...] ohne den Start. Leer, wenn unerreichbar. */
+/**
+ * Kürzester Weg als Kachelliste [[x,z], ...] ohne den Start. Leer, wenn unerreichbar.
+ * maze.blocked (Möbel) wird umgangen — außer Start und Ziel selbst.
+ */
 export function findPath(maze, sx, sz, tx, tz) {
   if (sx === tx && sz === tz) return [];
+  const blocked = maze.blocked;
   const prev = new Int32Array(maze.size * maze.size).fill(-1);
   const start = sz * maze.size + sx;
   const goal = tz * maze.size + tx;
@@ -116,6 +130,7 @@ export function findPath(maze, sx, sz, tx, tz) {
       if (!isOpen(maze, nx, nz)) continue;
       const j = nz * maze.size + nx;
       if (prev[j] >= 0) continue;
+      if (blocked?.size && j !== goal && blocked.has(j)) continue;
       prev[j] = i;
       queue.push(j);
     }
@@ -308,4 +323,87 @@ export function placeThings(maze, rng, fuseCount = 3) {
   const writings = takeRandom(cellsOpen.filter(([x, z]) => openNeighbours(maze, x, z) < 4), 7);
 
   return { start, exit, fuses, lockers, batteries, writings, fromStart };
+}
+
+/* ── Garten ───────────────────────────────────────────────────────────────
+   Statuen-Rätsel: vier drehbare Statuen in Sackgassen, möglichst eine je Viertel der Karte. Nur Sackgassen,
+   von denen aus die Mitte klar in einer Himmelsrichtung liegt (eine Achse mindestens doppelt so weit wie
+   die andere) — sonst wäre „zum Licht schauen“ zweideutig. Dazu Attrappen in weiteren Sackgassen und
+   Plätze für Bänke in geraden Gängen. */
+
+/** Blickrichtungen der Statuen: 0 Norden (-z), 1 Osten (+x), 2 Süden (+z), 3 Westen (-x). */
+const FACING4 = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+/** Richtung (0..3), in die eine Statue auf Kachel (x, z) schauen muss, um die Mitte c anzusehen. */
+export function facingToward([x, z], [cx, cz]) {
+  const dx = cx - x;
+  const dz = cz - z;
+  if (Math.abs(dx) >= Math.abs(dz)) return dx > 0 ? 1 : 3;
+  return dz > 0 ? 2 : 0;
+}
+
+export function pickStatues(maze, rng, center, start, exitCell, count = 4) {
+  const { size } = maze;
+  const dist = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+  const deadEnds = [];
+  for (let z = 1; z < size - 1; z += 2) {
+    for (let x = 1; x < size - 1; x += 2) {
+      if (!isOpen(maze, x, z) || openNeighbours(maze, x, z) !== 1) continue;
+      const c = [x, z];
+      if (dist(c, center) < 5 || dist(c, start) < 4 || dist(c, exitCell) < 3) continue;
+      deadEnds.push(c);
+    }
+  }
+  for (let i = deadEnds.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [deadEnds[i], deadEnds[j]] = [deadEnds[j], deadEnds[i]];
+  }
+  const clear = (c) => {
+    const dx = Math.abs(center[0] - c[0]);
+    const dz = Math.abs(center[1] - c[1]);
+    return dx >= 2 * dz || dz >= 2 * dx;
+  };
+  const quadrant = (c) => (c[0] < center[0] ? 0 : 1) + (c[1] < center[1] ? 0 : 2);
+  const puzzle = [];
+  const taken = [];
+  // erst je Viertel eine, dann auffüllen (Abstand ≥ 6)
+  for (let q = 0; q < 4 && puzzle.length < count; q++) {
+    const c = deadEnds.find((d) => quadrant(d) === q && clear(d) && !taken.some((t) => dist(t, d) < 6));
+    if (c) { puzzle.push(c); taken.push(c); }
+  }
+  for (const d of deadEnds) {
+    if (puzzle.length >= count) break;
+    if (clear(d) && !taken.some((t) => dist(t, d) < 6)) { puzzle.push(d); taken.push(d); }
+  }
+  // Notfalls auch weniger eindeutige Sackgassen
+  for (const d of deadEnds) {
+    if (puzzle.length >= count) break;
+    if (!taken.some((t) => dist(t, d) < 4)) { puzzle.push(d); taken.push(d); }
+  }
+  const decoys = [];
+  for (const d of deadEnds) {
+    if (decoys.length >= 4) break;
+    if (!taken.some((t) => dist(t, d) < 4)) { decoys.push(d); taken.push(d); }
+  }
+  // Startrichtung: zufällig, aber nie schon die richtige
+  const withFacing = puzzle.map((cell) => {
+    const correct = facingToward(cell, center);
+    let f = Math.floor(rng() * 4);
+    if (f === correct) f = (f + 1 + Math.floor(rng() * 3)) % 4;
+    return { cell, facing: f, correct };
+  });
+  // Bänke in geraden Gängen, an einer Seitenwand
+  const benches = [];
+  for (let tries = 0; tries < 400 && benches.length < 7; tries++) {
+    const x = 1 + Math.floor(rng() * (size - 2));
+    const z = 1 + Math.floor(rng() * (size - 2));
+    if (!isOpen(maze, x, z) || maze.blocked?.has(z * size + x)) continue;
+    const open = DIRS.filter(([dx, dz]) => isOpen(maze, x + dx, z + dz));
+    if (open.length !== 2 || open[0][0] !== -open[1][0] || open[0][1] !== -open[1][1]) continue;
+    if (taken.some((t) => dist(t, [x, z]) < 3) || dist([x, z], start) < 3) continue;
+    const walls = DIRS.filter(([dx, dz]) => !isOpen(maze, x + dx, z + dz));
+    benches.push({ cell: [x, z], back: walls[Math.floor(rng() * walls.length)] });
+    taken.push([x, z]);
+  }
+  return { puzzle: withFacing, decoys, benches, FACING: FACING4 };
 }
