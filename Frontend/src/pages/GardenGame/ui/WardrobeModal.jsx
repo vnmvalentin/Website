@@ -15,11 +15,12 @@
 import React from 'react';
 import { Sparkles } from 'lucide-react';
 import { HudIcon } from './gameIcons';
-import { GardenModal, PrimaryButton } from './gardenUi';
+import { GardenModal, PrimaryButton, Abschnitt as AbschnittTitel } from './gardenUi';
 import {
     FARMER_FARBEN, KOSTUEME, farmerPfad, skinPfad,
     normalisiereSkin, naechstesKostuem,
 } from './wardrobe';
+import { versionedAsset } from '../engine/assetVersion';
 
 /**
  * Fellfarbe der Katze — zeigt jetzt ein kleines Bild der Katze in dieser Farbe/
@@ -39,7 +40,7 @@ function Farbknopf({ eintrag, aktiv, onWaehlen }) {
                 aktiv ? "border-violet-400" : "border-slate-700 hover:border-slate-500"
             }`}
         >
-            <img src={pfad} alt="" draggable={false} className="h-full w-full object-contain object-bottom" />
+            <img src={versionedAsset(pfad)} alt="" draggable={false} className="h-full w-full object-contain object-bottom" />
             {aktiv && (
                 <HudIcon.check
                     size={16}
@@ -66,7 +67,7 @@ function SkinKachel({ eintrag, pfad, aktiv, offen, onWaehlen }) {
             }`}
         >
             <img
-                src={pfad}
+                src={versionedAsset(pfad)}
                 alt=""
                 draggable={false}
                 className={`h-12 w-12 object-contain ${offen ? "" : "opacity-25 grayscale"}`}
@@ -89,9 +90,9 @@ function Abschnitt({ icon: Icon, titel, hinweis, children }) {
     return (
         <section className="mb-4 last:mb-0">
             <div className="mb-2 flex items-baseline gap-2">
-                <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+                <AbschnittTitel className="flex items-center gap-1.5 px-1">
                     <Icon size={12} /> {titel}
-                </h3>
+                </AbschnittTitel>
                 {hinweis && <span className="text-[11px] text-slate-500">{hinweis}</span>}
             </div>
             {children}
@@ -113,7 +114,6 @@ export default function WardrobeModal({ offen, onClose, onBack, aktuellerSkin, l
             subtitle={`Level ${stufe} · ${freigeschaltet} von ${KOSTUEME.length} Kostümen frei`}
             onClose={onClose}
             onBack={onBack}
-            width="max-w-lg"
             footer={
                 <PrimaryButton onClick={onClose} className="w-full py-2.5">
                     Fertig

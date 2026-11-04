@@ -18,6 +18,7 @@
 // oder migriert werden; nur FORTSCHRITT und ABGEHOLT gehören dem Spielstand.
 
 const { unitAusText } = require("./tageszeit");
+const { belohnungsLevel } = require("./skills");
 
 // Echte Zeit, nicht die 24-Minuten-Spieluhr aus core/tageszeit.js — eine Mission
 // soll einen echten Tag bzw. eine echte Woche laufen, unabhängig vom Tag/Nacht-
@@ -46,8 +47,8 @@ const TYP = {
 const TAEGLICHE_KATALOG = [
     { id: "t_ernte10", typ: TYP.ERNTE_ANZAHL, ziel: 10, name: "Fleißige Hände", beschreibung: "Ernte 10 Früchte.", gold: 5_000, xp: 50 },
     { id: "t_ernte30", typ: TYP.ERNTE_ANZAHL, ziel: 30, name: "Vollernte", beschreibung: "Ernte 30 Früchte.", gold: 15_000, xp: 120 },
-    { id: "t_ernte_gold", typ: TYP.ERNTE_GOLD, ziel: 25_000, name: "Wertvolle Ausbeute", beschreibung: "Ernte Früchte im Wert von 25.000 Gold.", gold: 6_000, xp: 55 },
-    { id: "t_verkauf50k", typ: TYP.VERKAUF_GOLD, ziel: 50_000, name: "Marktschreier", beschreibung: "Verkaufe Ernte im Wert von 50.000 Gold.", gold: 8_000, xp: 60 },
+    { id: "t_ernte_gold", typ: TYP.ERNTE_GOLD, ziel: 25_000, name: "Wertvolle Ausbeute", beschreibung: "Ernte Früchte im Wert von {ziel} Gold.", gold: 6_000, xp: 55 },
+    { id: "t_verkauf50k", typ: TYP.VERKAUF_GOLD, ziel: 50_000, name: "Marktschreier", beschreibung: "Verkaufe Ernte im Wert von {ziel} Gold.", gold: 8_000, xp: 60 },
     { id: "t_giessen5", typ: TYP.GIESSEN_ANZAHL, ziel: 5, name: "Grüner Daumen", beschreibung: "Gieße 5 Pflanzen.", gold: 4_000, xp: 40 },
     { id: "t_kauf5", typ: TYP.SAMEN_KAUF, ziel: 5, name: "Einkaufstour", beschreibung: "Kaufe 5 Samen im Laden.", gold: 4_000, xp: 40 },
 ];
@@ -55,13 +56,64 @@ const TAEGLICHE_KATALOG = [
 /** Wochen-Katalog. Zehnfach höhere Ziele, entsprechend größere Belohnung. */
 const WOECHENTLICHE_KATALOG = [
     { id: "w_ernte200", typ: TYP.ERNTE_ANZAHL, ziel: 200, name: "Erntewoche", beschreibung: "Ernte 200 Früchte diese Woche.", gold: 80_000, xp: 600 },
-    { id: "w_verkauf1m", typ: TYP.VERKAUF_GOLD, ziel: 1_000_000, name: "Großhändler", beschreibung: "Verkaufe Ernte im Wert von 1 Mio. Gold diese Woche.", gold: 100_000, xp: 700 },
+    { id: "w_verkauf1m", typ: TYP.VERKAUF_GOLD, ziel: 1_000_000, name: "Großhändler", beschreibung: "Verkaufe Ernte im Wert von {ziel} Gold diese Woche.", gold: 100_000, xp: 700 },
     { id: "w_giessen40", typ: TYP.GIESSEN_ANZAHL, ziel: 40, name: "Dauerregner", beschreibung: "Gieße 40 Pflanzen diese Woche.", gold: 60_000, xp: 500 },
     { id: "w_kauf25", typ: TYP.SAMEN_KAUF, ziel: 25, name: "Großeinkauf", beschreibung: "Kaufe 25 Samen im Laden diese Woche.", gold: 50_000, xp: 450 },
 ];
 
 const TAEGLICHE_SLOTS = 3;
 const WOECHENTLICHE_SLOTS = 2;
+
+/**
+ * Stufenfaktor auf Gold-Belohnung und Gold-Ziele — die Kataloge oben sind Level 1.
+ *
+ * BALANCING 02.11. (Feedback "der Shop bringt nur Müll", gleicher Befund hier):
+ * feste 4.000–100.000 Gold waren ab dem mittleren Spiel bedeutungslos, die
+ * Einnahmen reichen von ein paar hundert Gold bis in die Milliarden. Der Faktor
+ * verzehnfacht sich alle zehn Level:
+ *
+ *   Level 10 → ×7,9    Level 20 → ×79    Level 30 → ×790    Level 50 → ×79.000
+ *
+ * Er wird beim Start des Tages bzw. der Woche FESTGEHALTEN (q.faktorTag /
+ * q.faktorWoche). Sonst wanderte das Ziel einer laufenden Mission mit jedem
+ * Level-Aufstieg nach oben, und schon erreichter Fortschritt stünde wieder offen.
+ * Anzahl-Ziele (ernten, gießen, kaufen) und XP bleiben fest.
+ */
+const FAKTOR_JE_ZEHN_LEVEL = 10;
+const GOLD_TYPEN = new Set([TYP.ERNTE_GOLD, TYP.VERKAUF_GOLD]);
+const WOECHENTLICHE_IDS = new Set(WOECHENTLICHE_KATALOG.map((m) => m.id));
+
+function stufenFaktor(state) {
+    // Über Level 50 gedämpft (belohnungsLevel in core/skills.js).
+    const level = belohnungsLevel(state?.xp);
+    return Math.pow(FAKTOR_JE_ZEHN_LEVEL, (level - 1) / 10);
+}
+
+/** Auf zwei geltende Ziffern runden — 1.234.567 wird 1.200.000. */
+function schoeneZahl(n) {
+    if (n < 100) return Math.round(n);
+    const stellen = Math.pow(10, Math.floor(Math.log10(n)) - 1);
+    return Math.round(n / stellen) * stellen;
+}
+
+function kurzGold(n) {
+    const de = (x) => x.toLocaleString("de-DE", { maximumFractionDigits: 1 });
+    if (n >= 1e9) return `${de(n / 1e9)} Mrd.`;
+    if (n >= 1e6) return `${de(n / 1e6)} Mio.`;
+    return de(n);
+}
+
+/** Katalogeintrag mit dem Faktor des laufenden Zeitraums. */
+function mitStufe(m, q) {
+    const faktor = Number(WOECHENTLICHE_IDS.has(m.id) ? q.faktorWoche : q.faktorTag) || 1;
+    const ziel = GOLD_TYPEN.has(m.typ) ? schoeneZahl(m.ziel * faktor) : m.ziel;
+    return {
+        ...m,
+        ziel,
+        gold: schoeneZahl(m.gold * faktor),
+        beschreibung: m.beschreibung.replace("{ziel}", kurzGold(ziel)),
+    };
+}
 
 /**
  * `anzahl` Einträge deterministisch aus `katalog` ziehen, ohne Wiederholung
@@ -115,13 +167,20 @@ function bringeQuestsAufStand(state, now = Date.now()) {
         for (const id of Object.keys(q.fortschritt)) if (!woechentlicheIds.has(id)) delete q.fortschritt[id];
         q.abgeholt = q.abgeholt.filter((id) => woechentlicheIds.has(id));
         q.tagIndex = heute;
+        q.faktorTag = stufenFaktor(state);
     }
     if (q.wocheIndex !== dieseWoche) {
         const taeglicheIds = new Set(TAEGLICHE_KATALOG.map((m) => m.id));
         for (const id of Object.keys(q.fortschritt)) if (!taeglicheIds.has(id)) delete q.fortschritt[id];
         q.abgeholt = q.abgeholt.filter((id) => taeglicheIds.has(id));
         q.wocheIndex = dieseWoche;
+        q.faktorWoche = stufenFaktor(state);
     }
+    // Spielstände aus der Zeit vor dem Stufenfaktor: der LAUFENDE Zeitraum bleibt
+    // bei Faktor 1. Fortschritt wurde bisher am alten Ziel gedeckelt — ein höheres
+    // Ziel mitten am Tag machte eine geschaffte Mission wieder offen.
+    if (!(Number(q.faktorTag) >= 1)) q.faktorTag = 1;
+    if (!(Number(q.faktorWoche) >= 1)) q.faktorWoche = 1;
     return q;
 }
 
@@ -134,7 +193,7 @@ function melde(state, typ, menge, now = Date.now()) {
     const n = Number(menge) || 0;
     if (n <= 0) return;
     const q = bringeQuestsAufStand(state, now);
-    const aktiv = [...aktuelleTaeglicheMissionen(now), ...aktuelleWoechentlicheMissionen(now)];
+    const aktiv = [...aktuelleTaeglicheMissionen(now), ...aktuelleWoechentlicheMissionen(now)].map((m) => mitStufe(m, q));
     for (const m of aktiv) {
         if (m.typ !== typ) continue;
         q.fortschritt[m.id] = Math.min(m.ziel, (Number(q.fortschritt[m.id]) || 0) + n);
@@ -144,7 +203,8 @@ function melde(state, typ, menge, now = Date.now()) {
 /** Ansicht für die Anzeige — Katalogeintrag samt Fortschritt und Status. */
 function questUebersicht(state, now = Date.now()) {
     const q = bringeQuestsAufStand(state, now);
-    const baueZeile = (m) => {
+    const baueZeile = (roh) => {
+        const m = mitStufe(roh, q);
         const fortschritt = Number(q.fortschritt[m.id]) || 0;
         return {
             ...m,
@@ -179,8 +239,9 @@ function questUebersicht(state, now = Date.now()) {
 function questAbholen(state, questId, now = Date.now()) {
     const q = bringeQuestsAufStand(state, now);
     const alle = [...TAEGLICHE_KATALOG, ...WOECHENTLICHE_KATALOG];
-    const m = alle.find((x) => x.id === String(questId || ""));
-    if (!m) return { ok: false, status: 400, error: "Diese Mission gibt es nicht." };
+    const roh = alle.find((x) => x.id === String(questId || ""));
+    if (!roh) return { ok: false, status: 400, error: "Diese Mission gibt es nicht." };
+    const m = mitStufe(roh, q);
     const aktiv = [...aktuelleTaeglicheMissionen(now), ...aktuelleWoechentlicheMissionen(now)];
     if (!aktiv.some((x) => x.id === m.id)) return { ok: false, status: 400, error: "Diese Mission läuft gerade nicht." };
     if (q.abgeholt.includes(m.id)) return { ok: false, status: 400, error: "Belohnung schon abgeholt." };

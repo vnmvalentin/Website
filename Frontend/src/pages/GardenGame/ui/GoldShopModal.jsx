@@ -7,8 +7,10 @@
 // Anzeige, die etwas anderes verspricht als die Route tatsächlich auszahlt,
 // wäre schlimmer als gar keine Anzeige.
 import React, { useState } from 'react';
-import { GardenModal, PrimaryButton, TabBar, GoldTag } from './gardenUi';
+import { GardenModal, PrimaryButton, TabBar, GoldTag, FensterZeile, LeerHinweis } from './gardenUi';
+import { formatGold } from './gardenTokens';
 import { HudIcon } from './gameIcons';
+import { versionedAsset } from '../engine/assetVersion';
 
 // Alle drei Reiter zeigen echte Icons statt lucide (Feedback 31.08./01.09.:
 // "dont use lucide icons anymore for things like that"). Werkzeug-Reiter
@@ -59,7 +61,7 @@ function Vorschau({ kategorie, eintrag }) {
     return (
         <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50 p-1">
             {eintrag.image ? (
-                <img src={eintrag.image} alt="" className="max-h-full max-w-full object-contain" draggable={false} />
+                <img src={versionedAsset(eintrag.image)} alt="" className="max-h-full max-w-full object-contain" draggable={false} />
             ) : null}
         </div>
     );
@@ -74,40 +76,27 @@ function ReskinKarte({ kategorie, eintrag, ausgeruestet, gold, onKaufen, onAusru
         ? (ausgeruestet === null || ausgeruestet === undefined)
         : ausgeruestet === eintrag.id;
     const leistbar = gold >= eintrag.price;
+    // Saison-Namensschilder gibt es nur über die Saisonziele (Missionsbrett → Jahreszeit).
+    const nurSaison = Boolean(eintrag.saison) && !eintrag.gekauft;
     return (
-        <div className={`flex items-center gap-3 p-3 rounded-2xl border transition-colors ${
-            istAusgeruestet ? "border-emerald-600/60 bg-emerald-950/20" : "border-slate-800 bg-slate-900/50"
-        }`}>
-            <Vorschau kategorie={kategorie} eintrag={eintrag} />
-            <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">{eintrag.name}</div>
-                {!eintrag.gekauft && (
-                    <div className="mt-0.5 flex items-center gap-1 text-xs font-bold text-amber-300 tabular-nums">
-                        {eintrag.price.toLocaleString("de-DE")} Gold
-                    </div>
-                )}
-                {istAusgeruestet && (
-                    <div className="mt-0.5 text-[11px] font-semibold text-emerald-400">Ausgerüstet</div>
-                )}
-            </div>
-            {eintrag.gekauft ? (
-                <PrimaryButton
-                    onClick={() => onAusruesten(kategorie, eintrag.id)}
-                    disabled={istAusgeruestet || busy}
-                    className="shrink-0 px-3 py-1.5 text-xs"
-                >
+        <FensterZeile
+            zustand={istAusgeruestet ? "aktiv" : "normal"}
+            bild={<Vorschau kategorie={kategorie} eintrag={eintrag} />}
+            titel={eintrag.name}
+            text={istAusgeruestet ? "Ausgerüstet" : eintrag.gekauft ? (eintrag.saison ? "Freigeschaltet" : "Gekauft") : nurSaison ? (eintrag.saison === "alle" ? "Für alle vier Jahreszeiten-Namensschilder" : "Belohnung der Saisonziele (Missionsbrett → Jahreszeit)") : null}
+            wert={eintrag.gekauft || nurSaison ? null : formatGold(eintrag.price)}
+            aktionen={eintrag.gekauft ? (
+                <PrimaryButton onClick={() => onAusruesten(kategorie, eintrag.id)} disabled={istAusgeruestet || busy}>
                     {istAusgeruestet ? "Aktiv" : "Ausrüsten"}
                 </PrimaryButton>
+            ) : nurSaison ? (
+                <PrimaryButton disabled>Saisonziel</PrimaryButton>
             ) : (
-                <PrimaryButton
-                    onClick={() => onKaufen(kategorie, eintrag.id)}
-                    disabled={!leistbar || busy}
-                    className="shrink-0 px-3 py-1.5 text-xs"
-                >
+                <PrimaryButton onClick={() => onKaufen(kategorie, eintrag.id)} disabled={!leistbar || busy}>
                     {leistbar ? "Kaufen" : "Zu teuer"}
                 </PrimaryButton>
             )}
-        </div>
+        />
     );
 }
 
@@ -141,14 +130,13 @@ export default function GoldShopModal({ offen, onClose, onBack, daten, gold, onK
             subtitle="Rein kosmetisch — kein Vorteil, nur ein anderer Look."
             onClose={onClose}
             onBack={onBack}
-            width="max-w-lg"
             headerRight={<GoldTag gold={gold} />}
-            toolbar={<TabBar tabs={tabs} active={tab} onSelect={setTab} />}
+            toolbar={<TabBar className="-mb-2" tabs={tabs} active={tab} onSelect={setTab} />}
         >
             {liste.length === 0 ? (
-                <p className="py-8 text-center text-sm text-slate-500">Gerade nichts im Angebot.</p>
+                <LeerHinweis>Gerade nichts im Angebot.</LeerHinweis>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                     {liste.map((eintrag) => (
                         <ReskinKarte
                             key={eintrag.id}

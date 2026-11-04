@@ -992,7 +992,7 @@ function drawMarble(ctx, m, player, image, color, label) {
 /** 3D-Darstellung: eigener Chunk mit three.js, nur geladen, wenn eingeschaltet. */
 const loadMarble3d = () => import('./marble3d');
 
-function MarbleRace({ data, module, offsetRef, onResult }) {
+function MarbleRace({ data, module, offsetRef, onResult, onPlacings }) {
   const canvasRef = useRef(null);
   const layerRef = useRef(null);
   const [top, setTop] = useState([]);
@@ -1000,8 +1000,8 @@ function MarbleRace({ data, module, offsetRef, onResult }) {
   const [localWinner, setLocalWinner] = useState(null);
   const [three, setThree] = useState(null);
   const [no3d, setNo3d] = useState(false);
-  const live = useRef({ module, onResult });
-  live.current = { module, onResult };
+  const live = useRef({ module, onResult, onPlacings });
+  live.current = { module, onResult, onPlacings };
 
   const want3d = module.view3d === true && !no3d;
   useEffect(() => {
@@ -1035,6 +1035,7 @@ function MarbleRace({ data, module, offsetRef, onResult }) {
     let cam = -150;
     let camSet = false;
     let reported = false;
+    let placed = false;
     let lastTop = '';
     let lastCount = -1;
     let raf = 0;
@@ -1058,6 +1059,14 @@ function MarbleRace({ data, module, offsetRef, onResult }) {
       }
 
       const order = ranking(race);
+
+      // Plätze 1–3 (für Preise in Streamer.bot): sobald drei im Ziel sind oder das Rennen
+      // ausgelaufen ist (6 s nach dem Sieger) — dann zählt der Fortschritt der übrigen
+      if (race.winner >= 0 && !placed
+        && (race.finished.length >= Math.min(3, players.length) || race.step > race.winStep + STEPS_PER_SECOND * 6)) {
+        placed = true;
+        live.current.onPlacings?.(id, order.slice(0, 3).map((i) => players[i].id));
+      }
       // Die Kamera hängt an der vordersten Murmel, die noch unterwegs ist
       const leadIndex = order.find((i) => !race.marbles[i].done);
       const leadY = leadIndex === undefined ? race.course.finishY : race.marbles[leadIndex].y;
@@ -1203,9 +1212,9 @@ const MARBLE_CHIP = {
 
 /**
  * Die Murmelbahn als Karte. Während des Rennens rechnet sie selbst und meldet
- * den Sieger über onResult(raceId, playerId).
+ * den Sieger über onResult(raceId, playerId), danach Platz 1–3 über onPlacings(raceId, [ids]).
  */
-export function MarbleRunWidget({ data, module, offsetRef, onResult, width = WORLD_W }) {
+export function MarbleRunWidget({ data, module, offsetRef, onResult, onPlacings, width = WORLD_W }) {
   if (!data) return null;
   const alpha = clamp((module.opacity ?? 88) / 100, 0, 1);
   const racing = data.phase !== 'join' && !!data.seed;
@@ -1220,7 +1229,7 @@ export function MarbleRunWidget({ data, module, offsetRef, onResult, width = WOR
         <span className={`stw-chip ${chip.cls}`}>{chip.label}</span>
       </div>
       {racing
-        ? <MarbleRace data={data} module={module} offsetRef={offsetRef} onResult={onResult} />
+        ? <MarbleRace data={data} module={module} offsetRef={offsetRef} onResult={onResult} onPlacings={onPlacings} />
         : <MarbleLobby data={data} module={module} offsetRef={offsetRef} />}
     </div>
   );

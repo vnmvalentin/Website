@@ -44,6 +44,13 @@ const RESKIN_KATALOG = {
         { id: "neon", name: "Neon", price: 25_000_000, farbe: { bg: "#022c22", bg2: "#065f46", border: "#10b981", text: "#6ee7b7" } },
         { id: "rose", name: "Rosenquarz", price: 50_000_000, farbe: { bg: "#fce7f3", bg2: "#f9a8d4", border: "#be185d", text: "#831843" } },
         { id: "obsidian", name: "Obsidian", price: 5_000_000, farbe: { bg: "#18181b", bg2: "#3f3f46", border: "#71717a", text: "#e4e4e7" } },
+        // Nicht käuflich: Belohnung der Saisonziele (core/saisonziele.js).
+        { id: "kirschbluete", name: "Kirschblüte", price: null, saison: "fruehling", farbe: { bg: "#fdf2f8", bg2: "#fbcfe8", border: "#db2777", text: "#831843" } },
+        { id: "sonnenglut", name: "Sonnenglut", price: null, saison: "sommer", farbe: { bg: "#fff7ed", bg2: "#fdba74", border: "#c2410c", text: "#7c2d12" } },
+        { id: "laubgold", name: "Laubgold", price: null, saison: "herbst", farbe: { bg: "#fde68a", bg2: "#d97706", border: "#78350f", text: "#451a03" } },
+        { id: "raureif", name: "Raureif", price: null, saison: "winter", farbe: { bg: "#f0f9ff", bg2: "#bae6fd", border: "#0369a1", text: "#0c4a6e" } },
+        // Sammelziel: alle vier Jahreszeiten-Schilder (core/saisonziele.js).
+        { id: "jahreskreis", name: "Jahreskreis", price: null, saison: "alle", farbe: { bg: "#fbcfe8", bg2: "#bae6fd", border: "#6d28d9", text: "#3b0764" } },
     ],
 };
 
@@ -75,6 +82,7 @@ function reskinKaufen(state, kategorie, id) {
     if (!eintrag) return { ok: false, status: 400, error: "Diesen Reskin gibt es nicht." };
     const r = bringeReskinsAufStand(state);
     if (r.gekauft[kategorie].includes(eintrag.id)) return { ok: false, status: 400, error: "Schon gekauft." };
+    if (eintrag.saison || !(Number(eintrag.price) > 0)) return { ok: false, status: 400, error: "Gibt es nur über die Saisonziele." };
     const kontostand = Number(state.gold) || 0;
     if (kontostand < eintrag.price) return { ok: false, status: 400, error: "Nicht genug Gold." };
     state.gold = kontostand - eintrag.price;
@@ -86,6 +94,16 @@ function reskinKaufen(state, kategorie, id) {
     // Hülle in gardenGameRoutes.js mischt ergebnis per Spread in ein Objekt, das
     // schon sein eigenes `gold` führt — der Kontostand kommt von DORT.
     return { ok: true, kategorie, id: eintrag.id };
+}
+
+/** Ohne Gold freischalten (Saisonziele). true, wenn es vorher noch fehlte. */
+function schalteFrei(state, kategorie, id) {
+    const eintrag = eintragFuer(kategorie, id);
+    if (!eintrag) return false;
+    const r = bringeReskinsAufStand(state);
+    if (r.gekauft[kategorie].includes(eintrag.id)) return false;
+    r.gekauft[kategorie].push(eintrag.id);
+    return true;
 }
 
 function reskinAusruesten(state, kategorie, id) {
@@ -123,6 +141,7 @@ function ausgeruesteteReskins(state) {
 }
 
 module.exports = {
+    schalteFrei,
     RESKIN_KATALOG, KATEGORIEN, katalogFuer, eintragFuer,
     reskinKaufen, reskinAusruesten, reskinUebersicht, ausgeruesteteReskins, bringeReskinsAufStand,
 };

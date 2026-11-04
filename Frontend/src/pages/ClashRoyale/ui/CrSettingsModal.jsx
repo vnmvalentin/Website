@@ -16,6 +16,7 @@ const L = {
     sound: 'Lautstärke', mute: 'Stumm', test: 'Testen',
     animations: 'Animationen', animationsNote: 'Übergänge, aufploppende Karten und die Einblendung beim Spielstart.',
     scene3d: '3D-Ansicht', scene3dNote: 'Elixier Auktion, Pyramidendraft, Angel Royale und Blindes Karussell in 3D. Aus = klassische 2D-Ansicht. Lässt sich auch im Spiel umschalten.',
+    lowGfx: 'Dein Browser läuft ohne Hardwarebeschleunigung — deshalb sind Animationen und 3D automatisch aus. Du kannst sie hier wieder einschalten.',
   },
   en: {
     title: 'Settings', background: 'Background', defaultBg: 'Default (diamonds)',
@@ -23,6 +24,7 @@ const L = {
     sound: 'Volume', mute: 'Muted', test: 'Test',
     animations: 'Animations', animationsNote: 'Transitions, popping cards and the game-start splash.',
     scene3d: '3D view', scene3dNote: 'Elixir Auction, Pyramid Draft, Angel Royale and Shadow Carousel in 3D. Off = classic 2D view. Can also be switched in-game.',
+    lowGfx: 'Your browser runs without hardware acceleration, so animations and 3D were switched off automatically. You can turn them back on here.',
   },
   es: {
     title: 'Ajustes', background: 'Fondo', defaultBg: 'Estándar (rombos)',
@@ -30,6 +32,7 @@ const L = {
     sound: 'Volumen', mute: 'Silencio', test: 'Probar',
     animations: 'Animaciones', animationsNote: 'Transiciones, cartas que aparecen y la pantalla de inicio de partida.',
     scene3d: 'Vista 3D', scene3dNote: 'Elixir Auction, Draft de Pirámide, Pesca Royale y Carrusel de Sombras en 3D. Desactivado = vista 2D clásica. También se puede cambiar en la partida.',
+    lowGfx: 'Tu navegador funciona sin aceleración por hardware, por eso las animaciones y el 3D se desactivaron automáticamente. Puedes volver a activarlos aquí.',
   },
 };
 
@@ -99,6 +102,10 @@ export default function CrSettingsModal({ onClose }) {
             </button>
           </div>
         </div>
+
+        {prefs.autoLowGfx && (
+          <p className="text-amber-200/90 text-xs leading-relaxed border-[3px] border-[var(--cr-panel-edge)] rounded-xl px-3 py-2 bg-black/30">{t.lowGfx}</p>
+        )}
 
         <div className="cr-section">
           <div className="flex items-center justify-between gap-4">

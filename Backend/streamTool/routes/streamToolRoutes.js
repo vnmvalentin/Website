@@ -618,6 +618,14 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     res.json({ ok: !result.error, winner: result.winner || null });
   });
 
+  // Plätze 1–3 nach dem Sieger (für Preise in Streamer.bot) — auch hier zählt die erste Meldung
+  router.post("/overlay/:overlayKey/marbles/placings", (req, res) => {
+    const row = getByOverlayKey.get(String(req.params.overlayKey || ""));
+    if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link" });
+    const result = scenes.marblesPlacings(row, req.body && req.body.raceId, req.body && req.body.ids);
+    res.json({ ok: !result.error, placings: result.placings || null });
+  });
+
   // ── Öffentliche Overlay-Route (OBS) ───────────────────────────────────────
   // Kennt nur den overlay_key, bekommt ausschließlich Anzeigedaten.
   router.get("/overlay/:overlayKey", async (req, res) => {

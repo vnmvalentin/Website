@@ -25,6 +25,7 @@ import {
 import { RARITY_BORDER, RARITY_DOT, formatDuration, statusEffectIcon } from './gardenTokens';
 import { ProgressBar, StatLine } from './gardenUi';
 import { SpecialItemIcon } from './ItemIcon';
+import { formatGroesse, groesseAusNorm } from './groesse';
 
 const CARD_WIDTH = 268;
 
@@ -208,7 +209,7 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null,
                         <StatLine
                             icon={HudIcon.ruler}
                             label="Größe"
-                            value={`${sizeFromNorm(plant.norm ?? 0.5)} / 50`}
+                            value={`${formatGroesse(groesseAusNorm(plant.norm ?? 0.5))} / 100`}
                         />
                         {xpProErnte ? (
                             <StatLine icon={HudIcon.star} label="Erfahrung" value={`+${xpProErnte} XP`} valueClass="text-violet-300" />

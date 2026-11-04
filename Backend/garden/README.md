@@ -19,10 +19,19 @@ garden/
     economy.js    Ernte, Verkauf, Kiste und Vitrine — hier entsteht Gold
     pets.js       Tiere: Arten, Stufen, Fähigkeiten
     werkzeug.js   Werkzeugkasten: Preise, Kauf, Verbrauch
+    laden.js      Samenladen: welche Sorten eine Rotation zeigt (Nachzug, Deckel, Mindestplätze)
+    quests.js     Tages- und Wochenmissionen, Belohnung wächst mit dem Level
+    auftraege.js  Händler-Aufträge: 3 Plätze, Liefern aus dem Rucksack, Pausen
+    kreuzung.js   Kreuzungen: Eltern nebeneinander → Chance auf neuen Samen beim Ernten
+    brutkasten.js Eier, Brutkasten, Schlüpfen; Tier-Abgleich beim Speichern
+    vielfalt.js   Vielfalt-Bonus: verschiedene Sorten auf dem Acker → mehr Erlös je Ernte
+    wetterVerlauf.js  welches Wetter wann lief — prüft gemeldete Wetter-Effekte
   world/          Mehrspieler
     lobby.js      Welten, Slot-Vergabe, Anwesenheit, Momentaufnahmen, Chat
     mail.js       Briefkasten: senden, abholen, Drosselung
     ereignisse.js Wetter und Party von Hand — die Ausnahme über der Uhr
+    erntefest.js  Erntefest am Wochenende: Punkte aller Spieler, Ziel, Belohnung
+    zweitkonto.js eine Farm je Gerät, keine Post zwischen verknüpften Accounts
   store/
     farms.js      SQLite-Persistenz der Spielstände + rollendes Backup
   migrations/
@@ -34,6 +43,7 @@ garden/
     skills.js     kürzt Fähigkeitsstufen auf die neue Levelstaffel
   tools/
     katalogSpiegel.js  erzeugt die Frontend-Spiegel (npm run garden:spiegel)
+    simulator.js  Wirtschafts-Simulator mit den echten Spielfunktionen (npm run garden:sim)
   admin.js        was das Admin-Menü am Spielstand verändern darf
 ```
 
@@ -41,23 +51,51 @@ garden/
 
 Die wichtigste Regel im ganzen Spiel — sie erklärt die meisten Entscheidungen:
 
-| Gehört dem **Server** | Gehört dem **Browser** |
-| --- | --- |
-| `gold`, `harvestedItems` | `plotPlants`, `plotUnlockedCells` |
-| `chestItems`, `vitrineItems` | `inventory` |
-| `toolInventory` | |
-| `mailbox` | `decoPlacements`, `petPlacements` |
-| `xp`, `skills` | Ladenbestände |
-| `stateVersion`, `letzterTab` | `appearance` |
+| Gehört dem **Server** | Gehört dem **Browser** | Browser mit Grenzen (seit Nov. 2026) |
+| --- | --- | --- |
+| `gold`, `harvestedItems` | `decoPlacements`, `decoInventory` | `inventory` — nur entfernen |
+| `chestItems`, `vitrineItems` | `appearance` | `plotPlants` — neue nur gegen verbrauchten Samen |
+| `toolInventory`, `inventoryMaxSlots` | Ladenbestände (Anzeige) | `petInventory`, `petPlacements` — nur aufstellen/einpacken/umbenennen, max. 3 |
+| `eggInventory`, `incubator` | | `plotUnlockedCells` — höchstens `steinfelderErlaubt` |
+| `mailbox`, `xp`, `skills` | | |
+| `stateVersion`, `letzterTab` | | |
 
 Serverbesitz heißt: der Wert steht **nicht** in `compactFarmState` und wird beim
 PUT aus dem bestehenden Stand übernommen. Alles, woraus sich Gold machen lässt,
-liegt links.
+liegt links oder rechts.
 
-Browserbesitz ist kein Versehen, sondern Absicht: Acker und Rucksack ändern sich
-zu oft für eine Server-Runde je Klick. Der Preis dafür ist, dass zwei Tabs
-einander überschreiben könnten — dagegen laufen `stateVersion` und `letzterTab`
-(siehe `routes/gardenGameRoutes.js`, PUT-Weg).
+**Browser mit Grenzen**: Acker, Samen und Tiere ändern sich zu oft für eine
+Server-Runde je Klick, deshalb schickt sie weiter der Browser. Der PUT gleicht sie
+aber gegen den Serverstand ab — er darf Dinge wegnehmen oder verschieben, nie neue
+erschaffen oder ihre Werte ändern:
+
+| Was | Regel | Wo |
+| --- | --- | --- |
+| Samen | behalten wird nur, was der Server unter derselben `instanceId` kennt (SEIN Eintrag). Kauf, Kreuzung, Post und Kiste legen Samen auf dem Server ab. | `gleicheSamenAb` |
+| Neue Pflanze | braucht einen Samen derselben Sorte, der in diesem PUT aus dem Rucksack verschwunden ist | `verplausibilisierePflanzen` |
+| Tiere | erkannt an der festen `id`; Art, Seltenheit, Fähigkeit vom Server; Lage und Name vom Browser; weggelassene bleiben im Rucksack | `core/brutkasten.js` → `gleicheTiereAb` |
+| Eier, Brutkasten | Kauf, Einlegen, Schlüpfen, Freischalten nur über `POST /action` (`buyEgg`, `eiEinlegen`, `eiAbholen`, `brutplatzFreischalten`) | `core/brutkasten.js` |
+| Steinfelder | eins je verbrauchtem Spitzhacken-Schlag (`steinfelderErlaubt`) | `core/werkzeug.js` |
+| Rucksackplätze | 50 + 10 je Rucksackstufe, vom Server gerechnet | `rucksackPlaetze` |
+| Wetter-Effekte | neue nur, wenn das Wetter seit dem letzten Speichern lief (Verlauf der Laden-Rotationen + Admin-Wetter, 2 h); Ablauf-Uhr an reifer Ware führt der Server; abgelaufene zählen bei der Ernte nicht | `core/wetterVerlauf.js` |
+| Goldfinder | Ob ein Takt etwas findet (10 % × Züchter), würfelt der Server; der Browser fragt nur je Takt an | `economy.petFind` |
+
+Die Kennungen dafür vergeben `migrations/samenKennung.js` und `migrations/tierKennung.js`.
+Zwei Tabs überschreiben einander weiterhin nicht — dagegen laufen `stateVersion`
+und `letzterTab` (siehe `routes/gardenGameRoutes.js`, PUT-Weg).
+
+## Zweit-Accounts (seit Nov. 2026)
+
+`world/zweitkonto.js`. Der Browser schickt bei jeder Anfrage eine dauerhafte
+Geräte-Kennung (`X-VF-Geraet`, localStorage `vf_geraet`); gespeichert werden nur
+gesalzene Prüfsummen in `state.kennzeichen` (Geräte + Anschlüsse, letztere 30 Tage).
+
+* **Gleiches Gerät** → nur die Farm, die es zuerst gesehen hat, ist spielbar.
+  GET/PUT /farm-state und POST /action antworten sonst mit 403 `{ zweitkonto: true }`,
+  der Browser zeigt „Nur eine Farm pro Gerät".
+* **Gleicher Anschluss** (Internet-Adresse) → beide spielbar, aber keine Post zwischen ihnen.
+* Ausnahmen: `GARDEN_ZWEITKONTO_AUSNAHMEN` (Twitch-IDs oder Logins, kommagetrennt).
+  Salz: `GARDEN_KONTO_SALT`.
 
 ## Feld-Manager (entfernt)
 

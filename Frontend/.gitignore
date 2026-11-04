@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 public/media/cards/generated/
+
+# Vorschau-Bilder aus npm run garden:art
+garden-art-vorschau/

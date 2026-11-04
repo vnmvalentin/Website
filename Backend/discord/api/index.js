@@ -12,11 +12,18 @@ const syncChatRoutes  = require("./syncChat");
 const ticketsRoutes   = require("./tickets");
 const twitchNotifRoutes = require("./twitchNotif");
 const statsRoutes     = require("./stats");
+const loyaltyRoutes   = require("./loyalty");
+const { requireGuildAdmin } = require("./guildAccess");
 
 module.exports = function({ requireAuth, discordClient, sessions, saveSessionsToFile }) {
     const router = express.Router();
 
     router.use("/", authRoutes({ requireAuth, sessions, saveSessionsToFile }));
+
+    // Alles mit Server-Bezug nur für Admins DIESES Servers (vorher reichte jede Twitch-Anmeldung).
+    // "/guilds" selbst (die eigene Server-Liste) bleibt frei — das Muster braucht eine ID dahinter.
+    router.use(["/settings/:guildId", "/guilds/:guildId"], requireAuth, requireGuildAdmin(discordClient));
+
     router.use("/guilds",    guildsRoutes({ requireAuth, discordClient, sessions, saveSessionsToFile }));
     router.use("/settings",  settingsRoutes({ requireAuth, discordClient }));
     router.use("/settings",  approvalRoutes({ requireAuth, discordClient }));
@@ -28,6 +35,7 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
     router.use("/settings",  ticketsRoutes({ requireAuth, discordClient }));
     router.use("/settings",  twitchNotifRoutes({ requireAuth }));
     router.use("/settings",  statsRoutes({ requireAuth, discordClient }));
+    router.use("/settings",  loyaltyRoutes({ requireAuth, discordClient }));
 
     return router;
 };

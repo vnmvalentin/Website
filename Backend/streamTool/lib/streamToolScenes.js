@@ -831,6 +831,30 @@ function marblesResult(row, raceId, winnerId) {
   return { ok: true, winner };
 }
 
+/**
+ * Plätze 1–3 (für Preise in Streamer.bot). Kommt nach dem Sieger, sobald drei im Ziel sind.
+ * Platz 1 muss der schon gemeldete Sieger sein; die erste gültige Meldung zählt.
+ */
+function marblesPlacings(row, raceId, ids) {
+  if (!moduleOf(row, IDS.marbles)) return { error: "module_off" };
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > 3) return { error: "rejected" };
+  let placings = null;
+  patchScenes(row.user_id, (s) => {
+    const m = s.marbles;
+    if (!m || m.phase !== "done" || m.id !== String(raceId) || !m.winner || m.placings) return;
+    if (String(ids[0]) !== m.winner.id) return;
+    const list = [];
+    for (const id of ids) {
+      const p = m.players.find((pl) => pl.id === String(id));
+      if (!p || list.some((x) => x.id === p.id)) return;
+      list.push({ id: p.id, name: p.name });
+    }
+    m.placings = list;
+    placings = list;
+  });
+  return placings ? { ok: true, placings } : { error: "rejected" };
+}
+
 /* Bestenliste */
 
 const TOP_COOLDOWN_MS = 15 * 1000;
@@ -978,6 +1002,8 @@ function publicMarbles(row, scenes) {
     startsAt: m.startsAt || 0,
     sections: m.sections || 0,
     winner: m.winner || null,
+    // Platz 1–3 des Rennens (kommt ein paar Sekunden nach dem Sieger)
+    placings: m.placings || null,
     // Die drei Besten für die Anmeldekarte
     top: mod.showTop === false ? [] : marbleTop(row.user_id, 3),
     players: m.players.map((p) => ({ id: p.id, name: p.name, avatar: avatarOf(p.id) })),
@@ -1066,6 +1092,7 @@ module.exports = {
   marblesCancel,
   marblesAddBots,
   marblesResult,
+  marblesPlacings,
   onRedeem,
   createReward,
   deleteReward,

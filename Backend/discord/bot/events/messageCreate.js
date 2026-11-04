@@ -16,6 +16,7 @@ const { handleGewicht } = require('../commands/gewicht');
 const { handleAllStats } = require('../commands/allstats');
 const { handleSuperkraft } = require('../commands/superkraft');
 const { handleAusrede } = require('../commands/ausrede');
+const { onLoyaltyMessage } = require('../../loyalty/earn');
 
 // Cache für Sync-Webhook-IDs (verhindert Relay-Loops)
 const syncWebhookIds = new Set();
@@ -117,6 +118,9 @@ module.exports = {
             incrementMessageStat(guildId, (inThread && message.channel.parentId) || message.channelId);
             incrementUserMessageStat(guildId, message.author.id);
         } catch (e) {}
+
+        // ── Punkte-System: Punkte fürs Schreiben (gedrosselt) ────────────────
+        onLoyaltyMessage(message);
 
         // ── Image-Only-Kanäle ─────────────────────────────────────────────────
         try {

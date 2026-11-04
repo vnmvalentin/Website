@@ -1,5 +1,5 @@
 // engine/Renderer.js
-import { MAP_CONFIG, TILE_SIZE, STEIN_REIHEN, istSteinfeldWegRow, getSignLayout } from './MapConfig';
+import { MAP_CONFIG, TILE_SIZE, STEIN_REIHEN, istSteinfeldWegRow, getSignLayout, getDirtCellWorldPos } from './MapConfig';
 import { versionedAsset } from './assetVersion';
 import {
     getGrowthProgressForRender,
@@ -11,7 +11,33 @@ import {
     USE_PROCEDURAL_SUPPORTS,
 } from './PlantSystem';
 import { getPetSize } from './PetSystem';
+import { hatKosmetik, TITEL as STERN_TITEL } from '../ui/prestige';
+
+const SPUR_REGENBOGEN = ["#f87171", "#fb923c", "#facc15", "#4ade80", "#60a5fa", "#c084fc"];
 import { DEKO_KATALOG, istBoden } from '../ui/deko';
+import { zeichneSaisonBoden, zeichneSaisonTon, zeichneSaisonLuft, zeichneGluehwuermchen } from './saisonLook';
+
+// Schädlinge/Unkraut-Sprites (siehe _drawStoerer). Ein Zeichen = ein Pixel, "." leer.
+const KAEFER_MUSTER = [
+    "..a..a..",
+    "...aa...",
+    ".bbbbbb.",
+    "abcbbcba",
+    ".bbbbbb.",
+    "abbccbba",
+    "..bbbb..",
+];
+const KAEFER_FARBEN = { a: "#1f2937", b: "#dc2626", c: "#111827" };
+const UNKRAUT_MUSTER = [
+    "..h....h..",
+    "h..g..g..h",
+    ".g..g.g.g.",
+    "..g.ggg.g.",
+    "g..gggg..g",
+    ".g.ggggdg.",
+    "..dggggd..",
+];
+const UNKRAUT_FARBEN = { g: "#4d7c0f", h: "#a3e635", d: "#365314" };
 
 /**
  * Kantenlänge eines Tieres bei Größenfaktor 1. Bezug ist die Spielfigur, die mit
@@ -65,6 +91,12 @@ const NAMEPLATE_RESKIN_FARBEN = {
     neon: { bg: "#022c22", bg2: "#065f46", border: "#10b981", text: "#6ee7b7" },
     rose: { bg: "#fce7f3", bg2: "#f9a8d4", border: "#be185d", text: "#831843" },
     obsidian: { bg: "#18181b", bg2: "#3f3f46", border: "#71717a", text: "#e4e4e7" },
+    // Saisonziele (Backend core/saisonziele.js) — nicht käuflich.
+    kirschbluete: { bg: "#fdf2f8", bg2: "#fbcfe8", border: "#db2777", text: "#831843" },
+    sonnenglut: { bg: "#fff7ed", bg2: "#fdba74", border: "#c2410c", text: "#7c2d12" },
+    laubgold: { bg: "#fde68a", bg2: "#d97706", border: "#78350f", text: "#451a03" },
+    raureif: { bg: "#f0f9ff", bg2: "#bae6fd", border: "#0369a1", text: "#0c4a6e" },
+    jahreskreis: { bg: "#fbcfe8", bg2: "#bae6fd", border: "#6d28d9", text: "#3b0764" },
 };
 // Gold-Shop: Briefkasten-Bildpfade je Reskin. Der Schuppen braucht keine eigene
 // Kopie hier — sein Bild kommt schon fertig als area.image an (GameContainer.jsx
@@ -344,6 +376,10 @@ export default class Renderer {
         this._atlasLoadStarted = false;
         this._tileVariantCache = new Map();
         this._slotStaticCache = new Map();
+        // Bodenspuren der Jahreszeit je Grundstück (engine/saisonLook.js). Einmal je
+        // Saison gemalt statt in jedem Bild — es sind einige hundert Blätter.
+        this._saisonBodenCache = new Map();
+        this._saison = null;
         this._bodenLayerCache = new Map();
         /**
          * Deko-Zuordnung slotIndex → Array, EINMAL pro Bild neu befüllt (siehe
@@ -432,8 +468,13 @@ export default class Renderer {
             // sonst liefe seine Uhr gegen die des Servers.
             nacht = 0,
             party = 0,
+            // Jahreszeit-Id aus engine/Tageszeit.js — ebenfalls aus der Uhr.
+            saison = null,
         } = state;
+        this._saison = saison;
         this._remotePlayers = remotePlayers;
+        // Sterne aus „Neue Saat" (ui/prestige.js) — Fremde tragen sie am Spielerobjekt.
+        this._eigeneSterne = Number(state.eigeneSterne) || 0;
         this._readyEggs = state.readyEggsCount || 0;
         // Auf welchem Grundstück das Editor-Raster liegt (slot.id, nicht der Index)
         // — null heisst: Editor aus.
@@ -507,17 +548,34 @@ export default class Renderer {
             this.drawPlayer(player, selectedTool, heldItem, localPlayerName, playerAppearance, playerBadge, "local", playerNameplate);
         }
 
+        // Käfer und Unkraut sitzen über den Pflanzen — man soll sie sehen und treffen.
+        this._drawStoerer(state.stoerer, state.stoererSlot);
+        this._drawSternenspur();
+
         // Ganz zuletzt in der Weltansicht: der Splatter liegt über allem, was an
         // seiner Stelle steht — sonst verschwände er hinter der nächsten Pflanze.
         this._drawSplatter();
         this._drawItemFlug();
         this._drawSaatWurf();
         this._drawFeedback();
+        this._drawFunken();
         this._drawVerkaufsBlasen();
 
         ctx.restore();
+        // Jahreszeit: Farbton und Partikel UNTER dem Nachtschleier — nachts wird
+        // auch der Herbst dunkel, statt über der Dunkelheit zu leuchten.
+        if (saison) {
+            if (!this._renderProfile?.simplifyPlantUi) zeichneSaisonTon(ctx, canvas, saison);
+            const scale = Math.max(0.15, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
+            zeichneSaisonLuft(ctx, canvas, saison, this.frame, player, scale, weather?.type);
+        }
         // 1. ANPASSUNG: Player übergeben für Map-relativen Regen
         this._drawWeatherOverlay(weather, player, nacht);
+        // Glühwürmchen sind selbst Licht — nach dem Schleier, wie die Laser.
+        if (saison) {
+            const scale = Math.max(0.15, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
+            zeichneGluehwuermchen(ctx, canvas, saison, this.frame, player, nacht, scale);
+        }
         // Discolaser NACH dem Schleier: sie sind selbst Licht und dürfen von keiner
         // Laterne ausgestanzt werden — dieselbe Begründung wie bei den Blitzen.
         this._drawParty(party);
@@ -1132,6 +1190,8 @@ export default class Renderer {
             this._drawWeatherGround(layout, player, this._weather, {
                 x0: slot.x, y0: drawY, x1: slotRight, y1: slotBottom,
             });
+            const saisonLayer = this._getSaisonBodenLayer(slot, territoryWidth, territoryHeight);
+            if (saisonLayer) ctx.drawImage(saisonLayer, slot.x, drawY, territoryWidth, territoryHeight);
 
             const bucket = this._renderBucket;
             bucket.length = 0;
@@ -1981,7 +2041,37 @@ export default class Renderer {
      * die Handler hier ausdrücklich gelöst und die Canvas-Maße auf null gesetzt —
      * das gibt den Speicher sofort frei statt irgendwann.
      */
+    /**
+     * Bodenspuren der Jahreszeit für ein Grundstück, zwischengespeichert. Halbe
+     * Auflösung: die Spuren sind klein und weich, die volle Fläche wären ~12 MB je
+     * Grundstück. Neu gemalt nur, wenn Saison, Schneewetter oder Größe wechseln.
+     */
+    _getSaisonBodenLayer(slot, breite, hoehe) {
+        const saison = this._saison;
+        if (!saison || this._renderProfile?.simplifyPlantUi) return null;
+        const schnee = this._weather?.type === "snow" ? 1 : 0;
+        const key = `${saison}:${schnee}:${breite}x${hoehe}`;
+        const alt = this._saisonBodenCache.get(slot.id);
+        if (alt?.key === key) return alt.canvas;
+        const AUFLOESUNG = 0.5;
+        const layer = alt?.canvas || document.createElement("canvas");
+        layer.width = Math.ceil(breite * AUFLOESUNG);
+        layer.height = Math.ceil(hoehe * AUFLOESUNG);
+        const lctx = layer.getContext("2d");
+        lctx.clearRect(0, 0, layer.width, layer.height);
+        lctx.save();
+        lctx.scale(AUFLOESUNG, AUFLOESUNG);
+        zeichneSaisonBoden(lctx, saison, {
+            loX: 0, hiX: breite, loY: 0, hiY: hoehe, maxX: breite, maxY: hoehe, salz: slot.id,
+        }, TILE_SIZE, this._weather?.type);
+        lctx.restore();
+        this._saisonBodenCache.set(slot.id, { key, canvas: layer });
+        return layer;
+    }
+
     destroy() {
+        for (const eintrag of this._saisonBodenCache.values()) freigeben(eintrag?.canvas);
+        this._saisonBodenCache.clear();
         for (const slotCache of this._plantCache.values()) {
             for (const entry of slotCache.values()) freigeben(entry?.canvas);
             slotCache.clear();
@@ -2264,6 +2354,8 @@ export default class Renderer {
 
                     const slotProgress = Math.max(0, Math.min(1, 1 - ((slot.readyAt || now) - now) / cycle));
                     const sizeScaleFruit = visualScaleFromFruitSize(slot.size);
+                    // Beim Stilwechsel (Fahrplan Phase 3) mit randlos gezeichneten Früchten auf
+                    // 0.12 + 0.3 senken — sonst decken sechs reife Früchte die Krone zu.
                     const fruitSize = TILE_SIZE * (0.12 + slotProgress * 0.4) * sizeScaleFruit;
 
                     // Overlay je Frucht: Sonderform UND Wetter-Effekt hängen am Fruchtstand,
@@ -3098,6 +3190,66 @@ export default class Renderer {
      * GANZE Verkaufserlös deutlich herausstechen — mit Hintergrund, Sprechblasen-
      * Spitze zum Markt hin und einem Pop-Auftritt mit Überschwinger.
      */
+    /**
+     * Funkenregen bei einer Golden- oder Rainbow-Ernte — kurz, im Weltraum, ohne
+     * Weichzeichner. Kleine Rauten fliegen auseinander und fallen.
+     * "Ernte" (04.11.): kleiner, grüner Stoß bei jeder normalen Ernte im Schnellzug —
+     * bewusst zurückhaltender als Golden/Rainbow, damit die weiter herausstechen.
+     * @param {"Golden"|"Rainbow"|"Ernte"} art
+     */
+    spawnFunken(x, y, art) {
+        if (!this._funken) this._funken = [];
+        const scale = Math.max(0.3, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
+        // Ab Stern 4 („Neue Saat") sind die eigenen Ernte-Funken golden.
+        const goldErnte = art === "Ernte" && hatKosmetik(this._eigeneSterne, "goldfunken");
+        const ernte = art === "Ernte";
+        const anzahl = Math.round((art === "Rainbow" ? 22 : ernte ? (goldErnte ? 10 : 7) : 14) * scale);
+        const farben = goldErnte
+            ? ["#fde047", "#facc15", "#fef3c7", "#f59e0b"]
+            : art === "Rainbow"
+            ? ["#f87171", "#fb923c", "#facc15", "#4ade80", "#60a5fa", "#c084fc"]
+            : ernte
+                ? ["#86efac", "#4ade80", "#bef264", "#fef08a"]
+                : ["#fde047", "#facc15", "#fef9c3", "#eab308"];
+        const start = this._frameNow || Date.now();
+        for (let i = 0; i < anzahl; i++) {
+            const winkel = (i / anzahl) * Math.PI * 2 + Math.random() * 0.4;
+            const tempo = (ernte ? 55 : 90) + Math.random() * (ernte ? 60 : 110);
+            this._funken.push({
+                x, y, vx: Math.cos(winkel) * tempo, vy: Math.sin(winkel) * tempo - (ernte ? 90 : 120),
+                farbe: farben[i % farben.length], groesse: (ernte ? 2 : 3) + Math.random() * (ernte ? 2 : 3),
+                start, dauer: (ernte ? 420 : 650) + Math.random() * (ernte ? 200 : 350),
+            });
+        }
+        if (this._funken.length > 240) this._funken.splice(0, this._funken.length - 240);
+    }
+
+    _drawFunken() {
+        if (!this._funken || this._funken.length === 0) return;
+        const { ctx } = this;
+        const now = this._frameNow;
+        ctx.save();
+        for (let i = this._funken.length - 1; i >= 0; i--) {
+            const f = this._funken[i];
+            const t = (now - f.start) / f.dauer;
+            if (t >= 1) { this._funken.splice(i, 1); continue; }
+            const s = (now - f.start) / 1000;
+            const x = f.x + f.vx * s;
+            const y = f.y + f.vy * s + 260 * s * s;
+            const g = f.groesse * (1 - t * 0.5);
+            ctx.globalAlpha = t < 0.6 ? 1 : 1 - (t - 0.6) / 0.4;
+            ctx.fillStyle = f.farbe;
+            ctx.beginPath();
+            ctx.moveTo(x, y - g);
+            ctx.lineTo(x + g * 0.6, y);
+            ctx.lineTo(x, y + g);
+            ctx.lineTo(x - g * 0.6, y);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
     spawnVerkaufsBlase(x, y, text) {
         if (!Number.isFinite(x) || !Number.isFinite(y) || !text) return;
         this._verkaufsBlasen.push({ x, y, text: String(text), start: this._frameNow || Date.now() });
@@ -3219,6 +3371,67 @@ export default class Renderer {
         if (this._itemFlug.length > ITEM_FLUG_MAX) this._itemFlug.splice(0, this._itemFlug.length - ITEM_FLUG_MAX);
     }
 
+    /**
+     * Schädlinge und Unkraut (Backend core/stoerer.js) als kleine Pixel-Sprites, direkt
+     * per fillRect gezeichnet — passt zum geplanten Pixel-Look und braucht kein Bild.
+     * Käfer krabbeln auf ihrer Pflanze hin und her, Unkraut wiegt sich; beide ploppen
+     * beim Erscheinen auf und blinken in den letzten Sekunden.
+     */
+    _drawStoerer(liste, slot) {
+        if (!Array.isArray(liste) || liste.length === 0 || !slot) return;
+        const { ctx } = this;
+        const now = this._frameNow || Date.now();
+        // Gesehen-Liste klein halten: nur, wer noch in der Liste steht.
+        if (this._stoererGesehen && this._stoererGesehen.size > liste.length + 8) {
+            const ids = new Set(liste.map((s) => s?.id));
+            for (const id of this._stoererGesehen.keys()) if (!ids.has(id)) this._stoererGesehen.delete(id);
+        }
+        for (const s of liste) {
+            if (!s || !(Number(s.bis) > now)) continue;
+            const [cx, cy] = String(s.key).split("_").map(Number);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+            const pos = getDirtCellWorldPos(slot, cx, cy);
+            const seed = (cx * 31 + cy * 17) % 100;
+            // Aufploppen ab dem ersten BILD, in dem der Browser ihn sieht — nicht aus
+            // der Serverzeit: geht die Uhr des Spielers nach, war das Alter negativ,
+            // ungebremst wurde daraus eine riesige negative Pixelgröße und fillRect
+            // malte den ganzen Bildschirm rot (gefunden im Test 04.11.).
+            if (!this._stoererGesehen) this._stoererGesehen = new Map();
+            if (!this._stoererGesehen.has(s.id)) this._stoererGesehen.set(s.id, now);
+            const alter = now - this._stoererGesehen.get(s.id);
+            const rest = Number(s.bis) - now;
+            const pop = Math.max(0, Math.min(1, alter / 220));
+            const skala = pop < 1 ? 0.4 + pop * 0.8 - Math.max(0, pop - 0.75) * 0.8 : 1;
+            const blink = rest < 5000 && Math.floor(now / 160) % 2 === 0 ? 0.35 : 1;
+            const kaefer = s.art === "kaefer";
+            const muster = kaefer ? KAEFER_MUSTER : UNKRAUT_MUSTER;
+            const farben = kaefer ? KAEFER_FARBEN : UNKRAUT_FARBEN;
+            const p = 4 * skala;
+            const breite = muster[0].length * p;
+            const hoehe = muster.length * p;
+            let x = pos.x + TILE_SIZE / 2 - breite / 2;
+            let y = pos.y + TILE_SIZE / 2 - hoehe / 2 + (kaefer ? -6 : 10);
+            if (kaefer) {
+                x += Math.sin(now / 420 + seed) * 9;
+                y += Math.cos(now / 610 + seed) * 4;
+            }
+            ctx.save();
+            ctx.globalAlpha = blink;
+            for (let r = 0; r < muster.length; r++) {
+                const reihe = muster[r];
+                // Unkraut wiegt sich: obere Reihen weiter aus als untere.
+                const versatz = kaefer ? 0 : Math.sin(now / 380 + seed) * (muster.length - r) * 0.6;
+                for (let c = 0; c < reihe.length; c++) {
+                    const farbe = farben[reihe[c]];
+                    if (!farbe) continue;
+                    ctx.fillStyle = farbe;
+                    ctx.fillRect(Math.round(x + c * p + versatz), Math.round(y + r * p), Math.ceil(p), Math.ceil(p));
+                }
+            }
+            ctx.restore();
+        }
+    }
+
     _drawItemFlug() {
         if (this._itemFlug.length === 0) return;
         const { ctx } = this;
@@ -3293,14 +3506,20 @@ export default class Renderer {
         }
     }
 
-    _drawPlayerNametag(centerX, topY, label, style = "local", badge = null, nameplateReskin = null) {
+    _drawPlayerNametag(centerX, topY, label, style = "local", badge = null, nameplateReskin = null, sterne = 0) {
         const { ctx } = this;
-        const text = String(label || "").trim();
-        if (!text) return;
+        const name = String(label || "").trim();
+        if (!name) return;
         const isLocal = style === "local";
+        // „Neue Saat": Stern vor dem Namen (ab 1), goldene Schrift (ab 2), Titel (ab 5).
+        const stern = hatKosmetik(sterne, "abzeichen") ? `★${sterne > 1 ? sterne : ""} ` : "";
+        const goldname = hatKosmetik(sterne, "goldname");
+        const kurzName = name.length > 22 ? `${name.slice(0, 20)}…` : name;
+        const text = stern + kurzName;
 
-        const badgeText = BADGE_TEXT[badge] || null;
-        const badgeFarben = BADGE_FARBEN[badge] || BADGE_FARBEN.beta;
+        const titel = !BADGE_TEXT[badge] && hatKosmetik(sterne, "titel");
+        const badgeText = BADGE_TEXT[badge] || (titel ? STERN_TITEL : null);
+        const badgeFarben = titel ? { fuellung: "#fcd34d", rand: "#b45309" } : (BADGE_FARBEN[badge] || BADGE_FARBEN.beta);
         // Gold-Shop-Reskin (core/reskins.js) übersteuert die Standardfarben —
         // gilt für JEDEN, der es sich ausgerüstet hat, egal ob lokal oder fremd.
         const reskinFarbe = NAMEPLATE_RESKIN_FARBEN[nameplateReskin] || null;
@@ -3334,8 +3553,20 @@ export default class Renderer {
         ctx.roundRect(x, y, w, h, 5);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = reskinFarbe ? reskinFarbe.text : (isLocal ? "#e2e8f0" : "#dbeafe");
-        ctx.fillText(text.length > 22 ? `${text.slice(0, 20)}…` : text, centerX, topY - padY);
+        const namensFarbe = goldname ? "#fcd34d" : (reskinFarbe ? reskinFarbe.text : (isLocal ? "#e2e8f0" : "#dbeafe"));
+        if (stern) {
+            // Stern in Gold, Name in seiner Farbe — beide zusammen mittig.
+            ctx.textAlign = "left";
+            const links = centerX - ctx.measureText(text).width / 2;
+            ctx.fillStyle = "#fbbf24";
+            ctx.fillText(stern, links, topY - padY);
+            ctx.fillStyle = namensFarbe;
+            ctx.fillText(kurzName, links + ctx.measureText(stern).width, topY - padY);
+            ctx.textAlign = "center";
+        } else {
+            ctx.fillStyle = namensFarbe;
+            ctx.fillText(text, centerX, topY - padY);
+        }
 
         if (badgeText) {
             ctx.font = "bold 9px Nunito, sans-serif";
@@ -3453,6 +3684,8 @@ export default class Renderer {
 
     drawPlayer(player, selectedTool, heldItem = null, localPlayerName = "", playerAppearance = {}, badge = null, nametagStyle = "local", nameplateReskin = null) {
         const { ctx } = this;
+        const sterne = nametagStyle === "local" ? (this._eigeneSterne || 0) : (Number(player?.sterne) || 0);
+        this._sternenspurPunkt(player, sterne);
         const px = Math.round(player.x);
         const py = Math.round(player.y);
         const facingRight = player.facingRight !== false; // Standard nach rechts
@@ -3526,7 +3759,57 @@ export default class Renderer {
 
         // Nametag (darf NICHT gespiegelt werden!)
         if (localPlayerName) {
-            this._drawPlayerNametag(px, py - 57, localPlayerName, nametagStyle, badge, nameplateReskin);
+            this._drawPlayerNametag(px, py - 57, localPlayerName, nametagStyle, badge, nameplateReskin, sterne);
         }
+    }
+
+    /**
+     * Sternenspur (ab Stern 3, „Neue Saat"): beim Laufen kleine Sterne an den Füßen,
+     * die kurz aufsteigen und verblassen. Ab Stern 5 bunt. Gezeichnet in
+     * _drawSternenspur, einmal je Bild über alle Spieler.
+     */
+    _sternenspurPunkt(player, sterne) {
+        if (!hatKosmetik(sterne, "spur") || !player) return;
+        const bewegt = (player.hopBob || 0) > 0.01 || player.isMoving === true;
+        if (!bewegt) return;
+        const scale = Math.max(0, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
+        if (scale < 0.35) return;
+        const now = this._frameNow || Date.now();
+        if (!this._spurZuletzt) this._spurZuletzt = new WeakMap();
+        if (now - (this._spurZuletzt.get(player) || 0) < 55 / scale) return;
+        this._spurZuletzt.set(player, now);
+        if (!this._spur) this._spur = [];
+        this._spurFarbe = ((this._spurFarbe || 0) + 1) % SPUR_REGENBOGEN.length;
+        this._spur.push({
+            x: player.x + (Math.random() - 0.5) * 16,
+            y: player.y + 16 + Math.random() * 4,
+            start: now,
+            dauer: 800 + Math.random() * 300,
+            farbe: sterne >= 5 ? SPUR_REGENBOGEN[this._spurFarbe] : (Math.random() < 0.5 ? "#fde047" : "#fef3c7"),
+            groesse: 3.2 + Math.random() * 1.8,
+        });
+        if (this._spur.length > 160) this._spur.splice(0, this._spur.length - 160);
+    }
+
+    _drawSternenspur() {
+        if (!this._spur || this._spur.length === 0) return;
+        const { ctx } = this;
+        const now = this._frameNow || Date.now();
+        this._spur = this._spur.filter((s) => now - s.start < s.dauer);
+        ctx.save();
+        for (const s of this._spur) {
+            const t = (now - s.start) / s.dauer;
+            const r = s.groesse * (1 - t * 0.4);
+            const x = s.x;
+            const y = s.y - t * 10;
+            ctx.globalAlpha = 1 - t;
+            ctx.fillStyle = s.farbe;
+            // Vierzackiger Stern aus zwei Rauten — klein genug, dass er Pixel-Look behält.
+            ctx.beginPath();
+            ctx.moveTo(x, y - r * 2); ctx.lineTo(x + r * 0.5, y); ctx.lineTo(x, y + r * 2); ctx.lineTo(x - r * 0.5, y); ctx.closePath();
+            ctx.moveTo(x - r * 2, y); ctx.lineTo(x, y - r * 0.5); ctx.lineTo(x + r * 2, y); ctx.lineTo(x, y + r * 0.5); ctx.closePath();
+            ctx.fill();
+        }
+        ctx.restore();
     }
 }

@@ -7,6 +7,7 @@
 // Anzeige egal, es werden keine Pixel ausgelesen. Tagesrunde per Datum-Seed (gleich für alle) oder freies Spiel.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import GameFrame from './GameFrame';
+import NextGame from './NextGame';
 import CardFace from '../ui/CardFace';
 import ChunkyButton from '../ui/ChunkyButton';
 import { CrCrown, CrReplay, CrSearch, CrClose } from '../ui/CrIcons';
@@ -153,6 +154,7 @@ export default function ImageGuess({ mode }) {
                 </div>
                 <ChunkyButton variant="green" size="sm" icon={CrReplay} className="self-start" onClick={() => restart(false)}>{t.newRound}</ChunkyButton>
                 {game.daily && <p className="text-xs text-white/50">{t.nextDaily}</p>}
+                <NextGame current={mode} />
               </div>
             ) : (
               <>

@@ -217,6 +217,83 @@ function uhrzeit(now) {
     const minuten = Math.floor((h - stunden) * 60);
     return `${String(stunden).padStart(2, "0")}:${String(minuten).padStart(2, "0")}`;
 }
+
+// ─── Jahreszeiten ────────────────────────────────────────────────────────────
+/**
+ * Eine Jahreszeit dauert eine echte Woche, Montag 0 Uhr UTC bis Montag 0 Uhr —
+ * Frühling → Sommer → Herbst → Winter, dann von vorn (Entscheidung 02.11.: genug
+ * Abwechslung, statt drei Monate denselben Look). Aus der Uhr wie Tag, Nacht und
+ * Party: Server (Laden, Erlös) und Browser (Look, Anzeige) sehen dieselbe Saison,
+ * ohne dass etwas verteilt werden muss.
+ *
+ * Nullpunkt so gelegt, dass die Woche ab Montag, 2.11.2026 der Herbst ist.
+ */
+const SAISON_WOCHE_MS = 7 * 24 * 60 * 60 * 1000;
+const SAISON_NULLPUNKT = Date.UTC(2026, 9, 19); // Montag, Frühlingswoche
+/** Saisonsorten: so viel mehr bringt ein Stück, das IN der Saison geerntet wurde. */
+const SAISON_ERLOES = 1.5;
+/** …und so viel häufiger stehen sie im Laden (Chance je Rotation, gedeckelt). */
+const SAISON_LADEN = 2;
+const SAISON_LADEN_MAX = 0.95;
+
+/**
+ * Je Saison acht bis zehn Sorten quer durch die Seltenheiten — damit auf jedem
+ * Level etwas dabei ist —, jede Sorte in höchstens einer Saison.
+ */
+const SAISONEN = [
+    { id: "fruehling", name: "Frühling", sorten: ["loewenzahn", "radieschen", "spinat", "rhabarber", "erdbeere", "kirsche", "holunder", "passionsfrucht"] },
+    { id: "sommer", name: "Sommer", sorten: ["gurke", "tomate", "zucchini", "paprika", "mais", "himbeere", "honigmelone", "pfirsich", "mango", "ananas"] },
+    { id: "herbst", name: "Herbst", sorten: ["kuebi", "kartoffel", "karotte", "kohl", "apfel", "birne", "traube", "pflaume", "dattel"] },
+    { id: "winter", name: "Winter", sorten: ["knoblauch", "ingwer", "grapefruit", "zitrone", "limette", "cranberry", "orange", "kiwi", "kokosnuss"] },
+];
+
+function saisonIndex(now) {
+    const wochen = Math.floor((now - SAISON_NULLPUNKT) / SAISON_WOCHE_MS);
+    return ((wochen % SAISONEN.length) + SAISONEN.length) % SAISONEN.length;
+}
+
+/** Die laufende Jahreszeit samt Beginn, Ende und Restzeit. */
+function saisonStand(now = Date.now()) {
+    const wochen = Math.floor((now - SAISON_NULLPUNKT) / SAISON_WOCHE_MS);
+    const beginn = SAISON_NULLPUNKT + wochen * SAISON_WOCHE_MS;
+    const ende = beginn + SAISON_WOCHE_MS;
+    const s = SAISONEN[saisonIndex(now)];
+    const naechste = SAISONEN[(saisonIndex(now) + 1) % SAISONEN.length];
+    return {
+        id: s.id, name: s.name, sorten: s.sorten,
+        beginn, ende, verbleibendMs: Math.max(0, ende - now),
+        naechste: { id: naechste.id, name: naechste.name },
+    };
+}
+
+function istSaisonSorte(seedId, now = Date.now()) {
+    return SAISONEN[saisonIndex(now)].sorten.includes(String(seedId || ""));
+}
+
+// ─── Erntefest ───────────────────────────────────────────────────────────────
+/**
+ * Jedes Wochenende ein gemeinsames Erntefest aller Spieler: Freitag 17 Uhr bis
+ * Sonntag 21 Uhr UTC (52 Stunden). Aus der Uhr wie die Saison — der Browser kann
+ * Countdown und Ankündigung zeigen, ohne den Server zu fragen. Punkte und Ziel
+ * führt der Server (world/erntefest.js).
+ *
+ * `festId` ist die Wochennummer ab dem Saison-Nullpunkt (einem Montag).
+ */
+const FEST_BEGINN_MS = (4 * 24 + 17) * 60 * 60 * 1000;   // Freitag 17:00
+const FEST_ENDE_MS = (6 * 24 + 21) * 60 * 60 * 1000;     // Sonntag 21:00
+
+function erntefestZeitraum(now = Date.now()) {
+    const festId = Math.floor((now - SAISON_NULLPUNKT) / SAISON_WOCHE_MS);
+    const woche = SAISON_NULLPUNKT + festId * SAISON_WOCHE_MS;
+    const beginn = woche + FEST_BEGINN_MS;
+    const ende = woche + FEST_ENDE_MS;
+    return {
+        festId, beginn, ende,
+        aktiv: now >= beginn && now < ende,
+        vorbei: now >= ende,
+        naechsterBeginn: now < beginn ? beginn : beginn + SAISON_WOCHE_MS,
+    };
+}
 // ─── SPIEGEL-ENDE ───────────────────────────────────────────────────────────
 
 export {
@@ -225,6 +302,8 @@ export {
     RAINBOW_CHANCE, GOLDEN_CHANCE,
     spielStunde, dunkelheit, istNacht, nachtIndex, partyStand, istParty, partyStaerke,
     partyTitelIndex, wuerfleSonderform, uhrzeit,
+    SAISONEN, SAISON_ERLOES, SAISON_LADEN, SAISON_LADEN_MAX, saisonStand, istSaisonSorte,
+    erntefestZeitraum,
     // Nicht nur fürs Party-Datum: derselbe gleichverteilte 0..1-Hash aus einem Text
     // ist auch das Werkzeug gegen "Server und Browser würfeln unabhängig voneinander
     // dasselbe Ereignis aus" — siehe engine/PlantSystem.js (erster Fruchtstand eines

@@ -22,10 +22,17 @@
 // dem, was der Client sich denkt.
 import React, { useMemo, useState } from 'react';
 import { HudIcon } from './gameIcons';
-import { GardenModal } from './gardenUi';
+import { GardenModal, LeerHinweis, Abschnitt as AbschnittTitel } from './gardenUi';
 import { SpecialItemIcon } from './ItemIcon';
 import { SEED_CATALOGUE, STATUS_EFFECT_LABELS, WEATHER_SELL_BOOST, hydrateHarvestedItem } from '../engine/PlantSystem';
 import { RARITY_TEXT, RARITY_DOT } from './gardenTokens';
+import { istEntdeckt, elternStand, ELTERN_AUFDECKEN_AB } from './zuchtbuch';
+import { groesseVon, formatGroesse } from './groesse';
+
+const NAME_NACH_ID = new Map(SEED_CATALOGUE.map((s) => [s.id, s.name]));
+// Kreuzungen sind Extra-Seiten: sie zählen nicht zum Gesamtbonus (core/economy.js,
+// logbuchAktualisieren) — die Zahl im Hinweistext muss dasselbe sagen.
+const LADENSORTEN = SEED_CATALOGUE.filter((s) => !s.kreuzung).length;
 
 const RARITY_REIHENFOLGE = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"];
 
@@ -38,11 +45,11 @@ const RARITY_REIHENFOLGE = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "
  */
 const GROESSEN_STUFEN = [
     {
-        key: "size_min", label: "Größe 1", zusatz: "kleinstmöglich",
+        key: "size_min", label: "Winzling", zusatz: "unter Größe 2",
         treffer: (e) => e?.min === 1,
     },
     {
-        key: "size_max", label: "Größe 50", zusatz: "größtmöglich",
+        key: "size_max", label: "Riese", zusatz: "ab Größe 99",
         treffer: (e) => e?.max === 50,
     },
 ];
@@ -103,7 +110,7 @@ function VariantenKachel({ frucht, variante, gefunden }) {
 function Abschnitt({ titel, children }) {
     return (
         <div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">{titel}</div>
+            <AbschnittTitel className="px-1 pb-1.5">{titel}</AbschnittTitel>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">{children}</div>
         </div>
     );
@@ -116,29 +123,34 @@ function Abschnitt({ titel, children }) {
  * frühere Textzeile für den einen Fall, der auf einen Blick zählt: komplett
  * (Gold schon kassiert) oder wenigstens einmal geerntet.
  */
-function ArtKachel({ art, frucht, eintrag, onOeffnen }) {
+function ArtKachel({ art, frucht, eintrag, onOeffnen, verborgen = false }) {
     const gefunden = zaehleGefunden(eintrag);
     const komplett = gefunden === VARIANTEN_GESAMT;
     return (
         <button
             type="button"
             onClick={onOeffnen}
-            title={`${art.name}${eintrag ? ` — ${gefunden}/${VARIANTEN_GESAMT} Ausprägungen` : " — noch nie geerntet"}`}
+            title={verborgen ? "Unentdeckte Kreuzung" : `${art.name}${eintrag ? ` — ${gefunden}/${VARIANTEN_GESAMT} Ausprägungen` : " — noch nie geerntet"}`}
             className={`relative aspect-square flex items-center justify-center rounded-2xl border transition-colors ${
                 eintrag ? "border-slate-700 bg-slate-900 hover:border-slate-500" : "border-slate-800 bg-slate-950 hover:border-slate-700"
             }`}
         >
-            <span className={eintrag ? "" : "opacity-25 grayscale"}>
+            {/* Unentdeckte Kreuzung (ui/zuchtbuch.js): nur der schwarze Umriss. */}
+            <span className={verborgen ? "brightness-0 opacity-50" : eintrag ? "" : "opacity-25 grayscale"}>
                 <SpecialItemIcon item={frucht} className="w-10 h-10" emojiClassName="text-2xl" />
             </span>
+            {verborgen && <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-slate-300">?</span>}
             <span className={`absolute bottom-1 left-1 w-1.5 h-1.5 rounded-full ${RARITY_DOT[art.rarity] || RARITY_DOT.COMMON}`} />
+            {art.kreuzung && (
+                <span className="absolute top-0.5 left-1.5 text-[11px] font-bold text-emerald-300" title="Kreuzung">×</span>
+            )}
             {komplett && <HudIcon.gold size={12} className="absolute top-1 right-1" />}
         </button>
     );
 }
 
 /** Detailansicht EINER Art — Name, Seltenheit, Zähler, dann die Sammelliste. */
-function ArtDetail({ art, frucht, eintrag, onZurueck }) {
+function ArtDetail({ art, frucht, eintrag, onZurueck, verborgen = false, logbuch }) {
     const effekte = new Set(eintrag?.effekte || []);
     const gefunden = zaehleGefunden(eintrag);
 
@@ -153,12 +165,12 @@ function ArtDetail({ art, frucht, eintrag, onZurueck }) {
             </button>
 
             <div className="flex items-center gap-3 mb-4 p-3 rounded-2xl border border-slate-800 bg-slate-900/60">
-                <span className={eintrag ? "shrink-0" : "shrink-0 opacity-25 grayscale"}>
+                <span className={verborgen ? "shrink-0 brightness-0 opacity-50" : eintrag ? "shrink-0" : "shrink-0 opacity-25 grayscale"}>
                     <SpecialItemIcon item={frucht} className="w-12 h-12" emojiClassName="text-3xl" />
                 </span>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-white truncate">{art.name}</span>
+                        <span className="text-sm font-semibold text-white truncate">{verborgen ? "???" : art.name}</span>
                         <span className={`text-[10px] font-medium ${RARITY_TEXT[art.rarity] || RARITY_TEXT.COMMON}`}>
                             {art.rarity}
                         </span>
@@ -168,6 +180,27 @@ function ArtDetail({ art, frucht, eintrag, onZurueck }) {
                             ? `${gefunden} von ${VARIANTEN_GESAMT} Ausprägungen · ${eintrag.anzahl}× geerntet`
                             : "Noch nie geerntet"}
                     </div>
+                    {/* Kreuzung (core/kreuzung.js): entdeckt → volles Rezept. Unentdeckt →
+                        je Elternteil Name (wenn oft genug geerntet) oder ein Hinweis — siehe
+                        ui/zuchtbuch.js (Zuchtbuch, 04.11.). */}
+                    {art.kreuzung && Array.isArray(art.eltern) && !verborgen && (
+                        <div className="text-[11px] text-emerald-300 mt-1">
+                            Kreuzung aus {art.eltern.map((id) => NAME_NACH_ID.get(id) || id).join(" × ")} — pflanze beide direkt nebeneinander und ernte.
+                        </div>
+                    )}
+                    {art.kreuzung && verborgen && (
+                        <div className="mt-1.5 space-y-0.5 text-[11px]">
+                            <div className="text-emerald-300">Unentdeckte Kreuzung aus zwei Sorten:</div>
+                            {elternStand(art, logbuch).map((e, i) => (
+                                <div key={i} className="text-slate-300">
+                                    {e.aufgedeckt ? <span className="font-semibold text-white">{e.name}</span> : <span className="text-slate-400">{e.hinweis}</span>}
+                                </div>
+                            ))}
+                            <div className="text-slate-500">
+                                Eine Elternsorte zeigt sich, wenn du sie {ELTERN_AUFDECKEN_AB}× geerntet hast. Pflanze beide nebeneinander und ernte — mit etwas Glück entsteht die Kreuzung.
+                            </div>
+                        </div>
+                    )}
                 </div>
                 {gefunden === VARIANTEN_GESAMT && (
                     <span className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-amber-400">
@@ -176,6 +209,8 @@ function ArtDetail({ art, frucht, eintrag, onZurueck }) {
                 )}
             </div>
 
+            {/* Unentdeckt: keine Ausprägungs-Kacheln — die zeigten das echte Bild. */}
+            {!verborgen && (
             <div className="space-y-3">
                 <Abschnitt titel="Größe">
                     {GROESSEN_STUFEN.map((variante) => (
@@ -190,7 +225,7 @@ function ArtDetail({ art, frucht, eintrag, onZurueck }) {
                         <span className="flex items-center gap-1.5 text-[11px] text-slate-400 tabular-nums">
                             <HudIcon.ruler size={11} />
                             {eintrag
-                                ? `Deine Spanne: ${eintrag.min} – ${eintrag.max}`
+                                ? `Deine Spanne: ${formatGroesse(Number.isFinite(eintrag.gMin) ? eintrag.gMin : groesseVon({ size: eintrag.min }))} – ${formatGroesse(Number.isFinite(eintrag.gMax) ? eintrag.gMax : groesseVon({ size: eintrag.max }))}`
                                 : "Noch keine Größe erfasst"}
                         </span>
                     </div>
@@ -218,11 +253,13 @@ function ArtDetail({ art, frucht, eintrag, onZurueck }) {
                     ))}
                 </Abschnitt>
             </div>
+            )}
         </div>
     );
 }
 
-export default function LogbuchModal({ logbuch, onClose, onBack }) {
+export default function LogbuchModal({ logbuch, zuchtbuch, inventory, onClose, onBack }) {
+    const verborgen = (art) => !istEntdeckt(art, { zuchtbuch, logbuch, inventory });
     const [nurGefunden, setNurGefunden] = useState(false);
     const [suche, setSuche] = useState("");
     const [offen, setOffen] = useState(null); // seedId der Art in der Detailansicht
@@ -246,14 +283,17 @@ export default function LogbuchModal({ logbuch, onClose, onBack }) {
             .filter(({ art, eintrag }) => {
                 if (nurGefunden && !eintrag) return false;
                 if (!suchbegriff) return true;
-                return String(art.name || art.id).toLowerCase().includes(suchbegriff);
+                // Unentdeckte Kreuzungen heißen auch für die Suche „???" — sonst
+                // verriete das Suchfeld den Namen.
+                const name = verborgen(art) ? "???" : String(art.name || art.id);
+                return name.toLowerCase().includes(suchbegriff);
             })
             .sort((a, b) => {
                 const ra = RARITY_REIHENFOLGE.indexOf(a.art.rarity) - RARITY_REIHENFOLGE.indexOf(b.art.rarity);
                 if (ra !== 0) return ra;
                 return String(a.art.name).localeCompare(String(b.art.name), "de");
             });
-    }, [logbuch, nurGefunden, suche]);
+    }, [logbuch, nurGefunden, suche, zuchtbuch, inventory]);
 
     const gesamtBekannt = SEED_CATALOGUE.filter((a) => logbuch?.[a.id]).length;
     const offeneArt = offen ? SEED_CATALOGUE.find((a) => a.id === offen) : null;
@@ -261,10 +301,9 @@ export default function LogbuchModal({ logbuch, onClose, onBack }) {
     return (
         <GardenModal
             title="Logbuch"
-            subtitle={offeneArt ? offeneArt.name : `${gesamtBekannt} von ${SEED_CATALOGUE.length} Arten geerntet`}
+            subtitle={offeneArt ? (verborgen(offeneArt) ? "Unentdeckte Kreuzung" : offeneArt.name) : `${gesamtBekannt} von ${SEED_CATALOGUE.length} Arten geerntet`}
             onClose={onClose}
             onBack={onBack}
-            width="max-w-2xl"
         >
             {offeneArt ? (
                 <ArtDetail
@@ -272,6 +311,8 @@ export default function LogbuchModal({ logbuch, onClose, onBack }) {
                     frucht={fruechte[offeneArt.id]}
                     eintrag={logbuch?.[offeneArt.id] || null}
                     onZurueck={() => setOffen(null)}
+                    verborgen={verborgen(offeneArt)}
+                    logbuch={logbuch}
                 />
             ) : (
                 <>
@@ -299,7 +340,7 @@ export default function LogbuchModal({ logbuch, onClose, onBack }) {
                     </div>
 
                     {arten.length === 0 ? (
-                        <div className="text-slate-500 text-sm text-center py-10">Nichts gefunden.</div>
+                        <LeerHinweis>Nichts gefunden.</LeerHinweis>
                     ) : (
                         <div className="grid grid-cols-5 sm:grid-cols-7 gap-1.5">
                             {arten.map(({ art, eintrag }) => (
@@ -309,16 +350,18 @@ export default function LogbuchModal({ logbuch, onClose, onBack }) {
                                     frucht={fruechte[art.id]}
                                     eintrag={eintrag}
                                     onOeffnen={() => setOffen(art.id)}
+                                    verborgen={verborgen(art)}
                                 />
                             ))}
                         </div>
                     )}
                     <p className="text-[10px] text-slate-600 leading-relaxed mt-3">
                         Eingetragen wird beim Ernten. Klick auf eine Frucht zeigt ihre Ausprägungen —
-                        Größe 1 bis 50, die Sonderformen Golden und Rainbow, und jeden Wetter-Effekt,
+                        einen Winzling und einen Riesen, die Sonderformen Golden und Rainbow, und jeden Wetter-Effekt,
                         der beim Verkauf zusätzlich zählt. Eine Art mit allen {VARIANTEN_GESAMT}{" "}
-                        Ausprägungen zahlt einmalig Gold aus — sind alle {SEED_CATALOGUE.length} Arten
-                        komplett, kommt obendrauf ein großer Gesamtbonus.
+                        Ausprägungen zahlt einmalig Gold aus — sind alle {LADENSORTEN} Ladensorten
+                        komplett, kommt obendrauf ein großer Gesamtbonus. Kreuzungen sind Extra-Seiten:
+                        sie entstehen, wenn zwei passende Sorten direkt nebeneinander stehen.
                     </p>
                 </>
             )}

@@ -1,5 +1,127 @@
 export const NEWS_UPDATES = [
   {
+    date: "02.11.2026",
+    version: "v6.18: Gamble-Overlay, Discord-Punkte und Virtual Farm: Jahreszeiten",
+    sections: [
+      {
+        title: "Gamble-Overlay",
+        items: [
+          "Rakete, Murmel-Wetten und Topf-Gewinner lassen sich jetzt bequem einrichten: Größe, Sichtbarkeit und Position jedes Teils einstellen, einfach per Maus auf einer Vorschau verschieben",
+          "Änderungen erscheinen nach ein bis zwei Sekunden im laufenden Stream, ohne den Link neu einzufügen",
+          "Neuer Testmodus spielt Beispiel-Runden ab, damit man das Overlay vor dem Stream ausrichten kann",
+          "Auf die Murmelbahn wird nicht mehr gewettet: Der Sieger bekommt einen festen Preis, der mit jedem Fahrer wächst. Ab 8 Fahrern gibt es auch etwas für Platz 2, ab 15 für Platz 3, und jeder bekommt Punkte fürs Mitfahren",
+          "Das Overlay zeigt während der Anmeldung die Preise und wie viele Fahrer bis zum nächsten Preis fehlen, danach die Plätze mit Gewinn",
+        ]
+      },
+      {
+        title: "Discord-Punkte",
+        items: [
+          "Ist ein Spiele-Kanal eingestellt, lässt sich der Tagesbonus (/daily) jetzt auch nur dort abholen – so bleibt alles rund ums Spielen an einem Ort",
+        ]
+      },
+      {
+        title: "Virtual Farm: Jahreszeiten",
+        items: [
+          "Jede Woche wechselt die Jahreszeit: Frühling, Sommer, Herbst, Winter – mit eigenem Look (Blüten, Sommersonne, fallendes Laub, Raureif und Schnee)",
+          "Jede Jahreszeit hat Saisonsorten: Wer sie in der Saison erntet, bekommt 50 % mehr Gold, und sie stehen doppelt so oft im Laden. Im Laden erkennst du sie am Hinweis „Saison“",
+          "Neben der Uhr steht, welche Jahreszeit gerade ist und wie lange sie noch dauert – mit der Maus darüber siehst du alle Saisonsorten",
+          "Nachts schwirren Glühwürmchen über die Farm (außer im Winter)",
+          "Eine goldene oder Regenbogen-Ernte sprüht jetzt Funken und klingelt",
+          "Beim Verkaufen fliegen Münzen zu deinem Goldzähler",
+          "Seltene Samen (Episch und höher) stehen im Laden jetzt in einem eigenen Abschnitt ganz oben",
+        ]
+      },
+      {
+        title: "Virtual Farm: Erntefest",
+        items: [
+          "Jedes Wochenende (Freitagabend bis Sonntagabend) ist Erntefest: Alle Spieler sammeln gemeinsam Punkte für ein großes Ziel",
+          "Jede Ernte bringt Punkte – je aufwendiger die Pflanze, desto mehr, Saisonware zählt doppelt",
+          "Nach dem Fest gibt es je nach eigenem Einsatz eine Bronze-, Silber- oder Gold-Belohnung (wächst mit deinem Level). Ist das gemeinsame Ziel geschafft, gibt es die volle Belohnung",
+          "Stand, Ziel und Belohnung findest du im Missionsbrett unter „Erntefest“; während des Fests steht es auch neben der Uhr",
+        ]
+      },
+      {
+        title: "Virtual Farm: Kreuzungen",
+        items: [
+          "Pflanzt du zwei passende Sorten direkt nebeneinander, kann beim Ernten ein Samen für eine ganz neue Sorte entstehen – zum Beispiel Tomate × Kartoffel = Tomoffel",
+          "Acht Kreuzungen von Ungewöhnlich bis Legendär, die es nie im Laden gibt, jede mit eigener Logbuch-Seite. Im Logbuch steht bei jeder Kreuzung, aus welchen Sorten sie entsteht",
+        ]
+      },
+      {
+        title: "Virtual Farm: besserer Samenladen",
+        items: [
+          "Weniger Billig-Samen: höchstens vier gewöhnliche Sorten gleichzeitig im Laden",
+          "Jede Runde stehen mindestens zwei seltene und eine epische Sorte im Angebot, und spätestens jede dritte Runde eine legendäre",
+          "Neuer Reiter „Lohnt sich“ (jetzt Standard): zeigt nur, was sich bei deinem Gold wirklich lohnt – alles andere steht weiter unter „Im Angebot“",
+          "Kiwi, Pflaume, Apfel, Traube, Himbeere, Tomate, Mango und Orange bringen pro Frucht mehr Gold – auch Stauden, die schon stehen",
+          "Cranberry, Limette und Birne kosten im Laden mehr, weil sie sich viel zu schnell bezahlt gemacht haben; schon gepflanzte bleiben unverändert",
+          "Warten lohnt sich: Pflanzen mit langer Wachstumszeit bringen deutlich mehr – Grapefruit, Zitrone, Aprikose, Honigmelone, Avocado, alle legendären Einmal-Pflanzen und die Mondblume bis zu doppelt so viel, Karotte, Knoblauch und Pfirsich etwas mehr. Gilt auch für alles, was schon wächst oder in Kiste und Vitrine liegt",
+          "Neu: Händler-Aufträge im Missionsbrett (Reiter „Händler“). Der Händler will zum Beispiel „8 Kohl“ oder „1 goldene Kartoffel“ und zahlt deutlich mehr als der Verkauf – je höher dein Level, desto mehr. So lohnen sich auch günstige Samen wieder. Drei Aufträge gleichzeitig, nach dem Liefern kommt nach zwei Stunden ein neuer, Ablehnen geht auch",
+          "Tages- und Wochenmissionen wachsen mit deinem Level: höhere Belohnungen und passende Ziele statt fester Kleinbeträge (ab dem nächsten Missionswechsel)",
+        ]
+      },
+    ]
+  },
+  {
+    date: "01.11.2026",
+    version: "v6.17: Stream-Gamble",
+    sections: [
+      {
+        title: "Stream-Gamble",
+        items: [
+          "`!gamble` ist jetzt ganz einfach statt Glücksrad: Entweder man gewinnt und verdoppelt seinen Einsatz, oder er ist weg.",
+          "Das Ergebnis steht sofort im Chat, auch wenn viele gleichzeitig spielen. Nochmal spielen geht schon nach 5 Sekunden.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "01.11.2026",
+    version: "v6.16: Discord-Bot: Punkte-System",
+    sections: [
+      {
+        title: "Discord-Bot: Punkte-System",
+        items: [
+          "Neuer Bereich „Punkte“ im Discord-Dashboard: Mitglieder sammeln Punkte fürs Schreiben, für Zeit im Voice und mit /daily (jeder Tag in Folge gibt mehr)",
+          "Punkte setzen beim Glücksrad (/gamble), in der Rakete mit Aussteigen-Knopf (/rakete) oder im Münz-Duell gegen andere (/duell)",
+          "/punkte zeigt Kontostand und Statistik, /rangliste die reichsten Mitglieder, mit /geben kann man Punkte verschenken",
+          "Im Dashboard lassen sich Name und Emoji der Währung, alle Beträge und ein eigener Spiele-Kanal einstellen; die Rangliste zeigt alle Mitglieder, Punkte lassen sich dort anpassen",
+        ]
+      },
+    ]
+  },
+  {
+    date: "01.11.2026",
+    version: "v6.15: Clash-Royale-Kartenspiele",
+    sections: [
+      {
+        title: "Weitere Neuerungen",
+        items: [
+          "Die 3D-Ansichten der Clash-Royale-Minigames bleiben auf schwächeren PCs flüssiger: Ruckelt es, wird das Bild jetzt auch auf normalen Full-HD-Bildschirmen etwas weniger scharf gezeichnet. Das gilt jetzt auch im Labyrinth",
+        ]
+      },
+      {
+        title: "Clash-Royale-Kartenspiele",
+        items: [
+          "Nach einer Runde Karten-Wordle, Kartenraten, Zoom-Raten, Pixel-Raten oder Stats-Duell steht jetzt „Als Nächstes“ mit dem nächsten Spiel — ein Klick und es geht direkt weiter. Spiele, deren Tagesrunde du heute schon geschafft hast, werden dabei übersprungen.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "31.10.2026",
+    version: "v6.14: Flüssiger auf schwächeren PCs",
+    sections: [
+      {
+        title: "Flüssiger auf schwächeren PCs",
+        items: [
+          "Läuft dein Browser ohne Hardwarebeschleunigung, schaltet die Website Animationen, Weichzeichner und Neige-Effekte automatisch ab, damit nichts mehr ruckelt",
+          "In den Clash-Royale-Minigames starten Animationen und 3D-Ansicht dann automatisch aus, das Labyrinth zeigt die 2D-Draufsicht. In den Einstellungen kannst du beides wieder einschalten",
+        ]
+      },
+    ]
+  },
+  {
     date: "30.10.2026",
     version: "v6.13: Blobby Volley: Beach 3D leichter, Neue Startseite und Clash Royale Minigames",
     sections: [

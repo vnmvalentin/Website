@@ -172,6 +172,8 @@ function kaufeWerkzeug(state, toolId, { restVorrat, merkeKauf, freigelegteFelder
     } else if (eintrag.art === "rucksack") {
         w.backpackLevel += 1;
         w.backpackUpgraded = true;
+        state.toolInventory = w;
+        state.inventoryMaxSlots = rucksackPlaetze(state);
     } else {
         w[eintrag.feld] += eintrag.menge;
         if (toolId === "pickaxe") w.pickaxesBought += 1;
@@ -230,6 +232,31 @@ function kaufeWerkzeugAlle(state, toolId, opts = {}) {
  * heruntergezählt wird hier, damit ein verworfener Browserstand nichts erfindet
  * und nichts verschluckt.
  */
+/**
+ * Rucksackplätze — vom Server gerechnet, nicht aus dem Speicherstand des Browsers.
+ *
+ * 50 Grundplätze + 10 je Rucksackstufe. Bis November 2026 kam die Zahl aus dem PUT
+ * und war bei 340 gedeckelt: frei eintragbar bis 340, und gleichzeitig brachten die
+ * seit August kaufbaren Stufen 30–50 keinen einzigen Platz mehr. Ein bisher
+ * gespeicherter höherer Wert (alte Lagerist-Plätze) bleibt erhalten, höchstens 340.
+ */
+function rucksackPlaetze(state) {
+    const stufe = Math.min(BACKPACK_MAX_LEVEL, Math.max(0, Math.floor(Number(werkzeugVon(state).backpackLevel) || 0)));
+    const alt = Math.min(340, Math.max(50, Number(state?.inventoryMaxSlots) || 50));
+    return Math.max(50 + stufe * 10, alt);
+}
+
+/**
+ * Wie viele Steinfelder dieser Spieler freilegen DARF: eins je verbrauchtem
+ * Spitzhacken-Schlag. Für Spielstände von vor dieser Zählung gilt, was schon
+ * freigelegt ist — das lässt sich im Nachhinein nicht mehr prüfen.
+ */
+function steinfelderErlaubt(state) {
+    const n = Number(state?.steinfelderErlaubt);
+    if (Number.isFinite(n) && n >= 0) return n;
+    return Array.isArray(state?.plotUnlockedCells) ? state.plotUnlockedCells.length : 0;
+}
+
 function verbraucheWerkzeug(state, feld, anzahl = 1) {
     const key = String(feld || "");
     if (!VERBRAUCHSGUeTER[key]) return fehler(400, "Das lässt sich nicht verbrauchen.");
@@ -238,10 +265,12 @@ function verbraucheWerkzeug(state, feld, anzahl = 1) {
     if (w[key] < n) return fehler(400, "Davon hast du nicht genug.");
     w[key] -= n;
     state.toolInventory = w;
+    if (key === "pickaxeUses") state.steinfelderErlaubt = steinfelderErlaubt(state) + n;
     return { ok: true, toolInventory: w, verbraucht: n };
 }
 
 module.exports = {
     WERKZEUGE, STANDARD, BACKPACK_MAX_LEVEL, STEINFELDER_GESAMT, HACKE_LADUNGEN,
     werkzeugVon, preisFuer, kaufeWerkzeug, kaufeWerkzeugAlle, verbraucheWerkzeug, pickaxePreis, rucksackPreis,
+    rucksackPlaetze, steinfelderErlaubt,
 };

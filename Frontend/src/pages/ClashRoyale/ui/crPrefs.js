@@ -8,6 +8,7 @@
 // der Provider sitzt in CrShell.jsx, das Fenster in CrSettingsModal.jsx.
 
 import { createContext, useContext } from 'react';
+import { isLowGfx } from '../../../utils/lowGfx';
 
 // Hintergründe: aus src/assets/clashRoyale/backgrounds/ (4K-Originale) auf 1920×1080 zugeschnitten,
 // leicht weichgezeichnet und als WebP nach bg/ gelegt, dazu 320×180-Vorschaubilder in bg/thumbs/.
@@ -42,25 +43,54 @@ const STORAGE_KEY = 'crMinigamesPrefs';
 // animations: eigene Einstellung (Standard an) — bewusst NICHT an die System-Einstellung
 // "Bewegung reduzieren" gekoppelt, siehe index.css (html[data-cr-anim="off"]).
 // scene3d: 3D-Ansicht in Elixir Auction, Pyramidendraft, Angel Royale und Blindes Karussell (aus = alte 2D-Darstellung).
-export const DEFAULT_PREFS = { background: DEFAULT_BACKGROUND, volume: 0.5, animations: true, scene3d: true };
+//
+// Ohne Hardwarebeschleunigung (utils/lowGfx.js) starten animations und scene3d aus (autoLowGfx: true).
+// Diese erzwungenen Werte werden NICHT gespeichert — sonst blieben sie aus, wenn die Beschleunigung wieder an
+// ist. Schaltet man einen der beiden Schalter selbst um, gilt ab dann die eigene Wahl (gfxChoice: true).
+export const DEFAULT_PREFS = { background: DEFAULT_BACKGROUND, volume: 0.5, animations: true, scene3d: true, autoLowGfx: false };
 
-export function loadPrefs() {
+/** Schlüssel, deren eigenes Umschalten die automatische Grafik-Sparwahl beendet. */
+export const GFX_PREF_KEYS = ['animations', 'scene3d'];
+
+function readRaw() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+export function loadPrefs() {
+  const lowGfx = isLowGfx();
+  try {
+    const raw = readRaw();
     const background = raw.background === DEFAULT_BACKGROUND || backgroundUrl(raw.background)
       ? raw.background : DEFAULT_BACKGROUND;
     const volume = typeof raw.volume === 'number' && raw.volume >= 0 && raw.volume <= 1
       ? raw.volume : DEFAULT_PREFS.volume;
-    const animations = typeof raw.animations === 'boolean' ? raw.animations : DEFAULT_PREFS.animations;
-    const scene3d = typeof raw.scene3d === 'boolean' ? raw.scene3d : DEFAULT_PREFS.scene3d;
-    return { background, volume, animations, scene3d };
+    const gfxChoice = raw.gfxChoice === true;
+    const autoLowGfx = lowGfx && !gfxChoice;
+    const animations = autoLowGfx ? false
+      : typeof raw.animations === 'boolean' ? raw.animations : DEFAULT_PREFS.animations;
+    const scene3d = autoLowGfx ? false
+      : typeof raw.scene3d === 'boolean' ? raw.scene3d : DEFAULT_PREFS.scene3d;
+    return { background, volume, animations, scene3d, autoLowGfx, ...(gfxChoice ? { gfxChoice } : {}) };
   } catch {
-    return { ...DEFAULT_PREFS };
+    return lowGfx ? { ...DEFAULT_PREFS, animations: false, scene3d: false, autoLowGfx: true } : { ...DEFAULT_PREFS };
   }
 }
 
 export function savePrefs(prefs) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); } catch { /* Komfort, kein Muss */ }
+  try {
+    const { autoLowGfx, ...toStore } = prefs;
+    if (autoLowGfx) {
+      // Erzwungene Aus-Werte nicht speichern — die zuvor gespeicherte Wahl bleibt stehen
+      const raw = readRaw();
+      for (const key of GFX_PREF_KEYS) toStore[key] = raw[key];
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+  } catch { /* Komfort, kein Muss */ }
 }
 
 /** { prefs, setPref(key, value), openSettings() } — bereitgestellt von CrShell. */

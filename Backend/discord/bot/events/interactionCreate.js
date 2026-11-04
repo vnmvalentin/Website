@@ -18,6 +18,7 @@ const { handleVoiceCommand, handleVoiceComponent } = require('../commands/voice'
 const { handleServerStats } = require('../commands/serverstats');
 const { handleTagesrennen } = require('../seedRunnersBoard');
 const { handleTicketCreateButton, handleTicketModalSubmit, handleTicketClose } = require('../commands/tickets');
+const { LOYALTY_COMMANDS, handleLoyaltyCommand, handleLoyaltyButton } = require('../../loyalty/games');
 
 const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'pp', 'aussehen', 'iq', 'größe', 'gewicht', 'ship', 'coinflip', 'allstats', 'superkraft', 'ausrede'];
 const VOICE_COMMANDS = ['voicelimit', 'voicelock', 'voice_rename', 'voice_hide', 'voice_unhide', 'voice_transfer', 'voice_kick', 'voice_ban', 'voice_unban'];
@@ -61,6 +62,15 @@ module.exports = {
                 return handleVoiceCommand(interaction);
             }
 
+            // Punkte-System: eigener Schalter und eigener Spiele-Kanal im Dashboard (Reiter "Punkte")
+            if (LOYALTY_COMMANDS.includes(cmd)) {
+                return handleLoyaltyCommand(interaction).catch(e => {
+                    console.error('[Punkte]', cmd, e);
+                    const msg = { content: '❌ Da ist etwas schiefgelaufen.', flags: MessageFlags.Ephemeral };
+                    return (interaction.replied || interaction.deferred ? interaction.followUp(msg) : interaction.reply(msg)).catch(() => {});
+                });
+            }
+
             if (cmd === 'serverstats') return handleServerStats(interaction);
             if (cmd === 'tagesrennen') return handleTagesrennen(interaction);
 
@@ -75,6 +85,11 @@ module.exports = {
         // ── Modal: Ticket erstellen ───────────────────────────────────────────
         if (interaction.isModalSubmit() && interaction.customId === 'ticket_modal') {
             return handleTicketModalSubmit(interaction);
+        }
+
+        // ── Button: Punkte-System (Rakete aussteigen, Duell annehmen) ─────────
+        if (interaction.isButton() && interaction.customId.startsWith('lp_')) {
+            return handleLoyaltyButton(interaction).catch(e => console.error('[Punkte] Knopf:', e));
         }
 
         // ── Button: Connect 3 ─────────────────────────────────────────────────

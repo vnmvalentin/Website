@@ -13,7 +13,8 @@
 // im PUT weiterhin frei setzen. Der Briefkasten macht das nicht schlimmer — er ist nur
 // kein zusätzliches Schlupfloch.
 
-const { verkaufswert, gutschreiben } = require("../core/economy");
+const { verkaufswert, GOLD_MAX } = require("../core/economy");
+const zweitkonto = require("./zweitkonto");
 
 const MAIL_MAX_ITEMS = 50;              // pro Briefkasten
 const MAIL_MESSAGE_MAX = 200;           // Zeichen
@@ -174,6 +175,13 @@ function sendMail(farmStates, {
     if (String(recipient.twitchId) === String(fromTwitchId)) {
         return { ok: false, status: 400, error: "Du kannst dir nicht selbst schreiben." };
     }
+    // Zweit-Accounts (world/zweitkonto.js): gleiches Gerät oder gleicher Anschluss
+    // → keine Post, sonst wandert alles von der zweiten Farm auf die erste.
+    const ausnahme = zweitkonto.istAusnahme(fromTwitchId, senderState)
+        || zweitkonto.istAusnahme(recipient.twitchId, recipient.state);
+    if (!ausnahme && zweitkonto.verknuepft(senderState, recipient.state)) {
+        return { ok: false, status: 403, error: "Zwischen Accounts vom selben Gerät oder Internet-Anschluss ist keine Post möglich." };
+    }
 
     const cleanMessage = sanitizeMessage(message);
     let goldAmount = 0;
@@ -225,7 +233,12 @@ function sendMail(farmStates, {
         itemPayloads.push({
             seedId: item.seedId, name: item.name, rarity: item.rarity,
             singleUse: item.singleUse !== false, size: Number(item.size) || 1,
+            ...(Number.isFinite(Number(item.groesse)) ? { groesse: Number(item.groesse) } : {}),
             specialData: item.specialData || undefined, statusEffect: item.statusEffect || null,
+            // In der Saison geerntet (core/tageszeit.js) — kommt aus dem Serverlager,
+            // nicht aus der Anfrage, darf also mitreisen.
+            ...(item.saison === true ? { saison: true } : {}),
+            ...(Number.isFinite(Number(item.vielfalt)) ? { vielfalt: Number(item.vielfalt) } : {}),
         });
     }
 
@@ -347,10 +360,11 @@ function claimMail(farmStates, twitchId, mailId) {
     if (mail.gold > 0) {
         const amount = normalizeGoldAmount(mail.gold);
         if (amount !== null) {
-            // gutschreiben() statt der Zeile von Hand — zählt jetzt auch fürs
-            // Lebenszeit-Gold mit (siehe economy.js): Post von anderen ist genauso
-            // "verdient" wie ein Verkauf, aus Sicht des Empfängers.
-            gutschreiben(state, amount);
+            // NICHT gutschreiben(): das zählt ins Lebenszeit-Gold (goldGesamt). Post
+            // erzeugt kein Gold, sie verschiebt es nur — zählte sie mit, könnten zwei
+            // Spieler dieselbe Billion endlos hin- und herschicken und ihr
+            // „gesammeltes Gold" beliebig aufblähen (gefunden 03.11.2026).
+            state.gold = Math.min(GOLD_MAX, Math.max(0, Number(state.gold) || 0) + amount);
             credited.gold = amount;
         }
     }

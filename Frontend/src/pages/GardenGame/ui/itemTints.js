@@ -5,6 +5,7 @@
 // react-refresh/only-export-components verlangt, dass eine Datei entweder Komponenten
 // oder geteilte Werte exportiert, nicht beides. Die Komponenten liegen in ItemIcon.jsx.
 import { STATUS_EFFECT_LABELS } from '../engine/PlantSystem';
+import { groesseText } from './groesse';
 
 /** Bildquelle eines Gegenstands in der Reihenfolge, in der sie gefüllt wird. */
 export function itemImageSrc(item) {
@@ -54,7 +55,7 @@ export function itemSpecialName(item) {
  */
 export function beschreibeErnte(item) {
     const teile = [item?.name || "Ernte"];
-    if (Number(item?.size)) teile.push(`Größe ${item.size}`);
+    if (Number(item?.size) || Number(item?.groesse)) teile.push(groesseText(item));
     const special = itemSpecialName(item);
     if (special) teile.push(special);
     const wetter = STATUS_EFFECT_LABELS[item?.statusEffect];

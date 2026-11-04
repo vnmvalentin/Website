@@ -44,6 +44,8 @@ const { runXpMigration, runXpKurveKorrektur, MARKE: XP_MARKE, MARKE_KURVE, MARKE
 const { runSkillStaffelMigration, MARKE: SKILL_MARKE } = require("./skills");
 const { runDekoPfadMigration, MARKE: DEKO_MARKE } = require("./deko");
 const { runTierplatzMigration, MARKE: TIERPLATZ_MARKE } = require("./tierplaetze");
+const { runSamenKennungMigration, MARKE: SAMEN_MARKE } = require("./samenKennung");
+const { runTierKennungMigration, MARKE: TIER_KENNUNG_MARKE } = require("./tierKennung");
 
 /**
  * Alle Marken, die ein durchmigrierter Spielstand trägt.
@@ -56,7 +58,7 @@ const { runTierplatzMigration, MARKE: TIERPLATZ_MARKE } = require("./tierplaetze
  */
 const ALLE_MARKEN = [
     PLOT_MARKE, PLOT_MARKE_WEGE, DEKO_MARKE, XP_MARKE, MARKE_KURVE, MARKE_KORREKTUR, SKILL_MARKE,
-    TIERPLATZ_MARKE,
+    TIERPLATZ_MARKE, SAMEN_MARKE, TIER_KENNUNG_MARKE,
 ];
 
 function alleErledigt(farmStates) {
@@ -113,6 +115,22 @@ function runGardenMigrations(farmStates, { scheduleFarmsSave } = {}) {
             : "keine Änderungen",
     });
 
+    // Hängt an nichts: vergibt nur fehlende Samen-Kennungen (siehe samenKennung.js).
+    const samen = runSamenKennungMigration(farmStates, { scheduleFarmsSave });
+    zeilen.push({
+        name: "Samen-Kennungen",
+        text: samen.vergeben > 0 ? `${samen.vergeben} vergeben` : "keine Änderungen",
+    });
+
+    // Hängt an nichts. Steht NACH tierplaetze, damit eingepackte Tiere mit erfasst werden.
+    const tierKennung = runTierKennungMigration(farmStates, { scheduleFarmsSave });
+    zeilen.push({
+        name: "Tier-Kennungen",
+        text: (tierKennung.tiere > 0 || tierKennung.eier > 0)
+            ? `${tierKennung.tiere} Tiere / ${tierKennung.eier} Eier`
+            : "keine Änderungen",
+    });
+
     const xp = runXpMigration(farmStates, { scheduleFarmsSave });
     zeilen.push({
         name: "XP-Nachzahlung",
@@ -148,5 +166,5 @@ function runGardenMigrations(farmStates, { scheduleFarmsSave } = {}) {
 
 module.exports = {
     runGardenMigrations, runPlotMigration, runXpMigration, runXpKurveKorrektur,
-    runSkillStaffelMigration, runDekoPfadMigration, runTierplatzMigration, ALLE_MARKEN,
+    runSkillStaffelMigration, runDekoPfadMigration, runTierplatzMigration, runSamenKennungMigration, runTierKennungMigration, ALLE_MARKEN,
 };

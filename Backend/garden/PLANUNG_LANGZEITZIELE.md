@@ -143,3 +143,26 @@ diese Fragen sind der Startpunkt, nicht vorher zu beantworten nötig:
    Tiere/Deko/Ladenbestand).
 4. **Für C: die bleibende Belohnung** — Prozent-Multiplikator? Exklusiver Skin?
    Beides?
+
+## 4. Prestige „Neue Saat“ (04.11.2026, Fahrplan Phase 6) — UMGESETZT, core/prestige.js
+
+Grundlage: Simulator 70 Tage × 3 Läufe. Aktiv: Level 100 an Tag ~57, 4,6 Bio verdient.
+Gelegenheit: Level 100 an Tag ~67, 1,8 Bio. Einnahmen kommen zu 85–90 % aus
+Legendary-Stauden und der Mondblume.
+
+**Freischaltung „Neue Saat":** Level 100 UND seit dem letzten Neustart mindestens
+750 Mrd verdient (war 1 Bio, gesenkt nach Simulator-Lauf). Jede weitere Saat verlangt das Doppelte (1,5 / 3 / 6 / 12 Bio). Höchstens 5 Sterne.
+
+**Wird zurückgesetzt:** Gold, Level/XP, Fähigkeiten, Felder/Steinfelder, Rucksack-Stufe,
+Acker, Samen und Ernte im Rucksack, Schaufel, Gießkanne/Spitzhacke-Ladungen, Brutkasten-Stufe.
+
+**Bleibt:** Logbuch und Zuchtbuch (ohne erneute Belohnung), Tiere, Eier, Deko, Kleiderschrank
+und Gold-Shop-Käufe, Wettbewerbs-Siege, Post, Freunde, Lebenszeit-Gold.
+Kiste/Vitrine werden auf Wunsch des Nutzers MIT geleert (sonst Neustart mit Mythic-Samen).
+
+**Bringt je Stern (dauerhaft):** +10 % Verkaufserlös und +10 % Erfahrung (Stern 5:
++50 %). Kosmetik ohne neue Bilder: 1 Stern am Namen, 2 goldener Name, 3 Sternenspur,
+4 goldene Ernte-Funken, 5 Titel „Sternengärtner“ (KOSMETIK in core/prestige.js ↔ ui/prestige.js). Die
+Bestenliste sortiert nach Sternen, dann nach Lebenszeit-Gold.
+
+**Mit dabei:** Mondblume gedämpft (Verkauf 100–250 statt 134–402 Mrd).

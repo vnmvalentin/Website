@@ -6,6 +6,7 @@
 // Leben = Busch, Schaden = Busch-Kobolde), und wann die Karte zuletzt per Balance-Update geändert wurde.
 import React, { useEffect, useState } from 'react';
 import GameFrame from './GameFrame';
+import NextGame from './NextGame';
 import CardFace from '../ui/CardFace';
 import ChunkyButton from '../ui/ChunkyButton';
 import { CrReplay, CrUpgrade, CrDowngrade, CrStar } from '../ui/CrIcons';
@@ -132,6 +133,7 @@ export default function StatsDuel() {
               </p>
               <p className="text-white/70 text-sm">{t.yourStreak(streak)}{streak > 0 && streak >= best ? t.newBest : ''}</p>
               <ChunkyButton variant="green" icon={CrReplay} onClick={restart}>{t.again}</ChunkyButton>
+              <NextGame current="stats-duell" className="w-full max-w-md mt-1" />
             </>
           ) : round && (
             <>

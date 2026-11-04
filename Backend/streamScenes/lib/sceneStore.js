@@ -61,7 +61,17 @@ const DEFAULT_SETTINGS = {
     mode: 'brb', theme: 'auto', backAt: null, text: '', showCard: true,
     race: { enabled: true, modsOnly: false, joinSec: 30, cooldownMin: 3 },
   },
+  // Gamble-Overlay (/overlay/gamble): je Teil sichtbar, Lage (obere linke Ecke auf 1920×1080) und Größe;
+  // demo spielt Beispiel-Ereignisse ab, damit man in OBS etwas zum Ausrichten hat
+  gamble: {
+    demo: false,
+    rocket: { enabled: true, x: 1548, y: 32, scale: 1 },
+    marbles: { enabled: true, x: 32, y: 32, scale: 1 },
+    pot: { enabled: true, x: 750, y: 876, scale: 1 },
+  },
 };
+
+const GAMBLE_PARTS = ['rocket', 'marbles', 'pot'];
 
 const clampNum = (v, lo, hi, def) => {
   const n = Number(v);
@@ -120,7 +130,24 @@ function sanitizeSettings(input, base = DEFAULT_SETTINGS) {
         cooldownMin: Math.round(clampNum(raceIn.cooldownMin, 0, 30, raceBase.cooldownMin)),
       },
     },
+    gamble: sanitizeGamble(s.gamble, base.gamble || DEFAULT_SETTINGS.gamble),
   };
+}
+
+function sanitizeGamble(input, base) {
+  const g = input && typeof input === 'object' ? input : {};
+  const out = { demo: bool(g.demo, base.demo ?? false) };
+  for (const part of GAMBLE_PARTS) {
+    const p = g[part] && typeof g[part] === 'object' ? g[part] : {};
+    const b = base[part] || DEFAULT_SETTINGS.gamble[part];
+    out[part] = {
+      enabled: bool(p.enabled, b.enabled),
+      x: Math.round(clampNum(p.x, -400, 1920, b.x)),
+      y: Math.round(clampNum(p.y, -400, 1080, b.y)),
+      scale: Math.round(clampNum(p.scale, 0.5, 2, b.scale) * 100) / 100,
+    };
+  }
+  return out;
 }
 
 function parseSettings(text) {

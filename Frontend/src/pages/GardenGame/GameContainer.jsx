@@ -17,39 +17,35 @@ import React, { memo, useContext, useEffect, useMemo, useRef, useState, useCallb
 // Bild ist erkennbar fürs Postfach gezeichnet), Smile (neuer Emoji-Knopf im Chat,
 // Feedback 01.09. — kein eigenes Bild dafür geliefert).
 import {
-    Sprout, FlaskConical, Play, Package, Info, Search,
-    MapPin, SlidersHorizontal, Send, Smile,
+    Sprout, FlaskConical, Play, Info, 
+    
 } from "lucide-react";
-import { HudIcon, TabIcon, WeatherIcon } from './ui/gameIcons';
-import Renderer, { LICHT_MAX, MAILBOX_RESKIN_BILD } from './engine/Renderer';
-import InputHandler from './engine/InputHandler';
+import { HudIcon, TabIcon } from './ui/gameIcons';
+import { MAILBOX_RESKIN_BILD } from './engine/Renderer';
 import { versionedAsset } from './engine/assetVersion';
-import { generatePlotSlots, TILE_SIZE, MAP_CONFIG, getHoveredCell, getHoveredRock, getMailboxHitArea, getDirtCellWorldPos, STEIN_REIHEN, STEIN_WEG_REIHEN, istSteinfeldWegRow, istWegReihe, istAndereReihe, spiegleZeile, kachelIstAcker } from './engine/MapConfig';
+import { generatePlotSlots, TILE_SIZE, MAP_CONFIG, getDirtCellWorldPos, STEIN_REIHEN, STEIN_WEG_REIHEN, istSteinfeldWegRow, istWegReihe } from './engine/MapConfig';
 // harvestPlant und getGoldfinderRange stehen bewusst nicht mehr hier: diese
 // Rechnungen macht ab v3.0 der Server (garden/core/economy).
 import {
-    generateShopRotation, createPlantInstance, isPlantReady, getPlantVisuals,
-    ensurePerennialFruitingState, WEATHER_SELL_BOOST, ARCHETYPE_LABELS, getPlantArchetypeKey,
-    STATUS_EFFECT_LABELS, SEED_CATALOGUE, hydrateHarvestedItems, wetterEffektSchritt,
-    wetterListe, wetterBoost, wetterChanceFuer, zyklusMinuten,
+    getPlantVisuals,
+    WEATHER_SELL_BOOST, ARCHETYPE_LABELS, getPlantArchetypeKey,
+    STATUS_EFFECT_LABELS, SEED_CATALOGUE, hydrateHarvestedItems, 
+    setzeVielfaltFaktor,
 } from './engine/PlantSystem';
 import {
-    PET_PROC_CHANCE, PET_ABILITY_TYPES, PET_ABILITY_LABELS, PET_ABILITY_KURZ, getPetTickMs,
-    getGaertnerStufe, getErntehelferStufe, getErntehelferExtra,
-    getGaertnerNachwuchs, getGaertnerWurzelwerk, besteStufe, getGoldfinderRange,
-    getForscherStufe, getKaufmannStufe, getForscherBoost, getKaufmannBoost,
+    PET_ABILITY_TYPES, PET_ABILITY_KURZ, getPetTickMs,
+    
 } from './engine/PetSystem';
 import {
-    dunkelheit as tagesDunkelheit, partyStand, partyStaerke, uhrzeit as spielUhrzeit,
-    istNacht, partyTitelIndex, PARTY_RAINBOW_FAKTOR,
+    partyStand, partyStaerke, uhrzeit as spielUhrzeit,
+    istNacht, partyTitelIndex, saisonStand, erntefestZeitraum,
 } from './engine/Tageszeit';
 import SEO from '../../components/SEO';
 import GardenMenu from './ui/menu/GardenMenu';
+import Ladebildschirm from './ui/menu/Ladebildschirm';
 import PlantHoverLayer from './ui/PlantHoverLayer';
 import { createHoverStore } from './ui/hoverStore';
-import PetDetailModal from './ui/PetDetailModal';
 import MailboxModal from './ui/MailboxModal';
-import AblageModal, { FremdeVitrineModal } from './ui/AblageModal';
 import LogbuchModal from './ui/LogbuchModal';
 import SkillTreeModal from './ui/SkillTreeModal';
 import WardrobeModal from './ui/WardrobeModal';
@@ -57,42 +53,72 @@ import QuestBoardModal from './ui/QuestBoardModal';
 import GoldShopModal from './ui/GoldShopModal';
 import { SHED_RESKIN_BILD } from './ui/reskins';
 import { ALLE_SKINS, STANDARD_SKIN, normalisiereSkin } from './ui/wardrobe';
-import { DEKO_KATALOG, DEKO_KATEGORIEN, dekoNachKategorie, dekoLicht, istBoden, alsVorratsstueck } from './ui/deko';
+import { DEKO_KATALOG, DEKO_KATEGORIEN, istBoden } from './ui/deko';
 import useGardenLobby, { letzteWelt, vergissWelt } from './useGardenLobby';
+import useFarmSound from './hooks/useFarmSound';
+import useWorldBoot from './hooks/useWorldBoot';
+import useNachfrage from './hooks/useNachfrage';
+import useLadenRotation from './hooks/useLadenRotation';
+import useWetterUndUhr from './hooks/useWetterUndUhr';
+import useTastatur from './hooks/useTastatur';
+import useSpeichern from './hooks/useSpeichern';
+import useAckerUmzug from './hooks/useAckerUmzug';
+import useServerAktionen from './hooks/useServerAktionen';
+import useAblage from './hooks/useAblage';
+import useSamenKauf from './hooks/useSamenKauf';
+import useErnte from './hooks/useErnte';
+import useWerkzeuge from './hooks/useWerkzeuge';
+import useEierDekoBrutkasten from './hooks/useEierDekoBrutkasten';
+import useVerkauf from './hooks/useVerkauf';
+import usePost from './hooks/usePost';
+import useSpielschleife from './hooks/useSpielschleife';
+import useSpielflaecheMaus from './hooks/useSpielflaecheMaus';
 import {
-    RARITY_TEXT, RARITY_BORDER, RARITY_DOT, HUD_SURFACE,
-    weatherIcon, toolIcon, categoryIcon, formatGold, formatDuration as formatDurationShared,
+    HUD_SURFACE,
+    toolIcon, formatGold, 
 } from './ui/gardenTokens';
-import { GardenModal, GoldTag, TimerTag, TabBar, PrimaryButton, RarityLabel } from './ui/gardenUi';
-import { ItemIcon, SpecialItemIcon } from './ui/ItemIcon';
-import { itemSpecialName } from './ui/itemTints';
+import { lohntSich } from './ui/ladenWert';
+import { vielfaltStand } from './ui/vielfalt';
+
+import { SamenLaden, WerkzeugLaden, EierLaden, DekoLaden } from './ui/laden/LadenFenster';
+import { Schnellleiste, Ausruestung, HudUntenLinks } from './ui/hud/HudUnten';
+import { HudObenLinks, HudObenMitte, HudObenRechts } from './ui/hud/HudOben';
+import { EditorLeiste } from './ui/hud/EditorLeiste';
+import { WeltVollHinweis } from './ui/fenster/WeltVollHinweis';
+import { ProfilFenster, EinstellungenFenster, NeuerungenFenster } from './ui/fenster/ProfilFenster';
+import NeueSaatFenster from './ui/fenster/NeueSaatFenster';
+import { MarktFenster } from './ui/fenster/MarktFenster';
+import { RucksackFenster, GegenstandTooltip } from './ui/fenster/RucksackFenster';
+import { TierUebersicht, TierDetail } from './ui/fenster/TierFenster';
+import { SchuppenAuswahl, MuellFenster, AblageFenster, FremdeVitrineFenster, BrutkastenFenster } from './ui/fenster/SchuppenFenster';
+import { ItemIcon } from './ui/ItemIcon';
+import { formatGroesse } from './ui/groesse';
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { GardenAdminBrowser } from "./GardenAdminPanel";
 
 import {
-    TwitchGlyph, COLLISION_RADIUS_BY_AREA_TYPE, START_GOLD, GIESSKANNE_MINUTEN,
-    GIESSKANNE_MAX_ANTEIL, giesskanneMinuten, WAGEN_VERSATZ_X, INCUBATOR_UNLOCK_COSTS,
-    INTERACT_DIST, FRUEHES_ABBIEGEN_AB, SHOP_ROTATION_MS, TOOL_EGG_ROTATION_MS, TARGET_FPS,
+    TwitchGlyph, START_GOLD, GIESSKANNE_MINUTEN,
+    WAGEN_VERSATZ_X, 
+    SHOP_ROTATION_MS, TOOL_EGG_ROTATION_MS, 
     MAX_PLOT_EXPANSIONS, ACKERRASTER_MARKE, MUSIK_BASIS, THEME_TRACKS, THEME_STANDARD,
-    PARTY_TRACKS, partyTrack, themeTrack, FARM_SEO, WORLD_BOOT_MIN_MS, WORLD_SLOTS,
-    GARTEN_ADMIN_ID, SHOTGUN_LAUTSTAERKE, SHOTGUN_HAND_ITEM, WORLD_ZOOM, ZOOM_MIN, ZOOM_MAX,
-    ZOOM_SCHRITT, KISTE_MAX, VITRINE_MAX, PET_SLOTS, SCHUPPEN_KACHELN,
-    berechneGebaeudePositionen, normalizeGebaeudeVersatz, MAILBOX_INTERACT_DIST, CHAT_MAX_LEN,
-    CHAT_FARBEN, CHAT_EMOJIS, ERNTE_WARTESCHLANGE_MAX, RARITAETS_RANG, nachText,
-    KATALOG_NACH_ID, zeitBisErsteErnte, SHOP_SORTIERUNGEN, INVENTAR_SORTIERUNGEN, sortiere,
-    SortierLeiste, DEFAULT_TOOL_INVENTORY, BASE_DIRT_COLS, BASE_DIRT_ROWS, AREA_IMAGES,
-    GEBAEUDE_NAMEN, FREMDE_GEBAEUDE, TOOL_IMAGE_BY_KEY, TOOL_IMAGE_BY_ID, TERRAIN_ASSET_IMAGES,
-    PET_IMAGE_BY_TYPE, WEATHER_BY_ROLL, DEFAULT_RENDER_PROFILE, RENDER_QUALITY_PRESETS,
+    PARTY_TRACKS, FARM_SEO, WORLD_SLOTS,
+    GARTEN_ADMIN_ID, SHOTGUN_LAUTSTAERKE, SHOTGUN_HAND_ITEM, WORLD_ZOOM, 
+    
+    berechneGebaeudePositionen, normalizeGebaeudeVersatz, 
+    CHAT_FARBEN, RARITAETS_RANG, nachText,
+    zeitBisErsteErnte, SHOP_SORTIERUNGEN, sortiere, KATALOG_NACH_ID,
+    DEFAULT_TOOL_INVENTORY, BASE_DIRT_COLS, BASE_DIRT_ROWS, AREA_IMAGES,
+    GEBAEUDE_NAMEN, TOOL_IMAGE_BY_KEY, TOOL_IMAGE_BY_ID, TERRAIN_ASSET_IMAGES,
+    PET_IMAGE_BY_TYPE, DEFAULT_RENDER_PROFILE, 
     EGG_SHOP_CATALOGUE, DECO_SHOP_ITEMS, WARDROBE_SKINS, PET_EMOJI_BY_TYPE, getPetEmoji,
-    getToolImage, getPetSpriteImage, hashToUnit, rollWeatherFromRotation, getPickaxePrice,
-    STEINFELDER_GESAMT, buildPetPreviewImage, normalizeToolInventory, hatTooltip,
-    wachstumBeschleunigen, freiesAckerfeld, TAB_ID, BACKPACK_MAX_LEVEL, BUY_ALL_WERKZEUGE,
-    getBackpackUpgradePrice, normalizePlotUnlockedCells, unlockedCellsFromLegacyExpansions,
-    resolvePlotUnlockedCells, rollPetSpecialType, rollHatchResult, RARITY_COLORS, RarityBadge,
+    hashToUnit, 
+    buildPetPreviewImage, normalizeToolInventory, 
+    TAB_ID, GERAET_ID, BACKPACK_MAX_LEVEL, 
+    normalizePlotUnlockedCells, unlockedCellsFromLegacyExpansions,
+    resolvePlotUnlockedCells, rollPetSpecialType, RARITY_COLORS, RarityBadge,
     withVisuals, hydratePet, hydratePets, hydrateSeed, hydrateSeeds, collectVisualAssetPaths,
-    SeedFacts, ShopSeedCard
+    SeedFacts
 } from './engine/gameConstants';
-import { CHANGELOG_ENTRIES } from './data/changelogEntries';
 
 export default function GameContainer() {
     const { user: twitchUser, login: twitchLogin } = useContext(TwitchAuthContext);
@@ -140,7 +166,7 @@ export default function GameContainer() {
     const [toolShopStock, setToolShopStock] = useState({});
     const [eggShopStock, setEggShopStock] = useState({});
     const [ladenBestand, setLadenBestand] = useState({}); // { seedId: count }
-    const [shopFilter, setShopFilter] = useState("available"); // "all" | "available"
+    const [shopFilter, setShopFilter] = useState("lohnend"); // "lohnend" | "available" | "all"
     const [plotPlants, setPlotPlants] = useState({}); // "cx_cy" → plant
     const [plotExpansions, setPlotExpansions] = useState(0);
     const [plotUnlockedCells, setPlotUnlockedCells] = useState([]);
@@ -179,7 +205,7 @@ export default function GameContainer() {
     // Katalog UND Fortschritt kommen vom Server (GET /rechte-Nachfolger GET
     // /quests), wie beim Fähigkeitsbaum: die Route entscheidet, was gilt.
     const [isQuestBoardOpen, setQuestBoardOpen] = useState(false);
-    const [questDaten, setQuestDaten] = useState({ taeglich: [], woechentlich: [] });
+    const [questDaten, setQuestDaten] = useState({ taeglich: [], woechentlich: [], auftraege: null, erntefest: null });
     // ── Gold-Shop (Feedback 01.09.) ─────────────────────────────────────────────
     // Rein kosmetische Reskins für Schuppen/Briefkasten/Werkzeug/Nameplate —
     // Katalog UND "schon gekauft"/"ausgerüstet" kommen vom Server, siehe oben.
@@ -239,6 +265,8 @@ export default function GameContainer() {
 
     const [showLobbyScreen, setShowLobbyScreen] = useState(true);
     const [leaderboard, setLeaderboard] = useState([]);
+    // Weitere Bestenlisten (Backend world/ranglisten.js) — Logbuch, Wettbewerb, Jahreszeiten.
+    const [ranglisten, setRanglisten] = useState(null);
     const [mailbox, setMailboxState] = useState([]);
     const [isMailboxOpen, setMailboxOpen] = useState(false);
     const [mailBusy, setMailBusy] = useState(false);
@@ -280,6 +308,7 @@ export default function GameContainer() {
     // Kiste/Vitrine/Mülleimer UND (seit Feedback 30.08.) der Inkubator wohnen
     // gemeinsam im Schuppen auf dem Feld, nicht mehr im HUD.
     const [isProfilOffen, setProfilOffen] = useState(false);
+    const [vielfaltOffen, setVielfaltOffen] = useState(false);
     const [chatEingabe, setChatEingabe] = useState("");
     // Eigene Chat-Textfarbe (Feedback 01.09.) — bleibt über Sitzungen hinweg
     // erhalten wie die Musikauswahl (garden_farms_theme), gehört zu diesem
@@ -300,24 +329,15 @@ export default function GameContainer() {
     const chatListeRef = useRef(null);
     /** Klebt die Ansicht gerade am unteren Rand? Nur dann wird nachgescrollt. */
     const chatAmEndeRef = useRef(true);
-    const [worldBootState, setWorldBootState] = useState({ active: false, label: "", progress: 0 });
     const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+    // Zweit-Account auf diesem Gerät (Backend garden/world/zweitkonto.js): Hinweis statt Farm.
+    const [zweitkontoText, setZweitkontoText] = useState(null);
     // Als Ref, damit flushFarmStateToServer die Sperre ohne Stale-Closure lesen kann.
     const isInitialLoadDoneRef = useRef(false);
     const [isSubscriber, setIsSubscriber] = useState(false);
     const [isBeta, setIsBeta] = useState(false);
     const [tutorialCompleted, setTutorialCompleted] = useState(false);
     const [ackerRasterMigriert, setAckerRasterMigriert] = useState(false);
-    const [effectVolume, setEffectVolume] = useState(() => {
-        const saved = localStorage.getItem("garden_farms_effect_volume");
-        if (saved !== null) return parseFloat(saved);
-        const old = localStorage.getItem("garden_farms_volume");
-        return old !== null ? parseFloat(old) : 0.5;
-    });
-    const [musicVolume, setMusicVolume] = useState(() => {
-        const saved = localStorage.getItem("garden_farms_music_volume");
-        return saved !== null ? parseFloat(saved) : 0.1;
-    });
     const [themeId, setThemeId] = useState(() => {
         const saved = localStorage.getItem("garden_farms_theme");
         return THEME_TRACKS.some((t) => t.id === saved) ? saved : THEME_STANDARD;
@@ -366,7 +386,12 @@ export default function GameContainer() {
     const [tagesInfo, setTagesInfo] = useState(() => {
         const now = Date.now();
         const p = partyStand(now);
-        return { uhrzeit: spielUhrzeit(now), nacht: istNacht(now), party: p.aktiv, verbleibendMs: p.verbleibendMs, partyBeginn: p.beginn };
+        const s = saisonStand(now);
+        return {
+            uhrzeit: spielUhrzeit(now), nacht: istNacht(now), party: p.aktiv, verbleibendMs: p.verbleibendMs, partyBeginn: p.beginn,
+            saison: s.id, saisonName: s.name, saisonEnde: s.ende, saisonSorten: s.sorten, naechsteSaison: s.naechste.name,
+            erntefest: erntefestZeitraum(now).aktiv,
+        };
     });
     const tagesInfoRef = useRef(tagesInfo);
     useEffect(() => { tagesInfoRef.current = tagesInfo; }, [tagesInfo]);
@@ -582,48 +607,6 @@ export default function GameContainer() {
      */
     const offeneSamenkaeufeRef = useRef(0);
     const zuletztInventarRef = useRef(0);
-    const effectVolumeRef = useRef(effectVolume);
-    useEffect(() => {
-        effectVolumeRef.current = effectVolume;
-        localStorage.setItem("garden_farms_effect_volume", effectVolume.toString());
-    }, [effectVolume]);
-
-    const musicVolumeRef = useRef(musicVolume);
-    useEffect(() => {
-        musicVolumeRef.current = musicVolume;
-        localStorage.setItem("garden_farms_music_volume", musicVolume.toString());
-        if (soundsRef.current?.music) soundsRef.current.music.volume = musicVolume;
-    }, [musicVolume]);
-
-    /**
-     * Welcher Titel gerade laufen soll: während der Party der Party-Titel, sonst das
-     * gewählte Thema. Beides läuft über DIESELBE Audio-Instanz, damit der Musikregler
-     * für beides gilt — ein zweites Audio-Objekt hätte seine eigene Lautstärke.
-     */
-    const laufenderPartyTitel = tagesInfo.party ? partyTrack(tagesInfo.partyBeginn || Date.now()) : null;
-    const aktuellerTitel = laufenderPartyTitel ? laufenderPartyTitel.src : themeTrack(themeId).src;
-    const aktuellerTitelRef = useRef(aktuellerTitel);
-    useEffect(() => {
-        aktuellerTitelRef.current = aktuellerTitel;
-        localStorage.setItem("garden_farms_theme", themeId);
-        const musik = soundsRef.current?.music;
-        if (!musik) return;
-        // `src` ist beim Vergleich absolut, der Katalog führt relative Pfade.
-        if (musik.src.endsWith(aktuellerTitel)) return;
-        musik.src = aktuellerTitel;
-        musik.volume = musicVolumeRef.current;
-        musik.currentTime = 0;
-        if (!showLobbyScreenRef.current) musik.play().catch(() => {});
-    }, [aktuellerTitel, themeId]);
-
-    const showLobbyScreenRef = useRef(showLobbyScreen);
-    useEffect(() => {
-        showLobbyScreenRef.current = showLobbyScreen;
-        if (soundsRef.current?.music) {
-            if (showLobbyScreen) soundsRef.current.music.pause();
-            else soundsRef.current.music.play().catch(() => {});
-        }
-    }, [showLobbyScreen]);
 
     const saveTimeoutRef = useRef(null);
     const flushFarmStateToServerRef = useRef(null);
@@ -636,6 +619,19 @@ export default function GameContainer() {
      * Prozentzahl nicht von der abweicht, mit der die Kasse rechnet.
      */
     const [skillStand, setSkillStand] = useState(null);
+    /** Ernte-Rausch (Backend core/rausch.js) — nur Anzeige, kommt mit jeder Aktion. */
+    const [ernteRausch, setErnteRausch] = useState(null);
+    /** Käfer und Unkraut auf dem eigenen Acker (Backend core/stoerer.js), gespiegelt in engineRef. */
+    const [stoerer, setStoerer] = useState([]);
+    /** Entdeckte Kreuzungen (Backend harvestCell → state.zuchtbuch), für das Logbuch. */
+    const [zuchtbuch, setZuchtbuch] = useState({});
+    /** Platzierungen im Wochenwettbewerb (Backend world/wettbewerb.js), fürs Profil. */
+    const [wettbewerbSiege, setWettbewerbSiege] = useState([]);
+    // „Neue Saat" (Backend core/prestige.js): Stand vom Server, Sterne auch für den Renderer.
+    const [prestigeStand, setPrestigeStand] = useState(null);
+    const eigeneSterneRef = useRef(0);
+    const [neueSaatOffen, setNeueSaatOffen] = useState(false);
+    useEffect(() => { eigeneSterneRef.current = prestigeStand?.sterne || 0; }, [prestigeStand]);
     const [skillKatalog, setSkillKatalog] = useState([]);
     /**
      * Erfahrung je SORTE — kommt mit dem Fähigkeitsbaum vom Server.
@@ -664,10 +660,6 @@ export default function GameContainer() {
      *  von „Server hat einen veralteten Acker" — siehe handleHarvest. */
     const letzteErnteRef = useRef(new Map());
     const preloadedAssetsRef = useRef(new Set());
-    const worldBootTokenRef = useRef(0);
-    const worldBootKindRef = useRef(null); // "single" | "multi" | null — source of truth for boot type
-    const worldBootStatusRef = useRef({ preloadDone: false, dataDone: false, minDoneAt: 0 });
-    const worldBootFinishTimerRef = useRef(null);
     const playerBadgeRef = useRef(null);
     // Ausgerüstete Gold-Shop-Reskins (core/reskins.js) — EIN Ref für alle vier
     // Kategorien, aus demselben Grund wie playerBadgeRef: der Renderer braucht
@@ -843,66 +835,10 @@ export default function GameContainer() {
         onWelt: handleWelt,
     });
 
-    const soundsRef = useRef(null); // lazy nach erster Nutzer-Interaktion (Autoplay-Policy)
-    const audioUnlockedRef = useRef(false);
     const lastRotationSoundRef = useRef(0);
-
-    const ensureGardenSounds = useCallback(() => {
-        if (soundsRef.current || typeof window === "undefined") return;
-        // Der Titel steht in einem Ref, nicht im State: dieser Aufbau läuft beim
-        // allerersten Klick und darf nicht an einem Rendervorgang hängen.
-        const musicObj = new Audio(aktuellerTitelRef.current);
-        musicObj.loop = true;
-        musicObj.volume = musicVolumeRef.current;
-        soundsRef.current = {
-            rotation: new Audio("/garden-assets/sounds/rotation.mp3"),
-            open: new Audio("/garden-assets/sounds/menu_open.mp3"),
-            close: new Audio("/garden-assets/sounds/menu_close.mp3"),
-            buy: new Audio("/garden-assets/sounds/kaching.mp3"),
-            cash: new Audio("/garden-assets/sounds/cash.mp3"),
-            rain: new Audio("/garden-assets/sounds/rain.mp3"),
-            thunder: new Audio("/garden-assets/sounds/thunder.mp3"),
-            plant: new Audio("/garden-assets/sounds/plant.mp3"),
-            harvest: new Audio("/garden-assets/sounds/harvest.mp3"),
-            shotgun: new Audio("/garden-assets/sounds/shotgun.mp3"),
-            music: musicObj,
-        };
-        if (!showLobbyScreenRef.current) {
-            musicObj.play().catch(() => {});
-        }
-        audioUnlockedRef.current = true;
-    }, []);
-
-    useEffect(() => {
-        const unlock = () => {
-            ensureGardenSounds();
-        };
-        window.addEventListener("pointerdown", unlock, { passive: true });
-        window.addEventListener("keydown", unlock, { passive: true });
-        return () => {
-            window.removeEventListener("pointerdown", unlock);
-            window.removeEventListener("keydown", unlock);
-        };
-    }, [ensureGardenSounds]);
-
-    useEffect(() => {
-        return () => {
-            if (soundsRef.current?.music) {
-                soundsRef.current.music.pause();
-                soundsRef.current.music.src = "";
-            }
-            soundsRef.current = null;
-        };
-    }, []);
-
-    const playSound = useCallback((type, volumeScale = 1.0) => {
-        if (!audioUnlockedRef.current) return;
-        const audio = soundsRef.current?.[type];
-        if (!audio || type === "music") return;
-        audio.volume = effectVolumeRef.current * volumeScale;
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-    }, []);
+    const {
+        effectVolume, setEffectVolume, musicVolume, setMusicVolume, laufenderPartyTitel, playSound, spieleErnteTon,
+    } = useFarmSound({ showLobbyScreen, tagesInfo, themeId });
 
 
     // ── Engine ref (canvas state, no re-renders) ──────────────────────────────
@@ -933,6 +869,7 @@ export default function GameContainer() {
         petPlacements: [],
         decoPlacements: [],
     });
+    useEffect(() => { engineRef.current.stoerer = stoerer; }, [stoerer]);
 
     // ── Shotgun-Treffer ───────────────────────────────────────────────────────
     // Nachgereicht, weil die Lobby-Verbindung weiter oben aufgebaut wird, der
@@ -1121,89 +1058,9 @@ export default function GameContainer() {
         })));
     }, [inventory, harvestedItems, plotPlants, decoInventory, decoPlacements]);
 
-    const tryCompleteWorldBoot = useCallback((token) => {
-        if (token !== worldBootTokenRef.current) return;
-        const status = worldBootStatusRef.current;
-        if (!status.preloadDone || !status.dataDone) return;
-        const finish = () => {
-            if (token !== worldBootTokenRef.current) return;
-            worldBootKindRef.current = null;
-            setWorldBootState({ active: false, label: "", progress: 100 });
-        };
-        if (worldBootFinishTimerRef.current) clearTimeout(worldBootFinishTimerRef.current);
-        const waitMs = Math.max(0, status.minDoneAt - Date.now());
-        if (waitMs > 0) {
-            worldBootFinishTimerRef.current = setTimeout(finish, waitMs);
-            return;
-        }
-        finish();
-    }, []);
-
-    const markWorldBootDataReady = useCallback((mode) => {
-        const token = worldBootTokenRef.current;
-        const status = worldBootStatusRef.current;
-        if (token <= 0 || worldBootKindRef.current !== mode) return;
-        status.dataDone = true;
-        setWorldBootState((prev) => prev.active
-            ? { ...prev, label: mode === "multi" ? "Server wird synchronisiert..." : "Farm wird vorbereitet...", progress: Math.max(prev.progress, 82) }
-            : prev);
-        tryCompleteWorldBoot(token);
-    }, [tryCompleteWorldBoot]);
-
-    const updateAreaPositions = useCallback((l) => {
-        const a = engineRef.current.areas;
-        // Siehe WAGEN_VERSATZ_X: die Werte halten Abstand zu den Grundstücksschildern.
-        const y = {
-            seedShop: l.centerPathTopY + 92, toolShop: l.centerPathTopY + 92,
-            eggShop: l.centerPathBottomY - 140, decoShop: l.centerPathBottomY - 140,
-            market: l.centerY, petMarket: l.centerY, questBoard: l.centerY,
-        };
-        for (const [art, versatz] of Object.entries(WAGEN_VERSATZ_X)) {
-            a[art].x = l.centerX + versatz;
-            a[art].y = y[art];
-            a[art].image = AREA_IMAGES[art];
-        }
-    }, []);
-
-    const startWorldBoot = useCallback((mode) => {
-        const token = worldBootTokenRef.current + 1;
-        worldBootTokenRef.current = token;
-        worldBootKindRef.current = mode;
-
-        layout.current = generatePlotSlots(WORLD_SLOTS);
-        updateAreaPositions(layout.current);
-
-        worldBootStatusRef.current = {
-            preloadDone: false,
-            dataDone: false,
-            minDoneAt: Date.now() + WORLD_BOOT_MIN_MS,
-        };
-        if (worldBootFinishTimerRef.current) clearTimeout(worldBootFinishTimerRef.current);
-        setWorldBootState({
-            active: true,
-            label: mode === "multi" ? "Verbinde mit Server..." : "Lade Welt...",
-            progress: 8,
-        });
-
-        preloadCriticalAssets((done, total) => {
-            if (token !== worldBootTokenRef.current) return;
-            const pct = Math.max(12, Math.min(70, Math.round((done / total) * 70)));
-            setWorldBootState((prev) => prev.active
-                ? { ...prev, label: "Lade Texturen...", progress: Math.max(prev.progress, pct) }
-                : prev);
-        }).then(() => {
-            if (token !== worldBootTokenRef.current) return;
-            worldBootStatusRef.current.preloadDone = true;
-                setWorldBootState((prev) => prev.active
-                ? { ...prev, label: mode === "multi" ? "Warte auf Lobby-Sync (WebSocket)…" : "Lade Farmdaten...", progress: Math.max(prev.progress, 76) }
-                : prev);
-            tryCompleteWorldBoot(token);
-        }).catch(() => {
-            if (token !== worldBootTokenRef.current) return;
-            worldBootStatusRef.current.preloadDone = true;
-            tryCompleteWorldBoot(token);
-        });
-    }, [preloadCriticalAssets, tryCompleteWorldBoot]);
+    const { worldBootState, startWorldBoot, markWorldBootDataReady } = useWorldBoot({
+        engineRef, layout, preloadCriticalAssets, showLobbyScreen, setIsInitialLoadDone,
+    });
 
     const playRotationSound = useCallback(() => {
         const now = Date.now();
@@ -1386,6 +1243,7 @@ export default function GameContainer() {
             credentials: "include",
             headers: {
                 "Content-Type": "application/json",
+                "X-VF-Geraet": GERAET_ID,
                 ...(optionen.headers || {}),
             },
             ...optionen,
@@ -1408,6 +1266,12 @@ export default function GameContainer() {
         if (data?.skillStand) setSkillStand(data.skillStand);
         return data;
     }, []);
+
+    // Gefragte Sorten am Markt (Backend core/nachfrage.js) — Anzeige in der Info-Tafel.
+    const nachfrage = useNachfrage({ apiCall, showLobbyScreen });
+    // Wochenwettbewerb (Backend world/wettbewerb.js) — vom Missionsbrett-Reiter abgerufen.
+    const ladeWettbewerb = useCallback(() => apiCall("/wettbewerb"), [apiCall]);
+    const ladeSaisonziele = useCallback(() => apiCall("/saisonziele"), [apiCall]);
 
     /**
      * Wirkung einer Fähigkeit (0 = nicht gelernt). Rechnet aus Bauplan und Stufe
@@ -1433,6 +1297,11 @@ export default function GameContainer() {
         skillWirkungRef.current = raus;
         skillStufenRef.current = stufen;
     }, [skillKatalog, skillStand]);
+
+    // Wert-Vorschau an Pflanzen (getExpectedSellValue) rechnet den Vielfalt-Bonus mit.
+    useEffect(() => {
+        setzeVielfaltFaktor(vielfaltStand(plotPlants, skillWirkung("sortenkenner")).faktor);
+    }, [plotPlants, skillKatalog, skillStand, skillWirkung]);
 
     useEffect(() => {
         if (showLobbyScreen) return;
@@ -1621,6 +1490,11 @@ export default function GameContainer() {
         try {
             const data = await apiCall("/farm-state");
             applyServerState(data.state);
+            if (data.ernteRausch) setErnteRausch(data.ernteRausch);
+            if (Array.isArray(data.stoerer)) setStoerer(data.stoerer);
+            setZuchtbuch(data.state?.zuchtbuch || {});
+            setWettbewerbSiege(Array.isArray(data.state?.wettbewerbSiege) ? data.state.wettbewerbSiege : []);
+            if (data.prestige) setPrestigeStand(data.prestige);
             if (hinweis) notify(hinweis, typ);
             return true;
         } catch {
@@ -1662,6 +1536,10 @@ export default function GameContainer() {
                 woechentlich: Array.isArray(data?.woechentlich) ? data.woechentlich : [],
                 naechsteTaeglicheAb: Number(data?.naechsteTaeglicheAb) || 0,
                 naechsteWoechentlicheAb: Number(data?.naechsteWoechentlicheAb) || 0,
+                // Händler-Aufträge stehen im selben Brett (core/auftraege.js).
+                auftraege: data?.auftraege && Array.isArray(data.auftraege.plaetze) ? data.auftraege : null,
+                // Erntefest aller Spieler (world/erntefest.js).
+                erntefest: data?.erntefest && typeof data.erntefest === "object" ? data.erntefest : null,
             });
         } catch { /* Brett bleibt beim letzten bekannten Stand */ }
     }, [apiCall]);
@@ -1772,10 +1650,20 @@ export default function GameContainer() {
             try {
                 const data = await apiCall("/farm-state");
                 applyServerState(data.state);
+                if (data.ernteRausch) setErnteRausch(data.ernteRausch);
+                if (Array.isArray(data.stoerer)) setStoerer(data.stoerer);
+                setZuchtbuch(data.state?.zuchtbuch || {});
+                setWettbewerbSiege(Array.isArray(data.state?.wettbewerbSiege) ? data.state.wettbewerbSiege : []);
+            if (data.prestige) setPrestigeStand(data.prestige);
+                // Gewinne aus dem Wochenwettbewerb, beim Laden abgerechnet.
+                for (const g of Array.isArray(data.wettbewerbGewinne) ? data.wettbewerbGewinne : []) {
+                    notify(`Wochenwettbewerb: ${g.platz}. Platz mit ${KATALOG_NACH_ID.get(g.sorte)?.name || g.sorte} (Größe ${formatGroesse(g.groesse)}) — +${Number(g.gold).toLocaleString("de-DE")} Gold!`);
+                }
                 // Kein Offline-Bericht mehr: Tiere arbeiten nur noch, solange man
                 // zusieht (siehe engine/PetSystem.js).
             } catch (err) {
                 console.error("Fehler beim Laden von der DB:", err);
+                if (err?.data?.zweitkonto) setZweitkontoText(err.message);
                 const m = err?.message || "";
                 if (m.includes("Nicht eingeloggt") || m.includes("Session") || m.includes("ungültig") || m.includes("abgelaufen")) {
                     notify("Garden: Bitte mit Twitch anmelden (gültige Session erforderlich).", "error");
@@ -2031,352 +1919,22 @@ export default function GameContainer() {
         }
     }, [selectedTool, toolInventory.plantPots]);
 
-    /**
-     * Ladenbestand aus der Serverantwort übernehmen.
-     *
-     * Der Bestand ist seit v4.0 GLOBAL und gehört dem Server: alle teilen sich
-     * einen Vorrat je Sorte. Vorher hatte jeder Spieler seinen eigenen, der Browser
-     * hat ihn selbst heruntergezählt und im Spielstand mitgeführt — geprüft hat ihn
-     * nie jemand. Der gespeicherte Bestand aus alten Ständen (`shopStock`) wird
-     * deshalb bewusst NICHT mehr wiederhergestellt; er würde den echten überschreiben.
-     */
-    const uebernimmBestand = useCallback((rotation, angefordertAm = Infinity) => {
-        // Eine Antwort, die VOR dem letzten Kauf losgeschickt wurde, kennt diesen
-        // Kauf noch nicht. Sie trägt damit den Stand von davor und würde die frisch
-        // abgezogene Zahl wieder hochsetzen — genau das Zurückspringen, das man nach
-        // dem Kaufen kurz sah. Der Laden fragt alle vier Sekunden nach; die Chance,
-        // dass ein Klick genau in eine laufende Abfrage fällt, ist entsprechend hoch.
-        if (angefordertAm < letzterKaufAtRef.current) return;
-        const stock = {};
-        for (const s of rotation?.seeds || []) {
-            stock[s.seedId] = s.active ? Math.max(0, Number(s.stock) || 0) : 0;
-        }
-        setLadenBestand(stock);
-    }, []);
+    useLadenRotation({
+        letzterKaufAtRef, setLadenBestand, savedToolShopStockRef, toolShopRotation,
+        setToolShopStock, ladenbestandGeladen, savedEggShopStockRef, eggShopRotation,
+        setEggShopStock, showLobbyScreen, apiCall, setShopRotationIfChanged,
+        bestandFuerRotationRef, seedRotationKeyRef, announceRotation, seedNextRotationAtRef,
+        setToolShopRotation, toolRotationKeyRef, toolShopSeededForGenAtRef, toolNextRotationAtRef,
+        letzterToolKaufAtRef, setEggShopRotation, eggRotationKeyRef, eggShopSeededForGenAtRef,
+        eggNextRotationAtRef, setShopCountdown, setToolShopCountdown, setEggShopCountdown,
+        ladenOffenRef, shopRotation, shopBootstrapTriedRef, weltUebersteuerung, setWeatherState,
+        playSound, notify,
+    });
 
-    useEffect(() => {
-        if (savedToolShopStockRef.current && toolShopRotation?.generatedAt) {
-            if (savedToolShopStockRef.current.version === Number(toolShopRotation.generatedAt)) {
-                setToolShopStock(savedToolShopStockRef.current.stock);
-            }
-            savedToolShopStockRef.current = null;
-        }
-    }, [toolShopRotation?.generatedAt, ladenbestandGeladen]);
-
-    useEffect(() => {
-        if (savedEggShopStockRef.current && eggShopRotation?.generatedAt) {
-            if (savedEggShopStockRef.current.version === Number(eggShopRotation.generatedAt)) {
-                setEggShopStock(savedEggShopStockRef.current.stock);
-            }
-            savedEggShopStockRef.current = null;
-        }
-    }, [eggShopRotation?.generatedAt, ladenbestandGeladen]);
-
-    // ── Shop rotation (global backend source) ──────────────────────
-    useEffect(() => {
-        if (showLobbyScreen) return;
-
-        let rotationTimer = null;
-        const fetchGlobalShop = async () => {
-            try {
-                // Vor dem Abschicken merken: nur so lässt sich hinterher erkennen,
-                // ob zwischenzeitlich ein eigener Kauf durchging (siehe uebernimmBestand).
-                const angefordertAm = Date.now();
-                const data = await apiCall("/global-shop");
-                const now = Date.now();
-
-                setShopRotationIfChanged(data.shopRotation || null);
-                const seedGen = data.shopRotation?.generatedAt;
-                // Bei JEDER Antwort übernehmen, nicht nur beim Rotationswechsel:
-                // der Vorrat ist global und sinkt zwischendurch, weil andere kaufen.
-                uebernimmBestand(data.shopRotation, angefordertAm);
-                bestandFuerRotationRef.current = Number(seedGen);
-                const seedKey = String(data.shopRotation?.generatedAt || "");
-                if (seedKey && seedRotationKeyRef.current && seedRotationKeyRef.current !== seedKey) {
-                    announceRotation("Samen-Shop hat rotiert");
-                }
-                if (seedKey) seedRotationKeyRef.current = seedKey;
-                seedNextRotationAtRef.current = Number(data.nextRotation || data.shopRotation?.nextRotation || 0);
-
-                if (data.toolShopRotation) {
-                    setToolShopRotation(data.toolShopRotation);
-                    const toolKey = String(data.toolShopRotation.generatedAt || "");
-                    if (toolKey && toolRotationKeyRef.current && toolRotationKeyRef.current !== toolKey) {
-                        announceRotation("Tool-Shop neu aufgefüllt");
-                    }
-                    if (toolKey) toolRotationKeyRef.current = toolKey;
-                    // Nur beim WECHSEL der Rotation auffüllen — sonst macht der Poller
-                    // jeden Kauf nach spätestens 30 s wieder rückgängig.
-                    const toolGen = Number(data.toolShopRotation.generatedAt);
-                    if (toolGen !== toolShopSeededForGenAtRef.current) {
-                        const nextStock = {};
-                        for (const item of data.toolShopRotation.items || []) {
-                            if (item.type === "single") nextStock[item.id] = item.stock || 0;
-                        }
-                        setToolShopStock(nextStock);
-                        toolShopSeededForGenAtRef.current = toolGen;
-                    }
-                    toolNextRotationAtRef.current = Number(data.nextToolRotation || data.toolShopRotation.nextRotation || 0);
-                }
-
-                // Server-Wahrheit bei JEDER Antwort übernehmen, nicht nur beim
-                // Rotationswechsel (genau wie uebernimmBestand für Samen oben) —
-                // sonst korrigiert sich ein einmal verdrehter Bestand (siehe
-                // handleBuyTool) erst wieder nach zehn Minuten von selbst. Nur die
-                // Sorten mit echtem Kontingent (plant_pot, watering_can): Spitzhacke
-                // und Rucksack sind absichtlich unbegrenzt, ihr `stock` aus
-                // werkzeugladen ist dafür nicht gedacht.
-                if (Array.isArray(data.werkzeugladen) && angefordertAm >= letzterToolKaufAtRef.current) {
-                    const mitKontingent = new Set(
-                        (data.toolShopRotation?.items || [])
-                            .filter((item) => item.type === "single")
-                            .map((item) => item.id),
-                    );
-                    if (mitKontingent.size > 0) {
-                        const naechsterBestand = {};
-                        for (const eintrag of data.werkzeugladen) {
-                            if (mitKontingent.has(eintrag.id) && Number.isFinite(eintrag.stock)) {
-                                naechsterBestand[eintrag.id] = Math.max(0, eintrag.stock);
-                            }
-                        }
-                        if (Object.keys(naechsterBestand).length > 0) {
-                            setToolShopStock((prev) => ({ ...prev, ...naechsterBestand }));
-                        }
-                    }
-                }
-
-                if (data.eggShopRotation) {
-                    setEggShopRotation(data.eggShopRotation);
-                    const eggKey = String(data.eggShopRotation.generatedAt || "");
-                    if (eggKey && eggRotationKeyRef.current && eggRotationKeyRef.current !== eggKey) {
-                        announceRotation("Eier-Shop hat rotiert");
-                    }
-                    if (eggKey) eggRotationKeyRef.current = eggKey;
-                    const eggGen = Number(data.eggShopRotation.generatedAt);
-                    if (eggGen !== eggShopSeededForGenAtRef.current) {
-                        const nextEggStock = {};
-                        for (const item of data.eggShopRotation.items || []) {
-                            nextEggStock[item.id] = item.stock || 0;
-                        }
-                        setEggShopStock(nextEggStock);
-                        eggShopSeededForGenAtRef.current = eggGen;
-                    }
-                    eggNextRotationAtRef.current = Number(data.nextEggRotation || data.eggShopRotation.nextRotation || 0);
-                }
-
-                setShopCountdown(Math.max(0, seedNextRotationAtRef.current - now));
-                setToolShopCountdown(Math.max(0, toolNextRotationAtRef.current - now));
-                setEggShopCountdown(Math.max(0, eggNextRotationAtRef.current - now));
-
-                // Steht der Samenladen offen, häufiger nachfragen: der Vorrat ist
-                // global, andere kaufen währenddessen, und ein Regal, das erst nach
-                // 30 Sekunden leer wird, schickt einen bloss in „ausverkauft".
-                const takt = ladenOffenRef.current === "seed" ? 4_000 : 30_000;
-                const nextTimerMs = Math.max(1500, Math.min(
-                    ...[
-                        seedNextRotationAtRef.current,
-                        toolNextRotationAtRef.current,
-                        eggNextRotationAtRef.current,
-                    ].filter(Boolean).map(ts => Math.max(0, ts - now)),
-                    takt
-                ));
-                rotationTimer = setTimeout(fetchGlobalShop, nextTimerMs + 200);
-            } catch {
-                // Keep current rotation/timer on transient API failures to avoid
-                // premature weather/shop jumps and visible UI flashing.
-                if (!shopRotation?.generatedAt) {
-                    const fallback = generateShopRotation(8);
-                    setShopRotationIfChanged(fallback);
-                    uebernimmBestand(fallback);
-                    bestandFuerRotationRef.current = Number(fallback.generatedAt);
-                    seedNextRotationAtRef.current = Date.now() + SHOP_ROTATION_MS;
-                    setShopCountdown(SHOP_ROTATION_MS);
-                }
-                rotationTimer = setTimeout(fetchGlobalShop, 5000);
-            }
-        };
-        fetchGlobalShop();
-        return () => clearTimeout(rotationTimer);
-    }, [showLobbyScreen, apiCall, uebernimmBestand, announceRotation, setShopRotationIfChanged]);
-
-    // Einmaliger Nachlade-Versuch, falls beim Betreten noch keine Rotation da ist.
-    //
-    // Vorher hing dieser Effekt am GESAMTEN `shopRotation`-Objekt und setzte es selbst neu:
-    // liefert der Server eine Rotation ohne Samen (`seeds: []`), greift die Abbruchprüfung
-    // `shopRotation?.seeds?.length` nicht, der Effekt läuft erneut, holt, setzt ein neues
-    // Objekt — und dreht sich mit voller Netzgeschwindigkeit im Kreis. In der Messung waren
-    // das ~490 Zustandsänderungen pro Sekunde und damit praktisch alle React-Commits im
-    // Leerlauf. Ein Ref begrenzt das jetzt auf einen Versuch; die laufende Aktualisierung
-    // macht ohnehin der reguläre Rotations-Poller.
-    useEffect(() => {
-        if (showLobbyScreen) {
-            shopBootstrapTriedRef.current = false;
-            return;
-        }
-        if (shopRotation?.seeds?.length) return;
-        if (shopBootstrapTriedRef.current) return;
-        shopBootstrapTriedRef.current = true;
-        apiCall("/global-shop")
-            .then((data) => {
-                if (!data?.shopRotation) return;
-                setShopRotationIfChanged(data.shopRotation);
-                const now = Date.now();
-                // Wie im regulären Poller: der Vorrat ist global und gehört dem
-                // Server, also wird er bei jeder Antwort übernommen statt nur beim
-                // Rotationswechsel.
-                uebernimmBestand(data.shopRotation);
-                bestandFuerRotationRef.current = Number(data.shopRotation?.generatedAt);
-                seedNextRotationAtRef.current = Number(data.nextRotation || data.shopRotation?.nextRotation || 0);
-                if (data.toolShopRotation) {
-                    setToolShopRotation(data.toolShopRotation);
-                    toolNextRotationAtRef.current = Number(data.nextToolRotation || data.toolShopRotation?.nextRotation || 0);
-                }
-                if (data.eggShopRotation) {
-                    setEggShopRotation(data.eggShopRotation);
-                    eggNextRotationAtRef.current = Number(data.nextEggRotation || data.eggShopRotation?.nextRotation || 0);
-                }
-                setShopCountdown(Math.max(0, seedNextRotationAtRef.current - now));
-                setToolShopCountdown(Math.max(0, toolNextRotationAtRef.current - now));
-                setEggShopCountdown(Math.max(0, eggNextRotationAtRef.current - now));
-            })
-            .catch(() => { shopBootstrapTriedRef.current = false; });
-    }, [showLobbyScreen, shopRotation?.seeds?.length, apiCall, uebernimmBestand, setShopRotationIfChanged]);
-
-    useEffect(() => {
-        if (showLobbyScreen) return;
-        if (!shopRotation?.generatedAt) return;
-        const rotationKey = String(shopRotation.generatedAt);
-        // Von Hand gesetztes Wetter schlägt die Rotation, solange es läuft. Der
-        // Rotationsschlüssel bleibt trotzdem der Anker für `startedAt`, damit die
-        // Intensitätsrampe nicht bei jedem Poll neu anfängt.
-        const uebersteuert = weltUebersteuerung.wetterTyp
-            && (Number(weltUebersteuerung.wetterBis) || 0) > Date.now()
-            ? WEATHER_BY_ROLL.find((w) => w.type === weltUebersteuerung.wetterTyp)
-            : null;
-        const nextWeather = uebersteuert || rollWeatherFromRotation(rotationKey);
-        setWeatherState((prev) => {
-            if (prev.type === nextWeather.type && prev.label === nextWeather.label && prev.startedAt === Number(rotationKey)) return prev;
-            if (nextWeather.type === "rain") playSound("rain", 0.4);
-            else if (nextWeather.type === "thunder") playSound("thunder", 0.5);
-            return {
-                ...nextWeather,
-                intensity: 0.05,
-                startedAt: Number(rotationKey) || Date.now(),
-            };
-        });
-    }, [showLobbyScreen, shopRotation?.generatedAt, weltUebersteuerung.wetterTyp, weltUebersteuerung.wetterBis, notify, playSound]);
-
-    useEffect(() => {
-        if (showLobbyScreen) return undefined;
-        if (!weatherState || weatherState.type === "sun" || weatherState.intensity >= 1) return undefined;
-        const timer = setInterval(() => {
-            setWeatherState((prev) => {
-                if (!prev || prev.type === "sun" || prev.intensity >= 1) return prev;
-                return { ...prev, intensity: Math.min(1, (Number(prev.intensity) || 0) + 0.16) };
-            });
-        }, 120);
-        return () => clearInterval(timer);
-    }, [showLobbyScreen, weatherState?.type]);
-
-    /**
-     * Uhrzeit und Party-Countdown fürs HUD — einmal je Sekunde.
-     *
-     * Der Renderer holt sich Dunkelheit und Party-Stärke jedes Bild direkt aus der Uhr
-     * (siehe drawState). Hier geht es nur um die Anzeige; ein Update je Bild würde die
-     * ganze Komponente sechzigmal pro Sekunde neu rendern.
-     */
-    useEffect(() => {
-        if (showLobbyScreen) return undefined;
-        let warParty = tagesInfoRef.current.party;
-        const lauf = () => {
-            const now = Date.now();
-            const p = partyStand(now);
-            const vonHand = Number(weltRef.current?.partyBis) || 0;
-            const naechste = {
-                uhrzeit: spielUhrzeit(now),
-                nacht: istNacht(now),
-                party: p.aktiv || vonHand > now,
-                verbleibendMs: Math.max(p.aktiv ? p.verbleibendMs : 0, vonHand > now ? vonHand - now : 0),
-                // Der Beginn bleibt über die ganze Party derselbe und ist damit der
-                // stabile Anker für die Titelwahl — `now` wäre es nicht.
-                partyBeginn: p.beginn,
-            };
-            setTagesInfo((alt) => (
-                alt.uhrzeit === naechste.uhrzeit && alt.nacht === naechste.nacht
-                    && alt.party === naechste.party && alt.partyBeginn === naechste.partyBeginn
-                    && Math.round(alt.verbleibendMs / 1000) === Math.round(naechste.verbleibendMs / 1000)
-                    ? alt : naechste
-            ));
-            if (naechste.party !== warParty) {
-                warParty = naechste.party;
-                notify(naechste.party
-                    ? `Partyzeit! „${partyTrack(naechste.partyBeginn).name}" läuft — Rainbow ist ${PARTY_RAINBOW_FAKTOR}× so wahrscheinlich.`
-                    : "Die Party ist vorbei. Rainbow ist wieder so selten wie sonst.");
-            }
-        };
-        lauf();
-        const timer = setInterval(lauf, 1000);
-        return () => clearInterval(timer);
-    }, [showLobbyScreen, notify]);
-
-    useEffect(() => {
-        if (showLobbyScreen) return undefined;
-        const effectType =
-            weatherState?.type === "rain" ? "wet"
-                : weatherState?.type === "snow" ? "frozen"
-                    : weatherState?.type === "thunder" ? "charged"
-                        : weatherState?.type === "moonlight" ? "moonlit"
-                            : null;
-        const interval = setInterval(() => {
-            const now = Date.now();
-            // Wetterfühlig: das Wetter greift häufiger zu.
-            const skillFaktor = 1 + skillWirkung("wetterfuehlig");
-                setPlotPlants((prev) => {
-                let changed = false;
-                const next = { ...prev };
-                for (const [key, plant] of Object.entries(prev)) {
-                    if (!plant) continue;
-                    // Die Chance hängt jetzt am ZYKLUS der Pflanze, nicht mehr an
-                    // einer festen Rate pro Minute. Vorher bekam eine Sorte mit
-                    // Tagen an Wachstum garantiert alle vier Effekte (×11,25), eine
-                    // mit Minuten praktisch keinen (×1,02) — der Aufschlag hing
-                    // allein an der Wachstumsdauer und liess sich nicht einpreisen.
-                    const wetterChance = wetterChanceFuer(zyklusMinuten(plant), skillFaktor);
-
-                    // ── Dauerträger: Effekt hängt an der einzelnen Frucht ──────────
-                    // Jede reife Frucht würfelt für sich. Dadurch können an einem Strauch
-                    // zwei Früchte gefroren sein, ohne dass das Ernten der einen die
-                    // andere zurücksetzt.
-                    if (!plant.singleUse && Array.isArray(plant.fruitSlots)) {
-                        let slotsChanged = false;
-                        const nextSlots = plant.fruitSlots.map((slot) => {
-                            if (!slot) return slot;
-                            const aenderung = wetterEffektSchritt(slot, effectType, (slot.readyAt || 0) <= now, now, wetterChance);
-                            if (!aenderung) return slot;
-                            slotsChanged = true;
-                            return { ...slot, ...aenderung };
-                        });
-                        if (slotsChanged) {
-                            changed = true;
-                            next[key] = { ...plant, fruitSlots: nextSlots };
-                        }
-                        continue;
-                    }
-
-                    // ── Einmalernte: Effekt gehört zur ganzen Pflanze ──────────────
-                    const aenderung = wetterEffektSchritt(plant, effectType, isPlantReady(plant), now, wetterChance);
-                    if (!aenderung) continue;
-                    changed = true;
-                    next[key] = { ...plant, ...aenderung };
-                }
-                return changed ? next : prev;
-            });
-        }, 60 * 1000);
-        return () => clearInterval(interval);
-        // Nur der Wetter-TYP ist relevant — mit dem vollen Objekt wurde das Intervall
-        // während der Intensitäts-Rampe alle 120ms neu aufgesetzt. `skillWirkung` ist
-        // ein Ref-Leser und ändert sich nie, hält das Intervall also auch nicht auf.
-    }, [showLobbyScreen, weatherState?.type, skillWirkung]);
+    useWetterUndUhr({
+        showLobbyScreen, weatherState, setWeatherState, tagesInfoRef, weltRef, setTagesInfo,
+        notify, skillWirkung, setPlotPlants,
+    });
 
     // Ungelesene Chatzeilen zählen, solange das Fenster zu ist. Beim Öffnen wieder
     // auf null — sonst müsste man die Nachrichten einzeln „wegklicken".
@@ -2445,535 +2003,23 @@ export default function GameContainer() {
         return () => clearInterval(interval);
     }, [showLobbyScreen, activeShop]);
 
-    useEffect(() => {
-        if (showLobbyScreen) return undefined;
-        const onKeyDown = (e) => {
-            const target = e.target;
-            const tag = (target?.tagName || "").toLowerCase();
-            if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
-
-            // Tab schaltet um, statt nur zu oeffnen — sonst kommt man mit derselben
-            // Taste nicht wieder raus. Beim Schliessen auch den Hinweis wegnehmen,
-            // der sonst ueber dem Spiel haengen bleibt.
-            if (e.key === "Tab") {
-                e.preventDefault();
-                setBackpackOpen((offen) => {
-                    if (offen) setItemHoverTooltip(null);
-                    return !offen;
-                });
-                return;
-            }
-
-            // Deko in der Hand spiegeln — oder, bei einem Bodenbelag, drehen. Der
-            // Fußabdruck bleibt so oder so gleich (Beläge sind immer 1×1): nur so
-            // landet ein Objekt immer dort, wo man hinklickt (siehe DECO-Kommentar
-            // oben). Dieselbe Taste macht bei Belägen bewusst etwas anderes, weil
-            // Spiegeln dort optisch fast nie sichtbar ist (Texturen sind meist
-            // links-rechts symmetrisch) — Drehen dagegen ist genau das, was einen
-            // Weg auch hochkant verlegbar macht.
-            if (e.code === "KeyR" && !e.repeat && selectedDecoToPlaceRef.current) {
-                e.preventDefault();
-                if (istBoden(selectedDecoToPlaceRef.current)) setDecoRotiert((prev) => !prev);
-                else setDecoGespiegelt((prev) => !prev);
-                return;
-            }
-            
-            // Escape beendet das Einrichten — die naheliegendste Taste dafür.
-            if (e.key === "Escape" && !e.repeat && editorAktivRef.current) {
-                setEditorAktiv(false);
-                setSelectedDecoToPlace(null);
-                setVerschiebtGebaeude(null);
-                return;
-            }
-
-            // 3. ANPASSUNG: Tool-Auswahl mit den Tasten 1, 2, 3, 4 (Ohne Shift)
-            if (!e.shiftKey && !e.repeat) {
-                const inv = toolInventoryRef.current || {};
-                const equip = (key) => {
-                    setSelectedSeed(null);
-                    setSelectedPetToPlace(null);
-                    setSelectedDecoToPlace(null);
-                    setSelectedCarryItem(null);
-                    setSelectedTool(prev => (prev === key ? null : key));
-                    if (key !== "pot") setMovingPlantSource(null);
-                };
-
-                if (e.code === "Digit1" && inv.hasShovel) equip("shovel");
-                if (e.code === "Digit2" && (inv.plantPots || 0) > 0) equip("pot");
-                if (e.code === "Digit3" && (inv.pickaxeUses || 0) > 0) equip("pickaxe");
-                if (e.code === "Digit4" && (inv.wateringCans || 0) > 0) equip("watering");
-                if (e.code === "Digit5" && istGartenAdminRef.current) equip("shotgun");
-            }
-
-            if (!e.shiftKey || e.repeat) return;
-            if (e.code === "Digit1") {
-                e.preventDefault();
-                teleportToMarketArea();
-            } else if (e.code === "Digit2") {
-                e.preventDefault();
-                teleportToShopArea();
-            } else if (e.code === "Digit3") {
-                e.preventDefault();
-                teleportToMyFarm();
-            }
-        };
-        window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
-    }, [showLobbyScreen, teleportToMyFarm, teleportToShopArea, teleportToMarketArea]);
+    useTastatur({
+        showLobbyScreen, setBackpackOpen, setItemHoverTooltip, selectedDecoToPlaceRef,
+        setDecoRotiert, setDecoGespiegelt, editorAktivRef, setEditorAktiv, setSelectedDecoToPlace,
+        setVerschiebtGebaeude, toolInventoryRef, setSelectedSeed, setSelectedPetToPlace,
+        setSelectedCarryItem, setSelectedTool, setMovingPlantSource, istGartenAdminRef,
+        teleportToMarketArea, teleportToShopArea, teleportToMyFarm,
+    });
 
 
-    // ── Main game loop ─────────────────────────────────────────────────────────
-    useEffect(() => {
-        if (showLobbyScreen) return;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        const onResize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-        window.addEventListener("resize", onResize);
-
-        const engine = engineRef.current;
-        if (engine.input && typeof engine.input.destroy === "function") {
-            engine.input.destroy();
-        }
-        engine.input = new InputHandler();
-        engine.renderer = new Renderer(canvas);
-        
-
-        let animFrame;
-        let lastFrameTs = performance.now();
-        const frameDuration = 1000 / TARGET_FPS;
-
-        // Wiederverwendete Hüllen für den Render-Aufruf. Sie werden pro Frame nur neu
-        // BEFÜLLT, nie neu erzeugt — vorher entstanden hier bei 60 FPS vier frische
-        // Objekte pro Frame (Pflanzen-Klon, Slot, Layout, Payload), was den Garbage
-        // Collector regelmäßig zu Sammelläufen zwang: genau die Mikro-Ruckler.
-        // Unbedenklich, weil der Renderer nichts davon über den Frame hinaus festhält
-        // (sein Slot-Cache vergleicht über einen wertbasierten cacheKey, nicht über
-        // Objektidentität) und `layout.current` dabei unangetastet bleibt.
-        const drawState = {};
-        const layoutBuf = {};
-        const slotsBuf = [];
-        const mySlotBuf = {};
-        const foreignSlotBufs = {}; // slotIndex -> wiederverwendete Hülle für fremde Äcker
-        const remoteBuf = [];       // wiederverwendete Liste der Mitspieler
-        const fremdeTiere = [];     // Tiere von fremden Grundstücken (aus den Snapshots)
-        const fremdeDeko = [];      // Deko von fremden Grundstücken
-        // Gebäude der anderen — alle sichtbar, aber nur die Vitrine ist anlaufbar
-        // (siehe FREMDE_GEBAEUDE). Der Puffer verhindert eine Neuanlage pro Bild.
-        const fremdeGebaeude = [];
-        const fremdeGebaeudeBufs = {}; // `${slotIndex}_${art}` -> wiederverwendeter Eintrag
-        const alleTiere = [];       // eigene + fremde, so bekommt der Renderer sie
-        const alleDeko = [];
-
-        const gameLoop = () => {
-            const l = layout.current;
-            const now = performance.now();
-            if (now - lastFrameTs < frameDuration) {
-                animFrame = requestAnimationFrame(gameLoop);
-                return;
-            }
-            const frameMs = Math.max(1, now - lastFrameTs);
-            const deltaFactor = Math.min(2.5, frameMs / (1000 / 60));
-            lastFrameTs = now;
-
-            const { input, renderer, player } = engine;
-            input.update(); // flush key events
-
-            // ── TILE-SPRUNG-BEWEGUNG ─────────────────────────────────────────
-            // Ersetzt die vorherige kontinuierliche vx/vy-Bewegung: ein Tastendruck
-            // ist jetzt EIN Sprung zur Nachbarkachel (TILE_SIZE), kein Dauerlauf.
-            // `player.tileX/tileY` ist die logische, SOFORTIGE Kachel (Kollision
-            // prüft dagegen); `player.x/y` bleibt die gerenderte Position und
-            // tweent weich zur neuen Kachelmitte — Kamera, Nähe-Prüfung
-            // (INTERACT_DIST weiter unten) und sendMove lesen unverändert nur x/y
-            // und merken vom Sprung selbst nichts.
-            // Prüft + startet (falls möglich) einen Sprung in Richtung dx/dy ab der
-            // AKTUELLEN gerenderten Position. Eigene Funktion, weil sie jetzt an
-            // zwei Stellen gebraucht wird: normaler Sprungstart UND frühes Abbiegen
-            // (siehe unten) — beide teilen dieselbe Grenz-/Kollisionsprüfung.
-            const versucheSprung = (dx, dy) => {
-                const targetTileX = (player.tileX ?? 0) + dx;
-                const targetTileY = (player.tileY ?? 0) + dy;
-                const targetX = targetTileX * TILE_SIZE + TILE_SIZE / 2;
-                const targetY = targetTileY * TILE_SIZE + TILE_SIZE / 2;
-
-                const margin = 20;
-                const inBounds = targetX >= margin && targetX <= l.worldWidth - margin
-                    && targetY >= margin && targetY <= l.worldHeight - margin;
-                if (!inBounds) return;
-
-                // Dieselben Ausschlussradien wie vorher beim weichen Wegdrücken —
-                // nur wird jetzt der SPRUNG verweigert, statt die Position im
-                // Nachhinein zurückzuschieben: auf der Zielkachel darf kein
-                // Ladenstand/Gebäude "im Weg stehen".
-                for (const area of Object.values(engine.areas || {})) {
-                    if (area?.aktiv === false) continue;
-                    const minDist = COLLISION_RADIUS_BY_AREA_TYPE[area?.type];
-                    if (!minDist) continue;
-                    if (Math.hypot(targetX - area.x, targetY - area.y) < minDist) return;
-                }
-
-                if (dx > 0) player.facingRight = true;
-                else if (dx < 0) player.facingRight = false;
-
-                player.tileX = targetTileX;
-                player.tileY = targetTileY;
-                player.hopFromX = player.x;
-                player.hopFromY = player.y;
-                player.hopToX = targetX;
-                player.hopToY = targetY;
-                player.hopStart = now;
-                player.hopping = true;
-                player.hopDx = dx;
-                player.hopDy = dy;
-            };
-
-            if (!player.hopping) {
-                const hop = input.consumeHop(MAP_CONFIG.hopRepeatMs);
-                if (hop) versucheSprung(hop.dx, hop.dy);
-            } else if (now - player.hopStart >= MAP_CONFIG.hopMs * FRUEHES_ABBIEGEN_AB) {
-                // Frühes Abbiegen (Feedback 28.08.: Richtungswechsel sollen sich
-                // "flüssiger" anfühlen) — ab einem Teil der Sprungstrecke darf eine
-                // FRISCH gedrückte, ANDERE Richtung den laufenden Sprung sofort
-                // ablösen, statt bis zur Kachelmitte zu warten. peekFreshDirection
-                // fasst dabei bewusst nicht dieselbe Wiederhol-Uhr an wie consumeHop
-                // (siehe dort) — ein bloß gehaltener Zweitschlüssel bleibt also ruhig.
-                const richtung = input.peekFreshDirection();
-                if (richtung && (richtung.dx !== player.hopDx || richtung.dy !== player.hopDy)) {
-                    versucheSprung(richtung.dx, richtung.dy);
-                }
-            }
-
-            let isMoving = false;
-            if (player.hopping) {
-                const t = Math.min(1, (now - player.hopStart) / MAP_CONFIG.hopMs);
-                const eased = 1 - (1 - t) * (1 - t); // ease-out: schneller Start, sanftes Einbremsen
-                player.x = player.hopFromX + (player.hopToX - player.hopFromX) * eased;
-                player.y = player.hopFromY + (player.hopToY - player.hopFromY) * eased;
-                // Kleiner Hüpfer nach oben während des Sprungs, rein optisch (Renderer
-                // liest player.hopBob als zusätzlichen Y-Versatz beim Zeichnen).
-                player.hopBob = Math.sin(t * Math.PI) * MAP_CONFIG.hopBobPx;
-                isMoving = true;
-                if (t >= 1) {
-                    player.hopping = false;
-                    player.x = player.hopToX;
-                    player.y = player.hopToY;
-                    player.hopBob = 0;
-                }
-            }
-            player.isMoving = isMoving;
-
-            // ── INTERACTION PROXIMITY + E/SPACE ─────────────────────────────
-            // Kein Objekt-Spread pro Frame mehr: nur die Referenz auf das nächste Areal
-            // merken. setState läuft ausschließlich, wenn sich der Typ tatsächlich ändert —
-            // vorher wurde bei 60+ FPS jeden Frame ein Updater in React geschoben.
-            let nearestArea = null;
-            let nearestDist = Infinity;
-            for (const area of Object.values(engine.areas)) {
-                if (area?.aktiv === false) continue;
-                const dist = Math.hypot(player.x - area.x, player.y - area.y);
-                if (dist < INTERACT_DIST && dist < nearestDist) {
-                    nearestArea = area;
-                    nearestDist = dist;
-                }
-            }
-
-            // Schuppen der anderen: einmal pro Bild aus den Momentaufnahmen aufbauen.
-            // Anlaufbar ist nur, wenn er eine Vitrine enthält — was in Mülleimer und
-            // Kiste liegt, geht niemanden außer dem Besitzer etwas an.
-            fremdeGebaeude.length = 0;
-            for (const [slotIndex, snapshot] of plotsRef.current) {
-                if (slotIndex === mySlotRef.current || !snapshot) continue;
-                const fremdSlot = l.slots[slotIndex];
-                if (!fremdSlot) continue;
-                const stellen = berechneGebaeudePositionen(fremdSlot, snapshot.gebaeudeVersatz);
-                const besitzer = snapshot.owner || "unbekannt";
-                for (const art of FREMDE_GEBAEUDE) {
-                    // Der Schuppen erscheint nur, wenn wenigstens die Vitrine gekauft ist —
-                    // sonst stünde bei jedem Neuling ein Gebäude ohne jeden Inhalt herum.
-                    if (art.key === "vitrine" && !snapshot.vitrine) continue;
-                    const stelle = stellen.shed;
-                    const bufKey = `${slotIndex}_${art.key}`;
-                    const eintrag = fremdeGebaeudeBufs[bufKey] || (fremdeGebaeudeBufs[bufKey] = {
-                        // `type` steuert die Bedienung, `art` das Aussehen — siehe bauart() im Renderer.
-                        type: art.type, art: "shed",
-                        label: "", image: AREA_IMAGES.shed, owner: null, items: [],
-                    });
-                    eintrag.x = stelle.x;
-                    eintrag.y = stelle.y;
-                    eintrag.fussY = stelle.fussY;
-                    eintrag.owner = snapshot.owner || null;
-                    eintrag.label = `${art.name} von ${besitzer}`;
-                    // Reskin des Besitzers (core/reskins.js) — kommt mit der
-                    // Momentaufnahme, dieselbe Quelle wie snapshot.reskins.mailbox
-                    // beim eigenen Briefkasten-Zweig weiter unten.
-                    eintrag.image = SHED_RESKIN_BILD[snapshot.reskins?.shed] || AREA_IMAGES.shed;
-                    fremdeGebaeude.push(eintrag);
-                    if (!art.anlaufbar) continue;
-                    eintrag.items = snapshot.vitrine.items || [];
-                    const dist = Math.hypot(player.x - eintrag.x, player.y - eintrag.y);
-                    if (dist < INTERACT_DIST && dist < nearestDist) {
-                        nearestArea = eintrag;
-                        nearestDist = dist;
-                    }
-                }
-            }
-
-            // Briefkästen sind keine "areas" — sie hängen an den Grundstücken.
-            // Sie konkurrieren um dieselbe "Öffnen"-Anzeige wie die Gebäude.
-            let nearestMailboxSlot = null;
-            let nearestMailboxOwner = null;
-            for (let i = 0; i < l.slots.length; i++) {
-                const slot = l.slots[i];
-                // Der Besitzer steht bei FREMDEN Grundstücken nur in der Server-Momentaufnahme,
-                // nicht auf l.slots — dort wird nur das eigene Schild beschriftet.
-                const owner = i === mySlotRef.current
-                    ? (slot.owner || localPlayerNameRef.current)
-                    : (plotsRef.current.get(i)?.owner || null);
-                if (!owner) continue; // freies Grundstück = kein Kasten in Betrieb
-                const box = getMailboxHitArea(slot);
-                const dist = Math.hypot(player.x - box.x, player.y - box.y);
-                if (dist >= MAILBOX_INTERACT_DIST || dist >= nearestDist) continue;
-                nearestMailboxSlot = slot;
-                nearestMailboxOwner = owner;
-                nearestDist = dist;
-                nearestArea = null;
-            }
-
-            // Schlüssel statt Typ, damit auch der Wechsel zwischen zwei Briefkästen greift.
-            const nearestKey = nearestMailboxSlot
-                ? `mb${nearestMailboxSlot.id}`
-                : (nearestArea?.type || null);
-            if (nearestKey !== lastInteractableTypeRef.current) {
-                lastInteractableTypeRef.current = nearestKey;
-                if (nearestMailboxSlot) {
-                    const isOwn = nearestMailboxSlot.id - 1 === mySlotRef.current;
-                    activeTargetRef.current = {
-                        type: "mailbox",
-                        isOwn,
-                        owner: nearestMailboxOwner,
-                        label: isOwn ? "Deinen Briefkasten" : `Briefkasten von ${nearestMailboxOwner}`,
-                    };
-                } else {
-                    activeTargetRef.current = nearestArea;
-                }
-                setCurrentInteractable(activeTargetRef.current);
-            }
-            if (activeTargetRef.current && (input.wasJustPressed("e") || input.wasJustPressed(" "))) {
-                activateInteractable(activeTargetRef.current);
-            }
-
-            // Ein Tier wandert auf SEINEM Grundstück — egal, wem das gehört.
-            // Auch fremde Tiere laufen dadurch herum statt wie angeklebt dazustehen.
-            // Jeder Client würfelt das für sich; abgeglichen wird nichts, das würde
-            // nur Datenverkehr kosten und sieht niemand.
-            const bewegeTiere = (liste, slotIndex) => {
-                const slot = l.slots[slotIndex];
-                if (!slot || !Array.isArray(liste) || liste.length === 0) return;
-                const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
-                const minX = slot.x + 30;
-                const maxX = slot.x + MAP_CONFIG.territoryWidth - 30;
-                const minY = drawY + 30;
-                const maxY = drawY + MAP_CONFIG.territoryHeight - 30;
-                for (const pet of liste) {
-                    if (!pet || pet.slotIndex !== slotIndex) continue;
-                    if (!Number.isFinite(pet.x) || !Number.isFinite(pet.y)) {
-                        pet.x = (minX + maxX) / 2;
-                        pet.y = (minY + maxY) / 2;
-                    }
-                    if (!Number.isFinite(pet.vx) || !Number.isFinite(pet.vy) || now >= (pet.changeDirAt || 0)) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = 0.55 + Math.random() * 0.9;
-                        pet.vx = Math.cos(angle) * speed;
-                        pet.vy = Math.sin(angle) * speed;
-                        pet.changeDirAt = now + 1400 + Math.random() * 2200;
-                        if (pet.vx > 0) pet.facingRight = true;
-                        else if (pet.vx < 0) pet.facingRight = false;
-                    }
-                    pet.x += pet.vx * deltaFactor;
-                    pet.y += pet.vy * deltaFactor;
-                    if (pet.x < minX || pet.x > maxX) {
-                        pet.vx *= -1;
-                        pet.x = Math.max(minX, Math.min(maxX, pet.x));
-                        pet.facingRight = pet.vx > 0;
-                    }
-                    if (pet.y < minY || pet.y > maxY) {
-                        pet.vy *= -1;
-                        pet.y = Math.max(minY, Math.min(maxY, pet.y));
-                    }
-                }
-            };
-
-            bewegeTiere(engine.petPlacements, mySlotRef.current);
-            for (const [slotIndex, snapshot] of plotsRef.current) {
-                if (slotIndex === mySlotRef.current) continue;
-                bewegeTiere(snapshot?.petPlacements, slotIndex);
-            }
-
-            // Stauden: Struktur→Wachstum nur hier (nicht im Renderer) mutieren
-            const wallNow = Date.now();
-            if (engine.plotPlants) {
-                for (const p of Object.values(engine.plotPlants)) {
-                    if (p && !p.singleUse) ensurePerennialFruitingState(p, wallNow);
-                }
-            }
-
-            // ── RENDER ───────────────────────────────────────────────────────
-            // Inject live plant data into slots
-            const myPlotSlotIndex = mySlotRef.current;
-
-            // 1. ANPASSUNG: Pflanze während dem Umtopfen vom Feld ausblenden.
-            // Der Klon ist NUR dafür nötig — und nur, solange wirklich umgetopft wird.
-            // Im Normalfall (kein Umtopfen) reicht die Referenz auf engine.plotPlants,
-            // und es fällt keine einzige Kopie an.
-            const hiddenPlantKey = selectedToolRef.current === "pot" ? movingPlantSourceRef.current : null;
-            let visiblePlants = engine.plotPlants;
-            if (hiddenPlantKey && visiblePlants && hiddenPlantKey in visiblePlants) {
-                visiblePlants = { ...engine.plotPlants };
-                delete visiblePlants[hiddenPlantKey];
-            }
-
-            // Fremde Slots gehen unverändert per Referenz durch, nur der eigene bekommt
-            // die Live-Daten übergestülpt — in eine wiederverwendete Hülle statt in ein
-            // neues Objekt. `l.slots` selbst wird dabei nicht verändert.
-            slotsBuf.length = l.slots.length;
-            // Wiederverwendete Puffer: pro Bild wird nur die Laenge zurueckgesetzt,
-            // damit im Spielbetrieb keine neuen Arrays anfallen.
-            fremdeTiere.length = 0;
-            fremdeDeko.length = 0;
-            for (let i = 0; i < l.slots.length; i++) {
-                const slot = l.slots[i];
-                if (i !== myPlotSlotIndex) {
-                    // Fremdes Grundstück: Momentaufnahme vom Server überstülpen, falls
-                    // dort gerade jemand farmt. Ohne Snapshot bleibt der Slot leer/„zu verkaufen".
-                    const snapshot = plotsRef.current.get(i);
-                    if (snapshot) {
-                        const buf = foreignSlotBufs[i] || (foreignSlotBufs[i] = {});
-                        Object.assign(buf, slot);
-                        buf.plants = snapshot.plants;
-                        buf.unlockedCells = snapshot.plotUnlockedCells;
-                        buf.owner = snapshot.owner;
-                        buf.hasMail = snapshot.hasMail;
-                        buf.mailboxReskin = snapshot.reskins?.mailbox || null;
-                        // Farm-Schild bekommt denselben Skin wie die Nametag über dem
-                        // Kopf (Feedback 01.09.) — siehe _drawSign in Renderer.js.
-                        buf.nameplateReskin = snapshot.reskins?.nameplate || null;
-                        slotsBuf[i] = buf;
-                        // Tiere und Deko der anderen einsammeln — der Renderer bekommt
-                        // sie als eine Liste und sortiert sie ueber `slotIndex` selbst
-                        // auf die Grundstuecke.
-                        if (Array.isArray(snapshot.petPlacements)) {
-                            for (const pet of snapshot.petPlacements) if (pet) fremdeTiere.push(pet);
-                        }
-                        if (Array.isArray(snapshot.decoPlacements)) {
-                            for (const deko of snapshot.decoPlacements) if (deko) fremdeDeko.push(deko);
-                        }
-                    } else {
-                        slotsBuf[i] = slot;
-                    }
-                    continue;
-                }
-                Object.assign(mySlotBuf, slot);
-                mySlotBuf.plants = visiblePlants;
-                mySlotBuf.currentExpansions = plotExpansionsRef.current;
-                mySlotBuf.unlockedCells = plotUnlockedCellsRef.current;
-                // Eigener Briefkasten-Reskin — Nachbarn lesen ihren aus der
-                // Momentaufnahme (siehe foreign-Zweig oben), hier ist es der
-                // eigene, lokal ausgerüstete Stand.
-                mySlotBuf.mailboxReskin = meineReskinsRef.current.mailbox;
-                // Eigenes Farm-Schild — derselbe ausgerüstete Nameplate-Reskin wie
-                // die Nametag über dem Kopf (Feedback 01.09.: "synchronisieren").
-                mySlotBuf.nameplateReskin = meineReskinsRef.current.nameplate;
-                slotsBuf[i] = mySlotBuf;
-                // Eigener Schuppen-Reskin — JEDEN Frame statt einmalig in
-                // ladeGoldShop, sonst überschreiben die Positions-Effekte
-                // (a.shed.image = AREA_IMAGES.shed) die Zuweisung wieder.
-                if (engine.areas?.shed) {
-                    engine.areas.shed.image = SHED_RESKIN_BILD[meineReskinsRef.current.shed] || AREA_IMAGES.shed;
-                }
-            }
-
-            // ── MITSPIELER ───────────────────────────────────────────────────
-            // Der Server tickt mit 15 Hz; ohne Nachziehen würden fremde Avatare springen.
-            const remotes = remoteBuf;
-            remotes.length = 0;
-            for (const remote of remotePlayersRef.current.values()) {
-                remote.x += (remote.tx - remote.x) * Math.min(1, 0.22 * deltaFactor);
-                remote.y += (remote.ty - remote.y) * Math.min(1, 0.22 * deltaFactor);
-                remotes.push(remote);
-            }
-            sendMove(player.x, player.y, player.facingRight !== false, isMoving);
-
-            Object.assign(layoutBuf, l);
-            layoutBuf.slots = slotsBuf;
-
-            // 1. & 2. ANPASSUNG: Welches Item wird gerade in der Hand gehalten?
-            let activeHeldItem = heldItemRef.current;
-            if (selectedToolRef.current === "pot" && movingPlantSourceRef.current) {
-                // Wenn wir umtopfen, lege die echte Pflanze vom Acker als aktives Item in die Hand
-                const p = engine.plotPlants[movingPlantSourceRef.current];
-                if (p) activeHeldItem = p;
-            }
-
-            // Felder überschreiben statt ein neues Payload-Objekt zu bauen.
-            drawState.areas = engine.areas;
-            drawState.fremdeGebaeude = fremdeGebaeude;
-            drawState.readyEggsCount = readyEggsCountRef.current;
-            drawState.layout = layoutBuf;
-            drawState.zoom = zoomRef.current;
-            drawState.selectedTool = selectedToolRef.current;
-            drawState.heldItem = activeHeldItem; // Hier übergeben wir das frisch berechnete Item
-            drawState.weather = weatherStateRef.current;
-            // Tageszeit und Party kommen aus der Uhr, nicht aus React-State: sie
-            // ändern sich stetig, und ein State-Update je Bild würde die ganze
-            // 8000-Zeilen-Komponente sechzigmal pro Sekunde neu rendern.
-            drawState.nacht = tagesDunkelheit(Date.now());
-            drawState.party = partyStaerkeJetzt(Date.now());
-            drawState.renderProfile = renderProfileRef.current;
-            // Eigene und fremde Tiere/Deko in einer Liste: der Renderer sortiert sie
-            // ueber `slotIndex` auf die Grundstuecke und in die Tiefensortierung ein.
-            alleTiere.length = 0;
-            if (Array.isArray(engine.petPlacements)) {
-                for (const pet of engine.petPlacements) if (pet) alleTiere.push(pet);
-            }
-            for (const pet of fremdeTiere) alleTiere.push(pet);
-            alleDeko.length = 0;
-            if (Array.isArray(engine.decoPlacements)) {
-                for (const deko of engine.decoPlacements) if (deko) alleDeko.push(deko);
-            }
-            for (const deko of fremdeDeko) alleDeko.push(deko);
-            drawState.petPlacements = alleTiere;
-            drawState.decoPlacements = alleDeko;
-            drawState.localPlayerName = localPlayerNameRef.current;
-            drawState.playerAppearance = appearanceRef.current;
-            drawState.playerBadge = playerBadgeRef.current;
-            drawState.playerNameplate = meineReskinsRef.current.nameplate;
-            drawState.remotePlayers = remotes;
-            // Raster nur über dem EIGENEN Grundstück; slot.id ist der Index + 1.
-            drawState.editorSlotId = editorAktivRef.current ? mySlotRef.current + 1 : null;
-
-            renderer.draw(drawState, player);
-
-            animFrame = requestAnimationFrame(gameLoop);
-        };
-
-        gameLoop();
-        return () => {
-            cancelAnimationFrame(animFrame);
-            window.removeEventListener("resize", onResize);
-            try {
-                engineRef.current?.input?.destroy?.();
-                // Der Renderer wurde bisher NICHT abgeräumt: seine Bild- und
-                // Canvas-Caches (je Grundstück bis zu 400 Offscreen-Flächen) blieben
-                // liegen, bis der Browser irgendwann aufräumt — bei mehrfachem
-                // Betreten der Welt stapelten sich komplette Instanzen.
-                engineRef.current?.renderer?.destroy?.();
-            } catch { /* */ }
-            engineRef.current.renderer = null;
-            engineRef.current.input = null;
-        };
-    }, [showLobbyScreen, activateInteractable]);
+    useSpielschleife({
+        showLobbyScreen, canvasRef, engineRef, layout, plotsRef, mySlotRef, localPlayerNameRef,
+        lastInteractableTypeRef, activeTargetRef, setCurrentInteractable, activateInteractable,
+        selectedToolRef, movingPlantSourceRef, plotExpansionsRef, plotUnlockedCellsRef,
+        meineReskinsRef, remotePlayersRef, sendMove, heldItemRef, readyEggsCountRef, zoomRef,
+        weatherStateRef, partyStaerkeJetzt, renderProfileRef, appearanceRef, playerBadgeRef,
+        editorAktivRef, eigeneSterneRef,
+    });
 
     // Sync plotPlants into engine ref (avoids stale closure in game loop)
     useEffect(() => {
@@ -3041,2331 +2087,91 @@ export default function GameContainer() {
         };
     }, [gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, ladenBestand, shopRotation?.generatedAt, toolShopStock, toolShopRotation?.generatedAt, eggShopStock, eggShopRotation?.generatedAt, playerAppearance, tutorialCompleted, ackerRasterMigriert]);
 
-    const debouncedSave = useCallback(() => {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = setTimeout(() => {
-            flushFarmStateToServerRef.current?.();
-        }, 500);
-    }, []);
-
-    /**
-     * Beim Verlassen NICHT abbrechen, sondern rausschicken.
-     *
-     * Hier stand `useEffect(() => () => clearTimeout(saveTimeoutRef.current), [])`:
-     * der Aufräumer hat den ausstehenden Speichervorgang VERWORFEN. Da
-     * `debouncedSave` (500 ms) der einzige Weg ist, auf dem Pflanzen, Steinabbau,
-     * Gießen, Umtopfen, Deko, Tiere und Käufe zum Server kommen — und der
-     * Autosave erst nach 5 Sekunden Ruhe greift —, war alles seit dem letzten PUT
-     * weg, sobald man die Seite wechselte oder neu lud. Bei Käufen besonders
-     * bitter: `payServer` hatte das Gold schon abgebucht, die Ware lag nur lokal.
-     *
-     * `keepalive` ist entscheidend: ein gewöhnliches fetch() wird beim Entladen
-     * der Seite abgebrochen.
-     */
-    useEffect(() => {
-        const raus = () => {
-            if (!isInitialLoadDoneRef.current || nurZuschauenRef.current) return;
-            clearTimeout(saveTimeoutRef.current);
-            const stand = farmStateRef.current || {};
-            // gold und harvestedItems gehören dem Server und stehen bewusst nicht
-            // im Payload (siehe compactFarmState).
-            const { gold: _g, harvestedItems: _h, ...rest } = stand;
-            const payload = { ...rest, tabId: TAB_ID, stateVersion: stateVersionRef.current };
-            try {
-                fetch("/api/garden/farm-state", {
-                    method: "PUT",
-                    credentials: "include",
-                    keepalive: true,
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ state: payload }),
-                }).catch(() => { /* Seite ist schon weg */ });
-            } catch { /* egal */ }
-        };
-        const beiSichtwechsel = () => { if (document.visibilityState === "hidden") raus(); };
-        window.addEventListener("pagehide", raus);
-        document.addEventListener("visibilitychange", beiSichtwechsel);
-        return () => {
-            window.removeEventListener("pagehide", raus);
-            document.removeEventListener("visibilitychange", beiSichtwechsel);
-            raus();   // auch beim Seitenwechsel innerhalb der App
-        };
-    }, []);
-
-    /**
-     * Grundstück gewechselt? Alles mitnehmen, was am alten Platz klebt.
-     *
-     * Die Welten liegen nur im Arbeitsspeicher — nach einem Serverneustart vergibt die
-     * Lobby die Plätze neu. Wer vorher unten stand und danach oben landet, wechselt
-     * damit die REIHE, und daran hängen zwei verschiedene Altlasten:
-     *
-     *  1. Deko und Tiere speichern absolute Weltkoordinaten plus den Index ihres
-     *     Grundstücks. Ohne Umrechnung lagen sie weiter an der alten Stelle — quer
-     *     über der Karte auf fremdem Grund, während das eigene Grundstück leer war.
-     *
-     *  2. Freigelegte Steinfelder und die Pflanzen darauf zählen je nach Reihe ANDERS:
-     *     oben wachsen die Erweiterungen nach oben (Reihe -1 bis -15), unten nach unten
-     *     (Reihe 15 bis 29). Eine von unten mitgebrachte Reihe 16 landete oben rechnerisch
-     *     unterhalb des Grundstücks — die Pflanzen standen auf dem Kiesweg.
-     *
-     * Das Grundstück ist zwischen den Reihen gespiegelt (der Acker liegt immer am Weg),
-     * deshalb wird beim Reihenwechsel gespiegelt statt nur verschoben.
-     */
-    useEffect(() => {
-        if (showLobbyScreen || !isInitialLoadDone) return;
-        if (!Number.isInteger(mySlotIndex) || mySlotIndex < 0) return;
-        const ziel = layout.current.slots[mySlotIndex];
-        if (!ziel) return;
-        const obenkante = (slot) => (slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY);
-
-        // ── Deko und Tiere: umrechnen, was auf einem anderen Grundstück verbucht ist ──
-        const umziehen = (liste) => {
-            if (!Array.isArray(liste) || liste.length === 0) return null;
-            let geaendert = false;
-            const neu = liste.map((eintrag) => {
-                const alt = layout.current.slots[eintrag?.slotIndex];
-                if (!alt || eintrag.slotIndex === mySlotIndex) return eintrag;
-                geaendert = true;
-                const x = Number.isFinite(eintrag.x) ? eintrag.x + (ziel.x - alt.x) : eintrag.x;
-                let y = eintrag.y;
-                if (Number.isFinite(y)) {
-                    const relativ = y - obenkante(alt);
-                    // Gleiche Reihe: schlicht verschieben. Andere Reihe: spiegeln, sonst
-                    // landet Deko vom unteren Wiesenstreifen oben mitten im Acker.
-                    y = alt.isTopRow === ziel.isTopRow
-                        ? obenkante(ziel) + relativ
-                        : obenkante(ziel) + MAP_CONFIG.territoryHeight - relativ;
-                }
-                return { ...eintrag, slotIndex: mySlotIndex, x, y };
-            });
-            return geaendert ? neu : null;
-        };
-
-        // ── Erweiterungsfelder: Zählweise der Reihe angleichen ───────────────────
-        // Gültig sind oben -15..14, unten 0..29. Alles außerhalb stammt aus der
-        // anderen Reihe und wird umgerechnet: Erweiterung n ist oben -n und unten 14+n.
-        const andereReihe = (y) => istAndereReihe(y, ziel.isTopRow);
-        const umrechnenY = (y) => spiegleZeile(y, ziel.isTopRow);
-
-        const neueZellen = (() => {
-            if (!Array.isArray(plotUnlockedCells) || plotUnlockedCells.length === 0) return null;
-            let geaendert = false;
-            const raus = plotUnlockedCells.map((key) => {
-                const [xs, ys] = String(key).split("_");
-                const y = Number(ys);
-                if (!Number.isInteger(y) || !andereReihe(y)) return key;
-                geaendert = true;
-                return `${xs}_${umrechnenY(y)}`;
-            });
-            return geaendert ? normalizePlotUnlockedCells(raus) : null;
-        })();
-
-        const neuePflanzen = (() => {
-            const keys = Object.keys(plotPlants || {});
-            if (keys.length === 0) return null;
-            let geaendert = false;
-            const raus = {};
-            // Erst alles übernehmen, was schon in der Zählweise dieser Reihe steht —
-            // sonst könnte eine umgerechnete Pflanze eine bestehende überschreiben.
-            const umzuziehen = [];
-            for (const key of keys) {
-                const y = Number(key.split("_")[1]);
-                if (!Number.isInteger(y) || !andereReihe(y)) { raus[key] = plotPlants[key]; continue; }
-                geaendert = true;
-                umzuziehen.push(key);
-            }
-            for (const key of umzuziehen) {
-                const [xs, ys] = key.split("_");
-                const ziel = `${xs}_${umrechnenY(Number(ys))}`;
-                // Ein gemischter Stand (beide Zählweisen gleichzeitig) sollte nicht
-                // vorkommen, ein verspäteter PUT kann ihn aber erzeugen. Dann lieber
-                // ein freies Nachbarfeld suchen als eine Pflanze verschwinden lassen.
-                raus[raus[ziel] ? freiesAckerfeld(raus) || ziel : ziel] = plotPlants[key];
-            }
-            return geaendert ? raus : null;
-        })();
-
-        const neueDeko = umziehen(decoPlacements);
-        const neueTiere = umziehen(petPlacements);
-        if (!neueDeko && !neueTiere && !neueZellen && !neuePflanzen) return;
-        if (neueDeko) setDecoPlacements(neueDeko);
-        if (neueTiere) setPetPlacements(neueTiere);
-        if (neueZellen) setPlotUnlockedCells(neueZellen);
-        if (neuePflanzen) setPlotPlants(neuePflanzen);
-        notify("Dein Grundstück liegt jetzt woanders — Acker, Deko und Tiere sind mitgezogen.");
-        debouncedSave();
-    }, [showLobbyScreen, isInitialLoadDone, mySlotIndex, decoPlacements, petPlacements,
-        plotUnlockedCells, plotPlants, notify, debouncedSave]);
-
-    /**
-     * Rasterumstellung: Deko, die nach der Verschiebung auf dem Acker steht.
-     *
-     * Der Acker ist um eine halbe Kachel nach rechts gerückt, damit Acker- und
-     * Dekoraster zusammenfallen (siehe dirtOffsetX in engine/MapConfig.js). Rechnerisch
-     * kann dabei nichts ungültig werden — die gesperrten Spalten wurden WENIGER, nicht
-     * mehr. Trotzdem läuft dieser Durchgang einmal je Spielstand: Gärten, die vor der
-     * Ackerprüfung eingerichtet wurden, haben teils Stücke mitten im Feld stehen, und
-     * ein zweites Mal sortiert er sie nicht (Marke im Spielstand).
-     *
-     * Bodenbeläge bleiben, wo sie sind: sie liegen UNTER allem und dürfen den Acker
-     * überziehen — das ist beim Aufstellen ausdrücklich erlaubt.
-     */
-    useEffect(() => {
-        if (showLobbyScreen || !isInitialLoadDone || ackerRasterMigriert) return;
-        if (!Number.isInteger(mySlotIndex) || mySlotIndex < 0) return;
-        const slot = layout.current.slots[mySlotIndex];
-        if (!slot) return;
-        const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
-        const maxTilesX = Math.round(MAP_CONFIG.territoryWidth / TILE_SIZE);
-        const maxTilesY = Math.round(MAP_CONFIG.territoryHeight / TILE_SIZE);
-        const eigene = decoPlacements.filter((d) => d && d.slotIndex === mySlotIndex);
-        const ankerKachel = (d) => ({
-            tx: Math.floor((d.x - slot.x) / TILE_SIZE),
-            ty: Math.floor((d.y - drawY) / TILE_SIZE),
-        });
-        const belegt = new Set();
-        for (const d of eigene) {
-            if (istBoden(d)) continue;
-            for (const k of d.occupiedKeys || [d.gridKey]) if (k) belegt.add(k);
-        }
-        const passt = (tx, ty, w, h) => {
-            for (let dx = 0; dx < w; dx++) {
-                for (let dy = 0; dy < h; dy++) {
-                    const cx = tx + dx;
-                    const cy = ty - dy;
-                    if (cx < 0 || cx >= maxTilesX || cy < 0 || cy >= maxTilesY) return false;
-                    if (belegt.has(`${cx}_${cy}`)) return false;
-                    if (dy === 0 && kachelIstAcker(slot, cx, cy)) return false;
-                }
-            }
-            return true;
-        };
-        // Ringweise nach außen suchen, damit ein verschobenes Stück möglichst nah an
-        // seinem alten Platz stehen bleibt.
-        const freierPlatz = (tx, ty, w, h) => {
-            for (let r = 1; r <= maxTilesY; r++) {
-                for (let dy = -r; dy <= r; dy++) {
-                    for (let dx = -r; dx <= r; dx++) {
-                        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-                        if (passt(tx + dx, ty + dy, w, h)) return { tx: tx + dx, ty: ty + dy };
-                    }
-                }
-            }
-            return null;
-        };
-
-        let verschoben = 0;
-        const naechste = decoPlacements.map((d) => {
-            if (!d || d.slotIndex !== mySlotIndex || istBoden(d)) return d;
-            const { tx, ty } = ankerKachel(d);
-            if (!kachelIstAcker(slot, tx, ty)) return d;
-            const w = d.width || 1;
-            const h = d.height || 1;
-            for (const k of d.occupiedKeys || [d.gridKey]) if (k) belegt.delete(k);
-            const ziel = freierPlatz(tx, ty, w, h);
-            if (!ziel) { for (const k of d.occupiedKeys || [d.gridKey]) if (k) belegt.add(k); return d; }
-            const occupiedKeys = [];
-            for (let dx = 0; dx < w; dx++) {
-                for (let dy = 0; dy < h; dy++) occupiedKeys.push(`${ziel.tx + dx}_${ziel.ty - dy}`);
-            }
-            for (const k of occupiedKeys) belegt.add(k);
-            verschoben++;
-            return {
-                ...d,
-                x: slot.x + ziel.tx * TILE_SIZE + TILE_SIZE / 2,
-                y: drawY + ziel.ty * TILE_SIZE + TILE_SIZE / 2,
-                occupiedKeys,
-            };
-        });
-
-        setAckerRasterMigriert(true);
-        if (verschoben > 0) {
-            setDecoPlacements(naechste);
-            notify(`Der Acker liegt jetzt im selben Raster wie die Deko — ${verschoben} Stück wurden von der Erde geräumt.`);
-        }
-        debouncedSave();
-    }, [showLobbyScreen, isInitialLoadDone, ackerRasterMigriert, mySlotIndex,
-        decoPlacements, notify, debouncedSave]);
-
-    /** Sofort speichern statt in 500 ms — noetig, bevor der Server ueber etwas
-     *  entscheiden soll, das bisher nur im Browser steht (z. B. ein Tier). */
-    const flushSave = useCallback(async (ueberschreibung) => {
-        clearTimeout(saveTimeoutRef.current);
-        await flushFarmStateToServerRef.current?.(ueberschreibung);
-    }, []);
-
-    /** Kasse: erst der Server bucht ab, dann bekommt der Spieler die Ware.
-     *  Gold gehoert ab v3.0 dem Server — eine nur lokale Abbuchung waere beim
-     *  naechsten Laden wieder da (und die Ware trotzdem im Rucksack). */
-    const payServer = useCallback(async (betrag) => {
-        const data = await apiCall("/action", {
-            method: "POST",
-            body: JSON.stringify({ action: "spend", amount: Math.round(Number(betrag) || 0) }),
-        });
-        if (typeof data?.gold === "number") {
-            // SOFORT ins Ref, nicht erst beim nächsten Rendern. Die Warteschlange
-            // startet den nächsten Kauf über setTimeout(0) — der läuft mitunter
-            // schon, bevor React den neuen Goldstand übernommen hat. Prüfte der
-            // nächste Kauf gegen den React-Wert, sähe er das Gold von VOR dieser
-            // Zahlung, liesse einen Kauf durch, den man sich nicht mehr leisten
-            // kann, und der Server müsste ihn ablehnen. Für den Spieler sah das so
-            // aus, als spränge der Ladenbestand grundlos zurück.
-            goldRef.current = data.gold;
-            setGold(data.gold);
-        }
-        return data;
-    }, [apiCall]);
-
-    /**
-     * Antwort der Wirtschafts-Route uebernehmen — der Server ist die Wahrheit.
-     *
-     * `zellen` nennt die tatsaechlich veraenderten Felder. Ohne diese Angabe wurde
-     * bei JEDER Ernte die komplette Pflanzenkarte ersetzt: 35 neue Objekte, alle
-     * Pflanzen-Caches im Renderer entwertet, ein grosser React-Commit mitten in der
-     * Bewegung. Genau das machte das Einsammeln zaeh. Ein leeres Array heisst
-     * "Pflanzen nicht anfassen" (z. B. beim Verkaufen).
-     */
-    /**
-     * Übernimmt den Logbuch-Eintrag, den der SERVER bei „harvest" mitschickt.
-     *
-     * UMGEBAUT (v2, Punkt 11): stand vorher komplett im Browser — „reines
-     * Nachschlagewerk ohne Spielwert". Seit „Seite komplett" Gold auszahlt
-     * (logbuchAktualisieren in core/economy.js), stimmt dieser Satz nicht mehr:
-     * ein selbst eingetragenes fertiges Logbuch hätte sich sonst bei der
-     * nächsten Ernte irgendeiner Art ausgezahlt. Der Browser übernimmt jetzt nur
-     * noch, was hier ankommt, statt es aus dem geernteten Stück nachzurechnen.
-     */
-    const logbuchUebernehmen = useCallback((serverLogbuch) => {
-        if (!serverLogbuch || typeof serverLogbuch !== "object") return;
-        setLogbuch((prev) => ({ ...prev, ...serverLogbuch }));
-    }, []);
-
-    /** „Seite komplett": Meldung samt Gold-Betrag, evtl. plus Logbuch-Gesamtbonus. */
-    const logbuchBelohnungMelden = useCallback((belohnungen) => {
-        if (!Array.isArray(belohnungen)) return;
-        for (const b of belohnungen) {
-            if (!b?.seedId) continue;
-            const art = SEED_CATALOGUE.find((s) => s.id === b.seedId);
-            notify(
-                b.komplett
-                    ? `Logbuch komplett! ${art?.name || b.seedId} fertig — +${formatGold(b.belohnung)} Gold (inklusive Gesamtbonus).`
-                    : `${art?.name || b.seedId} im Logbuch komplett — +${formatGold(b.belohnung)} Gold.`,
-            );
-            playSound("cash", 0.6);
-        }
-    }, [notify, playSound]);
-
-    const applyEconomy = useCallback((data, zellen) => {
-        if (typeof data?.gold === "number") setGold(data.gold);
-        if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
-        // Bug (Feedback 29.08.: "bei Schnellernten kommt kein XP"): der Server
-        // schickt skillStand bei JEDER Aktion mit (siehe gardenGameRoutes.js,
-        // Kommentar dort), applyEconomy hat ihn nur nie gelesen. Level/XP-Leiste
-        // im HUD blieben deshalb nach JEDER Ernte stehen, wo sie vor der Ernte
-        // waren — bei einzelnen Klicks fiel das kaum auf, beim Shift-Ziehen über
-        // ein volles Feld (viele Ernten ohne Zwischenstopp) wirkte es wie "gar
-        // kein XP". Die schwebende "+X XP"-Rückmeldung war die ganze Zeit korrekt.
-        if (data?.skillStand) setSkillStand(data.skillStand);
-        if (data?.logbuch) logbuchUebernehmen(data.logbuch);
-        if (data?.logbuchBelohnungen?.length) logbuchBelohnungMelden(data.logbuchBelohnungen);
-        if (Array.isArray(data?.harvestedItems)) setHarvestedItems(hydrateHarvestedItems(data.harvestedItems));
-        if (!data?.plotPlants || typeof data.plotPlants !== "object") return;
-        if (!zellen) {
-            setPlotPlants(normalizePlotPlantsMap(data.plotPlants));
-            return;
-        }
-        if (zellen.length === 0) return;
-        setPlotPlants((prev) => {
-            const next = { ...prev };
-            for (const key of zellen) {
-                const vomServer = data.plotPlants[key];
-                if (vomServer) next[key] = hydratePlantVisuals(vomServer);
-                else delete next[key];
-            }
-            return next;
-        });
-    }, [normalizePlotPlantsMap, hydratePlantVisuals, logbuchUebernehmen, logbuchBelohnungMelden]);
-
-    /**
-     * Missionsbelohnung abholen — steht erst hier (statt direkt bei ladeQuests
-     * weiter oben), weil sie applyEconomy aus dem Dependency-Array braucht und
-     * die erst ab dieser Zeile im Render existiert (siehe Kommentar dort).
-     */
-    const questAbholen = useCallback(async (questId) => {
-        try {
-            const data = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "questAbholen", questId }),
-            });
-            applyEconomy(data, []);
-            playSound("cash", 0.6);
-            notify(`${data?.name || "Mission"} abgeschlossen: +${formatGold(data?.belohnungGold || 0)} Gold, +${data?.belohnungXp || 0} XP`);
-            ladeQuests();
-        } catch (err) {
-            notify(err?.message || "Ging nicht.", "error");
-        }
-    }, [apiCall, applyEconomy, notify, playSound, ladeQuests]);
-
-    /**
-     * Gold-Shop: kaufen und ausrüsten — aus demselben Grund wie questAbholen
-     * erst hier (applyEconomy im Dependency-Array).
-     */
-    const reskinKaufen = useCallback(async (kategorie, id) => {
-        try {
-            const data = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "reskinKaufen", kategorie, id }),
-            });
-            applyEconomy(data, []);
-            playSound("cash", 0.6);
-            notify("Gekauft und ausgerüstet.");
-            await ladeGoldShop();
-        } catch (err) {
-            notify(err?.message || "Ging nicht.", "error");
-        }
-    }, [apiCall, applyEconomy, notify, playSound, ladeGoldShop]);
-
-    const reskinAusruesten = useCallback(async (kategorie, id) => {
-        try {
-            const data = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "reskinAusruesten", kategorie, id }),
-            });
-            applyEconomy(data, []);
-            await ladeGoldShop();
-        } catch (err) {
-            notify(err?.message || "Ging nicht.", "error");
-        }
-    }, [apiCall, applyEconomy, notify, ladeGoldShop]);
-
-    /**
-     * Ernte zwischen Rucksack und Ablage (Kiste/Vitrine) schieben. Beide Seiten
-     * gehören dem Server — hier wird nur seine Antwort übernommen.
-     */
-    /**
-     * Ein- und Auslagern, einzeln oder alles auf einmal.
-     *
-     * Seit die Kiste auch Samen, Eier, Deko und Tiere nimmt, verschiebt der Server
-     * Listen, die dem BROWSER gehören. Deshalb wird vorher ausstehender Speicherstand
-     * rausgeschickt: ein noch wartender PUT mit dem alten Rucksack würde sonst
-     * gerade Eingelagertes wieder danebenlegen — das Stück läge dann doppelt da.
-     */
-    const handleAblage = useCallback(async (art, itemId, richtung) => {
-        setAblageBusy(true);
-        try {
-            await flushSave();
-            const alles = itemId === null || itemId === undefined;
-            const data = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({
-                    action: richtung === "ein"
-                        ? (alles ? "ablageAllesEin" : "ablageEin")
-                        : (alles ? "ablageAllesAus" : "ablageAus"),
-                    ablage: art,
-                    ...(alles ? {} : { itemId }),
-                }),
-            });
-            if (Array.isArray(data?.harvestedItems)) setHarvestedItems(hydrateHarvestedItems(data.harvestedItems));
-            if (Array.isArray(data?.chestItems)) setChestItems(hydrateHarvestedItems(data.chestItems));
-            if (Array.isArray(data?.vitrineItems)) setVitrineItems(hydrateHarvestedItems(data.vitrineItems));
-            if (Array.isArray(data?.inventory)) setInventory(hydrateSeeds(data.inventory));
-            if (Array.isArray(data?.eggInventory)) setEggInventory(data.eggInventory);
-            if (Array.isArray(data?.decoInventory)) setDecoInventory(data.decoInventory);
-            if (Array.isArray(data?.petInventory)) setPetInventory(hydratePets(data.petInventory));
-            if (alles && Number.isFinite(data?.bewegt)) {
-                const rest = data.liegengeblieben
-                    ? ` ${data.liegengeblieben} blieben liegen (Rucksack voll).`
-                    : data.rest ? " Der Rest passte nicht mehr hinein." : "";
-                notify(`${data.bewegt} ${data.bewegt === 1 ? "Sache" : "Sachen"} ${richtung === "ein" ? "eingelagert" : "herausgeholt"}.${rest}`);
-            }
-        } catch (err) {
-            notify(err?.message || "Hat nicht geklappt.", "error");
-        } finally {
-            setAblageBusy(false);
-        }
-    }, [apiCall, notify, flushSave]);
-
-    // ── Buy seed from shop ────────────────────────────────────────────────────
-    /**
-     * Einen Bestand SOFORT um eins verringern — synchron, noch bevor der Server
-     * gefragt wird. Gibt zurück, ob überhaupt etwas da war.
-     */
-    const reserviere = useCallback((ref, setzer, schluessel) => {
-        const frei = ref.current?.[schluessel] ?? 0;
-        if (frei <= 0) return false;
-        ref.current = { ...ref.current, [schluessel]: frei - 1 };
-        setzer(ref.current);
-        return true;
-    }, []);
-
-    /** Reservierung zurücknehmen, wenn der Kauf doch nicht zustande kam. */
-    const gibZurueck = useCallback((ref, setzer, schluessel) => {
-        ref.current = { ...ref.current, [schluessel]: (ref.current?.[schluessel] ?? 0) + 1 };
-        setzer(ref.current);
-    }, []);
-
-    /**
-     * Gekaufte Ware SOFORT sichern, nicht über den 500-ms-Sammelspeicher.
-     *
-     * `payServer` bucht das Gold serverseitig ab; die Ware liegt danach bis zum
-     * nächsten Speichervorgang NUR im Browser. Alles, was in diesem Fenster den
-     * Zustand vom Server neu lädt — ein Ernte-Rücksprung nach Netzfehler, der
-     * Versionsabgleich beim Verbinden, ein Admin-Eingriff — verwirft sie, während
-     * das Gold weg bleibt. Genau so ist ein bezahltes legendäres Ei verschwunden.
-     *
-     * Die Überschreibung ist nötig, weil `setState` erst beim nächsten Rendern
-     * wirkt: ohne sie schickte der Speichervorgang den Stand VOR dem Kauf.
-     */
-    const kaufSichern = useCallback(async (feld, naechsterWert) => {
-        try {
-            await flushSave({ [feld]: naechsterWert });
-        } catch {
-            // Auch wenn es hier klemmt, ist der Kauf im Browser-Zustand — der
-            // reguläre Speicherweg holt ihn beim nächsten Versuch nach.
-        }
-    }, [flushSave]);
-
-    const handleBuySeed = useCallback(async (seed) => {
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuySeedRef.current?.(seed)); return; }
-        if (goldRef.current < seed.shopPrice) { notify(`Dafür fehlen dir ${formatGold(seed.shopPrice - goldRef.current)} Gold.`, "error"); return; }
-        // Belegung aus dem Ref, ABER mit den Käufen, die in dieser Klickfolge schon
-        // durch sind. Der Ref wird erst beim nächsten Rendern nachgezogen; ohne den
-        // Zuschlag rutschte genau ein Samen über die Rucksackgrenze.
-        const { inventory: inv0, harvestedItems: hi0, inventoryMaxSlots: maxSlots } = farmStateRef.current;
-        const belegt = (inv0?.length || 0) + (hi0?.length || 0) + offeneSamenkaeufeRef.current;
-        if (belegt >= (maxSlots || 50)) {
-            notify("Rucksack voll — kauf ein Upgrade im Tool-Shop.", "error");
-            return;
-        }
-        // Vorbelegen, damit schnelle Klickfolgen nicht über den Vorrat hinauslaufen.
-        // Die Wahrheit steht danach trotzdem in der Serverantwort — dieser Zähler
-        // ist nur die Anzeige zwischen Klick und Antwort.
-        if (!reserviere(ladenBestandRef, setLadenBestand, seed.seedId)) return;
-        // Ab hier ist jede Poll-Antwort, die schon unterwegs war, veraltet.
-        letzterKaufAtRef.current = Date.now();
-        offeneSamenkaeufeRef.current += 1;
-        kaufLaeuftRef.current = true;
-        let antwort;
-        try {
-            /**
-             * Bestand, Preis und Gold rechnet der SERVER (Aktion `buySeed`).
-             *
-             * Vorher lief hier `payServer(seed.shopPrice)` — eine reine Abbuchung
-             * über den vom Browser genannten Betrag, während der Vorrat nur ein
-             * lokaler Zähler war. Beides war damit vom Client bestimmbar.
-             */
-            antwort = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "buySeed", seedId: seed.seedId }),
-            });
-        } catch (err) {
-            gibZurueck(ladenBestandRef, setLadenBestand, seed.seedId);
-            offeneSamenkaeufeRef.current = Math.max(0, offeneSamenkaeufeRef.current - 1);
-            // Bei „ausverkauft" schickt der Server den echten Reststand mit — sonst
-            // stünde die Anzeige weiter auf einem Stück, das es nicht mehr gibt.
-            if (typeof err?.data?.stock === "number") {
-                setLadenBestand((prev) => ({ ...prev, [seed.seedId]: Math.max(0, err.data.stock) }));
-            }
-            notify(err?.message || "Kauf fehlgeschlagen.", "error");
-            return;
-        } finally {
-            kaufLaeuftRef.current = false;
-            naechstenKaufStarten();
-        }
-        if (typeof antwort?.gold === "number") setGold(antwort.gold);
-        if (typeof antwort?.stock === "number") {
-            // Der Server hat gerade gerechnet — diese Zahl gilt. Der Zeitstempel
-            // wandert mit, damit auch eine Antwort, die WÄHREND des Kaufs unterwegs
-            // war, nicht mehr dazwischenfunkt.
-            letzterKaufAtRef.current = Date.now();
-            setLadenBestand((prev) => ({ ...prev, [seed.seedId]: Math.max(0, antwort.stock) }));
-        }
-        const boughtSeed = { ...seed, ...(antwort?.samen || {}) };
-        const naechstesInventar = [...(farmStateRef.current.inventory || []), boughtSeed];
-        setInventory(naechstesInventar);
-        setSelectedSeed(prev => prev || boughtSeed);
-        await kaufSichern("inventory", naechstesInventar);
-    }, [notify, apiCall, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
-
-    /**
-     * Buy-All (v2, Punkt 12): EIN Request statt denselben Samen im Sekundentakt
-     * einzeln wegzuklicken — siehe kaufeSamenAlle in gardenGameRoutes.js. Prüft
-     * Rucksackplatz vorab genauso wie handleBuySeed, kappt die gewünschte Menge
-     * aber serverseitig ohnehin auf Gold und Vorrat, ein zu hoher Wunsch hier ist
-     * also nie mehr als eine verschwendete Anfrage, nie ein falscher Kauf.
-     */
-    const handleBuySeedAll = useCallback(async (seed) => {
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuySeedAllRef.current?.(seed)); return; }
-        const { inventory: inv0, harvestedItems: hi0, inventoryMaxSlots: maxSlots } = farmStateRef.current;
-        const freiePlaetze = (maxSlots || 50) - (inv0?.length || 0) - (hi0?.length || 0) - offeneSamenkaeufeRef.current;
-        if (freiePlaetze <= 0) {
-            notify("Rucksack voll — kauf ein Upgrade im Tool-Shop.", "error");
-            return;
-        }
-        letzterKaufAtRef.current = Date.now();
-        kaufLaeuftRef.current = true;
-        let antwort;
-        try {
-            antwort = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "buySeedAll", seedId: seed.seedId }),
-            });
-        } catch (err) {
-            notify(err?.message || "Kauf fehlgeschlagen.", "error");
-            return;
-        } finally {
-            kaufLaeuftRef.current = false;
-            naechstenKaufStarten();
-        }
-        if (typeof antwort?.gold === "number") setGold(antwort.gold);
-        if (typeof antwort?.stock === "number") {
-            letzterKaufAtRef.current = Date.now();
-            setLadenBestand((prev) => ({ ...prev, [seed.seedId]: Math.max(0, antwort.stock) }));
-        }
-        const gekauft = Array.isArray(antwort?.samenListe) ? antwort.samenListe : [];
-        if (!gekauft.length) return;
-        // Wie beim Rucksackplatz-Vorabcheck: mehr als frei ist, käme vom Server nie
-        // zurück (der prüft dasselbe Limit selbst), das slice() ist nur eine zweite
-        // Absicherung, kein erwarteter Fall.
-        const passendGekauft = gekauft.slice(0, Math.max(0, freiePlaetze));
-        const naechstesInventar = [
-            ...(farmStateRef.current.inventory || []),
-            ...passendGekauft.map((s) => ({ ...seed, ...s })),
-        ];
-        setInventory(naechstesInventar);
-        setSelectedSeed(prev => prev || naechstesInventar[naechstesInventar.length - passendGekauft.length]);
-        notify(`${passendGekauft.length}× ${seed.name} gekauft.`);
-        await kaufSichern("inventory", naechstesInventar);
-    }, [notify, apiCall, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
-
-    useEffect(() => { handleBuySeedAllRef.current = handleBuySeedAll; }, [handleBuySeedAll]);
-
-    // Ueber ein Ref, damit ein eingereihter Klick sich selbst nachreichen kann.
-    useEffect(() => { handleBuySeedRef.current = handleBuySeed; }, [handleBuySeed]);
-
-    // ── Plant seed in cell ────────────────────────────────────────────────────
-    const handleCellClick = useCallback(async (cellX, cellY) => {
-        const seedToPlant = selectedSeed || inventory[0];
-        if (!seedToPlant) return;
-        const key = `${cellX}_${cellY}`;
-        // Bewusst ohne Hinweis: beim schnellen Pflanzen trifft man oft zweimal
-        // dieselbe Zelle, und eine Fehlermeldung dafuer stoert mehr als sie hilft.
-        if (plotPlants[key]) return;
-
-        // „Grüner Daumen" plus „Wurzelwerk" des Gärtners — dieselbe Rechnung wie
-        // serverseitig in wachstumsBonus() (garden/core/economy.js), damit eine von
-        // Hand gesetzte Pflanze nicht anders wächst als eine nachgewachsene.
-        const wurzelwerk = getGaertnerWurzelwerk(
-            getGaertnerStufe(petPlacements, mySlotRef.current), skillWirkung("zuechter"));
-        const plant = wachstumBeschleunigen(
-            createPlantInstance(seedToPlant, cellX, cellY, partyLaeuftJetzt()),
-            Math.min(0.8, skillWirkung("gruener_daumen") + wurzelwerk),
-            Date.now(),
-        );
-        setPlotPlants(prev => ({ ...prev, [key]: plant }));
-        playSound("plant", 0.5);
-        // v2 (Feedback 28.08.): Pflanz-Wurf — das Tütchen fällt sichtbar auf die
-        // Zelle, statt dass die Pflanze kommentarlos erscheint (siehe spawnSaatWurf).
-        const pflanzMySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-        const pflanzWeltPos = pflanzMySlot ? getDirtCellWorldPos(pflanzMySlot, cellX, cellY) : null;
-        if (pflanzWeltPos) {
-            engineRef.current?.renderer?.spawnSaatWurf(
-                pflanzWeltPos.x + TILE_SIZE / 2, pflanzWeltPos.y + TILE_SIZE / 2,
-                seedToPlant.seedImage || seedToPlant.image, seedToPlant.emoji,
-            );
-        }
-        setInventory(inv => {
-            const nextInv = inv.filter(s => s.instanceId !== seedToPlant.instanceId);
-            const nextSelected = nextInv.find(s => s.seedId === seedToPlant.seedId) || nextInv[0] || null;
-            setSelectedSeed(nextSelected);
-            return nextInv;
-        });
-        debouncedSave();
-    }, [selectedSeed, inventory, plotPlants, notify, debouncedSave, skillWirkung, petPlacements]);
-
-    // ── Harvest plant ─────────────────────────────────────────────────────────
-    // Wert, Groesse, Sonderform und Wetterbonus rechnet weiterhin ausschliesslich
-    // der Server. Die OPTIK laeuft aber voraus: die Zelle wird sofort geleert,
-    // statt erst nach der Antwort. Vorher lag zwischen Klick und Reaktion eine
-    // ganze Netzrunde — das war der Grund, warum sich das Einsammeln zaeh anfuehlte.
-    // Lehnt der Server ab, steht die Pflanze wieder da.
-    const handleHarvest = useCallback(async (key, plant) => {
-        if (!isPlantReady(plant)) return;
-        // Eine Zelle darf nur EINE Ernte gleichzeitig unterwegs haben — sonst schickt
-        // ein zweiter Klick eine Anfrage los, die der Server ablehnt.
-        //
-        // Klicks während dieser Zeit wurden aber bisher WEGGEWORFEN. Eine Ernte
-        // kostet eine Netzrunde; auf einer Verbindung mit 250 ms kam so nur jeder
-        // zweite Klick an, bei schlechterer Leitung noch weniger. An einer Staude mit
-        // acht reifen Früchten fühlte sich das an, als wäre die Maus gedrosselt.
-        // Jetzt werden sie angestellt und der Reihe nach abgearbeitet.
-        if (ernteLaeuftRef.current.has(key)) {
-            const offen = ernteWarteschlangeRef.current.get(key) || 0;
-            if (offen < ERNTE_WARTESCHLANGE_MAX) ernteWarteschlangeRef.current.set(key, offen + 1);
-            return;
-        }
-        ernteLaeuftRef.current.add(key);
-        playSound("harvest", 0.5);
-        const vorherigerStand = plant;
-        setPlotPlants((prev) => {
-            const p = prev[key];
-            if (!p) return prev;
-            const next = { ...prev };
-            if (p.singleUse !== false) {
-                delete next[key];
-                return next;
-            }
-            // Dauertraeger: die am laengsten reife Frucht optisch zuruecksetzen —
-            // dieselbe Auswahl wie auf dem Server, damit nichts springt.
-            const slots = Array.isArray(p.fruitSlots) ? p.fruitSlots : [];
-            const jetzt = Date.now();
-            let idx = -1; let aeltester = Infinity;
-            for (let i = 0; i < slots.length; i++) {
-                const ra = Number(slots[i]?.readyAt ?? Infinity);
-                if (ra <= jetzt && ra < aeltester) { aeltester = ra; idx = i; }
-            }
-            if (idx === -1) return prev;
-            const neueSlots = slots.slice();
-            neueSlots[idx] = {
-                ...neueSlots[idx],
-                // ×1,2 statt ×1 (Bug gefunden 01.09.: "beim Anklicken auf Multipflanzen,
-                // die bereits standen, 400 Bad Request"). Der Server würfelt den
-                // nachgewachsenen Fruchtstand bewusst OHNE Seed (neuerFruchtstand in
-                // core/economy.js, ×0,8 bis ×1,2 vom Zyklus — absichtlich nicht
-                // vorhersagbar, siehe Kommentar dort). Diese Vorschau hier riet bisher
-                // glatt ×1 — lag der Server-Wurf darüber (rund die Hälfte der Fälle),
-                // zeigte die Staude sich hier schon reif, während der Server beim
-                // Klick noch "Noch nicht reif."/"Keine reife Frucht." ablehnte. Bei
-                // einem 3-Stunden-Strauch (Blaubeere, Erdbeere) blieb das bis zu 36
-                // Minuten lang so UND wurde bei jedem Klick sofort zurückgerollt (siehe
-                // "veraltet" unten) — die Staude wirkte dauerhaft blockiert. ×1,2 ist die
-                // obere Grenze des Server-Wurfs: die Vorschau darf jetzt spät liegen,
-                // nie mehr zu früh.
-                readyAt: jetzt + Math.round((Number(p.fruitCycleMs) || 60000) * 1.2),
-                statusEffects: [], statusEffect: null, statusEffectUntil: null, specialType: null,
-            };
-            next[key] = { ...p, fruitSlots: neueSlots };
-            return next;
-        });
-        const ernte = () => apiCall("/action", {
-            method: "POST",
-            body: JSON.stringify({ action: "harvest", key }),
-        });
-        // Weltposition der Zelle für die Rückmeldungsschicht (siehe unten) — einmal
-        // pro Ernte reicht, die Zelle bewegt sich während der Anfrage nicht.
-        const [ernteZellX, ernteZellY] = key.split("_").map(Number);
-        const ernteMySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-        const ernteWeltPos = ernteMySlot ? getDirtCellWorldPos(ernteMySlot, ernteZellX, ernteZellY) : null;
-
-        /**
-         * Gold-Text, Doppelernte-Hinweis und Nachwuchs-Meldung an der Zelle — die
-         * gemeinsame Rückmeldungsschicht aus engine/Renderer.js (spawnFeedback).
-         */
-        const zeigeErnteFeedback = (data, nachwuchs) => {
-            const renderer = engineRef.current?.renderer;
-            if (!renderer || !ernteWeltPos) return;
-            const x = ernteWeltPos.x + TILE_SIZE / 2;
-            const y = ernteWeltPos.y + TILE_SIZE / 2;
-            // Beim Shift-Klick-Ziehen über ein volles Feld (viele Dauerträger mit
-            // vielen Fruchtständen) läuft diese Funktion dutzendfach in Sekunden —
-            // Feedback: "dann kommt ja alles voller Zahlen". Die Flug-Animation
-            // (ein eigenes Bild pro Ernte, das aufsteigt) fällt während des Ziehens
-            // weiterhin weg — reiner Text ist billig zu zeichnen, ein Dutzend
-            // fliegender Bilder gleichzeitig nicht.
-            //
-            // Die XP-Zahl blieb dabei erst versehentlich mit weg (Feedback 30.08.:
-            // "XP zeigen sich nicht beim Schnellernten") — das war nie Absicht, nur
-            // dieselbe Bedingung wie beim Flug-Bild wiederverwendet. Text kostet
-            // beim Zeichnen so gut wie nichts, die Gold-Zahl blieb ja auch die
-            // ganze Zeit sichtbar — jetzt läuft die XP-Zahl genauso mit.
-            const kompakt = isDragHarvestingRef.current;
-            if (data?.item) {
-                const special = data.item.specialData?.name;
-                const farbe = special === "Rainbow" ? "#f472b6" : special === "Golden" ? "#fde047" : "#fef08a";
-                // Keine Emoji-Icons mehr (siehe Feedback: "sieht billig/nach KI aus") —
-                // Farbe und Text unterscheiden Gold/Golden/Rainbow schon eindeutig.
-                renderer.spawnFeedback(x, y, `+${formatGold(data.item.sellValue)}`, { color: farbe });
-                // XP direkt darunter, in derselben Ernte-Rückmeldung — vorher stand die
-                // Erfahrung nirgends am Ort des Geschehens, nur im Fähigkeitsbaum-Fenster.
-                const xp = Number(data?.erfahrung?.xp) || 0;
-                if (xp > 0) {
-                    renderer.spawnFeedback(x, y + 16, `+${xp} XP`, { color: "#a78bfa", durationMs: 950 });
-                }
-                if (kompakt) return;
-                // v2 (Punkt 13, "Erntesamen-Flug"): das Stück fliegt sichtbar weg,
-                // statt kommentarlos im Rucksack aufzutauchen — siehe spawnItemFlug.
-                // Bild/Emoji kommen von der LOKALEN Pflanze, nicht aus `data.item`:
-                // der Server liefert nur Werte (siehe baueItem in economy.js), keine
-                // Bildpfade — die stehen ausschliesslich im Katalog, den nur der
-                // Client kennt.
-                renderer.spawnItemFlug(x, y, plant.harvestImage || plant.fruitImage || plant.image || plant.growthImage, plant.emoji);
-            }
-            if (data?.zweites) {
-                // Eigene Farbe und leicht versetzt, damit klar ist: DAS ist der Bonus aus
-                // „Reiche Ernte"/Erntehelfer, nicht dieselbe Ernte doppelt angezeigt.
-                renderer.spawnFeedback(x, y - 18, `2× +${formatGold(data.zweites.sellValue)}`, { color: "#c4b5fd" });
-            }
-            if (nachwuchs) {
-                renderer.spawnFeedback(x, y - 32, "Nachwuchs!", { color: "#86efac", durationMs: 1300 });
-            }
-        };
-
-        /**
-         * Antwort übernehmen, OHNE den eigenen Acker zu verwerfen.
-         *
-         * Vorher ersetzte die Antwort die ganze Pflanze durch die Server-Fassung. Der
-         * Acker gehört aber dem Browser und erreicht den Server nur alle fünf Sekunden:
-         * jeder Fruchtstand, der seit dem letzten Speichern reif geworden war, ging
-         * dabei verloren. An einer Staude mit acht reifen Früchten kam deshalb genau
-         * EINE durch — danach hielt der Browser die Pflanze für leer und man wartete
-         * auf das Nachwachsen. Genau das fühlte sich wie eine gedrosselte Maus an.
-         *
-         * Jetzt wird nur der eine nachgewachsene Fruchtstand übernommen (den würfelt
-         * weiterhin der Server), der Rest bleibt beim Browser.
-         */
-        // Gibt die Pflanze zurück, wie sie danach dasteht — die angestellte nächste
-        // Ernte rechnet damit weiter, statt auf das nächste Rendern zu warten.
-        const uebernehmen = (data) => {
-            applyEconomy(data, []);          // Gold und Lager ja, Pflanzen nein
-            zeigeErnteFeedback(data, plant.singleUse !== false && !!data?.singleUseNachwuchs);
-            const nach = data?.nachgewachsen;
-            if (!Number.isInteger(nach?.index) || !nach?.slot) {
-                if (plant.singleUse !== false) {
-                    // Gärtner-Nachwuchs bei einer Einmalernte: der Server hat die Zelle
-                    // NEU bepflanzt, statt sie leer zu lassen — die optimistische Leerung
-                    // von eben war also zu früh. Ohne das hier stünde die Zelle im Browser
-                    // für immer leer, obwohl der Server längst eine wachsende Pflanze führt
-                    // (nächster Klick auf die vermeintlich reife Zelle: "Noch nicht reif",
-                    // siehe singleUseNachwuchs in garden/core/economy.js).
-                    if (data?.singleUseNachwuchs) {
-                        const hydriert = hydratePlantVisuals(data.singleUseNachwuchs);
-                        setPlotPlants((prev) => ({ ...prev, [key]: hydriert }));
-                        return hydriert;
-                    }
-                    return null;
-                }
-                // Kein Fruchtstand gemeldet (alter Server) — dann wie früher.
-                const vomServer = data?.plotPlants?.[key];
-                if (!vomServer) return null;
-                const hydriert = hydratePlantVisuals(vomServer);
-                setPlotPlants((prev) => ({ ...prev, [key]: hydriert }));
-                return hydriert;
-            }
-            // Vom Stand VOR dem Klick ausgehen: die optimistische Vorschau hat
-            // vielleicht einen anderen Stand vorgezogen als der Server genommen hat.
-            const basisSlots = Array.isArray(vorherigerStand?.fruitSlots) ? vorherigerStand.fruitSlots : null;
-            if (!basisSlots || nach.index >= basisSlots.length) return null;
-            const neueSlots = basisSlots.slice();
-            neueSlots[nach.index] = nach.slot;
-            const danach = { ...vorherigerStand, fruitSlots: neueSlots };
-            setPlotPlants((prev) => (prev[key] ? { ...prev, [key]: danach } : prev));
-            return danach;
-        };
-        /** Wie die Pflanze nach dieser Ernte dasteht — Grundlage für den nächsten Klick. */
-        let danach = null;
-        try {
-            danach = uebernehmen(await ernte());
-            letzteErnteRef.current.set(key, Date.now());
-        } catch (err) {
-            const m = err?.message || "Ernte fehlgeschlagen.";
-            // ── Antwort nie angekommen ────────────────────────────────────────
-            // Ohne HTTP-Status ist die Anfrage nicht beantwortet worden (Netz weg,
-            // Proxy-Timeout). Ob der Server geerntet hat, wissen wir NICHT — und
-            // ein Rollback wäre hier fatal: die Pflanze stünde wieder auf dem
-            // Acker, das Gold dafür wäre schon gutgeschrieben, und der nächste
-            // Speichervorgang würde sie über den 409-Nachreichweg beim Server
-            // festschreiben. Genau daraus liess sich Gold aus dem Nichts machen.
-            // Also nichts zurückrollen, sondern den echten Stand holen.
-            if (err?.status === undefined) {
-                ernteWarteschlangeRef.current.delete(key);
-                await uebernimmVomServer(null);
-                return;   // finally räumt ernteLaeuftRef auf
-            }
-            // Zu schnell geklickt: bei einem Dauerträger mit acht Fruchtständen
-            // gehen leicht mehr Klicks raus, als reife Früchte da sind. Der Server
-            // sagt dann zu Recht nein — das ist kein Fehler, den man melden muss.
-            const geradeGeerntet = Date.now() - (letzteErnteRef.current.get(key) || 0) < 5000;
-            // Der Acker gehoert weiterhin dem Browser und wandert nur mit dem
-            // Speichervorgang zum Server. Wer giesst und sofort erntet — oder eine
-            // Staude abpflueckt, die gerade erst Fruechte angesetzt hat — fragt
-            // gegen einen aelteren Stand. Also: Zelle zurueck, Stand hochschieben,
-            // ein zweiter Versuch. Bleibt es dabei, war es ein echtes Nein.
-            // WICHTIG: nach einer gerade gelungenen Ernte NICHT wiederholen. Der
-            // Rücksprung würde den alten Fruchtstand zurückschreiben und der zweite
-            // Versuch dieselbe Frucht ein zweites Mal auszahlen.
-            const veraltet = !geradeGeerntet && (
-                m.includes("Noch nicht reif")
-                || m.includes("Keine reife Frucht")
-                || m.includes("wächst nichts"));
-            if (veraltet) {
-                const wiederhergestellt = { ...(farmStateRef.current.plotPlants || {}), [key]: vorherigerStand };
-                setPlotPlants(wiederhergestellt);
-                try {
-                    // Die Pflanze ausdruecklich mitgeben: setPlotPlants wirkt erst
-                    // beim naechsten Rendern, der Payload wuerde sie sonst vermissen.
-                    await flushSave({ plotPlants: wiederhergestellt });
-                    // Hier ist der Server frisch beliefert — trotzdem derselbe Weg,
-                    // damit nur der nachgewachsene Fruchtstand übernommen wird.
-                    danach = uebernehmen(await ernte());
-                    letzteErnteRef.current.set(key, Date.now());
-                    return;   // finally raeumt ernteLaeuftRef auf
-                } catch {
-                    // Zweiter Versuch auch nein: kein bloßes Überklicken (das ist
-                    // oben schon durch geradeGeerntet abgefangen), sondern ein
-                    // ECHTER, anhaltender Unterschied zwischen dem, was der Browser
-                    // zeigt, und dem, was der Server hat (Feedback 01.09.: "Bohne
-                    // bleibt voll angezeigt, Klick sagt trotzdem Keine reife
-                    // Frucht" — bisher nur durch Neuladen behebbar). Bisher stand
-                    // hier nur ein Kommentar und der Code lief unten in den
-                    // Rückfall, der GENAU DIESE veraltete Ansicht (vorherigerStand)
-                    // wieder hinschrieb — die Pflanze blieb also absichtlich falsch
-                    // reif stehen. Jetzt: ganzen Spielstand vom Server nachziehen,
-                    // dasselbe, was bisher nur ein manuelles Neuladen behoben hat.
-                    ernteWarteschlangeRef.current.delete(key);
-                    await uebernimmVomServer(null);
-                    return;   // finally raeumt ernteLaeuftRef auf
-                }
-            }
-            // Nur zurückstellen, wenn die Pflanze wirklich noch da ist. Bei
-            // "geradeGeerntet" stammt das Nein von einem KONKURRIERENDEN Vorgang, der
-            // dieselbe Zelle eben erst erfolgreich geerntet hat — Schnellzug
-            // (handleHarvestMany) und der nachlaufende Browser-Klick nach mouseup
-            // treffen leicht dieselbe Zelle doppelt (der Shift-Zustand im click-Event
-            // kann schon "false" sein, wenn Shift knapp vor/mit der Maustaste
-            // losgelassen wird — die Sperre in onCanvasClick greift dann nicht). Die
-            // Pflanze ist auf dem Server in diesem Fall bereits weg; stellte man sie
-            // hier trotzdem zurück, schickte der nächste Speichervorgang sie als "neu
-            // gepflanzt" an den Server (verplausibilisierePflanzen kennt den Schlüssel
-            // nicht mehr, findet auch die instanceId nicht mehr und würfelt frische
-            // Zeiten) — ein kostenloser Nachschub, ohne Samen zu bezahlen und ohne
-            // Rucksackplatz. GEFUNDEN 14.09. ("gieße, dann kann ich ganz oft
-            // einsammeln, Saat kommt wieder, bekomme random Frucht").
-            if (!geradeGeerntet) {
-                setPlotPlants((prev) => ({ ...prev, [key]: vorherigerStand }));
-            }
-            // Ein Nein gilt für die ganze Warteschlange: sonst hämmert jeder
-            // angestellte Klick auf dieselbe Absage.
-            ernteWarteschlangeRef.current.delete(key);
-            if (m.includes("Rucksack")) notify("Rucksack voll — verkauf erst Ernte oder kauf ein Upgrade.", "error");
-            else if (geradeGeerntet) { /* Überklick nach erfolgreicher Ernte — still bleiben */ }
-            else if (!m.includes("wächst nichts")) notify(m, "error");
-        } finally {
-            ernteLaeuftRef.current.delete(key);
-            // Angestellte Klicks abarbeiten, solange wirklich noch etwas reif ist.
-            const offen = ernteWarteschlangeRef.current.get(key) || 0;
-            if (offen > 0) {
-                if (danach && isPlantReady(danach)) {
-                    ernteWarteschlangeRef.current.set(key, offen - 1);
-                    handleHarvestRef.current?.(key, danach);
-                } else {
-                    ernteWarteschlangeRef.current.delete(key);
-                }
-            }
-        }
-    }, [apiCall, applyEconomy, notify, playSound, flushSave, uebernimmVomServer]);
-
-    // Ueber ein Ref, damit die Warteschlange sich selbst aufrufen kann.
-    useEffect(() => { handleHarvestRef.current = handleHarvest; }, [handleHarvest]);
-
-    /**
-     * Sammel-Ernte für das Schnellziehen (Shift + Maustaste über den Acker) —
-     * EIN Aufruf für den GANZEN Zug, egal wie viele Zellen dabei berührt wurden.
-     *
-     * Feedback 30.08. (erste Runde: "Shift-Ziehen erntet mit viel Lag") gab
-     * zunächst harvestAll — ein Aufruf je ZELLE statt je Frucht. Das reichte für
-     * eine einzelne vollbehangene Staude, aber ein Zug über ein volles FELD
-     * berührt viele Zellen: jede Antwort löste weiterhin ihren eigenen
-     * Rendervorgang aus, und trafen dabei auch noch Tier-/Skill-Ereignisse ein
-     * (Feedback 30.08., zweite Runde), summierte sich das spürbar zu Ruckeln.
-     * `ernteBeiZug` sammelt die berührten Zellen jetzt nur noch (siehe
-     * dragErnteSammlungRef) und diese Funktion schickt sie GESAMMELT — genau
-     * EIN Request, EINE Antwort, EIN Rendervorgang, unabhängig von der Anzahl
-     * Zellen (harvestMany, siehe harvestManyCells in core/economy.js).
-     *
-     * Bewusst ein eigener, einfacherer Weg statt eine Erweiterung von
-     * handleHarvest: dessen Warteschlange (ernteLaeuftRef) dient dem
-     * EINZELKLICK — rasch mehrfach dieselbe Zelle antippen.
-     *
-     * @param {Array<[string, object]>} eintraege [key, Pflanzen-Schnappschuss][]
-     */
-    const handleHarvestMany = useCallback(async (eintraege) => {
-        if (!eintraege || eintraege.length === 0) return;
-        playSound("harvest", 0.5);
-        const vorherKarte = new Map(eintraege);
-        const keys = eintraege.map(([key]) => key);
-
-        try {
-            const data = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "harvestMany", keys }),
-            });
-            applyEconomy(data, []);          // Gold und Lager ja, Pflanzen nein (siehe unten)
-
-            const ernten = data?.ernten && typeof data.ernten === "object" ? data.ernten : {};
-            const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-            const renderer = engineRef.current?.renderer;
-            let irgendRucksackVoll = false;
-            // Jede Zelle in `ernten` kam aus `eintraege`, weil ernteBeiZug sie schon
-            // LOKAL für reif hielt (isPlantReady dort, vor dem Sammeln). Lehnt der
-            // Server so eine Zelle trotzdem ab, ist das kein normales "zu schnell
-            // gezogen" — das filtert der Zug selbst schon raus, bevor überhaupt
-            // etwas losgeschickt wird — sondern ein echter Unterschied zwischen dem,
-            // was der Browser zeigt, und dem, was der Server hat (Feedback 01.09.:
-            // dieselbe Meldung wie bei handleHarvest, siehe dort für den vollen
-            // Kommentar — "Bohne bleibt voll, obwohl geerntet").
-            let echterMismatch = false;
-            for (const ergebnis of Object.values(ernten)) {
-                if (!ergebnis?.ok && ergebnis?.error && !ergebnis.error.includes("Rucksack")) echterMismatch = true;
-            }
-
-            setPlotPlants((prev) => {
-                let next = prev;
-                let kopiert = false;
-                for (const [key, ergebnis] of Object.entries(ernten)) {
-                    if (!ergebnis?.ok) continue;   // diese eine Zelle war zu schnell dran — die anderen zaehlen trotzdem
-                    const vorherigerStand = vorherKarte.get(key);
-                    if (!vorherigerStand) continue;
-                    letzteErnteRef.current.set(key, Date.now());
-                    if (ergebnis.rucksackVoll) irgendRucksackVoll = true;
-
-                    // Rückmeldung an GENAU DIESER Zelle, nicht eine Sammel-Zahl
-                    // irgendwo auf dem Bildschirm — bei einem vollen Zug soll man
-                    // trotz des gebündelten Requests sehen, WAS wo passiert ist.
-                    if (renderer && mySlot) {
-                        const [cellX, cellY] = key.split("_").map(Number);
-                        const weltPos = getDirtCellWorldPos(mySlot, cellX, cellY);
-                        const x = weltPos.x + TILE_SIZE / 2;
-                        const y = weltPos.y + TILE_SIZE / 2;
-                        const items = Array.isArray(ergebnis.items) ? ergebnis.items : [];
-                        if (items.length > 0) {
-                            const goldSumme = items.reduce((summe, it) => summe + (Number(it?.sellValue) || 0), 0);
-                            renderer.spawnFeedback(x, y, `+${formatGold(goldSumme)}`, { color: "#fef08a" });
-                            const xp = Number(ergebnis.erfahrung?.xp) || 0;
-                            if (xp > 0) renderer.spawnFeedback(x, y + 16, `+${xp} XP`, { color: "#a78bfa", durationMs: 950 });
-                            const besonders = items.find((it) => it?.specialData?.name);
-                            if (besonders) {
-                                const special = besonders.specialData.name;
-                                const farbe = special === "Rainbow" ? "#f472b6" : "#fde047";
-                                renderer.spawnFeedback(x, y - 18, special === "Rainbow" ? "🌈 Rainbow!" : "✨ Golden!",
-                                    { color: farbe, durationMs: 1300 });
-                            }
-                            const bonusAnzahl = Number(ergebnis.bonusAnzahl) || 0;
-                            if (bonusAnzahl > 0) {
-                                renderer.spawnFeedback(x, y - 34, bonusAnzahl > 1 ? `${bonusAnzahl}× Bonus!` : "Bonus!",
-                                    { color: "#c4b5fd", durationMs: 1300 });
-                            }
-                            if (ergebnis.singleUseNachwuchs) {
-                                renderer.spawnFeedback(x, y - 50, "Nachwuchs!", { color: "#86efac", durationMs: 1300 });
-                            }
-                        }
-                    }
-
-                    // Nur die tatsächlich abgeernteten Fruchtstände übernehmen —
-                    // derselbe Grund wie bei handleHarvest (uebernehmen): der Acker
-                    // gehört dem Browser, der Server erreicht ihn nur alle paar
-                    // Sekunden. Vom Stand VOR dem Zug ausgehen, nicht vom aktuellen
-                    // React-State: der kann durch andere, seither abgeschlossene
-                    // Ernten schon weiter sein.
-                    const aenderungen = Array.isArray(ergebnis.aenderungen) ? ergebnis.aenderungen : [];
-                    if (!kopiert) { next = { ...next }; kopiert = true; }
-                    if (aenderungen.length > 0) {
-                        const basisSlots = Array.isArray(vorherigerStand?.fruitSlots) ? vorherigerStand.fruitSlots.slice() : null;
-                        if (basisSlots && next[key]) {
-                            for (const { index, slot } of aenderungen) {
-                                if (Number.isInteger(index) && index < basisSlots.length) basisSlots[index] = slot;
-                            }
-                            next[key] = { ...vorherigerStand, fruitSlots: basisSlots };
-                        }
-                    } else if (ergebnis.singleUseNachwuchs) {
-                        // Gärtner-Nachwuchs bei einer Einmalernte: die Zelle bleibt bepflanzt.
-                        next[key] = hydratePlantVisuals(ergebnis.singleUseNachwuchs);
-                    } else if (vorherigerStand?.singleUse !== false) {
-                        // Einmalernte ohne Nachwuchs: leer, wie der Zug es schon zeigte.
-                        delete next[key];
-                    }
-                }
-                return next;
-            });
-
-            if (irgendRucksackVoll) notify("Rucksack voll — der Rest hängt noch an der Pflanze.", "error");
-            // Statt die falsch reif aussehende(n) Zelle(n) einfach so stehen zu
-            // lassen (das war bisher der Fall — nur ein manuelles Neuladen half),
-            // den ganzen Spielstand vom Server nachziehen.
-            if (echterMismatch) await uebernimmVomServer(null);
-        } catch (err) {
-            const m = err?.message || "Ernte fehlgeschlagen.";
-            // Dieselbe Grosszügigkeit wie bei handleHarvest: "zu schnell gezogen"
-            // (nichts mehr reif, Zelle inzwischen leer) ist beim Schnellziehen der
-            // Normalfall, kein Fehler, den man melden muss. Lehnt der Server aber
-            // den GANZEN Zug ab (kein einziger Treffer, siehe harvestManyCells),
-            // obwohl ernteBeiZug jede gesammelte Zelle vorher für reif hielt, ist
-            // das derselbe echte Mismatch wie oben — auch hier nachziehen.
-            if (m.includes("Rucksack")) notify("Rucksack voll — verkauf erst Ernte oder kauf ein Upgrade.", "error");
-            else if (!m.includes("Noch nicht reif") && !m.includes("Keine reife Frucht") && !m.includes("wächst nichts")) {
-                notify(m, "error");
-            } else {
-                await uebernimmVomServer(null);
-            }
-        }
-    }, [apiCall, applyEconomy, notify, playSound, hydratePlantVisuals, uebernimmVomServer]);
-
-    /**
-     * Sammlung leeren und abschicken — der einzige Ort, der `handleHarvestMany`
-     * tatsächlich aufruft. Sowohl vom Debounce-Timer (siehe planeDragErnteFlush)
-     * als auch direkt beim Loslassen der Maustaste (siehe stopShovelHold/
-     * onCanvasMove) aufgerufen, deshalb hier gebündelt statt an jeder Stelle
-     * dasselbe Leeren+Aufrufen zu wiederholen.
-     */
-    const flushDragErnte = useCallback(() => {
-        if (dragErnteFlushTimerRef.current) {
-            clearTimeout(dragErnteFlushTimerRef.current);
-            dragErnteFlushTimerRef.current = null;
-        }
-        const sammlung = dragErnteSammlungRef.current;
-        if (sammlung.size === 0) return;
-        const eintraege = Array.from(sammlung.entries());
-        sammlung.clear();
-        handleHarvestMany(eintraege);
-    }, [handleHarvestMany]);
-
-    /**
-     * Nach jeder neu gesammelten Zelle aufgerufen (siehe ernteBeiZug): stößt
-     * einen kurzen Debounce an, statt bei JEDER Zelle sofort abzuschicken —
-     * genau das war ja das ursprüngliche Problem (ein Request je Zelle). Ein
-     * zügiger Zug über viele Zellen sammelt sich so zu wenigen, teils sogar
-     * einem einzigen Request; bleibt die Maus kurz stehen oder endet der Zug,
-     * geht die Sammlung trotzdem zeitnah raus (120ms), fühlt sich also nicht
-     * verzögert an.
-     */
-    const DRAG_ERNTE_FLUSH_MS = 120;
-    const planeDragErnteFlush = useCallback(() => {
-        if (dragErnteFlushTimerRef.current) clearTimeout(dragErnteFlushTimerRef.current);
-        dragErnteFlushTimerRef.current = setTimeout(flushDragErnte, DRAG_ERNTE_FLUSH_MS);
-    }, [flushDragErnte]);
-
-    /**
-     * Werkzeug kaufen — Preis, Vorrat und Gutschrift liegen ALLE beim Server
-     * (garden/core/werkzeug.js).
-     *
-     * Vorher lief das in zwei Schritten: erst Gold abbuchen (`payServer`), dann den
-     * Werkzeugkasten im Browser fortschreiben und speichern. Zwischen beiden lag eine
-     * Lücke, und jeder Weg, der den Browserstand verwirft — Nachladen nach Konflikt,
-     * Migration beim Deploy, zweiter Tab — liess das Gold verschwinden, ohne dass das
-     * Werkzeug ankam. Genau das war „zehn Gießkannen gekauft, sechs bekommen".
-     *
-     * Jetzt ist es EIN Aufruf: der Server bucht ab und trägt ein, oder er tut beides
-     * nicht. Der Ladenbestand hier ist nur noch Anzeige; verbindlich zählt der Server.
-     */
-    const handleBuyTool = useCallback(async (tool) => {
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyToolRef.current?.(tool)); return; }
-        const hatBestand = tool.type === "single";
-        if (hatBestand && !reserviere(toolShopStockRef, setToolShopStock, tool.id)) return;
-        // Ab hier ist jede Poll-Antwort, die schon unterwegs war, veraltet — siehe
-        // den werkzeugladen-Abgleich im /global-shop-Poll oben.
-        if (hatBestand) letzterToolKaufAtRef.current = Date.now();
-
-        kaufLaeuftRef.current = true;
-        try {
-            const daten = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "buyTool", toolId: tool.id }),
-            });
-            if (typeof daten?.gold === "number") { goldRef.current = daten.gold; setGold(daten.gold); }
-            if (daten?.toolInventory) setzeWerkzeug(daten.toolInventory);
-            if (hatBestand && typeof daten?.stock === "number") {
-                // Der Server hat gerade gerechnet — diese Zahl gilt, nicht die
-                // optimistische Reservierung von oben.
-                letzterToolKaufAtRef.current = Date.now();
-                setToolShopStock((prev) => ({ ...prev, [tool.id]: Math.max(0, daten.stock) }));
-            }
-            // v2, Punkt 12: Kassen-Sound beim Werkzeugkauf raus — mit Buy-All (kauft
-            // oft mehrere auf einen Klick) wären das sonst mehrere Sounds übereinander.
-        } catch (err) {
-            if (hatBestand) {
-                gibZurueck(toolShopStockRef, setToolShopStock, tool.id);
-                // Bei „ausverkauft" (oder wenn der Kauf trotz einer Verbindungs-
-                // störung beim Server durchging und nur die Antwort verlorenging)
-                // den echten Reststand übernehmen, statt blind die Reservierung
-                // zurückzugeben — sonst zeigt der Laden mehr an, als noch da ist.
-                // Dieselbe Absicherung wie beim Samenkauf (handleBuySeed).
-                if (typeof err?.data?.stock === "number") {
-                    letzterToolKaufAtRef.current = Date.now();
-                    setToolShopStock((prev) => ({ ...prev, [tool.id]: Math.max(0, err.data.stock) }));
-                }
-            }
-            notify(err?.message || "Kauf fehlgeschlagen.", "error");
-        } finally {
-            kaufLaeuftRef.current = false;
-            naechstenKaufStarten();
-        }
-        // Kein `kaufSichern` mehr: der Server hat den Kauf bereits festgeschrieben.
-        // Ein Speichervorgang von hier könnte ihn nur noch überschreiben.
-    }, [apiCall, notify, playSound, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, setzeWerkzeug]);
-
-    /**
-     * Buy-All (v2, Punkt 12) fürs Werkzeug — siehe kaufeWerkzeugAlle in
-     * werkzeug.js. Läuft dieselbe Reservierung/Rückgabe wie handleBuyTool,
-     * nur für einen einzigen Request statt einer Klickserie.
-     */
-    const handleBuyToolAll = useCallback(async (tool) => {
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyToolAllRef.current?.(tool)); return; }
-        const hatBestand = tool.type === "single";
-        if (hatBestand && !reserviere(toolShopStockRef, setToolShopStock, tool.id)) return;
-        if (hatBestand) letzterToolKaufAtRef.current = Date.now();
-
-        kaufLaeuftRef.current = true;
-        try {
-            const daten = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "buyToolAll", toolId: tool.id }),
-            });
-            if (typeof daten?.gold === "number") { goldRef.current = daten.gold; setGold(daten.gold); }
-            if (daten?.toolInventory) setzeWerkzeug(daten.toolInventory);
-            if (hatBestand && typeof daten?.stock === "number") {
-                letzterToolKaufAtRef.current = Date.now();
-                setToolShopStock((prev) => ({ ...prev, [tool.id]: Math.max(0, daten.stock) }));
-            }
-            const anzahl = Number(daten?.anzahl) || 0;
-            if (anzahl > 0) notify(`${anzahl}× ${tool.name} gekauft.`);
-        } catch (err) {
-            if (hatBestand) {
-                gibZurueck(toolShopStockRef, setToolShopStock, tool.id);
-                if (typeof err?.data?.stock === "number") {
-                    letzterToolKaufAtRef.current = Date.now();
-                    setToolShopStock((prev) => ({ ...prev, [tool.id]: Math.max(0, err.data.stock) }));
-                }
-            }
-            notify(err?.message || "Kauf fehlgeschlagen.", "error");
-        } finally {
-            kaufLaeuftRef.current = false;
-            naechstenKaufStarten();
-        }
-    }, [apiCall, notify, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, setzeWerkzeug]);
-
-    useEffect(() => { handleBuyToolRef.current = handleBuyTool; }, [handleBuyTool]);
-    useEffect(() => { handleBuyToolAllRef.current = handleBuyToolAll; }, [handleBuyToolAll]);
-    useEffect(() => { apiCallRef.current = apiCall; }, [apiCall]);
-    useEffect(() => { notifyRef.current = notify; }, [notify]);
-    useEffect(() => { setzeWerkzeugRef.current = setzeWerkzeug; }, [setzeWerkzeug]);
-
-    const handleMineRock = useCallback(async (rockCell) => {
-        if (!rockCell || !Number.isInteger(rockCell.cellX) || !Number.isInteger(rockCell.cellY)) return;
-        const key = `${rockCell.cellX}_${rockCell.cellY}`;
-        if ((toolInventory.pickaxeUses || 0) <= 0) {
-            notify("Du brauchst eine Spitzhacke.", "error");
-            return;
-        }
-        if (plotUnlockedCells.includes(key)) {
-            notify("Dieses Feld ist bereits freigelegt.", "error");
-            return;
-        }
-        // „Bergmann" war früher eine Save-Chance und wurde HIER gewürfelt. Auf einer
-        // Exponentialkurve (Spitzhackenpreis) hat das nicht 30 % der Kosten
-        // gestrichen, sondern 90 %: weniger Käufe heisst auch ein kleinerer
-        // Exponent. Der Skill gibt jetzt feste Zusatzladungen beim KAUF
-        // (siehe handleBuyTool), der Abbau verbraucht wieder schlicht eine.
-        // Erst die Ladung abbuchen — beim SERVER. Klappt das nicht, wird auch kein
-        // Stein freigelegt: sonst hätte man ein Feld gewonnen, ohne dafür zu zahlen.
-        if (!(await verbraucheWerkzeug("pickaxeUses"))) return;
-        // v2 (Punkt 13): Spitzhacken-Schwung — siehe spawnToolSchwung in
-        // engine/Renderer.js. Rein optisch, deshalb hier und nicht vor der
-        // Server-Prüfung: ein abgelehnter Abbau soll nicht so aussehen, als hätte
-        // er geklappt.
-        engineRef.current?.renderer?.spawnToolSchwung("pickaxe");
-        setPlotUnlockedCells(prev => {
-            const next = normalizePlotUnlockedCells([...prev, key]);
-            setPlotExpansions(Math.min(MAX_PLOT_EXPANSIONS, Math.ceil(next.length / BASE_DIRT_COLS)));
-            return next;
-        });
-        const uebrig = Math.max(0, (toolInventory.pickaxeUses || 0) - 1);
-        notify(`Stein abgebaut. Noch ${uebrig} Spitzhacken-Nutzungen übrig.`);
-        debouncedSave();
-    }, [notify, plotUnlockedCells, toolInventory.pickaxeUses, debouncedSave, verbraucheWerkzeug]);
-
-    const handleWaterPlant = useCallback(async (cellX, cellY) => {
-        const key = `${cellX}_${cellY}`;
-        const plant = plotPlants[key];
-        if (!plant) return;
-        // ACHTUNG: hier stand `isPlantReady(plant)`. Für einen Dauerträger heisst
-        // das „mindestens EINE Frucht ist reif" — ein Baum mit einer reifen und
-        // sechs wachsenden Früchten liess sich damit nicht mehr giessen, obwohl
-        // genau dafür die Kanne da ist. Gesperrt wird jetzt erst, wenn die Rechnung
-        // unten ergibt, dass es nichts zu verkürzen gibt.
-        if ((toolInventory.wateringCans || 0) <= 0) {
-            notify("Keine Gießkanne mehr verfügbar.", "error");
-            return;
-        }
-        const now = Date.now();
-        /**
-         * FESTE Minuten, wie bei Magic Garden (dort 5 min für 5.000 Gold).
-         *
-         * Ein Prozentsatz der Restzeit war der Fehlversuch dazwischen: Prozente
-         * stapeln sich MULTIPLIKATIV. Bei 50 % je Guss lassen zehn Kannen aus einer
-         * Lieferung noch 0,1 % übrig — für 50.000 Gold wäre damit eine 20-Tage-
-         * Mondblume sofort fertig gewesen.
-         *
-         * Feste Minuten regulieren sich dagegen selbst: sie lohnen sich nur, wenn
-         * die Pflanze mehr als 1.000 Gold je Minute abwirft (Kannenpreis geteilt
-         * durch gesparte Minuten). Auf einem Löwenzahn ist die Kanne Verschwendung,
-         * auf einem Kürbis lohnt sie sich, und eine Mondblume bräuchte tausende.
-         */
-        const minuten = giesskanneMinuten(skillStufe("giesskanne"));
-        const gespartMs = minuten * 60000;
-
-        /**
-         * Die neue Pflanze AUSSERHALB des State-Updaters bauen.
-         *
-         * Vorher wurde `wirklichGespart` im Updater gesetzt und direkt danach für
-         * die Meldung gelesen. React ruft den Updater aber erst beim nächsten
-         * Rendern auf — die Meldung sah also immer 0 und behauptete deshalb JEDES
-         * Mal „ist jetzt fertig", auch bei einer Ananas mit fünf Tagen Restzeit.
-         */
-        const berechne = (p) => {
-            const np = { ...p };
-            let gespart = 0;
-            if (np.singleUse) {
-                // Untergrenze ist die volle Wachstumszeit, also faktisch keine —
-                // man darf bis zur Reife wässern. Sie steht nur da, damit ein
-                // manipulierter Browser nicht bei jedem Speichern erneut abzieht.
-                const basis = Number(np.growthMsBasis) || Number(np.growthMs) || 0;
-                const untergrenze = Math.round(basis * (1 - GIESSKANNE_MAX_ANTEIL));
-                const neu = Math.max(untergrenze, (Number(np.growthMs) || 0) - gespartMs);
-                gespart = (Number(np.growthMs) || 0) - neu;
-                np.growthMs = neu;
-            } else if (np.stage === "structure") {
-                const rest = Math.max(0, (Number(np.structureReadyAt) || now) - now);
-                gespart = Math.min(gespartMs, rest);
-                np.structureReadyAt = Math.max(now, (Number(np.structureReadyAt) || now) - gespart);
-            } else {
-                // Wie bei Magic Garden: ein Guss wirkt auf ALLE Fruchtstände.
-                // `gegossenMs` zählt mit, wie viel dieser Stand schon bekommen hat —
-                // der Server deckelt daran (siehe gegosseneReifezeit). Ohne den
-                // Zähler liesse sich mit jedem Speichern erneut abziehen.
-                const zyklus = Number(np.fruitCycleMs) || 60000;
-                const maxAbzug = Math.round(zyklus * GIESSKANNE_MAX_ANTEIL);
-                np.fruitSlots = (np.fruitSlots || []).map((s) => {
-                    const ra = Number(s?.readyAt ?? 0);
-                    if (ra <= now) return s;
-                    const bisher = Math.max(0, Math.min(maxAbzug, Number(s?.gegossenMs) || 0));
-                    const neu = Math.min(maxAbzug, bisher + gespartMs);
-                    const abzug = neu - bisher;
-                    if (abzug > gespart) gespart = abzug;
-                    return { ...s, readyAt: Math.max(now, ra - abzug), gegossenMs: neu };
-                });
-            }
-            return { np, gespart };
-        };
-
-        const { np, gespart } = berechne(plant);
-
-        /**
-         * ERST rechnen, DANN bezahlen.
-         *
-         * Der Verbrauch stand vorher ganz oben, noch vor dieser Rechnung. Ergab sie
-         * dann null gesparte Zeit, war die Kanne trotzdem weg — die Meldung „da war
-         * nichts mehr zu gießen" kostete also 5.000 Gold.
-         */
-        if (gespart <= 0) {
-            notify(isPlantReady(plant, now)
-                ? "Pflanze ist bereits ausgewachsen."
-                : "Hier ist gerade nichts zu gießen.", "error");
-            return;
-        }
-        // Kanne serverseitig abbuchen. Erst wenn das durch ist, wirkt der Guss —
-        // andernfalls liesse sich mit einem zurückgedrehten Browserstand endlos gießen.
-        if (!(await verbraucheWerkzeug("wateringCans"))) return;
-        // v2 (Punkt 13): Gießkannen-Schwung — siehe spawnToolSchwung in
-        // engine/Renderer.js.
-        engineRef.current?.renderer?.spawnToolSchwung("watering");
-        setPlotPlants((prev) => (prev[key] ? { ...prev, [key]: np } : prev));
-
-        // Wirklich fertig ist sie nur, wenn danach nichts mehr aussteht.
-        const fertig = np.singleUse
-            ? (Number(np.plantedAt) || now) + (Number(np.growthMs) || 0) <= now
-            : isPlantReady(np);
-        if (fertig) {
-            notify("Pflanze gewässert — sie ist jetzt fertig.");
-        } else {
-            // Restzeit für JEDE Bauart nennen, nicht nur für Einzelpflanzen.
-            // Bei Dauerträgern zählt der nächste Fruchtstand, der noch aussteht.
-            let rest = 0;
-            if (np.singleUse) {
-                rest = Math.max(0, (Number(np.plantedAt) || now) + (Number(np.growthMs) || 0) - now);
-            } else if (np.stage === "structure") {
-                rest = Math.max(0, (Number(np.structureReadyAt) || now) - now);
-            } else {
-                const offen = (np.fruitSlots || [])
-                    .map((s) => Math.max(0, (Number(s?.readyAt) || 0) - now))
-                    .filter((ms) => ms > 0);
-                rest = offen.length > 0 ? Math.min(...offen) : 0;
-            }
-            notify(`Pflanze gewässert: -${Math.max(1, Math.round(gespart / 60000))} Minuten`
-                + (rest > 0 ? ` · noch ${formatDurationShared(rest)}` : ""));
-        }
-        // SOFORT statt debouncedSave (Bug gefunden 01.09.: "2 ripe angezeigt,
-        // Ernte trotzdem 400 Keine reife Frucht"). Die Verkürzung wirkt erst,
-        // wenn der Server sie über den PUT gesehen hat (core/economy.js kappt und
-        // übernimmt die gegossene Zeit nur dort, siehe gegosseneReifezeit in
-        // gardenGameRoutes.js) — debouncedSave wartet 500 ms auf Ruhe, und "gießen,
-        // dann sofort pflücken" ist genau die Reihenfolge, die diese 500 ms
-        // regelmäßig unterbietet: die Ernte kam beim Server an, bevor er vom Guss
-        // wusste, und lehnte die (dort noch nicht reife) Frucht ab.
-        //
-        // BUG gefunden 14.09. ("gegossen und geerntet — Saat kam wieder"): genau
-        // dieses "SOFORT" schickte trotzdem den ALTEN, ungegossenen Stand. Ohne
-        // explizite Übergabe liest flushSave() die Nutzlast über
-        // flushFarmStateToServerRef — der zeigt erst NACH dem naechsten Rendern
-        // auf eine Fassung mit dem `np` von eben (setPlotPlants wirkt asynchron,
-        // siehe Kommentar bei der Ernte-Wiederherstellung weiter oben). Zwischen
-        // dem setPlotPlants oben und diesem await liegt kein einziges await —
-        // der PUT ging also praktisch IMMER mit der Zeit von VOR dem Guss raus.
-        // Der Server sah die Verkürzung nie, lehnte die folgende Ernte mit „Noch
-        // nicht reif." ab, und deren Fehlerpfad stellt die Pflanze sichtbar
-        // zurück auf den Acker — genau das sah aus wie „Saat kam wieder". Fix:
-        // denselben expliziten Übergabe-Weg wie bei der Ernte-Wiederherstellung
-        // nehmen, statt auf den naechsten Render zu warten.
-        await flushSave({ plotPlants: { ...plotPlants, [key]: np } });
-    }, [plotPlants, toolInventory.wateringCans, notify, flushSave, skillStufe, verbraucheWerkzeug]);
-
-    const handleMovePlantWithPot = useCallback(async (targetX, targetY) => {
-        if ((toolInventory.plantPots || 0) <= 0) {
-            notify("Kein Plant Pot verfügbar.", "error");
-            return;
-        }
-        const targetKey = `${targetX}_${targetY}`;
-        if (!movingPlantSource) {
-            const sourcePlant = plotPlants[targetKey];
-            if (!sourcePlant) {
-                notify("Wähle zuerst eine Pflanze als Quelle.", "error");
-                return;
-            }
-            setMovingPlantSource(targetKey);
-            notify("Quelle gewählt. Jetzt auf Zielfeld klicken.");
-            return;
-        }
-        if (movingPlantSource === targetKey) return;
-        if (plotPlants[targetKey]) {
-            notify("Zielfeld ist bereits belegt.", "error");
-            return;
-        }
-        setPlotPlants(prev => {
-            const src = prev[movingPlantSource];
-            if (!src) return prev;
-            const next = { ...prev };
-            delete next[movingPlantSource];
-            next[targetKey] = { ...src, cellX: targetX, cellY: targetY };
-            return next;
-        });
-        // Topf serverseitig abbuchen, bevor die Pflanze umzieht.
-        if (!(await verbraucheWerkzeug("plantPots"))) return;
-        setMovingPlantSource(null);
-        notify("Pflanze erfolgreich umgesetzt.");
-        // Ohne das lief die Aenderung erst mit dem 5-Sekunden-Autosave zum Server —
-        // und erst DANN sahen die anderen den umgesetzten Acker. Alle uebrigen
-        // Acker-Aktionen speichern seit jeher sofort; hier fehlte es schlicht.
-        debouncedSave();
-    }, [toolInventory.plantPots, movingPlantSource, plotPlants, notify, debouncedSave, verbraucheWerkzeug]);
-
-    const handleBuyEgg = useCallback(async (egg) => {
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyEggRef.current?.(egg)); return; }
-        if (goldRef.current < egg.price) { notify(`Dafür fehlen dir ${formatGold(egg.price - goldRef.current)} Gold.`, "error"); return; }
-        if (!reserviere(eggShopStockRef, setEggShopStock, egg.id)) return;
-        kaufLaeuftRef.current = true;
-        try {
-            await payServer(egg.price);
-        } catch (err) {
-            gibZurueck(eggShopStockRef, setEggShopStock, egg.id);
-            notify(err?.message || "Kauf fehlgeschlagen.", "error");
-            return;
-        } finally {
-            kaufLaeuftRef.current = false;
-            naechstenKaufStarten();
-        }
-        const neuesEi = { ...egg, instanceId: Math.random().toString(36).slice(2) };
-        const naechste = [...(farmStateRef.current.eggInventory || []), neuesEi];
-        setEggInventory(naechste);
-        await kaufSichern("eggInventory", naechste);
-    }, [notify, payServer, reserviere, gibZurueck, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
-
-    useEffect(() => { handleBuyEggRef.current = handleBuyEgg; }, [handleBuyEgg]);
-
-    /**
-     * `anzahl` gibt es wegen der Bodenbeläge: einen Hof pflastert man mit zwanzig
-     * Kacheln, und zwanzig Einzelkäufe wären zwanzig Netzrunden. Bezahlt wird in
-     * EINEM Betrag, damit auch nur eine Prüfung über den Server geht.
-     */
-    const handleBuyDeco = useCallback(async (deco, anzahl = 1) => {
-        if (!deco) return;
-        const stueck = Math.max(1, Math.min(50, Math.floor(Number(anzahl) || 1)));
-        const preis = deco.price * stueck;
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => handleBuyDecoRef.current?.(deco, stueck)); return; }
-        if (goldRef.current < preis) {
-            notify("Nicht genug Gold.", "error");
-            return;
-        }
-        const vorlage = alsVorratsstueck(deco);
-        const instanzen = Array.from({ length: stueck }, () => ({
-            ...vorlage,
-            instanceId: `deco_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            _type: "deco",
-        }));
-        kaufLaeuftRef.current = true;
-        try {
-            await payServer(preis);
-        } catch (err) {
-            notify(err?.message || "Kauf fehlgeschlagen.", "error");
-            return;
-        } finally {
-            kaufLaeuftRef.current = false;
-            naechstenKaufStarten();
-        }
-        const naechsteDeko = [...(farmStateRef.current.decoInventory || []), ...instanzen];
-        setDecoInventory(naechsteDeko);
-        if (!selectedDecoToPlace) setSelectedDecoToPlace(instanzen[0]);
-        setSelectedSeed(null);
-        setSelectedTool(null);
-        setSelectedCarryItem(null);
-        setSelectedPetToPlace(null);
-        if (stueck > 1) notify(`${stueck}× ${deco.name} gekauft.`);
-        await kaufSichern("decoInventory", naechsteDeko);
-    }, [notify, selectedDecoToPlace, payServer, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
-
-    useEffect(() => { handleBuyDecoRef.current = handleBuyDeco; }, [handleBuyDeco]);
-
-    const unlockIncubatorSlot = useCallback(async () => {
-        if (kaufLaeuftRef.current) { kaufEinreihen(() => unlockIncubatorSlotRef.current?.()); return; }
-        const nextSlot = incubator.unlockedSlots; // 0-indexed: current = unlockedSlots-1, next = unlockedSlots
-        if (nextSlot >= 5) return;
-        const cost = INCUBATOR_UNLOCK_COSTS[nextSlot - 1];
-        // goldRef statt gold: der React-Wert hinkt einem gerade abgeschlossenen
-        // Kauf hinterher. Die Prüfung lief damit gegen den Stand von DAVOR — mal
-        // ging ein Kauf durch, den der Server ablehnen musste (für den Spieler
-        // passierte scheinbar nichts), mal wurde einer blockiert, den man sich
-        // längst leisten konnte.
-        if (goldRef.current < cost) { notify(`Dafür brauchst du ${cost.toLocaleString('de-DE')} Gold.`, "error"); return; }
-        kaufLaeuftRef.current = true;
-        try {
-            await payServer(cost);
-        } catch (err) {
-            notify(err?.message || "Freischalten fehlgeschlagen.", "error");
-            return;
-        } finally {
-            kaufLaeuftRef.current = false;
-            naechstenKaufStarten();
-        }
-        const naechsterInkubator = { ...incubator, unlockedSlots: incubator.unlockedSlots + 1 };
-        setIncubator(naechsterInkubator);
-        notify(`Inkubator-Slot ${nextSlot + 1} freigeschaltet!`);
-        await kaufSichern("incubator", naechsterInkubator);
-    }, [incubator, notify, payServer, kaufEinreihen, naechstenKaufStarten, kaufSichern]);
-
-    useEffect(() => { unlockIncubatorSlotRef.current = unlockIncubatorSlot; }, [unlockIncubatorSlot]);
-
-    const placeEggInIncubator = useCallback((slotIndex, eggInstanceId) => {
-        if (!eggInventory.length || slotIndex >= incubator.unlockedSlots) return;
-        if (incubator.slots[slotIndex]) return;
-        const chosen = eggInventory.find(e => e.instanceId === eggInstanceId) || eggInventory[0];
-        if (!chosen) return;
-        const hatchResult = rollHatchResult(chosen);
-        // Balancing: Brutzeit skaliert mit Rarity (vorher pauschal 5min für alles).
-        // Feedback 01.09.: "way higher" — von Minuten auf Stunden/Tage angehoben,
-        // damit eine Legendary auch wirklich etwas kostet, worauf man wartet.
-        const hatchTimeByRarity = {
-            COMMON: 1 * 60 * 60 * 1000,       // 1h
-            UNCOMMON: 4 * 60 * 60 * 1000,      // 4h
-            RARE: 12 * 60 * 60 * 1000,         // 12h
-            EPIC: 24 * 60 * 60 * 1000,         // 1d
-            LEGENDARY: 3 * 24 * 60 * 60 * 1000, // 3d
-        };
-        const hatchMs = hatchTimeByRarity[chosen.rarity] || 4 * 60 * 60 * 1000;
-        setEggInventory(prev => prev.filter(e => e.instanceId !== chosen.instanceId));
-        setIncubator(prev => {
-            const slots = [...prev.slots];
-            slots[slotIndex] = {
-                egg: chosen,
-                startedAt: Date.now(),
-                hatchAt: Date.now() + hatchMs,
-                hatchResult,
-            };
-            return { ...prev, slots };
-        });
-        setIncubatorTargetSlot(null);
-    }, [eggInventory, incubator]);
-
-    const collectHatchedEgg = useCallback((slotIndex) => {
-        const slot = incubator.slots[slotIndex];
-        if (!slot || Date.now() < slot.hatchAt) return;
-
-        const hatchedPet = {
-            id: `pet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            name: slot.hatchResult.type,
-            customName: null,
-            emoji: slot.hatchResult.emoji,
-            image: slot.hatchResult.image,
-            previewImage: slot.hatchResult.previewImage,
-            rarity: slot.egg.rarity,
-            specialType: slot.hatchResult.specialType || null,
-            ability: slot.hatchResult.ability,
-        };
-
-        // Clear slot first, then add pet — both as sibling calls, never nested
-        setIncubator(prev => {
-            const s = prev.slots[slotIndex];
-            if (!s || Date.now() < s.hatchAt) return prev;
-            const newSlots = [...prev.slots];
-            newSlots[slotIndex] = null;
-            return { ...prev, slots: newSlots };
-        });
-        setPetInventory(current => [...current, hatchedPet]);
-
-        debouncedSave();
-    }, [incubator, debouncedSave]);
-
-    // Planting click handler on canvas
-    useEffect(() => {
-        if (showLobbyScreen) return;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const onMouseLeave = () => {
-            hoverStore.clear();
-            if (shovelHoldTimerRef.current) clearTimeout(shovelHoldTimerRef.current);
-            if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
-            setShovelHoldState({ active: false, progress: 0 });
-            // Sonst malt der Zug weiter, sobald die Maus zurückkommt — auch wenn die
-            // Taste längst los ist.
-            bodenMalenRef.current = null;
-        };
-        // Muss die Umkehrung der Kamera im Renderer sein:
-        //   translate(mitte) · scale(zoom) · translate(-spieler)
-        // Ohne das /zoom greift bei Zoom ≠ 1 jeder Klick und jedes Hover daneben.
-        const toWorld = (clientX, clientY) => {
-            const rect = canvas.getBoundingClientRect();
-            const screenX = clientX - rect.left;
-            const screenY = clientY - rect.top;
-            const player = engineRef.current.player;
-            return {
-                worldX: player.x + (screenX - canvas.width / 2) / zoomRef.current,
-                worldY: player.y + (screenY - canvas.height / 2) / zoomRef.current,
-            };
-        };
-
-        /**
-         * Ein Stück Deko auf die Kachel unter (worldX, worldY) setzen.
-         *
-         * Ausgelagert, weil es zwei Wege hierher gibt: den einzelnen Klick und das
-         * Ziehen bei Bodenbelägen (ein Hof sind schnell zwanzig Kacheln, und jede
-         * einzeln anzuklicken wäre Fleißarbeit).
-         *
-         * Gelesen wird BEWUSST aus Refs statt aus dem React-State: beim Ziehen
-         * folgen die Aufrufe schneller aufeinander, als React neu rendert — mit dem
-         * State aus der Schließung sähe jede Kachel den Stand von vor dem Zug und
-         * pflasterte immer wieder über dieselbe Stelle.
-         *
-         * `still` unterdrückt die Meldung — beim Ziehen wäre sie Dauerfeuer.
-         */
-        const platziereDeko = (worldX, worldY, { still = false } = {}) => {
-            const gewaehlt = selectedDecoToPlaceRef.current;
-            if (!gewaehlt) return false;
-            if (!editorAktivRef.current) {
-                if (!still) notify("Deko stellst du im Editor auf.", "error");
-                return false;
-            }
-            const slot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-            const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
-            // Spiegeln lässt den Fußabdruck unangetastet — die Maße kommen also
-            // immer unverändert aus dem Katalog. Beide Flags sind auf ihre jeweilige
-            // Deko-Art beschränkt (siehe [R]-Handler oben) — sonst könnte ein Belag,
-            // der nach einem gespiegelten Nicht-Belag ausgewählt wird, dessen alten
-            // Spiegel-Zustand erben, obwohl [R] für ihn nur noch dreht.
-            const gespiegelt = !istBoden(gewaehlt) && Boolean(decoGespiegeltRef.current);
-            // Drehen gilt nur für Bodenbeläge — die sind immer 1×1, eine 90°-Drehung
-            // ändert also nie den Fußabdruck.
-            const gedreht = istBoden(gewaehlt) && Boolean(decoRotiertRef.current);
-            const dw = gewaehlt.width || 1;
-            const dh = gewaehlt.height || 1;
-
-            // Die angeklickte Kachel ist IMMER die Ankerkachel unten links; von dort
-            // wächst das Objekt nach rechts und nach oben. Vorher gab es einen
-            // Rückfall auf „nach unten wachsen", wenn es nach oben nicht passte —
-            // damit landete derselbe Klick mal so und mal so.
-            const tileX = Math.floor((worldX - slot.x) / TILE_SIZE);
-            const tileY = Math.floor((worldY - drawY) / TILE_SIZE);
-
-            const maxTilesX = Math.round(MAP_CONFIG.territoryWidth / TILE_SIZE);
-            const maxTilesY = Math.round(MAP_CONFIG.territoryHeight / TILE_SIZE);
-            // Geprüft wird in KACHELN, nicht mehr in Pixeln — seit dirtOffsetX ganzzahlig
-            // ist, fallen Acker- und Dekoraster zusammen. Der alte Pixelvergleich lief mit
-            // <= gegen die Ackerkante und sperrte dadurch links wie rechts je eine
-            // Grasspalte zu viel. Die Holzwege IM Acker gelten jetzt als Wiese: pflanzen
-            // kann man dort ohnehin nicht, schmücken soll man dürfen.
-            const liegtAufAcker = (cx, cy) => kachelIstAcker(slot, cx, cy);
-
-            // Ein Belag liegt UNTER allem: er darf über den Acker gehen und stört
-            // keine Bank, die schon dort steht. Geprüft wird bei ihm nur, ob die
-            // Kachel überhaupt zum Grundstück gehört.
-            const istBelag = istBoden(gewaehlt);
-
-            const occupiedKeys = [];
-            let ausserhalb = false;
-            let ankerAufAcker = false;
-            for (let dx = 0; dx < dw; dx++) {
-                for (let dy = 0; dy < dh; dy++) {
-                    const cx = tileX + dx;
-                    const cy = tileY - dy;
-                    if (cx < 0 || cx >= maxTilesX || cy < 0 || cy >= maxTilesY) ausserhalb = true;
-                    occupiedKeys.push(`${cx}_${cy}`);
-                    // Nur die ANKERREIHE muss freie Wiese sein — darauf steht das
-                    // Objekt. Was darüber liegt, darf über den Acker ragen; sonst
-                    // bekäme man auf dem einreihigen Wiesenstreifen unter dem Acker
-                    // überhaupt keine Laterne unter, weil sie zwangsläufig in ihn
-                    // hineinreicht.
-                    if (!istBelag && dy === 0 && liegtAufAcker(cx, cy)) ankerAufAcker = true;
-                }
-            }
-
-            if (ausserhalb || ankerAufAcker) {
-                if (!still) {
-                    notify(ausserhalb
-                        ? "Kein Platz — das Objekt ragt über dein Grundstück hinaus."
-                        : "Kein Platz — die untere Kachel liegt auf dem Acker.", "error");
-                }
-                return false;
-            }
-
-            // Belag verdrängt Belag, Deko verdrängt nichts. Die beiden Ebenen prüfen
-            // also nur gegen ihresgleichen: sonst könnte man weder eine Bank auf den
-            // Steinweg stellen noch den Weg unter der Bank weiterziehen.
-            //
-            // Verglichen wird nur die ANKERREIHE (dy === 0) — genau wie bei der
-            // Acker-Prüfung oben. Sonst blockiert der nach oben überstehende Teil
-            // hoher Deko (z. B. eine Laterne) das Setzen, sobald irgendetwas anderes
-            // über der Ankerkachel steht, obwohl die Ankerkachel selbst frei ist. In
-            // `occupiedKeys` liegt dx außen/dy innen (siehe Schleife oben), die
-            // Ankerreihe sitzt also bei jedem Index, der glatt durch die Höhe teilbar
-            // ist — das gilt genauso für schon vorhandene Platzierungen.
-            const ankerreihe = (keys, hoehe) => keys.filter((_, i) => i % hoehe === 0);
-            const eigeneAnkerreihe = ankerreihe(occupiedKeys, dh);
-            const vorhanden = decoPlacementsRef.current;
-            const kollision = vorhanden.filter((d) => {
-                if (d.slotIndex !== mySlotRef.current || istBoden(d) !== istBelag) return false;
-                const dKeys = d.occupiedKeys || [d.gridKey];
-                const dAnkerreihe = ankerreihe(dKeys, d.height || 1);
-                return dAnkerreihe.some((k) => eigeneAnkerreihe.includes(k));
-            });
-
-            if (kollision.length > 0 && !istBelag) {
-                if (!still) notify("Hier steht bereits etwas.", "error");
-                return false;
-            }
-            // Derselbe Belag liegt schon genau dort: nichts tun, statt ein Stück aus
-            // dem Vorrat zu verbrauchen. Beim Ziehen über eine bereits gepflasterte
-            // Fläche passiert das ständig.
-            if (istBelag && kollision.length === 1
-                && kollision[0].decoId === gewaehlt.id
-                && (kollision[0].occupiedKeys || []).length === occupiedKeys.length) {
-                return false;
-            }
-            // Ein anderer Belag lag dort: er wird überpflastert und wandert zurück
-            // in den Rucksack — weggeworfen wird nichts.
-            const verdraengt = istBelag ? kollision : [];
-
-            // Mitte der Ankerkachel unten links — der Renderer zeichnet ab hier
-            // nach rechts und nach oben.
-            const gx = slot.x + tileX * TILE_SIZE + TILE_SIZE / 2;
-            const gy = drawY + tileY * TILE_SIZE + TILE_SIZE / 2;
-
-            const placed = {
-                id: `placed_${gewaehlt.instanceId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-                decoId: gewaehlt.id,
-                name: gewaehlt.name,
-                emoji: gewaehlt.emoji,
-                image: gewaehlt.image,
-                rarity: gewaehlt.rarity || "COMMON",
-                width: dw,
-                height: dh,
-                mirrored: gespiegelt,
-                rotation: gedreht ? 90 : 0,
-                slotIndex: mySlotRef.current,
-                x: gx,
-                y: gy,
-                occupiedKeys,
-            };
-
-            const verdraengteIds = new Set(verdraengt.map((d) => d.id));
-            const naechstePlatzierungen = [...vorhanden.filter((d) => !verdraengteIds.has(d.id)), placed];
-
-            const zielInstanz = gewaehlt.instanceId || gewaehlt.id;
-            const naechsterVorrat = decoInventoryRef.current.filter(
-                (d) => (d.instanceId || d.id) !== zielInstanz);
-            // Überpflasterte Beläge kommen zurück in den Rucksack, damit Umgestalten
-            // nichts kostet.
-            for (const alt of verdraengt) {
-                naechsterVorrat.push({
-                    ...alt,
-                    id: alt.decoId || alt.id,
-                    instanceId: `deco_ersetzt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-                    _type: "deco",
-                });
-            }
-            // Noch ein Stück DERSELBEN Sorte? Dann in der Hand behalten, damit man
-            // mehrere hintereinander setzen kann.
-            //
-            // Vorher stand hier `d.decoId === selectedDecoToPlace.decoId` als zweite
-            // Bedingung. Bei Vorratsstücken ist `decoId` auf BEIDEN Seiten undefined —
-            // der Vergleich war damit immer wahr und griff das erstbeste Stück
-            // irgendeiner Sorte. Wer eine Laterne setzte, hatte danach unbemerkt einen
-            // Gartenzwerg in der Hand und stellte ihn mit dem nächsten Klick ab.
-            const sorte = gewaehlt.id || gewaehlt.decoId;
-            const naechsteWahl = sorte
-                ? naechsterVorrat.find((d) => (d.id || d.decoId) === sorte) || null
-                : null;
-
-            // Refs SOFORT nachziehen, State danach: die nächste gemalte Kachel liest
-            // wieder aus den Refs und muss diese hier schon kennen.
-            decoPlacementsRef.current = naechstePlatzierungen;
-            decoInventoryRef.current = naechsterVorrat;
-            selectedDecoToPlaceRef.current = naechsteWahl;
-            setDecoPlacements(naechstePlatzierungen);
-            setDecoInventory(naechsterVorrat);
-            setSelectedDecoToPlace(naechsteWahl);
-            if (!still) notify(`${gewaehlt.name} platziert.`);
-            return true;
-        };
-
-        const onCanvasClick = (e) => {
-            const { worldX, worldY } = toWorld(e.clientX, e.clientY);
-
-            // Mit Shift gehört der Klick zur Schnellernte — die hat beim Drücken
-            // schon zugegriffen. Ohne diese Sperre ginge für die letzte Kachel eine
-            // zweite Anfrage raus, die der Server nur noch ablehnen kann.
-            //
-            // OHNE e.shiftKey hier zu verlangen (Bug gefunden 14.09., derselbe Fund
-            // wie "gieße, dann kann ich ganz oft einsammeln, Saat kommt wieder"):
-            // wer Shift knapp vor oder gleichzeitig mit der Maustaste loslässt, dessen
-            // click-Event traegt shiftKey schon als false — genau der Fall, fuer den
-            // diese Sperre gedacht ist, griff dann NIE. `isDragHarvestingRef` allein
-            // reicht als Signal: es wird nur waehrend eines echten Schnellzugs gesetzt
-            // (onCanvasMouseDown, mit Shift geprueft) und erst nach dem Klick wieder
-            // zurückgesetzt (stopShovelHold, siehe Kommentar dort) — ob DIESES eine
-            // click-Event selbst noch Shift meldet, ist dafuer irrelevant.
-            if (isDragHarvestingRef.current) return;
-
-            // Bodenbelag wurde schon bei mousedown gelegt (siehe dort) — dieser
-            // Klick ist nur der automatische Nachlauf des Browsers und wird hier
-            // konsumiert, BEVOR irgendeine Prüfung `selectedDecoToPlace` (State,
-            // kann zu diesem Zeitpunkt noch den Stand von VOR dem mousedown tragen)
-            // anfasst. Ohne das fiel der Nachlaufklick, sobald genau diese Kachel
-            // den Vorrat auf 0 brachte, weiter unten in den "Deko aufheben"-Zweig
-            // durch und hob die gerade gelegte Kachel sofort wieder auf.
-            if (klickGehoertZuBodenMalenRef.current) {
-                klickGehoertZuBodenMalenRef.current = false;
-                return;
-            }
-
-            // ── Shotgun ──────────────────────────────────────────────────────
-            // Ganz vorne, noch vor der Grundstücksprüfung: geschossen wird auf
-            // Mitspieler, nicht auf Kacheln — auch von einem Fleck aus, auf dem
-            // sonst nichts zu tun wäre. Getroffen wird der NÄCHSTE Geist im
-            // Trefferfeld; ob der Schuss zählt, entscheidet der Server.
-            if (selectedTool === "shotgun") {
-                if (!istGartenAdminRef.current) return;
-                let ziel = null;
-                let besteEntfernung = Infinity;
-                for (const remote of remotePlayersRef.current.values()) {
-                    const dx = worldX - remote.x;
-                    // Der Geist wird 80 px hoch über seinem Fusspunkt gezeichnet
-                    // (siehe drawPlayer im Renderer) — das Trefferfeld sitzt also
-                    // deutlich ÜBER remote.y, nicht darum herum.
-                    const dy = worldY - (remote.y - 22);
-                    if (Math.abs(dx) > 34 || Math.abs(dy) > 42) continue;
-                    const entfernung = dx * dx + dy * dy;
-                    if (entfernung < besteEntfernung) {
-                        besteEntfernung = entfernung;
-                        ziel = remote;
-                    }
-                }
-                if (!ziel) {
-                    notify("Daneben — klick direkt auf einen Mitspieler.", "error");
-                    return;
-                }
-                sendShotgun(ziel.twitchId);
-                return;
-            }
-
-            // Ohne eigenes Grundstück (Welt war voll) ist man nur Zuschauer: nichts
-            // pflanzen, ernten oder platzieren — sonst würde die eigene Farm auf dem
-            // Acker eines anderen erscheinen.
-            if (mySlotRef.current < 0) {
-                notify("Du hast in dieser Welt kein Grundstück.", "error");
-                return;
-            }
-
-            // Schuppen umstellen: derselbe Ablauf wie bei Deko — Modus an, einmal
-            // auf die Wiese klicken, fertig. Der Klick setzt die OBERE LINKE Ecke
-            // des Fußabdrucks (SCHUPPEN_KACHELN Kacheln im Quadrat) — ALLE Kacheln müssen frei
-            // vom Acker und von Deko sein, nicht nur die angeklickte.
-            if (verschiebtGebaeude) {
-                const slot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-                const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
-                const tx = Math.floor((worldX - slot.x) / TILE_SIZE);
-                const ty = Math.floor((worldY - drawY) / TILE_SIZE);
-                const maxTilesX = Math.round(MAP_CONFIG.territoryWidth / TILE_SIZE);
-                const maxTilesY = Math.round(MAP_CONFIG.territoryHeight / TILE_SIZE);
-                if (tx < 0 || ty < 0 || tx + SCHUPPEN_KACHELN > maxTilesX || ty + SCHUPPEN_KACHELN > maxTilesY) {
-                    notify("Der Schuppen passt dort nicht mehr aufs Grundstück.", "error");
-                    return;
-                }
-                const footprint = [];
-                for (let dx = 0; dx < SCHUPPEN_KACHELN; dx++) {
-                    for (let dy = 0; dy < SCHUPPEN_KACHELN; dy++) {
-                        footprint.push([tx + dx, ty + dy]);
-                    }
-                }
-                if (footprint.some(([fx, fy]) => kachelIstAcker(slot, fx, fy))) {
-                    notify("Nicht auf dem Acker abstellen.", "error");
-                    return;
-                }
-                const footprintKeys = new Set(footprint.map(([fx, fy]) => `${fx}_${fy}`));
-                const belegt = decoPlacements.some((d) =>
-                    d.slotIndex === mySlotRef.current &&
-                    (d.occupiedKeys || [d.gridKey]).some((k) => footprintKeys.has(k)));
-                if (belegt) {
-                    notify("Dort steht schon Deko.", "error");
-                    return;
-                }
-                const was = verschiebtGebaeude;
-                setGebaeudeVersatz((prev) => ({ ...prev, [was]: { tx, ty } }));
-                setVerschiebtGebaeude(null);
-                notify(`${GEBAEUDE_NAMEN[was] || "Gebäude"} umgestellt.`);
-                debouncedSave();
-                return;
-            }
-
-            // Briefkasten anklicken: der eigene öffnet den Posteingang, ein fremder
-            // direkt das Sendeformular mit vorbelegtem Empfänger.
-            if (!selectedTool && !selectedSeed && !selectedDecoToPlace && !selectedPetToPlace) {
-                for (const slot of layout.current.slots) {
-                    const box = getMailboxHitArea(slot);
-                    if (Math.hypot(worldX - box.x, worldY - box.y) > box.radius) continue;
-                    const isOwn = slot.id - 1 === mySlotRef.current;
-                    if (isOwn) {
-                        setMailboxMode("inbox");
-                        setMailboxRecipient("");
-                    } else {
-                        // Der Besitzer eines FREMDEN Grundstücks steht nur in der
-                        // Momentaufnahme des Servers — auf `l.slots` wird ausschliesslich
-                        // das eigene Schild beschriftet. Hier wurde `slot.owner` gelesen,
-                        // das für Nachbarn immer null ist: ein Klick auf deren Briefkasten
-                        // meldete deshalb IMMER „Grundstück ist frei". Über die E-Taste
-                        // ging es, weil die Spielschleife schon aus plotsRef liest.
-                        const besitzer = plotsRef.current.get(slot.id - 1)?.owner || null;
-                        if (!besitzer) {
-                            notify("Dieses Grundstück ist frei — kein Briefkasten in Betrieb.", "error");
-                            return;
-                        }
-                        setMailboxMode("send");
-                        setMailboxRecipient(besitzer);
-                    }
-                    setMailboxOpen(true);
-                    return;
-                }
-            }
-
-            if (selectedDecoToPlace) {
-                platziereDeko(worldX, worldY);
-                return;
-            }
-            if (selectedPetToPlace) {
-                const slot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-                const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
-                const insideOwnPlot = worldX >= slot.x && worldX <= slot.x + MAP_CONFIG.territoryWidth
-                    && worldY >= drawY && worldY <= drawY + MAP_CONFIG.territoryHeight;
-                if (!insideOwnPlot) {
-                    notify("Tier bitte innerhalb deiner Grundstücksgrenzen platzieren.", "error");
-                    return;
-                }
-
-                // Drei Plätze, einer je Fähigkeit.
-                const myPetsCount = petPlacements.filter(p => p.slotIndex === mySlotRef.current).length;
-                if (myPetsCount >= PET_SLOTS) {
-                    notify(`Alle ${PET_SLOTS} Tier-Plätze sind belegt — pack erst eins ein.`, "error");
-                    return;
-                }
-
-                const petId = selectedPetToPlace.id || selectedPetToPlace.instanceId || `${selectedPetToPlace.name}_${Date.now()}`;
-                setPetInventory((prev) => prev.filter((pet) => (pet.id || pet.instanceId) !== (selectedPetToPlace.id || selectedPetToPlace.instanceId)));
-                setPetPlacements((prev) => ([
-                    ...prev,
-                    {
-                        id: `${petId}_${Date.now()}`,
-                        slotIndex: mySlotRef.current,
-                        name: selectedPetToPlace.name,
-                        customName: selectedPetToPlace.customName || null,
-                        specialType: selectedPetToPlace.specialType || null,
-                        rarity: selectedPetToPlace.rarity || "COMMON",
-                        emoji: selectedPetToPlace.emoji || getPetEmoji(selectedPetToPlace.name),
-                        image: selectedPetToPlace.image || buildPetPreviewImage(selectedPetToPlace.name),
-                        ability: selectedPetToPlace.ability, // 3. ANPASSUNG: Ability übernehmen
-                        x: worldX,
-                        y: worldY,
-                        vx: 0,
-                        vy: 0,
-                        changeDirAt: 0,
-                    },
-                ]));
-                setSelectedPetToPlace(null);
-                notify(`${selectedPetToPlace.name} platziert.`);
-                return;
-            }
-            if (!selectedTool || selectedTool === "shovel") {
-
-                // Tiere werden hier BEWUSST nicht mehr angeklickt.
-                // Die Game-Loop bewegt `engine.petPlacements` (eine Kopie); der React-State
-                // behält die Startkoordinaten. Ein Klicktest dagegen traf deshalb dauerhaft
-                // die Stelle, an der das Tier ursprünglich abgesetzt wurde — quer über die
-                // Farm verteilt, und z. B. beim Klick auf den Pool. Das Detailfenster geht
-                // jetzt ausschließlich über die Tierliste oben rechts auf.
-
-                // Deko einpacken — NUR im Einrichtungs-Modus.
-                //
-                // Vorher genügte irgendein Linksklick in die Nähe: beim Laufen, beim
-                // Ernten, beim Anklicken des Briefkastens. Wer sein Grundstück
-                // eingerichtet hatte, räumte es beim Spielen versehentlich wieder ab.
-                //
-                // Was OBEN liegt, kommt zuerst: seit es Bodenbeläge gibt, steht auf
-                // derselben Kachel oft beides. Ohne diese Reihenfolge hätte ein Klick
-                // auf die Bank je nach Reihenfolge in der Liste die Steinplatte
-                // darunter aufgehoben und die Bank stehen lassen.
-                const trifft = (d) => {
-                    if (d.slotIndex !== mySlotRef.current) return false;
-                    const radius = 60 * Math.max(d.width || 1, d.height || 1) * 0.7;
-                    return Math.hypot(worldX - d.x, worldY - d.y) < radius;
-                };
-                let decoIdx = -1;
-                if (editorAktivRef.current) {
-                    decoIdx = decoPlacements.findIndex((d) => !istBoden(d) && trifft(d));
-                    if (decoIdx === -1) decoIdx = decoPlacements.findIndex((d) => istBoden(d) && trifft(d));
-                }
-
-                if (decoIdx !== -1) {
-                    const deco = decoPlacements[decoIdx];
-                    setDecoPlacements(prev => prev.filter((_, i) => i !== decoIdx));
-                    setDecoInventory(prev => [...prev, {
-                        ...deco,
-                        id: deco.decoId || deco.id,
-                        instanceId: `deco_pickup_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-                        _type: "deco",
-                    }]);
-                    notify(`${deco.name || "Deko"} aufgehoben.`);
-                    return;
-                }
-            }
-
-            // Schuppen direkt anklicken (Feedback 30.08.: "im Editor den Schuppen
-            // anklickbar machen") — bisher ging das nur über die E-Taste in der
-            // Nähe, ein Klick direkt auf das Gebäude tat nichts. Gilt in UND
-            // außerhalb des Editors, konsistent damit, dass Deko sich im Editor
-            // ebenfalls per Klick greifen lässt statt nur über die E-Taste.
-            const eigenerSchuppen = engineRef.current?.areas?.shed;
-            if (eigenerSchuppen && eigenerSchuppen.aktiv !== false) {
-                const distSchuppen = Math.hypot(worldX - eigenerSchuppen.x, worldY - eigenerSchuppen.y);
-                if (distSchuppen < COLLISION_RADIUS_BY_AREA_TYPE.shed) {
-                    setShedOpen(true);
-                    return;
-                }
-            }
-
-            const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-            const hoveredRock = getHoveredRock(mySlot, worldX, worldY, MAX_PLOT_EXPANSIONS);
-            const hovered = getHoveredCell(mySlot, worldX, worldY, plotPlants);
-            if (selectedTool === "pickaxe") {
-                if (hoveredRock) {
-                    handleMineRock(hoveredRock);
-                } else {
-                    notify("Mit Spitzhacke nur auf Stein-Felder klicken.", "error");
-                }
-                return;
-            }
-            if (!hovered) {
-                hoverStore.clear();
-                return;
-            }
-            if (selectedTool === "watering") {
-                handleWaterPlant(hovered.cellX, hovered.cellY);
-                return;
-            }
-            if (selectedTool === "pot") {
-                handleMovePlantWithPot(hovered.cellX, hovered.cellY);
-                return;
-            }
-            if (selectedTool === "shovel") {
-                    notify("Klicke direkt auf ein Tier oder Deko zum Aufheben.");
-                    return;
-            }
-
-            const key = `${hovered.cellX}_${hovered.cellY}`;
-            const hoveredPlant = plotPlants[key];
-            if (hoveredPlant && isPlantReady(hoveredPlant)) {
-                handleHarvest(key, hoveredPlant);
-                return;
-            }
-            handleCellClick(hovered.cellX, hovered.cellY);
-        };
-
-        /**
-         * Eine Zelle im Schnellzug abernten ODER bepflanzen — je nachdem, was dort
-         * steht und was in der Hand ist. Dieselbe Regel wie beim Einzelklick (siehe
-         * onCanvasClick weiter unten: reif → ernten, sonst → mit ausgewähltem
-         * Samen pflanzen), nur übers ganze Feld gezogen statt Kachel für Kachel
-         * angeklickt (Feedback 30.08.: "Shift+Halten soll auch pflanzen, wenn man
-         * Samen hält").
-         *
-         * Der Acker kommt aus `engineRef` statt aus dem React-State: `handleHarvest`
-         * und `handleCellClick` sind asynchron bzw. laufen über setState, und bei
-         * einem zügigen Zug liegen mehrere Aktionen zwischen zwei Bildaufbauten. Die
-         * Schließung hier zeigte dann noch den Stand von vor dem Zug.
-         * `dragHarvestedCellsRef` verhindert zusätzlich, dass dieselbe Kachel
-         * zweimal losgeschickt wird — ob geerntet oder bepflanzt, EINE Aktion je
-         * Kachel und Zug reicht.
-         */
-        const ernteBeiZug = (worldX, worldY) => {
-            const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-            const acker = engineRef.current.plotPlants || plotPlants;
-            const treffer = getHoveredCell(mySlot, worldX, worldY, acker);
-            if (!treffer) return;
-            const key = `${treffer.cellX}_${treffer.cellY}`;
-            if (dragHarvestedCellsRef.current.has(key)) return;
-            const pflanze = acker[key];
-            if (pflanze && isPlantReady(pflanze)) {
-                dragHarvestedCellsRef.current.add(key);
-                // Nur SAMMELN, nicht sofort abschicken (siehe handleHarvestMany):
-                // ein Zug über ein volles Feld berührt oft dutzende Zellen, ein
-                // Request je Zelle bedeutete ebenso viele Rendervorgänge kurz
-                // hintereinander — spürbar als Lag, besonders wenn dabei auch noch
-                // ein Tier- oder Skill-Ereignis eintraf (Feedback 30.08., zweite
-                // Runde). planeDragErnteFlush sammelt kurz (120ms) und schickt dann
-                // ALLE seither berührten Zellen in einem einzigen Aufruf.
-                dragErnteSammlungRef.current.set(key, pflanze);
-                planeDragErnteFlush();
-                return;
-            }
-            // Leere Zelle plus ein Samen in der Hand: pflanzen statt ernten.
-            if (!pflanze && selectedSeedRef.current) {
-                dragHarvestedCellsRef.current.add(key);
-                handleCellClick(treffer.cellX, treffer.cellY);
-            }
-        };
-
-        const onCanvasMove = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const clientXLocal = e.clientX - rect.left;
-            const clientYLocal = e.clientY - rect.top;
-            const { worldX, worldY } = toWorld(e.clientX, e.clientY);
-
-            // Boden malen, solange die Taste hängt. Still, sonst käme pro Kachel eine
-            // Meldung. Ist der Vorrat leer, setzt platziereDeko die Auswahl auf null
-            // und der Zug läuft von selbst aus.
-            if (bodenMalenRef.current) {
-                if (!selectedDecoToPlaceRef.current) bodenMalenRef.current = null;
-                else platziereDeko(worldX, worldY, { still: true });
-                return;
-            }
-
-            // Schnellernte, solange die linke Taste hängt. `e.buttons` fragt den
-            // TATSÄCHLICHEN Zustand ab: wird die Taste ausserhalb der Leinwand oder
-            // über einem Fenster losgelassen, kommt kein mouseup an, und der Zug
-            // lief sonst weiter, sobald die Maus zurückkam.
-            if (isDragHarvestingRef.current) {
-                if (!(e.buttons & 1)) {
-                    isDragHarvestingRef.current = false;
-                    dragHarvestedCellsRef.current = new Set();
-                    flushDragErnte();
-                } else {
-                    ernteBeiZug(worldX, worldY);
-                }
-            }
-
-            // Erst der eigene Acker (der häufige Fall), dann die fremden. Fremde
-            // Pflanzen sind nur zum Ansehen — geerntet wird nichts, aber Größe,
-            // Wert und Restzeit stehen genauso in der Karte.
-            const meinIndex = mySlotRef.current;
-            const mySlot = layout.current.slots[meinIndex] || layout.current.slots[0];
-            const eigene = getHoveredCell(mySlot, worldX, worldY, plotPlants);
-            if (eigene) {
-                const zelle = `${eigene.cellX}_${eigene.cellY}`;
-                // Schreibt in den externen Store; meldet nur bei Zellwechsel.
-                if (plotPlants[zelle]) hoverStore.set({ key: `${meinIndex}:${zelle}`, x: clientXLocal, y: clientYLocal });
-                else hoverStore.clear();
-                return;
-            }
-
-            for (const [slotIndex, snapshot] of plotsRef.current) {
-                if (slotIndex === meinIndex) continue;
-                const slot = layout.current.slots[slotIndex];
-                if (!slot || !snapshot?.plants) continue;
-                // Die Freischaltungen des ANDEREN, sonst treffen dessen Erweiterungs-
-                // reihen ins Leere. `slot` selbst wird dabei nicht verändert.
-                fremdHoverSlot.x = slot.x;
-                fremdHoverSlot.anchorY = slot.anchorY;
-                fremdHoverSlot.isTopRow = slot.isTopRow;
-                fremdHoverSlot.unlockedCells = snapshot.plotUnlockedCells || [];
-                const treffer = getHoveredCell(fremdHoverSlot, worldX, worldY, snapshot.plants);
-                if (!treffer) continue;
-                const zelle = `${treffer.cellX}_${treffer.cellY}`;
-                if (snapshot.plants[zelle]) {
-                    hoverStore.set({ key: `${slotIndex}:${zelle}`, x: clientXLocal, y: clientYLocal });
-                    return;
-                }
-            }
-            hoverStore.clear();
-        };
-
-        const onCanvasMouseDown = (e) => {
-            // Bodenbeläge malt man: Taste halten und ziehen. Der erste Klick liegt
-            // schon hier, damit auch ein kurzer Klick ohne Bewegung eine Kachel legt
-            // — `click` kommt danach und findet die Kachel bereits belegt.
-            if (istBoden(selectedDecoToPlaceRef.current) && editorAktivRef.current) {
-                const { worldX, worldY } = toWorld(e.clientX, e.clientY);
-                bodenMalenRef.current = true;
-                klickGehoertZuBodenMalenRef.current = true;
-                platziereDeko(worldX, worldY);
-                return;
-            }
-            if (selectedTool === "shovel") {
-                const { worldX, worldY } = toWorld(e.clientX, e.clientY);
-                const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
-                const hovered = getHoveredCell(mySlot, worldX, worldY, plotPlants);
-                if (!hovered) return;
-                const key = `${hovered.cellX}_${hovered.cellY}`;
-                if (!plotPlants[key]) return;
-                if (shovelHoldTimerRef.current) clearTimeout(shovelHoldTimerRef.current);
-                if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
-                shovelHoldStartedAtRef.current = Date.now();
-                setShovelHoldState({ active: true, progress: 0 });
-                shovelHoldProgressRef.current = setInterval(() => {
-                    const progress = Math.min(1, (Date.now() - shovelHoldStartedAtRef.current) / 900);
-                    setShovelHoldState({ active: true, progress });
-                }, 33);
-                shovelHoldTimerRef.current = setTimeout(async () => {
-                    setPlotPlants(prev => {
-                        const next = { ...prev };
-                        delete next[key];
-                        return next;
-                    });
-                    notify("Pflanze entfernt.");
-                    if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
-                    setShovelHoldState({ active: false, progress: 0 });
-                }, 900);
-                return;
-            }
-            // ── Schnellzug: Shift halten und ziehen — erntet ODER pflanzt ────
-            //
-            // Vorher lief das ohne Shift und startete NUR, wenn schon die erste
-            // Zelle unter dem Zeiger reif war. Beides war falsch: wer auf eine leere
-            // Kachel oder eine unreife Pflanze drückte und dann über ein volles Feld
-            // zog, erntete gar nichts — und wer nur die Ansicht verschieben wollte,
-            // erntete versehentlich eine halbe Reihe ab.
-            //
-            // Jetzt ist Shift der Schalter: gedrückt wird geerntet ODER bepflanzt,
-            // was der Zeiger berührt (siehe ernteBeiZug), egal womit der Zug
-            // angefangen hat. Ein ausgewählter Samen blockiert den Zug nicht mehr
-            // (Feedback 30.08.) — er ist jetzt der Grund, WARUM leere Zellen
-            // bepflanzt statt übersprungen werden. Ohne Shift bleibt es beim
-            // einzelnen Klick.
-            if (e.shiftKey && !selectedTool && !selectedPetToPlace && !selectedDecoToPlace) {
-                const { worldX, worldY } = toWorld(e.clientX, e.clientY);
-                isDragHarvestingRef.current = true;
-                dragHarvestedCellsRef.current = new Set();
-                ernteBeiZug(worldX, worldY);
-            }
-        };
-
-        const stopShovelHold = () => {
-            if (shovelHoldTimerRef.current) clearTimeout(shovelHoldTimerRef.current);
-            if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
-            setShovelHoldState({ active: false, progress: 0 });
-            // GEFUNDEN (Feedback 01.09.: "shift + leftclick... Ton, aber nichts
-            // geerntet, weil beim ersten Shift+Klick schon alles weg war"):
-            // Der Browser feuert nach JEDEM mouseup auf der Leinwand automatisch
-            // ein click — auch nach einem reinen Shift-Klick ohne Zug. Die Sperre
-            // in onCanvasClick ("Mit Shift gehört der Klick zur Schnellernte")
-            // prüft isDragHarvestingRef, aber die Zeile hier setzte das Flag schon
-            // VOR diesem click zurück, die Sperre griff also nie. Ergebnis: der
-            // click las die noch nicht aktualisierten plotPlants (harvestMany
-            // läuft ja noch), hielt die Staude für reif und schickte per
-            // handleHarvest eine ZWEITE, unabhängige Ernte-Anfrage für dieselbe
-            // Zelle los — mit ihrem EIGENEN, ebenso veralteten Vorher-Stand. Kam
-            // deren Antwort NACH der von handleHarvestMany zurück, überschrieb sie
-            // einen bereits geleerten Fruchtstand wieder mit dem alten (scheinbar
-            // reifen) Stand — sichtbar reife Frucht, die der Server längst nicht
-            // mehr hat. Der Ton kam vom zweiten, überflüssigen handleHarvest-Aufruf
-            // (der spielt ihn optimistisch VOR der Server-Antwort).
-            //
-            // Fix: das Flag bleibt bis nach dem click-Event stehen (setTimeout 0
-            // schiebt den Reset einen Tick weiter) — dieselbe Reihenfolge wie
-            // mousedown → mouseup → click, nur dass die Sperre jetzt tatsächlich
-            // noch etwas zum Sperren vorfindet.
-            setTimeout(() => { isDragHarvestingRef.current = false; }, 0);
-            dragHarvestedCellsRef.current = new Set();
-            flushDragErnte();
-            // Ein Malzug endet mit der Maustaste — auch wenn sie ausserhalb der
-            // Leinwand losgelassen wird (mouseleave ruft dasselbe auf).
-            bodenMalenRef.current = null;
-        };
-
-        // Mausrad zoomt. passive:false, sonst scrollt die Seite darunter mit.
-        const onWheel = (e) => {
-            e.preventDefault();
-            const richtung = e.deltaY > 0 ? 1 / ZOOM_SCHRITT : ZOOM_SCHRITT;
-            const neu = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomRef.current * richtung));
-            if (neu === zoomRef.current) return;
-            zoomRef.current = neu;
-            setZoomAnzeige(neu);
-            // Die Hover-Karte hing sonst an der alten Zelle: der Weltpunkt unter der
-            // Maus ist nach dem Zoomen ein anderer.
-            hoverStore.clear();
-        };
-
-        canvas.addEventListener("click", onCanvasClick);
-        canvas.addEventListener("mousemove", onCanvasMove);
-        canvas.addEventListener("mouseleave", onMouseLeave);
-        canvas.addEventListener("mousedown", onCanvasMouseDown);
-        canvas.addEventListener("mouseup", stopShovelHold);
-        canvas.addEventListener("wheel", onWheel, { passive: false });
-        return () => {
-            canvas.removeEventListener("click", onCanvasClick);
-            canvas.removeEventListener("mousemove", onCanvasMove);
-            canvas.removeEventListener("mouseleave", onMouseLeave);
-            canvas.removeEventListener("mousedown", onCanvasMouseDown);
-            canvas.removeEventListener("mouseup", stopShovelHold);
-            canvas.removeEventListener("wheel", onWheel);
-            // KEIN stopShovelHold() mehr.
-            //
-            // Dieser Effekt hängt an `plotPlants` — die erste geerntete Pflanze
-            // setzt ihn also selbst neu auf, und der Aufräumer beendete dabei das
-            // Ziehen, das gerade lief. Ergebnis: Drag-Harvest erwischte genau EINE
-            // Pflanze, danach musste man wieder einzeln klicken. Dasselbe brach
-            // das Schaufel-Halten ab, sobald irgendwo eine Frucht nachwuchs.
-            // Losgelassen wird über mouseup/mouseleave (beide werden hier gleich
-            // wieder registriert), beim echten Unmount über den Effekt weiter oben.
-        };
-        // petPlacements und toolInventory fehlten hier: die Platzgrenze rechnete mit
-        // dem Stand vom letzten Rendern dieses Effekts.
-    }, [showLobbyScreen, handleCellClick, handleHarvest, planeDragErnteFlush, flushDragErnte, handleMineRock, handleMovePlantWithPot, handleWaterPlant, notify, plotPlants, selectedTool, selectedPetToPlace, selectedDecoToPlace, decoPlacements, petPlacements, toolInventory, hoverStore, verschiebtGebaeude, debouncedSave, plotsRef, remotePlayersRef, sendShotgun]);
+    const { debouncedSave, flushFarmStateToServer } = useSpeichern({
+        saveTimeoutRef, flushFarmStateToServerRef, isInitialLoadDoneRef, nurZuschauenRef,
+        farmStateRef, stateVersionRef, inventory, plotPlants, plotExpansions, plotUnlockedCells,
+        eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory,
+        inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, ladenBestand, shopRotation,
+        toolShopStock, toolShopRotation, eggShopStock, eggShopRotation, playerAppearance,
+        tutorialCompleted, ackerRasterMigriert, apiCall, uebernimmVomServer, setNurZuschauen, gold,
+        harvestedItems,
+    });
+
+    useAckerUmzug({
+        showLobbyScreen, isInitialLoadDone, mySlotIndex, layout, plotUnlockedCells, plotPlants,
+        decoPlacements, petPlacements, setDecoPlacements, setPetPlacements, setPlotUnlockedCells,
+        setPlotPlants, notify, debouncedSave, ackerRasterMigriert, setAckerRasterMigriert,
+    });
+
+    const { flushSave, payServer, applyEconomy, questAbholen, auftragLiefern, erntefestAbholen, auftragAblehnen, reskinKaufen, reskinAusruesten } = useServerAktionen({
+        saveTimeoutRef, flushFarmStateToServerRef, apiCall, goldRef, setGold, setLogbuch, notify,
+        playSound, setGoldGesamt, setSkillStand, setHarvestedItems, setPlotPlants,
+        normalizePlotPlantsMap, hydratePlantVisuals, ladeQuests, setQuestDaten, ladeGoldShop,
+        setErnteRausch, setStoerer, setZuchtbuch,
+    });
+
+    const { handleAblage } = useAblage({
+        setAblageBusy, flushSave, apiCall, setHarvestedItems, setChestItems, setVitrineItems,
+        setInventory, setEggInventory, setDecoInventory, setPetInventory, notify,
+    });
+
+    const { reserviere, gibZurueck, kaufSichern, kreuzungenAufnehmen, handleBuySeed, handleBuySeedAll } = useSamenKauf({
+        flushSave, farmStateRef, setInventory, playSound, engineRef, notify, kaufLaeuftRef,
+        kaufEinreihen, handleBuySeedRef, goldRef, offeneSamenkaeufeRef, ladenBestandRef,
+        setLadenBestand, letzterKaufAtRef, apiCall, naechstenKaufStarten, setGold, setSelectedSeed,
+        handleBuySeedAllRef,
+    });
+
+    const { handleCellClick, handleHarvest, flushDragErnte, planeDragErnteFlush, fangeStoerer } = useErnte({
+        handleBuySeedAllRef, handleBuySeedAll, handleBuySeedRef, handleBuySeed, selectedSeed,
+        inventory, plotPlants, petPlacements, mySlotRef, skillWirkung, partyLaeuftJetzt,
+        setPlotPlants, playSound, layout, engineRef, setInventory, setSelectedSeed, debouncedSave,
+        notify, ernteLaeuftRef, ernteWarteschlangeRef, apiCall, kreuzungenAufnehmen,
+        isDragHarvestingRef, applyEconomy, hydratePlantVisuals, letzteErnteRef, uebernimmVomServer,
+        farmStateRef, flushSave, handleHarvestRef, dragErnteFlushTimerRef, dragErnteSammlungRef,
+        spieleErnteTon,
+    });
+
+    const { handleBuyTool, handleBuyToolAll, handleMineRock, handleWaterPlant, handleMovePlantWithPot } = useWerkzeuge({
+        kaufLaeuftRef, kaufEinreihen, handleBuyToolRef, reserviere, toolShopStockRef,
+        setToolShopStock, letzterToolKaufAtRef, apiCall, goldRef, setGold, setzeWerkzeug,
+        gibZurueck, notify, naechstenKaufStarten, playSound, handleBuyToolAllRef, apiCallRef,
+        notifyRef, setzeWerkzeugRef, toolInventory, plotUnlockedCells, verbraucheWerkzeug,
+        engineRef, setPlotUnlockedCells, setPlotExpansions, debouncedSave, plotPlants, skillStufe,
+        setPlotPlants, flushSave, movingPlantSource, setMovingPlantSource,
+    });
+
+    const { handleBuyEgg, handleBuyDeco, unlockIncubatorSlot, placeEggInIncubator, collectHatchedEgg } = useEierDekoBrutkasten({
+        goldRef, setGold, setGoldGesamt, setEggInventory, setPetInventory, setIncubator,
+        kaufLaeuftRef, kaufEinreihen, handleBuyEggRef, notify, reserviere, eggShopStockRef,
+        setEggShopStock, apiCall, gibZurueck, naechstenKaufStarten, handleBuyDecoRef, payServer,
+        farmStateRef, setDecoInventory, selectedDecoToPlace, setSelectedDecoToPlace,
+        setSelectedSeed, setSelectedTool, setSelectedCarryItem, setSelectedPetToPlace, kaufSichern,
+        unlockIncubatorSlotRef, incubator, eggInventory, setIncubatorTargetSlot,
+    });
+
+    useSpielflaecheMaus({
+        showLobbyScreen, canvasRef, hoverStore, shovelHoldTimerRef, shovelHoldProgressRef,
+        setShovelHoldState, bodenMalenRef, engineRef, zoomRef, selectedDecoToPlaceRef,
+        editorAktivRef, notify, layout, mySlotRef, decoGespiegeltRef, decoRotiertRef,
+        decoPlacementsRef, decoInventoryRef, setDecoPlacements, setDecoInventory,
+        setSelectedDecoToPlace, isDragHarvestingRef, klickGehoertZuBodenMalenRef, selectedTool,
+        istGartenAdminRef, remotePlayersRef, sendShotgun, verschiebtGebaeude, decoPlacements,
+        setGebaeudeVersatz, setVerschiebtGebaeude, debouncedSave, selectedSeed,
+        selectedDecoToPlace, selectedPetToPlace, setMailboxMode, setMailboxRecipient, plotsRef,
+        setMailboxOpen, petPlacements, setPetInventory, setPetPlacements, setSelectedPetToPlace,
+        setShedOpen, plotPlants, handleMineRock, handleWaterPlant, handleMovePlantWithPot,
+        handleHarvest, handleCellClick, dragHarvestedCellsRef, dragErnteSammlungRef,
+        planeDragErnteFlush, selectedSeedRef, flushDragErnte, fremdHoverSlot,
+        shovelHoldStartedAtRef, setPlotPlants, setZoomAnzeige, toolInventory,
+        spieleErnteTon, fangeStoerer,
+    });
 
     useEffect(() => {
         mySlotRef.current = mySlotIndex;
     }, [mySlotIndex]);
 
 
-    useEffect(() => {
-        if (!showLobbyScreen) return;
-        setIsInitialLoadDone(false);
-        worldBootTokenRef.current += 1;
-        worldBootKindRef.current = null;
-        worldBootStatusRef.current = { preloadDone: false, dataDone: false, minDoneAt: 0 };
-        if (worldBootFinishTimerRef.current) clearTimeout(worldBootFinishTimerRef.current);
-        setWorldBootState((prev) => (prev.active ? { active: false, label: "", progress: 0 } : prev));
-    }, [showLobbyScreen]);
 
     /**
      * Goldfinder-Takt.
@@ -5406,8 +2212,8 @@ export default function GameContainer() {
         const merkeAuszahlung = (petId) => petFundZeitenRef.current.set(petId, Date.now());
 
         let timerId;
-        // Der Tick würfelt nur das AUSLÖSEN (PET_PROC_CHANCE) und meldet die Absicht —
-        // die Höhe eines Fundes entscheidet der Server.
+        // Der Tick fragt je Goldfinder an; ob er etwas findet und wie viel, entscheidet
+        // der Server (garden/core/economy.js → petFind).
         const tick = async () => {
             // Ein zurückgetretener Tab lässt seine Tiere ruhen: er kann das
             // Ergebnis nie speichern, und jede Server-Aktion von ihm bringt den
@@ -5419,11 +2225,9 @@ export default function GameContainer() {
             const tiere = meineGoldfinder();
             if (tiere.length) {
                 const msgs = [];
-                // „Züchter" aus dem Fähigkeitsbaum — gedeckelt wie serverseitig.
-                const procChance = Math.min(0.5, PET_PROC_CHANCE * (1 + skillWirkung("zuechter")));
-
+                // Ob ein Takt etwas findet, würfelt seit Nov. 2026 der SERVER
+                // (garden/core/economy.js → petFind). Hier wird nur angefragt.
                 for (const pet of tiere) {
-                    if (Math.random() >= procChance) continue;
                     const petId = pet.id || pet.instanceId;
                     if (!darfAuszahlen(petId, pet.ability.level)) continue;
                     try {
@@ -5435,6 +2239,7 @@ export default function GameContainer() {
                         if (typeof data?.gold === "number") setGold(data.gold);
                         if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
                         const verdient = Number(data?.verdient || 0);
+                        if (verdient <= 0) continue; // dieser Takt hat nichts gefunden
                         msgs.push(`${pet.customName || pet.name}: +${verdient.toLocaleString("de-DE")} Gold`);
                         // Direkt am Spieler statt am Tier: dessen aktuelle Position kennt hier
                         // nur die Render-Schleife (petPlacements führt keine live x/y), und
@@ -5590,231 +2395,25 @@ export default function GameContainer() {
         ...petInventory.map(p => ({ ...p, _type: "pet" })),
         ...decoInventory.map(d => ({ ...d, _type: "deco" })), // 3. ANPASSUNG: Deko ergänzt
     ];
+    const lohnendeShopSeeds = useMemo(() => (shopRotation?.seeds || []).filter(
+        (s) => s.active && lohntSich(s.seedId, s.stockStart ?? s.stock, gold),
+    ), [shopRotation?.seeds, gold]);
     const visibleShopSeeds = useMemo(() => {
         const seeds = shopRotation?.seeds || [];
-        const gefiltert = seeds.filter((s) => shopFilter === "all" || s.active);
+        const gefiltert = shopFilter === "lohnend"
+            ? lohnendeShopSeeds
+            : seeds.filter((s) => shopFilter === "all" || s.active);
         return sortiere(gefiltert, SHOP_SORTIERUNGEN, shopSortierung);
-    }, [shopRotation?.seeds, shopFilter, shopSortierung]);
+    }, [shopRotation?.seeds, shopFilter, shopSortierung, lohnendeShopSeeds]);
     // Samen und Ernte teilen sich die Rucksackplätze. Ist kein Platz mehr, sperrt
     // der Laden die Zeilen — sonst klickt man weiter ins Leere.
     const rucksackVoll = (inventory.length + harvestedItems.length) >= inventoryMaxSlots;
-    // Verkauf ebenfalls serverseitig: die Summe entsteht aus den beim Server
-    // gespeicherten Ernte-Eigenschaften, nicht aus einem vom Client gemeldeten Wert.
-    const handleSellAllHarvested = useCallback(async () => {
-        if (harvestedItems.length === 0) return;
-        try {
-            const data = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "sellAll" }),
-            });
-            // Verkaufen ruehrt keine Pflanze an — leeres Array heisst "nicht anfassen".
-            applyEconomy(data, []);
-            playSound("cash", 0.6);
-            const verdient = Number(data?.verdient || 0);
-            // Feedback 30.08.: "nicht oben die kleine graue Bubble, sondern eine
-            // animierte Cartoon-Blase auf dem Markt mit dem gemachten Geld" — der
-            // Spieler steht beim Verkaufen immer am Markt (sellAllRef läuft nur aus
-            // activateInteractable/der Marktstand-Ansicht, beide setzen Nähe voraus),
-            // die Sprechblase kann also direkt über dem Marktstand erscheinen statt
-            // als Kopfzeilen-Meldung.
-            const marktBereich = engineRef.current?.areas?.market;
-            const renderer = engineRef.current?.renderer;
-            if (renderer && marktBereich) {
-                renderer.spawnVerkaufsBlase(marktBereich.x, marktBereich.y - 80, `+${formatGold(verdient)}`);
-            } else {
-                notify("Alles verkauft: +" + verdient.toLocaleString("de-DE") + " Gold");
-            }
-        } catch (err) {
-            notify(err?.message || "Verkauf fehlgeschlagen.", "error");
-        }
-    }, [harvestedItems.length, apiCall, applyEconomy, notify, playSound]);
+    const { handleSellAllHarvested, handleStowInspectedPet, handleRenamePet, handleSellInspectedPet } = useVerkauf({
+        harvestedItems, apiCall, applyEconomy, playSound, engineRef, notify, sellAllRef,
+        selectedPetToPlace, flushSave, setPetInventory, setSelectedPetToPlace, setGold,
+        setGoldGesamt, debouncedSave, sellPetRef, inspectedPet, setPetPlacements, setInspectedPet,
+    });
 
-    useEffect(() => {
-        sellAllRef.current = handleSellAllHarvested;
-    }, [handleSellAllHarvested]);
-
-    // Verkaufspreis zahlt der Server aus seiner eigenen Tabelle — vorher muss der
-    // Spielstand raus, sonst kennt er ein frisch geschluepftes Tier noch nicht.
-    const handleSellSelectedPet = useCallback(async () => {
-        if (!selectedPetToPlace) {
-            notify("Kein Tier in der Hand. Wähle zuerst ein Tier aus dem Rucksack.", "error");
-            return;
-        }
-        const name = selectedPetToPlace.name || "Tier";
-        const petId = selectedPetToPlace.id || selectedPetToPlace.instanceId;
-        try {
-            await flushSave();
-            const data = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "sellPet", petId }),
-            });
-            setPetInventory(prev => prev.filter(p => (p.id || p.instanceId) !== petId));
-            setSelectedPetToPlace(null);
-            if (typeof data?.gold === "number") setGold(data.gold);
-            if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
-            playSound("cash", 0.6);
-            notify(`${name} verkauft: +${Number(data?.verdient || 0).toLocaleString('de-DE')} Gold`);
-            debouncedSave();
-        } catch (err) {
-            notify(err?.message || "Verkauf fehlgeschlagen.", "error");
-        }
-    }, [selectedPetToPlace, notify, playSound, apiCall, flushSave, debouncedSave]);
-
-    useEffect(() => {
-        sellPetRef.current = handleSellSelectedPet;
-    }, [handleSellSelectedPet]);
-
-    // ── Tier-Detailfenster (Klick auf ein platziertes Tier) ───────────────────
-    const handleStowInspectedPet = useCallback(() => {
-        if (!inspectedPet) return;
-        const petId = inspectedPet.id;
-        setPetPlacements(prev => prev.filter(p => p.id !== petId));
-        setPetInventory(prev => [...prev, {
-            ...inspectedPet,
-            instanceId: `pet_pickup_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            _type: "pet",
-        }]);
-        notify(`${inspectedPet.name || "Tier"} eingepackt.`);
-        setInspectedPet(null);
-        debouncedSave();
-    }, [inspectedPet, notify, debouncedSave]);
-
-    const handleRenamePet = useCallback((pet, newName) => {
-        if (!pet) return;
-        const clean = String(newName || "").replace(/\s+/g, " ").trim().slice(0, 24);
-        const customName = clean || null; // leeres Feld = zurück zum Artnamen
-        setPetPlacements(prev => prev.map(p => (p.id === pet.id ? { ...p, customName } : p)));
-        setInspectedPet(prev => (prev && prev.id === pet.id ? { ...prev, customName } : prev));
-        notify(customName ? `Heißt jetzt „${customName}".` : "Name zurückgesetzt.");
-        debouncedSave();
-    }, [notify, debouncedSave]);
-
-    const handleSellInspectedPet = useCallback(async () => {
-        if (!inspectedPet) return;
-        const petId = inspectedPet.id;
-        const name = inspectedPet.name || "Tier";
-        try {
-            await flushSave();
-            const data = await apiCall("/action", {
-                method: "POST",
-                body: JSON.stringify({ action: "sellPet", petId }),
-            });
-            setPetPlacements(prev => prev.filter(p => p.id !== petId));
-            if (typeof data?.gold === "number") setGold(data.gold);
-            if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
-            playSound("cash", 0.6);
-            notify(`${name} verkauft: +${Number(data?.verdient || 0).toLocaleString('de-DE')} Gold`);
-            setInspectedPet(null);
-            debouncedSave();
-        } catch (err) {
-            notify(err?.message || "Verkauf fehlgeschlagen.", "error");
-        }
-    }, [inspectedPet, notify, playSound, debouncedSave, apiCall, flushSave]);
-
-    /**
-     * @param {object} [ueberschreibung] Felder, die NICHT aus dem React-State kommen
-     *   sollen. Noetig, wenn direkt vor dem Speichern etwas gesetzt wurde: `setState`
-     *   wirkt erst beim naechsten Rendern, der Payload hier liest aber die Werte des
-     *   letzten. Ohne diesen Weg speichert der Ruecksprung in handleHarvest den Acker
-     *   OHNE die gerade wiederhergestellte Pflanze.
-     */
-    const flushFarmStateToServer = useCallback(async (ueberschreibung, versuch = 0) => {
-        // Vor dem ersten Laden stehen in den States nur die Startwerte — leere
-        // Listen. Ein PUT damit loescht auf dem Server Deko, Tiere und Eier.
-        // Der Autosave-Effekt prueft das laengst; debouncedSave() lief bisher
-        // ungeprueft durch und war damit das Schlupfloch.
-        if (!isInitialLoadDoneRef.current) return;
-        // Ein zurückgetretener Tab schreibt nicht mehr. Sonst überschriebe er beim
-        // nächsten Autosave genau den Stand, vor dem er gerade zurückgetreten ist.
-        if (nurZuschauenRef.current) return;
-        const payload = {
-            tabId: TAB_ID,
-            inventory, plotPlants, plotExpansions, plotUnlockedCells,
-            eggInventory, petInventory, petPlacements, decoInventory, decoPlacements,
-            toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch,
-            shopStock: ladenBestand,
-            shopStockVersion: shopRotation?.generatedAt,
-            toolShopStock: toolShopStock,
-            toolShopStockVersion: toolShopRotation?.generatedAt,
-            eggShopStock: eggShopStock,
-            eggShopStockVersion: eggShopRotation?.generatedAt,
-            // Fehlte hier, stand aber im 5-Sekunden-Autosave: ohne das Feld setzt
-            // compactFarmState das Aussehen auf den Standard-Farmer zurück, und jedes
-            // debouncedSave (Pflanzen, Kaufen, …) zog die Kleidung mit.
-            appearance: playerAppearance,
-            tutorialCompleted,
-            [ACKERRASTER_MARKE]: ackerRasterMigriert,
-            // Gegen verspätete Speicherstände: der Server verwirft diesen PUT, wenn
-            // seit dem Laden eine Aktion dazwischenkam (siehe erhoeheVersion).
-            stateVersion: stateVersionRef.current,
-            ...(ueberschreibung || {}),
-        };
-        try {
-            await apiCall("/farm-state", { method: "PUT", body: JSON.stringify({ state: payload }) });
-        } catch (err) {
-            // Kein Status heisst: keine Antwort erhalten. Der Server hat diesen
-            // Stand vielleicht trotzdem übernommen — blind nachreichen würde dann
-            // mit einem veralteten Zähler gegen einen bereits gespeicherten Stand
-            // laufen. Der nächste reguläre Speichervorgang klärt das von selbst.
-            if (err?.status === undefined) return;
-            if (err?.status !== 409) return; // nicht angemeldet / offline — der Socket versucht es weiter
-
-            // 409 heisst: der Server ist weiter als diese Nutzlast. In aller Regel,
-            // weil eine EIGENE Aktion fertig wurde, während der PUT unterwegs war —
-            // beim Kauf von zehn Töpfen passiert das fast bei jedem einzelnen.
-            //
-            // NICHT nachladen. Der React-Stand ist in diesem Fall die vollständigere
-            // Fassung: er kennt die eben gekauften Sachen, der Server nicht (Rucksack
-            // und Werkzeug gehören dem Browser). Ein Nachladen warf genau die Käufe
-            // weg, die gerade dazugekommen waren, und der nächste Speicherversuch lief
-            // in denselben Konflikt — daher die Schleife aus 409 und „Lade Spielstand".
-            //
-            // Richtig ist: Zähler übernehmen und mit FRISCH gebauter Nutzlast erneut
-            // schicken. Der kurze Aufschub gibt React Zeit, den letzten Kauf zu
-            // übernehmen, damit die neue Nutzlast ihn auch enthält.
-            // Hat der SERVER selbst etwas geändert (Umstellung beim Neustart,
-            // Admin-Eingriff)? Dann ist sein Stand der bessere und dieser hier muss
-            // weichen — nachreichen würde die Änderung überschreiben. Das ist der
-            // einzige Fall, in dem Nachladen richtig ist.
-            const meinStand = stateVersionRef.current;
-            const serverAenderung = Number(err.data?.serverAenderungAb) || 0;
-            if (typeof err.data?.stateVersion === "number") {
-                stateVersionRef.current = err.data.stateVersion;
-            }
-            if (serverAenderung > meinStand) {
-                console.log(`[Garden] Server hat den Stand selbst geändert (ab ${serverAenderung}) — wird geholt.`);
-                await uebernimmVomServer(null);
-                return;
-            }
-            // Ein ANDERER Tab hat zuletzt geschrieben. Nachreichen hiesse: dessen
-            // Rucksack durch den eigenen, älteren ersetzen — genau der Weg, auf dem
-            // Samen verschwinden. Dieser Tab tritt deshalb zurück, holt den echten
-            // Stand und schaut nur noch zu, bis der Spieler ihn übernimmt.
-            const andererTab = err.data?.letzterTab;
-            if (andererTab && andererTab !== TAB_ID) {
-                console.warn(`[Garden] Anderer Tab hat zuletzt gespeichert (${andererTab}) — dieser tritt zurück.`);
-                nurZuschauenRef.current = true;
-                setNurZuschauen(true);
-                await uebernimmVomServer(null);
-                return;
-            }
-            if (versuch < 3) {
-                await new Promise((r) => setTimeout(r, 120));
-                await flushFarmStateToServerRef.current?.(ueberschreibung, versuch + 1);
-                return;
-            }
-            // Auch danach wird NICHT nachgeladen. Ein Nachladen ersetzt alles, was dem
-            // Browser gehört, durch den letzten gespeicherten Stand — bei zwölf frisch
-            // gekauften Pfirsichen also: neun weg, Gold trotzdem abgebucht, und der
-            // Ladenbestand wieder aufgefüllt (der wird ebenfalls mitgespeichert).
-            // Der nächste Speicherversuch läuft ohnehin gleich wieder los und hat dann
-            // den richtigen Zähler; damit klärt sich das von selbst, ohne Verlust.
-            // Der einzige Fall, in dem der Serverstand wirklich der bessere ist, ist
-            // ein Eingriff von aussen — und der schickt sein eigenes Signal
-            // (garden:admin_update), das weiterhin nachlädt.
-            console.warn("[Garden] Speichern kollidiert wiederholt — nächster Versuch folgt.");
-        }
-    }, [apiCall, uebernimmVomServer, gold, inventory, plotPlants, plotExpansions, plotUnlockedCells, harvestedItems, eggInventory, petInventory, petPlacements, decoInventory, decoPlacements, toolInventory, inventoryMaxSlots, incubator, gebaeudeVersatz, logbuch, ladenBestand, shopRotation?.generatedAt, toolShopStock, toolShopRotation?.generatedAt, eggShopStock, eggShopRotation?.generatedAt, playerAppearance, tutorialCompleted, ackerRasterMigriert]);
 
     useEffect(() => { flushFarmStateToServerRef.current = flushFarmStateToServer; }, [flushFarmStateToServer]);
     useEffect(() => { isInitialLoadDoneRef.current = isInitialLoadDone; }, [isInitialLoadDone]);
@@ -5834,90 +2433,11 @@ export default function GameContainer() {
             .catch(() => {});
     }, [showLobbyScreen, isInitialLoadDone, apiCall]);
 
-    const handleClaimMail = useCallback(async (mailId) => {
-        setMailBusy(true);
-        try {
-            const data = await apiCall("/mail/claim", { method: "POST", body: JSON.stringify({ id: mailId }) });
-            setMailboxState(Array.isArray(data?.mailbox) ? data.mailbox : []);
-            if (typeof data?.gold === "number") setGold(data.gold);
-            if (typeof data?.goldGesamt === "number") setGoldGesamt(data.goldGesamt);
-            if (Array.isArray(data?.inventory)) setInventory(hydrateSeeds(data.inventory));
-            if (Array.isArray(data?.harvestedItems)) setHarvestedItems(hydrateHarvestedItems(data.harvestedItems));
-            if (Array.isArray(data?.petInventory)) setPetInventory(hydratePets(data.petInventory));
-            // Eine Sendung kann mehrere Anhänge tragen — gleiche Namen werden für
-            // die Meldung zu „Karotte × 3" zusammengefasst.
-            const parts = [];
-            if (data?.credited?.gold) parts.push(`${data.credited.gold.toLocaleString("de-DE")} Gold`);
-            const namen = [
-                ...(data?.credited?.seeds ?? []).map((s) => s?.name),
-                ...(data?.credited?.items ?? []).map((i) => i?.name),
-                ...(data?.credited?.pets ?? []).map((p) => p?.customName || p?.name),
-            ].filter(Boolean);
-            const gezaehlt = new Map();
-            for (const name of namen) gezaehlt.set(name, (gezaehlt.get(name) || 0) + 1);
-            for (const [name, anzahl] of gezaehlt) parts.push(anzahl > 1 ? `${name} × ${anzahl}` : name);
-            notify(parts.length ? `Abgeholt: ${parts.join(", ")}.` : "Sendung abgeholt.");
-            playSound("cash", 0.5);
-        } catch (err) {
-            notify(err?.message || "Abholen fehlgeschlagen.", "error");
-        } finally {
-            setMailBusy(false);
-        }
-    }, [apiCall, notify, playSound]);
-
-    const handleSendMail = useCallback(async (payload, onDone) => {
-        setMailBusy(true);
-        const gesendeteSamen = new Set(payload.seedInstanceIds || []);
-        const gesendeteTiere = new Set(payload.petIds || []);
-        const gesendeteErnte = new Set(payload.itemIds || []);
-        // Fuer den Ruecksprung, falls der Server ablehnt
-        const { inventory: vorherSamen, petInventory: vorherTiere, harvestedItems: vorherErnte } = farmStateRef.current;
-        try {
-            // Erst den eigenen Stand hochschieben: der Server entscheidet gleich
-            // anhand SEINER Kopie, ob der Samen ueberhaupt existiert. Ein Tier, das
-            // gerade erst geschluepft ist, steht dort sonst noch gar nicht.
-            await flushSave();
-
-            // Jetzt sofort aus dem Rucksack nehmen. Vorher lag zwischen Klick und
-            // Verschwinden eine ganze Netzrunde, und ein verschenkter Samen blieb
-            // solange auswaehlbar — man konnte ihn in der Zwischenzeit einpflanzen.
-            if (gesendeteSamen.size) {
-                setInventory((prev) => prev.filter((s) => !gesendeteSamen.has(String(s?.instanceId))));
-                setSelectedSeed((prev) => (prev && gesendeteSamen.has(String(prev.instanceId)) ? null : prev));
-            }
-            if (gesendeteTiere.size) {
-                setPetInventory((prev) => prev.filter((p) => !gesendeteTiere.has(String(p?.id || p?.instanceId))));
-                setSelectedPetToPlace((prev) => (prev && gesendeteTiere.has(String(prev.id || prev.instanceId)) ? null : prev));
-            }
-            if (gesendeteErnte.size) {
-                setHarvestedItems((prev) => prev.filter((i) => !gesendeteErnte.has(String(i?.id))));
-            }
-
-            const data = await apiCall("/mail/send", { method: "POST", body: JSON.stringify(payload) });
-            // Server hat abgebucht — lokalen Stand übernehmen, sonst schreibt der
-            // nächste Auto-Save das alte Gold zurück.
-            if (typeof data?.gold === "number") setGold(data.gold);
-            if (Array.isArray(data?.inventory)) setInventory(hydrateSeeds(data.inventory));
-            // Ernte und Tiere ebenfalls uebernehmen — sonst traegt der naechste
-            // Speichervorgang das Verschenkte wieder ein.
-            if (Array.isArray(data?.harvestedItems)) setHarvestedItems(hydrateHarvestedItems(data.harvestedItems));
-            if (Array.isArray(data?.petInventory)) setPetInventory(hydratePets(data.petInventory));
-            const anhaenge = gesendeteSamen.size + gesendeteErnte.size + gesendeteTiere.size;
-            notify(anhaenge > 1
-                ? `Sendung mit ${anhaenge} Gegenständen an ${payload.toLogin} unterwegs.`
-                : `Sendung an ${payload.toLogin} unterwegs.`);
-            onDone?.();
-        } catch (err) {
-            // Nichts ist rausgegangen (der Server prueft alles, bevor er abbucht) —
-            // also den Rucksack wieder herstellen.
-            setInventory(vorherSamen);
-            setPetInventory(vorherTiere);
-            setHarvestedItems(vorherErnte);
-            notify(err?.message || "Senden fehlgeschlagen.", "error");
-        } finally {
-            setMailBusy(false);
-        }
-    }, [apiCall, notify, flushSave]);
+    const { handleClaimMail, handleSendMail } = usePost({
+        setMailBusy, apiCall, setMailboxState, setGold, setGoldGesamt, setInventory,
+        setHarvestedItems, setPetInventory, notify, playSound, farmStateRef, flushSave,
+        setSelectedSeed, setSelectedPetToPlace,
+    });
 
     const ensureTwitchSessionForGarden = useCallback(async () => {
         try {
@@ -5935,9 +2455,17 @@ export default function GameContainer() {
 
     useEffect(() => {
         if (!showLobbyScreen) return;
-        apiCall("/leaderboard")
-            .then((data) => setLeaderboard(Array.isArray(data) ? data : []))
-            .catch(() => setLeaderboard([]));
+        apiCall("/ranglisten")
+            .then((data) => {
+                setRanglisten(data && typeof data === "object" ? data : null);
+                setLeaderboard(Array.isArray(data?.gold) ? data.gold : []);
+            })
+            .catch(() => {
+                // Älterer Server ohne /ranglisten: wenigstens die Goldliste.
+                apiCall("/leaderboard")
+                    .then((data) => setLeaderboard(Array.isArray(data) ? data : []))
+                    .catch(() => setLeaderboard([]));
+            });
     }, [showLobbyScreen, apiCall]);
 
     /**
@@ -5971,6 +2499,33 @@ export default function GameContainer() {
         setShowLobbyScreen(false);
     };
 
+    // Nur im Entwicklungsmodus (fällt im Build weg): der UI-Prüfstand öffnet hierüber
+    // jedes Fenster direkt, ohne die Figur erst vor den passenden Stand zu laufen.
+    useEffect(() => {
+        if (!import.meta.env.DEV) return undefined;
+        window.__farmTest = {
+            oeffne: (typ) => activateInteractable({ type: typ, isOwn: true }),
+            acker: () => JSON.parse(JSON.stringify(engineRef.current.plotPlants || {})),
+            spieler: () => { const p = engineRef.current.player; return { x: p.x, y: p.y, tileX: p.tileX, tileY: p.tileY, zoom: zoomRef.current }; },
+            // Bildschirmposition der Mitte eines eigenen Ackerfelds (Umkehrung von toWorld).
+            zelle: (cx, cy) => {
+                const slot = layout.current.slots[mySlotRef.current];
+                const w = getDirtCellWorldPos(slot, cx, cy);
+                const c = canvasRef.current; const r = c.getBoundingClientRect(); const p = engineRef.current.player;
+                return { x: r.left + c.width / 2 + (w.x + TILE_SIZE / 2 - p.x) * zoomRef.current, y: r.top + c.height / 2 + (w.y + TILE_SIZE / 2 - p.y) * zoomRef.current };
+            },
+            setzer: {
+                rucksack: setBackpackOpen, markt: setMarketOpen, brutkasten: setIncubatorOpen,
+                muell: setTrashOpen, schuppen: setShedOpen, goldshop: setGoldShopOpen,
+                ablage: setAblageOffen, logbuch: setLogbuchOpen, umkleide: setWardrobeOpen,
+                neuerungen: setChangelogOpen, tiere: setPetOverlayOpen, einstellungen: setSettingsOpen,
+                profil: setProfilOffen, vielfalt: setVielfaltOffen, faehigkeiten: setSkillsOffen,
+                laden: setActiveShop, editor: setEditorAktiv,
+            },
+        };
+        return () => { delete window.__farmTest; };
+    }, [activateInteractable]);
+
     if (showLobbyScreen) {
         return (
             <GardenMenu
@@ -5980,6 +2535,7 @@ export default function GameContainer() {
                 isSubscriber={isSubscriber}
                 isBeta={isBeta}
                 leaderboard={leaderboard}
+                ranglisten={ranglisten}
                 joinCodeInput={joinCodeInput}
                 setJoinCodeInput={setJoinCodeInput}
                 enterWorld={enterWorld}
@@ -5994,41 +2550,20 @@ export default function GameContainer() {
         <div className="relative w-full h-full min-h-0 flex-1 bg-slate-950 overflow-hidden" style={{ fontFamily: "'Baloo 2', 'Nunito', 'Segoe UI', system-ui, sans-serif" }}>
             <SEO {...FARM_SEO} />
             <canvas ref={canvasRef} className="absolute inset-0" />
-            {/* Feedback 01.09.: "besserer Ladebildschirm, richtig erst fertig wenn
-                alles geladen hat" — der Balken bleibt unter 100 %, bis preloadCriticalAssets
-                (der GANZE Samenkatalog + alle Reskins, nicht nur der eigene Bestand) UND
-                die Serverdaten tatsächlich da sind (tryCompleteWorldBoot oben — kein
-                Balken, der einfach eine feste Zeit lang lief).
-                Das Bild (loading_screen.webp) trägt Titel + Untertitel schon eingebrannt;
-                der Balken sitzt als eigene Ebene in FESTEM Abstand zum Bild (`top: 41%`
-                seiner eigenen Box, nicht des Viewports) exakt unter dem Schriftzug —
-                das Bild läuft dafür immer mit object-contain in einer Box im selben
-                668:373-Seitenverhältnis mit, egal wie breit der Bildschirm ist. */}
-            {worldBootState.active && (
-                <div className="absolute inset-0 z-[120] bg-slate-950 flex items-center justify-center p-6">
-                    <div className="relative w-[min(760px,94vw)]" style={{ aspectRatio: "668 / 373" }}>
-                        <img
-                            src="/garden-assets/world/loading_screen.webp"
-                            alt="Virtual Farm"
-                            className="absolute inset-0 h-full w-full object-contain"
-                            draggable={false}
-                        />
-                        <div className="absolute left-1/2 w-[46%] -translate-x-1/2" style={{ top: "41%" }}>
-                            <div className="h-2.5 w-full rounded-xl bg-slate-950/70 border border-white/10 overflow-hidden">
-                                <div
-                                    className="h-full rounded-xl bg-violet-500 transition-[width] duration-200"
-                                    style={{ width: `${Math.max(4, Math.min(100, worldBootState.progress || 0))}%` }}
-                                />
-                            </div>
-                            <div
-                                className="mt-1.5 text-center text-[11px] text-white/80 tabular-nums"
-                                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
-                            >
-                                {Math.round(worldBootState.progress || 0)} % — {worldBootState.label || "Bitte warten..."}
-                            </div>
-                        </div>
+            {zweitkontoText && (
+                <div className="absolute inset-0 z-[200] bg-slate-950 flex items-center justify-center p-6">
+                    <div className="max-w-md rounded-md border border-white/10 bg-[#0d0d14] p-6 text-center">
+                        <h2 className="text-xl font-bold text-white mb-2">Nur eine Farm pro Gerät</h2>
+                        <p className="text-sm text-white/70">{zweitkontoText}</p>
+                        <p className="text-sm text-white/50 mt-3">Melde dich mit dem Account an, mit dem du hier zuerst gespielt hast.</p>
                     </div>
                 </div>
+            )}
+            {/* Feedback 01.09.: "besserer Ladebildschirm, richtig erst fertig wenn alles geladen hat" —
+                der Balken bleibt unter 100 %, bis Bilder UND Serverdaten da sind (hooks/useWorldBoot.js).
+                Seit 04.11. im Stil des Hauptmenüs statt eines Bildes mit eingebranntem Titel. */}
+            {worldBootState.active && (
+                <Ladebildschirm label={worldBootState.label} progress={worldBootState.progress} />
             )}
             
 
@@ -6121,129 +2656,24 @@ export default function GameContainer() {
             )}
 
             {/* ── Links oben: Einstellungen, darunter Weltzustand ─────────────── */}
-            <div className="absolute top-5 left-5 z-50 flex flex-col items-start gap-2">
-                <button
-                    type="button"
-                    aria-label="Einstellungen"
-                    onClick={(e) => {
-                        e.currentTarget.blur();
-                        setSettingsOpen((prev) => !prev);
-                    }}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center ${HUD_SURFACE} text-slate-300 transition-colors hover:text-white`}
-                >
-                    <HudIcon.settings size={17} />
-                </button>
-
-                {/* Spielerzahl und Zoom sagen etwas über die Welt und die Ansicht, nicht
-                    über die eigene Farm — deshalb hier bei den Einstellungen statt
-                    rechts zwischen Gold, Post und Tieren.
-                    Die Liste klappt per KLICK auf und bleibt offen: sie ist zum Anklicken
-                    der Namen da, und ein Aufklappen beim Überfahren würde genau dann
-                    zuschnappen, wenn man den Zeiger zum gewünschten Namen bewegt. */}
-                <div className="flex flex-col items-start">
-                    <button
-                        type="button"
-                        onClick={(e) => { e.currentTarget.blur(); setOnlineListeOffen((offen) => !offen); }}
-                        aria-expanded={istOnlineListeOffen}
-                        className={`flex h-10 w-[11rem] items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
-                    >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                            <HudIcon.players size={17} />
-                        </span>
-                        <span className="truncate tabular-nums">
-                            {lobbyConnected ? `${onlinePlayers.length + 1}/${WORLD_SLOTS} online` : "Verbinde…"}
-                        </span>
-                        <HudIcon.chevron
-                            size={13}
-                            className={`ml-auto shrink-0 transition-transform ${istOnlineListeOffen ? "rotate-180" : ""}`}
-                        />
-                    </button>
-                    {istOnlineListeOffen && (
-                        // Cartoon-Überarbeitung 30.08. (zweite Runde, "Spielermenü ist noch
-                        // alt"): dieselbe dicke dunkle Holz-Kontur wie überall sonst, der
-                        // Innenraum bleibt dunkel (siehe GardenModal-Kommentar in gardenUi.jsx,
-                        // warum: der helle Text hier drin verträgt sich nicht mit hellem Grund).
-                        <div className="mt-2 w-[19rem] max-h-64 overflow-y-auto bg-slate-900/95 border-[3px] border-amber-950 rounded-2xl shadow-lg p-1.5 backdrop-blur-sm flex flex-col gap-0.5">
-                            <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-slate-500">
-                                Klick bringt dich zum Grundstück
-                            </div>
-                            {/* v2 (Feedback 30.08.: "Profil-Hover soll nicht mehr jedermanns
-                                Gold zeigen, stattdessen in die Online-Liste links") — dieselben
-                                Zahlen wie vorher in der Profil-Bubble beim Draufhalten, jetzt
-                                hier: eigener Stand aus `gold`/`skillStand` (Server hat sie
-                                bestätigt), die anderen aus dem Lobby-Tick (p.gold/p.level).
-                                Feedback 01.09. ("Dropdown hübscher, Katze als Bild, Level +
-                                Gold mit Icons"): eigenes Bild statt Stecknadel-Icon, beide
-                                Werte jetzt mit HudIcon statt nacktem Text. */}
-                            {[
-                                { id: "ich", name: localPlayerNameRef.current || "Du", slotIndex: mySlotIndex, gold, level: skillStand?.level || 1, skin: playerAppearance.skin, selbst: true },
-                                ...onlinePlayers.map((p) => ({
-                                    id: p.twitchId, name: p.name || "Farmer", slotIndex: p.slotIndex, gold: p.gold || 0, level: p.level || 1, skin: p.skin, selbst: false,
-                                })),
-                            ].map((eintrag) => (
-                                <button
-                                    key={eintrag.id}
-                                    type="button"
-                                    onClick={() => besucheSpieler(eintrag)}
-                                    className={`flex items-center gap-2.5 px-2 py-1.5 rounded-xl border border-transparent text-left transition-colors hover:border-slate-700 hover:bg-slate-800/70 ${
-                                        eintrag.selbst ? "bg-slate-800/60" : ""
-                                    }`}
-                                >
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-950">
-                                        {eintrag.skin ? (
-                                            <img src={eintrag.skin} alt="" draggable={false} className="h-6 w-6 object-contain" />
-                                        ) : (
-                                            <MapPin size={12} className="text-slate-600" />
-                                        )}
-                                    </span>
-                                    <span className={`flex-1 min-w-0 truncate text-xs ${
-                                        eintrag.selbst ? "text-white font-medium" : "text-slate-300"
-                                    }`}>
-                                        {eintrag.name}
-                                    </span>
-                                    <span className="shrink-0 flex flex-col items-end gap-0.5">
-                                        {/* Feedback 01.09.: "Trophäen-Icon raus, stattdessen 'Lvl:' vor die
-                                            Zahl" — HudIcon.level raus, reiner Text wie beim Namen daneben. */}
-                                        <span className="text-[11px] font-bold tabular-nums text-violet-300">
-                                            Lvl: {eintrag.level}
-                                        </span>
-                                        <span className="flex items-center gap-1 text-[11px] font-semibold tabular-nums text-amber-400/90">
-                                            <HudIcon.gold size={11} className="shrink-0" /> {formatGold(eintrag.gold)}
-                                        </span>
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Nur für den Streamer: Spielstände von hier aus bearbeiten, ohne den
-                    Umweg über das Dashboard in einem zweiten Tab. */}
-                {istGartenAdmin && (
-                    <button
-                        type="button"
-                        onClick={() => setAdminPanelOffen(true)}
-                        className={`flex h-10 items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-violet-300 transition-colors hover:text-white`}
-                    >
-                        <SlidersHorizontal size={15} className="shrink-0" />
-                        <span className="hidden sm:inline">Admin</span>
-                    </button>
-                )}
-
-                {/* Zoom nur zeigen, wenn er vom Standard abweicht — sonst steht dauerhaft
-                    eine Zeile im Weg, die man nie braucht. */}
-                {Math.abs(zoomAnzeige - WORLD_ZOOM) > 0.001 && (
-                    <button
-                        type="button"
-                        onClick={() => { zoomRef.current = WORLD_ZOOM; setZoomAnzeige(WORLD_ZOOM); }}
-                        title="Auf Standard zurücksetzen"
-                        className={`flex h-10 items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
-                    >
-                        <Search size={15} className="shrink-0" />
-                        <span className="tabular-nums">{Math.round((zoomAnzeige / WORLD_ZOOM) * 100)}%</span>
-                    </button>
-                )}
-            </div>
+            <HudObenLinks
+                setSettingsOpen={setSettingsOpen}
+                setOnlineListeOffen={setOnlineListeOffen}
+                istOnlineListeOffen={istOnlineListeOffen}
+                lobbyConnected={lobbyConnected}
+                onlinePlayers={onlinePlayers}
+                localPlayerNameRef={localPlayerNameRef}
+                mySlotIndex={mySlotIndex}
+                gold={gold}
+                skillStand={skillStand}
+                playerAppearance={playerAppearance}
+                besucheSpieler={besucheSpieler}
+                istGartenAdmin={istGartenAdmin}
+                setAdminPanelOffen={setAdminPanelOffen}
+                zoomAnzeige={zoomAnzeige}
+                zoomRef={zoomRef}
+                setZoomAnzeige={setZoomAnzeige}
+            />
 
             {/* Admin-Menü. Breiter als die übrigen Fenster, weil links die Spielerliste
                 steht und rechts die Einträge mit ihren Werten. */}
@@ -6259,522 +2689,74 @@ export default function GameContainer() {
             )}
 
             {isSettingsOpen && (
-                // Cartoon-Überarbeitung 30.08. (zweite Runde, "Einstellungsmenü ist noch
-                // alt"): dieselbe Holz-Kontur wie die anderen Klapp-Fenster.
-                <div className="absolute top-[68px] left-5 z-50 w-72 max-h-[calc(100vh-6rem)] overflow-y-auto bg-slate-900/95 border-[3px] border-amber-950 rounded-2xl shadow-lg p-2 backdrop-blur-sm flex flex-col gap-1">
-
-                    {/* --- AUDIO --- */}
-                    <div className="px-3 pt-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                        Audio
-                    </div>
-                    <div className="px-3 pb-2 space-y-2 mt-1">
-                        <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-300 w-12">Effekte</span>
-                            <input
-                                type="range" min="0" max="1" step="0.05"
-                                value={effectVolume}
-                                onChange={(e) => setEffectVolume(parseFloat(e.target.value))}
-                                onMouseUp={(e) => e.currentTarget.blur()}
-                                onTouchEnd={(e) => e.currentTarget.blur()}
-                                className="flex-1 h-1.5 bg-slate-700 rounded-2xl appearance-none cursor-pointer accent-cyan-500"
-                            />
-                            <span className="text-xs font-mono text-slate-400 w-8 text-right">{Math.round(effectVolume * 100)}%</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-300 w-12">Musik</span>
-                            <input
-                                type="range" min="0" max="1" step="0.05"
-                                value={musicVolume}
-                                onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
-                                onMouseUp={(e) => e.currentTarget.blur()}
-                                onTouchEnd={(e) => e.currentTarget.blur()}
-                                className="flex-1 h-1.5 bg-slate-700 rounded-2xl appearance-none cursor-pointer accent-fuchsia-500"
-                            />
-                            <span className="text-xs font-mono text-slate-400 w-8 text-right">{Math.round(musicVolume * 100)}%</span>
-                        </div>
-                        {/* Titelwahl. Während der Party läuft der Party-Titel über
-                            dieselbe Spur — deshalb der Hinweis statt einer gesperrten
-                            Auswahl: umstellen darf man weiterhin, es wirkt nur später. */}
-                        <div className="pt-1">
-                            <div className="mb-1 flex items-center justify-between">
-                                <span className="text-xs text-slate-300">Titel</span>
-                                {tagesInfo.party && (
-                                    <span className="text-[10px] text-fuchsia-300">Party läuft — {laufenderPartyTitel?.name}</span>
-                                )}
-                            </div>
-                            <div className="flex gap-1">
-                                {THEME_TRACKS.map((track) => (
-                                    <button
-                                        key={track.id}
-                                        type="button"
-                                        onClick={(e) => { e.currentTarget.blur(); setThemeId(track.id); }}
-                                        className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                                            themeId === track.id
-                                                ? "bg-violet-600 text-white"
-                                                : "bg-slate-800 text-slate-400 hover:text-white"
-                                        }`}
-                                    >
-                                        {track.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* --- TRENNLINIE --- */}
-                    <div className="h-px bg-slate-700/50 mx-2 my-1" />
-
-                    {/* --- RENDER QUALITÄT --- */}
-                    <div className="px-3 pt-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                        Render-Qualität
-                    </div>
-                    <div className="px-2 pb-2 flex gap-1 mt-1">
-                        {["low", "medium", "high"].map((level) => (
-                            <button
-                                key={level}
-                                type="button"
-                                onClick={() => {
-                                    const preset = RENDER_QUALITY_PRESETS[level];
-                                    setRenderProfile(preset);
-                                    renderProfileRef.current = preset;
-                                }}
-                                className={`flex-1 px-2 py-1.5 rounded-xl text-xs font-medium transition-colors ${
-                                    renderProfile.level === level
-                                        ? "bg-violet-600 text-white"
-                                        : "bg-slate-800 text-slate-400 hover:text-white"
-                                }`}
-                            >
-                                {level === "low" ? "Niedrig" : level === "medium" ? "Mittel" : "Hoch"}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-slate-500 font-semibold mt-1 border-t border-slate-800">
-                        Tastenkürzel
-                    </div>
-                    <div className="px-3 pb-3 text-xs text-slate-400 space-y-1.5">
-                        {[
-                            ["Markt", "Shift + 1"],
-                            ["Shop-Areal", "Shift + 2"],
-                            ["Eigene Farm", "Shift + 3"],
-                            ["Interagieren", "E / Leertaste"],
-                            ["Werkzeuge", "1 – 4"],
-                            ["Deko-Ansicht", "R"],
-                            ["Inventar", "Tab"],
-                        ].map(([label, key]) => (
-                            <div key={label} className="flex justify-between items-center gap-2">
-                                <span>{label}</span>
-                                <kbd className="bg-slate-800 border border-slate-700 text-slate-300 px-1.5 rounded-xl text-[10px]">{key}</kbd>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* v2 (Feedback 29.08.: "Changelog in Settings rein") — stand vorher
-                        als eigener Knopf oben links, gebraucht aber nur, wer aktiv
-                        nachsehen will, was sich geändert hat — genau die Sorte "hin und
-                        wieder", für die die Einstellungen ohnehin schon da sind. */}
-                    <button
-                        type="button"
-                        onClick={() => { setSettingsOpen(false); setChangelogOpen(true); }}
-                        className="flex w-full items-center gap-2 text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors mt-1 border-t border-slate-800"
-                    >
-                        <HudIcon.changelog size={13} className="shrink-0" />
-                        Changelog
-                    </button>
-                    <button
-                        type="button"
-                        onClick={async () => {
-                            await flushFarmStateToServer();
-                            setSettingsOpen(false);
-                            setShowLobbyScreen(true);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
-                    >
-                        Zurück zum Hauptbildschirm
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => { window.location.href = "https://vnmvalentin.de"; }}
-                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
-                    >
-                        Zur Website
-                    </button>
-                </div>
+                <EinstellungenFenster
+                    effectVolume={effectVolume}
+                    setEffectVolume={setEffectVolume}
+                    musicVolume={musicVolume}
+                    setMusicVolume={setMusicVolume}
+                    tagesInfo={tagesInfo}
+                    laufenderPartyTitel={laufenderPartyTitel}
+                    setThemeId={setThemeId}
+                    themeId={themeId}
+                    setRenderProfile={setRenderProfile}
+                    renderProfileRef={renderProfileRef}
+                    renderProfile={renderProfile}
+                    setSettingsOpen={setSettingsOpen}
+                    setChangelogOpen={setChangelogOpen}
+                    flushFarmStateToServer={flushFarmStateToServer}
+                    setShowLobbyScreen={setShowLobbyScreen}
+                />
             )}
 
             {/* ── Rechts: Profil, Post, Tiere, Chat, darunter Weltzustand ─────── */}
             {/* items-end statt fester Spaltenbreite: die Profil-Karte darf breiter sein
                 als der Rest, ohne dass alles andere mitwächst. */}
-            <div className="absolute top-5 right-5 z-40 flex flex-col items-end gap-2">
-                {/* Partyzeit. Steht GANZ oben, weil es das seltenere und wichtigere
-                    Ereignis ist — und nur dann, wenn es auch läuft. */}
-                {tagesInfo.party && (
-                    <div className="flex h-10 items-center gap-2 rounded-2xl border border-fuchsia-500 bg-fuchsia-950/80 px-3 text-xs font-semibold text-fuchsia-100 backdrop-blur-sm">
-                        <HudIcon.party size={15} className="shrink-0" />
-                        <span>Partyzeit · Rainbow {PARTY_RAINBOW_FAKTOR}×</span>
-                        <span className="tabular-nums text-fuchsia-300">
-                            {Math.floor(tagesInfo.verbleibendMs / 60000)}:{String(Math.floor((tagesInfo.verbleibendMs % 60000) / 1000)).padStart(2, "0")}
-                        </span>
-                    </div>
-                )}
-
-                {/* v2 (Feedback 29.08.: "Menü dropdown auflösen, Profil Bubble") —
-                    Gold + XP-Leiste an EINER Stelle statt einer reinen Zahl; Klick
-                    öffnet Umkleide/Logbuch (dasselbe Grüppchen wie vorher im "Menü",
-                    jetzt aber nach Thema getrennt statt in einer langen Liste).
-                    Die Bestenliste, die vorher hier beim Draufhalten erschien, zeigt
-                    jetzt niemandes Gold mehr auf einen bloßen Mauskontakt — siehe
-                    stattdessen die Online-Liste oben links (Feedback 30.08.). Das
-                    Klapp-Panel selbst ist seit Feedback 30.08. ("Profil-Fenster soll
-                    mittig und größer sein") kein Dropdown mehr, sondern ein echtes
-                    GardenModal — siehe isProfilOffen weiter unten bei den anderen
-                    Fenstern. */}
-                <div className="relative z-50 w-64">
-                    {/* Feedback 30.08.: "Profil soll oben rechts und größer sein" — zeigt
-                        jetzt schon zugeklappt das Geist-Bild und den Namen statt nur
-                        Level+Gold in einer schmalen Zeile, damit sie als DIE Anlaufstelle
-                        oben rechts erkennbar ist. */}
-                    <button
-                        type="button"
-                        onClick={(e) => { e.currentTarget.blur(); setProfilOffen((offen) => !offen); }}
-                        aria-expanded={isProfilOffen}
-                        className={`flex w-full items-center gap-3 ${HUD_SURFACE} px-3 py-2.5 text-left transition-colors hover:text-white`}
-                    >
-                        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950">
-                            <img
-                                src={playerAppearance.skin}
-                                alt=""
-                                draggable={false}
-                                className="h-8 w-8 object-contain"
-                            />
-                            {/* Offener Fähigkeitspunkt — sichtbar, ohne erst aufklappen zu
-                                müssen (übernimmt den Hinweis vom entfernten "Level N"-Knopf).
-                                Feedback 30.08. (zweite Runde): eine reine Farbmarkierung
-                                ging zu leicht unter — jetzt dieselbe Zahl-Plakette wie am
-                                "Fähigkeiten"-Knopf im aufgeklappten Profil, dazu ein
-                                dezentes Pulsieren, damit sie wirklich auffällt. */}
-                            {(skillStand?.punkteOffen || 0) > 0 && (
-                                <span className="absolute -top-1.5 -right-1.5 flex min-w-[18px] animate-pulse items-center justify-center rounded-xl border-2 border-slate-900 bg-violet-600 px-1 text-[10px] font-bold tabular-nums text-white">
-                                    {skillStand.punkteOffen}
-                                </span>
-                            )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold text-white truncate">
-                                    {localPlayerNameRef.current || "Du"}
-                                </span>
-                                <span className="ml-auto flex items-center gap-1 text-xs font-semibold tabular-nums text-amber-400">
-                                    <HudIcon.gold size={13} className="shrink-0" />
-                                    {gold.toLocaleString("de-DE")}
-                                </span>
-                            </div>
-                            <div className="mt-1 flex items-center gap-1.5">
-                                <span className="text-[10px] font-bold text-amber-100 shrink-0">Lv {skillStand?.level || 1}</span>
-                                <div className="h-1.5 flex-1 overflow-hidden rounded-xl bg-slate-800">
-                                    <div
-                                        className="h-full bg-violet-500"
-                                        style={{
-                                            width: `${Math.min(100, Math.max(0,
-                                                (skillStand?.xpFuersNaechste || 0) > 0
-                                                    ? ((skillStand.xpDiesesLevel || 0) / skillStand.xpFuersNaechste) * 100
-                                                    : 100)) }%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </button>
-                </div>
-
-                <button
-                    type="button"
-                    onClick={() => { setMailboxMode("inbox"); setMailboxRecipient(""); setMailboxOpen(true); }}
-                    className={`relative flex h-10 w-[8.5rem] items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
-                >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                        <HudIcon.mailbox size={17} />
-                    </span>
-                    <span>Briefkasten</span>
-                    {mailbox.length > 0 && (
-                        <span className="ml-auto min-w-[18px] px-1 text-[10px] font-semibold text-white bg-violet-600 rounded-xl text-center tabular-nums">
-                            {mailbox.length}
-                        </span>
-                    )}
-                </button>
-
-                {/* Gold-Shop (Feedback 01.09.): rein kosmetische Reskins. */}
-                <button
-                    type="button"
-                    onClick={() => { setGoldShopOpen(true); ladeGoldShop(); }}
-                    className={`flex h-10 w-[8.5rem] items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
-                >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                        <HudIcon.goldShop size={17} />
-                    </span>
-                    <span>Gold-Shop</span>
-                </button>
-
-                {/* Tiere — bis Feedback 30.08. ein Klapp-Menü mit dem Inkubator als
-                    zweitem Punkt darunter. Der Inkubator wohnt jetzt im Schuppen
-                    (Feedback 30.08.: "Inkubator in den Schuppen packen und aus dem
-                    Tiere-Dropdown entfernen"), damit bleibt hier nur noch EIN Ziel
-                    übrig — ein Klapp-Menü für einen einzigen Eintrag wäre unnötiger
-                    Umweg, also direkt ein einfacher Knopf wie beim Briefkasten. Die
-                    violette "Ei fertig"-Hervorhebung gehörte zum Inkubator, nicht zu
-                    den Tieren, und zieht mit ihm in den Schuppen (dort am Knopf UND
-                    als Marker über dem Gebäude auf dem Feld). */}
-                <button
-                    type="button"
-                    onClick={() => setPetOverlayOpen(true)}
-                    className={`flex h-10 w-[8.5rem] items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
-                >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                        <TabIcon.pet size={17} />
-                    </span>
-                    <span className="truncate tabular-nums">
-                        Tiere {petPlacements.filter((p) => p.slotIndex === mySlotIndex).length}/{PET_SLOTS}
-                    </span>
-                </button>
-
-                {/* Weltchat. Anders als Gold und Tiere klappt er per KLICK auf und
-                    bleibt offen — beim Tippen darf er nicht zuschnappen, sobald der
-                    Zeiger die Leiste verlässt. Der Verlauf gehört der Welt und wird
-                    nicht gespeichert; wer später dazukommt, sieht ihn nicht. */}
-                <div className="relative w-[8.5rem]">
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.currentTarget.blur();
-                            setChatOffen((offen) => !offen);
-                            // Sonst steht die Farb-/Emojiwahl beim nächsten Öffnen noch offen,
-                            // obwohl das Fenster selbst gerade erst wieder aufklappt.
-                            setFarbwahlOffen(false);
-                            setEmojiWahlOffen(false);
-                        }}
-                        aria-expanded={istChatOffen}
-                        className={`flex h-10 w-full items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
-                    >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                            <HudIcon.chat size={17} />
-                        </span>
-                        <span>Chat</span>
-                        {chatUngelesen > 0 && !istChatOffen && (
-                            <span className="min-w-[18px] px-1 text-[10px] font-semibold text-white bg-violet-600 rounded-xl text-center tabular-nums">
-                                {chatUngelesen > 99 ? "99+" : chatUngelesen}
-                            </span>
-                        )}
-                        <HudIcon.chevron
-                            size={13}
-                            className={`ml-auto shrink-0 transition-transform ${istChatOffen ? "rotate-180" : ""}`}
-                        />
-                    </button>
-
-                    {istChatOffen && (
-                        // Cartoon-Überarbeitung 30.08. (zweite Runde, "Chat Fenster ist noch
-                        // alt"): dieselbe Holz-Kontur wie die anderen Klapp-Fenster.
-                        //
-                        // Feedback 01.09.: "Chat-Fenster ragt aus dem Bildschirm" — die feste
-                        // -ml-[6.5rem] hat den Knopf mittig unter ein 19rem breites Fenster
-                        // gelegt, aber der Knopf steht ganz rechts im HUD, direkt am
-                        // Bildschirmrand. Rechtsbündig (absolute right-0) statt zentriert:
-                        // die rechte Kante bleibt IMMER an der Knopf-Kante, egal wie breit
-                        // das Fenster ist — nach links ist reichlich Platz, nach rechts nicht.
-                        <div className="absolute right-0 top-full mt-2 w-[19rem] flex flex-col bg-slate-900/95 border-[3px] border-amber-950 rounded-2xl shadow-lg backdrop-blur-sm">
-                            <div
-                                ref={chatListeRef}
-                                // 24 px Spielraum: exakt am Pixel unten zu stehen schafft
-                                // niemand, und ohne Spielraum gälte der Chat schon nach
-                                // einer Mausradrastung als „liest gerade nach".
-                                onScroll={(e) => {
-                                    const el = e.currentTarget;
-                                    chatAmEndeRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
-                                }}
-                                className="h-56 overflow-y-auto px-2.5 py-2 flex flex-col gap-1.5"
-                                style={{ overscrollBehavior: "contain" }}
-                            >
-                                {chatVerlauf.length === 0 ? (
-                                    <p className="text-xs text-slate-600 leading-relaxed">
-                                        Noch nichts geschrieben. Was du hier schickst, lesen alle in dieser Welt.
-                                    </p>
-                                ) : (
-                                    chatVerlauf.map((n) => {
-                                        const eigen = String(n.twitchId) === String(authUser?.twitchId ?? "");
-                                        return (
-                                            // Feedback 01.09.: "Nachrichten größer anzeigen" — von text-[11px] auf
-                                            // text-sm (14px), das war für ein Weltchat kaum lesbar klein.
-                                            <div key={n.id} className="text-sm leading-snug break-words">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => besucheSpieler({
-                                                        name: n.from, slotIndex: n.slotIndex, selbst: eigen,
-                                                    })}
-                                                    title={`Zum Grundstück von ${n.from}`}
-                                                    className={`font-semibold transition-colors hover:underline ${
-                                                        eigen ? "text-violet-300" : "text-slate-200 hover:text-white"
-                                                    }`}
-                                                >
-                                                    {n.from}
-                                                </button>
-                                                <span className="text-slate-600">: </span>
-                                                {/* Eigene Textfarbe (Feedback 01.09.) — kommt vom Server, geprüft
-                                                    gegen CHAT_FARBEN dort. Ohne Farbe (Standard oder eine vom Server
-                                                    verworfene) bleibt die bisherige feste Klasse. */}
-                                                <span
-                                                    className={n.color ? "" : "text-slate-300"}
-                                                    style={n.color ? { color: n.color } : undefined}
-                                                >
-                                                    {n.text}
-                                                </span>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                            <div className="relative border-t border-slate-800">
-                                {/* Farbwahl (Feedback 01.09.) — feste Palette, siehe CHAT_FARBEN oben.
-                                    Öffnet nach oben: die Leiste steht am unteren Rand des Fensters. */}
-                                {istFarbwahlOffen && (
-                                    <div className="absolute bottom-full left-1.5 z-10 mb-2 flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-lg">
-                                        <button
-                                            type="button"
-                                            title="Standard"
-                                            onClick={() => { setChatFarbe(null); setFarbwahlOffen(false); }}
-                                            className={`h-5 w-5 shrink-0 rounded-md border-2 bg-slate-700 transition-colors ${
-                                                !chatFarbe ? "border-white" : "border-transparent hover:border-slate-500"
-                                            }`}
-                                        />
-                                        {CHAT_FARBEN.map((f) => (
-                                            <button
-                                                key={f.id}
-                                                type="button"
-                                                title={f.id}
-                                                onClick={() => { setChatFarbe(f.id); setFarbwahlOffen(false); }}
-                                                className={`h-5 w-5 shrink-0 rounded-md border-2 transition-colors ${
-                                                    chatFarbe === f.id ? "border-white" : "border-transparent hover:border-slate-500"
-                                                }`}
-                                                style={{ background: f.hex }}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-                                {/* Emoji-Feld (Feedback 01.09.) — kuratierte Auswahl, siehe CHAT_EMOJIS
-                                    oben. Bleibt nach einer Auswahl offen, falls mehrere folgen sollen. */}
-                                {istEmojiWahlOffen && (
-                                    <div className="absolute bottom-full left-1.5 z-10 mb-2 grid w-[15.5rem] grid-cols-7 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-lg">
-                                        {CHAT_EMOJIS.map((e) => (
-                                            <button
-                                                key={e}
-                                                type="button"
-                                                onClick={() => setChatEingabe((prev) => `${prev}${e}`.slice(0, CHAT_MAX_LEN))}
-                                                className="flex h-7 w-7 items-center justify-center rounded-md text-base hover:bg-slate-800"
-                                            >
-                                                {e}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                                <form
-                                    onSubmit={(e) => { e.preventDefault(); chatAbschicken(); }}
-                                    className="flex items-center gap-1.5 p-1.5"
-                                >
-                                    <button
-                                        type="button"
-                                        title="Textfarbe"
-                                        onClick={() => { setFarbwahlOffen((o) => !o); setEmojiWahlOffen(false); }}
-                                        className="shrink-0 flex h-[26px] w-[26px] items-center justify-center rounded-xl border border-slate-700 bg-slate-950 transition-colors hover:border-slate-500"
-                                    >
-                                        <span
-                                            className="h-3.5 w-3.5 rounded-sm"
-                                            style={{ background: CHAT_FARBEN.find((f) => f.id === chatFarbe)?.hex || "#64748b" }}
-                                        />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        title="Emoji"
-                                        onClick={() => { setEmojiWahlOffen((o) => !o); setFarbwahlOffen(false); }}
-                                        className="shrink-0 flex h-[26px] w-[26px] items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
-                                    >
-                                        <Smile size={14} />
-                                    </button>
-                                    <input
-                                        value={chatEingabe}
-                                        onChange={(e) => setChatEingabe(e.target.value)}
-                                        maxLength={CHAT_MAX_LEN}
-                                        placeholder={lobbyConnected ? "Nachricht" : "Nicht verbunden"}
-                                        disabled={!lobbyConnected}
-                                        className="flex-1 min-w-0 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[13px] text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none disabled:text-slate-600"
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={!lobbyConnected || !chatEingabe.trim()}
-                                        aria-label="Nachricht schicken"
-                                        className="shrink-0 flex h-[26px] w-[26px] items-center justify-center rounded-xl bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:bg-slate-800 disabled:text-slate-600"
-                                    >
-                                        <Send size={13} />
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Weltzustand — unten in der Spalte (Feedback 30.08.: "Zeit unter den
-                    Chat"). Weniger dringend als Post/Tiere/Chat, war vorher aber ganz
-                    oben und damit das ERSTE, was ins Auge fiel. */}
-                <div className="flex items-stretch gap-2">
-                    {/* Uhrzeit der Welt — immer sichtbar, unabhängig vom Wetter. Ein
-                        Spieltag dauert 24 echte Minuten, eine Minute ist also eine
-                        Stunde — daran lässt sich ablesen, wie lange es noch hell bleibt
-                        (siehe engine/Tageszeit.js).
-                        Cartoon-Überarbeitung 30.08. ("Timer soll auch einen coolen
-                        Cartoon-Look bekommen"): eigene Himmelsfarbe statt des
-                        generischen Holz-Knopfes — Blau am Tag, Indigo bei Nacht — mit
-                        einem kleinen runden Sonne-/Mond-Medaillon, damit die Uhr als
-                        EIGENES Element auffällt statt zwischen den Navigations-Knöpfen
-                        unterzugehen. */}
-                    <div className={`flex h-10 items-center gap-2 pl-1 pr-3 rounded-2xl border-[3px] transition-colors ${
-                        tagesInfo.nacht
-                            ? "bg-gradient-to-b from-indigo-800 to-indigo-900 border-indigo-950 shadow-[0_4px_0_0_#1e1b4b]"
-                            : "bg-gradient-to-b from-sky-500 to-sky-600 border-sky-950 shadow-[0_4px_0_0_#0c4a6e]"
-                    } text-xs font-bold tabular-nums text-white`}>
-                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                            tagesInfo.nacht ? "bg-indigo-200 text-indigo-900" : "bg-yellow-300 text-amber-800"
-                        }`}>
-                            {tagesInfo.nacht ? <WeatherIcon.moonlight size={15} /> : <WeatherIcon.sun size={15} />}
-                        </span>
-                        {tagesInfo.uhrzeit}
-                    </div>
-
-                    {/* Wetter — eigene Kachel, getrennt von der Uhrzeit, und nur wenn
-                        wirklich eins aktiv ist. „Sonne" ist der neutrale Grundzustand
-                        ohne Effekt; seit es Tag und Nacht gibt, wäre sie dort auch
-                        nachts zu sehen und suggerierte ein Wetter, das keins ist. */}
-                    {weatherState?.type && weatherState.type !== "sun" && (
-                        <div className={`flex h-10 items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300`}>
-                            {React.createElement(weatherIcon(weatherState.type), { size: 15, className: "shrink-0 text-sky-400" })}
-                            <span className="truncate">{weatherState.label}</span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Weltcode zum Weitergeben — nur bei privaten Welten sinnvoll */}
-                {lobbyConnected && !isPublicWorld && activeCode && (
-                    <button
-                        type="button"
-                        title="Code kopieren"
-                        onClick={() => {
-                            navigator.clipboard?.writeText(activeCode)
-                                .then(() => notify("Weltcode kopiert."))
-                                .catch(() => notify(`Weltcode: ${activeCode}`));
-                        }}
-                        className={`flex h-10 w-[12.5rem] items-center gap-2 ${HUD_SURFACE} px-3 text-xs font-medium text-slate-300 transition-colors hover:text-white`}
-                    >
-                        <HudIcon.worldCode size={15} className="shrink-0" />
-                        <span className="tracking-[0.2em] font-semibold">{activeCode}</span>
-                    </button>
-                )}
-            </div>
+            <HudObenRechts
+                tagesInfo={tagesInfo}
+                ernteRausch={ernteRausch}
+                nachfrage={nachfrage}
+                setProfilOffen={setProfilOffen}
+                isProfilOffen={isProfilOffen}
+                playerAppearance={playerAppearance}
+                skillStand={skillStand}
+                localPlayerNameRef={localPlayerNameRef}
+                gold={gold}
+                setMailboxMode={setMailboxMode}
+                setMailboxRecipient={setMailboxRecipient}
+                setMailboxOpen={setMailboxOpen}
+                mailbox={mailbox}
+                setGoldShopOpen={setGoldShopOpen}
+                ladeGoldShop={ladeGoldShop}
+                plotPlants={plotPlants}
+                skillWirkung={skillWirkung}
+                setVielfaltOffen={setVielfaltOffen}
+                vielfaltOffen={vielfaltOffen}
+                setPetOverlayOpen={setPetOverlayOpen}
+                petPlacements={petPlacements}
+                mySlotIndex={mySlotIndex}
+                setChatOffen={setChatOffen}
+                setFarbwahlOffen={setFarbwahlOffen}
+                setEmojiWahlOffen={setEmojiWahlOffen}
+                istChatOffen={istChatOffen}
+                chatUngelesen={chatUngelesen}
+                chatListeRef={chatListeRef}
+                chatAmEndeRef={chatAmEndeRef}
+                chatVerlauf={chatVerlauf}
+                authUser={authUser}
+                besucheSpieler={besucheSpieler}
+                istFarbwahlOffen={istFarbwahlOffen}
+                setChatFarbe={setChatFarbe}
+                chatFarbe={chatFarbe}
+                istEmojiWahlOffen={istEmojiWahlOffen}
+                setChatEingabe={setChatEingabe}
+                chatAbschicken={chatAbschicken}
+                chatEingabe={chatEingabe}
+                lobbyConnected={lobbyConnected}
+                weatherState={weatherState}
+                isPublicWorld={isPublicWorld}
+                activeCode={activeCode}
+                notify={notify}
+            />
 
             {/* Umstell-Modus: ohne Hinweis wüsste niemand, dass der nächste Klick zählt. */}
             {verschiebtGebaeude && (
@@ -6874,6 +2856,13 @@ export default function GameContainer() {
                 onClose={() => setQuestBoardOpen(false)}
                 daten={questDaten}
                 onAbholen={questAbholen}
+                rucksack={harvestedItems}
+                onLiefern={auftragLiefern}
+                onAblehnen={auftragAblehnen}
+                onAuftraegeNeuLaden={ladeQuests}
+                onErntefestAbholen={erntefestAbholen}
+                ladeWettbewerb={ladeWettbewerb}
+                ladeSaisonziele={ladeSaisonziele}
             />
             <GoldShopModal
                 offen={isGoldShopOpen}
@@ -6908,61 +2897,12 @@ export default function GameContainer() {
                 }}
             />
             {itemHoverTooltip?.item && (
-                <div
-                    // 1. ANPASSUNG: 'fixed' zentriert das Modal immer perfekt am Mauszeiger, egal was der Container macht!
-                    className="fixed z-[100] pointer-events-none bg-slate-900/95 border border-slate-700 rounded-2xl px-3 py-2 text-xs text-slate-200 shadow-xl min-w-[150px]"
-                    style={getItemTooltipStyle(itemHoverTooltip.x, itemHoverTooltip.y)}
-                >
-                    <div className="font-medium text-white">{itemHoverTooltip.item.name || "Gegenstand"}</div>
-                    <RarityLabel rarity={itemHoverTooltip.item.rarity} />
-                    {itemHoverTooltip.item._type === "seed" && (
-                        <>
-                            <div className="text-slate-400 text-[10px] mt-1">Auf ein freies Ackerfeld klicken zum Pflanzen</div>
-                            {(itemHoverTooltip.item.shopPrice || itemHoverTooltip.item.sellPrice) && (
-                                <div className="text-amber-400 font-semibold mt-0.5 tabular-nums">
-                                    {(itemHoverTooltip.item.shopPrice || itemHoverTooltip.item.sellPrice || 0).toLocaleString("de-DE")} Gold
-                                </div>
-                            )}
-                        </>
-                    )}
-                    {itemHoverTooltip.item._type === "plant" && (
-                        <>
-                            <div className="text-amber-400 font-semibold mt-1 tabular-nums">
-                                {(itemHoverTooltip.item.sellValue || 0).toLocaleString("de-DE")} Gold
-                            </div>
-                            {itemHoverTooltip.item.size !== undefined && (
-                                <div className="text-slate-400 text-[11px]">Größe {itemHoverTooltip.item.size} / 50</div>
-                            )}
-                            {getSpecialLabel(itemHoverTooltip.item.specialData) && (
-                                <div className="text-fuchsia-400 text-[11px]">{getSpecialLabel(itemHoverTooltip.item.specialData)}</div>
-                            )}
-                            {/* Alle Wetter des Stücks; der Aufschlag ist ihr Produkt. */}
-                            {wetterListe(itemHoverTooltip.item).length > 0 && (
-                                <div className="text-sky-400 text-[11px]">
-                                    {wetterListe(itemHoverTooltip.item)
-                                        .map((e) => getStatusEffectLabel(e) || e).join(" · ")}
-                                    {" · +"}
-                                    {Math.round((wetterBoost(itemHoverTooltip.item) - 1) * 100)}
-                                    {" % Verkauf"}
-                                </div>
-                            )}
-                        </>
-                    )}
-                    {itemHoverTooltip.item._type === "pet" && itemHoverTooltip.item.ability && (
-                        <div className="mt-1.5 pt-1.5 border-t border-slate-800">
-                            <div className="text-slate-200 text-[11px] font-medium">
-                                {/* Alle drei Fähigkeiten aus der gemeinsamen Tabelle — der
-                                    Zweig kannte den Erntehelfer gar nicht und hat ihn als
-                                    „Samenfinder" beschriftet. */}
-                                {PET_ABILITY_LABELS[itemHoverTooltip.item.ability.type] || "Fähigkeit"}
-                                {" · Stufe "}{itemHoverTooltip.item.ability.level}
-                            </div>
-                            <div className="text-[10px] text-slate-500 mt-0.5">
-                                Platzieren und anklicken für Details.
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <GegenstandTooltip
+                    getItemTooltipStyle={getItemTooltipStyle}
+                    itemHoverTooltip={itemHoverTooltip}
+                    getSpecialLabel={getSpecialLabel}
+                    getStatusEffectLabel={getStatusEffectLabel}
+                />
             )}
 
             {/* v2 (Feedback 29.08.: "Klick auf Profil-Bubble zeigt Name, Geist-Bild,
@@ -6974,328 +2914,97 @@ export default function GameContainer() {
                 Block (Kontostand UND Lebenszeit-Summe, siehe goldGesamt/gutschreiben()
                 in economy.js), dann die drei Knöpfe. */}
             {isProfilOffen && (
-                <GardenModal
-                    title="Profil"
-                    onClose={() => setProfilOffen(false)}
-                    width="max-w-md"
-                >
-                    <div className="flex flex-col gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950">
-                                <img
-                                    src={playerAppearance.skin}
-                                    alt=""
-                                    draggable={false}
-                                    className="h-16 w-16 object-contain"
-                                />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="text-lg font-semibold text-white truncate">
-                                    {localPlayerNameRef.current || "Du"}
-                                </div>
-                                <div className="text-sm text-slate-400">Level {skillStand?.level || 1}</div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
-                                <span>XP</span>
-                                <span className="tabular-nums">
-                                    {(skillStand?.xpFuersNaechste || 0) > 0
-                                        ? `${(skillStand?.xpDiesesLevel || 0).toLocaleString("de-DE")} / ${skillStand.xpFuersNaechste.toLocaleString("de-DE")}`
-                                        : "Höchstlevel"}
-                                </span>
-                            </div>
-                            <div className="h-2 w-full overflow-hidden rounded-xl bg-slate-800">
-                                <div
-                                    className="h-full bg-violet-500"
-                                    style={{
-                                        width: `${Math.min(100, Math.max(0,
-                                            (skillStand?.xpFuersNaechste || 0) > 0
-                                                ? ((skillStand.xpDiesesLevel || 0) / skillStand.xpFuersNaechste) * 100
-                                                : 100)) }%`,
-                                    }}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5">
-                            <div className="flex items-center justify-between">
-                                <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                                    <HudIcon.gold size={13} className="shrink-0" /> Gold
-                                </span>
-                                <span className="text-sm font-semibold tabular-nums text-amber-400">{formatGold(gold)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                                    <HudIcon.goldLifetime size={13} className="shrink-0" /> Gesamt gesammelt
-                                </span>
-                                <span className="text-sm font-medium tabular-nums text-amber-400/70">{formatGold(goldGesamt)}</span>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                            <button
-                                type="button"
-                                onClick={() => { setProfilOffen(false); setSkillsOffen(true); }}
-                                className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
-                            >
-                                <HudIcon.level size={18} className="shrink-0" />
-                                <span className="text-xs font-medium">Fähigkeiten</span>
-                                {/* Übernimmt den Hinweis vom entfernten "Level N"-Knopf unten
-                                    rechts — ein offener Punkt soll nicht wochenlang unbemerkt
-                                    herumliegen. */}
-                                {(skillStand?.punkteOffen || 0) > 0 && (
-                                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] rounded-xl bg-violet-600 px-1 text-[9px] font-semibold tabular-nums text-white">
-                                        {skillStand.punkteOffen}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setProfilOffen(false); setWardrobeOpen(true); }}
-                                className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
-                            >
-                                <HudIcon.wardrobe size={18} className="shrink-0" />
-                                <span className="text-xs font-medium">Umkleide</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setProfilOffen(false); setLogbuchOpen(true); }}
-                                className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
-                            >
-                                <HudIcon.logbuch size={18} className="shrink-0" />
-                                <span className="text-xs font-medium tabular-nums">
-                                    Logbuch {Object.keys(logbuch).length}/{SEED_CATALOGUE.length}
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                </GardenModal>
+                <ProfilFenster
+                    setProfilOffen={setProfilOffen}
+                    playerAppearance={playerAppearance}
+                    localPlayerNameRef={localPlayerNameRef}
+                    skillStand={skillStand}
+                    gold={gold}
+                    goldGesamt={goldGesamt}
+                    setSkillsOffen={setSkillsOffen}
+                    setWardrobeOpen={setWardrobeOpen}
+                    setLogbuchOpen={setLogbuchOpen}
+                    logbuch={logbuch}
+                    wettbewerbSiege={wettbewerbSiege}
+                    prestigeStand={prestigeStand}
+                    setNeueSaatOffen={setNeueSaatOffen}
+                    zuchtbuch={zuchtbuch}
+                    goldShopDaten={goldShopDaten}
+                />
+            )}
+            {neueSaatOffen && (
+                <NeueSaatFenster
+                    apiCall={apiCall}
+                    notify={notify}
+                    stand={prestigeStand}
+                    onClose={() => setNeueSaatOffen(false)}
+                />
             )}
 
             {/* v2 (Feedback 29.08.): Schuppen-Auswahl — Kiste, Vitrine und Mülleimer
                 stehen jetzt in EINEM Gebäude auf dem Feld; die E-Taste öffnet hier
                 erst die Auswahl, statt direkt eins der drei Fenster. */}
             {isShedOpen && (
-                <GardenModal
-                    title="Schuppen"
-                    subtitle="Was möchtest du öffnen?"
-                    onClose={() => setShedOpen(false)}
-                    width="max-w-sm"
-                >
-                    <div className="flex flex-col gap-2">
-                        <button
-                            type="button"
-                            onClick={() => { setShedOpen(false); setAblageOffen("chest"); }}
-                            disabled={!normalizeToolInventory(toolInventory).hasChest}
-                            className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-800 disabled:hover:bg-slate-900/60"
-                        >
-                            <HudIcon.kiste size={18} className="shrink-0" />
-                            <span className="flex-1 text-sm font-medium text-white">Kiste</span>
-                            {!normalizeToolInventory(toolInventory).hasChest && (
-                                <span className="text-[11px] text-slate-600">nicht gekauft</span>
-                            )}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => { setShedOpen(false); setAblageOffen("vitrine"); }}
-                            disabled={!normalizeToolInventory(toolInventory).hasVitrine}
-                            className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-800 disabled:hover:bg-slate-900/60"
-                        >
-                            <HudIcon.vitrine size={18} className="shrink-0" />
-                            <span className="flex-1 text-sm font-medium text-white">Vitrine</span>
-                            {!normalizeToolInventory(toolInventory).hasVitrine && (
-                                <span className="text-[11px] text-slate-600">nicht gekauft</span>
-                            )}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => { setShedOpen(false); setTrashOpen(true); }}
-                            className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60"
-                        >
-                            <HudIcon.remove size={18} className="shrink-0" />
-                            <span className="flex-1 text-sm font-medium text-white">Mülleimer</span>
-                        </button>
-                        {/* Feedback 30.08.: "Inkubator in den Schuppen packen und aus dem
-                            Tiere-Dropdown entfernen" — zieht damit als vierte Tür in dasselbe
-                            Gebäude ein wie Kiste/Vitrine/Mülleimer. Das "Ei fertig"-Signal, das
-                            vorher am Tiere-Knopf hing, sitzt jetzt hier UND als Marker über dem
-                            Schuppen auf dem Feld (siehe _drawEierMarker in Renderer.js). */}
-                        <button
-                            type="button"
-                            onClick={() => { setShedOpen(false); setIncubatorTargetSlot(null); setIncubatorOpen(true); }}
-                            className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60"
-                        >
-                            <TabIcon.egg size={18} className="shrink-0" />
-                            <span className="flex-1 text-sm font-medium text-white">Inkubator</span>
-                            {readyEggsCount > 0 && (
-                                <span className="text-[11px] font-semibold text-violet-300">
-                                    {readyEggsCount === 1 ? "1 fertig" : `${readyEggsCount} fertig`}
-                                </span>
-                            )}
-                        </button>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => { setShedOpen(false); setEditorAktiv(true); setVerschiebtGebaeude("shed"); }}
-                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
-                    >
-                        <HudIcon.reposition size={13} /> Schuppen umstellen
-                    </button>
-                </GardenModal>
+                <SchuppenAuswahl
+                    setShedOpen={setShedOpen}
+                    setAblageOffen={setAblageOffen}
+                    toolInventory={toolInventory}
+                    setTrashOpen={setTrashOpen}
+                    setIncubatorTargetSlot={setIncubatorTargetSlot}
+                    setIncubatorOpen={setIncubatorOpen}
+                    readyEggsCount={readyEggsCount}
+                    setEditorAktiv={setEditorAktiv}
+                    setVerschiebtGebaeude={setVerschiebtGebaeude}
+                />
             )}
 
             {isTrashOpen && (
-                <GardenModal
-                    title="Mülleimer"
-                    subtitle="Endgültig wegwerfen — das lässt sich nicht rückgängig machen"
-                    onClose={() => setTrashOpen(false)}
-                    onBack={() => { setTrashOpen(false); setShedOpen(true); }}
-                    width="max-w-lg"
-                >
-                    {/* Kein eigener "Umstellen"-Knopf hier: der Mülleimer wohnt seit dem
-                        Schuppen-Umbau (Feedback 29.08.) im selben Gebäude wie Kiste und
-                        Vitrine — verschoben wird der Schuppen als Ganzes, entweder aus
-                        dem Schuppen-Menü heraus oder aus der Kiste/Vitrine. */}
-                    {/* Samen: gleiche Sorten stehen als eine Zeile mit Anzahl da. Wer 40
-                        Löwenzahn loswerden will, klickt sonst 40-mal. */}
-                    <div className="mb-4">
-                        <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Samen</div>
-                        {inventory.length === 0 ? (
-                            <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-2xl border border-slate-800 bg-slate-950">
-                                Keine Samen im Rucksack.
-                            </p>
-                        ) : (
-                            <div className="space-y-1.5">
-                                {(() => {
-                                    const gruppen = new Map();
-                                    for (const s of inventory) {
-                                        if (!s?.instanceId) continue;
-                                        const key = `${s.seedId}|${s.rarity}`;
-                                        const g = gruppen.get(key);
-                                        if (g) g.ids.push(s.instanceId);
-                                        else gruppen.set(key, { key, seed: s, ids: [s.instanceId] });
-                                    }
-                                    const wirfWeg = (ids, label) => {
-                                        const weg = new Set(ids);
-                                        setInventory((prev) => prev.filter((s) => !weg.has(s?.instanceId)));
-                                        setSelectedSeed((prev) => (prev && weg.has(prev.instanceId) ? null : prev));
-                                        notify(label);
-                                        debouncedSave();
-                                    };
-                                    return [...gruppen.values()].map((g) => (
-                                        <div
-                                            key={g.key}
-                                            className="p-3 rounded-2xl border border-slate-800 bg-slate-900/60 flex items-center gap-3"
-                                        >
-                                            <ItemIcon item={g.seed} className="w-9 h-9 shrink-0" emojiClassName="text-2xl" />
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-white truncate">
-                                                    {g.seed.name}
-                                                    {g.ids.length > 1 && (
-                                                        <span className="text-slate-500 tabular-nums font-normal"> × {g.ids.length}</span>
-                                                    )}
-                                                </div>
-                                                <RarityLabel rarity={g.seed.rarity} />
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => wirfWeg([g.ids[0]], `${g.seed.name} weggeworfen.`)}
-                                                className="shrink-0 px-2.5 py-2 rounded-2xl border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-semibold transition-colors"
-                                            >
-                                                Einen
-                                            </button>
-                                            {g.ids.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => wirfWeg(g.ids, `${g.ids.length}× ${g.seed.name} weggeworfen.`)}
-                                                    className="shrink-0 px-3 py-2 rounded-2xl border border-rose-800 text-rose-300 hover:text-white hover:bg-rose-900/40 text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
-                                                >
-                                                    <HudIcon.remove size={13} /> Alle {g.ids.length}
-                                                </button>
-                                            )}
-                                        </div>
-                                    ));
-                                })()}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Deko</div>
-                    {decoInventory.length === 0 ? (
-                        <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-2xl border border-slate-800 bg-slate-950">
-                            Keine Deko im Inventar.
-                        </p>
-                    ) : (
-                        <div className="space-y-1.5">
-                            {decoInventory.map((deco) => (
-                                <div
-                                    key={deco.instanceId || deco.id}
-                                    className="p-3 rounded-2xl border border-slate-800 bg-slate-900/60 flex items-center gap-3"
-                                >
-                                    <ItemIcon item={deco} className="w-9 h-9 shrink-0" emojiClassName="text-2xl" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-white truncate">{deco.name}</div>
-                                        <RarityLabel rarity={deco.rarity} />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const ziel = deco.instanceId || deco.id;
-                                            setDecoInventory((prev) => prev.filter((d) => (d.instanceId || d.id) !== ziel));
-                                            if ((selectedDecoToPlace?.instanceId || selectedDecoToPlace?.id) === ziel) {
-                                                setSelectedDecoToPlace(null);
-                                            }
-                                            notify(`${deco.name} weggeworfen.`);
-                                            debouncedSave();
-                                        }}
-                                        className="shrink-0 px-3 py-2 rounded-2xl border border-rose-800 text-rose-300 hover:text-white hover:bg-rose-900/40 text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
-                                    >
-                                        <HudIcon.remove size={13} /> Wegwerfen
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </GardenModal>
+                <MuellFenster
+                    setTrashOpen={setTrashOpen}
+                    setShedOpen={setShedOpen}
+                    inventory={inventory}
+                    setInventory={setInventory}
+                    setSelectedSeed={setSelectedSeed}
+                    notify={notify}
+                    debouncedSave={debouncedSave}
+                    decoInventory={decoInventory}
+                    setDecoInventory={setDecoInventory}
+                    selectedDecoToPlace={selectedDecoToPlace}
+                    setSelectedDecoToPlace={setSelectedDecoToPlace}
+                />
             )}
 
             {ablageOffen && (
-                <AblageModal
-                    art={ablageOffen}
-                    inhalt={ablageOffen === "chest" ? chestItems : vitrineItems}
-                    // Die Vitrine bleibt bei der Ernte — ihr Inhalt geht als
-                    // Momentaufnahme an alle und ist auf Frucht-Felder zugeschnitten.
-                    rucksack={ablageOffen === "chest"
-                        ? { ernte: harvestedItems, samen: inventory, eier: eggInventory, deko: decoInventory, tiere: petInventory }
-                        : { ernte: harvestedItems }}
-                    max={ablageOffen === "chest" ? KISTE_MAX : VITRINE_MAX}
-                    busy={ablageBusy}
-                    onClose={() => setAblageOffen(null)}
-                    onBack={() => { setAblageOffen(null); setShedOpen(true); }}
-                    onEinlagern={(id) => handleAblage(ablageOffen, id, "ein")}
-                    onAuslagern={(id) => handleAblage(ablageOffen, id, "aus")}
-                    onAllesEin={() => handleAblage(ablageOffen, null, "ein")}
-                    onAllesAus={() => handleAblage(ablageOffen, null, "aus")}
-                    // Umstellen bewegt seit dem Schuppen-Umbau IMMER das ganze Gebäude
-                    // (Kiste, Vitrine UND Mülleimer stecken darin), nicht nur die
-                    // gerade offene Ablage.
-                    onUmstellen={() => { setAblageOffen(null); setEditorAktiv(true); setVerschiebtGebaeude("shed"); }}
+                <AblageFenster
+                    ablageOffen={ablageOffen}
+                    chestItems={chestItems}
+                    vitrineItems={vitrineItems}
+                    harvestedItems={harvestedItems}
+                    inventory={inventory}
+                    eggInventory={eggInventory}
+                    decoInventory={decoInventory}
+                    petInventory={petInventory}
+                    ablageBusy={ablageBusy}
+                    setAblageOffen={setAblageOffen}
+                    setShedOpen={setShedOpen}
+                    handleAblage={handleAblage}
+                    setEditorAktiv={setEditorAktiv}
+                    setVerschiebtGebaeude={setVerschiebtGebaeude}
                 />
             )}
 
             {fremdeVitrine && (
-                <FremdeVitrineModal
-                    owner={fremdeVitrine.owner}
-                    items={fremdeVitrine.items}
-                    onClose={() => setFremdeVitrine(null)}
+                <FremdeVitrineFenster
+                    fremdeVitrine={fremdeVitrine}
+                    setFremdeVitrine={setFremdeVitrine}
                 />
             )}
 
             {isLogbuchOpen && (
                 <LogbuchModal
                     logbuch={logbuch}
+                    zuchtbuch={zuchtbuch}
+                    inventory={inventory}
                     onClose={() => setLogbuchOpen(false)}
                     onBack={() => { setLogbuchOpen(false); setProfilOffen(true); }}
                 />
@@ -7317,18 +3026,10 @@ export default function GameContainer() {
             )}
 
             {worldFull && (
-                <div className={`absolute top-16 left-1/2 -translate-x-1/2 z-40 ${HUD_SURFACE} px-4 py-3 flex flex-col items-center gap-2 max-w-sm text-center`}>
-                    <span className="text-xs text-amber-300">
-                        Diese Welt ist voll — du kannst zusehen, aber nicht farmen.
-                    </span>
-                    <button
-                        type="button"
-                        onClick={async () => { await flushFarmStateToServer(); setShowLobbyScreen(true); }}
-                        className="px-3 py-1.5 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition-colors"
-                    >
-                        Zurück zur Weltauswahl
-                    </button>
-                </div>
+                <WeltVollHinweis
+                    flushFarmStateToServer={flushFarmStateToServer}
+                    setShowLobbyScreen={setShowLobbyScreen}
+                />
             )}
 
             {/* v2, "Look & Overlays": vorher eine Hover-Dropdown-Karte unter dem
@@ -7338,120 +3039,24 @@ export default function GameContainer() {
                 platzierte Tiere), nur als Karten statt als schmale Textliste —
                 das Rarität-Farbband je Karte macht die Übersicht auf einen Blick
                 bunter, ohne dass irgendwo eine neue Farbe erfunden werden musste. */}
-            {isPetOverlayOpen && (() => {
-                const goldStufe = besteStufe(petPlacements, "goldfinder", mySlotIndex);
-                const gaertner = getGaertnerStufe(petPlacements, mySlotIndex);
-                const helfer = getErntehelferStufe(petPlacements, mySlotIndex);
-                const forscher = getForscherStufe(petPlacements, mySlotIndex);
-                const kaufmann = getKaufmannStufe(petPlacements, mySlotIndex);
-                const [goldMin, goldMax] = getGoldfinderRange(goldStufe || 1);
-                const zuechter = skillWirkung("zuechter");
-                const eigenePets = petPlacements.filter((p) => p.slotIndex === mySlotIndex);
-                const zeilen = [
-                    {
-                        key: "goldfinder",
-                        stufe: goldStufe,
-                        wirkung: goldStufe
-                            ? `${formatGold(goldMin)}–${formatGold(goldMax)} alle ${Math.round(getPetTickMs(goldStufe) / 1000)} s`
-                            : null,
-                    },
-                    {
-                        key: "harvester",
-                        stufe: helfer,
-                        wirkung: helfer ? `+${Math.round(getErntehelferExtra(helfer, zuechter) * 100)} % zweites Stück je Ernte` : null,
-                    },
-                    {
-                        key: "seedfinder",
-                        stufe: gaertner,
-                        wirkung: gaertner
-                            ? `${Math.round(getGaertnerNachwuchs(gaertner, zuechter) * 100)} % Nachwuchs · ${Math.round(getGaertnerWurzelwerk(gaertner, zuechter) * 100)} % schneller`
-                            : null,
-                    },
-                    {
-                        key: "forscher",
-                        stufe: forscher,
-                        wirkung: forscher ? `+${Math.round(getForscherBoost(forscher, zuechter) * 100)} % XP je Ernte` : null,
-                    },
-                    {
-                        key: "kaufmann",
-                        stufe: kaufmann,
-                        wirkung: kaufmann ? `+${Math.round(getKaufmannBoost(kaufmann, zuechter) * 100)} % Verkaufspreis` : null,
-                    },
-                ];
-                return (
-                    <GardenModal
-                        title="Tiere"
-                        subtitle={`${eigenePets.length}/${PET_SLOTS} Plätze belegt — je Fähigkeit zählt die höchste Stufe`}
-                        onClose={() => setPetOverlayOpen(false)}
-                        width="max-w-lg"
-                    >
-                        <div className="mb-3 rounded-2xl border border-emerald-800/60 bg-emerald-950/20 px-3 py-2">
-                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
-                                Aktive Boni
-                            </div>
-                            {zeilen.map((z) => (
-                                <div key={z.key} className="flex items-baseline justify-between gap-2 py-0.5">
-                                    <span className={`text-[11px] shrink-0 ${z.stufe ? "text-slate-300" : "text-slate-600"}`}>
-                                        {PET_ABILITY_LABELS[z.key]}
-                                    </span>
-                                    <span className={`text-right text-[10px] tabular-nums ${z.stufe ? "text-emerald-400" : "text-slate-600"}`}>
-                                        {z.wirkung || "kein Tier platziert"}
-                                    </span>
-                                </div>
-                            ))}
-                            <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-                                Gleiche Tiere stapeln nicht. Tiere wirken nur, während du im Spiel bist.
-                                {zuechter > 0 ? ` „Züchter" ist eingerechnet.` : ""}
-                            </p>
-                        </div>
-
-                        {eigenePets.length === 0 ? (
-                            <div className="text-slate-500 text-sm text-center py-8">
-                                Noch kein Tier platziert. Im Inkubator ausbrüten und aufs Grundstück stellen.
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-3 gap-2">
-                                {eigenePets.map((pet, i) => (
-                                    <button
-                                        key={pet.id || i}
-                                        type="button"
-                                        onClick={() => { setPetOverlayOpen(false); setInspectedPet(pet); }}
-                                        className={`flex flex-col items-center gap-1 rounded-2xl border bg-slate-900/60 px-2 py-3 text-center transition-colors hover:bg-slate-800/70 ${RARITY_BORDER[pet.rarity] || RARITY_BORDER.COMMON}`}
-                                    >
-                                        <img
-                                            src={pet.image || getPetSpriteImage(pet.name)}
-                                            alt=""
-                                            draggable={false}
-                                            className="w-12 h-12 object-contain shrink-0"
-                                        />
-                                        <span className="block w-full text-xs text-slate-200 truncate">{pet.customName || pet.name}</span>
-                                        <span className={`text-[10px] ${RARITY_TEXT[pet.rarity] || RARITY_TEXT.COMMON}`}>
-                                            {pet.ability ? `${PET_ABILITY_LABELS[pet.ability.type] || pet.ability.type} · Lv. ${pet.ability.level}` : "ohne Fähigkeit"}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Kein Nachkauf mehr: drei Fähigkeiten, drei Plätze. Der Hinweis
-                            steht hier, weil man genau hier merkt, dass ein Platz fehlt —
-                            und weil sonst niemand erfährt, warum ein zweites gleiches Tier
-                            nichts bringt. */}
-                        <div className="mt-3 border-t border-slate-800 pt-2 text-[10px] leading-relaxed text-slate-500">
-                            Drei Plätze, einer je Fähigkeit. Zwei Tiere derselben Fähigkeit stapeln nicht — es zählt das stärkere.
-                        </div>
-                    </GardenModal>
-                );
-            })()}
+            {isPetOverlayOpen && (
+                <TierUebersicht
+                    petPlacements={petPlacements}
+                    mySlotIndex={mySlotIndex}
+                    skillWirkung={skillWirkung}
+                    setPetOverlayOpen={setPetOverlayOpen}
+                    setInspectedPet={setInspectedPet}
+                />
+            )}
 
             {inspectedPet && (
-                <PetDetailModal
-                    pet={inspectedPet}
-                    zuechter={skillWirkung("zuechter")}
-                    onClose={() => setInspectedPet(null)}
-                    onStow={handleStowInspectedPet}
-                    onSell={handleSellInspectedPet}
-                    onRename={handleRenamePet}
+                <TierDetail
+                    inspectedPet={inspectedPet}
+                    skillWirkung={skillWirkung}
+                    setInspectedPet={setInspectedPet}
+                    handleStowInspectedPet={handleStowInspectedPet}
+                    handleSellInspectedPet={handleSellInspectedPet}
+                    handleRenamePet={handleRenamePet}
                 />
             )}
 
@@ -7460,189 +3065,34 @@ export default function GameContainer() {
                 Vorher führte der Weg zu jedem Stück durch das Inventar-Fenster —
                 beim Einrichten öffnet und schliesst man das sonst dutzendfach. */}
             {editorAktiv && (
-                <div className={`absolute bottom-24 left-1/2 -translate-x-1/2 max-w-[min(56rem,92vw)] ${HUD_SURFACE} p-2`}>
-                    <div className="flex items-center gap-2 mb-1.5 px-1">
-                        <HudIcon.editor size={12} className="shrink-0" />
-                        <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-100">
-                            Einrichten — Klick wählt, Klick aufs Grundstück setzt ab,
-                            {" "}<kbd className="bg-slate-800 border border-slate-700 px-1 rounded-xl text-slate-200">R</kbd> spiegelt,
-                            {" "}Klick auf gesetzte Deko packt sie ein
-                        </span>
-                        <span className="ml-auto flex items-center gap-2 text-[10px] font-semibold text-amber-100/90 tabular-nums">
-                            {decoInventory.length} vorrätig · {decoPlacements.filter((d) => d.slotIndex === mySlotIndex).length} aufgestellt
-                            {(() => {
-                                // Feedback 30.08.: "Lichter-Limit im Editor anzeigen" — LICHT_MAX
-                                // (Renderer.js) begrenzt, wie viele Laternen gleichzeitig LEUCHTEN
-                                // (die dem Spieler nächsten gewinnen, siehe _sichtbareLichter);
-                                // zusätzliche bleiben stehen, bleiben aber dunkel. Ohne diese Zahl
-                                // wirkte eine ausgegangene Laterne wie ein Fehler, nicht wie ein
-                                // erwartetes Limit.
-                                const eigeneLichter = decoPlacements
-                                    .filter((d) => d.slotIndex === mySlotIndex && dekoLicht(d.decoId)).length;
-                                if (eigeneLichter === 0) return null;
-                                const amLimit = eigeneLichter >= LICHT_MAX;
-                                return (
-                                    <span
-                                        title={amLimit
-                                            ? "Nur die dir nächsten Laternen leuchten gleichzeitig — weiter entfernte bleiben dunkel."
-                                            : "So viele deiner Laternen können gleichzeitig leuchten."}
-                                        className={`flex items-center gap-1 rounded-lg border px-1.5 py-0.5 ${
-                                            amLimit ? "border-amber-400/60 text-amber-300" : "border-amber-100/20 text-amber-100/70"
-                                        }`}
-                                    >
-                                        <WeatherIcon.moonlight size={11} />
-                                        {eigeneLichter}/{LICHT_MAX} Lichter
-                                    </span>
-                                );
-                            })()}
-                        </span>
-                    </div>
-                    {decoInventory.length === 0 ? (
-                        <div className="px-2 py-3 text-xs text-amber-100/80">
-                            Keine Deko im Vorrat — im Deko-Shop gibt es Nachschub.
-                        </div>
-                    ) : (
-                        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto" style={{ overscrollBehavior: "contain" }}>
-                            {decoInventory.map((deko) => {
-                                const key = deko.instanceId || deko.id;
-                                const gewaehlt = (selectedDecoToPlace?.instanceId || selectedDecoToPlace?.id) === key;
-                                return (
-                                    <button
-                                        key={key}
-                                        type="button"
-                                        title={deko.name}
-                                        onClick={() => {
-                                            setSelectedDecoToPlace(gewaehlt ? null : { ...deko, _type: "deco" });
-                                            setSelectedTool(null);
-                                            setSelectedSeed(null);
-                                            setSelectedCarryItem(null);
-                                            setSelectedPetToPlace(null);
-                                        }}
-                                        className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-colors ${
-                                            gewaehlt
-                                                ? "border-violet-500 bg-violet-600/20"
-                                                : "border-slate-800 bg-slate-900/60 hover:border-slate-600"
-                                        }`}
-                                    >
-                                        <ItemIcon item={deko} className="w-9 h-9" emojiClassName="text-2xl" />
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+                <EditorLeiste
+                    decoInventory={decoInventory}
+                    decoPlacements={decoPlacements}
+                    mySlotIndex={mySlotIndex}
+                    selectedDecoToPlace={selectedDecoToPlace}
+                    setSelectedDecoToPlace={setSelectedDecoToPlace}
+                    setSelectedTool={setSelectedTool}
+                    setSelectedSeed={setSelectedSeed}
+                    setSelectedCarryItem={setSelectedCarryItem}
+                    setSelectedPetToPlace={setSelectedPetToPlace}
+                />
             )}
 
             {/* ── Hotbar ──────────────────────────────────────────────────── */}
-            <div className={`absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-1.5 p-2 ${HUD_SURFACE}`}>
-                {Array(9).fill(null).map((_, i) => {
-                    const item = hotbarItems[i];
-                    
-                    // instanceId always takes priority over generic id to avoid false multi-matches
-                    const selectedSeedKey = selectedSeed?.instanceId ? `seed:${selectedSeed.instanceId}` : null;
-                    const selectedCarryKey = (selectedCarryItem?.instanceId || selectedCarryItem?.id)
-                        ? `carry:${selectedCarryItem.instanceId || selectedCarryItem.id}`
-                        : null;
-                    const selectedPetKey = (selectedPetToPlace?.instanceId || selectedPetToPlace?.id)
-                        ? `pet:${selectedPetToPlace.instanceId || selectedPetToPlace.id}`
-                        : null;
-                    const selectedDecoKey = (selectedDecoToPlace?.instanceId || selectedDecoToPlace?.id)
-                        ? `deco:${selectedDecoToPlace.instanceId || selectedDecoToPlace.id}`
-                        : null;
-
-                    const itemSeedKey = item?._type === "seed" && item?.instanceId ? `seed:${item.instanceId}` : null;
-                    const itemCarryKey = item?._type === "plant" && (item?.instanceId || item?.id)
-                        ? `carry:${item.instanceId || item.id}`
-                        : null;
-                    const itemPetKey = item?._type === "pet" && (item?.instanceId || item?.id)
-                        ? `pet:${item.instanceId || item.id}`
-                        : null;
-                    const itemDecoKey = item?._type === "deco" && (item?.instanceId || item?.id)
-                        ? `deco:${item.instanceId || item.id}`
-                        : null;
-
-                    const isHeldItem = Boolean(
-                        (selectedSeedKey && itemSeedKey && selectedSeedKey === itemSeedKey)
-                        || (selectedCarryKey && itemCarryKey && selectedCarryKey === itemCarryKey)
-                        || (selectedPetKey && itemPetKey && selectedPetKey === itemPetKey)
-                        || (selectedDecoKey && itemDecoKey && selectedDecoKey === itemDecoKey)
-                    );
-
-                    const itemSpecial = itemSpecialName(item);
-                    const specialRingClass = itemSpecial === "Golden"
-                        ? "border-amber-500"
-                        : itemSpecial === "Rainbow"
-                        ? "border-fuchsia-500"
-                        : "";
-
-                    return (
-                        <div key={i}
-                            onClick={(e) => {
-                                e.stopPropagation();
-
-                                // Eindeutige ID des angeklickten Items herausfinden
-                                const clickedId = item?.instanceId || item?.id;
-
-                                // 1. Prüfen, ob genau DIESE ID gerade in der Hand ist
-                                const isAlreadySelected = 
-                                    (selectedSeed && (selectedSeed.instanceId === clickedId || selectedSeed.id === clickedId)) || 
-                                    (selectedCarryItem && (selectedCarryItem.instanceId === clickedId || selectedCarryItem.id === clickedId)) || 
-                                    (selectedPetToPlace && (selectedPetToPlace.instanceId === clickedId || selectedPetToPlace.id === clickedId)) || 
-                                    (selectedDecoToPlace && (selectedDecoToPlace.instanceId === clickedId || selectedDecoToPlace.id === clickedId));
-
-                                if (isAlreadySelected) {
-                                    // 2. Wenn es schon in der Hand ist -> Abwählen (Einstecken)
-                                    setSelectedSeed(null);
-                                    setSelectedCarryItem(null);
-                                    setSelectedPetToPlace(null);
-                                    setSelectedDecoToPlace(null);
-                                } else {
-                                    // 3. Wenn nicht -> Erstmal die Hände komplett frei machen
-                                    setSelectedSeed(null); 
-                                    setSelectedCarryItem(null); 
-                                    setSelectedPetToPlace(null); 
-                                    setSelectedDecoToPlace(null);
-                                    setSelectedTool(null); 
-                                    setMovingPlantSource(null);
-
-                                    // 4. Das richtige Item in die Hand nehmen
-                                    if (item?._type === "seed") {
-                                        setSelectedSeed(item);
-                                    } else if (item?._type === "pet") {
-                                        setSelectedPetToPlace(item);
-                                    } else if (item?._type === "deco") {
-                                        setSelectedDecoToPlace(item);
-                                    } else {
-                                        // Fallback für alles andere (Pflanzen, Früchte, etc.)
-                                        setSelectedCarryItem(item);
-                                    }
-                                }
-                            }}
-                            
-                            onMouseEnter={(e) => {
-                                if (!hatTooltip(item)) return;
-                                // 1. ANPASSUNG: Direkt e.clientX nutzen (ohne Abzug), passend zum 'fixed' Tooltip
-                                setItemHoverTooltip({ item, x: e.clientX, y: e.clientY });
-                            }}
-                            onMouseMove={(e) => {
-                                if (!hatTooltip(item)) return;
-                                setItemHoverTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : { item, x: e.clientX, y: e.clientY });
-                            }}
-                            onMouseLeave={() => setItemHoverTooltip(null)}
-                            className={`relative w-[50px] h-[50px] bg-slate-800/70 rounded-2xl border flex items-center justify-center transition-colors cursor-pointer group
-                            ${item ? "border-slate-700 hover:border-slate-500" : "border-slate-800"}
-                            ${isHeldItem ? "border-violet-500 bg-slate-800" : specialRingClass}`}>
-                            <span className="absolute top-0.5 left-1 text-[9px] font-medium text-slate-600 tabular-nums">{i + 1}</span>
-                            {item && (
-                                <SpecialItemIcon item={item} special={itemSpecial} className="w-8 h-8" emojiClassName="text-2xl" />
-                            )}
-                            {isHeldItem && (
-                                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-violet-500" />
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
+            <Schnellleiste
+                hotbarItems={hotbarItems}
+                selectedSeed={selectedSeed}
+                selectedCarryItem={selectedCarryItem}
+                selectedPetToPlace={selectedPetToPlace}
+                selectedDecoToPlace={selectedDecoToPlace}
+                setSelectedSeed={setSelectedSeed}
+                setSelectedCarryItem={setSelectedCarryItem}
+                setSelectedPetToPlace={setSelectedPetToPlace}
+                setSelectedDecoToPlace={setSelectedDecoToPlace}
+                setSelectedTool={setSelectedTool}
+                setMovingPlantSource={setMovingPlantSource}
+                setItemHoverTooltip={setItemHoverTooltip}
+            />
             {currentInteractable && !activeShop && !isBackpackOpen && !isMarketOpen && !isIncubatorOpen && !isMailboxOpen && !isTrashOpen && !isShedOpen && (
                 <button
                     type="button"
@@ -7696,716 +3146,138 @@ export default function GameContainer() {
 
             {/* ── Oben Mitte: Schnellreise (Feedback 29.08.: "Verkauf, Shop und Farm
                 oben mittig nebeneinander") ─────────────────────────────────── */}
-            <div className="absolute top-5 left-1/2 z-40 -translate-x-1/2 flex items-center gap-2">
-                {[
-                    { label: "Verkauf-Areal", icon: HudIcon.sellArea, action: teleportToMarketArea },
-                    { label: "Shop-Areal", icon: HudIcon.shopArea, action: teleportToShopArea },
-                    { label: "Meine Farm", icon: HudIcon.farm, action: teleportToMyFarm },
-                ].map(({ label, icon: Icon, action }) => (
-                    <button
-                        key={label}
-                        type="button"
-                        onClick={(e) => { e.currentTarget.blur(); action(); }}
-                        className={`pl-1.5 pr-4 py-1.5 ${HUD_SURFACE} text-slate-200 hover:text-white transition-colors flex items-center gap-2.5 text-sm font-medium`}
-                    >
-                        {/* Feedback 30.08.: "man sieht die Icons kaum" — die Bilder sind
-                            kleine, bunte Szenen (Marktstand, Hoftor), auf dem unruhigen
-                            Holzton bei 18px kaum zu erkennen. Ein cremefarbenes Schild
-                            dahinter UND ein größeres Bild lösen beides zugleich. */}
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                            <Icon size={26} />
-                        </span>
-                        {label}
-                    </button>
-                ))}
-            </div>
+            <HudObenMitte
+                teleportToMarketArea={teleportToMarketArea}
+                teleportToShopArea={teleportToShopArea}
+                teleportToMyFarm={teleportToMyFarm}
+            />
 
             {/* ── Bottom-Left: Editor (Feedback 29.08.) ───────────────────────── */}
-            <div className="absolute bottom-5 left-5 flex flex-col gap-2">
-                {/* Einrichten: Raster einblenden, Deko setzen und einpacken, Gebäude
-                    umstellen. Ausserhalb passiert davon nichts — im normalen Spiel
-                    hat ein Klick daneben sonst dauernd Deko eingesammelt. */}
-                <button
-                    type="button"
-                    onClick={() => {
-                        if (editorAktiv) {
-                            setSelectedDecoToPlace(null);
-                            setVerschiebtGebaeude(null);
-                            // Bisher hing das Sichern von Deko-Änderungen komplett am
-                            // allgemeinen 5-Sekunden-Autosave — der Timer läuft bei
-                            // JEDER Aktion neu an, eine ganze Dekorier-Session konnte
-                            // also lange ungesichert bleiben. Ein Besucher sah in der
-                            // Zwischenzeit den alten Stand (fehlende/verschobene Deko).
-                            // Jetzt wird beim Verlassen des Editors sofort gesichert,
-                            // zusätzlich zum weiterlaufenden Autosave. (Kein Aufruf
-                            // innerhalb von setEditorAktiv selbst — React darf Updater-
-                            // Funktionen mehrfach ausführen, ein PUT gehört da nicht rein.)
-                            flushFarmStateToServerRef.current?.();
-                        }
-                        setEditorAktiv((an) => !an);
-                    }}
-                    className={`flex h-10 items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium transition-colors ${
-                        editorAktiv ? "text-violet-300" : "text-slate-300 hover:text-white"
-                    }`}
-                >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                        <HudIcon.editor size={17} />
-                    </span>
-                    <span className="hidden sm:inline">{editorAktiv ? "Editor beenden" : "Editor"}</span>
-                </button>
-            </div>
+            <HudUntenLinks
+                editorAktiv={editorAktiv}
+                setSelectedDecoToPlace={setSelectedDecoToPlace}
+                setVerschiebtGebaeude={setVerschiebtGebaeude}
+                flushFarmStateToServerRef={flushFarmStateToServerRef}
+                setEditorAktiv={setEditorAktiv}
+            />
 
             {/* ═══════════════════════════════════════════════════════════════
                 MODAL: SHOP
             ═══════════════════════════════════════════════════════════════ */}
             {activeShop === "seed" && (
-                <GardenModal
-                    title="Samen-Shop"
+                <SamenLaden
                     onClose={() => setActiveShop(null)}
-                    headerRight={
-                        <>
-                            <TimerTag title="Nächste Rotation" label={formatCountdown(shopMins, shopSecs)} />
-                            <GoldTag gold={gold} />
-                        </>
-                    }
-                >
-                    <TabBar
-                        active={shopFilter}
-                        onSelect={setShopFilter}
-                        tabs={[
-                            { key: "available", label: "Im Angebot", count: shopRotation?.seeds.filter(s => s.active).length ?? 0 },
-                            { key: "all", label: "Gesamter Katalog", count: shopRotation?.seeds.length ?? 0 },
-                        ]}
-                    />
-
-                    <div className="space-y-1.5">
-                        {visibleShopSeeds.map(seed => (
-                            <ShopSeedCard
-                                key={seed.seedId}
-                                seed={seed}
-                                stock={ladenBestand[seed.seedId] ?? (seed.active ? (seed.stock ?? 0) : 0)}
-                                canAfford={gold >= seed.shopPrice}
-                                rucksackVoll={rucksackVoll}
-                                xpJeSorte={xpJeSorte}
-                                onBuy={handleBuySeed}
-                                onBuyAll={handleBuySeedAll}
-                            />
-                        ))}
-                        {(!shopRotation?.seeds || shopRotation.seeds.length === 0) && (
-                            <div className="text-slate-500 text-sm text-center py-8">Shop wird geladen…</div>
-                        )}
-                    </div>
-                </GardenModal>
+                    countdown={formatCountdown(shopMins, shopSecs)}
+                    gold={gold}
+                    shopFilter={shopFilter}
+                    setShopFilter={setShopFilter}
+                    lohnendeShopSeeds={lohnendeShopSeeds}
+                    shopRotation={shopRotation}
+                    visibleShopSeeds={visibleShopSeeds}
+                    ladenBestand={ladenBestand}
+                    rucksackVoll={rucksackVoll}
+                    xpJeSorte={xpJeSorte}
+                    onBuy={handleBuySeed}
+                    onBuyAll={handleBuySeedAll}
+                />
             )}
             {activeShop === "tool" && (
-                <GardenModal
-                    title="Werkzeug-Shop"
+                <WerkzeugLaden
                     onClose={() => setActiveShop(null)}
-                    headerRight={
-                        <>
-                            <TimerTag title="Neue Lieferung" label={formatCountdown(toolMins, toolSecs)} />
-                            <GoldTag gold={gold} />
-                        </>
-                    }
-                >
-                    <div className="space-y-1.5">
-                        {(toolShopRotation?.items || []).map(tool => {
-                            const toolInv = normalizeToolInventory(toolInventory);
-                            // Muss zur Rechnung in handleBuyTool passen — sonst zeigt der
-                            // Laden einen anderen Preis an, als die Kasse abbucht.
-                            const hackenRabatt = 1 - Math.min(0.6, skillWirkung("bergbau"));
-                            const hackenPreis = (n) => Math.max(1, Math.floor(getPickaxePrice(n) * hackenRabatt));
-                            // „Lagerist" (v2, Punkt 4): derselbe Rabatt-Aufbau wie oben bei
-                            // der Spitzhacke, nur auf den Rucksack — muss zu preisFuer in
-                            // werkzeug.js passen.
-                            const lagerRabatt = 1 - Math.min(0.6, skillWirkung("lagerist"));
-                            const rucksackPreisMitRabatt = (n) => Math.max(1, Math.floor(getBackpackUpgradePrice(n) * lagerRabatt));
-                            const price = tool.id === "backpack_upgrade"
-                                ? rucksackPreisMitRabatt(toolInv.backpackLevel || 0)
-                                : tool.id === "pickaxe"
-                                ? hackenPreis(toolInv.pickaxesBought || 0)
-                                : tool.price;
-                            // Kiste und Vitrine stehen einmal auf dem Grundstück —
-                            // danach gilt derselbe „schon vorhanden"-Zustand wie bei
-                            // der Schaufel, sonst bliebe der Kauf-Knopf aktiv.
-                            // Spitzhacken über den Bedarf hinaus sind rausgeworfenes
-                            // Gold: mehr Nutzungen als offene Steinfelder lassen sich
-                            // nie einlösen. Muss zur Prüfung in handleBuyTool passen.
-                            const offeneSteine = Math.max(0,
-                                STEINFELDER_GESAMT - normalizePlotUnlockedCells(plotUnlockedCells).length);
-                            const hackenGedeckt = tool.id === "pickaxe"
-                                && (toolInv.pickaxeUses || 0) >= offeneSteine;
-                            const isPermanentOwned = (tool.id === "shovel" && toolInv.hasShovel)
-                                || (tool.id === "chest" && toolInv.hasChest)
-                                || (tool.id === "vitrine" && toolInv.hasVitrine)
-                                // Voll ausgebauter Rucksack: der Knopf blieb aktiv und
-                                // hat weiter Gold gekostet, ohne Plätze zu geben.
-                                || (tool.id === "backpack_upgrade" && (toolInv.backpackLevel || 0) >= BACKPACK_MAX_LEVEL)
-                                || hackenGedeckt;
-                            // Die Spitzhacke ist bewusst NICHT mehr dabei: sie ist immer
-                            // vorrätig, gebremst allein durch ihren steigenden Preis.
-                            const hasRotationStock = tool.type === "single";
-                            const singleStock = hasRotationStock ? (toolShopStock[tool.id] ?? 0) : null;
-                            const canBuy = gold >= price && !isPermanentOwned && (!hasRotationStock || (singleStock ?? 0) > 0);
-                            const description = {
-                                pickaxe: offeneSteine === 0
-                                    ? "Dein Grundstück ist komplett freigelegt."
-                                    : hackenGedeckt
-                                        ? `Du hast ${toolInv.pickaxeUses} Nutzungen für ${offeneSteine} offene Steinfelder — das reicht.`
-                                        : `4 Nutzungen pro Kauf · noch ${offeneSteine} Steinfelder frei · nächster Kauf ${formatGold(hackenPreis((toolInv.pickaxesBought || 0) + 1))}`,
-                                shovel: "Dauerhaft · entfernt Pflanzen restlos",
-                                plant_pot: "Einmalig · versetzt eine Pflanze",
-                                backpack_upgrade: (toolInv.backpackLevel || 0) >= BACKPACK_MAX_LEVEL
-                                    ? `Voll ausgebaut · ${50 + BACKPACK_MAX_LEVEL * 10} Plätze`
-                                    : `Stufe ${toolInv.backpackLevel || 0} von ${BACKPACK_MAX_LEVEL} · +10 Plätze pro Upgrade`,
-                                watering_can: `Einmalig · verkürzt das Wachstum um ${giesskanneMinuten(skillStufe("giesskanne"))} Minuten · wirkt auf alle Fruchtstände`,
-                                chest: `Dauerhaft · ${KISTE_MAX} Plätze für Ernte, ohne Rucksack zu belegen`,
-                                vitrine: `Dauerhaft · ${VITRINE_MAX} Schauplätze, für alle in der Welt sichtbar`,
-                            }[tool.id] || "";
-                            return (
-                                <div
-                                    key={tool.id}
-                                    className={`p-3 rounded-2xl border bg-slate-900/50 flex items-center gap-3 transition-colors ${
-                                        canBuy ? "border-slate-800 hover:border-violet-500" : "border-slate-800"
-                                    }`}
-                                >
-                                    <ItemIcon item={{ ...tool, image: getToolImage(tool.id) }} className="w-9 h-9 shrink-0" emojiClassName="text-2xl" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-white">{tool.name}</div>
-                                        <div className="text-[11px] text-slate-500 mt-0.5">{description}</div>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <div className="text-sm font-semibold text-amber-400 tabular-nums">{formatGold(price)}</div>
-                                        {hasRotationStock && (
-                                            <div className="text-[11px] text-slate-500">{singleStock ?? 0} auf Lager</div>
-                                        )}
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-1.5">
-                                        {/* Buy-All (v2, Punkt 12): nur bei Werkzeugen, die man
-                                            sinnvoll mehrfach kauft — bei Schaufel/Kiste/Vitrine
-                                            wäre "Alle" dasselbe wie "Kaufen", nur verwirrender. */}
-                                        {canBuy && BUY_ALL_WERKZEUGE.has(tool.id) && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleBuyToolAll(tool)}
-                                                title="So viele kaufen, wie Vorrat/Deckel und Gold hergeben"
-                                                className="px-2.5 py-2 rounded-2xl text-xs font-semibold border border-slate-700 text-slate-300 hover:border-violet-500 hover:text-violet-200 transition-colors"
-                                            >
-                                                Alle
-                                            </button>
-                                        )}
-                                        <PrimaryButton onClick={() => handleBuyTool(tool)} disabled={!canBuy}>
-                                            {hackenGedeckt ? "Gedeckt" : isPermanentOwned ? "Im Besitz" : "Kaufen"}
-                                        </PrimaryButton>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </GardenModal>
+                    countdown={formatCountdown(toolMins, toolSecs)}
+                    gold={gold}
+                    toolShopRotation={toolShopRotation}
+                    toolInventory={toolInventory}
+                    skillWirkung={skillWirkung}
+                    skillStufe={skillStufe}
+                    plotUnlockedCells={plotUnlockedCells}
+                    toolShopStock={toolShopStock}
+                    onBuy={handleBuyTool}
+                    onBuyAll={handleBuyToolAll}
+                />
             )}
             {activeShop === "egg" && (
-                <GardenModal
-                    title="Eier-Shop"
+                <EierLaden
                     onClose={() => setActiveShop(null)}
-                    headerRight={
-                        <>
-                            <TimerTag title="Neues Angebot" label={formatCountdown(eggMins, eggSecs)} />
-                            <GoldTag gold={gold} />
-                        </>
-                    }
-                >
-                    <div className="space-y-1.5">
-                        {EGG_SHOP_CATALOGUE.map(egg => {
-                            const stock = eggShopStock[egg.id] ?? 0;
-                            const available = stock > 0;
-                            return (
-                                <div
-                                    key={egg.id}
-                                    className={`p-3 rounded-2xl border flex items-center gap-3 ${
-                                        available
-                                            ? `border-slate-700 bg-slate-900/60 ${gold >= egg.price && stock > 0 ? "hover:border-violet-500" : ""}`
-                                            : "border-slate-800 bg-slate-900/40 opacity-50"
-                                    }`}
-                                >
-                                    <ItemIcon item={egg} className="w-10 h-10 shrink-0" emojiClassName="text-2xl" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium text-white">{egg.name}</span>
-                                            <RarityLabel rarity={egg.rarity} />
-                                        </div>
-                                        <div className="text-[11px] text-slate-500 mt-0.5 truncate">
-                                            {egg.hatchTable.map(h => `${h.type} ${h.chance} %`).join(" · ")}
-                                        </div>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <div className="text-sm font-semibold text-amber-400 tabular-nums">{formatGold(egg.price)}</div>
-                                        <div className="text-[11px] text-slate-500">{stock} auf Lager</div>
-                                    </div>
-                                    <PrimaryButton
-                                        onClick={() => handleBuyEgg(egg)}
-                                        disabled={gold < egg.price || stock <= 0}
-                                        className="shrink-0"
-                                    >
-                                        Kaufen
-                                    </PrimaryButton>
-                                </div>
-                            );
-                        })}
-                        {Object.values(eggShopStock).every(v => (v || 0) <= 0) && (
-                            <div className="text-slate-500 text-sm text-center py-8">Diese Rotation führt keine Eier.</div>
-                        )}
-                    </div>
-                </GardenModal>
+                    countdown={formatCountdown(eggMins, eggSecs)}
+                    gold={gold}
+                    eggShopStock={eggShopStock}
+                    onBuy={handleBuyEgg}
+                />
             )}
-            {activeShop === "deco" && (() => {
-                const kategorie = DEKO_KATEGORIEN.find((k) => k.id === dekoKategorie) || DEKO_KATEGORIEN[0];
-                const sichtbar = dekoNachKategorie(kategorie.id);
-                return (
-                <GardenModal
-                    title="Deko-Shop"
-                    subtitle={kategorie.hinweis
-                        ? `${kategorie.name} — ${kategorie.hinweis}`
-                        : "Platzierbar auf den Grasflächen deiner Farm — beim Setzen mit R spiegelbar"}
+            {activeShop === "deco" && (
+                <DekoLaden
                     onClose={() => setActiveShop(null)}
-                    headerRight={<GoldTag gold={gold} />}
-                    /* Feste Höhe UND feststehende Reiter. Vorher wuchs das Fenster mit
-                       seinem Inhalt und sass dabei mittig — jeder Kategoriewechsel
-                       verschob es also auf dem Bildschirm, und die Reiter sprangen
-                       unter dem Mauszeiger weg. Dazu scrollten sie beim Blättern aus
-                       dem Bild, sodass man zum Wechseln erst wieder hochfahren musste. */
-                    feste
-                    toolbar={
-                        <div className="flex flex-wrap gap-1">
-                            {DEKO_KATEGORIEN.map((k) => (
-                                <button
-                                    key={k.id}
-                                    type="button"
-                                    onClick={(e) => { e.currentTarget.blur(); setDekoKategorie(k.id); }}
-                                    className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                                        k.id === kategorie.id
-                                            ? "bg-slate-800 text-white"
-                                            : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
-                                    }`}
-                                >
-                                    {k.name}
-                                </button>
-                            ))}
-                        </div>
-                    }
-                >
-                    <div className="grid grid-cols-2 gap-1.5">
-                        {sichtbar.map((deco) => {
-                            const canBuy = gold >= deco.price;
-                            return (
-                                <div
-                                    key={deco.id}
-                                    className={`p-3 rounded-2xl border bg-slate-900/50 flex items-center gap-3 transition-colors ${
-                                        canBuy ? "border-slate-800 hover:border-violet-500" : "border-slate-800"
-                                    }`}
-                                >
-                                    <ItemIcon item={deco} className="w-10 h-10 shrink-0" emojiClassName="text-2xl" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-white truncate">{deco.name}</div>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            <RarityLabel rarity={deco.rarity} />
-                                            <span className="text-[11px] text-slate-500">{deco.width}×{deco.height}</span>
-                                        </div>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <div className="text-sm font-semibold text-amber-400 tabular-nums mb-1">{formatGold(deco.price)}</div>
-                                        <div className="flex items-center gap-1 justify-end">
-                                            <PrimaryButton onClick={() => handleBuyDeco(deco)} disabled={!canBuy}>
-                                                Kaufen
-                                            </PrimaryButton>
-                                            {/* Zehnerkauf nur bei Belägen: von einer Statue will
-                                                niemand zehn, von Steinplatten fast immer. */}
-                                            {deco.ebene === "boden" && (
-                                                <button
-                                                    type="button"
-                                                    title={`10× ${deco.name} für ${formatGold(deco.price * 10)}`}
-                                                    onClick={(e) => { e.currentTarget.blur(); handleBuyDeco(deco, 10); }}
-                                                    disabled={gold < deco.price * 10}
-                                                    className="rounded-xl border border-slate-700 px-2 py-1 text-xs text-slate-300 transition-colors hover:border-slate-500 hover:text-white disabled:border-slate-800 disabled:text-slate-600"
-                                                >
-                                                    ×10
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </GardenModal>
-                );
-            })()}
+                    gold={gold}
+                    dekoKategorie={dekoKategorie}
+                    setDekoKategorie={setDekoKategorie}
+                    onBuy={handleBuyDeco}
+                />
+            )}
 
             {/* ═══════════════════════════════════════════════════════════════
                 MODAL: UNIFIED INVENTORY
             ═══════════════════════════════════════════════════════════════ */}
-            {isBackpackOpen && (() => {
-                const toolItems = [
-                    ...(toolInventory.pickaxeUses > 0 ? [{ id: "tool_pickaxe", name: "Spitzhacke", emoji: "⛏️", image: getToolImage("pickaxe"), rarity: "UNCOMMON", amount: toolInventory.pickaxeUses, _type: "tool" }] : []),
-                    ...(toolInventory.hasShovel ? [{ id: "tool_shovel", name: "Schaufel", emoji: "🪓", image: getToolImage("shovel"), rarity: "COMMON", amount: "∞", _type: "tool" }] : []),
-                    ...(toolInventory.plantPots > 0 ? [{ id: "tool_pots", name: "Plant Pot", emoji: "🪴", image: getToolImage("pot"), rarity: "COMMON", amount: toolInventory.plantPots, _type: "tool" }] : []),
-                    ...(toolInventory.wateringCans > 0 ? [{ id: "tool_watering", name: "Gießkanne", emoji: "🪣", image: getToolImage("watering"), rarity: "COMMON", amount: toolInventory.wateringCans, _type: "tool" }] : []),
-                ];
-                const allItems = [
-                    ...inventory.map(s => ({ ...withVisuals(s), _type: "seed" })),
-                    ...harvestedItems.map(p => ({ ...withVisuals(p), _type: "plant" })),
-                    ...eggInventory.map(e => ({ ...e, _type: "egg" })),
-                    ...petInventory.map(p => ({ ...p, _type: "pet" })),
-                    ...decoInventory.map(d => ({ ...d, _type: "deco" })),
-                    ...toolItems,
-                ];
-                // Slot cap applies only to seeds + harvested plants (the expandable main inventory)
-                const slottedItems = inventory.length + harvestedItems.length;
-                const backpackFilters = ["all", "seed", "plant", "egg", "pet", "deco", "tool"];
-                const filterLabels = { all: "Alle", seed: "Samen", plant: "Ernte", egg: "Eier", pet: "Tiere", deco: "Deko", tool: "Werkzeug" };
-                const activeFilter = inventoryFilter || "all";
-                const gefiltert = activeFilter === "all" ? allItems : allItems.filter(i => i._type === activeFilter);
-                const displayed = sortiere(gefiltert, INVENTAR_SORTIERUNGEN, inventarSortierung);
-                const fillRatio = inventoryMaxSlots > 0 ? slottedItems / inventoryMaxSlots : 0;
-                // Was die Ernte im Rucksack einbringt — dieselbe Angabe wie in der
-                // Kiste, damit man nicht erst zum Markt laufen muss, um es zu sehen.
-                const lagerwert = harvestedItems.reduce((s, i) => s + (Number(i?.sellValue) || 0), 0);
-                return (
-                <GardenModal
-                    title="Rucksack"
-                    subtitle="Deko, Tiere und Werkzeug belegen keine Slots"
-                    onClose={() => { setItemHoverTooltip(null); setBackpackOpen(false); }}
-                    width="max-w-4xl"
-                    headerRight={
-                        <div className="flex items-center gap-3">
-                            {lagerwert > 0 && (
-                                <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 tabular-nums whitespace-nowrap">
-                                    <HudIcon.gold size={13} />
-                                    {formatGold(lagerwert)}
-                                </span>
-                            )}
-                            <div className="flex items-center gap-2 w-40">
-                                <div className="flex-1 h-1.5 rounded-xl bg-slate-800 overflow-hidden">
-                                    <div
-                                        className={`h-full transition-[width] duration-300 ${
-                                            fillRatio >= 1 ? "bg-rose-500" : fillRatio >= 0.75 ? "bg-amber-500" : "bg-emerald-500"
-                                        }`}
-                                        style={{ width: `${Math.min(100, fillRatio * 100)}%` }}
-                                    />
-                                </div>
-                                <span className={`text-[11px] tabular-nums whitespace-nowrap ${fillRatio >= 1 ? "text-rose-400" : "text-slate-400"}`}>
-                                    {slottedItems}/{inventoryMaxSlots}
-                                </span>
-                            </div>
-                        </div>
-                    }
-                >
-                        <TabBar
-                            active={activeFilter}
-                            onSelect={setInventoryFilter}
-                            accent="amber"
-                            tabs={backpackFilters.map((f) => ({
-                                key: f,
-                                label: filterLabels[f],
-                                icon: categoryIcon(f),
-                                count: f === "all" ? allItems.length : allItems.filter(i => i._type === f).length,
-                            }))}
-                        />
-                        <SortierLeiste
-                            wert={inventarSortierung}
-                            setzen={setInventarSortierung}
-                            optionen={INVENTAR_SORTIERUNGEN}
-                        />
-
-                        {/* Grid */}
-                        <div>
-                            {displayed.length === 0 ? (
-                                <div className="text-slate-600 text-sm text-center py-12">Nichts in dieser Kategorie</div>
-                            ) : (
-                                <div className="grid grid-cols-8 gap-1.5">
-                                    {displayed.map((item, idx) => {
-                                        const isSeed = item._type === "seed";
-                                        const isPlant = item._type === "plant";
-                                        const isTool = item._type === "tool";
-                                        const isPet = item._type === "pet";
-                                        const isDeco = item._type === "deco";
-                                        const sp = itemSpecialName(item);
-                                        const spClass = sp === "Golden"
-                                            ? "border-amber-500"
-                                            : sp === "Rainbow"
-                                            ? "border-fuchsia-500"
-                                            : (RARITY_BORDER[item.rarity] || RARITY_BORDER.COMMON);
-                                        return (
-                                            <div key={item.id || item.instanceId || idx}
-                                                onClick={() => {
-                                                    if (isSeed) {
-                                                        setSelectedTool(null);
-                                                        setMovingPlantSource(null);
-                                                        setSelectedPetToPlace(null);
-                                                        setSelectedDecoToPlace(null);
-                                                        setSelectedCarryItem(null);
-                                                        setSelectedSeed(item);
-                                                        setBackpackOpen(false);
-                                                    } else if (isPlant) {
-                                                        setSelectedSeed(null);
-                                                        setSelectedTool(null);
-                                                        setMovingPlantSource(null);
-                                                        setSelectedPetToPlace(null);
-                                                        setSelectedDecoToPlace(null);
-                                                        setSelectedCarryItem(item);
-                                                        setBackpackOpen(false);
-                                                    } else if (isPet) {
-                                                        setSelectedSeed(null);
-                                                        setSelectedTool(null);
-                                                        setMovingPlantSource(null);
-                                                        setSelectedCarryItem(null);
-                                                        setSelectedDecoToPlace(null);
-                                                        setSelectedPetToPlace(item);
-                                                        setBackpackOpen(false);
-                                                    } else if (isDeco) {
-                                                        setSelectedSeed(null);
-                                                        setSelectedTool(null);
-                                                        setMovingPlantSource(null);
-                                                        setSelectedCarryItem(null);
-                                                        setSelectedPetToPlace(null);
-                                                        setSelectedDecoToPlace(item);
-                                                        setBackpackOpen(false);
-                                                    }
-                                                }}
-                                                onMouseEnter={(e) => setItemHoverTooltip({ item, x: e.clientX, y: e.clientY })}
-                                                onMouseMove={(e) => setItemHoverTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : { item, x: e.clientX, y: e.clientY })}
-                                                onMouseLeave={() => setItemHoverTooltip(null)}
-                                                className={`group relative aspect-square rounded-2xl border flex items-center justify-center transition-colors bg-amber-950/20 ${spClass} ${(isSeed || isPlant || isPet || isDeco) ? "cursor-pointer hover:bg-amber-900/30" : "cursor-default"}`}>
-                                                <SpecialItemIcon item={item} special={sp} className="w-9 h-9" emojiClassName="text-2xl" />
-                                                {/* Tiere tragen Namen — bei mehreren Hühnern war sonst nur am
-                                                    Hovern zu erkennen, welches Chicky und welches Berta ist.
-                                                    Der Seltenheitspunkt rückt dafür nach oben. */}
-                                                {isPet && (
-                                                    <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[8px] leading-tight text-center text-slate-200 truncate bg-slate-950/85 rounded-b-xl">
-                                                        {item.customName || item.name}
-                                                    </span>
-                                                )}
-                                                <span className={`absolute ${isPet ? "top-0.5" : "bottom-0.5"} right-0.5 w-1.5 h-1.5 rounded-full ${RARITY_DOT[item.rarity] || RARITY_DOT.COMMON}`} />
-                                                {isTool && item.amount !== undefined && (
-                                                    <span className="absolute bottom-0.5 left-1 text-[9px] text-slate-300 tabular-nums">{item.amount}</span>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                </GardenModal>
-                );
-            })()}
+            {isBackpackOpen && (
+                <RucksackFenster
+                    toolInventory={toolInventory}
+                    inventory={inventory}
+                    harvestedItems={harvestedItems}
+                    eggInventory={eggInventory}
+                    petInventory={petInventory}
+                    decoInventory={decoInventory}
+                    inventoryFilter={inventoryFilter}
+                    inventarSortierung={inventarSortierung}
+                    inventoryMaxSlots={inventoryMaxSlots}
+                    setItemHoverTooltip={setItemHoverTooltip}
+                    setBackpackOpen={setBackpackOpen}
+                    setInventoryFilter={setInventoryFilter}
+                    setInventarSortierung={setInventarSortierung}
+                    setSelectedTool={setSelectedTool}
+                    setMovingPlantSource={setMovingPlantSource}
+                    setSelectedPetToPlace={setSelectedPetToPlace}
+                    setSelectedDecoToPlace={setSelectedDecoToPlace}
+                    setSelectedCarryItem={setSelectedCarryItem}
+                    setSelectedSeed={setSelectedSeed}
+                />
+            )}
             {isMarketOpen && (
-                <GardenModal
-                    title="Marktstand"
-                    onClose={() => setMarketOpen(false)}
-                    width="max-w-md"
-                    headerRight={<GoldTag gold={gold} />}
-                    footer={
-                        <PrimaryButton
-                            onClick={handleSellAllHarvested}
-                            disabled={harvestedItems.length === 0}
-                            className="w-full py-2.5"
-                        >
-                            Alles verkaufen
-                        </PrimaryButton>
-                    }
-                >
-                    {harvestedItems.length === 0 ? (
-                        <div className="text-slate-500 text-sm py-8 text-center">Nichts zum Verkaufen im Lager.</div>
-                    ) : (
-                        <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2">
-                            <div className="flex items-center justify-between py-1 text-xs">
-                                <span className="text-slate-400">Erntestücke im Lager</span>
-                                <span className="text-white font-semibold tabular-nums">{harvestedItems.length}</span>
-                            </div>
-                            <div className="flex items-center justify-between py-1 text-xs">
-                                <span className="text-slate-400">Gesamtwert</span>
-                                <span className="text-amber-400 font-semibold tabular-nums">
-                                    {harvestedItems.reduce((sum, item) => sum + item.sellValue, 0).toLocaleString('de-DE')} Gold
-                                </span>
-                            </div>
-                            {isSubscriber && (
-                                <div className="flex items-center justify-between py-1 text-xs border-t border-slate-800 mt-1 pt-2">
-                                    {/* Derselbe Bonus, aber beim Admin nicht „Sub-Bonus"
-                                        nennen — er ist keiner, er bekommt ihn nur. */}
-                                    <span className="text-slate-400">{istGartenAdmin ? "Admin-Bonus" : "Sub-Bonus"}</span>
-                                    <span className="text-emerald-400 font-semibold">+50 %</span>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </GardenModal>
+                <MarktFenster
+                    setMarketOpen={setMarketOpen}
+                    gold={gold}
+                    handleSellAllHarvested={handleSellAllHarvested}
+                    harvestedItems={harvestedItems}
+                    isSubscriber={isSubscriber}
+                    istGartenAdmin={istGartenAdmin}
+                />
             )}
             {isIncubatorOpen && (
-                <GardenModal
-                    title="Inkubator"
-                    subtitle="Eier einlegen, ausbrüten, Tier auf der Farm platzieren"
-                    onClose={() => { setIncubatorTargetSlot(null); setIncubatorOpen(false); }}
-                    onBack={() => { setIncubatorTargetSlot(null); setIncubatorOpen(false); setShedOpen(true); }}
-                    width="max-w-4xl"
-                    // Kein eigener "Umstellen"-Knopf: der Inkubator hat kein eigenes
-                    // Gebäude mehr, sondern wohnt seit Feedback 30.08. im Schuppen
-                    // (dessen "Schuppen umstellen"-Knopf zieht ihn automatisch mit).
-                    headerRight={
-                        <span className="text-xs text-slate-400 tabular-nums">{eggInventory.length} Eier im Inventar</span>
-                    }
-                >
-                        <div className="grid grid-cols-5 gap-2">
-                            {Array(5).fill(null).map((_, idx) => {
-                                const unlocked = idx < incubator.unlockedSlots;
-                                const slot = incubator.slots[idx];
-                                const unlockCost = INCUBATOR_UNLOCK_COSTS[idx - 1];
-                                return (
-                                    <div key={idx}
-                                        className={`rounded-2xl border p-3 flex flex-col min-h-[210px] ${unlocked ? "border-slate-700 bg-slate-900/60" : "border-slate-800 bg-slate-900/30"}`}
-                                    >
-                                        <div className="text-[10px] text-center mb-1.5 text-slate-500 tabular-nums">Platz {idx + 1}</div>
-                                        {!unlocked && (
-                                            <div className="flex flex-col items-center justify-center flex-1 gap-2">
-                                                <HudIcon.locked size={18} />
-                                                <div className="text-[11px] text-slate-400 tabular-nums">{formatGold(unlockCost)}</div>
-                                                <PrimaryButton onClick={unlockIncubatorSlot} disabled={gold < unlockCost} className="px-2 py-1">
-                                                    Freischalten
-                                                </PrimaryButton>
-                                            </div>
-                                        )}
-                                        {unlocked && !slot && (
-                                            <>
-                                                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-700 rounded-2xl">
-                                                    <Package size={22} className="text-slate-700" />
-                                                </div>
-                                                <PrimaryButton onClick={() => setIncubatorTargetSlot(idx)} className="mt-2 w-full py-1.5">
-                                                    Ei einsetzen
-                                                </PrimaryButton>
-                                            </>
-                                        )}
-                                        {unlocked && slot && (() => {
-                                            const leftMs = Math.max(0, slot.hatchAt - tickNow);
-                                            const isHatching = leftMs > 0;
-                                            return (
-                                            <>
-                                                <div className="flex items-center justify-center">
-                                                    {isHatching ? (
-                                                        <ItemIcon item={slot.egg} className="w-16 h-16 object-contain rounded-2xl border border-slate-800 bg-slate-950/60" />
-                                                    ) : (
-                                                        <img src={slot.hatchResult?.previewImage || buildPetPreviewImage(slot.hatchResult?.type)} alt="" className="w-16 h-16 object-contain rounded-2xl border border-slate-800 bg-slate-950/60" />
-                                                    )}
-                                                </div>
-                                                {/* Ohne die Absicherung reisst ein Platz ohne `egg` den ganzen
-                                                    Spielbildschirm mit — daneben wird `hatchResult` schon so gelesen. */}
-                                                <div className="text-center text-xs font-medium text-white mt-1.5 truncate">{slot.egg?.name || "Ei"}</div>
-                                                <div className="text-center text-[11px] text-slate-400 mt-0.5 truncate">
-                                                    {isHatching ? "Ergebnis unbekannt" : (slot.hatchResult?.type || "Tier")}
-                                                </div>
-                                                <div className={`text-center text-[11px] mt-1 font-medium tabular-nums ${leftMs > 0 ? "text-slate-400" : "text-emerald-400"}`}>
-                                                    {leftMs > 0 ? formatDuration(leftMs) : "Bereit"}
-                                                </div>
-                                                <PrimaryButton onClick={() => collectHatchedEgg(idx)} disabled={isHatching} className="mt-auto w-full py-1.5">
-                                                    Schlüpfen lassen
-                                                </PrimaryButton>
-                                            </>
-                                            );
-                                        })()}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        {incubatorTargetSlot !== null && (
-                            <div className="mt-4 border border-slate-800 rounded-2xl p-3 bg-slate-950/50">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="text-xs text-slate-300 font-medium">Ei für Platz {incubatorTargetSlot + 1} wählen</div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIncubatorTargetSlot(null)}
-                                        className="text-[11px] text-slate-500 hover:text-white transition-colors"
-                                    >
-                                        Abbrechen
-                                    </button>
-                                </div>
-                                {eggInventory.length === 0 ? (
-                                    <div className="text-[11px] text-slate-500 py-4 text-center">Keine Eier im Inventar.</div>
-                                ) : (
-                                    <div className="grid grid-cols-6 gap-1.5 max-h-44 overflow-y-auto">
-                                        {eggInventory.map((egg) => (
-                                            <button
-                                                key={egg.instanceId}
-                                                type="button"
-                                                onClick={() => placeEggInIncubator(incubatorTargetSlot, egg.instanceId)}
-                                                className="p-2 rounded-2xl border border-slate-800 hover:border-slate-600 bg-slate-900 transition-colors text-center flex flex-col items-center gap-1"
-                                            >
-                                                <ItemIcon item={egg} className="w-8 h-8" emojiClassName="text-xl" />
-                                                <div className="text-[10px] text-slate-400 truncate w-full">{egg.name}</div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        {incubator.unlockedSlots < 5 && (
-                            <div className="mt-3 text-[11px] text-slate-500 text-center tabular-nums">
-                                Nächster Platz kostet {formatGold(INCUBATOR_UNLOCK_COSTS[incubator.unlockedSlots - 1])} Gold
-                            </div>
-                        )}
-                </GardenModal>
+                <BrutkastenFenster
+                    setIncubatorTargetSlot={setIncubatorTargetSlot}
+                    setIncubatorOpen={setIncubatorOpen}
+                    setShedOpen={setShedOpen}
+                    eggInventory={eggInventory}
+                    incubator={incubator}
+                    unlockIncubatorSlot={unlockIncubatorSlot}
+                    gold={gold}
+                    tickNow={tickNow}
+                    formatDuration={formatDuration}
+                    collectHatchedEgg={collectHatchedEgg}
+                    incubatorTargetSlot={incubatorTargetSlot}
+                    placeEggInIncubator={placeEggInIncubator}
+                />
             )}
-            <div className={`absolute bottom-5 left-1/2 translate-x-[286px] flex gap-1.5 p-2 ${HUD_SURFACE}`}>
-                {[
-                    { key: "shovel", label: "Schaufel", hotkey: "1" },
-                    { key: "pot", label: "Topf", hotkey: "2" },
-                    { key: "pickaxe", label: "Hacke", hotkey: "3" },
-                    { key: "watering", label: "Kanne", hotkey: "4" },
-                    // Nur beim Admin, und nur dort auch sichtbar: bei allen anderen
-                    // fehlt der Platz ganz, statt leer und grau danebenzustehen.
-                    ...(istGartenAdmin
-                        ? [{ key: "shotgun", label: "Shotgun — auf einen Mitspieler klicken", hotkey: "5" }]
-                        : []),
-                ].map((slot) => {
-                    const owned = Boolean(equippedTools[slot.key]);
-                    const isActive = selectedTool === slot.key;
-                    // Für Werkzeuge gibt es gezeichnete Bilder — die gehören hierhin,
-                    // nicht ein generisches Icon.
-                    const toolImage = getToolImage(slot.key);
-                    return (
-                        <button
-                            type="button"
-                            key={slot.key}
-                            title={`${slot.label} — Taste ${slot.hotkey}`}
-                            onClick={(e) => {
-                                e.currentTarget.blur();
-                                if (!owned) return;
-                                setSelectedSeed(null);
-                                setSelectedPetToPlace(null);
-                                setSelectedDecoToPlace(null);
-                                setSelectedCarryItem(null);
-                                setSelectedTool(prev => (prev === slot.key ? null : slot.key));
-                                if (slot.key !== "pot") setMovingPlantSource(null);
-                            }}
-                            className={`relative w-[50px] h-[50px] rounded-2xl border flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none ${
-                                isActive
-                                    ? "border-violet-500 bg-slate-800"
-                                    : owned
-                                        ? "border-slate-700 bg-slate-800/60 hover:border-slate-500 cursor-pointer"
-                                        : "border-slate-800 bg-slate-900/40 cursor-default"
-                            }`}
-                        >
-                            <span className="absolute top-0.5 left-1 text-[9px] text-slate-600 tabular-nums">{slot.hotkey}</span>
-                            <img
-                                src={toolImage}
-                                alt=""
-                                draggable={false}
-                                className={`w-6 h-6 object-contain ${owned ? "" : "opacity-25 grayscale"}`}
-                            />
-                            <span className={`text-[10px] tabular-nums ${owned ? "text-slate-200" : "text-slate-700"}`}>
-                                {owned ? equippedTools[slot.key].name : "0"}
-                            </span>
-                        </button>
-                    );
-                })}
-            </div>
+            <Ausruestung
+                istGartenAdmin={istGartenAdmin}
+                equippedTools={equippedTools}
+                selectedTool={selectedTool}
+                setSelectedSeed={setSelectedSeed}
+                setSelectedPetToPlace={setSelectedPetToPlace}
+                setSelectedDecoToPlace={setSelectedDecoToPlace}
+                setSelectedCarryItem={setSelectedCarryItem}
+                setSelectedTool={setSelectedTool}
+                setMovingPlantSource={setMovingPlantSource}
+            />
             {/* 5. ANPASSUNG: Wardrobe Modal - Jetzt mit Preset-Buttons */}
             <WardrobeModal
                 offen={isWardrobeOpen}
@@ -8419,65 +3291,11 @@ export default function GameContainer() {
                 statt fest verdrahtet — sonst steht dort nach jeder Fassung wieder eine
                 veraltete Nummer (stand zuletzt auf 3.0, während 3.1 schon draußen war). */}
             {isChangelogOpen && (
-                <GardenModal
-                    title="Changelog"
-                    subtitle={`Neu in Version ${(CHANGELOG_ENTRIES[0]?.version || "").replace(/^v/, "")}`}
-                    onClose={() => setChangelogOpen(false)}
-                    width="max-w-2xl"
-                >
-                    {/* Die neueste Fassung steht offen und trägt eine Marke, alle älteren
-                        sind zugeklappt. Vorher lagen alle Versionen gleichrangig
-                        untereinander — nach vier Fassungen musste man erst suchen, was
-                        eigentlich neu ist. */}
-                    <div className="space-y-2">
-                        {CHANGELOG_ENTRIES.map((release, index) => {
-                            const neueste = index === 0;
-                            const offen = neueste || offeneChangelogs.includes(release.version);
-                            return (
-                                <section key={release.version} className={neueste ? "" : "border-t border-slate-800 pt-2"}>
-                                    <button
-                                        type="button"
-                                        // Die neueste Fassung lässt sich nicht zuklappen: sie ist
-                                        // der Grund, warum das Fenster überhaupt aufgeht.
-                                        onClick={() => {
-                                            if (neueste) return;
-                                            setOffeneChangelogs((alt) => (alt.includes(release.version)
-                                                ? alt.filter((v) => v !== release.version)
-                                                : [...alt, release.version]));
-                                        }}
-                                        className={`flex w-full items-baseline gap-2 text-left ${neueste ? "cursor-default pb-2 mb-2 border-b border-slate-800" : "py-1"}`}
-                                    >
-                                        {!neueste ? (
-                                            <HudIcon.chevron size={13} className={`shrink-0 self-center transition-transform ${offen ? "" : "-rotate-90"}`} />
-                                        ) : null}
-                                        <h3 className={`text-sm font-semibold ${neueste ? "text-white" : "text-slate-400"}`}>{release.version}</h3>
-                                        {neueste ? (
-                                            <span className="rounded-md border border-violet-500 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-300">
-                                                Neu
-                                            </span>
-                                        ) : null}
-                                        <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{release.title}</span>
-                                    </button>
-                                    {offen ? release.groups.map((group) => (
-                                        <div key={group.heading} className="mb-3">
-                                            <h4 className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">
-                                                {group.heading}
-                                            </h4>
-                                            <ul className="space-y-1">
-                                                {group.items.map((item, i) => (
-                                                    <li key={i} className="text-xs text-slate-300 leading-relaxed flex gap-2">
-                                                        <span className="text-slate-600 select-none">–</span>
-                                                        <span>{item}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )) : null}
-                                </section>
-                            );
-                        })}
-                    </div>
-                </GardenModal>
+                <NeuerungenFenster
+                    setChangelogOpen={setChangelogOpen}
+                    offeneChangelogs={offeneChangelogs}
+                    setOffeneChangelogs={setOffeneChangelogs}
+                />
             )}
 
         </div>

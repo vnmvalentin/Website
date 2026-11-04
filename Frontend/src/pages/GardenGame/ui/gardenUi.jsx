@@ -61,10 +61,21 @@ export function ProgressBar({ value, className = "bg-violet-500", height = "h-1.
  * Das Holzschild ist also ein Rahmen UM den bestehenden dunklen Bildschirm,
  * kein Ersatz dafür — dieselbe Idee wie ein Bilderrahmen um ein Display.
  */
-export function GardenModal({ title, subtitle, headerRight, onClose, onBack, width = "max-w-3xl", toolbar, feste = false, children, footer }) {
+/**
+ * Drei feste Fensterbreiten statt einer frei gewählten je Fenster — vorher gab es
+ * sechs verschiedene, vom winzigen Schuppen bis zur bildschirmbreiten Fähigkeiten-Ansicht.
+ *   klein   Auswahl/Bestätigung (Schuppen, Markt, Profil, Hinweise)
+ *   mittel  Listen (Läden, Missionen, Briefkasten, Tiere, Gold-Shop) — Standard
+ *   gross   Raster (Rucksack, Brutkasten, Kiste/Vitrine); die Fähigkeiten behalten max-w-6xl
+ * `width` (eine Tailwind-Klasse) bleibt als Ausnahme möglich.
+ */
+const FENSTER_BREITEN = { klein: "max-w-md", mittel: "max-w-2xl", gross: "max-w-4xl" };
+
+export function GardenModal({ title, subtitle, headerRight, onClose, onBack, breite = "mittel", width, toolbar, feste = false, children, footer }) {
+    const breitenKlasse = width || FENSTER_BREITEN[breite] || FENSTER_BREITEN.mittel;
     return (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`w-full ${width} ${feste ? "h-[86vh]" : "max-h-[86vh]"} flex flex-col bg-gradient-to-b from-amber-800 to-amber-900 border-[6px] border-amber-950 rounded-[2rem] shadow-2xl overflow-hidden`}>
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className={`w-full ${breitenKlasse} ${feste ? "h-[86vh]" : "max-h-[86vh]"} flex flex-col bg-gradient-to-b from-amber-800 to-amber-900 border-[6px] border-amber-950 rounded-[2rem] shadow-2xl overflow-hidden`}>
                 <div className="flex items-start justify-between gap-4 px-5 py-4 border-b-4 border-amber-950/50 bg-black/10">
                     <div className="flex items-start gap-2 min-w-0">
                         {/* Feedback 30.08.: "Back"-Knopf für Fenster, die aus einem anderen
@@ -78,7 +89,7 @@ export function GardenModal({ title, subtitle, headerRight, onClose, onBack, wid
                                 onClick={onBack}
                                 aria-label="Zurück"
                                 title="Zurück"
-                                className="shrink-0 mt-0.5 p-1.5 rounded-2xl border-2 border-transparent text-amber-100 hover:border-amber-950/40 hover:bg-black/20 active:scale-95 transition-all duration-150"
+                                className="shrink-0 mt-0.5 p-1.5 rounded-2xl border-2 border-transparent text-amber-100 hover:border-amber-950/40 hover:bg-black/20 transition-colors"
                             >
                                 <HudIcon.back size={16} />
                             </button>
@@ -90,17 +101,15 @@ export function GardenModal({ title, subtitle, headerRight, onClose, onBack, wid
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                         {headerRight}
-                        {/* Feedback 30.08.: "make a visible hover for the X" — vorher nur
-                            ein Farbwechsel auf einem <img> (HudIcon.close ist seit dem
-                            Icon-Umbau ein Bild, kein Font-Icon mehr — "hover:text-white"
-                            griff da schon vorher ins Leere). Jetzt ein eigener runder
-                            Fleck, der beim Hover auftaucht, plus ein kleines Drehen/
-                            Vergrößern für den verspielten Auftritt. */}
+                        {/* Feedback 30.08.: "make a visible hover for the X" — ein eigener
+                            Fleck, der beim Hover auftaucht (HudIcon.close ist ein Bild, ein
+                            reiner Textfarbwechsel griffe ins Leere). Nur Farbe, kein
+                            Vergrößern/Drehen mehr. */}
                         <button
                             type="button"
                             onClick={onClose}
                             aria-label="Schließen"
-                            className="p-1.5 rounded-2xl border-2 border-transparent hover:border-red-700 hover:bg-red-100 hover:scale-110 hover:rotate-6 active:scale-95 transition-all duration-150"
+                            className="p-1.5 rounded-2xl border-2 border-transparent hover:border-red-700 hover:bg-red-100 transition-colors"
                         >
                             <HudIcon.close size={18} />
                         </button>
@@ -168,10 +177,10 @@ const TABBAR_AKZENTE = {
     emerald: "border-emerald-500 text-white",
 };
 
-export function TabBar({ tabs, active, onSelect, accent = "violet" }) {
+export function TabBar({ tabs, active, onSelect, accent = "violet", className = "border-b border-slate-800 mb-4" }) {
     const aktivKlasse = TABBAR_AKZENTE[accent] || TABBAR_AKZENTE.violet;
     return (
-        <div className="flex flex-wrap items-center gap-1 border-b border-slate-800 mb-4">
+        <div className={`flex flex-wrap items-center gap-1 ${className}`}>
             {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = active === tab.key;
@@ -179,7 +188,9 @@ export function TabBar({ tabs, active, onSelect, accent = "violet" }) {
                     <button
                         key={tab.key}
                         type="button"
-                        onClick={() => onSelect(tab.key)}
+                        // blur: sonst bleibt der Reiter fokussiert, und Leertaste/Enter im
+                        // Spiel lösen ihn später noch einmal aus.
+                        onClick={(e) => { e.currentTarget.blur(); onSelect(tab.key); }}
                         // Feedback 30.08. wollte "Unterstrich statt Pillen" (die Reiter selbst
                         // bleiben rechteckig) — der Unterstrich darf trotzdem chunky sein:
                         // dick UND rund an den Enden statt einer scharfen 2px-Linie.
@@ -198,6 +209,83 @@ export function TabBar({ tabs, active, onSelect, accent = "violet" }) {
                 );
             })}
         </div>
+    );
+}
+
+/**
+ * Bausteine für den Fensterinhalt. Vorher baute jedes Fenster Zeilen, Überschriften
+ * und Leer-Hinweise selbst (15 Varianten von Überschriften, gut zehn von Leer-Texten,
+ * 64 eigene Zeilen-Kästen). Neue Fenster nehmen diese hier.
+ */
+
+/**
+ * Überschrift eines Abschnitts im Fenster. `ton="selten"` hebt Besonderes hervor.
+ * `className` ERSETZT die Abstände (Standard px-1 pt-2 pb-1), statt sie zu ergänzen —
+ * zwei widersprüchliche Tailwind-Abstände nebeneinander gewinnt sonst zufällig einer.
+ */
+export function Abschnitt({ children, ton = "normal", className = "px-1 pt-2 pb-1" }) {
+    const farbe = ton === "selten" ? "text-amber-300" : "text-slate-400";
+    return (
+        <div className={`text-[11px] font-bold uppercase tracking-wider ${farbe} ${className}`}>
+            {children}
+        </div>
+    );
+}
+
+/** Text, wenn eine Liste leer ist. */
+export function LeerHinweis({ children, className = "" }) {
+    return <div className={`py-10 text-center text-sm text-slate-500 ${className}`}>{children}</div>;
+}
+
+const ZEILEN_ZUSTAND = {
+    normal: "border-slate-800 bg-slate-900/50",
+    aktiv: "border-emerald-600/70 bg-emerald-950/30",
+    gedimmt: "border-slate-800 bg-slate-900/40 opacity-50",
+};
+
+/**
+ * Eine Listenzeile: Bild links, Titel (+ Marke) und Zusatztext, rechts ein Wert
+ * (Preis, Bestand) und die Aktionen. `hoverbar` färbt den Rand beim Überfahren —
+ * nur für Zeilen, an denen man gerade etwas tun kann.
+ */
+export function FensterZeile({ bild, titel, marke, text, wert, unterWert, aktionen, zustand = "normal", hoverbar = false, className = "" }) {
+    return (
+        <div className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${ZEILEN_ZUSTAND[zustand] || ZEILEN_ZUSTAND.normal} ${hoverbar ? "hover:border-violet-500" : ""} ${className}`}>
+            {bild ? <div className="shrink-0">{bild}</div> : null}
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium text-white">{titel}</span>
+                    {marke}
+                </div>
+                {text ? <div className="mt-0.5 truncate text-[11px] text-slate-500">{text}</div> : null}
+            </div>
+            {wert !== undefined && wert !== null ? (
+                <div className="shrink-0 text-right">
+                    <div className="text-sm font-semibold tabular-nums text-amber-400">{wert}</div>
+                    {unterWert ? <div className="text-[11px] text-slate-500">{unterWert}</div> : null}
+                </div>
+            ) : null}
+            {aktionen ? <div className="flex shrink-0 items-center gap-1.5">{aktionen}</div> : null}
+        </div>
+    );
+}
+
+const NEBENKNOPF_TON = {
+    normal: "border-slate-700 text-slate-300 hover:border-violet-500 hover:text-violet-200",
+    // Endgültiges (Wegwerfen): rot umrandet, damit man es nicht mit „Einen“ verwechselt.
+    gefahr: "border-rose-800 text-rose-300 hover:bg-rose-900/40 hover:text-white",
+};
+
+/** Nebenaktion neben dem grünen Hauptknopf („Alle“, „×10“, „Einen“). */
+export function NebenKnopf({ children, ton = "normal", className = "", ...props }) {
+    return (
+        <button
+            type="button"
+            className={`inline-flex items-center gap-1.5 rounded-2xl border px-2.5 py-2 text-xs font-semibold transition-colors disabled:border-slate-800 disabled:bg-transparent disabled:text-slate-600 ${NEBENKNOPF_TON[ton] || NEBENKNOPF_TON.normal} ${className}`}
+            {...props}
+        >
+            {children}
+        </button>
     );
 }
 

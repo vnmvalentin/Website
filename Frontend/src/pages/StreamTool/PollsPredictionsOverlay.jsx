@@ -7,7 +7,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useStableState } from '../../utils/useStableState';
-import { getOverlayData, reportMarbleWinner } from './streamToolApi';
+import { getOverlayData, reportMarbleWinner, reportMarblePlacings } from './streamToolApi';
 import {
   mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
   useDemoSim, useLinger, paintDemo, DEMO_HYPE, demoMarbles,
@@ -112,6 +112,9 @@ export default function PollsPredictionsOverlay() {
   const reportWinner = useCallback((raceId, winnerId) => {
     reportMarbleWinner(overlayKey, raceId, winnerId).catch(() => {});
   }, [overlayKey]);
+  const reportPlacings = useCallback((raceId, ids) => {
+    reportMarblePlacings(overlayKey, raceId, ids).catch(() => {});
+  }, [overlayKey]);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'transparent', overflow: 'hidden' }}>
@@ -148,7 +151,7 @@ export default function PollsPredictionsOverlay() {
 
         <WidgetFrame id="marbleRun" module={m.marbleRun} visible={!!marbles && m.marbleRun.enabled}>
           {marblesHeld && (
-            <MarbleRunWidget data={marblesHeld} module={m.marbleRun} offsetRef={clockOffset} onResult={reportWinner} />
+            <MarbleRunWidget data={marblesHeld} module={m.marbleRun} offsetRef={clockOffset} onResult={reportWinner} onPlacings={reportPlacings} />
           )}
         </WidgetFrame>
 

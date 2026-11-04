@@ -32,6 +32,10 @@ Backend/data/stream_tool.db
 Backend/data/stream_tool.db-shm
 Backend/data/stream_tool.db-wal
 Backend/data/stream_tool.key
+# Discord-Punkte: lokale Testdaten gehören nicht ins Repo (Server-Stand liegt nur auf dem Server)
+Backend/data/discord_loyalty.db
+Backend/data/discord_loyalty.db-shm
+Backend/data/discord_loyalty.db-wal
 
 # Twitch-Tokens und eingeloggte Sitzungen — Zugangsdaten, nie ins (öffentliche) Repo.
 # garden/data/twitch_token.json schreibt gardenGameRoutes.js, Backend/data/ ist der Altpfad.

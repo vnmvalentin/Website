@@ -2,6 +2,7 @@
 // auf das Element; das CSS (.tile3d, .fav-hero, .fav-card) entscheidet, was damit passiert. Genutzt von TileCard und den Favoriten der
 // Startseite. Läuft auch bei "Bewegung reduzieren" — die Bewegung folgt der eigenen Maus (siehe index.css).
 import { useCallback, useEffect, useRef } from "react";
+import { isLowGfx } from "./lowGfx";
 
 /**
  * @param maxTilt   Grad an der Kante
@@ -13,7 +14,8 @@ export function useTilt(maxTilt = 9, parallax = [8, 6]) {
   const frame = useRef(0);
 
   const onPointerMove = useCallback((e) => {
-    if (e.pointerType === "touch") return;
+    // Ohne Hardwarebeschleunigung zwingt jede Neigung zum Neumalen der ganzen Karte
+    if (e.pointerType === "touch" || isLowGfx()) return;
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();

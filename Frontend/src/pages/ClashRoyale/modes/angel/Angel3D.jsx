@@ -140,7 +140,7 @@ const WATER_FRAG = /* glsl */`
  * @param {string}   props.myPlayerId
  * @param {Function} props.onUnsupported
  */
-export default function Angel3D({ state, canInteract, onCatch, deniedRef, myPlayerId, onUnsupported }) {
+function Angel3D({ state, canInteract, onCatch, deniedRef, myPlayerId, onUnsupported }) {
   const containerRef = useRef(null);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -939,3 +939,7 @@ export default function Angel3D({ state, canInteract, onCatch, deniedRef, myPlay
 
   return <div ref={containerRef} className="absolute inset-0" style={{ touchAction: 'none' }} />;
 }
+
+// memo: AngelGame tickt alle 100 ms (Uhr für Countdown/Cooldown) — die Szene zeichnet selbst und braucht
+// nur neue Props, wenn sich Zustand oder Klickbarkeit ändern.
+export default React.memo(Angel3D);

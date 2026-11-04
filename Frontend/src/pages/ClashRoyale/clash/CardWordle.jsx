@@ -4,6 +4,7 @@
 // Daten: Merkmale (CARD_ATTRS), Elixier (cardElixir.js), Tempo + Leben (cardStats.json, Level 11).
 import React, { useMemo, useRef, useState } from 'react';
 import GameFrame from './GameFrame';
+import NextGame from './NextGame';
 import CardFace from '../ui/CardFace';
 import ChunkyButton from '../ui/ChunkyButton';
 import { CrCrown, CrReplay, CrSearch } from '../ui/CrIcons';
@@ -124,6 +125,7 @@ export default function CardWordle() {
             </div>
             <ChunkyButton variant="green" size="sm" icon={CrReplay} onClick={() => restart(false)}>{t.newRound}</ChunkyButton>
             {game.daily && <p className="w-full text-xs text-white/50">{t.nextDaily}</p>}
+            <NextGame current="wordle" className="w-full" />
           </div>
         ) : (
           <>

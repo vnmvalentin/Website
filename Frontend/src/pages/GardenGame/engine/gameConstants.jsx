@@ -14,12 +14,16 @@ import {
 } from './MapConfig';
 import { SEED_CATALOGUE, getPlantVisuals, ARCHETYPE_LABELS, getPlantArchetypeKey } from './PlantSystem';
 import { PET_ABILITY_TYPES } from './PetSystem';
-import { partyTitelIndex } from './Tageszeit';
+import { partyTitelIndex, istSaisonSorte, SAISON_ERLOES } from './Tageszeit';
 import { DEKO_KATALOG } from '../ui/deko';
 import { ALLE_SKINS } from '../ui/wardrobe';
 import { formatGold, formatDuration as formatDurationShared } from '../ui/gardenTokens';
 import { ItemIcon } from '../ui/ItemIcon';
+import { groesseVon } from '../ui/groesse';
 import { RarityLabel, PrimaryButton } from '../ui/gardenUi';
+
+/** Größe zum Sortieren; Stücke ohne Größe (Samen, Tiere) ganz nach hinten. */
+const sortGroesse = (x) => (Number(x?.size) || Number(x?.groesse) ? groesseVon(x) : 0);
 
 function TwitchGlyph({ className }) {
   return (
@@ -371,7 +375,7 @@ const SHOP_SORTIERUNGEN = [
 const INVENTAR_SORTIERUNGEN = [
     { key: "standard", label: "Zuletzt", vergleich: () => 0 },
     { key: "wert", label: "Wert ↓", vergleich: (a, b) => (Number(b.sellValue) || 0) - (Number(a.sellValue) || 0) },
-    { key: "groesse", label: "Größe ↓", vergleich: (a, b) => (Number(b.size) || 0) - (Number(a.size) || 0) },
+    { key: "groesse", label: "Größe ↓", vergleich: (a, b) => sortGroesse(b) - sortGroesse(a) },
     { key: "seltenheit", label: "Seltenheit", vergleich: (a, b) => (RARITAETS_RANG[b.rarity] ?? 0) - (RARITAETS_RANG[a.rarity] ?? 0) },
     { key: "name", label: "Name", vergleich: (a, b) => nachText(a.customName || a.name, b.customName || b.name) },
 ];
@@ -748,6 +752,26 @@ function freiesAckerfeld(belegt) {
 const TAB_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
 /**
+ * Dauerhafte Kennung dieses Browsers. Der Server erlaubt je Gerät nur eine Farm
+ * (Backend garden/world/zweitkonto.js) und speichert davon nur eine Prüfsumme.
+ * Ohne Speicher (privates Fenster) gilt sie nur für diese Sitzung.
+ */
+const GERAET_ID = (() => {
+    const neu = () => (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+    try {
+        const alt = localStorage.getItem("vf_geraet");
+        if (alt && /^[A-Za-z0-9-]{16,64}$/.test(alt)) return alt;
+        const id = neu();
+        localStorage.setItem("vf_geraet", id);
+        return id;
+    } catch {
+        return neu();
+    }
+})();
+
+/**
  * Rucksack-Upgrade: +10 Plätze je Stufe.
  *
  * BALANCING: war 25.000 · 1,85^n und mit 15 Stufen (200 Plätze) nach 299 Mio
@@ -1061,6 +1085,13 @@ const ShopSeedCard = memo(function ShopSeedCard({ seed, onBuy, onBuyAll, canAffo
                 <div className="text-sm font-semibold text-white truncate">{seed.name}</div>
                 <div className="flex items-center gap-2 mt-0.5">
                     <RarityLabel rarity={seed.rarity} />
+                    {/* Saisonsorte (engine/Tageszeit.js): Ernte in der Saison bringt mehr. */}
+                    {istSaisonSorte(seed.seedId) && (
+                        <span className="shrink-0 rounded-md bg-emerald-900/60 px-1.5 py-px text-[10px] font-bold text-emerald-300"
+                            title="Saisonsorte: wer sie in dieser Jahreszeit erntet, bekommt mehr Gold, und sie steht öfter im Laden.">
+                            Saison +{Math.round((SAISON_ERLOES - 1) * 100)} %
+                        </span>
+                    )}
                     <span className="text-xs text-slate-300 truncate">
                         {archetype} · {seed.singleUse ? "Einmalernte" : "Dauerträger"}
                     </span>
@@ -1118,5 +1149,5 @@ const ShopSeedCard = memo(function ShopSeedCard({ seed, onBuy, onBuyAll, canAffo
 
 
 export {
-    TwitchGlyph, COLLISION_RADIUS_BY_AREA_TYPE, START_GOLD, GIESSKANNE_MINUTEN, GIESSKANNE_MAX_ANTEIL, giesskanneMinuten, WAGEN_VERSATZ_X, INCUBATOR_UNLOCK_COSTS, INTERACT_DIST, FRUEHES_ABBIEGEN_AB, SHOP_ROTATION_MS, TOOL_EGG_ROTATION_MS, TARGET_FPS, MAX_PLOT_EXPANSIONS, ACKERRASTER_MARKE, MUSIK_BASIS, THEME_TRACKS, THEME_STANDARD, PARTY_TRACKS, partyTrack, themeTrack, FARM_SEO, WORLD_BOOT_MIN_MS, WORLD_SLOTS, GARTEN_ADMIN_ID, SHOTGUN_LAUTSTAERKE, SHOTGUN_HAND_ITEM, WORLD_ZOOM, ZOOM_MIN, ZOOM_MAX, ZOOM_SCHRITT, KISTE_MAX, VITRINE_MAX, PET_SLOTS, SCHUPPEN_KACHELN, berechneGebaeudePositionen, normalizeGebaeudeVersatz, MAILBOX_INTERACT_DIST, CHAT_MAX_LEN, CHAT_FARBEN, CHAT_EMOJIS, ERNTE_WARTESCHLANGE_MAX, RARITAETS_RANG, nachText, KATALOG_NACH_ID, zeitBisErsteErnte, SHOP_SORTIERUNGEN, INVENTAR_SORTIERUNGEN, sortiere, SortierLeiste, DEFAULT_TOOL_INVENTORY, BASE_DIRT_COLS, BASE_DIRT_ROWS, AREA_IMAGES, GEBAEUDE_NAMEN, FREMDE_GEBAEUDE, TOOL_IMAGE_BY_KEY, TOOL_IMAGE_BY_ID, TERRAIN_ASSET_IMAGES, PET_IMAGE_BY_TYPE, WEATHER_BY_ROLL, DEFAULT_RENDER_PROFILE, RENDER_QUALITY_PRESETS, EGG_SHOP_CATALOGUE, DECO_SHOP_ITEMS, WARDROBE_SKINS, PET_EMOJI_BY_TYPE, getPetEmoji, getToolImage, getPetSpriteImage, hashToUnit, rollWeatherFromRotation, getPickaxePrice, STEINFELDER_GESAMT, buildPetPreviewImage, normalizeToolInventory, hatTooltip, wachstumBeschleunigen, freiesAckerfeld, TAB_ID, BACKPACK_MAX_LEVEL, BUY_ALL_WERKZEUGE, getBackpackUpgradePrice, normalizePlotUnlockedCells, unlockedCellsFromLegacyExpansions, resolvePlotUnlockedCells, rollPetSpecialType, rollHatchResult, RARITY_COLORS, RarityBadge, withVisuals, hydratePet, hydratePets, hydrateSeed, hydrateSeeds, collectVisualAssetPaths, SeedFacts, ShopSeedCard
+    TwitchGlyph, COLLISION_RADIUS_BY_AREA_TYPE, START_GOLD, GIESSKANNE_MINUTEN, GIESSKANNE_MAX_ANTEIL, giesskanneMinuten, WAGEN_VERSATZ_X, INCUBATOR_UNLOCK_COSTS, INTERACT_DIST, FRUEHES_ABBIEGEN_AB, SHOP_ROTATION_MS, TOOL_EGG_ROTATION_MS, TARGET_FPS, MAX_PLOT_EXPANSIONS, ACKERRASTER_MARKE, MUSIK_BASIS, THEME_TRACKS, THEME_STANDARD, PARTY_TRACKS, partyTrack, themeTrack, FARM_SEO, WORLD_BOOT_MIN_MS, WORLD_SLOTS, GARTEN_ADMIN_ID, SHOTGUN_LAUTSTAERKE, SHOTGUN_HAND_ITEM, WORLD_ZOOM, ZOOM_MIN, ZOOM_MAX, ZOOM_SCHRITT, KISTE_MAX, VITRINE_MAX, PET_SLOTS, SCHUPPEN_KACHELN, berechneGebaeudePositionen, normalizeGebaeudeVersatz, MAILBOX_INTERACT_DIST, CHAT_MAX_LEN, CHAT_FARBEN, CHAT_EMOJIS, ERNTE_WARTESCHLANGE_MAX, RARITAETS_RANG, nachText, KATALOG_NACH_ID, zeitBisErsteErnte, SHOP_SORTIERUNGEN, INVENTAR_SORTIERUNGEN, sortiere, SortierLeiste, DEFAULT_TOOL_INVENTORY, BASE_DIRT_COLS, BASE_DIRT_ROWS, AREA_IMAGES, GEBAEUDE_NAMEN, FREMDE_GEBAEUDE, TOOL_IMAGE_BY_KEY, TOOL_IMAGE_BY_ID, TERRAIN_ASSET_IMAGES, PET_IMAGE_BY_TYPE, WEATHER_BY_ROLL, DEFAULT_RENDER_PROFILE, RENDER_QUALITY_PRESETS, EGG_SHOP_CATALOGUE, DECO_SHOP_ITEMS, WARDROBE_SKINS, PET_EMOJI_BY_TYPE, getPetEmoji, getToolImage, getPetSpriteImage, hashToUnit, rollWeatherFromRotation, getPickaxePrice, STEINFELDER_GESAMT, buildPetPreviewImage, normalizeToolInventory, hatTooltip, wachstumBeschleunigen, freiesAckerfeld, TAB_ID, GERAET_ID, BACKPACK_MAX_LEVEL, BUY_ALL_WERKZEUGE, getBackpackUpgradePrice, normalizePlotUnlockedCells, unlockedCellsFromLegacyExpansions, resolvePlotUnlockedCells, rollPetSpecialType, rollHatchResult, RARITY_COLORS, RarityBadge, withVisuals, hydratePet, hydratePets, hydrateSeed, hydrateSeeds, collectVisualAssetPaths, SeedFacts, ShopSeedCard
 };

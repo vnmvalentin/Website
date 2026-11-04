@@ -17,6 +17,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { isLowGfx } from '../../../../utils/lowGfx';
 
 // CC0-Assets (Poly Haven) liegen ungehasht unter public/media/cr3d/ — siehe README dort.
 export const MEDIA = '/media/cr3d';
@@ -337,18 +338,23 @@ export function warmUp(renderer, scene, camera, post, groups = []) {
   groups.forEach((g, i) => { g.visible = vis[i]; });
 }
 
+// Untergrenze der Auflösung: 60 % — darunter wird es zu matschig. Früher war bei 1 Schluss, damit konnte die
+// Regelung auf normalen 1080p-Bildschirmen (Pixelverhältnis 1) gar nichts tun, also genau bei schwachen Laptops.
+const MIN_RATIO = 0.6;
+
 /**
- * Senkt die Auflösung stufenweise (bis 1), wenn Bilder im Mittel länger als 24 ms brauchen
- * (über ~1,5 s). Aufruf je Bild mit dt; onChange() soll Zeichenfläche + Nachbearbeitung neu setzen.
+ * Senkt die Auflösung stufenweise (bis MIN_RATIO), wenn Bilder im Mittel länger als 24 ms brauchen
+ * (über ~1,5 s). Ohne Hardwarebeschleunigung (utils/lowGfx.js) startet sie gleich bei 75 %.
+ * Aufruf je Bild mit dt; onChange() soll Zeichenfläche + Nachbearbeitung neu setzen.
  */
 export function createQualityGovernor(renderer, startRatio, onChange) {
-  let ratio = startRatio, slowFor = 0, avg = 1 / 60;
+  let ratio = isLowGfx() ? Math.min(startRatio, 0.75) : startRatio, slowFor = 0, avg = 1 / 60;
   renderer.setPixelRatio(ratio);
   return (dt) => {
     avg += (dt - avg) * 0.1;
     slowFor = avg > 0.024 ? slowFor + dt : 0;
-    if (slowFor > 1.5 && ratio > 1) {
-      ratio = Math.max(1, ratio - 0.25);
+    if (slowFor > 1.5 && ratio > MIN_RATIO) {
+      ratio = Math.max(MIN_RATIO, ratio - (ratio > 1 ? 0.25 : 0.15));
       renderer.setPixelRatio(ratio);
       onChange();
       slowFor = 0;

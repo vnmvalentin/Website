@@ -141,6 +141,8 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
                 held: raw.held !== undefined ? raw.held : (existing?.held ?? null),
                 gold: Number.isFinite(raw.gold) ? raw.gold : (existing?.gold ?? 0),
                 level: Number.isFinite(raw.level) ? raw.level : (existing?.level ?? 1),
+                // Sterne aus „Neue Saat" — Abzeichen, goldener Name, Sternenspur.
+                sterne: Number.isFinite(raw.sterne) ? raw.sterne : (existing?.sterne ?? 0),
             });
         };
 

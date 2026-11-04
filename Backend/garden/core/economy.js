@@ -22,15 +22,24 @@ const {
 } = require("./pets");
 
 const { wetterListe, staerksterEffekt, wetterBoost } = require("./weather");
+const { gueltigeEffekte } = require("./wetterVerlauf");
+const vielfalt = require("./vielfalt");
+const rausch = require("./rausch");
+const nachfrage = require("./nachfrage");
+const { wuerfleGroesse, groesseVon } = require("./groesse");
+const prestige = require("./prestige");
 const { wirkung, gibXp, skillStand } = require("./skills");
 // Über world/ereignisse, nicht direkt über tageszeit: eine vom Admin gestartete
 // Party steht in keiner Uhr, soll aber genauso auf die Rainbow-Chance wirken.
 const { sonderform } = require("../world/ereignisse");
-const { unitAusText } = require("./tageszeit");
+const { unitAusText, istSaisonSorte, SAISON_ERLOES } = require("./tageszeit");
+const { kreuzungBeiErnte } = require("./kreuzung");
 
 const SPECIAL_BOOST = { golden: 2.0, rainbow: 5.0 };
 const GOLD_MAX = 9_000_000_000_000_000;
 const SUB_BONUS = 1.5;
+/** Chance je Takt, dass ein Goldfinder etwas findet (vor Züchter). */
+const GOLDFINDER_AUSLOESE_CHANCE = 0.10;
 
 /**
  * Wie lange eine geerntete instanceId als „gerade erst weg" gilt (siehe
@@ -326,9 +335,17 @@ function logbuchAktualisieren(state, item) {
     const effekte = new Set(alt.effekte || []);
     if (item.specialData?.name) effekte.add(item.specialData.name);
     for (const e of wetterListe(item)) effekte.add(e);
+    // Feine Größe 1,0–100,0 nur für die Anzeige „Deine Spanne"; die Ausprägungen
+    // hängen weiter an min/max der ganzen Größe 1–50.
+    // Alte Einträge ohne gMin/gMax: aus min/max umrechnen, sonst ginge die Spanne verloren.
+    const fein = groesseVon(item);
+    const altGMin = Number.isFinite(alt.gMin) ? alt.gMin : alt.min === null ? null : groesseVon({ size: alt.min });
+    const altGMax = Number.isFinite(alt.gMax) ? alt.gMax : alt.max === null ? null : groesseVon({ size: alt.max });
     const neu = {
         min: alt.min === null ? groesse : Math.min(alt.min, groesse),
         max: alt.max === null ? groesse : Math.max(alt.max, groesse),
+        gMin: altGMin === null ? fein : Math.min(altGMin, fein),
+        gMax: altGMax === null ? fein : Math.max(altGMax, fein),
         effekte: [...effekte],
         anzahl: (alt.anzahl || 0) + 1,
     };
@@ -341,7 +358,10 @@ function logbuchAktualisieren(state, item) {
     let belohnung = LOGBUCH_BELOHNUNG_JE_SELTENHEIT[rarity] || LOGBUCH_BELOHNUNG_JE_SELTENHEIT.COMMON;
 
     // Erst NACH dem Eintragen prüfen: die gerade eingetragene Art zählt schon mit.
-    const komplett = SEED_CATALOGUE.every((s) => state.logbuchBelohnungen[s.id]);
+    // Kreuzungen (core/kreuzung.js) sind Extra-Seiten und zählen hier NICHT mit:
+    // wer die 57 Ladensorten schon voll hatte, hat den Bonus bereits bekommen — er
+    // fiele sonst mit der letzten Kreuzung ein zweites Mal an.
+    const komplett = SEED_CATALOGUE.filter((s) => !s.kreuzung).every((s) => state.logbuchBelohnungen[s.id]);
     if (komplett) belohnung += LOGBUCH_KOMPLETT_BONUS;
 
     gutschreiben(state, belohnung);
@@ -356,6 +376,8 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
     const plants = state.plotPlants || {};
     const plant = plants[key];
     if (!plant) return { ok: false, status: 400, error: "Dort wächst nichts." };
+    // Vielfalt des Ackers VOR der Ernte (die geerntete Pflanze zählt mit) — core/vielfalt.js
+    const vielfaltFaktor = vielfalt.faktor(plants, wirkung(state, "sortenkenner"));
     bringeDauertraegerAufStand(plant, now);
     if (!istReif(plant, now)) {
         // Eine tragende Staude, an der gerade nichts reif ist, ist etwas anderes als
@@ -395,7 +417,8 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
     if (plant.singleUse !== false) {
         norm = clamp01(plant.norm ?? 0.5);
         special = plant.specialType || null;
-        effekte = wetterListe(plant);
+        // Abgelaufene Effekte zählen nicht (core/wetterVerlauf.js, gueltigeEffekte).
+        effekte = gueltigeEffekte(plant, now) || wetterListe(plant);
         basis = lerp(profil.sellMin, profil.sellMax, norm);
 
         // ── Gärtner: Nachwuchs ────────────────────────────────────────────────
@@ -433,7 +456,7 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
         const slot = slots[idx] || {};
         norm = clamp01(slot.norm ?? 0.5);
         special = slot.specialType || null;
-        effekte = wetterListe(slot);
+        effekte = gueltigeEffekte(slot, now) || wetterListe(slot);
         basis = lerp(profil.fruitSellMin, profil.fruitSellMax, norm);
         plant.fruitSlots[idx] = neuerFruchtstand(now, Number(plant.fruitCycleMs) || 60000);
         plant.harvested = (Number(plant.harvested) || 0) + 1;
@@ -455,9 +478,21 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
         }
     }
 
+    // Ernte-Rausch erst hier: nur eine Ernte, die wirklich stattfindet, hält ihn am Leben.
+    const rauschFaktor = rausch.ernten(state, now);
     const groesse = Math.max(1, Math.round(lerp(1, 50, norm)));
+    // Angezeigte Größe 1,0–100,0 (core/groesse.js) — einmal gewürfelt, auch das
+    // zweite Stück der „Reichen Ernte" trägt dieselbe.
+    const groesseFein = wuerfleGroesse(norm);
+    // Stern-Bonus aus „Neue Saat" (core/prestige.js) — trägt das Stück wie `vielfalt`.
+    const prestigeFaktor = prestige.erloesFaktor(state);
+    // Jahreszeit: in der Saison geerntet → das STÜCK trägt den Aufschlag dauerhaft
+    // (Feld `saison`), auch wenn es erst nach Saisonende verkauft wird. So zeigt der
+    // Rucksack beim Ernten denselben Wert, den die Kasse später zahlt.
+    const saison = istSaisonSorte(plant.seedId, now);
     const gold = Math.max(1, Math.floor(
-        Math.max(1, Math.floor(basis * specialBoost(special))) * wetterBoost(effekte) * haendlerMultiplikator(state),
+        Math.max(1, Math.floor(basis * specialBoost(special))) * wetterBoost(effekte) * haendlerMultiplikator(state)
+        * (saison ? SAISON_ERLOES : 1) * vielfaltFaktor * rauschFaktor * prestigeFaktor,
     ));
 
     const baueItem = () => ({
@@ -467,12 +502,17 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
         singleUse: plant.singleUse !== false,
         rarity: seltenheit,
         size: groesse,
+        groesse: groesseFein,
         specialData: special ? { name: special } : undefined,
         statusEffects: effekte,
         // Einzelfeld bleibt gesetzt: Tönung, Vitrine, Post und das Admin-Menü lesen
         // weiterhin genau eins. Es trägt den wertvollsten der Effekte.
         statusEffect: staerksterEffekt(effekte),
         sellValue: gold,
+        ...(saison ? { saison: true } : {}),
+        vielfalt: vielfaltFaktor,
+        ...(rauschFaktor > 1 ? { rausch: rauschFaktor } : {}),
+        ...(prestigeFaktor > 1 ? { prestige: prestigeFaktor } : {}),
         harvestedAt: now,
     });
     const item = baueItem();
@@ -523,8 +563,21 @@ function harvestCell(state, key, now = Date.now(), { einlagern = true } = {}) {
     // GANZE Pflanze zu übernehmen: die Zelle war bis eben leer (Browser hat sie
     // beim Klick geleert), es gibt also nichts, was seit dem letzten Speichern
     // verloren gehen könnte.
+    // Kreuzung: passende Sorte direkt daneben → kleine Chance auf einen neuen Samen.
+    // Nur bei echter Ernte (einlagern), nicht beim reinen Durchrechnen.
+    const kreuzung = einlagern ? kreuzungBeiErnte(state, key, plant.seedId) : null;
+    // Wie beim Kauf: der Samen liegt auch im Server-Rucksack, sonst verwirft ihn
+    // das nächste Speichern (siehe gleicheSamenAb in routes/gardenGameRoutes.js).
+    if (kreuzung) state.inventory = [...(Array.isArray(state.inventory) ? state.inventory : []), kreuzung];
+    // Zuchtbuch (Fahrplan Phase 5, 04.11.): das Rezept gilt ab der ersten gelungenen
+    // Kreuzung als entdeckt. Gehört allein dem Server (der Speicher-PUT übernimmt es).
+    if (kreuzung) {
+        const buch = state.zuchtbuch && typeof state.zuchtbuch === "object" ? state.zuchtbuch : {};
+        if (!buch[kreuzung.seedId]) state.zuchtbuch = { ...buch, [kreuzung.seedId]: now };
+    }
     return {
         ok: true, item, zweites, nachgewachsen, singleUseNachwuchs, erfahrung, skillStand: skillStand(state),
+        kreuzung,
         // Nur der eigene Eintrag, nicht das ganze Logbuch — der Browser mischt ihn
         // in seinen Stand, ein voller Katalog wäre bei jeder einzelnen Ernte
         // unnötiger Ballast. `gold` oben spiegelt jede Logbuch-Belohnung schon mit,
@@ -571,6 +624,7 @@ function harvestCellAll(state, key, now = Date.now(), { einlagern = true, max = 
     let skillStandAktuell = null;
     let letzterFehler = null;
     let treffer = 0;
+    const kreuzungen = [];
 
     for (let i = 0; i < max; i++) {
         const r = harvestCell(state, key, now, { einlagern });
@@ -580,6 +634,7 @@ function harvestCellAll(state, key, now = Date.now(), { einlagern = true, max = 
         if (r.zweites) { items.push(r.zweites); bonusAnzahl++; }
         if (r.nachgewachsen) aenderungen.push(r.nachgewachsen);
         if (r.singleUseNachwuchs) singleUseNachwuchs = r.singleUseNachwuchs;
+        if (r.kreuzung) kreuzungen.push(r.kreuzung);
         erfahrungGesamt += Number(r.erfahrung?.xp) || 0;
         Object.assign(logbuch, r.logbuch);
         logbuchBelohnungen.push(...r.logbuchBelohnungen);
@@ -593,7 +648,7 @@ function harvestCellAll(state, key, now = Date.now(), { einlagern = true, max = 
 
     if (treffer === 0) return letzterFehler || { ok: false, status: 400, error: "Keine reife Frucht." };
     return {
-        ok: true, items, aenderungen, singleUseNachwuchs, bonusAnzahl,
+        ok: true, items, aenderungen, singleUseNachwuchs, bonusAnzahl, kreuzungen,
         erfahrung: { xp: erfahrungGesamt },
         skillStand: skillStandAktuell,
         logbuch, logbuchBelohnungen,
@@ -637,7 +692,7 @@ function harvestManyCells(state, keys, now = Date.now(), { einlagern = true } = 
             ernten[key] = {
                 ok: true, items: r.items, aenderungen: r.aenderungen,
                 singleUseNachwuchs: r.singleUseNachwuchs, bonusAnzahl: r.bonusAnzahl,
-                erfahrung: r.erfahrung, rucksackVoll: r.rucksackVoll,
+                erfahrung: r.erfahrung, rucksackVoll: r.rucksackVoll, kreuzungen: r.kreuzungen,
             };
             Object.assign(logbuch, r.logbuch);
             logbuchBelohnungen.push(...r.logbuchBelohnungen);
@@ -840,7 +895,11 @@ function verkaufswert(item) {
         : lerp(profil.sellMin, profil.sellMax, norm);
     return Math.max(1, Math.floor(
         Math.max(1, Math.floor(basis * specialBoost(item?.specialData?.name)))
-        * wetterBoost(item),
+        * wetterBoost(item)
+        * (item?.saison === true ? SAISON_ERLOES : 1)
+        * vielfalt.vonStueck(item)
+        * rausch.vonStueck(item)
+        * prestige.vonStueck(item),
     ));
 }
 
@@ -848,12 +907,22 @@ function verkaufswert(item) {
  * Verkauft das gesamte Ernte-Lager. Summiert AUSSCHLIESSLICH server-eigene Werte —
  * ein vom Client gemeldeter sellValue wird nie verwendet.
  */
-function sellAll(state, isSubscriber = false) {
+function sellAll(state, isSubscriber = false, now = Date.now()) {
     const lager = Array.isArray(state.harvestedItems) ? state.harvestedItems : [];
     if (lager.length === 0) return { ok: false, status: 400, error: "Nichts zu verkaufen." };
 
+    // Gefragte Sorten der Stunde (core/nachfrage.js) — nur hier am Markt, nicht in
+    // verkaufswert(): der Briefkasten zeigt den Wert eines Stücks, nicht den Tageskurs.
     let summe = 0;
-    for (const item of lager) summe += verkaufswert(item);
+    let davonNachfrage = 0;
+    let nachfrageAnzahl = 0; // Stück gefragter Sorten (Saisonziele, core/saisonziele.js)
+    for (const item of lager) {
+        const wert = verkaufswert(item);
+        const mitNachfrage = wert * nachfrage.faktor(item?.seedId, now);
+        if (mitNachfrage > wert) nachfrageAnzahl++;
+        summe += mitNachfrage;
+        davonNachfrage += mitNachfrage - wert;
+    }
     // haendlerMultiplikator statt nur kaufmannBoost: verkaufswert() selbst kennt den
     // Skill „Händler" nicht (siehe dessen Kommentar — absichtlich zustandslos für den
     // Briefkasten-Fall), der muss also hier rein, sonst zahlt die Kasse weniger als
@@ -862,7 +931,8 @@ function sellAll(state, isSubscriber = false) {
     const anzahl = lager.length;
     state.harvestedItems = [];
     gutschreiben(state, gesamt);
-    return { ok: true, gold: state.gold, verdient: gesamt, anzahl };
+    const nachfrageBonus = Math.floor(davonNachfrage * (isSubscriber ? SUB_BONUS : 1) * haendlerMultiplikator(state));
+    return { ok: true, gold: state.gold, verdient: gesamt, anzahl, nachfrageBonus, nachfrageAnzahl };
 }
 
 
@@ -920,6 +990,14 @@ function petFind(state, id, art, letzteFunde, now = Date.now()) {
         return { ok: false, status: 429, error: "Zu früh." };
     }
     letzteFunde.set(schluessel, now);
+
+    // Ob der Takt überhaupt etwas findet, würfelt der SERVER (bis Nov. 2026 der
+    // Browser — ein veränderter Client löste dadurch jeden Takt aus: ×10 Gold).
+    // Spiegel von PET_PROC_CHANCE in Frontend engine/PetSystem.js, Züchter wie dort.
+    const ausloesen = Math.min(0.5, GOLDFINDER_AUSLOESE_CHANCE * tierVerstaerkung(state));
+    if (Math.random() >= ausloesen) {
+        return { ok: true, gold: state.gold, verdient: 0, name: pet?.customName || pet?.name || "Tier" };
+    }
 
     const [min, max] = getGoldfinderRange(level);
     const betrag = Math.floor(Math.random() * (max - min + 1)) + min;

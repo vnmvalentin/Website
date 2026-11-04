@@ -89,6 +89,13 @@ export const reportMarbleWinner = (overlayKey, raceId, winnerId) =>
     body: JSON.stringify({ raceId, winnerId }),
   });
 
+/** Plätze 1–3 der Murmelbahn melden (für Preise in Streamer.bot) — die erste Meldung zählt. */
+export const reportMarblePlacings = (overlayKey, raceId, ids) =>
+  apiFetch(`/api/stream-tool/overlay/${overlayKey}/marbles/placings`, {
+    method: "POST",
+    body: JSON.stringify({ raceId, ids }),
+  });
+
 /**
  * Zusatzrechte fürs Mitlesen. Bewusst NUR Leserechte: gestartet und beendet wird
  * alles direkt in Twitch, also muss niemand uns erlauben, seine Abstimmungen zu

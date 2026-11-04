@@ -19,13 +19,14 @@ import {
     Disc3, Globe, Users, Search,
 } from 'lucide-react';
 import { SpecialItemIcon } from './ui/ItemIcon';
+import { groesseText } from './ui/groesse';
 
 const ZAHL = (n) => Number(n || 0).toLocaleString("de-DE");
 
 /** Menschliche Kurzbeschreibung eines Stücks für die Listenzeile. */
 function beschreibe(item) {
     const teile = [];
-    if (item?.size) teile.push(`Größe ${item.size}`);
+    if (item?.size || item?.groesse) teile.push(groesseText(item));
     if (item?.specialData?.name) teile.push(item.specialData.name);
     if (item?.specialType) teile.push(item.specialType);
     if (item?.statusEffect) teile.push(item.statusEffect);

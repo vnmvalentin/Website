@@ -17,6 +17,7 @@ import { wallTextures, floorTextures, ceilingTexture, glowTexture, labelTexture 
 import { RARITY_COLOR, cardImageUrl } from '../../data/cards';
 import { rememberCustomPick } from '../../ui/flyToDeck';
 import { CARD_FRAME_BOX, CARD_IMAGE_SIZE } from '../cardCrop';
+import { createQualityGovernor } from '../scene3d/kit';
 import ghostImgSrc from '../../../../assets/clashRoyale/ui/Royale_Ghost.png';
 import chestImgSrc from '../../../../assets/clashRoyale/ui/draft-chest.png';
 import jokerImgSrc from '../../../../assets/clashRoyale/ui/UnknownCard.webp';
@@ -387,6 +388,8 @@ export default function Maze3D({ state, myPlayerId, onMove, onPickup, frozen, on
       // Frame leer und blitzt auf (der ResizeObserver feuert erst nach dem Frame)
       renderer.render(scene, camera);
     };
+    // Ruckelt es, sinkt die Auflösung stufenweise (scene3d/kit.js)
+    const adaptQuality = createQualityGovernor(renderer, Math.min(window.devicePixelRatio || 1, 1.75), resize);
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(container);
@@ -456,6 +459,7 @@ export default function Maze3D({ state, myPlayerId, onMove, onPickup, frozen, on
       if (document.hidden) return;
       const dt = Math.min(64, nowPerf - lastFrame);
       lastFrame = nowPerf;
+      adaptQuality(dt / 1000);
       const s = stateRef.current;
       const { myPlayerId: myId, onMove: move, frozen: isFrozen, tryStep: step } = propsRef.current;
       if (!s) return;

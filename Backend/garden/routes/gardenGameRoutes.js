@@ -19,18 +19,34 @@ const {
     xpTabelle, gibFesteXp,
 } = require("../core/skills");
 const quests = require("../core/quests");
+const laden = require("../core/laden");
+const auftraege = require("../core/auftraege");
+const { erstelleErntefest } = require("../world/erntefest");
 const reskins = require("../core/reskins");
+const rausch = require("../core/rausch");
+const stoerer = require("../core/stoerer");
+const nachfrage = require("../core/nachfrage");
+const wettbewerb = require("../world/wettbewerb");
+const prestige = require("../core/prestige");
+const saisonziele = require("../core/saisonziele");
+const { ranglisten } = require("../world/ranglisten");
 const { SEED_CATALOGUE } = require("../core/catalogue");
 const {
     MARKE: XP_MARKE, MARKE_KURVE: XP_MARKE_KURVE, MARKE_KORREKTUR: XP_MARKE_KORREKTUR,
 } = require("../migrations/xp");
 const { MARKE: SKILL_STAFFEL_MARKE } = require("../migrations/skills");
 const { MARKE: TIERPLATZ_MARKE } = require("../migrations/tierplaetze");
+const { MARKE: SAMEN_KENNUNG_MARKE } = require("../migrations/samenKennung");
+const { MARKE: TIER_KENNUNG_MARKE } = require("../migrations/tierKennung");
+const brutkasten = require("../core/brutkasten");
+const wetterVerlauf = require("../core/wetterVerlauf");
+const zweitkonto = require("../world/zweitkonto");
 const { istAdminId, STANDARD_SKIN } = require("../core/wardrobe");
 const { partyStand, unitAusText } = require("../core/tageszeit");
 const ereignisse = require("../world/ereignisse");
 const {
     WERKZEUGE, werkzeugVon, preisFuer, kaufeWerkzeug, kaufeWerkzeugAlle, verbraucheWerkzeug,
+    rucksackPlaetze, steinfelderErlaubt,
 } = require("../core/werkzeug");
 const {
     MARKE: STEINFELD_MARKE, MARKE_ALT: STEINFELD_MARKE_ALT, MARKE_WEGE: STEINFELD_MARKE_WEGE,
@@ -252,14 +268,17 @@ function gegosseneReifezeit(serverSlot, clientSlot, zyklusMs) {
     return { readyAt: serverAt - (gewuenscht - bisher), gegossenMs: gewuenscht };
 }
 
-function mischeFruchtstaende(serverSlots, clientSlots, zyklusMs) {
+function mischeFruchtstaende(serverSlots, clientSlots, zyklusMs, erlaubt = null) {
     if (!Array.isArray(serverSlots)) return [];
     const vomClient = Array.isArray(clientSlots) ? clientSlots : [];
     return serverSlots.map((slot, i) => {
         if (!slot) return slot;
         const c = vomClient[i];
         if (!c) return slot;
-        return { ...slot, ...saubereEffekte(c), ...gegosseneReifezeit(slot, c, zyklusMs) };
+        const zeit = gegosseneReifezeit(slot, c, zyklusMs);
+        const reif = Number(zeit?.readyAt ?? slot.readyAt ?? Infinity) <= Date.now();
+        const effekte = erlaubt ? wetterVerlauf.pruefeEffekte(slot, saubereEffekte(c), erlaubt, Date.now(), reif) : saubereEffekte(c);
+        return { ...slot, ...effekte, ...zeit };
     });
 }
 
@@ -289,7 +308,47 @@ function mischeFruchtstaende(serverSlots, clientSlots, zyklusMs) {
  * (engine/PlantSystem.js) ein stabiles `instanceId` — reicht die Schlüssel-Prüfung
  * nicht, wird zusätzlich danach gesucht, BEVOR neu gewürfelt wird.
  */
-function verplausibilisierePflanzen(eingehend, bestehend, unlockedCount, now = Date.now()) {
+/**
+ * Samen-Rucksack beim Speichern abgleichen: der Browser darf Samen ENTFERNEN
+ * (pflanzen, wegwerfen), aber keine HINZUFÜGEN.
+ *
+ * Bis November 2026 kam der Rucksack ungeprüft aus dem PUT. Wer sich per Konsole
+ * zehn Mondblumen-Samen eintrug, konnte sie pflanzen und über POST /action für
+ * echtes Gold ernten. Jeder echte Weg zu einem Samen läuft aber über den Server
+ * (Kauf, Kreuzung, Post, Kiste) und legt ihn dort mit seiner Kennung ab. Also gilt:
+ *
+ *   * behalten wird nur, was der Server unter derselben Kennung kennt — und zwar
+ *     SEIN Eintrag, nicht der des Browsers (sonst liesse sich aus einem Löwenzahn
+ *     per umgeschriebener seedId eine Mondblume machen);
+ *   * was der Browser nicht mehr mitschickt, ist verbraucht. Diese Samen landen
+ *     in `frei` (je Sorte gezählt) — nur davon darf eine NEUE Pflanze entstehen.
+ *
+ * @returns {{ inventar: object[], frei: Map<string, number> }}
+ */
+function gleicheSamenAb(eingehend, bestehend) {
+    const serverListe = Array.isArray(bestehend) ? bestehend : [];
+    const nachId = new Map();
+    for (const samen of serverListe) {
+        if (samen && typeof samen.instanceId === "string" && samen.instanceId) nachId.set(samen.instanceId, samen);
+    }
+    const behalten = new Set();
+    const inventar = [];
+    for (const roh of Array.isArray(eingehend) ? eingehend : []) {
+        const id = roh && typeof roh.instanceId === "string" ? roh.instanceId : "";
+        const echt = id && nachId.get(id);
+        if (!echt || behalten.has(id)) continue;
+        behalten.add(id);
+        inventar.push(echt);
+    }
+    const frei = new Map();
+    for (const [id, samen] of nachId) {
+        if (behalten.has(id) || !samen.seedId) continue;
+        frei.set(samen.seedId, (frei.get(samen.seedId) || 0) + 1);
+    }
+    return { inventar, frei };
+}
+
+function verplausibilisierePflanzen(eingehend, bestehend, unlockedCount, now = Date.now(), freieSamen = null, erlaubteEffekte = null) {
     if (!eingehend || typeof eingehend !== "object") return {};
     const alt = (bestehend && typeof bestehend.plotPlants === "object" && bestehend.plotPlants) || {};
     const maxZellen = BASE_DIRT_COLS * BASE_DIRT_ROWS + Math.max(0, unlockedCount);
@@ -350,12 +409,17 @@ function verplausibilisierePflanzen(eingehend, bestehend, unlockedCount, now = D
                 maxFruits: vorher.maxFruits,
                 harvested: vorher.harvested,
                 // Wetter der ganzen Pflanze (Einmalernte) — geputzt, aber vom Browser.
-                ...saubereEffekte(roh),
+                // Neue Effekte nur, wenn das Wetter dazu wirklich lief (core/wetterVerlauf.js).
+                ...(erlaubteEffekte
+                    ? wetterVerlauf.pruefeEffekte(vorher, saubereEffekte(roh), erlaubteEffekte, now,
+                        vorher.singleUse !== false
+                            && (Number(vorher.plantedAt) || 0) + gegosseneWachstumszeit(vorher, roh) <= now)
+                    : saubereEffekte(roh)),
                 // Fruchtstände Position für Position zusammenführen: Reifezeit,
                 // Größe und Sonderform vom SERVER (sonst liesse sich eine reife
                 // Frucht melden), Wetter vom BROWSER — sonst verlöre jeder
                 // Dauerträger seine Effekte bei jedem Speichern.
-                fruitSlots: mischeFruchtstaende(vorher.fruitSlots, roh.fruitSlots, vorher.fruitCycleMs),
+                fruitSlots: mischeFruchtstaende(vorher.fruitSlots, roh.fruitSlots, vorher.fruitCycleMs, erlaubteEffekte),
             };
         } else {
             // Zuvor geerntete instanceId? Dann NICHT als frische Pflanzung werten.
@@ -373,6 +437,14 @@ function verplausibilisierePflanzen(eingehend, bestehend, unlockedCount, now = D
             const geerntet = bestehend?._kuerzlichGeerntet;
             if (roh.instanceId && geerntet && typeof geerntet === "object" && geerntet[roh.instanceId] != null) {
                 continue;
+            }
+            // Neu gesetzt heisst: dafür ist ein Samen dieser Sorte aus dem Rucksack
+            // verschwunden (siehe gleicheSamenAb). Ohne verbrauchten Samen bleibt die
+            // Zelle leer — sonst liesse sich jede Sorte per PUT einfach hinstellen.
+            if (freieSamen) {
+                const uebrig = freieSamen.get(profil.id) || 0;
+                if (uebrig <= 0) continue;
+                freieSamen.set(profil.id, uebrig - 1);
             }
             // Neu gesetzt: Zeiten hier würfeln, ab jetzt laufend.
             const single = profil.singleUse !== false;
@@ -654,7 +726,8 @@ const EGG_SHOP_CATALOGUE = [
  * Als Ableitung kann das nicht mehr auseinanderlaufen. Preise ändert man ab jetzt
  * ausschliesslich in garden/core/catalogue.js (und dessen Frontend-Spiegel).
  */
-const SHOP_POOL = SEED_CATALOGUE.map((s) => ({
+// Kreuzungen (core/kreuzung.js) gibt es nie im Laden — sie entstehen nur auf dem Acker.
+const SHOP_POOL = SEED_CATALOGUE.filter((s) => !s.kreuzung).map((s) => ({
     seedId:     s.id,
     name:       s.name,
     emoji:      s.emoji,
@@ -802,51 +875,22 @@ function pickWeightedSeed(pool) {
 
 // ─── Global shop rotation (shared by all lobbies + singleplayer) ─────────────
 /**
- * Nachziehzähler JE SORTE.
+ * WELCHE Sorten eine Rotation zeigt, entscheidet core/laden.js — dort stehen auch
+ * der Nachziehzähler je Sorte (warum es ihn gibt: wer täglich zehn Minuten
+ * vorbeikommt, sieht nur zwei Rotationen und wartete sonst Monate auf genau die
+ * Sorten mit langen Zyklen), der Commons-Deckel und die Mindestplätze für Rare,
+ * Epic und Legendary. Hier bleibt nur, was eine Rotation daraus macht: Bestände
+ * je Spieler und die Anzeige.
  *
- * WARUM überhaupt: Eine Sorte mit 1 % je Fünf-Minuten-Rotation heißt im Mittel
- * 500 Minuten SPIELZEIT. Wer täglich zehn Minuten zum Abernten vorbeikommt, sieht
- * zwei Rotationen und wartet damit Monate auf genau die Sorten, die für seinen
- * Rhythmus gebaut sind (lange Zyklen). Das Tor wäre Spielzeit, nicht Gold — und
- * träfe ausgerechnet die Gruppe, die am wenigsten davon hat.
- *
- * WARUM JE SORTE und nicht mehr je Seltenheit: Der Zähler wurde zurückgesetzt,
- * sobald IRGENDEINE Sorte dieser Seltenheit auftauchte. Unter den RAREs steht die
- * Erdbeere mit 40 % neben der Aprikose mit 5 % — die Erdbeere hat den Zähler
- * praktisch jede Rotation geleert, und die Aprikose war nie geschützt. Jetzt hat
- * jede Sorte ihren eigenen Zähler, gedeckelt auf `PITY_FAKTOR` mal ihre erwartete
- * Wartezeit (1/Chance). Wer Pech hat, wartet höchstens doppelt so lang wie im
- * Mittel — bei allen Sorten gleichermaßen.
+ * Der Zustand lebt nur im Arbeitsspeicher, wie bisher der Zähler allein. Nach
+ * einem Neustart fangen alle Zähler bei null an.
  */
-const PITY_FAKTOR = 2;
-const PITY_MAX_ROTATIONEN = 576;   // 48 h bei fünf Minuten je Rotation
-const pityZaehler = new Map();     // seedId → Rotationen ohne Auftritt
-
-/** Nach wie vielen erfolglosen Rotationen eine Sorte erzwungen wird. */
-function pityGrenze(seed) {
-    const chance = Math.max(0.0001, Number(seed.shopChance) || 0);
-    return Math.min(PITY_MAX_ROTATIONEN, Math.ceil(PITY_FAKTOR / chance));
-}
+const ladenZustand = laden.frischerZustand();
+// Erntefest aller Spieler (world/erntefest.js) — braucht alle Spielstände für die Summe.
+const erntefest = erstelleErntefest(farmStates);
 
 function generateGlobalShopRotation() {
-    const activeSet = new Set();
-    for (const seed of SHOP_POOL) {
-        if (Math.random() < seed.shopChance) activeSet.add(seed.seedId);
-    }
-
-    // Nachzug: jede Sorte, die zu lange nicht da war, wird hereingeholt.
-    for (const seed of SHOP_POOL) {
-        if (activeSet.has(seed.seedId)) { pityZaehler.set(seed.seedId, 0); continue; }
-        const n = (pityZaehler.get(seed.seedId) || 0) + 1;
-        const grenze = pityGrenze(seed);
-        if (n < grenze) { pityZaehler.set(seed.seedId, n); continue; }
-        activeSet.add(seed.seedId);
-        pityZaehler.set(seed.seedId, 0);
-    }
-
-    if (activeSet.size === 0 && SHOP_POOL.length > 0) {
-        activeSet.add(SHOP_POOL[0].seedId);
-    }
+    const activeSet = laden.waehleSortiment(SHOP_POOL, ladenZustand);
 
     /**
      * Der Vorrat gilt JE SPIELER — aber geführt wird er hier, nicht im Browser.
@@ -1005,6 +1049,7 @@ const globalShopState = {
     rotation: generateGlobalShopRotation(8),
     nextRotationAt: getNextRotationAt(Date.now(), SHOP_ROTATION_MS),
 };
+wetterVerlauf.merkeRotation(globalShopState.rotation.generatedAt);
 const globalToolShopState = {
     rotation: generateGlobalToolShopRotation(),
     nextRotationAt: getNextRotationAt(Date.now(), TOOL_EGG_ROTATION_MS),
@@ -1061,22 +1106,26 @@ function kaufeSamen(state, seedId, twitchId) {
     merkeKauf(rotation, twitchId, seed.seedId);
     state.gold = gold - preis;
 
+    const samen = {
+        instanceId: uuidv4(),
+        seedId: seed.seedId,
+        name: seed.name,
+        emoji: seed.emoji,
+        rarity: seed.rarity,
+        shopPrice: seed.shopPrice,
+        singleUse: seed.singleUse,
+    };
+    // Auch im SERVER-Rucksack ablegen: beim Speichern behält der Browser nur
+    // Samen, die der Server kennt (siehe gleicheSamenAb). Der Browser legt
+    // denselben Samen mit derselben Kennung bei sich ab.
+    state.inventory = [...(Array.isArray(state.inventory) ? state.inventory : []), samen];
+
     return {
         ok: true,
         gold: state.gold,
         bezahlt: preis,
         stock: uebrig - 1,
-        // Der Rucksack gehört weiter dem Browser (wie Deko und Werkzeug). Der
-        // Server gibt nur die Kennung vor, damit zwei Tabs nicht dieselbe erzeugen.
-        samen: {
-            instanceId: uuidv4(),
-            seedId: seed.seedId,
-            name: seed.name,
-            emoji: seed.emoji,
-            rarity: seed.rarity,
-            shopPrice: seed.shopPrice,
-            singleUse: seed.singleUse,
-        },
+        samen,
     };
 }
 
@@ -1128,6 +1177,7 @@ module.exports = function ({ requireAuth }) {
         if (now >= globalShopState.nextRotationAt) {
             globalShopState.rotation = generateGlobalShopRotation(8);
             globalShopState.nextRotationAt = globalShopState.rotation.nextRotation;
+            wetterVerlauf.merkeRotation(globalShopState.rotation.generatedAt, now);
         }
         if (now >= globalToolShopState.nextRotationAt) {
             globalToolShopState.rotation = generateGlobalToolShopRotation(now);
@@ -1135,8 +1185,12 @@ module.exports = function ({ requireAuth }) {
         }
         if (now >= globalEggShopState.nextRotationAt) {
             globalEggShopState.rotation = generateGlobalEggShopRotation(now);
+            brutkasten.eierVerbrauchAufraeumen(globalEggShopState.rotation);
             globalEggShopState.nextRotationAt = globalEggShopState.rotation.nextRotation;
         }
+        // Admin-Wetter mitschreiben, damit Effekte daraus beim Speichern gelten.
+        const welt = ereignisse.stand(now);
+        if (welt.wetterTyp) wetterVerlauf.merkeUebersteuerung(welt.wetterTyp, welt.wetterBis, now);
     }, 1000); // check every second for wall-clock aligned resets
 
     // GET /api/garden/global-shop
@@ -1332,12 +1386,66 @@ module.exports = function ({ requireAuth }) {
     });
 
     // GET /api/garden/leaderboard — öffentliches Bestenliste (nach Gold sortiert)
+    // Gefragte Sorten der laufenden Stunde (core/nachfrage.js) — für alle gleich,
+    // deshalb ohne Anmeldung. Der Browser fragt neu, sobald `bis` vorbei ist.
+    router.get("/nachfrage", (req, res) => {
+        res.json(nachfrage.stand());
+    });
+
+    // Wochenwettbewerb „Rekord-Ernte der Woche" (world/wettbewerb.js).
+    router.get("/wettbewerb", requireAuth, (req, res) => {
+        const userId = String(req.twitchId);
+        const state = farmStates.get(userId);
+        res.json(wettbewerb.uebersicht(farmStates, state || {}, userId));
+    });
+
+    // Saisonziele der laufenden Jahreszeit (core/saisonziele.js).
+    router.get("/saisonziele", requireAuth, (req, res) => {
+        const state = farmStates.get(String(req.twitchId));
+        if (!state) return res.status(400).json({ error: "Keine Farm gefunden." });
+        res.json(saisonziele.uebersicht(state));
+    });
+
+    // „Neue Saat" (core/prestige.js): Stand fürs Fenster.
+    router.get("/prestige", requireAuth, (req, res) => {
+        const state = farmStates.get(String(req.twitchId));
+        res.json(prestige.status(state || {}));
+    });
+
+    // „Neue Saat" durchführen. Eigene Route statt /action: die Antwort trägt bewusst
+    // KEINE neue stateVersion — jeder noch offene Speicherversuch des Browsers läuft
+    // so in den 409 und kann den alten Acker nicht zurückschreiben. Der Browser lädt
+    // danach komplett neu.
+    router.post("/neue-saat", requireAuth, (req, res) => {
+        const userId = String(req.twitchId);
+        const state = farmStates.get(userId);
+        if (!state) return res.status(400).json({ error: "Keine Farm gefunden." });
+        if (zweitkonto.pruefeUndMerke(farmStates, userId, state, req).gesperrt) {
+            return res.status(403).json({ error: zweitkonto.SPERR_TEXT, zweitkonto: true });
+        }
+        if (req.body?.bestaetigt !== true) return res.status(400).json({ error: "Bitte bestätigen." });
+        const r = prestige.neueSaat(state);
+        if (!r.ok) return res.status(r.status || 400).json({ error: r.error });
+        setFarmState(farmStates, userId, state);
+        scheduleFarmsSave(farmStates);
+        notifyPlotChanged(userId);
+        console.log(`[Garden] Neue Saat: ${state.twitchLogin || userId} → ${r.prestige.sterne} Stern(e)`);
+        res.json({ success: true, prestige: r.prestige });
+    });
+
+    // Alle Bestenlisten fürs Hauptmenü (world/ranglisten.js) — ohne Anmeldung, wie /leaderboard.
+    router.get("/ranglisten", (req, res) => {
+        res.json(ranglisten(farmStates));
+    });
+
+    // Bestenliste: erst Sterne aus „Neue Saat", dann Gold — wer neu anfängt, rutscht
+    // so nicht ans Ende hinter Spieler, die er längst überholt hatte.
     router.get("/leaderboard", (req, res) => {
         const sorted = Array.from(farmStates.values())
-            .filter((s) => (s.gold || 0) > 0)
-            .sort((a, b) => (b.gold || 0) - (a.gold || 0))
+            .filter((s) => (s.gold || 0) > 0 || prestige.sterneVon(s) > 0)
+            .sort((a, b) => prestige.sterneVon(b) - prestige.sterneVon(a) || (b.gold || 0) - (a.gold || 0))
             .slice(0, 10)
-            .map((s) => ({ name: s.twitchLogin || "Unbekannt", gold: s.gold || 0 }));
+            .map((s) => ({ name: s.twitchLogin || "Unbekannt", gold: s.gold || 0, sterne: prestige.sterneVon(s) }));
         res.json(sorted);
     });
 
@@ -1355,6 +1463,11 @@ module.exports = function ({ requireAuth }) {
         try { sub = await ensureSubStatus(userId); } catch { sub = false; }
 
         const saved = farmStates.get(userId) || null;
+        // Zweit-Account auf diesem Gerät? (world/zweitkonto.js) — vor dem Anlegen
+        // prüfen, damit gar nicht erst eine zweite Farm entsteht.
+        const pruefling = saved || {};
+        const zugang = zweitkonto.pruefeUndMerke(farmStates, userId, pruefling, req);
+        if (zugang.gesperrt) return res.status(403).json({ error: zweitkonto.SPERR_TEXT, zweitkonto: true });
         if (!saved) {
             // Frische Farm gleich hier anlegen — MIT Startkapital.
             //
@@ -1375,6 +1488,9 @@ module.exports = function ({ requireAuth }) {
             neu[STEINFELD_MARKE_WEGE] = true;
             neu[ACKERRASTER_MARKE] = true;
             neu[TIERPLATZ_MARKE] = true;
+            neu[SAMEN_KENNUNG_MARKE] = true;
+            neu[TIER_KENNUNG_MARKE] = true;
+            if (pruefling.kennzeichen) neu.kennzeichen = pruefling.kennzeichen;
             if (req.twitchLogin) neu.twitchLogin = String(req.twitchLogin).toLowerCase();
             setFarmState(farmStates, userId, neu);
             scheduleFarmsSave(farmStates);
@@ -1384,6 +1500,8 @@ module.exports = function ({ requireAuth }) {
         const advanced = {
             ...saved,
             plotPlants: advancePlantTime(saved.plotPlants || {}),
+            // Wer Rucksackstufen über 29 gekauft hat, bekommt die Plätze jetzt auch.
+            inventoryMaxSlots: rucksackPlaetze(saved),
         };
         // Festgefahrene Farmen wieder flottmachen.
         //
@@ -1414,9 +1532,16 @@ module.exports = function ({ requireAuth }) {
         // sind jetzt reine Boni auf das, was der Spieler selbst tut — siehe
         // garden/core/pets.js. `petsAbgerechnetBis` bleibt im Spielstand stehen und
         // stört dort nicht; ein Feld zu löschen wäre mehr Risiko als Nutzen.
+        // Wochenwettbewerb: vergangene Wochen abrechnen (Platz 1–3 → Gold + Abzeichen),
+        // bevor der Stand gespeichert wird — siehe world/wettbewerb.js.
+        const wettbewerbGewinne = wettbewerb.abrechnen(farmStates, advanced, userId);
         setFarmState(farmStates, userId, advanced);
         scheduleFarmsSave(farmStates);
-        res.json({ state: advanced, skillStand: skillStand(advanced) });
+        res.json({
+            state: advanced, skillStand: skillStand(advanced), ernteRausch: rausch.anzeige(advanced), stoerer: stoerer.aktive(advanced),
+            prestige: prestige.status(advanced),
+            ...(wettbewerbGewinne.length ? { wettbewerbGewinne } : {}),
+        });
     });
 
     /**
@@ -1442,7 +1567,17 @@ module.exports = function ({ requireAuth }) {
         const userId = String(req.twitchId);
         const state = farmStates.get(userId);
         if (!state) return res.status(400).json({ error: "Keine Farm gefunden." });
-        res.json(quests.questUebersicht(state));
+        // Händler-Aufträge kommen mit, weil sie im selben Brett stehen. Neu
+        // gewürfelte Aufträge gehören in den Spielstand, deshalb hier speichern.
+        if (auftraege.bringeAuftraegeAufStand(state)) {
+            setFarmState(farmStates, userId, state);
+            scheduleFarmsSave(farmStates);
+        }
+        res.json({
+            ...quests.questUebersicht(state),
+            auftraege: auftraege.auftragUebersicht(state),
+            erntefest: erntefest.uebersicht(state),
+        });
     });
 
     // GET /api/garden/reskins — der Gold-Shop: Katalog samt "schon gekauft" je
@@ -1463,6 +1598,9 @@ module.exports = function ({ requireAuth }) {
         }
 
         const existing = farmStates.get(userId) || {};
+        if (zweitkonto.pruefeUndMerke(farmStates, userId, existing, req).gesperrt) {
+            return res.status(403).json({ error: zweitkonto.SPERR_TEXT, zweitkonto: true });
+        }
 
         // ── Schutz vor dem "noch nicht geladenen" Client ──────────────────────
         // Ein PUT, in dem ALLE Sammlungen leer sind, während der Server Daten hält,
@@ -1530,11 +1668,41 @@ module.exports = function ({ requireAuth }) {
         state.petInventory = filtereVerschenkte(userId, state.petInventory);
         state.petPlacements = filtereVerschenkte(userId, state.petPlacements);
 
+        // Tiere: aufstellen, einpacken, umbenennen — keine neuen, keine anderen Werte.
+        const tierAbgleich = brutkasten.gleicheTiereAb(state.petInventory, state.petPlacements, existing);
+        state.petInventory = tierAbgleich.petInventory;
+        state.petPlacements = tierAbgleich.petPlacements;
+
+        // Samen: nur entfernen, nie hinzufügen (siehe gleicheSamenAb).
+        const samenAbgleich = gleicheSamenAb(state.inventory, existing.inventory);
+        state.inventory = samenAbgleich.inventar;
+
         // Der Acker gehört dem Browser, seine ZEITEN nicht mehr — sonst liesse
         // sich mit einem PUT ein Feld voll reifer Mondblumen melden und über
         // POST /action in echtes Gold verwandeln (siehe verplausibilisierePflanzen).
-        const freigelegt = normalizePlotUnlockedCells(state.plotUnlockedCells);
-        state.plotPlants = verplausibilisierePflanzen(state.plotPlants, existing, freigelegt.length);
+        // Neue Pflanzen brauchen zusätzlich einen verbrauchten Samen.
+        // Freigelegte Steinfelder: höchstens so viele, wie Spitzhacken-Schläge
+        // verbraucht wurden (siehe steinfelderErlaubt). Schon bekannte Felder
+        // gehen vor, damit ein Umbau des Grundstücks nichts verschiebt.
+        const erlaubt = steinfelderErlaubt(existing);
+        let freigelegt = normalizePlotUnlockedCells(state.plotUnlockedCells);
+        if (freigelegt.length > erlaubt) {
+            const bekannt = new Set(normalizePlotUnlockedCells(existing.plotUnlockedCells));
+            freigelegt = [
+                ...freigelegt.filter((k) => bekannt.has(k)),
+                ...freigelegt.filter((k) => !bekannt.has(k)),
+            ].slice(0, erlaubt);
+        }
+        state.plotUnlockedCells = freigelegt;
+        // Wetter-Effekte: nur Wetter, das seit dem letzten Speichern lief. Liegt das
+        // länger als den Verlauf zurück (Spieler war weg), zählen die letzten
+        // zehn Minuten — Effekte entstehen ohnehin nur bei offenem Spiel.
+        const jetzt = Date.now();
+        const zuletzt = Number(existing.updatedAt) || 0;
+        const wetterVon = zuletzt > jetzt - wetterVerlauf.VERLAUF_MS ? zuletzt - 6 * 60 * 1000 : jetzt - 10 * 60 * 1000;
+        state.plotPlants = verplausibilisierePflanzen(
+            state.plotPlants, existing, freigelegt.length, jetzt, samenAbgleich.frei,
+            wetterVerlauf.erlaubteEffekte(wetterVon, jetzt));
 
         const compact = compactFarmState(state);
         if (req.twitchLogin) compact.twitchLogin = String(req.twitchLogin).toLowerCase();
@@ -1577,10 +1745,28 @@ module.exports = function ({ requireAuth }) {
         // PUT hätte es sonst bei JEDEM Speichern stillschweigend gelöscht (gefunden beim
         // ersten Puppeteer-Test: Fortschritt fiel Sekunden nach dem Kauf auf 0 zurück).
         if (existing.quests && typeof existing.quests === "object") compact.quests = existing.quests;
+        // Händler-Aufträge: dieselbe Lage — rein serverseitig (core/auftraege.js).
+        if (existing.auftraege && typeof existing.auftraege === "object") compact.auftraege = existing.auftraege;
+        // Erntefest-Punkte ebenso (world/erntefest.js).
+        if (existing.erntefest && typeof existing.erntefest === "object") compact.erntefest = existing.erntefest;
+        if (existing.erntefestOffen && typeof existing.erntefestOffen === "object") compact.erntefestOffen = existing.erntefestOffen;
         // Reskins genauso: rein serverseitig gekauft/ausgerüstet (core/reskins.js),
         // kennt compactFarmState nicht — ohne das hier ginge jeder Gold-Shop-Kauf
         // beim nächsten Speichern wieder verloren.
         if (existing.reskins && typeof existing.reskins === "object") compact.reskins = existing.reskins;
+        // Ernte-Rausch: allein serverseitig fortgeschrieben (core/rausch.js).
+        if (existing.ernteRausch && typeof existing.ernteRausch === "object") compact.ernteRausch = existing.ernteRausch;
+        // Schädlinge/Unkraut ebenso (core/stoerer.js).
+        if (Array.isArray(existing.stoerer)) compact.stoerer = existing.stoerer;
+        // Zuchtbuch: entdeckte Kreuzungen (core/economy.js harvestCell).
+        if (existing.zuchtbuch && typeof existing.zuchtbuch === "object") compact.zuchtbuch = existing.zuchtbuch;
+        // Wochenwettbewerb (world/wettbewerb.js): Rekorde, Siege, Abrechnungsstand.
+        if (existing.wettbewerb && typeof existing.wettbewerb === "object") compact.wettbewerb = existing.wettbewerb;
+        if (Array.isArray(existing.wettbewerbSiege)) compact.wettbewerbSiege = existing.wettbewerbSiege;
+        if (Number.isInteger(existing.wettbewerbAbgerechnet)) compact.wettbewerbAbgerechnet = existing.wettbewerbAbgerechnet;
+        // „Neue Saat" gehört dem Server (core/prestige.js).
+        if (existing.prestige && typeof existing.prestige === "object") compact.prestige = existing.prestige;
+        if (existing.saisonziele && typeof existing.saisonziele === "object") compact.saisonziele = existing.saisonziele;
         // Marke der XP-Nachzahlung. Ginge sie verloren, liefe die Rechnung beim
         // nächsten Serverstart erneut über diesen Stand.
         if (existing[XP_MARKE]) compact[XP_MARKE] = true;
@@ -1588,6 +1774,18 @@ module.exports = function ({ requireAuth }) {
         if (existing[XP_MARKE_KORREKTUR]) compact[XP_MARKE_KORREKTUR] = true;
         if (existing[SKILL_STAFFEL_MARKE]) compact[SKILL_STAFFEL_MARKE] = true;
         if (existing[TIERPLATZ_MARKE]) compact[TIERPLATZ_MARKE] = true;
+        if (existing[SAMEN_KENNUNG_MARKE]) compact[SAMEN_KENNUNG_MARKE] = true;
+        if (existing[TIER_KENNUNG_MARKE]) compact[TIER_KENNUNG_MARKE] = true;
+        // Geräte- und Anschluss-Prüfsummen gehören dem Server (world/zweitkonto.js).
+        if (existing.kennzeichen) compact.kennzeichen = existing.kennzeichen;
+        // Eier und Brutkasten gehören dem Server (core/brutkasten.js): Kauf, Einlegen
+        // und Schlüpfen laufen über POST /action, der Browser zeigt sie nur an.
+        compact.eggInventory = sanitizeItemArray(existing.eggInventory);
+        compact.steinfelderErlaubt = erlaubt;
+        compact.plotExpansions = Math.min(compact.plotExpansions, Math.ceil(freigelegt.length / BASE_DIRT_COLS));
+        // Rucksackplätze rechnet der Server (siehe rucksackPlaetze in core/werkzeug.js).
+        compact.inventoryMaxSlots = rucksackPlaetze(existing);
+        compact.incubator = brutkasten.brutkastenVon(existing);
         // ── Der Werkzeugkasten gehört ab jetzt GANZ dem Server ────────────────
         // Vorher kam er aus dem PUT, nur Schaufel, Kiste und Vitrine waren geschützt.
         // Damit lag zwischen „bezahlt" (Gold ist Serverbesitz) und „gespeichert"
@@ -1639,6 +1837,9 @@ module.exports = function ({ requireAuth }) {
 
         const state = farmStates.get(userId);
         if (!state) return res.status(400).json({ error: "Keine Farm gefunden." });
+        if (zweitkonto.pruefeUndMerke(farmStates, userId, state, req).gesperrt) {
+            return res.status(403).json({ error: zweitkonto.SPERR_TEXT, zweitkonto: true });
+        }
 
         /**
          * Aktionen aus einem ZWEITEN Tab abweisen.
@@ -1730,6 +1931,16 @@ module.exports = function ({ requireAuth }) {
             // Verbrauch geht denselben Weg wie der Kauf: sonst liesse sich eine
             // Gießkanne beliebig oft benutzen, indem man den Browserstand zurückdreht.
             ergebnis = verbraucheWerkzeug(state, req.body?.feld, req.body?.anzahl);
+        } else if (aktion === "buyEgg") {
+            ergebnis = brutkasten.kaufeEi(state, req.body?.eggId, {
+                rotation: globalEggShopState.rotation, twitchId: userId, katalog: EGG_SHOP_CATALOGUE,
+            });
+        } else if (aktion === "brutplatzFreischalten") {
+            ergebnis = brutkasten.brutplatzFreischalten(state);
+        } else if (aktion === "eiEinlegen") {
+            ergebnis = brutkasten.eiEinlegen(state, req.body?.platz, req.body?.eiKennung, { katalog: EGG_SHOP_CATALOGUE });
+        } else if (aktion === "eiAbholen") {
+            ergebnis = brutkasten.eiAbholen(state, req.body?.platz);
         } else if (aktion === "sellPet") {
             ergebnis = sellPet(state, req.body?.petId);
         } else if (aktion === "petFind") {
@@ -1768,6 +1979,14 @@ module.exports = function ({ requireAuth }) {
                 gibFesteXp(state, abgeholt.belohnungXp);
             }
             ergebnis = abgeholt;
+        } else if (aktion === "auftragLiefern") {
+            // Gold, Erfahrung und das Entnehmen aus dem Rucksack passieren alle in
+            // core/auftraege.js — ein Schritt, kein await dazwischen.
+            ergebnis = auftraege.auftragLiefern(state, req.body?.auftragId);
+        } else if (aktion === "auftragAblehnen") {
+            ergebnis = auftraege.auftragAblehnen(state, req.body?.auftragId);
+        } else if (aktion === "erntefestAbholen") {
+            ergebnis = erntefest.abholen(state);
         } else if (aktion === "reskinKaufen") {
             // Abbuchung passiert direkt in core/reskins.js (wie der Samen-Kauf in
             // core/economy.js) — kein gutschreiben/spendGold nötig, der Preis ist
@@ -1775,6 +1994,9 @@ module.exports = function ({ requireAuth }) {
             ergebnis = reskins.reskinKaufen(state, req.body?.kategorie, req.body?.id);
         } else if (aktion === "reskinAusruesten") {
             ergebnis = reskins.reskinAusruesten(state, req.body?.kategorie, req.body?.id);
+        } else if (aktion === "stoererFangen") {
+            // Käfer/Unkraut wegklicken (core/stoerer.js) — der Browser nennt nur die id.
+            ergebnis = stoerer.fangen(state, req.body?.id, gutschreiben);
         } else {
             return res.status(400).json({ error: "Unbekannte Aktion." });
         }
@@ -1794,12 +2016,20 @@ module.exports = function ({ requireAuth }) {
         // (`ergebnis.ok`, gerade eben bestanden) — nur ausgewertet für Missions-
         // Zwecke statt für die eigentliche Antwort. Siehe core/quests.js, Kopf-
         // kommentar, für die Begründung, warum nur DIESE Aktionen zählen.
+        let wettbewerbRekord = null; // neuer persönlicher Wochenrekord (world/wettbewerb.js)
+        let saisonAbschluss = null;  // alle Saisonziele geschafft (core/saisonziele.js)
         if (aktion === "harvest") {
             const stuecke = [ergebnis.item, ergebnis.zweites].filter(Boolean);
+            erntefest.melde(state, stuecke);
+            wettbewerbRekord = wettbewerb.melde(state, stuecke) || wettbewerbRekord;
+            saisonAbschluss = saisonziele.meldeErnte(state, stuecke) || saisonAbschluss;
             quests.melde(state, quests.TYP.ERNTE_ANZAHL, stuecke.length);
             quests.melde(state, quests.TYP.ERNTE_GOLD, stuecke.reduce((s, it) => s + (Number(it?.sellValue) || 0), 0));
         } else if (aktion === "harvestAll") {
             const stuecke = Array.isArray(ergebnis.items) ? ergebnis.items : [];
+            erntefest.melde(state, stuecke);
+            wettbewerbRekord = wettbewerb.melde(state, stuecke) || wettbewerbRekord;
+            saisonAbschluss = saisonziele.meldeErnte(state, stuecke) || saisonAbschluss;
             quests.melde(state, quests.TYP.ERNTE_ANZAHL, stuecke.length);
             quests.melde(state, quests.TYP.ERNTE_GOLD, stuecke.reduce((s, it) => s + (Number(it?.sellValue) || 0), 0));
         } else if (aktion === "harvestMany") {
@@ -1807,6 +2037,9 @@ module.exports = function ({ requireAuth }) {
             for (const teil of Object.values(ergebnis.ernten || {})) {
                 if (!teil?.ok) continue;
                 const stuecke = Array.isArray(teil.items) ? teil.items : [];
+                erntefest.melde(state, stuecke);
+                wettbewerbRekord = wettbewerb.melde(state, stuecke) || wettbewerbRekord;
+                saisonAbschluss = saisonziele.meldeErnte(state, stuecke) || saisonAbschluss;
                 anzahl += stuecke.length;
                 gold += stuecke.reduce((s, it) => s + (Number(it?.sellValue) || 0), 0);
             }
@@ -1814,12 +2047,20 @@ module.exports = function ({ requireAuth }) {
             quests.melde(state, quests.TYP.ERNTE_GOLD, gold);
         } else if (aktion === "sellAll") {
             quests.melde(state, quests.TYP.VERKAUF_GOLD, Number(ergebnis.verdient) || 0);
+            saisonAbschluss = saisonziele.melde(state, saisonziele.TYP.NACHFRAGE, ergebnis.nachfrageAnzahl) || saisonAbschluss;
+        } else if (aktion === "stoererFangen") {
+            saisonAbschluss = saisonziele.melde(state, saisonziele.TYP.STOERER, 1) || saisonAbschluss;
         } else if (aktion === "useTool" && String(req.body?.feld) === "wateringCans") {
             quests.melde(state, quests.TYP.GIESSEN_ANZAHL, Number(ergebnis.verbraucht) || 0);
         } else if (aktion === "buySeed") {
             quests.melde(state, quests.TYP.SAMEN_KAUF, 1);
         } else if (aktion === "buySeedAll") {
             quests.melde(state, quests.TYP.SAMEN_KAUF, Number(ergebnis.anzahl) || 0);
+        }
+
+        // Schädlinge/Unkraut: nur beim Ernten, also nur wenn jemand spielt (core/stoerer.js).
+        if (aktion === "harvest" || aktion === "harvestAll" || aktion === "harvestMany") {
+            stoerer.vielleichtErscheinen(state);
         }
 
         // Jede erfolgreiche Aktion macht jeden PUT ungültig, der vorher losgeschickt
@@ -1836,6 +2077,15 @@ module.exports = function ({ requireAuth }) {
             // Level, XP und gelernte Stufen kommen bei JEDER Aktion mit. Sie gehören
             // dem Server; der Browser zeigt sie nur an und darf sie nie mitspeichern.
             skillStand: skillStand(state),
+            // Ernte-Rausch (core/rausch.js) für die Anzeige — bei jeder Aktion, weil
+            // er sich mit jeder Ernte ändert und der Browser ihn nicht selbst rechnet.
+            ernteRausch: rausch.anzeige(state),
+            stoerer: stoerer.aktive(state),
+            zuchtbuch: state.zuchtbuch || {},
+            ...(wettbewerbRekord ? { wettbewerbRekord } : {}),
+            ...(saisonAbschluss ? { saisonAbschluss } : {}),
+            // Ergebnis eines Fangs (Gold, Ort) für die Rückmeldung im Browser.
+            ...(aktion === "stoererFangen" ? { gefangen: { gold: ergebnis.gold, art: ergebnis.art, key: ergebnis.key } } : {}),
             harvestedItems: state.harvestedItems ?? [],
             plotPlants: state.plotPlants ?? {},
             chestItems: state.chestItems ?? [],
@@ -1848,6 +2098,7 @@ module.exports = function ({ requireAuth }) {
             eggInventory: state.eggInventory ?? [],
             decoInventory: state.decoInventory ?? [],
             petInventory: state.petInventory ?? [],
+            incubator: brutkasten.brutkastenVon(state),
             // Seit der Werkzeugkasten dem Server gehört, muss er bei jeder Aktion
             // mitkommen — sonst zeigt der Browser eine Kanne, die es nicht mehr gibt.
             toolInventory: werkzeugVon(state),
@@ -1954,3 +2205,10 @@ module.exports.katalog = {
     get seeds() { return SHOP_POOL.map(withSeedVisuals); },
     get eggs() { return EGG_SHOP_CATALOGUE; },
 };
+
+/**
+ * Für den Wirtschafts-Simulator (tools/simulator.js): dieselbe Pflanz-Logik und
+ * dieselbe Laden-Rotation wie im Betrieb, damit die Rechnung nicht von einer
+ * Kopie abweicht. Wird im Spielbetrieb nicht benutzt.
+ */
+module.exports.intern = { verplausibilisierePflanzen, generateGlobalShopRotation, SHOP_POOL };

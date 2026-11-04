@@ -11,6 +11,8 @@ import { drawCardFrame } from './cardCrop';
 import { ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';
 import { avatarUrl } from '../components/avatars';
 import { useMazeStepper } from './maze/useMazeStepper';
+import { useCrPrefs } from '../ui/crPrefs';
+import { isLowGfx } from '../../../utils/lowGfx';
 
 // Ego-Perspektive (three.js) — erst geladen, wenn sie gebraucht wird
 const Maze3D = lazy(() => import('./maze/Maze3D'));
@@ -724,6 +726,7 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
   // Labyrinth kaum etwas übrig
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [webglFailed, setWebglFailed] = useState(false);
+  const { prefs } = useCrPrefs();
 
   // Für die Joker-Auswahl: freie Karten = Pool minus Decks, Bodenkarten und offene Draft-Optionen
   const availableJokerIds = useMemo(() => {
@@ -751,8 +754,9 @@ export default function DarkMaze({ mazeState, myPlayerId, onMove, onPickup, onDr
   const frozen = !!myDraft;
   // Zuschauer sehen das ganze Labyrinth von oben — Ego-Perspektive nur für Mitspieler
   // Spieler sehen nur noch die 3D-Ansicht. Die Draufsicht bleibt für Zuschauer (sie folgen
-  // keinem Spieler) und als Ersatz, wenn das Gerät kein WebGL kann.
-  const show3d = !amSpectator && !webglFailed;
+  // keinem Spieler) und als Ersatz, wenn das Gerät kein WebGL kann — oder ohne Hardwarebeschleunigung,
+  // solange die 3D-Ansicht aus ist (utils/lowGfx.js; sonst gilt das Labyrinth weiter nur in 3D).
+  const show3d = !amSpectator && !webglFailed && !(isLowGfx() && !prefs.scene3d);
 
   const countdownUntilClient = state.countdownUntil ? state.countdownUntil + clientOffset : null;
   const inCountdown = !!(countdownUntilClient && countdownUntilClient > now);

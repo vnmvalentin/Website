@@ -5,9 +5,13 @@
 // die Einstellungen alle 1,5 s ab (Backend /api/stream-scenes) — alles wirkt live, auch vom Handy aus.
 // Musik kommt von der YTMusicApp auf dem Streamer-PC; der Test verbindet sich von hier aus direkt.
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Copy, Check, Flame, PartyPopper, DoorOpen, Timer, ExternalLink, Flag, X } from 'lucide-react';
+import { Copy, Check, Flame, PartyPopper, DoorOpen, Timer, ExternalLink, Flag, X, RotateCcw, AlignCenterHorizontal } from 'lucide-react';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 import { createMusicFeed } from './sceneLink';
+import { GambleStage } from '../StreamGamble/GambleOverlay';
+import {
+  GAMBLE_LAYOUT_DEFAULT, GAMBLE_STAGE_W, GAMBLE_STAGE_H, gamblePreviewState, mergeGambleLayout,
+} from '../StreamGamble/gambleLayout';
 
 const api = (path, opts = {}) => fetch(`/api/stream-scenes${path}`, {
   credentials: 'include',
@@ -23,6 +27,7 @@ const TABS = [
   ['starting', 'Stream Starting'],
   ['brb', 'Be Right Back'],
   ['ending', 'Stream Ending'],
+  ['gamble', 'Gamble'],
   ['general', 'Allgemein'],
 ];
 const TAB_KEY = 'streamScenes.tab';
@@ -316,6 +321,154 @@ function EndingTab({ origin }) {
   );
 }
 
+const GAMBLE_PARTS_UI = [
+  ['rocket', 'Rakete', 'Kurve, Multiplikator und Einsätze'],
+  ['marbles', 'Murmelbahn', 'Preise während der Anmeldung, danach die Plätze'],
+  ['pot', 'Topf-Gewinner', 'Meldung, wenn jemand den Topf gewinnt'],
+];
+const SNAP = 14;           // so nah (Bühnen-Pixel) rastet ein Teil an Mitte oder Rand
+const EDGE = 32;           // Randabstand, an dem die Teile einrasten
+
+function GambleTab({ s, update, origin }) {
+  const g = mergeGambleLayout(s.gamble);
+  const [selected, setSelected] = useState('rocket');
+  const [preview] = useState(() => { const now = Date.now(); return { now, ...gamblePreviewState(now) }; });
+
+  // Leinwand auf die verfügbare Breite bringen
+  const hostRef = useRef(null);
+  const [fit, setFit] = useState(0.4);
+  const fitRef = useRef(0.4);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return undefined;
+    const onResize = () => { const f = Math.max(0.05, host.clientWidth / GAMBLE_STAGE_W); fitRef.current = f; setFit(f); };
+    onResize();
+    const ro = new ResizeObserver(onResize);
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, []);
+
+  /** Ein Teil ändern; liest den aktuellen Stand, damit schnelles Ziehen nichts überschreibt. */
+  const setPart = useCallback((id, patch) => update((cur) => {
+    const gg = mergeGambleLayout(cur.gamble);
+    return { gamble: { ...gg, [id]: { ...gg[id], ...patch } } };
+  }), [update]);
+
+  const sizeOf = (id) => {
+    const el = hostRef.current?.querySelector(`[data-gamble-part="${id}"]`);
+    // offsetWidth enthält die Größe des Teils schon (zoom eine Ebene darunter)
+    return el ? { w: el.offsetWidth, h: el.offsetHeight } : { w: 0, h: 0 };
+  };
+
+  // Ziehen mit der Maus (oder dem Finger)
+  const dragRef = useRef(null);
+  const onGrab = (id) => (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    setSelected(id);
+    dragRef.current = { id, el: e.currentTarget, sx: e.clientX, sy: e.clientY, ox: g[id].x, oy: g[id].y };
+  };
+  useEffect(() => {
+    const onMove = (e) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const w = d.el.offsetWidth;
+      const h = d.el.offsetHeight;
+      let x = d.ox + (e.clientX - d.sx) / fitRef.current;
+      let y = d.oy + (e.clientY - d.sy) / fitRef.current;
+      for (const t of [EDGE, (GAMBLE_STAGE_W - w) / 2, GAMBLE_STAGE_W - EDGE - w]) if (Math.abs(x - t) < SNAP) x = t;
+      for (const t of [EDGE, (GAMBLE_STAGE_H - h) / 2, GAMBLE_STAGE_H - EDGE - h]) if (Math.abs(y - t) < SNAP) y = t;
+      setPart(d.id, {
+        x: Math.round(Math.min(GAMBLE_STAGE_W - w * 0.5, Math.max(-w * 0.5, x))),
+        y: Math.round(Math.min(GAMBLE_STAGE_H - h * 0.5, Math.max(-h * 0.5, y))),
+      });
+    };
+    const onUp = () => { dragRef.current = null; };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [setPart]);
+
+  const shown = { rocket: g.rocket.enabled, marbles: g.marbles.enabled, pot: g.pot.enabled };
+  const numInput = 'w-24 rounded-md border border-white/10 bg-black/40 px-2.5 py-1.5 text-sm tabular-nums';
+
+  return (
+    <div className="space-y-5">
+      <SourceBar url={`${origin}/overlay/gamble`} what="Rakete, Murmelbahn und Topf aus Streamer.bot" />
+
+      <section className="rounded-md border border-white/10 bg-[#101119] p-3">
+        <div ref={hostRef} className="relative w-full overflow-hidden rounded-[4px] border border-white/10"
+          style={{ height: Math.round(GAMBLE_STAGE_H * fit), background: 'repeating-conic-gradient(#1c1c22 0% 25%, #131317 0% 50%) 0 0 / 24px 24px' }}>
+          <div className="gx-root gx-root--preview" style={{ inset: 0 }}>
+            <div className="gx-stage" style={{ zoom: fit }}>
+              <GambleStage
+                layout={g}
+                shown={shown}
+                rocket={preview.rocket}
+                marbles={preview.marbles}
+                potWinner={preview.potWinner}
+                now={preview.now}
+                onRocketDone={() => {}}
+                editor={{ selected, onGrab }}
+              />
+            </div>
+          </div>
+        </div>
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/45">
+          <span className="tabular-nums">1920 × 1080 · {Math.round(fit * 100)} %</span>
+          <span>Teile mit der Maus verschieben, sie rasten an Mitte und Rand ein. Das Karomuster ist im Stream durchsichtig.</span>
+          <span>Blasse Teile sind ausgeblendet.</span>
+        </p>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        {GAMBLE_PARTS_UI.map(([id, title, hint]) => {
+          const p = g[id];
+          return (
+            <div key={id} onPointerDown={() => setSelected(id)}
+              className={`rounded-md ${selected === id ? 'ring-1 ring-violet-400/60' : ''}`}>
+              <Card title={title} hint={hint} className="h-full">
+                <Field label="Sichtbar"><Switch checked={p.enabled} onChange={(v) => setPart(id, { enabled: v })} /></Field>
+                <Field stack label="Größe">
+                  <Range value={Math.round(p.scale * 100)} min={50} max={200} step={5} onChange={(v) => setPart(id, { scale: v / 100 })} suffix=" %" />
+                </Field>
+                <Field stack label="Position" hint="obere linke Ecke auf 1920 × 1080">
+                  <label className="flex items-center gap-1.5 text-xs text-white/50">X
+                    <input type="number" value={p.x} onChange={(e) => setPart(id, { x: Number(e.target.value) || 0 })} className={numInput} />
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-white/50">Y
+                    <input type="number" value={p.y} onChange={(e) => setPart(id, { y: Number(e.target.value) || 0 })} className={numInput} />
+                  </label>
+                </Field>
+                <div className="flex flex-wrap gap-2 py-3">
+                  <Btn icon={AlignCenterHorizontal} onClick={() => setPart(id, { x: Math.round((GAMBLE_STAGE_W - sizeOf(id).w) / 2) })}>Mittig</Btn>
+                  <Btn icon={RotateCcw} onClick={() => setPart(id, { ...GAMBLE_LAYOUT_DEFAULT[id] })}>Zurücksetzen</Btn>
+                </div>
+              </Card>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card title="Testmodus" hint="Spielt in der OBS-Quelle Beispiel-Runden ab (Rakete, Murmelbahn, Topf) — zum Ausrichten in OBS.">
+          <Field label="Testmodus" hint={g.demo ? 'an — vor dem Stream ausschalten' : 'aus'}>
+            <Switch checked={g.demo} onChange={(v) => update((cur) => ({ gamble: { ...mergeGambleLayout(cur.gamble), demo: v } }))} />
+          </Field>
+        </Card>
+        <Card title="So funktioniert es">
+          <p className="py-3 text-sm leading-relaxed text-white/60">Die Runden selbst kommen aus Streamer.bot (Gamble Core). Ein Teil erscheint im Stream nur, solange dort gerade etwas läuft. Änderungen hier wirken nach 1–2 Sekunden in der laufenden OBS-Quelle.</p>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 function GeneralTab({ s, update, origin }) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -357,10 +510,10 @@ export default function StreamScenesControlPage() {
     api('/control').then(setCtl).catch((e) => setError(`Fehler beim Laden: ${e.message}`));
   }, [user]);
 
-  /** Einstellung ändern: sofort anzeigen, gebündelt speichern. */
+  /** Einstellung ändern: sofort anzeigen, gebündelt speichern. patch darf auch (settings) => patch sein. */
   const update = useCallback((patch) => {
     setCtl((c) => {
-      const settings = { ...c.settings, ...patch };
+      const settings = { ...c.settings, ...(typeof patch === 'function' ? patch(c.settings) : patch) };
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         api('/control', { method: 'PUT', body: JSON.stringify({ settings }) })
@@ -400,6 +553,7 @@ export default function StreamScenesControlPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {s.demo && <button type="button" onClick={() => update({ demo: false })} className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/15">Testmodus an — ausschalten</button>}
+          {s.gamble?.demo && <button type="button" onClick={() => update((cur) => ({ gamble: { ...mergeGambleLayout(cur.gamble), demo: false } }))} className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/15">Gamble-Testmodus an — ausschalten</button>}
           {flash && <span className="rounded-md bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-300">{flash}</span>}
         </div>
       </div>
@@ -418,6 +572,7 @@ export default function StreamScenesControlPage() {
         {tab === 'starting' && <StartingTab s={s} update={update} command={command} origin={origin} />}
         {tab === 'brb' && <BrbTab s={s} update={update} command={command} origin={origin} />}
         {tab === 'ending' && <EndingTab origin={origin} />}
+        {tab === 'gamble' && <GambleTab s={s} update={update} origin={origin} />}
         {tab === 'general' && <GeneralTab s={s} update={update} origin={origin} />}
       </div>
     </div>

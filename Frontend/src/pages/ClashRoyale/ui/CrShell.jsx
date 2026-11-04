@@ -9,7 +9,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet } from "react-router-dom";
 import CrSettingsModal from "./CrSettingsModal";
-import { CrPrefsContext, DEFAULT_BACKGROUND, backgroundUrl, loadPrefs, savePrefs } from "./crPrefs";
+import { CrPrefsContext, DEFAULT_BACKGROUND, GFX_PREF_KEYS, backgroundUrl, loadPrefs, savePrefs } from "./crPrefs";
 import { playSound, setSoundVolume } from "./sound";
 import { rememberPick } from "./flyToDeck";
 
@@ -60,6 +60,11 @@ export default function CrShell() {
   const setPref = useCallback((key, value) => {
     setPrefs((prev) => {
       const next = { ...prev, [key]: value };
+      // Selbst umgeschaltet, während die Grafik-Sparwahl galt: ab jetzt zählt die eigene Wahl (crPrefs.js)
+      if (prev.autoLowGfx && GFX_PREF_KEYS.includes(key)) {
+        next.autoLowGfx = false;
+        next.gfxChoice = true;
+      }
       savePrefs(next);
       return next;
     });

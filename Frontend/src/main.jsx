@@ -3,6 +3,10 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
+import { applyLowGfxFlag } from "./utils/lowGfx";
+
+// Ohne Hardwarebeschleunigung: Animationen, Weichzeichner und 3D sparen (utils/lowGfx.js)
+applyLowGfxFlag();
 
 // Beim Deploy wird assets/ komplett ersetzt. Ein Tab, der davor geöffnet wurde, will
 // beim Navigieren einen Chunk nachladen, den es nicht mehr gibt — statt weißer Seite

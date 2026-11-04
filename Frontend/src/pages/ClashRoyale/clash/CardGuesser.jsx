@@ -4,6 +4,7 @@
 // Hinweise kommen aus quizData.hintPlan (gespeichert als Aussage + wahr/falsch, Text je nach Sprache).
 import React, { useMemo, useState } from 'react';
 import GameFrame from './GameFrame';
+import NextGame from './NextGame';
 import FlipCard from './FlipCard';
 import ChunkyButton from '../ui/ChunkyButton';
 import { CrCrown, CrReplay, CrTarget } from '../ui/CrIcons';
@@ -143,6 +144,7 @@ export default function CardGuesser() {
               </div>
               <ChunkyButton variant="green" size="sm" icon={CrReplay} onClick={() => restart('free')} className="self-start">{t.newRound}</ChunkyButton>
               {game.mode === 'daily' && <p className="text-xs text-white/50">{t.nextDaily}</p>}
+              <NextGame current="kartenraten" />
             </div>
           )}
         </aside>

@@ -6,6 +6,7 @@ const {
     getImageOnlyChannels, getSyncChannels, getTwitchNotifications, getTicketConfig,
 } = require('../database/db');
 const { renderMemberImage } = require('../bot/memberImage');
+const loyaltyStore = require('../loyalty/store');
 
 /** IDs, die Discord nicht mehr kennt (gelöschte Kanäle) — nicht bei jedem Abruf erneut fragen. */
 const goneChannels = new Set();
@@ -98,6 +99,7 @@ module.exports = function ({ requireAuth, discordClient }) {
             syncchat: safe(() => getSyncChannels(guildId).length),
             twitchnotif: safe(() => getTwitchNotifications(guildId).length),
             tickets: safe(() => getTicketConfig(guildId)),
+            loyalty: safe(() => loyaltyStore.getConfig(guildId).enabled),
         });
     });
 

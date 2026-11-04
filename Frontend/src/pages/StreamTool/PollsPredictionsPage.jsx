@@ -1695,6 +1695,9 @@ export default function PollsPredictionsPage() {
   const reportWinner = useCallback((raceId, winnerId) => {
     if (overlayKey) api.reportMarbleWinner(overlayKey, raceId, winnerId).catch(() => {});
   }, [overlayKey]);
+  const reportPlacings = useCallback((raceId, ids) => {
+    if (overlayKey) api.reportMarblePlacings(overlayKey, raceId, ids).catch(() => {});
+  }, [overlayKey]);
 
   // Eigener Takt für die Countdowns zwischen den Abrufen
   useEffect(() => {
@@ -1890,7 +1893,7 @@ export default function PollsPredictionsPage() {
     streamStats: statsView && <StatsWidget data={statsView} module={m.streamStats} />,
     raidClip: raidView && <RaidClipWidget data={raidView} module={m.raidClip} preview />,
     marbleRun: marblesView && (
-      <MarbleRunWidget data={marblesView} module={m.marbleRun} offsetRef={clockOffset} onResult={reportWinner} />
+      <MarbleRunWidget data={marblesView} module={m.marbleRun} offsetRef={clockOffset} onResult={reportWinner} onPlacings={reportPlacings} />
     ),
   };
   const hasData = {

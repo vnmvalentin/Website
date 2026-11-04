@@ -5,6 +5,7 @@ const path = require('path');
 const { startTwitchPoller } = require('./twitchPoller');
 const { startBoosterRoleSweep } = require('./boosterRoles');
 const { startSeedRunnersBoard } = require('./seedRunnersBoard');
+const { startLoyaltyVoiceTicker } = require('../loyalty/earn');
 
 const discordClient = new Client({
     intents: [
@@ -49,6 +50,7 @@ discordClient.once('clientReady', () => {
     startTwitchPoller(discordClient);
     startBoosterRoleSweep(discordClient);
     startSeedRunnersBoard(discordClient);
+    startLoyaltyVoiceTicker(discordClient);
 });
 
 module.exports = discordClient;

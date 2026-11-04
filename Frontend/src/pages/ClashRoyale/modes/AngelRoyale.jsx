@@ -248,7 +248,9 @@ function roundRectPath(ctx, x, y, w, h, r) {
 // steckt geglättet in ui/serverClock.js (vorher sprangen die Karten bei jeder Nachricht).
 
 // ── Der Fluss (Canvas) ──────────────────────────────────────────────────────
-function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
+// memo: Die Uhr von AngelGame tickt alle 100 ms — der Fluss zeichnet selbst per requestAnimationFrame
+// und braucht nur neue Props, wenn sich Zustand oder Klickbarkeit ändern.
+const RiverCanvas = React.memo(function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const stateRef = useRef(state);
@@ -614,13 +616,13 @@ function RiverCanvas({ state, canInteract, onCatch, deniedRef }) {
       />
     </div>
   );
-}
+});
 
 // ── Platz in der Deck-Leiste ────────────────────────────────────────────────
 // Der eigene Fang fliegt aus dem Fluss hierher. Der Klick wird lokal gemerkt (pendingFlyRef),
 // nicht über ui/flyToDeck.js' globalen Merker — sonst holt sich die Seitenleiste den Flug.
 const FLY_MAX_AGE_MS = 2500;
-function AngelDeckSlot({ card, pendingFlyRef }) {
+const AngelDeckSlot = React.memo(function AngelDeckSlot({ card, pendingFlyRef }) {
   const ref = useRef(null);
   const mounted = useRef(false);
   const [phase, setPhase] = useState('pop'); // 'pop' | 'flying' | 'landed'
@@ -655,7 +657,7 @@ function AngelDeckSlot({ card, pendingFlyRef }) {
       <CardImg id={card.id} name={card.name} />
     </div>
   );
-}
+});
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────
 export default function AngelRoyale(props) {
@@ -681,6 +683,7 @@ function AngelGame({ fishState, myPlayerId, onCatch, denied, autoCatch, lang = '
   const { prefs } = useCrPrefs();
   const [webglFailed, setWebglFailed] = useState(false);
   const show3d = prefs.scene3d && !webglFailed;
+  const onWebglUnsupported = useCallback(() => setWebglFailed(true), []);
   const pendingFlyRef = useRef(null);
   const deckBarRef = useRef(null);
   const rodRef = useRef(null);
@@ -806,7 +809,7 @@ function AngelGame({ fishState, myPlayerId, onCatch, denied, autoCatch, lang = '
                 onCatch={handleCatch}
                 deniedRef={deniedRef}
                 myPlayerId={myPlayerId}
-                onUnsupported={() => setWebglFailed(true)} />
+                onUnsupported={onWebglUnsupported} />
             </Suspense>
           ) : (
             <RiverCanvas

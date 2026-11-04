@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import {
     Settings, UserPlus, LogOut, Gamepad2, Tag, CheckSquare,
     Volume2, Users, Tv, Image, Globe, BarChart2,
-    Radio, Ticket, Bot, ArrowRight, ArrowLeft, ChevronDown,
+    Radio, Ticket, Bot, ArrowRight, ArrowLeft, ChevronDown, Coins,
 } from 'lucide-react';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 
@@ -39,6 +39,7 @@ import StatsTab from './tabs/StatsTab';
 import SyncChatTab from './tabs/SyncChatTab';
 import LiveRoleTab from './tabs/LiveRoleTab';
 import TicketsTab from './tabs/TicketsTab';
+import LoyaltyTab from './tabs/LoyaltyTab';
 
 function LegalLinks({ className = '' }) {
     return (
@@ -86,6 +87,7 @@ const GROUPS = [
         label: 'Features',
         tabs: [
             { id: 'funcommands',  label: 'Fun Commands',   icon: <Gamepad2 size={15} /> },
+            { id: 'loyalty',      label: 'Punkte',         icon: <Coins size={15} /> },
             { id: 'twitchnotif',  label: 'Twitch Notif.',  icon: <Tv size={15} /> },
             { id: 'tickets',      label: 'Tickets',        icon: <Ticket size={15} /> },
         ],
@@ -571,6 +573,13 @@ export default function DiscordBotDashboard() {
                         <LiveRoleTab
                             selectedServer={selectedServer}
                             serverRoles={serverRoles}
+                        />
+                    )}
+                    {activeTab === 'loyalty' && (
+                        <LoyaltyTab
+                            selectedServer={selectedServer}
+                            channels={channels}
+                            onDirty={setTabDirty}
                         />
                     )}
                     {activeTab === 'tickets' && (

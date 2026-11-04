@@ -12,6 +12,8 @@
     "seedrunners:spiegel:pruefen": "node seedRunners/tools/simSpiegel.js --pruefen",
     "garden:spiegel": "node garden/tools/katalogSpiegel.js",
     "garden:spiegel:pruefen": "node garden/tools/katalogSpiegel.js --pruefen",
+    "garden:sim": "node garden/tools/simulator.js",
+    "test:garden": "node --test \"garden/**/*.test.js\"",
     "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js",
     "cr:card-stats": "node clashRoyale/tools/cardStatsSpiegel.js",
     "test:sigils": "node --test \"sacrificeSigils/**/*.test.js\"",

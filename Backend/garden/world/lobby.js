@@ -18,6 +18,7 @@
 
 const { wetterListe } = require("../core/weather");
 const { skillStand } = require("../core/skills");
+const { sterneVon } = require("../core/prestige");
 const { normalisiereSkin, istFreigeschaltet, STANDARD_SKIN, istAdminId } = require("../core/wardrobe");
 const { istBoden: istBodenDeko } = require("../core/deko");
 const { ausgeruesteteReskins } = require("../core/reskins");
@@ -370,6 +371,7 @@ function buildVitrineSnapshot(state) {
             rarity: i?.rarity,
             singleUse: i?.singleUse !== false,
             size: Number(i?.size) || 1,
+            ...(Number.isFinite(Number(i?.groesse)) ? { groesse: Number(i.groesse) } : {}),
             specialData: i?.specialData || undefined,
             statusEffect: i?.statusEffect || null,
             statusEffects: wetterListe(i),
@@ -400,6 +402,9 @@ function publicPlayer(p) {
         // Level für die Online-Liste (Feedback 01.09.: "Level + Gold mit Icons") —
         // dieselbe Rechnung wie skillStand() selbst, nur der eine Wert daraus.
         level: skillStand(farmStatesRef?.get(String(p.twitchId)) || {}).level,
+        // Sterne aus „Neue Saat" (core/prestige.js) — für Abzeichen, goldenen Namen
+        // und Sternenspur, die alle anderen in der Welt sehen.
+        sterne: sterneVon(farmStatesRef?.get(String(p.twitchId))),
     };
 }
 
@@ -425,6 +430,7 @@ function sanitizeHeld(raw) {
         seedImage: pfad(raw.seedImage),
         rarity: text(raw.rarity, 16),
         size: zahl(raw.size, 1, 50),
+        groesse: zahl(raw.groesse, 1, 100),
         norm: zahl(raw.norm, 0, 1),
         statusEffect: ["wet", "frozen", "charged", "moonlit"].includes(raw.statusEffect) ? raw.statusEffect : null,
         specialType: special === "Golden" || special === "Rainbow" ? special : null,

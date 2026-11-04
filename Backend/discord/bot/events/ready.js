@@ -94,6 +94,51 @@ const commands = [
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addSubcommand(sub => sub.setName('setzen').setDescription('Postet die Tagesrangliste in diesem Kanal und hält sie aktuell.'))
         .addSubcommand(sub => sub.setName('entfernen').setDescription('Entfernt die Tagesrangliste von diesem Server.')),
+
+    // ── Punkte-System (discord/loyalty/games.js) ─────────────────────────────
+    new SlashCommandBuilder()
+        .setName('punkte')
+        .setDescription('Zeigt deinen Kontostand und deine Statistik.')
+        .addUserOption(opt => opt.setName('user').setDescription('Statt dir diesen Nutzer zeigen')),
+    new SlashCommandBuilder()
+        .setName('daily')
+        .setDescription('Hol dir deinen Tagesbonus — jeder Tag in Folge gibt mehr.'),
+    new SlashCommandBuilder()
+        .setName('rangliste')
+        .setDescription('Die reichsten Mitglieder des Servers.')
+        .addIntegerOption(opt => opt.setName('seite').setDescription('Seite (10 pro Seite)').setMinValue(1)),
+    new SlashCommandBuilder()
+        .setName('geben')
+        .setDescription('Verschenke Punkte an ein anderes Mitglied.')
+        .addUserOption(opt => opt.setName('user').setDescription('Wer bekommt sie?').setRequired(true))
+        .addStringOption(opt => opt.setName('betrag').setDescription('z. B. 100, 1k, half, all').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('gamble')
+        .setDescription('Dreh am Glücksrad: Grün verdoppelt, Rot ist weg, Gold ist der Jackpot (x5).')
+        .addStringOption(opt => opt.setName('einsatz').setDescription('z. B. 100, 1k, half, all, 25%').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('rakete')
+        .setDescription('Steig in die Rakete — und steig aus, bevor sie explodiert.')
+        .addStringOption(opt => opt.setName('einsatz').setDescription('z. B. 100, 1k, half, all').setRequired(true))
+        .addNumberOption(opt => opt.setName('auto').setDescription('Automatisch aussteigen bei diesem Multiplikator, z. B. 2.5').setMinValue(1.1).setMaxValue(100)),
+    new SlashCommandBuilder()
+        .setName('duell')
+        .setDescription('Fordere jemanden heraus — die Münze entscheidet, der Gewinner bekommt alles.')
+        .addUserOption(opt => opt.setName('gegner').setDescription('Dein Gegner').setRequired(true))
+        .addStringOption(opt => opt.setName('einsatz').setDescription('Einsatz pro Person, z. B. 100 oder 1k').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('punkteadmin')
+        .setDescription('Punkte von Mitgliedern anpassen (Server verwalten).')
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .addSubcommand(sub => sub.setName('geben').setDescription('Punkte gutschreiben')
+            .addUserOption(opt => opt.setName('user').setDescription('Mitglied').setRequired(true))
+            .addIntegerOption(opt => opt.setName('betrag').setDescription('Betrag').setRequired(true).setMinValue(1)))
+        .addSubcommand(sub => sub.setName('nehmen').setDescription('Punkte abziehen')
+            .addUserOption(opt => opt.setName('user').setDescription('Mitglied').setRequired(true))
+            .addIntegerOption(opt => opt.setName('betrag').setDescription('Betrag').setRequired(true).setMinValue(1)))
+        .addSubcommand(sub => sub.setName('setzen').setDescription('Kontostand festlegen')
+            .addUserOption(opt => opt.setName('user').setDescription('Mitglied').setRequired(true))
+            .addIntegerOption(opt => opt.setName('betrag').setDescription('Neuer Kontostand').setRequired(true).setMinValue(0))),
 ].map(cmd => cmd.toJSON());
 
 function getCommandsJSON() { return commands; }

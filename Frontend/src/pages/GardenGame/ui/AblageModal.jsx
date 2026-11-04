@@ -10,7 +10,7 @@
 // bzw. „alles". Verschoben und geprüft wird in garden/core/economy.js.
 import React, { useMemo, useState } from 'react';
 import { HudIcon } from './gameIcons';
-import { GardenModal, RarityLabel } from './gardenUi';
+import { GardenModal, RarityLabel, LeerHinweis, TabBar } from './gardenUi';
 import { SpecialItemIcon } from './ItemIcon';
 import { beschreibeErnte } from './itemTints';
 import { formatGold } from './gardenTokens';
@@ -104,7 +104,7 @@ function Spalte({ titel, hinweis, gruppen, aktion, richtung, busy, leerText }) {
     return (
         <div className="flex-1 min-w-0">
             <div className="flex items-baseline justify-between gap-2 mb-1.5">
-                <span className="text-[11px] uppercase tracking-wider text-slate-500">{titel}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{titel}</span>
                 <span className="flex items-baseline gap-2">
                     {gesamtwert > 0 && (
                         <span className="text-[10px] font-semibold text-amber-400 tabular-nums">
@@ -116,23 +116,12 @@ function Spalte({ titel, hinweis, gruppen, aktion, richtung, busy, leerText }) {
             </div>
 
             {vorhanden.length > 1 && (
-                <div className="flex flex-wrap items-center gap-1 mb-1.5">
-                    {vorhanden.map((k) => (
-                        <button
-                            key={k.key}
-                            type="button"
-                            onClick={() => setReiter(k.key)}
-                            className={`px-2 py-1 rounded-xl border text-[10px] font-medium transition-colors ${
-                                aktiv === k.key
-                                    ? "border-violet-600 bg-violet-600/20 text-violet-200"
-                                    : "border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
-                            }`}
-                        >
-                            {k.label}
-                            <span className="ml-1 tabular-nums text-slate-500">{gruppen[k.key].length}</span>
-                        </button>
-                    ))}
-                </div>
+                <TabBar
+                    className="mb-1.5 border-b border-slate-800"
+                    active={aktiv}
+                    onSelect={setReiter}
+                    tabs={vorhanden.map((k) => ({ key: k.key, label: k.label, count: gruppen[k.key].length }))}
+                />
             )}
 
             {gesamt === 0 ? (
@@ -177,7 +166,7 @@ export default function AblageModal({
                 : "Lagerplatz für Ernte, Samen, Eier, Deko und Tiere. Was hier liegt, belegt keinen Rucksackplatz"}
             onClose={onClose}
             onBack={onBack}
-            width="max-w-3xl"
+            breite="gross"
             headerRight={
                 <button
                     type="button"
@@ -251,12 +240,11 @@ export function FremdeVitrineModal({ owner, items, onClose }) {
             title={`Vitrine von ${owner || "unbekannt"}`}
             subtitle={items.length ? `${items.length} ausgestellte Stücke` : "Noch nichts ausgestellt"}
             onClose={onClose}
-            width="max-w-lg"
         >
             {items.length === 0 ? (
-                <div className="text-slate-500 text-sm text-center py-10">
+                <LeerHinweis>
                     Diese Vitrine steht noch leer.
-                </div>
+                </LeerHinweis>
             ) : (
                 <div className="space-y-1.5">
                     {items.map((item, i) => (

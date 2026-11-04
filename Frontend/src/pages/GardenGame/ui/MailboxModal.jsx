@@ -14,7 +14,7 @@
 // Der Server rechnet (siehe Backend/garden/world/mail.js); hier wird nur so weit geprüft,
 // dass keine offensichtlich sinnlose Anfrage rausgeht.
 import React, { useMemo, useState } from 'react';
-import { GardenModal, PrimaryButton, RarityLabel } from './gardenUi';
+import { GardenModal, PrimaryButton, RarityLabel, LeerHinweis } from './gardenUi';
 import { HudIcon, TabIcon } from './gameIcons';
 import { ItemIcon, SpecialItemIcon } from './ItemIcon';
 import { beschreibeErnte } from './itemTints';
@@ -307,13 +307,12 @@ export default function MailboxModal({
                     ? `${mailbox.length === 1 ? "Eine Sendung wartet" : `${mailbox.length} Sendungen warten`}${teile.length ? ` — insgesamt ${teile.join(" und ")}` : ""}`
                     : "Nichts Neues"}
                 onClose={onClose}
-                width="max-w-xl"
             >
                 {mailbox.length === 0 ? (
-                    <div className="text-slate-500 text-sm text-center py-10">
+                    <LeerHinweis>
                         Dein Briefkasten ist leer. Andere können dir etwas hinterlegen, indem sie
                         an deinem Grundstück vorbeikommen.
-                    </div>
+                    </LeerHinweis>
                 ) : (
                     <div className="space-y-1.5">
                         {mailbox.map((mail) => (
@@ -349,7 +348,6 @@ export default function MailboxModal({
             title={`Briefkasten von ${recipient}`}
             subtitle="Was du hier hinterlegst, findet nur diese Farm"
             onClose={onClose}
-            width="max-w-xl"
             footer={fuss}
         >
             <div className="space-y-4">

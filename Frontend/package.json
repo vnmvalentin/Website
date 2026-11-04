@@ -17,6 +17,8 @@
     "art:prompts": "node src/pages/SacrificeSigils/tools/artPrompts.js",
     "art:generate": "node src/pages/SacrificeSigils/tools/artGenerate.js",
     "art:comfy": "node src/pages/SacrificeSigils/tools/artComfy.js",
+    "garden:art": "node src/pages/GardenGame/tools/farmArt.js",
+    "garden:art:uebernehmen": "node src/pages/GardenGame/tools/farmArtUebernehmen.js",
     "preview": "vite preview",
     "tailwind:init": "tailwindcss init -p",
     "test:flick": "node --test \"src/pages/FlickSoccer/**/*.test.js\"",

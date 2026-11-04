@@ -39,7 +39,19 @@ const { WEATHER_SELL_BOOST } = require("./weather");
  */
 const XP_FAKTOR = 400;
 const XP_FAKTOR_ALT = 30;
-const MAX_LEVEL = 50;
+/**
+ * Höchstlevel 100 (Nov. 2026, Fahrplan Phase 2). Vorher 50 — der Simulator
+ * (tools/simulator.js) zeigte es nach 7 (Vielspieler) bzw. 14 Tagen (aktiv)
+ * erreicht; Ziel ist frühestens 6–8 Wochen. Bis Level 50 bleibt die Kurve exakt
+ * wie bisher (niemand verliert ein Level), danach wächst der Abstand je Level
+ * linear: Level 100 liegt bei 8,5 Mio. XP. Gemessen sammeln nach den ersten
+ * Wochen alle Spielertypen ähnlich viel XP am Tag (~150–200 Tsd.) — aktive
+ * Spieler erreichen 100 nach ~7–8 Wochen, Gelegenheits- und Vielspieler nach ~9.
+ */
+const MAX_LEVEL = 100;
+const LEVEL_ALTE_GRENZE = 50;
+const XP_SCHRITT_AB_50 = XP_FAKTOR * 2 * (LEVEL_ALTE_GRENZE - 1); // Abstand Level 49→50 = 39.200
+const XP_ZUWACHS_AB_50 = 4539;                                     // jeder weitere Level kostet so viel mehr
 
 /**
  * Zurücksetzen kostet — und zwar quadratisch mit den vergebenen Punkten.
@@ -84,7 +96,7 @@ function punkteFuerStufe(stufe) {
  * Fähigkeiten aus Tier N−1 schon mindestens einen Punkt gesetzt haben — echte
  * Breite, kein Gesamt-Zähler. Index 0 ist unbenutzt (Tier 0 hat kein Vorher).
  */
-const TIER_BREITE = [0, 3, 1, 1, 2];
+const TIER_BREITE = [0, 3, 1, 1, 2, 1];
 
 /** Alle Fähigkeiten eines Tiers, in der Reihenfolge von SKILLS. */
 function tierFaehigkeiten(tier) {
@@ -382,6 +394,30 @@ const SKILLS = [
         stufen: 10, proStufe: 0.01, ab: 28, levelProStufe: 2, tier: 4, seite: "links",
         einheit: "prozent",
     },
+    // ── Tier 5: ab Level 52 (Höchstlevel 100, Nov. 2026) ──────────────────────
+    // Bewusst KEIN weiterer pauschaler Verkaufsaufschlag: diese drei verstärken
+    // das, was aktives Spielen belohnt — Sortenvielfalt, Händler-Aufträge, Erntefest.
+    {
+        id: "sortenkenner",
+        name: "Sortenkenner",
+        beschreibung: "Der Vielfalt-Bonus deines Ackers wirkt stärker.",
+        stufen: 8, proStufe: 0.05, ab: 52, levelProStufe: 6, tier: 5, seite: "mitte",
+        einheit: "prozent",
+    },
+    {
+        id: "auftragsprofi",
+        name: "Auftragsprofi",
+        beschreibung: "Händler-Aufträge zahlen mehr Gold.",
+        stufen: 6, proStufe: 0.08, ab: 56, levelProStufe: 6, tier: 5, seite: "rechts",
+        einheit: "prozent",
+    },
+    {
+        id: "festkomitee",
+        name: "Festkomitee",
+        beschreibung: "Die Belohnung beim Erntefest fällt höher aus.",
+        stufen: 5, proStufe: 0.1, ab: 60, levelProStufe: 6, tier: 5, seite: "links",
+        einheit: "prozent",
+    },
 ];
 
 /**
@@ -407,15 +443,35 @@ const SKILL_NACH_ID = new Map(SKILLS.map((s) => [s.id, s]));
 /** Gesamt-XP, die für dieses Level nötig sind. Level 1 ist der Anfang. */
 function xpFuerLevel(level) {
     const l = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-    return XP_FAKTOR * (l - 1) * l;
+    if (l <= LEVEL_ALTE_GRENZE) return XP_FAKTOR * (l - 1) * l;
+    const n = l - LEVEL_ALTE_GRENZE;
+    const bis50 = XP_FAKTOR * (LEVEL_ALTE_GRENZE - 1) * LEVEL_ALTE_GRENZE;
+    return bis50 + n * XP_SCHRITT_AB_50 + XP_ZUWACHS_AB_50 * n * (n - 1) / 2;
 }
 
-/** Level zu einer XP-Summe. Umkehrung von xpFuerLevel, ohne Schleife. */
+/** Level zu einer XP-Summe. Umkehrung von xpFuerLevel. */
 function levelZuXp(xp) {
     const menge = Math.max(0, Number(xp) || 0);
-    // 30·(L−1)·L ≤ xp  →  L = floor((1 + sqrt(1 + 4·xp/30)) / 2)
+    // Bis Level 50: 400·(L−1)·L ≤ xp  →  L = floor((1 + sqrt(1 + 4·xp/400)) / 2)
     const l = Math.floor((1 + Math.sqrt(1 + (4 * menge) / XP_FAKTOR)) / 2);
-    return Math.max(1, Math.min(MAX_LEVEL, l));
+    if (l < LEVEL_ALTE_GRENZE) return Math.max(1, l);
+    // Darüber: höchstens 50 Schritte nachzählen.
+    let level = LEVEL_ALTE_GRENZE;
+    while (level < MAX_LEVEL && xpFuerLevel(level + 1) <= menge) level++;
+    return level;
+}
+
+/**
+ * Level, nach dem Belohnungen wachsen (Missionen, Erntefest, Fixbonus der
+ * Händler-Aufträge: ×10 je 10 Level) — höchstens 50.
+ *
+ * Der Simulator zeigte: über 50 wächst die Ernte kaum noch (Acker voll, beste
+ * Stauden stehen), eine mitwachsende Belohnung machte dann 80 % des Goldes aus
+ * und das Level selbst zum Goldhahn. Level 51–100 bringen stattdessen die neuen
+ * Fähigkeiten (Tier 5) und Kostüme — Fortschritt, aber keine Gold-Explosion.
+ */
+function belohnungsLevel(xp) {
+    return Math.min(LEVEL_ALTE_GRENZE, levelZuXp(xp));
 }
 
 /** Wie viele Stufen in einer Fähigkeit stecken — geputzt und begrenzt. */
@@ -481,7 +537,8 @@ function skillStand(state) {
  * abhängen muss. Default 1 lässt jeden anderen Aufrufer unverändert.
  */
 function gibXp(state, seltenheit, zyklusMinuten = 0, multiplikator = 1) {
-    const dazu = Math.round(xpFuerErnte(seltenheit, zyklusMinuten) * (Number(multiplikator) || 1));
+    // Stern-Bonus aus „Neue Saat" (core/prestige.js), nur auf Ernte-Erfahrung.
+    const dazu = Math.round(xpFuerErnte(seltenheit, zyklusMinuten) * (Number(multiplikator) || 1) * require("./prestige").xpFaktor(state));
     const vorher = levelZuXp(state.xp);
     state.xp = Math.max(0, Number(state.xp) || 0) + dazu;
     const nachher = levelZuXp(state.xp);
@@ -584,7 +641,7 @@ function skillsZuruecksetzen(state) {
 }
 
 module.exports = {
-    SKILLS, MAX_LEVEL, XP_JE_SELTENHEIT, XP_FAKTOR, XP_FAKTOR_ALT, xpFuerErnte, xpTabelle,
+    SKILLS, MAX_LEVEL, belohnungsLevel, XP_JE_SELTENHEIT, XP_FAKTOR, XP_FAKTOR_ALT, xpFuerErnte, xpTabelle,
     xpFuerLevel, levelZuXp, stufeVon, wirkung, resetKosten, punkteFuerStufe, levelFuerStufe,
     skillStand, gibXp, gibFesteXp, lerneSkill, skillsZuruecksetzen,
     GIESSKANNE_MINUTEN, GIESSKANNE_MAX_ANTEIL, giesskanneMinuten,

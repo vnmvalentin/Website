@@ -64,6 +64,7 @@ const StreamCredits = lazy(() => import("./pages/StreamCredits"));
 const StreamStarting = lazy(() => import("./pages/StreamScenes/StreamStarting"));
 const StreamEnding = lazy(() => import("./pages/StreamScenes/StreamEnding"));
 const StreamBrb = lazy(() => import("./pages/StreamScenes/StreamBrb"));
+const GambleOverlay = lazy(() => import("./pages/StreamGamble/GambleOverlay"));
 const StreamScenesControlPage = lazy(() => import("./pages/StreamScenes/StreamScenesControlPage"));
 const AvatarBuilderPage = lazy(() => import("./pages/StreamScenes/AvatarBuilderPage"));
 const DiscordBotPrivacyPage = lazy(() => import("./pages/Discord/DiscordBotPrivacyPage"));
@@ -185,6 +186,8 @@ export default function App() {
           <Route path="/overlay/stream-starting" element={<StreamStarting />} />
           <Route path="/overlay/stream-ending" element={<StreamEnding />} />
           <Route path="/overlay/brb" element={<StreamBrb />} />
+          {/* Gamble-System aus Streamer.bot (Rakete, Murmel-Wetten, Würfeln, Topf) */}
+          <Route path="/overlay/gamble" element={<GambleOverlay />} />
 
           <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
           <Route path="/banned-cards/overlay/:overlayKey" element={<BannedCardsOverlayPage />} />

@@ -1,0 +1,181 @@
+/* Gamble-Overlay (OBS). Flache dunkle Karten, keine Glows, Zahlen in tabular-nums. */
+
+.gx-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: Inter, system-ui, sans-serif;
+  color: #f4f4f6;
+  --gx-bg: rgba(13, 13, 20, 0.92);
+  --gx-line: rgba(255, 255, 255, 0.1);
+  --gx-dim: rgba(255, 255, 255, 0.5);
+  --gx-green: #34d399;
+  --gx-red: #f87171;
+  --gx-amber: #fbbf24;
+}
+
+.gx-card {
+  position: absolute;
+  top: 32px;
+  width: 460px;
+  background: var(--gx-bg);
+  border: 1px solid var(--gx-line);
+  border-radius: 6px;
+  padding: 16px 18px 12px;
+  animation: gx-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.gx-rocket { right: 32px; width: 340px; padding: 12px 14px 10px; }
+
+/* Bühne 1920×1080; jedes Teil liegt in einem Rahmen mit Lage aus dem Steuerpult */
+.gx-stage {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+}
+.gx-slot { position: absolute; }
+.gx-slot .gx-card { position: static; }
+.gx-slot--marbles .gx-card { width: 400px; }
+.gx-slot .gx-pot {
+  position: static;
+  transform: none;
+  animation-name: gx-rise-slot;
+}
+@keyframes gx-rise-slot { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+
+/* Vorschau im Steuerpult: dieselben Farben, aber in der Leinwand statt über der ganzen Seite */
+.gx-root.gx-root--preview { position: absolute; }
+
+/* Nur im Steuerpult: greifbar, Auswahl-Rahmen, ausgeblendete Teile blass */
+.gx-slot.is-editable { cursor: grab; user-select: none; touch-action: none; }
+.gx-slot.is-editable:active { cursor: grabbing; }
+.gx-slot.is-selected { outline: 3px solid #8b5cf6; outline-offset: 6px; }
+.gx-slot.is-off { opacity: 0.3; }
+
+@keyframes gx-in {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.gx-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.gx-title { font-size: 20px; font-weight: 800; letter-spacing: 0.01em; }
+.gx-sub { font-size: 14px; color: var(--gx-dim); font-variant-numeric: tabular-nums; }
+
+.gx-hint {
+  font-size: 14px;
+  color: var(--gx-amber);
+  margin: 2px 0 10px;
+  font-weight: 600;
+}
+
+.gx-hint--foot { margin: 8px 0 0; }
+
+/* Rakete */
+.gx-chart {
+  display: block;
+  width: 100%;
+  height: 100px;
+  overflow: visible;
+}
+.gx-grid { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1; }
+.gx-gridlabel { fill: rgba(255, 255, 255, 0.3); font-size: 10px; }
+.gx-line { fill: none; stroke: var(--gx-amber); stroke-width: 3; stroke-linejoin: round; }
+.gx-area { fill: rgba(251, 191, 36, 0.12); stroke: none; }
+.gx-line.is-red { stroke: var(--gx-red); }
+.gx-area.is-red { fill: rgba(248, 113, 113, 0.12); }
+.gx-ship path { fill: #f4f4f6; }
+.gx-ship .gx-fin { fill: var(--gx-amber); }
+.gx-flame { fill: #fb923c !important; animation: gx-flicker 90ms steps(2) infinite; transform-origin: -9px 0; }
+@keyframes gx-flicker { 50% { transform: scaleX(0.6); } }
+.gx-boom line { stroke: var(--gx-red); stroke-width: 3; stroke-linecap: round; animation: gx-boom 500ms ease-out both; }
+@keyframes gx-boom { from { opacity: 1; transform: scale(0.3); } to { opacity: 0.9; transform: scale(1.4); } }
+
+.gx-mult {
+  margin: 4px 0 6px;
+  font-size: 38px;
+  line-height: 1;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.gx-mult .is-live { color: var(--gx-amber); }
+.gx-mult .is-red { color: var(--gx-red); }
+.gx-rocket.is-crashed { animation: gx-shake 420ms ease-out both; }
+@keyframes gx-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translate(-6px, 2px); }
+  40% { transform: translate(5px, -3px); }
+  60% { transform: translate(-3px, 2px); }
+  80% { transform: translate(2px, -1px); }
+}
+
+/* Listen */
+.gx-list { list-style: none; margin: 0; padding: 0; }
+.gx-list li {
+  display: grid;
+  grid-template-columns: 1fr auto 76px;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 0;
+  border-top: 1px solid var(--gx-line);
+  font-size: 16px;
+  transition: color 200ms, opacity 200ms;
+}
+.gx-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gx-dim { color: var(--gx-dim); font-size: 14px; font-variant-numeric: tabular-nums; }
+.gx-val { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+.gx-list li.is-win .gx-val, .gx-list li.is-win .gx-name { color: var(--gx-green); }
+.gx-list li.is-win { animation: gx-pop 300ms ease-out; }
+.gx-list li.is-lost { opacity: 0.55; }
+.gx-list li.is-lost .gx-val { color: var(--gx-red); }
+.gx-list li.is-lost .gx-name { text-decoration: line-through; }
+.gx-list li.is-quiet { opacity: 0.6; }
+.gx-list .gx-more { display: block; color: var(--gx-dim); font-size: 13px; }
+@keyframes gx-pop { 0% { transform: translateX(-6px); } 100% { transform: none; } }
+
+.gx-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--gx-line);
+  font-size: 13px;
+  color: var(--gx-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.gx-winner { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.gx-winner__name { font-size: 30px; font-weight: 900; color: var(--gx-amber); }
+.gx-empty { margin: 0; font-size: 15px; color: var(--gx-dim); }
+
+
+/* Topf-Gewinner unten mittig */
+.gx-pot {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%);
+  min-width: 420px;
+  padding: 18px 28px;
+  text-align: center;
+  background: var(--gx-bg);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 6px;
+  animation: gx-rise 420ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+.gx-pot__label { font-size: 14px; color: var(--gx-amber); font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; }
+.gx-pot__name { font-size: 40px; font-weight: 900; margin: 4px 0; }
+.gx-pot__amount { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+@keyframes gx-rise { from { opacity: 0; transform: translate(-50%, 30px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Kleinere Raketen-Karte */
+.gx-rocket .gx-title { font-size: 17px; }
+.gx-rocket .gx-sub { font-size: 13px; }
+.gx-rocket .gx-hint { font-size: 12px; margin: 0 0 6px; }
+.gx-rocket .gx-list li { font-size: 14px; padding: 4px 0; grid-template-columns: 1fr auto 60px; }
+.gx-rocket .gx-dim { font-size: 12px; }
+.gx-rocket .gx-foot { font-size: 12px; margin-top: 6px; padding-top: 6px; }

@@ -166,6 +166,22 @@ button:not(:disabled),
   .app-bg__orb { animation: none; }
 }
 
+/* Ohne Hardwarebeschleunigung (utils/lowGfx.js setzt data-low-gfx): Der Prozessor müsste jede Animation,
+   jeden Übergang und jeden Weichzeichner selbst malen. Animationen springen sofort ans Ende (statt
+   animation: none — so bleiben Endzustände und animationend-Ereignisse erhalten), Hintergrund steht still. */
+html[data-low-gfx] *,
+html[data-low-gfx] *::before,
+html[data-low-gfx] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-low-gfx] .app-bg__orb { animation: none !important; will-change: auto; }
+
 /* ===================================================================
    PANELS / OBERFLÄCHEN
    =================================================================== */
@@ -1907,6 +1923,20 @@ html {
 .crz-tile--gold { --crz-head: linear-gradient(to bottom, #ffd65c, #e5a51a); }
 .crz-tile--red { --crz-head: linear-gradient(to bottom, #ff6b6d, #d03234); }
 .crz-tile--purple { --crz-head: linear-gradient(to bottom, #b57cff, #7d44df); }
+
+/* „Als Nächstes“ im Endscreen der Kartenspiele (NextGame.jsx): flache Leiste, ganze Fläche klickbar */
+.crq-next {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px;
+  background: #081426; border: 2px solid rgba(255, 201, 60, 0.45);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.crq-next:hover { border-color: #ffc93c; background: #0c1c36; }
+.crq-next:focus-visible { outline: 3px solid #ffc93c; outline-offset: 3px; }
+.crq-next > img { height: 44px; width: 44px; object-fit: contain; flex-shrink: 0; }
+.crq-next-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cr-arcade-gold); }
+.crq-next-title { display: block; font-family: var(--font-cr); font-size: 1.15rem; line-height: 1.15; color: #fff; text-shadow: var(--cr-text-outline); }
+.crq-next-text { display: block; font-size: 12px; line-height: 1.4; color: rgba(225, 238, 255, 0.65); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 420px) { .crq-next-text { display: none; } }
 
 /* Zähler-Etikett (Fragen übrig, Serie …) */
 .crq-counter {

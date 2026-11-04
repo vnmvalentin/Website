@@ -7,7 +7,7 @@
 //
 // Ein Versionsanhang an der URL macht daraus eine neue Adresse und erzwingt genau
 // einmal ein Neuladen. Bei der naechsten Bildaenderung diese Zahl hochsetzen.
-export const ASSET_VERSION = "3";
+export const ASSET_VERSION = "6";
 
 /** Haengt die Version an Garden-Assets an. Fremde URLs bleiben unberuehrt. */
 export function versionedAsset(src) {
