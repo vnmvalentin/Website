@@ -23,65 +23,24 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-# Stream-Tool: enthält den Twitch-Token des Streamers (verschlüsselt) und den Schlüssel.
-# Bewusst NICHT im Repo — die übrigen Backend/data/*.db sind zwar getrackt, hier wären
-# es aber Zugangsdaten. Seit der Ordner-Neuordnung liegt alles unter streamTool/data/ —
-# die alten Backend/data/-Zeilen bleiben stehen, falls dort noch eine Kopie auftaucht.
-Backend/streamTool/data/
-Backend/data/stream_tool.db
-Backend/data/stream_tool.db-shm
-Backend/data/stream_tool.db-wal
-Backend/data/stream_tool.key
-# Discord-Punkte: lokale Testdaten gehören nicht ins Repo (Server-Stand liegt nur auf dem Server)
-Backend/data/discord_loyalty.db
-Backend/data/discord_loyalty.db-shm
-Backend/data/discord_loyalty.db-wal
-
-# Twitch-Tokens und eingeloggte Sitzungen — Zugangsdaten, nie ins (öffentliche) Repo.
-# garden/data/twitch_token.json schreibt gardenGameRoutes.js, Backend/data/ ist der Altpfad.
+# ── Live-Daten des Servers ─────────────────────────────────────────────────────
+# Datenbanken, Sicherungen, Spielstände, Tokens und Schlüssel liegen nur auf dem Server
+# (deploy.sh lässt sie ebenso aus). Lokal sind es Test-Abbilder; fehlende Dateien legt das
+# Backend beim Start selbst an. Regel: Live-Daten gehören immer in Backend/data/ oder
+# Backend/<bereich>/data/ — dann greifen diese Muster ohne neue Zeilen.
+Backend/data/
+Backend/*/data/*
+!Backend/clashRoyale/data/cardIconUrls.json
+*.db
+*.db-shm
+*.db-wal
+*.key
 Backend/sessions.json
-Backend/data/twitch_token.json
-Backend/garden/data/
 
 # Backend/lib/jsonFile.js: Zwischenstand beim atomaren Schreiben und Sicherung kaputter Dateien
 *.json.tmp
 *.corrupt-*
-# Seed Runners: Tagesrangliste samt Input-Logs der geprüften Läufe. Wächst mit jedem Tag und gehört
-# der laufenden Instanz — lokal nur Testdaten, deploy.sh lässt data/ ohnehin aus.
-Backend/data/seedrunners.db
-# Discord-Verknüpfungen samt (verschlüsselter) Tokens (discord/linkStore.js)
-Backend/data/discord_links.db
-Backend/data/discord_links.db-shm
-Backend/data/discord_links.db-wal
-# Abo-Stand und Stripe-Kundennummern (billing/billingStore.js) — gehört nicht ins Repo
-Backend/data/billing.db
-Backend/data/billing.db-shm
-Backend/data/billing.db-wal
-Backend/data/seedrunners.db-shm
-Backend/data/seedrunners.db-wal
 
-# Turniere der CR-Minigames — enthält Twitch-IDs und Anmelde-Geheimnisse
-Backend/clashRoyale/data/cr_tournaments.db
-Backend/clashRoyale/data/cr_tournaments.db-shm
-Backend/clashRoyale/data/cr_tournaments.db-wal
-# Turniere von Flick Soccer (flickSoccer/tournamentStore.js) — enthält die Token der angemeldeten Spieler
-Backend/data/flick_tournaments.db
-Backend/data/flick_tournaments.db-shm
-Backend/data/flick_tournaments.db-wal
-# Lobby-Zwischenstand für Backend-Neustarts (core/lobbyPersistence.js) — reine Laufzeitdaten mit
-# Twitch-IDs, darf nie per Deploy über den Stand des Servers gelegt werden
-Backend/clashRoyale/data/cr_lobbies.db
-Backend/clashRoyale/data/cr_lobbies.db-shm
-Backend/clashRoyale/data/cr_lobbies.db-wal
-# Freundesliste der CR-Minigames (clashRoyale/lib/crFriendsStore.js) — Twitch-IDs und Beziehungen
-Backend/clashRoyale/data/cr_friends.db
-Backend/clashRoyale/data/cr_friends.db-shm
-Backend/clashRoyale/data/cr_friends.db-wal
-# Besucherstatistik (analytics/analyticsStore.js) — Laufzeitdaten des Servers, lokal nur Testwerte
-Backend/analytics/data/
-
-# 3D-Stream-Szenen: Figuren der Zuschauer + Steuerpult (nur auf dem Server echt, siehe deploy.sh)
-Backend/streamScenes/data/
-
-# Discord-Status/Updates (statusWatch/): Nachrichten-ID, Störungsverlauf — nur auf dem Server echt
-Backend/statusWatch/data/
+# Claude Code: persönliche Einstellungen und Arbeitskopien
+.claude/settings.local.json
+.claude/worktrees/
