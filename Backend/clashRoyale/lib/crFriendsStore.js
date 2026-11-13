@@ -17,7 +17,7 @@ const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
 
-const DATA_DIR = path.join(__dirname, "../data");
+const { DATA_DIR } = require("../../lib/dataDir");
 const DB_PATH = process.env.CR_FRIENDS_DB || path.join(DATA_DIR, "cr_friends.db");
 
 const MAX_FRIENDS = 100;

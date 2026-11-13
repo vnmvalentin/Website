@@ -13,7 +13,9 @@ const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
 const { createWebhook } = require("./webhook");
 const { buildUpdatePayload, selectNewEntries } = require("./updateEmbed");
 
-const DATA_DIR = process.env.STATUS_DATA_DIR || path.join(__dirname, "data");
+const dataDir = require("../lib/dataDir");
+if (!process.env.STATUS_DATA_DIR) dataDir.zieheAlteDatenUm("statusWatch");
+const DATA_DIR = process.env.STATUS_DATA_DIR || dataDir.DATA_DIR;
 const STATE_FILE = path.join(DATA_DIR, "updates_state.json");
 const KEEP_VERSIONS = 50;
 

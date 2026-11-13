@@ -26,8 +26,8 @@ dist-ssr
 # ── Live-Daten des Servers ─────────────────────────────────────────────────────
 # Datenbanken, Sicherungen, Spielstände, Tokens und Schlüssel liegen nur auf dem Server
 # (deploy.sh lässt sie ebenso aus). Lokal sind es Test-Abbilder; fehlende Dateien legt das
-# Backend beim Start selbst an. Regel: Live-Daten gehören immer in Backend/data/ oder
-# Backend/<bereich>/data/ — dann greifen diese Muster ohne neue Zeilen.
+# Backend beim Start selbst an. Regel: Live-Daten gehören immer nach Backend/data/
+# (lib/dataDir.js). Backend/<bereich>/data/ sind die alten Orte, die beim Start umziehen.
 Backend/data/
 Backend/*/data/
 *.db

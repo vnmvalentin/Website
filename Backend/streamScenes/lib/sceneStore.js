@@ -14,8 +14,9 @@ const Database = require('better-sqlite3');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const { dataPath } = require('../../lib/dataDir');
 
-const dbFile = process.env.STREAM_SCENES_DB || path.join(__dirname, '../data/stream_scenes.db');
+const dbFile = process.env.STREAM_SCENES_DB || dataPath('stream_scenes.db');
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');

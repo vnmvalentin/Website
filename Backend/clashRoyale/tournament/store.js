@@ -1,4 +1,4 @@
-// Speicher der Turniere (better-sqlite3, Backend/clashRoyale/data/cr_tournaments.db — nicht im
+// Speicher der Turniere (better-sqlite3, Backend/data/cr_tournaments.db — nicht im
 // Repo, siehe .gitignore: enthält Twitch-IDs und die Geheimschlüssel der Anmeldungen ohne Login).
 //
 // Phase 1: Turniere und Teilnehmer. Phase 2: Auslosung (draw_index/group_index) und Matches.
@@ -7,8 +7,9 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const { dataPath } = require('../../lib/dataDir');
 
-const dbFile = process.env.CR_TOURNAMENT_DB || path.join(__dirname, '../data/cr_tournaments.db');
+const dbFile = process.env.CR_TOURNAMENT_DB || dataPath('cr_tournaments.db');
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');

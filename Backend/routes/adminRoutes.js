@@ -1,6 +1,5 @@
 const express = require("express");
 const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
-const path = require("path");
 const createWinchallengeRouter = require("../winchallenge/winchallengeRoutes");
 const createGardenRouter = require("../garden/routes/gardenGameRoutes");
 const { farmStates, setFarmState, scheduleFarmsSave } = require("../garden/store/farms");
@@ -11,12 +10,11 @@ const {
 } = require("../garden/world/lobby");
 const ereignisse = require("../garden/world/ereignisse");
 const analytics = require("../analytics/analyticsStore");
-
-const ROOT_DIR = process.cwd();
+const { dataPath } = require("../lib/dataDir");
 
 const PATHS = {
-  adventure: path.join(ROOT_DIR, "data/adventures-users.json"),
-  bingo: path.join(ROOT_DIR, "data/bingo-sessions.json"),
+  adventure: dataPath("adventures-users.json"),
+  bingo: dataPath("bingo-sessions.json"),
 };
 
 // Über lib/jsonFile.js: atomar, und eine kaputte Datei wird nie mit {} überschrieben

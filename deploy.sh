@@ -127,12 +127,13 @@ deploy_backend() {
   #
   # Ausgenommen bleibt an BEIDEN Stellen (tar UND rsync), was nur auf dem Server
   # der richtige Stand ist:
-  #   data/ und <bereich>/data/   Live-Daten: Datenbanken, Tokens, Schlüssel, Störungsverlauf …
-  #                               REGEL: Live-Daten liegen immer in genau einem dieser Ordner (eine
-  #                               Ebene tief), statischer Inhalt nie. Dann muss hier niemand neue
-  #                               Ordner nachtragen. Die Muster sind auf diese Ebene verankert (tar:
-  #                               --no-wildcards-match-slash, rsync: führender Slash), sonst
-  #                               träfen sie auch Code-Ordner wie discord/bot/commands/data/.
+  #   data/           Live-Daten: Datenbanken, Tokens, Schlüssel, Störungsverlauf … REGEL: alles
+  #                   Laufzeit-Erzeugte liegt hier (lib/dataDir.js), statischer Inhalt nie.
+  #   <bereich>/data/ die alten Bereichsordner (bis Nov. 2026). Die Dienste ziehen sie beim Start
+  #                   nach data/ um — rsync --delete läuft aber VORHER und dürfte sie bis dahin
+  #                   nicht löschen, deshalb bleiben sie ausgenommen. Die Muster sind auf eine
+  #                   Ebene verankert (tar: --no-wildcards-match-slash, rsync: führender Slash),
+  #                   sonst träfen sie auch Code-Ordner wie discord/bot/commands/data/.
   #   node_modules/   nativ kompiliert (better-sqlite3), zieht sich der Server per npm selbst
   #   sessions.json   eingeloggte Nutzer — sonst wirft jeder Deploy alle raus
   #   .env / .env.*   Server-Zugangsdaten, dürfen nie vom lokalen Dev-.env überschrieben werden
@@ -154,8 +155,8 @@ deploy_backend() {
     rm -rf '$BACKEND_DEST.new'
     cd '$BACKEND_DEST'
     npm install --omit=dev
-    mkdir -p statusWatch/data
-    echo '{\"until\": $maintenance_until}' > statusWatch/data/maintenance.json
+    mkdir -p data
+    echo '{\"until\": $maintenance_until}' > data/maintenance.json
     chown -R www-data:www-data '$BACKEND_DEST'
     systemctl restart '$BACKEND_SERVICE'
     sleep 2
@@ -213,7 +214,7 @@ deploy_levels() {
 
 # Neue Einträge aus Frontend/src/utils/newData.js nach #updates in Discord posten — erst, wenn das Frontend mit
 # ihnen live ist. Export hier, Posten dort (Webhook steht nur in der Server-.env), wie bei den Leveln.
-# Was schon gepostet ist, merkt sich der Server (statusWatch/data/updates_state.json). Ein Fehler hier lässt den
+# Was schon gepostet ist, merkt sich der Server (data/updates_state.json). Ein Fehler hier lässt den
 # Deploy gelingen: die Seite ist ja schon online, beim nächsten Frontend-Deploy wird es erneut versucht.
 post_updates() {
   echo "=== Discord #updates ==="

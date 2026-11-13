@@ -7,8 +7,8 @@
 // Fällt der ganze Server aus, steht auch dieser Dienst; das zeigt dann das alte "Zuletzt geprüft".
 //
 // Daten (bleiben beim Deploy unangetastet, siehe deploy.sh):
-//   statusWatch/data/status_state.json  Zustand + ID der Status-Nachricht
-//   statusWatch/data/maintenance.json   Wartungsfenster, schreibt deploy.sh vor dem Backend-Neustart
+//   data/status_state.json        Zustand + ID der Status-Nachricht
+//   data/maintenance.json         Wartungsfenster, schreibt deploy.sh vor dem Backend-Neustart
 
 const path = require("path");
 // Wie blobbyServer.js ohne override: Umgebung aus systemd gewinnt über die .env im Projektordner
@@ -20,7 +20,9 @@ const { createStatusWatcher } = require("./watcher");
 process.title = "status-watch";
 
 const INTERVAL_MS = Number(process.env.STATUS_INTERVAL_MS) || 30 * 1000;
-const DATA_DIR = process.env.STATUS_DATA_DIR || path.join(__dirname, "data");
+const dataDir = require("../lib/dataDir");
+if (!process.env.STATUS_DATA_DIR) dataDir.zieheAlteDatenUm("statusWatch");
+const DATA_DIR = process.env.STATUS_DATA_DIR || dataDir.DATA_DIR;
 const websiteUrl = process.env.STATUS_WEBSITE_URL || process.env.FRONTEND_URL;
 const healthUrl = process.env.STATUS_HEALTH_URL || `http://127.0.0.1:${Number(process.env.PORT) || 3001}/api/health`;
 

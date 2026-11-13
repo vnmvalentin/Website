@@ -10,9 +10,10 @@ const Database = require('better-sqlite3');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const { dataPath } = require('../lib/dataDir');
 
 // ANALYTICS_DB biegt den Pfad für Prüfstände um — nie gegen die echte Datei testen.
-const dbPath = process.env.ANALYTICS_DB || path.join(__dirname, 'data', 'analytics.db');
+const dbPath = process.env.ANALYTICS_DB || dataPath('analytics.db');
 const dataDir = path.dirname(dbPath);
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 

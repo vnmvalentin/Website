@@ -3,6 +3,9 @@ const express = require("express");
 // bei jedem Start ausgibt (u.a. für unabhängige Nebenprojekte des Maintainers) —
 // mit dem eigentlichen Laden der .env hat das nichts zu tun.
 require("dotenv").config({ override: true, quiet: true });
+// Live-Daten aus den alten <bereich>/data/-Ordnern nach data/ holen — VOR dem ersten Speicher, die meisten öffnen ihre
+// Datenbank schon beim require (lib/dataDir.js). Wirft, wenn ein anderer Prozess die Dateien noch offen hält.
+require("./lib/dataDir").zieheAlteDatenUm("hauptdienst");
 const helmet = require("helmet");
 const cors = require("cors");
 const fs = require("fs");

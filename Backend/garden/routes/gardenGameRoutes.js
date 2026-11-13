@@ -1267,7 +1267,7 @@ module.exports = function ({ requireAuth }) {
     
     // Wir speichern den aktuellsten Token in einer JSON, 
     // damit er auch nach einem Server-Neustart nicht verloren geht!
-    const TWITCH_TOKEN_FILE = path.join(__dirname, '../data/twitch_token.json');
+    const TWITCH_TOKEN_FILE = require('../../lib/dataDir').dataPath('garden_twitch_token.json');
 
     let broadcasterAccessToken = process.env.STREAMER_TWITCH_TOKEN;
     let broadcasterRefreshToken = process.env.STREAMER_TWITCH_REFRESH_TOKEN;

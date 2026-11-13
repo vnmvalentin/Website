@@ -6,7 +6,7 @@ const path = require("path");
 const Database = require("better-sqlite3");
 const { nanoid } = require("nanoid");
 
-const DATA_DIR = path.join(__dirname, "../data");
+const { DATA_DIR } = require("../../lib/dataDir");
 const DB_PATH = path.join(DATA_DIR, "cr_streamer.db");
 
 let _db = null;

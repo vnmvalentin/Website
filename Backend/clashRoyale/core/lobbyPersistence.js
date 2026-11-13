@@ -12,9 +12,10 @@
 const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
+const { dataPath } = require('../../lib/dataDir');
 
 // Umbiegbar für Prüfstände — nie gegen die echte Datei testen.
-const DB_PATH = process.env.CR_LOBBY_DB || path.join(__dirname, '../data/cr_lobbies.db');
+const DB_PATH = process.env.CR_LOBBY_DB || dataPath('cr_lobbies.db');
 
 let db = null;
 function getDb() {
